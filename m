@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/2] (Shortened) Bonding patch series
-Date: Tue, 24 Feb 2015 16:06:14 -0500 (EST)
-Message-ID: <20150224.160614.284621706151085171.davem@davemloft.net>
-References: <1424742597-6489-1-git-send-email-maheshb@google.com>
+Subject: Re: [RESEND PATCH] af_packet: don't pass empty blocks for PACKET_V3
+Date: Tue, 24 Feb 2015 16:09:58 -0500 (EST)
+Message-ID: <20150224.160958.1491397927638460390.davem@davemloft.net>
+References: <1423115891-3578-1-git-send-email-al.drozdov@gmail.com>
+	<1424755108-10493-1-git-send-email-al.drozdov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-	nikolay@redhat.com, maze@google.com, netdev@vger.kernel.org,
-	edumazet@google.com
-To: maheshb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50915 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752586AbbBXVGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 16:06:17 -0500
-In-Reply-To: <1424742597-6489-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dborkman@redhat.com, edumazet@google.com, viro@zeniv.linux.org.uk,
+	willemb@google.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dan@dcollins.co.nz, guy@alum.mit.edu
+To: al.drozdov@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424755108-10493-1-git-send-email-al.drozdov@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <maheshb@google.com>
-Date: Mon, 23 Feb 2015 17:49:57 -0800
+From: Alexander Drozdov <al.drozdov@gmail.com>
+Date: Tue, 24 Feb 2015 08:18:28 +0300
 
-> I'm shortening the earlier patch series to just two patches at this moment.
-> Andy is going to integrate remaining 3 patches with his netlink changes
-> and post the completed patches.
+> Before da413eec729d ("packet: Fixed TPACKET V3 to signal poll when block is
+> closed rather than every packet") poll listening for an af_packet socket was
+> not signaled if there was no packets to process. After the patch poll is
+> signaled evety time when block retire timer expires. That happens because
+> af_packet closes the current block on timeout even if the block is empty.
 > 
-> These two patches are the same one from the previous patch series with 
-> some styling changes (Dave Miller's suggestions) for the churn-machine patch.
+> Passing empty blocks to the user not only wastes CPU but also wastes ring
+> buffer space increasing probability of packets dropping on small timeouts.
+> 
+> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
 
-Series applied to net-next, thanks.
+Applied, thanks.
