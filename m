@@ -1,123 +1,223 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 24/29] fib_trie: Update tnode_new to drop use of
- put_child_root
-Date: Tue, 24 Feb 2015 12:50:36 -0800
-Message-ID: <20150224205036.26106.23633.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 26/29] fib_trie: Use put_child to only copy key_vectors
+ instead of pointers
+Date: Tue, 24 Feb 2015 12:50:49 -0800
+Message-ID: <20150224205049.26106.7222.stgit@ahduyck-vm-fedora20>
 References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59644 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45771 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753079AbbBXUui (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 15:50:38 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKobHA021289
+	id S1753127AbbBXUuv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 15:50:51 -0500
+Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKooAD022022
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:50:38 -0500
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:50:50 -0500
 Received: from [192.168.122.173] (ovpn-112-73.phx2.redhat.com [10.3.112.73])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKoaNK030783
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:50:37 -0500
+	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKonFC032328
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:50:50 -0500
 In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that the tnode_new function will now insert itself
-into the parent.  This is to enable the eventual moving of fields from the
-key_vector of the local node into the parent.
+This change prepares put_child to copy key_vectors from one tnode to
+another.  The only consumers for this are insert, inflate, halve, and
+collapse.  The general idea is to make sure the empty/full statistics for
+the parent node remain correct when we copy a key_vector from one node to
+another.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |   47 +++++++++++++++++++++++++++++++++++------------
- 1 file changed, 35 insertions(+), 12 deletions(-)
+ net/ipv4/fib_trie.c |  102 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 53 insertions(+), 49 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 65ea194..e91233b 100644
+index a76cc6d..4a807fc 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -437,40 +437,63 @@ static void leaf_init(struct key_vector *tn, t_key key, struct key_vector *l)
- 	rcu_assign_pointer(tn->tnode, l);
- }
- 
--static struct key_vector *tnode_new(struct key_vector *pn, t_key key,
-+static struct key_vector *tnode_new(struct key_vector *tn, t_key key,
- 				    int pos, int bits)
+@@ -373,33 +373,34 @@ static void drop_child(struct key_vector *tn, t_key key)
+ static void put_child(struct key_vector *tn, unsigned long i,
+ 		      struct key_vector *n)
  {
- 	size_t sz = TNODE_SIZE(1ul << bits);
- 	struct tnode *tnode = tnode_alloc(sz);
--	struct key_vector *tn = tnode->kv;
- 	unsigned int shift = pos + bits;
-+	unsigned long i;
+-	struct key_vector *chi = get_child(tn + i);
+-	int isfull, wasfull;
++	struct key_vector *tnode = get_child(n);
  
- 	/* verify bits and pos their msb bits clear and values are valid */
- 	BUG_ON(!bits || (shift > KEYLENGTH));
- 
--	pr_debug("AT %p s=%zu %zu\n", tnode, TNODE_SIZE(0),
--		 sizeof(struct key_vector *) << bits);
-+	pr_debug("AT %p s=%zu %zu\n", tnode, TNODE_SIZE(0), sz - TNODE_SIZE(0));
- 
- 	if (!tnode)
- 		return NULL;
- 
-+	/* link tnode to parent */
-+	NODE_INIT_PARENT(tnode->kv, tn);
-+
-+	/* update parent node stats */
+-	BUG_ON(i >= child_length(tn));
+-
+-	/* update emptyChildren, overflow into fullChildren */
+-	if (n == NULL && chi != NULL)
+-		empty_child_inc(tn);
+-	if (n != NULL && chi == NULL)
+-		empty_child_dec(tn);
 +	if (!IS_TRIE(tn)) {
-+		unsigned long idx = get_index(key, tn);
-+		struct key_vector *n = get_child(tn + idx);
-+
-+		BUG_ON(idx >= child_length(tn));
-+
-+		if (!n)
++		struct key_vector *chi = get_child(tn + i);
+ 
+-	/* update fullChildren */
+-	wasfull = tnode_full(tn, chi);
+-	isfull = tnode_full(tn, n);
++		BUG_ON(i >= child_length(tn));
+ 
+-	if (wasfull && !isfull)
+-		tn_info(tn)->full_children--;
+-	else if (!wasfull && isfull)
+-		tn_info(tn)->full_children++;
++		/* update emptyChildren and fullChildren */
++		if (chi) {
++			empty_child_inc(tn);
++			if (tnode_full(tn, chi))
++				tn_info(tn)->full_children--;
++		}
++		if (tnode) {
 +			empty_child_dec(tn);
-+		else if (tnode_full(tn, n))
-+			tn_info(tn)->full_children--;
-+		if ((pos + bits) == tn->pos)
-+			tn_info(tn)->full_children++;
-+
++			if (tnode_full(tn, tnode))
++				tn_info(tn)->full_children++;
+ 
+-	if (n && (tn->slen < n->slen))
+-		tn->slen = n->slen;
++			/* update suffix length */
++			if (tn->slen < tnode->slen)
++				tn->slen = tnode->slen;
++		}
+ 
+-	/* update offset to correct key_vector for update */
+-	tn += i;
 +		/* update offset to correct key_vector for update */
-+		tn += idx;
++		tn += i;
 +	}
-+
- 	/* populate tn_info section */
-+	key = (shift < KEYLENGTH) ? (key >> shift) << shift : 0;
- 	if (bits == KEYLENGTH)
- 		tnode->full_children = 1;
- 	else
- 		tnode->empty_children = 1ul << bits;
  
-+	/* populate keys as though we are full of leaves */
-+	for (i = (1ul << bits); i--;)
-+		tnode->kv[i].key = key + (i << pos);
-+
- 	/* populate key vector */
--	tn->key = (shift < KEYLENGTH) ? (key >> shift) << shift : 0;
--	tn->pos = pos;
--	tn->bits = bits;
--	tn->slen = pos;
-+	tnode->kv[0].pos = pos;
-+	tnode->kv[0].bits = bits;
-+	tnode->kv[0].slen = pos;
- 
- 	/* link parent to node */
--	NODE_INIT_PARENT(tn, pn);
--	put_child_root(pn, tn->key, tn);
-+	rcu_assign_pointer(tn->tnode, tnode->kv);
- 
--	return tn;
-+	return tnode->kv;
+-	rcu_assign_pointer(tn->tnode, n);
++	rcu_assign_pointer(tn->tnode, tnode);
  }
  
- static struct key_vector *tnode_clone(struct tnode *oldtnode)
-@@ -2256,7 +2279,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
- 		fib_table_print(seq, iter->tb);
+ static void update_children(struct key_vector *tn)
+@@ -676,31 +677,32 @@ static struct key_vector *inflate(struct net *net, struct trie *t,
+ 	 * nodes.
+ 	 */
+ 	for (i = child_length(oldtnode), m = 1u << tn->pos; i;) {
+-		struct key_vector *inode = get_child(oldtnode + --i);
++		struct key_vector *inode = oldtnode + --i;
++		struct key_vector *tnode = get_child(inode);
+ 		struct key_vector *node0, *node1;
+ 		unsigned long j, k;
  
- 	if (IS_TNODE(n)) {
--		__be32 prf = htonl(n->key);
-+		__be32 prf = htonl((n->key >> n->pos) << n->pos);
+ 		/* An empty child */
+-		if (inode == NULL)
++		if (!tnode)
+ 			continue;
  
- 		seq_indent(seq, iter->depth-1);
- 		seq_printf(seq, "  +-- %pI4/%zu %u %u %u\n",
+ 		/* A leaf or an internal node with skipped bits */
+-		if (!tnode_full(oldtnode, inode)) {
+-			put_child(tn, get_index(inode->key, tn), inode);
++		if (!tnode_full(oldtnode, tnode)) {
++			put_child(tn, get_index(tnode->key, tn), inode);
+ 			continue;
+ 		}
+ 
+ 		/* drop the node in the old tnode free list */
+-		tnode_free_append(oldtnode, inode);
++		tnode_free_append(oldtnode, tnode);
+ 
+ 		/* An internal node with two children */
+-		if (inode->bits == 1) {
+-			put_child(tn, 2 * i + 1, get_child(inode + 1));
+-			put_child(tn, 2 * i, get_child(inode));
++		if (tnode->bits == 1) {
++			put_child(tn, 2 * i + 1, tnode + 1);
++			put_child(tn, 2 * i, tnode);
+ 			continue;
+ 		}
+ 
+-		/* We will replace this node 'inode' with two new
++		/* We will replace this node 'tnode' with two new
+ 		 * ones, 'node0' and 'node1', each with half of the
+ 		 * original children. The two new nodes will have
+ 		 * a position one bit further down the key and this
+@@ -714,12 +716,12 @@ static struct key_vector *inflate(struct net *net, struct trie *t,
+ 		 * node0 and node1. So... we synthesize that bit in the
+ 		 * two new keys.
+ 		 */
+-		node1 = tnode_new(tn, inode->key | m,
+-				  inode->pos, inode->bits - 1);
++		node1 = tnode_new(tn, tnode->key | m,
++				  tnode->pos, tnode->bits - 1);
+ 		if (!node1)
+ 			goto nomem;
+-		node0 = tnode_new(tn, inode->key,
+-				  inode->pos, inode->bits - 1);
++		node0 = tnode_new(tn, tnode->key,
++				  tnode->pos, tnode->bits - 1);
+ 
+ 		tnode_free_append(tn, node1);
+ 		if (!node0)
+@@ -727,11 +729,11 @@ static struct key_vector *inflate(struct net *net, struct trie *t,
+ 		tnode_free_append(tn, node0);
+ 
+ 		/* populate child pointers in new nodes */
+-		for (k = child_length(inode), j = k / 2; j;) {
+-			put_child(node1, --j, get_child(inode + --k));
+-			put_child(node0, j, get_child(inode + j));
+-			put_child(node1, --j, get_child(inode + --k));
+-			put_child(node0, j, get_child(inode + j));
++		for (k = child_length(tnode), j = k / 2; j;) {
++			put_child(node1, --j, tnode + --k);
++			put_child(node0, j, tnode + j);
++			put_child(node1, --j, tnode + --k);
++			put_child(node0, j, tnode + j);
+ 		}
+ 	}
+ 
+@@ -773,18 +775,23 @@ static struct key_vector *halve(struct net *net, struct trie *t,
+ 	 * nodes.
+ 	 */
+ 	for (i = child_length(oldtnode); i;) {
+-		struct key_vector *node1 = get_child(oldtnode + --i);
+-		struct key_vector *node0 = get_child(oldtnode + --i);
++		struct key_vector *node1 = oldtnode + --i;
++		struct key_vector *node0 = oldtnode + --i;
++		struct key_vector *tnode = get_child(node0);
+ 		struct key_vector *inode;
+ 
+ 		/* At least one of the children is empty */
+-		if (!node1 || !node0) {
+-			put_child(tn, i / 2, node1 ? : node0);
++		if (!get_child(node1)) {
++			put_child(tn, i / 2, node0);
++			continue;
++		}
++		if (!get_child(node0)) {
++			put_child(tn, i / 2, node1);
+ 			continue;
+ 		}
+ 
+ 		/* Two nonempty children */
+-		inode = tnode_new(tn, node0->key, oldtnode->pos, 1);
++		inode = tnode_new(tn, tnode->key, oldtnode->pos, 1);
+ 		if (!inode)
+ 			goto nomem;
+ 		tnode_free_append(tn, inode);
+@@ -827,10 +834,7 @@ static struct key_vector *collapse(struct net *net, struct trie *t,
+ 			return node_parent(oldtnode);
+ 
+ 		/* compress one level */
+-		if (IS_TRIE(pn))
+-			rcu_assign_pointer(pn->tnode, n);
+-		else
+-			put_child(pn, get_index(oldtnode->key, pn), n);
++		put_child(pn, get_index(oldtnode->key, pn), oldtnode + i);
+ 
+ 		/* drop dead node */
+ 		vector_replace(net, node_parent(oldtnode), pn);
+@@ -1180,7 +1184,7 @@ static struct fib_table *fib_insert_node(struct net *net, struct trie *t,
+ 			goto notnode;
+ 
+ 		/* initialize routes out of node */
+-		put_child(tn, get_index(key, tn) ^ 1, n);
++		put_child(tn, get_index(key, tn) ^ 1, tp + get_index(key, tp));
+ 
+ 		/* pop back out to bring tn to the same level as tp */
+ 		n = tn;
