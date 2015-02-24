@@ -1,51 +1,35 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 1/2] net: davinci_mdio: don't request io address range
-Date: Tue, 24 Feb 2015 16:27:30 -0500
-Message-ID: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: via-rhine: add BQL support
+Date: Tue, 24 Feb 2015 16:30:22 -0500 (EST)
+Message-ID: <20150224.163022.1493427067271976950.davem@davemloft.net>
+References: <CAPAfteyiuPg2NAsggYp_mPRRAGoWAp4ut76zLhEVnkoABK7t6w@mail.gmail.com>
+	<1424312906.4942.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1424802481.5565.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Murali Karicheri <m-karicheri2@ti.com>
-To: <davem@davemloft.net>, <mugunthanvnm@ti.com>,
-	<george.cherian@ti.com>, <prabhakar.csengg@gmail.com>,
-	<varkabhadram@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <tony@atomide.com>,
-	<grygorii.strashko@ti.com>, <lokeshvutla@ti.com>,
-	<mpa@pengutronix.de>, <w-kwok2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: milky-kernel@mcmilk.de, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51224 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbbBXVaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 16:30:25 -0500
+In-Reply-To: <1424802481.5565.86.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 24 Feb 2015 10:28:01 -0800
 
-Historically Davinci MDIO driver was  created with assumption that
-MDIO is standalone device, but for Keystone 2 it's a part
-of NETCP module and now NETCP driver requests IO range which
-includes MDIO IO range too. This causes Keystone 2 networking stack
-failure during the boot.
+> From: Tino Reichardt <milky-kernel@mcmilk.de>
+> 
+> Add Byte Queue Limits (BQL) support to via-rhine driver.
+> 
+> [edumazet] tweaked patch and changed TX_RING_SIZE from 16 to 64
+> 
+> Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
+> Tested-by: Jamie Gloudon <jamie.gloudon@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-"netcp-1.0 2620110.netcp: Probe of module(netcp-gbe) failed with -16"
-
-Hence, don't request io address range from Davinci MDIO driver and
-just remap it.
-
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
----
- drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 98655b4..b13ec82 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -371,7 +371,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	spin_lock_init(&data->lock);
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	data->regs = devm_ioremap_resource(dev, res);
-+	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
- 	if (IS_ERR(data->regs)) {
- 		ret = PTR_ERR(data->regs);
- 		goto bail_out;
--- 
-1.7.9.5
+Looks good, applied, thanks.
