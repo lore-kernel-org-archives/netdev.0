@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: remove dead debug code from ip6_tunnel.c
-Date: Tue, 24 Feb 2015 16:25:47 -0500 (EST)
-Message-ID: <20150224.162547.1183495924194312981.davem@davemloft.net>
-References: <1424779285-27177-1-git-send-email-ipm@chirality.org.uk>
+Subject: Re: [PATCHv2] r8169: Fix trivial typo in rtl_check_firmware
+Date: Tue, 24 Feb 2015 16:26:18 -0500 (EST)
+Message-ID: <20150224.162618.1997712569994739913.davem@davemloft.net>
+References: <1424764149-9136-1-git-send-email-yguerrini@tomshardware.fr>
+	<1424779431-5760-1-git-send-email-yguerrini@tomshardware.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ipm@chirality.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51153 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752943AbbBXVZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 16:25:49 -0500
-In-Reply-To: <1424779285-27177-1-git-send-email-ipm@chirality.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nic_swsd@realtek.com, trivial@kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	hayeswang@realtek.com
+To: yguerrini@tomshardware.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424779431-5760-1-git-send-email-yguerrini@tomshardware.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Morris <ipm@chirality.org.uk>
-Date: Tue, 24 Feb 2015 12:01:25 +0000
+From: Yannick Guerrini <yguerrini@tomshardware.fr>
+Date: Tue, 24 Feb 2015 13:03:51 +0100
 
-> The IP6_TNL_TRACE macro is no longer used anywhere in the code so remove definition.
+> Change 'firwmare' to 'firmware'
 > 
-> Signed-off-by: Ian Morris <ipm@chirality.org.uk>
+> Signed-off-by: Yannick Guerrini <yguerrini@tomshardware.fr>
+> ---
+> v2: replace "drivers, realtek" of the subject with "r8169" and cc netdev@vger.kernel.org,
+>     as suggested by Hayes Wang <hayeswang@realtek.com>
 
 Applied.
