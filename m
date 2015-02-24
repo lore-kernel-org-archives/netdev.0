@@ -1,50 +1,50 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: Improve handling of IPv6 packets
-Date: Tue, 24 Feb 2015 09:23:01 -0600
-Message-ID: <1424791381-31863-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
-	Alan Fisher <acf@unixcube.org>
-To: kvalo@codeaurora.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] sunrpc: integer underflow in rsc_parse()
+Date: Tue, 24 Feb 2015 18:34:01 +0300
+Message-ID: <20150224153401.GA12218@mwanda>
+References: <20150223211607.GB28635@fieldses.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Layton <jlayton@primarydata.com>,
+	Kinglong Mee <kinglongmee@gmail.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Wang YanQing <udknight@gmail.com>,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150223211607.GB28635@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Routine rtl_is_special_data() is supposed to identify packets that need to
-use a low bit rate so that the probability of successful transmission is
-high. The current version has a bug that causes all IPv6 packets to be
-labelled as special, with a corresponding low rate of transmission. A
-complete fix will be quite intrusive, but until that is available, all
-IPv6 packets are identified as regular.
+If we call groups_alloc() with invalid values then it's might lead to
+memory corruption.  For example, with a negative value then we might not
+allocate enough for sizeof(struct group_info).
 
-This patch also removes a magic number.
-
-Reported-and-tested-by: Alan Fisher <acf@unixcube.org>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org> [3.18+]
-Cc: Alan Fisher <acf@unixcube.org>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- drivers/net/wireless/rtlwifi/base.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+v2:  In v1, I changed groups_alloc().  The other places which call
+groups_alloc() check the value before calling.  Eric wanted that, either
+have all the callers check, or all the callers rely on groups_alloc().
+In the end, Bruce Fields said adding the check here was probably
+reasonable.
 
-diff --git a/drivers/net/wireless/rtlwifi/base.c b/drivers/net/wireless/rtlwifi/base.c
-index 1d46774..074f716 100644
---- a/drivers/net/wireless/rtlwifi/base.c
-+++ b/drivers/net/wireless/rtlwifi/base.c
-@@ -1386,8 +1386,11 @@ u8 rtl_is_special_data(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx)
- 		}
- 
- 		return true;
--	} else if (0x86DD == ether_type) {
--		return true;
-+	} else if (ETH_P_IPV6 == ether_type) {
-+		/* TODO: Handle any IPv6 cases that need special handling.
-+		 * For now, always return false
-+		 */
-+		goto end;
- 	}
- 
- end:
--- 
-2.1.4
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index 224a82f..1095be9 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -463,6 +463,8 @@ static int rsc_parse(struct cache_detail *cd,
+ 		/* number of additional gid's */
+ 		if (get_int(&mesg, &N))
+ 			goto out;
++		if (N < 0 || N > NGROUPS_MAX)
++			goto out;
+ 		status = -ENOMEM;
+ 		rsci.cred.cr_group_info = groups_alloc(N);
+ 		if (rsci.cred.cr_group_info == NULL)
