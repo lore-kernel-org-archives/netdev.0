@@ -1,294 +1,145 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next 2/2] bonding: Implement port churn-machine (AD standard 43.4.17).
-Date: Mon, 23 Feb 2015 17:50:11 -0800
-Message-ID: <1424742611-6698-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/16][pull request] Intel Wired LAN Driver Updates 2015-02-23
+Date: Mon, 23 Feb 2015 18:11:05 -0800
+Message-ID: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:44746 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712AbbBXBuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 20:50:14 -0500
-Received: by mail-ob0-f202.google.com with SMTP id nt9so10082654obb.1
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 17:50:13 -0800 (PST)
+Received: from mga01.intel.com ([192.55.52.88]:23496 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751959AbbBXCLY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 21:11:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Churn Detection machines detect the situation where a port is operable,
-but the Actor and Partner have not attached the link to an Aggregator and
-brought the link into operation within a bound time period. Under normal
-operation of the LACP, agreement between Actor and Partner should be reached
-very rapidly. Continued failure to reach agreement can be symptomatic of
-device failure.
+This series contains updates to e1000e, igbvf, i40e and i40evf.
 
-Actor-churn-detection state-machine
-===================================
+David adds support for i219 devices to the e1000e driver.
 
-BEGIN=True + PortEnable=False
-           |
-           v
- +------------------------+   ActorPort.Sync=True  +------------------+
- |   ACTOR_CHURN_MONITOR  | ---------------------> |  NO_ACTOR_CHURN  |
- |========================|                        |==================|
- |    ActorChurn=False    |  ActorPort.Sync=False  | ActorChurn=False |
- | ActorChurn.Timer=Start | <--------------------- |                  |
- +------------------------+                        +------------------+
-           |                                                ^
-           |                                                |
-  ActorChurn.Timer=Expired                                  |
-           |                                       ActorPort.Sync=True
-           |                                                |
-           |                +-----------------+             |
-           |                |   ACTOR_CHURN   |             |
-           |                |=================|             |
-           +--------------> | ActorChurn=True | ------------+
-                            |                 |
-                            +-----------------+
+Jeff (me) provides two patches to cleanup igbvf, first cleans up the
+whitespace issues found and the second cleans up the usage of msleep(),
+min() and max() with usleep_range(), min_t() and max_t() respectively.
 
-Similar for the Partner-churn-detection.
+Kamil updates the shadow RAM read/write functions by refactoring them
+to prepare for future work.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/bonding/bond_3ad.c    | 57 +++++++++++++++++++++++++++++++++++++--
- drivers/net/bonding/bond_procfs.c | 43 +++++++++++++++++++++++++----
- include/net/bond_3ad.h            | 29 ++++++++++++++++++++
- 3 files changed, 122 insertions(+), 7 deletions(-)
+Shannon renames the debugfs command "clear_stats pf" to clear_stats port"
+to clarify what the function really does.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 9b436696b95e..f61b2870cddf 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -38,6 +38,7 @@
- #define AD_STANDBY                 0x2
- #define AD_MAX_TX_IN_SECOND        3
- #define AD_COLLECTOR_MAX_DELAY     0
-+#define AD_MONITOR_CHURNED         0x1000
- 
- /* Timer definitions (43.4.4 in the 802.3ad standard) */
- #define AD_FAST_PERIODIC_TIME      1
-@@ -1013,16 +1014,19 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 	/* check if state machine should change state */
- 
- 	/* first, check if port was reinitialized */
--	if (port->sm_vars & AD_PORT_BEGIN)
-+	if (port->sm_vars & AD_PORT_BEGIN) {
- 		port->sm_rx_state = AD_RX_INITIALIZE;
-+		port->sm_vars |= AD_MONITOR_CHURNED;
- 	/* check if port is not enabled */
--	else if (!(port->sm_vars & AD_PORT_BEGIN)
-+	} else if (!(port->sm_vars & AD_PORT_BEGIN)
- 		 && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
- 		port->sm_rx_state = AD_RX_PORT_DISABLED;
- 	/* check if new lacpdu arrived */
- 	else if (lacpdu && ((port->sm_rx_state == AD_RX_EXPIRED) ||
- 		 (port->sm_rx_state == AD_RX_DEFAULTED) ||
- 		 (port->sm_rx_state == AD_RX_CURRENT))) {
-+		if (port->sm_rx_state != AD_RX_CURRENT)
-+			port->sm_vars |= AD_MONITOR_CHURNED;
- 		port->sm_rx_timer_counter = 0;
- 		port->sm_rx_state = AD_RX_CURRENT;
- 	} else {
-@@ -1100,9 +1104,11 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			 */
- 			port->partner_oper.port_state &= ~AD_STATE_SYNCHRONIZATION;
- 			port->sm_vars &= ~AD_PORT_MATCHED;
-+			port->partner_oper.port_state |= AD_STATE_LACP_TIMEOUT;
- 			port->partner_oper.port_state |= AD_STATE_LACP_ACTIVITY;
- 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
- 			port->actor_oper_port_state |= AD_STATE_EXPIRED;
-+			port->sm_vars |= AD_MONITOR_CHURNED;
- 			break;
- 		case AD_RX_DEFAULTED:
- 			__update_default_selected(port);
-@@ -1132,6 +1138,45 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- }
- 
- /**
-+ * ad_churn_machine - handle port churn's state machine
-+ * @port: the port we're looking at
-+ *
-+ */
-+static void ad_churn_machine(struct port *port)
-+{
-+	if (port->sm_vars & AD_MONITOR_CHURNED) {
-+		port->sm_vars &= ~AD_MONITOR_CHURNED;
-+		port->sm_churn_actor_state = AD_CHURN_MONITOR;
-+		port->sm_churn_partner_state = AD_CHURN_MONITOR;
-+		port->sm_churn_actor_timer_counter =
-+			__ad_timer_to_ticks(AD_ACTOR_CHURN_TIMER, 0);
-+		 port->sm_churn_partner_timer_counter =
-+			 __ad_timer_to_ticks(AD_PARTNER_CHURN_TIMER, 0);
-+		return;
-+	}
-+	if (port->sm_churn_actor_timer_counter &&
-+	    !(--port->sm_churn_actor_timer_counter) &&
-+	    port->sm_churn_actor_state == AD_CHURN_MONITOR) {
-+		if (port->actor_oper_port_state & AD_STATE_SYNCHRONIZATION) {
-+			port->sm_churn_actor_state = AD_NO_CHURN;
-+		} else {
-+			port->churn_actor_count++;
-+			port->sm_churn_actor_state = AD_CHURN;
-+		}
-+	}
-+	if (port->sm_churn_partner_timer_counter &&
-+	    !(--port->sm_churn_partner_timer_counter) &&
-+	    port->sm_churn_partner_state == AD_CHURN_MONITOR) {
-+		if (port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION) {
-+			port->sm_churn_partner_state = AD_NO_CHURN;
-+		} else {
-+			port->churn_partner_count++;
-+			port->sm_churn_partner_state = AD_CHURN;
-+		}
-+	}
-+}
-+
-+/**
-  * ad_tx_machine - handle a port's tx state machine
-  * @port: the port we're looking at
-  */
-@@ -1745,6 +1790,13 @@ static void ad_initialize_port(struct port *port, int lacp_fast)
- 		port->next_port_in_aggregator = NULL;
- 		port->transaction_id = 0;
- 
-+		port->sm_churn_actor_timer_counter = 0;
-+		port->sm_churn_actor_state = 0;
-+		port->churn_actor_count = 0;
-+		port->sm_churn_partner_timer_counter = 0;
-+		port->sm_churn_partner_state = 0;
-+		port->churn_partner_count = 0;
-+
- 		memcpy(&port->lacpdu, &lacpdu, sizeof(lacpdu));
- 	}
- }
-@@ -2164,6 +2216,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 		ad_port_selection_logic(port, &update_slave_arr);
- 		ad_mux_machine(port, &update_slave_arr);
- 		ad_tx_machine(port);
-+		ad_churn_machine(port);
- 
- 		/* turn off the BEGIN bit, since we already handled it */
- 		if (port->sm_vars & AD_PORT_BEGIN)
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index 976f5ad2a0f2..62694cfc05b6 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -176,18 +176,51 @@ static void bond_info_show_slave(struct seq_file *seq,
- 		   slave->link_failure_count);
- 
- 	seq_printf(seq, "Permanent HW addr: %pM\n", slave->perm_hwaddr);
-+	seq_printf(seq, "Slave queue ID: %d\n", slave->queue_id);
- 
- 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
--		const struct aggregator *agg
--			= SLAVE_AD_INFO(slave)->port.aggregator;
-+		const struct port *port = &SLAVE_AD_INFO(slave)->port;
-+		const struct aggregator *agg = port->aggregator;
- 
--		if (agg)
-+		if (agg) {
- 			seq_printf(seq, "Aggregator ID: %d\n",
- 				   agg->aggregator_identifier);
--		else
-+			seq_printf(seq, "Actor Churn State: %s\n",
-+				   bond_3ad_churn_desc(port->sm_churn_actor_state));
-+			seq_printf(seq, "Partner Churn State: %s\n",
-+				   bond_3ad_churn_desc(port->sm_churn_partner_state));
-+			seq_printf(seq, "Actor Churned Count: %d\n",
-+				   port->churn_actor_count);
-+			seq_printf(seq, "Partner Churned Count: %d\n",
-+				   port->churn_partner_count);
-+
-+			seq_puts(seq, "details actor lacp pdu:\n");
-+			seq_printf(seq, "    system priority: %d\n",
-+				   port->actor_system_priority);
-+			seq_printf(seq, "    port key: %d\n",
-+				   port->actor_oper_port_key);
-+			seq_printf(seq, "    port priority: %d\n",
-+				   port->actor_port_priority);
-+			seq_printf(seq, "    port number: %d\n",
-+				   port->actor_port_number);
-+			seq_printf(seq, "    port state: %d\n",
-+				   port->actor_oper_port_state);
-+
-+			seq_puts(seq, "details partner lacp pdu:\n");
-+			seq_printf(seq, "    system priority: %d\n",
-+				   port->partner_oper.system_priority);
-+			seq_printf(seq, "    oper key: %d\n",
-+				   port->partner_oper.key);
-+			seq_printf(seq, "    port priority: %d\n",
-+				   port->partner_oper.port_priority);
-+			seq_printf(seq, "    port number: %d\n",
-+				   port->partner_oper.port_number);
-+			seq_printf(seq, "    port state: %d\n",
-+				   port->partner_oper.port_state);
-+		} else {
- 			seq_puts(seq, "Aggregator ID: N/A\n");
-+		}
- 	}
--	seq_printf(seq, "Slave queue ID: %d\n", slave->queue_id);
- }
- 
- static int bond_info_seq_show(struct seq_file *seq, void *v)
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index f04cdbb7848e..c2a40a172fcd 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -82,6 +82,13 @@ typedef enum {
- 	AD_TRANSMIT		/* tx Machine */
- } tx_states_t;
- 
-+/* churn machine states(43.4.17 in the 802.3ad standard) */
-+typedef enum {
-+	 AD_CHURN_MONITOR, /* monitoring for churn */
-+	 AD_CHURN,         /* churn detected (error) */
-+	 AD_NO_CHURN       /* no churn (no error) */
-+} churn_state_t;
-+
- /* rx indication types */
- typedef enum {
- 	AD_TYPE_LACPDU = 1,	/* type lacpdu */
-@@ -229,6 +236,12 @@ typedef struct port {
- 	u16 sm_mux_timer_counter;	/* state machine mux timer counter */
- 	tx_states_t sm_tx_state;	/* state machine tx state */
- 	u16 sm_tx_timer_counter;	/* state machine tx timer counter(allways on - enter to transmit state 3 time per second) */
-+	u16 sm_churn_actor_timer_counter;
-+	u16 sm_churn_partner_timer_counter;
-+	u32 churn_actor_count;
-+	u32 churn_partner_count;
-+	churn_state_t sm_churn_actor_state;
-+	churn_state_t sm_churn_partner_state;
- 	struct slave *slave;		/* pointer to the bond slave that this port belongs to */
- 	struct aggregator *aggregator;	/* pointer to an aggregator that this port related to */
- 	struct port *next_port_in_aggregator;	/* Next port on the linked list of the parent aggregator */
-@@ -262,6 +275,22 @@ struct ad_slave_info {
- 	u16 id;
- };
- 
-+static inline const char *bond_3ad_churn_desc(churn_state_t state)
-+{
-+	static const char *const churn_description[] = {
-+		"monitoring",
-+		"churned",
-+		"none",
-+		"unknown"
-+	};
-+	int max_size = sizeof(churn_description) / sizeof(churn_description[0]);
-+
-+	if (state >= max_size)
-+		state = max_size - 1;
-+
-+	return churn_description[state];
-+}
-+
- /* ========== AD Exported functions to the main bonding code ========== */
- void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution);
- void bond_3ad_bind_slave(struct slave *slave);
+Mitch refactors the receive routine, by splitting the receive hot path
+code into two, one for packet split and one for single buffer, which
+improves receive performance.  Disables NAPI polling sooner when closing
+the interface to fix an occasional panic during close which was
+caused by the driver trying to delete and clean rings at the same time.
+Also refactors reset for i40evf, since a recent change to the shutdown
+flow messed up the reset flow.  Since i40evf_down() now holds the
+critical section lock, we cannot call it from the reset handler, which
+also holds the lock.
+
+Nicholas restricts the virtual channel opcodes should remain consistent
+between updates to the opcode enum.
+
+Neerav converts the VSI connection type to use a #define instead of
+using a magic number.
+
+Anjali updates the registers file to remove registers no longer available.
+Also fixes the EMPR interrupt handling, so that we won't trigger another
+EMPR when we receive an EMPR event.
+
+Catherine cleans up the variable an_enable since it was set and never
+used.
+
+Greg fixes the netdev op that allows the operator to turn MAC/VLAN
+spoof checking on and off so that it includes the flag for VLAN spoof
+checking.
+
+v2: Updated patch #10 in the series to use test_and_clear_bit() as
+    suggested by Sergei Shtylyov
+
+The following are changes since commit 5e3d31896b8762022d36c006c4e4433658fdd181:
+  Merge branch 'be2net-next'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (2):
+  i40e/i40evf: i40e_register.h updates
+  i40e: Fix the EMPR interrupt received handling
+
+Catherine Sullivan (1):
+  i40e/i40evf: Remove unused variable an_enable and function
+    update_link_info
+
+David Ertman (1):
+  e1000e: initial support for i219
+
+Greg Rose (1):
+  i40e: Fix i40e_ndo_set_vf_spoofchk
+
+Jeff Kirsher (2):
+  igbvf: Fix code comments and whitespace
+  igbvf: cleanup msleep() and min/max() usage
+
+Kamil Krawczyk (1):
+  i40e: update Shadow RAM read/write functions
+
+Mitch Williams (4):
+  i40e/i40evf: Refactor the receive routines
+  i40evf: disable NAPI polling sooner
+  i40evf: refactor reset
+  i40evf: don't wait forever
+
+Neerav Parikh (1):
+  i40e: Use #define for the VSI connection type
+
+Nicholas Nunley (1):
+  i40e/i40evf: restrict VC opcodes to their initial values
+
+Shannon Nelson (1):
+  i40e: rename debugfs clear_stats option
+
+Sravanthi Tangeda (1):
+  i40e/i40evf: Bump Driver Versions
+
+ drivers/net/ethernet/intel/e1000e/defines.h        |   1 +
+ drivers/net/ethernet/intel/e1000e/e1000.h          |   2 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c        |   6 +-
+ drivers/net/ethernet/intel/e1000e/hw.h             |   6 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c        | 770 +++++++++++++++++++--
+ drivers/net/ethernet/intel/e1000e/ich8lan.h        |   9 +
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  50 +-
+ drivers/net/ethernet/intel/e1000e/ptp.c            |   4 +-
+ drivers/net/ethernet/intel/e1000e/regs.h           |   3 +
+ drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  33 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  14 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   5 +-
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  50 +-
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |  96 ++-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   3 -
+ drivers/net/ethernet/intel/i40e/i40e_register.h    |  50 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 419 ++++++++---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  17 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   1 -
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  42 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   3 +-
+ drivers/net/ethernet/intel/i40evf/i40e_register.h  |  50 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 401 ++++++++---
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  17 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   1 -
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  42 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  63 +-
+ drivers/net/ethernet/intel/igbvf/defines.h         | 128 ++--
+ drivers/net/ethernet/intel/igbvf/ethtool.c         |  83 ++-
+ drivers/net/ethernet/intel/igbvf/igbvf.h           | 103 ++-
+ drivers/net/ethernet/intel/igbvf/mbx.c             |  21 +-
+ drivers/net/ethernet/intel/igbvf/mbx.h             |  53 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c          | 391 +++++------
+ drivers/net/ethernet/intel/igbvf/regs.h            | 123 ++--
+ drivers/net/ethernet/intel/igbvf/vf.c              |  43 +-
+ drivers/net/ethernet/intel/igbvf/vf.h              |  83 ++-
+ 38 files changed, 2157 insertions(+), 1032 deletions(-)
+
 -- 
-2.2.0.rc0.207.ga3a616c
+1.9.3
