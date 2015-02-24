@@ -1,50 +1,90 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading skb->dropcount and skb->reserved_tailroom instead of skb->mark
-Date: Tue, 24 Feb 2015 16:41:16 +0200
-Message-ID: <13A594FB-4232-4AC0-BADE-778B5D452633@gmail.com>
-References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com> <1424713924-6821-4-git-send-email-eyal.birger@gmail.com> <20150223205633.7fbd08d4@halley> <20150223.164801.842537100812023841.davem@davemloft.net> <CAHsH6GvfJHt6qA_9C1wsHEe1Y=ii9Z8a+3V_2D4NSiZZ4oBkvQ@mail.gmail.com> <CAHsH6GtMGdkeKh9pdF64v4a4EX7Vsv1+gQP6nvrQqF=twg53Zg@mail.gmail.com> <1424783915.5565.74.camel@edumazet-glaptop2.roam.corp.google.com> <CAHsH6GsqkA43Q-MMNOg+tVGSMjYMc9GUejOwV=VpkUQoaaGDBQ@mail.gmail.com> <1424787949.5565.76.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] ip-monitor: allow to monitor ip rules
+Date: Tue, 24 Feb 2015 16:15:00 +0100
+Message-ID: <1424790900-10257-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:41820 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752401AbbBXOlV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 09:41:21 -0500
-Received: by wevm14 with SMTP id m14so25581702wev.8
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 06:41:19 -0800 (PST)
-In-Reply-To: <1424787949.5565.76.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38905 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752593AbbBXPPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 10:15:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Now done by default or with 'ip monitor rule'.
 
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ ip/ipmonitor.c        | 14 +++++++++++++-
+ man/man8/ip-monitor.8 |  2 +-
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
-> On 24 Feb 2015, at 16:25, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> On Tue, 2015-02-24 at 16:07 +0200, Eyal Birger wrote:
-> 
->>> rxpc is buggy right now anyway, as it reads skb->mark _and_ uses
->>> sock_recv_ts_and_drops(), so skb->mark value is pretty much void.
->> 
->> Yes, but it does not seem to use sock_queue_rcv_skb() which sets skb->dropcount.
-> 
-> Well, SO_RXQ_OVFL is broken for these sockets, as we'll report a
-> dropcount if skb->mark was set.
-> 
-> 
-Right. That feature seems broken.
-
-Fixing it would mean either 
-avoiding the use of skb->mark in 
-rxrpc or aliasing dropcount with 
-something else.
-
-I am also not sure what should be the
-semantics of SO_RCVMARK on these
-sockets.
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 5ec8f4181222..6b5e66534551 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -32,7 +32,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ] [ FILE ]"
+ 			"[ label ] [dev DEVICE]\n");
+ 	fprintf(stderr, "LISTofOBJECTS := link | address | route | mroute | prefix |\n");
+-	fprintf(stderr, "                 neigh | netconf\n");
++	fprintf(stderr, "                 neigh | netconf | rule\n");
+ 	fprintf(stderr, "FILE := file FILENAME\n");
+ 	exit(-1);
+ }
+@@ -150,6 +150,7 @@ int do_ipmonitor(int argc, char **argv)
+ 	int lprefix=0;
+ 	int lneigh=0;
+ 	int lnetconf=0;
++	int lrule=0;
+ 	int ifindex=0;
+ 
+ 	groups |= nl_mgrp(RTNLGRP_LINK);
+@@ -163,6 +164,8 @@ int do_ipmonitor(int argc, char **argv)
+ 	groups |= nl_mgrp(RTNLGRP_NEIGH);
+ 	groups |= nl_mgrp(RTNLGRP_IPV4_NETCONF);
+ 	groups |= nl_mgrp(RTNLGRP_IPV6_NETCONF);
++	groups |= nl_mgrp(RTNLGRP_IPV4_RULE);
++	groups |= nl_mgrp(RTNLGRP_IPV6_RULE);
+ 
+ 	rtnl_close(&rth);
+ 
+@@ -193,6 +196,9 @@ int do_ipmonitor(int argc, char **argv)
+ 		} else if (matches(*argv, "netconf") == 0) {
+ 			lnetconf = 1;
+ 			groups = 0;
++		} else if (matches(*argv, "rule") == 0) {
++			lrule = 1;
++			groups = 0;
+ 		} else if (strcmp(*argv, "all") == 0) {
+ 			prefix_banner=1;
+ 		} else if (matches(*argv, "help") == 0) {
+@@ -249,6 +255,12 @@ int do_ipmonitor(int argc, char **argv)
+ 		if (!preferred_family || preferred_family == AF_INET6)
+ 			groups |= nl_mgrp(RTNLGRP_IPV6_NETCONF);
+ 	}
++	if (lrule) {
++		if (!preferred_family || preferred_family == AF_INET)
++			groups |= nl_mgrp(RTNLGRP_IPV4_RULE);
++		if (!preferred_family || preferred_family == AF_INET6)
++			groups |= nl_mgrp(RTNLGRP_IPV6_RULE);
++	}
+ 	if (file) {
+ 		FILE *fp;
+ 		fp = fopen(file, "r");
+diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
+index 544b62567c4d..5ce8dc736efd 100644
+--- a/man/man8/ip-monitor.8
++++ b/man/man8/ip-monitor.8
+@@ -49,7 +49,7 @@ command is the first in the command line and then the object list follows:
+ is the list of object types that we want to monitor.
+ It may contain
+ .BR link ", " address ", " route ", " mroute ", " prefix ", "
+-.BR neigh " and " netconf "."
++.BR neigh ", " netconf " and " rule "."
+ If no
+ .B file
+ argument is given,
+-- 
+2.2.2
