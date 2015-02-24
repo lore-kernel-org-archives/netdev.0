@@ -1,48 +1,120 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/16] i40e: Fix i40e_ndo_set_vf_spoofchk
-Date: Mon, 23 Feb 2015 18:11:18 -0800
-Message-ID: <1424743881-30485-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 15/16] i40evf: refactor reset
+Date: Mon, 23 Feb 2015 18:11:20 -0800
+Message-ID: <1424743881-30485-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:9068 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:63799 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752552AbbBXCLt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752345AbbBXCLt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Feb 2015 21:11:49 -0500
 In-Reply-To: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The netdev op that allows the operator to turn MAC/VLAN spoof checking on
-and off did not include the flag for VLAN spoof checking.  This patch
-fixes that problem.
+A recent change to the shutdown flow messed up the reset flow. Since
+i40evf_down now holds the critical section lock, we cannot call it from
+the reset handler, which also holds the lock. To do so causes a deadlock
+accompanied by wailing and gnashing of teeth. This is easily triggered
+by running an ethtool self-test on the PF device.
 
-Change-ID: Ib4c9e639024a854592d97af22706544881ac3fcb
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Instead, we move the relevant portions of i40evf_down into the reset
+handler and bend them to our will. Additionally, we can optimize the
+reinit path by not deleting the MAC and VLAN filters and then adding
+them back again. Instead, we just set the 'add' flag and let the
+watchdog resynchronize the filter list with the PF driver. We also
+reword a few messages to make them more consistent with the rest of the
+driver.
+
+Change-ID: I03dd92ae736f7719fca3564b12a2cf9b98c6cb18
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 41 +++++++++++++++++++------
+ 1 file changed, 31 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 40f042a..5450b9f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2427,7 +2427,8 @@ int i40e_ndo_set_vf_spoofchk(struct net_device *netdev, int vf_id, bool enable)
- 	ctxt.pf_num = pf->hw.pf_id;
- 	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SECURITY_VALID);
- 	if (enable)
--		ctxt.info.sec_flags |= I40E_AQ_VSI_SEC_FLAG_ENABLE_MAC_CHK;
-+		ctxt.info.sec_flags |= (I40E_AQ_VSI_SEC_FLAG_ENABLE_VLAN_CHK |
-+					I40E_AQ_VSI_SEC_FLAG_ENABLE_MAC_CHK);
- 	ret = i40e_aq_update_vsi_params(hw, &ctxt, NULL);
- 	if (ret) {
- 		dev_err(&pf->pdev->dev, "Error %d updating VSI parameters\n",
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index eb1ac22..1257577 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1480,9 +1480,11 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	struct i40evf_adapter *adapter = container_of(work,
+ 						      struct i40evf_adapter,
+ 						      reset_task);
++	struct net_device *netdev = adapter->netdev;
+ 	struct i40e_hw *hw = &adapter->hw;
+-	int i = 0, err;
++	struct i40evf_mac_filter *f;
+ 	uint32_t rstat_val;
++	int i = 0, err;
+ 
+ 	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
+ 				&adapter->crit_section))
+@@ -1527,7 +1529,11 @@ static void i40evf_reset_task(struct work_struct *work)
+ 
+ 		if (netif_running(adapter->netdev)) {
+ 			set_bit(__I40E_DOWN, &adapter->vsi.state);
+-			i40evf_down(adapter);
++			i40evf_irq_disable(adapter);
++			i40evf_napi_disable_all(adapter);
++			netif_tx_disable(netdev);
++			netif_tx_stop_all_queues(netdev);
++			netif_carrier_off(netdev);
+ 			i40evf_free_traffic_irqs(adapter);
+ 			i40evf_free_all_tx_resources(adapter);
+ 			i40evf_free_all_rx_resources(adapter);
+@@ -1559,22 +1565,37 @@ static void i40evf_reset_task(struct work_struct *work)
+ continue_reset:
+ 	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
+ 
+-	i40evf_down(adapter);
++	i40evf_irq_disable(adapter);
++	i40evf_napi_disable_all(adapter);
++
++	netif_tx_disable(netdev);
++
++	netif_tx_stop_all_queues(netdev);
++
++	netif_carrier_off(netdev);
+ 	adapter->state = __I40EVF_RESETTING;
+ 
+ 	/* kill and reinit the admin queue */
+ 	if (i40evf_shutdown_adminq(hw))
+-		dev_warn(&adapter->pdev->dev,
+-			 "%s: Failed to destroy the Admin Queue resources\n",
+-			 __func__);
++		dev_warn(&adapter->pdev->dev, "Failed to shut down adminq\n");
++	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
+ 	err = i40evf_init_adminq(hw);
+ 	if (err)
+-		dev_info(&adapter->pdev->dev, "%s: init_adminq failed: %d\n",
+-			 __func__, err);
++		dev_info(&adapter->pdev->dev, "Failed to init adminq: %d\n",
++			 err);
+ 
+-	adapter->aq_pending = 0;
+-	adapter->aq_required = 0;
+ 	i40evf_map_queues(adapter);
++
++	/* re-add all MAC filters */
++	list_for_each_entry(f, &adapter->mac_filter_list, list) {
++		f->add = true;
++	}
++	/* re-add all VLAN filters */
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		f->add = true;
++	}
++	adapter->aq_required = I40EVF_FLAG_AQ_ADD_MAC_FILTER;
++	adapter->aq_required |= I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
+ 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
+ 
+ 	mod_timer(&adapter->watchdog_timer, jiffies + 2);
 -- 
 1.9.3
