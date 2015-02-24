@@ -1,164 +1,709 @@
 From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [PATCH net-next 02/10] pktgen: Fix grammar errors and some poor
- wording in documentation
-Date: Tue, 24 Feb 2015 02:31:52 +0000
-Message-ID: <1424745112.4443.3.camel@xylophone.i.decadent.org.uk>
+Subject: [PATCH net-next 03/10] samples/pktgen: Add sample scripts for
+ pktgen facility
+Date: Tue, 24 Feb 2015 02:32:07 +0000
+Message-ID: <1424745127.4443.4.camel@xylophone.i.decadent.org.uk>
 References: <1424745019.4443.1.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@lists.codethink.co.uk,
-	Rob Jones <rob.jones@codethink.co.uk>
+	Robert Olsson <robert@herjulf.se>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:55276 "EHLO
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:55297 "EHLO
 	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbbBXCbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 21:31:55 -0500
+	with ESMTP id S1752601AbbBXCcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 21:32:11 -0500
 In-Reply-To: <1424745019.4443.1.camel@xylophone.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks to Rob Jones for suggesting some of the changes.
+These are Robert Olsson's samples which used to be available from
+<ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/>
+but currently are not.
 
-Cc: Rob Jones <rob.jones@codethink.co.uk>
+Change the documentation to refer to these consistently as 'sample
+scripts', matching the directory name used here.
+
+Cc: Robert Olsson <robert@herjulf.se>
 Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
 ---
- Documentation/networking/pktgen.txt |   56 +++++++++++++++++++----------------
- 1 file changed, 30 insertions(+), 26 deletions(-)
+ Documentation/networking/pktgen.txt     |   12 ++---
+ samples/pktgen/pktgen.conf-1-1          |   66 +++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-1-1-flows    |   74 ++++++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-1-1-ip6      |   67 +++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-1-1-ip6-rdos |   70 ++++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-1-1-rdos     |   71 ++++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-1-2          |   76 ++++++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-2-1          |   72 +++++++++++++++++++++++++++
+ samples/pktgen/pktgen.conf-2-2          |   82 +++++++++++++++++++++++++++++++
+ 9 files changed, 584 insertions(+), 6 deletions(-)
+ create mode 100755 samples/pktgen/pktgen.conf-1-1
+ create mode 100755 samples/pktgen/pktgen.conf-1-1-flows
+ create mode 100755 samples/pktgen/pktgen.conf-1-1-ip6
+ create mode 100755 samples/pktgen/pktgen.conf-1-1-ip6-rdos
+ create mode 100755 samples/pktgen/pktgen.conf-1-1-rdos
+ create mode 100755 samples/pktgen/pktgen.conf-1-2
+ create mode 100755 samples/pktgen/pktgen.conf-2-1
+ create mode 100755 samples/pktgen/pktgen.conf-2-2
 
 diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index 560c84ba9abd..fa0ad87e6597 100644
+index fa0ad87e6597..24c6dc100e02 100644
 --- a/Documentation/networking/pktgen.txt
 +++ b/Documentation/networking/pktgen.txt
-@@ -3,11 +3,11 @@
-                   HOWTO for the linux packet generator 
-                   ------------------------------------
- 
--Enable CONFIG_NET_PKTGEN to compile and build pktgen.o either in kernel
--or as module. Module is preferred. insmod pktgen if needed. Once running
--pktgen creates a thread on each CPU where each thread has affinity to its CPU.
--Monitoring and controlling is done via /proc. Easiest to select a suitable 
--a sample script and configure.
-+Enable CONFIG_NET_PKTGEN to compile and build pktgen.o either in-kernel
-+or as a module.  A module is preferred; insmod pktgen if needed.  Once
-+running, pktgen creates a thread for each CPU with affinity to that CPU.
-+Monitoring and controlling is done via /proc.  It is easiest to select a
-+suitable sample script and configure that.
- 
- On a dual CPU:
- 
-@@ -25,7 +25,7 @@ For monitoring and control pktgen creates:
- Tuning NIC for max performance
- ==============================
- 
--The default NIC setting are (likely) not tuned for pktgen's artificial
-+The default NIC settings are (likely) not tuned for pktgen's artificial
- overload type of benchmarking, as this could hurt the normal use-case.
- 
- Specifically increasing the TX ring buffer in the NIC:
-@@ -33,20 +33,20 @@ Specifically increasing the TX ring buffer in the NIC:
- 
- A larger TX ring can improve pktgen's performance, while it can hurt
- in the general case, 1) because the TX ring buffer might get larger
--than the CPUs L1/L2 cache, 2) because it allow more queueing in the
-+than the CPU's L1/L2 cache, 2) because it allows more queueing in the
- NIC HW layer (which is bad for bufferbloat).
- 
--One should be careful to conclude, that packets/descriptors in the HW
-+One should hesitate to conclude that packets/descriptors in the HW
- TX ring cause delay.  Drivers usually delay cleaning up the
--ring-buffers (for various performance reasons), thus packets stalling
--the TX ring, might just be waiting for cleanup.
-+ring-buffers for various performance reasons, and packets stalling
-+the TX ring might just be waiting for cleanup.
- 
--This cleanup issues is specifically the case, for the driver ixgbe
--(Intel 82599 chip).  This driver (ixgbe) combine TX+RX ring cleanups,
-+This cleanup issue is specifically the case for the driver ixgbe
-+(Intel 82599 chip).  This driver (ixgbe) combines TX+RX ring cleanups,
- and the cleanup interval is affected by the ethtool --coalesce setting
- of parameter "rx-usecs".
- 
--For ixgbe use e.g "30" resulting in approx 33K interrupts/sec (1/30*10^6):
-+For ixgbe use e.g. "30" resulting in approx 33K interrupts/sec (1/30*10^6):
-  # ethtool -C ethX rx-usecs 30
- 
-
-@@ -58,15 +58,16 @@ Running:
- Stopped: eth1 
- Result: OK: max_before_softirq=10000
- 
--Most important the devices assigned to thread. Note! A device can only belong 
--to one thread.
-+Most important are the devices assigned to the thread.  Note that a
-+device can only belong to one thread.
- 
-
- Viewing devices
- ===============
- 
--Parm section holds configured info. Current hold running stats. 
--Result is printed after run or after interruption. Example:
-+The Params section holds configured information.  The Current section
-+holds running statistics.  The Result is printed after a run or after
-+interruption.  Example:
- 
- /proc/net/pktgen/eth1       
- 
-@@ -91,7 +92,8 @@ Result: OK: 13101142(c12220741+d880401) usec, 10000000 (60byte,0frags)
+@@ -92,8 +92,8 @@ Result: OK: 13101142(c12220741+d880401) usec, 10000000 (60byte,0frags)
  
  Configuring threads and devices
  ================================
--This is done via the /proc interface easiest done via pgset in the scripts
-+This is done via the /proc interface, and most easily done via pgset in
-+the scripts.
+-This is done via the /proc interface, and most easily done via pgset in
+-the scripts.
++This is done via the /proc interface, and most easily done via pgset
++as defined in the sample scripts.
  
  Examples:
  
-@@ -193,7 +195,8 @@ Examples:
- Example scripts
- ===============
+@@ -192,11 +192,11 @@ Examples:
+  pgset "rate 300M"        set rate to 300 Mb/s
+  pgset "ratep 1000000"    set rate to 1Mpps
  
--A collection of small tutorial scripts for pktgen is in examples dir.
-+A collection of small tutorial scripts for pktgen is in the examples
-+directory:
+-Example scripts
+-===============
++Sample scripts
++==============
+ 
+-A collection of small tutorial scripts for pktgen is in the examples
+-directory:
++A collection of small tutorial scripts for pktgen is in the
++samples/pktgen directory:
  
  pktgen.conf-1-1                  # 1 CPU 1 dev 
  pktgen.conf-1-2                  # 1 CPU 2 dev
-@@ -204,25 +207,26 @@ pktgen.conf-1-1-ip6              # 1 CPU 1 dev ipv6
- pktgen.conf-1-1-ip6-rdos         # 1 CPU 1 dev ipv6  w. route DoS
- pktgen.conf-1-1-flows            # 1 CPU 1 dev multiple flows.
- 
--Run in shell: ./pktgen.conf-X-Y It does all the setup including sending. 
-+Run in shell: ./pktgen.conf-X-Y
-+This does all the setup including sending.
- 
-
- Interrupt affinity
- ===================
--Note when adding devices to a specific CPU there good idea to also assign 
--/proc/irq/XX/smp_affinity so the TX-interrupts gets bound to the same CPU.
--as this reduces cache bouncing when freeing skb's.
-+Note that when adding devices to a specific CPU it is a good idea to
-+also assign /proc/irq/XX/smp_affinity so that the TX interrupts are bound
-+to the same CPU.  This reduces cache bouncing when freeing skbs.
- 
- Enable IPsec
- ============
--Default IPsec transformation with ESP encapsulation plus Transport mode
--could be enabled by simply setting:
-+Default IPsec transformation with ESP encapsulation plus transport mode
-+can be enabled by simply setting:
- 
- pgset "flag IPSEC"
- pgset "flows 1"
- 
- To avoid breaking existing testbed scripts for using AH type and tunnel mode,
--user could use "pgset spi SPI_VALUE" to specify which formal of transformation
-+you can use "pgset spi SPI_VALUE" to specify which transformation mode
- to employ.
- 
-
+diff --git a/samples/pktgen/pktgen.conf-1-1 b/samples/pktgen/pktgen.conf-1-1
+new file mode 100755
+index 000000000000..fb2a1e108690
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-1-1
+@@ -0,0 +1,66 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0 means maximum speed.
++
++CLONE_SKB="clone_skb 1000000"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 60"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst 10.10.11.2" 
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth1
+diff --git a/samples/pktgen/pktgen.conf-1-1-flows b/samples/pktgen/pktgen.conf-1-1-flows
+new file mode 100755
+index 000000000000..634a860a745c
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-1-1-flows
+@@ -0,0 +1,74 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0
++# We need to do alloc for every skb since we cannot clone here.
++
++CLONE_SKB="clone_skb 0"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 60"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ # Random address with in the min-max range
++ pgset "flag IPDST_RND" 
++ pgset "dst_min 10.0.0.0" 
++ pgset "dst_max 10.255.255.255" 
++
++ # 8k Concurrent flows at 4 pkts
++ pgset "flows 8192" 
++ pgset "flowlen 4" 
++
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth1
+diff --git a/samples/pktgen/pktgen.conf-1-1-ip6 b/samples/pktgen/pktgen.conf-1-1-ip6
+new file mode 100755
+index 000000000000..05a59fea3b49
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-1-1-ip6
+@@ -0,0 +1,67 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++# IPv6. Note increase in minimal packet length
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0
++
++CLONE_SKB="clone_skb 1000000"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 66"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst6 fec0::1"
++ pgset "src6 fec0::2"
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth1
+diff --git a/samples/pktgen/pktgen.conf-1-1-ip6-rdos b/samples/pktgen/pktgen.conf-1-1-ip6-rdos
+new file mode 100755
+index 000000000000..15bf3fb724a2
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-1-1-ip6-rdos
+@@ -0,0 +1,70 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++# IPv6. Note increase in minimal packet length
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0 means maximum speed.
++
++# We need to do alloc for every skb since we cannot clone here.
++CLONE_SKB="clone_skb 0"
++
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 66"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst6_min fec0::1"
++ pgset "dst6_max fec0::FFFF:FFFF"
++
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth1
+diff --git a/samples/pktgen/pktgen.conf-1-1-rdos b/samples/pktgen/pktgen.conf-1-1-rdos
+new file mode 100755
+index 000000000000..d170b5374ae2
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-1-1-rdos
+@@ -0,0 +1,71 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0
++
++# We need to do alloc for every skb since we cannot clone here.
++
++CLONE_SKB="clone_skb 0"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 60"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ # Random address with in the min-max range
++ pgset "flag IPDST_RND" 
++ pgset "dst_min 10.0.0.0" 
++ pgset "dst_max 10.255.255.255" 
++
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth1
+diff --git a/samples/pktgen/pktgen.conf-1-2 b/samples/pktgen/pktgen.conf-1-2
+new file mode 100755
+index 000000000000..aab32737bf18
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-1-2
+@@ -0,0 +1,76 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# One CPU means one thread. One CPU exammple. We add eth1, eth2 respectivly.
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Adding eth2"
++ pgset "add_device eth2" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0 means maximum speed.
++
++CLONE_SKB="clone_skb 1000000"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 60"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst 10.10.11.2" 
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++PGDEV=/proc/net/pktgen/eth2
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst 192.168.2.2"
++ pgset "dst_mac  00:04:23:08:91:de"
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth[1,2]
+diff --git a/samples/pktgen/pktgen.conf-2-1 b/samples/pktgen/pktgen.conf-2-1
+new file mode 100755
+index 000000000000..375bc1d2af53
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-2-1
+@@ -0,0 +1,72 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++# We need to remove old config since we dont use this thread. We can only
++# one NIC on one CPU due to affinity reasons.
++
++PGDEV=/proc/net/pktgen/kpktgend_1
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++
++# device config
++# delay 0 means maximum speed.
++
++CLONE_SKB="clone_skb 1000000"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 60"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst 10.10.11.2" 
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth1
+diff --git a/samples/pktgen/pktgen.conf-2-2 b/samples/pktgen/pktgen.conf-2-2
+new file mode 100755
+index 000000000000..de800d1d8fbe
+--- /dev/null
++++ b/samples/pktgen/pktgen.conf-2-2
+@@ -0,0 +1,82 @@
++#! /bin/sh
++
++#modprobe pktgen
++
++
++function pgset() {
++    local result
++
++    echo $1 > $PGDEV
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [ "$result" = "" ]; then
++         cat $PGDEV | fgrep Result:
++    fi
++}
++
++function pg() {
++    echo inject > $PGDEV
++    cat $PGDEV
++}
++
++# Config Start Here -----------------------------------------------------------
++
++
++# thread config
++# Each CPU has own thread. Two CPU exammple. We add eth1, eth2 respectivly.
++
++PGDEV=/proc/net/pktgen/kpktgend_0
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth1"
++ pgset "add_device eth1" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++PGDEV=/proc/net/pktgen/kpktgend_1
++  echo "Removing all devices"
++ pgset "rem_device_all" 
++  echo "Adding eth2"
++ pgset "add_device eth2" 
++  echo "Setting max_before_softirq 10000"
++ pgset "max_before_softirq 10000"
++
++
++# device config
++# delay 0 means maximum speed.
++
++CLONE_SKB="clone_skb 1000000"
++# NIC adds 4 bytes CRC
++PKT_SIZE="pkt_size 60"
++
++# COUNT 0 means forever
++#COUNT="count 0"
++COUNT="count 10000000"
++DELAY="delay 0"
++
++PGDEV=/proc/net/pktgen/eth1
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst 10.10.11.2" 
++ pgset "dst_mac  00:04:23:08:91:dc"
++
++PGDEV=/proc/net/pktgen/eth2
++  echo "Configuring $PGDEV"
++ pgset "$COUNT"
++ pgset "$CLONE_SKB"
++ pgset "$PKT_SIZE"
++ pgset "$DELAY"
++ pgset "dst 192.168.2.2"
++ pgset "dst_mac  00:04:23:08:91:de"
++
++# Time to run
++PGDEV=/proc/net/pktgen/pgctrl
++
++ echo "Running... ctrl^C to stop"
++ pgset "start" 
++ echo "Done"
++
++# Result can be vieved in /proc/net/pktgen/eth[1,2]
 -- 
 1.7.10.4
