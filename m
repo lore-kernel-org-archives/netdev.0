@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 5/8] mpls: Functions for reading and wrinting mpls labels over netlink
-Date: Wed, 25 Feb 2015 11:16:36 -0600
-Message-ID: <87wq35vrm3.fsf@x220.int.ebiederm.org>
+Subject: [PATCH net-next 6/8] mpls: Netlink commands to add, remove, and dump routes
+Date: Wed, 25 Feb 2015 11:17:16 -0600
+Message-ID: <87r3tdvrkz.fsf@x220.int.ebiederm.org>
 References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,115 +10,293 @@ Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
 	santiago@crfreenet.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:58118 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583AbbBYRUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:20:07 -0500
+Received: from out01.mta.xmission.com ([166.70.13.231]:55912 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929AbbBYRV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:21:27 -0500
 In-Reply-To: <87pp8xx6ik.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Wed, 25 Feb 2015 11:09:23 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Reading and writing addresses in network byte order in netlink is
-traditional and I see no reason to change that.  MPLS is interesting
-as effectively it has variabely length addresses (the MPLS label
-stack).  To represent these variable length addresses in netlink
-I use a valid MPLS label stack (complete with stop bit).
+This change adds two new netlink routing attributes:
+RTA_LLGATEWAY and RTA_NEWDST.
 
-This achieves two things: a well defined existing format is used,
-and the data can be interpreted without looking at it's length.
+RTA_LLGATEWAY specifies the destination gateway by it's address in the
+underlying address family instead of in MPLS as RTA_GATEWAY would
+require.  That is RTA_LLGATEWAY allows specifying the next hop by the
+next hops' mac address.
 
-Not needed to look at the length to decode the variable length
-network representation allows existing userspace functions
-such as inet_ntop to be used without needed to change their
-prototype.
+There are places where MPLS is used where the next hop address can not
+be specified as an IPv4 or an IPv6 address and this allows me to avoid
+figuring out how to teach the neighbour table to deal with next hops
+in a different address family.  I expect at some point someone will
+add suppport for next hop addresesses as IPv4 and IPv6 addresses as
+that allows replacing the next hop machine without having to
+reconfigure the rest of the network.
+
+RTA_NEWDST specifies the destination address to forward the packet
+with.  MPLS typically changes it's destination address at every hop.
+For a swap operation RTA_NEWDST is specified with a length of one label.
+For a push operation RTA_NEWDST is specified with two or more labels.
+For a pop operation RTA_NEWDST is not specified or equivalently an emtpy
+RTAN_NEWDST is specified.
+
+Those new netlink attributes are used to implement handling of rt-netlink
+RTM_NEWROUTE, RTM_DELROUTE, and RTM_GETROUTE messages, to maintain the
+MPLS label table.
+
+rtm_to_route_config parses a netlink RTM_NEWROUTE or RTM_DELROUTE message,
+verify no unhandled attributes or unhandled values are present and sets
+up the data structures for mpls_route_add and mpls_route_del.
+
+I did my best to match up with the existing conventions with the caveats
+that MPLS addresses are all destination-specific-addresses, and so
+don't properly have a scope.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/mpls/af_mpls.c  | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/mpls/internal.h |  3 +++
- 2 files changed, 60 insertions(+)
+ include/uapi/linux/rtnetlink.h |   2 +
+ net/mpls/af_mpls.c             | 192 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 194 insertions(+)
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 6a9ef31e0129..75f24609f297 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -398,6 +398,63 @@ static struct notifier_block mpls_dev_notifier = {
- 	.notifier_call = mpls_dev_notify,
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 5cc5d66bf519..da9889a4dec0 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -303,6 +303,8 @@ enum rtattr_type_t {
+ 	RTA_TABLE,
+ 	RTA_MARK,
+ 	RTA_MFC_STATS,
++	RTA_LLGATEWAY,
++	RTA_NEWDST,
+ 	__RTA_MAX
  };
  
-+int nla_put_labels(struct sk_buff *skb, int attrtype,
-+		   u8 labels, const u32 label[])
-+{
-+	struct nlattr *nla;
-+	struct mpls_shim_hdr *nla_label;
-+	bool bos;
-+	int i;
-+	nla = nla_reserve(skb, attrtype, labels*4);
-+	if (!nla)
-+		return -EMSGSIZE;
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 75f24609f297..5cf9aa68c32f 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -206,6 +206,11 @@ static struct packet_type mpls_packet_type __read_mostly = {
+ 	.func = mpls_forward,
+ };
+ 
++const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
++	[RTA_DST]		= { .type = NLA_U32 },
++	[RTA_OIF]		= { .type = NLA_U32 },
++};
 +
-+	nla_label = nla_data(nla);
-+	bos = true;
-+	for (i = labels - 1; i >= 0; i--) {
-+		nla_label[i] = mpls_entry_encode(label[i], 0, 0, bos);
-+		bos = false;
+ struct mpls_route_config {
+ 	u32		rc_protocol;
+ 	u32		rc_ifindex;
+@@ -455,6 +460,189 @@ int nla_get_labels(const struct nlattr *nla,
+ 	return 0;
+ }
+ 
++static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
++			       struct mpls_route_config *cfg)
++{
++	struct rtmsg *rtm;
++	struct nlattr *tb[RTA_MAX+1];
++	int index;
++	int err;
++
++	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_mpls_policy);
++	if (err < 0)
++		goto errout;
++
++	err = -EINVAL;
++	rtm = nlmsg_data(nlh);
++	memset(cfg, 0, sizeof(*cfg));
++
++	if (rtm->rtm_family != AF_MPLS)
++		goto errout;
++	if (rtm->rtm_dst_len != 20)
++		goto errout;
++	if (rtm->rtm_src_len != 0)
++		goto errout;
++	if (rtm->rtm_tos != 0)
++		goto errout;
++	if (rtm->rtm_table != RT_TABLE_MAIN)
++		goto errout;
++	/* Any value is acceptable for rtm_protocol */
++
++	/* As mpls uses destination specific addresses
++	 * (or source specific address in the case of multicast)
++	 * all addresses have universal scope.
++	 */
++	if (rtm->rtm_scope != RT_SCOPE_UNIVERSE)
++		goto errout;
++	if (rtm->rtm_type != RTN_UNICAST)
++		goto errout;
++	if (rtm->rtm_flags != 0)
++		goto errout;
++
++	cfg->rc_label		= LABEL_NOT_SPECIFIED;
++	cfg->rc_protocol	= rtm->rtm_protocol;
++	cfg->rc_nlflags		= nlh->nlmsg_flags;
++	cfg->rc_nlinfo.portid	= NETLINK_CB(skb).portid;
++	cfg->rc_nlinfo.nlh	= nlh;
++	cfg->rc_nlinfo.nl_net	= sock_net(skb->sk);
++
++	for (index = 0; index <= RTA_MAX; index++) {
++		struct nlattr *nla = tb[index];
++		if (!nla)
++			continue;
++
++		switch(index) {
++		case RTA_OIF:
++			cfg->rc_ifindex = nla_get_u32(nla);
++			break;
++		case RTA_NEWDST:
++			if (nla_get_labels(nla, MAX_NEW_LABELS,
++					   &cfg->rc_output_labels,
++					   cfg->rc_output_label))
++				goto errout;
++			break;
++		case RTA_DST:
++		{
++			u32 label_count;
++			if (nla_get_labels(nla, 1, &label_count,
++					   &cfg->rc_label))
++				goto errout;
++
++			/* The first 16 labels are reserved, and may not be set */
++			if (cfg->rc_label < 16)
++				goto errout;
++
++			break;
++		}
++		case RTA_LLGATEWAY:
++			cfg->rc_ha_len = nla_len(nla);
++			if (cfg->rc_ha_len > MAX_HA_LEN)
++				goto errout;
++
++			memcpy(cfg->rc_ha, nla_data(nla), cfg->rc_ha_len);
++			break;
++		default:
++			/* Unsupported attribute */
++			goto errout;
++		}
 +	}
 +
-+	return 0;
++	err = 0;
++errout:
++	return err;
 +}
 +
-+int nla_get_labels(const struct nlattr *nla,
-+		   u32 max_labels, u32 *labels, u32 label[])
++static int mpls_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
 +{
-+	unsigned len = nla_len(nla);
-+	unsigned nla_labels;
-+	struct mpls_shim_hdr *nla_label;
-+	bool bos;
-+	int i;
++	struct mpls_route_config cfg;
++	int err;
 +
-+	/* len needs to be an even multiple of 4 (the label size) */
-+	if (len & 3)
-+		return -EINVAL;
++	err = rtm_to_route_config(skb, nlh, &cfg);
++	if (err < 0)
++		return err;
 +
-+	/* Limit the number of new labels allowed */
-+	nla_labels = len/4;
-+	if (nla_labels > max_labels)
-+		return -EINVAL;
++	return mpls_route_del(&cfg);
++}
 +
-+	nla_label = nla_data(nla);
-+	bos = true;
-+	for (i = nla_labels - 1; i >= 0; i--, bos = false) {
-+		struct mpls_entry_decoded dec;
-+		dec = mpls_entry_decode(nla_label + i);
 +
-+		/* Ensure the bottom of stack flag is properly set
-+		 * and ttl and tc are both clear.
-+		 */
-+		if ((dec.bos != bos) || dec.ttl || dec.tc)
-+			return -EINVAL;
++static int mpls_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
++{
++	struct mpls_route_config cfg;
++	int err;
 +
-+		label[i] = dec.label;
-+	}
-+	*labels = nla_labels;
++	err = rtm_to_route_config(skb, nlh, &cfg);
++	if (err < 0)
++		return err;
++
++	return mpls_route_add(&cfg);
++}
++
++static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
++			   u32 label, struct mpls_route *rt, int flags)
++{
++	struct nlmsghdr *nlh;
++	struct rtmsg *rtm;
++
++	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*rtm), flags);
++	if (nlh == NULL)
++		return -EMSGSIZE;
++
++	rtm = nlmsg_data(nlh);
++	rtm->rtm_family = AF_MPLS;
++	rtm->rtm_dst_len = 20;
++	rtm->rtm_src_len = 0;
++	rtm->rtm_tos = 0;
++	rtm->rtm_table = RT_TABLE_MAIN;
++	rtm->rtm_protocol = rt->rt_protocol;
++	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
++	rtm->rtm_type = RTN_UNICAST;
++	rtm->rtm_flags = 0;
++
++	if (rt->rt_labels &&
++	    nla_put_labels(skb, RTA_NEWDST, rt->rt_labels, rt->rt_label))
++		goto nla_put_failure;
++	if (nla_put(skb, RTA_LLGATEWAY, rt->rt_dev->addr_len, rt->rt_ha))
++		goto nla_put_failure;
++	if (nla_put_u32(skb, RTA_OIF, rt->rt_dev->ifindex))
++		goto nla_put_failure;
++	if (nla_put_labels(skb, RTA_DST, 1, &label))
++		goto nla_put_failure;
++
++	nlmsg_end(skb, nlh);
 +	return 0;
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct net *net = sock_net(skb->sk);
++	unsigned int index;
++
++	ASSERT_RTNL();
++
++	index = cb->args[0];
++	if (index < 16)
++		index = 16;
++
++	for (; index < net->mpls.platform_labels; index++) {
++		struct mpls_route *rt;
++		rt = net->mpls.platform_label[index];
++		if (!rt)
++			continue;
++
++		if (mpls_dump_route(skb, NETLINK_CB(cb->skb).portid,
++				    cb->nlh->nlmsg_seq, RTM_NEWROUTE,
++				    index, rt, NLM_F_MULTI) < 0)
++			break;
++	}
++	cb->args[0] = index;
++
++	return skb->len;
 +}
 +
  static int resize_platform_label_table(struct net *net, size_t limit)
  {
  	size_t size = sizeof(struct mpls_route *) * limit;
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index c2944cb84d48..fb6de92052c4 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -53,4 +53,7 @@ static inline struct mpls_entry_decoded mpls_entry_decode(struct mpls_shim_hdr *
- 	return result;
- }
+@@ -644,6 +832,9 @@ static int __init mpls_init(void)
  
-+int nla_put_labels(struct sk_buff *skb, int attrtype,  u8 labels, const u32 label[]);
-+int nla_get_labels(const struct nlattr *nla, u32 max_labels, u32 *labels, u32 label[]);
-+
- #endif /* MPLS_INTERNAL_H */
+ 	dev_add_pack(&mpls_packet_type);
+ 
++	rtnl_register(PF_MPLS, RTM_NEWROUTE, mpls_rtm_newroute, NULL, NULL);
++	rtnl_register(PF_MPLS, RTM_DELROUTE, mpls_rtm_delroute, NULL, NULL);
++	rtnl_register(PF_MPLS, RTM_GETROUTE, NULL, mpls_dump_routes, NULL);
+ 	err = 0;
+ out:
+ 	return err;
+@@ -656,6 +847,7 @@ module_init(mpls_init);
+ 
+ static void __exit mpls_exit(void)
+ {
++	rtnl_unregister_all(PF_MPLS);
+ 	dev_remove_pack(&mpls_packet_type);
+ 	unregister_netdevice_notifier(&mpls_dev_notifier);
+ 	unregister_pernet_subsys(&mpls_net_ops);
 -- 
 2.2.1
