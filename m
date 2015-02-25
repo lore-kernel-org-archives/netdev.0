@@ -1,38 +1,26 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v5 1/2] igmp v6: add __ipv6_sock_mc_join and
- __ipv6_sock_mc_drop
-Date: Wed, 25 Feb 2015 10:41:28 -0800
-Message-ID: <1424889688.5565.115.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1424887115-3483-1-git-send-email-challa@noironetworks.com>
-	 <1424887115-3483-2-git-send-email-challa@noironetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] net/core/dev.c : Race condition in net_tx_action.
+Date: Wed, 25 Feb 2015 13:47:43 -0500 (EST)
+Message-ID: <20150225.134743.267148874428657838.davem@davemloft.net>
+References: <1424886659-3641-1-git-send-email-ameenali023@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, daniel@iogearbox.net, netdev@vger.kernel.org
-To: Madhu Challa <challa@noironetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:56333 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752713AbbBYSla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 13:41:30 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so8254602igb.5
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 10:41:29 -0800 (PST)
-In-Reply-To: <1424887115-3483-2-git-send-email-challa@noironetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ameenali023@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424886659-3641-1-git-send-email-ameenali023@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-02-25 at 09:58 -0800, Madhu Challa wrote:
-> Based on the igmp v4 changes from Eric Dumazet.
-> 959d10f6bbf6("igmp: add __ip_mc_{join|leave}_group()")
-> 
-> These changes are needed to perform igmp v6 join/leave while
-> RTNL is held.
-> 
-> Make ipv6_sock_mc_join and ipv6_sock_mc_drop wrappers around
-> __ipv6_sock_mc_join and  __ipv6_sock_mc_drop to avoid
-> proliferation of work queues.
-> 
-> Signed-off-by: Madhu Challa <challa@noironetworks.com>
-> ---
+From: Ameen Ali <ameenali023@gmail.com>
+Date: Wed, 25 Feb 2015 19:50:59 +0200
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> @@ -3413,7 +3413,7 @@ EXPORT_SYMBOL(netif_rx_ni);
+>  
+>  static void net_tx_action(struct softirq_action *h)
+>  {
+> -	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+> +	volatile struct softnet_data *sd = &__get_cpu_var(softnet_data);
+
+volatile is never an appropriate solution to a race condition
