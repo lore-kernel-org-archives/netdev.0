@@ -1,53 +1,114 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
- skb->dropcount and skb->reserved_tailroom instead of skb->mark
-Date: Wed, 25 Feb 2015 15:49:40 -0500
-Message-ID: <CA+FuTScV8AgEumMsPnVVmRkYKjbJYLigAqqhrgzx9DDsXDz=2w@mail.gmail.com>
-References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
- <1424713924-6821-4-git-send-email-eyal.birger@gmail.com> <20150223205633.7fbd08d4@halley>
- <20150223.164801.842537100812023841.davem@davemloft.net> <CAHsH6GvfJHt6qA_9C1wsHEe1Y=ii9Z8a+3V_2D4NSiZZ4oBkvQ@mail.gmail.com>
- <CAHsH6GtMGdkeKh9pdF64v4a4EX7Vsv1+gQP6nvrQqF=twg53Zg@mail.gmail.com>
- <1424783915.5565.74.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAHsH6GsqkA43Q-MMNOg+tVGSMjYMc9GUejOwV=VpkUQoaaGDBQ@mail.gmail.com>
- <1424788868.5565.81.camel@edumazet-glaptop2.roam.corp.google.com> <CAHsH6GuJENHse1EJXCzsEqcdCcJ=1xcPYpBO+e7fphxtRU8FyQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Eyal Birger <eyal.birger@gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2] lib: Replace 16384 netlink buf size by macro
+Date: Wed, 25 Feb 2015 22:48:23 +0200
+Message-ID: <1424897303-12078-1-git-send-email-vadim4j@gmail.com>
+Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:39455 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753323AbbBYUuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 15:50:12 -0500
-Received: by mail-ob0-f177.google.com with SMTP id wp18so6385724obc.8
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 12:50:12 -0800 (PST)
-In-Reply-To: <CAHsH6GuJENHse1EJXCzsEqcdCcJ=1xcPYpBO+e7fphxtRU8FyQ@mail.gmail.com>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:41792 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753189AbbBYU7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 15:59:48 -0500
+Received: by labgd6 with SMTP id gd6so6712505lab.8
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 12:59:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> We have to be a bit creative/hacky to keep skb size small.
->>
->
-> I agree. I don't think these feature deserve an skb size increase, so
-> some hackery is required.
->
-> Though, as skb->cb[] is somewhat 'owned' by the protocol families on
-> socket enqueue
-> I tend to find aliasing skb->priority with skb->dropcount "a lesser
-> evil" as compared with
-> partitioning the skb->cb[] space.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Please consider another field than priority. There are use
-cases that want to receive priority, similar to reading mark.
+Replaced hard coded 16384 netlink buffer size by NLBUF_SIZE,
+which can be overrided by -DNLBUF_SIZE.
 
-Indeed, I have a draft packet auxdata patch for one user who wants
-to see the iptables changes (and infer tc effects) on egress packets.
-Fwiw, that patch also exposes mark, and runs into exactly this issue
-that you're fixing, so thanks :)
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+v2:
+    Get rid of NL_BUF: suggested by Jiri Pirko
 
-Fields that are consistently NULL on enqueue, such as the dev field
-that Eric proposed, do not have this drawback.
+ include/libnetlink.h | 4 ++++
+ ip/iplink.c          | 2 +-
+ lib/libnetlink.c     | 8 ++++----
+ misc/ss.c            | 2 +-
+ 4 files changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 898275b..1ef7f1f 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -170,5 +170,9 @@ extern int rtnl_from_file(FILE *, rtnl_filter_t handler,
+  * messages from dump file */
+ #define NLMSG_TSTAMP	15
+ 
++#ifndef NLBUF_SIZE
++#define NLBUF_SIZE 16384
++#endif
++
+ #endif /* __LIBNETLINK_H__ */
+ 
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 5893ee4..db60afa 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -770,7 +770,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
+ {
+ 	int len;
+ 	struct iplink_req req;
+-	char answer[16384];
++	char answer[NLBUF_SIZE];
+ 
+ 	memset(&req, 0, sizeof(req));
+ 
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 77e07ef..666e277 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -194,7 +194,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char buf[16384];
++	char buf[NLBUF_SIZE];
+ 	int dump_intr = 0;
+ 
+ 	iov.iov_base = buf;
+@@ -317,7 +317,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char   buf[16384];
++	char buf[NLBUF_SIZE];
+ 
+ 	memset(&nladdr, 0, sizeof(nladdr));
+ 	nladdr.nl_family = AF_NETLINK;
+@@ -432,7 +432,7 @@ int rtnl_listen(struct rtnl_handle *rtnl,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char   buf[16384];
++	char buf[NLBUF_SIZE];
+ 
+ 	memset(&nladdr, 0, sizeof(nladdr));
+ 	nladdr.nl_family = AF_NETLINK;
+@@ -498,7 +498,7 @@ int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler,
+ {
+ 	int status;
+ 	struct sockaddr_nl nladdr;
+-	char   buf[16384];
++	char buf[NLBUF_SIZE];
+ 	struct nlmsghdr *h = (void*)buf;
+ 
+ 	memset(&nladdr, 0, sizeof(nladdr));
+diff --git a/misc/ss.c b/misc/ss.c
+index 21a4366..036ede8 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2222,7 +2222,7 @@ Exit:
+ static int tcp_show_netlink_file(struct filter *f)
+ {
+ 	FILE	*fp;
+-	char	buf[16384];
++	char buf[NLBUF_SIZE];
+ 
+ 	if ((fp = fopen(getenv("TCPDIAG_FILE"), "r")) == NULL) {
+ 		perror("fopen($TCPDIAG_FILE)");
+-- 
+2.2.2
