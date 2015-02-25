@@ -1,27 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost: drop hard-coded num_buffers size
-Date: Wed, 25 Feb 2015 16:56:52 -0500 (EST)
-Message-ID: <20150225.165652.1024024652864456838.davem@davemloft.net>
-References: <1424795457-6770-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: mst@redhat.com
+From: Ameen Ali <ameenali023@gmail.com>
+Subject: [PATCH 6/6] qlcnic_dcb.c : possible division by zero.
+Date: Wed, 25 Feb 2015 23:56:43 +0200
+Message-ID: <1424901403-6458-1-git-send-email-ameenali023@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ameen Ali <ameenali023@gmail.com>
+To: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424795457-6770-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 24 Feb 2015 17:31:10 +0100
+Whenever there is a division it is usually worthwhile to
+add some belt'n'braces code to ensure that cnt != 0, otherwise
+a machine signal can occur.
 
-> The 2 that we use for copy_to_iter comes from sizeof(u16),
-> it used to be that way before the iov iter update.
-> Fix it up, making it obvious the size of stack access
-> is right.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by : Ameen Ali <Ameenali023@gmail.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Michael, what tree do you want these two patches to go through?
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+index a72bcdd..c1d5e48 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+@@ -822,7 +822,7 @@ qlcnic_dcb_get_pg_tc_cfg_tx(struct net_device *netdev, int tc, u8 *prio,
+ 		if (temp->valid && (pg == temp->pgid))
+ 			cnt++;
+ 	}
+-
++	if(cnt != 0)
+ 	tc_cfg->bwg_percent = (100 / cnt);
+ 	*bw_per = tc_cfg->bwg_percent;
+ }
+-- 
+2.1.0
