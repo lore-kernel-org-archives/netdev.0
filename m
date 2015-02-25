@@ -1,33 +1,52 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Wed, 25 Feb 2015 01:51:06 +0100
-Message-ID: <20150225005106.GB17034@lunn.ch>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
- <20150224215155.GA15633@lunn.ch>
- <CACna6ryiyzeGDoFwSpkOQ9MnumQxB699vEtoY=XRwaD9HE0ryA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: group DCTCP socket statistics
+Date: Tue, 24 Feb 2015 17:38:43 -0800
+Message-ID: <20150224173843.48b3799b@urahara>
+References: <1424813091-5750-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: Rafa?? Mi??ecki <zajec5@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48793 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752833AbbBYAyG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 19:54:06 -0500
-Content-Disposition: inline
-In-Reply-To: <CACna6ryiyzeGDoFwSpkOQ9MnumQxB699vEtoY=XRwaD9HE0ryA@mail.gmail.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:32832 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226AbbBYBim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 20:38:42 -0500
+Received: by iecar1 with SMTP id ar1so1162643iec.0
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 17:38:41 -0800 (PST)
+In-Reply-To: <1424813091-5750-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> That said, I'm not aware of any better place for switchdev drivers.
+On Tue, 24 Feb 2015 22:24:51 +0100
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
 
-Reading Florian's email, it seems like this should be placed into
-drivers/net/dsa, and refactored to use the DSA API.
+> Keep ss output consistent and format DCTCP socket statistics similar to skmen
+> and timer where a group of logical values are grouped by brackets. This makes
+> parser scripts *and* humans more happy.
+> 
+> Current output of 'ss -inetm dst :80':
+> ESTAB       0      0 192.168.11.14:55511 173.194.66.189:443
+>         timer:(keepalive,14sec,0) uid:1000 ino:428768
+>         sk:ffff88020ceb5b00 <-> skmem:(r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
+>         ts sack wscale:7,7 rto:250 rtt:49.225/20.837 ato:40 mss:1408 cwnd:10
+>         ce_state 23 alpha 23 ab_ecn 23 ab_tot 23 send 2.3Mbps
+>         lastsnd:121026 lastrcv:121026 lastack:30850 pacing_rate 4.6Mbps
+>         retrans:0/2 rcv_rtt:40.416 rcv_space:2920
+> 
+> New grouped output:
+> ESTAB       0      0 192.168.11.14:55511 173.194.66.189:443
+>         timer:(keepalive,14sec,0) uid:1000 ino:428768
+>         sk:ffff88020ceb5b00 <-> skmem:(r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
+>         ts sack wscale:7,7 rto:250 rtt:49.225/20.837 ato:40 mss:1408 cwnd:10
+>         dctcp(ce_state:23,alpha:23,ab_ecn:23,ab_tot:23) send 2.3Mbps
+>         lastsnd:121026 lastrcv:121026 lastack:30850 pacing_rate 4.6Mbps
+>         retrans:0/2 rcv_rtt:40.416 rcv_space:2920
+> 
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
-	 Andrew
+Applied
