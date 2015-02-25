@@ -1,35 +1,33 @@
-From: Ameen Ali <ameenali023@gmail.com>
-Subject: [PATCH 6/6] qlcnic_dcb.c : possible division by zero.
-Date: Wed, 25 Feb 2015 23:56:43 +0200
-Message-ID: <1424901403-6458-1-git-send-email-ameenali023@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ameen Ali <ameenali023@gmail.com>
-To: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] amd-xgbe-phy: PHY KX/KR mode differences
+Date: Wed, 25 Feb 2015 16:57:55 -0500 (EST)
+Message-ID: <20150225.165755.1190630794565192500.davem@davemloft.net>
+References: <20150224164749.26012.40351.stgit@tlendack-t1.amdoffice.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33857 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932123AbbBYV54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 16:57:56 -0500
+In-Reply-To: <20150224164749.26012.40351.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Whenever there is a division it is usually worthwhile to
-add some belt'n'braces code to ensure that cnt != 0, otherwise
-a machine signal can occur.
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 24 Feb 2015 10:47:49 -0600
 
-Signed-off-by : Ameen Ali <Ameenali023@gmail.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> The PHY requires different settings for the Decision Feedback Analyzer
+> (DFE) when running in KX mode vs. KR mode. Update the code to change
+> these settings when changing modes in order to provide a more stable
+> link.
+> 
+> Additionally, adjust the 10GbE PQ skew default setting to a more sane
+> value.
+> 
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-index a72bcdd..c1d5e48 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-@@ -822,7 +822,7 @@ qlcnic_dcb_get_pg_tc_cfg_tx(struct net_device *netdev, int tc, u8 *prio,
- 		if (temp->valid && (pg == temp->pgid))
- 			cnt++;
- 	}
--
-+	if(cnt != 0)
- 	tc_cfg->bwg_percent = (100 / cnt);
- 	*bw_per = tc_cfg->bwg_percent;
- }
--- 
-2.1.0
+Applied, thanks Tom.
