@@ -1,60 +1,111 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [E1000-devel] [PATCH v2 3/3] ixgbe: Add new ndo to allow VF
- multicast promiscuous mode
-Date: Tue, 24 Feb 2015 23:43:32 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F1D9@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38867@BPXM14GP.gisp.nec.co.jp>
- <87618083B2453E4A8714035B62D6799250241E02@FMSMSX105.amr.corp.intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Wed, 25 Feb 2015 01:15:34 +0100
+Message-ID: <20150225001534.GB15633@lunn.ch>
+References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+ <20150224223039.GC1332@gospo.home.greyhouse.net>
+ <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+ <54ED017E.6000902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ks_c_5601-1987"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	=?ks_c_5601-1987?B?QmqpqnJuIE1vcms=?= <bjorn@mork.no>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87618083B2453E4A8714035B62D6799250241E02@FMSMSX105.amr.corp.intel.com>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rafa?? Mi??ecki <zajec5@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:48766 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752351AbbBYASi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 19:18:38 -0500
+Content-Disposition: inline
+In-Reply-To: <54ED017E.6000902@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPkZyb206IEhpcm9zaGkgU2hpbWFtb3Rv
-IFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPlNlbnQ6IFRodXJzZGF5LCBG
-ZWJydWFyeSAxOSwgMjAxNSA1OjAxIFBNDQo+ID4gU3ViamVjdDogW0UxMDAwLWRldmVsXSBbUEFU
-Q0ggdjIgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gYWxsb3cgVkYgbXVsdGljYXN0IHByb21p
-c2N1b3VzIG1vZGUNCj4gPg0KPiA+RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3Rv
-QGN0LmpwLm5lYy5jb20+DQo+ID4NCj4gPkltcGxlbWVudHMgdGhlIG5ldyBuZXRkZXYgb3AgdG8g
-YWxsb3cgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUuDQo+ID4NCj4gPlRoZSBhZG1pbmlz
-dHJhdG9yIGNhbiBhbGxvdyB0byBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSBmb3Igb25s
-eQ0KPiA+dHJ1c3RlZCBWTS4gQWZ0ZXIgYWxsb3dpbmcgbXVsdGljYXN0IHByb21pc2N1b3VzIG1v
-ZGUgZnJvbSB0aGUgaG9zdCwNCj4gPndlIGNhbiB1c2Ugb3ZlciAzMCBJUHY2IGFkZHJlc3NlcyBv
-biBWTS4NCj4gPiAjIC4vaXAgbGluayBzZXQgZGV2IGV0aDAgdmYgMSBtY19wcm9taXNjIG9uDQo+
-ID4NCj4gPldoZW4gZGlzYWxsb3dpbmcgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUsIHdlIGNh
-biBvbmx5IHVzZSAzMCBJUHY2IGFkZHJlc3Nlcy4NCj4gPiAjIC4vaXAgbGluayBzZXQgZGV2IGV0
-aDAgdmYgMSBtY19wcm9taXNjIG9mZg0KPiA+DQo+ID5TaWduZWQtb2ZmLWJ5OiBIaXJvc2hpIFNo
-aW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPlJldmlld2VkLWJ5OiBIYXlh
-dG8gTW9tbWEgPGgtbW9tbWFAY2UuanAubmVjLmNvbT4NCj4gPkNDOiBDaG9pLCBTeSBKb25nIDxz
-eS5qb25nLmNob2lAaW50ZWwuY29tPg0KPiANCj4gPHNuaXA+DQo+IA0KPiAraW50IGl4Z2JlX25k
-b19zZXRfdmZfbWNfcHJvbWlzYyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgdmYsIGJv
-b2wgc2V0dGluZykNCj4gK3sNCj4gKwlzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciA9IG5l
-dGRldl9wcml2KG5ldGRldik7DQo+ICsJc3RydWN0IGl4Z2JlX2h3ICpodyA9ICZhZGFwdGVyLT5o
-dzsNCj4gKwl1MzIgdm1vbHI7DQo+IA0KPiB2bW9sciBpcyB1bnVzZWQgdmFyaWFibGUgaW4gdGhp
-cyBmdW5jdGlvbi4NCj4gDQo+ICsNCj4gKwlpZiAodmYgPj0gYWRhcHRlci0+bnVtX3ZmcykNCj4g
-KwkJcmV0dXJuIC1FSU5WQUw7DQo+ICsNCj4gKwkvKiBub3RoaW5nIHRvIGRvICovDQo+ICsJaWYg
-KGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzY19hbGxvd2VkID09IHNldHRpbmcpDQo+ICsJ
-CXJldHVybiAwOw0KPiArDQo+ICsJYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19wcm9taXNjX2FsbG93
-ZWQgPSBzZXR0aW5nOw0KPiArDQo+ICsJLyogaWYgVkYgcmVxdWVzdHMgbXVsdGljYXN0IHByb21p
-c2N1b3VzICovDQo+ICsJaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzYykgew0KPiAr
-CQlpZiAoc2V0dGluZykNCj4gKwkJCWl4Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIs
-IHZmKTsNCj4gKwkJZWxzZQ0KPiArCQkJaXhnYmVfZGlzYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0
-ZXIsIHZmKTsNCj4gKwl9DQo+ICsNCj4gKwlyZXR1cm4gMDsNCj4gK30NCg0KdGhhbmsgeW91IGZv
-ciBwb2ludGluZyBpdC4NCkkgcmVhbGl6ZWQgaXQgYW5kIGFtIHByZXBhcmluZyBhIHBhdGNoLg0K
-DQp0aGFua3MsDQpIaXJvc2hpDQo=
+On Tue, Feb 24, 2015 at 02:55:58PM -0800, Florian Fainelli wrote:
+> On 24/02/15 14:50, Rafa?? Mi??ecki wrote:
+> > On 24 February 2015 at 23:30, Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
+> >> On Tue, Feb 24, 2015 at 06:42:07PM +0100, Rafa?? Mi??ecki wrote:
+> >>> BCM53xx is series of Broadcom Ethernet switches that can be found in
+> >>> various (mostly home) routers.
+> >>> They are quite simple switches with mainly just support for:
+> >>> 1) Tagging incoming packets (PVID)
+> >>> 2) Untagging outgoing packets
+> >>> 3) Forwarding all packets across a single VLAN
+> >>>
+> >>> This driver is split into common code (module) and bus specific code.
+> >>> Right now only PHY (MDIO) support is included, other could follow after
+> >>> accepting this driver. It was successfully tested on BCM4706 SoC with
+> >>> BCM53125.
+> >>>
+> >>> You could notice it's yet another try of submitting b53 driver. This
+> >>> time it was modified to use recently introduced switchdev API which
+> >>> hopefully make it possible to accept it mainline.
+> >>
+> >> I must confess I do not know the entire history of this driver, but I
+> >> have a few comments....
+> > 
+> > I guess previous discussions were mostly focusing on API (like
+> > swconfig), so a good review of b53 is still highly wanted!
+> > 
+> > 
+> >>> diff --git a/drivers/net/phy/b53/b53_common.c b/drivers/net/phy/b53/b53_common.c
+> >>> new file mode 100644
+> >>> index 0000000..fce6b71
+> >>> --- /dev/null
+> >>> +++ b/drivers/net/phy/b53/b53_common.c
+> >> [...]
+> >>> +
+> >>> +/*****************
+> >>> + * Net device ops
+> >>> + *****************/
+> >>> +
+> >>> +static netdev_tx_t b53_port_xmit(struct sk_buff *skb, struct net_device *dev)
+> >>> +{
+> >>> +     dev_kfree_skb(skb);
+> >>> +     dev->stats.tx_dropped++;
+> >>> +
+> >>> +     return NETDEV_TX_OK;
+> >>> +}
+> >>> +
+> >>> (...)
+> >>> +
+> >>> +static const struct net_device_ops b53_port_netdev_ops = {
+> >>> +     .ndo_start_xmit                 = b53_port_xmit,
+> >>> +     .ndo_vlan_rx_add_vid            = b53_port_vlan_rx_add_vid,
+> >>> +     .ndo_vlan_rx_kill_vid           = b53_port_vlan_rx_kill_vid,
+> >>> +     .ndo_switch_parent_id_get       = b53_port_switch_parent_id_get,
+> >>> +     .ndo_bridge_setlink             = b53_port_bridge_setlink,
+> >>> +};
+> >>
+> >> I see there is an xmit function, but no napi registration at all.
+> >>
+> >> Is this simply because the SoC ethernet dev is doing all the frame rx?
+> >> Is is able to demux the frames correctly, so it is clear which swXpY
+> >> received the frame?  That will be necessary to ensure that standard
+> >> applications that want to open sockets directly on the needed interfaces
+> >> can still function properly.
+> > 
+> > If you take a look at b53_port_xmit you'll start understanding why
+> > there is no NAPI ;)
+> > 
+> > As said in the commit message, these switches are really simple
+> > devices. We can't actually send packets to the particular ports
+> > (unless something has changed in the more recent hardware).
+> 
+> These switches all support Broadcom tags, so you could use your host CPU
+> Ethernet MAC to send/receive packets to/from specific ports of the
+> switch, and then this is just like DSA, but everything that you say
+> below is true.
+
+If this hardware does support the concept of tags compatible to the
+existing Broadcom Starfighter 2, should we not do that? Is there a
+good reason these chips should use a difference abstraction than
+Starfighter 2 and the Marvell devices?
+
+	    Andrew
