@@ -1,27 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] MAINTAINERS: update my email address
-Date: Wed, 25 Feb 2015 17:05:12 -0500 (EST)
-Message-ID: <20150225.170512.1899201197474584397.davem@davemloft.net>
-References: <1424901616-15060-1-git-send-email-gospo@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gospo@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33950 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbbBYWFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 17:05:14 -0500
-In-Reply-To: <1424901616-15060-1-git-send-email-gospo@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ameen Ali <ameenali023@gmail.com>
+Subject: [PATCH 6/6] qlcnic_dcb.c : possible division by zero.
+Date: Thu, 26 Feb 2015 00:05:14 +0200
+Message-ID: <1424901914-6582-1-git-send-email-ameenali023@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ameen Ali <ameenali023@gmail.com>
+To: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Date: Wed, 25 Feb 2015 17:00:16 -0500
+Whenever there is a division it is usually worthwhile to
+add some belt'n'braces code to ensure that cnt != 0, otherwise
+a machine signal can occur.
 
-> I have been signing off on patches with this address so I'll change it.
-> 
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by : Ameen Ali <Ameenali023@gmail.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Since it's a doc update, applied to 'net'.  Thanks!
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+index a72bcdd..c1d5e48 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+@@ -822,7 +822,7 @@ qlcnic_dcb_get_pg_tc_cfg_tx(struct net_device *netdev, int tc, u8 *prio,
+ 		if (temp->valid && (pg == temp->pgid))
+ 			cnt++;
+ 	}
+-
++	if (cnt != 0)
+ 	    tc_cfg->bwg_percent = (100 / cnt);
+ 	*bw_per = tc_cfg->bwg_percent;
+ }
+-- 
+2.1.0
