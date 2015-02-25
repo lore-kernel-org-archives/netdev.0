@@ -1,45 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e: Set FLAG_RD when sending buffer FW must read
-Date: Wed, 25 Feb 2015 00:58:37 -0800
-Message-ID: <1424854720-18825-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/15] i40e: print Rx packet split status
+Date: Wed, 25 Feb 2015 00:58:36 -0800
+Message-ID: <1424854720-18825-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:2484 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:4721 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752796AbbBYI6t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752790AbbBYI6t (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 25 Feb 2015 03:58:49 -0500
 In-Reply-To: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Scott <kevin.c.scott@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Set FLAG_RD for send_driver_version AQ command.
+Add the RX routine in use to the features log message.
 
-Change-ID: I8253051eff85a1d4b5a4e12ce0395b65ceb91e62
-Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
+Change-ID: Ifbbf28fb7f42b9a3d2828586488e9e6331107dd5
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 34bf5be..88b2d45 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1794,7 +1794,7 @@ i40e_status i40e_aq_send_driver_version(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 97a759a..39e4f35 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9356,8 +9356,10 @@ static void i40e_print_features(struct i40e_pf *pf)
+ #ifdef CONFIG_PCI_IOV
+ 	buf += sprintf(buf, "VFs: %d ", pf->num_req_vfs);
+ #endif
+-	buf += sprintf(buf, "VSIs: %d QP: %d ", pf->hw.func_caps.num_vsis,
+-		       pf->vsi[pf->lan_vsi]->num_queue_pairs);
++	buf += sprintf(buf, "VSIs: %d QP: %d RX: %s ",
++		       pf->hw.func_caps.num_vsis,
++		       pf->vsi[pf->lan_vsi]->num_queue_pairs,
++		       pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
  
- 	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_driver_version);
- 
--	desc.flags |= cpu_to_le16(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_SI);
-+	desc.flags |= cpu_to_le16(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD);
- 	cmd->driver_major_ver = dv->major_version;
- 	cmd->driver_minor_ver = dv->minor_version;
- 	cmd->driver_build_ver = dv->build_version;
+ 	if (pf->flags & I40E_FLAG_RSS_ENABLED)
+ 		buf += sprintf(buf, "RSS ");
 -- 
 1.9.3
