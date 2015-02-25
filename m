@@ -1,67 +1,49 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: new link failing on duplicate names in different namespaces
-Date: Wed, 25 Feb 2015 11:44:05 -0600
-Message-ID: <8761apubru.fsf@x220.int.ebiederm.org>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
-	<54EDF7BB.2060809@6wind.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Wed, 25 Feb 2015 17:49:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAED645@AcuExch.aculab.com>
+References: <cover.1424877322.git.daniel@iogearbox.net>
+	 <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
+	 <54EDEE55.8050605@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
+	 <54EDF4DD.1060709@iogearbox.net>
+ <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"johunt@akamai.com" <johunt@akamai.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:39781 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752649AbbBYRre convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:47:34 -0500
-In-Reply-To: <54EDF7BB.2060809@6wind.com> (Nicolas Dichtel's message of "Wed,
-	25 Feb 2015 17:26:35 +0100")
+Received: from smtp-out4.electric.net ([192.162.216.181]:54545 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305AbbBYRuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:50:46 -0500
+In-Reply-To: <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
-
-> Le 25/02/2015 01:48, Eugene Yakubovich a =C3=A9crit :
->> Hello,
->>
->> rtnetlink's RTM_NEWLINK allows for specifying the network namespace =
-in
->> which the link is to be created via IFLA_NET_NS_PID or IFLA_NET_NS_F=
-D.
->> This not only saves a user a call to move the link into the target
->> namespace, it can avoid a potential ifname conflict. For example, if
->> creating eth0 in another namespace and the current one already has
->> eth0.
->>
->> Unfortunately, this is not the current behavior. If the user specifi=
-es
->> IFLA_IFNAME, leaves ifinfomsg.ifi_index unspecified and sets
->> NLM_F_EXCL flag, as in the case of creating a new link, the call wil=
-l
->> fail with EEXIST in cases where there's a name conflict.
->>
->> rtnl_newlink() will:
->>
->> if (ifname[0])
->>      dev =3D __dev_get_by_name(net, ifname);
-> Yes, it seems that this should be done in "dest_net" or "link_net".
-
-Ugh.  Looking at that code I think the link_net is at best extremely
-confusing most likely semantically broken the way it is being
-interpreted in rtnl_newlink.  More in another email message.
-
-The original semantics and what seems mostly reasonable because the
-network device in some sense lives in multiple network namespaces
-as it is being created is that the network device name be unique
-in both namespaces.
-
-The code that creates a network devices fundamentally needs to know
-about both namespaces network devices like the macvlan driver need
-to find their lower devices in the original network namespace.
-
-I think we could possibly remove the restriction for the names of newly
-created network devices being unique in both network namespaces but I
-don't think the code changes will be trivial.
-
-Eric
+RnJvbTogRXJpYyBEdW1hemV0DQouLi4NCj4gMSkgQXV0b21hdGljIHNocmlua2luZyBpcyBhIG5v
+biBpc3N1ZS4gVGhpcyB3aWxsIGZyZWUgdmVyeSBsaXR0bGUNCj4gbWVtb3J5LCBjb21wYXJlZCB0
+byBwcmV2aW91cyBwZWFrIHVzYWdlIChpbmNsdWRpbmcgb2JqZWN0cyBwdXQgaW4NCj4gcmhhc2h0
+YWJsZSkuIElmIGhhc2ggZ3Jvd24gdG8gYSBjZXJ0YWluIHBvaW50LCBpdCdzIGxpa2VseSBpdCB3
+aWxsIGdyb3cNCj4gYWdhaW4gbGF0ZXIuDQoNCkZXSVcgSSB0ZW5kIHRvIGFncmVlLg0KDQo+IDIp
+IEdyb3dpbmcgY2FuIGJlIHRyaWdnZXJlZCB3aGVuIGFueSBidWNrZXQgaGFzIG1vcmUgdGhhbiBY
+IGVsZW1zLCBhbmQNCj4gdGhhdCBpcyBnaXZlbiBmb3IgZnJlZSBhdCBpbnNlcnQgdGltZS4NCj4g
+WCBjb3VsZCBiZSBsb2cyKGJ1Y2tldHMpLzIgSSBndWVzcy4gKGFrYSBzaGlmdC8yKQ0KDQpUaGF0
+IHdvbid0IHdvcmsgaWYgc29tZW9uZSBpcyBtYW5hZ2luZyB0byBicmVhayB0aGUgaGFzaCBmdW5j
+dGlvbi4NCllvdSBuZWVkIHNvbWUgYXBwcm94aW1hdGlvbiB0byB0aGUgdG90YWwgY291bnQgYXMg
+d2VsbC4NCk9UT0ggdGhlcmUgaXMgbm8gcG9pbnQgZ3Jvd2luZyB0aGUgdGFibGUgaWYgdGhlIGN1
+cnJlbnQgbGlzdCBpc24ndCAnZnVsbCcuDQoNCj4gQSBnbG9iYWwgbGltaXQgb24gbnVtYmVyIG9m
+IGVsZW1lbnRzIHNob3VsZCBiZSBjb250cm9sbGVkIGJ5IHJoYXNodGFibGUNCj4gdXNlcnMgLSBp
+ZiBuZWVkZWQgLSwgbm90IGluIHRoZSByaGFzaHRhYmxlIGl0c2VsZi4NCg0KUG9zc2libHkgeW91
+IGNvdWxkIHJlcXVpcmUgdGhlIHVzZXIgdG8gZ2l2ZSBhbiBhcHByb3hpbWF0aW9uIG9mIHRoZQ0K
+bnVtYmVyIG9mIGVsZW1lbnRzLg0KDQoJRGF2aWQNCg0K
