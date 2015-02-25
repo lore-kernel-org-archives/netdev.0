@@ -1,54 +1,115 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Wed, 25 Feb 2015 17:14:21 +0100
-Message-ID: <54EDF4DD.1060709@iogearbox.net>
-References: <cover.1424877322.git.daniel@iogearbox.net> <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net> <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com> <54EDEE55.8050605@iogearbox.net> <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] lib: Replace 16384 netlink buf by macro
+Date: Wed, 25 Feb 2015 18:04:17 +0200
+Message-ID: <1424880257-20657-1-git-send-email-vadim4j@gmail.com>
+Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56328 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752941AbbBYQOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 11:14:37 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:40839 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753068AbbBYQPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 11:15:37 -0500
+Received: by lbdu10 with SMTP id u10so4902110lbd.7
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 08:15:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/25/2015 04:51 PM, David Laight wrote:
-> From: Daniel Borkmann [
->> On 02/25/2015 04:41 PM, David Laight wrote:
->> ...
->>> Why not cache the 'number of items before we need to expand' value
->>> after each expansion, setting it to 'infinite' when expansion is disabled.
->>> Then the above check is a simple comparison.
->>> You probably don't even need an atomic_read() - provided something is
->>> double checked once the first test determines that an expansion is needed.
->>
->> Did you read my cover letter? ;)
->
-> I probably didn't infer the relevant references :-)
->
-> Actually even if some code wanted other rules, provided they
-> are based on comparing the 'number of items' to a preset limit
-> the limit could be set during expansion/contraction.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-The shift itself doesn't need to be atomic, if we store that in
-the table directly instead of rhashtable, once on allocation it's
-being set and can stay immutable during its table lifetime.
+Replaced hard coded 16384 sized netlink message buffer
+by NL_BUF(x) macro.
 
-The nelems can be a percpu_counter where we have a batched sync
-point and can make that dependent on the current table shift as
-we don't need to be overly precise, we can just read the sync'ed
-value. Currently, nelems are also being used by rhashtable users
-outside of the core code to track if we are still allowed to
-insert new elements, but I think we might also want to address
-that at some point.
+Buffer size can be overrided by -DNLBUF_SIZE.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ include/libnetlink.h | 6 ++++++
+ ip/iplink.c          | 2 +-
+ lib/libnetlink.c     | 8 ++++----
+ misc/ss.c            | 2 +-
+ 4 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index 898275b..883f581 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -170,5 +170,11 @@ extern int rtnl_from_file(FILE *, rtnl_filter_t handler,
+  * messages from dump file */
+ #define NLMSG_TSTAMP	15
+ 
++#ifndef NLBUF_SIZE
++#define NLBUF_SIZE 16384
++#endif
++
++#define NL_BUF(b) char  b[NLBUF_SIZE]
++
+ #endif /* __LIBNETLINK_H__ */
+ 
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 5893ee4..b9949a8 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -770,7 +770,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
+ {
+ 	int len;
+ 	struct iplink_req req;
+-	char answer[16384];
++	NL_BUF(answer);
+ 
+ 	memset(&req, 0, sizeof(req));
+ 
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 77e07ef..1f7a173 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -194,7 +194,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char buf[16384];
++	NL_BUF(buf);
+ 	int dump_intr = 0;
+ 
+ 	iov.iov_base = buf;
+@@ -317,7 +317,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char   buf[16384];
++	NL_BUF(buf);
+ 
+ 	memset(&nladdr, 0, sizeof(nladdr));
+ 	nladdr.nl_family = AF_NETLINK;
+@@ -432,7 +432,7 @@ int rtnl_listen(struct rtnl_handle *rtnl,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char   buf[16384];
++	NL_BUF(buf);
+ 
+ 	memset(&nladdr, 0, sizeof(nladdr));
+ 	nladdr.nl_family = AF_NETLINK;
+@@ -498,7 +498,7 @@ int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler,
+ {
+ 	int status;
+ 	struct sockaddr_nl nladdr;
+-	char   buf[16384];
++	NL_BUF(buf);
+ 	struct nlmsghdr *h = (void*)buf;
+ 
+ 	memset(&nladdr, 0, sizeof(nladdr));
+diff --git a/misc/ss.c b/misc/ss.c
+index 21a4366..0bd110f 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2222,7 +2222,7 @@ Exit:
+ static int tcp_show_netlink_file(struct filter *f)
+ {
+ 	FILE	*fp;
+-	char	buf[16384];
++	NL_BUF(buf);
+ 
+ 	if ((fp = fopen(getenv("TCPDIAG_FILE"), "r")) == NULL) {
+ 		perror("fopen($TCPDIAG_FILE)");
+-- 
+2.2.2
