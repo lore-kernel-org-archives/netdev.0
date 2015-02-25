@@ -1,90 +1,112 @@
-From: Michael Kazakov <michael@marathonbet.ru>
-Subject: Re: Packet dropps in virtual tap interface
-Date: Wed, 25 Feb 2015 13:11:00 +0300
-Message-ID: <54ED9FB4.8000508@marathonbet.ru>
-References: <54EC24FF.3000407@marathonbet.ru> <54EC25E3.5050602@marathonbet.ru> <54ECAEF4.1060602@hp.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] e1000: add dummy allocator to fix race condition
+ between mtu change and netpoll
+Date: Wed, 25 Feb 2015 02:15:22 -0800
+Message-ID: <1424859322.2553.50.camel@jtkirshe-mobl>
+References: <1424858711-22879-1-git-send-email-sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-6auOFN9pXIxTni+O/ALT"
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.marathonbet.ru ([194.9.2.180]:54746 "EHLO
-	mx0.marathonbet.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670AbbBYKLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 05:11:02 -0500
-In-Reply-To: <54ECAEF4.1060602@hp.com>
+Received: from mga02.intel.com ([134.134.136.20]:15277 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751991AbbBYKPe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 05:15:34 -0500
+In-Reply-To: <1424858711-22879-1-git-send-email-sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to the increase TX queue to 10,000 on tap interface solved my=20
-problem. I will say more accurately after the end of the week when we=20
-will have the maximum load.
-On 24/02/15 20:03, Rick Jones wrote:
-> On 02/23/2015 11:18 PM, Michael Kazakov wrote:
->>
->>
->> Hello. We use our highly load system in OpenStack environment. And f=
-aced
->> with serious problems in network highload guests. At a relatively hi=
-gh
->> CPU load of hypervisor (40-60%) virtual network interfaces of this
->> guests starts to droppart of the packets. We use for virtualization
->> qemu-kvm with vhost driver: "... -netdev
->> tap,fd=3D30,id=3Dhostnet0,vhost=3Don,vhostfd=3D31 -device
->> virtio-net-pci,netdev=3Dhostnet0,id=3Dnet0,mac=3Dfa:16:3e:86:67:7b,b=
-us=3Dpci.0,addr=3D0x3...".=20
->>
->>
->>
->> The problem can be seen with the ifconfig utility:
->> tape4009073-0b Link encap:Ethernet  HWaddr fe:16:3e:86:67:7b
->>            inet6 addr: fe80::fc16:3eff:fe86:677b/64 Scope:Link
->>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->>            RX packets:1587622634 errors:0 dropped:0 overruns:0 frame=
-:0
->>            TX packets:1484106438 errors:0 dropped:460259 overruns:0
->> carrier:0
->>            collisions:0 txqueuelen:500
->>            RX bytes:877878711500 (877.8 GB)  TX bytes:3071846828531 =
-(3.0
->> TB)
->>
->> Could you do a little look at our problem and give advice which
->> direction to continue our investigation?
->
-> If I recall the OpenStack plumbing correctly, the TX direction on the=
-=20
-> tap device is inbound to the instance.  You could, I suppose, try=20
-> increasing the size of the txqueuelen via ifconfig, but you may want=20
-> to triple check that the KVM I/O thread (?) isn't running at 100%.=20
-> Particularly if when you say the hypervisor is running at 40-60% CPU=20
-> utilization you mean overall CPU utilization of a multiple CPU system=
-=2E
->
-> I'm assuming that in broad handwaving terms, the TX queue of the tap=20
-> device is behaving something like the SO_RCVBUF of a UDP socket would=
-=20
-> in a "normal"  system - if the VM (tap device case) or receiving=20
-> process (UDP socket case) is held-up for a little while, that buffer=20
-> is there to try to pick-up the slack.  If the VM is held-off from=20
-> running long enough that queue will overflow and traffic will be drop=
-ped.
->
-> That might be the "raising the bridge" side of things.  The "lower th=
-e=20
-> river" side might be to find-out why and for how long the VM is being=
-=20
-> held-off from running and see if you can address that.
->
-> rick jones
->
 
---=20
-=D0=A1 =D1=83=D0=B2=D0=B0=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5=D0=BC,
-=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB =D0=9A=D0=B0=D0=B7=D0=B0=D0=BA=D0=BE=
-=D0=B2
-=D0=A1=D1=82=D0=B0=D1=80=D1=88=D0=B8=D0=B9 =D1=81=D0=B8=D1=81=D1=82=D0=B5=
-=D0=BC=D0=BD=D1=8B=D0=B9 =D0=B0=D0=B4=D0=BC=D0=B8=D0=BD=D0=B8=D1=81=D1=82=
-=D1=80=D0=B0=D1=82=D0=BE=D1=80
-OOO "=D0=A1=D0=9F=D0=9B=D0=90=D0=A2"
+--=-6auOFN9pXIxTni+O/ALT
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2015-02-25 at 11:05 +0100, Sabrina Dubroca wrote:
+> There is a race condition between e1000_change_mtu's cleanups and
+> netpoll, when we change the MTU across jumbo size:
+>=20
+> Changing MTU frees all the rx buffers:
+>     e1000_change_mtu -> e1000_down -> e1000_clean_all_rx_rings ->
+>         e1000_clean_rx_ring
+>=20
+> Then, close to the end of e1000_change_mtu:
+>     pr_info -> ... -> netpoll_poll_dev -> e1000_clean ->
+>         e1000_clean_rx_irq -> e1000_alloc_rx_buffers ->
+> e1000_alloc_frag
+>=20
+> And when we come back to do the rest of the MTU change:
+>     e1000_up -> e1000_configure -> e1000_configure_rx ->
+>         e1000_alloc_jumbo_rx_buffers
+>=20
+> alloc_jumbo finds the buffers already !=3D NULL, since data (shared with
+> page in e1000_rx_buffer->rxbuf) has been re-alloc'd, but it's garbage,
+> or at least not what is expected when in jumbo state.
+>=20
+> This results in an unusable adapter (packets don't get through), and a
+> NULL pointer dereference on the next call to e1000_clean_rx_ring
+> (other mtu change, link down, shutdown):
+>=20
+> BUG: unable to handle kernel NULL pointer dereference at
+> (null)
+> IP: [<ffffffff81194d6e>] put_compound_page+0x7e/0x330
+>=20
+>     [...]
+>=20
+> Call Trace:
+>  [<ffffffff81195445>] put_page+0x55/0x60
+>  [<ffffffff815d9f44>] e1000_clean_rx_ring+0x134/0x200
+>  [<ffffffff815da055>] e1000_clean_all_rx_rings+0x45/0x60
+>  [<ffffffff815df5e0>] e1000_down+0x1c0/0x1d0
+>  [<ffffffff811e2260>] ? deactivate_slab+0x7f0/0x840
+>  [<ffffffff815e21bc>] e1000_change_mtu+0xdc/0x170
+>  [<ffffffff81647050>] dev_set_mtu+0xa0/0x140
+>  [<ffffffff81664218>] do_setlink+0x218/0xac0
+>  [<ffffffff814459e9>] ? nla_parse+0xb9/0x120
+>  [<ffffffff816652d0>] rtnl_newlink+0x6d0/0x890
+>  [<ffffffff8104f000>] ? kvm_clock_read+0x20/0x40
+>  [<ffffffff810a2068>] ? sched_clock_cpu+0xa8/0x100
+>  [<ffffffff81663802>] rtnetlink_rcv_msg+0x92/0x260
+>=20
+> By setting the allocator to a dummy version, netpoll can't mess up our
+> rx buffers.  The allocator is set back to a sane value in
+> e1000_configure_rx.
+>=20
+> Fixes: edbbb3ca1077 ("e1000: implement jumbo receive with partial
+> descriptors")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_main.c | 14 +++++++++++++-
+>  1 file changed, 13 insertions(+), 1 deletion(-)
+
+Thanks Sabrina, I will add your patch to my queue.  It can be viewed at:
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
+https://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
+https://kernel.googlesource.com/pub/scm/linux/kernel/git/jkirsher/queue.git
+
+--=-6auOFN9pXIxTni+O/ALT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU7aC6AAoJEOVv75VaS+3O74kP/RxCMphyL+IaQfV+A59skFMX
+Evm5acRUyQ5FjHfvLS1qsyT/HVDLHJoHaPzepIV6tQNSYD0VjLm8DU249ErJsENP
+G3Vk6LNxhnmdXw1vte3KLLmv20prhw/FjMYrSLFrv5KhQ2IotXN01eB2oUmMxz7o
+F8p9PYWWmOR1jzl61h0H6Dx3Q9t5xEIZDpkwcK1X7sxNk127ylyJx7b3zhdiOjw/
+FDPRT2NbBM9DncHBrE4qHsXwJO/NjaDw50sYD0q+geHWP6muUB4Lehc3/QGybqmL
+47ATv3o98lGrpsJhi+yYxoGcKYgOV7yzypdDLQnLaEdumfpJ8l/C8Ek3sJJWeva1
+ftiJePRG6U2a4qUu2C2qdg71oAruFOHgngf4tkrjaCjzAM086fVgsuU3CsQRy3Ty
+wF+LUWFtQwYbjmefIU+ens1VIvamKgQ9jm1PxCH78HjG8FWF2CpbD5WAXnLLQo5s
+2nuVddkOT/5Ys+jhqLQrTr5pw4CIo1fGTVesG1JMAIPw43pwMEWYXlyuyzK83Uhf
+fAjv+c2gD7bd479YyXBphJfcMLCmHDn0YvfNw8EodGWXz/Js34XYLFoctbS2nmbi
+Umc1aSqIcKpm/b2bEKYus4sbH62ZHHtT8fydx3derrWA590Nl3aHXoa/52fzlfw7
+raKEmimEuejIumHeOOtO
+=1gI5
+-----END PGP SIGNATURE-----
+
+--=-6auOFN9pXIxTni+O/ALT--
