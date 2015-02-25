@@ -1,69 +1,52 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ip-link: Add notice about local netns devices
-Date: Wed, 25 Feb 2015 15:46:22 +0200
-Message-ID: <1424871982-31938-1-git-send-email-vadim4j@gmail.com>
-Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
-To: stephen@networkplumber.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Wed, 25 Feb 2015 15:03:56 +0100
+Message-ID: <20150225140356.GB17992@lunn.ch>
+References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+ <20150224223039.GC1332@gospo.home.greyhouse.net>
+ <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+ <54ED017E.6000902@gmail.com>
+ <20150225001534.GB15633@lunn.ch>
+ <54ED19AB.7020003@gmail.com>
+ <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
+To: Rafa?? Mi??ecki <zajec5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:46578 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963AbbBYN5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 08:57:45 -0500
-Received: by lams18 with SMTP id s18so3955970lam.13
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 05:57:44 -0800 (PST)
+Received: from vps0.lunn.ch ([178.209.37.122]:49095 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751848AbbBYOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 09:07:00 -0500
+Content-Disposition: inline
+In-Reply-To: <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
-
-Added some clarification why 'ip link set netns' can not
-change network namespace for some kind of devices.
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/ip-link.8.in | 29 ++++++++++++++++++++++-------
- 1 file changed, 22 insertions(+), 7 deletions(-)
-
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 057125b..5102f75 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -660,14 +660,29 @@ the interface is
- .IR "POINTOPOINT" .
+> DSA doesn't allow me to use switch (hardware) VLANs. I would need to
+> handle all forwarding in CPU. The most powerful Broadcom MIPS SoC -
+> BCM4706 - can handle about 130 Mb/s. Less powerful - BCM4718A1 - only
+> about 50 Mb/s.
+> This is way too bad for performance when there is a 1 Gb/s switch and
+> too bad for CPU usage.
  
- .TP
--.BI netns " PID"
--move the device to the network namespace associated with the process
--.IR "PID".
--
--.TP
--.BI netns " NETNSNAME"
-+.BI netns " NETNSNAME " \fR| " PID"
- move the device to the network namespace associated with name
--.IR "NETNSNAME".
-+.IR "NETNSNAME " or
-+.RI process " PID".
-+
-+Some devices are not allowed to change network namespace: loopback, bridge,
-+ppp, wireless. These are network namespace local devices. In such case
-+.B ip
-+tool will return "Invalid argument" error. It is possible to find out if device is local
-+to a single network namespace by checking
-+.B netns-local
-+flag in the output of the
-+.BR ethtool ":"
-+
-+.in +8
-+.B ethtool -k
-+.I DEVICE
-+.in -8
-+
-+To change network namespace for wireless devices the
-+.B iw
-+tool can be used. But it allows to change network namespace only for physical devices and by process
-+.IR PID .
- 
- .TP
- .BI alias " NAME"
--- 
-2.2.2
+Hi Rafa??
+
+Take a step back. Don't assume VLANs is the only way to do this. Look
+at what Florian is doing with Starfighter and Gunter is doing with
+Marvell chips. Recent patches allow the hardware to do the switching
+between ports with these devices. See if you can use a similar scheme
+with your chip.
+
+What we don't want is X chip families and Y different ways to
+configure the features. Ideal we want X chip families, and one way to
+configure them all.
+
+	  Andrew
