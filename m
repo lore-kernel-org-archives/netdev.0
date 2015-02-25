@@ -1,57 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Wed, 25 Feb 2015 09:41:36 -0800
-Message-ID: <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1424877322.git.daniel@iogearbox.net>
-	 <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
-	 <54EDEE55.8050605@iogearbox.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
-	 <54EDF4DD.1060709@iogearbox.net>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
+ bridging
+Date: Wed, 25 Feb 2015 09:41:25 -0800
+Message-ID: <20150225174125.GB2400@roeck-us.net>
+References: <54EAAEBC.6080609@roeck-us.net>
+ <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
+ <20150223133454.GB23581@lunn.ch>
+ <54EB37C7.3090209@roeck-us.net>
+ <20150223160109.GB27057@lunn.ch>
+ <54EB6BF5.2020600@gmail.com>
+ <20150223183537.GA23456@roeck-us.net>
+ <54EDD172.4010606@nexvision.fr>
+ <54EDDB72.1090706@roeck-us.net>
+ <54EDF2B8.8020200@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	jerome.oufella@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Andrey Volkov <andrey.volkov@nexvision.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38875 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbbBYRli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:41:38 -0500
-Received: by mail-ig0-f180.google.com with SMTP id b16so7788209igk.1
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 09:41:38 -0800 (PST)
-In-Reply-To: <54EDF4DD.1060709@iogearbox.net>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:48437 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbbBYRlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:41:39 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YQfxq-001WG4-4J
+	for netdev@vger.kernel.org; Wed, 25 Feb 2015 17:41:38 +0000
+Content-Disposition: inline
+In-Reply-To: <54EDF2B8.8020200@nexvision.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-25 at 17:14 +0100, Daniel Borkmann wrote:
+Andrey,
 
-> The nelems can be a percpu_counter where we have a batched sync
-> point and can make that dependent on the current table shift as
-> we don't need to be overly precise, we can just read the sync'ed
-> value. Currently, nelems are also being used by rhashtable users
-> outside of the core code to track if we are still allowed to
-> insert new elements, but I think we might also want to address
-> that at some point.
+On Wed, Feb 25, 2015 at 05:05:12PM +0100, Andrey Volkov wrote:
+> > 
+> > Does removing a port from a fid clean up the entries associated with it
+> > in the database ?
+> > 
+> It doesn't, sorry that I didn't described it clearly: I've tried to point to that fact that 
+> changing FID will cause 2 things:
+>  - learn/discard/... process for all following packets will begin from scratch (as it should be)
+>  - we could start (potentially) slow database cleanup process in dedicated thread/work, and we may not
+>    care about appearing of new ATU rules for the removed port, since packets now will be rejected 
+>    by port's logic.
+> 
+Any idea what happens if a packet is received which has an fdb entry
+pointing to port X, which was just removed from the bridge group ?
 
-There is no need to track number of elements, using either an atomic_t
-or percpu_counter. This adds unnecessary burden.
+> >> seen any mutichip bridges/hardwared "trunks" support (in the Marvell's sense), did anyone, except me, use it?
+> >>
+> > Not me. That would be difficult to test without real hardware.
+> Not a problem for me :), I've already monster switch containing three different types of Marvell's chips 
+> just before me on my table.
+> 
 
-1) Automatic shrinking is a non issue. This will free very little
-memory, compared to previous peak usage (including objects put in
-rhashtable). If hash grown to a certain point, it's likely it will grow
-again later.
+Lucky (or unlucky ;-) you.
 
-2) Growing can be triggered when any bucket has more than X elems, and
-that is given for free at insert time.
-X could be log2(buckets)/2 I guess. (aka shift/2)
+> > 
+> > The above suggests that you have a HW bridge implementation for Marvell chips as well.
+> > Would it make sense to merge our implementations, or just use yours if it is better ?
+> I've implemented same thing almost by same way, so for me it will be easer to rebase on top of your jobs,
+> especially due to the fact that I've enforced to use very old kernel: proprietary binary blobs...
+> 
 
-A global limit on number of elements should be controlled by rhashtable
-users - if needed -, not in the rhashtable itself.
+Can you by any chance share your code, and or do you plan
+to submit it ?
+
+I'll have to look into multi-bridge implementations at some point
+in the future, so that would help a lot.
+
+> > 
+> >> Btw your current FID implementation contain funny security problem: same ports in the different chips,
+> >> interconnected by DSA, will have same FID and as result they will treated as bridged together by
+> >> internal switch logic...
+> >>
+> > You mean if multiple switch chips are used ? Those ports are configured to only send
+> > data to the CPU port. Doesn't that take care of the problem ? Granted, I have not
+> > looked into multi-chip applications, so there may well be some problems.
+> 
+> My current project is to implement support of something like:
+> 
+>        .----------.    .--------.
+>        |  CPU1    |    |  CPU2  |
+>  .DSA--o (master) |    |        |
+>  |     '----------'    'o-------'
+>  |                  .---'
+>  | .-----.       .--o--.       .-----.
+>  '-o SW1 o--DSA--o SW2 o==DSA==o SW3 |
+>    '-----'       '-----'       '-----'
+>      |             |              |
+>    ports         ports          ports
+> 
+> Where SW2 and SW3 are interconnected by "trunk", everything managed by CPU1,
+> some ports of SW1-SW3 are bridged with CPU2, some with CPU1, and some bridged 
+> independently of CPUs. Also, as I told before, all SWs are from 
+> different chips families, so I'm using all, except 88e6060 and 6171, Marvell's drivers.
+> 
+Sounds like a lot of fun, especially if/when both CPUs start messing
+with switch configuration.
+
+> > Maybe
+> > it is possible to merge a chip ID into the fid to solve it.
+> Will not work IMHO, since to support interswitch bridges, some ports must have common id's,
+> so we should have some enumeration management at level of the DSA tree.
+> I've already implemented it as a free running counter, but implementation is wrong, terrible
+> and must be redesigned by hlists or alike.
+> 
+Maybe use ida to get a well defined id for each bridge group touched
+by dsa ? This id could then be used by the driver to identify a bridge.
+
+Guenter
