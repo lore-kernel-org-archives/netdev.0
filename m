@@ -1,106 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
  SR-IOV case
-Date: Tue, 24 Feb 2015 23:20:39 -0800
-Message-ID: <1424848839.2553.34.camel@jtkirshe-mobl>
+Date: Wed, 25 Feb 2015 07:33:43 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E41F4D@BPXM14GP.gisp.nec.co.jp>
 References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
 	 <1415898512.2454.26.camel@jtkirshe-mobl>
 	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
+ <1424848839.2553.34.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-rZaCBLGw/UKfkYU4r2+O"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "e1000-devel@lists.sourceforge.net"
 	<e1000-devel@lists.sourceforge.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
 	Hayato Momma <h-momma@ce.jp.nec.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
+In-Reply-To: <1424848839.2553.34.camel@jtkirshe-mobl>
+Content-Language: ja-JP
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-rZaCBLGw/UKfkYU4r2+O
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-02-25 at 00:51 +0000, Hiroshi Shimamoto wrote:
-> > Subject: Re: [E1000-devel] [PATCH] ixgbe: make VLAN filter
-> conditional in SR-IOV case
-> >=20
-> > On Thu, 2014-11-13 at 08:28 +0000, Hiroshi Shimamoto wrote:
-> > > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> > >
-> > > Disable hardware VLAN filtering if netdev->features VLAN flag is
-> > > dropped.
-> > >
-> > > In SR-IOV case, there is a use case which needs to disable VLAN
-> > > filter.
-> > > For example, we need to make a network function with VF in
-> virtualized
-> > > environment. That network function may be a software switch, a
-> router
-> > > or etc. It means that that network function will be an end point
-> which
-> > > terminates many VLANs.
-> > >
-> > > In the current implementation, VLAN filtering always be turned on
-> and
-> > > VF can receive only 63 VLANs. It means that only 63 VLANs can be
-> used
-> > > and it's not enough at all for building a virtual router.
-> > >
-> > > With this patch, if the user turns VLAN filtering off on the host,
-> VF
-> > > can receive every VLAN packet.
-> > > The behavior is changed only if VLAN filtering is turned off by
-> > > ethtool.
-> > >
-> > > Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> > > CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> > > ---
-> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 10 ++++++++++
-> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  4 ++++
-> > >  2 files changed, 14 insertions(+)
-> >=20
-> > Thanks Hiroshi, I will add your patch to my queue.
->=20
-> How about this patch?
-> It hasn't been in your tree,.
-> Is there any issue?
-
-This patch was dropped for two reasons.  First was Ben Hutchings issues
-with the patch needed to be addressed.  Second, was due to a possible
-security hole which is why VLAN filtering was not disabled in SRIOV
-mode, where isolation is lost between VMs.
-
-If you want to continue going forward with this change, a warning
-message should be added, at least, warning the user of the possible
-security issues.
-
---=-rZaCBLGw/UKfkYU4r2+O
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU7XfHAAoJEOVv75VaS+3OugsP/A1a9K4+xCe1/MOJxmHr6lsh
-CuqnXLaROBlQKZsW7GgAfq+U8ltgQaATKTptR0+Ot9TuBDmXNbhw9Ux6iM97iE2m
-MO2zchXFbmd/CJzFtCGy6fdpa+ja7vyHBsYfFUZwr5YSugwO88pElqEnKKR7uIcg
-xKTtNtuglag8q/9hJWFCEGHAa+YtdHGOhvkNFloM83Bg69EUJlvIet0H5fwom38k
-uijw0mMU/i8WiK59Poah76M/biW3ds3sDUJ9h9XSV1FnOzlxqHFQHhdGMVzu3SBq
-UCuoefUeAOQXVYe/7In8QtTS1vtg+U9YPmSjahZt+5rbg2F1+TIef1A9xeFr5qCz
-XOxiW11g6rTMhrtUI8+u7PIeEJtQh6j/G5tqNLxh2GHAwixl+kxgKVZDBB8BKrRm
-XjKhCWvy3YxHiz20Fa+By69zlP/+9DrW5XfV/ndxvMsoZ92+SZWYVpnDgIClBg6w
-NtoxWh/WZZodufTVfj7Rj0zoqf6U+fppYgM2VdRaw2Xm8COCZt84AWjK662d+/OT
-RGmGFnr3tmtZ+JACeVnxBma7dV4FezJ8fZKs7PrEoesGTOHdOs2ku3FeS8eeo6e4
-ZIShKznGIzozZCjyjDpnETBqd6ySs3CRWZtTHC5LUPxydh+xPBuQ2DQJjstd541a
-8X9hSoaufwz3xVhw73iH
-=mXPV
------END PGP SIGNATURE-----
-
---=-rZaCBLGw/UKfkYU4r2+O--
+PiBPbiBXZWQsIDIwMTUtMDItMjUgYXQgMDA6NTEgKzAwMDAsIEhpcm9zaGkgU2hpbWFtb3RvIHdy
+b3RlOg0KPiA+ID4gU3ViamVjdDogUmU6IFtFMTAwMC1kZXZlbF0gW1BBVENIXSBpeGdiZTogbWFr
+ZSBWTEFOIGZpbHRlcg0KPiA+IGNvbmRpdGlvbmFsIGluIFNSLUlPViBjYXNlDQo+ID4gPg0KPiA+
+ID4gT24gVGh1LCAyMDE0LTExLTEzIGF0IDA4OjI4ICswMDAwLCBIaXJvc2hpIFNoaW1hbW90byB3
+cm90ZToNCj4gPiA+ID4gRnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0Lmpw
+Lm5lYy5jb20+DQo+ID4gPiA+DQo+ID4gPiA+IERpc2FibGUgaGFyZHdhcmUgVkxBTiBmaWx0ZXJp
+bmcgaWYgbmV0ZGV2LT5mZWF0dXJlcyBWTEFOIGZsYWcgaXMNCj4gPiA+ID4gZHJvcHBlZC4NCj4g
+PiA+ID4NCj4gPiA+ID4gSW4gU1ItSU9WIGNhc2UsIHRoZXJlIGlzIGEgdXNlIGNhc2Ugd2hpY2gg
+bmVlZHMgdG8gZGlzYWJsZSBWTEFODQo+ID4gPiA+IGZpbHRlci4NCj4gPiA+ID4gRm9yIGV4YW1w
+bGUsIHdlIG5lZWQgdG8gbWFrZSBhIG5ldHdvcmsgZnVuY3Rpb24gd2l0aCBWRiBpbg0KPiA+IHZp
+cnR1YWxpemVkDQo+ID4gPiA+IGVudmlyb25tZW50LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5
+IGJlIGEgc29mdHdhcmUgc3dpdGNoLCBhDQo+ID4gcm91dGVyDQo+ID4gPiA+IG9yIGV0Yy4gSXQg
+bWVhbnMgdGhhdCB0aGF0IG5ldHdvcmsgZnVuY3Rpb24gd2lsbCBiZSBhbiBlbmQgcG9pbnQNCj4g
+PiB3aGljaA0KPiA+ID4gPiB0ZXJtaW5hdGVzIG1hbnkgVkxBTnMuDQo+ID4gPiA+DQo+ID4gPiA+
+IEluIHRoZSBjdXJyZW50IGltcGxlbWVudGF0aW9uLCBWTEFOIGZpbHRlcmluZyBhbHdheXMgYmUg
+dHVybmVkIG9uDQo+ID4gYW5kDQo+ID4gPiA+IFZGIGNhbiByZWNlaXZlIG9ubHkgNjMgVkxBTnMu
+IEl0IG1lYW5zIHRoYXQgb25seSA2MyBWTEFOcyBjYW4gYmUNCj4gPiB1c2VkDQo+ID4gPiA+IGFu
+ZCBpdCdzIG5vdCBlbm91Z2ggYXQgYWxsIGZvciBidWlsZGluZyBhIHZpcnR1YWwgcm91dGVyLg0K
+PiA+ID4gPg0KPiA+ID4gPiBXaXRoIHRoaXMgcGF0Y2gsIGlmIHRoZSB1c2VyIHR1cm5zIFZMQU4g
+ZmlsdGVyaW5nIG9mZiBvbiB0aGUgaG9zdCwNCj4gPiBWRg0KPiA+ID4gPiBjYW4gcmVjZWl2ZSBl
+dmVyeSBWTEFOIHBhY2tldC4NCj4gPiA+ID4gVGhlIGJlaGF2aW9yIGlzIGNoYW5nZWQgb25seSBp
+ZiBWTEFOIGZpbHRlcmluZyBpcyB0dXJuZWQgb2ZmIGJ5DQo+ID4gPiA+IGV0aHRvb2wuDQo+ID4g
+PiA+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90
+b0BjdC5qcC5uZWMuY29tPg0KPiA+ID4gPiBDQzogQ2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9p
+QGludGVsLmNvbT4NCj4gPiA+ID4gLS0tDQo+ID4gPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9peGdiZS9peGdiZV9tYWluLmMgIHwgMTAgKysrKysrKysrKw0KPiA+ID4gPiAgZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyB8ICA0ICsrKysNCj4gPiA+
+ID4gIDIgZmlsZXMgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygrKQ0KPiA+ID4NCj4gPiA+IFRoYW5r
+cyBIaXJvc2hpLCBJIHdpbGwgYWRkIHlvdXIgcGF0Y2ggdG8gbXkgcXVldWUuDQo+ID4NCj4gPiBI
+b3cgYWJvdXQgdGhpcyBwYXRjaD8NCj4gPiBJdCBoYXNuJ3QgYmVlbiBpbiB5b3VyIHRyZWUsLg0K
+PiA+IElzIHRoZXJlIGFueSBpc3N1ZT8NCj4gDQo+IFRoaXMgcGF0Y2ggd2FzIGRyb3BwZWQgZm9y
+IHR3byByZWFzb25zLiAgRmlyc3Qgd2FzIEJlbiBIdXRjaGluZ3MgaXNzdWVzDQo+IHdpdGggdGhl
+IHBhdGNoIG5lZWRlZCB0byBiZSBhZGRyZXNzZWQuICBTZWNvbmQsIHdhcyBkdWUgdG8gYSBwb3Nz
+aWJsZQ0KPiBzZWN1cml0eSBob2xlIHdoaWNoIGlzIHdoeSBWTEFOIGZpbHRlcmluZyB3YXMgbm90
+IGRpc2FibGVkIGluIFNSSU9WDQo+IG1vZGUsIHdoZXJlIGlzb2xhdGlvbiBpcyBsb3N0IGJldHdl
+ZW4gVk1zLg0KPiANCj4gSWYgeW91IHdhbnQgdG8gY29udGludWUgZ29pbmcgZm9yd2FyZCB3aXRo
+IHRoaXMgY2hhbmdlLCBhIHdhcm5pbmcNCj4gbWVzc2FnZSBzaG91bGQgYmUgYWRkZWQsIGF0IGxl
+YXN0LCB3YXJuaW5nIHRoZSB1c2VyIG9mIHRoZSBwb3NzaWJsZQ0KPiBzZWN1cml0eSBpc3N1ZXMu
+DQoNCm9rYXksIEkgdW5kZXJzdGFuZC4NCkkgd2lsbCBzdWJtaXQgYSBwYXRjaCB3aGljaCBoYXMg
+d2FybmluZyBtZXNzYWdlLg0KDQp0aGFua3MsDQpIaXJvc2hpDQoNCg==
