@@ -1,68 +1,84 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: enable packet split only when IOMMU present
-Date: Wed, 25 Feb 2015 00:58:30 -0800
-Message-ID: <1424854720-18825-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:4721 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752608AbbBYI6q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 03:58:46 -0500
-In-Reply-To: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
+Date: Wed, 25 Feb 2015 10:50:56 +0100
+Message-ID: <20150225095056.GB4293@localhost.localdomain>
+References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
+ <20150218210830.GA7778@localhost.localdomain>
+ <54EAF4D4.4090505@linn.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, abrestic@chromium.org
+To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54EAF4D4.4090505@linn.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On Mon, Feb 23, 2015 at 09:37:24AM +0000, Stathis Voukelatos wrote:
+> Hi Richard,
+> 
+> On 18/02/15 21:08, Richard Cochran wrote:
+> >On Tue, Feb 17, 2015 at 02:03:30PM +0000, Stathis Voukelatos wrote:
+> >>The command string for packet matching is stored in module RAM
+> >>and consists of a sequence of 16-bit entries. Each entry includes
+> >>an 8-bit command code and and 8-bit data value. Valid command
+> >>codes are:
+> >>0 - Don't care
+> >>1 - Match: packet data must match command string byte
+> >>2 - Copy: packet data will be copied to FIFO
+> >>3 - Match/Stamp: if packet data matches string byte, a timestamp
+> >>                  is copied into the FIFO
+> >>4 - Copy/Done: packet data will be copied into the FIFO.
+> >>                This command terminates the command string.
+> >
+> >Why do you need to expose this interface to user space at all?  Why
+> >not just time stamp every frame?
+> 
+> To put this into context with an example, the use case this H/W
+> module was originally developed for was to allow multiple audio
+> receivers to synchronize with a single transmitter, eg. multi-room
+> synchronised audio.
 
-When an IOMMU is in use, the packet split receive path shows a distinct
-advantage over the single-buffer path because it minimizes DMA mapping
-and unmapping. However, this is not an advantage for systems with no
-IOMMU. At init time, check to see if an IOMMU is enabled and enable
-packet split receives.
+The Linux kernel already fully supports this kind of application via
+the SIOCSHWTSTAMP, SO_TIMESTAMPING, and PHC mechanisms.  We certainly
+don't need another another interface just for someone's warped
+hardware design.
 
-Change-ID: I4f70d2e9c31bbea3dc8fd0c5734959a6e6602210
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      | 1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++++++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+I suggest that you find a way to make your HW work within the existing
+frame work.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 3ee730d..eb6307e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -36,6 +36,7 @@
- #include <linux/aer.h>
- #include <linux/netdevice.h>
- #include <linux/ioport.h>
-+#include <linux/iommu.h>
- #include <linux/slab.h>
- #include <linux/list.h>
- #include <linux/string.h>
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index bb876e3..a8824c7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7279,8 +7279,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	/* Set default capability flags */
- 	pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
- 		    I40E_FLAG_MSI_ENABLED     |
--		    I40E_FLAG_MSIX_ENABLED    |
--		    I40E_FLAG_RX_PS_ENABLED;
-+		    I40E_FLAG_MSIX_ENABLED;
-+
-+	if (iommu_present(&pci_bus_type))
-+		pf->flags |= I40E_FLAG_RX_PS_ENABLED;
-+	else
-+		pf->flags |= I40E_FLAG_RX_1BUF_ENABLED;
- 
- 	/* Set default ITR */
- 	pf->rx_itr_default = I40E_ITR_DYNAMIC | I40E_ITR_RX_DEF;
--- 
-1.9.3
+> The interface needs to be public so that a user-space application
+> can program a command string that will match packets that belong to
+> the audio stream of interest, for this example.
+
+Let the user program simply use a BPF for that.
+
+> In addition returning just a timestamp would not be enough in many
+> cases. In the audio streaming use case mentioned above some
+> additional
+> bytes from the packet payload need to be returned (with Copy
+> commands) in order to associate the timestamp with a certain point
+> in the audio stream.
+
+The time stamp is *already* associated with a particular frame.
+
+Just tell your driver to program the hardware to:
+
+1. time stamp every frame
+2. deliver every frame
+
+Thats all you need.
+
+> >How does the "Match" command work?  The frame must have one particular
+> >byte?  That can't be right.  Please explain.
+> 
+> Actually, that is how the H/W works. Each Match command is followed by
+> a data value which must match the packet data byte at the corresponding
+> location. If there is no match processing of the packet stops.
+
+And just what is the "corresponding location"?
+
+Thanks,
+Richard
