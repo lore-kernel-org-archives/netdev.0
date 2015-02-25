@@ -1,51 +1,60 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Wed, 25 Feb 2015 15:41:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
-References: <cover.1424877322.git.daniel@iogearbox.net>
- <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Wed, 25 Feb 2015 10:46:07 -0500
+Message-ID: <20150225154607.GD1332@gospo.home.greyhouse.net>
+References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+ <20150224223039.GC1332@gospo.home.greyhouse.net>
+ <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+ <54ED017E.6000902@gmail.com>
+ <20150225001534.GB15633@lunn.ch>
+ <54ED19AB.7020003@gmail.com>
+ <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+ <20150225140356.GB17992@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Daniel Borkmann' <daniel@iogearbox.net>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rafa?? Mi??ecki <zajec5@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:55226 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752305AbbBYPml convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 10:42:41 -0500
-In-Reply-To: <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
-Content-Language: en-US
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:38792 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753173AbbBYPqM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 10:46:12 -0500
+Received: by mail-qg0-f46.google.com with SMTP id z107so3600801qgd.5
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 07:46:11 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150225140356.GB17992@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann
-> Currently, all real users of rhashtable default their grow and shrink
-> decision functions to rht_grow_above_75() and rht_shrink_below_30(),
-> so that there's currently no need to have this explicitly selectable.
+On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
+[...]
 > 
-> It can/should be generic and private inside rhashtable until a real
-> use case pops up. Since we can make this private, we'll save us this
-> additional indirection layer and can improve insertion/deletion time
-> as well.
-...
-> +static bool rht_grow_above_75(const struct rhashtable *ht, size_t new_size)
->  {
->  	/* Expand table when exceeding 75% load */
->  	return atomic_read(&ht->nelems) > (new_size / 4 * 3) &&
->  	       (!ht->p.max_shift || atomic_read(&ht->shift) < ht->p.max_shift);
->  }
+> What we don't want is X chip families and Y different ways to
+> configure the features. Ideal we want X chip families, and one way to
+> configure them all.
 
-Why not cache the 'number of items before we need to expand' value
-after each expansion, setting it to 'infinite' when expansion is disabled.
-Then the above check is a simple comparison.
-You probably don't even need an atomic_read() - provided something is
-double checked once the first test determines that an expansion is needed.
+This statement is really my primary concern.  There is lots of interest
+around hardware offload at this point and it seems like there is a risk
+that a lack of consistency can create problems.
 
-	David
+I think these patches are great as they allow for the programming of the
+offload hardware (and it has been pointed out that this drastically
+increases performance), but one concern I have with this patch (related
+to this) is that I'm not sure there is a major need to create netdevs
+automatically if there is not the ability to rx/tx actual frames on
+these interfaces.
+
+Since the SoC's NIC is going to handle all packet rx/tx then it seems
+like there should be a way to signal between the switching
+hardware/driver and the NIC driver.  I'm not sure what the ideal
+interface for this is, but maybe there is room in the switchdev infra
+add some ops to find a way to make this signalling possible to create
+netdevs and allow incoming traffic to be assigned to the appropriate
+device.
