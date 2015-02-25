@@ -1,72 +1,106 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx switches
-Date: Wed, 25 Feb 2015 08:03:48 +0100
-Message-ID: <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
-	<20150224223039.GC1332@gospo.home.greyhouse.net>
-	<CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
-	<54ED017E.6000902@gmail.com>
-	<20150225001534.GB15633@lunn.ch>
-	<54ED19AB.7020003@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
+ SR-IOV case
+Date: Tue, 24 Feb 2015 23:20:39 -0800
+Message-ID: <1424848839.2553.34.camel@jtkirshe-mobl>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
+	 <1415898512.2454.26.camel@jtkirshe-mobl>
+	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:62115 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516AbbBYHDt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 02:03:49 -0500
-Received: by mail-ig0-f179.google.com with SMTP id l13so3583630iga.0
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 23:03:48 -0800 (PST)
-In-Reply-To: <54ED19AB.7020003@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-rZaCBLGw/UKfkYU4r2+O"
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 25 February 2015 at 01:39, Florian Fainelli <f.fainelli@gmail.com> w=
-rote:
-> On 24/02/15 16:15, Andrew Lunn wrote:
->> On Tue, Feb 24, 2015 at 02:55:58PM -0800, Florian Fainelli wrote:
->>> On 24/02/15 14:50, Rafa?? Mi??ecki wrote:
->>>> As said in the commit message, these switches are really simple
->>>> devices. We can't actually send packets to the particular ports
->>>> (unless something has changed in the more recent hardware).
->>>
->>> These switches all support Broadcom tags, so you could use your hos=
-t CPU
->>> Ethernet MAC to send/receive packets to/from specific ports of the
->>> switch, and then this is just like DSA, but everything that you say
->>> below is true.
->>
->> If this hardware does support the concept of tags compatible to the
->> existing Broadcom Starfighter 2, should we not do that? Is there a
->> good reason these chips should use a difference abstraction than
->> Starfighter 2 and the Marvell devices?
->
-> No, I think that would be a reasonable thing to do, I am still a litt=
-le
-> unclear how the older BCM5325 and friends work with respect to broadc=
-om
-> tags, but regardless, DSA now understands switches that do not suppor=
-t
-> tags, so we should be good with some sort of b53 library.
 
-DSA doesn't allow me to use switch (hardware) VLANs. I would need to
-handle all forwarding in CPU. The most powerful Broadcom MIPS SoC -
-BCM4706 - can handle about 130 Mb/s. Less powerful - BCM4718A1 - only
-about 50 Mb/s.
-This is way too bad for performance when there is a 1 Gb/s switch and
-too bad for CPU usage.
+--=-rZaCBLGw/UKfkYU4r2+O
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I guess the whole idea of switchdev was to allow what proposed version
-of b53 does? To handle VLANs in hardware.
+On Wed, 2015-02-25 at 00:51 +0000, Hiroshi Shimamoto wrote:
+> > Subject: Re: [E1000-devel] [PATCH] ixgbe: make VLAN filter
+> conditional in SR-IOV case
+> >=20
+> > On Thu, 2014-11-13 at 08:28 +0000, Hiroshi Shimamoto wrote:
+> > > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> > >
+> > > Disable hardware VLAN filtering if netdev->features VLAN flag is
+> > > dropped.
+> > >
+> > > In SR-IOV case, there is a use case which needs to disable VLAN
+> > > filter.
+> > > For example, we need to make a network function with VF in
+> virtualized
+> > > environment. That network function may be a software switch, a
+> router
+> > > or etc. It means that that network function will be an end point
+> which
+> > > terminates many VLANs.
+> > >
+> > > In the current implementation, VLAN filtering always be turned on
+> and
+> > > VF can receive only 63 VLANs. It means that only 63 VLANs can be
+> used
+> > > and it's not enough at all for building a virtual router.
+> > >
+> > > With this patch, if the user turns VLAN filtering off on the host,
+> VF
+> > > can receive every VLAN packet.
+> > > The behavior is changed only if VLAN filtering is turned off by
+> > > ethtool.
+> > >
+> > > Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> > > CC: Choi, Sy Jong <sy.jong.choi@intel.com>
+> > > ---
+> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 10 ++++++++++
+> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  4 ++++
+> > >  2 files changed, 14 insertions(+)
+> >=20
+> > Thanks Hiroshi, I will add your patch to my queue.
+>=20
+> How about this patch?
+> It hasn't been in your tree,.
+> Is there any issue?
 
---=20
-Rafa=C5=82
+This patch was dropped for two reasons.  First was Ben Hutchings issues
+with the patch needed to be addressed.  Second, was due to a possible
+security hole which is why VLAN filtering was not disabled in SRIOV
+mode, where isolation is lost between VMs.
+
+If you want to continue going forward with this change, a warning
+message should be added, at least, warning the user of the possible
+security issues.
+
+--=-rZaCBLGw/UKfkYU4r2+O
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU7XfHAAoJEOVv75VaS+3OugsP/A1a9K4+xCe1/MOJxmHr6lsh
+CuqnXLaROBlQKZsW7GgAfq+U8ltgQaATKTptR0+Ot9TuBDmXNbhw9Ux6iM97iE2m
+MO2zchXFbmd/CJzFtCGy6fdpa+ja7vyHBsYfFUZwr5YSugwO88pElqEnKKR7uIcg
+xKTtNtuglag8q/9hJWFCEGHAa+YtdHGOhvkNFloM83Bg69EUJlvIet0H5fwom38k
+uijw0mMU/i8WiK59Poah76M/biW3ds3sDUJ9h9XSV1FnOzlxqHFQHhdGMVzu3SBq
+UCuoefUeAOQXVYe/7In8QtTS1vtg+U9YPmSjahZt+5rbg2F1+TIef1A9xeFr5qCz
+XOxiW11g6rTMhrtUI8+u7PIeEJtQh6j/G5tqNLxh2GHAwixl+kxgKVZDBB8BKrRm
+XjKhCWvy3YxHiz20Fa+By69zlP/+9DrW5XfV/ndxvMsoZ92+SZWYVpnDgIClBg6w
+NtoxWh/WZZodufTVfj7Rj0zoqf6U+fppYgM2VdRaw2Xm8COCZt84AWjK662d+/OT
+RGmGFnr3tmtZ+JACeVnxBma7dV4FezJ8fZKs7PrEoesGTOHdOs2ku3FeS8eeo6e4
+ZIShKznGIzozZCjyjDpnETBqd6ySs3CRWZtTHC5LUPxydh+xPBuQ2DQJjstd541a
+8X9hSoaufwz3xVhw73iH
+=mXPV
+-----END PGP SIGNATURE-----
+
+--=-rZaCBLGw/UKfkYU4r2+O--
