@@ -1,70 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Wed, 25 Feb 2015 20:10:08 +0000
-Message-ID: <20150225201007.GF1706@acer.localdomain>
-References: <cover.1424877322.git.daniel@iogearbox.net>
- <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
- <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
- <54EDEE55.8050605@iogearbox.net>
- <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
- <54EDF4DD.1060709@iogearbox.net>
- <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
- <54EE1AC8.6060206@iogearbox.net>
- <1424893929.5565.122.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
+ skb->dropcount and skb->reserved_tailroom instead of skb->mark
+Date: Wed, 25 Feb 2015 15:49:40 -0500
+Message-ID: <CA+FuTScV8AgEumMsPnVVmRkYKjbJYLigAqqhrgzx9DDsXDz=2w@mail.gmail.com>
+References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
+ <1424713924-6821-4-git-send-email-eyal.birger@gmail.com> <20150223205633.7fbd08d4@halley>
+ <20150223.164801.842537100812023841.davem@davemloft.net> <CAHsH6GvfJHt6qA_9C1wsHEe1Y=ii9Z8a+3V_2D4NSiZZ4oBkvQ@mail.gmail.com>
+ <CAHsH6GtMGdkeKh9pdF64v4a4EX7Vsv1+gQP6nvrQqF=twg53Zg@mail.gmail.com>
+ <1424783915.5565.74.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAHsH6GsqkA43Q-MMNOg+tVGSMjYMc9GUejOwV=VpkUQoaaGDBQ@mail.gmail.com>
+ <1424788868.5565.81.camel@edumazet-glaptop2.roam.corp.google.com> <CAHsH6GuJENHse1EJXCzsEqcdCcJ=1xcPYpBO+e7fphxtRU8FyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Eyal Birger <eyal.birger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57792 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752644AbbBYUKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 15:10:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1424893929.5565.122.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:39455 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753323AbbBYUuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 15:50:12 -0500
+Received: by mail-ob0-f177.google.com with SMTP id wp18so6385724obc.8
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 12:50:12 -0800 (PST)
+In-Reply-To: <CAHsH6GuJENHse1EJXCzsEqcdCcJ=1xcPYpBO+e7fphxtRU8FyQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25.02, Eric Dumazet wrote:
-> On Wed, 2015-02-25 at 19:56 +0100, Daniel Borkmann wrote:
-> > On 02/25/2015 06:41 PM, Eric Dumazet wrote:
-> > ...
-> > > There is no need to track number of elements, using either an atomic_t
-> > > or percpu_counter. This adds unnecessary burden.
-> > >
-> > > 1) Automatic shrinking is a non issue. This will free very little
-> > > memory, compared to previous peak usage (including objects put in
-> > > rhashtable). If hash grown to a certain point, it's likely it will grow
-> > > again later.
-> > 
-> > So you are saying that shrinking is most likely a rather undesirable
-> > use-case in rhashtable?
-> 
-> Main point of rhashtable is to start with a small/reasonable size,
-> and only big consumers need to _expand_ the table.
-> 
-> Like, instead of having 512000 slots in TCP hash table, start with a
-> 2^10 size.
-> 
-> Like my laptop currently has :
-> 
-> TCP established hash table entries: 131072 (order: 8, 1048576 bytes)
-> 
-> Which is kind of ridiculous....
-> 
-> But if any workload had to grow the table to 2^20 slots, we had to
-> consume GB of memory anyway to hold sockets and everything.
-> 
-> Trying to shrink is simply not worth it, unless you expect your host
-> never reboots and you desperately need back these 8 MBytes of memory.
+>> We have to be a bit creative/hacky to keep skb size small.
+>>
+>
+> I agree. I don't think these feature deserve an skb size increase, so
+> some hackery is required.
+>
+> Though, as skb->cb[] is somewhat 'owned' by the protocol families on
+> socket enqueue
+> I tend to find aliasing skb->priority with skb->dropcount "a lesser
+> evil" as compared with
+> partitioning the skb->cb[] space.
 
-That may be true in the TCP case, but for not for nftables. We might
-have many sets and, especially when used to represent more complicated
-classification algorithms, their size might change by a lot.
+Please consider another field than priority. There are use
+cases that want to receive priority, similar to reading mark.
+
+Indeed, I have a draft packet auxdata patch for one user who wants
+to see the iptables changes (and infer tc effects) on egress packets.
+Fwiw, that patch also exposes mark, and runs into exactly this issue
+that you're fixing, so thanks :)
+
+Fields that are consistently NULL on enqueue, such as the dev field
+that Eric proposed, do not have this drawback.
