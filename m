@@ -1,55 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] cls_api.c: Fix dumping of non-existing
- actions' stats.
-Date: Tue, 24 Feb 2015 21:15:56 -0500 (EST)
-Message-ID: <20150224.211556.2272859487035151829.davem@davemloft.net>
-References: <20150203173251.GB6246@zenon.in.qult.net>
-	<20150204.202639.1658647887362952988.davem@davemloft.net>
-	<CAHA+R7MMdm_9D96kLdPAyWzH0JiHRc0nz7rrHcwHUTK-Ms=JOA@mail.gmail.com>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Wed, 25 Feb 2015 10:55:53 +0800
+Message-ID: <54ED39B9.4090107@windriver.com>
+References: <54DDCA99.4040401@windriver.com>	<20150213133056.3944c13e@uryu.home.lan>	<54E17853.8070106@windriver.com>	<54E210FF.2050502@gmail.com>,<20150216115137.5aa3f0cd@uryu.home.lan> <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ignacy.gawedzki@green-communications.fr, netdev@vger.kernel.org
-To: cwang@twopensource.com
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53278 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317AbbBYCP6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 21:15:58 -0500
-In-Reply-To: <CAHA+R7MMdm_9D96kLdPAyWzH0JiHRc0nz7rrHcwHUTK-Ms=JOA@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:45506 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbbBYC5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 21:57:05 -0500
+In-Reply-To: <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Cong Wang <cwang@twopensource.com>
-Date: Tue, 24 Feb 2015 16:20:42 -0800
+Hi, Stephen && David
 
-> On Wed, Feb 4, 2015 at 8:26 PM, David Miller <davem@davemloft.net> wr=
-ote:
->> From: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
->> Date: Tue, 3 Feb 2015 18:32:51 +0100
->>
->>> In tcf_exts_dump_stats(), ensure that exts->actions is not empty be=
-fore
->>> accessing the first element of that list and calling tcf_action_cop=
-y_stats()
->>> on it.  This fixes some random segvs when adding filters of type "b=
-asic" with
->>> no particular action.
->>>
->>> This also fixes the dumping of those "no-action" filters, which mor=
-e often
->>> than not made calls to tcf_action_copy_stats() fail and consequentl=
-y netlink
->>> attributes added by the caller to be removed by a call to nla_nest_=
-cancel().
->>>
->>> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communicati=
-ons.fr>
->>
->> Applied, thanks.
->=20
-> Dave, please queue this patch for -stable as well, if you haven't don=
-e yet.
-> It needs to backport back to 3.14.
+Any update?
 
-Done.
+Zhu Yanjun
+
+On 02/18/2015 12:14 AM, Zhu, Yanjun wrote:
+> Hi, all
+>
+> We should make it compatible. So I made a patch to turn on carrier on this bridge interface when the last sub interface is removed.
+>
+> Hi, David
+>
+> Please make tests with this latest patch. Thanks a lot.
+>
+> Best Regards!
+> Zhu Yanjun
+> ________________________________________
+> From: Stephen Hemminger [stephen@networkplumber.org]
+> Sent: Monday, February 16, 2015 8:51 AM
+> To: David Ahern
+> Cc: Zhu, Yanjun; netdev; Wu, Kuaikuai; Tao, Yue
+> Subject: Re: If bridge have no sub-interfaces, it's status may be still with 'RUNNING'
+>
+> Originally bridge code would start with carrier off,
+> but there were users using bridge as a form of dummy device
+> and this broke them. Therefore it was decided (like 5 yrs ago),
+> that bridge should start with carrier on.
