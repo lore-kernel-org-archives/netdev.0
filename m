@@ -1,119 +1,157 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2015-02-24
-Date: Wed, 25 Feb 2015 00:58:25 -0800
-Message-ID: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 01/15] i40e/i40evf: Fix output of i40e_debug_aq() for big endian machines
+Date: Wed, 25 Feb 2015 00:58:26 -0800
+Message-ID: <1424854720-18825-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:20292 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751293AbbBYI6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 03:58:44 -0500
+	id S1751684AbbBYI6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 03:58:45 -0500
+In-Reply-To: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only, which bumps their
-versions to i40e 1.2.9 and i40evf 1.2.3.
+From: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>
 
-Paul fixes i40e_debug_aq() for big endian machines by adding the
-appropriate LExx_TO_CPU wrappers.
+The function i40e_debug_aq() prints information helpful in debugging
+admin queue commands, but it doesn't do so correctly on big endian machines.
+This patch adds the appropriate LExx_TO_CPU wrappers for big endian
+architectures.
 
-Catherine adds a requested speed variable to the link_status to store the
-last speeds we requested from the firmware and use the advertised speed
-settings in get_settings in ethtool now that we have it.  Due to the
-new code addition, she also refactors get_settings to improve readability
-and to accommodate some of the longer lines of code by adding two
-functions i40e_get_settings_link_up() and i40e_get_settings_link_down().
+Also update the copyright year.
 
-Carolyn adds a struct to the VSI struct to keep track of RXNFC settings
-done via ethtool.  Adds more information to the interrupt vector
-names, specifically to the VF misc vector name so that we can distinguish
-between all the interrupts.
+Change-ID: I4b2dc229ed5bf6dfe35632a58cddf53c21aff4b0
+Signed-off-by: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c   | 31 +++++++++++++++----------
+ drivers/net/ethernet/intel/i40evf/i40e_common.c | 29 ++++++++++++++---------
+ 2 files changed, 37 insertions(+), 23 deletions(-)
 
-Ashish enables the i40evf driver to enable debug prints via ethtool.
-
-Mitch updates i40e to enable packet split only when IOMMU is in use,
-since it shows a distinct advantage over the single-buffer path
-because it minimizes DMA mapping and unmapping.  Also adds the receive
-routine in use to the features log message to be able to print the
-receive packet split status.
-
-Greg adds the ability to get, set and commit permanently the NPAR
-partition BW configuration through configfs.  Enables an application
-to query the i40e driver's private flags to get the status of NPAR
-enablement via ethtool.
-
-Neerav adds support for bridge offload ndo_ops getlink and setlink
-to enable bridge hardware mode as per the mode set via IFLA_BRIDGE_MODE.
-The support is only enabled in the case of a PF VSI and not available for
-any other VSI type.
-
-Kevin fixes i40e by ensuring the BUF and FLAG_RD flags are set for
-indirect admin queue command.
-
-Vasu updates the driver to setup FCoE netdev device type as "fcoe", so that
-it shows up in sysfs as FCoE device.
-
-The following are changes since commit 92bf200881d978bc3c6a290991ae1f9ddc7b5411:
-  net: via-rhine: add BQL support
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Ashish Shah (1):
-  i40evf: allow enabling of debug prints via ethtool
-
-Carolyn Wyborny (2):
-  i40e: Add method to keep track of current rxnfc settings
-  i40evf: Add more info to interrupt vector names
-
-Catherine Sullivan (1):
-  i40e/i40evf: Use advertised speed settings in ethtool and refactor
-    get_settings
-
-Greg Rose (3):
-  i40e: Add NPAR BW get and set functions
-  i40e: Implement configfs for NPAR BW configuration
-  i40e: Use ethtool private flags to display NPAR status
-
-Kevin Scott (2):
-  i40e: Set BUF flag for Set Version AQ command
-  i40e: Set FLAG_RD when sending buffer FW must read
-
-Mitch Williams (2):
-  i40e: enable packet split only when IOMMU present
-  i40e: print Rx packet split status
-
-Neerav Parikh (1):
-  i40e: Add support for getlink, setlink ndo ops
-
-Paul M Stillwell Jr (1):
-  i40e/i40evf: Fix output of i40e_debug_aq() for big endian machines
-
-Sravanthi Tangeda (1):
-  i40e/i40evf: Update driver versions
-
-Vasu Dev (1):
-  i40e: setup FCoE device type
-
- drivers/net/ethernet/intel/i40e/Makefile           |   3 +-
- drivers/net/ethernet/intel/i40e/i40e.h             |  24 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 150 ++++++++-
- drivers/net/ethernet/intel/i40e/i40e_configfs.c    | 354 ++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 330 ++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |  18 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 358 +++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  16 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   3 +-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  29 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |   6 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   7 +-
- 16 files changed, 1130 insertions(+), 189 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_configfs.c
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 8dbf7dd..6d630a0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2015 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -94,16 +94,19 @@ void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 
+ 	i40e_debug(hw, mask,
+ 		   "AQ CMD: opcode 0x%04X, flags 0x%04X, datalen 0x%04X, retval 0x%04X\n",
+-		   aq_desc->opcode, aq_desc->flags, aq_desc->datalen,
+-		   aq_desc->retval);
++		   le16_to_cpu(aq_desc->opcode),
++		   le16_to_cpu(aq_desc->flags),
++		   le16_to_cpu(aq_desc->datalen),
++		   le16_to_cpu(aq_desc->retval));
+ 	i40e_debug(hw, mask, "\tcookie (h,l) 0x%08X 0x%08X\n",
+-		   aq_desc->cookie_high, aq_desc->cookie_low);
++		   le32_to_cpu(aq_desc->cookie_high),
++		   le32_to_cpu(aq_desc->cookie_low));
+ 	i40e_debug(hw, mask, "\tparam (0,1)  0x%08X 0x%08X\n",
+-		   aq_desc->params.internal.param0,
+-		   aq_desc->params.internal.param1);
++		   le32_to_cpu(aq_desc->params.internal.param0),
++		   le32_to_cpu(aq_desc->params.internal.param1));
+ 	i40e_debug(hw, mask, "\taddr (h,l)   0x%08X 0x%08X\n",
+-		   aq_desc->params.external.addr_high,
+-		   aq_desc->params.external.addr_low);
++		   le32_to_cpu(aq_desc->params.external.addr_high),
++		   le32_to_cpu(aq_desc->params.external.addr_low));
+ 
+ 	if ((buffer != NULL) && (aq_desc->datalen != 0)) {
+ 		memset(data, 0, sizeof(data));
+@@ -116,15 +119,19 @@ void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 			if ((i % 16) == 15) {
+ 				i40e_debug(hw, mask,
+ 					   "\t0x%04X  %08X %08X %08X %08X\n",
+-					   i - 15, data[0], data[1], data[2],
+-					   data[3]);
++					   i - 15, le32_to_cpu(data[0]),
++					   le32_to_cpu(data[1]),
++					   le32_to_cpu(data[2]),
++					   le32_to_cpu(data[3]));
+ 				memset(data, 0, sizeof(data));
+ 			}
+ 		}
+ 		if ((i % 16) != 0)
+ 			i40e_debug(hw, mask, "\t0x%04X  %08X %08X %08X %08X\n",
+-				   i - (i % 16), data[0], data[1], data[2],
+-				   data[3]);
++				   i - (i % 16), le32_to_cpu(data[0]),
++				   le32_to_cpu(data[1]),
++				   le32_to_cpu(data[2]),
++				   le32_to_cpu(data[3]));
+ 	}
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 28c40c5..50b0ee5 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -94,16 +94,19 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 
+ 	i40e_debug(hw, mask,
+ 		   "AQ CMD: opcode 0x%04X, flags 0x%04X, datalen 0x%04X, retval 0x%04X\n",
+-		   aq_desc->opcode, aq_desc->flags, aq_desc->datalen,
+-		   aq_desc->retval);
++		   le16_to_cpu(aq_desc->opcode),
++		   le16_to_cpu(aq_desc->flags),
++		   le16_to_cpu(aq_desc->datalen),
++		   le16_to_cpu(aq_desc->retval));
+ 	i40e_debug(hw, mask, "\tcookie (h,l) 0x%08X 0x%08X\n",
+-		   aq_desc->cookie_high, aq_desc->cookie_low);
++		   le32_to_cpu(aq_desc->cookie_high),
++		   le32_to_cpu(aq_desc->cookie_low));
+ 	i40e_debug(hw, mask, "\tparam (0,1)  0x%08X 0x%08X\n",
+-		   aq_desc->params.internal.param0,
+-		   aq_desc->params.internal.param1);
++		   le32_to_cpu(aq_desc->params.internal.param0),
++		   le32_to_cpu(aq_desc->params.internal.param1));
+ 	i40e_debug(hw, mask, "\taddr (h,l)   0x%08X 0x%08X\n",
+-		   aq_desc->params.external.addr_high,
+-		   aq_desc->params.external.addr_low);
++		   le32_to_cpu(aq_desc->params.external.addr_high),
++		   le32_to_cpu(aq_desc->params.external.addr_low));
+ 
+ 	if ((buffer != NULL) && (aq_desc->datalen != 0)) {
+ 		memset(data, 0, sizeof(data));
+@@ -116,15 +119,19 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+ 			if ((i % 16) == 15) {
+ 				i40e_debug(hw, mask,
+ 					   "\t0x%04X  %08X %08X %08X %08X\n",
+-					   i - 15, data[0], data[1], data[2],
+-					   data[3]);
++					   i - 15, le32_to_cpu(data[0]),
++					   le32_to_cpu(data[1]),
++					   le32_to_cpu(data[2]),
++					   le32_to_cpu(data[3]));
+ 				memset(data, 0, sizeof(data));
+ 			}
+ 		}
+ 		if ((i % 16) != 0)
+ 			i40e_debug(hw, mask, "\t0x%04X  %08X %08X %08X %08X\n",
+-				   i - (i % 16), data[0], data[1], data[2],
+-				   data[3]);
++				   i - (i % 16), le32_to_cpu(data[0]),
++				   le32_to_cpu(data[1]),
++				   le32_to_cpu(data[2]),
++				   le32_to_cpu(data[3]));
+ 	}
+ }
+ 
 -- 
 1.9.3
