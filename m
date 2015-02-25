@@ -1,53 +1,62 @@
-From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
-Subject: Re: [PATCH] proc: proc_create() should return true if CONFIG_PROC_FS
- is not configured
-Date: Wed, 25 Feb 2015 16:22:37 -0500
-Message-ID: <CAPFHKzccoJoM9ZENAT4+zVgbw1xejHEFDrvgz57=Hidk38T+Qg@mail.gmail.com>
-References: <1424841259-8470-1-git-send-email-zhangzl2013@126.com>
- <CAPFHKzcLsL9Sb_ma4_XCm4a0kX_iNcCdFVXf346wtnmOPqWcEg@mail.gmail.com> <15346.1424863160@warthog.procyon.org.uk>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: fixup comments jumbled by i219 support
+Date: Wed, 25 Feb 2015 13:23:43 -0800
+Message-ID: <1424899423.2622.1.camel@jtkirshe-mobl>
+References: <1424891471-2833-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Zhang Zhaolong <zhangzl2013@126.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	viro@zeniv.linux.org.uk
-To: David Howells <dhowells@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-NYA/nCyh3hAjfx4/ZMQd"
+Cc: netdev@vger.kernel.org, David Ertman <david.m.ertman@intel.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:46676 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752752AbbBYVXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 16:23:08 -0500
-Received: by wevm14 with SMTP id m14so6225881wev.13
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 13:23:07 -0800 (PST)
-In-Reply-To: <15346.1424863160@warthog.procyon.org.uk>
+Received: from mga14.intel.com ([192.55.52.115]:6725 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752984AbbBYVXo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 16:23:44 -0500
+In-Reply-To: <1424891471-2833-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 6:19 AM, David Howells <dhowells@redhat.com> wrote:
->> Does that even compile? proc_create() and proc_create_data() both return
->> "struct proc_dir_entry *". It doesn't make sense for those macros to "return"
->> anything but NULL - certainly not 1.
->>
->> Besides, why shouldn't "if (!proc_create())" behave like proc_create()
->> failed when
->> CONFIG_PROC_FS is not enabled?  You wouldn't want the caller to start trying
->> to use that ((struct proc_dir_entry *)1) would you?
->
-> It's sort of arguable.  If the proc interface is merely informational and
-> doesn't impact the function of a module to not be present, then, yes, having
-> proc_create() return some "true" value might make sense.  It's possible to
-> arrange things so that all the proc-related functions and data get compiled
-> out in such a situation by not being referenced by anything.
->
-> However, if the proc interface isn't merely functional, then the proc_create()
-> failure *is* cause for module loading failure.  But in that case, there should
-> be a Kconfig dependency on procfs and you should never use the dummy
-> functions.
 
-Of the 528 calls to proc_create(_data), only 70 are in an "if (!proc_create())"
-style conditional. Another 188 assign the result to something, presumably a
-"struct proc_dir_entry *, which are going to fail compilation with this patch.
+--=-NYA/nCyh3hAjfx4/ZMQd
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Is breaking the build when the result of these dummy functions are assigned
-to something what you're after? If that's the case, then why not remove them
-altogether?
+On Wed, 2015-02-25 at 14:11 -0500, John W. Linville wrote:
+> Commit 79849ebc0e06 (e1000e: initial support for i219) jumbled some
+> comments in e1000_init_nvm_params_ich8lan.  This patch rearranges
+> them in a way that I think makes more sense.
+>=20
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: David Ertman <david.m.ertman@intel.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/ich8lan.c | 9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+
+Thanks John I have added your patch to my queue.
+
+--=-NYA/nCyh3hAjfx4/ZMQd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU7j1fAAoJEOVv75VaS+3OTf4P/1FxC/6UkC3txnvI9ZcEkD5A
+74hkibcDdBNcv3s4VjNsY3c+vdhz4zdMMGVF20kzsVzB9+3H0ZG2GZy2p9+euoLi
+X2m/8h7NtjZldJlRaaaJtocJfWMXfq/Qdnkx4sd8wdlqOA43h1bUNoBsSjNZC0y3
+Zw+NkuLVZls2XO9B0SbJPGfZOpv3FmP/9Zy/KX3zAYTEe6DJPmgK08JXUK4vczqc
+8d/NA2kbvACCJq8H0UPqvl98nJc0z8vHVsTrOnACEzdDy/fFCvMnWni4O22CdMy1
+9lwam0cRagbGtTE97tmq6hD6NxVQDAYJ64q990nvFpO17mw6zrePtwTGLheU2Zhj
+sCAxoe1Nhd2c/f7Ek7kJUr3RHXWezaxhrtB9mpdPk+KOky1sTSrNegx/JgHBB2q4
+bR342jJTtwNeoH9eLAfsy3sFzanvw6HwY1uWx0ZloXashHGqa9f2PgFlm/jV8N7H
+hk2vJ6Bm1CtbkFGaX5ZHHmungiLlRPeF0k4Rix8A8L1Q6cpvDbnRBfORkoMlJU8D
+KHVH+Go3SeHFv8oCNlRiuEXpz/VU2v35Y1nMuihC8U6bfOQo3vK5fl0cROu9VfDB
+g3KVqye1utKDUOW0tBEF6bYV8D63GIH3gKgZr47t6P4eNqF4hhF1VrMWSlEM9kxu
+hctXhKKaLVC2YSfzLl/m
+=a8eQ
+-----END PGP SIGNATURE-----
+
+--=-NYA/nCyh3hAjfx4/ZMQd--
