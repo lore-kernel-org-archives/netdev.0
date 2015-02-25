@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 6/8] mpls: Netlink commands to add, remove, and dump routes
-Date: Wed, 25 Feb 2015 11:17:16 -0600
-Message-ID: <87r3tdvrkz.fsf@x220.int.ebiederm.org>
+Subject: [PATCH net-next 8/8] ipmpls: Basic device for injecting packets into an mpls tunnel
+Date: Wed, 25 Feb 2015 11:18:37 -0600
+Message-ID: <87lhjlvriq.fsf@x220.int.ebiederm.org>
 References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,293 +10,309 @@ Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
 	santiago@crfreenet.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:55912 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752929AbbBYRV1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:21:27 -0500
+Received: from out02.mta.xmission.com ([166.70.13.232]:51204 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbbBYRWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:22:06 -0500
 In-Reply-To: <87pp8xx6ik.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Wed, 25 Feb 2015 11:09:23 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This change adds two new netlink routing attributes:
-RTA_LLGATEWAY and RTA_NEWDST.
+Allow creating an mpls tunnel endpoint with
 
-RTA_LLGATEWAY specifies the destination gateway by it's address in the
-underlying address family instead of in MPLS as RTA_GATEWAY would
-require.  That is RTA_LLGATEWAY allows specifying the next hop by the
-next hops' mac address.
+ip link add type ipmpls.
 
-There are places where MPLS is used where the next hop address can not
-be specified as an IPv4 or an IPv6 address and this allows me to avoid
-figuring out how to teach the neighbour table to deal with next hops
-in a different address family.  I expect at some point someone will
-add suppport for next hop addresesses as IPv4 and IPv6 addresses as
-that allows replacing the next hop machine without having to
-reconfigure the rest of the network.
+This tunnel has an mpls label for it's link layer address, and by
+default sends all ingress packets over loopback to the local MPLS
+forwarding logic which performs all of the work.
 
-RTA_NEWDST specifies the destination address to forward the packet
-with.  MPLS typically changes it's destination address at every hop.
-For a swap operation RTA_NEWDST is specified with a length of one label.
-For a push operation RTA_NEWDST is specified with two or more labels.
-For a pop operation RTA_NEWDST is not specified or equivalently an emtpy
-RTAN_NEWDST is specified.
+Ingress IPv4, IPv6 and MPLS packets are supported.
 
-Those new netlink attributes are used to implement handling of rt-netlink
-RTM_NEWROUTE, RTM_DELROUTE, and RTM_GETROUTE messages, to maintain the
-MPLS label table.
+A new arp type ARPHRD_MPLS is defined for network devices that
+whose link-layer addresses is an mpls label stack.
 
-rtm_to_route_config parses a netlink RTM_NEWROUTE or RTM_DELROUTE message,
-verify no unhandled attributes or unhandled values are present and sets
-up the data structures for mpls_route_add and mpls_route_del.
+This is the most bare bones version of this tunnel device I can think
+of.  Not even packet counters have been implemented. Offloads
+and features in general are not supported, just to keep it simple and
+obviously correct to start with.  In principle it should be able to
+allow binding to a physical network device and pass all of the
+offloads through ipmpls like the vlan, macvlan, or even ipvlan does.
+Allowing a very fast light weight connection to the network.
 
-I did my best to match up with the existing conventions with the caveats
-that MPLS addresses are all destination-specific-addresses, and so
-don't properly have a scope.
+The technical tricky bit to residing over something besides
+the loopback device is how to get the next-hop mac address.
+Neighbour table integration?  Something else?
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/uapi/linux/rtnetlink.h |   2 +
- net/mpls/af_mpls.c             | 192 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 194 insertions(+)
+ include/uapi/linux/if_arp.h |   1 +
+ net/mpls/Kconfig            |   5 +
+ net/mpls/Makefile           |   1 +
+ net/mpls/ipmpls.c           | 219 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 226 insertions(+)
+ create mode 100644 net/mpls/ipmpls.c
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 5cc5d66bf519..da9889a4dec0 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -303,6 +303,8 @@ enum rtattr_type_t {
- 	RTA_TABLE,
- 	RTA_MARK,
- 	RTA_MFC_STATS,
-+	RTA_LLGATEWAY,
-+	RTA_NEWDST,
- 	__RTA_MAX
- };
+diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
+index 4d024d75d64b..17d669fd1781 100644
+--- a/include/uapi/linux/if_arp.h
++++ b/include/uapi/linux/if_arp.h
+@@ -88,6 +88,7 @@
+ #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
+ #define ARPHRD_IEEE802154	  804
+ #define ARPHRD_IEEE802154_MONITOR 805	/* IEEE 802.15.4 network monitor */
++#define ARPHRD_MPLS	806		/* IP and IPv6 over MPLS tunnels */
  
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 75f24609f297..5cf9aa68c32f 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -206,6 +206,11 @@ static struct packet_type mpls_packet_type __read_mostly = {
- 	.func = mpls_forward,
- };
+ #define ARPHRD_PHONET	820		/* PhoNet media type		*/
+ #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
+diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+index f4286ee7e2b0..4a6106dabfa8 100644
+--- a/net/mpls/Kconfig
++++ b/net/mpls/Kconfig
+@@ -27,4 +27,9 @@ config MPLS_ROUTING
+ 	help
+ 	 Add support for forwarding of mpls packets.
  
-+const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
-+	[RTA_DST]		= { .type = NLA_U32 },
-+	[RTA_OIF]		= { .type = NLA_U32 },
++config MPLS_IPTUNNEL
++	bool "MPLS: IP over MPLS tunnel support"
++	help
++	 A network device that allows sending ip packets into an mpls tunnel
++
+ endif # MPLS
+diff --git a/net/mpls/Makefile b/net/mpls/Makefile
+index 60af15f1960e..4b578c80b9c5 100644
+--- a/net/mpls/Makefile
++++ b/net/mpls/Makefile
+@@ -3,3 +3,4 @@
+ #
+ obj-$(CONFIG_NET_MPLS_GSO) += mpls_gso.o
+ obj-$(CONFIG_MPLS_ROUTING) += af_mpls.o
++obj-$(CONFIG_MPLS_IPTUNNEL) += ipmpls.o
+diff --git a/net/mpls/ipmpls.c b/net/mpls/ipmpls.c
+new file mode 100644
+index 000000000000..96938748654f
+--- /dev/null
++++ b/net/mpls/ipmpls.c
+@@ -0,0 +1,219 @@
++#include <linux/types.h>
++#include <linux/netdevice.h>
++#include <linux/if_vlan.h>
++#include <linux/if_arp.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/module.h>
++#include <linux/mpls.h>
++#include "internal.h"
++
++static LIST_HEAD(ipmpls_dev_list);
++
++struct ipmpls_dev_priv {
++	unsigned label;
++	struct net_device *out_dev;
++	struct list_head list;
++	struct net_device *dev;
 +};
 +
- struct mpls_route_config {
- 	u32		rc_protocol;
- 	u32		rc_ifindex;
-@@ -455,6 +460,189 @@ int nla_get_labels(const struct nlattr *nla,
- 	return 0;
- }
- 
-+static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
-+			       struct mpls_route_config *cfg)
++static netdev_tx_t ipmpls_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
-+	struct rtmsg *rtm;
-+	struct nlattr *tb[RTA_MAX+1];
-+	int index;
-+	int err;
++	struct ipmpls_dev_priv *priv = netdev_priv(dev);
++	struct net_device *out_dev = priv->out_dev;
++	struct mpls_shim_hdr *hdr;
++	bool bottom_of_stack = true;
++	unsigned ttl;
++	int ret;
 +
-+	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_mpls_policy);
-+	if (err < 0)
-+		goto errout;
++	/* Obtain the ttl */
++	if (skb->protocol == htons(ETH_P_IP)) {
++		ttl = ip_hdr(skb)->ttl;
++	} else if (skb->protocol == htons(ETH_P_IPV6)) {
++		ttl = ipv6_hdr(skb)->hop_limit;
++	} else if (skb->protocol == htons(ETH_P_MPLS_UC)) {
++		ttl = mpls_entry_decode(mpls_hdr(skb)).ttl;
++		bottom_of_stack = false;
++	} else
++		goto drop;
 +
-+	err = -EINVAL;
-+	rtm = nlmsg_data(nlh);
-+	memset(cfg, 0, sizeof(*cfg));
++	skb_orphan(skb);
 +
-+	if (rtm->rtm_family != AF_MPLS)
-+		goto errout;
-+	if (rtm->rtm_dst_len != 20)
-+		goto errout;
-+	if (rtm->rtm_src_len != 0)
-+		goto errout;
-+	if (rtm->rtm_tos != 0)
-+		goto errout;
-+	if (rtm->rtm_table != RT_TABLE_MAIN)
-+		goto errout;
-+	/* Any value is acceptable for rtm_protocol */
++	skb->inner_protocol = skb->protocol;
++	skb->inner_network_header = skb->network_header;
 +
-+	/* As mpls uses destination specific addresses
-+	 * (or source specific address in the case of multicast)
-+	 * all addresses have universal scope.
-+	 */
-+	if (rtm->rtm_scope != RT_SCOPE_UNIVERSE)
-+		goto errout;
-+	if (rtm->rtm_type != RTN_UNICAST)
-+		goto errout;
-+	if (rtm->rtm_flags != 0)
-+		goto errout;
++	skb_push(skb, sizeof(*hdr));
++	skb_reset_network_header(skb);
++	hdr = mpls_hdr(skb);
++	*hdr = mpls_entry_encode(priv->label, ttl, 0, bottom_of_stack);
 +
-+	cfg->rc_label		= LABEL_NOT_SPECIFIED;
-+	cfg->rc_protocol	= rtm->rtm_protocol;
-+	cfg->rc_nlflags		= nlh->nlmsg_flags;
-+	cfg->rc_nlinfo.portid	= NETLINK_CB(skb).portid;
-+	cfg->rc_nlinfo.nlh	= nlh;
-+	cfg->rc_nlinfo.nl_net	= sock_net(skb->sk);
++	skb->dev = out_dev;
++	skb->protocol = htons(ETH_P_MPLS_UC);
 +
-+	for (index = 0; index <= RTA_MAX; index++) {
-+		struct nlattr *nla = tb[index];
-+		if (!nla)
-+			continue;
++	ret = dev_hard_header(skb, out_dev, ETH_P_MPLS_UC,
++			      out_dev->dev_addr, NULL, skb->len);
++	if (ret >= 0)
++		ret = dev_queue_xmit(skb);
++	if (ret)
++		goto drop;
 +
-+		switch(index) {
-+		case RTA_OIF:
-+			cfg->rc_ifindex = nla_get_u32(nla);
-+			break;
-+		case RTA_NEWDST:
-+			if (nla_get_labels(nla, MAX_NEW_LABELS,
-+					   &cfg->rc_output_labels,
-+					   cfg->rc_output_label))
-+				goto errout;
-+			break;
-+		case RTA_DST:
-+		{
-+			u32 label_count;
-+			if (nla_get_labels(nla, 1, &label_count,
-+					   &cfg->rc_label))
-+				goto errout;
-+
-+			/* The first 16 labels are reserved, and may not be set */
-+			if (cfg->rc_label < 16)
-+				goto errout;
-+
-+			break;
-+		}
-+		case RTA_LLGATEWAY:
-+			cfg->rc_ha_len = nla_len(nla);
-+			if (cfg->rc_ha_len > MAX_HA_LEN)
-+				goto errout;
-+
-+			memcpy(cfg->rc_ha, nla_data(nla), cfg->rc_ha_len);
-+			break;
-+		default:
-+			/* Unsupported attribute */
-+			goto errout;
-+		}
-+	}
-+
-+	err = 0;
-+errout:
-+	return err;
-+}
-+
-+static int mpls_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
-+{
-+	struct mpls_route_config cfg;
-+	int err;
-+
-+	err = rtm_to_route_config(skb, nlh, &cfg);
-+	if (err < 0)
-+		return err;
-+
-+	return mpls_route_del(&cfg);
-+}
-+
-+
-+static int mpls_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
-+{
-+	struct mpls_route_config cfg;
-+	int err;
-+
-+	err = rtm_to_route_config(skb, nlh, &cfg);
-+	if (err < 0)
-+		return err;
-+
-+	return mpls_route_add(&cfg);
-+}
-+
-+static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
-+			   u32 label, struct mpls_route *rt, int flags)
-+{
-+	struct nlmsghdr *nlh;
-+	struct rtmsg *rtm;
-+
-+	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*rtm), flags);
-+	if (nlh == NULL)
-+		return -EMSGSIZE;
-+
-+	rtm = nlmsg_data(nlh);
-+	rtm->rtm_family = AF_MPLS;
-+	rtm->rtm_dst_len = 20;
-+	rtm->rtm_src_len = 0;
-+	rtm->rtm_tos = 0;
-+	rtm->rtm_table = RT_TABLE_MAIN;
-+	rtm->rtm_protocol = rt->rt_protocol;
-+	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-+	rtm->rtm_type = RTN_UNICAST;
-+	rtm->rtm_flags = 0;
-+
-+	if (rt->rt_labels &&
-+	    nla_put_labels(skb, RTA_NEWDST, rt->rt_labels, rt->rt_label))
-+		goto nla_put_failure;
-+	if (nla_put(skb, RTA_LLGATEWAY, rt->rt_dev->addr_len, rt->rt_ha))
-+		goto nla_put_failure;
-+	if (nla_put_u32(skb, RTA_OIF, rt->rt_dev->ifindex))
-+		goto nla_put_failure;
-+	if (nla_put_labels(skb, RTA_DST, 1, &label))
-+		goto nla_put_failure;
-+
-+	nlmsg_end(skb, nlh);
 +	return 0;
 +
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
++drop:
++	/* TODO keep packet counters */
++	kfree_skb(skb);
++	return NETDEV_TX_OK;
 +}
 +
-+static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
++static int ipmpls_dev_init(struct net_device *dev)
 +{
-+	struct net *net = sock_net(skb->sk);
-+	unsigned int index;
++	struct ipmpls_dev_priv *priv = netdev_priv(dev);
 +
-+	ASSERT_RTNL();
++	list_add_tail(&priv->list, &ipmpls_dev_list);
 +
-+	index = cb->args[0];
-+	if (index < 16)
-+		index = 16;
-+
-+	for (; index < net->mpls.platform_labels; index++) {
-+		struct mpls_route *rt;
-+		rt = net->mpls.platform_label[index];
-+		if (!rt)
-+			continue;
-+
-+		if (mpls_dump_route(skb, NETLINK_CB(cb->skb).portid,
-+				    cb->nlh->nlmsg_seq, RTM_NEWROUTE,
-+				    index, rt, NLM_F_MULTI) < 0)
-+			break;
-+	}
-+	cb->args[0] = index;
-+
-+	return skb->len;
++	return 0;
 +}
 +
- static int resize_platform_label_table(struct net *net, size_t limit)
- {
- 	size_t size = sizeof(struct mpls_route *) * limit;
-@@ -644,6 +832,9 @@ static int __init mpls_init(void)
- 
- 	dev_add_pack(&mpls_packet_type);
- 
-+	rtnl_register(PF_MPLS, RTM_NEWROUTE, mpls_rtm_newroute, NULL, NULL);
-+	rtnl_register(PF_MPLS, RTM_DELROUTE, mpls_rtm_delroute, NULL, NULL);
-+	rtnl_register(PF_MPLS, RTM_GETROUTE, NULL, mpls_dump_routes, NULL);
- 	err = 0;
- out:
- 	return err;
-@@ -656,6 +847,7 @@ module_init(mpls_init);
- 
- static void __exit mpls_exit(void)
- {
-+	rtnl_unregister_all(PF_MPLS);
- 	dev_remove_pack(&mpls_packet_type);
- 	unregister_netdevice_notifier(&mpls_dev_notifier);
- 	unregister_pernet_subsys(&mpls_net_ops);
++
++static void ipmpls_dev_uninit(struct net_device *dev)
++{
++	struct ipmpls_dev_priv *priv = netdev_priv(dev);
++	list_del_init(&priv->list);
++}
++
++static void ipmpls_dev_free(struct net_device *dev)
++{
++	free_netdev(dev);
++}
++
++static const struct net_device_ops ipmpls_netdev_ops = {
++	.ndo_init		= ipmpls_dev_init,
++	.ndo_start_xmit		= ipmpls_dev_xmit,
++	.ndo_uninit		= ipmpls_dev_uninit,
++};
++
++#define IPMPLS_FEATURES (NETIF_F_SG | 			\
++			 NETIF_F_FRAGLIST |		\
++			 NETIF_F_HIGHDMA |		\
++			 NETIF_F_VLAN_CHALLENGED)
++
++static void ipmpls_dev_setup(struct net_device *dev)
++{
++	dev->netdev_ops		= &ipmpls_netdev_ops;
++
++	dev->type		= ARPHRD_MPLS;
++	dev->flags = IFF_NOARP;
++	dev->flags &= ~IFF_MULTICAST;
++	dev->iflink		= 0;
++	dev->addr_len		= 4;
++	dev->features		|= NETIF_F_LLTX;
++	dev->features		|= IPMPLS_FEATURES;
++	dev->hw_features	|= IPMPLS_FEATURES;
++	dev->vlan_features	= 0;
++
++	dev->destructor = ipmpls_dev_free;
++}
++
++static int ipmpls_dev_validate(struct nlattr *tb[], struct nlattr *data[])
++{
++	unsigned label;
++	if (!tb[IFLA_ADDRESS])
++		return -EADDRNOTAVAIL;
++	if (nla_len(tb[IFLA_ADDRESS]) != 4)
++		return -EINVAL;
++
++	label = be32_to_cpu(nla_get_be32(tb[IFLA_ADDRESS]));
++	if (label >= (1 << 20))
++		return -EADDRNOTAVAIL;
++
++	return 0;
++}
++
++static int ipmpls_dev_newlink(struct net *src_net, struct net_device *dev,
++			struct nlattr *tb[], struct nlattr *data[])
++{
++	struct ipmpls_dev_priv *priv = netdev_priv(dev);
++	u32 labels;
++
++	if (nla_get_labels(tb[IFLA_ADDRESS], 1, &labels, &priv->label))
++		return -EINVAL;
++
++	priv->out_dev = src_net->loopback_dev;
++	priv->dev = dev;
++
++	dev->hard_header_len =
++		priv->out_dev->hard_header_len + sizeof(struct mpls_shim_hdr);
++
++	return register_netdevice(dev);
++}
++
++static void ipmpls_dev_dellink(struct net_device *dev, struct list_head *head)
++{
++	unregister_netdevice_queue(dev, head);
++}
++
++static struct rtnl_link_ops ipmpls_ops = {
++	.kind		= "ipmpls",
++	.priv_size	= sizeof(struct ipmpls_dev_priv),
++	.setup		= ipmpls_dev_setup,
++	.validate	= ipmpls_dev_validate,
++	.newlink	= ipmpls_dev_newlink,
++	.dellink	= ipmpls_dev_dellink,
++};
++
++static int ipmpls_dev_notify(struct notifier_block *this, unsigned long event,
++			     void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	if (event == NETDEV_UNREGISTER) {
++		struct ipmpls_dev_priv *priv, *priv2;
++		LIST_HEAD(list_kill);
++
++		/* Ignore netns device moves */
++		if (dev->reg_state != NETREG_UNREGISTERING)
++			goto done;
++
++		list_for_each_entry_safe(priv, priv2, &ipmpls_dev_list, list) {
++			if (priv->out_dev != dev)
++				continue;
++
++			ipmpls_dev_dellink(priv->dev, &list_kill);
++		}
++		unregister_netdevice_many(&list_kill);
++	}
++done:
++	return NOTIFY_OK;
++}
++
++static struct notifier_block ipmpls_dev_notifier = {
++	.notifier_call = ipmpls_dev_notify,
++};
++
++static int __init ipmpls_init(void)
++{
++	int err;
++
++	err = register_netdevice_notifier(&ipmpls_dev_notifier);
++	if (err)
++		goto out;
++
++	err = rtnl_link_register(&ipmpls_ops);
++	if (err)
++		goto out_unregister_notifier;
++out:
++	return err;
++out_unregister_notifier:
++	unregister_netdevice_notifier(&ipmpls_dev_notifier);
++	goto out;
++}
++module_init(ipmpls_init);
++
++static void __exit ipmpls_exit(void)
++{
++	rtnl_link_unregister(&ipmpls_ops);
++	unregister_netdevice_notifier(&ipmpls_dev_notifier);
++}
++module_exit(ipmpls_exit);
++
++MODULE_ALIAS_RTNL_LINK("ipmpls");
 -- 
 2.2.1
