@@ -1,62 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 net] e1000: add dummy allocator to fix race condition
- between mtu change and netpoll
-Date: Wed, 25 Feb 2015 03:17:43 -0800
-Message-ID: <1424863063.2553.52.camel@jtkirshe-mobl>
-References: <1424862194-15770-1-git-send-email-sd@queasysnail.net>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] proc: proc_create() should return true if CONFIG_PROC_FS is not configured
+Date: Wed, 25 Feb 2015 11:19:20 +0000
+Message-ID: <15346.1424863160@warthog.procyon.org.uk>
+References: <CAPFHKzcLsL9Sb_ma4_XCm4a0kX_iNcCdFVXf346wtnmOPqWcEg@mail.gmail.com> <1424841259-8470-1-git-send-email-zhangzl2013@126.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-TyAhgow3z4BJ+rcy9xG1"
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: dhowells@redhat.com, Zhang Zhaolong <zhangzl2013@126.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	viro@zeniv.linux.org.uk
+To: Jonathon Reinhart <jonathon.reinhart@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:26760 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49400 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbbBYLRy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 06:17:54 -0500
-In-Reply-To: <1424862194-15770-1-git-send-email-sd@queasysnail.net>
+	id S1753371AbbBYLTd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 06:19:33 -0500
+In-Reply-To: <CAPFHKzcLsL9Sb_ma4_XCm4a0kX_iNcCdFVXf346wtnmOPqWcEg@mail.gmail.com>
+Content-ID: <15345.1424863160.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jonathon Reinhart <jonathon.reinhart@gmail.com> wrote:
 
---=-TyAhgow3z4BJ+rcy9xG1
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Does that even compile? proc_create() and proc_create_data() both return
+> "struct proc_dir_entry *". It doesn't make sense for those macros to "return"
+> anything but NULL - certainly not 1.
+> 
+> Besides, why shouldn't "if (!proc_create())" behave like proc_create()
+> failed when
+> CONFIG_PROC_FS is not enabled?  You wouldn't want the caller to start trying
+> to use that ((struct proc_dir_entry *)1) would you?
 
-On Wed, 2015-02-25 at 12:03 +0100, Sabrina Dubroca wrote:
-> @@ -4481,6 +4489,7 @@ next_desc:
->         return cleaned;
->  }
-> =20
-> +
->  /**
->   * e1000_alloc_jumbo_rx_buffers - Replace used jumbo receive buffers
->   * @adapter: address of board private structure
+It's sort of arguable.  If the proc interface is merely informational and
+doesn't impact the function of a module to not be present, then, yes, having
+proc_create() return some "true" value might make sense.  It's possible to
+arrange things so that all the proc-related functions and data get compiled
+out in such a situation by not being referenced by anything.
 
-This added blank line is not needed or wanted.
+However, if the proc interface isn't merely functional, then the proc_create()
+failure *is* cause for module loading failure.  But in that case, there should
+be a Kconfig dependency on procfs and you should never use the dummy
+functions.
 
---=-TyAhgow3z4BJ+rcy9xG1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU7a9XAAoJEOVv75VaS+3O85EP/0vhSE+bnajUYwOzOjp47KO8
-L3D2kKjwtFXmos82EbXALYY+QVErCMgZE/dARoI2EOmihc7a2qlZwFTjs6FEH1gb
-5R9NqDP9ey+bWejNUhM3TnrPxOrKccySW8pBc3gntMxPkG7xbJSgaNT2336jmxEG
-XhUT+OGijaWqgBQWBddJ0h4j6baLvYzsmAfsD8ZrwBd5F9de9iYvBRs818ajC3qm
-1i3Ab6K8l0pmVB4l+fcyR3stYT5c7pGYkjOQ5JsM5kl/dOBmouTLAofwmUe6NV7/
-cMdLnrXr2dOJJO99ExR2FlL4BgtaoLlC5QUbgs6kWZIcBiVRGveRUAVlVH0QVC9+
-569Evd3CQ8nEj12qEZpx2gp1GHKesHR7RLv1Pay2arT3Rv/imbFeUzinOC7vNPom
-J9CAd+Y6YGuewCt97sWC/Lo23J907nYwE5/R9HJMutqov0xIha6Be39f+7tSmSiO
-8fuiMxSENMN/PkQHPw3Ac+u8gOLRvnOWgsnHKX5NpgI/WvC5722jlmZRChGbDf2V
-Kx0D0NA/UNyNk1ttAwVThzksF40fDqUo7PwBdsrG9BlxN8+rmhhEDCOfGNuKkVzN
-0YjHanC+2Q5iD3P/mfs8Ju4/Abzzi7bzSPYGpBJuQG2oZXOFO/KvVt5Tp8ShPVQG
-ajYzbDcBInVYAgCRke7y
-=YJHY
------END PGP SIGNATURE-----
-
---=-TyAhgow3z4BJ+rcy9xG1--
+David
