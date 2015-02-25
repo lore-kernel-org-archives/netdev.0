@@ -1,49 +1,70 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e: print Rx packet split status
-Date: Wed, 25 Feb 2015 00:58:36 -0800
-Message-ID: <1424854720-18825-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e/i40evf: Update driver versions
+Date: Wed, 25 Feb 2015 00:58:40 -0800
+Message-ID: <1424854720-18825-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:4721 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:2484 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752790AbbBYI6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 03:58:49 -0500
+	id S1752851AbbBYI6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 03:58:50 -0500
 In-Reply-To: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 
-Add the RX routine in use to the features log message.
+Bump i40e to 1.2.9 and i40evf 1.2.3
 
-Change-ID: Ifbbf28fb7f42b9a3d2828586488e9e6331107dd5
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Also update the copyright year.
+
+Change-ID: I345d777e94abd0acffe6a28793f675d251a86299
+Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 97a759a..39e4f35 100644
+index 39e4f35..2757926 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9356,8 +9356,10 @@ static void i40e_print_features(struct i40e_pf *pf)
- #ifdef CONFIG_PCI_IOV
- 	buf += sprintf(buf, "VFs: %d ", pf->num_req_vfs);
- #endif
--	buf += sprintf(buf, "VSIs: %d QP: %d ", pf->hw.func_caps.num_vsis,
--		       pf->vsi[pf->lan_vsi]->num_queue_pairs);
-+	buf += sprintf(buf, "VSIs: %d QP: %d RX: %s ",
-+		       pf->hw.func_caps.num_vsis,
-+		       pf->vsi[pf->lan_vsi]->num_queue_pairs,
-+		       pf->flags & I40E_FLAG_RX_PS_ENABLED ? "PS" : "1BUF");
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
- 	if (pf->flags & I40E_FLAG_RSS_ENABLED)
- 		buf += sprintf(buf, "RSS ");
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 2
+-#define DRV_VERSION_BUILD 8
++#define DRV_VERSION_BUILD 9
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index de507b3..31d35e2 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+  *
+  * Intel Ethernet Controller XL710 Family Linux Virtual Function Driver
+- * Copyright(c) 2013 - 2014 Intel Corporation.
++ * Copyright(c) 2013 - 2015 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "1.2.2"
++#define DRV_VERSION "1.2.3"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
