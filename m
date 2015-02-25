@@ -1,54 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Wed, 25 Feb 2015 19:56:08 +0100
-Message-ID: <54EE1AC8.6060206@iogearbox.net>
-References: <cover.1424877322.git.daniel@iogearbox.net>	 <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>	 <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>	 <54EDEE55.8050605@iogearbox.net>	 <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>	 <54EDF4DD.1060709@iogearbox.net> <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+Subject: [PATCH V2] Fix misspelling of defrag in ip-l2tp.8
+Date: Wed, 25 Feb 2015 13:59:42 -0500
+Message-ID: <20150225185942.GA22050@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
+To: Len Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41882 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753266AbbBYS4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 13:56:24 -0500
-In-Reply-To: <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.csclub.uwaterloo.ca ([129.97.134.52]:53700 "EHLO
+	mail.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbbBYS7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 13:59:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/25/2015 06:41 PM, Eric Dumazet wrote:
-...
-> There is no need to track number of elements, using either an atomic_t
-> or percpu_counter. This adds unnecessary burden.
->
-> 1) Automatic shrinking is a non issue. This will free very little
-> memory, compared to previous peak usage (including objects put in
-> rhashtable). If hash grown to a certain point, it's likely it will grow
-> again later.
+Somehow defrag was spelled degrag everywhere it occoured in the ip-l2tp
+man page.  nf_degrag_ipv4 seemed like an odd name for the module and
+couldn't be located, so better fix the man page.
 
-So you are saying that shrinking is most likely a rather undesirable
-use-case in rhashtable?
+Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
+---
+ man/man8/ip-l2tp.8 |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-> 2) Growing can be triggered when any bucket has more than X elems, and
-> that is given for free at insert time.
-> X could be log2(buckets)/2 I guess. (aka shift/2)
-
-Yes, I think such a facility can be added easily.
-
-> A global limit on number of elements should be controlled by rhashtable
-> users - if needed -, not in the rhashtable itself.
-
-Makes sense, thanks for the suggestion! I'll experiment with the above
-per bucket tracking a bit if you're okay with that, and also unfiddle
-the rht counter internals from netlink.
-
-Thanks,
-Daniel
+diff --git a/man/man8/ip-l2tp.8 b/man/man8/ip-l2tp.8
+index 2efda9f..1738035 100644
+--- a/man/man8/ip-l2tp.8
++++ b/man/man8/ip-l2tp.8
+@@ -356,16 +356,16 @@ the recipient expects to receive ethernet frames exactly as
+ transmitted. In such cases, it is important that frames leaving the
+ tunnel are reassembled back into a single frame before being
+ forwarded on. To do so, enable netfilter connection tracking
+-(conntrack) or manually load the Linux netfilter degrag modules at
++(conntrack) or manually load the Linux netfilter defrag modules at
+ each tunnel endpoint.
+ .PP
+ .nf
+-site-A:# modprobe nf_degrag_ipv4
++site-A:# modprobe nf_defrag_ipv4
+ 
+-site-B:# modprobe nf_degrag_ipv4
++site-B:# modprobe nf_defrag_ipv4
+ .fi
+ .PP
+-If L2TP is being used over IPv6, use the IPv6 degrag module.
++If L2TP is being used over IPv6, use the IPv6 defrag module.
+ .SH INTEROPERABILITY
+ .PP
+ Unmanaged (static) L2TPv3 tunnels are supported by some network
+-- 
+1.7.10.4
