@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6] qlcnic_dcb.c : possible division by zero.
-Date: Wed, 25 Feb 2015 17:01:06 -0500 (EST)
-Message-ID: <20150225.170106.798587659082519733.davem@davemloft.net>
-References: <1424901403-6458-1-git-send-email-ameenali023@gmail.com>
+Subject: Re: [PATCH net-next v3 0/3] net: dsa: integration with SWITCHDEV
+ for HW bridging
+Date: Wed, 25 Feb 2015 17:04:38 -0500 (EST)
+Message-ID: <20150225.170438.2186088861516667033.davem@davemloft.net>
+References: <1424812534-8936-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ameenali023@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424901403-6458-1-git-send-email-ameenali023@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	andrew@lunn.ch, cphealy@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866AbbBYWEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 17:04:41 -0500
+In-Reply-To: <1424812534-8936-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ameen Ali <ameenali023@gmail.com>
-Date: Wed, 25 Feb 2015 23:56:43 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 24 Feb 2015 13:15:31 -0800
 
-> @@ -822,7 +822,7 @@ qlcnic_dcb_get_pg_tc_cfg_tx(struct net_device *netdev, int tc, u8 *prio,
->  		if (temp->valid && (pg == temp->pgid))
->  			cnt++;
->  	}
-> -
-> +	if(cnt != 0)
->  	tc_cfg->bwg_percent = (100 / cnt);
+> This patch set provides the DSA and SWITCHDEV integration bits together and
+> modifies the bcm_sf2 driver accordingly such that it works properly with HW
+> bridging.
 
-This is not acceptable.
-
-Your conditional expression is not spaced properly, there must be a space
-between "if" and the openning parenthesis of the condition.
-
-You also must properly re-indent the statement the new if() condition
-is protecting.
+Series applied, thanks Florian.
