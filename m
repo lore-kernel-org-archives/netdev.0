@@ -1,46 +1,38 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: new link failing on duplicate names in different namespaces
-Date: Wed, 25 Feb 2015 17:26:35 +0100
-Message-ID: <54EDF7BB.2060809@6wind.com>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net 1/2] rhashtable: unconditionally grow when max_shift
+ is not specified
+Date: Wed, 25 Feb 2015 16:28:46 +0000
+Message-ID: <20150225162846.GA13107@casper.infradead.org>
+References: <cover.1424877322.git.daniel@iogearbox.net>
+ <0973a6e9b73a2ca14477c0cf98093d5f1b3d3d40.1424877322.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, pablo@netfilter.org, johunt@akamai.com,
+	kaber@trash.net, netdev@vger.kernel.org,
+	Ying Xue <ying.xue@windriver.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:39726 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989AbbBYQ0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 11:26:39 -0500
-Received: by wggx12 with SMTP id x12so4726717wgg.6
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 08:26:37 -0800 (PST)
-In-Reply-To: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:52215 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbbBYQ2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 11:28:52 -0500
+Content-Disposition: inline
+In-Reply-To: <0973a6e9b73a2ca14477c0cf98093d5f1b3d3d40.1424877322.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 25/02/2015 01:48, Eugene Yakubovich a =C3=A9crit :
-> Hello,
->
-> rtnetlink's RTM_NEWLINK allows for specifying the network namespace i=
-n
-> which the link is to be created via IFLA_NET_NS_PID or IFLA_NET_NS_FD=
-=2E
-> This not only saves a user a call to move the link into the target
-> namespace, it can avoid a potential ifname conflict. For example, if
-> creating eth0 in another namespace and the current one already has
-> eth0.
->
-> Unfortunately, this is not the current behavior. If the user specifie=
-s
-> IFLA_IFNAME, leaves ifinfomsg.ifi_index unspecified and sets
-> NLM_F_EXCL flag, as in the case of creating a new link, the call will
-> fail with EEXIST in cases where there's a name conflict.
->
-> rtnl_newlink() will:
->
-> if (ifname[0])
->      dev =3D __dev_get_by_name(net, ifname);
-Yes, it seems that this should be done in "dest_net" or "link_net".
+On 02/25/15 at 04:31pm, Daniel Borkmann wrote:
+> diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+> index 58b9953..f9e9d73 100644
+> --- a/lib/test_rhashtable.c
+> +++ b/lib/test_rhashtable.c
+> @@ -202,8 +202,6 @@ static int __init test_rht_init(void)
+>  		.key_len = sizeof(int),
+>  		.hashfn = jhash,
+>  		.nulls_base = (3U << RHT_BASE_SHIFT),
+> -		.grow_decision = rht_grow_above_75,
+> -		.shrink_decision = rht_shrink_below_30,
+>  	};
+>  	int err;
+
+I assume you wanted this chunk in patch 2.
