@@ -1,102 +1,94 @@
-From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Subject: Re: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
-Date: Wed, 25 Feb 2015 10:53:11 +0000
-Message-ID: <54EDA997.1080005@linn.co.uk>
-References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk> <20150218210830.GA7778@localhost.localdomain> <54EAF4D4.4090505@linn.co.uk> <20150225095056.GB4293@localhost.localdomain>
+From: Arun Chandran <achandran@mvista.com>
+Subject: Re: [PATCH] net: macb: Add big endian CPU support
+Date: Wed, 25 Feb 2015 16:26:45 +0530
+Message-ID: <CAFdej00df2gcUXVTnR34M6E+Mr7ctgjHgMisEpJUsZK6kf_CpA@mail.gmail.com>
+References: <54EB34E7.7060400@monstr.eu>
+	<1424763572-23317-1-git-send-email-achandran@mvista.com>
+	<54ED9DA8.3040809@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <abrestic@chromium.org>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Michal Simek <monstr@monstr.eu>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150225095056.GB4293@localhost.localdomain>
+In-Reply-To: <54ED9DA8.3040809@monstr.eu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Richard,
+On Wed, Feb 25, 2015 at 3:32 PM, Michal Simek <monstr@monstr.eu> wrote:
+> On 02/24/2015 08:39 AM, Arun Chandran wrote:
+>> This patch converts all __raw_readl and __raw_writel function calls
+>> to their corresponding readl_relaxed and writel_relaxed variants.
+>>
+>> It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
+>> when the cpu is configured in big endian mode.
+>>
+>> Signed-off-by: Arun Chandran <achandran@mvista.com>
+>> ---
+>>       This patch is tested on xilinx ZC702 evaluation board with
+>>       CONFIG_CPU_BIG_ENDIAN=y and booting NFS rootfs
+>>       Added on the fly IP endianness detection according to
+>>       comments from Michal Simek.
+>> ---
+>> ---
+>>  drivers/net/ethernet/cadence/macb.c | 33 +++++++++++++++++++++++++++------
+>>  drivers/net/ethernet/cadence/macb.h | 15 ++++++++-------
+>>  2 files changed, 35 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+>> index ad76b8e..1642911 100644
+>> --- a/drivers/net/ethernet/cadence/macb.c
+>> +++ b/drivers/net/ethernet/cadence/macb.c
+>> @@ -449,7 +449,7 @@ static void macb_update_stats(struct macb *bp)
+>>       WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
+>>
+>>       for(; p < end; p++, reg++)
+>> -             *p += __raw_readl(reg);
+>> +             *p += readl_relaxed(reg);
+>>  }
+>>
+>>  static int macb_halt_tx(struct macb *bp)
+>> @@ -1578,6 +1578,7 @@ static u32 macb_dbw(struct macb *bp)
+>>  static void macb_configure_dma(struct macb *bp)
+>>  {
+>>       u32 dmacfg;
+>> +     u32 tmp, ncr;
+>>
+>>       if (macb_is_gem(bp)) {
+>>               dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
+>> @@ -1585,7 +1586,25 @@ static void macb_configure_dma(struct macb *bp)
+>>               if (bp->dma_burst_length)
+>>                       dmacfg = GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
+>>               dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
+>> -             dmacfg &= ~GEM_BIT(ENDIA);
+>> +             dmacfg &= ~GEM_BIT(ENDIA_PKT);
+>> +
+>> +             /* Here we use the loopback bit of net_ctrl register to detect
+>> +              * endianness on IP. save it first. Program swaped mode for
+>> +              * management descriptor accesses if writing to loop back bit
+>> +              * and reading it back brings no change in bit value.
+>> +              */
+>> +             ncr = macb_readl(bp, NCR);
+>> +             __raw_writel(MACB_BIT(LLB), bp->regs + MACB_NCR);
+>> +             tmp =  __raw_readl(bp->regs + MACB_NCR);
+>
+>
+> I have tested this patch on zc702 le and be and it is working.
+> The comment is not fully accurate. Sorry I thought that you are using a little bit different
+> configuration than Zynq. The case I had in mind is that CPU and also IP can have different endianness.
+>
+> The code above is not checking endianness on IP itself but CPU endianness because IP is in little
 
-On 25/02/15 09:50, Richard Cochran wrote:
->
-> The Linux kernel already fully supports this kind of application via
-> the SIOCSHWTSTAMP, SO_TIMESTAMPING, and PHC mechanisms.  We certainly
-> don't need another another interface just for someone's warped
-> hardware design.
->
-> I suggest that you find a way to make your HW work within the existing
-> frame work.
+Ok. I will change the comment.
 
-The driver already uses that framework for returning timestamps to user 
-space. It does not introduce any new interface.
+> endian mode all the time. But the logic for detecting this on CPU is correct and this is what
+> you need to do on Zynq. You are writing big endian value to little endian register and read it back
+> to see if it was correctly written or not.
 
->
->> The interface needs to be public so that a user-space application
->> can program a command string that will match packets that belong to
->> the audio stream of interest, for this example.
->
-> Let the user program simply use a BPF for that.
->
->> In addition returning just a timestamp would not be enough in many
->> cases. In the audio streaming use case mentioned above some
->> additional
->> bytes from the packet payload need to be returned (with Copy
->> commands) in order to associate the timestamp with a certain point
->> in the audio stream.
->
-> The time stamp is *already* associated with a particular frame.
->
-> Just tell your driver to program the hardware to:
->
-> 1. time stamp every frame
-> 2. deliver every frame
->
-> Thats all you need.
->
+Just curious; will the same code work without change on a CPU with Big
+endian IP?
+(ie. If zynq hardware comes with only one change; IP configured in BE;
+ will the driver be needing further changes?)
 
-The H/W could not support that:
-We have a "Match/Stamp" command, so the packet byte needs to match the 
-value following the command, in order for a timestamp to be generated, 
-otherwise the packet is dropped.
-In addition, due to FIFO size limitations up to 128 bytes (including the 
-timestamp) can be returned (through Copy commands) from each packet.
-
-The module was designed to be able to configure it to sniff packets 
-belonging to a certain application level stream and from each matching 
-packet return a timestamp and some bytes (from eg. the application layer 
-protocol header) that would be useful to the application.
-
-BPF could accomplish that too, but timestamps will not be as accurate
-without H/W support.
-
-I understand that the device needs to be configured with a proprietary
-command stream, but all interfacing with user-space is done using 
-existing frameworks (AF_PACKET, SIOCSHWTSTAMP, cmsg)
-
->> Actually, that is how the H/W works. Each Match command is followed by
->> a data value which must match the packet data byte at the corresponding
->> location. If there is no match processing of the packet stops.
->
-> And just what is the "corresponding location"?
-
-The command string is made up of a sequence of <CMD><DATA> pairs. Take 
-this for example: {0x00, 0x00, 0x01, 0x55, 0x02, 0x00, 0x04, 0x00}.
-First command is Don't Care (0x00), ie 1st byte of Ethernet frame is 
-just skipped.
-Second command is Match (0x01), ie if the 2nd byte of the Ethernet frame 
-is 0x55 processing continues otherwise packet is dropped.
-Third command is Copy (0x02), ie 3rd byte of the packet is copied to the 
-H/W FIFO to be returned to the user
-Fourth command is Copy/Done (0x04), ie 4th packet byte is also copied to 
-the FIFO and processing stops.
-Then an IRQ is generated, data (2 bytes) are read from the FIFO and
-delivered through an AF_PACKET socket.
-
-In v4 of the patch I tried to improve the documentation of some of these 
-points.
->
-> Thanks,
-> Richard
->
-
-Thanks,
-Stathis
+--Arun
