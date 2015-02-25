@@ -1,152 +1,82 @@
-From: Chris Rorvick <chris@rorvick.com>
-Subject: [PATCH] fib_trie: Add proc entry for next-hop exceptions
-Date: Tue, 24 Feb 2015 23:27:12 -0600
-Message-ID: <1424842032-3151-1-git-send-email-chris@rorvick.com>
-Cc: Chris Rorvick <chris@rorvick.com>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Wed, 25 Feb 2015 13:29:47 +0800
+Message-ID: <54ED5DCB.6020702@windriver.com>
+References: <54DDCA99.4040401@windriver.com>	<20150213133056.3944c13e@uryu.home.lan>	<54E17853.8070106@windriver.com>	<54E210FF.2050502@gmail.com>,<20150216115137.5aa3f0cd@uryu.home.lan> <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com> <54ED39B9.4090107@windriver.com> <54ED4E47.9070304@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: David Ahern <dsahern@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:33046 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752492AbbBYF3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 00:29:40 -0500
+In-Reply-To: <54ED4E47.9070304@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Exceptions are added to the FIB in response to ICMP redirects and to
-account for PMTU, but there is little visibility into what the current
-exceptions are.  Add a proc entry for listing the current next-hop
-exceptions
+On 02/25/2015 12:23 PM, David Ahern wrote:
+> On 2/24/15 7:55 PM, yzhu1 wrote:
+>> Hi, Stephen && David
+>>
+>> Any update?
+>
+> As I mentioned in my last response I see no problem with the existing 
+> behavior -- 3.18, 3.19 and 4.0-rc1. With all of them the bridge stays 
+> in the running state after all interfaces are removed.
+>
+> David
+>
+>
+>
+Hi, David
 
-Signed-off-by: Chris Rorvick <chris@rorvick.com>
----
-I wrote this patch while looking into some issues on a network and found
-it useful.  It caused me to realize that I needed to fix the routing on
-my home network as the MTU over my PPPoE DSL service was causing the
-exception list to grow very large.
+I made tests on kernel 3.19-rc7.
 
-Is there another way of getting the list of next-hop exceptions?  Or
-even the current count?  Or is something similar to this patch a useful
-addition?
+1. brctl addbr br0
 
-Regards,
+2. ifconfig br0 up
 
-Chris
+3. ifconfig br0 (br0's status is with 'RUNNING')
 
- net/ipv4/fib_trie.c | 92 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 92 insertions(+)
+br0       Link encap:Ethernet  HWaddr 0a:70:0b:06:34:8f
+           inet6 addr: fe80::870:bff:fe06:348f/64 Scope:Link
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:16 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:0 (0.0 B)  TX bytes:5054 (5.0 KB)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 3daf022..591d854 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -2487,6 +2487,93 @@ static const struct file_operations fib_route_fops = {
- 	.release = seq_release_net,
- };
- 
-+static void fib_nhe_seq_show_fib_info(struct seq_file *seq,
-+				      const struct fib_info *fi)
-+{
-+	const struct fnhe_hash_bucket *bucket;
-+	const struct fib_nh_exception *fnhe;
-+	int i, j;
-+
-+	for (i = 0; i < fi->fib_nhs; i++) {
-+		bucket = fi->fib_nh[i].nh_exceptions;
-+		if (!bucket)
-+			continue;
-+
-+		for (j = 0; j < FNHE_HASH_SIZE; j++, bucket++) {
-+			if (!bucket->chain)
-+				continue;
-+
-+			for (fnhe = rcu_dereference(bucket->chain); fnhe;
-+			     fnhe = rcu_dereference(fnhe->fnhe_next)) {
-+				seq_printf(seq, "%-8s %-16pI4 %-16pI4 %-6d %-6d %-11ld %ld\n",
-+					   fi->fib_dev ? fi->fib_dev->name
-+						       : "*",
-+					   &fnhe->fnhe_daddr,
-+					   fnhe->fnhe_gw ? &fnhe->fnhe_gw
-+							 : &fi->fib_nh[i].nh_gw,
-+					   fnhe->fnhe_pmtu,
-+					   fnhe->fnhe_genid,
-+					   fnhe->fnhe_stamp,
-+					   fnhe->fnhe_expires);
-+			}
-+		}
-+	}
-+}
-+
-+static int fib_nhe_seq_show(struct seq_file *seq, void *v)
-+{
-+	struct tnode *l = v;
-+	struct leaf_info *li;
-+
-+	if (v == SEQ_START_TOKEN) {
-+		seq_printf(seq, "%-8s %-16s %-16s %-6s %-6s %-11s %s\n",
-+			   "Iface",
-+			   "Destination",
-+			   "Next Hop",
-+			   "PMTU",
-+			   "GenID",
-+			   "Time",
-+			   "Expires");
-+		return 0;
-+	}
-+
-+	hlist_for_each_entry_rcu(li, &l->list, hlist) {
-+		struct fib_alias *fa;
-+
-+		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
-+			const struct fib_info *fi = fa->fa_info;
-+
-+			if (!fi)
-+				continue;
-+
-+			fib_nhe_seq_show_fib_info(seq, fi);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct seq_operations fib_nhe_seq_ops = {
-+	.start  = fib_route_seq_start,
-+	.next   = fib_route_seq_next,
-+	.stop   = fib_route_seq_stop,
-+	.show   = fib_nhe_seq_show,
-+};
-+
-+static int fib_nhe_seq_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open_net(inode, file, &fib_nhe_seq_ops,
-+			    sizeof(struct fib_route_iter));
-+}
-+
-+static const struct file_operations fib_nhe_fops = {
-+	.owner  = THIS_MODULE,
-+	.open   = fib_nhe_seq_open,
-+	.read   = seq_read,
-+	.llseek = seq_lseek,
-+	.release = seq_release_net,
-+};
-+
- int __net_init fib_proc_init(struct net *net)
- {
- 	if (!proc_create("fib_trie", S_IRUGO, net->proc_net, &fib_trie_fops))
-@@ -2499,8 +2586,13 @@ int __net_init fib_proc_init(struct net *net)
- 	if (!proc_create("route", S_IRUGO, net->proc_net, &fib_route_fops))
- 		goto out3;
- 
-+	if (!proc_create("fib_nh_exceptions", S_IRUGO, net->proc_net, &fib_nhe_fops))
-+		goto out4;
-+
- 	return 0;
- 
-+out4:
-+	remove_proc_entry("route", net->proc_net);
- out3:
- 	remove_proc_entry("fib_triestat", net->proc_net);
- out2:
--- 
-2.1.0
+4. brctl addif br0 eth1
+
+5. brctl delif br0 eth1
+
+6. ifconfig br0 (br0's status is without 'RUNNING')
+
+br0       Link encap:Ethernet  HWaddr 00:00:00:00:00:00
+           inet6 addr: fe80::870:bff:fe06:348f/64 Scope:Link
+           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+           RX packets:328 errors:0 dropped:5 overruns:0 frame:0
+           TX packets:19 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:39997 (39.9 KB)  TX bytes:5760 (5.7 KB)
+
+Please compare with the outputs of step 3 and step 6, we can find the 
+difference.
+
+uname:
+
+Linux wind-virtual-machine 3.19.0-rc7 #2 SMP Wed Jan 28 18:36:44 CST 
+2015 x86_64 x86_64 x86_64 GNU/Linux
+
+So I think we should apply the latest patch to make consistent.
+
+Any reply is appreciated.
+
+Zhu Yanjun
