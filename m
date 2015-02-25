@@ -1,64 +1,35 @@
-From: Simo Sorce <simo@redhat.com>
-Subject: Re: [patch v2] sunrpc: integer underflow in rsc_parse()
-Date: Tue, 24 Feb 2015 22:54:44 -0500
-Message-ID: <1424836484.13431.36.camel@willson.usersys.redhat.com>
-References: <20150224153401.GA12218@mwanda>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Tue, 24 Feb 2015 21:23:35 -0700
+Message-ID: <54ED4E47.9070304@gmail.com>
+References: <54DDCA99.4040401@windriver.com>	<20150213133056.3944c13e@uryu.home.lan>	<54E17853.8070106@windriver.com>	<54E210FF.2050502@gmail.com>,<20150216115137.5aa3f0cd@uryu.home.lan> <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com> <54ED39B9.4090107@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Layton <jlayton@primarydata.com>,
-	Kinglong Mee <kinglongmee@gmail.com>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Wang YanQing <udknight@gmail.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150224153401.GA12218@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: yzhu1 <Yanjun.Zhu@windriver.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:37534 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752595AbbBYEXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 23:23:39 -0500
+Received: by mail-ig0-f177.google.com with SMTP id z20so2843426igj.4
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 20:23:39 -0800 (PST)
+In-Reply-To: <54ED39B9.4090107@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-24 at 18:34 +0300, Dan Carpenter wrote:
-> If we call groups_alloc() with invalid values then it's might lead to
-> memory corruption.  For example, with a negative value then we might not
-> allocate enough for sizeof(struct group_info).
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2:  In v1, I changed groups_alloc().  The other places which call
-> groups_alloc() check the value before calling.  Eric wanted that, either
-> have all the callers check, or all the callers rely on groups_alloc().
-> In the end, Bruce Fields said adding the check here was probably
-> reasonable.
-> 
-> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-> index 224a82f..1095be9 100644
-> --- a/net/sunrpc/auth_gss/svcauth_gss.c
-> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
-> @@ -463,6 +463,8 @@ static int rsc_parse(struct cache_detail *cd,
->  		/* number of additional gid's */
->  		if (get_int(&mesg, &N))
->  			goto out;
-> +		if (N < 0 || N > NGROUPS_MAX)
-> +			goto out;
->  		status = -ENOMEM;
->  		rsci.cred.cr_group_info = groups_alloc(N);
->  		if (rsci.cred.cr_group_info == NULL)
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 2/24/15 7:55 PM, yzhu1 wrote:
+> Hi, Stephen && David
+>
+> Any update?
 
-I touched this code relatively recently, and this check looks correct.
-Feel free to add Reviewed-by: Simo Sorce <simo@redhat.com>
+As I mentioned in my last response I see no problem with the existing 
+behavior -- 3.18, 3.19 and 4.0-rc1. With all of them the bridge stays in 
+the running state after all interfaces are removed.
 
-Simo.
-
--- 
-Simo Sorce * Red Hat, Inc * New York
+David
