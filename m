@@ -1,46 +1,42 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] proc: proc_create() should return true if CONFIG_PROC_FS is not configured
-Date: Wed, 25 Feb 2015 11:19:20 +0000
-Message-ID: <15346.1424863160@warthog.procyon.org.uk>
-References: <CAPFHKzcLsL9Sb_ma4_XCm4a0kX_iNcCdFVXf346wtnmOPqWcEg@mail.gmail.com> <1424841259-8470-1-git-send-email-zhangzl2013@126.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH v2 net] e1000: add dummy allocator to fix race condition
+ between mtu change and netpoll
+Date: Wed, 25 Feb 2015 12:25:49 +0100
+Message-ID: <20150225112549.GA24089@kria>
+References: <1424862194-15770-1-git-send-email-sd@queasysnail.net>
+ <1424863063.2553.52.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, Zhang Zhaolong <zhangzl2013@126.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	viro@zeniv.linux.org.uk
-To: Jonathon Reinhart <jonathon.reinhart@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49400 "EHLO mx1.redhat.com"
+Received: from smtp3-g21.free.fr ([212.27.42.3]:2374 "EHLO smtp3-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371AbbBYLTd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 06:19:33 -0500
-In-Reply-To: <CAPFHKzcLsL9Sb_ma4_XCm4a0kX_iNcCdFVXf346wtnmOPqWcEg@mail.gmail.com>
-Content-ID: <15345.1424863160.1@warthog.procyon.org.uk>
+	id S1752244AbbBYLZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 06:25:55 -0500
+Content-Disposition: inline
+In-Reply-To: <1424863063.2553.52.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jonathon Reinhart <jonathon.reinhart@gmail.com> wrote:
-
-> Does that even compile? proc_create() and proc_create_data() both return
-> "struct proc_dir_entry *". It doesn't make sense for those macros to "return"
-> anything but NULL - certainly not 1.
+2015-02-25, 03:17:43 -0800, Jeff Kirsher wrote:
+> On Wed, 2015-02-25 at 12:03 +0100, Sabrina Dubroca wrote:
+> > @@ -4481,6 +4489,7 @@ next_desc:
+> >         return cleaned;
+> >  }
+> >  
+> > +
+> >  /**
+> >   * e1000_alloc_jumbo_rx_buffers - Replace used jumbo receive buffers
+> >   * @adapter: address of board private structure
 > 
-> Besides, why shouldn't "if (!proc_create())" behave like proc_create()
-> failed when
-> CONFIG_PROC_FS is not enabled?  You wouldn't want the caller to start trying
-> to use that ((struct proc_dir_entry *)1) would you?
+> This added blank line is not needed or wanted.
 
-It's sort of arguable.  If the proc interface is merely informational and
-doesn't impact the function of a module to not be present, then, yes, having
-proc_create() return some "true" value might make sense.  It's possible to
-arrange things so that all the proc-related functions and data get compiled
-out in such a situation by not being referenced by anything.
+Ouch, I noticed that too late. Sorry, I messed up.
 
-However, if the proc interface isn't merely functional, then the proc_create()
-failure *is* cause for module loading failure.  But in that case, there should
-be a Kconfig dependency on procfs and you should never use the dummy
-functions.
+Oh, BTW, e1000e has multiple allocators as well.  I haven't really
+looked at them yet, and I don't have any HW to test.
 
-David
+-- 
+Sabrina
