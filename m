@@ -1,84 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
-Date: Wed, 25 Feb 2015 10:50:56 +0100
-Message-ID: <20150225095056.GB4293@localhost.localdomain>
-References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
- <20150218210830.GA7778@localhost.localdomain>
- <54EAF4D4.4090505@linn.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, abrestic@chromium.org
-To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54EAF4D4.4090505@linn.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net] enic: do notify_check before returning credits
+Date: Wed, 25 Feb 2015 15:26:55 +0530
+Message-ID: <1424858215-18918-1-git-send-email-_govind@gmx.com>
+Cc: Sujith Sankar <ssujith@cisco.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, benve@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:58967 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751991AbbBYJ5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 04:57:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23, 2015 at 09:37:24AM +0000, Stathis Voukelatos wrote:
-> Hi Richard,
-> 
-> On 18/02/15 21:08, Richard Cochran wrote:
-> >On Tue, Feb 17, 2015 at 02:03:30PM +0000, Stathis Voukelatos wrote:
-> >>The command string for packet matching is stored in module RAM
-> >>and consists of a sequence of 16-bit entries. Each entry includes
-> >>an 8-bit command code and and 8-bit data value. Valid command
-> >>codes are:
-> >>0 - Don't care
-> >>1 - Match: packet data must match command string byte
-> >>2 - Copy: packet data will be copied to FIFO
-> >>3 - Match/Stamp: if packet data matches string byte, a timestamp
-> >>                  is copied into the FIFO
-> >>4 - Copy/Done: packet data will be copied into the FIFO.
-> >>                This command terminates the command string.
-> >
-> >Why do you need to expose this interface to user space at all?  Why
-> >not just time stamp every frame?
-> 
-> To put this into context with an example, the use case this H/W
-> module was originally developed for was to allow multiple audio
-> receivers to synchronize with a single transmitter, eg. multi-room
-> synchronised audio.
+From: Sujith Sankar <ssujith@cisco.com>
 
-The Linux kernel already fully supports this kind of application via
-the SIOCSHWTSTAMP, SO_TIMESTAMPING, and PHC mechanisms.  We certainly
-don't need another another interface just for someone's warped
-hardware design.
+We should complete notify_check before returning the credits. Once we return the
+credits, adaptor may access the notify data.
 
-I suggest that you find a way to make your HW work within the existing
-frame work.
+Signed-off-by: Sujith Sankar <ssujith@cisco.com>
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> The interface needs to be public so that a user-space application
-> can program a command string that will match packets that belong to
-> the audio stream of interest, for this example.
-
-Let the user program simply use a BPF for that.
-
-> In addition returning just a timestamp would not be enough in many
-> cases. In the audio streaming use case mentioned above some
-> additional
-> bytes from the packet payload need to be returned (with Copy
-> commands) in order to associate the timestamp with a certain point
-> in the audio stream.
-
-The time stamp is *already* associated with a particular frame.
-
-Just tell your driver to program the hardware to:
-
-1. time stamp every frame
-2. deliver every frame
-
-Thats all you need.
-
-> >How does the "Match" command work?  The frame must have one particular
-> >byte?  That can't be right.  Please explain.
-> 
-> Actually, that is how the H/W works. Each Match command is followed by
-> a data value which must match the packet data byte at the corresponding
-> location. If there is no match processing of the packet stops.
-
-And just what is the "corresponding location"?
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 9cbe038..a5179bf 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -272,8 +272,8 @@ static irqreturn_t enic_isr_legacy(int irq, void *data)
+ 	}
+ 
+ 	if (ENIC_TEST_INTR(pba, notify_intr)) {
+-		vnic_intr_return_all_credits(&enic->intr[notify_intr]);
+ 		enic_notify_check(enic);
++		vnic_intr_return_all_credits(&enic->intr[notify_intr]);
+ 	}
+ 
+ 	if (ENIC_TEST_INTR(pba, err_intr)) {
+@@ -346,8 +346,8 @@ static irqreturn_t enic_isr_msix_notify(int irq, void *data)
+ 	struct enic *enic = data;
+ 	unsigned int intr = enic_msix_notify_intr(enic);
+ 
+-	vnic_intr_return_all_credits(&enic->intr[intr]);
+ 	enic_notify_check(enic);
++	vnic_intr_return_all_credits(&enic->intr[intr]);
+ 
+ 	return IRQ_HANDLED;
+ }
+-- 
+2.3.0
