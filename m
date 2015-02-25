@@ -1,42 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000e: fixup comments jumbled by i219 support
-Date: Wed, 25 Feb 2015 13:23:43 -0800
-Message-ID: <1424899423.2622.1.camel@jtkirshe-mobl>
-References: <1424891471-2833-1-git-send-email-linville@tuxdriver.com>
+Subject: Re: [PATCH] e1000e: avoid incorrect ioremap/iounmap sequences for
+ e1000_pch_spt
+Date: Wed, 25 Feb 2015 13:24:13 -0800
+Message-ID: <1424899453.2622.2.camel@jtkirshe-mobl>
+References: <1424891492-2897-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-NYA/nCyh3hAjfx4/ZMQd"
+	protocol="application/pgp-signature"; boundary="=-FheblL/ks9zz2B2/waB6"
 Cc: netdev@vger.kernel.org, David Ertman <david.m.ertman@intel.com>
 To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:6725 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:37946 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752984AbbBYVXo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 16:23:44 -0500
-In-Reply-To: <1424891471-2833-1-git-send-email-linville@tuxdriver.com>
+	id S1752711AbbBYVYO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 16:24:14 -0500
+In-Reply-To: <1424891492-2897-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-NYA/nCyh3hAjfx4/ZMQd
+--=-FheblL/ks9zz2B2/waB6
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Wed, 2015-02-25 at 14:11 -0500, John W. Linville wrote:
-> Commit 79849ebc0e06 (e1000e: initial support for i219) jumbled some
-> comments in e1000_init_nvm_params_ich8lan.  This patch rearranges
-> them in a way that I think makes more sense.
+> Commit 79849ebc0e06 (e1000e: initial support for i219) overwrites
+> hw->flash_addr for e1000_pch_spt MACs without doing an iounmap.
+> It also reuses the address without changing the areas that then
+> iounmap the new address (which was never explicitly ioremap'ed).
+> This causes iounmap to spit-out a call trace on rmmod.
+>=20
+> This patch circumvents this issue on the early hardware that we have
+> in-house at Red Hat.
 >=20
 > Signed-off-by: John W. Linville <linville@tuxdriver.com>
 > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > Cc: David Ertman <david.m.ertman@intel.com>
 > ---
->  drivers/net/ethernet/intel/e1000e/ich8lan.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
 
-Thanks John I have added your patch to my queue.
+Thanks John, your patch has been added to my queue.
 
---=-NYA/nCyh3hAjfx4/ZMQd
+--=-FheblL/ks9zz2B2/waB6
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -44,19 +50,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJU7j1fAAoJEOVv75VaS+3OTf4P/1FxC/6UkC3txnvI9ZcEkD5A
-74hkibcDdBNcv3s4VjNsY3c+vdhz4zdMMGVF20kzsVzB9+3H0ZG2GZy2p9+euoLi
-X2m/8h7NtjZldJlRaaaJtocJfWMXfq/Qdnkx4sd8wdlqOA43h1bUNoBsSjNZC0y3
-Zw+NkuLVZls2XO9B0SbJPGfZOpv3FmP/9Zy/KX3zAYTEe6DJPmgK08JXUK4vczqc
-8d/NA2kbvACCJq8H0UPqvl98nJc0z8vHVsTrOnACEzdDy/fFCvMnWni4O22CdMy1
-9lwam0cRagbGtTE97tmq6hD6NxVQDAYJ64q990nvFpO17mw6zrePtwTGLheU2Zhj
-sCAxoe1Nhd2c/f7Ek7kJUr3RHXWezaxhrtB9mpdPk+KOky1sTSrNegx/JgHBB2q4
-bR342jJTtwNeoH9eLAfsy3sFzanvw6HwY1uWx0ZloXashHGqa9f2PgFlm/jV8N7H
-hk2vJ6Bm1CtbkFGaX5ZHHmungiLlRPeF0k4Rix8A8L1Q6cpvDbnRBfORkoMlJU8D
-KHVH+Go3SeHFv8oCNlRiuEXpz/VU2v35Y1nMuihC8U6bfOQo3vK5fl0cROu9VfDB
-g3KVqye1utKDUOW0tBEF6bYV8D63GIH3gKgZr47t6P4eNqF4hhF1VrMWSlEM9kxu
-hctXhKKaLVC2YSfzLl/m
-=a8eQ
+iQIcBAABCgAGBQJU7j19AAoJEOVv75VaS+3OLO0P/itimKQCAcwmKCmsgOvL2jkB
+VJkCbpojItUaV8iP432f8983IZJd3DcK+sh3ANJ2DDMTCHtasM7goDb4gIhDvGuF
+tKG4R21Y+kvSx22NntJA+kCpqz9XVj3CwU+RP+gqfDQ4jeaVcWDTqg2+0teotvng
+Pj+JRqqJZLUQ6qWt5dnk2QrWikUCv8QHShJPWLDvcXXy5tXFMAzfunmqpTX+eev1
+p16uVmquB/oCuERBhOOfIrogNPvV0Y8C+WygVyvkINUHpHQF8KC+QjR1D4M1HsAE
+9m+llnIngs3mpHyZUmYiofyzUZtB7U2IP0o5T5wyPPFLBYCncObGA4j6Vc0Apre6
+2Is8Btbn6v/WbdJdPKdUYmpwz2KYk9e5ebPSNc5FxdguguqtJ6PK6oJ6RnSqlIQb
+kSKNA8SYU5rOzT1QcRuSODGJK/ZWqlnvudNv8V4pFhvb+4HG6atCYWZTh7uvC6+9
+MMROiSWFmb1BWA1ap6JJou1hdK/sXmgc0l2H5QXB0eo2Eqd2uy2kPKElyMrAlONj
+jZIkQDU59p5OJFXrEgRJVgQc9h1m8ONo/JvkLTqGiavNsVn9eLb9rWOHcx/oi7DW
+2bBwKOt/Ko+baknjY6c0vpwYMRid7IYSjOfrqnin/4ngWVF7+pK8pIjq0gUg9pxz
+aHarsBcr+b2loStTHHMb
+=9wZd
 -----END PGP SIGNATURE-----
 
---=-NYA/nCyh3hAjfx4/ZMQd--
+--=-FheblL/ks9zz2B2/waB6--
