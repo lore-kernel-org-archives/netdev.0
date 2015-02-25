@@ -1,105 +1,68 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net v3] e1000: add dummy allocator to fix race condition between mtu change and netpoll
-Date: Wed, 25 Feb 2015 12:26:38 +0100
-Message-ID: <1424863598-27187-1-git-send-email-sd@queasysnail.net>
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:6632 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752245AbbBYL1X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 06:27:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH] net: macb: Add big endian CPU support
+Date: Wed, 25 Feb 2015 12:50:41 +0100
+Message-ID: <54EDB711.1090608@monstr.eu>
+References: <54EB34E7.7060400@monstr.eu>	<1424763572-23317-1-git-send-email-achandran@mvista.com>	<54ED9DA8.3040809@monstr.eu> <CAFdej00df2gcUXVTnR34M6E+Mr7ctgjHgMisEpJUsZK6kf_CpA@mail.gmail.com>
+Reply-To: monstr@monstr.eu
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="sP05mOQowEowFAf49aqg5tCVXCvjQe1MG"
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arun Chandran <achandran@mvista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFdej00df2gcUXVTnR34M6E+Mr7ctgjHgMisEpJUsZK6kf_CpA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a race condition between e1000_change_mtu's cleanups and
-netpoll, when we change the MTU across jumbo size:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--sP05mOQowEowFAf49aqg5tCVXCvjQe1MG
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Changing MTU frees all the rx buffers:
-    e1000_change_mtu -> e1000_down -> e1000_clean_all_rx_rings ->
-        e1000_clean_rx_ring
+>> endian mode all the time. But the logic for detecting this on CPU is c=
+orrect and this is what
+>> you need to do on Zynq. You are writing big endian value to little end=
+ian register and read it back
+>> to see if it was correctly written or not.
+>=20
+> Just curious; will the same code work without change on a CPU with Big
+> endian IP?
+> (ie. If zynq hardware comes with only one change; IP configured in BE;
+>  will the driver be needing further changes?)
 
-Then, close to the end of e1000_change_mtu:
-    pr_info -> ... -> netpoll_poll_dev -> e1000_clean ->
-        e1000_clean_rx_irq -> e1000_alloc_rx_buffers -> e1000_alloc_frag
+Depends on HW setup and architecture which you want to use.
+Let's say test could be to have Microblaze in PL in BE mode (not supporte=
+d by tools)
+and bridge to axi. Then depends on Linux kernel how IO functions are impl=
+emented.
+That's why it is hard to say yes/no.
 
-And when we come back to do the rest of the MTU change:
-    e1000_up -> e1000_configure -> e1000_configure_rx ->
-        e1000_alloc_jumbo_rx_buffers
+Thanks,
+Michal
 
-alloc_jumbo finds the buffers already != NULL, since data (shared with
-page in e1000_rx_buffer->rxbuf) has been re-alloc'd, but it's garbage,
-or at least not what is expected when in jumbo state.
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
 
-This results in an unusable adapter (packets don't get through), and a
-NULL pointer dereference on the next call to e1000_clean_rx_ring
-(other mtu change, link down, shutdown):
 
-BUG: unable to handle kernel NULL pointer dereference at           (null)
-IP: [<ffffffff81194d6e>] put_compound_page+0x7e/0x330
 
-    [...]
+--sP05mOQowEowFAf49aqg5tCVXCvjQe1MG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Call Trace:
- [<ffffffff81195445>] put_page+0x55/0x60
- [<ffffffff815d9f44>] e1000_clean_rx_ring+0x134/0x200
- [<ffffffff815da055>] e1000_clean_all_rx_rings+0x45/0x60
- [<ffffffff815df5e0>] e1000_down+0x1c0/0x1d0
- [<ffffffff811e2260>] ? deactivate_slab+0x7f0/0x840
- [<ffffffff815e21bc>] e1000_change_mtu+0xdc/0x170
- [<ffffffff81647050>] dev_set_mtu+0xa0/0x140
- [<ffffffff81664218>] do_setlink+0x218/0xac0
- [<ffffffff814459e9>] ? nla_parse+0xb9/0x120
- [<ffffffff816652d0>] rtnl_newlink+0x6d0/0x890
- [<ffffffff8104f000>] ? kvm_clock_read+0x20/0x40
- [<ffffffff810a2068>] ? sched_clock_cpu+0xa8/0x100
- [<ffffffff81663802>] rtnetlink_rcv_msg+0x92/0x260
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-By setting the allocator to a dummy version, netpoll can't mess up our
-rx buffers.  The allocator is set back to a sane value in
-e1000_configure_rx.
+iEYEARECAAYFAlTttxEACgkQykllyylKDCEQyQCdFRKb0wiNFNlHmDJznewlgpdQ
+ZOsAniVeoFc/B6okJ8aaKLZXoD0Vx5KF
+=zTLn
+-----END PGP SIGNATURE-----
 
-Fixes: edbbb3ca1077 ("e1000: implement jumbo receive with partial descriptors")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-
----
-
-v2: Eric Dumazet suggested to remove the forward declaration of
-       e1000_alloc_dummy_rx_buffers
-v3: cleanup whitespace from v1
-
- drivers/net/ethernet/intel/e1000/e1000_main.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 7f997d36948f..a71c446631d1 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -144,6 +144,11 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 				     struct e1000_rx_ring *rx_ring,
- 				     int *work_done, int work_to_do);
-+static void e1000_alloc_dummy_rx_buffers(struct e1000_adapter *adapter,
-+					 struct e1000_rx_ring *rx_ring,
-+					 int cleaned_count)
-+{
-+}
- static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
- 				   struct e1000_rx_ring *rx_ring,
- 				   int cleaned_count);
-@@ -3552,8 +3557,11 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 		msleep(1);
- 	/* e1000_down has a dependency on max_frame_size */
- 	hw->max_frame_size = max_frame;
--	if (netif_running(netdev))
-+	if (netif_running(netdev)) {
-+		/* prevent buffers from being reallocated */
-+		adapter->alloc_rx_buf = e1000_alloc_dummy_rx_buffers;
- 		e1000_down(adapter);
-+	}
- 
- 	/* NOTE: netdev_alloc_skb reserves 16 bytes, and typically NET_IP_ALIGN
- 	 * means we reserve 2 more, this pushes us to allocate from the next
--- 
-2.3.0
+--sP05mOQowEowFAf49aqg5tCVXCvjQe1MG--
