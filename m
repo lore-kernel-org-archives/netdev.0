@@ -1,65 +1,36 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
- SR-IOV case
-Date: Wed, 25 Feb 2015 07:33:43 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E41F4D@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
-	 <1415898512.2454.26.camel@jtkirshe-mobl>
-	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
- <1424848839.2553.34.camel@jtkirshe-mobl>
+From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
+Subject: Re: [PATCH] proc: proc_create() should return true if CONFIG_PROC_FS
+ is not configured
+Date: Wed, 25 Feb 2015 02:48:30 -0500
+Message-ID: <CAPFHKzcLsL9Sb_ma4_XCm4a0kX_iNcCdFVXf346wtnmOPqWcEg@mail.gmail.com>
+References: <1424841259-8470-1-git-send-email-zhangzl2013@126.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424848839.2553.34.camel@jtkirshe-mobl>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	viro@zeniv.linux.org.uk, dhowells@redhat.com
+To: Zhang Zhaolong <zhangzl2013@126.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:39420 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750761AbbBYHtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 02:49:01 -0500
+Received: by wggx12 with SMTP id x12so1855654wgg.6
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 23:49:00 -0800 (PST)
+In-Reply-To: <1424841259-8470-1-git-send-email-zhangzl2013@126.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBXZWQsIDIwMTUtMDItMjUgYXQgMDA6NTEgKzAwMDAsIEhpcm9zaGkgU2hpbWFtb3RvIHdy
-b3RlOg0KPiA+ID4gU3ViamVjdDogUmU6IFtFMTAwMC1kZXZlbF0gW1BBVENIXSBpeGdiZTogbWFr
-ZSBWTEFOIGZpbHRlcg0KPiA+IGNvbmRpdGlvbmFsIGluIFNSLUlPViBjYXNlDQo+ID4gPg0KPiA+
-ID4gT24gVGh1LCAyMDE0LTExLTEzIGF0IDA4OjI4ICswMDAwLCBIaXJvc2hpIFNoaW1hbW90byB3
-cm90ZToNCj4gPiA+ID4gRnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0Lmpw
-Lm5lYy5jb20+DQo+ID4gPiA+DQo+ID4gPiA+IERpc2FibGUgaGFyZHdhcmUgVkxBTiBmaWx0ZXJp
-bmcgaWYgbmV0ZGV2LT5mZWF0dXJlcyBWTEFOIGZsYWcgaXMNCj4gPiA+ID4gZHJvcHBlZC4NCj4g
-PiA+ID4NCj4gPiA+ID4gSW4gU1ItSU9WIGNhc2UsIHRoZXJlIGlzIGEgdXNlIGNhc2Ugd2hpY2gg
-bmVlZHMgdG8gZGlzYWJsZSBWTEFODQo+ID4gPiA+IGZpbHRlci4NCj4gPiA+ID4gRm9yIGV4YW1w
-bGUsIHdlIG5lZWQgdG8gbWFrZSBhIG5ldHdvcmsgZnVuY3Rpb24gd2l0aCBWRiBpbg0KPiA+IHZp
-cnR1YWxpemVkDQo+ID4gPiA+IGVudmlyb25tZW50LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5
-IGJlIGEgc29mdHdhcmUgc3dpdGNoLCBhDQo+ID4gcm91dGVyDQo+ID4gPiA+IG9yIGV0Yy4gSXQg
-bWVhbnMgdGhhdCB0aGF0IG5ldHdvcmsgZnVuY3Rpb24gd2lsbCBiZSBhbiBlbmQgcG9pbnQNCj4g
-PiB3aGljaA0KPiA+ID4gPiB0ZXJtaW5hdGVzIG1hbnkgVkxBTnMuDQo+ID4gPiA+DQo+ID4gPiA+
-IEluIHRoZSBjdXJyZW50IGltcGxlbWVudGF0aW9uLCBWTEFOIGZpbHRlcmluZyBhbHdheXMgYmUg
-dHVybmVkIG9uDQo+ID4gYW5kDQo+ID4gPiA+IFZGIGNhbiByZWNlaXZlIG9ubHkgNjMgVkxBTnMu
-IEl0IG1lYW5zIHRoYXQgb25seSA2MyBWTEFOcyBjYW4gYmUNCj4gPiB1c2VkDQo+ID4gPiA+IGFu
-ZCBpdCdzIG5vdCBlbm91Z2ggYXQgYWxsIGZvciBidWlsZGluZyBhIHZpcnR1YWwgcm91dGVyLg0K
-PiA+ID4gPg0KPiA+ID4gPiBXaXRoIHRoaXMgcGF0Y2gsIGlmIHRoZSB1c2VyIHR1cm5zIFZMQU4g
-ZmlsdGVyaW5nIG9mZiBvbiB0aGUgaG9zdCwNCj4gPiBWRg0KPiA+ID4gPiBjYW4gcmVjZWl2ZSBl
-dmVyeSBWTEFOIHBhY2tldC4NCj4gPiA+ID4gVGhlIGJlaGF2aW9yIGlzIGNoYW5nZWQgb25seSBp
-ZiBWTEFOIGZpbHRlcmluZyBpcyB0dXJuZWQgb2ZmIGJ5DQo+ID4gPiA+IGV0aHRvb2wuDQo+ID4g
-PiA+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90
-b0BjdC5qcC5uZWMuY29tPg0KPiA+ID4gPiBDQzogQ2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9p
-QGludGVsLmNvbT4NCj4gPiA+ID4gLS0tDQo+ID4gPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9peGdiZS9peGdiZV9tYWluLmMgIHwgMTAgKysrKysrKysrKw0KPiA+ID4gPiAgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyB8ICA0ICsrKysNCj4gPiA+
-ID4gIDIgZmlsZXMgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygrKQ0KPiA+ID4NCj4gPiA+IFRoYW5r
-cyBIaXJvc2hpLCBJIHdpbGwgYWRkIHlvdXIgcGF0Y2ggdG8gbXkgcXVldWUuDQo+ID4NCj4gPiBI
-b3cgYWJvdXQgdGhpcyBwYXRjaD8NCj4gPiBJdCBoYXNuJ3QgYmVlbiBpbiB5b3VyIHRyZWUsLg0K
-PiA+IElzIHRoZXJlIGFueSBpc3N1ZT8NCj4gDQo+IFRoaXMgcGF0Y2ggd2FzIGRyb3BwZWQgZm9y
-IHR3byByZWFzb25zLiAgRmlyc3Qgd2FzIEJlbiBIdXRjaGluZ3MgaXNzdWVzDQo+IHdpdGggdGhl
-IHBhdGNoIG5lZWRlZCB0byBiZSBhZGRyZXNzZWQuICBTZWNvbmQsIHdhcyBkdWUgdG8gYSBwb3Nz
-aWJsZQ0KPiBzZWN1cml0eSBob2xlIHdoaWNoIGlzIHdoeSBWTEFOIGZpbHRlcmluZyB3YXMgbm90
-IGRpc2FibGVkIGluIFNSSU9WDQo+IG1vZGUsIHdoZXJlIGlzb2xhdGlvbiBpcyBsb3N0IGJldHdl
-ZW4gVk1zLg0KPiANCj4gSWYgeW91IHdhbnQgdG8gY29udGludWUgZ29pbmcgZm9yd2FyZCB3aXRo
-IHRoaXMgY2hhbmdlLCBhIHdhcm5pbmcNCj4gbWVzc2FnZSBzaG91bGQgYmUgYWRkZWQsIGF0IGxl
-YXN0LCB3YXJuaW5nIHRoZSB1c2VyIG9mIHRoZSBwb3NzaWJsZQ0KPiBzZWN1cml0eSBpc3N1ZXMu
-DQoNCm9rYXksIEkgdW5kZXJzdGFuZC4NCkkgd2lsbCBzdWJtaXQgYSBwYXRjaCB3aGljaCBoYXMg
-d2FybmluZyBtZXNzYWdlLg0KDQp0aGFua3MsDQpIaXJvc2hpDQoNCg==
+On Wed, Feb 25, 2015 at 12:14 AM, Zhang Zhaolong <zhangzl2013@126.com> wrote:
+>
+> proc_create() should return true if CONFIG_PROC_FS is not configured.
+> Otherwise if-statement like this "if (!proc_create())" would go to the false path.
+
+Does that even compile? proc_create() and proc_create_data() both return
+"struct proc_dir_entry *". It doesn't make sense for those macros to "return"
+anything but NULL - certainly not 1.
+
+Besides, why shouldn't "if (!proc_create())" behave like proc_create()
+failed when
+CONFIG_PROC_FS is not enabled?  You wouldn't want the caller to start trying
+to use that ((struct proc_dir_entry *)1) would you?
