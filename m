@@ -1,51 +1,58 @@
-From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: If bridge have no sub-interfaces, it's status may be still with
- 'RUNNING'
-Date: Wed, 25 Feb 2015 10:55:53 +0800
-Message-ID: <54ED39B9.4090107@windriver.com>
-References: <54DDCA99.4040401@windriver.com>	<20150213133056.3944c13e@uryu.home.lan>	<54E17853.8070106@windriver.com>	<54E210FF.2050502@gmail.com>,<20150216115137.5aa3f0cd@uryu.home.lan> <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 00/29] Phase 2 of fib_trie updates
+Date: Tue, 24 Feb 2015 22:53:00 -0500 (EST)
+Message-ID: <20150224.225300.107506639649235664.davem@davemloft.net>
+References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	David Ahern <dsahern@gmail.com>
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:45506 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbbBYC5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 21:57:05 -0500
-In-Reply-To: <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53867 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226AbbBYDxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 22:53:05 -0500
+In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Stephen && David
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Tue, 24 Feb 2015 12:47:55 -0800
 
-Any update?
+> This patch series implements the second phase of the fib_trie changes.  I
+> presented on these and the previous changes at Netdev01 and netconf.  The
+> slides for the Netdev01 presentation can be found at
+> https://www.netdev01.org/docs/duyck-fib-trie.pdf.
+> 
+> I'm currently debating if I should just submit the entire patch-set as-is
+> or if I should hold off on submitting the last 10 patches as they currently
+> have a potential performance impact in the case of a large number of
+> entries placed in the local table.  Specifically I have seen that removing
+> an interface in the case of 8K local subnets being configured on it
+> resulted in the time for a dummy interface being removed increasing from
+> about .6 seconds to 2.4 seconds.  I am not sure how common of a use-case
+> something like this would be.  I have not seen the same issue if I assign
+> 8K routes to the interface as I believe the fib_table_flush aggregates them
+> all in to one resize action.
+> 
+> The entire series reduces the total look-up time by another 20-35% versus
+> what is currently in the 4.0-rc1 kernel.  So for example a set of routing
+> look-ups which took 140ns in the 4.0-rc1 kernel will now only take about
+> 105ns after these patches.
 
-Zhu Yanjun
+I did a quick once-over for these changes and conceptually they look
+fine.
 
-On 02/18/2015 12:14 AM, Zhu, Yanjun wrote:
-> Hi, all
->
-> We should make it compatible. So I made a patch to turn on carrier on this bridge interface when the last sub interface is removed.
->
-> Hi, David
->
-> Please make tests with this latest patch. Thanks a lot.
->
-> Best Regards!
-> Zhu Yanjun
-> ________________________________________
-> From: Stephen Hemminger [stephen@networkplumber.org]
-> Sent: Monday, February 16, 2015 8:51 AM
-> To: David Ahern
-> Cc: Zhu, Yanjun; netdev; Wu, Kuaikuai; Tao, Yue
-> Subject: Re: If bridge have no sub-interfaces, it's status may be still with 'RUNNING'
->
-> Originally bridge code would start with carrier off,
-> but there were users using bridge as a form of dummy device
-> and this broke them. Therefore it was decided (like 5 yrs ago),
-> that bridge should start with carrier on.
+Why are sequences of removals so much more costly now?  Is it because
+of the maintainence of the information in the parent when rebalancing?
+
+In any event, I'll say two things:
+
+1) You should submit these changes in smaller batches anyways.
+   It's easier to review and get small sets of transformations
+   tested as a unit.
+
+2) For the device removal case, we can batch the inet addr removal
+   based route delete operations, and thus mitigate the rebalancing
+   costs.
