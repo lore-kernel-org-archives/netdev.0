@@ -1,68 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000e: avoid incorrect ioremap/iounmap sequences for
- e1000_pch_spt
-Date: Wed, 25 Feb 2015 13:24:13 -0800
-Message-ID: <1424899453.2622.2.camel@jtkirshe-mobl>
-References: <1424891492-2897-1-git-send-email-linville@tuxdriver.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [net-next PATCH 2/4] fib_trie: Replace plen with slen in leaf_info
+Date: Wed, 25 Feb 2015 13:30:44 -0800
+Message-ID: <54EE3F04.2000703@redhat.com>
+References: <20150225185658.1747.99188.stgit@ahduyck-vm-fedora20> <20150225190610.1747.3307.stgit@ahduyck-vm-fedora20> <alpine.LFD.2.11.1502252158580.2970@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-FheblL/ks9zz2B2/waB6"
-Cc: netdev@vger.kernel.org, David Ertman <david.m.ertman@intel.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:37946 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56052 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752711AbbBYVYO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 16:24:14 -0500
-In-Reply-To: <1424891492-2897-1-git-send-email-linville@tuxdriver.com>
+	id S1752755AbbBYVa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 16:30:56 -0500
+In-Reply-To: <alpine.LFD.2.11.1502252158580.2970@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-FheblL/ks9zz2B2/waB6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 02/25/2015 01:15 PM, Julian Anastasov wrote:
+> 	Hello,
+>
+> On Wed, 25 Feb 2015, Alexander Duyck wrote:
+>
+>>   	hlist_for_each_entry_rcu(li, &n->list, hlist) {
+>>   		struct fib_alias *fa;
+>>   
+>> -		if ((key ^ n->key) & li->mask_plen)
+>> +		if (((key ^ n->key) >> li->slen) &&
+>> +		    ((BITS_PER_LONG > KEYLENGTH) || (li->slen != KEYLENGTH)))
+>>   			continue;
+> 	The '(BITS_PER_LONG > KEYLENGTH) ||' part is not
+> needed because on 64-bit processor we can still use
+> 32-bit register (due to 32-bit t_key type) and to get
+> undefined (!0) result from rshift with 32. We do not want
+> to continue in this case. Is it really working on 64-bit for
+> 0.0.0.0/0 ?
+>
+> Regards
+>
+> --
+> Julian Anastasov <ja@ssi.bg>
 
-On Wed, 2015-02-25 at 14:11 -0500, John W. Linville wrote:
-> Commit 79849ebc0e06 (e1000e: initial support for i219) overwrites
-> hw->flash_addr for e1000_pch_spt MACs without doing an iounmap.
-> It also reuses the address without changing the areas that then
-> iounmap the new address (which was never explicitly ioremap'ed).
-> This causes iounmap to spit-out a call trace on rmmod.
->=20
-> This patch circumvents this issue on the early hardware that we have
-> in-house at Red Hat.
->=20
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: David Ertman <david.m.ertman@intel.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
+It is working but that may be due to the fact that gcc decided to place 
+the key in a 64b register.
 
-Thanks John, your patch has been added to my queue.
+The last patch in the series probably does a better job of addressing 
+your concern.  It replaces the shift with a comparison to (1ul << 
+fa->fa_slen).  In that case I believe the BITS_PER_LONG check would then 
+be appropriate would it not?
 
---=-FheblL/ks9zz2B2/waB6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU7j19AAoJEOVv75VaS+3OLO0P/itimKQCAcwmKCmsgOvL2jkB
-VJkCbpojItUaV8iP432f8983IZJd3DcK+sh3ANJ2DDMTCHtasM7goDb4gIhDvGuF
-tKG4R21Y+kvSx22NntJA+kCpqz9XVj3CwU+RP+gqfDQ4jeaVcWDTqg2+0teotvng
-Pj+JRqqJZLUQ6qWt5dnk2QrWikUCv8QHShJPWLDvcXXy5tXFMAzfunmqpTX+eev1
-p16uVmquB/oCuERBhOOfIrogNPvV0Y8C+WygVyvkINUHpHQF8KC+QjR1D4M1HsAE
-9m+llnIngs3mpHyZUmYiofyzUZtB7U2IP0o5T5wyPPFLBYCncObGA4j6Vc0Apre6
-2Is8Btbn6v/WbdJdPKdUYmpwz2KYk9e5ebPSNc5FxdguguqtJ6PK6oJ6RnSqlIQb
-kSKNA8SYU5rOzT1QcRuSODGJK/ZWqlnvudNv8V4pFhvb+4HG6atCYWZTh7uvC6+9
-MMROiSWFmb1BWA1ap6JJou1hdK/sXmgc0l2H5QXB0eo2Eqd2uy2kPKElyMrAlONj
-jZIkQDU59p5OJFXrEgRJVgQc9h1m8ONo/JvkLTqGiavNsVn9eLb9rWOHcx/oi7DW
-2bBwKOt/Ko+baknjY6c0vpwYMRid7IYSjOfrqnin/4ngWVF7+pK8pIjq0gUg9pxz
-aHarsBcr+b2loStTHHMb
-=9wZd
------END PGP SIGNATURE-----
-
---=-FheblL/ks9zz2B2/waB6--
+- Alex
