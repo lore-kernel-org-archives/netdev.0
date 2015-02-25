@@ -1,50 +1,33 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
- SR-IOV case
-Date: Wed, 25 Feb 2015 00:51:59 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
- <1415898512.2454.26.camel@jtkirshe-mobl>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Wed, 25 Feb 2015 01:51:06 +0100
+Message-ID: <20150225005106.GB17034@lunn.ch>
+References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+ <20150224215155.GA15633@lunn.ch>
+ <CACna6ryiyzeGDoFwSpkOQ9MnumQxB699vEtoY=XRwaD9HE0ryA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1415898512.2454.26.camel@jtkirshe-mobl>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
+To: Rafa?? Mi??ecki <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:48793 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752833AbbBYAyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 19:54:06 -0500
+Content-Disposition: inline
+In-Reply-To: <CACna6ryiyzeGDoFwSpkOQ9MnumQxB699vEtoY=XRwaD9HE0ryA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBTdWJqZWN0OiBSZTogW0UxMDAwLWRldmVsXSBbUEFUQ0hdIGl4Z2JlOiBtYWtlIFZMQU4gZmls
-dGVyIGNvbmRpdGlvbmFsIGluIFNSLUlPViBjYXNlDQo+IA0KPiBPbiBUaHUsIDIwMTQtMTEtMTMg
-YXQgMDg6MjggKzAwMDAsIEhpcm9zaGkgU2hpbWFtb3RvIHdyb3RlOg0KPiA+IEZyb206IEhpcm9z
-aGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tPg0KPiA+DQo+ID4gRGlzYWJs
-ZSBoYXJkd2FyZSBWTEFOIGZpbHRlcmluZyBpZiBuZXRkZXYtPmZlYXR1cmVzIFZMQU4gZmxhZyBp
-cw0KPiA+IGRyb3BwZWQuDQo+ID4NCj4gPiBJbiBTUi1JT1YgY2FzZSwgdGhlcmUgaXMgYSB1c2Ug
-Y2FzZSB3aGljaCBuZWVkcyB0byBkaXNhYmxlIFZMQU4NCj4gPiBmaWx0ZXIuDQo+ID4gRm9yIGV4
-YW1wbGUsIHdlIG5lZWQgdG8gbWFrZSBhIG5ldHdvcmsgZnVuY3Rpb24gd2l0aCBWRiBpbiB2aXJ0
-dWFsaXplZA0KPiA+IGVudmlyb25tZW50LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5IGJlIGEg
-c29mdHdhcmUgc3dpdGNoLCBhIHJvdXRlcg0KPiA+IG9yIGV0Yy4gSXQgbWVhbnMgdGhhdCB0aGF0
-IG5ldHdvcmsgZnVuY3Rpb24gd2lsbCBiZSBhbiBlbmQgcG9pbnQgd2hpY2gNCj4gPiB0ZXJtaW5h
-dGVzIG1hbnkgVkxBTnMuDQo+ID4NCj4gPiBJbiB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiwg
-VkxBTiBmaWx0ZXJpbmcgYWx3YXlzIGJlIHR1cm5lZCBvbiBhbmQNCj4gPiBWRiBjYW4gcmVjZWl2
-ZSBvbmx5IDYzIFZMQU5zLiBJdCBtZWFucyB0aGF0IG9ubHkgNjMgVkxBTnMgY2FuIGJlIHVzZWQN
-Cj4gPiBhbmQgaXQncyBub3QgZW5vdWdoIGF0IGFsbCBmb3IgYnVpbGRpbmcgYSB2aXJ0dWFsIHJv
-dXRlci4NCj4gPg0KPiA+IFdpdGggdGhpcyBwYXRjaCwgaWYgdGhlIHVzZXIgdHVybnMgVkxBTiBm
-aWx0ZXJpbmcgb2ZmIG9uIHRoZSBob3N0LCBWRg0KPiA+IGNhbiByZWNlaXZlIGV2ZXJ5IFZMQU4g
-cGFja2V0Lg0KPiA+IFRoZSBiZWhhdmlvciBpcyBjaGFuZ2VkIG9ubHkgaWYgVkxBTiBmaWx0ZXJp
-bmcgaXMgdHVybmVkIG9mZiBieQ0KPiA+IGV0aHRvb2wuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5
-OiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPiBDQzog
-Q2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8IDEwICsrKysrKysr
-KysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyB8
-ICA0ICsrKysNCj4gPiAgMiBmaWxlcyBjaGFuZ2VkLCAxNCBpbnNlcnRpb25zKCspDQo+IA0KPiBU
-aGFua3MgSGlyb3NoaSwgSSB3aWxsIGFkZCB5b3VyIHBhdGNoIHRvIG15IHF1ZXVlLg0KDQpIb3cg
-YWJvdXQgdGhpcyBwYXRjaD8NCkl0IGhhc24ndCBiZWVuIGluIHlvdXIgdHJlZSwuDQpJcyB0aGVy
-ZSBhbnkgaXNzdWU/DQoNCnRoYW5rcywNCkhpcm9zaGkNCg0K
+> That said, I'm not aware of any better place for switchdev drivers.
+
+Reading Florian's email, it seems like this should be placed into
+drivers/net/dsa, and refactored to use the DSA API.
+
+	 Andrew
