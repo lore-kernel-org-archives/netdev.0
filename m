@@ -1,60 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
- in SW or HW
-Date: Wed, 25 Feb 2015 15:31:13 +0100
-Message-ID: <20150225143113.GD17992@lunn.ch>
-References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
- <54E76EFA.1050209@cumulusnetworks.com>
- <54E7876A.3060303@gmail.com>
- <FFEDCF9956066D4D97C463CC178C7F69F22E02@SJEXCHMB06.corp.ad.broadcom.com>
- <54E8CE77.3050709@cumulusnetworks.com>
- <CAE4R7bAPS1GZKaC4M6x9cqfTOkVju1+Po4KzanfSniEFX9oi1w@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH net] amd-xgbe: Do not schedule napi until ready
+Date: Wed, 25 Feb 2015 08:34:05 -0600
+Message-ID: <54EDDD5D.1080009@amd.com>
+References: <20150224164801.26035.17252.stgit@tlendack-t1.amdoffice.net>
+ <20150224.232532.330751855755079647.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa <roopa@cumulusnetworks.com>,
-	Viswanath Bandaru <vbandaru@broadcom.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"linux@roeck-us.net" <linux@roeck-us.net>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49134 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753288AbbBYOeR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 09:34:17 -0500
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bAPS1GZKaC4M6x9cqfTOkVju1+Po4KzanfSniEFX9oi1w@mail.gmail.com>
+Received: from mail-bn1bon0138.outbound.protection.outlook.com ([157.56.111.138]:56736
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753119AbbBYPH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 10:07:29 -0500
+In-Reply-To: <20150224.232532.330751855755079647.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Geunter had this question in the thread:
-> 
-> "I may be missing something, but I don't immediately see how this patch set
-> helps me solve any of the problems I am seeing when integrating the Marvell
-> switch code. Even if the switch internally does hardware aging, it still
-> seems to me that we'll need software aging on top of that, even if the
-> bridge code in the kernel has the same addresses in its fdb as the switch.
-> I see no feasible means to keep the fdb in the switch synchronized
-> with the fdb in the kernel".
-> 
-> You'll want to turn learning off on the bridge, and enable learning (and
-> learning_sync) in hardware.  The hw driver will install an FDB entry in the
-> bridge's FDB and mark it "external".  The entry will also appear in the
-> device's FDB.
+On 02/24/2015 10:25 PM, David Miller wrote:
+> From: Tom Lendacky <thomas.lendacky@amd.com>
+> Date: Tue, 24 Feb 2015 10:48:01 -0600
+>
+>> It is possible that the ethernet device could not have been properly
+>> shutdown when Linux begins executing, through firmware use for example.
+>> Until the amd-xgbe module is loaded, interrupts associated with the
+>> the device could be pending. Once the module is loaded and interrupts
+>> are requested, the interrupt could fire right away. If napi support
+>> has not been initialized then the poll function will be null and result
+>> in a kernel panic when napi attempts to invoke the poll function. Add
+>> a check to the interrupt routine to be sure napi has been initialized
+>> before trying to schedule it.
+>>
+>> Also, move the napi enablement support to be a bit earlier during
+>> startup and a bit later during shutdown to be certain napi support is
+>> enabled while the device can perform DMA.
+>>
+>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+>
+> This is not how you fix a problem like this.
+>
+> You should absolutely not request the IRQ for the device, nor should
+> you enable NAPI, until the device and driver are both fully setup and
+> able to process those events successfully.
 
-I don't think this is going to work. There is no efficient way to get
-the hardware tables out of the hardware. We don't get notification of
-additions or removals. We can only read the whole table. And it can be
-expensive to read the whole table, since it can be 1K or more entries,
-going over an MDIO bus, which in the worst case can be bit banging on
-gpio lines.
+Thanks for the feedback.  I'll rework the code/flow to not request the
+IRQ until everything is ready.  Since the subject and description will
+change quite a bit I'll just submit a new patch rather than a "v2."
 
-We probably need a design for devices where we can efficiently get
-access to the hardware table, and use it in the software bridge. But
-we also need a design where the SW and HW bridges have independently
-tables.
+Thanks,
+Tom
 
-	Andrew
+>
+> Trust me, you're not the first person to hit this kind of problem.
+> :-)
+>
