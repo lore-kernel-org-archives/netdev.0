@@ -1,63 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Wed, 25 Feb 2015 22:56:51 +0100
-Message-ID: <20150225215651.GF17992@lunn.ch>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
- <20150224223039.GC1332@gospo.home.greyhouse.net>
- <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
- <54ED017E.6000902@gmail.com>
- <20150225001534.GB15633@lunn.ch>
- <54ED19AB.7020003@gmail.com>
- <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
- <20150225140356.GB17992@lunn.ch>
- <20150225154607.GD1332@gospo.home.greyhouse.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 6/6] qlcnic_dcb.c : possible division by zero.
+Date: Wed, 25 Feb 2015 17:01:06 -0500 (EST)
+Message-ID: <20150225.170106.798587659082519733.davem@davemloft.net>
+References: <1424901403-6458-1-git-send-email-ameenali023@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rafa?? Mi??ecki <zajec5@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49579 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932182AbbBYV7z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 16:59:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20150225154607.GD1332@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shahed.shaikh@qlogic.com, Dept-GELinuxNICDev@qlogic.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: ameenali023@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424901403-6458-1-git-send-email-ameenali023@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 25, 2015 at 10:46:07AM -0500, Andy Gospodarek wrote:
-> On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
-> [...]
-> > 
-> > What we don't want is X chip families and Y different ways to
-> > configure the features. Ideal we want X chip families, and one way to
-> > configure them all.
-> 
-> This statement is really my primary concern.  There is lots of interest
-> around hardware offload at this point and it seems like there is a risk
-> that a lack of consistency can create problems.
-> 
-> I think these patches are great as they allow for the programming of the
-> offload hardware (and it has been pointed out that this drastically
-> increases performance), but one concern I have with this patch (related
-> to this) is that I'm not sure there is a major need to create netdevs
-> automatically if there is not the ability to rx/tx actual frames on
-> these interfaces.
+From: Ameen Ali <ameenali023@gmail.com>
+Date: Wed, 25 Feb 2015 23:56:43 +0200
 
-Using the broadcom tags, it does seem possible to direct packets out
-specific ports. So this chip family could use the DSA infrastructure.
-It should also be possible to perform bridging in hardware. We should
-push DSA for all chips which fit this model.
+> @@ -822,7 +822,7 @@ qlcnic_dcb_get_pg_tc_cfg_tx(struct net_device *netdev, int tc, u8 *prio,
+>  		if (temp->valid && (pg == temp->pgid))
+>  			cnt++;
+>  	}
+> -
+> +	if(cnt != 0)
+>  	tc_cfg->bwg_percent = (100 / cnt);
 
-However, i suspect there are simpler chips which do not support
-tagging. When somebody tries to submit a driver for such a device, we
-then need to consider what to do for these devices.
+This is not acceptable.
 
-     Andrew
+Your conditional expression is not spaced properly, there must be a space
+between "if" and the openning parenthesis of the condition.
+
+You also must properly re-indent the statement the new if() condition
+is protecting.
