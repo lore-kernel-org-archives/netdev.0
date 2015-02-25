@@ -1,53 +1,50 @@
-From: Eugene Yakubovich <eugene.yakubovich@coreos.com>
-Subject: new link failing on duplicate names in different namespaces
-Date: Tue, 24 Feb 2015 16:48:10 -0800
-Message-ID: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [E1000-devel] [PATCH] ixgbe: make VLAN filter conditional in
+ SR-IOV case
+Date: Wed, 25 Feb 2015 00:51:59 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F3CE@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05D9D336@BPXM14GP.gisp.nec.co.jp>
+ <1415898512.2454.26.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:36362 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108AbbBYAsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 19:48:11 -0500
-Received: by qcqi8 with SMTP id i8so541523qcq.3
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 16:48:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415898512.2454.26.camel@jtkirshe-mobl>
+Content-Language: ja-JP
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-rtnetlink's RTM_NEWLINK allows for specifying the network namespace in
-which the link is to be created via IFLA_NET_NS_PID or IFLA_NET_NS_FD.
-This not only saves a user a call to move the link into the target
-namespace, it can avoid a potential ifname conflict. For example, if
-creating eth0 in another namespace and the current one already has
-eth0.
-
-Unfortunately, this is not the current behavior. If the user specifies
-IFLA_IFNAME, leaves ifinfomsg.ifi_index unspecified and sets
-NLM_F_EXCL flag, as in the case of creating a new link, the call will
-fail with EEXIST in cases where there's a name conflict.
-
-rtnl_newlink() will:
-
-if (ifname[0])
-    dev = __dev_get_by_name(net, ifname);
-
-and later:
-
-if (dev) {
-    int status = 0;
-
-    if (nlh->nlmsg_flags & NLM_F_EXCL)
-        return -EEXIST;
-...
-}
-
-I am not sure if this has been discussed before or if it's viewed as a
-real problem. Fixing this however, would make it easier to work with
-interfaces in different network namespaces. I don't have a good
-solution in mind though and so I can't propose a patch at this time.
-
-Thanks,
-Eugene
+PiBTdWJqZWN0OiBSZTogW0UxMDAwLWRldmVsXSBbUEFUQ0hdIGl4Z2JlOiBtYWtlIFZMQU4gZmls
+dGVyIGNvbmRpdGlvbmFsIGluIFNSLUlPViBjYXNlDQo+IA0KPiBPbiBUaHUsIDIwMTQtMTEtMTMg
+YXQgMDg6MjggKzAwMDAsIEhpcm9zaGkgU2hpbWFtb3RvIHdyb3RlOg0KPiA+IEZyb206IEhpcm9z
+aGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tPg0KPiA+DQo+ID4gRGlzYWJs
+ZSBoYXJkd2FyZSBWTEFOIGZpbHRlcmluZyBpZiBuZXRkZXYtPmZlYXR1cmVzIFZMQU4gZmxhZyBp
+cw0KPiA+IGRyb3BwZWQuDQo+ID4NCj4gPiBJbiBTUi1JT1YgY2FzZSwgdGhlcmUgaXMgYSB1c2Ug
+Y2FzZSB3aGljaCBuZWVkcyB0byBkaXNhYmxlIFZMQU4NCj4gPiBmaWx0ZXIuDQo+ID4gRm9yIGV4
+YW1wbGUsIHdlIG5lZWQgdG8gbWFrZSBhIG5ldHdvcmsgZnVuY3Rpb24gd2l0aCBWRiBpbiB2aXJ0
+dWFsaXplZA0KPiA+IGVudmlyb25tZW50LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5IGJlIGEg
+c29mdHdhcmUgc3dpdGNoLCBhIHJvdXRlcg0KPiA+IG9yIGV0Yy4gSXQgbWVhbnMgdGhhdCB0aGF0
+IG5ldHdvcmsgZnVuY3Rpb24gd2lsbCBiZSBhbiBlbmQgcG9pbnQgd2hpY2gNCj4gPiB0ZXJtaW5h
+dGVzIG1hbnkgVkxBTnMuDQo+ID4NCj4gPiBJbiB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiwg
+VkxBTiBmaWx0ZXJpbmcgYWx3YXlzIGJlIHR1cm5lZCBvbiBhbmQNCj4gPiBWRiBjYW4gcmVjZWl2
+ZSBvbmx5IDYzIFZMQU5zLiBJdCBtZWFucyB0aGF0IG9ubHkgNjMgVkxBTnMgY2FuIGJlIHVzZWQN
+Cj4gPiBhbmQgaXQncyBub3QgZW5vdWdoIGF0IGFsbCBmb3IgYnVpbGRpbmcgYSB2aXJ0dWFsIHJv
+dXRlci4NCj4gPg0KPiA+IFdpdGggdGhpcyBwYXRjaCwgaWYgdGhlIHVzZXIgdHVybnMgVkxBTiBm
+aWx0ZXJpbmcgb2ZmIG9uIHRoZSBob3N0LCBWRg0KPiA+IGNhbiByZWNlaXZlIGV2ZXJ5IFZMQU4g
+cGFja2V0Lg0KPiA+IFRoZSBiZWhhdmlvciBpcyBjaGFuZ2VkIG9ubHkgaWYgVkxBTiBmaWx0ZXJp
+bmcgaXMgdHVybmVkIG9mZiBieQ0KPiA+IGV0aHRvb2wuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5
+OiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPiBDQzog
+Q2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8IDEwICsrKysrKysr
+KysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyB8
+ICA0ICsrKysNCj4gPiAgMiBmaWxlcyBjaGFuZ2VkLCAxNCBpbnNlcnRpb25zKCspDQo+IA0KPiBU
+aGFua3MgSGlyb3NoaSwgSSB3aWxsIGFkZCB5b3VyIHBhdGNoIHRvIG15IHF1ZXVlLg0KDQpIb3cg
+YWJvdXQgdGhpcyBwYXRjaD8NCkl0IGhhc24ndCBiZWVuIGluIHlvdXIgdHJlZSwuDQpJcyB0aGVy
+ZSBhbnkgaXNzdWU/DQoNCnRoYW5rcywNCkhpcm9zaGkNCg0K
