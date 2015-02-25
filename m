@@ -1,72 +1,45 @@
-From: Madhu Challa <challa@noironetworks.com>
-Subject: [PATCH net-next v5 0/2] Multicast group join/leave at ip level
-Date: Wed, 25 Feb 2015 09:58:33 -0800
-Message-ID: <1424887115-3483-1-git-send-email-challa@noironetworks.com>
-Cc: Madhu Challa <challa@noironetworks.com>
-To: eric.dumazet@gmail.com, davem@davemloft.net, daniel@iogearbox.net,
-	netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Wed, 25 Feb 2015 10:15:17 -0800
+Message-ID: <1424888117.5565.113.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1424877322.git.daniel@iogearbox.net>
+	 <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
+	 <54EDEE55.8050605@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
+	 <54EDF4DD.1060709@iogearbox.net>
+	 <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED645@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"johunt@akamai.com" <johunt@akamai.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:42504 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbbBYSPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 13:15:04 -0500
-Received: by pdbfp1 with SMTP id fp1so6556416pdb.9
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 10:15:03 -0800 (PST)
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:34137 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753013AbbBYSPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 13:15:19 -0500
+Received: by iecrp18 with SMTP id rp18so7305005iec.1
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 10:15:19 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAED645@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series enables configuring multicast group join/leave at ip level
-by extending the "ip address" command.
+On Wed, 2015-02-25 at 17:49 +0000, David Laight wrote:
 
-It adds a new control socket mc_autojoin_sock and ifa_flag IFA_F_MCAUTOJOIN
-to invoke the corresponding igmp group join/leave api.
+> That won't work if someone is managing to break the hash function.
+> You need some approximation to the total count as well.
+> OTOH there is no point growing the table if the current list isn't 'full'.
 
-Since the igmp group join/leave api takes the rtnl_lock the code had to
-be refactored by adding a shim layer prefixed by __ that can be invoked
-by code that already has the rtnl_lock. This way we avoid proliferation of
-work queues.
+Well, if hash function is broken, having 1,000,000 elements in one
+bucket will kill your host, even if hash table has 1 million buckets.
 
-The first patch in this series does the refactoring for igmp v6.
-Its based on igmp v4 changes that were added by Eric Dumazet.
-
-The second patch in this series does the group join/leave based on the
-setting of the IFA_F_MCAUTOJOIN flag.
-
-v5:
-- addressed comments from Daniel Borkmann.
- - removed blank line in patch 1/2
- - removed unused variable, const arg in patch 2/2
-v4:
-- addressed comments from Yoshifuji Hideaki.
- - Remove WARN_ON not needed because we return a value from v2.
-- addressed comments from Daniel Borkmann.
- - rename sock to mc_autojoin_sk
- - ip_mc_config() pass ifa so it needs one less argument.
- - igmp_net_{init|destroy}() use inet_ctl_sock_{create|destroy}
- - inet_rtm_newaddr() change scope of ret.
- - igmp_net_init() no need to initialize sock to NULL.
-v3:
-- addressed comments from David Miller.
- - fixed indentation and local variable order.
-v2:
-- addressed comments from Eric Dumazet.
- - removed workqueue and call __ip_mc_{join|leave}_group or
-   __ipv6_sock_mc_{join|drop}
-
-Madhu Challa (2):
-  igmp v6: add __ipv6_sock_mc_join and __ipv6_sock_mc_drop
-  multicast: Extend ip address command to enable multicast group
-    join/leave on
-
- include/net/ipv6.h           |  8 ++++++
- include/net/netns/ipv4.h     |  1 +
- include/net/netns/ipv6.h     |  1 +
- include/uapi/linux/if_addr.h |  1 +
- net/ipv4/devinet.c           | 31 +++++++++++++++++++++++
- net/ipv4/igmp.c              | 13 ++++++++++
- net/ipv6/addrconf.c          | 38 +++++++++++++++++++++++++---
- net/ipv6/mcast.c             | 60 ++++++++++++++++++++++++++++++++++----------
- 8 files changed, 137 insertions(+), 16 deletions(-)
-
--- 
-1.9.1
+Better find this out sooner than later.
