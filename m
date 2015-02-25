@@ -1,456 +1,508 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40e: Add support for getlink, setlink ndo ops
-Date: Wed, 25 Feb 2015 00:58:33 -0800
-Message-ID: <1424854720-18825-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40e: Implement configfs for NPAR BW configuration
+Date: Wed, 25 Feb 2015 00:58:32 -0800
+Message-ID: <1424854720-18825-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:4721 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:20292 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbbBYI6r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752666AbbBYI6r (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 25 Feb 2015 03:58:47 -0500
 In-Reply-To: <1424854720-18825-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Add support for bridge offload ndo_ops getlink and setlink to
-enable bridge hardware mode as per the mode set via IFLA_BRIDGE_MODE.
-The support is only enabled in case of a PF VSI and not available for
-any other VSI type.
+Add configfs controls to get, set and commit NPAR BW configurations.
 
-By default the i40e driver inserts a bridge as part of the bring-up
-when a FDIR type VSI and/or a FCoE VSI is created. This bridge is
-created in VEB mode by default i.e. after creating the bridge using
-"Add VEB" AQ command the loopback for the PF's default VSI is enabled.
+We export three controls:
+	min_bw - Can take a value from 0 to 100 inclusive
+	max_bw - Can take a value from 1 to 100 inclusive
+	commit - A write-only control that accepts only a value of 1 and will
+		cause the BW settings to be permanently committed to NVM so
+		that they are persistent across power cycles and system
+		resets
 
-The patch adds capability where all the VSIs created as downlink to
-the bridge inherits the loopback property and enables loopback only
-if the uplink bridge is operating in VEB mode.
-Hence, there is no need to explicitly enable loopback as part of
-allocating resources for SR-IOV VFs and call to do that has been
-removed.
-
-In case a user-request is made either via "bridge" utility or using
-the bridge netlink interface that requires to change the hardware
-bridge mode then that would require a PF reset and rebuild of the
-switch hierarchy.
+The BW values are relative and are expressed as percentages.  For more
+information on the interpretation of the BW settings see the Dell
+specifications for NPAR.
 
 Also update the copyright year.
 
-Change-ID: I4d78fc1c83158efda29ba7be92239b74f75d6d25
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Change-ID: Id7496ca65630b5037e32ba6a5a748fbc1632881b
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-By: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |   3 +
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |  12 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 190 +++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   3 +-
- 6 files changed, 196 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/intel/i40e/Makefile        |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e.h          |   7 +-
+ drivers/net/ethernet/intel/i40e/i40e_configfs.c | 354 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |  13 +-
+ 4 files changed, 369 insertions(+), 8 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_configfs.c
 
+diff --git a/drivers/net/ethernet/intel/i40e/Makefile b/drivers/net/ethernet/intel/i40e/Makefile
+index c405819..023e452 100644
+--- a/drivers/net/ethernet/intel/i40e/Makefile
++++ b/drivers/net/ethernet/intel/i40e/Makefile
+@@ -1,7 +1,7 @@
+ ################################################################################
+ #
+ # Intel Ethernet Controller XL710 Family Linux Driver
+-# Copyright(c) 2013 - 2014 Intel Corporation.
++# Copyright(c) 2013 - 2015 Intel Corporation.
+ #
+ # This program is free software; you can redistribute it and/or modify it
+ # under the terms and conditions of the GNU General Public License,
+@@ -37,6 +37,7 @@ i40e-objs := i40e_main.o \
+ 	i40e_hmc.o	\
+ 	i40e_lan_hmc.o	\
+ 	i40e_nvm.o	\
++	i40e_configfs.o	\
+ 	i40e_debugfs.o	\
+ 	i40e_diag.o	\
+ 	i40e_txrx.o	\
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 2192587..71092a9 100644
+index 713e20e..2192587 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -50,6 +50,7 @@
- #include <net/ip6_checksum.h>
- #include <linux/ethtool.h>
- #include <linux/if_vlan.h>
-+#include <linux/if_bridge.h>
- #include <linux/clocksource.h>
- #include <linux/net_tstamp.h>
- #include <linux/ptp_clock_kernel.h>
-@@ -410,6 +411,7 @@ struct i40e_veb {
- 	u16 uplink_seid;
- 	u16 stats_idx;           /* index of VEB parent */
- 	u8  enabled_tc;
-+	u16 bridge_mode;	/* Bridge Mode (VEB/VEPA) */
- 	u16 flags;
- 	u16 bw_limit;
- 	u8  bw_max_quanta;
-@@ -735,6 +737,7 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr);
+@@ -688,6 +688,7 @@ int i40e_vlan_rx_add_vid(struct net_device *netdev,
+ int i40e_vlan_rx_kill_vid(struct net_device *netdev,
+ 			  __always_unused __be16 proto, u16 vid);
+ #endif
++int i40e_open(struct net_device *netdev);
+ int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
+@@ -698,7 +699,6 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi);
+ struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, u8 *macaddr,
+ 				      bool is_vf, bool is_netdev);
+ #ifdef I40E_FCOE
+-int i40e_open(struct net_device *netdev);
+ int i40e_close(struct net_device *netdev);
+ int i40e_setup_tc(struct net_device *netdev, u8 tc);
+ void i40e_netpoll(struct net_device *netdev);
+@@ -735,7 +735,10 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr);
  int i40e_ptp_get_ts_config(struct i40e_pf *pf, struct ifreq *ifr);
  void i40e_ptp_init(struct i40e_pf *pf);
  void i40e_ptp_stop(struct i40e_pf *pf);
-+int i40e_is_vsi_uplink_mode_veb(struct i40e_vsi *vsi);
- #if IS_ENABLED(CONFIG_CONFIGFS_FS)
- int i40e_configfs_init(void);
- void i40e_configfs_exit(void);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 43a6bf0..30cf0be 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -921,9 +921,10 @@ static void i40e_dbg_dump_veb_seid(struct i40e_pf *pf, int seid)
- 		return;
- 	}
- 	dev_info(&pf->pdev->dev,
--		 "veb idx=%d,%d stats_ic=%d  seid=%d uplink=%d\n",
-+		 "veb idx=%d,%d stats_ic=%d  seid=%d uplink=%d mode=%s\n",
- 		 veb->idx, veb->veb_idx, veb->stats_idx, veb->seid,
--		 veb->uplink_seid);
-+		 veb->uplink_seid,
-+		 veb->bridge_mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
- 	i40e_dbg_dump_eth_stats(pf, &veb->stats);
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-index 8b5bf16..cc11868 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -385,8 +385,7 @@ int i40e_fcoe_vsi_init(struct i40e_vsi *vsi, struct i40e_vsi_context *ctxt)
- 	ctxt->flags = I40E_AQ_VSI_TYPE_PF;
- 
- 	/* FCoE VSI would need the following sections */
--	info->valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID |
--					    I40E_AQ_VSI_PROP_QUEUE_OPT_VALID);
-+	info->valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_QUEUE_OPT_VALID);
- 
- 	/* FCoE VSI does not need these sections */
- 	info->valid_sections &= cpu_to_le16(~(I40E_AQ_VSI_PROP_SECURITY_VALID |
-@@ -395,7 +394,12 @@ int i40e_fcoe_vsi_init(struct i40e_vsi *vsi, struct i40e_vsi_context *ctxt)
- 					    I40E_AQ_VSI_PROP_INGRESS_UP_VALID |
- 					    I40E_AQ_VSI_PROP_EGRESS_UP_VALID));
- 
--	info->switch_id = cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+	if (i40e_is_vsi_uplink_mode_veb(vsi)) {
-+		info->valid_sections |=
-+				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+		info->switch_id =
-+				cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+	}
- 	enabled_tc = i40e_get_fcoe_tc_map(pf);
- 	i40e_vsi_setup_queue_map(vsi, ctxt, enabled_tc, true);
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index eb2655f..97a759a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5872,6 +5872,26 @@ static void i40e_verify_eeprom(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_config_bridge_mode - Configure the HW bridge mode
-+ * @veb: pointer to the bridge instance
+-
++#if IS_ENABLED(CONFIG_CONFIGFS_FS)
++int i40e_configfs_init(void);
++void i40e_configfs_exit(void);
++#endif /* CONFIG_CONFIGFS_FS */
+ i40e_status i40e_get_npar_bw_setting(struct i40e_pf *pf);
+ i40e_status i40e_set_npar_bw_setting(struct i40e_pf *pf);
+ i40e_status i40e_commit_npar_bw_setting(struct i40e_pf *pf);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_configfs.c b/drivers/net/ethernet/intel/i40e/i40e_configfs.c
+new file mode 100644
+index 0000000..3af4f14
+--- /dev/null
++++ b/drivers/net/ethernet/intel/i40e/i40e_configfs.c
+@@ -0,0 +1,354 @@
++/*******************************************************************************
 + *
-+ * Configure the loop back mode for the LAN VSI that is downlink to the
-+ * specified HW bridge instance. It is expected this function is called
-+ * when a new HW bridge is instantiated.
-+ **/
-+static void i40e_config_bridge_mode(struct i40e_veb *veb)
-+{
-+	struct i40e_pf *pf = veb->pf;
++ * Intel Ethernet Controller XL710 Family Linux Driver
++ * Copyright(c) 2013 - 2015 Intel Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ * Contact Information:
++ * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++ *
++ ******************************************************************************/
 +
-+	dev_info(&pf->pdev->dev, "enabling bridge mode: %s\n",
-+		 veb->bridge_mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
-+	if (veb->bridge_mode & BRIDGE_MODE_VEPA)
-+		i40e_disable_pf_switch_lb(pf);
++#include <linux/configfs.h>
++#include "i40e.h"
++
++#if IS_ENABLED(CONFIG_CONFIGFS_FS)
++
++/**
++ * configfs structure for i40e
++ *
++ * This file adds code for configfs support for the i40e driver.  This sets
++ * up a filesystem under /sys/kernel/config in which configuration changes
++ * can be made for the driver's netdevs.
++ *
++ * The initialization in this code creates the "i40e" entry in the configfs
++ * system.  After that, the user needs to use mkdir to create configurations
++ * for specific netdev ports; for example "mkdir eth3".  This code will verify
++ * that such a netdev exists and that it is owned by i40e.
++ *
++ **/
++
++struct i40e_cfgfs_vsi {
++	struct config_item item;
++	struct i40e_vsi *vsi;
++};
++
++static inline struct i40e_cfgfs_vsi *to_i40e_cfgfs_vsi(struct config_item *item)
++{
++	return item ? container_of(item, struct i40e_cfgfs_vsi, item) : NULL;
++}
++
++static struct configfs_attribute i40e_cfgfs_vsi_attr_min_bw = {
++	.ca_owner = THIS_MODULE,
++	.ca_name = "min_bw",
++	.ca_mode = S_IRUGO | S_IWUSR,
++};
++
++static struct configfs_attribute i40e_cfgfs_vsi_attr_max_bw = {
++	.ca_owner = THIS_MODULE,
++	.ca_name = "max_bw",
++	.ca_mode = S_IRUGO | S_IWUSR,
++};
++
++static struct configfs_attribute i40e_cfgfs_vsi_attr_commit = {
++	.ca_owner = THIS_MODULE,
++	.ca_name = "commit",
++	.ca_mode = S_IRUGO | S_IWUSR,
++};
++
++static struct configfs_attribute i40e_cfgfs_vsi_attr_port_count = {
++	.ca_owner = THIS_MODULE,
++	.ca_name = "ports",
++	.ca_mode = S_IRUGO | S_IWUSR,
++};
++
++static struct configfs_attribute i40e_cfgfs_vsi_attr_part_count = {
++	.ca_owner = THIS_MODULE,
++	.ca_name = "partitions",
++	.ca_mode = S_IRUGO | S_IWUSR,
++};
++
++static struct configfs_attribute *i40e_cfgfs_vsi_attrs[] = {
++	&i40e_cfgfs_vsi_attr_min_bw,
++	&i40e_cfgfs_vsi_attr_max_bw,
++	&i40e_cfgfs_vsi_attr_commit,
++	&i40e_cfgfs_vsi_attr_port_count,
++	&i40e_cfgfs_vsi_attr_part_count,
++	NULL,
++};
++
++/**
++ * i40e_cfgfs_vsi_attr_show - Show a VSI's NPAR BW partition info
++ * @item: A pointer back to the configfs item created on driver load
++ * @attr: A pointer to this item's configuration attribute
++ * @page: A pointer to the output buffer
++ **/
++static ssize_t i40e_cfgfs_vsi_attr_show(struct config_item *item,
++					struct configfs_attribute *attr,
++					char *page)
++{
++	struct i40e_cfgfs_vsi *i40e_cfgfs_vsi = to_i40e_cfgfs_vsi(item);
++	struct i40e_pf *pf = i40e_cfgfs_vsi->vsi->back;
++	ssize_t count;
++
++	if (i40e_cfgfs_vsi->vsi != pf->vsi[pf->lan_vsi])
++		return 0;
++
++	if (strncmp(attr->ca_name, "min_bw", 6) == 0)
++		count = sprintf(page, "%s %s %d%%\n",
++				i40e_cfgfs_vsi->vsi->netdev->name,
++				(pf->npar_min_bw & I40E_ALT_BW_RELATIVE_MASK) ?
++				"Relative Min BW" : "Absolute Min BW",
++				pf->npar_min_bw & I40E_ALT_BW_VALUE_MASK);
++	else if (strncmp(attr->ca_name, "max_bw", 6) == 0)
++		count = sprintf(page, "%s %s %d%%\n",
++				i40e_cfgfs_vsi->vsi->netdev->name,
++				(pf->npar_max_bw & I40E_ALT_BW_RELATIVE_MASK) ?
++				"Relative Max BW" : "Absolute Max BW",
++				pf->npar_max_bw & I40E_ALT_BW_VALUE_MASK);
++	else if (strncmp(attr->ca_name, "ports", 5) == 0)
++		count = sprintf(page, "%d\n",
++				pf->hw.num_ports);
++	else if (strncmp(attr->ca_name, "partitions", 10) == 0)
++		count = sprintf(page, "%d\n",
++				pf->hw.num_partitions);
 +	else
-+		i40e_enable_pf_switch_lb(pf);
++		return 0;
++
++	return count;
 +}
 +
 +/**
-  * i40e_reconstitute_veb - rebuild the VEB and anything connected to it
-  * @veb: pointer to the VEB instance
-  *
-@@ -5917,8 +5937,7 @@ static int i40e_reconstitute_veb(struct i40e_veb *veb)
- 	if (ret)
- 		goto end_reconstitute;
- 
--	/* Enable LB mode for the main VSI now that it is on a VEB */
--	i40e_enable_pf_switch_lb(pf);
-+	i40e_config_bridge_mode(veb);
- 
- 	/* create the remaining VSIs attached to this VEB */
- 	for (v = 0; v < pf->num_alloc_vsi; v++) {
-@@ -7737,6 +7756,118 @@ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	return err;
- }
- 
-+#ifdef HAVE_BRIDGE_ATTRIBS
-+/**
-+ * i40e_ndo_bridge_setlink - Set the hardware bridge mode
-+ * @dev: the netdev being configured
-+ * @nlh: RTNL message
-+ *
-+ * Inserts a new hardware bridge if not already created and
-+ * enables the bridging mode requested (VEB or VEPA). If the
-+ * hardware bridge has already been inserted and the request
-+ * is to change the mode then that requires a PF reset to
-+ * allow rebuild of the components with required hardware
-+ * bridge mode enabled.
++ * i40e_cfgfs_vsi_attr_store - Show a VSI's NPAR BW partition info
++ * @item: A pointer back to the configfs item created on driver load
++ * @attr: A pointer to this item's configuration attribute
++ * @page: A pointer to the user input buffer holding the user input values
 + **/
-+static int i40e_ndo_bridge_setlink(struct net_device *dev,
-+				   struct nlmsghdr *nlh)
++static ssize_t i40e_cfgfs_vsi_attr_store(struct config_item *item,
++					 struct configfs_attribute *attr,
++					 const char *page, size_t count)
 +{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_veb *veb = NULL;
-+	struct nlattr *attr, *br_spec;
-+	int i, rem;
++	struct i40e_cfgfs_vsi *i40e_cfgfs_vsi = to_i40e_cfgfs_vsi(item);
++	struct i40e_pf *pf = i40e_cfgfs_vsi->vsi->back;
++	char *p = (char *)page;
++	int rc;
++	unsigned long tmp;
 +
-+	/* Only for PF VSI for now */
-+	if (vsi->seid != pf->vsi[pf->lan_vsi]->seid)
-+		return -EOPNOTSUPP;
++	if (i40e_cfgfs_vsi->vsi != pf->vsi[pf->lan_vsi])
++		return 0;
 +
-+	/* Find the HW bridge for PF VSI */
-+	for (i = 0; i < I40E_MAX_VEB && !veb; i++) {
-+		if (pf->veb[i] && pf->veb[i]->seid == vsi->uplink_seid)
-+			veb = pf->veb[i];
++	if (!p || (*p && (*p == '\n')))
++		return -EINVAL;
++
++	rc = kstrtoul(p, 10, &tmp);
++	if (rc)
++		return rc;
++	if (tmp > 100)
++		return -ERANGE;
++
++	if (strncmp(attr->ca_name, "min_bw", 6) == 0) {
++		if (tmp > (pf->npar_max_bw & I40E_ALT_BW_VALUE_MASK))
++			return -ERANGE;
++		/* Preserve the valid and relative BW bits - the rest is
++		 * don't care.
++		 */
++		pf->npar_min_bw &= (I40E_ALT_BW_RELATIVE_MASK |
++				    I40E_ALT_BW_VALID_MASK);
++		pf->npar_min_bw |= (tmp & I40E_ALT_BW_VALUE_MASK);
++		i40e_set_npar_bw_setting(pf);
++	} else if (strncmp(attr->ca_name, "max_bw", 6) == 0) {
++		if (tmp < 1 ||
++		    tmp < (pf->npar_min_bw & I40E_ALT_BW_VALUE_MASK))
++			return -ERANGE;
++		/* Preserve the valid and relative BW bits - the rest is
++		 * don't care.
++		 */
++		pf->npar_max_bw &= (I40E_ALT_BW_RELATIVE_MASK |
++				    I40E_ALT_BW_VALID_MASK);
++		pf->npar_max_bw |= (tmp & I40E_ALT_BW_VALUE_MASK);
++		i40e_set_npar_bw_setting(pf);
++	} else if (strncmp(attr->ca_name, "commit", 6) == 0 && tmp == 1) {
++		if (i40e_commit_npar_bw_setting(pf))
++			return -EIO;
 +	}
 +
-+	br_spec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
++	return count;
++}
 +
-+	nla_for_each_nested(attr, br_spec, rem) {
-+		__u16 mode;
++/**
++ * i40e_cfgfs_vsi_release - Free up the configuration item memory
++ * @item: A pointer back to the configfs item created on driver load
++ **/
++static void i40e_cfgfs_vsi_release(struct config_item *item)
++{
++	kfree(to_i40e_cfgfs_vsi(item));
++}
 +
-+		if (nla_type(attr) != IFLA_BRIDGE_MODE)
-+			continue;
++static struct configfs_item_operations i40e_cfgfs_vsi_item_ops = {
++	.release		= i40e_cfgfs_vsi_release,
++	.show_attribute		= i40e_cfgfs_vsi_attr_show,
++	.store_attribute	= i40e_cfgfs_vsi_attr_store,
++};
 +
-+		mode = nla_get_u16(attr);
-+		if ((mode != BRIDGE_MODE_VEPA) &&
-+		    (mode != BRIDGE_MODE_VEB))
-+			return -EINVAL;
++static struct config_item_type i40e_cfgfs_vsi_type = {
++	.ct_item_ops	= &i40e_cfgfs_vsi_item_ops,
++	.ct_attrs	= i40e_cfgfs_vsi_attrs,
++	.ct_owner	= THIS_MODULE,
++};
 +
-+		/* Insert a new HW bridge */
-+		if (!veb) {
-+			veb = i40e_veb_setup(pf, 0, vsi->uplink_seid, vsi->seid,
-+					     vsi->tc_config.enabled_tc);
-+			if (veb) {
-+				veb->bridge_mode = mode;
-+				i40e_config_bridge_mode(veb);
-+			} else {
-+				/* No Bridge HW offload available */
-+				return -ENOENT;
-+			}
++struct i40e_cfgfs_group {
++	struct config_group group;
++};
++
++/**
++ * to_i40e_cfgfs_group - Get the group pointer from the config item
++ * @item: A pointer back to the configfs item created on driver load
++ **/
++static inline struct i40e_cfgfs_group *
++to_i40e_cfgfs_group(struct config_item *item)
++{
++	return item ? container_of(to_config_group(item),
++				   struct i40e_cfgfs_group, group) : NULL;
++}
++
++/**
++ * i40e_cfgfs_group_make_item - Create the configfs item with group container
++ * @group: A pointer to our configfs group
++ * @name: A pointer to the nume of the device we're looking for
++ **/
++static struct config_item *
++i40e_cfgfs_group_make_item(struct config_group *group, const char *name)
++{
++	struct i40e_cfgfs_vsi *i40e_cfgfs_vsi;
++	struct net_device *netdev;
++	struct i40e_netdev_priv *np;
++
++	read_lock(&dev_base_lock);
++	netdev = first_net_device(&init_net);
++	while (netdev) {
++		if (strncmp(netdev->name, name, sizeof(netdev->name)) == 0)
 +			break;
-+		} else if (mode != veb->bridge_mode) {
-+			/* Existing HW bridge but different mode needs reset */
-+			veb->bridge_mode = mode;
-+			i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
-+			break;
-+		}
++		netdev = next_net_device(netdev);
++	}
++	read_unlock(&dev_base_lock);
++
++	if (!netdev)
++		return ERR_PTR(-ENODEV);
++
++	/* is this netdev owned by i40e? */
++	if (netdev->netdev_ops->ndo_open != i40e_open)
++		return ERR_PTR(-EACCES);
++
++	i40e_cfgfs_vsi = kzalloc(sizeof(*i40e_cfgfs_vsi), GFP_KERNEL);
++	if (!i40e_cfgfs_vsi)
++		return ERR_PTR(-ENOMEM);
++
++	np = netdev_priv(netdev);
++	i40e_cfgfs_vsi->vsi = np->vsi;
++	config_item_init_type_name(&i40e_cfgfs_vsi->item, name,
++				   &i40e_cfgfs_vsi_type);
++
++	return &i40e_cfgfs_vsi->item;
++}
++
++static struct configfs_attribute i40e_cfgfs_group_attr_description = {
++	.ca_owner = THIS_MODULE,
++	.ca_name = "description",
++	.ca_mode = S_IRUGO,
++};
++
++static struct configfs_attribute *i40e_cfgfs_group_attrs[] = {
++	&i40e_cfgfs_group_attr_description,
++	NULL,
++};
++
++static ssize_t i40e_cfgfs_group_attr_show(struct config_item *item,
++					  struct configfs_attribute *attr,
++					  char *page)
++{
++	return sprintf(page,
++"i40e\n"
++"\n"
++"This subsystem allows the modification of network port configurations.\n"
++"To start, use the name of the network port to be configured in a 'mkdir'\n"
++"command, e.g. 'mkdir eth3'.\n");
++}
++
++static void i40e_cfgfs_group_release(struct config_item *item)
++{
++	kfree(to_i40e_cfgfs_group(item));
++}
++
++static struct configfs_item_operations i40e_cfgfs_group_item_ops = {
++	.release	= i40e_cfgfs_group_release,
++	.show_attribute	= i40e_cfgfs_group_attr_show,
++};
++
++/* Note that, since no extra work is required on ->drop_item(),
++ * no ->drop_item() is provided.
++ */
++static struct configfs_group_operations i40e_cfgfs_group_ops = {
++	.make_item	= i40e_cfgfs_group_make_item,
++};
++
++static struct config_item_type i40e_cfgfs_group_type = {
++	.ct_item_ops	= &i40e_cfgfs_group_item_ops,
++	.ct_group_ops	= &i40e_cfgfs_group_ops,
++	.ct_attrs	= i40e_cfgfs_group_attrs,
++	.ct_owner	= THIS_MODULE,
++};
++
++static struct configfs_subsystem i40e_cfgfs_group_subsys = {
++	.su_group = {
++		.cg_item = {
++			.ci_namebuf = "i40e",
++			.ci_type = &i40e_cfgfs_group_type,
++		},
++	},
++};
++
++/**
++ * i40e_configfs_init - Initialize configfs support for our driver
++ **/
++int i40e_configfs_init(void)
++{
++	int ret;
++	struct configfs_subsystem *subsys;
++
++	subsys = &i40e_cfgfs_group_subsys;
++
++	config_group_init(&subsys->su_group);
++	mutex_init(&subsys->su_mutex);
++	ret = configfs_register_subsystem(subsys);
++	if (ret) {
++		pr_err("Error %d while registering configfs subsystem %s\n",
++		       ret, subsys->su_group.cg_item.ci_namebuf);
++		return ret;
 +	}
 +
 +	return 0;
 +}
 +
 +/**
-+ * i40e_ndo_bridge_getlink - Get the hardware bridge mode
-+ * @skb: skb buff
-+ * @pid: process id
-+ * @seq: RTNL message seq #
-+ * @dev: the netdev being configured
-+ * @filter_mask: unused
-+ *
-+ * Return the mode in which the hardware bridge is operating in
-+ * i.e VEB or VEPA.
++ * i40e_configfs_init - Bail out - unregister configfs subsystem and release
 + **/
-+#ifdef HAVE_BRIDGE_FILTER
-+static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				   struct net_device *dev,
-+				   u32 __always_unused filter_mask)
-+#else
-+static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				   struct net_device *dev)
-+#endif /* HAVE_BRIDGE_FILTER */
++void i40e_configfs_exit(void)
 +{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_vsi *vsi = np->vsi;
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_veb *veb = NULL;
-+	int i;
-+
-+	/* Only for PF VSI for now */
-+	if (vsi->seid != pf->vsi[pf->lan_vsi]->seid)
-+		return -EOPNOTSUPP;
-+
-+	/* Find the HW bridge for the PF VSI */
-+	for (i = 0; i < I40E_MAX_VEB && !veb; i++) {
-+		if (pf->veb[i] && pf->veb[i]->seid == vsi->uplink_seid)
-+			veb = pf->veb[i];
-+	}
-+
-+	if (!veb)
-+		return 0;
-+
-+	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, veb->bridge_mode);
++	configfs_unregister_subsystem(&i40e_cfgfs_group_subsys);
 +}
-+#endif /* HAVE_BRIDGE_ATTRIBS */
-+
- const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_open		= i40e_open,
- 	.ndo_stop		= i40e_close,
-@@ -7771,6 +7902,10 @@ const struct net_device_ops i40e_netdev_ops = {
- #endif
- 	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
- 	.ndo_fdb_add		= i40e_ndo_fdb_add,
-+#ifdef HAVE_BRIDGE_ATTRIBS
-+	.ndo_bridge_getlink	= i40e_ndo_bridge_getlink,
-+	.ndo_bridge_setlink	= i40e_ndo_bridge_setlink,
-+#endif /* HAVE_BRIDGE_ATTRIBS */
- };
- 
- /**
-@@ -7883,6 +8018,30 @@ static void i40e_vsi_delete(struct i40e_vsi *vsi)
++#endif /* IS_ENABLED(CONFIG_CONFIGFS_FS) */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index e3e48c3..eb2655f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4835,11 +4835,7 @@ exit:
+  *
+  * Returns 0 on success, negative value on failure
+  **/
+-#ifdef I40E_FCOE
+ int i40e_open(struct net_device *netdev)
+-#else
+-static int i40e_open(struct net_device *netdev)
+-#endif
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
+@@ -7741,7 +7737,7 @@ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	return err;
  }
  
- /**
-+ * i40e_is_vsi_uplink_mode_veb - Check if the VSI's uplink bridge mode is VEB
-+ * @vsi: the VSI being queried
-+ *
-+ * Returns 1 if HW bridge mode is VEB and return 0 in case of VEPA mode
-+ **/
-+int i40e_is_vsi_uplink_mode_veb(struct i40e_vsi *vsi)
-+{
-+	struct i40e_veb *veb;
-+	struct i40e_pf *pf = vsi->back;
+-static const struct net_device_ops i40e_netdev_ops = {
++const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_open		= i40e_open,
+ 	.ndo_stop		= i40e_close,
+ 	.ndo_start_xmit		= i40e_lan_xmit_frame,
+@@ -9943,6 +9939,10 @@ static int __init i40e_init_module(void)
+ 	pr_info("%s: %s - version %s\n", i40e_driver_name,
+ 		i40e_driver_string, i40e_driver_version_str);
+ 	pr_info("%s: %s\n", i40e_driver_name, i40e_copyright);
 +
-+	/* Uplink is not a bridge so default to VEB */
-+	if (vsi->veb_idx == I40E_NO_VEB)
-+		return 1;
-+
-+	veb = pf->veb[vsi->veb_idx];
-+	/* Uplink is a bridge in VEPA mode */
-+	if (veb && (veb->bridge_mode & BRIDGE_MODE_VEPA))
-+		return 0;
-+
-+	/* Uplink is a bridge in VEB mode */
-+	return 1;
-+}
-+
-+/**
-  * i40e_add_vsi - Add a VSI to the switch
-  * @vsi: the VSI being configured
-  *
-@@ -7969,10 +8128,12 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.uplink_seid = vsi->uplink_seid;
- 		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 		ctxt.flags = I40E_AQ_VSI_TYPE_PF;
--		ctxt.info.valid_sections |=
-+		if (i40e_is_vsi_uplink_mode_veb(vsi)) {
-+			ctxt.info.valid_sections |=
- 				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
--		ctxt.info.switch_id =
-+			ctxt.info.switch_id =
- 				cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+		}
- 		i40e_vsi_setup_queue_map(vsi, &ctxt, enabled_tc, true);
- 		break;
- 
-@@ -7983,13 +8144,15 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 		ctxt.flags = I40E_AQ_VSI_TYPE_VMDQ2;
- 
--		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
--
- 		/* This VSI is connected to VEB so the switch_id
- 		 * should be set to zero by default.
- 		 */
--		ctxt.info.switch_id = 0;
--		ctxt.info.switch_id |= cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+		if (i40e_is_vsi_uplink_mode_veb(vsi)) {
-+			ctxt.info.valid_sections |=
-+				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+			ctxt.info.switch_id =
-+				cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+		}
- 
- 		/* Setup the VSI tx/rx queue map for TC0 only for now */
- 		i40e_vsi_setup_queue_map(vsi, &ctxt, enabled_tc, true);
-@@ -8002,12 +8165,15 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 		ctxt.flags = I40E_AQ_VSI_TYPE_VF;
- 
--		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
--
- 		/* This VSI is connected to VEB so the switch_id
- 		 * should be set to zero by default.
- 		 */
--		ctxt.info.switch_id = cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+		if (i40e_is_vsi_uplink_mode_veb(vsi)) {
-+			ctxt.info.valid_sections |=
-+				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-+			ctxt.info.switch_id =
-+				cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
-+		}
- 
- 		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_VLAN_VALID);
- 		ctxt.info.port_vlan_flags |= I40E_AQ_VSI_PVLAN_MODE_ALL;
-@@ -8365,7 +8531,7 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 					 __func__);
- 				return NULL;
- 			}
--			i40e_enable_pf_switch_lb(pf);
-+			i40e_config_bridge_mode(veb);
- 		}
- 		for (i = 0; i < I40E_MAX_VEB && !veb; i++) {
- 			if (pf->veb[i] && pf->veb[i]->seid == vsi->uplink_seid)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 5450b9f..493335c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -752,7 +752,7 @@ void i40e_enable_pf_switch_lb(struct i40e_pf *pf)
-  *
-  * disable switch loop back or die - no point in a return value
-  **/
--static void i40e_disable_pf_switch_lb(struct i40e_pf *pf)
-+void i40e_disable_pf_switch_lb(struct i40e_pf *pf)
++#if IS_ENABLED(CONFIG_CONFIGFS_FS)
++	i40e_configfs_init();
++#endif /* CONFIG_CONFIGFS_FS */
+ 	i40e_dbg_init();
+ 	return pci_register_driver(&i40e_driver);
+ }
+@@ -9958,5 +9958,8 @@ static void __exit i40e_exit_module(void)
  {
- 	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
- 	struct i40e_vsi_context ctxt;
-@@ -891,7 +891,6 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- 	}
- 	pf->num_alloc_vfs = num_alloc_vfs;
- 
--	i40e_enable_pf_switch_lb(pf);
- err_alloc:
- 	if (ret)
- 		i40e_free_vfs(pf);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 9452f52..ef777a6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
-  *
-  * Intel Ethernet Controller XL710 Family Linux Driver
-- * Copyright(c) 2013 - 2014 Intel Corporation.
-+ * Copyright(c) 2013 - 2015 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -127,5 +127,6 @@ int i40e_ndo_set_vf_spoofchk(struct net_device *netdev, int vf_id, bool enable);
- void i40e_vc_notify_link_state(struct i40e_pf *pf);
- void i40e_vc_notify_reset(struct i40e_pf *pf);
- void i40e_enable_pf_switch_lb(struct i40e_pf *pf);
-+void i40e_disable_pf_switch_lb(struct i40e_pf *pf);
- 
- #endif /* _I40E_VIRTCHNL_PF_H_ */
+ 	pci_unregister_driver(&i40e_driver);
+ 	i40e_dbg_exit();
++#if IS_ENABLED(CONFIG_CONFIGFS_FS)
++	i40e_configfs_exit();
++#endif /* CONFIG_CONFIGFS_FS */
+ }
+ module_exit(i40e_exit_module);
 -- 
 1.9.3
