@@ -1,27 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Tue, 24 Feb 2015 21:10:59 -0500 (EST)
-Message-ID: <20150224.211059.1585359466391945609.davem@davemloft.net>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
-	<54ECFFC3.5070309@gmail.com>
+Subject: Re: [PATCH v2 1/2] rhashtable: require max_shift if grow_decision
+ defined
+Date: Tue, 24 Feb 2015 21:12:56 -0500 (EST)
+Message-ID: <20150224.211256.2012225739825347238.davem@davemloft.net>
+References: <54ECD57A.1080709@iogearbox.net>
+	<20150224.163137.12835478467735127.davem@davemloft.net>
+	<20150224224915.GB1199@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, netdev@vger.kernel.org, jogo@openwrt.org,
-	hauke@hauke-m.de, nbd@openwrt.org, jiri@resnulli.us
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53232 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbbBYCLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 21:11:03 -0500
-In-Reply-To: <54ECFFC3.5070309@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: daniel@iogearbox.net, johunt@akamai.com, pablo@netfilter.org,
+	kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: tgraf@suug.ch
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150224224915.GB1199@casper.infradead.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 24 Feb 2015 22:49:15 +0000
 
-Florian, this is one of my pet peeves.
+> On 02/24/15 at 04:31pm, David Miller wrote:
+>> From: Daniel Borkmann <daniel@iogearbox.net>
+>> Let's fix as much crap as we can in -net.  I'm going to have to do
+>> a huge backport of all the rhashtables to -stable at some point
+>> too.
+> 
+> All fixes except 2-3 should only affect the post per bucket lock
+> era. The fixes tags should be correct but I'll double check. I can
+> take care of the backports if you like.
 
-Do not quote an entire patch in an email reply when you just want to
-make specific comments on specific portions of the change.
+There were several bugs that are only cured by the "per bucket
+lock era" version fo rhashtable.
+
+I only applied all of that work to net-next at the time because
+suspected we'd still have to hash all of that out.
+
+Therefore, all of the rhashtable stuff that went into 4.0-rc1
+is going to need to be backported.
+
+I also really wish Herbert Xu didn't drop off the map on this work, we
+could really use his expertiece and suggestions right now. :-/
