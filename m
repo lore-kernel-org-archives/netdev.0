@@ -1,49 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: drop hard-coded num_buffers size
-Date: Wed, 25 Feb 2015 15:20:01 +0100
-Message-ID: <1424873997-16686-1-git-send-email-mst@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
+Date: Wed, 25 Feb 2015 15:21:30 +0100
+Message-ID: <20150225142130.GA7703@localhost.localdomain>
+References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
+ <20150218210830.GA7778@localhost.localdomain>
+ <54EAF4D4.4090505@linn.co.uk>
+ <20150225095056.GB4293@localhost.localdomain>
+ <54EDA997.1080005@linn.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, abrestic@chromium.org
+To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <54EDA997.1080005@linn.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 2 that we use for copy_to_iter comes from sizeof(u16),
-it used to be that way before the iov iter update.
-Fix it up, making it obvious the size of stack access
-is right.
+On Wed, Feb 25, 2015 at 10:53:11AM +0000, Stathis Voukelatos wrote:
+> On 25/02/15 09:50, Richard Cochran wrote:
+> >
+> >The Linux kernel already fully supports this kind of application via
+> >the SIOCSHWTSTAMP, SO_TIMESTAMPING, and PHC mechanisms.  We certainly
+> >don't need another another interface just for someone's warped
+> >hardware design.
+> >
+> >I suggest that you find a way to make your HW work within the existing
+> >frame work.
+> 
+> The driver already uses that framework for returning timestamps to
+> user space. It does not introduce any new interface.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+No, it only abuses the interfaces that we already have.  The time
+stamp handling is not "within the existing frame work" by any means.
+However, there is a way to integrate this hardware properly...
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index ca70434..2bbfc25 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -621,7 +621,8 @@ static void handle_rx(struct vhost_net *net)
- 
- 		num_buffers = cpu_to_vhost16(vq, headcount);
- 		if (likely(mergeable) &&
--		    copy_to_iter(&num_buffers, 2, &fixup) != 2) {
-+		    copy_to_iter(&num_buffers, sizeof num_buffers,
-+				 &fixup) != sizeof num_buffers) {
- 			vq_err(vq, "Failed num_buffers write");
- 			vhost_discard_vq_desc(vq, headcount);
- 			break;
--- 
-MST
+> The H/W could not support that:
+
+With these new explanations, now I understand the code and how this is
+supposed to work.
+
+I'll put further comments in a reply to your newer series.
+
+Thanks,
+Richard
