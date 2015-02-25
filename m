@@ -1,58 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 00/29] Phase 2 of fib_trie updates
-Date: Tue, 24 Feb 2015 22:53:00 -0500 (EST)
-Message-ID: <20150224.225300.107506639649235664.davem@davemloft.net>
-References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
+From: Simo Sorce <simo@redhat.com>
+Subject: Re: [patch v2] sunrpc: integer underflow in rsc_parse()
+Date: Tue, 24 Feb 2015 22:54:44 -0500
+Message-ID: <1424836484.13431.36.camel@willson.usersys.redhat.com>
+References: <20150224153401.GA12218@mwanda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53867 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbbBYDxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 22:53:05 -0500
-In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Layton <jlayton@primarydata.com>,
+	Kinglong Mee <kinglongmee@gmail.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Wang YanQing <udknight@gmail.com>,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150224153401.GA12218@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Tue, 24 Feb 2015 12:47:55 -0800
-
-> This patch series implements the second phase of the fib_trie changes.  I
-> presented on these and the previous changes at Netdev01 and netconf.  The
-> slides for the Netdev01 presentation can be found at
-> https://www.netdev01.org/docs/duyck-fib-trie.pdf.
+On Tue, 2015-02-24 at 18:34 +0300, Dan Carpenter wrote:
+> If we call groups_alloc() with invalid values then it's might lead to
+> memory corruption.  For example, with a negative value then we might not
+> allocate enough for sizeof(struct group_info).
 > 
-> I'm currently debating if I should just submit the entire patch-set as-is
-> or if I should hold off on submitting the last 10 patches as they currently
-> have a potential performance impact in the case of a large number of
-> entries placed in the local table.  Specifically I have seen that removing
-> an interface in the case of 8K local subnets being configured on it
-> resulted in the time for a dummy interface being removed increasing from
-> about .6 seconds to 2.4 seconds.  I am not sure how common of a use-case
-> something like this would be.  I have not seen the same issue if I assign
-> 8K routes to the interface as I believe the fib_table_flush aggregates them
-> all in to one resize action.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2:  In v1, I changed groups_alloc().  The other places which call
+> groups_alloc() check the value before calling.  Eric wanted that, either
+> have all the callers check, or all the callers rely on groups_alloc().
+> In the end, Bruce Fields said adding the check here was probably
+> reasonable.
 > 
-> The entire series reduces the total look-up time by another 20-35% versus
-> what is currently in the 4.0-rc1 kernel.  So for example a set of routing
-> look-ups which took 140ns in the 4.0-rc1 kernel will now only take about
-> 105ns after these patches.
+> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+> index 224a82f..1095be9 100644
+> --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> @@ -463,6 +463,8 @@ static int rsc_parse(struct cache_detail *cd,
+>  		/* number of additional gid's */
+>  		if (get_int(&mesg, &N))
+>  			goto out;
+> +		if (N < 0 || N > NGROUPS_MAX)
+> +			goto out;
+>  		status = -ENOMEM;
+>  		rsci.cred.cr_group_info = groups_alloc(N);
+>  		if (rsci.cred.cr_group_info == NULL)
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I did a quick once-over for these changes and conceptually they look
-fine.
+I touched this code relatively recently, and this check looks correct.
+Feel free to add Reviewed-by: Simo Sorce <simo@redhat.com>
 
-Why are sequences of removals so much more costly now?  Is it because
-of the maintainence of the information in the parent when rebalancing?
+Simo.
 
-In any event, I'll say two things:
-
-1) You should submit these changes in smaller batches anyways.
-   It's easier to review and get small sets of transformations
-   tested as a unit.
-
-2) For the device removal case, we can batch the inet addr removal
-   based route delete operations, and thus mitigate the rebalancing
-   costs.
+-- 
+Simo Sorce * Red Hat, Inc * New York
