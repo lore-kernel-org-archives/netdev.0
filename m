@@ -1,36 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB
- ageing in SW or HW
-Date: Wed, 25 Feb 2015 12:29:33 -0500 (EST)
-Message-ID: <20150225.122933.847453144328568960.davem@davemloft.net>
-References: <54E8CE77.3050709@cumulusnetworks.com>
-	<CAE4R7bAPS1GZKaC4M6x9cqfTOkVju1+Po4KzanfSniEFX9oi1w@mail.gmail.com>
-	<20150225143113.GD17992@lunn.ch>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v4 0/3] Linn Ethernet Packet Sniffer driver
+Date: Wed, 25 Feb 2015 18:30:53 +0100
+Message-ID: <20150225173053.GE7703@localhost.localdomain>
+References: <cover.1424796018.git.stathis.voukelatos@linn.co.uk>
+ <20150225151945.GB7703@localhost.localdomain>
+ <20150225170127.GD7703@localhost.localdomain>
+ <54EE0268.2040201@linn.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, roopa@cumulusnetworks.com,
-	vbandaru@broadcom.com, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
-	gospo@cumulusnetworks.com, siva.mannem.lnx@gmail.com
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60020 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbbBYR3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 12:29:38 -0500
-In-Reply-To: <20150225143113.GD17992@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54EE0268.2040201@linn.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed, 25 Feb 2015 15:31:13 +0100
+On Wed, Feb 25, 2015 at 05:12:08PM +0000, Stathis Voukelatos wrote:
+> Regarding this last point, the actual counter that generates the
+> timestamps is not part of the sniffer H/W module. Timestamps are
+> provided to the sniffer externally in H/W by a different module.
+> Apart of that there is not eg. a sniffer register to read the
+> current counter value. I wonder if it should be the driver for the
+> module where the counter belongs (called Event Timer in the
+> Pistachio Soc) that should register the PHC.
 
-> I don't think this is going to work. There is no efficient way to get
-> the hardware tables out of the hardware. We don't get notification of
-> additions or removals. We can only read the whole table. And it can be
-> expensive to read the whole table, since it can be 1K or more entries,
-> going over an MDIO bus, which in the worst case can be bit banging on
-> gpio lines.
+It is okay to have the PHC come from another driver.  However, you do
+need to export PHC index to the time stamping code, in order to
+provide the 'phc_index' field for the ETHTOOL_GET_TS_INFO request.
 
-Agreed, for most chips, this is how things seem to be structured.
+You can also have one SW driver cover both HW modules, if that is
+cleaner and easier.  Among all the other drivers, only gianfar has the
+PHC separate.
+
+> I need some more time to study your other suggestions regarding the
+> PHY timestamping framework.
+
+>From my (limited) understanding of your HW device, I should think that
+it will work.  The PHY time stamping subsystem is not the most obvious
+code in the world.  Please feel free to ask if you have any questions.
+
+Thanks,
+Richard
