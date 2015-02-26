@@ -1,78 +1,75 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next 5/5] tipc: make media address offset a common define
-Date: Thu, 26 Feb 2015 07:43:30 +0100
-Message-ID: <1424933010-31003-6-git-send-email-erik.hugne@ericsson.com>
-References: <1424933010-31003-1-git-send-email-erik.hugne@ericsson.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Thu, 26 Feb 2015 07:47:55 +0100
+Message-ID: <20150226064755.GA2074@nanopsycho.orion>
+References: <20150224223039.GC1332@gospo.home.greyhouse.net>
+ <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+ <54ED017E.6000902@gmail.com>
+ <20150225001534.GB15633@lunn.ch>
+ <54ED19AB.7020003@gmail.com>
+ <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+ <20150225140356.GB17992@lunn.ch>
+ <20150225154607.GD1332@gospo.home.greyhouse.net>
+ <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
+ <20150226042158.GF1332@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<richard.alpe@ericsson.com>, <ying.xue@windriver.com>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+	Rafa?? Mi??ecki <zajec5@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:55325 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185AbbBZGrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 01:47:49 -0500
-In-Reply-To: <1424933010-31003-1-git-send-email-erik.hugne@ericsson.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:42935 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273AbbBZGr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 01:47:59 -0500
+Received: by wghl2 with SMTP id l2so8091596wgh.9
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 22:47:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150226042158.GF1332@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+Thu, Feb 26, 2015 at 05:21:58AM CET, gospo@cumulusnetworks.com wrote:
+>On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
+>> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
+>> <gospo@cumulusnetworks.com> wrote:
+>> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
+>> > [...]
+>> >>
+>> >> What we don't want is X chip families and Y different ways to
+>> >> configure the features. Ideal we want X chip families, and one way to
+>> >> configure them all.
+>> >
+>> > This statement is really my primary concern.  There is lots of interest
+>> > around hardware offload at this point and it seems like there is a risk
+>> > that a lack of consistency can create problems.
+>> >
+>> > I think these patches are great as they allow for the programming of the
+>> > offload hardware (and it has been pointed out that this drastically
+>> > increases performance), but one concern I have with this patch (related
+>> > to this) is that I'm not sure there is a major need to create netdevs
+>> > automatically if there is not the ability to rx/tx actual frames on
+>> > these interfaces.
+>> 
+>> Even when not used for rx/tx to CPU, it seems the netdevs are still
+>> useful as an anchor to build higher-level constructs such as bridge or
+>> bond, and to hang stuff like netdev stats or ethtool-ish things.
+>> 
+>
+>I agree that they are useful, but now we are really dealing with a
+>netdev that is slightly lower functionality than we expect from a netdev
+>right now.
 
-With the exception of infiniband media which does not use media
-offsets, the media address is always located at offset 4 in the
-media info field as defined by the protocol, so we move the
-definition to the generic bearer.h
+Is that a real care for some device now?
+I agree with Scott that we need to model is consistently. If there is
+such port netdev witch cannot tx/rx, we can expose the fact using some
+flag...
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/bearer.h    | 1 +
- net/tipc/eth_media.c | 6 ++----
- 2 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 1a23327..097aff0 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -52,6 +52,7 @@
-  */
- #define TIPC_MEDIA_INFO_SIZE	32
- #define TIPC_MEDIA_TYPE_OFFSET	3
-+#define TIPC_MEDIA_ADDR_OFFSET	4
- 
- /*
-  * Identifiers of supported TIPC media types
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 085d3a0..f69a2fd 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -37,8 +37,6 @@
- #include "core.h"
- #include "bearer.h"
- 
--#define ETH_ADDR_OFFSET  4  /* MAC addr position inside address field */
--
- /* Convert Ethernet address (media address format) to string */
- static int tipc_eth_addr2str(struct tipc_media_addr *addr,
- 			     char *strbuf, int bufsz)
-@@ -55,7 +53,7 @@ static int tipc_eth_addr2msg(char *msg, struct tipc_media_addr *addr)
- {
- 	memset(msg, 0, TIPC_MEDIA_INFO_SIZE);
- 	msg[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_ETH;
--	memcpy(msg + ETH_ADDR_OFFSET, addr->value, ETH_ALEN);
-+	memcpy(msg + TIPC_MEDIA_ADDR_OFFSET, addr->value, ETH_ALEN);
- 	return 0;
- }
- 
-@@ -79,7 +77,7 @@ static int tipc_eth_msg2addr(struct tipc_bearer *b,
- 			     char *msg)
- {
- 	/* Skip past preamble: */
--	msg += ETH_ADDR_OFFSET;
-+	msg += TIPC_MEDIA_ADDR_OFFSET;
- 	return tipc_eth_raw2addr(b, addr, msg);
- }
- 
--- 
-2.1.4
+>
