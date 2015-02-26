@@ -1,74 +1,111 @@
 From: Eyal Birger <eyal.birger@gmail.com>
-Subject: [PATCH net-next 6/7] net: add common accessor for setting dropcount on packets
-Date: Thu, 26 Feb 2015 04:10:11 +0200
-Message-ID: <1424916612-744-7-git-send-email-eyal.birger@gmail.com>
+Subject: [PATCH net-next 7/7] net: move skb->dropcount to skb->cb[]
+Date: Thu, 26 Feb 2015 04:10:12 +0200
+Message-ID: <1424916612-744-8-git-send-email-eyal.birger@gmail.com>
 References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
 Cc: willemb@google.com, edumazet@google.com, shmulik.ladkani@gmail.com,
 	marcel@holtmann.org, netdev@vger.kernel.org,
 	Eyal Birger <eyal.birger@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:37123 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752999AbbBZCKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 21:10:41 -0500
-Received: by wesw55 with SMTP id w55so7240907wes.4
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 18:10:40 -0800 (PST)
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:40956 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752999AbbBZCKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 21:10:44 -0500
+Received: by wghl18 with SMTP id l18so7254430wgh.7
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 18:10:43 -0800 (PST)
 In-Reply-To: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As part of an effort to move skb->dropcount to skb->cb[], use
-a common function in order to set dropcount in struct sk_buff.
+Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
+unionized skb->mark and skb->dropcount in order to allow recording
+of the socket drop count while maintaining struct sk_buff size.
+
+skb->dropcount was introduced since there was no available room
+in skb->cb[] in packet sockets. However, its introduction led to
+the inability to export skb->mark, or any other aliased field to
+userspace if so desired.
+
+Moving the dropcount metric to skb->cb[] eliminates this problem
+at the expense of 4 bytes less in skb->cb[] for protocol families
+using it.
 
 Signed-off-by: Eyal Birger <eyal.birger@gmail.com>
 ---
- include/net/sock.h     | 5 +++++
- net/core/sock.c        | 2 +-
- net/packet/af_packet.c | 2 +-
- 3 files changed, 7 insertions(+), 2 deletions(-)
+ include/linux/skbuff.h |  2 --
+ include/net/sock.h     | 18 ++++++++++++++++--
+ net/socket.c           |  4 ++--
+ 3 files changed, 18 insertions(+), 6 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d898b32..bba1330 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -492,7 +492,6 @@ static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
+   *	@napi_id: id of the NAPI struct this skb came from
+  *	@secmark: security marking
+  *	@mark: Generic packet mark
+- *	@dropcount: total number of sk_receive_queue overflows
+  *	@vlan_proto: vlan encapsulation protocol
+  *	@vlan_tci: vlan tag control information
+  *	@inner_protocol: Protocol (encapsulation)
+@@ -641,7 +640,6 @@ struct sk_buff {
+ #endif
+ 	union {
+ 		__u32		mark;
+-		__u32		dropcount;
+ 		__u32		reserved_tailroom;
+ 	};
+ 
 diff --git a/include/net/sock.h b/include/net/sock.h
-index a2502d2..d462f5e 100644
+index d462f5e..8807586 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -2081,6 +2081,11 @@ static inline int sock_intr_errno(long timeo)
- #define sock_skb_cb_check_size(size) \
- 	BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sk_buff, cb))
+@@ -2078,12 +2078,26 @@ static inline int sock_intr_errno(long timeo)
+ 	return timeo == MAX_SCHEDULE_TIMEOUT ? -ERESTARTSYS : -EINTR;
+ }
  
-+static inline void sock_skb_set_dropcount(struct sock *sk, struct sk_buff *skb)
-+{
-+	skb->dropcount = atomic_read(&sk->sk_drops);
-+}
++struct sock_skb_cb {
++	u32 dropcount;
++};
 +
++/* Store sock_skb_cb at the end of skb->cb[] so protocol families
++ * using skb->cb[] would keep using it directly and utilize its
++ * alignement guarantee.
++ */
++#define SOCK_SKB_CB_OFFSET ((FIELD_SIZEOF(struct sk_buff, cb) - \
++			    sizeof(struct sock_skb_cb)))
++
++#define SOCK_SKB_CB(__skb) ((struct sock_skb_cb *)((__skb)->cb + \
++			    SOCK_SKB_CB_OFFSET))
++
+ #define sock_skb_cb_check_size(size) \
+-	BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sk_buff, cb))
++	BUILD_BUG_ON((size) > SOCK_SKB_CB_OFFSET)
+ 
+ static inline void sock_skb_set_dropcount(struct sock *sk, struct sk_buff *skb)
+ {
+-	skb->dropcount = atomic_read(&sk->sk_drops);
++	SOCK_SKB_CB(skb)->dropcount = atomic_read(&sk->sk_drops);
+ }
+ 
  void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 			   struct sk_buff *skb);
- void __sock_recv_wifi_status(struct msghdr *msg, struct sock *sk,
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 93c8b20..9c74fc8 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -466,7 +466,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	skb_dst_force(skb);
+diff --git a/net/socket.c b/net/socket.c
+index bbedbfc..b78cf60 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -731,9 +731,9 @@ EXPORT_SYMBOL_GPL(__sock_recv_wifi_status);
+ static inline void sock_recv_drops(struct msghdr *msg, struct sock *sk,
+ 				   struct sk_buff *skb)
+ {
+-	if (sock_flag(sk, SOCK_RXQ_OVFL) && skb && skb->dropcount)
++	if (sock_flag(sk, SOCK_RXQ_OVFL) && skb && SOCK_SKB_CB(skb)->dropcount)
+ 		put_cmsg(msg, SOL_SOCKET, SO_RXQ_OVFL,
+-			sizeof(__u32), &skb->dropcount);
++			sizeof(__u32), &SOCK_SKB_CB(skb)->dropcount);
+ }
  
- 	spin_lock_irqsave(&list->lock, flags);
--	skb->dropcount = atomic_read(&sk->sk_drops);
-+	sock_skb_set_dropcount(sk, skb);
- 	__skb_queue_tail(list, skb);
- 	spin_unlock_irqrestore(&list->lock, flags);
- 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 6ce6e00..cc51b87 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1837,7 +1837,7 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
- 
- 	spin_lock(&sk->sk_receive_queue.lock);
- 	po->stats.stats1.tp_packets++;
--	skb->dropcount = atomic_read(&sk->sk_drops);
-+	sock_skb_set_dropcount(sk, skb);
- 	__skb_queue_tail(&sk->sk_receive_queue, skb);
- 	spin_unlock(&sk->sk_receive_queue.lock);
- 	sk->sk_data_ready(sk);
+ void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
 -- 
 2.1.4
