@@ -1,36 +1,81 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: What are the intended semantics of IFLA_LINK_NETNSID?
-Date: Wed, 25 Feb 2015 21:07:06 -0800
-Message-ID: <CAHA+R7N9a+w-L91wyS5nRJOaJJz4B_b-31GhzzyjWyJodVTb3w@mail.gmail.com>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
-	<54EDF7BB.2060809@6wind.com>
-	<871tldstju.fsf_-_@x220.int.ebiederm.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: ARP resolving for switch drivers
+Date: Wed, 25 Feb 2015 21:08:30 -0800
+Message-ID: <CAE4R7bDnrMZSsZeZmYkT8HhkXUpgnedBo8VX5iEtyJmzJ7gV5A@mail.gmail.com>
+References: <20150222.011109.109641758308879034.davem@davemloft.net>
+	<CAE4R7bCV1+oA8i52i8g=+yEwsoApcAQq5-WeTxgN40v-ai7y+A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:43252 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948AbbBZFHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 00:07:08 -0500
-Received: by iebtr6 with SMTP id tr6so11121264ieb.10
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 21:07:06 -0800 (PST)
-In-Reply-To: <871tldstju.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:50834 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526AbbBZFIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 00:08:31 -0500
+Received: by mail-qg0-f50.google.com with SMTP id e89so6897215qgf.9
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 21:08:30 -0800 (PST)
+In-Reply-To: <CAE4R7bCV1+oA8i52i8g=+yEwsoApcAQq5-WeTxgN40v-ai7y+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 11:03 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> I suspect the correct fix for rtnl_newlink is to just use
-> IFLA_LINK_NETNSID in rtnl_link_get_net and have it be an alternative way
-> of setting dest_net.  But you may intend some different semantics that
-> I don't understand.
+On Sat, Feb 21, 2015 at 10:28 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+> On Sat, Feb 21, 2015 at 10:11 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> Scott I looked into the current state of affairs and you should
+>> be able to use generic infrastructure to resolve a neighbour
+>> entry and even trigger the state machine.
+>>
+>> For ipv4:
+>>
+>>         n = __ipv4_neigh_lookup(dev, ip_addr);
+>>         if (!n)
+>>                 n = neigh_create(&arp_tbl, &ip_addr, dev, true);
+>>         if (!n)
+>>                 goto error;
+>>
+>>         if (!(n->nud_state & NUD_VALID))
+>>                 neigh_event_send(n, NULL);
+>>         else
+>>                 memcpy(&hw_entry->mac_addr, n->ha, dev_addr_len);
+>>
+>> If you have to take the neigh_event_send() path, you have to wait for
+>> the notifier to be invoked.  And in the notifier you can fetch the
+>> MAC address.
+>
+> Perfect!  I'll give this a try shortly and test and report back.
+> (Trying to beat down some remaining L2 issues first).
 >
 
-Looking at the example provided in iproute2, link-netnsid
-should refer the the netns, by the given ID, where the underlying
-link is. The difference is that this ID is only unique in a given netns,
-and refers to another peer netns.
+David,
+
+Just following up on this.  The code above works great, at least for
+the initial nh resolution when route is installed.  I need to do some
+more testing for the cases when the neigh entry goes to !NUD_VALID,
+but I'm still holding a route with nhs looking for that neigh.  I
+guess I need to re-trigger the above code.  Need to play around with
+it.
+
+There are two other items I had on my list for L3 from netconf:
+
+1) Routes that overlap tables, or how to assign priority.  I'll look
+at the RFC you sent for collapsing local/main tables.  For now, I used
+fib_info->fib_priority for the priority in the rocker L3 table.  Maybe
+that's good enough once local/main are collapsed?  But for other
+tables, I'm not sure if fib_info->fib_priority will be sufficient.  I
+probably need some guidance here.
+
+2) Marking routes as "external"[1].  I added a RTAX_FEATURE_EXTERNAL
+bit to be set by application (iproute2, quagga, etc) when wanting to
+install route externally, for example to a switchdev switch.  Then if
+application sets bit, it is the applications responsibility to handle
+failure cases and rollback any lesser-prefixed routes than may have
+been pushed earlier, successfully to external.  The problem I'm
+running into is internal kernel routes need to be pushed to external
+and I don't want to mark those as "external", but I also want those to
+be install externally (to the device), if possible.
+
+
+[1] "external" seems to be the label we're giving kernel objects that
+get mirrored externally to a device, such as the mark we used for FDB
+entries populated into the bridge's FDB by a learning device.
