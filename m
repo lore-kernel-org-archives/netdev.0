@@ -1,60 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Flows! Offload them.
-Date: Thu, 26 Feb 2015 08:42:14 +0100
-Message-ID: <20150226074214.GF2074@nanopsycho.orion>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Thu, 26 Feb 2015 07:53:55 +0000
+Message-ID: <20150226075354.GA30061@acer.localdomain>
+References: <CAADnVQKV8JSqhTPYBGDJt4KqTesEvtCMnhupiPyZJjvk=tmOwg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
-	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, simon.horman@netronome.com,
-	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
-To: netdev@vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	David Laight <David.Laight@aculab.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"johunt@akamai.com" <johunt@akamai.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:33829 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbBZHmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 02:42:19 -0500
-Received: by wghn12 with SMTP id n12so8354463wgh.1
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 23:42:18 -0800 (PST)
+Received: from stinky.trash.net ([213.144.137.162]:61850 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbbBZHyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 02:54:01 -0500
 Content-Disposition: inline
+In-Reply-To: <CAADnVQKV8JSqhTPYBGDJt4KqTesEvtCMnhupiPyZJjvk=tmOwg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everyone.
+On 25.02, Alexei Starovoitov wrote:
+> On Wed, Feb 25, 2015 at 12:10 PM, Patrick McHardy <kaber@trash.net> wrote:
+> > On 25.02, Eric Dumazet wrote:
+> >> But if any workload had to grow the table to 2^20 slots, we had to
+> >> consume GB of memory anyway to hold sockets and everything.
+> >>
+> >> Trying to shrink is simply not worth it, unless you expect your host
+> >> never reboots and you desperately need back these 8 MBytes of memory.
+> >
+> > That may be true in the TCP case, but for not for nftables. We might
+> > have many sets and, especially when used to represent more complicated
+> > classification algorithms, their size might change by a lot.
+> 
+> sounds like grow/shrink decision cannot be generalized within
+> rhashtable, but two callbacks are about to be removed and the
+> are costly. So would it make sense to disable auto-expand/shrink
+> completely and let nft/tcp call expand/shrink when needed?
 
-I would like to discuss big next step for switch offloading. Probably
-the most complicated one we have so far. That is to be able to offload flows.
-Leaving nftables aside for a moment, I see 2 big usecases:
-- TC filters and actions offload.
-- OVS key match and actions offload.
+My understanding was that Eric was arguing against shrinking in general.
+But assuming we have it, what's the downside of also performing
+shrinking for TCP?
 
-I think it might sense to ignore OVS for now. The reason is ongoing efford
-to replace OVS kernel datapath with TC subsystem. After that, OVS offload
-will not longer be needed and we'll get it for free with TC offload
-implementation. So we can focus on TC now.
+> nft can potentially do smarter batching this way.
+> If it sees a lot of entries are about to be inserted, it can call
+> expand directly to quickly grow sparsely populated table
+> into large one, and then insert all the entries.
+> That will mitigate 'slow rcu' issue as well.
 
-Here is my list of actions to achieve some results in near future:
-1) finish cls_openflow classifier and iproute part of it
-2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
-3) use rocker to provide offload for cls_openflow and couple of selected actions
-4) improve cls_openflow performance (hashtables etc)
-5) improve TC subsystem performance in both slow and fast path
-    -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
-6) implement "named sockets" (working name) and implement TC support for that
-    -ingress qdisc attach, act_mirred target
-7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
-8) implement TC act_mpls
-9) suggest to switch OVS userspace from OVS genl to TC API
-
-This is my personal action list, but you are *very welcome* to step in to help.
-Point 2) haunts me at night....
-I believe that John is already working on 2) and part of 3).
-
-What do you think?
-
-Thanks!
-
-Jiri
+I like that idea.
