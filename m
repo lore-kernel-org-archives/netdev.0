@@ -1,33 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/3] rocker: rename lport to pport
-Date: Thu, 26 Feb 2015 07:55:25 +0100
-Message-ID: <20150226065525.GC2074@nanopsycho.orion>
-References: <1424924138-15928-1-git-send-email-sfeldma@gmail.com>
- <1424924138-15928-3-git-send-email-sfeldma@gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/8] Basic MPLS support
+Date: Wed, 25 Feb 2015 22:58:37 -0800
+Message-ID: <54EEC41D.1010800@cumulusnetworks.com>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:37655 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbbBZGz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 01:55:29 -0500
-Received: by wghk14 with SMTP id k14so8147981wgh.4
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 22:55:28 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1424924138-15928-3-git-send-email-sfeldma@gmail.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:60580 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752AbbBZG6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 01:58:39 -0500
+Received: by mail-ig0-f170.google.com with SMTP id l13so42109205iga.1
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 22:58:39 -0800 (PST)
+In-Reply-To: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 26, 2015 at 05:15:37AM CET, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
+On 2/25/15, 9:09 AM, Eric W. Biederman wrote:
+> While trying to figure out what MPLS is and why MPLS support is not in
+> the kernel on a lark I sat down and wrote an MPLS implemenation, so I
+> could answer those questions for myself.
 >
->This is just a rename of physical ports from "lport" to "pport".  Not a
->functional change.  OF-DPA uses logical ports (lport) for tunnels, but the
->driver (and device) were using "lport" for physical ports.  Renaming physical
->ports references to "pport", freeing up "lport" for use later with tunnels.
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>  From what I can tell the short answer is MPLS is trivial-simple and the
+> we don't have an in-kernel implementation because no one has sat down
+> and done the work to have a good mergable implementation.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+>
+> MPLS has it's good sides and it's bad sides but at the end of the day
+> MPLS has users, and having an in-kernel implementation should help us
+> understand MPLS and focus our conversations dealing with MPLS and
+> VRFs.
+
+very much agree.
+>
+> Having MPLS in our toolkit as the entire world begins playing with
+> overlay networks aka ``network virtualization'' to support VM and
+> container migration seems appropriate as MPLS is the historical solution
+> to this problem.
+>
+> Constructive criticism about the netlink interface is especially
+> appreciated.  Hopefully we can have at least one protocol in the kernel
+> where the netlink interface doesn't have nasty corner case.
+>
+> As for linux users.  The conversations I had at netdev01 this sounds
+> like a case of if I build it people will use the code.
+ack again.
+
+Thanks eric!.
