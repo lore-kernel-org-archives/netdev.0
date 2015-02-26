@@ -1,233 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 04/13] i40e: Fix TSO with more than 8 frags per segment issue
-Date: Thu, 26 Feb 2015 07:03:40 -0800
-Message-ID: <1424963029-4612-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 09/13] i40evf: TCP/IPv6 over Vxlan Tx checksum offload fix
+Date: Thu, 26 Feb 2015 07:03:45 -0800
+Message-ID: <1424963029-4612-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:52636 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:40565 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753684AbbBZPDy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 10:03:54 -0500
+	id S1753950AbbBZPD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2015 10:03:57 -0500
 In-Reply-To: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai <anjali.singhai@intel.com>
 
-The hardware has some limitations the driver needs to adhere to,
-that we found in extended testing.
-  1) no more than 8 descriptors per packet on the wire
-  2) no header can span more than 3 descriptors
+We were checking the outer Protocol flags and deciding the flow for
+inner header. This patch fixes that.
+This fixes the Tx checksum offload for TCP/IPv6 over vxlan.
 
-If one of these events occurs, the hardware will generate an internal
-error and freeze the Tx queue.
-
-This patch linearizes the skb to avoid these situations.
-
-Change-ID: I37dab7d3966e14895a9663ec4d0aaa8eb0d9e115
+Change-ID: I837aaea921d34f71b24c2bc32aaadea5001ddf78
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 65 +++++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 65 +++++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 +
- 4 files changed, 132 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 2206d2d..0aad611 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2140,6 +2140,67 @@ static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
- }
- 
- /**
-+ * i40e_chk_linearize - Check if there are more than 8 fragments per packet
-+ * @skb:      send buffer
-+ * @tx_flags: collected send information
-+ * @hdr_len:  size of the packet header
-+ *
-+ * Note: Our HW can't scatter-gather more than 8 fragments to build
-+ * a packet on the wire and so we need to figure out the cases where we
-+ * need to linearize the skb.
-+ **/
-+static bool i40e_chk_linearize(struct sk_buff *skb, u32 tx_flags,
-+			       const u8 hdr_len)
-+{
-+	struct skb_frag_struct *frag;
-+	bool linearize = false;
-+	unsigned int size = 0;
-+	u16 num_frags;
-+	u16 gso_segs;
-+
-+	num_frags = skb_shinfo(skb)->nr_frags;
-+	gso_segs = skb_shinfo(skb)->gso_segs;
-+
-+	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO)) {
-+		u16 j = 1;
-+
-+		if (num_frags < (I40E_MAX_BUFFER_TXD))
-+			goto linearize_chk_done;
-+		/* try the simple math, if we have too many frags per segment */
-+		if (DIV_ROUND_UP((num_frags + gso_segs), gso_segs) >
-+		    I40E_MAX_BUFFER_TXD) {
-+			linearize = true;
-+			goto linearize_chk_done;
-+		}
-+		frag = &skb_shinfo(skb)->frags[0];
-+		size = hdr_len;
-+		/* we might still have more fragments per segment */
-+		do {
-+			size += skb_frag_size(frag);
-+			frag++; j++;
-+			if (j == I40E_MAX_BUFFER_TXD) {
-+				if (size < skb_shinfo(skb)->gso_size) {
-+					linearize = true;
-+					break;
-+				}
-+				j = 1;
-+				size -= skb_shinfo(skb)->gso_size;
-+				if (size)
-+					j++;
-+				size += hdr_len;
-+			}
-+			num_frags--;
-+		} while (num_frags);
-+	} else {
-+		if (num_frags >= I40E_MAX_BUFFER_TXD)
-+			linearize = true;
-+	}
-+
-+linearize_chk_done:
-+	return linearize;
-+}
-+
-+/**
-  * i40e_tx_map - Build the Tx descriptor
-  * @tx_ring:  ring to send buffer on
-  * @skb:      send buffer
-@@ -2396,6 +2457,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	if (tsyn)
- 		tx_flags |= I40E_TX_FLAGS_TSYN;
- 
-+	if (i40e_chk_linearize(skb, tx_flags, hdr_len))
-+		if (skb_linearize(skb))
-+			goto out_drop;
-+
- 	skb_tx_timestamp(skb);
- 
- 	/* always enable CRC insertion offload */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 18b0023..dff0bae 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -112,6 +112,7 @@ enum i40e_dyn_idx_t {
- 
- #define i40e_rx_desc i40e_32byte_rx_desc
- 
-+#define I40E_MAX_BUFFER_TXD	8
- #define I40E_MIN_TX_LEN		17
- #define I40E_MAX_DATA_PER_TXD	8192
- 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 2900438..1320a43 100644
+index be05829..7088915 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1380,6 +1380,67 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
- 	context_desc->type_cmd_tso_mss = cpu_to_le64(cd_type_cmd_tso_mss);
- }
+@@ -1212,17 +1212,16 @@ static int i40e_tso(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	if (err < 0)
+ 		return err;
  
-+ /**
-+ * i40e_chk_linearize - Check if there are more than 8 fragments per packet
-+ * @skb:      send buffer
-+ * @tx_flags: collected send information
-+ * @hdr_len:  size of the packet header
-+ *
-+ * Note: Our HW can't scatter-gather more than 8 fragments to build
-+ * a packet on the wire and so we need to figure out the cases where we
-+ * need to linearize the skb.
-+ **/
-+static bool i40e_chk_linearize(struct sk_buff *skb, u32 tx_flags,
-+			       const u8 hdr_len)
-+{
-+	struct skb_frag_struct *frag;
-+	bool linearize = false;
-+	unsigned int size = 0;
-+	u16 num_frags;
-+	u16 gso_segs;
+-	if (protocol == htons(ETH_P_IP)) {
+-		iph = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
++	iph = skb->encapsulation ? inner_ip_hdr(skb) : ip_hdr(skb);
++	ipv6h = skb->encapsulation ? inner_ipv6_hdr(skb) : ipv6_hdr(skb);
 +
-+	num_frags = skb_shinfo(skb)->nr_frags;
-+	gso_segs = skb_shinfo(skb)->gso_segs;
-+
-+	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO)) {
-+		u16 j = 1;
-+
-+		if (num_frags < (I40E_MAX_BUFFER_TXD))
-+			goto linearize_chk_done;
-+		/* try the simple math, if we have too many frags per segment */
-+		if (DIV_ROUND_UP((num_frags + gso_segs), gso_segs) >
-+		    I40E_MAX_BUFFER_TXD) {
-+			linearize = true;
-+			goto linearize_chk_done;
++	if (iph->version == 4) {
+ 		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+ 		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+ 						 0, IPPROTO_TCP, 0);
+-	} else if (skb_is_gso_v6(skb)) {
+-
+-		ipv6h = skb->encapsulation ? inner_ipv6_hdr(skb)
+-					   : ipv6_hdr(skb);
++	} else if (ipv6h->version == 6) {
+ 		tcph = skb->encapsulation ? inner_tcp_hdr(skb) : tcp_hdr(skb);
+ 		ipv6h->payload_len = 0;
+ 		tcph->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
+@@ -1280,13 +1279,9 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
+ 					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
+ 			}
+ 		} else if (tx_flags & I40E_TX_FLAGS_IPV6) {
+-			if (tx_flags & I40E_TX_FLAGS_TSO) {
+-				*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
++			*cd_tunneling |= I40E_TX_CTX_EXT_IP_IPV6;
++			if (tx_flags & I40E_TX_FLAGS_TSO)
+ 				ip_hdr(skb)->check = 0;
+-			} else {
+-				*cd_tunneling |=
+-					 I40E_TX_CTX_EXT_IP_IPV4_NO_CSUM;
+-			}
+ 		}
+ 
+ 		/* Now set the ctx descriptor fields */
+@@ -1296,6 +1291,11 @@ static void i40e_tx_enable_csum(struct sk_buff *skb, u32 tx_flags,
+ 				   ((skb_inner_network_offset(skb) -
+ 					skb_transport_offset(skb)) >> 1) <<
+ 				   I40E_TXD_CTX_QW0_NATLEN_SHIFT;
++		if (this_ip_hdr->version == 6) {
++			tx_flags &= ~I40E_TX_FLAGS_IPV4;
++			tx_flags |= I40E_TX_FLAGS_IPV6;
 +		}
-+		frag = &skb_shinfo(skb)->frags[0];
-+		size = hdr_len;
-+		/* we might still have more fragments per segment */
-+		do {
-+			size += skb_frag_size(frag);
-+			frag++; j++;
-+			if (j == I40E_MAX_BUFFER_TXD) {
-+				if (size < skb_shinfo(skb)->gso_size) {
-+					linearize = true;
-+					break;
-+				}
-+				j = 1;
-+				size -= skb_shinfo(skb)->gso_size;
-+				if (size)
-+					j++;
-+				size += hdr_len;
-+			}
-+			num_frags--;
-+		} while (num_frags);
-+	} else {
-+		if (num_frags >= I40E_MAX_BUFFER_TXD)
-+			linearize = true;
-+	}
 +
-+linearize_chk_done:
-+	return linearize;
-+}
-+
- /**
-  * i40e_tx_map - Build the Tx descriptor
-  * @tx_ring:  ring to send buffer on
-@@ -1654,6 +1715,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	else if (tso)
- 		tx_flags |= I40E_TX_FLAGS_TSO;
  
-+	if (i40e_chk_linearize(skb, tx_flags, hdr_len))
-+		if (skb_linearize(skb))
-+			goto out_drop;
-+
- 	skb_tx_timestamp(skb);
- 
- 	/* always enable CRC insertion offload */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 4e15903..c950a03 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -112,6 +112,7 @@ enum i40e_dyn_idx_t {
- 
- #define i40e_rx_desc i40e_32byte_rx_desc
- 
-+#define I40E_MAX_BUFFER_TXD	8
- #define I40E_MIN_TX_LEN		17
- #define I40E_MAX_DATA_PER_TXD	8192
- 
+ 	} else {
+ 		network_hdr_len = skb_network_header_len(skb);
 -- 
 1.9.3
