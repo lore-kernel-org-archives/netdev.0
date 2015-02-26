@@ -1,53 +1,49 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net 2/2] net: Verify permission to link_net in newlink
-Date: Thu, 26 Feb 2015 16:20:07 -0600
-Message-ID: <877fv4mi20.fsf_-_@x220.int.ebiederm.org>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
-	<54EDF7BB.2060809@6wind.com> <871tldstju.fsf_-_@x220.int.ebiederm.org>
-	<54EEDF9C.20302@6wind.com> <87wq34okb9.fsf@x220.int.ebiederm.org>
-	<54EF3338.8000409@6wind.com> <87egpcmi3v.fsf_-_@x220.int.ebiederm.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] ovs: Turn vports with dependencies into separate modules
+Date: Thu, 26 Feb 2015 14:43:26 -0800
+Message-ID: <CALnjE+pQ9M=4fQNWH0=nqboUAgMzxPYKefBg7ivaW-3Dk4_8Xg@mail.gmail.com>
+References: <ab9438abe3e23289db6f850eea9626fe8bd0a969.1413991519.git.tgraf@suug.ch>
+	<20141028.144344.398016097830457432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@noironetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:34747 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539AbbBZWXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 17:23:36 -0500
-In-Reply-To: <87egpcmi3v.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 26 Feb 2015 16:19:00 -0600")
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:49227 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753970AbbBZWn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 17:43:27 -0500
+Received: by mail-ie0-f170.google.com with SMTP id rl12so22346604iec.4
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 14:43:26 -0800 (PST)
+In-Reply-To: <20141028.144344.398016097830457432.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Thomas,
+This been merged to upstream kernel for a while. Can you send patch to
+backport it for ovs-repo?
 
-When applicable verify that the caller has permisson to the underlying
-network namespace for a newly created network device.
+Thanks,
+Pravin.
 
-Similary checks exist for the network namespace a network device will
-be created in.
-
-Fixes: v4.0-rc1
-Cc: stable@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/core/rtnetlink.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 155e675f656c..0a0b1c081d68 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2134,6 +2134,9 @@ replay:
- 				err =  -EINVAL;
- 				goto out;
- 			}
-+			err = -EPERM;
-+			if (!netlink_ns_capable(skb, link_net->user_ns, CAP_NET_ADMIN))
-+				goto out;
- 		}
- 
- 		dev = rtnl_create_link(link_net ? : dest_net, ifname,
--- 
-2.2.1
+On Tue, Oct 28, 2014 at 11:43 AM, David Miller <davem@davemloft.net> wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Wed, 22 Oct 2014 17:29:06 +0200
+>
+>> The internal and netdev vport remain part of openvswitch.ko. Encap
+>> vports including vxlan, gre, and geneve can be built as separate
+>> modules and are loaded on demand. Modules can be unloaded after use.
+>> Datapath ports keep a reference to the vport module during their
+>> lifetime.
+>>
+>> Allows to remove the error prone maintenance of the global list
+>> vport_ops_list.
+>>
+>> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>
+> Applied, thanks a lot Thomas.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
