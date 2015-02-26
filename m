@@ -1,62 +1,233 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx switches
-Date: Thu, 26 Feb 2015 15:58:40 +0100
-Message-ID: <CACna6ryUgu3wmQGmU1EomY-CDpBfh2BN8_K+V-XD_3mj4txLDw@mail.gmail.com>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
-	<20150224223039.GC1332@gospo.home.greyhouse.net>
-	<CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
-	<54ED017E.6000902@gmail.com>
-	<20150225001534.GB15633@lunn.ch>
-	<54ED19AB.7020003@gmail.com>
-	<CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
-	<20150225140356.GB17992@lunn.ch>
-	<CACna6ryQzXQn4Gxn701pXCU6MrZje+w-5B0htM+-PukMbq7ZFQ@mail.gmail.com>
-	<20150225141945.GC17992@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 04/13] i40e: Fix TSO with more than 8 frags per segment issue
+Date: Thu, 26 Feb 2015 07:03:40 -0800
+Message-ID: <1424963029-4612-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:36057 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932480AbbBZO6l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:58:41 -0500
-Received: by qcqi8 with SMTP id i8so8766129qcq.3
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:58:41 -0800 (PST)
-In-Reply-To: <20150225141945.GC17992@lunn.ch>
+Received: from mga14.intel.com ([192.55.52.115]:52636 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753684AbbBZPDy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2015 10:03:54 -0500
+In-Reply-To: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25 February 2015 at 15:19, Andrew Lunn <andrew@lunn.ch> wrote:
->> What do you mean by these recent patches? Has DSA recently received =
-a
->> support for bridging ports in the hardware? Like setting VLANs using
->> some "bridge" comment (nl API) or something? Because I'm not aware o=
-f
->> that.
->
-> Yes. Scan over netdev list for the last week. e.g:
->
-> http://comments.gmane.org/gmane.linux.network/350754
+From: Anjali Singhai <anjali.singhai@intel.com>
 
-Hm, I can see it was actually merged to the net-next already:
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/=
-?id=3Dbb66be1c549a0760500cfad404b3d79a136d0e44
+The hardware has some limitations the driver needs to adhere to,
+that we found in extended testing.
+  1) no more than 8 descriptors per packet on the wire
+  2) no header can span more than 3 descriptors
 
-But this dsa implementation is still totally unclear to me. So I can
-see we now have
-1) port_join_bridge
-2) port_leave_bridge
+If one of these events occurs, the hardware will generate an internal
+error and freeze the Tx queue.
 
-How does it allow me to bridge few ports with specifying PVID /
-(UN)TAG for some of them?
+This patch linearizes the skb to avoid these situations.
 
---=20
-Rafa=C5=82
+Change-ID: I37dab7d3966e14895a9663ec4d0aaa8eb0d9e115
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 65 +++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 65 +++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 +
+ 4 files changed, 132 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 2206d2d..0aad611 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2140,6 +2140,67 @@ static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
+ }
+ 
+ /**
++ * i40e_chk_linearize - Check if there are more than 8 fragments per packet
++ * @skb:      send buffer
++ * @tx_flags: collected send information
++ * @hdr_len:  size of the packet header
++ *
++ * Note: Our HW can't scatter-gather more than 8 fragments to build
++ * a packet on the wire and so we need to figure out the cases where we
++ * need to linearize the skb.
++ **/
++static bool i40e_chk_linearize(struct sk_buff *skb, u32 tx_flags,
++			       const u8 hdr_len)
++{
++	struct skb_frag_struct *frag;
++	bool linearize = false;
++	unsigned int size = 0;
++	u16 num_frags;
++	u16 gso_segs;
++
++	num_frags = skb_shinfo(skb)->nr_frags;
++	gso_segs = skb_shinfo(skb)->gso_segs;
++
++	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO)) {
++		u16 j = 1;
++
++		if (num_frags < (I40E_MAX_BUFFER_TXD))
++			goto linearize_chk_done;
++		/* try the simple math, if we have too many frags per segment */
++		if (DIV_ROUND_UP((num_frags + gso_segs), gso_segs) >
++		    I40E_MAX_BUFFER_TXD) {
++			linearize = true;
++			goto linearize_chk_done;
++		}
++		frag = &skb_shinfo(skb)->frags[0];
++		size = hdr_len;
++		/* we might still have more fragments per segment */
++		do {
++			size += skb_frag_size(frag);
++			frag++; j++;
++			if (j == I40E_MAX_BUFFER_TXD) {
++				if (size < skb_shinfo(skb)->gso_size) {
++					linearize = true;
++					break;
++				}
++				j = 1;
++				size -= skb_shinfo(skb)->gso_size;
++				if (size)
++					j++;
++				size += hdr_len;
++			}
++			num_frags--;
++		} while (num_frags);
++	} else {
++		if (num_frags >= I40E_MAX_BUFFER_TXD)
++			linearize = true;
++	}
++
++linearize_chk_done:
++	return linearize;
++}
++
++/**
+  * i40e_tx_map - Build the Tx descriptor
+  * @tx_ring:  ring to send buffer on
+  * @skb:      send buffer
+@@ -2396,6 +2457,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	if (tsyn)
+ 		tx_flags |= I40E_TX_FLAGS_TSYN;
+ 
++	if (i40e_chk_linearize(skb, tx_flags, hdr_len))
++		if (skb_linearize(skb))
++			goto out_drop;
++
+ 	skb_tx_timestamp(skb);
+ 
+ 	/* always enable CRC insertion offload */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 18b0023..dff0bae 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -112,6 +112,7 @@ enum i40e_dyn_idx_t {
+ 
+ #define i40e_rx_desc i40e_32byte_rx_desc
+ 
++#define I40E_MAX_BUFFER_TXD	8
+ #define I40E_MIN_TX_LEN		17
+ #define I40E_MAX_DATA_PER_TXD	8192
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 2900438..1320a43 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1380,6 +1380,67 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	context_desc->type_cmd_tso_mss = cpu_to_le64(cd_type_cmd_tso_mss);
+ }
+ 
++ /**
++ * i40e_chk_linearize - Check if there are more than 8 fragments per packet
++ * @skb:      send buffer
++ * @tx_flags: collected send information
++ * @hdr_len:  size of the packet header
++ *
++ * Note: Our HW can't scatter-gather more than 8 fragments to build
++ * a packet on the wire and so we need to figure out the cases where we
++ * need to linearize the skb.
++ **/
++static bool i40e_chk_linearize(struct sk_buff *skb, u32 tx_flags,
++			       const u8 hdr_len)
++{
++	struct skb_frag_struct *frag;
++	bool linearize = false;
++	unsigned int size = 0;
++	u16 num_frags;
++	u16 gso_segs;
++
++	num_frags = skb_shinfo(skb)->nr_frags;
++	gso_segs = skb_shinfo(skb)->gso_segs;
++
++	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO)) {
++		u16 j = 1;
++
++		if (num_frags < (I40E_MAX_BUFFER_TXD))
++			goto linearize_chk_done;
++		/* try the simple math, if we have too many frags per segment */
++		if (DIV_ROUND_UP((num_frags + gso_segs), gso_segs) >
++		    I40E_MAX_BUFFER_TXD) {
++			linearize = true;
++			goto linearize_chk_done;
++		}
++		frag = &skb_shinfo(skb)->frags[0];
++		size = hdr_len;
++		/* we might still have more fragments per segment */
++		do {
++			size += skb_frag_size(frag);
++			frag++; j++;
++			if (j == I40E_MAX_BUFFER_TXD) {
++				if (size < skb_shinfo(skb)->gso_size) {
++					linearize = true;
++					break;
++				}
++				j = 1;
++				size -= skb_shinfo(skb)->gso_size;
++				if (size)
++					j++;
++				size += hdr_len;
++			}
++			num_frags--;
++		} while (num_frags);
++	} else {
++		if (num_frags >= I40E_MAX_BUFFER_TXD)
++			linearize = true;
++	}
++
++linearize_chk_done:
++	return linearize;
++}
++
+ /**
+  * i40e_tx_map - Build the Tx descriptor
+  * @tx_ring:  ring to send buffer on
+@@ -1654,6 +1715,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	else if (tso)
+ 		tx_flags |= I40E_TX_FLAGS_TSO;
+ 
++	if (i40e_chk_linearize(skb, tx_flags, hdr_len))
++		if (skb_linearize(skb))
++			goto out_drop;
++
+ 	skb_tx_timestamp(skb);
+ 
+ 	/* always enable CRC insertion offload */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 4e15903..c950a03 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -112,6 +112,7 @@ enum i40e_dyn_idx_t {
+ 
+ #define i40e_rx_desc i40e_32byte_rx_desc
+ 
++#define I40E_MAX_BUFFER_TXD	8
+ #define I40E_MIN_TX_LEN		17
+ #define I40E_MAX_DATA_PER_TXD	8192
+ 
+-- 
+1.9.3
