@@ -1,86 +1,44 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 12:58:57 -0800
-Message-ID: <54EF8911.9080203@intel.com>
-References: <20150226074214.GF2074@nanopsycho.orion> <54EF74E0.7060502@gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] Implement Hyper-V netvsc_get_channels() ethool op
+Date: Thu, 26 Feb 2015 21:01:45 +0000
+Message-ID: <BN1PR0301MB07706C93E34C1EA5F52770B4CA140@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1424980840-33714-1-git-send-email-andrew@schwartzmeyer.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
-	jhs@mojatatu.com, sfeldma@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, simon.horman@netronome.com,
-	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24880 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932191AbbBZU7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 15:59:00 -0500
-In-Reply-To: <54EF74E0.7060502@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"hall5714@vandals.uidaho.edu" <hall5714@vandals.uidaho.edu>,
+	"keithd@vandals.uidaho.edu" <keithd@vandals.uidaho.edu>,
+	"doma8101@vandals.uidaho.edu" <doma8101@vandals.uidaho.edu>
+To: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424980840-33714-1-git-send-email-andrew@schwartzmeyer.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/2015 11:32 AM, Florian Fainelli wrote:
-> Hi Jiri,
-> 
-> On 25/02/15 23:42, Jiri Pirko wrote:
->> Hello everyone.
->>
->> I would like to discuss big next step for switch offloading. Probably
->> the most complicated one we have so far. That is to be able to offload flows.
->> Leaving nftables aside for a moment, I see 2 big usecases:
->> - TC filters and actions offload.
->> - OVS key match and actions offload.
->>
->> I think it might sense to ignore OVS for now. The reason is ongoing efford
->> to replace OVS kernel datapath with TC subsystem. After that, OVS offload
->> will not longer be needed and we'll get it for free with TC offload
->> implementation. So we can focus on TC now.
-> 
-> What is not necessarily clear to me, is if we leave nftables aside for
-> now from flow offloading, does that mean the entire flow offloading will
-> now be controlled and going with the TC subsystem necessarily?
-> 
-> I am not questioning the choice for TC, I am just wondering if
-> ultimately there is the need for a lower layer, which is below, such
-> that both tc and e.g: nftables can benefit from it?
+> -----Original Message-----
+> From: Andrew Schwartzmeyer [mailto:andrew@schwartzmeyer.com]
+> Subject: [PATCH] Implement Hyper-V netvsc_get_channels() ethool op
 
-My thinking on this is to use the FlowAPI ndo_ops as the bottom layer.
-What I would much prefer (having to actually write drivers) is that
-we have one API to the driver and tc, nft, whatever map onto that API.
+Please add net-next to the subject (the patch should also be based on that tree).
+Also the "hyperv: " word should come first.
+Like this:
+[PATCH net-next] hyperv: Implement netvsc_get_channels() ethool op
 
-Then my driver implements a ndo_set_flow op and a ndo_del_flow op. What
-I'm working on now is the map from tc onto the flow API I'm hoping this
-sounds like a good idea to folks.
+> --- a/drivers/net/hyperv/rndis_filter.c
+> +++ b/drivers/net/hyperv/rndis_filter.c
+> @@ -1094,6 +1094,7 @@ int rndis_filter_device_add(struct hv_device *dev,
 
-Neil, suggested we might need a reservation concept where tc can reserve
-some space in a TCAM, similarly nft can reserve some space. Also I have
-applications in user space that want to reserve some space to offload
-their specific data structures. This idea seems like a good one to me.
+On top part of this function, you also need to initialize max_chn = 1 around here:
+        /* Initialize the rndis device */
+        net_device = hv_get_drvdata(dev);
+        net_device->num_chn = 1;
 
-> 
-> I guess my larger question is, if I need to learn about new flows
-> entering the stack, how is that going to wind-up looking like?
-> 
->>
->> Here is my list of actions to achieve some results in near future:
->> 1) finish cls_openflow classifier and iproute part of it
->> 2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
->> 3) use rocker to provide offload for cls_openflow and couple of selected actions
->> 4) improve cls_openflow performance (hashtables etc)
->> 5) improve TC subsystem performance in both slow and fast path
->>     -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
->> 6) implement "named sockets" (working name) and implement TC support for that
->>     -ingress qdisc attach, act_mirred target
->> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
->> 8) implement TC act_mpls
->> 9) suggest to switch OVS userspace from OVS genl to TC API
->>
->> This is my personal action list, but you are *very welcome* to step in to help.
->> Point 2) haunts me at night....
->> I believe that John is already working on 2) and part of 3).
->>
->> What do you think?
+because the query for rsscap.num_recv_que is not done on all VSP versions.
+
+Thanks,
+- Haiyang
