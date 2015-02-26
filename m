@@ -1,78 +1,130 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 3/4] Revert "sh_eth: Enable Rx descriptor word 0 shift
- for r8a7790"
-Date: Thu, 26 Feb 2015 22:17:55 +0300
-Message-ID: <54EF7163.80900@cogentembedded.com>
-References: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk> <1424960474.4444.21.camel@xylophone.i.decadent.org.uk>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: RE: [PATCH v2 1/1] linux-firmware: Add QLogic BR Series Adapter
+ Firmware
+Date: Thu, 26 Feb 2015 19:31:43 +0000
+Message-ID: <2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4@avmb3.qlogic.org>
+References: <1424218220-28837-1-git-send-email-rasesh.mody@qlogic.com>
+ <20150224175841.GO30928@merlin.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:40627 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753747AbbBZTSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:18:01 -0500
-Received: by lbdu10 with SMTP id u10so12900266lbd.7
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 11:17:59 -0800 (PST)
-In-Reply-To: <1424960474.4444.21.camel@xylophone.i.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+	boundary="_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_"
+Cc: "linux-firmware@kernel.org" <linux-firmware@kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>
+To: Kyle McMartin <kyle@infradead.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20150224175841.GO30928@merlin.infradead.org>
+Content-Language: en-US
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+--_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-On 02/26/2015 05:21 PM, Ben Hutchings wrote:
+> From: Kyle McMartin [mailto:kyle@infradead.org]
+> Sent: Tuesday, February 24, 2015 9:59 AM
+>=20
+> On Tue, Feb 17, 2015 at 07:10:20PM -0500, Rasesh Mody wrote:
+> > This patch rebrands the BFA/BNA inbox driver firmwares.
+> > This patch adds 3.2.5.1 firmware files for QLogic BR-series Adapters
+> > that will be used with the inbox drivers(BFA and BNA).
+> >
+> > Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
+> > ---
+> >  WHENCE            |  13 +++++++++----
+> >  cbfw-3.2.5.1.bin  | Bin 0 -> 414480 bytes  ct2fw-3.2.5.1.bin | Bin 0
+> > -> 584216 bytes  ctfw-3.2.5.1.bin  | Bin 0 -> 539144 bytes
+> >  4 files changed, 9 insertions(+), 4 deletions(-)  create mode 100644
+> > cbfw-3.2.5.1.bin  create mode 100644 ct2fw-3.2.5.1.bin  create mode
+> > 100644 ctfw-3.2.5.1.bin
+> >
+>=20
+> Thanks, applied. Any chance on the next update of the firmware we could
+> move to putting new files under qlogic/*.bin?
 
-> This reverts commit fd9af07c3404ac9ecbd0d859563360f51ce1ffde.
+Thanks Kyle, will keep that in mind.
 
-> The hardware manual states that the frame error and multicast bits are
-> copied to bits 9:0 of RD0, not bits 25:16.  I've tested that this is
-> true for RFS1 (CRC error), RFS3 (frame too short), RFS4 (frame too
-> long) and RFS8 (multicast).
+Regards,
+Rasesh
 
-    Well, if your testing does match the manual, the reverted patch was most 
-probably just wrong in the first place.
+--_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
 
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c |    5 ++---
->   1 file changed, 2 insertions(+), 3 deletions(-)
+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
+AGgAIABNAG8AZAB5AAAAUwBNAFQAUAAAAHIAYQBzAGUAcwBoAC4AbQBvAGQAeQBAAHEAbABvAGcA
+aQBjAC4AYwBvAG0AAAAfAAFdAQAAAC4AAAByAGEAcwBlAHMAaAAuAG0AbwBkAHkAQABxAGwAbwBn
+AGkAYwAuAGMAbwBtAAAAAAAfAPg/AQAAABgAAABSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAAAfACNA
+AQAAAC4AAAByAGEAcwBlAHMAaAAuAG0AbwBkAHkAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAf
+ACJAAQAAAAoAAABTAE0AVABQAAAAAAACAfk/AQAAAGgAAAAAAAAAgSsfpL6jEBmdbgDdAQ9UAgAA
+AIBSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAABTAE0AVABQAAAAcgBhAHMAZQBzAGgALgBtAG8AZAB5
+AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8ACV0BAAAALgAAAHIAYQBzAGUAcwBoAC4AbQBvAGQA
+eQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AMUABAAAAAgAAAAAAAAALAEA6AQAAAB8AMEAB
+AAAAAgAAAAAAAAAfABoAAQAAABIAAABJAFAATQAuAE4AbwB0AGUAAAAAAAMA8T8JBAAACwBAOgEA
+AAADAP0/5AQAAAIBCzABAAAAEAAAAMETiOPNOuRDvZz8jFIXCEoDABcAAQAAAEAAOQCA+bXZ+lHQ
+AUAACDBjIjna+lHQAQsAKQAAAAAACwAjAAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAeAAAA
+YQBjAGMAZQBwAHQAbABhAG4AZwB1AGEAZwBlAAAAAAABAAAADAAAAGUAbgAtAFUAUwAAAAsAAIAI
+IAYAAAAAAMAAAAAAAABGAAAAAAaFAAAAAAAAHwA3AAEAAACSAAAAUgBFADoAIABbAFAAQQBUAEMA
+SAAgAHYAMgAgADEALwAxAF0AIABsAGkAbgB1AHgALQBmAGkAcgBtAHcAYQByAGUAOgAgAEEAZABk
+ACAAUQBMAG8AZwBpAGMAIABCAFIAIABTAGUAcgBpAGUAcwAgAEEAZABhAHAAdABlAHIAIABGAGkA
+cgBtAHcAYQByAGUAAAAAAB8APQABAAAACgAAAFIARQA6ACAAAAAAAAMANgAAAAAAAwAuAAAAAAAf
+AEIQAQAAAFwAAAA8ADIAMAAxADUAMAAyADIANAAxADcANQA4ADQAMQAuAEcATwAzADAAOQAyADgA
+QABtAGUAcgBsAGkAbgAuAGkAbgBmAHIAYQBkAGUAYQBkAC4AbwByAGcAPgAAAAIBcQABAAAAIAAA
+AAEB0EsU6eaR7Iaiy7JFoZsnu6bcGx6dAKb9gIACuDfAHwBwAAEAAACKAAAAWwBQAEEAVABDAEgA
+IAB2ADIAIAAxAC8AMQBdACAAbABpAG4AdQB4AC0AZgBpAHIAbQB3AGEAcgBlADoAIABBAGQAZAAg
+AFEATABvAGcAaQBjACAAQgBSACAAUwBlAHIAaQBlAHMAIABBAGQAYQBwAHQAZQByACAARgBpAHIA
+bQB3AGEAcgBlAAAAAAAfADUQAQAAAHQAAAA8ADIANQA1ADIARgA3ADQAQQAwAEIAQwBDAEIARQA0
+AEQAQgBFADIAQQBEADIAMQA4AEMAOAAxAEIAMgA4ADEAMQBEADgARQA0AEQANABAAGEAdgBtAGIA
+MwAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA0gAAADwAMQA0ADIANAAyADEAOAAy
+ADIAMAAtADIAOAA4ADMANwAtADEALQBnAGkAdAAtAHMAZQBuAGQALQBlAG0AYQBpAGwALQByAGEA
+cwBlAHMAaAAuAG0AbwBkAHkAQABxAGwAbwBnAGkAYwAuAGMAbwBtAD4AIAA8ADIAMAAxADUAMAAy
+ADIANAAxADcANQA4ADQAMQAuAEcATwAzADAAOQAyADgAQABtAGUAcgBsAGkAbgAuAGkAbgBmAHIA
+YQBkAGUAYQBkAC4AbwByAGcAPgAAAAAAAwDeP59OAAALAACACCAGAAAAAADAAAAAAAAARgAAAAAD
+hQAAAAAAAAMAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAGFAAAAAAAAAwCAEP////9AAAcwbiUH2vpR
+0AELAAIAAQAAAAMAJgAAAAAACwArAAAAAAACAUcAAQAAAC8AAABjPVVTO2E9IDtwPVFMb2dpYzts
+PUFWTUIzLTE1MDIyNjE5MzE0M1otMTM0MDYzAAACARAwAQAAAEYAAAAAAAAAkFQH74smgESurG1o
+wgIElAcAJVL3SgvMvk2+KtIYyBsoEQAAALzkigAAUFObvwRBmkyJFyVu8iYjZACRkVtRbgAAAAAf
+APo/AQAAABgAAABSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAAADAAlZAQAAAAMAAIAIIAYAAAAAAMAA
+AAAAAABGAAAAABCFAAAAAAAACwAAgAggBgAAAAAAwAAAAAAAAEYAAAAADoUAAAAAAAADAACACCAG
+AAAAAADAAAAAAAAARgAAAAAYhQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAIKFAAAAAAAA
+HwAAgAggBgAAAAAAwAAAAAAAAEYAAAAA2IUAAAEAAAASAAAASQBQAE0ALgBOAG8AdABlAAAAAAAD
+AA00/T8AAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACAAAAB4AC0AbQBzAC0AaABhAHMALQBhAHQA
+dABhAGMAaAAAAAEAAAACAAAAAAAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACIAAAB4AC0AbwBy
+AGkAZwBpAG4AYQB0AGkAbgBnAC0AaQBwAAAAAAABAAAAGAAAAFsAMQAwAC4AMQAuADQALgAxADAA
+XQAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAABYAAABkAGkAcwBjAGwAYQBpAG0AZQByAAAAAAAB
+AAAADgAAAGIAeQBwAGEAcwBzAAAAAAC41g==
 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index ed67951f5271..317722e16043 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
-> @@ -1459,8 +1458,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
->
->   		/* In case of almost all GETHER/ETHERs, the Receive Frame State
->   		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
-> -		 * bit 0. However, in case of the R8A7740, R8A779x, and
-> -		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
-> +		 * bit 0. However, in case of the R8A7740 and R7S72100
-> +		 * the RFS bits are from bit 25 to bit 16. So, the
-
-    And that seems more logical to me, as we have the RFS bits starting with 
-bit 16 only on the SoCs with the GEther compatible register layout (though the 
-latter SoC doesn't support Gigabit speed).
-    Having the RFS bits start at bit 16 is most probably connected to a SoC 
-having support for hardware checksumming (bit 0-15 store the received frame 
-checksum for at least R7S72100), so merging the 'shift_rd0' and 'hw_crc' flags 
-seemed the reasonable next step to me (not taken due to the lack of 
-documentation)...
-
->   		 * driver needs right shifting by 16.
->   		 */
->   		if (mdp->cd->shift_rd0)
-
-    This hunk (inverted) was not a part of the commit you're reverting. 
-Perhaps you shouldn't call this patch revert? Or make a remark about this hunk 
-in the change-log?
-
-WBR, Sergei
+--_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_--
