@@ -1,59 +1,54 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next 4/7] net: packet: use skb->dev as storage for skb
- orig len instead of skb->cb[]
-Date: Thu, 26 Feb 2015 12:26:09 -0500
-Message-ID: <CA+FuTSfG+Se0L0tWdsj2+YHAcZRWLw2_qef6Q5xixwbQ_-OE8Q@mail.gmail.com>
-References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com> <1424916612-744-5-git-send-email-eyal.birger@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: bcmgenet: fix throughtput regression with TSO
+ autosizing
+Date: Thu, 26 Feb 2015 09:27:35 -0800
+Message-ID: <1424971655.5565.172.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1424948758-48244-1-git-send-email-jaedon.shin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, shmulik.ladkani@gmail.com,
-	marcel@holtmann.org, Network Development <netdev@vger.kernel.org>
-To: Eyal Birger <eyal.birger@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Jaedon Shin <jaedon.shin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:35980 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991AbbBZR0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 12:26:40 -0500
-Received: by mail-ob0-f169.google.com with SMTP id wp4so12683354obc.0
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 09:26:39 -0800 (PST)
-In-Reply-To: <1424916612-744-5-git-send-email-eyal.birger@gmail.com>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:38556 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753667AbbBZR1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 12:27:38 -0500
+Received: by iecrd18 with SMTP id rd18so18194872iec.5
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 09:27:38 -0800 (PST)
+In-Reply-To: <1424948758-48244-1-git-send-email-jaedon.shin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 9:10 PM, Eyal Birger <eyal.birger@gmail.com> wrote:
-> As part of an effort to move skb->dropcount to skb->cb[], 4 bytes
-> of additional room are needed in skb->cb[] in packet sockets.
->
-> Store the skb original length in skb->dev instead of skb->cb[] for
-> this purpose.
+On Thu, 2015-02-26 at 20:05 +0900, Jaedon Shin wrote:
+> This patch prevents the performance degradation of xmit after
+> 605ad7f ("tcp: refine TSO autosizing").
+> 
+> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index ff83c46b..87eeff0 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -1310,6 +1310,9 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+>  out:
+>  	spin_unlock_irqrestore(&ring->lock, flags);
+>  
+> +	if (index != DESC_INDEX)
+> +		skb_orphan(skb);
+> +
 
-Another option is to delay preparation of the full sockaddr_ll struct until
-when it's needed. It often is not used at all (if msg_name == NULL).
+Hmpff...
 
-sll_family, sll_protocol and sll_pkttype can be derived when needed
-in packet_recvmsg. The first two are the head of sockaddr_ll, so
-a shorter struct filled in in packet_rcv only from sll_ifindex onwards
-would save the 4B needed for origlen. Actually, a union is simpler:
+Can you elaborate on the regression ?
 
-struct __packet_cb_sockaddr_ll {
-        union {
-                struct {
-                        unsigned short  sll_family;
-                        __be16          sll_protocol;
-                 }
-                 unsigned int sll_origlen;
-        }
-    /* etc.. */
-};
+Is it because NIC delays TX completion irq or something ?
 
-The family and protocol can just overwrite sll_origlen in packet_recvmsg
-before the memcpy into msg->msg_name.
+bcmgenet_poll() only drains TX packets on ring16 (DESC_INDEC)
 
-Also interesting would be to avoid copying the address in the fast path
-as it may never be used, especially for long addresses (INFINIBAND_ALEN
-and FWNET_ALEN). From what I can tell, all but one header_ops.parse
-implementations return bytes from inside the packet, so could take an
-unsigned char ** as argument, store that pointer and postpone the
-memcpy to packet_recvmsg (handling skb_trim correctly). The exception is
-fwnet_header_parse, which would require some workaround.
+Other tx completions seem to run from hard irq context (bcmgenet_isr1())
+
+Your patch seems to imply a bug in hard irq signaling/handling.
