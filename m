@@ -1,88 +1,69 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next 7/7] net: move skb->dropcount to skb->cb[]
-Date: Thu, 26 Feb 2015 12:17:57 +0200
-Message-ID: <CAHsH6GvEmkOZU=VngK9-yn_2ajNX2YU1aJ=qfuHby3=58r4dKw@mail.gmail.com>
-References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
-	<1424916612-744-8-git-send-email-eyal.birger@gmail.com>
-	<20150226104909.1f2c882d@halley>
+From: Imre Palik <imrep@amazon.de>
+Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to traverse
+ the bridge without hitting netfilter
+Date: Thu, 26 Feb 2015 11:19:25 +0100
+Message-ID: <54EEF32D.2010202@amazon.de>
+References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com> <20150223160619.GF24297@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <edumazet@google.com>, marcel@holtmann.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <bridge@lists.linux-foundation.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Anthony Liguori <aliguori@amazon.com>
+To: Florian Westphal <fw@strlen.de>, Imre Palik <imrep.amz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:39240 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbbBZKR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 05:17:58 -0500
-Received: by yhab6 with SMTP id b6so3960632yha.6
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 02:17:57 -0800 (PST)
-In-Reply-To: <20150226104909.1f2c882d@halley>
+Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:40355 "EHLO
+	smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193AbbBZKTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 05:19:33 -0500
+In-Reply-To: <20150223160619.GF24297@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 10:49 AM, Shmulik Ladkani
-<shmulik.ladkani@gmail.com> wrote:
-> On Thu, 26 Feb 2015 04:10:12 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index d462f5e..8807586 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -2078,12 +2078,26 @@ static inline int sock_intr_errno(long timeo)
->>       return timeo == MAX_SCHEDULE_TIMEOUT ? -ERESTARTSYS : -EINTR;
->>  }
+On 02/23/15 17:06, Florian Westphal wrote:
+> Imre Palik <imrep.amz@gmail.com> wrote:
+>> The netfilter code is made with flexibility instead of performance in mind.
+>> So when all we want is to pass packets between different interfaces, the
+>> performance penalty of hitting netfilter code can be considerable, even when
+>> all the firewalling is disabled for the bridge.
 >>
->> +struct sock_skb_cb {
->> +     u32 dropcount;
->> +};
->> +
->> +/* Store sock_skb_cb at the end of skb->cb[] so protocol families
->> + * using skb->cb[] would keep using it directly and utilize its
->> + * alignement guarantee.
->> + */
->> +#define SOCK_SKB_CB_OFFSET ((FIELD_SIZEOF(struct sk_buff, cb) - \
->> +                         sizeof(struct sock_skb_cb)))
->> +
->> +#define SOCK_SKB_CB(__skb) ((struct sock_skb_cb *)((__skb)->cb + \
->> +                         SOCK_SKB_CB_OFFSET))
->> +
->>  #define sock_skb_cb_check_size(size) \
->> -     BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sk_buff, cb))
->> +     BUILD_BUG_ON((size) > SOCK_SKB_CB_OFFSET)
->>
->
-> You didn't take care of aligning the 'sock_skb_cb'.
-> (Althogh in practive, dropcount is 4 and cb[] is 48 so you're golden).
->
-> How about:
->
-> struct sock_skb_cb {
->         /* protocol families specifc CBs */
->         u8 reserved[__SOCK_SKB_CB_OFFSET];
->         struct __sock_skb_cb x;                 // name me better!
-> };
->
-> Where '__SOCK_SKB_CB_OFFSET' and '__sock_skb_cb' are as follows:
->
-> struct __sock_skb_cb {  // name me better!
->         u32 dropcount;
-> };
->
-> #define __SOCK_SKB_CB_OFFSET_UNALIGNED \
->         (FIELD_SIZEOF(struct sk_buff, cb) - sizeof(struct __sock_skb_cb))
->
-> #define __SOCK_SKB_CB_OFFSET \
->         (__SOCK_SKB_CB_OFFSET_UNALIGNED - \
->          (__SOCK_SKB_CB_OFFSET_UNALIGNED % __alignof__(struct __sock_skb_cb)))
->
-> This also takes care for alignement of '__sock_skb_cb x' within the CB.
->
-> Then,
->
-> #define sock_skb_cb_check_size(size) \
->         BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sock_skb_cb, reserved))
->
+>> This change makes it possible to disable netfilter on a per bridge basis.
+>> In the case interesting to us, this can lead to more than 15% speedup
+>> compared to the case when only bridge-iptables is disabled.
+> 
+> I wonder what the speed difference is between no-rules (i.e., we hit jump label
+> in NF_HOOK), one single (ebtables) accept-all rule, and this patch, for
+> the call_nf==false case.
 
-Agreed. Will add to v2.
+ebtables is completely empty:
+
+# ebtables -L
+Bridge table: filter
+
+Bridge chain: INPUT, entries: 0, policy: ACCEPT
+
+Bridge chain: FORWARD, entries: 0, policy: ACCEPT
+
+Bridge chain: OUTPUT, entries: 0, policy: ACCEPT
+
+
+on some bridges I have iptables rules, but on the critical bridges I am running with iptables disabled.
+
+> I guess your 15% speedup figure is coming from ebtables' O(n) rule
+> evaluation overhead?  If yes, how many rules are we talking about?
+
+If you are looking for peculiarities in my setup then here they are:
+I am on 4k pages, and perf is not working :-(
+(I am trying to fix those too, but that is far from being a low hanging fruit.)
+So my guess would be that the packet pipeline doesn't fit in the cache/tlb
+
+> Iff thats true, then the 'better' (I know, it won't help you) solution
+> would be to use nftables bridgeport-based verdict maps...
+> 
+> If thats still too much overhead, then we clearly need to do *something*...
+> 
+> Thanks,
+> Florian
+> 
