@@ -1,130 +1,75 @@
-From: Rasesh Mody <rasesh.mody@qlogic.com>
-Subject: RE: [PATCH v2 1/1] linux-firmware: Add QLogic BR Series Adapter
- Firmware
-Date: Thu, 26 Feb 2015 19:31:43 +0000
-Message-ID: <2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4@avmb3.qlogic.org>
-References: <1424218220-28837-1-git-send-email-rasesh.mody@qlogic.com>
- <20150224175841.GO30928@merlin.infradead.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Flows! Offload them.
+Date: Thu, 26 Feb 2015 11:32:48 -0800
+Message-ID: <54EF74E0.7060502@gmail.com>
+References: <20150226074214.GF2074@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_"
-Cc: "linux-firmware@kernel.org" <linux-firmware@kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-scsi <linux-scsi@vger.kernel.org>
-To: Kyle McMartin <kyle@infradead.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20150224175841.GO30928@merlin.infradead.org>
-Content-Language: en-US
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
+	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	simon.horman@netronome.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:37187 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796AbbBZTdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:33:11 -0500
+Received: by pabrd3 with SMTP id rd3so16313089pab.4
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 11:33:11 -0800 (PST)
+In-Reply-To: <20150226074214.GF2074@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Hi Jiri,
 
-> From: Kyle McMartin [mailto:kyle@infradead.org]
-> Sent: Tuesday, February 24, 2015 9:59 AM
->=20
-> On Tue, Feb 17, 2015 at 07:10:20PM -0500, Rasesh Mody wrote:
-> > This patch rebrands the BFA/BNA inbox driver firmwares.
-> > This patch adds 3.2.5.1 firmware files for QLogic BR-series Adapters
-> > that will be used with the inbox drivers(BFA and BNA).
-> >
-> > Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
-> > ---
-> >  WHENCE            |  13 +++++++++----
-> >  cbfw-3.2.5.1.bin  | Bin 0 -> 414480 bytes  ct2fw-3.2.5.1.bin | Bin 0
-> > -> 584216 bytes  ctfw-3.2.5.1.bin  | Bin 0 -> 539144 bytes
-> >  4 files changed, 9 insertions(+), 4 deletions(-)  create mode 100644
-> > cbfw-3.2.5.1.bin  create mode 100644 ct2fw-3.2.5.1.bin  create mode
-> > 100644 ctfw-3.2.5.1.bin
-> >
->=20
-> Thanks, applied. Any chance on the next update of the firmware we could
-> move to putting new files under qlogic/*.bin?
+On 25/02/15 23:42, Jiri Pirko wrote:
+> Hello everyone.
+> 
+> I would like to discuss big next step for switch offloading. Probably
+> the most complicated one we have so far. That is to be able to offload flows.
+> Leaving nftables aside for a moment, I see 2 big usecases:
+> - TC filters and actions offload.
+> - OVS key match and actions offload.
+> 
+> I think it might sense to ignore OVS for now. The reason is ongoing efford
+> to replace OVS kernel datapath with TC subsystem. After that, OVS offload
+> will not longer be needed and we'll get it for free with TC offload
+> implementation. So we can focus on TC now.
 
-Thanks Kyle, will keep that in mind.
+What is not necessarily clear to me, is if we leave nftables aside for
+now from flow offloading, does that mean the entire flow offloading will
+now be controlled and going with the TC subsystem necessarily?
 
-Regards,
-Rasesh
+I am not questioning the choice for TC, I am just wondering if
+ultimately there is the need for a lower layer, which is below, such
+that both tc and e.g: nftables can benefit from it?
 
---_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
+I guess my larger question is, if I need to learn about new flows
+entering the stack, how is that going to wind-up looking like?
 
-eJ8+IgMyAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAAEMxMTM4OEUz
-Q0QzQUU0NDNCRDlDRkM4QzUyMTcwODRBAE0HAQ2ABAACAAAAAgACAAEFgAMADgAAAN8HAgAaABMA
-HwArAAQAYwEBIIADAA4AAADfBwIAGgATAB8AKwAEAGMBAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
-YWlsLk5vdGUAMQgBBIABAEkAAABSRTogW1BBVENIIHYyIDEvMV0gbGludXgtZmlybXdhcmU6IEFk
-ZCBRTG9naWMgQlIgU2VyaWVzIEFkYXB0ZXIgRmlybXdhcmUAqxcBA5AGAAwPAABAAAAAAgF/AAEA
-AAA6AAAAPDI1NTJGNzRBMEJDQ0JFNERCRTJBRDIxOEM4MUIyODExRDhFNEQ0QGF2bWIzLnFsb2dp
-Yy5vcmc+AAAACwAfDgEAAAACAQkQAQAAAJwDAACYAwAAogUAAExaRnUMC/jPYQAKZmJpZAQAAGNj
-wHBnMTI1MgD+A0PwdGV4dAH3AqQD4wIABGNoCsBzZXQwIO8HbQKDAFARTTIKgAa0AoCWfQqACMg7
-CWIxOQ7AvwnDFnIKMhZxAoAVYioJsHMJ8ASQYXQFsg5QA2Bzom8BgCBFeBHBbhgwXQZSdgSQF7YC
-EHIAwHR9CFBuGjEQIAXABaAbZGSaIANSIBAiF7JcdgiQ5HdrC4BkNR1TBPAHQA0XcDAKcRfyYmtt
-awZzAZAAICBCTV9C4EVHSU59CvwB8QvxECA+IEYDYTogS2Z5HnAF0GNNH4ELgCBOWwDAAxAYkDpr
-IjFAWwuAA1BhAQAkEC4FsGfoXVxsC4BlCoAhoAZgCwIwIgBUClBzZGF5QiwhsGVicnUKwHkYIDI0
-JhAB0DE1IIA5OjU5IEFNJLcdJLdPA6AloSYTIDE3QyblGIAgMDc6HpA6gQHQUE0gLTA1HqDJJhBS
-YRIAc2gF0ARwbSagdwNgECA6JLchoFSqaAQAIAqwdBHAIAlwSyZQAHBkBCB0aBngQoBGQS9CTkEg
-C4BxBuB4IGQFEBoxHHBp7RsAdwrAB5AuLK8tsyQQAS5hMy4yLjUuMR8wFzARHnAEIBrhIFFMzG9n
-DlAfsFItEgAIgf0EIEEl4AUwBJAOADDYLpCrKjED8GwDIGIZ4HUSAJ8cYAPwLpAugy9acygu0W8q
-IB3AH7AvICkwuTDJUyRpZxhQZC0ZMGYtbGJ5IgArijwYcCuiLrEEYXlAcQkANFEuBaAabTpaLT7w
-MMkgV0iwRU5DRT/AQEh8P8BwMTMgK0FmPvE/G2PQYmZ3LTJ1Lg3AA6AtQPFCItESMC0hoDQx+DQ0
-OBIwO8AQIAQgG9AfFJBDHUQVPkohoDU4NDgyMTZFKEMfRCg1M345RNFFJD8qSxAzhBmUZH8mECeA
-C4A0wSLAAiA40Cs+KSYQSxABAB5wTcQtKX9C0QlwGIAZ4ARiKZAeoDb/ROAwyUL/T19LAUWvUjsw
-yf9TF0kcOc8oOS1QAHAfUCYQ3zVQC1AIkCRQJ5BuJqAZkn5jGeACIC6DGFAQQDcgcN8l4E+hGTAu
-gzL3dxngBaB8dWwLMCTGBGAaMBzAb+0tkHUCQAuAZ1thB+AzhE51HcAbsT2ULypJsj+/JLUktVlE
-IhMmEDazawngdnA2VCLRbR2xMLYktVL8ZWcLEVmQZKYrkyS1FUIBZxAfAEIAAQAAABgAAABSAGEA
-cwBlAHMAaAAgAE0AbwBkAHkAAAAfAGUAAQAAAC4AAAByAGEAcwBlAHMAaAAuAG0AbwBkAHkAQABx
-AGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAGQAAQAAAAoAAABTAE0AVABQAAAAAAACAUEAAQAAAGgA
-AAAAAAAAgSsfpL6jEBmdbgDdAQ9UAgAAAIBSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAABTAE0AVABQ
-AAAAcgBhAHMAZQBzAGgALgBtAG8AZAB5AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAl0BAAAA
-LgAAAHIAYQBzAGUAcwBoAC4AbQBvAGQAeQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A5V8B
-AAAANgAAAHMAaQBwADoAcgBhAHMAZQBzAGgALgBtAG8AZAB5AEAAcQBsAG8AZwBpAGMALgBjAG8A
-bQAAAAAAHwAaDAEAAAAYAAAAUgBhAHMAZQBzAGgAIABNAG8AZAB5AAAAHwAfDAEAAAAuAAAAcgBh
-AHMAZQBzAGgALgBtAG8AZAB5AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAeDAEAAAAKAAAA
-UwBNAFQAUAAAAAAAAgEZDAEAAABoAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAUgBhAHMAZQBz
-AGgAIABNAG8AZAB5AAAAUwBNAFQAUAAAAHIAYQBzAGUAcwBoAC4AbQBvAGQAeQBAAHEAbABvAGcA
-aQBjAC4AYwBvAG0AAAAfAAFdAQAAAC4AAAByAGEAcwBlAHMAaAAuAG0AbwBkAHkAQABxAGwAbwBn
-AGkAYwAuAGMAbwBtAAAAAAAfAPg/AQAAABgAAABSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAAAfACNA
-AQAAAC4AAAByAGEAcwBlAHMAaAAuAG0AbwBkAHkAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAf
-ACJAAQAAAAoAAABTAE0AVABQAAAAAAACAfk/AQAAAGgAAAAAAAAAgSsfpL6jEBmdbgDdAQ9UAgAA
-AIBSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAABTAE0AVABQAAAAcgBhAHMAZQBzAGgALgBtAG8AZAB5
-AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8ACV0BAAAALgAAAHIAYQBzAGUAcwBoAC4AbQBvAGQA
-eQBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AMUABAAAAAgAAAAAAAAALAEA6AQAAAB8AMEAB
-AAAAAgAAAAAAAAAfABoAAQAAABIAAABJAFAATQAuAE4AbwB0AGUAAAAAAAMA8T8JBAAACwBAOgEA
-AAADAP0/5AQAAAIBCzABAAAAEAAAAMETiOPNOuRDvZz8jFIXCEoDABcAAQAAAEAAOQCA+bXZ+lHQ
-AUAACDBjIjna+lHQAQsAKQAAAAAACwAjAAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAeAAAA
-YQBjAGMAZQBwAHQAbABhAG4AZwB1AGEAZwBlAAAAAAABAAAADAAAAGUAbgAtAFUAUwAAAAsAAIAI
-IAYAAAAAAMAAAAAAAABGAAAAAAaFAAAAAAAAHwA3AAEAAACSAAAAUgBFADoAIABbAFAAQQBUAEMA
-SAAgAHYAMgAgADEALwAxAF0AIABsAGkAbgB1AHgALQBmAGkAcgBtAHcAYQByAGUAOgAgAEEAZABk
-ACAAUQBMAG8AZwBpAGMAIABCAFIAIABTAGUAcgBpAGUAcwAgAEEAZABhAHAAdABlAHIAIABGAGkA
-cgBtAHcAYQByAGUAAAAAAB8APQABAAAACgAAAFIARQA6ACAAAAAAAAMANgAAAAAAAwAuAAAAAAAf
-AEIQAQAAAFwAAAA8ADIAMAAxADUAMAAyADIANAAxADcANQA4ADQAMQAuAEcATwAzADAAOQAyADgA
-QABtAGUAcgBsAGkAbgAuAGkAbgBmAHIAYQBkAGUAYQBkAC4AbwByAGcAPgAAAAIBcQABAAAAIAAA
-AAEB0EsU6eaR7Iaiy7JFoZsnu6bcGx6dAKb9gIACuDfAHwBwAAEAAACKAAAAWwBQAEEAVABDAEgA
-IAB2ADIAIAAxAC8AMQBdACAAbABpAG4AdQB4AC0AZgBpAHIAbQB3AGEAcgBlADoAIABBAGQAZAAg
-AFEATABvAGcAaQBjACAAQgBSACAAUwBlAHIAaQBlAHMAIABBAGQAYQBwAHQAZQByACAARgBpAHIA
-bQB3AGEAcgBlAAAAAAAfADUQAQAAAHQAAAA8ADIANQA1ADIARgA3ADQAQQAwAEIAQwBDAEIARQA0
-AEQAQgBFADIAQQBEADIAMQA4AEMAOAAxAEIAMgA4ADEAMQBEADgARQA0AEQANABAAGEAdgBtAGIA
-MwAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA0gAAADwAMQA0ADIANAAyADEAOAAy
-ADIAMAAtADIAOAA4ADMANwAtADEALQBnAGkAdAAtAHMAZQBuAGQALQBlAG0AYQBpAGwALQByAGEA
-cwBlAHMAaAAuAG0AbwBkAHkAQABxAGwAbwBnAGkAYwAuAGMAbwBtAD4AIAA8ADIAMAAxADUAMAAy
-ADIANAAxADcANQA4ADQAMQAuAEcATwAzADAAOQAyADgAQABtAGUAcgBsAGkAbgAuAGkAbgBmAHIA
-YQBkAGUAYQBkAC4AbwByAGcAPgAAAAAAAwDeP59OAAALAACACCAGAAAAAADAAAAAAAAARgAAAAAD
-hQAAAAAAAAMAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAGFAAAAAAAAAwCAEP////9AAAcwbiUH2vpR
-0AELAAIAAQAAAAMAJgAAAAAACwArAAAAAAACAUcAAQAAAC8AAABjPVVTO2E9IDtwPVFMb2dpYzts
-PUFWTUIzLTE1MDIyNjE5MzE0M1otMTM0MDYzAAACARAwAQAAAEYAAAAAAAAAkFQH74smgESurG1o
-wgIElAcAJVL3SgvMvk2+KtIYyBsoEQAAALzkigAAUFObvwRBmkyJFyVu8iYjZACRkVtRbgAAAAAf
-APo/AQAAABgAAABSAGEAcwBlAHMAaAAgAE0AbwBkAHkAAAADAAlZAQAAAAMAAIAIIAYAAAAAAMAA
-AAAAAABGAAAAABCFAAAAAAAACwAAgAggBgAAAAAAwAAAAAAAAEYAAAAADoUAAAAAAAADAACACCAG
-AAAAAADAAAAAAAAARgAAAAAYhQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAIKFAAAAAAAA
-HwAAgAggBgAAAAAAwAAAAAAAAEYAAAAA2IUAAAEAAAASAAAASQBQAE0ALgBOAG8AdABlAAAAAAAD
-AA00/T8AAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACAAAAB4AC0AbQBzAC0AaABhAHMALQBhAHQA
-dABhAGMAaAAAAAEAAAACAAAAAAAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACIAAAB4AC0AbwBy
-AGkAZwBpAG4AYQB0AGkAbgBnAC0AaQBwAAAAAAABAAAAGAAAAFsAMQAwAC4AMQAuADQALgAxADAA
-XQAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAABYAAABkAGkAcwBjAGwAYQBpAG0AZQByAAAAAAAB
-AAAADgAAAGIAeQBwAGEAcwBzAAAAAAC41g==
-
---_000_2552F74A0BCCBE4DBE2AD218C81B2811D8E4D4avmb3qlogicorg_--
+> 
+> Here is my list of actions to achieve some results in near future:
+> 1) finish cls_openflow classifier and iproute part of it
+> 2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
+> 3) use rocker to provide offload for cls_openflow and couple of selected actions
+> 4) improve cls_openflow performance (hashtables etc)
+> 5) improve TC subsystem performance in both slow and fast path
+>     -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
+> 6) implement "named sockets" (working name) and implement TC support for that
+>     -ingress qdisc attach, act_mirred target
+> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
+> 8) implement TC act_mpls
+> 9) suggest to switch OVS userspace from OVS genl to TC API
+> 
+> This is my personal action list, but you are *very welcome* to step in to help.
+> Point 2) haunts me at night....
+> I believe that John is already working on 2) and part of 3).
+> 
+> What do you think?
+-- 
+Florian
