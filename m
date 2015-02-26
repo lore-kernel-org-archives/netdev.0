@@ -1,52 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 08/13] i40e: Issue a PF reset if Tx queue disable timeout
-Date: Thu, 26 Feb 2015 07:03:44 -0800
-Message-ID: <1424963029-4612-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Parikh, Neerav" <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 7/8] mpls: Multicast route table change notifications
+Date: Thu, 26 Feb 2015 07:12:34 -0800
+Message-ID: <54EF37E2.1040506@cumulusnetworks.com>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org> <87fv9tvrgq.fsf@x220.int.ebiederm.org> <54EEC967.20106@cumulusnetworks.com> <87oaogn51k.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:48322 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753933AbbBZPD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 10:03:57 -0500
-In-Reply-To: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:42479 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733AbbBZPMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 10:12:37 -0500
+Received: by iecrp18 with SMTP id rp18so16321098iec.9
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 07:12:36 -0800 (PST)
+In-Reply-To: <87oaogn51k.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Parikh, Neerav" <neerav.parikh@intel.com>
+On 2/26/15, 6:03 AM, Eric W. Biederman wrote:
+> roopa <roopa@cumulusnetworks.com> writes:
+>
+>> On 2/25/15, 9:19 AM, Eric W. Biederman wrote:
+>>> Unlike IPv4 this code notifies on all cases where mpls routes
+>>> are added or removed as that was the simplest to implement.
+>>>
+>>> In particular routes being removed because a network interface
+>>> goes down or is removed are notified about.  Are there technical
+>>> arguments for handling this differently ? Userspace developers
+>>> don't particularly like the way IPv4 handles route removal
+>>> on ifdown.
+>> that is true. However, from previous emails on this topic on netdev,
+>> there is no reason to notify these deletes to userspace thereby creating a
+>> notification storm
+>> when userspace can figure this out. Which seems like a valid reason.
+>> (Your approach resembles IPv6 which does generate these notifications and
+>> userspace is usually happy with this).
+> Grr.  There is an even better way to do this.
+>
+> The semantically best way to handle this is to simply not use routes for
+> forwarding where the network inteface is down, the carrier is down, or
+> the network device has gone away for forwarding.
 
-As part of DCB reconfiguration flow if the Tx queue disable times out
-then issue a PF reset to do some level of recovery.
+agreed, And we have an internal patch that does this for regular routing
+on carrier down (which we will upstream soon).
+>
+> Apparently there are some multi-path scenearios that already do this
+> legitimately, and routes going away auto-matically can cause userspace
+> other kinds of problems.
+>
+> In MPLS I especially don't want to free the routing table slot until I
+> know that the change has propagated in the network and I can be
+> reasonably confident that no-one will send me traffic on that label.
+> Otherwise there is a chance the label will be reused too soon.
+ack
+>
+> Grumble.  That is a code change I need to make.  Grumble.
+>
+> I also need to look and see if those multi-path scenarios report a next
+> hop as dead or just rely on the network interface state (which I think
+> it is) to be sufficient information relayed to userspace
+>
+they are marked DEAD on ifdown today (AFAIR they dont generate a 
+notification in IPv4)  and are skipped during route lookup.
+Only when all the nexthops in a multi-path route are dead, is the route 
+multipath route declared dead
+and is deleted today (with no notification to userspace in the IPv4 case).
 
-Change-ID: I7550021c55bff355351c0365e61e1f05fcaff46d
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index bd4494d..9751465 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5266,8 +5266,14 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
- 
- 	/* Wait for the PF's Tx queues to be disabled */
- 	ret = i40e_pf_wait_txq_disabled(pf);
--	if (!ret)
-+	if (ret) {
-+		/* Schedule PF reset to recover */
-+		set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
-+		i40e_service_event_schedule(pf);
-+	} else {
- 		i40e_pf_unquiesce_all_vsi(pf);
-+	}
-+
- exit:
- 	return ret;
- }
--- 
-1.9.3
+Thanks,
+Roopa
