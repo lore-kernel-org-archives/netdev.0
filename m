@@ -1,55 +1,59 @@
-From: Luca Ceresoli <luca@lucaceresoli.net>
-Subject: [PATCH] net: asix: add support for the Sitecom LN-028 USB adapter
-Date: Thu, 26 Feb 2015 00:58:12 +0100
-Message-ID: <1424908692-5842-1-git-send-email-luca@lucaceresoli.net>
-Cc: Luca Ceresoli <luca@lucaceresoli.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx switches
+Date: Wed, 25 Feb 2015 16:53:24 -0800
+Message-ID: <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
+References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+	<20150224223039.GC1332@gospo.home.greyhouse.net>
+	<CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+	<54ED017E.6000902@gmail.com>
+	<20150225001534.GB15633@lunn.ch>
+	<54ED19AB.7020003@gmail.com>
+	<CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+	<20150225140356.GB17992@lunn.ch>
+	<20150225154607.GD1332@gospo.home.greyhouse.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>, "Rafa?? Mi??ecki" <zajec5@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:33783 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752676AbbBZAxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 19:53:25 -0500
+Received: by mail-qa0-f47.google.com with SMTP id v10so5570121qac.6
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 16:53:24 -0800 (PST)
+In-Reply-To: <20150225154607.GD1332@gospo.home.greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just another AX88178-based 10/100/1000 USB-to-Ethernet dongle. This one
-shows up in lsusb as: "Sitecom Europe B.V. LN-028 Network USB 2.0 Adapter".
+On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
+> [...]
+>>
+>> What we don't want is X chip families and Y different ways to
+>> configure the features. Ideal we want X chip families, and one way to
+>> configure them all.
+>
+> This statement is really my primary concern.  There is lots of interest
+> around hardware offload at this point and it seems like there is a risk
+> that a lack of consistency can create problems.
+>
+> I think these patches are great as they allow for the programming of the
+> offload hardware (and it has been pointed out that this drastically
+> increases performance), but one concern I have with this patch (related
+> to this) is that I'm not sure there is a major need to create netdevs
+> automatically if there is not the ability to rx/tx actual frames on
+> these interfaces.
 
-Signed-off-by: Luca Ceresoli <luca@lucaceresoli.net>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-usb@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/usb/Kconfig        | 1 +
- drivers/net/usb/asix_devices.c | 4 ++++
- 2 files changed, 5 insertions(+)
+Even when not used for rx/tx to CPU, it seems the netdevs are still
+useful as an anchor to build higher-level constructs such as bridge or
+bond, and to hang stuff like netdev stats or ethtool-ish things.
 
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 3bd9678..7ba8d08 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -161,6 +161,7 @@ config USB_NET_AX8817X
- 	    * Linksys USB200M
- 	    * Netgear FA120
- 	    * Sitecom LN-029
-+	    * Sitecom LN-028
- 	    * Intellinet USB 2.0 Ethernet
- 	    * ST Lab USB 2.0 Ethernet
- 	    * TrendNet TU2-ET100
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index bf49792..1173a24 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -979,6 +979,10 @@ static const struct usb_device_id	products [] = {
- 	USB_DEVICE (0x0df6, 0x0056),
- 	.driver_info =  (unsigned long) &ax88178_info,
- }, {
-+	// Sitecom LN-028 "USB 2.0 10/100/1000 Ethernet adapter"
-+	USB_DEVICE (0x0df6, 0x061c),
-+	.driver_info =  (unsigned long) &ax88178_info,
-+}, {
- 	// corega FEther USB2-TX
- 	USB_DEVICE (0x07aa, 0x0017),
- 	.driver_info =  (unsigned long) &ax8817x_info,
--- 
-1.9.1
+-scott
