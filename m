@@ -1,43 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv2 net-next 0/4] Small fix for TCP PMTU
-Date: Thu, 26 Feb 2015 13:40:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAEEABA@AcuExch.aculab.com>
-References: <1423815405-32644-1-git-send-email-fan.du@intel.com>
- <1424922566-6787-1-git-send-email-fan.du@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "edumazet@google.com" <edumazet@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
-To: 'Fan Du' <fan.du@intel.com>,
-	"johnwheffner@gmail.com" <johnwheffner@gmail.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-next] bnx2: disable toggling of rxvlan if necessary
+Date: Thu, 26 Feb 2015 14:48:07 +0100
+Message-ID: <1424958487-5737-1-git-send-email-ivecera@redhat.com>
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	Dept-HSGLinuxNICDev@qlogic.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.182]:57317 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753259AbbBZNle convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 08:41:34 -0500
-In-Reply-To: <1424922566-6787-1-git-send-email-fan.du@intel.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:53784 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753475AbbBZNsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2015 08:48:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du
-> This patchset performs some small fix and enhancement
-> for current TCP PMTU as per RFC4821 with below changes:
-> 
-> Patch1/4: Set probe mss base to 1024 Bytes per RFC4821
-> Patch2/4: Do not double probe_size for each probing,
->           use a simple binary search to gain maximum performance.
-> Patch3/4: When it comes to blackhole detection, shrink current
-> 	  mss for next probing.
-> Patch4/4: Create a probe timer to detect enlarged path MTU.
+The bnx2 driver uses .ndo_fix_features to force enable of Rx VLAN tag
+stripping when the card cannot disable it. The driver should remove
+NETIF_F_HW_VLAN_CTAG_RX flag from hw_features instead so it is fixed
+for the ethtool.
 
-Isn't the most likely problem PPPoE blackholes?
-Where a reduction of the PMTU from 1500 to (IIRC) 1492 is
-all that is required?
+Cc: Sony Chacko <sony.chacko@qlogic.com>
+Cc: Dept-HSGLinuxNICDev@qlogic.com
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2.c | 15 +++------------
+ 1 file changed, 3 insertions(+), 12 deletions(-)
 
-Would seem appropriate to test that value reasonable quickly.
-
-	David
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 9f146b9..2b66ef3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -7708,17 +7708,6 @@ bnx2_set_phys_id(struct net_device *dev, enum ethtool_phys_id_state state)
+ 	return 0;
+ }
+ 
+-static netdev_features_t
+-bnx2_fix_features(struct net_device *dev, netdev_features_t features)
+-{
+-	struct bnx2 *bp = netdev_priv(dev);
+-
+-	if (!(bp->flags & BNX2_FLAG_CAN_KEEP_VLAN))
+-		features |= NETIF_F_HW_VLAN_CTAG_RX;
+-
+-	return features;
+-}
+-
+ static int
+ bnx2_set_features(struct net_device *dev, netdev_features_t features)
+ {
+@@ -8525,7 +8514,6 @@ static const struct net_device_ops bnx2_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= bnx2_change_mac_addr,
+ 	.ndo_change_mtu		= bnx2_change_mtu,
+-	.ndo_fix_features	= bnx2_fix_features,
+ 	.ndo_set_features	= bnx2_set_features,
+ 	.ndo_tx_timeout		= bnx2_tx_timeout,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -8576,6 +8564,9 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->features |= dev->hw_features;
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 
++	if (!(bp->flags & BNX2_FLAG_CAN_KEEP_VLAN))
++		dev->hw_features &= ~NETIF_F_HW_VLAN_CTAG_RX;
++
+ 	if ((rc = register_netdev(dev))) {
+ 		dev_err(&pdev->dev, "Cannot register net device\n");
+ 		goto error;
+-- 
+2.0.5
