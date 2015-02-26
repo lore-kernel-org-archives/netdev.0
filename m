@@ -1,34 +1,35 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: Re: [PATCH V2] Fix misspelling of defrag in ip-l2tp.8
-Date: Thu, 26 Feb 2015 11:28:45 -0500
-Message-ID: <20150226162845.GG25508@csclub.uwaterloo.ca>
-References: <20150225185942.GA22050@csclub.uwaterloo.ca>
- <20150225224359.GA13975@hudson.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] xen-netback: remove compilation warning
+Date: Thu, 26 Feb 2015 11:30:46 -0500 (EST)
+Message-ID: <20150226.113046.199389136864969627.davem@davemloft.net>
+References: <1424939141-30730-1-git-send-email-marzo.pedro@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Jeremiah Mahler <jmmahler@gmail.com>, netdev@vger.kernel.org,
-	James Chapman <jchapman@katalix.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: marzo.pedro@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.csclub.uwaterloo.ca ([129.97.134.52]:50887 "EHLO
-	mail.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbbBZQ2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 11:28:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20150225224359.GA13975@hudson.localdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40953 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbbBZQas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 11:30:48 -0500
+In-Reply-To: <1424939141-30730-1-git-send-email-marzo.pedro@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 02:43:59PM -0800, Jeremiah Mahler wrote:
-> Lennart,
-> 
-> On Wed, Feb 25, 2015 at 01:59:42PM -0500, Lennart Sorensen wrote:
-> > Somehow defrag was spelled degrag everywhere it occoured in the ip-l2tp
->                                                   ^^^^^^^^
-> Your patch to fix spelling errors has a spelling error in the log
-> message ;-)
-
-I knew I should have run a spell check on it.  At least I got rid of
-the spelling problems in the man page.
-
--- 
-Len Sorensen
+RnJvbTogcGVkcm8gPG1hcnpvLnBlZHJvQGdtYWlsLmNvbT4NCkRhdGU6IFRodSwgMjYgRmViIDIw
+MTUgMDk6MjU6NDEgKzAxMDANCg0KPiBGcm9tOiBwbWFyem8gPG1hcnpvLnBlZHJvQGdtYWlsLmNv
+bT4NCj4gDQo+IG9mZnNldCBhbmQgc2l6ZSBhcmUgb2YgdHlwZSB1aW50MTZfdCBzbyB0aGUgJWx1
+IGdpdmVzIGEgd2FybmluZw0KPiBBICV1IHNwZWNpZmllciwgdGhlIHNhbWUgdXNlZCBpbiBzaXpl
+IG1ha2VzIGdjYyBoYXBweQ0KPiBOb3Qgc3VyZSBpZiBhICV4IHdvdWxkIGJlIG1vcmUgY29ycmVj
+dA0KPiANCj4gU2lnbmVkLW9mZi1ieTogUGVkcm8gTWFyem8gUGVyZXogPG1hcnpvLnBlZHJvQGdt
+YWlsLmNvbT4NCg0KVGhpcyBwYXRjaCBhY3R1YWxseSBhZGRzIGEgd2FybmluZyBvbiBteSBtYWNo
+aW5lLCBhbmQgeW91ciBhbmFseXNpcw0Kb2YgdGhlIHR5cGVzIGlzIHRoZXJlZm9yZSBwcm9iYWJs
+eSBpbmNvcnJlY3Q6DQoNCmRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYzogSW4gZnVu
+Y3Rpb24goXhlbnZpZl90eF9idWlsZF9nb3BzojoNCmRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25l
+dGJhY2suYzoxMjU5Ojg6IHdhcm5pbmc6IGZvcm1hdCChJXWiIGV4cGVjdHMgYXJndW1lbnQgb2Yg
+dHlwZSChdW5zaWduZWQgaW50oiwgYnV0IGFyZ3VtZW50IDUgaGFzIHR5cGUgoWxvbmcgdW5zaWdu
+ZWQgaW50oiBbLVdmb3JtYXQ9XQ0KDQpUaGUgaXNzdWUgaXMgcHJvYmFibHkgIn5QQUdFX01BU0si
+IGFuZCBJIHRoaW5rIHRoZSB0eXBlIG9mIHRoYXQNCnByb3BhZ2F0ZXMgaW50byB0aGUgdHlwZSBv
+ZiB0aGUgb3ZlcmFsbCBjYWxjdWxhdGlvbi4NCg==
