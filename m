@@ -1,41 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] rhashtable: use cond_resched()
-Date: Thu, 26 Feb 2015 16:50:15 +0100
-Message-ID: <54EF40B7.8060903@iogearbox.net>
-References: <CAADnVQKV8JSqhTPYBGDJt4KqTesEvtCMnhupiPyZJjvk=tmOwg@mail.gmail.com>	 <20150226075354.GA30061@acer.localdomain>	 <1424962236.5565.156.camel@edumazet-glaptop2.roam.corp.google.com> <1424964034.5565.162.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] ibmveth: Add function to enable live MAC address changes
+Date: Thu, 26 Feb 2015 16:55:12 +0100
+Message-ID: <20150226155512.GG1973@nanopsycho.lan>
+References: <1424910864-32266-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <54EF1AB6.5010004@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Laight <David.Laight@aculab.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Brian King <brking@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58451 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752748AbbBZPu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 10:50:29 -0500
-In-Reply-To: <1424964034.5565.162.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:33820 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbbBZPzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 10:55:17 -0500
+Received: by wghn12 with SMTP id n12so12198923wgh.1
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 07:55:16 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54EF1AB6.5010004@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2015 04:20 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+Thu, Feb 26, 2015 at 02:08:06PM CET, brking@linux.vnet.ibm.com wrote:
+>On 02/25/2015 06:34 PM, Thomas Falcon wrote:
+>> @@ -1327,6 +1327,24 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
+>>  	return ret;
+>>  }
+>> 
+>> +static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
+>> +{
+>> +	struct ibmveth_adapter *adapter = netdev_priv(dev);
+>> +	struct sockaddr *addr = p;
+>> +	u64 mac_address;
+>> +	int rc;
+>> +
+>> +	if (!is_valid_ether_addr(addr->sa_data))
+>> +		return -EADDRNOTAVAIL;
+>> +
+>> +	ether_addr_copy(dev->dev_addr, addr->sa_data);
+>> +
+>> +	mac_address = ibmveth_encode_mac_addr(dev->dev_addr);
+>> +	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
+>> +
+>> +	return rc;
 >
-> If a hash table has 128 slots and 16384 elems, expand to 256 slots
-> takes more than one second. For larger sets, a soft lockup is detected.
->
-> Holding cpu for that long, even in a work queue is a show stopper
-> for non preemptable kernels.
->
-> cond_resched() at strategic points to allow process scheduler
-> to reschedule us.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>Do you still want to be changing dev->dev_addr if h_change_logical_lan_mac
+>returns a failure?
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+That should not be done. dev_addr should be in sync with real hw addr.
