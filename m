@@ -1,149 +1,97 @@
 From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [RFC][PATCH] usbnet: Fix tx_bytes statistic running backward in
- cdc_ncm
-Date: Thu, 26 Feb 2015 19:43:43 +0000
-Message-ID: <1424979823.4444.46.camel@xylophone.i.decadent.org.uk>
+Subject: Re: [PATCH net 3/4] Revert "sh_eth: Enable Rx descriptor word 0
+ shift for r8a7790"
+Date: Thu, 26 Feb 2015 20:13:43 +0000
+Message-ID: <1424981623.4444.65.camel@xylophone.i.decadent.org.uk>
+References: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk>
+	 <1424960474.4444.21.camel@xylophone.i.decadent.org.uk>
+	 <54EF7163.80900@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ct-linux-kernel <linux-kernel@codethink.co.uk>,
-	linux-usb@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:45627 "EHLO
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:46306 "EHLO
 	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752483AbbBZTnu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:43:50 -0500
+	with ESMTP id S1753689AbbBZUNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 15:13:49 -0500
+In-Reply-To: <54EF7163.80900@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cdc_ncm disagrees with usbnet about how much framing overhead should
-be counted in the tx_bytes statistics, and tries 'fix' this by
-decrementing tx_bytes on the transmit path.  But statistics must never
-be decremented except due to roll-over; this will thoroughly confuse
-user-space.  Also, tx_bytes is only incremented by usbnet in the
-completion path.
+On Thu, 2015-02-26 at 22:17 +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 02/26/2015 05:21 PM, Ben Hutchings wrote:
+> 
+> > This reverts commit fd9af07c3404ac9ecbd0d859563360f51ce1ffde.
+> 
+> > The hardware manual states that the frame error and multicast bits are
+> > copied to bits 9:0 of RD0, not bits 25:16.  I've tested that this is
+> > true for RFS1 (CRC error), RFS3 (frame too short), RFS4 (frame too
+> > long) and RFS8 (multicast).
+> 
+>     Well, if your testing does match the manual, the reverted patch was most 
+> probably just wrong in the first place.
+> 
+> > Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+> > ---
+> >   drivers/net/ethernet/renesas/sh_eth.c |    5 ++---
+> >   1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> > index ed67951f5271..317722e16043 100644
+> > --- a/drivers/net/ethernet/renesas/sh_eth.c
+> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> [...]
+> > @@ -1459,8 +1458,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+> >
+> >   		/* In case of almost all GETHER/ETHERs, the Receive Frame State
+> >   		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
+> > -		 * bit 0. However, in case of the R8A7740, R8A779x, and
+> > -		 * R7S72100 the RFS bits are from bit 25 to bit 16. So, the
+> > +		 * bit 0. However, in case of the R8A7740 and R7S72100
+> > +		 * the RFS bits are from bit 25 to bit 16. So, the
+> 
+>     And that seems more logical to me, as we have the RFS bits starting with 
+> bit 16 only on the SoCs with the GEther compatible register layout (though the 
+> latter SoC doesn't support Gigabit speed).
+>     Having the RFS bits start at bit 16 is most probably connected to a SoC 
+> having support for hardware checksumming (bit 0-15 store the received frame 
+> checksum for at least R7S72100), so merging the 'shift_rd0' and 'hw_crc' flags 
+> seemed the reasonable next step to me (not taken due to the lack of 
+> documentation)...
 
-Fix this by requiring drivers that set FLAG_MULTI_FRAME to set a
-tx_bytes delta along with the tx_packets count.
+After this patch there will still be:
 
-Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
----
-I noticed this bug while trying to fix the tx_packets statistic in asix.
-It depends on the patch I just sent for that.  I don't have any hardware
-to test this with, or any need to make it work.  If you want this fix,
-please test and re-submit it yoursef.
+/* SH7757(GETHERC) */ .register_type = SH_ETH_REG_GIGABIT, .hw_crc = 0, .shift_rd0 = 0
+/* SH7734 */          .register_type = SH_ETH_REG_GIGABIT, .hw_crc = 1, .shift_rd0 = 0
+/* SH7763 */          .register_type = SH_ETH_REG_GIGABIT, .hw_crc = 0, .shift_rd0 = 0
+/* R8A7740 */         .register_type = SH_ETH_REG_GIGABIT, .hw_crc = 0, .shift_rd0 = 1
+/* R7S72100 */        .register_type = SH_ETH_REG_FAST_RZ, .hw_crc = 1, .shift_rd0 = 1
+
+Do you really think R7S72100 is the only one of these with the flags set
+correctly?
+
+Also, the frame CRC is 32 bits and is surely checked by all versions of
+the MAC.  Is the 16-bit 'CRC' actually a full-frame IP-style checksum?
+Someone should make the driver actually use that where available.  (Not
+me, I don't have one of those fancy checksumming chips.)
+
+> >   		 * driver needs right shifting by 16.
+> >   		 */
+> >   		if (mdp->cd->shift_rd0)
+> 
+>     This hunk (inverted) was not a part of the commit you're reverting. 
+> Perhaps you shouldn't call this patch revert? Or make a remark about this hunk 
+> in the change-log?
+
+Well, it's logically a revert.  I could mention that I'm also fixing a
+comment to match.
 
 Ben.
-
- drivers/net/usb/asix_common.c |    2 +-
- drivers/net/usb/cdc_ncm.c     |    7 +++----
- drivers/net/usb/sr9800.c      |    2 +-
- drivers/net/usb/usbnet.c      |   16 +++++++++++++---
- include/linux/usb/usbnet.h    |    6 ++++--
- 5 files changed, 22 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 724a9b50df7a..75d6f26729a3 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -189,7 +189,7 @@ struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 		skb_put(skb, sizeof(padbytes));
- 	}
- 
--	usbnet_set_skb_tx_stats(skb, 1);
-+	usbnet_set_skb_tx_stats(skb, 1, 0);
- 	return skb;
- }
- 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 70cbea551139..c3e4da9e79ca 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1177,13 +1177,12 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
- 	ctx->tx_overhead += skb_out->len - ctx->tx_curr_frame_payload;
- 	ctx->tx_ntbs++;
- 
--	/* usbnet has already counted all the framing overhead.
-+	/* usbnet will count all the framing overhead by default.
- 	 * Adjust the stats so that the tx_bytes counter show real
- 	 * payload data instead.
- 	 */
--	dev->net->stats.tx_bytes -= skb_out->len - ctx->tx_curr_frame_payload;
--
--	usbnet_set_skb_tx_stats(skb_out, n);
-+	usbnet_set_skb_tx_stats(skb_out, n,
-+				ctx->tx_curr_frame_payload - skb_out->len);
- 
- 	return skb_out;
- 
-diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
-index 7650cdc8fe6b..953de13267df 100644
---- a/drivers/net/usb/sr9800.c
-+++ b/drivers/net/usb/sr9800.c
-@@ -144,7 +144,7 @@ static struct sk_buff *sr_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 		skb_put(skb, sizeof(padbytes));
- 	}
- 
--	usbnet_set_skb_tx_stats(skb, 1);
-+	usbnet_set_skb_tx_stats(skb, 1, 0);
- 	return skb;
- }
- 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 0f3ff285f6a1..777757ae1973 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1346,9 +1346,19 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 		} else
- 			urb->transfer_flags |= URB_ZERO_PACKET;
- 	}
--	entry->length = urb->transfer_buffer_length = length;
--	if (!(info->flags & FLAG_MULTI_PACKET))
--		usbnet_set_skb_tx_stats(skb, 1);
-+	urb->transfer_buffer_length = length;
-+
-+	if (info->flags & FLAG_MULTI_PACKET) {
-+		/* Driver has set number of packets and a length delta.
-+		 * Calculate the complete length and ensure that it's
-+		 * positive.
-+		 */
-+		entry->length += length;
-+		if (WARN_ON_ONCE(entry->length <= 0))
-+			entry->length = length;
-+	} else {
-+		usbnet_set_skb_tx_stats(skb, 1, length);
-+	}
- 
- 	spin_lock_irqsave(&dev->txq.lock, flags);
- 	retval = usb_autopm_get_interface_async(dev->intf);
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index ff3fb2bd0e90..6e0ce8c7b8cb 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -227,7 +227,7 @@ struct skb_data {	/* skb->cb is one of these */
- 	struct urb		*urb;
- 	struct usbnet		*dev;
- 	enum skb_state		state;
--	size_t			length;
-+	long			length;
- 	unsigned long		packets;
- };
- 
-@@ -235,11 +235,13 @@ struct skb_data {	/* skb->cb is one of these */
-  * tx_fixup method before returning an skb.
-  */
- static inline void
--usbnet_set_skb_tx_stats(struct sk_buff *skb, unsigned long packets)
-+usbnet_set_skb_tx_stats(struct sk_buff *skb,
-+			unsigned long packets, long bytes_delta)
- {
- 	struct skb_data *entry = (struct skb_data *) skb->cb;
- 
- 	entry->packets = packets;
-+	entry->length = bytes_delta;
- }
- 
- extern int usbnet_open(struct net_device *net);
--- 
-1.7.10.4
