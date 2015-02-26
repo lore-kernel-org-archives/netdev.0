@@ -1,64 +1,56 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 3/3] tcp: tso: allow CA_CWR state in tcp_tso_should_defer()
-Date: Thu, 26 Feb 2015 14:10:20 -0800
-Message-ID: <1424988620-10781-4-git-send-email-edumazet@google.com>
-References: <1424988620-10781-1-git-send-email-edumazet@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net 1/2] net: Verify permission to dest_net in newlink
+Date: Thu, 26 Feb 2015 16:19:00 -0600
+Message-ID: <87egpcmi3v.fsf_-_@x220.int.ebiederm.org>
+References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
+	<54EDF7BB.2060809@6wind.com> <871tldstju.fsf_-_@x220.int.ebiederm.org>
+	<54EEDF9C.20302@6wind.com> <87wq34okb9.fsf@x220.int.ebiederm.org>
+	<54EF3338.8000409@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Eugene Yakubovich <eugene.yakubovich@coreos.com>,
+	netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f74.google.com ([209.85.218.74]:35139 "EHLO
-	mail-oi0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539AbbBZWMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 17:12:32 -0500
-Received: by mail-oi0-f74.google.com with SMTP id u20so4038178oif.1
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 14:12:31 -0800 (PST)
-In-Reply-To: <1424988620-10781-1-git-send-email-edumazet@google.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:34274 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754549AbbBZWWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 17:22:30 -0500
+In-Reply-To: <54EF3338.8000409@6wind.com> (Nicolas Dichtel's message of "Thu,
+	26 Feb 2015 15:52:40 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Another TCP issue is triggered by ECN.
 
-Under pressure, receiver gets ECN marks, and send back ACK packets
-with ECE TCP flag. Senders enter CA_CWR state.
+When applicable verify that the caller has permision to create a
+network device in another network namespace.  This check is already
+present when moving a network device between network namespaces in
+setlink so all that is needed is to duplicate that check in newlink.
 
-In this state, tcp_tso_should_defer() is short cut :
+This change almost backports cleanly, but there are context conflicts
+as the code that follows was added in v4.0-rc1
 
-if (icsk->icsk_ca_state != TCP_CA_Open)
-    goto send_now;
-
-This means that about all ACK packets we receive are triggering
-a partial send, and because cwnd is kept small, we can only send
-a small amount of data for each incoming ACK,
-which in return generate more ACK packets.
-
-Allowing CA_Open and CA_CWR states to enable TSO defer in
-tcp_tso_should_defer() brings performance back :
-TSO autodefer has more chance to defer under pressure.
-
-This patch increases TSO and LRO/GRO efficiency back to normal levels,
-and does not impact overall ECN behavior.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Fixes: b51642f6d77b131dc85d1d71029c3cbb5b07c262 net: Enable a userns root rtnl calls that are safe for unprivilged users
+Cc: stable@vger.kernel.org
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/tcp_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/rtnetlink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5f4fb4d5bbd6..8bbd86cd81c8 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1762,7 +1762,7 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb,
- 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 		goto send_now;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index ab293a3066b3..155e675f656c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2122,6 +2122,10 @@ replay:
+ 		if (IS_ERR(dest_net))
+ 			return PTR_ERR(dest_net);
  
--	if (icsk->icsk_ca_state != TCP_CA_Open)
-+	if (!((1 << icsk->icsk_ca_state) & (TCPF_CA_Open | TCPF_CA_CWR)))
- 		goto send_now;
++		err = -EPERM;
++		if (!netlink_ns_capable(skb, dest_net->user_ns, CAP_NET_ADMIN))
++			goto out;
++
+ 		if (tb[IFLA_LINK_NETNSID]) {
+ 			int id = nla_get_s32(tb[IFLA_LINK_NETNSID]);
  
- 	/* Avoid bursty behavior by allowing defer
 -- 
-2.2.0.rc0.207.ga3a616c
+2.2.1
