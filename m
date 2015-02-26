@@ -1,146 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 net-next 4/4] ipv4: Create probe timer for tcp PMTU as
- per RFC4821
-Date: Wed, 25 Feb 2015 20:19:22 -0800
-Message-ID: <1424924362.5565.143.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1423815405-32644-1-git-send-email-fan.du@intel.com>
-	 <1424922566-6787-1-git-send-email-fan.du@intel.com>
-	 <1424922566-6787-5-git-send-email-fan.du@intel.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Wed, 25 Feb 2015 23:21:58 -0500
+Message-ID: <20150226042158.GF1332@gospo.home.greyhouse.net>
+References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+ <20150224223039.GC1332@gospo.home.greyhouse.net>
+ <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+ <54ED017E.6000902@gmail.com>
+ <20150225001534.GB15633@lunn.ch>
+ <54ED19AB.7020003@gmail.com>
+ <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+ <20150225140356.GB17992@lunn.ch>
+ <20150225154607.GD1332@gospo.home.greyhouse.net>
+ <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, edumazet@google.com, davem@davemloft.net,
-	netdev@vger.kernel.org, fengyuleidian0615@gmail.com
-To: Fan Du <fan.du@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, Rafa?? Mi??ecki <zajec5@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:36050 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752535AbbBZETZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 23:19:25 -0500
-Received: by ierx19 with SMTP id x19so11003775ier.3
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 20:19:24 -0800 (PST)
-In-Reply-To: <1424922566-6787-5-git-send-email-fan.du@intel.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:61898 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751852AbbBZEWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 23:22:03 -0500
+Received: by mail-qa0-f53.google.com with SMTP id k15so6120619qaq.12
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 20:22:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-26 at 11:49 +0800, Fan Du wrote:
-> As per RFC4821 7.3.  Selecting Probe Size, a probe timer should
-> be armed once probing has converged. Once this timer expired,
-> probing again to take advantage of any path PMTU change. The
-> recommended probing interval is 10 minutes per RFC1981. Probing
-> interval could be sysctled by sysctl_tcp_probe_interval.
+On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
+> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
+> <gospo@cumulusnetworks.com> wrote:
+> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
+> > [...]
+> >>
+> >> What we don't want is X chip families and Y different ways to
+> >> configure the features. Ideal we want X chip families, and one way to
+> >> configure them all.
+> >
+> > This statement is really my primary concern.  There is lots of interest
+> > around hardware offload at this point and it seems like there is a risk
+> > that a lack of consistency can create problems.
+> >
+> > I think these patches are great as they allow for the programming of the
+> > offload hardware (and it has been pointed out that this drastically
+> > increases performance), but one concern I have with this patch (related
+> > to this) is that I'm not sure there is a major need to create netdevs
+> > automatically if there is not the ability to rx/tx actual frames on
+> > these interfaces.
 > 
-> Eric suggested to implement pseudo timer based on 32bits jiffies
-> tcp_time_stamp instead of using classic timer for such rare event.
+> Even when not used for rx/tx to CPU, it seems the netdevs are still
+> useful as an anchor to build higher-level constructs such as bridge or
+> bond, and to hang stuff like netdev stats or ethtool-ish things.
 > 
-> Signed-off-by: Fan Du <fan.du@intel.com>
-> ---
-> v2:
->    - Create a pseudo timer based on 32bits jiffies tcp_time_stamp
->      to control when to reprobing as suggested by Eric.
 
-...
-
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index c418829..0e9ee6a 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1354,6 +1354,8 @@ void tcp_mtup_init(struct sock *sk)
->  			       icsk->icsk_af_ops->net_header_len;
->  	icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, net->ipv4.sysctl_tcp_base_mss);
->  	icsk->icsk_mtup.probe_size = 0;
-> +	if (icsk->icsk_mtup.enabled)
-
-I guess the test can be removed.
-
-Assignment of probe_timestamp can be done regardless of the flag.
-
-> +		icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
->  }
->  EXPORT_SYMBOL(tcp_mtup_init);
->  
-> @@ -1823,6 +1825,35 @@ send_now:
->  	return false;
->  }
->  
-> +static inline void tcp_mtu_check_reprobe(struct sock *sk)
-> +{
-> +	struct inet_connection_sock *icsk = inet_csk(sk);
-> +	struct net *net = sock_net(sk);
-> +	struct tcp_sock *tp = tcp_sk(sk);
-> +
-
-extra newline
-
-> +	u32 delta;
-> +	u32 now = tcp_time_stamp;
-> +	u32 interval = net->ipv4.sysctl_tcp_probe_interval;
-
-
-Please try to keep variables sorted by lengths, it helps readability :
-
-	u32 interval = net->ipv4.sysctl_tcp_probe_interval;
-	struct inet_connection_sock *icsk = inet_csk(sk);
-	struct tcp_sock *tp = tcp_sk(sk);
-	struct net *net = sock_net(sk);
-	s32 delta;
- 
-
-
-> +
-> +	if (likely(now > icsk->icsk_mtup.probe_timestamp))
-
-Wrapping issue.
-
- if ((s32)(now - icsk->icsk_mtup.probe_timestamp)) > 0) ...
-
-
-> +		delta = now - icsk->icsk_mtup.probe_timestamp;
-> +	else
-> +		delta = now + (U32_MAX - icsk->icsk_mtup.probe_timestamp);
-
-
-oh well..
-
-delta = tcp_time_stamp - icsk->icsk_mtup.probe_timestamp;
-
-is fine (if delta is declared as s32).
-Adding U32_MAX makes no sense. No need for @now var.
-
-> +	if (unlikely(jiffies_to_msecs(delta) >= interval * MSEC_PER_SC)) {
-
-if (unlikely(delta >= interval * HZ)) {
-
-> +		int mss = tcp_current_mss(sk);
-> +
-> +		/* Update current search range */
-> +		icsk->icsk_mtup.search_high = tp->rx_opt.mss_clamp +
-> +			sizeof(struct tcphdr) +
-> +			icsk->icsk_af_ops->net_header_len;
-> +		icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
-> +		icsk->icsk_mtup.probe_size = 0;
-> +
-> +		/* Update probe time stamp */
-> +		icsk->icsk_mtup.probe_timestamp = now;
-
-		icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
-> +	}
-> +}
-> +
->  /* Create a new MTU probe if we are ready.
->   * MTU probe is regularly attempting to increase the path MTU by
->   * deliberately sending larger packets.  This discovers routing
-> @@ -1866,8 +1897,11 @@ static int tcp_mtu_probe(struct sock *sk)
->  	size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
->  	interval = icsk->icsk_mtup.search_high - icsk->icsk_mtup.search_low;
->  	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high) ||
-> -	    interval < net->ipv4.sysctl_tcp_probe_threshold) {
-> -		/* TODO: set timer for probe_converge_event */
-> +		interval < net->ipv4.sysctl_tcp_probe_threshold) {
-> +		/* Check whether enough time has elaplased for
-> +		 * another round of probing.
-> +		 */
-> +		tcp_mtu_check_reprobe(sk);
->  		return -1;
->  	}
->  
+I agree that they are useful, but now we are really dealing with a
+netdev that is slightly lower functionality than we expect from a netdev
+right now.
