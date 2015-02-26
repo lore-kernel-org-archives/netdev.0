@@ -1,63 +1,89 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ibmveth: Add function to enable live MAC address changes
-Date: Thu, 26 Feb 2015 07:08:06 -0600
-Message-ID: <54EF1AB6.5010004@linux.vnet.ibm.com>
-References: <1424910864-32266-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: Flows! Offload them.
+Date: Thu, 26 Feb 2015 14:17:50 +0100
+Message-ID: <20150226131750.GE1973@nanopsycho.lan>
+References: <20150226074214.GF2074@nanopsycho.orion>
+ <20150226125143.GB23050@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
+	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, simon.horman@netronome.com,
+	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:52990 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263AbbBZNIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 08:08:11 -0500
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <brking@linux.vnet.ibm.com>;
-	Thu, 26 Feb 2015 06:08:10 -0700
-Received: from b01cxnp22035.gho.pok.ibm.com (b01cxnp22035.gho.pok.ibm.com [9.57.198.25])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id AE21838C8039
-	for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 08:08:08 -0500 (EST)
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by b01cxnp22035.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t1QD88X728442842
-	for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 13:08:08 GMT
-Received: from d01av03.pok.ibm.com (localhost [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t1QD87rE032300
-	for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 08:08:08 -0500
-In-Reply-To: <1424910864-32266-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:37382 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216AbbBZNRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 08:17:54 -0500
+Received: by wesw55 with SMTP id w55so10601386wes.4
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 05:17:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150226125143.GB23050@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/25/2015 06:34 PM, Thomas Falcon wrote:
-> @@ -1327,6 +1327,24 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
->  	return ret;
->  }
-> 
-> +static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
-> +{
-> +	struct ibmveth_adapter *adapter = netdev_priv(dev);
-> +	struct sockaddr *addr = p;
-> +	u64 mac_address;
-> +	int rc;
-> +
-> +	if (!is_valid_ether_addr(addr->sa_data))
-> +		return -EADDRNOTAVAIL;
-> +
-> +	ether_addr_copy(dev->dev_addr, addr->sa_data);
-> +
-> +	mac_address = ibmveth_encode_mac_addr(dev->dev_addr);
-> +	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
-> +
-> +	return rc;
+Thu, Feb 26, 2015 at 01:51:43PM CET, tgraf@suug.ch wrote:
+>On 02/26/15 at 08:42am, Jiri Pirko wrote:
+>> Hello everyone.
+>> 
+>> I would like to discuss big next step for switch offloading. Probably
+>> the most complicated one we have so far. That is to be able to offload flows.
+>> Leaving nftables aside for a moment, I see 2 big usecases:
+>> - TC filters and actions offload.
+>> - OVS key match and actions offload.
+>> 
+>> I think it might sense to ignore OVS for now. The reason is ongoing efford
+>> to replace OVS kernel datapath with TC subsystem. After that, OVS offload
+>> will not longer be needed and we'll get it for free with TC offload
+>> implementation. So we can focus on TC now.
+>>
+>> Here is my list of actions to achieve some results in near future:
+>> 1) finish cls_openflow classifier and iproute part of it
+>
+>I still think that you should consider renaming this or merging
+>it with cls_flow. I don't see any relation to OpenFlow in what
+>you proposed in the last RFC.
 
-Do you still want to be changing dev->dev_addr if h_change_logical_lan_mac
-returns a failure?
+cls_flow does something different. I believe that it is not a good idea
+to merge it with cls_openflow.
 
--Brian
+Relation to OpenFlow is that the cls follows the specification in what
+fields of pks should be used for matching.
 
--- 
-Brian King
-Power Linux I/O
-IBM Linux Technology Center
+But I get your point. cls_openflow is the working name. I have no
+problem in changing it so something different.
+
+
+>
+>> 2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
+>> 3) use rocker to provide offload for cls_openflow and couple of selected actions
+>> 4) improve cls_openflow performance (hashtables etc)
+>> 5) improve TC subsystem performance in both slow and fast path
+>>     -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
+>> 6) implement "named sockets" (working name) and implement TC support for that
+>>     -ingress qdisc attach, act_mirred target
+>> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
+>> 8) implement TC act_mpls
+>> 9) suggest to switch OVS userspace from OVS genl to TC API
+>
+>I think everybody agrees to unifying code paths and getting rid
+>of parallism assuming that it does not introduce a performance
+>regression for flow setup rate, throughput, and scale.
+
+Great. I sure plan to focus on performance (on both fast and slow path).
+
+>
+>I would also include Linux bridge in this effort as it's also
+>based on programmable flows and would thus also benefit from
+>the implemented offload functionality.
+
+Well I would leave the bridge alone for now. We are able to offload fdbs
+there now easily. But I'm open to the discussion for the future.
+
+Thanks!
+
+Jiri
