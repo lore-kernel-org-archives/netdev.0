@@ -1,41 +1,69 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 7/8] mpls: Multicast route table change notifications
-Date: Wed, 25 Feb 2015 23:21:11 -0800
-Message-ID: <54EEC967.20106@cumulusnetworks.com>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org> <87fv9tvrgq.fsf@x220.int.ebiederm.org>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next 3/7] net: rxrpc: change call to
+ sock_recv_ts_and_drops() on rxrpc recvmsg to sock_recv_timestamp()
+Date: Thu, 26 Feb 2015 09:30:30 +0200
+Message-ID: <CAHsH6Gup09dtVZEi-vmp5ep_rs1ELueDudMJy1084e5vDbqJ0Q@mail.gmail.com>
+References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
+	<1424916612-744-4-git-send-email-eyal.birger@gmail.com>
+	<1424925652.5565.145.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org,
-	Vivek Venkatraman <vivek@cumulusnetworks.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:36765 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbbBZHVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 02:21:14 -0500
-Received: by pdjp10 with SMTP id p10so11054813pdj.3
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 23:21:13 -0800 (PST)
-In-Reply-To: <87fv9tvrgq.fsf@x220.int.ebiederm.org>
+Received: from mail-yk0-f170.google.com ([209.85.160.170]:37640 "EHLO
+	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206AbbBZHab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 02:30:31 -0500
+Received: by ykq19 with SMTP id 19so3299189ykq.4
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 23:30:30 -0800 (PST)
+In-Reply-To: <1424925652.5565.145.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/25/15, 9:19 AM, Eric W. Biederman wrote:
-> Unlike IPv4 this code notifies on all cases where mpls routes
-> are added or removed as that was the simplest to implement.
+>> However, protocol families wishing to receive dropcount should call
+>> sock_queue_rcv_skb() or set the dropcount specifically (as done
+>> in packet_rcv()). This was not done for rxrpc and thus this feature
+>> never worked on these sockets.
+>>
+>> Formalizing this by not calling sock_recv_ts_and_drops() in rxrpc as
+>> part of an effort to move skb->dropcount into skb->cb[]
+>>
+>> Signed-off-by: Eyal Birger <eyal.birger@gmail.com>
+>> ---
+>>  net/rxrpc/ar-recvmsg.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/rxrpc/ar-recvmsg.c b/net/rxrpc/ar-recvmsg.c
+>> index 4575485..d58ba70 100644
+>> --- a/net/rxrpc/ar-recvmsg.c
+>> +++ b/net/rxrpc/ar-recvmsg.c
+>> @@ -150,7 +150,7 @@ int rxrpc_recvmsg(struct kiocb *iocb, struct socket *sock,
+>>                                      &call->conn->trans->peer->srx, len);
+>>                               msg->msg_namelen = len;
+>>                       }
+>> -                     sock_recv_ts_and_drops(msg, &rx->sk, skb);
+>> +                     sock_recv_timestamp(msg, &rx->sk, skb);
+>>               }
 >
-> In particular routes being removed because a network interface
-> goes down or is removed are notified about.  Are there technical
-> arguments for handling this differently ? Userspace developers
-> don't particularly like the way IPv4 handles route removal
-> on ifdown.
-that is true. However, from previous emails on this topic on netdev,
-there is no reason to notify these deletes to userspace thereby creating 
-a notification storm
-when userspace can figure this out. Which seems like a valid reason.
-(Your approach resembles IPv6 which does generate these notifications 
-and userspace is usually happy with this).
+> I guess this should be the last patch of the serie, as this will
+> overwrite skb->mark, and rxrpc seems to care about skb->mark
+>
 
-Thanks.
+Maybe I didn't understand your comment. Note this patch does not fix
+SO_RXQ_OVFL on rxrpc sockets.
+
+I essentially reverted 3b885787ea4112 for these sockets.
+
+It may be possible to compact rxrpc skb->cb[] usage by tricking the size
+of the resend_at variable as you suggested.
+
+However, since SO_RXQ_OVFL never really worked on these sockets,
+I limited the patch series scope to moving skb->dropcount; This patch only
+signals that rxrpc can't support this feature unless some space is freed in its
+skb->cb[] use.
