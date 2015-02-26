@@ -1,54 +1,86 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 19:05:44 +0000
-Message-ID: <20150226190544.GA1631@casper.infradead.org>
-References: <20150226074214.GF2074@nanopsycho.orion>
- <20150226083758.GA15139@vergenet.net>
- <20150226091628.GA4059@nanopsycho.orion>
- <CA+mtBx-sVMNFng_=DcM5mJTbzrRNsFhTvC8YxvjxcqEXwDcWWw@mail.gmail.com>
- <20150226161705.GH1973@nanopsycho.lan>
- <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Simon Horman <simon.horman@netronome.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
-	Joe Stringer <joestringer@nicira.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>, shrijeet@gmail.com,
-	Andy Gospodarek <gospo@cumulusnetworks.com>, bcrl@kvack.org
-To: Tom Herbert <therbert@google.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: [PATCH net-next v2 0/7] net: move skb->dropcount to skb->cb[]
+Date: Thu, 26 Feb 2015 21:06:57 +0200
+Message-ID: <1424977624-649-1-git-send-email-eyal.birger@gmail.com>
+Cc: willemb@google.com, edumazet@google.com, shmulik.ladkani@gmail.com,
+	linux-bluetooth@vger.kernel.org, marcel@holtmann.org,
+	netdev@vger.kernel.org, Eyal Birger <eyal.birger@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58754 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754371AbbBZTFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:05:48 -0500
-Content-Disposition: inline
-In-Reply-To: <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:43498 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753828AbbBZTHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:07:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/26/15 at 10:15am, Tom Herbert wrote:
-> But, routing (aka switching) in the stack is not configured through
-> TC. We have a whole forwarding and routing infrastructure (eg.
-> iproute) with optimizations that  allow routes to be cached in
-> sockets, etc. To me, it seems like offloading that basic functionality
-> is a prerequisite before attempting to offload more advanced policy
-> mechanisms of TC, netfilter, etc.
+Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
+unionized skb->mark and skb->dropcount in order to allow recording
+of the socket drop count while maintaining struct sk_buff size.
 
-It is visible that you are coming from container focused world
-with sockets on the host ;-) The L3 offload desire comes primiarly
-from a VM centric host where decap+L3 offload to a VF allows to
-spend zero cycles on the host kernel. I'm not sure if offload
-makes sense at all for container workloads w/o VM isolation per
-tentant or orch system or something similar.
+skb->dropcount was introduced since there was no available room
+in skb->cb[] in packet sockets. However, its introduction led to
+the inability to export skb->mark to userspace.
+
+It was considered to alias skb->priority instead of skb->mark.
+However, that would lead to the inabilty to export skb->priority
+to userspace if desired. Such change may also lead to hard-to-find
+issues as skb->priority is assumed to be alias free, and, as noted
+by Shmulik Ladkani, is not 'naturally orthogonal' with other skb
+fields.
+
+This patch series follows the suggestions made by Eric Dumazet moving
+the dropcount metric to skb->cb[], eliminating this problem
+at the expense of 4 bytes less in skb->cb[] for protocol families
+using it.
+
+The patch series include compactization of bluetooth and packet
+use of skb->cb[] as well as the infrastructure for placing dropcount
+in skb->cb[].
+
+---
+Changes in v2:
+- Rebase
+- Receive const struct sock * in sock_skb_set_dropcount()
+  per Eric Dumazet's suggestion
+- struct bt_skb_cb compactization code improvements following
+  suggestions from Shmulik Landani and David Laight
+- Fix incorrect asignment to skb->dev in packet_rcv()
+---
+
+Eyal Birger (7):
+  net: bluetooth: compact struct bt_skb_cb by inlining struct
+    hci_req_ctrl
+  net: bluetooth: compact struct bt_skb_cb by converting boolean fields
+    to bit fields
+  net: rxrpc: change call to sock_recv_ts_and_drops() on rxrpc recvmsg
+    to sock_recv_timestamp()
+  net: packet: use skb->dev as storage for skb orig len instead of
+    skb->cb[]
+  net: use common macro for assering skb->cb[] available size in
+    protocol families
+  net: add common accessor for setting dropcount on packets
+  net: move skb->dropcount to skb->cb[]
+
+ include/linux/skbuff.h            |  2 --
+ include/net/bluetooth/bluetooth.h | 14 +++++---------
+ include/net/sock.h                | 23 +++++++++++++++++++++++
+ net/bluetooth/af_bluetooth.c      |  3 +--
+ net/bluetooth/hci_core.c          | 12 ++++++------
+ net/bluetooth/hci_event.c         |  4 ++--
+ net/bluetooth/hci_request.c       |  6 +++---
+ net/bluetooth/hci_sock.c          |  2 +-
+ net/can/bcm.c                     |  2 +-
+ net/can/raw.c                     |  6 +++---
+ net/core/sock.c                   |  2 +-
+ net/ipv4/af_inet.c                |  2 +-
+ net/ipv4/tcp.c                    |  3 +--
+ net/ipv6/af_inet6.c               |  2 +-
+ net/packet/af_packet.c            | 15 +++++++--------
+ net/rxrpc/ar-recvmsg.c            |  2 +-
+ net/sctp/protocol.c               |  3 +--
+ net/socket.c                      |  4 ++--
+ 18 files changed, 60 insertions(+), 47 deletions(-)
+
+-- 
+2.1.4
