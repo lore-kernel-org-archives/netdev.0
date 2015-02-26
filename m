@@ -1,77 +1,68 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: What are the intended semantics of IFLA_LINK_NETNSID?
-Date: Thu, 26 Feb 2015 09:55:56 +0100
-Message-ID: <54EEDF9C.20302@6wind.com>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>	<54EDF7BB.2060809@6wind.com> <871tldstju.fsf_-_@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Thu, 26 Feb 2015 09:54:08 +0100
+Message-ID: <54EEDF30.4080505@iogearbox.net>
+References: <CAADnVQKV8JSqhTPYBGDJt4KqTesEvtCMnhupiPyZJjvk=tmOwg@mail.gmail.com> <20150226075354.GA30061@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Laight <David.Laight@aculab.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"johunt@akamai.com" <johunt@akamai.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:37037 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752883AbbBZI4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 03:56:00 -0500
-Received: by wghk14 with SMTP id k14so8671588wgh.4
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 00:55:59 -0800 (PST)
-In-Reply-To: <871tldstju.fsf_-_@x220.int.ebiederm.org>
+Received: from www62.your-server.de ([213.133.104.62]:44834 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753526AbbBZJJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 04:09:37 -0500
+In-Reply-To: <20150226075354.GA30061@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 25/02/2015 20:03, Eric W. Biederman a =C3=A9crit :
+On 02/26/2015 08:53 AM, Patrick McHardy wrote:
+> On 25.02, Alexei Starovoitov wrote:
+>> On Wed, Feb 25, 2015 at 12:10 PM, Patrick McHardy <kaber@trash.net> wrote:
+>>> On 25.02, Eric Dumazet wrote:
+>>>> But if any workload had to grow the table to 2^20 slots, we had to
+>>>> consume GB of memory anyway to hold sockets and everything.
+>>>>
+>>>> Trying to shrink is simply not worth it, unless you expect your host
+>>>> never reboots and you desperately need back these 8 MBytes of memory.
+>>>
+>>> That may be true in the TCP case, but for not for nftables. We might
+>>> have many sets and, especially when used to represent more complicated
+>>> classification algorithms, their size might change by a lot.
+>>
+>> sounds like grow/shrink decision cannot be generalized within
+>> rhashtable, but two callbacks are about to be removed and the
+>> are costly. So would it make sense to disable auto-expand/shrink
+>> completely and let nft/tcp call expand/shrink when needed?
 >
-> Reading through the code of rtnl_newlink I am perplexed with what you=
-r
-> intended semantics of IFLA_LINK_NETNSID are supposed to be.
+> My understanding was that Eric was arguing against shrinking in general.
+> But assuming we have it, what's the downside of also performing
+> shrinking for TCP?
 >
-> My expectation was something with the same semantics IFLA_NET_NS_PID =
-and
-> IFLA_NET_NS_FD just a different data representation and something tha=
-t
-> could be used in more netlink messages, so you could report the netwo=
-rk
-> namespace where the other end of a tunnel or the the network namespac=
-e
-> of an underlying device is.
+>> nft can potentially do smarter batching this way.
+>> If it sees a lot of entries are about to be inserted, it can call
+>> expand directly to quickly grow sparsely populated table
+>> into large one, and then insert all the entries.
+>> That will mitigate 'slow rcu' issue as well.
 >
-> Being very slow I would expect that ILFA_LINK_NETNSID would replace
-> dest_net or possibly net in rtnl_newlink but it does not replace eith=
-er
-> of those completely.  Which causes me to think that the implementatio=
-n
-> of IFLA_LINK_NETNSID in rtnl_newlink is broken.
->
-> I suspect the correct fix for rtnl_newlink is to just use
-> IFLA_LINK_NETNSID in rtnl_link_get_net and have it be an alternative =
-way
-> of setting dest_net.  But you may intend some different semantics tha=
-t
-> I don't understand.
-ILFA_LINK_NETNSID is used to point to the i/o netns of the interface, i=
-e the
-opposite netns of dest_net.
-The interface is first created in link_net and moved at the end in dest=
-_net.
+> I like that idea.
 
-IP tunnels interfaces (ipip, sit, ip6_tunnels, gre[v6]) does not use sr=
-c_net,
-thus when you create an ipip interface by specifying an attribute
-IFLA_NET_NS_PID it will result to an interface which is not across two =
-netns but
-only in the netns pointed by IFLA_NET_NS_PID. If you use IFLA_LINK_NETN=
-SID, it
-allows you to create this kind of x-netns interfaces.
-In fact, the goal of this attribute is to replace the two following com=
-mand by
-only one:
-ip link add foo ...
-ip link set foo netns bar
-=3D> ip link add foo link-netnsid barID
+I think shrinking/expanding could still be configurable when we
+get there. Perhaps as a flag parameter, definitely something more
+lightweight at least, as both grow/shrink decision functions seem
+to be quite reusable and could therefore stay private.
 
-
-Regards,
-Nicolas
+Perhaps those users that want to specifically optimize grow/shrink
+could then disallow auto-expand/shrink from within rhashtable (via
+initialization parameters) and could use the APIs directly, which
+we need to expose then. That way we can keep it simple for netlink,
+tipc and what else pops up.
