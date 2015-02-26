@@ -1,82 +1,78 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 1/8] mpls: Refactor how the mpls module is built
-Date: Thu, 26 Feb 2015 11:05:04 +0900
-Message-ID: <20150226020504.GA935@verge.net.au>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
- <87k2z5x6ch.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: [PATCH net-next 0/7] net: move skb->dropcount to skb->cb[]
+Date: Thu, 26 Feb 2015 04:10:05 +0200
+Message-ID: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
+Cc: willemb@google.com, edumazet@google.com, shmulik.ladkani@gmail.com,
+	marcel@holtmann.org, netdev@vger.kernel.org,
+	Eyal Birger <eyal.birger@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60083 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752879AbbBZCFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 21:05:08 -0500
-Content-Disposition: inline
-In-Reply-To: <87k2z5x6ch.fsf@x220.int.ebiederm.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:34547 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752880AbbBZCK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 21:10:26 -0500
+Received: by mail-wi0-f169.google.com with SMTP id em10so38277709wid.0
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 18:10:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 11:13:02AM -0600, Eric W. Biederman wrote:
-> 
-> This refactoring is needed to allow more than just mpls gso support to
-> be built into the mpls moddule.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  net/Makefile     |  2 +-
->  net/mpls/Kconfig | 18 +++++++++++++++++-
->  2 files changed, 18 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/Makefile b/net/Makefile
-> index 38704bdf941a..3995613e5510 100644
-> --- a/net/Makefile
-> +++ b/net/Makefile
-> @@ -69,7 +69,7 @@ obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
->  obj-$(CONFIG_NFC)		+= nfc/
->  obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
->  obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
-> -obj-$(CONFIG_NET_MPLS_GSO)	+= mpls/
-> +obj-$(CONFIG_MPLS)		+= mpls/
->  obj-$(CONFIG_HSR)		+= hsr/
->  ifneq ($(CONFIG_NET_SWITCHDEV),)
->  obj-y				+= switchdev/
-> diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
-> index 37421db88965..a77fbcdd04ee 100644
-> --- a/net/mpls/Kconfig
-> +++ b/net/mpls/Kconfig
-> @@ -1,9 +1,25 @@
->  #
->  # MPLS configuration
->  #
-> +
-> +menuconfig MPLS
-> +	tristate "MultiProtocol Label Switching"
-> +	default n
-> +	---help---
-> +	  MultiProtocol Label Switching routes packets through logical
-> +	  circuits.  Originally conceved as a way of routing packets at
-> +	  hardware speeds (before hardware was capable of routing ipv4 packets),
-> +	  MPLS remains as simple way of making tunnels.
-> +
-> +	  If you have not heard of MPLS you probably want to say N here.
-> +
-> +if MPLS
-> +
->  config NET_MPLS_GSO
-> -	tristate "MPLS: GSO support"
-> +	bool "MPLS: GSO support"
->  	help
->  	 This is helper module to allow segmentation of non-MPLS GSO packets
->  	 that have had MPLS stack entries pushed onto them and thus
->  	 become MPLS GSO packets.
-> +
-> +endif # MPLS
+Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
+unionized skb->mark and skb->dropcount in order to allow recording
+of the socket drop count while maintaining struct sk_buff size.
 
-Is the implication here that MPLS must be selected to allow NET_MPLS_GSO to
-be selected? That is if NET_MPLS_GSO is to be used to handle MPLS packets
-emitted by OVS then now MPLS also needs to be selected?
+skb->dropcount was introduced since there was no available room
+in skb->cb[] in packet sockets. However, its introduction led to
+the inability to export skb->mark to userspace.
+
+It was considered to alias skb->priority instead of skb->mark.
+However, that would lead to the inabilty to export skb->priority
+to userspace if desired. Such change may also lead to hard-to-find
+issues as skb->priority is assumed to be alias free, and, as noted
+by Shmulik Ladkani, is not 'naturally orthogonal' with other skb
+fields.
+
+This patch series follows the suggestions made by Eric Dumazet moving
+the dropcount metric to skb->cb[], eliminating this problem
+at the expense of 4 bytes less in skb->cb[] for protocol families
+using it.
+
+The patch series include compactization of bluetooth and packet
+use of skb->cb[] as well as the infrastructure for placing dropcount
+in skb->cb[].
+
+Eyal Birger (7):
+  net: bluetooth: compact struct bt_skb_cb by inlining struct
+    hci_req_ctrl
+  net: bluetooth: compact struct bt_skb_cb by converting boolean fields
+    to bit fields
+  net: rxrpc: change call to sock_recv_ts_and_drops() on rxrpc recvmsg
+    to sock_recv_timestamp()
+  net: packet: use skb->dev as storage for skb orig len instead of
+    skb->cb[]
+  net: use common macro for assering skb->cb[] available size in
+    protocol families
+  net: add common accessor for setting dropcount on packets
+  net: move skb->dropcount to skb->cb[]
+
+ include/linux/skbuff.h            |  2 --
+ include/net/bluetooth/bluetooth.h | 14 +++++---------
+ include/net/sock.h                | 22 ++++++++++++++++++++++
+ net/bluetooth/af_bluetooth.c      |  3 +--
+ net/bluetooth/hci_core.c          | 12 ++++++------
+ net/bluetooth/hci_event.c         |  4 ++--
+ net/bluetooth/hci_request.c       |  6 +++---
+ net/bluetooth/hci_sock.c          |  2 +-
+ net/can/bcm.c                     |  2 +-
+ net/can/raw.c                     |  6 +++---
+ net/core/sock.c                   |  2 +-
+ net/ipv4/af_inet.c                |  2 +-
+ net/ipv4/tcp.c                    |  3 +--
+ net/ipv6/af_inet6.c               |  2 +-
+ net/packet/af_packet.c            | 12 +++++-------
+ net/rxrpc/ar-recvmsg.c            |  2 +-
+ net/sctp/protocol.c               |  3 +--
+ net/socket.c                      |  4 ++--
+ 18 files changed, 57 insertions(+), 46 deletions(-)
+
+-- 
+2.1.4
