@@ -1,77 +1,49 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Thu, 26 Feb 2015 09:13:19 -0500
-Message-ID: <20150226141319.GA7971@gospo.home.greyhouse.net>
-References: <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
- <54ED017E.6000902@gmail.com>
- <20150225001534.GB15633@lunn.ch>
- <54ED19AB.7020003@gmail.com>
- <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
- <20150225140356.GB17992@lunn.ch>
- <20150225154607.GD1332@gospo.home.greyhouse.net>
- <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
- <20150226042158.GF1332@gospo.home.greyhouse.net>
- <20150226064755.GA2074@nanopsycho.orion>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] bridge: fix link notification skb size
+ calculation to include vlan ranges
+Date: Thu, 26 Feb 2015 06:13:40 -0800
+Message-ID: <CAE4R7bCQQTW0CigHLxLCc+pvMfD-bkVHZWP_5HR5J7cbbke6rw@mail.gmail.com>
+References: <1424937340-22115-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
-	Rafa?? Mi??ecki <zajec5@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	Siva Mannem <siva.mannem.lnx@gmail.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33386 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932386AbbBZON1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:13:27 -0500
-Received: by mail-qg0-f44.google.com with SMTP id j5so8709158qga.3
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:13:27 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150226064755.GA2074@nanopsycho.orion>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:63762 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932386AbbBZONl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:13:41 -0500
+Received: by mail-qa0-f48.google.com with SMTP id dc16so7824429qab.7
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:13:41 -0800 (PST)
+In-Reply-To: <1424937340-22115-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 07:47:55AM +0100, Jiri Pirko wrote:
-> Thu, Feb 26, 2015 at 05:21:58AM CET, gospo@cumulusnetworks.com wrote:
-> >On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
-> >> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
-> >> <gospo@cumulusnetworks.com> wrote:
-> >> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
-> >> > [...]
-> >> >>
-> >> >> What we don't want is X chip families and Y different ways to
-> >> >> configure the features. Ideal we want X chip families, and one way to
-> >> >> configure them all.
-> >> >
-> >> > This statement is really my primary concern.  There is lots of interest
-> >> > around hardware offload at this point and it seems like there is a risk
-> >> > that a lack of consistency can create problems.
-> >> >
-> >> > I think these patches are great as they allow for the programming of the
-> >> > offload hardware (and it has been pointed out that this drastically
-> >> > increases performance), but one concern I have with this patch (related
-> >> > to this) is that I'm not sure there is a major need to create netdevs
-> >> > automatically if there is not the ability to rx/tx actual frames on
-> >> > these interfaces.
-> >> 
-> >> Even when not used for rx/tx to CPU, it seems the netdevs are still
-> >> useful as an anchor to build higher-level constructs such as bridge or
-> >> bond, and to hang stuff like netdev stats or ethtool-ish things.
-> >> 
-> >
-> >I agree that they are useful, but now we are really dealing with a
-> >netdev that is slightly lower functionality than we expect from a netdev
-> >right now.
-> 
-> Is that a real care for some device now?
-I guess that depends on how users expect to use it.  :)
+On Wed, Feb 25, 2015 at 11:55 PM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> my previous patch skipped vlan range optimizations during skb size
+> calculations for simplicity.
+>
+> This incremental patch considers vlan ranges during
+> skb size calculations. This leads to a bit of code duplication
+> in the fill and size calculation functions. But, I could not find a
+> prettier way to do this. will take any suggestions.
+>
+> Previously, I had reused the existing br_get_link_af_size size calculation
+> function to calculate skb size for notifications. Reusing it this time
+> around creates some change in behaviour issues for the usual
+> .get_link_af_size callback.
+>
+> This patch adds a new br_get_link_af_size_filtered() function to
+> base the size calculation on the incoming filter flag and include
+> vlan ranges.
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> I agree with Scott that we need to model is consistently. If there is
-> such port netdev witch cannot tx/rx, we can expose the fact using some
-> flag...
-Using a flag to expose/mark this was exactly my thought.
+Reviewed-by: Scott Feldman <sfeldma@gmail.com>
