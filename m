@@ -1,53 +1,88 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 1/1] xen-netback: remove compilation warning
-Date: Thu, 26 Feb 2015 10:13:44 +0000
-Message-ID: <20150226101344.GB1824@zion.uk.xensource.com>
-References: <1424939141-30730-1-git-send-email-marzo.pedro@gmail.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next 7/7] net: move skb->dropcount to skb->cb[]
+Date: Thu, 26 Feb 2015 12:17:57 +0200
+Message-ID: <CAHsH6GvEmkOZU=VngK9-yn_2ajNX2YU1aJ=qfuHby3=58r4dKw@mail.gmail.com>
+References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
+	<1424916612-744-8-git-send-email-eyal.birger@gmail.com>
+	<20150226104909.1f2c882d@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
-To: pedro <marzo.pedro@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <edumazet@google.com>, marcel@holtmann.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:4413 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752193AbbBZKOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 05:14:36 -0500
-Content-Disposition: inline
-In-Reply-To: <1424939141-30730-1-git-send-email-marzo.pedro@gmail.com>
+Received: from mail-yh0-f50.google.com ([209.85.213.50]:39240 "EHLO
+	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193AbbBZKR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 05:17:58 -0500
+Received: by yhab6 with SMTP id b6so3960632yha.6
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 02:17:57 -0800 (PST)
+In-Reply-To: <20150226104909.1f2c882d@halley>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 09:25:41AM +0100, pedro wrote:
-> From: pmarzo <marzo.pedro@gmail.com>
-> 
-> offset and size are of type uint16_t so the %lu gives a warning
-> A %u specifier, the same used in size makes gcc happy
-> Not sure if a %x would be more correct
-> 
-> Signed-off-by: Pedro Marzo Perez <marzo.pedro@gmail.com>
+On Thu, Feb 26, 2015 at 10:49 AM, Shmulik Ladkani
+<shmulik.ladkani@gmail.com> wrote:
+> On Thu, 26 Feb 2015 04:10:12 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
+>> diff --git a/include/net/sock.h b/include/net/sock.h
+>> index d462f5e..8807586 100644
+>> --- a/include/net/sock.h
+>> +++ b/include/net/sock.h
+>> @@ -2078,12 +2078,26 @@ static inline int sock_intr_errno(long timeo)
+>>       return timeo == MAX_SCHEDULE_TIMEOUT ? -ERESTARTSYS : -EINTR;
+>>  }
+>>
+>> +struct sock_skb_cb {
+>> +     u32 dropcount;
+>> +};
+>> +
+>> +/* Store sock_skb_cb at the end of skb->cb[] so protocol families
+>> + * using skb->cb[] would keep using it directly and utilize its
+>> + * alignement guarantee.
+>> + */
+>> +#define SOCK_SKB_CB_OFFSET ((FIELD_SIZEOF(struct sk_buff, cb) - \
+>> +                         sizeof(struct sock_skb_cb)))
+>> +
+>> +#define SOCK_SKB_CB(__skb) ((struct sock_skb_cb *)((__skb)->cb + \
+>> +                         SOCK_SKB_CB_OFFSET))
+>> +
+>>  #define sock_skb_cb_check_size(size) \
+>> -     BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sk_buff, cb))
+>> +     BUILD_BUG_ON((size) > SOCK_SKB_CB_OFFSET)
+>>
+>
+> You didn't take care of aligning the 'sock_skb_cb'.
+> (Althogh in practive, dropcount is 4 and cb[] is 48 so you're golden).
+>
+> How about:
+>
+> struct sock_skb_cb {
+>         /* protocol families specifc CBs */
+>         u8 reserved[__SOCK_SKB_CB_OFFSET];
+>         struct __sock_skb_cb x;                 // name me better!
+> };
+>
+> Where '__SOCK_SKB_CB_OFFSET' and '__sock_skb_cb' are as follows:
+>
+> struct __sock_skb_cb {  // name me better!
+>         u32 dropcount;
+> };
+>
+> #define __SOCK_SKB_CB_OFFSET_UNALIGNED \
+>         (FIELD_SIZEOF(struct sk_buff, cb) - sizeof(struct __sock_skb_cb))
+>
+> #define __SOCK_SKB_CB_OFFSET \
+>         (__SOCK_SKB_CB_OFFSET_UNALIGNED - \
+>          (__SOCK_SKB_CB_OFFSET_UNALIGNED % __alignof__(struct __sock_skb_cb)))
+>
+> This also takes care for alignement of '__sock_skb_cb x' within the CB.
+>
+> Then,
+>
+> #define sock_skb_cb_check_size(size) \
+>         BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sock_skb_cb, reserved))
+>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-
-Thanks
-
-> ---
->  drivers/net/xen-netback/netback.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index f7a31d2..3888a2b 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1248,7 +1248,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
->  		/* No crossing a page as the payload mustn't fragment. */
->  		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
->  			netdev_err(queue->vif->dev,
-> -				   "txreq.offset: %x, size: %u, end: %lu\n",
-> +				   "txreq.offset: %x, size: %u, end: %u\n",
->  				   txreq.offset, txreq.size,
->  				   (txreq.offset&~PAGE_MASK) + txreq.size);
->  			xenvif_fatal_tx_err(queue->vif);
-> -- 
-> 1.9.1
+Agreed. Will add to v2.
