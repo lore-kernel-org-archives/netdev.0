@@ -1,65 +1,51 @@
 From: Fan Du <fan.du@intel.com>
-Subject: [PATCHv2 net-next 3/4] ipv4: shrink current mss for tcp PMTU blackhole detection
-Date: Thu, 26 Feb 2015 11:49:25 +0800
-Message-ID: <1424922566-6787-4-git-send-email-fan.du@intel.com>
+Subject: [PATCHv2 net-next 0/4] Small fix for TCP PMTU
+Date: Thu, 26 Feb 2015 11:49:22 +0800
+Message-ID: <1424922566-6787-1-git-send-email-fan.du@intel.com>
 References: <1423815405-32644-1-git-send-email-fan.du@intel.com>
- <1424922566-6787-1-git-send-email-fan.du@intel.com>
 Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
 	fengyuleidian0615@gmail.com
 To: johnwheffner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:41794 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752835AbbBZDyM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Feb 2015 22:54:12 -0500
-In-Reply-To: <1424922566-6787-1-git-send-email-fan.du@intel.com>
+	id S1752666AbbBZDyL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 22:54:11 -0500
+In-Reply-To: <1423815405-32644-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reducing current tcp mss instead of search_low will make
-more sense, as current tcp mss still got lost.
+Hi,
 
-In addition, rename tcp_mtu_probing to tcp_blackhole_probe
-to clearify confusion between tcp_mtu_probing and
-tcp_mtu_probe.
+This patchset performs some small fix and enhancement
+for current TCP PMTU as per RFC4821 with below changes:
 
-Signed-off-by: Fan Du <fan.du@intel.com>
----
- net/ipv4/tcp_timer.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Patch1/4: Set probe mss base to 1024 Bytes per RFC4821
+Patch2/4: Do not double probe_size for each probing,
+          use a simple binary search to gain maximum performance.
+Patch3/4: When it comes to blackhole detection, shrink current
+	  mss for next probing.
+Patch4/4: Create a probe timer to detect enlarged path MTU.
 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 0732b78..3465175 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -99,7 +99,8 @@ static int tcp_orphan_retries(struct sock *sk, int alive)
- 	return retries;
- }
- 
--static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
-+static void tcp_blackhole_probe(struct inet_connection_sock *icsk,
-+				struct sock *sk)
- {
- 	struct net *net = sock_net(sk);
- 
-@@ -113,7 +114,8 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
- 			struct tcp_sock *tp = tcp_sk(sk);
- 			int mss;
- 
--			mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1;
-+			/* try mss smaller than current mss */
-+			mss = tcp_current_mss(sk) >> 1;
- 			mss = min(net->ipv4.sysctl_tcp_base_mss, mss);
- 			mss = max(mss, 68 - tp->tcp_header_len);
- 			icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
-@@ -176,7 +178,7 @@ static int tcp_write_timeout(struct sock *sk)
- 	} else {
- 		if (retransmits_timed_out(sk, sysctl_tcp_retries1, 0, 0)) {
- 			/* Black hole detection */
--			tcp_mtu_probing(icsk, sk);
-+			tcp_blackhole_probe(icsk, sk);
- 
- 			dst_negative_advice(sk);
- 		}
--- 
-1.7.1
+Changelog:
+v2:
+   - Introduce sysctl_tcp_probe_threshold to control when
+     probing will stop, as suggested by John Heffner.
+   - Add patch3 to shrink current mss value for search low boundary.
+   - Drop cannonical timer usages, implements pseudo timer based on
+     32bits jiffies tcp_time_stamp, as suggested by Eric Dumazet.
+
+Fan Du (4):
+  ipv4: Raise tcp PMTU probe mss base size
+  ipv4: Use binary search to choose tcp PMTU probe_size
+  ipv4: shrink current mss for tcp PMTU blackhole detection
+  ipv4: Create probe timer for tcp PMTU as per RFC4821
+
+ include/net/inet_connection_sock.h |    2 +
+ include/net/netns/ipv4.h           |    2 +
+ include/net/tcp.h                  |    8 +++++-
+ net/ipv4/sysctl_net_ipv4.c         |   14 ++++++++++
+ net/ipv4/tcp_ipv4.c                |    2 +
+ net/ipv4/tcp_output.c              |   50 +++++++++++++++++++++++++++++++++---
+ net/ipv4/tcp_timer.c               |    8 +++--
+ 7 files changed, 78 insertions(+), 8 deletions(-)
