@@ -1,109 +1,125 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
 Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 13:45:37 -0800
-Message-ID: <54EF9401.6080405@gmail.com>
-References: <20150226074214.GF2074@nanopsycho.orion> <54EF74E0.7060502@gmail.com> <54EF8911.9080203@intel.com>
+Date: Fri, 27 Feb 2015 06:52:58 +0900
+Message-ID: <20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
+References: <20150226074214.GF2074@nanopsycho.orion>
+ <20150226083758.GA15139@vergenet.net>
+ <20150226091628.GA4059@nanopsycho.orion>
+ <20150226133326.GC23050@casper.infradead.org>
+ <54EF3A78.9020507@intel.com>
+ <20150226201635.GA366@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
-	jhs@mojatatu.com, sfeldma@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, simon.horman@netronome.com,
-	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
-To: John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	jpettit@nicira.com, joestringer@nicira.com, jhs@mojatatu.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:39605 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753976AbbBZVqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 16:46:08 -0500
-Received: by pdjy10 with SMTP id y10so15970778pdj.6
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 13:46:07 -0800 (PST)
-In-Reply-To: <54EF8911.9080203@intel.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:44527 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754419AbbBZVxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 16:53:15 -0500
+Received: by padet14 with SMTP id et14so17129317pad.11
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 13:53:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150226201635.GA366@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/02/15 12:58, John Fastabend wrote:
-> On 02/26/2015 11:32 AM, Florian Fainelli wrote:
->> Hi Jiri,
->>
->> On 25/02/15 23:42, Jiri Pirko wrote:
->>> Hello everyone.
->>>
->>> I would like to discuss big next step for switch offloading. Probably
->>> the most complicated one we have so far. That is to be able to offload flows.
->>> Leaving nftables aside for a moment, I see 2 big usecases:
->>> - TC filters and actions offload.
->>> - OVS key match and actions offload.
->>>
->>> I think it might sense to ignore OVS for now. The reason is ongoing efford
->>> to replace OVS kernel datapath with TC subsystem. After that, OVS offload
->>> will not longer be needed and we'll get it for free with TC offload
->>> implementation. So we can focus on TC now.
->>
->> What is not necessarily clear to me, is if we leave nftables aside for
->> now from flow offloading, does that mean the entire flow offloading will
->> now be controlled and going with the TC subsystem necessarily?
->>
->> I am not questioning the choice for TC, I am just wondering if
->> ultimately there is the need for a lower layer, which is below, such
->> that both tc and e.g: nftables can benefit from it?
+On Thu, Feb 26, 2015 at 03:16:35PM -0500, Neil Horman wrote:
+> On Thu, Feb 26, 2015 at 07:23:36AM -0800, John Fastabend wrote:
+> > On 02/26/2015 05:33 AM, Thomas Graf wrote:
+> > > On 02/26/15 at 10:16am, Jiri Pirko wrote:
+> > >> Well, on netdev01, I believe that a consensus was reached that for every
+> > >> switch offloaded functionality there has to be an implementation in
+> > >> kernel.
+> > > 
+> > > Agreed. This should not prevent the policy being driven from user
+> > > space though.
+> > > 
+> > >> What John's Flow API originally did was to provide a way to
+> > >> configure hardware independently of kernel. So the right way is to
+> > >> configure kernel and, if hw allows it, to offload the configuration to hw.
+> > >>
+> > >> In this case, seems to me logical to offload from one place, that being
+> > >> TC. The reason is, as I stated above, the possible conversion from OVS
+> > >> datapath to TC.
+> > > 
+> > > Offloading of TC definitely makes a lot of sense. I think that even in
+> > > that case you will already encounter independent configuration of
+> > > hardware and kernel. Example: The hardware provides a fixed, generic
+> > > function to push up to n bytes onto a packet. This hardware function
+> > > could be used to implement TC actions "push_vlan", "push_vxlan",
+> > > "push_mpls". You would you would likely agree that TC should make use
+> > > of such a function even if the hardware version is different from the
+> > > software version. So I don't think we'll have a 1:1 mapping for all
+> > > configurations, regardless of whether the how is decided in kernel or
+> > > user space.
+> > 
+> > Just to expand slightly on this. I don't think you can get to a 1:1
+> > mapping here. One reason is hardware typically has a TCAM and limited
+> > size. So you need a _policy_ to determine when to push rules into the
+> > hardware. The kernel doesn't know when to do this and I don't believe
+> > its the kernel's place to start enforcing policy like this. One thing I likely
+> > need to do is get some more "worlds" in rocker so we aren't stuck only
+> > thinking about the infinite size OF_DPA world. The OF_DPA world is only
+> > one world and not a terribly flexible one at that when compared with the
+> > NPU folk. So minimally you need a flag to indicate rules go into hardware
+> > vs software.
+> > 
+> > That said I think the bigger mismatch between software and hardware is
+> > you program it differently because the data structures are different. Maybe
+> > a u32 example would help. For parsing with u32 you might build a parse
+> > graph with a root and some leaf nodes. In hardware you want to collapse
+> > this down onto the hardware. I argue this is not a kernel task because
+> > there are lots of ways to do this and there are trade-offs made with
+> > respect to space and performance and which table to use when it could be
+> > handled by a set of tables. Another example is a virtual switch possibly
+> > OVS but we have others. The software does some "unmasking" (there term)
+> > before sending the rules into the software dataplane cache. Basically this
+> > means we can ignore priority in the hash lookup. However this is not how you
+> > would optimally use hardware. Maybe I should do another write up with
+> > some more concrete examples.
+> > 
+> > There are also lots of use cases to _not_ have hardware and software in
+> > sync. A flag allows this.
+> > 
+> > My only point is I think we need to allow users to optimally use there
+> > hardware either via 'tc' or my previous 'flow' tool. Actually in my
+> > opinion I still think its best to have both interfaces.
+> > 
+> > I'll go get some coffee now and hopefully that is somewhat clear.
 > 
-> My thinking on this is to use the FlowAPI ndo_ops as the bottom layer.
-> What I would much prefer (having to actually write drivers) is that
-> we have one API to the driver and tc, nft, whatever map onto that API.
-
-Ok, I think this is indeed the right approach.
-
 > 
-> Then my driver implements a ndo_set_flow op and a ndo_del_flow op. What
-> I'm working on now is the map from tc onto the flow API I'm hoping this
-> sounds like a good idea to folks.
+> I've been thinking about the policy apect of this, and the more I think
+> about it, the more I wonder if not allowing some sort of common policy in
+> the kernel is really the right thing to do here.  I know thats somewhat
+> blasphemous, but this isn't really administrative poilcy that we're
+> talking about, at least not 100%.  Its more of a behavioral profile that
+> we're trying to enforce.  That may be splitting hairs, but I think theres
+> precidence for the latter.  That is to say, we configure qdiscs to limit
+> traffic flow to certain rates, and configure policies which drop traffic
+> that violates it (which includes random discard, which is the antithesis
+> of deterministic policy).  I'm not sure I see this as any different,
+> espcially if we limit its scope.  That is to say, why couldn't we allow
+> the kernel to program a predetermined set of policies that the admin can
+> set (i.e. offload routing to a hardware cache of X size with an lru
+> victimization).  If other well defined policies make sense, we can add
+> them and exposes options via iproute2 or some such to set them.  For the
+> use case where such pre-packaged policies don't make sense, we have
+> things like the flow api to offer users who want to be able to control
+> their hardware in a more fine grained approach.
 
-Sounds good to me.
+In general I agree that it makes sense to have have sane offload policy
+in the kernel and provide a mechanism to override that. Things that already
+work should continue to work: just faster or with fewer CPU cycles consumed.
 
-> 
-> Neil, suggested we might need a reservation concept where tc can reserve
-> some space in a TCAM, similarly nft can reserve some space. Also I have
-> applications in user space that want to reserve some space to offload
-> their specific data structures. This idea seems like a good one to me.
-
-Humm, I guess the question is how and when do we do this reservation, is
-it upon first potential access from e.g: tc or nft to an offloading
-capable hardware, and if so, upon first attempt to offload an operation?
-
-If we are to interface with a TCAM, some operations might require more
-slices than others, which will limit the number of actions available,
-but it is hard to know ahead of time.
-
-> 
->>
->> I guess my larger question is, if I need to learn about new flows
->> entering the stack, how is that going to wind-up looking like?
->>
->>>
->>> Here is my list of actions to achieve some results in near future:
->>> 1) finish cls_openflow classifier and iproute part of it
->>> 2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
->>> 3) use rocker to provide offload for cls_openflow and couple of selected actions
->>> 4) improve cls_openflow performance (hashtables etc)
->>> 5) improve TC subsystem performance in both slow and fast path
->>>     -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
->>> 6) implement "named sockets" (working name) and implement TC support for that
->>>     -ingress qdisc attach, act_mirred target
->>> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
->>> 8) implement TC act_mpls
->>> 9) suggest to switch OVS userspace from OVS genl to TC API
->>>
->>> This is my personal action list, but you are *very welcome* to step in to help.
->>> Point 2) haunts me at night....
->>> I believe that John is already working on 2) and part of 3).
->>>
->>> What do you think?
-> 
-
-
--- 
-Florian
+I am, however, not entirely convinced that it is always possible to
+implement such a sane default policy that is worth the code complexity -
+I'm thinking in particular of Open vSwitch where management of flows is
+already in user-space.
