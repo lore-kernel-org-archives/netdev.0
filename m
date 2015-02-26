@@ -1,75 +1,144 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 11:32:48 -0800
-Message-ID: <54EF74E0.7060502@gmail.com>
-References: <20150226074214.GF2074@nanopsycho.orion>
+From: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Subject: [PATCH net-next] usbnet: Fix tx_packets stat for FLAG_MULTI_FRAME
+ drivers
+Date: Thu, 26 Feb 2015 19:34:37 +0000
+Message-ID: <1424979277.4444.39.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
-	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	simon.horman@netronome.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks.com, bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:37187 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753796AbbBZTdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:33:11 -0500
-Received: by pabrd3 with SMTP id rd3so16313089pab.4
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 11:33:11 -0800 (PST)
-In-Reply-To: <20150226074214.GF2074@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ct-linux-kernel <linux-kernel-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jiri,
+Currently the usbnet core does not update the tx_packets statistic for
+drivers with FLAG_MULTI_PACKET and there is no hook in the TX
+completion path where they could do this.
 
-On 25/02/15 23:42, Jiri Pirko wrote:
-> Hello everyone.
-> 
-> I would like to discuss big next step for switch offloading. Probably
-> the most complicated one we have so far. That is to be able to offload flows.
-> Leaving nftables aside for a moment, I see 2 big usecases:
-> - TC filters and actions offload.
-> - OVS key match and actions offload.
-> 
-> I think it might sense to ignore OVS for now. The reason is ongoing efford
-> to replace OVS kernel datapath with TC subsystem. After that, OVS offload
-> will not longer be needed and we'll get it for free with TC offload
-> implementation. So we can focus on TC now.
+cdc_ncm and dependent drivers are bumping tx_packets stat on the
+transmit path while asix and sr9800 aren't updating it at all.
 
-What is not necessarily clear to me, is if we leave nftables aside for
-now from flow offloading, does that mean the entire flow offloading will
-now be controlled and going with the TC subsystem necessarily?
+Add a packet count in struct skb_data so these drivers can fill it
+in, initialise it to 1 for other drivers, and add the packet count
+to the tx_packets statistic on completion.
 
-I am not questioning the choice for TC, I am just wondering if
-ultimately there is the need for a lower layer, which is below, such
-that both tc and e.g: nftables can benefit from it?
+Signed-off-by: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+---
+I have only tested the asix driver after this change; I think cdc_ncm
+and one of the non-multi-packet drivers should also be tested before
+it's applied.
 
-I guess my larger question is, if I need to learn about new flows
-entering the stack, how is that going to wind-up looking like?
+Ben.
 
-> 
-> Here is my list of actions to achieve some results in near future:
-> 1) finish cls_openflow classifier and iproute part of it
-> 2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
-> 3) use rocker to provide offload for cls_openflow and couple of selected actions
-> 4) improve cls_openflow performance (hashtables etc)
-> 5) improve TC subsystem performance in both slow and fast path
->     -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
-> 6) implement "named sockets" (working name) and implement TC support for that
->     -ingress qdisc attach, act_mirred target
-> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
-> 8) implement TC act_mpls
-> 9) suggest to switch OVS userspace from OVS genl to TC API
-> 
-> This is my personal action list, but you are *very welcome* to step in to help.
-> Point 2) haunts me at night....
-> I believe that John is already working on 2) and part of 3).
-> 
-> What do you think?
+ drivers/net/usb/asix_common.c |    2 ++
+ drivers/net/usb/cdc_ncm.c     |    3 ++-
+ drivers/net/usb/sr9800.c      |    1 +
+ drivers/net/usb/usbnet.c      |    5 +++--
+ include/linux/usb/usbnet.h    |   12 ++++++++++++
+ 5 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
+index 5c55f11572ba..724a9b50df7a 100644
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -188,6 +188,8 @@ struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 		memcpy(skb_tail_pointer(skb), &padbytes, sizeof(padbytes));
+ 		skb_put(skb, sizeof(padbytes));
+ 	}
++
++	usbnet_set_skb_tx_stats(skb, 1);
+ 	return skb;
+ }
+ 
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 80a844e0ae03..70cbea551139 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1172,7 +1172,6 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
+ 
+ 	/* return skb */
+ 	ctx->tx_curr_skb = NULL;
+-	dev->net->stats.tx_packets += ctx->tx_curr_frame_num;
+ 
+ 	/* keep private stats: framing overhead and number of NTBs */
+ 	ctx->tx_overhead += skb_out->len - ctx->tx_curr_frame_payload;
+@@ -1184,6 +1183,8 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_buff *skb, __le32 sign)
+ 	 */
+ 	dev->net->stats.tx_bytes -= skb_out->len - ctx->tx_curr_frame_payload;
+ 
++	usbnet_set_skb_tx_stats(skb_out, n);
++
+ 	return skb_out;
+ 
+ exit_no_skb:
+diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
+index b94a0fbb8b3b..7650cdc8fe6b 100644
+--- a/drivers/net/usb/sr9800.c
++++ b/drivers/net/usb/sr9800.c
+@@ -144,6 +144,7 @@ static struct sk_buff *sr_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 		skb_put(skb, sizeof(padbytes));
+ 	}
+ 
++	usbnet_set_skb_tx_stats(skb, 1);
+ 	return skb;
+ }
+ 
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 449835f4331e..0f3ff285f6a1 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1188,8 +1188,7 @@ static void tx_complete (struct urb *urb)
+ 	struct usbnet		*dev = entry->dev;
+ 
+ 	if (urb->status == 0) {
+-		if (!(dev->driver_info->flags & FLAG_MULTI_PACKET))
+-			dev->net->stats.tx_packets++;
++		dev->net->stats.tx_packets += entry->packets;
+ 		dev->net->stats.tx_bytes += entry->length;
+ 	} else {
+ 		dev->net->stats.tx_errors++;
+@@ -1348,6 +1347,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 			urb->transfer_flags |= URB_ZERO_PACKET;
+ 	}
+ 	entry->length = urb->transfer_buffer_length = length;
++	if (!(info->flags & FLAG_MULTI_PACKET))
++		usbnet_set_skb_tx_stats(skb, 1);
+ 
+ 	spin_lock_irqsave(&dev->txq.lock, flags);
+ 	retval = usb_autopm_get_interface_async(dev->intf);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index d9a4905e01d0..ff3fb2bd0e90 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -228,8 +228,20 @@ struct skb_data {	/* skb->cb is one of these */
+ 	struct usbnet		*dev;
+ 	enum skb_state		state;
+ 	size_t			length;
++	unsigned long		packets;
+ };
+ 
++/* Drivers that set FLAG_MULTI_PACKET must call this in their
++ * tx_fixup method before returning an skb.
++ */
++static inline void
++usbnet_set_skb_tx_stats(struct sk_buff *skb, unsigned long packets)
++{
++	struct skb_data *entry = (struct skb_data *) skb->cb;
++
++	entry->packets = packets;
++}
++
+ extern int usbnet_open(struct net_device *net);
+ extern int usbnet_stop(struct net_device *net);
+ extern netdev_tx_t usbnet_start_xmit(struct sk_buff *skb,
 -- 
-Florian
+1.7.10.4
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
