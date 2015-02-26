@@ -1,58 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 16:33:37 +0000
-Message-ID: <20150226163337.GA21027@casper.infradead.org>
-References: <20150226074214.GF2074@nanopsycho.orion>
- <20150226083758.GA15139@vergenet.net>
- <20150226091628.GA4059@nanopsycho.orion>
- <20150226133326.GC23050@casper.infradead.org>
- <CAGpadYGrjfkZqe0k7D05+cy3pY=1hXZtQqtV0J-8ogU80K7BUQ@mail.gmail.com>
- <54EF3E45.3070103@intel.com>
- <CAGpadYHfNcDR2ojubkCJ8-nJTQkdLkPsAwJu0wOKU82bLDzhww@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to
+ traverse the bridge without hitting netfilter
+Date: Thu, 26 Feb 2015 11:34:31 -0500 (EST)
+Message-ID: <20150226.113431.238255529591339000.davem@davemloft.net>
+References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
+	<20150223160619.GF24297@breakpoint.cc> <54EEF32D.2010202@amazon.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Simon Horman <simon.horman@netronome.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"jpettit@nicira.com" <jpettit@nicira.com>,
-	"joestringer@nicira.com" <joestringer@nicira.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"bcrl@kvack.org" <bcrl@kvack.org>
-To: Shrijeet Mukherjee <shrijeet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58021 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752748AbbBZQdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 11:33:43 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGpadYHfNcDR2ojubkCJ8-nJTQkdLkPsAwJu0wOKU82bLDzhww@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, fw@strlen.de,
+	imrep.amz@gmail.com, linux-kernel@vger.kernel.org, aliguori@amazon.com
+To: imrep@amazon.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <54EEF32D.2010202@amazon.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/15 at 07:51am, Shrijeet Mukherjee wrote:
-> That is the un-offload device I was referencing. If we standardize and
-> implicitly make the available .. all packets that are needing to be sent to
-> a construct that is not readily availble in hardware goes to this VSI and
-> then software fwded. I am saying though that when this path is invoked the
-> path after the VSI is not offloaded.
+From: Imre Palik <imrep@amazon.de>
+Date: Thu, 26 Feb 2015 11:19:25 +0100
 
-Agreed. I think John was pointing out how this is achievable with the
-flow API while integrating into existing kernel concepts.
+> If you are looking for peculiarities in my setup then here they are:
+> I am on 4k pages, and perf is not working :-(
+> (I am trying to fix those too, but that is far from being a low hanging fruit.)
+> So my guess would be that the packet pipeline doesn't fit in the cache/tlb
 
-The point I was making is that if you have iptables ACLs that you want
-offloaded you need all dependencies leading up to that iptables rule to
-be programmed into hardware as well. A VRF implemented as netns is a
-typical example for this but any form of network virtualization will
-require this.
+Pure specualtion until you can actually use perf to measure these
+things.
+
+And I don't want to apply patches which were designed based upon
+pure speculation.
