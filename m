@@ -1,80 +1,77 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [PATCH net 1/4] sh_eth: Ensure proper ordering of descriptor active
- bit write/read
-Date: Thu, 26 Feb 2015 14:13:30 +0000
-Message-ID: <1424960010.4444.13.camel@xylophone.i.decadent.org.uk>
-References: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Thu, 26 Feb 2015 09:13:19 -0500
+Message-ID: <20150226141319.GA7971@gospo.home.greyhouse.net>
+References: <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+ <54ED017E.6000902@gmail.com>
+ <20150225001534.GB15633@lunn.ch>
+ <54ED19AB.7020003@gmail.com>
+ <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+ <20150225140356.GB17992@lunn.ch>
+ <20150225154607.GD1332@gospo.home.greyhouse.net>
+ <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
+ <20150226042158.GF1332@gospo.home.greyhouse.net>
+ <20150226064755.GA2074@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+	Rafa?? Mi??ecki <zajec5@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:34630 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932386AbbBZONh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:13:37 -0500
-In-Reply-To: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:33386 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932386AbbBZON1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:13:27 -0500
+Received: by mail-qg0-f44.google.com with SMTP id j5so8709158qga.3
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:13:27 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150226064755.GA2074@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When submitting a DMA descriptor, the active bit must be written last.
-When reading a completed DMA descriptor, the active bit must be read
-first.
+On Thu, Feb 26, 2015 at 07:47:55AM +0100, Jiri Pirko wrote:
+> Thu, Feb 26, 2015 at 05:21:58AM CET, gospo@cumulusnetworks.com wrote:
+> >On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
+> >> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
+> >> <gospo@cumulusnetworks.com> wrote:
+> >> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
+> >> > [...]
+> >> >>
+> >> >> What we don't want is X chip families and Y different ways to
+> >> >> configure the features. Ideal we want X chip families, and one way to
+> >> >> configure them all.
+> >> >
+> >> > This statement is really my primary concern.  There is lots of interest
+> >> > around hardware offload at this point and it seems like there is a risk
+> >> > that a lack of consistency can create problems.
+> >> >
+> >> > I think these patches are great as they allow for the programming of the
+> >> > offload hardware (and it has been pointed out that this drastically
+> >> > increases performance), but one concern I have with this patch (related
+> >> > to this) is that I'm not sure there is a major need to create netdevs
+> >> > automatically if there is not the ability to rx/tx actual frames on
+> >> > these interfaces.
+> >> 
+> >> Even when not used for rx/tx to CPU, it seems the netdevs are still
+> >> useful as an anchor to build higher-level constructs such as bridge or
+> >> bond, and to hang stuff like netdev stats or ethtool-ish things.
+> >> 
+> >
+> >I agree that they are useful, but now we are really dealing with a
+> >netdev that is slightly lower functionality than we expect from a netdev
+> >right now.
+> 
+> Is that a real care for some device now?
+I guess that depends on how users expect to use it.  :)
 
-Add memory barriers to ensure that this ordering is maintained.
-
-Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
----
-This is based on review only - I don't have a test case to show
-problematic reordering.
-
-Ben.
-
- drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 4da8bd263997..2bc0be45c751 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1407,6 +1407,8 @@ static int sh_eth_txfree(struct net_device *ndev)
- 		txdesc = &mdp->tx_ring[entry];
- 		if (txdesc->status & cpu_to_edmac(mdp, TD_TACT))
- 			break;
-+		/* TACT bit must be checked before all the following reads */
-+		rmb();
- 		/* Free the original skb. */
- 		if (mdp->tx_skbuff[entry]) {
- 			dma_unmap_single(&ndev->dev, txdesc->addr,
-@@ -1444,6 +1446,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 	limit = boguscnt;
- 	rxdesc = &mdp->rx_ring[entry];
- 	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
-+		/* RACT bit must be checked before all the following reads */
-+		rmb();
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
- 		pkt_len = rxdesc->frame_length;
- 
-@@ -1523,6 +1527,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 			skb_checksum_none_assert(skb);
- 			rxdesc->addr = dma_addr;
- 		}
-+		wmb(); /* RACT bit must be set after all the above writes */
- 		if (entry >= mdp->num_rx_ring - 1)
- 			rxdesc->status |=
- 				cpu_to_edmac(mdp, RD_RACT | RD_RFP | RD_RDEL);
-@@ -2192,6 +2197,7 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	}
- 	txdesc->buffer_length = skb->len;
- 
-+	wmb(); /* TACT bit must be set after all the above writes */
- 	if (entry >= mdp->num_tx_ring - 1)
- 		txdesc->status |= cpu_to_edmac(mdp, TD_TACT | TD_TDLE);
- 	else
--- 
-1.7.10.4
+> I agree with Scott that we need to model is consistently. If there is
+> such port netdev witch cannot tx/rx, we can expose the fact using some
+> flag...
+Using a flag to expose/mark this was exactly my thought.
