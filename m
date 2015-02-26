@@ -1,51 +1,60 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 2/7] net: bluetooth: compact struct bt_skb_cb
- by converting boolean fields to bit fields
-Date: Thu, 26 Feb 2015 09:30:41 +0200
-Message-ID: <20150226093041.5cac2141@halley>
-References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
-	<1424916612-744-3-git-send-email-eyal.birger@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Flows! Offload them.
+Date: Thu, 26 Feb 2015 08:42:14 +0100
+Message-ID: <20150226074214.GF2074@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, willemb@google.com, edumazet@google.com,
-	marcel@holtmann.org, netdev@vger.kernel.org
-To: Eyal Birger <eyal.birger@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
+	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, simon.horman@netronome.com,
+	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:35868 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751217AbbBZHas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 02:30:48 -0500
-Received: by wghk14 with SMTP id k14so8293585wgh.3
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 23:30:47 -0800 (PST)
-In-Reply-To: <1424916612-744-3-git-send-email-eyal.birger@gmail.com>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:33829 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbbBZHmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 02:42:19 -0500
+Received: by wghn12 with SMTP id n12so8354463wgh.1
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 23:42:18 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Feb 2015 04:10:07 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
-> @@ -277,11 +277,11 @@ typedef void (*hci_req_complete_t)(struct hci_dev *hdev, u8 status, u16 opcode);
->  
->  struct bt_skb_cb {
->  	__u8 pkt_type;
-> -	__u8 incoming;
->  	__u16 opcode;
->  	__u16 expect;
-> -	__u8 force_active;
-> -	bool req_start;
-> +	__u8 force_active:1;
-> +	__u8 incoming:1;
-> +	__u8 req_start:1;
->  	u8 req_event;
->  	hci_req_complete_t req_complete;
->  	struct l2cap_chan *chan;
+Hello everyone.
 
-There's a:
-    bt_cb(skb)->force_active = BT_POWER_FORCE_ACTIVE_ON;
-assignment in l2cap_core.c.
+I would like to discuss big next step for switch offloading. Probably
+the most complicated one we have so far. That is to be able to offload flows.
+Leaving nftables aside for a moment, I see 2 big usecases:
+- TC filters and actions offload.
+- OVS key match and actions offload.
 
-No bluetooth expert, no idea if BT_POWER_FORCE_ACTIVE_ON is 1 by definition.
-If not, maybe prefer:
-    bt_cb(skb)->force_active = !!BT_POWER_FORCE_ACTIVE_ON
+I think it might sense to ignore OVS for now. The reason is ongoing efford
+to replace OVS kernel datapath with TC subsystem. After that, OVS offload
+will not longer be needed and we'll get it for free with TC offload
+implementation. So we can focus on TC now.
 
-Besides that,
-Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Here is my list of actions to achieve some results in near future:
+1) finish cls_openflow classifier and iproute part of it
+2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
+3) use rocker to provide offload for cls_openflow and couple of selected actions
+4) improve cls_openflow performance (hashtables etc)
+5) improve TC subsystem performance in both slow and fast path
+    -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
+6) implement "named sockets" (working name) and implement TC support for that
+    -ingress qdisc attach, act_mirred target
+7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
+8) implement TC act_mpls
+9) suggest to switch OVS userspace from OVS genl to TC API
+
+This is my personal action list, but you are *very welcome* to step in to help.
+Point 2) haunts me at night....
+I believe that John is already working on 2) and part of 3).
+
+What do you think?
+
+Thanks!
+
+Jiri
