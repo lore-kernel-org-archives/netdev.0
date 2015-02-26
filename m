@@ -1,88 +1,54 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next 4/7] net: packet: use skb->dev as storage for skb
- orig len instead of skb->cb[]
-Date: Thu, 26 Feb 2015 20:55:34 +0200
-Message-ID: <CAHsH6Gvr=g_htFbJfhu4aYbG+bKsF7QWZMBUfvZVZKSfrbKD8Q@mail.gmail.com>
-References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
-	<1424916612-744-5-git-send-email-eyal.birger@gmail.com>
-	<CA+FuTSfG+Se0L0tWdsj2+YHAcZRWLw2_qef6Q5xixwbQ_-OE8Q@mail.gmail.com>
-	<CAHsH6GvDvcR9nGYRa10iZgc=iQC-5ypzq2jL2ixOnQJu4fbzQQ@mail.gmail.com>
-	<CA+FuTSfNHsKjJPQZyp8pkohQM47sfFpv44=THk111+vKkZm_nA@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Flows! Offload them.
+Date: Thu, 26 Feb 2015 19:05:44 +0000
+Message-ID: <20150226190544.GA1631@casper.infradead.org>
+References: <20150226074214.GF2074@nanopsycho.orion>
+ <20150226083758.GA15139@vergenet.net>
+ <20150226091628.GA4059@nanopsycho.orion>
+ <CA+mtBx-sVMNFng_=DcM5mJTbzrRNsFhTvC8YxvjxcqEXwDcWWw@mail.gmail.com>
+ <20150226161705.GH1973@nanopsycho.lan>
+ <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Simon Horman <simon.horman@netronome.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
+	Joe Stringer <joestringer@nicira.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>, shrijeet@gmail.com,
+	Andy Gospodarek <gospo@cumulusnetworks.com>, bcrl@kvack.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:40901 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991AbbBZSze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 13:55:34 -0500
-Received: by ykq142 with SMTP id 142so4973403ykq.7
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 10:55:34 -0800 (PST)
-In-Reply-To: <CA+FuTSfNHsKjJPQZyp8pkohQM47sfFpv44=THk111+vKkZm_nA@mail.gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:58754 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754371AbbBZTFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 14:05:48 -0500
+Content-Disposition: inline
+In-Reply-To: <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 8:51 PM, Willem de Bruijn <willemb@google.com> wrote:
-> On Thu, Feb 26, 2015 at 1:38 PM, Eyal Birger <eyal.birger@gmail.com> wrote:
->> Hi,
->>
->> On Thu, Feb 26, 2015 at 7:26 PM, Willem de Bruijn <willemb@google.com> wrote:
->>>
->>> Another option is to delay preparation of the full sockaddr_ll struct until
->>> when it's needed. It often is not used at all (if msg_name == NULL).
->>>
->>> sll_family, sll_protocol and sll_pkttype can be derived when needed
->>> in packet_recvmsg. The first two are the head of sockaddr_ll, so
->>> a shorter struct filled in in packet_rcv only from sll_ifindex onwards
->>> would save the 4B needed for origlen. Actually, a union is simpler:
->>>
->>> struct __packet_cb_sockaddr_ll {
->>>         union {
->>>                 struct {
->>>                         unsigned short  sll_family;
->>>                         __be16          sll_protocol;
->>>                  }
->>>                  unsigned int sll_origlen;
->>>         }
->>>     /* etc.. */
->>> };
->>>
->>> The family and protocol can just overwrite sll_origlen in packet_recvmsg
->>> before the memcpy into msg->msg_name.
->>>
->>
->> That's an interesting option.
->> My personal inclination is not to inline sockaddr_ll in the packet cb structure.
->
-> It already is, isn't it?
->
+On 02/26/15 at 10:15am, Tom Herbert wrote:
+> But, routing (aka switching) in the stack is not configured through
+> TC. We have a whole forwarding and routing infrastructure (eg.
+> iproute) with optimizations that  allow routes to be cached in
+> sockets, etc. To me, it seems like offloading that basic functionality
+> is a prerequisite before attempting to offload more advanced policy
+> mechanisms of TC, netfilter, etc.
 
-I meant I prefer not to break out sockaddr_ll's individual fields in
-packet_skb_cb.
-Sorry for being ambiguous.
-
->> IMHO it would probably make sense to do it as part of your below suggestion.
->>
->>> Also interesting would be to avoid copying the address in the fast path
->>> as it may never be used, especially for long addresses (INFINIBAND_ALEN
->>> and FWNET_ALEN). From what I can tell, all but one header_ops.parse
->>> implementations return bytes from inside the packet, so could take an
->>> unsigned char ** as argument, store that pointer and postpone the
->>> memcpy to packet_recvmsg (handling skb_trim correctly). The exception is
->>> fwnet_header_parse, which would require some workaround.
->>
->> I think it may be interesting to pursue this option, though I don't
->> think it should
->> be part of this specific effort.
->
-> Absolutely. This is a lot more work. Too much to fold into this patchset.
-> I was more speculating in general. I may look into this at some point.
->
->>
->> Thanks!
->> Eyal.
+It is visible that you are coming from container focused world
+with sockets on the host ;-) The L3 offload desire comes primiarly
+from a VM centric host where decap+L3 offload to a VF allows to
+spend zero cycles on the host kernel. I'm not sure if offload
+makes sense at all for container workloads w/o VM isolation per
+tentant or orch system or something similar.
