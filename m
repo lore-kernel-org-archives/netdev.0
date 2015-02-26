@@ -1,55 +1,40 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] bridge: Show state names in the 'link help'
- print
-Date: Thu, 26 Feb 2015 03:03:50 +0200
-Message-ID: <20150226010350.GA13245@angus-think.lan>
-References: <1424908593-4524-1-git-send-email-vadim4j@gmail.com>
- <20150225170950.06b81a78@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH iproute2] man ip-link: Add short info about 'dynamic' flag
+Date: Thu, 26 Feb 2015 03:12:08 +0200
+Message-ID: <1424913128-14679-1-git-send-email-vadim4j@gmail.com>
+Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:42916 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752769AbbBZBPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 20:15:11 -0500
-Received: by lbiw7 with SMTP id w7so7716943lbi.9
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 17:15:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150225170950.06b81a78@urahara>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:36280 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752919AbbBZBX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 20:23:29 -0500
+Received: by lbvp9 with SMTP id p9so7779042lbv.3
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 17:23:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 05:09:50PM -0800, Stephen Hemminger wrote:
-> On Thu, 26 Feb 2015 01:56:33 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
-> 
-> > From: Vadim Kochan <vadim4j@gmail.com>
-> > 
-> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> > ---
-> >  bridge/link.c | 6 ++++++
-> >  1 file changed, 6 insertions(+)
-> > 
-> > diff --git a/bridge/link.c b/bridge/link.c
-> > index a7bd85f..7f1ec70 100644
-> > --- a/bridge/link.c
-> > +++ b/bridge/link.c
-> > @@ -228,6 +228,12 @@ static void usage(void)
-> >  	fprintf(stderr,	"                               [ flood {on | off} ]\n");
-> >  	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
-> >  	fprintf(stderr, "       bridge link show [dev DEV]\n");
-> > +	fprintf(stderr, "\n");
-> > +	fprintf(stderr, "STATE := { 0 | disabled   |\n");
-> > +	fprintf(stderr, "           1 | listening  |\n");
-> > +	fprintf(stderr, "           2 | learning   |\n");
-> > +	fprintf(stderr, "           3 | forwarding |\n");
-> > +	fprintf(stderr, "           4 | blocking }\n");
-> >  	exit(-1);
-> >  }
-> >  
-> 
-> that is too wordy for help. put it in docs if needed.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Hm, I assumed this might be useful for fast looking for state names from the shell just by 'link help'...
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ man/man8/ip-link.8.in | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 057125b..398348a 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -625,7 +625,9 @@ flag on the device.
+ .BR "dynamic on " or " dynamic off"
+ change the
+ .B DYNAMIC
+-flag on the device.
++flag on the device. Indicates that address can change when interface goes down (currently
++.B NOT
++used by the Linux).
+ 
+ .TP
+ .BI name " NAME"
+-- 
+2.2.2
