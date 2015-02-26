@@ -1,64 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 7/8] mpls: Multicast route table change notifications
-Date: Thu, 26 Feb 2015 08:03:35 -0600
-Message-ID: <87oaogn51k.fsf@x220.int.ebiederm.org>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
-	<87fv9tvrgq.fsf@x220.int.ebiederm.org>
-	<54EEC967.20106@cumulusnetworks.com>
+From: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Subject: [PATCH net 0/4] Fixes for sh_eth #4
+Date: Thu, 26 Feb 2015 14:12:17 +0000
+Message-ID: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org,
-	Vivek Venkatraman <vivek@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:47914 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932161AbbBZOHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:07:08 -0500
-In-Reply-To: <54EEC967.20106@cumulusnetworks.com> (roopa@cumulusnetworks.com's
-	message of "Wed, 25 Feb 2015 23:21:11 -0800")
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:34570 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbbBZOMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:12:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-roopa <roopa@cumulusnetworks.com> writes:
+I'm continuing review and testing of Ethernet support on the R-Car H2
+chip, with help from a colleague.  This series fixes a few more issues.
 
-> On 2/25/15, 9:19 AM, Eric W. Biederman wrote:
->> Unlike IPv4 this code notifies on all cases where mpls routes
->> are added or removed as that was the simplest to implement.
->>
->> In particular routes being removed because a network interface
->> goes down or is removed are notified about.  Are there technical
->> arguments for handling this differently ? Userspace developers
->> don't particularly like the way IPv4 handles route removal
->> on ifdown.
-> that is true. However, from previous emails on this topic on netdev,
-> there is no reason to notify these deletes to userspace thereby creating a
-> notification storm
-> when userspace can figure this out. Which seems like a valid reason.
-> (Your approach resembles IPv6 which does generate these notifications and
-> userspace is usually happy with this).
+These are not tested on any of the other supported chips.
 
-Grr.  There is an even better way to do this.
+Ben.
 
-The semantically best way to handle this is to simply not use routes for
-forwarding where the network inteface is down, the carrier is down, or
-the network device has gone away for forwarding.
+Ben Hutchings (4):
+  sh_eth: Ensure proper ordering of descriptor active bit write/read
+  sh_eth: Fix RX recovery on R-Car in case of RX ring underrun
+  Revert "sh_eth: Enable Rx descriptor word 0 shift for r8a7790"
+  sh_eth: Really fix padding of short frames on TX
 
-Apparently there are some multi-path scenearios that already do this
-legitimately, and routes going away auto-matically can cause userspace
-other kinds of problems.
+ drivers/net/ethernet/renesas/sh_eth.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-In MPLS I especially don't want to free the routing table slot until I
-know that the change has propagated in the network and I can be
-reasonably confident that no-one will send me traffic on that label.
-Otherwise there is a chance the label will be reused too soon.
-
-Grumble.  That is a code change I need to make.  Grumble.
-
-I also need to look and see if those multi-path scenarios report a next
-hop as dead or just rely on the network interface state (which I think
-it is) to be sufficient information relayed to userspace
-
-Eric
+-- 
+1.7.10.4
