@@ -1,57 +1,59 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -mainline] niu: fix error handling in niu_class_to_ethflow()
-Date: Thu, 26 Feb 2015 19:56:56 +0300
-Message-ID: <20150226165656.GB6820@mwanda>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next 4/7] net: packet: use skb->dev as storage for skb
+ orig len instead of skb->cb[]
+Date: Thu, 26 Feb 2015 12:26:09 -0500
+Message-ID: <CA+FuTSfG+Se0L0tWdsj2+YHAcZRWLw2_qef6Q5xixwbQ_-OE8Q@mail.gmail.com>
+References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com> <1424916612-744-5-git-send-email-eyal.birger@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benoit Taine <benoit.taine@lip6.fr>,
-	Fabian Frederick <fabf@skynet.be>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, shmulik.ladkani@gmail.com,
+	marcel@holtmann.org, Network Development <netdev@vger.kernel.org>
+To: Eyal Birger <eyal.birger@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:35980 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752991AbbBZR0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 12:26:40 -0500
+Received: by mail-ob0-f169.google.com with SMTP id wp4so12683354obc.0
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 09:26:39 -0800 (PST)
+In-Reply-To: <1424916612-744-5-git-send-email-eyal.birger@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a discrepancy here because the niu_class_to_ethflow() returns
-zero on failure and one on success but the caller expected zero on
-success and negative on failure.
+On Wed, Feb 25, 2015 at 9:10 PM, Eyal Birger <eyal.birger@gmail.com> wrote:
+> As part of an effort to move skb->dropcount to skb->cb[], 4 bytes
+> of additional room are needed in skb->cb[] in packet sockets.
+>
+> Store the skb original length in skb->dev instead of skb->cb[] for
+> this purpose.
 
-The problem means that we allow the user to pass classes and flow_types
-which we don't want.  I've looked at it a bit and I don't see it as a
-very serious bug.
+Another option is to delay preparation of the full sockaddr_ll struct until
+when it's needed. It often is not used at all (if msg_name == NULL).
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+sll_family, sll_protocol and sll_pkttype can be derived when needed
+in packet_recvmsg. The first two are the head of sockaddr_ll, so
+a shorter struct filled in in packet_rcv only from sll_ifindex onwards
+would save the 4B needed for origlen. Actually, a union is simpler:
 
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 4b51f90..0c5842a 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -6989,10 +6989,10 @@ static int niu_class_to_ethflow(u64 class, int *flow_type)
- 		*flow_type = IP_USER_FLOW;
- 		break;
- 	default:
--		return 0;
-+		return -EINVAL;
- 	}
- 
--	return 1;
-+	return 0;
- }
- 
- static int niu_ethflow_to_class(int flow_type, u64 *class)
-@@ -7198,11 +7198,9 @@ static int niu_get_ethtool_tcam_entry(struct niu *np,
- 	class = (tp->key[0] & TCAM_V4KEY0_CLASS_CODE) >>
- 		TCAM_V4KEY0_CLASS_CODE_SHIFT;
- 	ret = niu_class_to_ethflow(class, &fsp->flow_type);
--
- 	if (ret < 0) {
- 		netdev_info(np->dev, "niu%d: niu_class_to_ethflow failed\n",
- 			    parent->index);
--		ret = -EINVAL;
- 		goto out;
- 	}
- 
+struct __packet_cb_sockaddr_ll {
+        union {
+                struct {
+                        unsigned short  sll_family;
+                        __be16          sll_protocol;
+                 }
+                 unsigned int sll_origlen;
+        }
+    /* etc.. */
+};
+
+The family and protocol can just overwrite sll_origlen in packet_recvmsg
+before the memcpy into msg->msg_name.
+
+Also interesting would be to avoid copying the address in the fast path
+as it may never be used, especially for long addresses (INFINIBAND_ALEN
+and FWNET_ALEN). From what I can tell, all but one header_ops.parse
+implementations return bytes from inside the packet, so could take an
+unsigned char ** as argument, store that pointer and postpone the
+memcpy to packet_recvmsg (handling skb_trim correctly). The exception is
+fwnet_header_parse, which would require some workaround.
