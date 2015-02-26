@@ -1,67 +1,49 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [PATCH net 2/4] sh_eth: Fix RX recovery on R-Car in case of RX ring
- underrun
-Date: Thu, 26 Feb 2015 14:19:08 +0000
-Message-ID: <1424960348.4444.19.camel@xylophone.i.decadent.org.uk>
-References: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Thu, 26 Feb 2015 14:18:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAEEB34@AcuExch.aculab.com>
+References: <cover.1424877322.git.daniel@iogearbox.net>
+	 <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
+	 <54EDEE55.8050605@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
+	 <54EDF4DD.1060709@iogearbox.net>
+ <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"johunt@akamai.com" <johunt@akamai.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:34852 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753190AbbBZOTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:19:16 -0500
-In-Reply-To: <1424959937.4444.12.camel@xylophone.i.decadent.org.uk>
+Received: from smtp-out6.electric.net ([192.162.217.183]:63148 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932150AbbBZOT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:19:29 -0500
+In-Reply-To: <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of RX ring underrun (RDE), we attempt to reset the software
-descriptor pointers (dirty_rx and cur_rx) to match where the hardware
-will read the next descriptor from, as that might not be the first
-dirty descriptor.  This relies on reading RDFAR, but that register
-doesn't exist on all supported chips - specifically, not on the R-Car
-chips.  This will result in unpredictable behaviour on those chips
-after an RDE.
-
-Make this pointer reset conditional and assume that it isn't needed on
-the R-Car chips.  This fix also assumes that RDFAR is never exposed at
-offset 0 in the memory map - this is currently true, and a subsequent
-commit will fix the ambiguity between offset 0 and no-offset in the
-register offset maps.
-
-Fixes: 79fba9f51755 ("net: sh_eth: fix the rxdesc pointer when rx ...")
-Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
----
-I was able to trigger RDE by adding a udelay(10) to the loop in
-sh_eth_rx() (limiting RX to <100,000 pps) and sending minimum size
-frames with pktgen (~160,000 pps at 100M).  The RDE was recorded in the
-netdev stats.  After the RDE and recover I could still pass traffic
-successfully so no extra code appears to be needed for this chip.
-
-Ben.
-
- drivers/net/ethernet/renesas/sh_eth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 2bc0be45c751..ed67951f5271 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1540,7 +1540,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 	/* If we don't need to check status, don't. -KDU */
- 	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
- 		/* fix the values for the next receiving if RDE is set */
--		if (intr_status & EESR_RDE) {
-+		if (intr_status & EESR_RDE && mdp->reg_offset[RDFAR] != 0) {
- 			u32 count = (sh_eth_read(ndev, RDFAR) -
- 				     sh_eth_read(ndev, RDLAR)) >> 4;
- 
--- 
-1.7.10.4
+PiAxKSBBdXRvbWF0aWMgc2hyaW5raW5nIGlzIGEgbm9uIGlzc3VlLiBUaGlzIHdpbGwgZnJlZSB2
+ZXJ5IGxpdHRsZQ0KPiBtZW1vcnksIGNvbXBhcmVkIHRvIHByZXZpb3VzIHBlYWsgdXNhZ2UgKGlu
+Y2x1ZGluZyBvYmplY3RzIHB1dCBpbg0KPiByaGFzaHRhYmxlKS4gSWYgaGFzaCBncm93biB0byBh
+IGNlcnRhaW4gcG9pbnQsIGl0J3MgbGlrZWx5IGl0IHdpbGwgZ3Jvdw0KPiBhZ2FpbiBsYXRlci4N
+Cg0KU2hyaW5rIGNvdWxkIGJlIGRvbmUgJ29uIGRlbWFuZCcgZnJvbSB0aGUgJ3VzZXInIHdoZW4g
+dGhlIG51bWJlciBvZg0KZWxlbWVudHMgaXMga25vd24gdG8gaGF2ZSBzaWduaWZpY2FudGx5IHJl
+ZHVjZWQuDQoNCj4gMikgR3Jvd2luZyBjYW4gYmUgdHJpZ2dlcmVkIHdoZW4gYW55IGJ1Y2tldCBo
+YXMgbW9yZSB0aGFuIFggZWxlbXMsIGFuZA0KPiB0aGF0IGlzIGdpdmVuIGZvciBmcmVlIGF0IGlu
+c2VydCB0aW1lLg0KPiBYIGNvdWxkIGJlIGxvZzIoYnVja2V0cykvMiBJIGd1ZXNzLiAoYWthIHNo
+aWZ0LzIpDQoNCklmIGdyb3dpbmcgaXMgdHJpZ2dlcmVkIHdoZW4gYSBidWNrZXQgaGFzIG1vcmUg
+dGhhbiBYIGVsZW1zLCB0aGVuIHNldHRpbmcNClggdmVyeSBoaWdoIHdpbGwgc3RvcCBhdXRvbWF0
+aWMgZ3Jvd2luZy4NCkdyb3dpbmcgd291bGQgdGhlbiBvbmx5IGJlIGRvbmUgaW4gcmVzcG9uc2Ug
+dG8gdXNlciByZXF1ZXN0cy4NCg0KV2hldGhlciBYIHNob3VsZCBiZSBjb25zdGFudCwgb3IgbG9n
+MihidWNrZXRzKS9uIGlzIGFub3RoZXIgbWF0dGVyLg0KT3Igc29tZXRoaW5nIGxpa2UgTjEgKyAo
+TjIgKiBsb2cyKGJ1Y2tldHMpKS82NCBpbiBhbnkgY2FzZSBpdA0Kb25seSBuZWVkcyByZWNhbGN1
+bGF0aW5nIGFmdGVyIGFuIGF1dG8tZ3Jvdy4NCg0KCURhdmlkDQoNCg==
