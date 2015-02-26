@@ -1,75 +1,65 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to traverse
- the bridge without hitting netfilter
-Date: Fri, 27 Feb 2015 10:17:42 +1300
-Message-ID: <54EF8D76.6070703@openwrt.org>
-References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com> <20150223160619.GF24297@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Palik, Imre" <imrep@amazon.de>,
-	Anthony Liguori <aliguori@amazon.com>
-To: Florian Westphal <fw@strlen.de>, Imre Palik <imrep.amz@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150223160619.GF24297@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: George McCollister <george.mccollister@gmail.com>
+Subject: [PATCH net] drivers: net: cpsw: Set SECURE for dual_emac ucast
+Date: Thu, 26 Feb 2015 15:19:30 -0600
+Message-ID: <1424985570-19193-1-git-send-email-george.mccollister@gmail.com>
+Cc: davem@davemloft.net, mugunthanvnm@ti.com, balbi@ti.com,
+	lsorense@csclub.uwaterloo.ca, tony@atomide.com, mpa@pengutronix.de,
+	jhovold@gmail.com, george.cherian@ti.com, tklauser@distanz.ch,
+	George McCollister <george.mccollister@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:50547 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752169AbbBZVTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 16:19:51 -0500
+Received: by mail-ob0-f180.google.com with SMTP id vb8so14226754obc.11
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 13:19:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015-02-24 05:06, Florian Westphal wrote:
-> Imre Palik <imrep.amz@gmail.com> wrote:
->> The netfilter code is made with flexibility instead of performance in mind.
->> So when all we want is to pass packets between different interfaces, the
->> performance penalty of hitting netfilter code can be considerable, even when
->> all the firewalling is disabled for the bridge.
->> 
->> This change makes it possible to disable netfilter on a per bridge basis.
->> In the case interesting to us, this can lead to more than 15% speedup
->> compared to the case when only bridge-iptables is disabled.
-> 
-> I wonder what the speed difference is between no-rules (i.e., we hit jump label
-> in NF_HOOK), one single (ebtables) accept-all rule, and this patch, for
-> the call_nf==false case.
-> 
-> I guess your 15% speedup figure is coming from ebtables' O(n) rule
-> evaluation overhead?  If yes, how many rules are we talking about?
-> 
-> Iff thats true, then the 'better' (I know, it won't help you) solution
-> would be to use nftables bridgeport-based verdict maps...
-> 
-> If thats still too much overhead, then we clearly need to do *something*...
-I work with MIPS based routers that typically only have 32 or 64 KB of
-Dcache. I've had quite a bit of 'fun' working on optimizing netfilter on
-these systems. I've done a lot of measurements using oprofile (going to
-use perf on my next run).
+Prior to this patch, sending a packet with the source MAC address of one
+of the CPSW interfaces to one of the CPSW slave ports while it's configured in
+dual_emac mode would update the port_num field of the VLAN/Unicast Address
+Table Entry. This would cause it to discard all incoming traffic addressed to
+that MAC address, essentially rendering the port useless until the ALE table is
+cleared (by starting and stopping the interface or rebooting.)
 
-On these devices, even without netfilter compiled in, the data
-structures and code are already way too big for the hot path to fit in
-the Dcache (not to mention Icache). This problem has typically gotten a
-little bit worse with every new kernel release, aside from just a few
-exceptions.
+For example, if eth0 has a MAC address of 90:59:af:8f:43:e9 it will have
+an ALE table entry:
 
-This means that in the hot path, any unnecessary memory access to packet
-data (especially IP headers) or to some degree also extra data
-structures for netfilter, ebtables, etc. has a significant and visible
-performance impact. The impact of the memory accesses is orders of
-magnitude bigger than the pure cycles used for running the actual code.
+00 00 00 00 59 90 02 30 e9 43 8f af
+(VLAN Addr vlan_id=2 unicast type=0 port_num=0 addr=90:59:af:8f:43:e9)
 
-In OpenWrt, I made similar hacks a long time ago, and on the system I
-tested on, the speedup was even bigger than 15%, probably closer to 30%.
-By the way, this was also with a completely empty ruleset.
+If you configure another device with the same MAC address and connect it
+to the first CPSW slave port and send some traffic the ALE table entry
+becomes:
 
-Maybe there's a way to get reasonable performance by optimizing NF_HOOK,
-however I'd like to remind you guys that if we have to fetch some
-netfilter/nftables/ebtables data structures and run part of the table
-processing code on a system where no rules are present (or ebtables
-functionality is otherwise not needed for a particular bridge), then
-performance is going to suck - at least on most small scale embedded
-devices.
+04 00 00 00 59 90 02 30 e9 43 8f af
+(VLAN Addr vlan_id=2 unicast type=0 port_num=1 addr=90:59:af:8f:43:e9)
 
-Based on that, I support the general approach taken by this patch, at
-least until somebody has shown that a better approach is feasible.
+>From this point forward all incoming traffic addressed to
+90:59:af:8f:43:e9 will be dropped.
 
-- Felix
+Setting the SECURE bit for the VLAN/Unicast address table entry for each
+interface's MAC address corrects the problem.
+
+Signed-off-by: George McCollister <george.mccollister@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 7d8dd0d..49b0336 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1103,7 +1103,7 @@ static inline void cpsw_add_dual_emac_def_ale_entries(
+ 	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+ 			   port_mask, ALE_VLAN, slave->port_vlan, 0);
+ 	cpsw_ale_add_ucast(priv->ale, priv->mac_addr,
+-		priv->host_port, ALE_VLAN, slave->port_vlan);
++		priv->host_port, ALE_VLAN | ALE_SECURE, slave->port_vlan);
+ }
+ 
+ static void soft_reset_slave(struct cpsw_slave *slave)
+-- 
+2.2.2
