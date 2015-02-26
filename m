@@ -1,112 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 93861] New: Problem in source route of interfaces
-Date: Wed, 25 Feb 2015 16:27:00 -0800
-Message-ID: <20150225162700.671e558e@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH] ibmveth: Add function to enable live MAC address changes
+Date: Wed, 25 Feb 2015 18:34:24 -0600
+Message-ID: <1424910864-32266-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: linuxppc-dev@lists.ozlabs.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:50351 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752748AbbBZA1A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 19:27:00 -0500
-Received: by mail-ig0-f177.google.com with SMTP id z20so10529787igj.4
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 16:26:59 -0800 (PST)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id m5sm174712ige.5.2015.02.25.16.26.59
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 25 Feb 2015 16:26:59 -0800 (PST)
+Received: from e31.co.us.ibm.com ([32.97.110.149]:40414 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752868AbbBZAf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 19:35:26 -0500
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Wed, 25 Feb 2015 17:35:25 -0700
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 9A39819D803F
+	for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 17:26:31 -0700 (MST)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t1Q0ZFhZ36110366
+	for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 17:35:23 -0700
+Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t1Q0YonR022317
+	for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 17:34:50 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add a function that will enable changing the MAC address
+of an ibmveth interface while it is still running.
 
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmveth.c | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
 
-Begin forwarded message:
-
-Date: Wed, 25 Feb 2015 14:54:29 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 93861] New: Problem in source route of interfaces
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=93861
-
-            Bug ID: 93861
-           Summary: Problem in source route of interfaces
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.10.0
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: kidboy@brturbo.com.br
-        Regression: No
-
-I have 2 internet links, where do a test to assess the connection applying a
-ping on each output interface and getting the result, in version 2.6.XX i can
-ping and route source works fine, but in kernel 3.X.XX its not work anymore, i
-dont know why.
-
-My configuration is here:
-
-/etc/sysconfig/network-scripts/ifcfg-eth0
-TYPE="Ethernet"
-BOOTPROTO="static"
-IPV4_FAILURE_FATAL="no"
-NAME="eth0"
-UUID="68ec71ab-62f4-41fc-9ad8-085bb3b78eae"
-ONBOOT="yes"
-HWADDR="10:FE:ED:07:B3:38"
-IPADDR="192.168.25.2"
-GATEWAY="192.168.25.1"
-PREFIX="24"
-NM_CONTROLLED="no"
-
-/etc/sysconfig/network-scripts/ifcfg-eth1
-TYPE="Ethernet"
-BOOTPROTO="static"
-IPV4_FAILURE_FATAL="no"
-NAME="eth1"
-UUID="6ddee48f-3296-4158-86e6-d4104593d942"
-ONBOOT="yes"
-HWADDR="50:E5:49:FB:AF:0D"
-IPADDR="192.168.26.2"
-GATEWAY="192.168.26.1"
-PREFIX="24"
-NM_CONTROLLED="no"
-
-# /etc/rc.d/rc.local ( Permission is 755 in file )
-ip route add 192.168.25.0 dev eth0 src 192.168.25.2 table 1
-ip route add default via 192.168.25.1 table 1
-
-# Rules for out ADSL1
-ip route add 192.168.26.0 dev eth1 src 192.168.26.2 table 2
-ip route add default via 192.168.26.1 table 2
-# Rules for out ADSL2
-ip route add 192.168.25.0 dev eth0 src 192.168.25.2
-ip route add 192.168.26.0 dev eth1 src 192.168.26.2
-# Rule for tables
-ip rule add from 192.168.25.0 table 1
-ip rule add from 192.168.26.0 table 2
-ip rule add fwmark 1 lookup 1
-ip rule add fwmark 2 lookup 2
-ip route flush cached
-
-
-So if i use command 'ping -I192.168.25.2 8.8.8.8' its work fine because its the
-default route of system, but if i use command 'ping -I192.168.26.2 8.8.8.8' its
-not work, in tcpdump report its out using lo interface. In kernel 2.6 the
-output of tcpdump is the interface 192.168.26.2 and works fine. I dont know
-what change for new kernel or if its a bug. The forwarding is enable,
-configuration in kernel 2.6 and 3.x is the same.
-
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 21978cc..6e44357 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1327,6 +1327,24 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
+ 	return ret;
+ }
+ 
++static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
++{
++	struct ibmveth_adapter *adapter = netdev_priv(dev);
++	struct sockaddr *addr = p;
++	u64 mac_address;
++	int rc;
++
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	ether_addr_copy(dev->dev_addr, addr->sa_data);
++
++	mac_address = ibmveth_encode_mac_addr(dev->dev_addr);
++	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
++
++	return rc;
++}
++
+ static const struct net_device_ops ibmveth_netdev_ops = {
+ 	.ndo_open		= ibmveth_open,
+ 	.ndo_stop		= ibmveth_close,
+@@ -1337,7 +1355,7 @@ static const struct net_device_ops ibmveth_netdev_ops = {
+ 	.ndo_fix_features	= ibmveth_fix_features,
+ 	.ndo_set_features	= ibmveth_set_features,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_set_mac_address    = ibmveth_set_mac_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ibmveth_poll_controller,
+ #endif
 -- 
-You are receiving this mail because:
-You are the assignee for the bug.
+1.9.3
