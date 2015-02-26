@@ -1,49 +1,80 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Thu, 26 Feb 2015 14:18:20 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAEEB34@AcuExch.aculab.com>
-References: <cover.1424877322.git.daniel@iogearbox.net>
-	 <cd3e70163920753c7f1a492e6df253cff9b1b080.1424877322.git.daniel@iogearbox.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CAED36D@AcuExch.aculab.com>
-	 <54EDEE55.8050605@iogearbox.net>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CAED3A1@AcuExch.aculab.com>
-	 <54EDF4DD.1060709@iogearbox.net>
- <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx switches
+Date: Thu, 26 Feb 2015 06:19:27 -0800
+Message-ID: <CAE4R7bBspZn3Mt2-KGeBBCfkxOQAmFFoOZJAnTKJBNPkS9P2Lg@mail.gmail.com>
+References: <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
+	<54ED017E.6000902@gmail.com>
+	<20150225001534.GB15633@lunn.ch>
+	<54ED19AB.7020003@gmail.com>
+	<CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
+	<20150225140356.GB17992@lunn.ch>
+	<20150225154607.GD1332@gospo.home.greyhouse.net>
+	<CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
+	<20150226042158.GF1332@gospo.home.greyhouse.net>
+	<20150226064755.GA2074@nanopsycho.orion>
+	<20150226141319.GA7971@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>,
+	"Rafa?? Mi??ecki" <zajec5@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.183]:63148 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932150AbbBZOT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:19:29 -0500
-In-Reply-To: <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:33553 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932124AbbBZOT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:19:28 -0500
+Received: by qcxm20 with SMTP id m20so8559375qcx.0
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:19:27 -0800 (PST)
+In-Reply-To: <20150226141319.GA7971@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAxKSBBdXRvbWF0aWMgc2hyaW5raW5nIGlzIGEgbm9uIGlzc3VlLiBUaGlzIHdpbGwgZnJlZSB2
-ZXJ5IGxpdHRsZQ0KPiBtZW1vcnksIGNvbXBhcmVkIHRvIHByZXZpb3VzIHBlYWsgdXNhZ2UgKGlu
-Y2x1ZGluZyBvYmplY3RzIHB1dCBpbg0KPiByaGFzaHRhYmxlKS4gSWYgaGFzaCBncm93biB0byBh
-IGNlcnRhaW4gcG9pbnQsIGl0J3MgbGlrZWx5IGl0IHdpbGwgZ3Jvdw0KPiBhZ2FpbiBsYXRlci4N
-Cg0KU2hyaW5rIGNvdWxkIGJlIGRvbmUgJ29uIGRlbWFuZCcgZnJvbSB0aGUgJ3VzZXInIHdoZW4g
-dGhlIG51bWJlciBvZg0KZWxlbWVudHMgaXMga25vd24gdG8gaGF2ZSBzaWduaWZpY2FudGx5IHJl
-ZHVjZWQuDQoNCj4gMikgR3Jvd2luZyBjYW4gYmUgdHJpZ2dlcmVkIHdoZW4gYW55IGJ1Y2tldCBo
-YXMgbW9yZSB0aGFuIFggZWxlbXMsIGFuZA0KPiB0aGF0IGlzIGdpdmVuIGZvciBmcmVlIGF0IGlu
-c2VydCB0aW1lLg0KPiBYIGNvdWxkIGJlIGxvZzIoYnVja2V0cykvMiBJIGd1ZXNzLiAoYWthIHNo
-aWZ0LzIpDQoNCklmIGdyb3dpbmcgaXMgdHJpZ2dlcmVkIHdoZW4gYSBidWNrZXQgaGFzIG1vcmUg
-dGhhbiBYIGVsZW1zLCB0aGVuIHNldHRpbmcNClggdmVyeSBoaWdoIHdpbGwgc3RvcCBhdXRvbWF0
-aWMgZ3Jvd2luZy4NCkdyb3dpbmcgd291bGQgdGhlbiBvbmx5IGJlIGRvbmUgaW4gcmVzcG9uc2Ug
-dG8gdXNlciByZXF1ZXN0cy4NCg0KV2hldGhlciBYIHNob3VsZCBiZSBjb25zdGFudCwgb3IgbG9n
-MihidWNrZXRzKS9uIGlzIGFub3RoZXIgbWF0dGVyLg0KT3Igc29tZXRoaW5nIGxpa2UgTjEgKyAo
-TjIgKiBsb2cyKGJ1Y2tldHMpKS82NCBpbiBhbnkgY2FzZSBpdA0Kb25seSBuZWVkcyByZWNhbGN1
-bGF0aW5nIGFmdGVyIGFuIGF1dG8tZ3Jvdy4NCg0KCURhdmlkDQoNCg==
+On Thu, Feb 26, 2015 at 6:13 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Thu, Feb 26, 2015 at 07:47:55AM +0100, Jiri Pirko wrote:
+>> Thu, Feb 26, 2015 at 05:21:58AM CET, gospo@cumulusnetworks.com wrote:
+>> >On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
+>> >> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
+>> >> <gospo@cumulusnetworks.com> wrote:
+>> >> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
+>> >> > [...]
+>> >> >>
+>> >> >> What we don't want is X chip families and Y different ways to
+>> >> >> configure the features. Ideal we want X chip families, and one way to
+>> >> >> configure them all.
+>> >> >
+>> >> > This statement is really my primary concern.  There is lots of interest
+>> >> > around hardware offload at this point and it seems like there is a risk
+>> >> > that a lack of consistency can create problems.
+>> >> >
+>> >> > I think these patches are great as they allow for the programming of the
+>> >> > offload hardware (and it has been pointed out that this drastically
+>> >> > increases performance), but one concern I have with this patch (related
+>> >> > to this) is that I'm not sure there is a major need to create netdevs
+>> >> > automatically if there is not the ability to rx/tx actual frames on
+>> >> > these interfaces.
+>> >>
+>> >> Even when not used for rx/tx to CPU, it seems the netdevs are still
+>> >> useful as an anchor to build higher-level constructs such as bridge or
+>> >> bond, and to hang stuff like netdev stats or ethtool-ish things.
+>> >>
+>> >
+>> >I agree that they are useful, but now we are really dealing with a
+>> >netdev that is slightly lower functionality than we expect from a netdev
+>> >right now.
+>>
+>> Is that a real care for some device now?
+> I guess that depends on how users expect to use it.  :)
+>
+>> I agree with Scott that we need to model is consistently. If there is
+>> such port netdev witch cannot tx/rx, we can expose the fact using some
+>> flag...
+> Using a flag to expose/mark this was exactly my thought.
+
+Missing .ndo_start_xmit is the clue....do we need more?
