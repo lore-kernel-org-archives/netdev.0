@@ -1,75 +1,34 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Thu, 26 Feb 2015 07:47:55 +0100
-Message-ID: <20150226064755.GA2074@nanopsycho.orion>
-References: <20150224223039.GC1332@gospo.home.greyhouse.net>
- <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
- <54ED017E.6000902@gmail.com>
- <20150225001534.GB15633@lunn.ch>
- <54ED19AB.7020003@gmail.com>
- <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
- <20150225140356.GB17992@lunn.ch>
- <20150225154607.GD1332@gospo.home.greyhouse.net>
- <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
- <20150226042158.GF1332@gospo.home.greyhouse.net>
+Subject: Re: [PATCH net-next 1/3] rocker: fix non-portable err return codes
+Date: Thu, 26 Feb 2015 07:50:48 +0100
+Message-ID: <20150226065048.GB2074@nanopsycho.orion>
+References: <1424924138-15928-1-git-send-email-sfeldma@gmail.com>
+ <1424924138-15928-2-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
-	Rafa?? Mi??ecki <zajec5@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:42935 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273AbbBZGr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 01:47:59 -0500
-Received: by wghl2 with SMTP id l2so8091596wgh.9
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 22:47:58 -0800 (PST)
+Received: from mail-we0-f172.google.com ([74.125.82.172]:47086 "EHLO
+	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752884AbbBZGuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 01:50:51 -0500
+Received: by wevm14 with SMTP id m14so8013808wev.13
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 22:50:50 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20150226042158.GF1332@gospo.home.greyhouse.net>
+In-Reply-To: <1424924138-15928-2-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 26, 2015 at 05:21:58AM CET, gospo@cumulusnetworks.com wrote:
->On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
->> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
->> <gospo@cumulusnetworks.com> wrote:
->> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
->> > [...]
->> >>
->> >> What we don't want is X chip families and Y different ways to
->> >> configure the features. Ideal we want X chip families, and one way to
->> >> configure them all.
->> >
->> > This statement is really my primary concern.  There is lots of interest
->> > around hardware offload at this point and it seems like there is a risk
->> > that a lack of consistency can create problems.
->> >
->> > I think these patches are great as they allow for the programming of the
->> > offload hardware (and it has been pointed out that this drastically
->> > increases performance), but one concern I have with this patch (related
->> > to this) is that I'm not sure there is a major need to create netdevs
->> > automatically if there is not the ability to rx/tx actual frames on
->> > these interfaces.
->> 
->> Even when not used for rx/tx to CPU, it seems the netdevs are still
->> useful as an anchor to build higher-level constructs such as bridge or
->> bond, and to hang stuff like netdev stats or ethtool-ish things.
->> 
+Thu, Feb 26, 2015 at 05:15:36AM CET, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
 >
->I agree that they are useful, but now we are really dealing with a
->netdev that is slightly lower functionality than we expect from a netdev
->right now.
-
-Is that a real care for some device now?
-I agree with Scott that we need to model is consistently. If there is
-such port netdev witch cannot tx/rx, we can expose the fact using some
-flag...
-
+>The rocker device returns error codes if something goes wrong with descriptor
+>processing.  Originally the device used standard errno codes for different
+>errors, but since those errno codes aren't portable across ARCHs, the device
+>now returns hard-coded error codes that stay constant across diff ARCHs.  Fix
+>driver to use those same hard-coded values.
 >
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+
+Acked-by: Jiri Pirko <jiri@resnulli.us>
