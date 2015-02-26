@@ -1,64 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 02/13] i40e: fix shift precedence issue
-Date: Thu, 26 Feb 2015 07:03:38 -0800
-Message-ID: <1424963029-4612-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 06/13] i40e: Fix the case where per TC queue count was higher than queues enabled
+Date: Thu, 26 Feb 2015 07:03:42 -0800
+Message-ID: <1424963029-4612-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Anjali Singhai <anjali.singhai@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53299 "EHLO mga09.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:40565 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753725AbbBZPEA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 10:04:00 -0500
+	id S1753684AbbBZPD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2015 10:03:56 -0500
 In-Reply-To: <1424963029-4612-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai <anjali.singhai@intel.com>
 
-Add parens to make sure the shift and bitwise precedences don't work backwards
-for us.
+When the driver or hardware gets less interrupt vectors than the actual
+number of CPU cores, limit the queue count for the priority queue
+traffic class (TC) queues.
 
-Change-ID: I60c10ef4fad6bc654522b9d8a53da2e270a0f268
-Reported-by: Joe Perches <joe@perches.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
+This will fix a warning with multiple function mode where systems
+regularly have more cores than vectors.
+
+Also add extra comment for readability.
+
+Change-ID: I4f02226263aa3995e1f5ee5503eac0cd6ee12fbd
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Jim Young  <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 5 +++--
- drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c | 2 +-
- 2 files changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 11a9ffe..2a705a1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -868,8 +868,9 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 	 * The grst delay value is in 100ms units, and we'll wait a
- 	 * couple counts longer to be sure we don't just miss the end.
- 	 */
--	grst_del = rd32(hw, I40E_GLGEN_RSTCTL) & I40E_GLGEN_RSTCTL_GRSTDEL_MASK
--			>> I40E_GLGEN_RSTCTL_GRSTDEL_SHIFT;
-+	grst_del = (rd32(hw, I40E_GLGEN_RSTCTL) &
-+		    I40E_GLGEN_RSTCTL_GRSTDEL_MASK) >>
-+		    I40E_GLGEN_RSTCTL_GRSTDEL_SHIFT;
- 	for (cnt = 0; cnt < grst_del + 2; cnt++) {
- 		reg = rd32(hw, I40E_GLGEN_RSTAT);
- 		if (!(reg & I40E_GLGEN_RSTAT_DEVSTATE_MASK))
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c b/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-index 183dcb6..a11c70c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-@@ -40,7 +40,7 @@ static void i40e_get_pfc_delay(struct i40e_hw *hw, u16 *delay)
- 	u32 val;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 6bb6376..a926e3b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1512,7 +1512,12 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	vsi->tc_config.numtc = numtc;
+ 	vsi->tc_config.enabled_tc = enabled_tc ? enabled_tc : 1;
+ 	/* Number of queues per enabled TC */
+-	num_tc_qps = vsi->alloc_queue_pairs/numtc;
++	/* In MFP case we can have a much lower count of MSIx
++	 * vectors available and so we need to lower the used
++	 * q count.
++	 */
++	qcount = min_t(int, vsi->alloc_queue_pairs, pf->num_lan_msix);
++	num_tc_qps = qcount / numtc;
+ 	num_tc_qps = min_t(int, num_tc_qps, I40E_MAX_QUEUES_PER_TC);
  
- 	val = rd32(hw, I40E_PRTDCB_GENC);
--	*delay = (u16)(val & I40E_PRTDCB_GENC_PFCLDA_MASK >>
-+	*delay = (u16)((val & I40E_PRTDCB_GENC_PFCLDA_MASK) >>
- 		       I40E_PRTDCB_GENC_PFCLDA_SHIFT);
- }
- 
+ 	/* Setup queue offset/count for all TCs for given VSI */
 -- 
 1.9.3
