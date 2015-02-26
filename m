@@ -1,48 +1,51 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [patch 1/2] mm: remove GFP_THISNODE
-Date: Wed, 25 Feb 2015 17:04:56 -0800 (PST)
-Message-ID: <alpine.DEB.2.10.1502251701340.12985@chino.kir.corp.google.com>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.11.1502251855330.14795@gentwo.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] bridge: Show state names in the 'link help'
+ print
+Date: Wed, 25 Feb 2015 17:09:50 -0800
+Message-ID: <20150225170950.06b81a78@urahara>
+References: <1424908593-4524-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-    Vlastimil Babka <vbabka@suse.cz>, Pekka Enberg <penberg@kernel.org>,
-    Joonsoo Kim <iamjoonsoo.kim@lge.com>, Johannes Weiner <hannes@cmpxchg.org>,
-    Mel Gorman <mgorman@suse.de>, Pravin Shelar <pshelar@nicira.com>,
-    Jarno Rajahalme <jrajahalme@nicira.com>, Greg Thelen <gthelen@google.com>,
-    linux-kernel@vger.kernel.org, linux-mm@kvack.org, netdev@vger.kernel.org,
-    dev@openvswitch.org
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.11.1502251855330.14795@gentwo.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:32898 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752450AbbBZBJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 20:09:48 -0500
+Received: by iecar1 with SMTP id ar1so10102087iec.0
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 17:09:47 -0800 (PST)
+In-Reply-To: <1424908593-4524-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Feb 2015, Christoph Lameter wrote:
+On Thu, 26 Feb 2015 01:56:33 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> On Wed, 25 Feb 2015, David Rientjes wrote:
+> From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> > NOTE: this is not about __GFP_THISNODE, this is only about GFP_THISNODE.
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+>  bridge/link.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 > 
-> Well but then its not removing it. You are replacing it with an inline
-> function.
-> 
+> diff --git a/bridge/link.c b/bridge/link.c
+> index a7bd85f..7f1ec70 100644
+> --- a/bridge/link.c
+> +++ b/bridge/link.c
+> @@ -228,6 +228,12 @@ static void usage(void)
+>  	fprintf(stderr,	"                               [ flood {on | off} ]\n");
+>  	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
+>  	fprintf(stderr, "       bridge link show [dev DEV]\n");
+> +	fprintf(stderr, "\n");
+> +	fprintf(stderr, "STATE := { 0 | disabled   |\n");
+> +	fprintf(stderr, "           1 | listening  |\n");
+> +	fprintf(stderr, "           2 | learning   |\n");
+> +	fprintf(stderr, "           3 | forwarding |\n");
+> +	fprintf(stderr, "           4 | blocking }\n");
+>  	exit(-1);
+>  }
+>  
 
-Removing GFP_THISNODE, not __GFP_THISNODE.  GFP_THISNODE, as the commit 
-message says, is a special collection of flags that means "never try 
-reclaim" and people confuse it for __GFP_THISNODE.
-
-There are legitimate usecases where we want __GFP_THISNODE, in other words 
-restricting the allocation to only a specific node, and try reclaim but 
-not warn in failure or retry.  The most notable example is in the followup 
-patch for thp, both for page faults and khugepaged, where we want to 
-target the local node but silently fallback to small pages instead.
-
-This removes the special "no reclaim" behavior of __GFP_THISNODE | 
-__GFP_NORETRY | __GFP_NOWARN and relies on clearing __GFP_WAIT instead.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+that is too wordy for help. put it in docs if needed.
