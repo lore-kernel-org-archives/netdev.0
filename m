@@ -1,47 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: fix link notification skb size
- calculation to include vlan ranges
-Date: Thu, 26 Feb 2015 11:26:06 -0500 (EST)
-Message-ID: <20150226.112606.1708529369110032286.davem@davemloft.net>
-References: <1424937340-22115-1-git-send-email-roopa@cumulusnetworks.com>
+From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+Subject: Re: [PATCH V2] Fix misspelling of defrag in ip-l2tp.8
+Date: Thu, 26 Feb 2015 11:28:45 -0500
+Message-ID: <20150226162845.GG25508@csclub.uwaterloo.ca>
+References: <20150225185942.GA22050@csclub.uwaterloo.ca>
+ <20150225224359.GA13975@hudson.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	vyasevic@redhat.com, sfeldma@gmail.com, wkok@cumulusnetworks.com,
-	siva.mannem.lnx@gmail.com
-To: roopa@cumulusnetworks.com
+Content-Type: text/plain; charset=us-ascii
+To: Jeremiah Mahler <jmmahler@gmail.com>, netdev@vger.kernel.org,
+	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40908 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825AbbBZQ0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 11:26:08 -0500
-In-Reply-To: <1424937340-22115-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail.csclub.uwaterloo.ca ([129.97.134.52]:50887 "EHLO
+	mail.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752549AbbBZQ2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 11:28:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20150225224359.GA13975@hudson.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roopa@cumulusnetworks.com
-Date: Wed, 25 Feb 2015 23:55:40 -0800
+On Wed, Feb 25, 2015 at 02:43:59PM -0800, Jeremiah Mahler wrote:
+> Lennart,
+> 
+> On Wed, Feb 25, 2015 at 01:59:42PM -0500, Lennart Sorensen wrote:
+> > Somehow defrag was spelled degrag everywhere it occoured in the ip-l2tp
+>                                                   ^^^^^^^^
+> Your patch to fix spelling errors has a spelling error in the log
+> message ;-)
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> my previous patch skipped vlan range optimizations during skb size
-> calculations for simplicity.
-> 
-> This incremental patch considers vlan ranges during
-> skb size calculations. This leads to a bit of code duplication
-> in the fill and size calculation functions. But, I could not find a
-> prettier way to do this. will take any suggestions.
-> 
-> Previously, I had reused the existing br_get_link_af_size size calculation
-> function to calculate skb size for notifications. Reusing it this time
-> around creates some change in behaviour issues for the usual
-> .get_link_af_size callback.
-> 
-> This patch adds a new br_get_link_af_size_filtered() function to
-> base the size calculation on the incoming filter flag and include
-> vlan ranges.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+I knew I should have run a spell check on it.  At least I got rid of
+the spelling problems in the man page.
 
-Applied, thanks for following up on this.
+-- 
+Len Sorensen
