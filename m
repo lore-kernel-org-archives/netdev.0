@@ -1,17 +1,17 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH iproute2] bridge link: add command option 'master'
-Date: Thu, 26 Feb 2015 00:06:53 -0800
-Message-ID: <1424938013-8513-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 v2] bridge link: add support to specify master
+Date: Thu, 26 Feb 2015 00:12:59 -0800
+Message-ID: <1424938379-10716-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: davem@davemloft.net, sfeldma@gmail.com
 To: netdev@vger.kernel.org, stephen@networkplumber.org,
 	vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:43292 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706AbbBZIG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 03:06:58 -0500
-Received: by paceu11 with SMTP id eu11so12058440pac.10
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 00:06:57 -0800 (PST)
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:42573 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753212AbbBZINF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 03:13:05 -0500
+Received: by pdbfp1 with SMTP id fp1so11281426pdb.9
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 00:13:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,7 +21,10 @@ This patch adds support to specify 'master' keyword,
 to target a bridge link command explicitly to the software
 bridge driver.
 
-also, adds self/master keywords to usage and man page
+Adds self/master keywords to usage and man page
+
+v2:
+	fix usage to say (self and master) and not (self or master)
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
@@ -30,14 +33,14 @@ Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
  2 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/bridge/link.c b/bridge/link.c
-index c8555f8..8a76e11 100644
+index c8555f8..33dbca4 100644
 --- a/bridge/link.c
 +++ b/bridge/link.c
 @@ -227,6 +227,7 @@ static void usage(void)
  	fprintf(stderr,	"                               [ learning_sync {on | off} ]\n");
  	fprintf(stderr,	"                               [ flood {on | off} ]\n");
  	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
-+	fprintf(stderr, "                               [ self | master ]\n");
++	fprintf(stderr, "                               [ self ] [ master ]\n");
  	fprintf(stderr, "       bridge link show [dev DEV]\n");
  	exit(-1);
  }
