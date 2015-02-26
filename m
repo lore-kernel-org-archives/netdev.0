@@ -1,54 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/7] net: rxrpc: change call to
- sock_recv_ts_and_drops() on rxrpc recvmsg to sock_recv_timestamp()
-Date: Thu, 26 Feb 2015 06:31:06 -0800
-Message-ID: <1424961066.5565.151.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
-	 <1424916612-744-4-git-send-email-eyal.birger@gmail.com>
-	 <1424925652.5565.145.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHsH6Gup09dtVZEi-vmp5ep_rs1ELueDudMJy1084e5vDbqJ0Q@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/6] rhashtable: Use a single bucket lock for sibling
+ buckets
+Date: Thu, 26 Feb 2015 14:38:47 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAEEBB8@AcuExch.aculab.com>
+References: <cover.1423097592.git.tgraf@suug.ch>
+ <e99f9e9f3b8b2617698d88c1f2d42a1cf1414065.1423097592.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eyal Birger <eyal.birger@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>
+To: 'Thomas Graf' <tgraf@suug.ch>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:45044 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932447AbbBZObJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:31:09 -0500
-Received: by pdbnh10 with SMTP id nh10so13300122pdb.11
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:31:08 -0800 (PST)
-In-Reply-To: <CAHsH6Gup09dtVZEi-vmp5ep_rs1ELueDudMJy1084e5vDbqJ0Q@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.183]:56618 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932076AbbBZOjw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:39:52 -0500
+In-Reply-To: <e99f9e9f3b8b2617698d88c1f2d42a1cf1414065.1423097592.git.tgraf@suug.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-26 at 09:30 +0200, Eyal Birger wrote:
+From: Thomas Graf
+> Sent: 05 February 2015 01:04
+> rhashtable currently allows to use a bucket lock per bucket. This
+> requires multiple levels of complicated nested locking because when
+> resizing, a single bucket of the smaller table will map to two
+> buckets in the larger table. So far rhashtable has explicitly locked
+> both buckets in the larger table.
 
-> Maybe I didn't understand your comment. Note this patch does not fix
-> SO_RXQ_OVFL on rxrpc sockets.
-> 
-> I essentially reverted 3b885787ea4112 for these sockets.
-> 
-> It may be possible to compact rxrpc skb->cb[] usage by tricking the size
-> of the resend_at variable as you suggested.
-> 
-> However, since SO_RXQ_OVFL never really worked on these sockets,
-> I limited the patch series scope to moving skb->dropcount; This patch only
-> signals that rxrpc can't support this feature unless some space is freed in its
-> skb->cb[] use.
-> --
+> By excluding the highest bit of the hash from the bucket lock map and
+> thus only allowing locks to buckets in a ratio of 1:2, the locking
 
-My point is : If you stick this patch early in the serie, then skb->mark
-will be overwritten by sock_recv_timestamp() (to store skb->dropcount)
-and rxrpc breaks as it actively relies on skb->mark (apparently)
+Surely you mean 1:2^n ??
 
-We dont care if SO_RXQ_OVFL is broken for rxprpc : Nobody noticed yet.
+> can be simplified a lot without losing the benefits of multiple locks.
+> Larger tables which benefit from multiple locks will not have a single
+> lock per bucket anyway.
 
-But breaking rxrpc skb->mark early in the serie does not help bisection
-if needed later.
+I'd presume that for a very large table the number of locks required
+is related to the number of cpus rather than the table size itself.
+Once the hash chains are short the lock is less likely to be contended
+anyway. My brain can't think through the cache implications though.
+
+This makes me think that you never really need to increase the number
+of locks (which is probably quite tricky), and definitely don't need
+to reduce the number of locks (probably harder).
+This would mean that the table can't get smaller than the number of locks.
+This in itself isn't really an issue.
+
+	David
