@@ -1,74 +1,66 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Kernel Panic with vti Interfaces
-Date: Thu, 26 Feb 2015 12:40:53 +0100
-Message-ID: <20150226114052.GB20631@secunet.com>
-References: <54EC4C63.3050006@marcant.net>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH v3] net: macb: Add big endian CPU support
+Date: Thu, 26 Feb 2015 12:49:07 +0100
+Message-ID: <54EF0833.60600@monstr.eu>
+References: <54EEF9C6.8070701@monstr.eu> <1424948474-11872-1-git-send-email-achandran@mvista.com> <54EEFE50.9050002@atmel.com>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Andre Valentin <avalentin@marcant.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:57261 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753597AbbBZLk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 06:40:56 -0500
-Content-Disposition: inline
-In-Reply-To: <54EC4C63.3050006@marcant.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="DE6SgTB7VK0SLmLWRjO2oILm9xuQGpCRr"
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Arun Chandran <achandran@mvista.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54EEFE50.9050002@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ccing netdev.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--DE6SgTB7VK0SLmLWRjO2oILm9xuQGpCRr
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, Feb 24, 2015 at 11:03:15AM +0100, Andre Valentin wrote:
-> Hi!
-> 
-> I noticed kernel panics on my mips platform while using vti interfaces. After taking a deeper look,
-> it seems that if the SA changes or the WAN interface changes I get this error. I could find the
-> code where it crashes. But I'm not sure if my solution is right. Perhaps you could take a look.
-> 
+On 02/26/2015 12:06 PM, Nicolas Ferre wrote:
+> Le 26/02/2015 12:01, Arun Chandran a =E9crit :
+>> This patch converts all __raw_readl and __raw_writel function calls
+>> to their corresponding readl_relaxed and writel_relaxed variants.
+>>
+>> It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
+>> when the CPU is configured in big endian mode.
+>>
+>> Signed-off-by: Arun Chandran <achandran@mvista.com>
+>=20
+> It seems okay:
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Tested on Zynq zc702 on LE and BE.
+
+Tested-by: Michal Simek <michal.simek@xilinx.com>
+
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
 
 
-> From: =?utf8?q?Andr=C3=A9=20Valentin?= <avalentin@marcant.net>
-> Date: Tue, 24 Feb 2015 00:24:08 +0100
-> Subject: [PATCH] kernel: fix xfrm tunnel checks if vti parent SA/device is in transition
-> 
-> The outer_mode check results in the error if it is not checked for validity.
-> Because I do not know how to handle this situation, I decided to return
-> -EINVAL if outer_mode is null.
-> 
-> ---
->  .../618-net_fixup_xfrm_tunnel_check.patch          |   16 ++++++++++++++++
->  1 files changed, 16 insertions(+), 0 deletions(-)
->  create mode 100644 target/linux/generic/patches-3.18/618-net_fixup_xfrm_tunnel_check.patch
-> 
-> diff --git a/target/linux/generic/patches-3.18/618-net_fixup_xfrm_tunnel_check.patch b/target/linux/generic/patches-3.18/618-net_fixup_xfrm_tunnel_check.patch
-> new file mode 100644
-> index 0000000..f79b1f7
-> --- /dev/null
-> +++ b/target/linux/generic/patches-3.18/618-net_fixup_xfrm_tunnel_check.patch
-> @@ -0,0 +1,16 @@
-> +--- a/include/net/xfrm.h	2015-02-11 08:01:12.000000000 +0100
-> ++++ b/include/net/xfrm.h	2015-02-24 00:04:03.102709830 +0100
-> +@@ -1805,8 +1805,12 @@ static inline int xfrm_tunnel_check(stru
-> + 			tunnel = true;
-> + 		break;
-> + 	}
-> +-	if (tunnel && !(x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL))
-> ++	if (tunnel && !x->outer_mode) {
-> ++                printk(KERN_NOTICE "xfrm_tunnel_check: outer_mode is 0, returning -EINVAL\n");
-> + 		return -EINVAL;
 
-Returning -EINVAL here would just paper over the real bug.
+--DE6SgTB7VK0SLmLWRjO2oILm9xuQGpCRr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-We should never get a state without outer_mode from a lookup.
-Using such a state will lead to a crash anyway, even without
-using vti devices. Looks like you get an uninitialized state
-with the lookup. When a xfrm_state is initialized, the outer
-mode is added and after that inserted to the lookup tables.
-It should never loose the outer_mode pointer.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-I have never seen this, is the patch above the only locally
-applied patch?
+iEYEARECAAYFAlTvCDMACgkQykllyylKDCFLpwCeMDknOIk7YZuFHPML+ehM4Yek
+0wcAoISF4BqrDtipPk/vwE/sdzM3Kqyi
+=sa2D
+-----END PGP SIGNATURE-----
 
-Is this reproducible?
+--DE6SgTB7VK0SLmLWRjO2oILm9xuQGpCRr--
