@@ -1,66 +1,58 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Wed, 25 Feb 2015 23:21:58 -0500
-Message-ID: <20150226042158.GF1332@gospo.home.greyhouse.net>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
- <20150224223039.GC1332@gospo.home.greyhouse.net>
- <CACna6rwBUqebNpf9XC21+LxZtR7xLn6wM-KWuxHR=E0KT6MSdQ@mail.gmail.com>
- <54ED017E.6000902@gmail.com>
- <20150225001534.GB15633@lunn.ch>
- <54ED19AB.7020003@gmail.com>
- <CACna6rzMcVd7SJ6NTBrrWtXe1ZTgxF5tgVb08eaPxxwTxWU1cg@mail.gmail.com>
- <20150225140356.GB17992@lunn.ch>
- <20150225154607.GD1332@gospo.home.greyhouse.net>
- <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/7] net: rxrpc: change call to
+ sock_recv_ts_and_drops() on rxrpc recvmsg to sock_recv_timestamp()
+Date: Wed, 25 Feb 2015 20:40:52 -0800
+Message-ID: <1424925652.5565.145.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
+	 <1424916612-744-4-git-send-email-eyal.birger@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, Rafa?? Mi??ecki <zajec5@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, willemb@google.com, edumazet@google.com,
+	shmulik.ladkani@gmail.com, marcel@holtmann.org,
+	netdev@vger.kernel.org
+To: Eyal Birger <eyal.birger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:61898 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbbBZEWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 23:22:03 -0500
-Received: by mail-qa0-f53.google.com with SMTP id k15so6120619qaq.12
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 20:22:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bB0ZqjA+2C7EL7fe0o1fvzoNofMmZsbD6FK4_ZYKXdrhg@mail.gmail.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35917 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120AbbBZEky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 23:40:54 -0500
+Received: by ierx19 with SMTP id x19so11094880ier.3
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 20:40:53 -0800 (PST)
+In-Reply-To: <1424916612-744-4-git-send-email-eyal.birger@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 04:53:24PM -0800, Scott Feldman wrote:
-> On Wed, Feb 25, 2015 at 7:46 AM, Andy Gospodarek
-> <gospo@cumulusnetworks.com> wrote:
-> > On Wed, Feb 25, 2015 at 03:03:56PM +0100, Andrew Lunn wrote:
-> > [...]
-> >>
-> >> What we don't want is X chip families and Y different ways to
-> >> configure the features. Ideal we want X chip families, and one way to
-> >> configure them all.
-> >
-> > This statement is really my primary concern.  There is lots of interest
-> > around hardware offload at this point and it seems like there is a risk
-> > that a lack of consistency can create problems.
-> >
-> > I think these patches are great as they allow for the programming of the
-> > offload hardware (and it has been pointed out that this drastically
-> > increases performance), but one concern I have with this patch (related
-> > to this) is that I'm not sure there is a major need to create netdevs
-> > automatically if there is not the ability to rx/tx actual frames on
-> > these interfaces.
+On Thu, 2015-02-26 at 04:10 +0200, Eyal Birger wrote:
+> Commit 3b885787ea4112 ("net: Generalize socket rx gap / receive queue overflow cmsg")
+> allowed receiving packet dropcount information as a socket level option.
+> RXRPC sockets recvmsg function was changed to support this by calling
+> sock_recv_ts_and_drops() instead of sock_recv_timestamp().
 > 
-> Even when not used for rx/tx to CPU, it seems the netdevs are still
-> useful as an anchor to build higher-level constructs such as bridge or
-> bond, and to hang stuff like netdev stats or ethtool-ish things.
+> However, protocol families wishing to receive dropcount should call
+> sock_queue_rcv_skb() or set the dropcount specifically (as done
+> in packet_rcv()). This was not done for rxrpc and thus this feature
+> never worked on these sockets.
 > 
+> Formalizing this by not calling sock_recv_ts_and_drops() in rxrpc as
+> part of an effort to move skb->dropcount into skb->cb[]
+> 
+> Signed-off-by: Eyal Birger <eyal.birger@gmail.com>
+> ---
+>  net/rxrpc/ar-recvmsg.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/rxrpc/ar-recvmsg.c b/net/rxrpc/ar-recvmsg.c
+> index 4575485..d58ba70 100644
+> --- a/net/rxrpc/ar-recvmsg.c
+> +++ b/net/rxrpc/ar-recvmsg.c
+> @@ -150,7 +150,7 @@ int rxrpc_recvmsg(struct kiocb *iocb, struct socket *sock,
+>  				       &call->conn->trans->peer->srx, len);
+>  				msg->msg_namelen = len;
+>  			}
+> -			sock_recv_ts_and_drops(msg, &rx->sk, skb);
+> +			sock_recv_timestamp(msg, &rx->sk, skb);
+>  		}
 
-I agree that they are useful, but now we are really dealing with a
-netdev that is slightly lower functionality than we expect from a netdev
-right now.
+I guess this should be the last patch of the serie, as this will
+overwrite skb->mark, and rxrpc seems to care about skb->mark 
