@@ -1,106 +1,121 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 1/8] mpls: Refactor how the mpls module is built
-Date: Thu, 26 Feb 2015 11:28:29 +0900
-Message-ID: <20150226022829.GA27176@verge.net.au>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
- <87k2z5x6ch.fsf@x220.int.ebiederm.org>
- <20150226020504.GA935@verge.net.au>
- <87bnkhquy8.fsf@x220.int.ebiederm.org>
+From: Andrey Volkov <andrey.volkov@nexvision.fr>
+Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
+Date: Thu, 26 Feb 2015 02:18:11 +0100
+Message-ID: <54EE7453.5060602@nexvision.fr>
+References: <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch> <54EB37C7.3090209@roeck-us.net> <20150223160109.GB27057@lunn.ch> <54EB6BF5.2020600@gmail.com> <20150223183537.GA23456@roeck-us.net> <54EDD172.4010606@nexvision.fr> <54EDDB72.1090706@roeck-us.net> <54EDF2B8.8020200@nexvision.fr> <20150225174125.GB2400@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	jerome.oufella@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46604 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753526AbbBZC2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 21:28:33 -0500
-Content-Disposition: inline
-In-Reply-To: <87bnkhquy8.fsf@x220.int.ebiederm.org>
+Received: from 1.mo2.mail-out.ovh.net ([46.105.63.121]:44102 "EHLO
+	1.mo2.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753369AbbBZChO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Feb 2015 21:37:14 -0500
+Received: from mail99.ha.ovh.net (b6.ovh.net [213.186.33.56])
+	by mo2.mail-out.ovh.net (Postfix) with SMTP id 1CF1AFFB197
+	for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 02:18:15 +0100 (CET)
+In-Reply-To: <20150225174125.GB2400@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 25, 2015 at 08:15:43PM -0600, Eric W. Biederman wrote:
-> Simon Horman <horms@verge.net.au> writes:
-> 
-> > On Wed, Feb 25, 2015 at 11:13:02AM -0600, Eric W. Biederman wrote:
-> >> 
-> >> This refactoring is needed to allow more than just mpls gso support to
-> >> be built into the mpls moddule.
-> >> 
-> >> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> >> ---
-> >>  net/Makefile     |  2 +-
-> >>  net/mpls/Kconfig | 18 +++++++++++++++++-
-> >>  2 files changed, 18 insertions(+), 2 deletions(-)
-> >> 
-> >> diff --git a/net/Makefile b/net/Makefile
-> >> index 38704bdf941a..3995613e5510 100644
-> >> --- a/net/Makefile
-> >> +++ b/net/Makefile
-> >> @@ -69,7 +69,7 @@ obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
-> >>  obj-$(CONFIG_NFC)		+= nfc/
-> >>  obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
-> >>  obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
-> >> -obj-$(CONFIG_NET_MPLS_GSO)	+= mpls/
-> >> +obj-$(CONFIG_MPLS)		+= mpls/
-> >>  obj-$(CONFIG_HSR)		+= hsr/
-> >>  ifneq ($(CONFIG_NET_SWITCHDEV),)
-> >>  obj-y				+= switchdev/
-> >> diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
-> >> index 37421db88965..a77fbcdd04ee 100644
-> >> --- a/net/mpls/Kconfig
-> >> +++ b/net/mpls/Kconfig
-> >> @@ -1,9 +1,25 @@
-> >>  #
-> >>  # MPLS configuration
-> >>  #
-> >> +
-> >> +menuconfig MPLS
-> >> +	tristate "MultiProtocol Label Switching"
-> >> +	default n
-> >> +	---help---
-> >> +	  MultiProtocol Label Switching routes packets through logical
-> >> +	  circuits.  Originally conceved as a way of routing packets at
-> >> +	  hardware speeds (before hardware was capable of routing ipv4 packets),
-> >> +	  MPLS remains as simple way of making tunnels.
-> >> +
-> >> +	  If you have not heard of MPLS you probably want to say N here.
-> >> +
-> >> +if MPLS
-> >> +
-> >>  config NET_MPLS_GSO
-> >> -	tristate "MPLS: GSO support"
-> >> +	bool "MPLS: GSO support"
-> >>  	help
-> >>  	 This is helper module to allow segmentation of non-MPLS GSO packets
-> >>  	 that have had MPLS stack entries pushed onto them and thus
-> >>  	 become MPLS GSO packets.
-> >> +
-> >> +endif # MPLS
-> >
-> > Is the implication here that MPLS must be selected to allow NET_MPLS_GSO to
-> > be selected? That is if NET_MPLS_GSO is to be used to handle MPLS packets
-> > emitted by OVS then now MPLS also needs to be selected?
-> 
-> Yes.
-> 
-> That is the way we seem to handle this for other protocols and I could
-> not see an easy way to build multiple modules from a single Makefile.
-> 
-> I am a tad afraid that this Kconfig clause will cause problems with
-> make oldconfig as it stands, and I will be happy to take suggestions
-> on how to do this better.
-> 
-> The other MPLS bits that are added in the following patches are behind
-> their own Kconfig options so there is no danger in getting more MPLS
-> code than desired.
+Guenter,
 
-Thanks, that part seems reasonable to me.
+Le 25/02/2015 18:41, Guenter Roeck wrote :
+> Andrey,
+>
+> On Wed, Feb 25, 2015 at 05:05:12PM +0100, Andrey Volkov wrote:
+>>> Does removing a port from a fid clean up the entries associated with it
+>>> in the database ?
+>>>
+>> It doesn't, sorry that I didn't described it clearly: I've tried to point to that fact that
+>> changing FID will cause 2 things:
+>>   - learn/discard/... process for all following packets will begin from scratch (as it should be)
+>>   - we could start (potentially) slow database cleanup process in dedicated thread/work, and we may not
+>>     care about appearing of new ATU rules for the removed port, since packets now will be rejected
+>>     by port's logic.
+>>
+> Any idea what happens if a packet is received which has an fdb entry
+> pointing to port X, which was just removed from the bridge group ?
+I have some ideas (looks like it must be filtered out), but not sure,
+I will do some experiments tomorrow.
 
-I'm also unsure of a better way to handle this.
+>>>> seen any mutichip bridges/hardwared "trunks" support (in the Marvell's sense), did anyone, except me, use it?
+>>>>
+>>> Not me. That would be difficult to test without real hardware.
+>> Not a problem for me :), I've already monster switch containing three different types of Marvell's chips
+>> just before me on my table.
+>>
+> Lucky (or unlucky ;-) you.
+M-m-m, how about undocumented 'PPU enable' 14'th bit and other such
+gifts :D?
 
-Reviewed-by: Simon Horman <horms@verge.net.au>
+>>> The above suggests that you have a HW bridge implementation for Marvell chips as well.
+>>> Would it make sense to merge our implementations, or just use yours if it is better ?
+>> I've implemented same thing almost by same way, so for me it will be easer to rebase on top of your jobs,
+>> especially due to the fact that I've enforced to use very old kernel: proprietary binary blobs...
+>>
+> Can you by any chance share your code, and or do you plan
+> to submit it ?
+Yes, sure, I plan to start submitting it in the first half of the March.
+
+>
+> I'll have to look into multi-bridge implementations at some point
+> in the future, so that would help a lot.
+>
+>>>> Btw your current FID implementation contain funny security problem: same ports in the different chips,
+>>>> interconnected by DSA, will have same FID and as result they will treated as bridged together by
+>>>> internal switch logic...
+>>>>
+>>> You mean if multiple switch chips are used ? Those ports are configured to only send
+>>> data to the CPU port. Doesn't that take care of the problem ? Granted, I have not
+>>> looked into multi-chip applications, so there may well be some problems.
+>> My current project is to implement support of something like:
+>>
+>>         .----------.    .--------.
+>>         |  CPU1    |    |  CPU2  |
+>>   .DSA--o (master) |    |        |
+>>   |     '----------'    'o-------'
+>>   |                  .---'
+>>   | .-----.       .--o--.       .-----.
+>>   '-o SW1 o--DSA--o SW2 o==DSA==o SW3 |
+>>     '-----'       '-----'       '-----'
+>>       |             |              |
+>>     ports         ports          ports
+>>
+>> Where SW2 and SW3 are interconnected by "trunk", everything managed by CPU1,
+>> some ports of SW1-SW3 are bridged with CPU2, some with CPU1, and some bridged
+>> independently of CPUs. Also, as I told before, all SWs are from
+>> different chips families, so I'm using all, except 88e6060 and 6171, Marvell's drivers.
+>>
+> Sounds like a lot of fun, especially if/when both CPUs start messing
+> with switch configuration.
+Yeah, the toy is really interesting and powerful, and fortunately not so terrible:
+CPU2  connected like "normal" client, meanwhile mixture of trunk/bridge/normal ports
+connected through mixture of PHYs still "little bit" disturbing me :).
+
+>
+>>> Maybe
+>>> it is possible to merge a chip ID into the fid to solve it.
+>> Will not work IMHO, since to support interswitch bridges, some ports must have common id's,
+>> so we should have some enumeration management at level of the DSA tree.
+>> I've already implemented it as a free running counter, but implementation is wrong, terrible
+>> and must be redesigned by hlists or alike.
+>>
+> Maybe use ida to get a well defined id for each bridge group touched
+> by dsa ? This id could then be used by the driver to identify a bridge.
+Hmm, probably you are right, I need thinking about it little bit more.
+Just for any case: these shared ids must be unique not only for bridges,
+but for the Marvell's trunks (hidden from user space) and normal ports too.
+
+Florian, I suspect that Broadcom have same document's policy as Marvell,
+so you can not tell us too much, but is the trunk/multiswitch stuff will be
+interesting for your too?
+
+Andrey
