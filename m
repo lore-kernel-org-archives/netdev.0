@@ -1,84 +1,77 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 7/7] net: move skb->dropcount to skb->cb[]
-Date: Thu, 26 Feb 2015 10:49:09 +0200
-Message-ID: <20150226104909.1f2c882d@halley>
-References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
-	<1424916612-744-8-git-send-email-eyal.birger@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: What are the intended semantics of IFLA_LINK_NETNSID?
+Date: Thu, 26 Feb 2015 09:55:56 +0100
+Message-ID: <54EEDF9C.20302@6wind.com>
+References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>	<54EDF7BB.2060809@6wind.com> <871tldstju.fsf_-_@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, willemb@google.com, edumazet@google.com,
-	marcel@holtmann.org, netdev@vger.kernel.org
-To: Eyal Birger <eyal.birger@gmail.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eugene Yakubovich <eugene.yakubovich@coreos.com>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:38661 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753325AbbBZItT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 03:49:19 -0500
-Received: by wgha1 with SMTP id a1so8626166wgh.5
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 00:49:18 -0800 (PST)
-In-Reply-To: <1424916612-744-8-git-send-email-eyal.birger@gmail.com>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:37037 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752883AbbBZI4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 03:56:00 -0500
+Received: by wghk14 with SMTP id k14so8671588wgh.4
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 00:55:59 -0800 (PST)
+In-Reply-To: <871tldstju.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Feb 2015 04:10:12 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index d462f5e..8807586 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -2078,12 +2078,26 @@ static inline int sock_intr_errno(long timeo)
->  	return timeo == MAX_SCHEDULE_TIMEOUT ? -ERESTARTSYS : -EINTR;
->  }
->  
-> +struct sock_skb_cb {
-> +	u32 dropcount;
-> +};
-> +
-> +/* Store sock_skb_cb at the end of skb->cb[] so protocol families
-> + * using skb->cb[] would keep using it directly and utilize its
-> + * alignement guarantee.
-> + */
-> +#define SOCK_SKB_CB_OFFSET ((FIELD_SIZEOF(struct sk_buff, cb) - \
-> +			    sizeof(struct sock_skb_cb)))
-> +
-> +#define SOCK_SKB_CB(__skb) ((struct sock_skb_cb *)((__skb)->cb + \
-> +			    SOCK_SKB_CB_OFFSET))
-> +
->  #define sock_skb_cb_check_size(size) \
-> -	BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sk_buff, cb))
-> +	BUILD_BUG_ON((size) > SOCK_SKB_CB_OFFSET)
->  
+Le 25/02/2015 20:03, Eric W. Biederman a =C3=A9crit :
+>
+> Reading through the code of rtnl_newlink I am perplexed with what you=
+r
+> intended semantics of IFLA_LINK_NETNSID are supposed to be.
+>
+> My expectation was something with the same semantics IFLA_NET_NS_PID =
+and
+> IFLA_NET_NS_FD just a different data representation and something tha=
+t
+> could be used in more netlink messages, so you could report the netwo=
+rk
+> namespace where the other end of a tunnel or the the network namespac=
+e
+> of an underlying device is.
+>
+> Being very slow I would expect that ILFA_LINK_NETNSID would replace
+> dest_net or possibly net in rtnl_newlink but it does not replace eith=
+er
+> of those completely.  Which causes me to think that the implementatio=
+n
+> of IFLA_LINK_NETNSID in rtnl_newlink is broken.
+>
+> I suspect the correct fix for rtnl_newlink is to just use
+> IFLA_LINK_NETNSID in rtnl_link_get_net and have it be an alternative =
+way
+> of setting dest_net.  But you may intend some different semantics tha=
+t
+> I don't understand.
+ILFA_LINK_NETNSID is used to point to the i/o netns of the interface, i=
+e the
+opposite netns of dest_net.
+The interface is first created in link_net and moved at the end in dest=
+_net.
 
-You didn't take care of aligning the 'sock_skb_cb'.
-(Althogh in practive, dropcount is 4 and cb[] is 48 so you're golden).
+IP tunnels interfaces (ipip, sit, ip6_tunnels, gre[v6]) does not use sr=
+c_net,
+thus when you create an ipip interface by specifying an attribute
+IFLA_NET_NS_PID it will result to an interface which is not across two =
+netns but
+only in the netns pointed by IFLA_NET_NS_PID. If you use IFLA_LINK_NETN=
+SID, it
+allows you to create this kind of x-netns interfaces.
+In fact, the goal of this attribute is to replace the two following com=
+mand by
+only one:
+ip link add foo ...
+ip link set foo netns bar
+=3D> ip link add foo link-netnsid barID
 
-How about:
-
-struct sock_skb_cb {
-	/* protocol families specifc CBs */
-	u8 reserved[__SOCK_SKB_CB_OFFSET];
-	struct __sock_skb_cb x;			// name me better!
-};
-
-Where '__SOCK_SKB_CB_OFFSET' and '__sock_skb_cb' are as follows:
-
-struct __sock_skb_cb {	// name me better!
-	u32 dropcount;
-};
-
-#define __SOCK_SKB_CB_OFFSET_UNALIGNED \
-	(FIELD_SIZEOF(struct sk_buff, cb) - sizeof(struct __sock_skb_cb))
-
-#define __SOCK_SKB_CB_OFFSET \
-	(__SOCK_SKB_CB_OFFSET_UNALIGNED - \
-	 (__SOCK_SKB_CB_OFFSET_UNALIGNED % __alignof__(struct __sock_skb_cb)))
-
-This also takes care for alignement of '__sock_skb_cb x' within the CB.
-
-Then,
-
-#define sock_skb_cb_check_size(size) \
-	BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sock_skb_cb, reserved))
 
 Regards,
-Shmulik
+Nicolas
