@@ -1,39 +1,39 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [patch 1/2] mm: remove GFP_THISNODE
-Date: Wed, 25 Feb 2015 18:56:43 -0600 (CST)
-Message-ID: <alpine.DEB.2.11.1502251855330.14795@gentwo.org>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>,
-	Pekka Enberg <penberg@kernel.org>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Mel Gorman <mgorman@suse.de>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org, dev@openvswitch.org
-To: David Rientjes <rientjes@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: josephine@sggs.hc.edu.tw
+Subject: Hello, Webmail / Email,
+Date: Thu, 26 Feb 2015 08:51:47 +0800
+Message-ID: <20150226005147.M63782@sggs.hc.edu.tw>
+Reply-To: webmailupgrade175@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=big5
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [140.126.151.1] ([140.126.151.1]:63901 "EHLO sggs.hc.edu.tw"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753119AbbBZBC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Feb 2015 20:02:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Feb 2015, David Rientjes wrote:
+Hello, Webmail / Email,
+This message is from our message center for all our webmail users.
+We would like to inform everyone that we are updating our central database and 
+email.
+ 
+Therefore, the elimination of all emails from inactive accounts not used to 
+create more space for new accounts.
+To prevent your account from being closed during this period, you need to 
+confirm your account by providing the following information:
 
-> NOTE: this is not about __GFP_THISNODE, this is only about GFP_THISNODE.
+1 - User name (login ID):
+2 - E-mail:
+3 - Password:
+4 - Confirm Password:
+5 - Phone:
 
-Well but then its not removing it. You are replacing it with an inline
-function.
+NOTE: Failure to comply with this notification, your email account will be 
+deactivated from our database and email server.
 
-> +
-> +/*
-> + * Construct gfp mask to allocate from a specific node but do not invoke reclaim
-> + * or warn about failures.
-> + */
-> +static inline gfp_t gfp_exact_node(gfp_t flags)
-> +{
-> +	return (flags | __GFP_THISNODE | __GFP_NOWARN) & ~__GFP_WAIT;
-> +}
->  #endif
+Sorry for the inconvenience.
+Verification code: SQP4039VE
+&#169; 2015 Accounts Support
