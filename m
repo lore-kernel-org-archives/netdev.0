@@ -1,46 +1,54 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 06:22:52 -0500
-Message-ID: <20150226112252.GF9840@oracle.com>
-References: <20150226074214.GF2074@nanopsycho.orion>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/7] net: bluetooth: compact struct bt_skb_cb
+ by converting boolean fields to bit fields
+Date: Thu, 26 Feb 2015 11:31:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAEE8D0@AcuExch.aculab.com>
+References: <1424916612-744-1-git-send-email-eyal.birger@gmail.com>
+ <1424916612-744-3-git-send-email-eyal.birger@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
-	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
-	ogerlitz@mellanox.com, jesse@nicira.com, jpettit@nicira.com,
-	joestringer@nicira.com, john.r.fastabend@intel.com,
-	jhs@mojatatu.com, sfeldma@gmail.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	simon.horman@netronome.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks.com, bcrl@kvack.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "willemb@google.com" <willemb@google.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"shmulik.ladkani@gmail.com" <shmulik.ladkani@gmail.com>,
+	"marcel@holtmann.org" <marcel@holtmann.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eyal Birger' <eyal.birger@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:22720 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbbBZLXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 06:23:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20150226074214.GF2074@nanopsycho.orion>
+Received: from smtp-out4.electric.net ([192.162.216.182]:54699 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932100AbbBZLcE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 06:32:04 -0500
+In-Reply-To: <1424916612-744-3-git-send-email-eyal.birger@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (02/26/15 08:42), Jiri Pirko wrote:
-> 6) implement "named sockets" (working name) and implement TC support for that
->     -ingress qdisc attach, act_mirred target
-> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
+From: Eyal Birger
+> On 64 bit systems, struct bt_skb_cb size is padded by 6 bytes in order
+> to reach 8 byte alignment.
+> Convert boolean fields force_active, incoming and req_start to bit fields
+> in order to eliminate the padding.
+...
+> +++ b/include/net/bluetooth/bluetooth.h
+...
+>  struct bt_skb_cb {
+>  	__u8 pkt_type;
+> -	__u8 incoming;
+>  	__u16 opcode;
+>  	__u16 expect;
+> -	__u8 force_active;
+> -	bool req_start;
+> +	__u8 force_active:1;
+> +	__u8 incoming:1;
+> +	__u8 req_start:1;
+>  	u8 req_event;
+>  	hci_req_complete_t req_complete;
+>  	struct l2cap_chan *chan;
 
-Can you elaborate a bit on the above two?
+You've generated some pad bytes, best to put everything on its natural alignment.
+The old version had req_complete at offset 9, the new one at offset 8.
+Not sure how this removes 6 bytes of pad.
 
-FWIW I've been looking at the problem of RDS over TCP, which is
-an instance of layered sockets that tunnels the application payload
-in TCP. 
-
-RDS over IB provides QoS support using the features available in
-IB- to supply an analog of that for RDS-TCP, you'd need to plug
-into tc's CBQ support, and also provide hooks for packet (.1p, dscp)
-marking. 
-
-Perhaps there is some overlap to what you are thinking of in #6 and #7 
-above?
-
---Sowmini
+	David
