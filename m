@@ -1,54 +1,39 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/6] rhashtable: Use a single bucket lock for sibling
- buckets
-Date: Thu, 26 Feb 2015 14:38:47 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAEEBB8@AcuExch.aculab.com>
-References: <cover.1423097592.git.tgraf@suug.ch>
- <e99f9e9f3b8b2617698d88c1f2d42a1cf1414065.1423097592.git.tgraf@suug.ch>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: new link failing on duplicate names in different namespaces
+Date: Thu, 26 Feb 2015 15:40:33 +0100
+Message-ID: <54EF3061.3040504@6wind.com>
+References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>	<54EDF7BB.2060809@6wind.com> <8761apubru.fsf@x220.int.ebiederm.org>	<CAHA+R7NA6UpC2cy7T14YAxW1gzVi=97yO23pWkkvj1DbV6sTdA@mail.gmail.com>	<CAHA+R7Ocu7ig4NL+rrNq3szFBqKVRSSXhPiZDHP4tEzL6OSFzQ@mail.gmail.com>	<54EEE3DB.4040900@6wind.com> <87sidsok07.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>
-To: 'Thomas Graf' <tgraf@suug.ch>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <cwang@twopensource.com>,
+	Eugene Yakubovich <eugene.yakubovich@coreos.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.183]:56618 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932076AbbBZOjw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:39:52 -0500
-In-Reply-To: <e99f9e9f3b8b2617698d88c1f2d42a1cf1414065.1423097592.git.tgraf@suug.ch>
-Content-Language: en-US
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:43986 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932166AbbBZOkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:40:36 -0500
+Received: by wggy19 with SMTP id y19so11364085wgg.10
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:40:35 -0800 (PST)
+In-Reply-To: <87sidsok07.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf
-> Sent: 05 February 2015 01:04
-> rhashtable currently allows to use a bucket lock per bucket. This
-> requires multiple levels of complicated nested locking because when
-> resizing, a single bucket of the smaller table will map to two
-> buckets in the larger table. So far rhashtable has explicitly locked
-> both buckets in the larger table.
-
-> By excluding the highest bit of the hash from the bucket lock map and
-> thus only allowing locks to buckets in a ratio of 1:2, the locking
-
-Surely you mean 1:2^n ??
-
-> can be simplified a lot without losing the benefits of multiple locks.
-> Larger tables which benefit from multiple locks will not have a single
-> lock per bucket anyway.
-
-I'd presume that for a very large table the number of locks required
-is related to the number of cpus rather than the table size itself.
-Once the hash chains are short the lock is less likely to be contended
-anyway. My brain can't think through the cache implications though.
-
-This makes me think that you never really need to increase the number
-of locks (which is probably quite tricky), and definitely don't need
-to reduce the number of locks (probably harder).
-This would mean that the table can't get smaller than the number of locks.
-This in itself isn't really an issue.
-
-	David
+Le 26/02/2015 14:55, Eric W. Biederman a =C3=A9crit :
+[snip]
+>
+> We can not give the guarantee that a new network device will only liv=
+e
+> in and have a unique name in a single network namespace until we get
+> rid of dev_change_net_namespace in the code.
+In fact in case of IFLA_LINK_NETNSID, with Cong's patch, we will first =
+check
+that the name is unique in link_net and after dev_change_net_namespace(=
+) will
+check that the name is also unique in the final net, else the command w=
+ill fail
+(and the device is not created).
