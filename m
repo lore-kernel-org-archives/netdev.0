@@ -1,114 +1,86 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [RFC][PATCH] sh_eth: Fix RX recovery in case of RX ring underrun
-Date: Thu, 26 Feb 2015 20:51:24 +0000
-Message-ID: <1424983884.4444.87.camel@xylophone.i.decadent.org.uk>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: Flows! Offload them.
+Date: Thu, 26 Feb 2015 12:58:57 -0800
+Message-ID: <54EF8911.9080203@intel.com>
+References: <20150226074214.GF2074@nanopsycho.orion> <54EF74E0.7060502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
+	jhs@mojatatu.com, sfeldma@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, simon.horman@netronome.com,
+	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:47203 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752483AbbBZUva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 15:51:30 -0500
+Received: from mga09.intel.com ([134.134.136.24]:24880 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932191AbbBZU7A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Feb 2015 15:59:00 -0500
+In-Reply-To: <54EF74E0.7060502@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of RX ring underrun, we attempt to reset the software
-descriptor pointers (dirty_rx and cur_rx) to match where the hardware
-stopped.  This behaviour was added by commit 79fba9f51755 ("net:
-sh_eth: fix the rxdesc pointer when rx descriptor empty happens").  I
-think the problem it's addressing is that the RX DMA engine may
-advance its descriptor pointer beyond the first dirty descriptor, so
-that when we re-enable RX it will skip some descriptors.
+On 02/26/2015 11:32 AM, Florian Fainelli wrote:
+> Hi Jiri,
+> 
+> On 25/02/15 23:42, Jiri Pirko wrote:
+>> Hello everyone.
+>>
+>> I would like to discuss big next step for switch offloading. Probably
+>> the most complicated one we have so far. That is to be able to offload flows.
+>> Leaving nftables aside for a moment, I see 2 big usecases:
+>> - TC filters and actions offload.
+>> - OVS key match and actions offload.
+>>
+>> I think it might sense to ignore OVS for now. The reason is ongoing efford
+>> to replace OVS kernel datapath with TC subsystem. After that, OVS offload
+>> will not longer be needed and we'll get it for free with TC offload
+>> implementation. So we can focus on TC now.
+> 
+> What is not necessarily clear to me, is if we leave nftables aside for
+> now from flow offloading, does that mean the entire flow offloading will
+> now be controlled and going with the TC subsystem necessarily?
+> 
+> I am not questioning the choice for TC, I am just wondering if
+> ultimately there is the need for a lower layer, which is below, such
+> that both tc and e.g: nftables can benefit from it?
 
-This fix is problematic because:
+My thinking on this is to use the FlowAPI ndo_ops as the bottom layer.
+What I would much prefer (having to actually write drivers) is that
+we have one API to the driver and tc, nft, whatever map onto that API.
 
-1. If the quota is smaller than the ring size, changing cur_rx may
-   mean that we skip (and thus drop) packets that were received
-   successfully.
-2. If we've previously seen dirty descriptors and failed to allocate
-   new buffers for them, changing dirty_rx means that we won't try to
-   refill them on the next poll.  This will result in another ring
-   underrun.
+Then my driver implements a ndo_set_flow op and a ndo_del_flow op. What
+I'm working on now is the map from tc onto the flow API I'm hoping this
+sounds like a good idea to folks.
 
-Instead, we should find the first clean descriptor and write the
-correct address to RDFAR (if defined).
+Neil, suggested we might need a reservation concept where tc can reserve
+some space in a TCAM, similarly nft can reserve some space. Also I have
+applications in user space that want to reserve some space to offload
+their specific data structures. This idea seems like a good one to me.
 
-This is entirely untested.
-
-Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
----
-This depends on "sh_eth: Fix RX recovery on R-Car in case of RX ring
-underrun" and "sh_eth: WARN on access to a register not implemented in a
-particular chip" which I sent earlier.  I don't have any hardware
-to test this with, or any need to make it work.  If you want this fix,
-please test and re-submit it yoursef.
-
-You should be able to reproduce these problems by inserting udelay(10)
-into the main loop and then sending minimum-length frames to the sh_eth
-interface using pktgen, and also
-(for problem 1) changing the RX ring size to >64, or
-(for problem 2) injecting memory allocation failures (e.g. using
-CONFIG_FAIL_PAGE_ALLOC)
-
-Ben.
-
- drivers/net/ethernet/renesas/sh_eth.c |   28 +++++++++++++++++++++-------
- 1 file changed, 21 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index c3bc01ccad3e..49c8ee857de3 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1550,23 +1550,37 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 				cpu_to_edmac(mdp, RD_RACT | RD_RFP);
- 	}
- 
-+	*quota -= limit - boguscnt - 1;
-+
- 	/* Restart Rx engine if stopped. */
- 	/* If we don't need to check status, don't. -KDU */
- 	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
--		/* fix the values for the next receiving if RDE is set */
-+		/* fix the value for the next receive if RDE is set */
- 		if (intr_status & EESR_RDE &&
- 		    mdp->reg_offset[RDFAR] != SH_ETH_OFFSET_INVALID) {
--			u32 count = (sh_eth_read(ndev, RDFAR) -
--				     sh_eth_read(ndev, RDLAR)) >> 4;
-+			int entry = mdp->cur_rx % mdp->num_rx_ring;
- 
--			mdp->cur_rx = count;
--			mdp->dirty_rx = count;
-+			/* If we did not finish receiving packets on
-+			 * this iteration, search ahead for the first
-+			 * clean descriptor.
-+			 */
-+			if (*quota <= 0) {
-+				while (boguscnt > 0 &&
-+				       !(mdp->rx_ring[entry].status &
-+					 cpu_to_edmac(mdp, RD_RACT))) {
-+					--boguscnt;
-+					entry = (entry + 1) % mdp->num_rx_ring;
-+				}
-+			}
-+
-+			sh_eth_write(ndev,
-+				     mdp->rx_desc_dma +
-+				     entry * sizeof(struct sh_eth_rxdesc),
-+				     RDFAR);
- 		}
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
- 	}
- 
--	*quota -= limit - boguscnt - 1;
--
- 	return *quota <= 0;
- }
- 
--- 
-1.7.10.4
+> 
+> I guess my larger question is, if I need to learn about new flows
+> entering the stack, how is that going to wind-up looking like?
+> 
+>>
+>> Here is my list of actions to achieve some results in near future:
+>> 1) finish cls_openflow classifier and iproute part of it
+>> 2) extend switchdev API for TC cls and acts offloading (using John's flow api?)
+>> 3) use rocker to provide offload for cls_openflow and couple of selected actions
+>> 4) improve cls_openflow performance (hashtables etc)
+>> 5) improve TC subsystem performance in both slow and fast path
+>>     -RTNL mutex and qdisc lock removal/reduction, lockless stats update.
+>> 6) implement "named sockets" (working name) and implement TC support for that
+>>     -ingress qdisc attach, act_mirred target
+>> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
+>> 8) implement TC act_mpls
+>> 9) suggest to switch OVS userspace from OVS genl to TC API
+>>
+>> This is my personal action list, but you are *very welcome* to step in to help.
+>> Point 2) haunts me at night....
+>> I believe that John is already working on 2) and part of 3).
+>>
+>> What do you think?
