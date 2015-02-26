@@ -1,63 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: new link failing on duplicate names in different namespaces
-Date: Thu, 26 Feb 2015 07:55:04 -0600
-Message-ID: <87sidsok07.fsf@x220.int.ebiederm.org>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
-	<54EDF7BB.2060809@6wind.com> <8761apubru.fsf@x220.int.ebiederm.org>
-	<CAHA+R7NA6UpC2cy7T14YAxW1gzVi=97yO23pWkkvj1DbV6sTdA@mail.gmail.com>
-	<CAHA+R7Ocu7ig4NL+rrNq3szFBqKVRSSXhPiZDHP4tEzL6OSFzQ@mail.gmail.com>
-	<54EEE3DB.4040900@6wind.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 1/3] rocker: fix non-portable err return codes
+Date: Thu, 26 Feb 2015 06:04:51 -0800
+Message-ID: <CAE4R7bAvYkfKWzoDy89uvRebWPgwZE6zYgPt8+tvoJ3jE6CsUA@mail.gmail.com>
+References: <1424924138-15928-1-git-send-email-sfeldma@gmail.com>
+	<1424924138-15928-2-git-send-email-sfeldma@gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAEE973@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <cwang@twopensource.com>,
-	Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jiri@resnulli.us" <jiri@resnulli.us>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46275 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbbBZN6f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 08:58:35 -0500
-In-Reply-To: <54EEE3DB.4040900@6wind.com> (Nicolas Dichtel's message of "Thu,
-	26 Feb 2015 10:14:03 +0100")
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:65298 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932243AbbBZOEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:04:52 -0500
+Received: by mail-qg0-f52.google.com with SMTP id h3so8570548qgf.11
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:04:51 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAEE973@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
-
-> Le 26/02/2015 06:56, Cong Wang a =C3=A9crit :
->> On Wed, Feb 25, 2015 at 9:29 PM, Cong Wang <cwang@twopensource.com> =
-wrote:
-> [snip]
->>
->> Please give the attached patch a try.
->>
-> It's hard to comment a patch which is sent in attachment
-> (see
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/D=
-ocumentation/SubmittingPatches#n333).
+On Thu, Feb 26, 2015 at 4:17 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: sfeldma@gmail.com
+>> The rocker device returns error codes if something goes wrong with descriptor
+>> processing.  Originally the device used standard errno codes for different
+>> errors, but since those errno codes aren't portable across ARCHs, the device
+>> now returns hard-coded error codes that stay constant across diff ARCHs.  Fix
+>> driver to use those same hard-coded values.
 >
-> +				err =3D rtnl_group_changelink(skb, dest_net,
-> It should probably be something like 'link_net ? : dest_net' instead =
-of
-> dest_net.
->
-> I also don't understand why you need two label ('out' and 'err'). I t=
-hink one is
-> enough (link_net is initialized to NULL for this purpose).
-> And why not keeping the same name as before, ie 'out'? It will minimi=
-ze the
-> patch.
+> You might as well use dense error numbers and then an array for the conversion.
+> If you want to avoid confusion, then offset the error numbers from zero.
 
-Sigh.
+Agreed, but I was stuck by the legacy of older devices which used the
+original errno values.  My bad not thinking about errno's being
+non-portable.
 
-We can not give the guarantee that a new network device will only live
-in and have a unique name in a single network namespace until we get
-rid of dev_change_net_namespace in the code.
-
-Cong your patch does not get rid of that and so is insufficient to solv=
-e
-this problem and buggy.
-
-Eric
+-scott
