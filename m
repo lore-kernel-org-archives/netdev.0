@@ -1,164 +1,99 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: new link failing on duplicate names in different namespaces
-Date: Wed, 25 Feb 2015 21:56:57 -0800
-Message-ID: <CAHA+R7Ocu7ig4NL+rrNq3szFBqKVRSSXhPiZDHP4tEzL6OSFzQ@mail.gmail.com>
-References: <CAOYZPENnpPP-N-ST3xYE7vcCFhbNd-FMKj9OvBebYSMu42OdaQ@mail.gmail.com>
-	<54EDF7BB.2060809@6wind.com>
-	<8761apubru.fsf@x220.int.ebiederm.org>
-	<CAHA+R7NA6UpC2cy7T14YAxW1gzVi=97yO23pWkkvj1DbV6sTdA@mail.gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: ARP resolving for switch drivers
+Date: Wed, 25 Feb 2015 21:56:49 -0800
+Message-ID: <54EEB5A1.1000706@cumulusnetworks.com>
+References: <20150222.011109.109641758308879034.davem@davemloft.net> <CAE4R7bCV1+oA8i52i8g=+yEwsoApcAQq5-WeTxgN40v-ai7y+A@mail.gmail.com> <CAE4R7bDnrMZSsZeZmYkT8HhkXUpgnedBo8VX5iEtyJmzJ7gV5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a113f398076652f050ff76b2b
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Eugene Yakubovich <eugene.yakubovich@coreos.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:43204 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753298AbbBZF46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 00:56:58 -0500
-Received: by iebtr6 with SMTP id tr6so11326852ieb.10
-        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 21:56:57 -0800 (PST)
-In-Reply-To: <CAHA+R7NA6UpC2cy7T14YAxW1gzVi=97yO23pWkkvj1DbV6sTdA@mail.gmail.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:38303 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753212AbbBZF4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 00:56:51 -0500
+Received: by pdbfp1 with SMTP id fp1so10530428pdb.5
+        for <netdev@vger.kernel.org>; Wed, 25 Feb 2015 21:56:50 -0800 (PST)
+In-Reply-To: <CAE4R7bDnrMZSsZeZmYkT8HhkXUpgnedBo8VX5iEtyJmzJ7gV5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a113f398076652f050ff76b2b
-Content-Type: text/plain; charset=UTF-8
-
-On Wed, Feb 25, 2015 at 9:29 PM, Cong Wang <cwang@twopensource.com> wrote:
-> On Wed, Feb 25, 2015 at 9:44 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
+On 2/25/15, 9:08 PM, Scott Feldman wrote:
+> On Sat, Feb 21, 2015 at 10:28 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+>> On Sat, Feb 21, 2015 at 10:11 PM, David Miller <davem@davemloft.net> wrote:
+>>> Scott I looked into the current state of affairs and you should
+>>> be able to use generic infrastructure to resolve a neighbour
+>>> entry and even trigger the state machine.
+>>>
+>>> For ipv4:
+>>>
+>>>          n = __ipv4_neigh_lookup(dev, ip_addr);
+>>>          if (!n)
+>>>                  n = neigh_create(&arp_tbl, &ip_addr, dev, true);
+>>>          if (!n)
+>>>                  goto error;
+>>>
+>>>          if (!(n->nud_state & NUD_VALID))
+>>>                  neigh_event_send(n, NULL);
+>>>          else
+>>>                  memcpy(&hw_entry->mac_addr, n->ha, dev_addr_len);
+>>>
+>>> If you have to take the neigh_event_send() path, you have to wait for
+>>> the notifier to be invoked.  And in the notifier you can fetch the
+>>> MAC address.
+>> Perfect!  I'll give this a try shortly and test and report back.
+>> (Trying to beat down some remaining L2 issues first).
 >>
->> The code that creates a network devices fundamentally needs to know
->> about both namespaces network devices like the macvlan driver need
->> to find their lower devices in the original network namespace.
->>
->> I think we could possibly remove the restriction for the names of newly
->> created network devices being unique in both network namespaces but I
->> don't think the code changes will be trivial.
->>
+> David,
 >
-> We should add a flag to network devices, so that some devices which
-> don't have an underlying device, like veth, are allowed to be create right
-> in the given netns. Or, of course, just modify rtnl_newlink() if we have
-> some other clue (tb[IFLA_LINK] == NULL?).
+> Just following up on this.  The code above works great, at least for
+> the initial nh resolution when route is installed.  I need to do some
+> more testing for the cases when the neigh entry goes to !NUD_VALID,
+> but I'm still holding a route with nhs looking for that neigh.  I
+> guess I need to re-trigger the above code.  Need to play around with
+> it.
+>
+> There are two other items I had on my list for L3 from netconf:
+>
+> 1) Routes that overlap tables, or how to assign priority.  I'll look
+> at the RFC you sent for collapsing local/main tables.  For now, I used
+> fib_info->fib_priority for the priority in the rocker L3 table.  Maybe
+> that's good enough once local/main are collapsed?  But for other
+> tables, I'm not sure if fib_info->fib_priority will be sufficient.  I
+> probably need some guidance here.
+>
+> 2) Marking routes as "external"[1].  I added a RTAX_FEATURE_EXTERNAL
+> bit to be set by application (iproute2, quagga, etc) when wanting to
+> install route externally, for example to a switchdev switch.  Then if
+> application sets bit, it is the applications responsibility to handle
+> failure cases and rollback any lesser-prefixed routes than may have
+> been pushed earlier, successfully to external.  The problem I'm
+> running into is internal kernel routes need to be pushed to external
+> and I don't want to mark those as "external", but I also want those to
+> be install externally (to the device), if possible.
+>
+> [1] "external" seems to be the label we're giving kernel objects that
+> get mirrored externally to a device, such as the mark we used for FDB
+> entries populated into the bridge's FDB by a learning device.
+scott,  don't mean to interrupt dave and your conversation here.
+But, I am not seeing the hw learnt fdb entries to be same as
+the routes from iproute2 or quagga.  In the fdb case, you had to mark it
+external to indicate ownership of the entry to age it appropriately in 
+the offload model
+where both kernel and hw mirror fdb database and both can populate the 
+fdb database.
 
-Never mind, seems we only need to move the dest_net and link_net
-up before checking duplicated.
+I am not seeing the need to generalize the notion of  'external' used in 
+fdb offloads across other sub-systems.
+In this case  its the app (iproute2, quagga). What you want here is 
+failure policy flags (as discussed @netdev01)
+that user-space owns. And these should be optional with kernel having 
+its own default policy (And default policy is where I am interested in :).
 
-Please give the attached patch a try.
+I guess I am re-iterating your intent but labeling it differently. :)
 
---001a113f398076652f050ff76b2b
-Content-Type: text/x-patch; charset=US-ASCII; name="rtnetlink.patch"
-Content-Disposition: attachment; filename="rtnetlink.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_i6lqnm160
-
-ZGlmZiAtLWdpdCBhL25ldC9jb3JlL3J0bmV0bGluay5jIGIvbmV0L2NvcmUvcnRuZXRsaW5rLmMK
-aW5kZXggMTM4NWRlMC4uZmY2ZTk4YyAxMDA2NDQKLS0tIGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMK
-KysrIGIvbmV0L2NvcmUvcnRuZXRsaW5rLmMKQEAgLTE5NjEsNiArMTk2MSw3IEBAIHN0YXRpYyBp
-bnQgcnRubF9uZXdsaW5rKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBubG1zZ2hkciAqbmxo
-KQogCXN0cnVjdCBubGF0dHIgKnRiW0lGTEFfTUFYKzFdOwogCXN0cnVjdCBubGF0dHIgKmxpbmtp
-bmZvW0lGTEFfSU5GT19NQVgrMV07CiAJdW5zaWduZWQgY2hhciBuYW1lX2Fzc2lnbl90eXBlID0g
-TkVUX05BTUVfVVNFUjsKKwlzdHJ1Y3QgbmV0ICpkZXN0X25ldCwgKmxpbmtfbmV0ID0gTlVMTDsK
-IAlpbnQgZXJyOwogCiAjaWZkZWYgQ09ORklHX01PRFVMRVMKQEAgLTE5NzYsMTEgKzE5NzcsMjYg
-QEAgcmVwbGF5OgogCQlpZm5hbWVbMF0gPSAnXDAnOwogCiAJaWZtID0gbmxtc2dfZGF0YShubGgp
-OworCisJZGVzdF9uZXQgPSBydG5sX2xpbmtfZ2V0X25ldChuZXQsIHRiKTsKKwlpZiAoSVNfRVJS
-KGRlc3RfbmV0KSkKKwkJcmV0dXJuIFBUUl9FUlIoZGVzdF9uZXQpOworCisJaWYgKHRiW0lGTEFf
-TElOS19ORVROU0lEXSkgeworCQlpbnQgaWQgPSBubGFfZ2V0X3MzMih0YltJRkxBX0xJTktfTkVU
-TlNJRF0pOworCisJCWxpbmtfbmV0ID0gZ2V0X25ldF9uc19ieV9pZChkZXN0X25ldCwgaWQpOwor
-CQlpZiAoIWxpbmtfbmV0KSB7CisJCQllcnIgPSAgLUVJTlZBTDsKKwkJCWdvdG8gb3V0OworCQl9
-CisJfQorCiAJaWYgKGlmbS0+aWZpX2luZGV4ID4gMCkKLQkJZGV2ID0gX19kZXZfZ2V0X2J5X2lu
-ZGV4KG5ldCwgaWZtLT5pZmlfaW5kZXgpOworCQlkZXYgPSBfX2Rldl9nZXRfYnlfaW5kZXgobGlu
-a19uZXQgPzogZGVzdF9uZXQsIGlmbS0+aWZpX2luZGV4KTsKIAllbHNlIHsKIAkJaWYgKGlmbmFt
-ZVswXSkKLQkJCWRldiA9IF9fZGV2X2dldF9ieV9uYW1lKG5ldCwgaWZuYW1lKTsKKwkJCWRldiA9
-IF9fZGV2X2dldF9ieV9uYW1lKGxpbmtfbmV0ID86IGRlc3RfbmV0LCBpZm5hbWUpOwogCQllbHNl
-CiAJCQlkZXYgPSBOVUxMOwogCX0KQEAgLTE5OTMsMTMgKzIwMDksMTMgQEAgcmVwbGF5OgogCiAJ
-ZXJyID0gdmFsaWRhdGVfbGlua21zZyhkZXYsIHRiKTsKIAlpZiAoZXJyIDwgMCkKLQkJcmV0dXJu
-IGVycjsKKwkJZ290byBlcnI7CiAKIAlpZiAodGJbSUZMQV9MSU5LSU5GT10pIHsKIAkJZXJyID0g
-bmxhX3BhcnNlX25lc3RlZChsaW5raW5mbywgSUZMQV9JTkZPX01BWCwKIAkJCQkgICAgICAgdGJb
-SUZMQV9MSU5LSU5GT10sIGlmbGFfaW5mb19wb2xpY3kpOwogCQlpZiAoZXJyIDwgMCkKLQkJCXJl
-dHVybiBlcnI7CisJCQlnb3RvIGVycjsKIAl9IGVsc2UKIAkJbWVtc2V0KGxpbmtpbmZvLCAwLCBz
-aXplb2YobGlua2luZm8pKTsKIApAQCAtMjAxNiw3ICsyMDMyLDYgQEAgcmVwbGF5OgogCQlzdHJ1
-Y3QgbmxhdHRyICpzbGF2ZV9hdHRyW21fb3BzID8gbV9vcHMtPnNsYXZlX21heHR5cGUgKyAxIDog
-MV07CiAJCXN0cnVjdCBubGF0dHIgKipkYXRhID0gTlVMTDsKIAkJc3RydWN0IG5sYXR0ciAqKnNs
-YXZlX2RhdGEgPSBOVUxMOwotCQlzdHJ1Y3QgbmV0ICpkZXN0X25ldCwgKmxpbmtfbmV0ID0gTlVM
-TDsKIAogCQlpZiAob3BzKSB7CiAJCQlpZiAob3BzLT5tYXh0eXBlICYmIGxpbmtpbmZvW0lGTEFf
-SU5GT19EQVRBXSkgewpAQCAtMjAyNCwxMyArMjAzOSwxMyBAQCByZXBsYXk6CiAJCQkJCQkgICAg
-ICAgbGlua2luZm9bSUZMQV9JTkZPX0RBVEFdLAogCQkJCQkJICAgICAgIG9wcy0+cG9saWN5KTsK
-IAkJCQlpZiAoZXJyIDwgMCkKLQkJCQkJcmV0dXJuIGVycjsKKwkJCQkJZ290byBlcnI7CiAJCQkJ
-ZGF0YSA9IGF0dHI7CiAJCQl9CiAJCQlpZiAob3BzLT52YWxpZGF0ZSkgewogCQkJCWVyciA9IG9w
-cy0+dmFsaWRhdGUodGIsIGRhdGEpOwogCQkJCWlmIChlcnIgPCAwKQotCQkJCQlyZXR1cm4gZXJy
-OworCQkJCQlnb3RvIGVycjsKIAkJCX0KIAkJfQogCkBAIC0yMDQyLDU5ICsyMDU3LDcxIEBAIHJl
-cGxheToKIAkJCQkJCSAgICAgICBsaW5raW5mb1tJRkxBX0lORk9fU0xBVkVfREFUQV0sCiAJCQkJ
-CQkgICAgICAgbV9vcHMtPnNsYXZlX3BvbGljeSk7CiAJCQkJaWYgKGVyciA8IDApCi0JCQkJCXJl
-dHVybiBlcnI7CisJCQkJCWdvdG8gZXJyOwogCQkJCXNsYXZlX2RhdGEgPSBzbGF2ZV9hdHRyOwog
-CQkJfQogCQkJaWYgKG1fb3BzLT5zbGF2ZV92YWxpZGF0ZSkgewogCQkJCWVyciA9IG1fb3BzLT5z
-bGF2ZV92YWxpZGF0ZSh0Yiwgc2xhdmVfZGF0YSk7CiAJCQkJaWYgKGVyciA8IDApCi0JCQkJCXJl
-dHVybiBlcnI7CisJCQkJCWdvdG8gZXJyOwogCQkJfQogCQl9CiAKIAkJaWYgKGRldikgewogCQkJ
-aW50IHN0YXR1cyA9IDA7CiAKLQkJCWlmIChubGgtPm5sbXNnX2ZsYWdzICYgTkxNX0ZfRVhDTCkK
-LQkJCQlyZXR1cm4gLUVFWElTVDsKLQkJCWlmIChubGgtPm5sbXNnX2ZsYWdzICYgTkxNX0ZfUkVQ
-TEFDRSkKLQkJCQlyZXR1cm4gLUVPUE5PVFNVUFA7CisJCQlpZiAobmxoLT5ubG1zZ19mbGFncyAm
-IE5MTV9GX0VYQ0wpIHsKKwkJCQllcnIgPSAtRUVYSVNUOworCQkJCWdvdG8gZXJyOworCQkJfQor
-CQkJaWYgKG5saC0+bmxtc2dfZmxhZ3MgJiBOTE1fRl9SRVBMQUNFKSB7CisJCQkJZXJyID0gLUVP
-UE5PVFNVUFA7CisJCQkJZ290byBlcnI7CisJCQl9CiAKIAkJCWlmIChsaW5raW5mb1tJRkxBX0lO
-Rk9fREFUQV0pIHsKIAkJCQlpZiAoIW9wcyB8fCBvcHMgIT0gZGV2LT5ydG5sX2xpbmtfb3BzIHx8
-Ci0JCQkJICAgICFvcHMtPmNoYW5nZWxpbmspCi0JCQkJCXJldHVybiAtRU9QTk9UU1VQUDsKKwkJ
-CQkgICAgIW9wcy0+Y2hhbmdlbGluaykgeworCQkJCQllcnIgPSAtRU9QTk9UU1VQUDsKKwkJCQkJ
-Z290byBlcnI7CisJCQkJfQogCiAJCQkJZXJyID0gb3BzLT5jaGFuZ2VsaW5rKGRldiwgdGIsIGRh
-dGEpOwogCQkJCWlmIChlcnIgPCAwKQotCQkJCQlyZXR1cm4gZXJyOworCQkJCQlnb3RvIGVycjsK
-IAkJCQlzdGF0dXMgfD0gRE9fU0VUTElOS19OT1RJRlk7CiAJCQl9CiAKIAkJCWlmIChsaW5raW5m
-b1tJRkxBX0lORk9fU0xBVkVfREFUQV0pIHsKLQkJCQlpZiAoIW1fb3BzIHx8ICFtX29wcy0+c2xh
-dmVfY2hhbmdlbGluaykKLQkJCQkJcmV0dXJuIC1FT1BOT1RTVVBQOworCQkJCWlmICghbV9vcHMg
-fHwgIW1fb3BzLT5zbGF2ZV9jaGFuZ2VsaW5rKSB7CisJCQkJCWVyciA9IC1FT1BOT1RTVVBQOwor
-CQkJCQlnb3RvIGVycjsKKwkJCQl9CiAKIAkJCQllcnIgPSBtX29wcy0+c2xhdmVfY2hhbmdlbGlu
-ayhtYXN0ZXJfZGV2LCBkZXYsCiAJCQkJCQkJICAgICAgdGIsIHNsYXZlX2RhdGEpOwogCQkJCWlm
-IChlcnIgPCAwKQotCQkJCQlyZXR1cm4gZXJyOworCQkJCQlnb3RvIGVycjsKIAkJCQlzdGF0dXMg
-fD0gRE9fU0VUTElOS19OT1RJRlk7CiAJCQl9CiAKLQkJCXJldHVybiBkb19zZXRsaW5rKHNrYiwg
-ZGV2LCBpZm0sIHRiLCBpZm5hbWUsIHN0YXR1cyk7CisJCQllcnIgPSBkb19zZXRsaW5rKHNrYiwg
-ZGV2LCBpZm0sIHRiLCBpZm5hbWUsIHN0YXR1cyk7CisJCQlnb3RvIGVycjsKIAkJfQogCiAJCWlm
-ICghKG5saC0+bmxtc2dfZmxhZ3MgJiBOTE1fRl9DUkVBVEUpKSB7CisJCQllcnIgPSAtRU5PREVW
-OwogCQkJaWYgKGlmbS0+aWZpX2luZGV4ID09IDAgJiYgdGJbSUZMQV9HUk9VUF0pCi0JCQkJcmV0
-dXJuIHJ0bmxfZ3JvdXBfY2hhbmdlbGluayhza2IsIG5ldCwKKwkJCQllcnIgPSBydG5sX2dyb3Vw
-X2NoYW5nZWxpbmsoc2tiLCBkZXN0X25ldCwKIAkJCQkJCW5sYV9nZXRfdTMyKHRiW0lGTEFfR1JP
-VVBdKSwKIAkJCQkJCWlmbSwgdGIpOwotCQkJcmV0dXJuIC1FTk9ERVY7CisJCQlnb3RvIGVycjsK
-IAkJfQogCi0JCWlmICh0YltJRkxBX01BUF0gfHwgdGJbSUZMQV9NQVNURVJdIHx8IHRiW0lGTEFf
-UFJPVElORk9dKQotCQkJcmV0dXJuIC1FT1BOT1RTVVBQOworCQlpZiAodGJbSUZMQV9NQVBdIHx8
-IHRiW0lGTEFfTUFTVEVSXSB8fCB0YltJRkxBX1BST1RJTkZPXSkgeworCQkJZXJyID0gLUVPUE5P
-VFNVUFA7CisJCQlnb3RvIGVycjsKKwkJfQogCiAJCWlmICghb3BzKSB7CiAjaWZkZWYgQ09ORklH
-X01PRFVMRVMKQEAgLTIxMDMsNDAgKzIxMzAsMzMgQEAgcmVwbGF5OgogCQkJCXJlcXVlc3RfbW9k
-dWxlKCJydG5sLWxpbmstJXMiLCBraW5kKTsKIAkJCQlydG5sX2xvY2soKTsKIAkJCQlvcHMgPSBy
-dG5sX2xpbmtfb3BzX2dldChraW5kKTsKLQkJCQlpZiAob3BzKQorCQkJCWlmIChvcHMpIHsKKwkJ
-CQkJaWYgKGxpbmtfbmV0KQorCQkJCQkJcHV0X25ldChsaW5rX25ldCk7CisJCQkJCXB1dF9uZXQo
-ZGVzdF9uZXQpOwogCQkJCQlnb3RvIHJlcGxheTsKKwkJCQl9CiAJCQl9CiAjZW5kaWYKLQkJCXJl
-dHVybiAtRU9QTk9UU1VQUDsKKwkJCWVyciA9IC1FT1BOT1RTVVBQOworCQkJZ290byBlcnI7CiAJ
-CX0KIAotCQlpZiAoIW9wcy0+c2V0dXApCi0JCQlyZXR1cm4gLUVPUE5PVFNVUFA7CisJCWlmICgh
-b3BzLT5zZXR1cCkgeworCQkJZXJyID0gLUVPUE5PVFNVUFA7CisJCQlnb3RvIGVycjsKKwkJfQog
-CiAJCWlmICghaWZuYW1lWzBdKSB7CiAJCQlzbnByaW50ZihpZm5hbWUsIElGTkFNU0laLCAiJXMl
-JWQiLCBvcHMtPmtpbmQpOwogCQkJbmFtZV9hc3NpZ25fdHlwZSA9IE5FVF9OQU1FX0VOVU07CiAJ
-CX0KIAotCQlkZXN0X25ldCA9IHJ0bmxfbGlua19nZXRfbmV0KG5ldCwgdGIpOwotCQlpZiAoSVNf
-RVJSKGRlc3RfbmV0KSkKLQkJCXJldHVybiBQVFJfRVJSKGRlc3RfbmV0KTsKLQotCQlpZiAodGJb
-SUZMQV9MSU5LX05FVE5TSURdKSB7Ci0JCQlpbnQgaWQgPSBubGFfZ2V0X3MzMih0YltJRkxBX0xJ
-TktfTkVUTlNJRF0pOwotCi0JCQlsaW5rX25ldCA9IGdldF9uZXRfbnNfYnlfaWQoZGVzdF9uZXQs
-IGlkKTsKLQkJCWlmICghbGlua19uZXQpIHsKLQkJCQllcnIgPSAgLUVJTlZBTDsKLQkJCQlnb3Rv
-IG91dDsKLQkJCX0KLQkJfQotCiAJCWRldiA9IHJ0bmxfY3JlYXRlX2xpbmsobGlua19uZXQgPyA6
-IGRlc3RfbmV0LCBpZm5hbWUsCiAJCQkJICAgICAgIG5hbWVfYXNzaWduX3R5cGUsIG9wcywgdGIp
-OwogCQlpZiAoSVNfRVJSKGRldikpIHsKIAkJCWVyciA9IFBUUl9FUlIoZGV2KTsKLQkJCWdvdG8g
-b3V0OworCQkJZ290byBlcnI7CiAJCX0KIAogCQlkZXYtPmlmaW5kZXggPSBpZm0tPmlmaV9pbmRl
-eDsKQEAgLTIxNTEsMTMgKzIxNzEsMTMgQEAgcmVwbGF5OgogCQkJCS8qIElmIGRldmljZSBpcyBu
-b3QgcmVnaXN0ZXJlZCBhdCBhbGwsIGZyZWUgaXQgbm93ICovCiAJCQkJaWYgKGRldi0+cmVnX3N0
-YXRlID09IE5FVFJFR19VTklOSVRJQUxJWkVEKQogCQkJCQlmcmVlX25ldGRldihkZXYpOwotCQkJ
-CWdvdG8gb3V0OworCQkJCWdvdG8gZXJyOwogCQkJfQogCQl9IGVsc2UgewogCQkJZXJyID0gcmVn
-aXN0ZXJfbmV0ZGV2aWNlKGRldik7CiAJCQlpZiAoZXJyIDwgMCkgewogCQkJCWZyZWVfbmV0ZGV2
-KGRldik7Ci0JCQkJZ290byBvdXQ7CisJCQkJZ290byBlcnI7CiAJCQl9CiAJCX0KIAkJZXJyID0g
-cnRubF9jb25maWd1cmVfbGluayhkZXYsIGlmbSk7CkBAIC0yMTcwLDcgKzIxOTAsNyBAQCByZXBs
-YXk6CiAJCQl9IGVsc2UgewogCQkJCXVucmVnaXN0ZXJfbmV0ZGV2aWNlKGRldik7CiAJCQl9Ci0J
-CQlnb3RvIG91dDsKKwkJCWdvdG8gZXJyOwogCQl9CiAKIAkJaWYgKGxpbmtfbmV0KSB7CkBAIC0y
-MTc4LDEyICsyMTk4LDE0IEBAIHJlcGxheToKIAkJCWlmIChlcnIgPCAwKQogCQkJCXVucmVnaXN0
-ZXJfbmV0ZGV2aWNlKGRldik7CiAJCX0KLW91dDoKLQkJaWYgKGxpbmtfbmV0KQotCQkJcHV0X25l
-dChsaW5rX25ldCk7Ci0JCXB1dF9uZXQoZGVzdF9uZXQpOwotCQlyZXR1cm4gZXJyOwogCX0KKwor
-ZXJyOgorCWlmIChsaW5rX25ldCkKKwkJcHV0X25ldChsaW5rX25ldCk7CitvdXQ6CisJcHV0X25l
-dChkZXN0X25ldCk7CisJcmV0dXJuIGVycjsKIH0KIAogc3RhdGljIGludCBydG5sX2dldGxpbmso
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyKiBubGgpCg==
---001a113f398076652f050ff76b2b--
+Thanks,
+Roopa
