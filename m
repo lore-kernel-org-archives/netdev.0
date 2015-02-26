@@ -1,130 +1,244 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 07:23:36 -0800
-Message-ID: <54EF3A78.9020507@intel.com>
-References: <20150226074214.GF2074@nanopsycho.orion> <20150226083758.GA15139@vergenet.net> <20150226091628.GA4059@nanopsycho.orion> <20150226133326.GC23050@casper.infradead.org>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: [PATCH 5/5] can: kvaser_usb: Fix tx queue start/stop race conditions
+Date: Thu, 26 Feb 2015 10:29:22 -0500
+Message-ID: <20150226152922.GE6075@linux>
+References: <20150226152011.GA6075@linux>
+ <20150226152202.GB6075@linux>
+ <20150226152436.GC6075@linux>
+ <20150226152558.GD6075@linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	jpettit@nicira.com, joestringer@nicira.com, jhs@mojatatu.com,
-	sfeldma@gmail.com, f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks.com, bcrl@kvack.org
-To: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63561 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753864AbbBZPZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Feb 2015 10:25:07 -0500
-In-Reply-To: <20150226133326.GC23050@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux-CAN <linux-can@vger.kernel.org>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Andri Yngvason <andri.yngvason@marel.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150226152558.GD6075@linux>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/2015 05:33 AM, Thomas Graf wrote:
-> On 02/26/15 at 10:16am, Jiri Pirko wrote:
->> Well, on netdev01, I believe that a consensus was reached that for every
->> switch offloaded functionality there has to be an implementation in
->> kernel.
-> 
-> Agreed. This should not prevent the policy being driven from user
-> space though.
-> 
->> What John's Flow API originally did was to provide a way to
->> configure hardware independently of kernel. So the right way is to
->> configure kernel and, if hw allows it, to offload the configuration to hw.
->>
->> In this case, seems to me logical to offload from one place, that being
->> TC. The reason is, as I stated above, the possible conversion from OVS
->> datapath to TC.
-> 
-> Offloading of TC definitely makes a lot of sense. I think that even in
-> that case you will already encounter independent configuration of
-> hardware and kernel. Example: The hardware provides a fixed, generic
-> function to push up to n bytes onto a packet. This hardware function
-> could be used to implement TC actions "push_vlan", "push_vxlan",
-> "push_mpls". You would you would likely agree that TC should make use
-> of such a function even if the hardware version is different from the
-> software version. So I don't think we'll have a 1:1 mapping for all
-> configurations, regardless of whether the how is decided in kernel or
-> user space.
+From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-Just to expand slightly on this. I don't think you can get to a 1:1
-mapping here. One reason is hardware typically has a TCAM and limited
-size. So you need a _policy_ to determine when to push rules into the
-hardware. The kernel doesn't know when to do this and I don't believe
-its the kernel's place to start enforcing policy like this. One thing I likely
-need to do is get some more "worlds" in rocker so we aren't stuck only
-thinking about the infinite size OF_DPA world. The OF_DPA world is only
-one world and not a terribly flexible one at that when compared with the
-NPU folk. So minimally you need a flag to indicate rules go into hardware
-vs software.
+A number of tx queue wake-up events went missing due to the
+outlined scenario below. Start state is a pool of 16 tx URBs,
+active tx_urbs count = 15, with the netdev tx queue open.
 
-That said I think the bigger mismatch between software and hardware is
-you program it differently because the data structures are different. Maybe
-a u32 example would help. For parsing with u32 you might build a parse
-graph with a root and some leaf nodes. In hardware you want to collapse
-this down onto the hardware. I argue this is not a kernel task because
-there are lots of ways to do this and there are trade-offs made with
-respect to space and performance and which table to use when it could be
-handled by a set of tables. Another example is a virtual switch possibly
-OVS but we have others. The software does some "unmasking" (there term)
-before sending the rules into the software dataplane cache. Basically this
-means we can ignore priority in the hash lookup. However this is not how you
-would optimally use hardware. Maybe I should do another write up with
-some more concrete examples.
+start_xmit()                             tx_acknowledge()
+............                             ................
+atomic_inc(&tx_urbs);
+if (atomic_read(&tx_urbs) >= 16) {
+                        URB completion IRQ!
+                        -->
+                                         atomic_dec(&tx_urbs);
+                                         netif_wake_queue();
+                                         return;
+                        <--
+                        end of IRQ!
+    netif_stop_queue();
+}
 
-There are also lots of use cases to _not_ have hardware and software in
-sync. A flag allows this.
+At the end, the correct state expected is a 15 tx_urbs count
+value with the tx queue state _open_. Due to the race, we get
+the same tx_urbs value but with the tx queue state _stopped_.
+The wake-up event is completely lost.
 
-My only point is I think we need to allow users to optimally use there
-hardware either via 'tc' or my previous 'flow' tool. Actually in my
-opinion I still think its best to have both interfaces.
+Thus avoid hand-rolled concurrency mechanisms and use a proper
+lock for contexts protection.
 
-I'll go get some coffee now and hopefully that is somewhat clear.
+Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+---
+ drivers/net/can/usb/kvaser_usb.c | 82 +++++++++++++++++++++++++---------------
+ 1 file changed, 51 insertions(+), 31 deletions(-)
 
-> 
-> My primiary concern of *only* allowing to decide how to program the
-> hardware in the kernel is the lack of context; A given L3/L4 software
-> pipeline in the Linux kernel consists of various subsystems: tc
-> ingress, linux bridge, various iptables chains, routing rules, routing
-> tables, tc egress, etc. All of them can be stacked in almost unlimited
-> combinations using virtual software devices and segmented using
-> net namespaces.
-> 
-> Given this complexity we'll most likely have to solve some of it with
-> a flag to control offloading (as already introduced for bridging) and
-> allow the user to shoot himself in the foot (as Jamal and others
-> pointed out a couple of times). I currently don't see how the kernel
-> could *always* get it right automatically. We need some additional
-> input from the user (See also Patrick's comments regarding iptables
-> offload)
-> 
-> However, for certain datacenter server use cases we actually have the
-> full user intent in user space as we configure all of the kernel
-> subsystems from a single central management agent running locally
-> on the server (OpenStack, Kubernetes, Mesos, ...), i.e. we do know
-> exactly what the user wants on the system as a whole. This intent is
-> then split into small configuration pieces to configure iptables, tc,
-> routes on multiple net namespaces (for example to implement VRF).
-> 
-> E.g. A VRF in software would make use of net namespaces which holds
-> tenant specific ACLs, routes and QoS settings. A separate action
-> would fwd packets to the namespace. Easy and straight forward in
-> software. OTOH, the hardware, capable of implementing the ACLs,
-> would also need to know about the tc action which selected the
-> namespace when attempting to offload the ACL as it would otherwise
-> ACLs to wrong packets.
-> 
-> I would love to have the possibility to make use of that rich intent
-> avaiable in user space to program the hardware in combination with
-> configuring the kernel.
-> 
-> Would love to hear your thoughts on this. I think we all share the same
-> goal which is to have in-kernel drivers for chips which can perform
-> advanced switching and support it natively with Linux and have it
-> become the de-facto standard for both hardware switch management and
-> compute servers.
-> 
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 13bae86..807ab0c 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -14,6 +14,7 @@
+  * Copyright (C) 2015 Valeo S.A.
+  */
+ 
++#include <linux/spinlock.h>
+ #include <linux/kernel.h>
+ #include <linux/completion.h>
+ #include <linux/module.h>
+@@ -471,10 +472,12 @@ struct kvaser_usb {
+ struct kvaser_usb_net_priv {
+ 	struct can_priv can;
+ 
+-	atomic_t active_tx_urbs;
+-	struct usb_anchor tx_submitted;
++	spinlock_t tx_contexts_lock;
++	int active_tx_contexts;
+ 	struct kvaser_usb_tx_urb_context *tx_contexts;
+ 
++	struct usb_anchor tx_submitted;
++
+ 	struct completion start_comp, stop_comp;
+ 
+ 	struct kvaser_usb *dev;
+@@ -702,6 +705,7 @@ static void kvaser_usb_tx_acknowledge(const struct kvaser_usb *dev,
+ 	struct kvaser_usb_net_priv *priv;
+ 	struct sk_buff *skb;
+ 	struct can_frame *cf;
++	unsigned long flags;
+ 	u8 channel, tid;
+ 
+ 	channel = msg->u.tx_acknowledge_header.channel;
+@@ -745,12 +749,15 @@ static void kvaser_usb_tx_acknowledge(const struct kvaser_usb *dev,
+ 
+ 	stats->tx_packets++;
+ 	stats->tx_bytes += context->dlc;
+-	can_get_echo_skb(priv->netdev, context->echo_index);
+ 
+-	context->echo_index = dev->max_tx_urbs;
+-	atomic_dec(&priv->active_tx_urbs);
++	spin_lock_irqsave(&priv->tx_contexts_lock, flags);
+ 
++	can_get_echo_skb(priv->netdev, context->echo_index);
++	context->echo_index = dev->max_tx_urbs;
++	--priv->active_tx_contexts;
+ 	netif_wake_queue(priv->netdev);
++
++	spin_unlock_irqrestore(&priv->tx_contexts_lock, flags);
+ }
+ 
+ static void kvaser_usb_simple_msg_callback(struct urb *urb)
+@@ -811,18 +818,6 @@ static int kvaser_usb_simple_msg_async(struct kvaser_usb_net_priv *priv,
+ 	return 0;
+ }
+ 
+-static void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
+-{
+-	struct kvaser_usb *dev = priv->dev;
+-	int i;
+-
+-	usb_kill_anchored_urbs(&priv->tx_submitted);
+-	atomic_set(&priv->active_tx_urbs, 0);
+-
+-	for (i = 0; i < dev->max_tx_urbs; i++)
+-		priv->tx_contexts[i].echo_index = dev->max_tx_urbs;
+-}
+-
+ static void kvaser_usb_rx_error_update_can_state(struct kvaser_usb_net_priv *priv,
+ 						 const struct kvaser_usb_error_summary *es,
+ 						 struct can_frame *cf)
+@@ -1524,6 +1519,26 @@ error:
+ 	return err;
+ }
+ 
++static void kvaser_usb_reset_tx_urb_contexts(struct kvaser_usb_net_priv *priv)
++{
++	int i, max_tx_urbs;
++
++	max_tx_urbs = priv->dev->max_tx_urbs;
++
++	priv->active_tx_contexts = 0;
++	for (i = 0; i < max_tx_urbs; i++)
++		priv->tx_contexts[i].echo_index = max_tx_urbs;
++}
++
++/* This method might sleep. Do not call it in the atomic context
++ * of URB completions.
++ */
++static void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
++{
++	usb_kill_anchored_urbs(&priv->tx_submitted);
++	kvaser_usb_reset_tx_urb_contexts(priv);
++}
++
+ static void kvaser_usb_unlink_all_urbs(struct kvaser_usb *dev)
+ {
+ 	int i;
+@@ -1643,6 +1658,7 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
+ 	struct kvaser_msg *msg;
+ 	int i, err, ret = NETDEV_TX_OK;
+ 	u8 *msg_tx_can_flags = NULL;		/* GCC */
++	unsigned long flags;
+ 
+ 	if (can_dropped_invalid_skb(netdev, skb))
+ 		return NETDEV_TX_OK;
+@@ -1696,12 +1712,21 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
+ 	if (cf->can_id & CAN_RTR_FLAG)
+ 		*msg_tx_can_flags |= MSG_FLAG_REMOTE_FRAME;
+ 
++	spin_lock_irqsave(&priv->tx_contexts_lock, flags);
+ 	for (i = 0; i < dev->max_tx_urbs; i++) {
+ 		if (priv->tx_contexts[i].echo_index ==  dev->max_tx_urbs) {
+ 			context = &priv->tx_contexts[i];
++
++			context->echo_index = i;
++			can_put_echo_skb(skb, netdev, context->echo_index);
++			++priv->active_tx_contexts;
++			if (priv->active_tx_contexts >= dev->max_tx_urbs)
++				netif_stop_queue(netdev);
++
+ 			break;
+ 		}
+ 	}
++	spin_unlock_irqrestore(&priv->tx_contexts_lock, flags);
+ 
+ 	/* This should never happen; it implies a flow control bug */
+ 	if (!context) {
+@@ -1713,7 +1738,6 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
+ 	}
+ 
+ 	context->priv = priv;
+-	context->echo_index = i;
+ 	context->dlc = cf->can_dlc;
+ 
+ 	msg->u.tx_can.tid = context->echo_index;
+@@ -1725,18 +1749,17 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
+ 			  kvaser_usb_write_bulk_callback, context);
+ 	usb_anchor_urb(urb, &priv->tx_submitted);
+ 
+-	can_put_echo_skb(skb, netdev, context->echo_index);
+-
+-	atomic_inc(&priv->active_tx_urbs);
+-
+-	if (atomic_read(&priv->active_tx_urbs) >= dev->max_tx_urbs)
+-		netif_stop_queue(netdev);
+-
+ 	err = usb_submit_urb(urb, GFP_ATOMIC);
+ 	if (unlikely(err)) {
++		spin_lock_irqsave(&priv->tx_contexts_lock, flags);
++
+ 		can_free_echo_skb(netdev, context->echo_index);
++		context->echo_index = dev->max_tx_urbs;
++		--priv->active_tx_contexts;
++		netif_wake_queue(netdev);
++
++		spin_unlock_irqrestore(&priv->tx_contexts_lock, flags);
+ 
+-		atomic_dec(&priv->active_tx_urbs);
+ 		usb_unanchor_urb(urb);
+ 
+ 		stats->tx_dropped++;
+@@ -1863,7 +1886,7 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
+ 	struct kvaser_usb *dev = usb_get_intfdata(intf);
+ 	struct net_device *netdev;
+ 	struct kvaser_usb_net_priv *priv;
+-	int i, err;
++	int err;
+ 
+ 	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, channel);
+ 	if (err)
+@@ -1892,10 +1915,7 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
+ 	priv->channel = channel;
+ 
+ 	init_usb_anchor(&priv->tx_submitted);
+-	atomic_set(&priv->active_tx_urbs, 0);
+-
+-	for (i = 0; i < dev->max_tx_urbs; i++)
+-		priv->tx_contexts[i].echo_index = dev->max_tx_urbs;
++	kvaser_usb_reset_tx_urb_contexts(priv);
+ 
+ 	priv->can.state = CAN_STATE_STOPPED;
+ 	priv->can.clock.freq = CAN_USB_CLOCK;
+-- 
+1.9.1
+
