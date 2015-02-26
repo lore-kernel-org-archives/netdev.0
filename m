@@ -1,39 +1,64 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 1/3] rocker: fix non-portable err return codes
-Date: Thu, 26 Feb 2015 06:04:51 -0800
-Message-ID: <CAE4R7bAvYkfKWzoDy89uvRebWPgwZE6zYgPt8+tvoJ3jE6CsUA@mail.gmail.com>
-References: <1424924138-15928-1-git-send-email-sfeldma@gmail.com>
-	<1424924138-15928-2-git-send-email-sfeldma@gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAEE973@AcuExch.aculab.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 7/8] mpls: Multicast route table change notifications
+Date: Thu, 26 Feb 2015 08:03:35 -0600
+Message-ID: <87oaogn51k.fsf@x220.int.ebiederm.org>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
+	<87fv9tvrgq.fsf@x220.int.ebiederm.org>
+	<54EEC967.20106@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jiri@resnulli.us" <jiri@resnulli.us>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f52.google.com ([209.85.192.52]:65298 "EHLO
-	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932243AbbBZOEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:04:52 -0500
-Received: by mail-qg0-f52.google.com with SMTP id h3so8570548qgf.11
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 06:04:51 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAEE973@AcuExch.aculab.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:47914 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932161AbbBZOHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 09:07:08 -0500
+In-Reply-To: <54EEC967.20106@cumulusnetworks.com> (roopa@cumulusnetworks.com's
+	message of "Wed, 25 Feb 2015 23:21:11 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 4:17 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: sfeldma@gmail.com
->> The rocker device returns error codes if something goes wrong with descriptor
->> processing.  Originally the device used standard errno codes for different
->> errors, but since those errno codes aren't portable across ARCHs, the device
->> now returns hard-coded error codes that stay constant across diff ARCHs.  Fix
->> driver to use those same hard-coded values.
->
-> You might as well use dense error numbers and then an array for the conversion.
-> If you want to avoid confusion, then offset the error numbers from zero.
+roopa <roopa@cumulusnetworks.com> writes:
 
-Agreed, but I was stuck by the legacy of older devices which used the
-original errno values.  My bad not thinking about errno's being
-non-portable.
+> On 2/25/15, 9:19 AM, Eric W. Biederman wrote:
+>> Unlike IPv4 this code notifies on all cases where mpls routes
+>> are added or removed as that was the simplest to implement.
+>>
+>> In particular routes being removed because a network interface
+>> goes down or is removed are notified about.  Are there technical
+>> arguments for handling this differently ? Userspace developers
+>> don't particularly like the way IPv4 handles route removal
+>> on ifdown.
+> that is true. However, from previous emails on this topic on netdev,
+> there is no reason to notify these deletes to userspace thereby creating a
+> notification storm
+> when userspace can figure this out. Which seems like a valid reason.
+> (Your approach resembles IPv6 which does generate these notifications and
+> userspace is usually happy with this).
 
--scott
+Grr.  There is an even better way to do this.
+
+The semantically best way to handle this is to simply not use routes for
+forwarding where the network inteface is down, the carrier is down, or
+the network device has gone away for forwarding.
+
+Apparently there are some multi-path scenearios that already do this
+legitimately, and routes going away auto-matically can cause userspace
+other kinds of problems.
+
+In MPLS I especially don't want to free the routing table slot until I
+know that the change has propagated in the network and I can be
+reasonably confident that no-one will send me traffic on that label.
+Otherwise there is a chance the label will be reused too soon.
+
+Grumble.  That is a code change I need to make.  Grumble.
+
+I also need to look and see if those multi-path scenarios report a next
+hop as dead or just rely on the network interface state (which I think
+it is) to be sufficient information relayed to userspace
+
+Eric
