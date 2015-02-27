@@ -1,58 +1,89 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH v3] brcmfmac: avoid duplicated suspend/resume operation
-Date: Fri, 27 Feb 2015 15:53:21 +0800
-Message-ID: <54F02271.5070202@linux.intel.com>
-References: <54DC1D7D.5050407@linux.intel.com>	<54E0072D.3020802@linux.intel.com> <54E01209.7010300@erley.org>	<54E05961.7000201@broadcom.com> <878ufzi5s3.fsf@kamboji.qca.qualcomm.com> <54E19DA1.4030407@linux.intel.com> <54E1B9F4.6090302@broadcom.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 5/5] tipc: make media address
+	offset a common define
+Date: Fri, 27 Feb 2015 08:56:58 +0100
+Message-ID: <1425023818-12880-6-git-send-email-erik.hugne@ericsson.com>
+References: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, Pat Erley <pat-lkml@erley.org>,
-	brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
-	meuleman@broadcom.com, linville@tuxdriver.com,
-	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54E1B9F4.6090302@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-On 2015/2/16 17:35, Arend van Spriel wrote:
-> On 02/16/15 08:34, Fu, Zhonghui wrote:
->>
->> On 2015/2/15 22:54, Kalle Valo wrote:
->>> Arend van Spriel<arend@broadcom.com>  writes:
->>>
->>>> On 02/15/15 04:27, Pat Erley wrote:
->>>>> On 02/14/2015 08:40 PM, Fu, Zhonghui wrote:
->>>>>> Any comments to this patch? Can it be accepted?
->>>> I assume that patches are queued up until after the merge window that
->>>> we are currently in.
->>> That's right. In the future I will most likely apply patches also during
->>> the merge window, but as I'm still a greenhorn I'll be on the safe and
->>> wait for the merge window to end.
->> I am very glad to see this.
->> Could you please tell which release candidate this patch will be likely merged into now?
->
-> For which tree are you asking this? When the merge window ends and linus' tree has moved to 3.20-rc1, the wireless-drivers-next will move to that -rc1 as well and pending/accepted patches will be applied for the next kernel release. If you are asking when they will be in linus' tree than the answer is 3.21-rc1. Now if you say this patch solves a real problem for you (providing usual proof like log with stack trace) you can request it to go on the wireless-drivers tree to be fixed for 3.20.
+With the exception of infiniband media which does not use media
+offsets, the media address is always located at offset 4 in the
+media info field as defined by the protocol, so we move the
+definition to the generic bearer.h
 
-I was in Chinese new-year vacation these few days. So sorry for late response.
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+---
+ net/tipc/bearer.h    | 1 +
+ net/tipc/eth_media.c | 6 ++----
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-Many thanks for your explanation first. 
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 1a23327..097aff0 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -52,6 +52,7 @@
+  */
+ #define TIPC_MEDIA_INFO_SIZE	32
+ #define TIPC_MEDIA_TYPE_OFFSET	3
++#define TIPC_MEDIA_ADDR_OFFSET	4
+ 
+ /*
+  * Identifiers of supported TIPC media types
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 085d3a0..f69a2fd 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -37,8 +37,6 @@
+ #include "core.h"
+ #include "bearer.h"
+ 
+-#define ETH_ADDR_OFFSET  4  /* MAC addr position inside address field */
+-
+ /* Convert Ethernet address (media address format) to string */
+ static int tipc_eth_addr2str(struct tipc_media_addr *addr,
+ 			     char *strbuf, int bufsz)
+@@ -55,7 +53,7 @@ static int tipc_eth_addr2msg(char *msg, struct tipc_media_addr *addr)
+ {
+ 	memset(msg, 0, TIPC_MEDIA_INFO_SIZE);
+ 	msg[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_ETH;
+-	memcpy(msg + ETH_ADDR_OFFSET, addr->value, ETH_ALEN);
++	memcpy(msg + TIPC_MEDIA_ADDR_OFFSET, addr->value, ETH_ALEN);
+ 	return 0;
+ }
+ 
+@@ -79,7 +77,7 @@ static int tipc_eth_msg2addr(struct tipc_bearer *b,
+ 			     char *msg)
+ {
+ 	/* Skip past preamble: */
+-	msg += ETH_ADDR_OFFSET;
++	msg += TIPC_MEDIA_ADDR_OFFSET;
+ 	return tipc_eth_raw2addr(b, addr, msg);
+ }
+ 
+-- 
+2.1.4
 
-Now that there is not 3.20 version. My understanding is that this patch will be in linus' tree 4.1-rc1, right?
 
-
-Thanks,
-Zhonghui
-
->
-> Regards,
-> Arend
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
