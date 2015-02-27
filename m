@@ -1,96 +1,45 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 2/5] tipc: fix nullpointer bug
-	when subscribing to events
-Date: Fri, 27 Feb 2015 08:56:55 +0100
-Message-ID: <1425023818-12880-3-git-send-email-erik.hugne@ericsson.com>
-References: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
+Date: Fri, 27 Feb 2015 00:01:09 -0800
+Message-ID: <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:35209 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753430AbbB0IBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 03:01:11 -0500
+Received: by iecrl12 with SMTP id rl12so27407487iec.2
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 00:01:11 -0800 (PST)
+In-Reply-To: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On Thu, 2015-02-26 at 22:32 -0800, Cong Wang wrote:
+> We can allocate the peer netns id when creating the link
+> instead of when dumping the link.
+> 
+> This fixes the following kernel warning:
+> 
+>  ===============================
+>  [ INFO: suspicious RCU usage. ]
+>  3.19.0+ #805 Tainted: G        W
+>  -------------------------------
+>  include/linux/rcupdate.h:538 Illegal context switch in RCU read-side critical section!
+> 
+>  other info that might help us debug this:
 
-If a subscription request is sent to a topology server
-connection, and any error occurs (malformed request, oom
-or limit reached) while processing this request, TIPC should
-terminate the subscriber connection. While doing so, it tries
-to access fields in an already freed (or never allocated)
-subscription element leading to a nullpointer exception.
-We fix this by removing the subscr_terminate function and
-terminate the connection immediately upon any subscription
-failure.
+This looks very complicated, why even bother ?
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/subscr.c | 23 ++++-------------------
- 1 file changed, 4 insertions(+), 19 deletions(-)
+I gave an obvious patch fixing root cause, I have no idea why you prefer
+over engineering this.
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 72c339e..1c147c8 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -162,19 +162,6 @@ static void subscr_del(struct tipc_subscription *sub)
- 	atomic_dec(&tn->subscription_count);
- }
- 
--/**
-- * subscr_terminate - terminate communication with a subscriber
-- *
-- * Note: Must call it in process context since it might sleep.
-- */
--static void subscr_terminate(struct tipc_subscription *sub)
--{
--	struct tipc_subscriber *subscriber = sub->subscriber;
--	struct tipc_net *tn = net_generic(sub->net, tipc_net_id);
--
--	tipc_conn_terminate(tn->topsrv, subscriber->conid);
--}
--
- static void subscr_release(struct tipc_subscriber *subscriber)
- {
- 	struct tipc_subscription *sub;
-@@ -312,16 +299,14 @@ static void subscr_conn_msg_event(struct net *net, int conid,
- {
- 	struct tipc_subscriber *subscriber = usr_data;
- 	struct tipc_subscription *sub = NULL;
-+	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 
- 	spin_lock_bh(&subscriber->lock);
--	if (subscr_subscribe(net, (struct tipc_subscr *)buf, subscriber,
--			     &sub) < 0) {
--		spin_unlock_bh(&subscriber->lock);
--		subscr_terminate(sub);
--		return;
--	}
-+	subscr_subscribe(net, (struct tipc_subscr *)buf, subscriber, &sub);
- 	if (sub)
- 		tipc_nametbl_subscribe(sub);
-+	else
-+		tipc_conn_terminate(tn->topsrv, subscriber->conid);
- 	spin_unlock_bh(&subscriber->lock);
- }
- 
--- 
-2.1.4
+If you believe allocating peer netns id is required at link creation
+time, you should explain why.
 
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+BTW, (void)peernet2id(dev_net(dev), src_net) can fail, and your fix is
+not complete anyway.
