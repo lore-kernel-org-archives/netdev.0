@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usb: plusb: Add support for National Instruments
- host-to-host cable
-Date: Fri, 27 Feb 2015 17:35:38 -0500 (EST)
-Message-ID: <20150227.173538.507712773812639200.davem@davemloft.net>
-References: <1424116026-27869-1-git-send-email-ben.shelton@ni.com>
-	<20150220.151417.1734124571561269613.davem@davemloft.net>
-	<20150227212632.GA11789@bshelton-desktop>
+Subject: Re: [PATCH net-next] bnx2: disable toggling of rxvlan if necessary
+Date: Fri, 27 Feb 2015 17:40:06 -0500 (EST)
+Message-ID: <20150227.174006.172927575385261953.davem@davemloft.net>
+References: <1424958487-5737-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ben.shelton@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150227212632.GA11789@bshelton-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	Dept-HSGLinuxNICDev@qlogic.com
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54931 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932494AbbB0WkI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:40:08 -0500
+In-Reply-To: <1424958487-5737-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Shelton <ben.shelton@ni.com>
-Date: Fri, 27 Feb 2015 15:26:32 -0600
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Thu, 26 Feb 2015 14:48:07 +0100
 
-> On 02/20, David Miller wrote:
->> From: Ben Shelton <ben.shelton@ni.com>
->> Date: Mon, 16 Feb 2015 13:47:06 -0600
->> 
->> > The National Instruments USB Host-to-Host Cable is based on the Prolific
->> > PL-25A1 chipset.  Add its VID/PID so the plusb driver will recognize it.
->> > 
->> > Signed-off-by: Ben Shelton <ben.shelton@ni.com>
->> 
->> Applied, thanks.
+> The bnx2 driver uses .ndo_fix_features to force enable of Rx VLAN tag
+> stripping when the card cannot disable it. The driver should remove
+> NETIF_F_HW_VLAN_CTAG_RX flag from hw_features instead so it is fixed
+> for the ethtool.
 > 
-> Hi David,
-> 
-> Is this something you think would go into stable as well?
+> Cc: Sony Chacko <sony.chacko@qlogic.com>
+> Cc: Dept-HSGLinuxNICDev@qlogic.com
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-I'm ambivalent.
+Would be great to get some reviews from the qlogic folks.
