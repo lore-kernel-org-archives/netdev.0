@@ -1,52 +1,68 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH] sh_eth: Fix lost MAC address on kexec
-Date: Fri, 27 Feb 2015 17:16:26 +0100
-Message-ID: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Kevin Hilman <khilman@kernel.org>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben.hutchings@codethink.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
+Date: Fri, 27 Feb 2015 17:25:57 +0100
+Message-ID: <54F09A95.8000507@6wind.com>
+References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com> <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:45605 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751776AbbB0Q0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 11:26:00 -0500
+Received: by wgha1 with SMTP id a1so21401295wgh.12
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 08:25:59 -0800 (PST)
+In-Reply-To: <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before
-freeing buffers") added a call to sh_eth_reset() to the
-sh_eth_set_ringparam() and sh_eth_close() paths.
+Le 27/02/2015 09:01, Eric Dumazet a =C3=A9crit :
+> On Thu, 2015-02-26 at 22:32 -0800, Cong Wang wrote:
+>> We can allocate the peer netns id when creating the link
+>> instead of when dumping the link.
+>>
+>> This fixes the following kernel warning:
+>>
+>>   =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>   [ INFO: suspicious RCU usage. ]
+>>   3.19.0+ #805 Tainted: G        W
+>>   -------------------------------
+>>   include/linux/rcupdate.h:538 Illegal context switch in RCU read-si=
+de critical section!
+>>
+>>   other info that might help us debug this:
+>
+> This looks very complicated, why even bother ?
+>
+> I gave an obvious patch fixing root cause, I have no idea why you pre=
+fer
+> over engineering this.
+>
+> If you believe allocating peer netns id is required at link creation
+> time, you should explain why.
+>
+> BTW, (void)peernet2id(dev_net(dev), src_net) can fail, and your fix i=
+s
+> not complete anyway.
+That's true. The patch does not cover the following case:
+ip link add foo type bar
+ip link set foo netns netns1
 
-However, setting the software reset bit(s) in the EDMR register resets
-the MAC Address Registers to zero. Hence after kexec, the new kernel
-doesn't detect a valid MAC address and assigns a random MAC address,
-breaking DHCP.
+In this case, the second command will call dev_change_net_namespace() a=
+nd the
+id will not be allocated.
 
-Set the MAC address again after the reset in sh_eth_dev_exit() to fix
-this.
+I think Eric's patch is simpler and less error-prone.
 
-Tested on r8a7740/armadillo (GETHER) and r8a7791/koelsch (FAST_RCAR).
+=46WIW, I will be off for one week and probably without any internet ac=
+cess ;-)
 
-Fixes: 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before freeing buffers")
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
- drivers/net/ethernet/renesas/sh_eth.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 4da8bd263997a17b..654b48d1e61a3124 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1392,6 +1392,9 @@ static void sh_eth_dev_exit(struct net_device *ndev)
- 	msleep(2); /* max frame time at 10 Mbps < 1250 us */
- 	sh_eth_get_stats(ndev);
- 	sh_eth_reset(ndev);
-+
-+	/* Set MAC address again */
-+	update_mac_address(ndev);
- }
- 
- /* free Tx skb function */
--- 
-1.9.1
+Regards,
+Nicolas
