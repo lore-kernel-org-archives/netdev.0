@@ -1,65 +1,138 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Basic MPLS support
-Date: Fri, 27 Feb 2015 16:21:31 -0500 (EST)
-Message-ID: <20150227.162131.431559184124647735.davem@davemloft.net>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: Re: i40e: crash on NMI by continuous module reload
+Date: Fri, 27 Feb 2015 16:25:09 -0500
+Message-ID: <3DA4D8F9-C0E0-41B9-8F9C-BD17BC7A09B3@gmail.com>
+References: <54F07630.1010802@kpanic.de> <54F078DF.5020100@gmail.com>
+	<54F07C29.8010805@kpanic.de> <54F082C8.8040407@gmail.com>
+	<FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	stephen@networkplumber.org, santiago@crfreenet.org
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54228 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754632AbbB0VVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 16:21:34 -0500
-In-Reply-To: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Nelson, Shannon" <shannon.nelson@intel.com>,
+	Stefan Assmann <sassmann@kpanic.de>, netdev <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 25 Feb 2015 11:09:23 -0600
+ 
 
-> While trying to figure out what MPLS is and why MPLS support is not in
-> the kernel on a lark I sat down and wrote an MPLS implemenation, so I
-> could answer those questions for myself.
-> 
-> From what I can tell the short answer is MPLS is trivial-simple and the
-> we don't have an in-kernel implementation because no one has sat down
-> and done the work to have a good mergable implementation.
-> 
-> MPLS has it's good sides and it's bad sides but at the end of the day
-> MPLS has users, and having an in-kernel implementation should help us
-> understand MPLS and focus our conversations dealing with MPLS and
-> VRFs.
-> 
-> Having MPLS in our toolkit as the entire world begins playing with
-> overlay networks aka ``network virtualization'' to support VM and
-> container migration seems appropriate as MPLS is the historical solution
-> to this problem.
-> 
-> Constructive criticism about the netlink interface is especially
-> appreciated.  Hopefully we can have at least one protocol in the kernel
-> where the netlink interface doesn't have nasty corner case.
-> 
-> As for linux users.  The conversations I had at netdev01 this sounds
-> like a case of if I build it people will use the code.
+On February 27, 2015 2:42:29 PM EST, "Nelson, Shannon" <shannon.nelson@intel.com> wrote:
+>> From: nick [mailto:xerofoify@gmail.com]
+>> On 2015-02-27 09:16 AM, Stefan Assmann wrote:
+>> > On 27.02.2015 15:02, nick wrote:
+>> >
+>> > [...]
+>> >
+>> >>>     i40e: Fix a bug where Rx would stop after some time
+>> >>> [...]
+>> >>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> >>> index f7464e8..ff6d94d 100644
+>> >>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> >>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> >>> [...]
+>> >>> @@ -9169,6 +9178,13 @@ static int i40e_probe(struct pci_dev
+>*pdev,
+>> const struct pci_device_id *ent)
+>> >>>  	if (err)
+>> >>>  		dev_info(&pf->pdev->dev, "set phy mask fail, aq_err %d\n",
+>> err);
+>> >>>
+>> >>> +	msleep(75);
+>> >>> +	err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
+>> >>> +	if (err) {
+>> >>> +		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
+>> >>> +			 pf->hw.aq.asq_last_status);
+>> >>> +	}
+>> >>> +
+>> >>>  	/* The main driver is (mostly) up and happy. We need to set
+>this
+>> state
+>> >>>  	 * before setting up the misc vector or we get a race and the
+>> vector
+>> >>>  	 * ends up disabled forever.
+>> >>>
+>> >>> With this hunk removed the driver successfully unloaded/reloaded
+>a
+>> >>> couple of hundred times. Would it be safe to just remove this
+>hunk?
+>> >>> I haven't seen any negative effects by removing this yet.
+>> >>>
+>> >>>   Stefan
+>> >>>
+>> >> Stefan,
+>> >> I wouldn't remove them yet as this does look like a valid idea to
+>> check to see if the link is
+>> >> restarting successfully. On the other hand can you try removing
+>the
+>> msleep line as this one is
+>> >> most likely causing the issue due to sleeping for some long in a
+>> probe function is generally a
+>> >> bad idea.
+>> >> Thanks,
+>> >> Nick
+>> >
+>> > Thanks Nick for the quick reply. I tested removing the msleep but
+>that
+>> > didn't make a difference. You actually need to remove the complete
+>> hunk
+>> > to get a stable driver reload.
+>> >
+>> >   Stefan
+>> >
+>> Stefan,
+>> Basically there are a few things that could be going wrong
+>> 1. You are getting a error return for the
+>> function,i40e_aq_set_link_restart_an
+>> 2. You are trying to re able the device again when not needed
+>> 3. You are sending a NULL value to a field for command arguments that
+>> takes a 0 and not NULL
+>> to take no arguments
+>> Nick
+>
+>First of all, I would make sure you've got a short sleep in between
+>each load and unload in this stress test.  There's a lot going on under
+>the covers in the Firmware that really should be allowed to settle out
+>before jostling it again with another load/unload command.  
+>
+>It would help to know what Firmware you have on your NIC - can you give
+>us the output from "ethtool -i <ethX>"?
+>
+>The out-of-tree driver has just (finally!) been updated on SourceForge,
+>so you might give this version 1.2.37 driver a try to see if it changes
+>your result.  That code still has the hunk in question, but protected
+>by a FW version check.  The related patch will be headed upstream to
+>net-next very soon.
+>
+>Firmware updates have also just been released, but I'm not sure they've
+>made it to the Intel Downloads site yet.  Updating your FW will make a
+>difference.
+>
+>sln
+Thanks Shannon, 
+For the advice on there being a newer driver and firmware to test that on before reporting the bug against this driver. I am curious as to why this newer code is not up streamed to Linux next yet through. 
+Nick
+-- 
+Sent from my Android device with K-9 Mail. Please excuse my brevity.
 
-At a high level I have no objections to this work and I'm in fact
-extremely happy to see someone working on this.
-
-However I would ask you to reconsider the neighbour handling issue.
-
-It seems to me that routing daemons are going to more naturally work
-with ipv4 addresses as MPLS next hops, and therefore when that's the
-case we should too.
-
-Why?
-
-Because then the neighbour layer handles failover transparently for
-you.
-
-Think about it, if we have a case where some other resolving mechanism
-would be used for MPLS nexthops, there would need to be some kind of
-fail over handling mechanism for it as well.
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
