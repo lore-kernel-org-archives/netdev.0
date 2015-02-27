@@ -1,36 +1,40 @@
-From: Yannick Guerrini <yguerrini@tomshardware.fr>
-Subject: [PATCH] qlcnic: Fix trivial typo in comment
-Date: Fri, 27 Feb 2015 18:12:16 +0100
-Message-ID: <1425057136-13988-1-git-send-email-yguerrini@tomshardware.fr>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] net: do not use rcu in rtnl_dump_ifinfo()
+Date: Fri, 27 Feb 2015 18:19:27 +0100
+Message-ID: <54F0A71F.3040808@iogearbox.net>
+References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>	 <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>	 <54F09A95.8000507@6wind.com> <1425056838.5130.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Dept-GELinuxNICDev@qlogic.com>, <trivial@kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Yannick Guerrini <yguerrini@tomshardware.fr>
-To: <shahed.shaikh@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>, nicolas.dichtel@6wind.com,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59144 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069AbbB0RTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 12:19:32 -0500
+In-Reply-To: <1425056838.5130.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change 'Firmare' to 'Firmware'
+On 02/27/2015 06:07 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> We did a failed attempt in the past to only use rcu in rtnl dump
+> operations (commit e67f88dd12f6 "net: dont hold rtnl mutex during
+> netlink dump callbacks")
+>
+> Now that dumps are holding RTNL anyway, there is no need to also
+> use rcu locking, as it forbids any scheduling ability, like
+> GFP_KERNEL allocations that controlling path should use instead
+> of GFP_ATOMIC whenever possible.
+>
+> This should fix following splat Cong Wang reported :
+>
+> ===============================
 
-Signed-off-by: Yannick Guerrini <yguerrini@tomshardware.fr>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+[ Btw, I think patchwork has an issue with above line when fetching
+   the mbox : it thinks commit description ends here. :(
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index fa43176..f221126 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -314,7 +314,7 @@ struct qlcnic_fdt {
- #define QLCNIC_BRDCFG_START	0x4000		/* board config */
- #define QLCNIC_BOOTLD_START	0x10000		/* bootld */
- #define QLCNIC_IMAGE_START	0x43000		/* compressed image */
--#define QLCNIC_USER_START	0x3E8000	/* Firmare info */
-+#define QLCNIC_USER_START	0x3E8000	/* Firmware info */
- 
- #define QLCNIC_FW_VERSION_OFFSET	(QLCNIC_USER_START+0x408)
- #define QLCNIC_FW_SIZE_OFFSET		(QLCNIC_USER_START+0x40c)
--- 
-1.9.5.msysgit.0
+   Prefixing with a space char should help to not get it lost. ]
