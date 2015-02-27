@@ -1,121 +1,84 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Flows! Offload them.
-Date: Fri, 27 Feb 2015 07:59:36 -0500
-Message-ID: <20150227125936.GA1611@hmsreliant.think-freely.org>
-References: <20150226074214.GF2074@nanopsycho.orion>
- <20150226083758.GA15139@vergenet.net>
- <20150226091628.GA4059@nanopsycho.orion>
- <20150226133326.GC23050@casper.infradead.org>
- <54EF3A78.9020507@intel.com>
- <20150226201635.GA366@hmsreliant.think-freely.org>
- <20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
- <20150227012239.GB8847@neilslaptop.think-freely.org>
- <20150227084141.GA17240@casper.infradead.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Named sockets WAS(Re: Flows! Offload them.
+Date: Fri, 27 Feb 2015 08:15:47 -0500
+Message-ID: <54F06E03.7050303@mojatatu.com>
+References: <20150226074214.GF2074@nanopsycho.orion> <20150226112252.GF9840@oracle.com> <20150226113942.GC1973@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <simon.horman@netronome.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, andy@greyhouse.net, dborkman@redhat.com,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, tgraf@suug.ch, dborkman@redhat.com,
 	ogerlitz@mellanox.com, jesse@nicira.com, jpettit@nicira.com,
-	joestringer@nicira.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks.com, bcrl@kvack.org
-To: Thomas Graf <tgraf@suug.ch>
+	joestringer@nicira.com, john.r.fastabend@intel.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, simon.horman@netronome.com,
+	shrijeet@gmail.com, gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48387 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072AbbB0NAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 08:00:01 -0500
-Content-Disposition: inline
-In-Reply-To: <20150227084141.GA17240@casper.infradead.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:37275 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752538AbbB0NPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 08:15:55 -0500
+Received: by igbhn18 with SMTP id hn18so132195igb.2
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 05:15:54 -0800 (PST)
+In-Reply-To: <20150226113942.GC1973@nanopsycho.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2015 at 08:41:41AM +0000, Thomas Graf wrote:
-> On 02/26/15 at 08:22pm, Neil Horman wrote:
-> > Yes, exactly that, for the general traditional networking use case, that is
-> > exactly what we want, to opportunistically move traffic faster with less load on
-> > the cpu.  We don't nominally care what traffic is offloaded, as long as the
-> > hardware does a better job than just software alone.  If we get an occasional
-> > miss and have to do stuff in software, so be it.
-> 
-> Blind random offload of some packets is better than nothing but knowing
-> and having control over which packets are offloaded is essential. You
-> typically don't want to randomly give one flow priority over another ;-)
-> Some software CPUs might not be able to handle the load. I know what
-> you mean though and as long as we allow to disable and overwrite this
-> behaviour we are good.
-> 
 
-Yes, exactly this.  I disagree with your assertion that what I'm proposing is
-blind or random (quite the opposite), I'm proposing best effort offload of high
-level kernel functions with well defined generic policies for what to do on
-resource exhaustion overflow.  You are correct that this might lead to random
-(or perhaps better put, arbitrary), flows reaching the cpu occasionally, but
-thats the best effort part.  Using canned policies will lead to that, and if
-thats intolerable to you as an administrator, then you have the flow api to
-offer more fine grained control over what exactly you want to do.
+Sorry - catching up with the discussion; so many parallel topics
+buried..
+I just wanna put my TU ("thumbs up", yes I didnt want to do the
+pedestrian +1) for the named socket concept. With the explosion of
+in-kernel sockets all which intend to do host protocol processing
+this would be a very nice abstraction to have.
+But i do believe this could also be useful for user space redirecting;
+we already have very scalable socket code interfacing which could be
+taken advantage of.
 
-Interestingly, As part of a policy specification, I wonder if we could
-incorporate a flow rate aspect that would lead a driver to only offload a
-given flow for a given functionality if it sends more than X amount of traffic
-through the cpu.
+cheers,
+jamal
 
-> > So, this is a case in which I think John F.'s low level flow API is more well
-> > suited.  OVS has implemented a user space dataplane that circumvents alot of the
-> > kernel mechanisms for traffic forwarding.  For that sort of application, the
-> > traditional kernel offload "objects" aren't really appropriate.  Instead, OVS
-> > can use the low level flow API to construct its own custom offload pipeline
-> > using whatever rules and policies that it wants.
-> 
-> Maybe I'm misunderstanding your statement here but I think it's essential
-> that the kernel is able to handle whatever we program in hardware even
-> if the hardware tables look differrent than the software tables, no matter
-> whether the configuration occurs through OVS or not. A punt to software
-> should always work even if it does not happen. So while I believe that
-> OVS needs more control over the hardware than available through the
-> datapath cache it must program both the hardware and software in parallel
-> even though the building blocks for doing so might look different.
-> 
-I think parallel programming of the hardware and software is essential in _most_
-use cases, but possibly not all, and in those cases, I think Johns flow API is
-the solution.  Mine makes sense for all the traditional use cases in which we
-just want more packets to go faster, and be able to deal with the consequences
-in a best effort fashion if the fast path can't do its job.
-
-As an example, lets imagine that a company wishes to build an appliance that
-allows ipsec tunneling using a custom assymetric crypto algorithm that they have
-codified with a TCM unit in the hardware datapath.  All we can do is program the
-public and private keys on the hardware.  In this case we can setup a software
-datapath to represent the mirror image of the hardware datapath, but it would be
-non-functional, as we don't know what the magic crypto alg is.  In this case
-Johns Flow API is essential because its able to setup the datapath in hardware
-that has no true software parallel.  Additionaly its imperative to use that API
-to ensure that all flows via that tunnel go through hardware, as there is no
-point in overflowing the traffic to the cpu.
-
-> > Of course, using the low level flow API is incompatible with the in-kernel
-> > object offload idea that I'm proposing, but I see the two as able to co-exist,
-> > much like firewalld co-exists with iptables.  You can use both, but you have to
-> > be aware that using the lower layer interface might break the others higher
-> > level oeprations.  And if that happens, its on you to manage it.
-> 
-> I think this does not have to be mutually exclusive. An example would
-> be a well defined egress qdisc which is offloaded into it's own table.
-> If OVS is aware of the table it can make use of it while configuring
-> that table through the regular qdisc software API.
-> 
-Absolutely, I should have said "may be incompatible".  In this case my thought
-was that, if you offloaded l2 and l3 forwarding to a device, some of the
-dataplane elements to preform those functions would be allocated to that
-purpose.  If you then were to use the lower level Flow api to do some sort of
-custom datapath manipulation in hardware, the hardware may or may not have
-resources to dedicate to that purpose.  In the event that they did not the flow
-API would have to fail (or vice versa if you used the flow api first, then tried
-to offload l2 forwarding).  If however sufficient resources were available to do
-both, then all is well and the two can co-exist.
-
-Regards
-Neil
+On 02/26/15 06:39, Jiri Pirko wrote:
+> Thu, Feb 26, 2015 at 12:22:52PM CET, sowmini.varadhan@oracle.com wrote:
+>> On (02/26/15 08:42), Jiri Pirko wrote:
+>>> 6) implement "named sockets" (working name) and implement TC support for that
+>>>      -ingress qdisc attach, act_mirred target
+>>> 7) allow tunnels (VXLAN, Geneve, GRE) to be created as named sockets
+>>
+>> Can you elaborate a bit on the above two?
+>
+> Sure. If you look into net/openvswitch/vport-vxlan.c for example, there
+> is a socket created by vxlan_sock_add. vxlan_rcv is called on rx and
+> vxlan_xmit_skb to xmit.
+>
+> What I have on mind is to allow to create tunnels using "ip" but not as
+> a device but rather just as a wrapper of these functions (and others alike).
+>
+> To identify the instance we name it (OVS has it identified and vport).
+> After that, tc could allow to attach ingress qdisk not only to a device,
+> but to this named socket as well. Similary with tc action mirred, it would
+> be possible to forward not only to a device, but to this named socket as
+> well. All should be very light.
+>
+>
+>>
+>> FWIW I've been looking at the problem of RDS over TCP, which is
+>> an instance of layered sockets that tunnels the application payload
+>> in TCP.
+>>
+>> RDS over IB provides QoS support using the features available in
+>> IB- to supply an analog of that for RDS-TCP, you'd need to plug
+>> into tc's CBQ support, and also provide hooks for packet (.1p, dscp)
+>> marking.
+>>
+>> Perhaps there is some overlap to what you are thinking of in #6 and #7
+>> above?
+>
+> I'm not talking about QoS at all. See the description above.
+>
+> Jiri
+>
+>>
+>> --Sowmini
