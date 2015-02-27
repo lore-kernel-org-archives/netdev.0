@@ -1,121 +1,125 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v4] lib: Replace 16384 netlink buf size by macro
-Date: Fri, 27 Feb 2015 08:31:40 +0200
-Message-ID: <1425018700-32725-1-git-send-email-vadim4j@gmail.com>
-Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:33012 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754681AbbB0GnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 01:43:02 -0500
-Received: by labgf13 with SMTP id gf13so15626109lab.0
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 22:43:00 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: [PATCH v2] ixgbe: make VLAN filter conditional
+Date: Fri, 27 Feb 2015 07:29:25 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E45319@BPXM14GP.gisp.nec.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
 
-Replaced hard coded 16384 netlink buffer size by NLBUF_SIZE,
-which can be overridden by -DNLBUF_SIZE.
+Disable hardware VLAN filtering if netdev->features VLAN flag is dropped.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+In SR-IOV case, there is a use case which needs to disable VLAN filter.
+For example, we need to make a network function with VF in virtualized
+environment. That network function may be a software switch, a router
+or etc. It means that that network function will be an end point which
+terminates many VLANs.
+
+In the current implementation, VLAN filtering always be turned on and
+VF can receive only 63 VLANs. It means that only 63 VLANs can be terminated
+in one NIC.
+
+With this patch, if the user turns VLAN filtering off on the host, VF
+can receive every VLAN packet.
+
+This VLAN filtering can be turned on or off when SR-IOV is disabled, if not
+the operation is rejected.
+
+Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
+CC: Choi, Sy Jong <sy.jong.choi@intel.com>
 ---
-v4:
-    Added "iproute2" in the subject
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 23 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  4 ++++
+ 2 files changed, 27 insertions(+)
 
-v3:
-    Fixed "overrided" -> overridden" in the
-    commit message   : suggested by Sergei Shtylyov
-
-v2:
-    Get rid of NL_BUF: suggested by Jiri Pirko
-
- include/libnetlink.h | 4 ++++
- ip/iplink.c          | 2 +-
- lib/libnetlink.c     | 8 ++++----
- misc/ss.c            | 2 +-
- 4 files changed, 10 insertions(+), 6 deletions(-)
-
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 898275b..1ef7f1f 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -170,5 +170,9 @@ extern int rtnl_from_file(FILE *, rtnl_filter_t handler,
-  * messages from dump file */
- #define NLMSG_TSTAMP	15
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index f690f5d..9593366 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4081,6 +4081,10 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		hw->addr_ctrl.user_set_promisc = false;
+ 	}
  
-+#ifndef NLBUF_SIZE
-+#define NLBUF_SIZE 16384
-+#endif
++	/* Disable hardware VLAN filter if the feature flag is dropped */
++	if (!(netdev->features & NETIF_F_HW_VLAN_CTAG_FILTER))
++		vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
 +
- #endif /* __LIBNETLINK_H__ */
+ 	/*
+ 	 * Write addresses to available RAR registers, if there is not
+ 	 * sufficient space to store all the addresses then enable
+@@ -7734,6 +7738,26 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 	netdev_features_t changed = netdev->features ^ features;
+ 	bool need_reset = false;
  
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 5893ee4..db60afa 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -770,7 +770,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
- {
- 	int len;
- 	struct iplink_req req;
--	char answer[16384];
-+	char answer[NLBUF_SIZE];
++	if (changed & NETIF_F_HW_VLAN_CTAG_FILTER) {
++		int vlan_filter = features & NETIF_F_HW_VLAN_CTAG_FILTER;
++
++		/* Prevent controlling VLAN filter if VFs exist */
++		if (adapter->num_vfs > 0) {
++			e_dev_info("%s HW VLAN filter is not allowed when "
++				   "SR-IOV enabled.\n",
++				   vlan_filter ? "Enabling" : "Disabling");
++			return -EINVAL;
++		}
++		if (!vlan_filter) {
++			e_dev_warn("Disabling HW VLAN filter. All VFs cannot "
++				   "set VLAN filter from VF driver.\n");
++			e_dev_warn("All VLAN packets are delivered to "
++				   "every VF.\n");
++		}
++		/* reset if HW VLAN filter is changed */
++		need_reset = true;
++	}
++
+ 	/* Make sure RSC matches LRO, reset if change */
+ 	if (!(features & NETIF_F_LRO)) {
+ 		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 288f39f..9ad45738 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -839,6 +839,10 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
+ 	u32 bits;
+ 	u8 tcs = netdev_get_num_tc(adapter->netdev);
  
- 	memset(&req, 0, sizeof(req));
- 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 77e07ef..666e277 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -194,7 +194,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
- 		.msg_iov = &iov,
- 		.msg_iovlen = 1,
- 	};
--	char buf[16384];
-+	char buf[NLBUF_SIZE];
- 	int dump_intr = 0;
- 
- 	iov.iov_base = buf;
-@@ -317,7 +317,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
- 		.msg_iov = &iov,
- 		.msg_iovlen = 1,
- 	};
--	char   buf[16384];
-+	char buf[NLBUF_SIZE];
- 
- 	memset(&nladdr, 0, sizeof(nladdr));
- 	nladdr.nl_family = AF_NETLINK;
-@@ -432,7 +432,7 @@ int rtnl_listen(struct rtnl_handle *rtnl,
- 		.msg_iov = &iov,
- 		.msg_iovlen = 1,
- 	};
--	char   buf[16384];
-+	char buf[NLBUF_SIZE];
- 
- 	memset(&nladdr, 0, sizeof(nladdr));
- 	nladdr.nl_family = AF_NETLINK;
-@@ -498,7 +498,7 @@ int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler,
- {
- 	int status;
- 	struct sockaddr_nl nladdr;
--	char   buf[16384];
-+	char buf[NLBUF_SIZE];
- 	struct nlmsghdr *h = (void*)buf;
- 
- 	memset(&nladdr, 0, sizeof(nladdr));
-diff --git a/misc/ss.c b/misc/ss.c
-index 21a4366..036ede8 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2222,7 +2222,7 @@ Exit:
- static int tcp_show_netlink_file(struct filter *f)
- {
- 	FILE	*fp;
--	char	buf[16384];
-+	char buf[NLBUF_SIZE];
- 
- 	if ((fp = fopen(getenv("TCPDIAG_FILE"), "r")) == NULL) {
- 		perror("fopen($TCPDIAG_FILE)");
++	/* Ignore if VLAN filter is disabled */
++	if (!(adapter->netdev->features & NETIF_F_HW_VLAN_CTAG_FILTER))
++		return 0;
++
+ 	if (adapter->vfinfo[vf].pf_vlan || tcs) {
+ 		e_warn(drv,
+ 		       "VF %d attempted to override administratively set VLAN configuration\n"
 -- 
-2.2.2
+2.1.0
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
