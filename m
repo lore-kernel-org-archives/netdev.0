@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ARP resolving for switch drivers
-Date: Fri, 27 Feb 2015 17:26:49 -0500 (EST)
-Message-ID: <20150227.172649.2209140275022350959.davem@davemloft.net>
-References: <CAE4R7bDnrMZSsZeZmYkT8HhkXUpgnedBo8VX5iEtyJmzJ7gV5A@mail.gmail.com>
-	<54EEB5A1.1000706@cumulusnetworks.com>
-	<CAE4R7bBxHs9aGf1tupH6d+MNQ9m5zzzbdrMYcmmnxe5gtH2Q3Q@mail.gmail.com>
+Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Fri, 27 Feb 2015 17:30:11 -0500 (EST)
+Message-ID: <20150227.173011.720468189098021308.davem@davemloft.net>
+References: <54EDF4DD.1060709@iogearbox.net>
+	<1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150226100235.GA16032@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	shm@cumulusnetworks.com
-To: sfeldma@gmail.com
+Cc: eric.dumazet@gmail.com, daniel@iogearbox.net,
+	David.Laight@ACULAB.COM, pablo@netfilter.org, johunt@akamai.com,
+	kaber@trash.net, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54812 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54856 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753405AbbB0W0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:26:51 -0500
-In-Reply-To: <CAE4R7bBxHs9aGf1tupH6d+MNQ9m5zzzbdrMYcmmnxe5gtH2Q3Q@mail.gmail.com>
+	with ESMTP id S1753340AbbB0WaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:30:14 -0500
+In-Reply-To: <20150226100235.GA16032@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Thu, 26 Feb 2015 04:03:20 -0800
+From: "tgraf@suug.ch" <tgraf@suug.ch>
+Date: Thu, 26 Feb 2015 10:02:35 +0000
 
-> I don't have a better label at this time.  "external" for both FDB and
-> FIB seems consistent to me since in both cases the kernel's DB (FDB or
-> FIB) has entries marked with "external" meaning they exist also in
-> some offload device's DB (FDB or FIB), and the device will offload the
-> fwd processing from the kernel.
+> I just want to point out here that TCP is not the only future
+> use case. The station table for mac80211 has recently been
+> converted. We need to keep all of them on the radar.
 
-I think allowing explicit control of entry loading into HW is a totally
-separate piece of work from initial L3 offload support.
-
-I want to see the most stupid implementation possible at the beginning.
-
-Which means load entries until we cannot any more, and when we reach
-that limit flush the entire HW table, stop offloading, and do
-everything in software.
-
-If you try to take the next step and allow for fine grained control,
-and most intelligent policy on the kernel side of things, we're going
-to go back and forth forever.
-
-Get the basic stuff in now, and then we can argue about how to do the
-rest meanwhile.
+Just wanted to note in passing that I wonder how legal
+net/core/neighbour.c:neigh_hash_grow() is.  It's growing an RCU
+hashtable without using rhashtable. :-)
