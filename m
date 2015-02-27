@@ -1,55 +1,72 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [Patch net] netns: correct gfp flags for alloc_netid()
-Date: Thu, 26 Feb 2015 18:19:41 -0800
-Message-ID: <CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
+Date: Thu, 26 Feb 2015 18:34:21 -0800
+Message-ID: <1425004461.5565.183.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1424998490-9565-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:46132 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbB0CTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 21:19:42 -0500
-Received: by pablj1 with SMTP id lj1so2764291pab.13
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 18:19:41 -0800 (PST)
-In-Reply-To: <1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:37247 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753882AbbB0CeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 21:34:23 -0500
+Received: by iecrl12 with SMTP id rl12so24619296iec.4
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 18:34:22 -0800 (PST)
+In-Reply-To: <CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 5:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2015-02-26 at 16:54 -0800, Cong Wang wrote:
->> This fixes the following kernel warning:
->>
->>  ===============================
->>  [ INFO: suspicious RCU usage. ]
->>  3.19.0+ #805 Tainted: G        W
->>  -------------------------------
->>  include/linux/rcupdate.h:538 Illegal context switch in RCU read-side critical section!
->>
->>  other info that might help us debug this:
->>
->
-> I do not think this is the right way to fix this.
->
-> Bug is that rtnl_dump_ifinfo() should not use rcu_read_lock(), as RTNL
-> is held : GFP_KERNEL allocations in control path should be the golden
-> rule.
->
-> I guess I should have reverted e67f88dd12f6 completely
-> instead of the partial revert (2907c35ff647080)
+On Thu, 2015-02-26 at 18:19 -0800, Cong Wang wrote:
 
+> 
+> LOL, it has been changed back and forth.
+> 
+> I thought rcu read lock was introduced to optimize dumping
+> performance, if it were really important, we should solve the
+> deadlock you mentioned in commit 2907c35ff647080?
+> 
+> Otherwise, as you said, completely revert to using rtnl lock.
 
-LOL, it has been changed back and forth.
+Dumping is so fat nowadays, it makes sense to remove rcu_read_lock() to
+allow cond_resched() eventually.
 
-I thought rcu read lock was introduced to optimize dumping
-performance, if it were really important, we should solve the
-deadlock you mentioned in commit 2907c35ff647080?
+rcu_read_lock() made sense _if_ RTNL mutex could be avoided, but
+unfortunately this could not be done easily.
 
-Otherwise, as you said, completely revert to using rtnl lock.
+Please try this patch instead :
 
-Or for now just use my patch since idr doesn't allocate that
-much memory in atomic?
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 1385de0fa080..74ce25d2cded 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1300,7 +1300,6 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	s_h = cb->args[0];
+ 	s_idx = cb->args[1];
+ 
+-	rcu_read_lock();
+ 	cb->seq = net->dev_base_seq;
+ 
+ 	/* A hack to preserve kernel<->userspace interface.
+@@ -1322,7 +1321,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
+ 		idx = 0;
+ 		head = &net->dev_index_head[h];
+-		hlist_for_each_entry_rcu(dev, head, index_hlist) {
++		hlist_for_each_entry(dev, head, index_hlist) {
+ 			if (idx < s_idx)
+ 				goto cont;
+ 			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+@@ -1344,7 +1343,6 @@ cont:
+ 		}
+ 	}
+ out:
+-	rcu_read_unlock();
+ 	cb->args[1] = idx;
+ 	cb->args[0] = h;
+ 
