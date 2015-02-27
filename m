@@ -1,47 +1,50 @@
-From: Yannick Guerrini <yguerrini@tomshardware.fr>
-Subject: [PATCH] netxen_nic: Fix trivial typos in comments
-Date: Fri, 27 Feb 2015 18:38:46 +0100
-Message-ID: <1425058726-8908-1-git-send-email-yguerrini@tomshardware.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: do not use rcu in rtnl_dump_ifinfo()
+Date: Fri, 27 Feb 2015 09:40:30 -0800
+Message-ID: <1425058830.5130.30.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
+	 <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54F09A95.8000507@6wind.com>
+	 <1425056838.5130.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54F0A71F.3040808@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <sony.chacko@qlogic.com>, <rajesh.borundia@qlogic.com>,
-	<trivial@kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Yannick Guerrini <yguerrini@tomshardware.fr>
-To: <manish.chopra@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34075 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755128AbbB0Rkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 12:40:32 -0500
+Received: by igal13 with SMTP id l13so2022823iga.1
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 09:40:32 -0800 (PST)
+In-Reply-To: <54F0A71F.3040808@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change 'mutliple' to 'multiple'
-Change 'Firmare' to 'Firmware'
+On Fri, 2015-02-27 at 18:19 +0100, Daniel Borkmann wrote:
+> On 02/27/2015 06:07 PM, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > We did a failed attempt in the past to only use rcu in rtnl dump
+> > operations (commit e67f88dd12f6 "net: dont hold rtnl mutex during
+> > netlink dump callbacks")
+> >
+> > Now that dumps are holding RTNL anyway, there is no need to also
+> > use rcu locking, as it forbids any scheduling ability, like
+> > GFP_KERNEL allocations that controlling path should use instead
+> > of GFP_ATOMIC whenever possible.
+> >
+> > This should fix following splat Cong Wang reported :
+> >
+> > ===============================
+> 
+> [ Btw, I think patchwork has an issue with above line when fetching
+>    the mbox : it thinks commit description ends here. :(
+> 
+>    Prefixing with a space char should help to not get it lost. ]
 
-Signed-off-by: Yannick Guerrini <yguerrini@tomshardware.fr>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-index 6e426ae..0a5e204 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-@@ -354,7 +354,7 @@ struct cmd_desc_type0 {
- 
- } __attribute__ ((aligned(64)));
- 
--/* Note: sizeof(rcv_desc) should always be a mutliple of 2 */
-+/* Note: sizeof(rcv_desc) should always be a multiple of 2 */
- struct rcv_desc {
- 	__le16 reference_handle;
- 	__le16 reserved;
-@@ -499,7 +499,7 @@ struct uni_data_desc{
- #define NETXEN_IMAGE_START	0x43000	/* compressed image */
- #define NETXEN_SECONDARY_START	0x200000	/* backup images */
- #define NETXEN_PXE_START	0x3E0000	/* PXE boot rom */
--#define NETXEN_USER_START	0x3E8000	/* Firmare info */
-+#define NETXEN_USER_START	0x3E8000	/* Firmware info */
- #define NETXEN_FIXED_START	0x3F0000	/* backup of crbinit */
- #define NETXEN_USER_START_OLD	NETXEN_PXE_START /* very old flash */
- 
--- 
-1.9.5.msysgit.0
+Thanks Daniel for this hint, will send a v2.
