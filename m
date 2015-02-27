@@ -1,60 +1,54 @@
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Subject: [PATCH] net: Use setup_timer and mod_timer
-Date: Fri, 27 Feb 2015 14:18:12 +0530
-Message-ID: <20150227084812.GA15946@vaishali-Ideapad-Z570>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net-next] usbnet: Fix tx_packets stat for FLAG_MULTI_FRAME drivers
+Date: Fri, 27 Feb 2015 09:50:41 +0100
+Message-ID: <87lhjj3fha.fsf@nemi.mork.no>
+References: <1424979277.4444.39.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	ct-linux-kernel <linux-kernel-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1424979277.4444.39.camel-2NU49sBE5Aze9VDwLV8dzJPsBRI6B4nW9dF7HbQ/qKg@public.gmane.org> (Ben
+	Hutchings's message of "Thu, 26 Feb 2015 19:34:37 +0000")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use timer API functions setup_timer and mod_timer instead
-of structure assignments as they are standard way to set
-the timer and to update the expire field of an active timer
-respectively.
+Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org> writes:
 
-This is done using Coccinelle and semantic patch used for
-this is as follows:
+> Currently the usbnet core does not update the tx_packets statistic fo=
+r
+> drivers with FLAG_MULTI_PACKET and there is no hook in the TX
+> completion path where they could do this.
+>
+> cdc_ncm and dependent drivers are bumping tx_packets stat on the
+> transmit path while asix and sr9800 aren't updating it at all.
+>
+> Add a packet count in struct skb_data so these drivers can fill it
+> in, initialise it to 1 for other drivers, and add the packet count
+> to the tx_packets statistic on completion.
+>
+> Signed-off-by: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+> ---
+> I have only tested the asix driver after this change; I think cdc_ncm
+> and one of the non-multi-packet drivers should also be tested before
+> it's applied.
 
-// <smpl>
-@@
-expression x,y,z,a,b;
-@@
+Looks very good to me.  I did a quick test with an MBIM device (the
+cdc_mbim driver uses the parts of cdc_ncm you modify here), and it
+worked as expected.
 
--init_timer (&x);
-+setup_timer (&x, y, z);
-+mod_timer (&a, b);
--x.function = y;
--x.data = z;
--x.expires = b;
--add_timer(&a);
-// </smpl>
+Thanks for doing this.  My only complaint was a wishlist for a similar
+byte fixup, but then I noticed that you already did that :-)
 
-Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
----
- drivers/net/ethernet/smsc/smc91c92_cs.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+Tested-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
-index 6b33127..3449893 100644
---- a/drivers/net/ethernet/smsc/smc91c92_cs.c
-+++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
-@@ -1070,11 +1070,8 @@ static int smc_open(struct net_device *dev)
-     smc->packets_waiting = 0;
- 
-     smc_reset(dev);
--    init_timer(&smc->media);
--    smc->media.function = media_check;
--    smc->media.data = (u_long) dev;
--    smc->media.expires = jiffies + HZ;
--    add_timer(&smc->media);
-+    setup_timer(&smc->media, media_check, (u_long)dev);
-+    mod_timer(&smc->media, jiffies + HZ);
- 
-     return 0;
- } /* smc_open */
--- 
-1.9.1
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
