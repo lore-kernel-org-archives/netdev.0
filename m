@@ -1,31 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] tipc: bug fix and some improvements
-Date: Fri, 27 Feb 2015 18:19:08 -0500 (EST)
-Message-ID: <20150227.181908.1049884813611678895.davem@davemloft.net>
-References: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: simplify __bcmgenet_tx_reclaim()
+Date: Fri, 27 Feb 2015 15:39:38 -0800
+Message-ID: <1425080378.5130.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150225185500.C7EBC2211C6@puck.mtv.corp.google.com>
+	 <54F0ED2A.9040306@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	jon.maloy@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com
-To: erik.hugne@ericsson.com
+Cc: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55190 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755536AbbB0XTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 18:19:11 -0500
-In-Reply-To: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:33943 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932285AbbB0Xjk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 18:39:40 -0500
+Received: by iecrp18 with SMTP id rp18so35071633iec.1
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 15:39:40 -0800 (PST)
+In-Reply-To: <54F0ED2A.9040306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <erik.hugne@ericsson.com>
-Date: Fri, 27 Feb 2015 08:56:53 +0100
+On Fri, 2015-02-27 at 14:18 -0800, Florian Fainelli wrote:
+> On 25/02/15 10:55, Petri Gynther wrote:
 
-> Most important is a fix for a nullptr exception that would occur when
-> name table subscriptions fail. The remaining patches are performance
-> improvements and cosmetic changes.
+> Nice cleanups!
 > 
-> v2: remove unnecessary whitespace in patch #2 
+> > 
+> > Signed-off-by: Petri Gynther <pgynther@google.com>
+> 
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thanks.
+Is any one working adding BQL & xmit_more on this driver ?
