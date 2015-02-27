@@ -1,49 +1,58 @@
-From: Fan Du <fengyuleidian0615@gmail.com>
-Subject: Re: [PATCHv2 net-next 0/4] Small fix for TCP PMTU
-Date: Fri, 27 Feb 2015 13:37:44 +0800
-Message-ID: <54F002A8.307@gmail.com>
-References: <1423815405-32644-1-git-send-email-fan.du@intel.com> <1424922566-6787-1-git-send-email-fan.du@intel.com> <063D6719AE5E284EB5DD2968C1650D6D1CAEEABA@AcuExch.aculab.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] wireless: test sscanf return values
+Date: Thu, 26 Feb 2015 21:43:11 -0800
+Message-ID: <1425015791.2690.7.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Fan Du' <fan.du@intel.com>,
-	"johnwheffner@gmail.com" <johnwheffner@gmail.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:39366 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751034AbbB0Fmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 00:42:36 -0500
-Received: by pdjy10 with SMTP id y10so18582342pdj.6
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 21:42:36 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAEEABA@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2015=E5=B9=B402=E6=9C=8826=E6=97=A5 21:40, David Laight =E5=86=
-=99=E9=81=93:
-> From: Fan Du
->> >This patchset performs some small fix and enhancement
->> >for current TCP PMTU as per RFC4821 with below changes:
->> >
->> >Patch1/4: Set probe mss base to 1024 Bytes per RFC4821
->> >Patch2/4: Do not double probe_size for each probing,
->> >           use a simple binary search to gain maximum performance.
->> >Patch3/4: When it comes to blackhole detection, shrink current
->> >	  mss for next probing.
->> >Patch4/4: Create a probe timer to detect enlarged path MTU.
-> Isn't the most likely problem PPPoE blackholes?
-No.
+At some point, it'd be good to make sscanf use __must_check
+so make sure the net/ uses of sscanf use the return value.
 
-It's used to probe a optimal pmtu value for vxlan tunnel when ICMP mess=
-age
-is not available. Refer patch2/4 for test summary.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
 
-> Where a reduction of the PMTU from 1500 to (IIRC) 1492 is
-> all that is required?
->
-> Would seem appropriate to test that value reasonable quickly.
+Compiled, untested.
+
+ net/mac80211/debugfs.c | 4 ++--
+ net/wireless/core.c    | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index eeb0bbd..0e44be7 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -160,9 +160,9 @@ static ssize_t sta_tx_latency_stat_write(struct file *file,
+ 	tx_latency->n_ranges = n_ranges;
+ 	for (i = 0; i < n_ranges; i++) { /* setting bin ranges */
+ 		token = strsep(&bins, TX_LATENCY_BIN_DELIMTER_S);
+-		sscanf(token, "%d", &tx_latency->ranges[i]);
+ 		/* bins values should be in ascending order */
+-		if (prev_bin >= tx_latency->ranges[i]) {
++		if (sscanf(token, "%d", &tx_latency->ranges[i]) != 1 ||
++		    prev_bin >= tx_latency->ranges[i]) {
+ 			ret = -EINVAL;
+ 			kfree(tx_latency);
+ 			goto unlock;
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 3af0ecf..69a350e 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -95,8 +95,8 @@ static int cfg80211_dev_check_name(struct cfg80211_registered_device *rdev,
+ 	ASSERT_RTNL();
+ 
+ 	/* prohibit calling the thing phy%d when %d is not its number */
+-	sscanf(newname, PHY_NAME "%d%n", &wiphy_idx, &taken);
+-	if (taken == strlen(newname) && wiphy_idx != rdev->wiphy_idx) {
++	if (sscanf(newname, PHY_NAME "%d%n", &wiphy_idx, &taken) == 1 &&
++	    taken == strlen(newname) && wiphy_idx != rdev->wiphy_idx) {
+ 		/* count number of places needed to print wiphy_idx */
+ 		digits = 1;
+ 		while (wiphy_idx /= 10)
