@@ -1,34 +1,50 @@
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Subject: Re: [PATCH] net: Use setup_timer and mod_timer
-Date: Fri, 27 Feb 2015 23:15:25 +0530
-Message-ID: <CAK-LDbJaeQowHYMK9QSGxLVpfL2VO2TFGrEVRsdZ4OV8PLrMBw@mail.gmail.com>
-References: <20150227084812.GA15946@vaishali-Ideapad-Z570>
-	<20150227.124100.2151634512824956135.davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
+Date: Fri, 27 Feb 2015 18:48:59 +0100
+Message-ID: <54F0AE0B.5080101@6wind.com>
+References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>	<1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>	<54F09A95.8000507@6wind.com> <CAM_iQpUPQVodJRGmf=GYOVK+R_84w-+yDtqyHCJGbCDH0hb44A@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150227.124100.2151634512824956135.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:45937 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151AbbB0RtC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 12:49:02 -0500
+Received: by wgha1 with SMTP id a1so21833516wgh.12
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 09:49:01 -0800 (PST)
+In-Reply-To: <CAM_iQpUPQVodJRGmf=GYOVK+R_84w-+yDtqyHCJGbCDH0hb44A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2015 at 11:11 PM, David Miller <davem@davemloft.net> wrote:
+Le 27/02/2015 18:28, Cong Wang a =C3=A9crit :
+> On Fri, Feb 27, 2015 at 8:25 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+>> Le 27/02/2015 09:01, Eric Dumazet a =C3=A9crit :
+>>
+>>> On Thu, 2015-02-26 at 22:32 -0800, Cong Wang wrote:
+[snip]
+>>>
+>>> BTW, (void)peernet2id(dev_net(dev), src_net) can fail, and your fix=
+ is
+>>> not complete anyway.
+>>
+>> That's true. The patch does not cover the following case:
+>> ip link add foo type bar
+>> ip link set foo netns netns1
+>>
+>> In this case, the second command will call dev_change_net_namespace(=
+) and
+>> the
+>> id will not be allocated.
 >
-> I'm not applying these patches.
->
-> Your Subject lines need adjusting.  You have to say what specific
-> thing you are touching in each change.
->
-> All of your changes say "net: " therefore someone scanning the
-> "git shortlog" can't tell what might be difference in one of
-> these changes vs. another.
-
-I am sorry for that. I will send version 2 of all patches with
-different and specific
-subject lines.
-
-Thank You
-
--- 
-Vaishali
+> Then call it in do_setlink(). This is not a reason we _have to_
+> allocate it in dumping.
+Sure, but that just shows the 'over engineering' side ;-)
+The reason to allocate it in dumping is that you need it in dumping, no=
+t before ;-)
