@@ -1,56 +1,62 @@
-From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-Subject: [PATCH] hso: add missing spinlock grab when iterating the serial table
-Date: Fri, 27 Feb 2015 19:44:52 +0100
-Message-ID: <1425062692-25155-1-git-send-email-aleksander@aleksander.es>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-To: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH] net: pasemi: Use setup_timer and mod_timer
+Date: Sat, 28 Feb 2015 00:20:59 +0530
+Message-ID: <20150227185059.GA20385@vaishali-Ideapad-Z570>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Access to the 'serial_table' array needs to be protected by the spinlock.
+Use timer API functions setup_timer and mod_timer instead
+of structure assignments as they are standard way to set
+the timer and to update the expire field of an active timer
+respectively.
 
-Signed-off-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+This is done using Coccinelle and semantic patch used for
+this is as follows:
+
+// <smpl>
+@@
+expression x,y,z,a,b;
+@@
+
+-init_timer (&x);
++setup_timer (&x, y, z);
++mod_timer (&a, b);
+-x.function = y;
+-x.data = z;
+-x.expires = b;
+-add_timer(&a);
+// </smpl>
+
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
 ---
- drivers/net/usb/hso.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/pasemi/pasemi_mac.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 3c8dfe5..4f6deff 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -607,19 +607,24 @@ static struct hso_serial *get_serial_by_shared_int_and_type(
- 					struct hso_shared_int *shared_int,
- 					int mux)
- {
-+	struct hso_serial *serial = NULL;
- 	int i, port;
-+	unsigned long flags;
+diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
+index 44e8d7d..57a6e6c 100644
+--- a/drivers/net/ethernet/pasemi/pasemi_mac.c
++++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
+@@ -1239,11 +1239,9 @@ static int pasemi_mac_open(struct net_device *dev)
+ 	if (mac->phydev)
+ 		phy_start(mac->phydev);
  
- 	port = hso_mux_to_port(mux);
+-	init_timer(&mac->tx->clean_timer);
+-	mac->tx->clean_timer.function = pasemi_mac_tx_timer;
+-	mac->tx->clean_timer.data = (unsigned long)mac->tx;
+-	mac->tx->clean_timer.expires = jiffies+HZ;
+-	add_timer(&mac->tx->clean_timer);
++	setup_timer(&mac->tx->clean_timer, pasemi_mac_tx_timer,
++		    (unsigned long)mac->tx);
++	mod_timer(&mac->tx->clean_timer, jiffies + HZ);
  
-+	spin_lock_irqsave(&serial_table_lock, flags);
- 	for (i = 0; i < HSO_SERIAL_TTY_MINORS; i++) {
- 		if (serial_table[i] &&
- 		    (dev2ser(serial_table[i])->shared_int == shared_int) &&
- 		    ((serial_table[i]->port_spec & HSO_PORT_MASK) == port)) {
--			return dev2ser(serial_table[i]);
-+			serial = dev2ser(serial_table[i]);
-+			break;
- 		}
- 	}
-+	spin_unlock_irqrestore(&serial_table_lock, flags);
+ 	return 0;
  
--	return NULL;
-+	return serial;
- }
- 
- static struct hso_serial *get_serial_by_index(unsigned index)
 -- 
-2.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.9.1
