@@ -1,108 +1,115 @@
-From: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
-Subject: [PATCH net-next] hyperv: Implement netvsc_get_channels() ethool op
-Date: Thu, 26 Feb 2015 16:27:14 -0800
-Message-ID: <1424996834-6684-1-git-send-email-andrew@schwartzmeyer.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kys@microsoft.com>, <devel@linuxdriverproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<hall5714@vandals.uidaho.edu>, <keithd@vandals.uidaho.edu>,
-	<doma8101@vandals.uidaho.edu>, <andrew@schwartzmeyer.com>
-To: <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] netns: correct gfp flags for alloc_netid()
+Date: Thu, 26 Feb 2015 16:54:50 -0800
+Message-ID: <1424998490-9565-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:45765 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753862AbbB0Ay5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 19:54:57 -0500
+Received: by pdjz10 with SMTP id z10so16919665pdj.12
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 16:54:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds support for reporting the actual and maximum combined channels
-count of the hv_netvsc driver via 'ethtool --show-channels'.
+This fixes the following kernel warning:
 
-This required adding 'max_chn' to 'struct netvsc_device', and assigning
-it 'rsscap.num_recv_que' in 'rndis_filter_device_add'. Now we can access
-the combined maximum channel count via 'struct netvsc_device' in the
-ethtool callback.
+ ===============================
+ [ INFO: suspicious RCU usage. ]
+ 3.19.0+ #805 Tainted: G        W      
+ -------------------------------
+ include/linux/rcupdate.h:538 Illegal context switch in RCU read-side critical section!
+ 
+ other info that might help us debug this:
+ 
+ 
+ rcu_scheduler_active = 1, debug_locks = 0
+ 2 locks held by ip/771:
+  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8182b8f4>] netlink_dump+0x21/0x26c
+  #1:  (rcu_read_lock){......}, at: [<ffffffff817d785b>] rcu_read_lock+0x0/0x6e
+ 
+ stack backtrace:
+ CPU: 3 PID: 771 Comm: ip Tainted: G        W       3.19.0+ #805
+ Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+  0000000000000001 ffff8800d51e7718 ffffffff81a27457 0000000029e729e6
+  ffff8800d6108000 ffff8800d51e7748 ffffffff810b539b ffffffff820013dd
+  00000000000001c8 0000000000000000 ffff8800d7448088 ffff8800d51e7758
+ Call Trace:
+  [<ffffffff81a27457>] dump_stack+0x4c/0x65
+  [<ffffffff810b539b>] lockdep_rcu_suspicious+0x107/0x110
+  [<ffffffff8109796f>] rcu_preempt_sleep_check+0x45/0x47
+  [<ffffffff8109e457>] ___might_sleep+0x1d/0x1cb
+  [<ffffffff8109e67d>] __might_sleep+0x78/0x80
+  [<ffffffff814b9b1f>] idr_alloc+0x45/0xd1
+  [<ffffffff810cb7ab>] ? rcu_read_lock_held+0x3b/0x3d
+  [<ffffffff814b9f9d>] ? idr_for_each+0x53/0x101
+  [<ffffffff817c1383>] alloc_netid+0x61/0x69
+  [<ffffffff817c14c3>] __peernet2id+0x79/0x8d
+  [<ffffffff817c1ab7>] peernet2id+0x13/0x1f
+  [<ffffffff817d8673>] rtnl_fill_ifinfo+0xa8d/0xc20
+  [<ffffffff810b17d9>] ? __lock_is_held+0x39/0x52
+  [<ffffffff817d894f>] rtnl_dump_ifinfo+0x149/0x213
+  [<ffffffff8182b9c2>] netlink_dump+0xef/0x26c
+  [<ffffffff8182bcba>] netlink_recvmsg+0x17b/0x2c5
+  [<ffffffff817b0adc>] __sock_recvmsg+0x4e/0x59
+  [<ffffffff817b1b40>] sock_recvmsg+0x3f/0x51
+  [<ffffffff817b1f9a>] ___sys_recvmsg+0xf6/0x1d9
+  [<ffffffff8115dc67>] ? handle_pte_fault+0x6e1/0xd3d
+  [<ffffffff8100a3a0>] ? native_sched_clock+0x35/0x37
+  [<ffffffff8109f45b>] ? sched_clock_local+0x12/0x72
+  [<ffffffff8109f6ac>] ? sched_clock_cpu+0x9e/0xb7
+  [<ffffffff810cb7ab>] ? rcu_read_lock_held+0x3b/0x3d
+  [<ffffffff811abde8>] ? __fcheck_files+0x4c/0x58
+  [<ffffffff811ac556>] ? __fget_light+0x2d/0x52
+  [<ffffffff817b376f>] __sys_recvmsg+0x42/0x60
+  [<ffffffff817b379f>] SyS_recvmsg+0x12/0x1c
 
-Signed-off-by: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
+Fixes: commit 0c7aecd4bde4b7302 ("netns: add rtnl cmd to add and get peer netns ids")
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+
 ---
- drivers/net/hyperv/hyperv_net.h   |  1 +
- drivers/net/hyperv/netvsc_drv.c   | 14 ++++++++++++++
- drivers/net/hyperv/rndis_filter.c |  6 +++++-
- 3 files changed, 20 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 384ca4f4de4a..4815843a6019 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -634,6 +634,7 @@ struct netvsc_device {
- 
- 	struct vmbus_channel *chn_table[NR_CPUS];
- 	u32 send_table[VRSS_SEND_TAB_SIZE];
-+	u32 max_chn;
- 	u32 num_chn;
- 	atomic_t queue_sends[NR_CPUS];
- 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 15d82eda0baf..a06bd6614007 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -687,6 +687,19 @@ static void netvsc_get_drvinfo(struct net_device *net,
- 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index cb5290b..ecf8e70 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -148,7 +148,8 @@ static void ops_free_list(const struct pernet_operations *ops,
+ 	}
  }
  
-+static void netvsc_get_channels(struct net_device *net,
-+				struct ethtool_channels *channel)
-+{
-+	struct net_device_context *net_device_ctx = netdev_priv(net);
-+	struct hv_device *dev = net_device_ctx->device_ctx;
-+	struct netvsc_device *nvdev = hv_get_drvdata(dev);
-+
-+	if (nvdev) {
-+		channel->max_combined	= nvdev->max_chn;
-+		channel->combined_count = nvdev->num_chn;
-+	}
-+}
-+
- static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+-static int alloc_netid(struct net *net, struct net *peer, int reqid)
++static int alloc_netid(struct net *net, struct net *peer, int reqid,
++		       gfp_t flags)
  {
- 	struct net_device_context *ndevctx = netdev_priv(ndev);
-@@ -760,6 +773,7 @@ static void netvsc_poll_controller(struct net_device *net)
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
-+	.get_channels   = netvsc_get_channels,
- };
+ 	int min = 0, max = 0;
  
- static const struct net_device_ops device_ops = {
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 7816d98bdddc..ca81de04bc76 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1027,6 +1027,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+@@ -159,7 +160,7 @@ static int alloc_netid(struct net *net, struct net *peer, int reqid)
+ 		max = reqid + 1;
+ 	}
  
- 	/* Initialize the rndis device */
- 	net_device = hv_get_drvdata(dev);
-+	net_device->max_chn = 1;
- 	net_device->num_chn = 1;
+-	return idr_alloc(&net->netns_ids, peer, min, max, GFP_KERNEL);
++	return idr_alloc(&net->netns_ids, peer, min, max, flags);
+ }
  
- 	net_device->extension = rndis_device;
-@@ -1094,6 +1095,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	if (ret || rsscap.num_recv_que < 2)
+ /* This function is used by idr_for_each(). If net is equal to peer, the
+@@ -188,7 +189,7 @@ static int __peernet2id(struct net *net, struct net *peer, bool alloc)
+ 		return id;
+ 
+ 	if (alloc)
+-		return alloc_netid(net, peer, -1);
++		return alloc_netid(net, peer, -1, GFP_ATOMIC);
+ 
+ 	return -ENOENT;
+ }
+@@ -524,7 +525,7 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh)
  		goto out;
+ 	}
  
-+	net_device->max_chn = rsscap.num_recv_que;
- 	net_device->num_chn = (num_online_cpus() < rsscap.num_recv_que) ?
- 			       num_online_cpus() : rsscap.num_recv_que;
- 	if (net_device->num_chn == 1)
-@@ -1140,8 +1142,10 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	ret = rndis_filter_set_rss_param(rndis_device, net_device->num_chn);
- 
+-	err = alloc_netid(net, peer, nsid);
++	err = alloc_netid(net, peer, nsid, GFP_KERNEL);
+ 	if (err > 0)
+ 		err = 0;
  out:
--	if (ret)
-+	if (ret) {
-+		net_device->max_chn = 1;
- 		net_device->num_chn = 1;
-+	}
- 	return 0; /* return 0 because primary channel can be used alone */
- 
- err_dev_remv:
--- 
-2.3.0
