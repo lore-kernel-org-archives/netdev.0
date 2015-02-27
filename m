@@ -1,54 +1,62 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Implement netvsc_get_channels() ethool op
-Date: Fri, 27 Feb 2015 15:55:42 +0000
-Message-ID: <BN1PR0301MB07707394E47A7808173A6F87CA150@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <1424996834-6684-1-git-send-email-andrew@schwartzmeyer.com>
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: davinci_mdio: don't request io address range
+Date: Fri, 27 Feb 2015 15:55:34 +0000
+Message-ID: <CA+V-a8vu6wyzP7wJT8qe_WiKzhtB+jHYH=55fMhAzibJXciRew@mail.gmail.com>
+References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "keithd@vandals.uidaho.edu" <keithd@vandals.uidaho.edu>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "hall5714@vandals.uidaho.edu" <hall5714@vandals.uidaho.edu>
-To: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1424996834-6684-1-git-send-email-andrew@schwartzmeyer.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Mugunthan V N <mugunthanvnm@ti.com>, george.cherian@ti.com,
+	varkabhadram@gmail.com, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Tony Lindgren <tony@atomide.com>,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	lokeshvutla@ti.com, mpa@pengutronix.de, w-kwok2@ti.com
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Feb 24, 2015 at 9:27 PM, Murali Karicheri <m-karicheri2@ti.com> wrote:
+> From: Grygorii Strashko <grygorii.strashko@ti.com>
+>
+> Historically Davinci MDIO driver was  created with assumption that
+> MDIO is standalone device, but for Keystone 2 it's a part
+> of NETCP module and now NETCP driver requests IO range which
+> includes MDIO IO range too. This causes Keystone 2 networking stack
+> failure during the boot.
+>
+> "netcp-1.0 2620110.netcp: Probe of module(netcp-gbe) failed with -16"
+>
+> Hence, don't request io address range from Davinci MDIO driver and
+> just remap it.
+>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 
+Acked-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 
-> -----Original Message-----
-> From: Andrew Schwartzmeyer [mailto:andrew@schwartzmeyer.com]
-> Sent: Thursday, February 26, 2015 7:27 PM
-> To: Haiyang Zhang
-> Cc: KY Srinivasan; devel@linuxdriverproject.org; netdev@vger.kernel.org;
-> linux-kernel@vger.kernel.org; hall5714@vandals.uidaho.edu;
-> keithd@vandals.uidaho.edu; doma8101@vandals.uidaho.edu;
-> andrew@schwartzmeyer.com
-> Subject: [PATCH net-next] hyperv: Implement netvsc_get_channels() ethool
-> op
-> 
-> This adds support for reporting the actual and maximum combined channels
-> count of the hv_netvsc driver via 'ethtool --show-channels'.
-> 
-> This required adding 'max_chn' to 'struct netvsc_device', and assigning
-> it 'rsscap.num_recv_que' in 'rndis_filter_device_add'. Now we can access
-> the combined maximum channel count via 'struct netvsc_device' in the
-> ethtool callback.
-> 
-> Signed-off-by: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
+Cheers,
+--Prabhakar Lad
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-
-Thank you!
+> ---
+>  drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+> index 98655b4..b13ec82 100644
+> --- a/drivers/net/ethernet/ti/davinci_mdio.c
+> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
+> @@ -371,7 +371,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+>         spin_lock_init(&data->lock);
+>
+>         res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> -       data->regs = devm_ioremap_resource(dev, res);
+> +       data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
+>         if (IS_ERR(data->regs)) {
+>                 ret = PTR_ERR(data->regs);
+>                 goto bail_out;
+> --
+> 1.7.9.5
+>
