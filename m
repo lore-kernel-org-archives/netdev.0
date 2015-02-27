@@ -1,16 +1,14 @@
 From: Ebben Aries <exa@fb.com>
 Subject: [PATCH] iproute: ip-gue/ip-fou manpages
-Date: Fri, 27 Feb 2015 09:27:39 -0700
-Message-ID: <1425054459-12874-1-git-send-email-exa@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
+Date: Fri, 27 Feb 2015 09:24:17 -0700
+Message-ID: <1425054257-12801-1-git-send-email-exa@fb.com>
 Cc: Ebben Aries <exa@fb.com>
-To: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:26417 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752760AbbB0Q1x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 11:27:53 -0500
+Received: from gp57.nurk.org ([208.74.128.57]:48734 "EHLO dscp.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752158AbbB0QaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2015 11:30:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
