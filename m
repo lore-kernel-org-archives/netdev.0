@@ -1,48 +1,65 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next] net: bcmgenet: simplify __bcmgenet_tx_reclaim()
-Date: Fri, 27 Feb 2015 15:50:59 -0800
-Message-ID: <CAGXr9JEsdo=dMH3uWmqKArZFFLETUbaHMFTxZKdOzhmOhriHmg@mail.gmail.com>
-References: <20150225185500.C7EBC2211C6@puck.mtv.corp.google.com>
-	<54F0ED2A.9040306@gmail.com>
-	<1425080378.5130.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	<54F100F7.7000709@gmail.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH 2/3] dtb: change binding name to match with newer firmware DT
+Date: Fri, 27 Feb 2015 15:52:54 -0800
+Message-ID: <CAKh23Fm5HpNEfs40RTf_XtQ6ris5cCheAcY1WdLND04AwsvdSQ@mail.gmail.com>
+References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
+	<1425067710-14879-3-git-send-email-isubramanian@apm.com>
+	<4061014.S4PDWltU3G@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jaedon Shin <jaedon.shin@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, mlangsdo@redhat.com,
+	patches <patches@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:46750 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755393AbbB0XvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 18:51:00 -0500
-Received: by qcxr5 with SMTP id r5so16628670qcx.13
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 15:50:59 -0800 (PST)
-In-Reply-To: <54F100F7.7000709@gmail.com>
+Received: from exprod5og123.obsmtp.com ([64.18.0.198]:52694 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755769AbbB0Xw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 18:52:57 -0500
+Received: by labgq15 with SMTP id gq15so20617286lab.6
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 15:52:55 -0800 (PST)
+In-Reply-To: <4061014.S4PDWltU3G@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'll be submitting patches soon for multiple Rx queues and Hardware
-Filter Block.
-
--- Petri
-
-On Fri, Feb 27, 2015 at 3:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 27/02/15 15:39, Eric Dumazet wrote:
->> On Fri, 2015-02-27 at 14:18 -0800, Florian Fainelli wrote:
->>> On 25/02/15 10:55, Petri Gynther wrote:
+On Fri, Feb 27, 2015 at 12:33 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Friday 27 February 2015 12:08:29 Iyappan Subramanian wrote:
+>> diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
+>> index f1ad9c2..a857794 100644
+>> --- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
+>> +++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
+>> @@ -622,7 +622,7 @@
+>>                 };
 >>
->>> Nice cleanups!
->>>
->>>>
->>>> Signed-off-by: Petri Gynther <pgynther@google.com>
->>>
->>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>>                 sgenet0: ethernet@1f210000 {
+>> -                       compatible = "apm,xgene-enet";
+>> +                       compatible = "apm,xgene1-sgenet";
+>>                         status = "disabled";
+>>                         reg = <0x0 0x1f210000 0x0 0xd100>,
+>>                               <0x0 0x1f200000 0x0 0Xc300>,
 >>
->> Is any one working adding BQL & xmit_more on this driver ?
 >
-> I have this on my todo, but I would need Jaedon's patch which move tx
-> completion to NAPI before submitting these.
-> --
-> Florian
+> This will break booting the new dtb on older kernels, right?
+
+This will not break booting older kernels.  In fact, this will fix it,
+by having the specific binding,
+older kernel that does not have support for these interfaces, will not
+call probe.
+
+For example, 3.17 kernel that does not have support for SGMII based 1G
+and XFI 10G interfaces
+will not probe these interfaces when booted with newer dtb.
+
+>
+> You should normally list the most generic model in addition to the
+> specific one.
+
+If we list generic model ("xgene-enet") as well, probe will be called
+for the interfaces that the kernel does not have support for,
+which is what we are trying to fix.
+
+>
+>         Arnd
