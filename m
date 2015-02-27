@@ -1,39 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Fri, 27 Feb 2015 17:21:04 -0500 (EST)
-Message-ID: <20150227.172104.142920096639146096.davem@davemloft.net>
-References: <20150226141319.GA7971@gospo.home.greyhouse.net>
-	<CAE4R7bBspZn3Mt2-KGeBBCfkxOQAmFFoOZJAnTKJBNPkS9P2Lg@mail.gmail.com>
-	<20150226144433.GF1973@nanopsycho.lan>
+Subject: Re: [PATCH] ibmveth: Add function to enable live MAC address
+ changes
+Date: Fri, 27 Feb 2015 17:22:06 -0500 (EST)
+Message-ID: <20150227.172206.206607639934597507.davem@davemloft.net>
+References: <1424910864-32266-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, gospo@cumulusnetworks.com, andrew@lunn.ch,
-	zajec5@gmail.com, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	jogo@openwrt.org, hauke@hauke-m.de, nbd@openwrt.org
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: tlfalcon@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54735 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54752 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753405AbbB0WVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:21:08 -0500
-In-Reply-To: <20150226144433.GF1973@nanopsycho.lan>
+	with ESMTP id S1755192AbbB0WWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:22:08 -0500
+In-Reply-To: <1424910864-32266-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 26 Feb 2015 15:44:33 +0100
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Wed, 25 Feb 2015 18:34:24 -0600
 
-> Thu, Feb 26, 2015 at 03:19:27PM CET, sfeldma@gmail.com wrote:
->>Missing .ndo_start_xmit is the clue....do we need more?
+> Add a function that will enable changing the MAC address
+> of an ibmveth interface while it is still running.
 > 
-> You do not want to add null check for ndo_start_xmit to xmit path :)
-> This should be some stub in case of no-tx.
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/ibm/ibmveth.c | 20 +++++++++++++++++++-
+>  1 file changed, 19 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+> index 21978cc..6e44357 100644
+> --- a/drivers/net/ethernet/ibm/ibmveth.c
+> +++ b/drivers/net/ethernet/ibm/ibmveth.c
+> @@ -1327,6 +1327,24 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
+>  	return ret;
+>  }
+>  
+> +static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
+> +{
+> +	struct ibmveth_adapter *adapter = netdev_priv(dev);
+> +	struct sockaddr *addr = p;
+> +	u64 mac_address;
+> +	int rc;
+> +
+> +	if (!is_valid_ether_addr(addr->sa_data))
+> +		return -EADDRNOTAVAIL;
+> +
+> +	ether_addr_copy(dev->dev_addr, addr->sa_data);
+> +
+> +	mac_address = ibmveth_encode_mac_addr(dev->dev_addr);
+> +	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
 
-Cheapest would be to force the device to use the noop_qdisc which
-simply throws all packets away.
-
-No fast path tests whatsoever.
-
-Or we can attach an ndo_start_xmit that drops packets too.
+As others have said, if this hypervisor call fails you must not change
+dev->dev_addr.  It must always be in sync with "the hardware."
