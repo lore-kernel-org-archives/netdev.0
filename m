@@ -1,8 +1,8 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 4/5] tipc: rename media/msg
-	related definitions
-Date: Fri, 27 Feb 2015 08:56:57 +0100
-Message-ID: <1425023818-12880-5-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 2/5] tipc: fix nullpointer bug
+	when subscribing to events
+Date: Fri, 27 Feb 2015 08:56:55 +0100
+Message-ID: <1425023818-12880-3-git-send-email-erik.hugne@ericsson.com>
 References: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,89 +23,67 @@ List-Id: netdev.vger.kernel.org
 
 From: Erik Hugne <erik.hugne@ericsson.com>
 
-The TIPC_MEDIA_ADDR_SIZE and TIPC_MEDIA_ADDR_OFFSET names
-are misleading, as they actually define the size and offset of
-the whole media info field and not the address part. This patch
-does not have any functional changes.
+If a subscription request is sent to a topology server
+connection, and any error occurs (malformed request, oom
+or limit reached) while processing this request, TIPC should
+terminate the subscriber connection. While doing so, it tries
+to access fields in an already freed (or never allocated)
+subscription element leading to a nullpointer exception.
+We fix this by removing the subscr_terminate function and
+terminate the connection immediately upon any subscription
+failure.
 
 Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.h    | 4 ++--
- net/tipc/eth_media.c | 2 +-
- net/tipc/ib_media.c  | 2 +-
- net/tipc/msg.h       | 4 ++--
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ net/tipc/subscr.c | 23 ++++-------------------
+ 1 file changed, 4 insertions(+), 19 deletions(-)
 
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 6b17795..1a23327 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -50,7 +50,7 @@
-  * - the field's actual content and length is defined per media
-  * - remaining unused bytes in the field are set to zero
-  */
--#define TIPC_MEDIA_ADDR_SIZE	32
-+#define TIPC_MEDIA_INFO_SIZE	32
- #define TIPC_MEDIA_TYPE_OFFSET	3
- 
- /*
-@@ -76,7 +76,7 @@ struct tipc_node_map {
-  * @broadcast: non-zero if address is a broadcast address
-  */
- struct tipc_media_addr {
--	u8 value[TIPC_MEDIA_ADDR_SIZE];
-+	u8 value[TIPC_MEDIA_INFO_SIZE];
- 	u8 media_id;
- 	u8 broadcast;
- };
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 5e1426f..085d3a0 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -53,7 +53,7 @@ static int tipc_eth_addr2str(struct tipc_media_addr *addr,
- /* Convert from media address format to discovery message addr format */
- static int tipc_eth_addr2msg(char *msg, struct tipc_media_addr *addr)
- {
--	memset(msg, 0, TIPC_MEDIA_ADDR_SIZE);
-+	memset(msg, 0, TIPC_MEDIA_INFO_SIZE);
- 	msg[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_ETH;
- 	memcpy(msg + ETH_ADDR_OFFSET, addr->value, ETH_ALEN);
- 	return 0;
-diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index 8522eef..e8c1671 100644
---- a/net/tipc/ib_media.c
-+++ b/net/tipc/ib_media.c
-@@ -57,7 +57,7 @@ static int tipc_ib_addr2str(struct tipc_media_addr *a, char *str_buf,
- /* Convert from media address format to discovery message addr format */
- static int tipc_ib_addr2msg(char *msg, struct tipc_media_addr *addr)
- {
--	memset(msg, 0, TIPC_MEDIA_ADDR_SIZE);
-+	memset(msg, 0, TIPC_MEDIA_INFO_SIZE);
- 	memcpy(msg, addr->value, INFINIBAND_ALEN);
- 	return 0;
- }
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 9ace47f..c1cc8d7 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -76,7 +76,7 @@ struct plist;
- 
- #define MAX_MSG_SIZE (MAX_H_SIZE + TIPC_MAX_USER_MSG_SIZE)
- 
--#define TIPC_MEDIA_ADDR_OFFSET	5
-+#define TIPC_MEDIA_INFO_OFFSET	5
- 
- /**
-  * TIPC message buffer code
-@@ -688,7 +688,7 @@ static inline void msg_set_redundant_link(struct tipc_msg *m, u32 r)
- 
- static inline char *msg_media_addr(struct tipc_msg *m)
- {
--	return (char *)&m->hdr[TIPC_MEDIA_ADDR_OFFSET];
-+	return (char *)&m->hdr[TIPC_MEDIA_INFO_OFFSET];
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 72c339e..1c147c8 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -162,19 +162,6 @@ static void subscr_del(struct tipc_subscription *sub)
+ 	atomic_dec(&tn->subscription_count);
  }
  
- /*
+-/**
+- * subscr_terminate - terminate communication with a subscriber
+- *
+- * Note: Must call it in process context since it might sleep.
+- */
+-static void subscr_terminate(struct tipc_subscription *sub)
+-{
+-	struct tipc_subscriber *subscriber = sub->subscriber;
+-	struct tipc_net *tn = net_generic(sub->net, tipc_net_id);
+-
+-	tipc_conn_terminate(tn->topsrv, subscriber->conid);
+-}
+-
+ static void subscr_release(struct tipc_subscriber *subscriber)
+ {
+ 	struct tipc_subscription *sub;
+@@ -312,16 +299,14 @@ static void subscr_conn_msg_event(struct net *net, int conid,
+ {
+ 	struct tipc_subscriber *subscriber = usr_data;
+ 	struct tipc_subscription *sub = NULL;
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 
+ 	spin_lock_bh(&subscriber->lock);
+-	if (subscr_subscribe(net, (struct tipc_subscr *)buf, subscriber,
+-			     &sub) < 0) {
+-		spin_unlock_bh(&subscriber->lock);
+-		subscr_terminate(sub);
+-		return;
+-	}
++	subscr_subscribe(net, (struct tipc_subscr *)buf, subscriber, &sub);
+ 	if (sub)
+ 		tipc_nametbl_subscribe(sub);
++	else
++		tipc_conn_terminate(tn->topsrv, subscriber->conid);
+ 	spin_unlock_bh(&subscriber->lock);
+ }
+ 
 -- 
 2.1.4
 
