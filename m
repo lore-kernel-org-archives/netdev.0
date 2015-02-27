@@ -1,165 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: bcmgenet: simplify __bcmgenet_tx_reclaim()
-Date: Fri, 27 Feb 2015 14:18:18 -0800
-Message-ID: <54F0ED2A.9040306@gmail.com>
-References: <20150225185500.C7EBC2211C6@puck.mtv.corp.google.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [patch 1/2] mm: remove GFP_THISNODE
+Date: Fri, 27 Feb 2015 23:19:42 +0100
+Message-ID: <54F0ED7E.6010900@suse.cz>
+References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <54EED9A7.5010505@suse.cz> <alpine.DEB.2.10.1502261902580.24302@chino.kir.corp.google.com> <54F01E02.1090007@suse.cz> <alpine.DEB.2.10.1502271335520.4718@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:42500 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755412AbbB0WSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:18:43 -0500
-Received: by pdbfp1 with SMTP id fp1so24053433pdb.9
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 14:18:43 -0800 (PST)
-In-Reply-To: <20150225185500.C7EBC2211C6@puck.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+ Christoph Lameter <cl@linux.com>,
+ Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+ Johannes Weiner <hannes@cmpxchg.org>,
+ Mel Gorman <mgorman@suse.de>, Pravin Shelar <pshelar@nicira.com>,
+ Jarno Rajahalme <jrajahalme@nicira.com>,
+ Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org, netdev@vger.kernel.org, dev@openvswitch.org
+To: David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.10.1502271335520.4718@chino.kir.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 25/02/15 10:55, Petri Gynther wrote:
-> 1. Use c_index and ring->c_index to determine how many TxCBs/TxBDs are
->    ready for cleanup
->    - c_index = the current value of TDMA_CONS_INDEX
->    - TDMA_CONS_INDEX is HW-incremented and auto-wraparound (0x0-0xFFFF)
->    - ring->c_index = __bcmgenet_tx_reclaim() cleaned up to this point on
->      the previous invocation
+On 02/27/2015 11:03 PM, David Rientjes wrote:
+>> With both
+>> patches they won't bail out and __GFP_NO_KSWAPD will prevent most of the stuff
+>> described above, including clearing ALLOC_CPUSET.
 > 
-> 2. Add bcmgenet_tx_ring->clean_ptr
->    - index of the next TxCB to be cleaned
->    - incremented as TxCBs/TxBDs are processed
->    - value always in range [ring->cb_ptr, ring->end_ptr]
+> Yeah, ALLOC_CPUSET is never cleared for thp allocations because atomic == 
+> false for thp, regardless of this series.
 > 
-> 3. Fix incrementing of dev->stats.tx_packets
->    - should be incremented only when tx_cb_ptr->skb != NULL
+>> But __cpuset_node_allowed()
+>> will allow it to allocate anywhere anyway thanks to the newly passed
+>> __GFP_THISNODE, which would be a regression of what b104a35d32 fixed... unless
+>> I'm missing something else that prevents it, which wouldn't surprise me at all.
+>> 
+>> There's this outdated comment:
+>> 
+>>  * The __GFP_THISNODE placement logic is really handled elsewhere,
+>>  * by forcibly using a zonelist starting at a specified node, and by
+>>  * (in get_page_from_freelist()) refusing to consider the zones for
+>>  * any node on the zonelist except the first.  By the time any such
+>>  * calls get to this routine, we should just shut up and say 'yes'.
+>> 
+>> AFAIK the __GFP_THISNODE zonelist contains *only* zones from the single node and
+>> there's no other "refusing".
 > 
-> These changes simplify __bcmgenet_tx_reclaim(). Furthermore, Tx ring size
-> can now be any value.
+> Yes, __cpuset_node_allowed() is never called for a zone from any other 
+> node when __GFP_THISNODE is passed because of node_zonelist().  It's 
+> pointless to iterate over those zones since the allocation wants to fail 
+> instead of allocate on them.
 > 
-> With the old code, Tx ring size had to be a power-of-2:
->    num_tx_bds = ring->size;
->    c_index &= (num_tx_bds - 1);
->    last_c_index &= (num_tx_bds - 1);
+> Do you see any issues with either patch 1/2 or patch 2/2 besides the 
+> s/GFP_TRANSHUGE/GFP_THISNODE/ that is necessary on the changelog?
 
-Nice cleanups!
+Well, my point is, what if the node we are explicitly trying to allocate
+hugepage on, is in fact not allowed by our cpuset? This could happen in the page
+fault case, no? Although in a weird configuration when process can (and really
+gets scheduled to run) on a node where it is not allowed to allocate from...
 
+>> And I don't really see why __GFP_THISNODE should
+>> have this exception, it feels to me like "well we shouldn't reach this but we
+>> are not sure, so let's play it safe". So maybe we could just remove this
+>> exception? I don't think any other user of __GFP_THISNODE | __GFP_WAIT user
+>> relies on this allowed memset violation?
+>> 
 > 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 45 ++++++++++++--------------
->  drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
->  2 files changed, 22 insertions(+), 24 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 5130053..a64dd9a6 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -975,37 +975,30 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
->  				  struct bcmgenet_tx_ring *ring)
->  {
->  	struct bcmgenet_priv *priv = netdev_priv(dev);
-> -	int last_tx_cn, last_c_index, num_tx_bds;
->  	struct enet_cb *tx_cb_ptr;
->  	struct netdev_queue *txq;
-> -	unsigned int bds_compl;
->  	unsigned int c_index;
-> +	unsigned int txbds_ready;
-> +	unsigned int txbds_processed = 0;
->  
->  	/* Compute how many buffers are transmitted since last xmit call */
->  	c_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_CONS_INDEX);
-> -	txq = netdev_get_tx_queue(dev, ring->queue);
-> -
-> -	last_c_index = ring->c_index;
-> -	num_tx_bds = ring->size;
-> +	c_index &= DMA_C_INDEX_MASK;
->  
-> -	c_index &= (num_tx_bds - 1);
-> -
-> -	if (c_index >= last_c_index)
-> -		last_tx_cn = c_index - last_c_index;
-> +	if (likely(c_index >= ring->c_index))
-> +		txbds_ready = c_index - ring->c_index;
->  	else
-> -		last_tx_cn = num_tx_bds - last_c_index + c_index;
-> +		txbds_ready = (DMA_C_INDEX_MASK + 1) - ring->c_index + c_index;
->  
->  	netif_dbg(priv, tx_done, dev,
-> -		  "%s ring=%d index=%d last_tx_cn=%d last_index=%d\n",
-> -		  __func__, ring->index,
-> -		  c_index, last_tx_cn, last_c_index);
-> +		  "%s ring=%d old_c_index=%u c_index=%u txbds_ready=%u\n",
-> +		  __func__, ring->index, ring->c_index, c_index, txbds_ready);
->  
->  	/* Reclaim transmitted buffers */
-> -	while (last_tx_cn-- > 0) {
-> -		tx_cb_ptr = ring->cbs + last_c_index;
-> -		bds_compl = 0;
-> +	while (txbds_processed < txbds_ready) {
-> +		tx_cb_ptr = &priv->tx_cbs[ring->clean_ptr];
->  		if (tx_cb_ptr->skb) {
-> -			bds_compl = skb_shinfo(tx_cb_ptr->skb)->nr_frags + 1;
-> +			dev->stats.tx_packets++;
->  			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
->  			dma_unmap_single(&dev->dev,
->  					 dma_unmap_addr(tx_cb_ptr, dma_addr),
-> @@ -1021,20 +1014,23 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
->  				       DMA_TO_DEVICE);
->  			dma_unmap_addr_set(tx_cb_ptr, dma_addr, 0);
->  		}
-> -		dev->stats.tx_packets++;
-> -		ring->free_bds += bds_compl;
->  
-> -		last_c_index++;
-> -		last_c_index &= (num_tx_bds - 1);
-> +		txbds_processed++;
-> +		if (likely(ring->clean_ptr < ring->end_ptr))
-> +			ring->clean_ptr++;
-> +		else
-> +			ring->clean_ptr = ring->cb_ptr;
->  	}
->  
-> +	ring->free_bds += txbds_processed;
-> +	ring->c_index = (ring->c_index + txbds_processed) & DMA_C_INDEX_MASK;
-> +
->  	if (ring->free_bds > (MAX_SKB_FRAGS + 1))
->  		ring->int_disable(priv, ring);
->  
-> +	txq = netdev_get_tx_queue(dev, ring->queue);
->  	if (netif_tx_queue_stopped(txq))
->  		netif_tx_wake_queue(txq);
-> -
-> -	ring->c_index = c_index;
->  }
->  
->  static void bcmgenet_tx_reclaim(struct net_device *dev,
-> @@ -1702,6 +1698,7 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
->  	}
->  	ring->cbs = priv->tx_cbs + start_ptr;
->  	ring->size = size;
-> +	ring->clean_ptr = start_ptr;
->  	ring->c_index = 0;
->  	ring->free_bds = size;
->  	ring->write_ptr = start_ptr;
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-> index 3a8a90f..87b5923 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-> @@ -524,6 +524,7 @@ struct bcmgenet_tx_ring {
->  	unsigned int	queue;		/* queue index */
->  	struct enet_cb	*cbs;		/* tx ring buffer control block*/
->  	unsigned int	size;		/* size of each tx ring */
-> +	unsigned int    clean_ptr;      /* Tx ring clean pointer */
->  	unsigned int	c_index;	/* last consumer index of each ring*/
->  	unsigned int	free_bds;	/* # of free bds for each ring */
->  	unsigned int	write_ptr;	/* Tx ring write pointer SW copy */
+> Since this function was written, there were other callers to 
+> cpuset_{node,zone}_allowed_{soft,hard}wall() that may have required it.  I 
+> looked at all the current callers of cpuset_zone_allowed() and they don't 
+> appear to need this "exception" (slub calls node_zonelist() itself for the 
+> iteration and slab never calls it for __GFP_THISNODE).  So, yeah, I think 
+> it can be removed.
 > 
 
-
--- 
-Florian
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
