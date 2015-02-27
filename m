@@ -1,42 +1,56 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 0/3] Fix backward compatibility of newer firmware with older kernel
-Date: Fri, 27 Feb 2015 12:08:27 -0800
-Message-ID: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH 3/3] drivers: net: xgene: fix new firmware backward compatibility with older driver
+Date: Fri, 27 Feb 2015 12:08:30 -0800
+Message-ID: <1425067710-14879-4-git-send-email-isubramanian@apm.com>
+References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, mlangsdo@redhat.com,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og114.obsmtp.com ([64.18.0.28]:59807 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754752AbbB0UEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 15:04:24 -0500
-Received: by pabli10 with SMTP id li10so9144721pab.3
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 12:04:23 -0800 (PST)
+Received: from exprod5og102.obsmtp.com ([64.18.0.143]:51791 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755163AbbB0UE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 15:04:28 -0500
+Received: by paceu11 with SMTP id eu11so25165737pac.7
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 12:04:27 -0800 (PST)
+In-Reply-To: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel 3.17 driver supports only RGMII ethernet interface.
-Since the Tianocore DT contains same compatibility string for RGMII,
-SGMII based 1G and XFI based 10G interfaces, crash happens when probe called
-on SGMII based 1G and XFI based 10G interface.
-
-This patch fixes the backward compatibility of the older driver with the
+This patch fixes the backward compatibile of the older driver with the
 newer firmware by making the binding unique so that the older driver won't
 recognize the non-supported interfaces.
 
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
 ---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Iyappan Subramanian (3):
-  Documentation: dts: Update compatible field description for APM X-Gene
-  dtb: change binding name to match with newer firmware DT
-  drivers: net: xgene: fix new firmware backward compatibility with
-    older driver
-
- Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 3 ++-
- arch/arm64/boot/dts/apm/apm-storm.dtsi                   | 4 ++--
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c         | 4 ++++
- 3 files changed, 8 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 4de62b2..635a83b 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -1025,6 +1025,8 @@ static int xgene_enet_remove(struct platform_device *pdev)
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id xgene_enet_acpi_match[] = {
+ 	{ "APMC0D05", },
++	{ "APMC0D30", },
++	{ "APMC0D31", },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
+@@ -1033,6 +1035,8 @@ MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
+ #ifdef CONFIG_OF
+ static struct of_device_id xgene_enet_of_match[] = {
+ 	{.compatible = "apm,xgene-enet",},
++	{.compatible = "apm,xgene1-sgenet",},
++	{.compatible = "apm,xgene1-xgenet",},
+ 	{},
+ };
+ 
 -- 
 1.9.1
