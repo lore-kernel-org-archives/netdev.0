@@ -1,73 +1,66 @@
-From: Aleksander Morgado <aleksander@aleksander.es>
-Subject: Re: [PATCH] hso: add missing spinlock grab when iterating the serial table
-Date: Fri, 27 Feb 2015 21:11:37 +0100
-Message-ID: <CAAP7ucLJoUZ-cgeCCxgiVHoYXQqz80BgnN14hTO-etzRtU_nYg@mail.gmail.com>
-References: <1425062692-25155-1-git-send-email-aleksander@aleksander.es>
+From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Subject: Re: [PATCH 1/3] Documentation: dts: Update compatible field
+ description for APM X-Gene
+Date: Fri, 27 Feb 2015 20:15:17 +0000
+Message-ID: <20150227201516.GA30683@leverpostej>
+References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
+ <1425067710-14879-2-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-usb@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Aleksander Morgado <aleksander@aleksander.es>
-To: j.dumon@option.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:51992 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754632AbbB0ULi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 15:11:38 -0500
-Received: by mail-oi0-f52.google.com with SMTP id u20so17508951oif.11
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 12:11:37 -0800 (PST)
-In-Reply-To: <1425062692-25155-1-git-send-email-aleksander@aleksander.es>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"patches-qTEPVZfXA3Y@public.gmane.org" <patches-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1425067710-14879-2-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 27, 2015 at 7:44 PM, Aleksander Morgado
-<aleksander@aleksander.es> wrote:
-> Access to the 'serial_table' array needs to be protected by the spinlock.
->
-> Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
+On Fri, Feb 27, 2015 at 08:08:28PM +0000, Iyappan Subramanian wrote:
+> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+> Tested-by: Mark Langsdorf <mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 > ---
->  drivers/net/usb/hso.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 3c8dfe5..4f6deff 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -607,19 +607,24 @@ static struct hso_serial *get_serial_by_shared_int_and_type(
->                                         struct hso_shared_int *shared_int,
->                                         int mux)
->  {
-> +       struct hso_serial *serial = NULL;
->         int i, port;
-> +       unsigned long flags;
->
->         port = hso_mux_to_port(mux);
->
-> +       spin_lock_irqsave(&serial_table_lock, flags);
->         for (i = 0; i < HSO_SERIAL_TTY_MINORS; i++) {
->                 if (serial_table[i] &&
->                     (dev2ser(serial_table[i])->shared_int == shared_int) &&
->                     ((serial_table[i]->port_spec & HSO_PORT_MASK) == port)) {
-> -                       return dev2ser(serial_table[i]);
-> +                       serial = dev2ser(serial_table[i]);
-> +                       break;
->                 }
->         }
-> +       spin_unlock_irqrestore(&serial_table_lock, flags);
->
-> -       return NULL;
-> +       return serial;
->  }
->
->  static struct hso_serial *get_serial_by_index(unsigned index)
+>  Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> index cfcc527..5355996 100644
+> --- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> @@ -4,7 +4,8 @@ Ethernet nodes are defined to describe on-chip ethernet interfaces in
+>  APM X-Gene SoC.
+>  
+>  Required properties for all the ethernet interfaces:
+> -- compatible: Should be "apm,xgene-enet"
+> +- compatible: Should be "apm,xgene-enet", "apm,xgene1-sgenet" or
+> +  "apm,xgene1-xgenet"
+
+Please format this as a list. It'll be easier to read, and you can add
+more later.
+
+What are the diffences between these variants?
+
+Mark.
+
+>  - reg: Address and length of the register set for the device. It contains the
+>    information of registers in the same order as described by reg-names
+>  - reg-names: Should contain the register set names
+> -- 
+> 1.9.1
+> 
 > --
-> 2.3.1
->
-
-Seems there are actually more places where this has to be done; I'll
-send an updated version of the patch.
-
-
--- 
-Aleksander
-https://aleksander.es
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
