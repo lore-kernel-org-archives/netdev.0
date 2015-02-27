@@ -1,97 +1,119 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [patch 1/2] mm: remove GFP_THISNODE
-Date: Thu, 26 Feb 2015 19:09:53 -0800 (PST)
-Message-ID: <alpine.DEB.2.10.1502261902580.24302@chino.kir.corp.google.com>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <54EED9A7.5010505@suse.cz>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net] netns: correct gfp flags for alloc_netid()
+Date: Thu, 26 Feb 2015 19:29:57 -0800
+Message-ID: <CAHA+R7ONL51J7OtP-=0T-Jk2G9WqvR2eKc7W6wTU4tfaXcqhgA@mail.gmail.com>
+References: <1424998490-9565-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
+	<1425004461.5565.183.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-    Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>,
-    Joonsoo Kim <iamjoonsoo.kim@lge.com>, Johannes Weiner <hannes@cmpxchg.org>,
-    Mel Gorman <mgorman@suse.de>, Pravin Shelar <pshelar@nicira.com>,
-    Jarno Rajahalme <jrajahalme@nicira.com>, Greg Thelen <gthelen@google.com>,
-    linux-kernel@vger.kernel.org, linux-mm@kvack.org, netdev@vger.kernel.org,
-    dev@openvswitch.org
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <54EED9A7.5010505@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001a11c3d2329861ea0510097bf3
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:40635 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753244AbbB0D36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 22:29:58 -0500
+Received: by iebtr6 with SMTP id tr6so25081198ieb.7
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 19:29:58 -0800 (PST)
+In-Reply-To: <1425004461.5565.183.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Feb 2015, Vlastimil Babka wrote:
+--001a11c3d2329861ea0510097bf3
+Content-Type: text/plain; charset=UTF-8
 
-> > NOTE: this is not about __GFP_THISNODE, this is only about GFP_THISNODE.
-> > 
-> > GFP_THISNODE is a secret combination of gfp bits that have different
-> > behavior than expected.  It is a combination of __GFP_THISNODE,
-> > __GFP_NORETRY, and __GFP_NOWARN and is special-cased in the page allocator
-> > slowpath to fail without trying reclaim even though it may be used in
-> > combination with __GFP_WAIT.
-> > 
-> > An example of the problem this creates: commit e97ca8e5b864 ("mm: fix 
-> > GFP_THISNODE callers and clarify") fixed up many users of GFP_THISNODE
-> > that really just wanted __GFP_THISNODE.  The problem doesn't end there,
-> > however, because even it was a no-op for alloc_misplaced_dst_page(),
-> > which also sets __GFP_NORETRY and __GFP_NOWARN, and
-> > migrate_misplaced_transhuge_page(), where __GFP_NORETRY and __GFP_NOWAIT
-> > is set in GFP_TRANSHUGE.  Converting GFP_THISNODE to __GFP_THISNODE is
-> > a no-op in these cases since the page allocator special-cases
-> > __GFP_THISNODE && __GFP_NORETRY && __GFP_NOWARN.
-> > 
-> > It's time to just remove GFP_TRANSHUGE entirely.  We leave __GFP_THISNODE
-> 
->                               ^THISNODE :) Although yes, it would be nice if we
-> could replace the GFP_TRANSHUGE magic checks as well.
-> 
+On Thu, Feb 26, 2015 at 6:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-02-26 at 18:19 -0800, Cong Wang wrote:
+>
+>>
+>> LOL, it has been changed back and forth.
+>>
+>> I thought rcu read lock was introduced to optimize dumping
+>> performance, if it were really important, we should solve the
+>> deadlock you mentioned in commit 2907c35ff647080?
+>>
+>> Otherwise, as you said, completely revert to using rtnl lock.
+>
+> Dumping is so fat nowadays, it makes sense to remove rcu_read_lock() to
+> allow cond_resched() eventually.
+>
+> rcu_read_lock() made sense _if_ RTNL mutex could be avoided, but
+> unfortunately this could not be done easily.
 
-Haha, I referenced GFP_TRANSHUGE twice here when I meant GFP_THISNODE, I 
-must want to fix that up as well.
+Thinking a bit more, in this specific case, we don't have to allocate
+memory in dumping. I am testing the attached patch.
 
-> > to restrict an allocation to a local node, but remove GFP_TRANSHUGE and
-> > it's obscurity.  Instead, we require that a caller clear __GFP_WAIT if it
-> > wants to avoid reclaim.
-> > 
-> > This allows the aforementioned functions to actually reclaim as they
-> > should.  It also enables any future callers that want to do
-> > __GFP_THISNODE but also __GFP_NORETRY && __GFP_NOWARN to reclaim.  The
-> > rule is simple: if you don't want to reclaim, then don't set __GFP_WAIT.
-> 
-> So, I agree with the intention, but this has some subtle implications that
-> should be mentioned/decided. The check for GFP_THISNODE in
-> __alloc_pages_slowpath() comes earlier than the check for __GFP_WAIT. So the
-> differences will be:
-> 
-> 1) We will now call wake_all_kswapds(), unless __GFP_NO_KSWAPD is passed, which
-> is only done for hugepages and some type of i915 allocation. Do we want the
-> opportunistic attempts from slab to wake up kswapds or do we pass the flag?
-> 
-> 2) There will be another attempt on get_page_from_freelist() with different
-> alloc_flags than in the fast path attempt. Without __GFP_WAIT (and also, again,
-> __GFP_KSWAPD, since your commit b104a35d32, which is another subtle check for
-> hugepage allocations btw), it will consider the allocation atomic and add
-> ALLOC_HARDER flag, unless __GFP_NOMEMALLOC is in __gfp_flags - it seems it's
-> generally not. It will also clear ALLOC_CPUSET, which was the concern of
-> b104a35d32. However, if I look at __cpuset_node_allowed(), I see that it's
-> always true for __GFP_THISNODE, which makes me question commit b104a35d32 in
-> light of your patch 2/2 and generally the sanity of all these flags and my
-> career choice.
-> 
+>
+> Please try this patch instead :
+>
 
-Do we do either of these?  gfp_exact_node() sets __GFP_THISNODE and clears 
-__GFP_WAIT which will make the new conditional trigger immediately for 
-NUMA configs.
+It should fix the warning, I can test it tomorrow.
 
-Existing callers of GFP_KERNEL | __GFP_THISNODE aren't impacted and 
-net/openvswitch/flow.c is mentioned in the changelog as actually wanting 
-GFP_NOWAIT | __GFP_THISNODE so that this early check still fails.
+Thanks.
 
-> Ugh :)
-> 
+--001a11c3d2329861ea0510097bf3
+Content-Type: text/x-patch; charset=US-ASCII; name="netns.patch"
+Content-Disposition: attachment; filename="netns.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_i6n0tvqy0
 
-Ugh indeed.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldF9uYW1lc3BhY2UuaCBiL2luY2x1ZGUvbmV0L25l
+dF9uYW1lc3BhY2UuaAppbmRleCAzNmZhZjQ5Li4yNWFjMmUwIDEwMDY0NAotLS0gYS9pbmNsdWRl
+L25ldC9uZXRfbmFtZXNwYWNlLmgKKysrIGIvaW5jbHVkZS9uZXQvbmV0X25hbWVzcGFjZS5oCkBA
+IC0yNyw2ICsyNyw3IEBACiAjaW5jbHVkZSA8bmV0L25ldG5zL25mdGFibGVzLmg+CiAjaW5jbHVk
+ZSA8bmV0L25ldG5zL3hmcm0uaD4KICNpbmNsdWRlIDxsaW51eC9uc19jb21tb24uaD4KKyNpbmNs
+dWRlIDx1YXBpL2xpbnV4L25ldF9uYW1lc3BhY2UuaD4KIAogc3RydWN0IHVzZXJfbmFtZXNwYWNl
+Owogc3RydWN0IHByb2NfZGlyX2VudHJ5OwpAQCAtMjkxLDcgKzI5MiwxOCBAQCBzdGF0aWMgaW5s
+aW5lIHN0cnVjdCBuZXQgKnJlYWRfcG5ldChzdHJ1Y3QgbmV0ICogY29uc3QgKnBuZXQpCiAjZGVm
+aW5lIF9fbmV0X2luaXRjb25zdAlfX2luaXRjb25zdAogI2VuZGlmCiAKLWludCBwZWVybmV0Mmlk
+KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IG5ldCAqcGVlcik7CitpbnQgX19wZWVybmV0MmlkKHN0
+cnVjdCBuZXQgKm5ldCwgc3RydWN0IG5ldCAqcGVlciwgYm9vbCBhbGxvYyk7CisKKy8qIFRoaXMg
+ZnVuY3Rpb24gcmV0dXJucyB0aGUgaWQgb2YgYSBwZWVyIG5ldG5zLiBJZiBubyBpZCBpcyBhc3Np
+Z25lZCwgb25lIHdpbGwKKyAqIGJlIGFsbG9jYXRlZCBhbmQgcmV0dXJuZWQuCisgKi8KK3N0YXRp
+YyBpbmxpbmUgaW50IHBlZXJuZXQyaWQoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgbmV0ICpwZWVy
+KQoreworCWludCBpZCA9IF9fcGVlcm5ldDJpZChuZXQsIHBlZXIsIHRydWUpOworCisJcmV0dXJu
+IGlkID49IDAgPyBpZCA6IE5FVE5TQV9OU0lEX05PVF9BU1NJR05FRDsKK30KKwogc3RydWN0IG5l
+dCAqZ2V0X25ldF9uc19ieV9pZChzdHJ1Y3QgbmV0ICpuZXQsIGludCBpZCk7CiAKIHN0cnVjdCBw
+ZXJuZXRfb3BlcmF0aW9ucyB7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9uZXRfbmFtZXNwYWNlLmMg
+Yi9uZXQvY29yZS9uZXRfbmFtZXNwYWNlLmMKaW5kZXggY2I1MjkwYi4uOWZmMjE2NCAxMDA2NDQK
+LS0tIGEvbmV0L2NvcmUvbmV0X25hbWVzcGFjZS5jCisrKyBiL25ldC9jb3JlL25ldF9uYW1lc3Bh
+Y2UuYwpAQCAtMTc1LDcgKzE3NSw3IEBAIHN0YXRpYyBpbnQgbmV0X2VxX2lkcihpbnQgaWQsIHZv
+aWQgKm5ldCwgdm9pZCAqcGVlcikKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGludCBfX3BlZXJu
+ZXQyaWQoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgbmV0ICpwZWVyLCBib29sIGFsbG9jKQoraW50
+IF9fcGVlcm5ldDJpZChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBuZXQgKnBlZXIsIGJvb2wgYWxs
+b2MpCiB7CiAJaW50IGlkID0gaWRyX2Zvcl9lYWNoKCZuZXQtPm5ldG5zX2lkcywgbmV0X2VxX2lk
+ciwgcGVlcik7CiAKQEAgLTE5MiwxNyArMTkyLDcgQEAgc3RhdGljIGludCBfX3BlZXJuZXQyaWQo
+c3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgbmV0ICpwZWVyLCBib29sIGFsbG9jKQogCiAJcmV0dXJu
+IC1FTk9FTlQ7CiB9Ci0KLS8qIFRoaXMgZnVuY3Rpb24gcmV0dXJucyB0aGUgaWQgb2YgYSBwZWVy
+IG5ldG5zLiBJZiBubyBpZCBpcyBhc3NpZ25lZCwgb25lIHdpbGwKLSAqIGJlIGFsbG9jYXRlZCBh
+bmQgcmV0dXJuZWQuCi0gKi8KLWludCBwZWVybmV0MmlkKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0
+IG5ldCAqcGVlcikKLXsKLQlpbnQgaWQgPSBfX3BlZXJuZXQyaWQobmV0LCBwZWVyLCB0cnVlKTsK
+LQotCXJldHVybiBpZCA+PSAwID8gaWQgOiBORVROU0FfTlNJRF9OT1RfQVNTSUdORUQ7Ci19Ci1F
+WFBPUlRfU1lNQk9MKHBlZXJuZXQyaWQpOworRVhQT1JUX1NZTUJPTChfX3BlZXJuZXQyaWQpOwog
+CiBzdHJ1Y3QgbmV0ICpnZXRfbmV0X25zX2J5X2lkKHN0cnVjdCBuZXQgKm5ldCwgaW50IGlkKQog
+ewpkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMgYi9uZXQvY29yZS9ydG5ldGxpbmsu
+YwppbmRleCAxMzg1ZGUwLi5iZDQxNDI3IDEwMDY0NAotLS0gYS9uZXQvY29yZS9ydG5ldGxpbmsu
+YworKysgYi9uZXQvY29yZS9ydG5ldGxpbmsuYwpAQCAtMTE3NSw4ICsxMTc1LDEwIEBAIHN0YXRp
+YyBpbnQgcnRubF9maWxsX2lmaW5mbyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rl
+dmljZSAqZGV2LAogCQlzdHJ1Y3QgbmV0ICpsaW5rX25ldCA9IGRldi0+cnRubF9saW5rX29wcy0+
+Z2V0X2xpbmtfbmV0KGRldik7CiAKIAkJaWYgKCFuZXRfZXEoZGV2X25ldChkZXYpLCBsaW5rX25l
+dCkpIHsKLQkJCWludCBpZCA9IHBlZXJuZXQyaWQoZGV2X25ldChkZXYpLCBsaW5rX25ldCk7CisJ
+CQlpbnQgaWQgPSBfX3BlZXJuZXQyaWQoZGV2X25ldChkZXYpLCBsaW5rX25ldCwgZmFsc2UpOwog
+CisJCQlpZiAoaWQgPCAwKQorCQkJCWlkID0gTkVUTlNBX05TSURfTk9UX0FTU0lHTkVEOwogCQkJ
+aWYgKG5sYV9wdXRfczMyKHNrYiwgSUZMQV9MSU5LX05FVE5TSUQsIGlkKSkKIAkJCQlnb3RvIG5s
+YV9wdXRfZmFpbHVyZTsKIAkJfQpAQCAtMjE0Miw3ICsyMTQ0LDEzIEBAIHJlcGxheToKIAkJZGV2
+LT5pZmluZGV4ID0gaWZtLT5pZmlfaW5kZXg7CiAKIAkJaWYgKG9wcy0+bmV3bGluaykgewotCQkJ
+ZXJyID0gb3BzLT5uZXdsaW5rKGxpbmtfbmV0ID8gOiBuZXQsIGRldiwgdGIsIGRhdGEpOworCQkJ
+c3RydWN0IG5ldCAqc3JjX25ldCA9IGxpbmtfbmV0ID86IG5ldDsKKworCQkJaWYgKG9wcy0+Z2V0
+X2xpbmtfbmV0ICYmICFuZXRfZXEoc3JjX25ldCwgZGV2X25ldChkZXYpKSkKKwkJCQkvKiBXZSBk
+b24ndCBjYXJlIHRoZSByZXR1cm4gdmFsdWUgKi8KKwkJCQkodm9pZCkgcGVlcm5ldDJpZChkZXZf
+bmV0KGRldiksIHNyY19uZXQpOworCisJCQllcnIgPSBvcHMtPm5ld2xpbmsoc3JjX25ldCwgZGV2
+LCB0YiwgZGF0YSk7CiAJCQkvKiBEcml2ZXJzIHNob3VsZCBjYWxsIGZyZWVfbmV0ZGV2KCkgaW4g
+LT5kZXN0cnVjdG9yCiAJCQkgKiBhbmQgdW5yZWdpc3RlciBpdCBvbiBmYWlsdXJlIGFmdGVyIHJl
+Z2lzdHJhdGlvbgogCQkJICogc28gdGhhdCBkZXZpY2UgY291bGQgYmUgZmluYWxseSBmcmVlZCBp
+biBydG5sX3VubG9jay4K
+--001a11c3d2329861ea0510097bf3--
