@@ -1,79 +1,39 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [patch 1/2] mm: remove GFP_THISNODE
-Date: Fri, 27 Feb 2015 23:19:42 +0100
-Message-ID: <54F0ED7E.6010900@suse.cz>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <54EED9A7.5010505@suse.cz> <alpine.DEB.2.10.1502261902580.24302@chino.kir.corp.google.com> <54F01E02.1090007@suse.cz> <alpine.DEB.2.10.1502271335520.4718@chino.kir.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
+ switches
+Date: Fri, 27 Feb 2015 17:21:04 -0500 (EST)
+Message-ID: <20150227.172104.142920096639146096.davem@davemloft.net>
+References: <20150226141319.GA7971@gospo.home.greyhouse.net>
+	<CAE4R7bBspZn3Mt2-KGeBBCfkxOQAmFFoOZJAnTKJBNPkS9P2Lg@mail.gmail.com>
+	<20150226144433.GF1973@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
- Christoph Lameter <cl@linux.com>,
- Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>,
- Johannes Weiner <hannes@cmpxchg.org>,
- Mel Gorman <mgorman@suse.de>, Pravin Shelar <pshelar@nicira.com>,
- Jarno Rajahalme <jrajahalme@nicira.com>,
- Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
- linux-mm@kvack.org, netdev@vger.kernel.org, dev@openvswitch.org
-To: David Rientjes <rientjes@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.10.1502271335520.4718@chino.kir.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: sfeldma@gmail.com, gospo@cumulusnetworks.com, andrew@lunn.ch,
+	zajec5@gmail.com, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	jogo@openwrt.org, hauke@hauke-m.de, nbd@openwrt.org
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54735 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753405AbbB0WVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:21:08 -0500
+In-Reply-To: <20150226144433.GF1973@nanopsycho.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2015 11:03 PM, David Rientjes wrote:
->> With both
->> patches they won't bail out and __GFP_NO_KSWAPD will prevent most of the stuff
->> described above, including clearing ALLOC_CPUSET.
-> 
-> Yeah, ALLOC_CPUSET is never cleared for thp allocations because atomic == 
-> false for thp, regardless of this series.
-> 
->> But __cpuset_node_allowed()
->> will allow it to allocate anywhere anyway thanks to the newly passed
->> __GFP_THISNODE, which would be a regression of what b104a35d32 fixed... unless
->> I'm missing something else that prevents it, which wouldn't surprise me at all.
->> 
->> There's this outdated comment:
->> 
->>  * The __GFP_THISNODE placement logic is really handled elsewhere,
->>  * by forcibly using a zonelist starting at a specified node, and by
->>  * (in get_page_from_freelist()) refusing to consider the zones for
->>  * any node on the zonelist except the first.  By the time any such
->>  * calls get to this routine, we should just shut up and say 'yes'.
->> 
->> AFAIK the __GFP_THISNODE zonelist contains *only* zones from the single node and
->> there's no other "refusing".
-> 
-> Yes, __cpuset_node_allowed() is never called for a zone from any other 
-> node when __GFP_THISNODE is passed because of node_zonelist().  It's 
-> pointless to iterate over those zones since the allocation wants to fail 
-> instead of allocate on them.
-> 
-> Do you see any issues with either patch 1/2 or patch 2/2 besides the 
-> s/GFP_TRANSHUGE/GFP_THISNODE/ that is necessary on the changelog?
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 26 Feb 2015 15:44:33 +0100
 
-Well, my point is, what if the node we are explicitly trying to allocate
-hugepage on, is in fact not allowed by our cpuset? This could happen in the page
-fault case, no? Although in a weird configuration when process can (and really
-gets scheduled to run) on a node where it is not allowed to allocate from...
-
->> And I don't really see why __GFP_THISNODE should
->> have this exception, it feels to me like "well we shouldn't reach this but we
->> are not sure, so let's play it safe". So maybe we could just remove this
->> exception? I don't think any other user of __GFP_THISNODE | __GFP_WAIT user
->> relies on this allowed memset violation?
->> 
+> Thu, Feb 26, 2015 at 03:19:27PM CET, sfeldma@gmail.com wrote:
+>>Missing .ndo_start_xmit is the clue....do we need more?
 > 
-> Since this function was written, there were other callers to 
-> cpuset_{node,zone}_allowed_{soft,hard}wall() that may have required it.  I 
-> looked at all the current callers of cpuset_zone_allowed() and they don't 
-> appear to need this "exception" (slub calls node_zonelist() itself for the 
-> iteration and slab never calls it for __GFP_THISNODE).  So, yeah, I think 
-> it can be removed.
-> 
+> You do not want to add null check for ndo_start_xmit to xmit path :)
+> This should be some stub in case of no-tx.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Cheapest would be to force the device to use the noop_qdisc which
+simply throws all packets away.
+
+No fast path tests whatsoever.
+
+Or we can attach an ndo_start_xmit that drops packets too.
