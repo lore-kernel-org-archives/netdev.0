@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
- decision functions
-Date: Fri, 27 Feb 2015 17:30:11 -0500 (EST)
-Message-ID: <20150227.173011.720468189098021308.davem@davemloft.net>
-References: <54EDF4DD.1060709@iogearbox.net>
-	<1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150226100235.GA16032@casper.infradead.org>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [patch 1/2] mm: remove GFP_THISNODE
+Date: Fri, 27 Feb 2015 14:31:45 -0800 (PST)
+Message-ID: <alpine.DEB.2.10.1502271428320.7225@chino.kir.corp.google.com>
+References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <54EED9A7.5010505@suse.cz> <alpine.DEB.2.10.1502261902580.24302@chino.kir.corp.google.com> <54F01E02.1090007@suse.cz> <alpine.DEB.2.10.1502271335520.4718@chino.kir.corp.google.com>
+ <54F0ED7E.6010900@suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, daniel@iogearbox.net,
-	David.Laight@ACULAB.COM, pablo@netfilter.org, johunt@akamai.com,
-	kaber@trash.net, netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54856 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753340AbbB0WaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:30:14 -0500
-In-Reply-To: <20150226100235.GA16032@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Christoph Lameter <cl@linux.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Mel Gorman <mgorman@suse.de>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jrajahalme@nicira.com>,
+	Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org, dev@openvswitch.org
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54F0ED7E.6010900@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "tgraf@suug.ch" <tgraf@suug.ch>
-Date: Thu, 26 Feb 2015 10:02:35 +0000
+On Fri, 27 Feb 2015, Vlastimil Babka wrote:
 
-> I just want to point out here that TCP is not the only future
-> use case. The station table for mac80211 has recently been
-> converted. We need to keep all of them on the radar.
+> > Do you see any issues with either patch 1/2 or patch 2/2 besides the 
+> > s/GFP_TRANSHUGE/GFP_THISNODE/ that is necessary on the changelog?
+> 
+> Well, my point is, what if the node we are explicitly trying to allocate
+> hugepage on, is in fact not allowed by our cpuset? This could happen in the page
+> fault case, no? Although in a weird configuration when process can (and really
+> gets scheduled to run) on a node where it is not allowed to allocate from...
+> 
 
-Just wanted to note in passing that I wonder how legal
-net/core/neighbour.c:neigh_hash_grow() is.  It's growing an RCU
-hashtable without using rhashtable. :-)
+If the process is running a node that is not allowed by the cpuset, then 
+alloc_hugepage_vma() now fails with VM_FAULT_FALLBACK.  That was the 
+intended policy change of commit 077fcf116c8c ("mm/thp: allocate 
+transparent hugepages on local node").
+
+ [ alloc_hugepage_vma() should probably be using numa_mem_id() instead for 
+   memoryless node platforms. ]
