@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH iproute2 v4] lib: Replace 16384 netlink buf size by
- macro
-Date: Fri, 27 Feb 2015 12:38:31 -0500 (EST)
-Message-ID: <20150227.123831.436431838595846209.davem@davemloft.net>
-References: <1425018700-32725-1-git-send-email-vadim4j@gmail.com>
+From: Yannick Guerrini <yguerrini@tomshardware.fr>
+Subject: [PATCH] netxen_nic: Fix trivial typos in comments
+Date: Fri, 27 Feb 2015 18:38:46 +0100
+Message-ID: <1425058726-8908-1-git-send-email-yguerrini@tomshardware.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: vadim4j@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52329 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754832AbbB0Rig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 12:38:36 -0500
-In-Reply-To: <1425018700-32725-1-git-send-email-vadim4j@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <sony.chacko@qlogic.com>, <rajesh.borundia@qlogic.com>,
+	<trivial@kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Yannick Guerrini <yguerrini@tomshardware.fr>
+To: <manish.chopra@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
-Date: Fri, 27 Feb 2015 08:31:40 +0200
+Change 'mutliple' to 'multiple'
+Change 'Firmare' to 'Firmware'
 
-> From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> Replaced hard coded 16384 netlink buffer size by NLBUF_SIZE,
-> which can be overridden by -DNLBUF_SIZE.
-> 
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+Signed-off-by: Yannick Guerrini <yguerrini@tomshardware.fr>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I would like to know what problem is solved by changing this to
-any other value?
-
-And then I would like to know why other potential solutions to
-this problem were not considered, such as making the buffer size
-dynamic and run-time selectable, perhaps with a size choosen
-in a manner to avoid whatever problem you hit with the current
-size.
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 6e426ae..0a5e204 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -354,7 +354,7 @@ struct cmd_desc_type0 {
+ 
+ } __attribute__ ((aligned(64)));
+ 
+-/* Note: sizeof(rcv_desc) should always be a mutliple of 2 */
++/* Note: sizeof(rcv_desc) should always be a multiple of 2 */
+ struct rcv_desc {
+ 	__le16 reference_handle;
+ 	__le16 reserved;
+@@ -499,7 +499,7 @@ struct uni_data_desc{
+ #define NETXEN_IMAGE_START	0x43000	/* compressed image */
+ #define NETXEN_SECONDARY_START	0x200000	/* backup images */
+ #define NETXEN_PXE_START	0x3E0000	/* PXE boot rom */
+-#define NETXEN_USER_START	0x3E8000	/* Firmare info */
++#define NETXEN_USER_START	0x3E8000	/* Firmware info */
+ #define NETXEN_FIXED_START	0x3F0000	/* backup of crbinit */
+ #define NETXEN_USER_START_OLD	NETXEN_PXE_START /* very old flash */
+ 
+-- 
+1.9.5.msysgit.0
