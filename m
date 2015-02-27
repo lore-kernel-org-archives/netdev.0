@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] rocker: silence shift wrapping warning
-Date: Fri, 27 Feb 2015 15:59:25 -0500 (EST)
-Message-ID: <20150227.155925.1726922130874367959.davem@davemloft.net>
-References: <20150225133612.GV19745@mwanda>
+Subject: Re: [PATCH net-next] udp: In udp_flow_src_port use random hash
+ value if skb_get_hash fails
+Date: Fri, 27 Feb 2015 16:00:20 -0500 (EST)
+Message-ID: <20150227.160020.1997065932482750871.davem@davemloft.net>
+References: <1424798251-21075-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150225133612.GV19745@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54081 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755246AbbB0VAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 16:00:22 -0500
+In-Reply-To: <1424798251-21075-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 25 Feb 2015 16:36:12 +0300
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 24 Feb 2015 09:17:31 -0800
 
-> "val" is declared as a u64 so static checkers complain that this shift
-> can wrap.  I don't have the hardware but probably it's doesn't have over
-> 31 ports.  Still we may as well silence the warning even if it's not a
-> real bug.
+> In the unlikely event that skb_get_hash is unable to deduce a hash
+> in udp_flow_src_port we use a consistent random value instead.
+> This is specified in GRE/UDP draft section 3.2.1:
+> https://tools.ietf.org/html/draft-ietf-tsvwg-gre-in-udp-encap-04
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
- 
-Applied.
+> Signed-off-by: Tom Herbert <therbert@google.com>
+
+This looks fine, applied, thanks Tom.
