@@ -1,168 +1,55 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Flows! Offload them.
-Date: Thu, 26 Feb 2015 17:52:16 -0800
-Message-ID: <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
-References: <20150226074214.GF2074@nanopsycho.orion>
-	<20150226083758.GA15139@vergenet.net>
-	<20150226091628.GA4059@nanopsycho.orion>
-	<20150226133326.GC23050@casper.infradead.org>
-	<54EF3A78.9020507@intel.com>
-	<20150226201635.GA366@hmsreliant.think-freely.org>
-	<20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
-	<20150227012239.GB8847@neilslaptop.think-freely.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] netns: correct gfp flags for alloc_netid()
+Date: Thu, 26 Feb 2015 18:19:41 -0800
+Message-ID: <CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
+References: <1424998490-9565-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Simon Horman <simon.horman@netronome.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
-	Joe Stringer <joestringer@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Shrijeet Mukherjee <shrijeet@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>, bcrl@kvack.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:40753 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583AbbB0BwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 20:52:17 -0500
-Received: by iebtr6 with SMTP id tr6so24192086ieb.7
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 17:52:16 -0800 (PST)
-In-Reply-To: <20150227012239.GB8847@neilslaptop.think-freely.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:46132 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbbB0CTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 21:19:42 -0500
+Received: by pablj1 with SMTP id lj1so2764291pab.13
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 18:19:41 -0800 (PST)
+In-Reply-To: <1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 26, 2015 at 5:22 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> On Fri, Feb 27, 2015 at 06:52:58AM +0900, Simon Horman wrote:
->> On Thu, Feb 26, 2015 at 03:16:35PM -0500, Neil Horman wrote:
->> > On Thu, Feb 26, 2015 at 07:23:36AM -0800, John Fastabend wrote:
->> > > On 02/26/2015 05:33 AM, Thomas Graf wrote:
->> > > > On 02/26/15 at 10:16am, Jiri Pirko wrote:
->> > > >> Well, on netdev01, I believe that a consensus was reached that for every
->> > > >> switch offloaded functionality there has to be an implementation in
->> > > >> kernel.
->> > > >
->> > > > Agreed. This should not prevent the policy being driven from user
->> > > > space though.
->> > > >
->> > > >> What John's Flow API originally did was to provide a way to
->> > > >> configure hardware independently of kernel. So the right way is to
->> > > >> configure kernel and, if hw allows it, to offload the configuration to hw.
->> > > >>
->> > > >> In this case, seems to me logical to offload from one place, that being
->> > > >> TC. The reason is, as I stated above, the possible conversion from OVS
->> > > >> datapath to TC.
->> > > >
->> > > > Offloading of TC definitely makes a lot of sense. I think that even in
->> > > > that case you will already encounter independent configuration of
->> > > > hardware and kernel. Example: The hardware provides a fixed, generic
->> > > > function to push up to n bytes onto a packet. This hardware function
->> > > > could be used to implement TC actions "push_vlan", "push_vxlan",
->> > > > "push_mpls". You would you would likely agree that TC should make use
->> > > > of such a function even if the hardware version is different from the
->> > > > software version. So I don't think we'll have a 1:1 mapping for all
->> > > > configurations, regardless of whether the how is decided in kernel or
->> > > > user space.
->> > >
->> > > Just to expand slightly on this. I don't think you can get to a 1:1
->> > > mapping here. One reason is hardware typically has a TCAM and limited
->> > > size. So you need a _policy_ to determine when to push rules into the
->> > > hardware. The kernel doesn't know when to do this and I don't believe
->> > > its the kernel's place to start enforcing policy like this. One thing I likely
->> > > need to do is get some more "worlds" in rocker so we aren't stuck only
->> > > thinking about the infinite size OF_DPA world. The OF_DPA world is only
->> > > one world and not a terribly flexible one at that when compared with the
->> > > NPU folk. So minimally you need a flag to indicate rules go into hardware
->> > > vs software.
->> > >
->> > > That said I think the bigger mismatch between software and hardware is
->> > > you program it differently because the data structures are different. Maybe
->> > > a u32 example would help. For parsing with u32 you might build a parse
->> > > graph with a root and some leaf nodes. In hardware you want to collapse
->> > > this down onto the hardware. I argue this is not a kernel task because
->> > > there are lots of ways to do this and there are trade-offs made with
->> > > respect to space and performance and which table to use when it could be
->> > > handled by a set of tables. Another example is a virtual switch possibly
->> > > OVS but we have others. The software does some "unmasking" (there term)
->> > > before sending the rules into the software dataplane cache. Basically this
->> > > means we can ignore priority in the hash lookup. However this is not how you
->> > > would optimally use hardware. Maybe I should do another write up with
->> > > some more concrete examples.
->> > >
->> > > There are also lots of use cases to _not_ have hardware and software in
->> > > sync. A flag allows this.
->> > >
->> > > My only point is I think we need to allow users to optimally use there
->> > > hardware either via 'tc' or my previous 'flow' tool. Actually in my
->> > > opinion I still think its best to have both interfaces.
->> > >
->> > > I'll go get some coffee now and hopefully that is somewhat clear.
->> >
->> >
->> > I've been thinking about the policy apect of this, and the more I think
->> > about it, the more I wonder if not allowing some sort of common policy in
->> > the kernel is really the right thing to do here.  I know thats somewhat
->> > blasphemous, but this isn't really administrative poilcy that we're
->> > talking about, at least not 100%.  Its more of a behavioral profile that
->> > we're trying to enforce.  That may be splitting hairs, but I think theres
->> > precidence for the latter.  That is to say, we configure qdiscs to limit
->> > traffic flow to certain rates, and configure policies which drop traffic
->> > that violates it (which includes random discard, which is the antithesis
->> > of deterministic policy).  I'm not sure I see this as any different,
->> > espcially if we limit its scope.  That is to say, why couldn't we allow
->> > the kernel to program a predetermined set of policies that the admin can
->> > set (i.e. offload routing to a hardware cache of X size with an lru
->> > victimization).  If other well defined policies make sense, we can add
->> > them and exposes options via iproute2 or some such to set them.  For the
->> > use case where such pre-packaged policies don't make sense, we have
->> > things like the flow api to offer users who want to be able to control
->> > their hardware in a more fine grained approach.
+On Thu, Feb 26, 2015 at 5:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-02-26 at 16:54 -0800, Cong Wang wrote:
+>> This fixes the following kernel warning:
 >>
->> In general I agree that it makes sense to have have sane offload policy
->> in the kernel and provide a mechanism to override that. Things that already
->> work should continue to work: just faster or with fewer CPU cycles consumed.
+>>  ===============================
+>>  [ INFO: suspicious RCU usage. ]
+>>  3.19.0+ #805 Tainted: G        W
+>>  -------------------------------
+>>  include/linux/rcupdate.h:538 Illegal context switch in RCU read-side critical section!
 >>
-> Yes, exactly that, for the general traditional networking use case, that is
-> exactly what we want, to opportunistically move traffic faster with less load on
-> the cpu.  We don't nominally care what traffic is offloaded, as long as the
-> hardware does a better job than just software alone.  If we get an occasional
-> miss and have to do stuff in software, so be it.
+>>  other info that might help us debug this:
+>>
 >
-+1 on an in kernel "Network Resource Manager". This also came up in
-Sunil's plan to configure RPS affinities from a driver so I'm taking
-liberty by generalizing the concept :-).
+> I do not think this is the right way to fix this.
+>
+> Bug is that rtnl_dump_ifinfo() should not use rcu_read_lock(), as RTNL
+> is held : GFP_KERNEL allocations in control path should be the golden
+> rule.
+>
+> I guess I should have reverted e67f88dd12f6 completely
+> instead of the partial revert (2907c35ff647080)
 
->> I am, however, not entirely convinced that it is always possible to
->> implement such a sane default policy that is worth the code complexity -
->> I'm thinking in particular of Open vSwitch where management of flows is
->> already in user-space.
-> So, this is a case in which I think John F.'s low level flow API is more well
-> suited.  OVS has implemented a user space dataplane that circumvents alot of the
-> kernel mechanisms for traffic forwarding.  For that sort of application, the
-> traditional kernel offload "objects" aren't really appropriate.  Instead, OVS
-> can use the low level flow API to construct its own custom offload pipeline
-> using whatever rules and policies that it wants.
->
-> Of course, using the low level flow API is incompatible with the in-kernel
-> object offload idea that I'm proposing, but I see the two as able to co-exist,
-> much like firewalld co-exists with iptables.  You can use both, but you have to
-> be aware that using the lower layer interface might break the others higher
-> level oeprations.  And if that happens, its on you to manage it.
->
-> Best
-> Neil
->
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+LOL, it has been changed back and forth.
+
+I thought rcu read lock was introduced to optimize dumping
+performance, if it were really important, we should solve the
+deadlock you mentioned in commit 2907c35ff647080?
+
+Otherwise, as you said, completely revert to using rtnl lock.
+
+Or for now just use my patch since idr doesn't allocate that
+much memory in atomic?
