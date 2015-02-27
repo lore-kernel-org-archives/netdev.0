@@ -1,34 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] team: allow TSO being set on master
-Date: Fri, 27 Feb 2015 17:11:41 -0500 (EST)
-Message-ID: <20150227.171141.1491925871847983198.davem@davemloft.net>
-References: <1424890331-6850-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH] net: asix: add support for the Sitecom LN-028 USB
+ adapter
+Date: Fri, 27 Feb 2015 17:12:39 -0500 (EST)
+Message-ID: <20150227.171239.534595359591378077.davem@davemloft.net>
+References: <1424908692-5842-1-git-send-email-luca@lucaceresoli.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jprochaz@redhat.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54633 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755492AbbB0WLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:11:44 -0500
-In-Reply-To: <1424890331-6850-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: luca@lucaceresoli.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424908692-5842-1-git-send-email-luca@lucaceresoli.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 25 Feb 2015 19:52:11 +0100
+From: Luca Ceresoli <luca@lucaceresoli.net>
+Date: Thu, 26 Feb 2015 00:58:12 +0100
 
-> This patch allows TSO being set/unset on the master, so that GSO
-> segmentation is done after team layer.
+> Just another AX88178-based 10/100/1000 USB-to-Ethernet dongle. This one
+> shows up in lsusb as: "Sitecom Europe B.V. LN-028 Network USB 2.0 Adapter".
 > 
-> Similar patch is present for bonding:
-> 	b0ce3508b25e ("bonding: allow TSO being set on bonding master")
-> and bridge:
-> 	f902e8812ef6 ("bridge: Add ability to enable TSO")
-> 
-> Suggested-by: Jiri Prochazka <jprochaz@redhat.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Luca Ceresoli <luca@lucaceresoli.net>
 
-Applied, thanks Jiri.
+Applied, thanks.
