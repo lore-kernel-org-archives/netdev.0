@@ -1,92 +1,71 @@
-From: nick <xerofoify@gmail.com>
-Subject: Re: i40e: crash on NMI by continuous module reload
-Date: Fri, 27 Feb 2015 09:44:24 -0500
-Message-ID: <54F082C8.8040407@gmail.com>
-References: <54F07630.1010802@kpanic.de> <54F078DF.5020100@gmail.com>
-	<54F07C29.8010805@kpanic.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Stefan Assmann <sassmann@kpanic.de>, netdev <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <54F07C29.8010805@kpanic.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 00/10] eBPF support for cls_bpf
+Date: Fri, 27 Feb 2015 15:55:32 +0100
+Message-ID: <cover.1425040939.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:47826 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbbB0Ozs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 09:55:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This is the non-RFC version of my patchset posted before netdev01 [1]
+conference. It contains a couple of eBPF cleanups and preparation
+patches to get eBPF support into cls_bpf. The last patch adds the
+actual support. I'll post the iproute2 parts after the kernel bits
+are merged, an initial preview link to the code is mentioned in the
+last patch.
 
+Patch 4 and 5 were originally one patch, but I've split them into
+two parts upon request as patch 4 only is also needed for Alexei's
+tracing patches that go via tip tree.
 
-On 2015-02-27 09:16 AM, Stefan Assmann wrote:
-> On 27.02.2015 15:02, nick wrote:
-> 
-> [...]
-> 
->>>     i40e: Fix a bug where Rx would stop after some time
->>> [...]
->>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
->>> index f7464e8..ff6d94d 100644
->>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->>> [...]
->>> @@ -9169,6 +9178,13 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->>>  	if (err)
->>>  		dev_info(&pf->pdev->dev, "set phy mask fail, aq_err %d\n", err);
->>>
->>> +	msleep(75);
->>> +	err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
->>> +	if (err) {
->>> +		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
->>> +			 pf->hw.aq.asq_last_status);
->>> +	}
->>> +
->>>  	/* The main driver is (mostly) up and happy. We need to set this state
->>>  	 * before setting up the misc vector or we get a race and the vector
->>>  	 * ends up disabled forever.
->>>
->>> With this hunk removed the driver successfully unloaded/reloaded a
->>> couple of hundred times. Would it be safe to just remove this hunk?
->>> I haven't seen any negative effects by removing this yet.
->>>
->>>   Stefan
->>>
->> Stefan,
->> I wouldn't remove them yet as this does look like a valid idea to check to see if the link is 
->> restarting successfully. On the other hand can you try removing the msleep line as this one is
->> most likely causing the issue due to sleeping for some long in a probe function is generally a
->> bad idea.
->> Thanks,
->> Nick
-> 
-> Thanks Nick for the quick reply. I tested removing the msleep but that
-> didn't make a difference. You actually need to remove the complete hunk
-> to get a stable driver reload.
-> 
->   Stefan
-> 
-Stefan,
-Basically there are a few things that could be going wrong
-1. You are getting a error return for the function,i40e_aq_set_link_restart_an
-2. You are trying to re able the device again when not needed
-3. You are sending a NULL value to a field for command arguments that takes a 0 and not NULL
-to take no arguments
-Nick 
+Tested with tc and all in-kernel available test suites.
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+I have configured and built LLVM with --enable-experimental-targets=BPF
+but as Alexei put it, the plan is to get rid of the experimental
+status in future [2].
+
+Thanks a lot!
+
+  [1] http://thread.gmane.org/gmane.linux.network/350191
+  [2] http://article.gmane.org/gmane.linux.kernel/1874969
+
+Daniel Borkmann (10):
+  ebpf: remove kernel test stubs
+  ebpf: constify various function pointer structs
+  ebpf: export BPF_PSEUDO_MAP_FD to uapi
+  ebpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
+  ebpf: remove CONFIG_BPF_SYSCALL ifdefs in socket filter code
+  ebpf: add sched_cls_type and map it to sk_filter's verifier ops
+  ebpf: move read-only fields to bpf_prog and shrink bpf_prog_aux
+  x86: unexport set_memory_ro and set_memory_rw
+  arm64: unexport set_memory_ro and set_memory_rw
+  cls_bpf: add initial eBPF support for programmable classifiers
+
+ arch/arm64/mm/pageattr.c     |   2 -
+ arch/x86/mm/pageattr.c       |   2 -
+ include/linux/bpf.h          |  38 +++++---
+ include/linux/filter.h       |   6 +-
+ include/uapi/linux/bpf.h     |   3 +
+ include/uapi/linux/pkt_cls.h |   2 +
+ kernel/bpf/Makefile          |   3 -
+ kernel/bpf/arraymap.c        |   6 +-
+ kernel/bpf/hashtab.c         |   6 +-
+ kernel/bpf/helpers.c         |   6 +-
+ kernel/bpf/syscall.c         |   9 +-
+ kernel/bpf/test_stub.c       |  78 ----------------
+ kernel/bpf/verifier.c        |  17 +++-
+ net/core/filter.c            |  47 +++++-----
+ net/sched/cls_bpf.c          | 206 ++++++++++++++++++++++++++++++++-----------
+ samples/bpf/libbpf.h         |   4 +-
+ samples/bpf/test_verifier.c  |   5 +-
+ 17 files changed, 243 insertions(+), 197 deletions(-)
+ delete mode 100644 kernel/bpf/test_stub.c
+
+-- 
+1.9.3
