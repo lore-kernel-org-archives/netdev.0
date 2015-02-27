@@ -1,7 +1,7 @@
 From: Vaishali Thakkar <vthakkar1994@gmail.com>
 Subject: [PATCH] drivers/net: Use setup_timer and mod_timer
-Date: Fri, 27 Feb 2015 13:59:36 +0530
-Message-ID: <20150227082936.GA15728@vaishali-Ideapad-Z570>
+Date: Fri, 27 Feb 2015 14:08:12 +0530
+Message-ID: <20150227083812.GA15793@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -34,16 +34,16 @@ expression x,y,z,a,b;
 
 Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
 ---
- drivers/net/ethernet/8390/axnet_cs.c | 7 ++-----
+ drivers/net/ethernet/8390/pcnet_cs.c | 7 ++-----
  1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/8390/axnet_cs.c b/drivers/net/ethernet/8390/axnet_cs.c
-index 7769c05..ec6eac1 100644
---- a/drivers/net/ethernet/8390/axnet_cs.c
-+++ b/drivers/net/ethernet/8390/axnet_cs.c
-@@ -484,11 +484,8 @@ static int axnet_open(struct net_device *dev)
-     link->open++;
+diff --git a/drivers/net/ethernet/8390/pcnet_cs.c b/drivers/net/ethernet/8390/pcnet_cs.c
+index 9fb7b9d..2777289 100644
+--- a/drivers/net/ethernet/8390/pcnet_cs.c
++++ b/drivers/net/ethernet/8390/pcnet_cs.c
+@@ -918,11 +918,8 @@ static int pcnet_open(struct net_device *dev)
  
+     info->phy_id = info->eth_phy;
      info->link_status = 0x00;
 -    init_timer(&info->watchdog);
 -    info->watchdog.function = ei_watchdog;
@@ -53,7 +53,7 @@ index 7769c05..ec6eac1 100644
 +    setup_timer(&info->watchdog, ei_watchdog, (u_long)dev);
 +    mod_timer(&info->watchdog, jiffies + HZ);
  
-     return ax_open(dev);
- } /* axnet_open */
+     return ei_open(dev);
+ } /* pcnet_open */
 -- 
 1.9.1
