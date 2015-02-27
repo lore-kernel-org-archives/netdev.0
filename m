@@ -1,26 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: asix: add support for the Sitecom LN-028 USB
- adapter
-Date: Fri, 27 Feb 2015 17:12:39 -0500 (EST)
-Message-ID: <20150227.171239.534595359591378077.davem@davemloft.net>
-References: <1424908692-5842-1-git-send-email-luca@lucaceresoli.net>
+Subject: Re: [PATCH net] amd-xgbe: Request IRQs only after driver is fully
+ setup
+Date: Fri, 27 Feb 2015 17:13:20 -0500 (EST)
+Message-ID: <20150227.171320.1659341988981769664.davem@davemloft.net>
+References: <20150225195012.17171.35178.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: luca@lucaceresoli.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424908692-5842-1-git-send-email-luca@lucaceresoli.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54644 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755328AbbB0WNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:13:22 -0500
+In-Reply-To: <20150225195012.17171.35178.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Luca Ceresoli <luca@lucaceresoli.net>
-Date: Thu, 26 Feb 2015 00:58:12 +0100
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Wed, 25 Feb 2015 13:50:12 -0600
 
-> Just another AX88178-based 10/100/1000 USB-to-Ethernet dongle. This one
-> shows up in lsusb as: "Sitecom Europe B.V. LN-028 Network USB 2.0 Adapter".
+> It is possible that the hardware may not have been properly shutdown
+> before this driver gets control, through use by firmware, for example.
+> Until the driver is loaded, interrupts associated with the hardware
+> could go pending. When the IRQs are requested napi support has not
+> been initialized yet, but the ISR will get control and schedule napi
+> processing resulting in a kernel panic because the poll routine has not
+> been set.
 > 
-> Signed-off-by: Luca Ceresoli <luca@lucaceresoli.net>
+> Adjust the code so that the driver is fully ready to handle and process
+> interrupts as soon as the IRQs are requested. This involves requesting
+> and freeing IRQs during start and stop processing and ordering the napi
+> add and delete calls appropriately.
+> 
+> Also adjust the powerup and powerdown routines to match the start and
+> stop routines in regards to the ordering of tasks, including napi
+> related calls.
+> 
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Applied, thanks.
+This looks a lot better, applied, thanks Tom.
