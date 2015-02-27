@@ -1,35 +1,28 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Kernel Panic with vti Interfaces
-Date: Fri, 27 Feb 2015 11:35:06 +0100
-Message-ID: <20150227103506.GD20631@secunet.com>
-References: <54EC4C63.3050006@marcant.net>
- <20150226114052.GB20631@secunet.com>
- <54EFB312.8040309@marcant.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] wireless: test sscanf return values
+Date: Fri, 27 Feb 2015 10:35:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAF0B29@AcuExch.aculab.com>
+References: <1425015791.2690.7.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Andre Valentin <avalentin@marcant.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44429 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752382AbbB0KfK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2015 05:35:10 -0500
-Content-Disposition: inline
-In-Reply-To: <54EFB312.8040309@marcant.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: 'Joe Perches' <joe@perches.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425015791.2690.7.camel@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 27, 2015 at 12:58:10AM +0100, Andre Valentin wrote:
-> 
-> >
-> > I have never seen this, is the patch above the only locally
-> > applied patch?
-> No, the kernel is coming from the current openwrt 3.18 trunk.
-> It's 3.18.7 with serveral patches coming from openwrt.
-> I already checked the IPsec related patches but the error
-> persisted.
-> 
-> I will remove more patches to be sure and forward my results!
+From: Joe Perches
+> At some point, it'd be good to make sscanf use __must_check
+> so make sure the net/ uses of sscanf use the return value.
 
-Please try with an unpatched kernel from kernel.org, thanks!
+Isn't it much safer to avoid sscanf() completely and use
+a different function for converting numerics?
+
+	David
