@@ -1,98 +1,82 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC][PATCH] usbnet: Fix tx_bytes statistic running backward in cdc_ncm
-Date: Fri, 27 Feb 2015 10:12:27 +0100
-Message-ID: <87h9u73eh0.fsf@nemi.mork.no>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [RFC][PATCH] usbnet: Fix tx_bytes statistic running backward in
+ cdc_ncm
+Date: Fri, 27 Feb 2015 10:17:59 +0100
+Message-ID: <1425028679.12236.6.camel@linux-0dmf.site>
 References: <1424979823.4444.46.camel@xylophone.i.decadent.org.uk>
+	 <87h9u73eh0.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org,
+Cc: Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	netdev@vger.kernel.org,
 	ct-linux-kernel <linux-kernel@codethink.co.uk>,
 	linux-usb@vger.kernel.org, Sami Farin <hvtaifwkbgefbaei@gmail.com>,
 	Aleksander Morgado <aleksander@aleksander.es>
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:44039 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753539AbbB0JMs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 04:12:48 -0500
-In-Reply-To: <1424979823.4444.46.camel@xylophone.i.decadent.org.uk> (Ben
-	Hutchings's message of "Thu, 26 Feb 2015 19:43:43 +0000")
+Received: from smtp-out003.kontent.com ([81.88.40.217]:57018 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752382AbbB0JaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 04:30:03 -0500
+In-Reply-To: <87h9u73eh0.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <ben.hutchings@codethink.co.uk> writes:
-
-> cdc_ncm disagrees with usbnet about how much framing overhead should
-> be counted in the tx_bytes statistics, and tries 'fix' this by
-> decrementing tx_bytes on the transmit path.  But statistics must neve=
-r
-> be decremented except due to roll-over; this will thoroughly confuse
-> user-space.  Also, tx_bytes is only incremented by usbnet in the
-> completion path.
->
-> Fix this by requiring drivers that set FLAG_MULTI_FRAME to set a
-> tx_bytes delta along with the tx_packets count.
->
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
-> ---
-> I noticed this bug while trying to fix the tx_packets statistic in as=
-ix.
-> It depends on the patch I just sent for that.  I don't have any hardw=
-are
-> to test this with, or any need to make it work.  If you want this fix=
-,
-> please test and re-submit it yoursef.
-
-I tested this on an MBIM device, and it worked perfectly as-is.  Please
-submit it without the RFC prefix.  This fixes a real and reported
-problem with the cdc_ncm driver, so I'd claim it's "net" material along
-with a stable Cc and
-
-=46ixes: beeecd42c3b4 ("net: cdc_ncm/cdc_mbim: adding NCM protocol stat=
+On Fri, 2015-02-27 at 10:12 +0100, Bj=C3=B8rn Mork wrote:
+> Ben Hutchings <ben.hutchings@codethink.co.uk> writes:
+>=20
+> > cdc_ncm disagrees with usbnet about how much framing overhead shoul=
+d
+> > be counted in the tx_bytes statistics, and tries 'fix' this by
+> > decrementing tx_bytes on the transmit path.  But statistics must ne=
+ver
+> > be decremented except due to roll-over; this will thoroughly confus=
+e
+> > user-space.  Also, tx_bytes is only incremented by usbnet in the
+> > completion path.
+> >
+> > Fix this by requiring drivers that set FLAG_MULTI_FRAME to set a
+> > tx_bytes delta along with the tx_packets count.
+> >
+> > Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+> > ---
+> > I noticed this bug while trying to fix the tx_packets statistic in =
+asix.
+> > It depends on the patch I just sent for that.  I don't have any har=
+dware
+> > to test this with, or any need to make it work.  If you want this f=
+ix,
+> > please test and re-submit it yoursef.
+>=20
+> I tested this on an MBIM device, and it worked perfectly as-is.  Plea=
+se
+> submit it without the RFC prefix.  This fixes a real and reported
+> problem with the cdc_ncm driver, so I'd claim it's "net" material alo=
+ng
+> with a stable Cc and
+>=20
+> Fixes: beeecd42c3b4 ("net: cdc_ncm/cdc_mbim: adding NCM protocol stat=
 istics")
-
-But you and David decide that, of course...
-
-
-=46ixing this was actually on my TODO-list after a recent report showin=
+>=20
+> But you and David decide that, of course...
+>=20
+>=20
+> Fixing this was actually on my TODO-list after a recent report showin=
 g
-one of the problems with the previous hack: The decremented tx_bytes
-counter was never corrected if the URB transmission failed, possibly
-ending up with a negative (i.e. very large since it is unsigned)
-tx_bytes counter.
-
-Thanks a lot.  I didn't know how to do this without introducing a new
-callback or something.  Your solutions is very nice, and so obvious whe=
-n
-I see it.  Just brilliant :-)
-
-Tested-by: Bj=C3=B8rn Mork <bjorn@mork.no>
-
-And you might also want (if this is OK for Sami):
-
-Reported-by: Sami Farin <hvtaifwkbgefbaei@gmail.com>
-
-
-Sami wrote:
-
-> I have this USB ID 12d1:157d, Sonera Opengate LTE.
-> It says all is okay but no packets are moving.
-=2E.
-> ifconfig
-> wwp3s0u1c2: flags=3D4291<UP,BROADCAST,RUNNING,NOARP,MULTICAST>  mtu 1=
-500
->         inet 46.132.188.224  netmask 255.255.255.192  broadcast 46.13=
-2.188.255
->         inet6 fe80::  prefixlen 64  scopeid 0x20<link>
->         ether 32:35:3a:64:2e:25  txqueuelen 1000  (Ethernet)
->         RX packets 0  bytes 0 (0.0 B)
->         RX errors 17764  dropped 0  overruns 0  frame 0
->         TX packets 6714  bytes 18446744073709268911 (1638.3 PiB)
->         TX errors 1427  dropped 0 overruns 0  carrier 0  collisions 0
->
-
-
-
-
-Bj=C3=B8rn
+> one of the problems with the previous hack: The decremented tx_bytes
+> counter was never corrected if the URB transmission failed, possibly
+> ending up with a negative (i.e. very large since it is unsigned)
+> tx_bytes counter.
+>=20
+> Thanks a lot.  I didn't know how to do this without introducing a new
+> callback or something.  Your solutions is very nice, and so obvious w=
+hen
+> I see it.  Just brilliant :-)
+>=20
+> Tested-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+>=20
+> And you might also want (if this is OK for Sami):
+>=20
+> Reported-by: Sami Farin <hvtaifwkbgefbaei@gmail.com>
+Acked-by: Oliver Neukum <oliver@neukum.org>
