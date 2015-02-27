@@ -1,79 +1,58 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 04/10] ebpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
-Date: Fri, 27 Feb 2015 15:55:36 +0100
-Message-ID: <3098c63aed13088ebbbf3631ce0a842fbfb8fca7.1425040939.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 09/10] arm64: unexport set_memory_ro and set_memory_rw
+Date: Fri, 27 Feb 2015 15:55:41 +0100
+Message-ID: <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net>
 References: <cover.1425040939.git.daniel@iogearbox.net>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Laura Abbott <lauraa@codeaurora.org>,
+	Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47835 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754788AbbB0Ozu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 09:55:50 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1425040939.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1425040939.git.daniel@iogearbox.net>
 References: <cover.1425040939.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Socket filter code and other subsystems with upcoming eBPF support should
-not need to deal with the fact that we have CONFIG_BPF_SYSCALL defined or
-not.
+This effectively unexports set_memory_ro and set_memory_rw functions from
+commit 11d91a770f1f ("arm64: Add CONFIG_DEBUG_SET_MODULE_RONX support").
 
-Having the bpf syscall as a config option is a nice thing and I'd expect
-it to stay that way for expert users (I presume one day the default setting
-of it might change, though), but code making use of it should not care if
-it's actually enabled or not.
+No module user of those is in mainline kernel and we explicitly do not want
+modules to use these functions, as they i.e. protect eBPF (interpreted and
+JIT'ed) images from malicious modifications or bugs.
 
-Instead, hide this via header files and let the rest deal with it.
+Outside of eBPF scope, I believe also other set_memory_* functions should
+be unexported on arm64 for modules.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Laura Abbott <lauraa@codeaurora.org>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: linux-kernel@vger.kernel.org
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/bpf.h | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ arch/arm64/mm/pageattr.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 7844686..9c45814 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -113,8 +113,6 @@ struct bpf_prog_type_list {
- 	enum bpf_prog_type type;
- };
+diff --git a/arch/arm64/mm/pageattr.c b/arch/arm64/mm/pageattr.c
+index bb0ea94..8659357 100644
+--- a/arch/arm64/mm/pageattr.c
++++ b/arch/arm64/mm/pageattr.c
+@@ -70,7 +70,6 @@ int set_memory_ro(unsigned long addr, int numpages)
+ 					__pgprot(PTE_RDONLY),
+ 					__pgprot(PTE_WRITE));
+ }
+-EXPORT_SYMBOL_GPL(set_memory_ro);
  
--void bpf_register_prog_type(struct bpf_prog_type_list *tl);
--
- struct bpf_prog;
+ int set_memory_rw(unsigned long addr, int numpages)
+ {
+@@ -78,7 +77,6 @@ int set_memory_rw(unsigned long addr, int numpages)
+ 					__pgprot(PTE_WRITE),
+ 					__pgprot(PTE_RDONLY));
+ }
+-EXPORT_SYMBOL_GPL(set_memory_rw);
  
- struct bpf_prog_aux {
-@@ -129,11 +127,25 @@ struct bpf_prog_aux {
- };
- 
- #ifdef CONFIG_BPF_SYSCALL
-+void bpf_register_prog_type(struct bpf_prog_type_list *tl);
-+
- void bpf_prog_put(struct bpf_prog *prog);
-+struct bpf_prog *bpf_prog_get(u32 ufd);
- #else
--static inline void bpf_prog_put(struct bpf_prog *prog) {}
-+static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
-+{
-+}
-+
-+static inline struct bpf_prog *bpf_prog_get(u32 ufd)
-+{
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
-+
-+static inline void bpf_prog_put(struct bpf_prog *prog)
-+{
-+}
- #endif
--struct bpf_prog *bpf_prog_get(u32 ufd);
-+
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
- 
+ int set_memory_nx(unsigned long addr, int numpages)
+ {
 -- 
 1.9.3
