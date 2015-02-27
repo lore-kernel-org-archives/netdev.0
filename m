@@ -1,44 +1,33 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 1/3] Documentation: dts: Update compatible field description for APM X-Gene
-Date: Fri, 27 Feb 2015 12:08:28 -0800
-Message-ID: <1425067710-14879-2-git-send-email-isubramanian@apm.com>
-References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, mlangsdo@redhat.com,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 09/10] arm64: unexport set_memory_ro and set_memory_rw
+Date: Fri, 27 Feb 2015 21:05:11 +0100
+Message-ID: <54F0CDF7.7060900@iogearbox.net>
+References: <cover.1425040939.git.daniel@iogearbox.net> <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net> <20150227195443.GD24818@arm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"ast@plumgrid.com" <ast@plumgrid.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Laura Abbott <lauraa@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Will Deacon <will.deacon@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og109.obsmtp.com ([64.18.0.188]:54505 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755023AbbB0UEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 15:04:25 -0500
-Received: by padfb1 with SMTP id fb1so25190914pad.8
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 12:04:24 -0800 (PST)
-In-Reply-To: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
+Received: from www62.your-server.de ([213.133.104.62]:43073 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754770AbbB0UFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 15:05:18 -0500
+In-Reply-To: <20150227195443.GD24818@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
----
- Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On 02/27/2015 08:54 PM, Will Deacon wrote:
+...
+> Looks good to me. Can this be applied independently, or does it need to
+> remain part of your series?
 
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-index cfcc527..5355996 100644
---- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -4,7 +4,8 @@ Ethernet nodes are defined to describe on-chip ethernet interfaces in
- APM X-Gene SoC.
- 
- Required properties for all the ethernet interfaces:
--- compatible: Should be "apm,xgene-enet"
-+- compatible: Should be "apm,xgene-enet", "apm,xgene1-sgenet" or
-+  "apm,xgene1-xgenet"
- - reg: Address and length of the register set for the device. It contains the
-   information of registers in the same order as described by reg-names
- - reg-names: Should contain the register set names
--- 
-1.9.1
+Ideally, it should be seen as part of this series, but I have no problem
+if this one goes via arm64 tree, instead. What Dave and you prefer. ;)
+
+Thanks,
+Daniel
