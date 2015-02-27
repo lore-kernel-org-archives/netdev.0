@@ -1,45 +1,30 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 3/3] MAINTAINERS: update S390 NETWORK DRIVERS maintainer
-Date: Fri, 27 Feb 2015 12:52:34 +0100
-Message-ID: <1425037954-50840-4-git-send-email-ubraun@linux.vnet.ibm.com>
-References: <1425037954-50840-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:55587 "EHLO
-	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754005AbbB0Lx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 06:53:27 -0500
-Received: from /spool/local
-	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Fri, 27 Feb 2015 11:53:26 -0000
-In-Reply-To: <1425037954-50840-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] wireless: test sscanf return values
+Date: Fri, 27 Feb 2015 04:36:19 -0800
+Message-ID: <1425040579.2690.9.camel@perches.com>
+References: <1425015791.2690.7.camel@perches.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAF0B29@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAF0B29@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+On Fri, 2015-02-27 at 10:35 +0000, David Laight wrote:
+> From: Joe Perches
+> > At some point, it'd be good to make sscanf use __must_check
+> > so make sure the net/ uses of sscanf use the return value.
+> 
+> Isn't it much safer to avoid sscanf() completely and use
+> a different function for converting numerics?
 
-remove Frank Blaschka as S390 NETWORK DRIVERS maintainer
-
-Acked-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
- MAINTAINERS | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 0597c5b..274a005 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8328,7 +8328,6 @@ F:	block/partitions/ibm.c
- 
- S390 NETWORK DRIVERS
- M:	Ursula Braun <ursula.braun@de.ibm.com>
--M:	Frank Blaschka <blaschka@linux.vnet.ibm.com>
- M:	linux390@de.ibm.com
- L:	linux-s390@vger.kernel.org
- W:	http://www.ibm.com/developerworks/linux/linux390/
--- 
-2.1.4
+It's generally better to use something other than sscanf.
+That doesn't mean sscanf isn't useful.
