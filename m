@@ -1,94 +1,69 @@
 From: David Rientjes <rientjes@google.com>
-Subject: [patch v2 2/3] mm, thp: really limit transparent hugepage allocation
- to local node
-Date: Fri, 27 Feb 2015 14:17:21 -0800 (PST)
-Message-ID: <alpine.DEB.2.10.1502271416580.7225@chino.kir.corp.google.com>
+Subject: [patch v2 3/3] kernel, cpuset: remove exception for __GFP_THISNODE
+Date: Fri, 27 Feb 2015 14:17:49 -0800 (PST)
+Message-ID: <alpine.DEB.2.10.1502271417270.7225@chino.kir.corp.google.com>
 References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Vlastimil Babka <vbabka@suse.cz>, Christoph Lameter <cl@linux.com>,
-    Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-    Johannes Weiner <hannes@cmpxchg.org>, Mel Gorman <mgorman@suse.de>,
-    Pravin Shelar <pshelar@nicira.com>,
-    Jarno Rajahalme <jrajahalme@nicira.com>, Li Zefan <lizefan@huawei.com>,
-    Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
-    linux-mm@kvack.org, netdev@vger.kernel.org, cgroups@vger.kernel.org,
-    dev@openvswitch.org
+	Pekka Enberg <penberg@kernel.org>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Mel Gorman <mgorman@suse.de>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jrajahalme@nicira.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	cgroups@vger.kernel.org, dev@openvswitch.org
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 077fcf116c8c ("mm/thp: allocate transparent hugepages on local
-node") restructured alloc_hugepage_vma() with the intent of only
-allocating transparent hugepages locally when there was not an effective
-interleave mempolicy.
+Nothing calls __cpuset_node_allowed() with __GFP_THISNODE set anymore, so
+remove the obscure comment about it and its special-case exception.
 
-alloc_pages_exact_node() does not limit the allocation to the single
-node, however, but rather prefers it.  This is because __GFP_THISNODE is
-not set which would cause the node-local nodemask to be passed.  Without
-it, only a nodemask that prefers the local node is passed.
-
-Fix this by passing __GFP_THISNODE and falling back to small pages when
-the allocation fails.
-
-Commit 9f1b868a13ac ("mm: thp: khugepaged: add policy for finding target
-node") suffers from a similar problem for khugepaged, which is also
-fixed.
-
-Fixes: 077fcf116c8c ("mm/thp: allocate transparent hugepages on local node")
-Fixes: 9f1b868a13ac ("mm: thp: khugepaged: add policy for finding target node")
 Signed-off-by: David Rientjes <rientjes@google.com>
 ---
- mm/huge_memory.c | 9 +++++++--
- mm/mempolicy.c   | 3 ++-
- 2 files changed, 9 insertions(+), 3 deletions(-)
+ kernel/cpuset.c | 18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
 
-diff --git a/mm/huge_memory.c b/mm/huge_memory.c
---- a/mm/huge_memory.c
-+++ b/mm/huge_memory.c
-@@ -2311,8 +2311,14 @@ static struct page
- 		       struct vm_area_struct *vma, unsigned long address,
- 		       int node)
- {
-+	gfp_t flags;
-+
- 	VM_BUG_ON_PAGE(*hpage, *hpage);
+diff --git a/kernel/cpuset.c b/kernel/cpuset.c
+--- a/kernel/cpuset.c
++++ b/kernel/cpuset.c
+@@ -2445,20 +2445,12 @@ static struct cpuset *nearest_hardwall_ancestor(struct cpuset *cs)
+  * @node: is this an allowed node?
+  * @gfp_mask: memory allocation flags
+  *
+- * If we're in interrupt, yes, we can always allocate.  If __GFP_THISNODE is
+- * set, yes, we can always allocate.  If node is in our task's mems_allowed,
+- * yes.  If it's not a __GFP_HARDWALL request and this node is in the nearest
+- * hardwalled cpuset ancestor to this task's cpuset, yes.  If the task has been
+- * OOM killed and has access to memory reserves as specified by the TIF_MEMDIE
+- * flag, yes.
++ * If we're in interrupt, yes, we can always allocate.  If @node is set in
++ * current's mems_allowed, yes.  If it's not a __GFP_HARDWALL request and this
++ * node is set in the nearest hardwalled cpuset ancestor to current's cpuset,
++ * yes.  If current has access to memory reserves due to TIF_MEMDIE, yes.
+  * Otherwise, no.
+  *
+- * The __GFP_THISNODE placement logic is really handled elsewhere,
+- * by forcibly using a zonelist starting at a specified node, and by
+- * (in get_page_from_freelist()) refusing to consider the zones for
+- * any node on the zonelist except the first.  By the time any such
+- * calls get to this routine, we should just shut up and say 'yes'.
+- *
+  * GFP_USER allocations are marked with the __GFP_HARDWALL bit,
+  * and do not allow allocations outside the current tasks cpuset
+  * unless the task has been OOM killed as is marked TIF_MEMDIE.
+@@ -2494,7 +2486,7 @@ int __cpuset_node_allowed(int node, gfp_t gfp_mask)
+ 	int allowed;			/* is allocation in zone z allowed? */
+ 	unsigned long flags;
  
-+	/* Only allocate from the target node */
-+	flags = alloc_hugepage_gfpmask(khugepaged_defrag(), __GFP_OTHER_NODE) |
-+	        __GFP_THISNODE;
-+
- 	/*
- 	 * Before allocating the hugepage, release the mmap_sem read lock.
- 	 * The allocation can take potentially a long time if it involves
-@@ -2321,8 +2327,7 @@ static struct page
- 	 */
- 	up_read(&mm->mmap_sem);
- 
--	*hpage = alloc_pages_exact_node(node, alloc_hugepage_gfpmask(
--		khugepaged_defrag(), __GFP_OTHER_NODE), HPAGE_PMD_ORDER);
-+	*hpage = alloc_pages_exact_node(node, flags, HPAGE_PMD_ORDER);
- 	if (unlikely(!*hpage)) {
- 		count_vm_event(THP_COLLAPSE_ALLOC_FAILED);
- 		*hpage = ERR_PTR(-ENOMEM);
-diff --git a/mm/mempolicy.c b/mm/mempolicy.c
---- a/mm/mempolicy.c
-+++ b/mm/mempolicy.c
-@@ -1985,7 +1985,8 @@ retry_cpuset:
- 		nmask = policy_nodemask(gfp, pol);
- 		if (!nmask || node_isset(node, *nmask)) {
- 			mpol_cond_put(pol);
--			page = alloc_pages_exact_node(node, gfp, order);
-+			page = alloc_pages_exact_node(node,
-+						gfp | __GFP_THISNODE, order);
- 			goto out;
- 		}
- 	}
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-	if (in_interrupt() || (gfp_mask & __GFP_THISNODE))
++	if (in_interrupt())
+ 		return 1;
+ 	if (node_isset(node, current->mems_allowed))
+ 		return 1;
