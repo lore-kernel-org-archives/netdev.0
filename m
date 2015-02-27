@@ -1,62 +1,70 @@
-From: Vaishali Thakkar <vthakkar1994@gmail.com>
-Subject: [PATCH] net: pasemi: Use setup_timer and mod_timer
-Date: Sat, 28 Feb 2015 00:20:59 +0530
-Message-ID: <20150227185059.GA20385@vaishali-Ideapad-Z570>
+From: Laura Abbott <lauraa@codeaurora.org>
+Subject: Re: [PATCH net-next 09/10] arm64: unexport set_memory_ro and set_memory_rw
+Date: Fri, 27 Feb 2015 10:51:57 -0800
+Message-ID: <54F0BCCD.4000402@codeaurora.org>
+References: <cover.1425040939.git.daniel@iogearbox.net> <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olof Johansson <olof@lixom.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use timer API functions setup_timer and mod_timer instead
-of structure assignments as they are standard way to set
-the timer and to update the expire field of an active timer
-respectively.
+On 2/27/2015 6:55 AM, Daniel Borkmann wrote:
+> This effectively unexports set_memory_ro and set_memory_rw functions from
+> commit 11d91a770f1f ("arm64: Add CONFIG_DEBUG_SET_MODULE_RONX support").
+>
+> No module user of those is in mainline kernel and we explicitly do not want
+> modules to use these functions, as they i.e. protect eBPF (interpreted and
+> JIT'ed) images from malicious modifications or bugs.
+>
+> Outside of eBPF scope, I believe also other set_memory_* functions should
+> be unexported on arm64 for modules.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Laura Abbott <lauraa@codeaurora.org>
+> Cc: Will Deacon <will.deacon@arm.com>
+> Cc: linux-kernel@vger.kernel.org
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>   arch/arm64/mm/pageattr.c | 2 --
+>   1 file changed, 2 deletions(-)
+>
 
-This is done using Coccinelle and semantic patch used for
-this is as follows:
+We have some uses for modules doing set_memory_ro/rw but none that are
+in mainline. That can be dealt with if the features ever get
+mainlined which seems unlikely.
 
-// <smpl>
-@@
-expression x,y,z,a,b;
-@@
+Acked-by: Laura Abbott <lauraa@codeaurora.org>
 
--init_timer (&x);
-+setup_timer (&x, y, z);
-+mod_timer (&a, b);
--x.function = y;
--x.data = z;
--x.expires = b;
--add_timer(&a);
-// </smpl>
+> diff --git a/arch/arm64/mm/pageattr.c b/arch/arm64/mm/pageattr.c
+> index bb0ea94..8659357 100644
+> --- a/arch/arm64/mm/pageattr.c
+> +++ b/arch/arm64/mm/pageattr.c
+> @@ -70,7 +70,6 @@ int set_memory_ro(unsigned long addr, int numpages)
+>   					__pgprot(PTE_RDONLY),
+>   					__pgprot(PTE_WRITE));
+>   }
+> -EXPORT_SYMBOL_GPL(set_memory_ro);
+>
+>   int set_memory_rw(unsigned long addr, int numpages)
+>   {
+> @@ -78,7 +77,6 @@ int set_memory_rw(unsigned long addr, int numpages)
+>   					__pgprot(PTE_WRITE),
+>   					__pgprot(PTE_RDONLY));
+>   }
+> -EXPORT_SYMBOL_GPL(set_memory_rw);
+>
+>   int set_memory_nx(unsigned long addr, int numpages)
+>   {
+>
 
-Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
----
- drivers/net/ethernet/pasemi/pasemi_mac.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
-index 44e8d7d..57a6e6c 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac.c
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
-@@ -1239,11 +1239,9 @@ static int pasemi_mac_open(struct net_device *dev)
- 	if (mac->phydev)
- 		phy_start(mac->phydev);
- 
--	init_timer(&mac->tx->clean_timer);
--	mac->tx->clean_timer.function = pasemi_mac_tx_timer;
--	mac->tx->clean_timer.data = (unsigned long)mac->tx;
--	mac->tx->clean_timer.expires = jiffies+HZ;
--	add_timer(&mac->tx->clean_timer);
-+	setup_timer(&mac->tx->clean_timer, pasemi_mac_tx_timer,
-+		    (unsigned long)mac->tx);
-+	mod_timer(&mac->tx->clean_timer, jiffies + HZ);
- 
- 	return 0;
- 
 -- 
-1.9.1
+Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+a Linux Foundation Collaborative Project
