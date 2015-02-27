@@ -1,58 +1,118 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 09/10] arm64: unexport set_memory_ro and set_memory_rw
-Date: Fri, 27 Feb 2015 15:55:41 +0100
-Message-ID: <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 06/10] ebpf: add sched_cls_type and map it to sk_filter's verifier ops
+Date: Fri, 27 Feb 2015 15:55:38 +0100
+Message-ID: <a12f2d74173bcc0ee9aafb5160fab39ad0b1b4c5.1425040940.git.daniel@iogearbox.net>
 References: <cover.1425040939.git.daniel@iogearbox.net>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Laura Abbott <lauraa@codeaurora.org>,
-	Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org
+	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:47845 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbbB0Ozv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 09:55:51 -0500
 In-Reply-To: <cover.1425040939.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1425040939.git.daniel@iogearbox.net>
 References: <cover.1425040939.git.daniel@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This effectively unexports set_memory_ro and set_memory_rw functions from
-commit 11d91a770f1f ("arm64: Add CONFIG_DEBUG_SET_MODULE_RONX support").
+As discussed recently and at netconf/netdev01, we want to prevent making
+bpf_verifier_ops registration available for modules, but have them at a
+controlled place inside the kernel instead.
 
-No module user of those is in mainline kernel and we explicitly do not want
-modules to use these functions, as they i.e. protect eBPF (interpreted and
-JIT'ed) images from malicious modifications or bugs.
+The reason for this is, that out-of-tree modules can go crazy and define
+and register any verfifier ops they want, doing all sorts of crap, even
+bypassing available GPLed eBPF helper functions. We don't want to offer
+such a shiny playground, of course, but keep strict control to ourselves
+inside the core kernel.
 
-Outside of eBPF scope, I believe also other set_memory_* functions should
-be unexported on arm64 for modules.
+This also encourages us to design eBPF user helpers carefully and
+generically, so they can be shared among various subsystems using eBPF.
+
+For the eBPF traffic classifier (cls_bpf), it's a good start to share
+the same helper facilities as we currently do in eBPF for socket filters.
+
+That way, we have BPF_PROG_TYPE_SCHED_CLS look like it's own type, thus
+one day if there's a good reason to diverge the set of helper functions
+from the set available to socket filters, we keep ABI compatibility.
+
+In future, we could place all bpf_prog_type_list at a central place,
+perhaps.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Laura Abbott <lauraa@codeaurora.org>
-Cc: Will Deacon <will.deacon@arm.com>
-Cc: linux-kernel@vger.kernel.org
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- arch/arm64/mm/pageattr.c | 2 --
- 1 file changed, 2 deletions(-)
+ include/uapi/linux/bpf.h |  1 +
+ kernel/bpf/verifier.c    | 15 +++++++++++++--
+ net/core/filter.c        |  7 +++++++
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm64/mm/pageattr.c b/arch/arm64/mm/pageattr.c
-index bb0ea94..8659357 100644
---- a/arch/arm64/mm/pageattr.c
-+++ b/arch/arm64/mm/pageattr.c
-@@ -70,7 +70,6 @@ int set_memory_ro(unsigned long addr, int numpages)
- 					__pgprot(PTE_RDONLY),
- 					__pgprot(PTE_WRITE));
- }
--EXPORT_SYMBOL_GPL(set_memory_ro);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0248180..3fa1af8 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -118,6 +118,7 @@ enum bpf_map_type {
+ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_UNSPEC,
+ 	BPF_PROG_TYPE_SOCKET_FILTER,
++	BPF_PROG_TYPE_SCHED_CLS,
+ };
  
- int set_memory_rw(unsigned long addr, int numpages)
- {
-@@ -78,7 +77,6 @@ int set_memory_rw(unsigned long addr, int numpages)
- 					__pgprot(PTE_WRITE),
- 					__pgprot(PTE_RDONLY));
+ #define BPF_PSEUDO_MAP_FD	1
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index a28e09c..594d341 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1172,6 +1172,17 @@ static int check_ld_imm(struct verifier_env *env, struct bpf_insn *insn)
+ 	return 0;
  }
--EXPORT_SYMBOL_GPL(set_memory_rw);
  
- int set_memory_nx(unsigned long addr, int numpages)
++static bool may_access_skb(enum bpf_prog_type type)
++{
++	switch (type) {
++	case BPF_PROG_TYPE_SOCKET_FILTER:
++	case BPF_PROG_TYPE_SCHED_CLS:
++		return true;
++	default:
++		return false;
++	}
++}
++
+ /* verify safety of LD_ABS|LD_IND instructions:
+  * - they can only appear in the programs where ctx == skb
+  * - since they are wrappers of function calls, they scratch R1-R5 registers,
+@@ -1194,8 +1205,8 @@ static int check_ld_abs(struct verifier_env *env, struct bpf_insn *insn)
+ 	struct reg_state *reg;
+ 	int i, err;
+ 
+-	if (env->prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
+-		verbose("BPF_LD_ABS|IND instructions are only allowed in socket filters\n");
++	if (!may_access_skb(env->prog->aux->prog_type)) {
++		verbose("BPF_LD_ABS|IND instructions not allowed for this program type\n");
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7417212..514d408 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1166,9 +1166,16 @@ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+ 	.type = BPF_PROG_TYPE_SOCKET_FILTER,
+ };
+ 
++static struct bpf_prog_type_list sched_cls_type __read_mostly = {
++	.ops = &sk_filter_ops,
++	.type = BPF_PROG_TYPE_SCHED_CLS,
++};
++
+ static int __init register_sk_filter_ops(void)
  {
+ 	bpf_register_prog_type(&sk_filter_type);
++	bpf_register_prog_type(&sched_cls_type);
++
+ 	return 0;
+ }
+ late_initcall(register_sk_filter_ops);
 -- 
 1.9.3
