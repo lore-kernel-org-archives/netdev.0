@@ -1,72 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] netns: correct gfp flags for alloc_netid()
-Date: Thu, 26 Feb 2015 18:34:21 -0800
-Message-ID: <1425004461.5565.183.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1424998490-9565-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1425001791.5565.180.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
+From: shengyong <shengyong1@huawei.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Fri, 27 Feb 2015 10:37:46 +0800
+Message-ID: <54EFD87A.5080907@huawei.com>
+References: <54CF3348.40207@huawei.com> <20150203092845.GT13046@secunet.com> <54D0A8DB.4010106@huawei.com> <20150203120140.GU13046@secunet.com> <54D17D1A.3020706@huawei.com> <20150205072125.GY13046@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<yangyingliang@huawei.com>, <hannes@redhat.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:37247 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753882AbbB0CeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 21:34:23 -0500
-Received: by iecrl12 with SMTP id rl12so24619296iec.4
-        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 18:34:22 -0800 (PST)
-In-Reply-To: <CAM_iQpV=wjuOfWvqRYbr+J9mA1Fa6YG9QvY9P0gnd9LYOeVGYA@mail.gmail.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:15825 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001AbbB0Cif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 21:38:35 -0500
+In-Reply-To: <20150205072125.GY13046@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-26 at 18:19 -0800, Cong Wang wrote:
 
-> 
-> LOL, it has been changed back and forth.
-> 
-> I thought rcu read lock was introduced to optimize dumping
-> performance, if it were really important, we should solve the
-> deadlock you mentioned in commit 2907c35ff647080?
-> 
-> Otherwise, as you said, completely revert to using rtnl lock.
 
-Dumping is so fat nowadays, it makes sense to remove rcu_read_lock() to
-allow cond_resched() eventually.
+=E5=9C=A8 2015/2/5 15:21, Steffen Klassert =E5=86=99=E9=81=93:
+> On Wed, Feb 04, 2015 at 09:59:54AM +0800, shengyong wrote:
+>>
+>> Sorry, the later. I test it on 3.10-stable. It can fix this problem.=
+ So maybe this is a bug?
+>=20
+> Yes, it's a bug.
+>=20
+>> And the 3 approaches (different flags are used: RTF_LOCAL, IFF_LOOPB=
+ACK and RTF_CACHE) in
+>> these mails can fix the expire of local address. I'm confused about =
+these flags:
+>> * RTF_LOCAL: the entries of local address, like address binded to th=
+e native NIC
+>> * RTF_CACHE: all cached entries
+>> * IFF_LOOPBACK: this is a device-related flag, which has the same me=
+aning as RTF_LOCAL
+>>
+>> Am I right? If so, I think RTF_LOCAL is appropriate, because we just=
+ want entries of local
+>> addresses to be not expired and we don't care other entries (I think=
+ if they get expired,
+>> a neigh discovery could find them back).
+>=20
+> It is not the address that expires, it is the learned PMTU value that
+> expires. If we delete an uncached route, nothing will bring it back
+> unless you readd it manually.
+>=20
+> We need to ensure that all routes that can learn something what
+> expires are cached. This means that we clone the inserted route
+> when it is used for the first time. The learned values are stored
+> at this cloned route. If the learned value expires, the clone is
+> deleted. The original route remains in the fib tree and can be
+> still looked up.
+>=20
+> The problem is, that we currently don't cache/clone host routes.
+> So if a host route learns something that expires, the original
+> route is removed from the fib tree and we loose connectivity
+> to that host. We don't cache host routes because some of them
+> (the local ones) are automatically added with metric 0.
+> If we try to cache such a route, the clone will be identical
+> to the original route and we fail to insert it to the fib tree.
+>=20
+> So we need to adjust the caching to all routes that actually can
+> learn something and leave out only those that can not.
+>=20
+> I'll send a patchset that should fix this at the beginning of the
+> next week.
+Hi, Steffen
+Is this patchset ready? It seems that I didn't find it in the mainling
+list. If it is ready, I can test it to see if it solves the problem I
+met :)
 
-rcu_read_lock() made sense _if_ RTNL mutex could be avoided, but
-unfortunately this could not be done easily.
-
-Please try this patch instead :
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1385de0fa080..74ce25d2cded 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1300,7 +1300,6 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_h = cb->args[0];
- 	s_idx = cb->args[1];
- 
--	rcu_read_lock();
- 	cb->seq = net->dev_base_seq;
- 
- 	/* A hack to preserve kernel<->userspace interface.
-@@ -1322,7 +1321,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
- 		idx = 0;
- 		head = &net->dev_index_head[h];
--		hlist_for_each_entry_rcu(dev, head, index_hlist) {
-+		hlist_for_each_entry(dev, head, index_hlist) {
- 			if (idx < s_idx)
- 				goto cont;
- 			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-@@ -1344,7 +1343,6 @@ cont:
- 		}
- 	}
- out:
--	rcu_read_unlock();
- 	cb->args[1] = idx;
- 	cb->args[0] = h;
- 
+many thanks,
+Sheng
+>=20
+> .
+>=20
