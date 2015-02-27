@@ -1,89 +1,47 @@
 From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 5/5] tipc: make media address
-	offset a common define
-Date: Fri, 27 Feb 2015 08:56:58 +0100
-Message-ID: <1425023818-12880-6-git-send-email-erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 3/5] tipc: purge links when bearer is disabled
+Date: Fri, 27 Feb 2015 08:56:56 +0100
+Message-ID: <1425023818-12880-4-git-send-email-erik.hugne@ericsson.com>
 References: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
+	<richard.alpe@ericsson.com>, <ying.xue@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>
 To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:55321 "EHLO
+	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539AbbB0IBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 03:01:12 -0500
 In-Reply-To: <1425023818-12880-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Erik Hugne <erik.hugne@ericsson.com>
 
-With the exception of infiniband media which does not use media
-offsets, the media address is always located at offset 4 in the
-media info field as defined by the protocol, so we move the
-definition to the generic bearer.h
+If a bearer is disabled by manual intervention, all links over that
+bearer should be purged, indicated with the 'shutting_down' flag.
+Otherwise tipc will get confused if a new bearer is enabled using
+a different media type.
 
 Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 ---
- net/tipc/bearer.h    | 1 +
- net/tipc/eth_media.c | 6 ++----
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ net/tipc/bearer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 1a23327..097aff0 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -52,6 +52,7 @@
-  */
- #define TIPC_MEDIA_INFO_SIZE	32
- #define TIPC_MEDIA_TYPE_OFFSET	3
-+#define TIPC_MEDIA_ADDR_OFFSET	4
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 48852c2..af6deeb 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -742,7 +742,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
+ 		return -EINVAL;
+ 	}
  
- /*
-  * Identifiers of supported TIPC media types
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 085d3a0..f69a2fd 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -37,8 +37,6 @@
- #include "core.h"
- #include "bearer.h"
+-	bearer_disable(net, bearer, false);
++	bearer_disable(net, bearer, true);
+ 	rtnl_unlock();
  
--#define ETH_ADDR_OFFSET  4  /* MAC addr position inside address field */
--
- /* Convert Ethernet address (media address format) to string */
- static int tipc_eth_addr2str(struct tipc_media_addr *addr,
- 			     char *strbuf, int bufsz)
-@@ -55,7 +53,7 @@ static int tipc_eth_addr2msg(char *msg, struct tipc_media_addr *addr)
- {
- 	memset(msg, 0, TIPC_MEDIA_INFO_SIZE);
- 	msg[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_ETH;
--	memcpy(msg + ETH_ADDR_OFFSET, addr->value, ETH_ALEN);
-+	memcpy(msg + TIPC_MEDIA_ADDR_OFFSET, addr->value, ETH_ALEN);
  	return 0;
- }
- 
-@@ -79,7 +77,7 @@ static int tipc_eth_msg2addr(struct tipc_bearer *b,
- 			     char *msg)
- {
- 	/* Skip past preamble: */
--	msg += ETH_ADDR_OFFSET;
-+	msg += TIPC_MEDIA_ADDR_OFFSET;
- 	return tipc_eth_raw2addr(b, addr, msg);
- }
- 
 -- 
 2.1.4
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
