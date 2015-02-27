@@ -1,40 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] ipv6: convert printk call to pr_err macro
-Date: Thu, 26 Feb 2015 18:39:09 -0800
-Message-ID: <1425004749.2690.3.camel@perches.com>
-References: <1424999650-25847-1-git-send-email-ipm@chirality.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: cleanup static functions
+Date: Thu, 26 Feb 2015 19:08:59 -0800
+Message-ID: <1425006539.5565.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ian Morris <ipm@chirality.org.uk>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0061.hostedemail.com ([216.40.44.61]:41109 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751287AbbB0CjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 21:39:12 -0500
-In-Reply-To: <1424999650-25847-1-git-send-email-ipm@chirality.org.uk>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:45264 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752251AbbB0DJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Feb 2015 22:09:04 -0500
+Received: by iecat20 with SMTP id at20so24921748iec.12
+        for <netdev@vger.kernel.org>; Thu, 26 Feb 2015 19:09:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-27 at 01:14 +0000, Ian Morris wrote:
-> change a printk(KERN_ERR to a pr_err macro. No changes detected by
-> objdiff.
-[]
-> diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-[]
-> @@ -198,7 +198,7 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->  
->  		ip6 = skb_header_pointer(skb, *offset, sizeof(_ip6), &_ip6);
->  		if (!ip6 || (ip6->version != 6)) {
-> -			printk(KERN_ERR "IPv6 header not found\n");
-> +			pr_err("IPv6 header not found\n");
+From: Eric Dumazet <edumazet@google.com>
 
-Hello Ian.
+tcp_fastopen_create_child() is static and should not be exported.
 
-I presume this message is very rare, (is it even possible?)
-but I also think it'd be better to use
+tcp4_gso_segment() and tcp6_gso_segment() should be static.
 
-			netdev_err(skb->dev, "IPv6 header not found\n");
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_fastopen.c  |    1 -
+ net/ipv4/tcp_offload.c   |    4 ++--
+ net/ipv6/tcpv6_offload.c |    4 ++--
+ 3 files changed, 4 insertions(+), 5 deletions(-)
 
-so that the network device can be easily identified.
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index ea82fd492c1b..fe77417fc137 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -221,7 +221,6 @@ static bool tcp_fastopen_create_child(struct sock *sk,
+ 	WARN_ON(req->sk == NULL);
+ 	return true;
+ }
+-EXPORT_SYMBOL(tcp_fastopen_create_child);
+ 
+ static bool tcp_fastopen_queue_check(struct sock *sk)
+ {
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 9d7930ba8e0f..3f7c2fca5431 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -29,8 +29,8 @@ static void tcp_gso_tstamp(struct sk_buff *skb, unsigned int ts_seq,
+ 	}
+ }
+ 
+-struct sk_buff *tcp4_gso_segment(struct sk_buff *skb,
+-				 netdev_features_t features)
++static struct sk_buff *tcp4_gso_segment(struct sk_buff *skb,
++					netdev_features_t features)
+ {
+ 	if (!pskb_may_pull(skb, sizeof(struct tcphdr)))
+ 		return ERR_PTR(-EINVAL);
+diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
+index c1ab77105b4c..d883c9204c01 100644
+--- a/net/ipv6/tcpv6_offload.c
++++ b/net/ipv6/tcpv6_offload.c
+@@ -41,8 +41,8 @@ static int tcp6_gro_complete(struct sk_buff *skb, int thoff)
+ 	return tcp_gro_complete(skb);
+ }
+ 
+-struct sk_buff *tcp6_gso_segment(struct sk_buff *skb,
+-				 netdev_features_t features)
++static struct sk_buff *tcp6_gso_segment(struct sk_buff *skb,
++					netdev_features_t features)
+ {
+ 	struct tcphdr *th;
+ 
