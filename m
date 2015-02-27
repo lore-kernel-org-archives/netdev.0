@@ -1,117 +1,66 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: Re: i40e: crash on NMI by continuous module reload
-Date: Fri, 27 Feb 2015 19:42:29 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
-References: <54F07630.1010802@kpanic.de> <54F078DF.5020100@gmail.com>
-	<54F07C29.8010805@kpanic.de> <54F082C8.8040407@gmail.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH net-next 09/10] arm64: unexport set_memory_ro and
+ set_memory_rw
+Date: Fri, 27 Feb 2015 19:54:43 +0000
+Message-ID: <20150227195443.GD24818@arm.com>
+References: <cover.1425040939.git.daniel@iogearbox.net>
+ <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: nick <xerofoify@gmail.com>, Stefan Assmann <sassmann@kpanic.de>, netdev
-	<netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <54F082C8.8040407@gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"ast@plumgrid.com" <ast@plumgrid.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Laura Abbott <lauraa@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cb778076d2d089dd52605b8eaad3ee6097e61eae.1425040940.git.daniel@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: nick [mailto:xerofoify@gmail.com]
-> On 2015-02-27 09:16 AM, Stefan Assmann wrote:
-> > On 27.02.2015 15:02, nick wrote:
-> >
-> > [...]
-> >
-> >>>     i40e: Fix a bug where Rx would stop after some time
-> >>> [...]
-> >>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> >>> index f7464e8..ff6d94d 100644
-> >>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> >>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> >>> [...]
-> >>> @@ -9169,6 +9178,13 @@ static int i40e_probe(struct pci_dev *pdev,
-> const struct pci_device_id *ent)
-> >>>  	if (err)
-> >>>  		dev_info(&pf->pdev->dev, "set phy mask fail, aq_err %d\n",
-> err);
-> >>>
-> >>> +	msleep(75);
-> >>> +	err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
-> >>> +	if (err) {
-> >>> +		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
-> >>> +			 pf->hw.aq.asq_last_status);
-> >>> +	}
-> >>> +
-> >>>  	/* The main driver is (mostly) up and happy. We need to set this
-> state
-> >>>  	 * before setting up the misc vector or we get a race and the
-> vector
-> >>>  	 * ends up disabled forever.
-> >>>
-> >>> With this hunk removed the driver successfully unloaded/reloaded a
-> >>> couple of hundred times. Would it be safe to just remove this hunk?
-> >>> I haven't seen any negative effects by removing this yet.
-> >>>
-> >>>   Stefan
-> >>>
-> >> Stefan,
-> >> I wouldn't remove them yet as this does look like a valid idea to
-> check to see if the link is
-> >> restarting successfully. On the other hand can you try removing the
-> msleep line as this one is
-> >> most likely causing the issue due to sleeping for some long in a
-> probe function is generally a
-> >> bad idea.
-> >> Thanks,
-> >> Nick
-> >
-> > Thanks Nick for the quick reply. I tested removing the msleep but that
-> > didn't make a difference. You actually need to remove the complete
-> hunk
-> > to get a stable driver reload.
-> >
-> >   Stefan
-> >
-> Stefan,
-> Basically there are a few things that could be going wrong
-> 1. You are getting a error return for the
-> function,i40e_aq_set_link_restart_an
-> 2. You are trying to re able the device again when not needed
-> 3. You are sending a NULL value to a field for command arguments that
-> takes a 0 and not NULL
-> to take no arguments
-> Nick
+On Fri, Feb 27, 2015 at 02:55:41PM +0000, Daniel Borkmann wrote:
+> This effectively unexports set_memory_ro and set_memory_rw functions from
+> commit 11d91a770f1f ("arm64: Add CONFIG_DEBUG_SET_MODULE_RONX support").
+> 
+> No module user of those is in mainline kernel and we explicitly do not want
+> modules to use these functions, as they i.e. protect eBPF (interpreted and
+> JIT'ed) images from malicious modifications or bugs.
+> 
+> Outside of eBPF scope, I believe also other set_memory_* functions should
+> be unexported on arm64 for modules.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Laura Abbott <lauraa@codeaurora.org>
+> Cc: Will Deacon <will.deacon@arm.com>
+> Cc: linux-kernel@vger.kernel.org
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>  arch/arm64/mm/pageattr.c | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/arch/arm64/mm/pageattr.c b/arch/arm64/mm/pageattr.c
+> index bb0ea94..8659357 100644
+> --- a/arch/arm64/mm/pageattr.c
+> +++ b/arch/arm64/mm/pageattr.c
+> @@ -70,7 +70,6 @@ int set_memory_ro(unsigned long addr, int numpages)
+>  					__pgprot(PTE_RDONLY),
+>  					__pgprot(PTE_WRITE));
+>  }
+> -EXPORT_SYMBOL_GPL(set_memory_ro);
+>  
+>  int set_memory_rw(unsigned long addr, int numpages)
+>  {
+> @@ -78,7 +77,6 @@ int set_memory_rw(unsigned long addr, int numpages)
+>  					__pgprot(PTE_WRITE),
+>  					__pgprot(PTE_RDONLY));
+>  }
+> -EXPORT_SYMBOL_GPL(set_memory_rw);
+>  
+>  int set_memory_nx(unsigned long addr, int numpages)
+>  {
 
-First of all, I would make sure you've got a short sleep in between each load and unload in this stress test.  There's a lot going on under the covers in the Firmware that really should be allowed to settle out before jostling it again with another load/unload command.  
+Looks good to me. Can this be applied independently, or does it need to
+remain part of your series?
 
-It would help to know what Firmware you have on your NIC - can you give us the output from "ethtool -i <ethX>"?
-
-The out-of-tree driver has just (finally!) been updated on SourceForge, so you might give this version 1.2.37 driver a try to see if it changes your result.  That code still has the hunk in question, but protected by a FW version check.  The related patch will be headed upstream to net-next very soon.
-
-Firmware updates have also just been released, but I'm not sure they've made it to the Intel Downloads site yet.  Updating your FW will make a difference.
-
-sln
-
-
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Will
