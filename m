@@ -1,46 +1,40 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
-Date: Fri, 27 Feb 2015 16:53:16 -0600 (CST)
-Message-ID: <alpine.DEB.2.11.1502271649060.20876@gentwo.org>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-    Vlastimil Babka <vbabka@suse.cz>, Pekka Enberg <penberg@kernel.org>,
-    Joonsoo Kim <iamjoonsoo.kim@lge.com>, Johannes Weiner <hannes@cmpxchg.org>,
-    Mel Gorman <mgorman@suse.de>, Pravin Shelar <pshelar@nicira.com>,
-    Jarno Rajahalme <jrajahalme@nicira.com>, Li Zefan <lizefan@huawei.com>,
-    Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
-    linux-mm@kvack.org, netdev@vger.kernel.org, cgroups@vger.kernel.org,
-    dev@openvswitch.org
-To: David Rientjes <rientjes@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] rhashtable: use cond_resched()
+Date: Fri, 27 Feb 2015 17:55:30 -0500 (EST)
+Message-ID: <20150227.175530.1113665360721267666.davem@davemloft.net>
+References: <20150226075354.GA30061@acer.localdomain>
+	<1424962236.5565.156.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1424964034.5565.162.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, alexei.starovoitov@gmail.com,
+	daniel@iogearbox.net, David.Laight@aculab.com, tgraf@suug.ch,
+	pablo@netfilter.org, johunt@akamai.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55036 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932288AbbB0Wzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 17:55:33 -0500
+In-Reply-To: <1424964034.5565.162.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Feb 2015, David Rientjes wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Feb 2015 07:20:34 -0800
 
-> +/*
-> + * Construct gfp mask to allocate from a specific node but do not invoke reclaim
-> + * or warn about failures.
-> + */
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> If a hash table has 128 slots and 16384 elems, expand to 256 slots
+> takes more than one second. For larger sets, a soft lockup is detected.
+> 
+> Holding cpu for that long, even in a work queue is a show stopper
+> for non preemptable kernels.
+> 
+> cond_resched() at strategic points to allow process scheduler
+> to reschedule us.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-We should be triggering reclaim from slab allocations. Why would we not do
-this?
-
-Otherwise we will be going uselessly off node for slab allocations.
-
-> +static inline gfp_t gfp_exact_node(gfp_t flags)
-> +{
-> +	return (flags | __GFP_THISNODE | __GFP_NOWARN) & ~__GFP_WAIT;
-> +}
->  #endif
-
-Reclaim needs to be triggered. In particular zone reclaim was made to be
-triggered from slab allocations to create more room if needed.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks Eric.
