@@ -1,27 +1,59 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: libertas: remove unnecessary check before calling debugfs_remove
-Date: Fri, 27 Feb 2015 08:07:20 +0000 (UTC)
-Message-ID: <20150227080720.BA59C13FA62@smtp.codeaurora.org>
-References: <1423643586-11002-1-git-send-email-baspeters93@gmail.com>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH] drivers/net: Use setup_timer and mod_timer
+Date: Fri, 27 Feb 2015 13:59:36 +0530
+Message-ID: <20150227082936.GA15728@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Bas Peters <baspeters93@gmail.com>, linville@tuxdriver.com,
-	johannes.berg@intel.com, dcbw@redhat.com,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bas Peters <baspeters93@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423643586-11002-1-git-send-email-baspeters93@gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Use timer API functions setup_timer and mod_timer instead
+of structure assignments as they are standard way to set
+the timer and to update the expire field of an active timer
+respectively.
 
-> Debugfs_remove will check for error or NULL for us, so it is not
-> necessary to do this here.
-> 
-> Signed-off-by: Bas Peters <baspeters93@gmail.com>
+This is done using Coccinelle and semantic patch used for
+this is as follows:
 
-Thanks, applied to wireless-drivers-next.git.
+// <smpl>
+@@
+expression x,y,z,a,b;
+@@
 
-Kalle Valo
+-init_timer (&x);
++setup_timer (&x, y, z);
++mod_timer (&a, b);
+-x.function = y;
+-x.data = z;
+-x.expires = b;
+-add_timer(&a);
+
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+---
+ drivers/net/ethernet/8390/axnet_cs.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/8390/axnet_cs.c b/drivers/net/ethernet/8390/axnet_cs.c
+index 7769c05..ec6eac1 100644
+--- a/drivers/net/ethernet/8390/axnet_cs.c
++++ b/drivers/net/ethernet/8390/axnet_cs.c
+@@ -484,11 +484,8 @@ static int axnet_open(struct net_device *dev)
+     link->open++;
+ 
+     info->link_status = 0x00;
+-    init_timer(&info->watchdog);
+-    info->watchdog.function = ei_watchdog;
+-    info->watchdog.data = (u_long)dev;
+-    info->watchdog.expires = jiffies + HZ;
+-    add_timer(&info->watchdog);
++    setup_timer(&info->watchdog, ei_watchdog, (u_long)dev);
++    mod_timer(&info->watchdog, jiffies + HZ);
+ 
+     return ax_open(dev);
+ } /* axnet_open */
+-- 
+1.9.1
