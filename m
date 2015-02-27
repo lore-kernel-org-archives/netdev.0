@@ -1,37 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
-Date: Fri, 27 Feb 2015 10:04:15 -0800
-Message-ID: <1425060255.5130.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
-	 <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54F09A95.8000507@6wind.com>
-	 <CAM_iQpUPQVodJRGmf=GYOVK+R_84w-+yDtqyHCJGbCDH0hb44A@mail.gmail.com>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH v2] net: smc91c92_cs: Use setup_timer and mod_timer
+Date: Fri, 27 Feb 2015 23:40:24 +0530
+Message-ID: <20150227181024.GA20055@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:37702 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752318AbbB0SES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 13:04:18 -0500
-Received: by iecrl12 with SMTP id rl12so32851616iec.4
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 10:04:17 -0800 (PST)
-In-Reply-To: <CAM_iQpUPQVodJRGmf=GYOVK+R_84w-+yDtqyHCJGbCDH0hb44A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-02-27 at 09:28 -0800, Cong Wang wrote:
+Use timer API functions setup_timer and mod_timer instead
+of structure assignments as they are standard way to set
+the timer and to update the expire field of an active timer
+respectively.
 
-> I don't understand why you think this is over engineering,
-> clearly it is normal to allocate resources in newlink rather than
-> dumping. Look at other resources we allocate in newlink.
+This is done using Coccinelle and semantic patch used for
+this is as follows:
 
-This has nothing to do with the splat you gave.
+// <smpl>
+@@
+expression x,y,z,a,b;
+@@
 
-If you believe there is a _different_ bug, then submit another patch.
+-init_timer (&x);
++setup_timer (&x, y, z);
++mod_timer (&a, b);
+-x.function = y;
+-x.data = z;
+-x.expires = b;
+-add_timer(&a);
+// </smpl>
 
-But claiming your patch solves the rcu thing is misleading,
-you gave already 2 wrong patches, trying to hide the real fix.
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+---
+Changes since v1:
+	-Change subject line
+
+ drivers/net/ethernet/smsc/smc91c92_cs.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
+index 6b33127..3449893 100644
+--- a/drivers/net/ethernet/smsc/smc91c92_cs.c
++++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
+@@ -1070,11 +1070,8 @@ static int smc_open(struct net_device *dev)
+     smc->packets_waiting = 0;
+ 
+     smc_reset(dev);
+-    init_timer(&smc->media);
+-    smc->media.function = media_check;
+-    smc->media.data = (u_long) dev;
+-    smc->media.expires = jiffies + HZ;
+-    add_timer(&smc->media);
++    setup_timer(&smc->media, media_check, (u_long)dev);
++    mod_timer(&smc->media, jiffies + HZ);
+ 
+     return 0;
+ } /* smc_open */
+-- 
+1.9.1
