@@ -1,68 +1,38 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
-Date: Fri, 27 Feb 2015 17:25:57 +0100
-Message-ID: <54F09A95.8000507@6wind.com>
-References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com> <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Ebben Aries <exa@fb.com>
+Subject: [PATCH] iproute: ip-gue/ip-fou manpages
+Date: Fri, 27 Feb 2015 09:27:39 -0700
+Message-ID: <1425054459-12874-1-git-send-email-exa@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain
+Cc: Ebben Aries <exa@fb.com>
+To: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:45605 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbbB0Q0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 11:26:00 -0500
-Received: by wgha1 with SMTP id a1so21401295wgh.12
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 08:25:59 -0800 (PST)
-In-Reply-To: <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:26417 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752760AbbB0Q1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 11:27:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 27/02/2015 09:01, Eric Dumazet a =C3=A9crit :
-> On Thu, 2015-02-26 at 22:32 -0800, Cong Wang wrote:
->> We can allocate the peer netns id when creating the link
->> instead of when dumping the link.
->>
->> This fixes the following kernel warning:
->>
->>   =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>   [ INFO: suspicious RCU usage. ]
->>   3.19.0+ #805 Tainted: G        W
->>   -------------------------------
->>   include/linux/rcupdate.h:538 Illegal context switch in RCU read-si=
-de critical section!
->>
->>   other info that might help us debug this:
->
-> This looks very complicated, why even bother ?
->
-> I gave an obvious patch fixing root cause, I have no idea why you pre=
-fer
-> over engineering this.
->
-> If you believe allocating peer netns id is required at link creation
-> time, you should explain why.
->
-> BTW, (void)peernet2id(dev_net(dev), src_net) can fail, and your fix i=
-s
-> not complete anyway.
-That's true. The patch does not cover the following case:
-ip link add foo type bar
-ip link set foo netns netns1
+Add missing GUE/FOU manpages to Makefile
 
-In this case, the second command will call dev_change_net_namespace() a=
-nd the
-id will not be allocated.
+Signed-off-by: Ebben Aries <exa@fb.com>
+---
+ man/man8/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I think Eric's patch is simpler and less error-prone.
-
-=46WIW, I will be off for one week and probably without any internet ac=
-cess ;-)
-
-Regards,
-Nicolas
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index e998928..152747a 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -6,7 +6,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+ 	tc-mqprio.8 tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
+ 	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+-	ip-addrlabel.8 ip-l2tp.8 \
++	ip-addrlabel.8 ip-fou.8 ip-gue.8 ip-l2tp.8 \
+ 	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
+ 	ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
+ 	ip-tcp_metrics.8 ip-netconf.8 ip-token.8
+-- 
+2.2.1
