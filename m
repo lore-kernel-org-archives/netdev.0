@@ -1,62 +1,168 @@
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: davinci_mdio: don't request io address range
-Date: Fri, 27 Feb 2015 15:55:34 +0000
-Message-ID: <CA+V-a8vu6wyzP7wJT8qe_WiKzhtB+jHYH=55fMhAzibJXciRew@mail.gmail.com>
-References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Flows! Offload them.
+Date: Fri, 27 Feb 2015 08:00:29 -0800
+Message-ID: <54F0949D.5000407@gmail.com>
+References: <20150226074214.GF2074@nanopsycho.orion> <20150226083758.GA15139@vergenet.net> <20150226091628.GA4059@nanopsycho.orion> <20150226133326.GC23050@casper.infradead.org> <54EF3A78.9020507@intel.com> <20150226201635.GA366@hmsreliant.think-freely.org> <54EF8BFB.5050608@intel.com> <20150227085329.GC2057@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>, george.cherian@ti.com,
-	varkabhadram@gmail.com, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Tony Lindgren <tony@atomide.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	lokeshvutla@ti.com, mpa@pengutronix.de, w-kwok2@ti.com
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Simon Horman <simon.horman@netronome.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	jpettit@nicira.com, joestringer@nicira.com, jhs@mojatatu.com,
+	sfeldma@gmail.com, f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:63601 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754720AbbB0QBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 11:01:11 -0500
+Received: by mail-oi0-f44.google.com with SMTP id a3so16305708oib.3
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 08:01:10 -0800 (PST)
+In-Reply-To: <20150227085329.GC2057@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 24, 2015 at 9:27 PM, Murali Karicheri <m-karicheri2@ti.com> wrote:
-> From: Grygorii Strashko <grygorii.strashko@ti.com>
+On 02/27/2015 12:53 AM, Jiri Pirko wrote:
+> Thu, Feb 26, 2015 at 10:11:23PM CET, john.r.fastabend@intel.com wrote:
+>> On 02/26/2015 12:16 PM, Neil Horman wrote:
+>>> On Thu, Feb 26, 2015 at 07:23:36AM -0800, John Fastabend wrote:
+>>>> On 02/26/2015 05:33 AM, Thomas Graf wrote:
+>>>>> On 02/26/15 at 10:16am, Jiri Pirko wrote:
+>>>>>> Well, on netdev01, I believe that a consensus was reached that for every
+>>>>>> switch offloaded functionality there has to be an implementation in
+>>>>>> kernel.
+>>>>>
+>>>>> Agreed. This should not prevent the policy being driven from user
+>>>>> space though.
+>>>>>
+>>>>>> What John's Flow API originally did was to provide a way to
+>>>>>> configure hardware independently of kernel. So the right way is to
+>>>>>> configure kernel and, if hw allows it, to offload the configuration to hw.
+>>>>>>
+>>>>>> In this case, seems to me logical to offload from one place, that being
+>>>>>> TC. The reason is, as I stated above, the possible conversion from OVS
+>>>>>> datapath to TC.
+>>>>>
+>>>>> Offloading of TC definitely makes a lot of sense. I think that even in
+>>>>> that case you will already encounter independent configuration of
+>>>>> hardware and kernel. Example: The hardware provides a fixed, generic
+>>>>> function to push up to n bytes onto a packet. This hardware function
+>>>>> could be used to implement TC actions "push_vlan", "push_vxlan",
+>>>>> "push_mpls". You would you would likely agree that TC should make use
+>>>>> of such a function even if the hardware version is different from the
+>>>>> software version. So I don't think we'll have a 1:1 mapping for all
+>>>>> configurations, regardless of whether the how is decided in kernel or
+>>>>> user space.
+>>>>
+>>>> Just to expand slightly on this. I don't think you can get to a 1:1
+>>>> mapping here. One reason is hardware typically has a TCAM and limited
+>>>> size. So you need a _policy_ to determine when to push rules into the
+>>>> hardware. The kernel doesn't know when to do this and I don't believe
+>>>> its the kernel's place to start enforcing policy like this. One thing I likely
+>>>> need to do is get some more "worlds" in rocker so we aren't stuck only
+>>>> thinking about the infinite size OF_DPA world. The OF_DPA world is only
+>>>> one world and not a terribly flexible one at that when compared with the
+>>>> NPU folk. So minimally you need a flag to indicate rules go into hardware
+>>>> vs software.
+>>>>
+>>>> That said I think the bigger mismatch between software and hardware is
+>>>> you program it differently because the data structures are different. Maybe
+>>>> a u32 example would help. For parsing with u32 you might build a parse
+>>>> graph with a root and some leaf nodes. In hardware you want to collapse
+>>>> this down onto the hardware. I argue this is not a kernel task because
+>>>> there are lots of ways to do this and there are trade-offs made with
+>>>> respect to space and performance and which table to use when it could be
+>>>> handled by a set of tables. Another example is a virtual switch possibly
+>>>> OVS but we have others. The software does some "unmasking" (there term)
+>>>> before sending the rules into the software dataplane cache. Basically this
+>>>> means we can ignore priority in the hash lookup. However this is not how you
+>>>> would optimally use hardware. Maybe I should do another write up with
+>>>> some more concrete examples.
+>>>>
+>>>> There are also lots of use cases to _not_ have hardware and software in
+>>>> sync. A flag allows this.
+>>>>
+>>>> My only point is I think we need to allow users to optimally use there
+>>>> hardware either via 'tc' or my previous 'flow' tool. Actually in my
+>>>> opinion I still think its best to have both interfaces.
+>>>>
+>>>> I'll go get some coffee now and hopefully that is somewhat clear.
+>>>
+>>>
+>>> I've been thinking about the policy apect of this, and the more I think about
+>>> it, the more I wonder if not allowing some sort of common policy in the kernel
+>>> is really the right thing to do here.  I know thats somewhat blasphemous, but
+>>> this isn't really administrative poilcy that we're talking about, at least not
+>>> 100%.  Its more of a behavioral profile that we're trying to enforce.  That may
+>>> be splitting hairs, but I think theres precidence for the latter.  That is to
+>>> say, we configure qdiscs to limit traffic flow to certain rates, and configure
+>>> policies which drop traffic that violates it (which includes random discard,
+>>> which is the antithesis of deterministic policy).  I'm not sure I see this as
+>>> any different, espcially if we limit its scope.  That is to say, why couldn't we
+>>> allow the kernel to program a predetermined set of policies that the admin can
+>>> set (i.e. offload routing to a hardware cache of X size with an lru
+>>> victimization).  If other well defined policies make sense, we can add them and
+>>> exposes options via iproute2 or some such to set them.  For the use case where
+>>> such pre-packaged policies don't make sense, we have things like the flow api to
+>>> offer users who want to be able to control their hardware in a more fine grained
+>>> approach.
+>>>
+>>> Neil
+>>>
+>>
+>> Hi Neil,
+>>
+>> I actually like this idea a lot. I might tweak a bit in that we could have some
+>> feature bits or something like feature bits that expose how to split up the
+>> hardware cache and give sizes.
+>>
+>> So the hypervisor (see I think of end hosts) or administrators could come in and
+>> say I want a route table and a nft table. This creates a "flavor" over how the
+>> hardware is going to be used. Another use case may not be doing routing at all
+>> but have an application that wants to manage the hardware at a more fine grained
+>> level with the exception of some nft commands so it could have a "nft"+"flow"
+>> flavor. Insert your favorite use case here.
 >
-> Historically Davinci MDIO driver was  created with assumption that
-> MDIO is standalone device, but for Keystone 2 it's a part
-> of NETCP module and now NETCP driver requests IO range which
-> includes MDIO IO range too. This causes Keystone 2 networking stack
-> failure during the boot.
+> I'm not sure I understand. You said that admin could say: "I want a
+> route table and a nft table". But how does he say it? Isn't is enough
+> just to insert some rules into these 2 things and that would give hw a
+> clue what the admin is doing and what he wants? I believe that this
+> offload should happen transparently.
 >
-> "netcp-1.0 2620110.netcp: Probe of module(netcp-gbe) failed with -16"
->
-> Hence, don't request io address range from Davinci MDIO driver and
-> just remap it.
->
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+> Of course, you may want to balance resources as you said the hw capacity
+> is limited. But I would leave that optional. API unknown so far...
 
-Acked-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+You can leave it optional and queue off the rule inserts but its not
+very robust if the hardware capacity is smaller than the software
+pipeline. This is the case for some of the setups we would like to get
+working on Linux. In this case you can't have the transparent offload
+because 'tc' or whatever may load a large set of irrelevant rules into
+the hardware pipeline consuming the resources for flows that are control
+traffic or exception cases. Perhaps worse what gets put into the
+hardware is not very predictable.
 
-Cheers,
---Prabhakar Lad
+So I agree we can support both cases we just need the API/feature bits
+to turn it on/off. As far as the API I was thinking a "create" table
+API would be sufficient. The kernel could request a "tc" table of size
+1k and a "route" table of 4k for example then user space applications
+could manage any un-reserved tables. I'm experimenting a bit with how
+to make this work now. Maybe "create" should be "reserve".
 
-> ---
->  drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+.John
+
 >
-> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-> index 98655b4..b13ec82 100644
-> --- a/drivers/net/ethernet/ti/davinci_mdio.c
-> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-> @@ -371,7 +371,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
->         spin_lock_init(&data->lock);
->
->         res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> -       data->regs = devm_ioremap_resource(dev, res);
-> +       data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
->         if (IS_ERR(data->regs)) {
->                 ret = PTR_ERR(data->regs);
->                 goto bail_out;
 > --
-> 1.7.9.5
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
+
+
+-- 
+John Fastabend         Intel Corporation
