@@ -1,83 +1,56 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
-Date: Fri, 27 Feb 2015 19:21:51 -0800 (PST)
-Message-ID: <alpine.DEB.2.10.1502271905280.22682@chino.kir.corp.google.com>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com> <alpine.DEB.2.11.1502271649060.20876@gentwo.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-    Vlastimil Babka <vbabka@suse.cz>, Pekka Enberg <penberg@kernel.org>,
-    Joonsoo Kim <iamjoonsoo.kim@lge.com>, Johannes Weiner <hannes@cmpxchg.org>,
-    Mel Gorman <mgorman@suse.de>, Pravin Shelar <pshelar@nicira.com>,
-    Jarno Rajahalme <jrajahalme@nicira.com>, Li Zefan <lizefan@huawei.com>,
-    Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
-    linux-mm@kvack.org, netdev@vger.kernel.org, cgroups@vger.kernel.org,
-    dev@openvswitch.org
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.11.1502271649060.20876@gentwo.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCHv3 net-next 0/4] Improvements for TCP PMTU
+Date: Sat, 28 Feb 2015 11:23:01 +0800
+Message-ID: <1425093785-27380-1-git-send-email-fan.du@intel.com>
+Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: johnwheffner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:31145 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751542AbbB1D1t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2015 22:27:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Feb 2015, Christoph Lameter wrote:
+Hi,
 
-> > +/*
-> > + * Construct gfp mask to allocate from a specific node but do not invoke reclaim
-> > + * or warn about failures.
-> > + */
-> 
-> We should be triggering reclaim from slab allocations. Why would we not do
-> this?
-> 
-> Otherwise we will be going uselessly off node for slab allocations.
-> 
-> > +static inline gfp_t gfp_exact_node(gfp_t flags)
-> > +{
-> > +	return (flags | __GFP_THISNODE | __GFP_NOWARN) & ~__GFP_WAIT;
-> > +}
-> >  #endif
-> 
-> Reclaim needs to be triggered. In particular zone reclaim was made to be
-> triggered from slab allocations to create more room if needed.
-> 
+This patchset performs some improvements and enhancement
+for current TCP PMTU as per RFC4821 with the aim to find
+optimal mms size quickly, and also be adaptive to route
+changes like enlarged path MTU. Then TCP PMTU could be
+used to probe a effective pmtu in absence of ICMP message
+for tunnels(e.g. vxlan) across different networking stack.
 
-This illustrates the precise need for a patch like this that removes 
-GFP_THISNODE entirely: notice there's no functional change with this 
-patch.
+Patch1/4: Set probe mss base to 1024 Bytes per RFC4821
+Patch2/4: Do not double probe_size for each probing,
+          use a simple binary search to gain maximum performance.
+Patch3/4: When it comes to blackhole detection, shrink current
+	  mss for next probing.
+Patch4/4: Create a probe timer to detect enlarged path MTU.
 
-GFP_THISNODE is __GFP_THISNODE | __GFP_NOWARN | __GFP_NORETRY.
+Changelog:
+v3:
+   - Update commit message for patch2
+   - Fix pseudo timer delta caculation in patch4
+v2:
+   - Introduce sysctl_tcp_probe_threshold to control when
+     probing will stop, as suggested by John Heffner.
+   - Add patch3 to shrink current mss value for search low boundary.
+   - Drop cannonical timer usages, implements pseudo timer based on
+     32bits jiffies tcp_time_stamp, as suggested by Eric Dumazet.
 
-The calls to ____cache_alloc_node() and cache_grow() modified by this 
-patch in mm/slab.c that pass GFP_THISNODE get caught in the page allocator 
-slowpath by this:
+Fan Du (4):
+  ipv4: Raise tcp PMTU probe mss base size
+  ipv4: Use binary search to choose tcp PMTU probe_size
+  ipv4: shrink current mss for tcp PMTU blackhole detection
+  ipv4: Create probe timer for tcp PMTU as per RFC4821
 
-	if (IS_ENABLED(CONFIG_NUMA) &&
-	    (gfp_mask & GFP_THISNODE) == GFP_THISNODE)
-		goto nopage;
-
-with today's kernel.  In fact, there is no way for the slab allocator to 
-currently allocate exactly on one node, allow reclaim, and avoid looping 
-forever while suppressing the page allocation failure warning.  The reason 
-is because of how GFP_THISNODE is defined above.
-
-With this patch, it would be possible to modify gfp_exact_node() so that 
-instead of doing
-
-	return (flags | __GFP_THISNODE | __GFP_NOWARN) & ~__GFP_WAIT;
-
-which has no functional change from today, it could be
-
-	return flags | __GFP_THISNODE | __GFP_NOWARN | __GFP_NORETRY;
-
-so that we _can_ do reclaim for that node and avoid looping forever when 
-the allocation fails.  These three flags are the exact same bits set in 
-today's GFP_THISNODE and it is, I agree, what the slab allocator really 
-wants to do in cache_grow().  But the conditional above is what 
-short-circuits such an allocation and needs to be removed, which is what 
-this patch does.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ include/net/inet_connection_sock.h |    2 +
+ include/net/netns/ipv4.h           |    2 +
+ include/net/tcp.h                  |    8 +++++-
+ net/ipv4/sysctl_net_ipv4.c         |   14 +++++++++++
+ net/ipv4/tcp_ipv4.c                |    2 +
+ net/ipv4/tcp_output.c              |   46 ++++++++++++++++++++++++++++++++---
+ net/ipv4/tcp_timer.c               |    9 ++++--
+ 7 files changed, 75 insertions(+), 8 deletions(-)
