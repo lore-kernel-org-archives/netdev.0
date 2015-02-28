@@ -1,64 +1,63 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: Re: [PATCH kernel 4/4] sh_eth: Fix DMA-API usage for RX buffers
-Date: Sat, 28 Feb 2015 03:06:09 +0000
-Message-ID: <1425092769.4444.102.camel@xylophone.i.decadent.org.uk>
-References: <1422319232.3524.14.camel@xylophone.i.decadent.org.uk>
-	 <1422319824.3524.24.camel@xylophone.i.decadent.org.uk>
-	 <54F0D56B.8000809@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S.Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 0/6] net: Strengthen TX and RX hashes
+Date: Fri, 27 Feb 2015 19:11:43 -0800
+Message-ID: <1425093109-1077-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:58607 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbbB1DGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 22:06:14 -0500
-In-Reply-To: <54F0D56B.8000809@cogentembedded.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:44289 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbbB1DMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 22:12:38 -0500
+Received: by igdh15 with SMTP id h15so5347179igd.3
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 19:12:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-27 at 23:36 +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 01/27/2015 03:50 AM, Ben Hutchings wrote:
-> 
-> > - Use the return value of dma_map_single(), rather than calling
-> >    virt_to_page() separately
-> > - Check for mapping failue
-> > - Call dma_unmap_single() rather than dma_sync_single_for_cpu()
-> 
-> > Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
-> 
->     I wonder whether you're aware at the previous Renesas' attemept at fixing 
-> DMA issues:
-> 
-> http://marc.info/?t=141586251000003
+Both the TX and RX hashes associated with skb->hash are mostly 4-tuple
+hashes. This is potentially problematic. For instance one could
+concieve of a DOS attack against a TCP connection using UDP with same
+4-tuple.  Most switches already use at least a 5-tuple hash, NICs
+probably should also (for instance Toeplitz hash for UDP could include
+UDP protocol number). This patch set implements 5-tuple hashes in the
+stack.
 
-No, I only started looking at R-Car stuff in December.
+For transmit, we simply initialize sk_hash to a random value instead of
+performing any actual hash computation. A random value should provide
+full 32-bits of entropy and ensure that connected sockets have a
+different hash value regardless of protocol, 4-tuple, network namespace,
+etc. sock_init_txhash was created to provide this.  This also can be
+called for any family not just IP.
 
->     It was turned down because they tried to deal with several issues in one 
-> patch, and they have failed to follow up. Could you look at the rest of the 
-> DMA issues reported (and not reported) in that patch?
+For receive, we add a new field in flow_keys called hash_extra. When
+doing the jhash this value is XORed into the destination address field.
+In flow_dissector, the IP protocol is placed in this field so that we
+get a 5-tuple hash.
 
-Issue 1 should be fixed by "sh_eth: Check for DMA mapping errors on
-transmit" and this one.
+Also, in flow_dissector, we add support for including VLAN ID and GRE
+keyid in the hash (via hash_extra). We implement support for extracting
+a hash from MPLS entropy labels (RFC 6790).
 
-I don't think that issue 2 still applies but I also don't see how it was
-fixed, so maybe I'm missing something.
+Tom Herbert (6):
+  net: initialize sk_txhash using random value
+  flow_dissector: Include ip_proto in hash computation
+  flow_dissector: Add hash_extra field to flow_keys struct
+  flow_dissector: Include VLAN ID in hash computation
+  flow_dissector: Include GRE keyid in hash computation
+  flow_dissector: Include MPLS entropy label in hash computation
 
-Issue 3 should have been fixed by "sh_eth: Fix padding of short frames
-on TX" except that I used the wrong padding function, so it also needs
-"sh_eth: Really fix padding of short frames on TX".
+ include/net/flow_keys.h   |  1 +
+ include/net/ip.h          | 13 -------------
+ include/net/ipv6.h        | 14 --------------
+ include/net/sch_generic.h |  2 +-
+ include/net/sock.h        |  6 ++++++
+ include/uapi/linux/in.h   |  2 ++
+ include/uapi/linux/mpls.h |  3 +++
+ net/core/flow_dissector.c | 44 ++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/datagram.c       |  2 +-
+ net/ipv4/tcp_ipv4.c       |  4 ++--
+ net/ipv6/datagram.c       |  2 +-
+ net/ipv6/tcp_ipv6.c       |  4 ++--
+ 12 files changed, 61 insertions(+), 36 deletions(-)
 
-Issue 4 should be fixed by this one.  Except that I forgot to add
-unmapping in sh_eth_ring_free(), so RX DMA mappings are still leaked
-when the device is taken down.
-
-Ben.
+-- 
+2.2.0.rc0.207.ga3a616c
