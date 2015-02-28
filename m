@@ -1,51 +1,69 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 3/6] flow_dissector: Add hash_extra field to
- flow_keys struct
-Date: Sat, 28 Feb 2015 21:31:19 +0100
-Message-ID: <20150228203119.GA7687@breakpoint.cc>
-References: <1425093109-1077-1-git-send-email-therbert@google.com>
- <1425093109-1077-4-git-send-email-therbert@google.com>
- <1425109054.5130.77.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v2 4/7] net: packet: use skb->dev as storage for
+ skb orig len instead of skb->cb[]
+Date: Sat, 28 Feb 2015 22:38:04 +0200
+Message-ID: <CAHsH6GvvQxHbt4JJrotn3y=BG172Wbw4NrMD+gTUA_R=jbPDTw@mail.gmail.com>
+References: <1424977624-649-5-git-send-email-eyal.birger@gmail.com>
+	<20150228.142135.470339626705046722.davem@davemloft.net>
+	<CAHsH6Guq33N755dcuNEmzgP06O=PBdy2Tzt5vSr-iRFoj4uGtw@mail.gmail.com>
+	<20150228.150830.1726900309943339124.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50520 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751714AbbB1UbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 15:31:23 -0500
-Content-Disposition: inline
-In-Reply-To: <1425109054.5130.77.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Shmulik Ladkani <shmulik.ladkani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150228.150830.1726900309943339124.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2015-02-27 at 19:11 -0800, Tom Herbert wrote:
-> 
-> > diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> > index c605d30..d41a034 100644
-> > --- a/include/net/sch_generic.h
-> > +++ b/include/net/sch_generic.h
-> > @@ -252,7 +252,7 @@ struct qdisc_skb_cb {
-> >  	unsigned int		pkt_len;
-> >  	u16			slave_dev_queue_mapping;
-> >  	u16			_pad;
-> > -#define QDISC_CB_PRIV_LEN 20
-> > +#define QDISC_CB_PRIV_LEN 24
-> >  	unsigned char		data[QDISC_CB_PRIV_LEN];
-> >  };
-> >  
-> 
-> This change breaks kernel build : We already are at the cb[] limit.
-> 
-> Please check commit 257117862634d89de33fec74858b1a0ba5ab444b
-> ("net: sched: shrink struct qdisc_skb_cb to 28 bytes")
+On Sat, Feb 28, 2015 at 10:08 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Sat, 28 Feb 2015 21:39:34 +0200
+>
+>> On Sat, Feb 28, 2015 at 9:21 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>> From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>> Date: Thu, 26 Feb 2015 21:07:01 +0200
+>>>
+>>>> As part of an effort to move skb->dropcount to skb->cb[], 4 bytes
+>>>> of additional room are needed in skb->cb[] in packet sockets.
+>>>>
+>>>> Store the skb original length in skb->dev instead of skb->cb[] for
+>>>> this purpose.
+>>>>
+>>>> Signed-off-by: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>>
+>>> I'm a little confused, why is this even needed?
+>>>
+>>> packet_skb_cb is 24 bytes by my calculations, which is much
+>>> smaller than the cb[] size which is 48 bytes.
+>>
+>> Note the BUILD_BUG_ON in packet_rcv().
+>>
+>> packet_skb_cb may contain an address as large as MAX_ADDR_LEN (32)
+>> Therefore the required space is sizeof(packet_skb_cb) + MAX_ADDR_LEN - 8
+>> which is 48 bytes before this change.
+>
+> So let's take a step back.
+>
+> What link layer we support has 32-byte hardware addresses?
 
-I've been toying around with reducing skb->cb[] to 44 bytes,
-Seems Tom could integrate following patch from my test branch:
+The largest one I've been hinted of is INFINIBAND_ALEN which is 20 bytes.
 
-http://git.breakpoint.cc/cgit/fw/net-next.git/commit/?h=skb_cb_44_01&id=29d711e1a71244b71940c2d1e346500bef4d6670
+> If the answer is lower than 32, we should use that value instead.
 
-It makes sfq use a smaller flow key state.
+Won't that value become the 'real' MAX_ADDR_LEN in that case?
+
+My concern is that any value I pick based on the existing implementations
+would need to be adjusted come a protocol with a larger address length.
+
+Also, I would have to assert the available amount of space at run-time as
+the address length is provided by a call to dev_parse_header() instead of
+using a build-time assert.
+
+Regards,
+Eyal.
