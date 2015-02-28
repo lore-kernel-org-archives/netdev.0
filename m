@@ -1,68 +1,71 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped frame
- for IPv6 packets
-Date: Sun, 01 Mar 2015 02:10:04 +0300
-Message-ID: <54F24ACC.7020108@cogentembedded.com>
-References: <1425153509-31582-1-git-send-email-skhare@vmware.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: [PATCHv3 net-next 2/4] ipv4: Use binary search to choose tcp PMTU probe_size
+Date: Sat, 28 Feb 2015 18:20:41 -0500
+Message-ID: <CABrhC0=ZPJwPOJFkuuJ+pJgn4CoVhZ2tJcrbce6kytVVtsy=9g@mail.gmail.com>
+References: <1425093785-27380-1-git-send-email-fan.du@intel.com>
+	<1425093785-27380-3-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Amitabha Banerjee <banerjeea@vmware.com>
-To: Shrikrishna Khare <skhare@vmware.com>, sbhatewara@vmware.com,
-	pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425153509-31582-1-git-send-email-skhare@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: edumazet@google.com, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Fan Du <fengyuleidian0615@gmail.com>
+To: Fan Du <fan.du@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:43177 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808AbbB1XUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 18:20:43 -0500
+Received: by labhv19 with SMTP id hv19so23821835lab.10
+        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 15:20:41 -0800 (PST)
+In-Reply-To: <1425093785-27380-3-git-send-email-fan.du@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 02/28/2015 10:58 PM, Shrikrishna Khare wrote:
-
-> Allows for packet parsing to be done by the fast path. This performance
-> optimization already exists for IPv4. Add similar logic for IPv6.
-
-> Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
-> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-> ---
->   drivers/net/vmxnet3/vmxnet3_drv.c | 26 ++++++++++++++++----------
->   drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
->   2 files changed, 19 insertions(+), 12 deletions(-)
-
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index 294214c..9216e6a 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-[...]
-> @@ -831,16 +832,20 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
->   			if (ctx->ipv4) {
->   				const struct iphdr *iph = ip_hdr(skb);
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index a2a796c..c418829 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1837,11 +1837,13 @@ static int tcp_mtu_probe(struct sock *sk)
+>         struct tcp_sock *tp = tcp_sk(sk);
+>         struct inet_connection_sock *icsk = inet_csk(sk);
+>         struct sk_buff *skb, *nskb, *next;
+> +       struct net *net = sock_net(sk);
+>         int len;
+>         int probe_size;
+>         int size_needed;
+>         int copy;
+>         int mss_now;
+> +       int interval;
 >
-> -				if (iph->protocol == IPPROTO_TCP)
-> -					ctx->l4_hdr_size = tcp_hdrlen(skb);
-> -				else if (iph->protocol == IPPROTO_UDP)
-> -					ctx->l4_hdr_size = sizeof(struct udphdr);
-> -				else
-> -					ctx->l4_hdr_size = 0;
-> -			} else {
-> -				/* for simplicity, don't copy L4 headers */
-> -				ctx->l4_hdr_size = 0;
-> +				protocol = iph->protocol;
-> +			} else if (ctx->ipv6) {
-> +				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-> +
-> +				protocol = ipv6h->nexthdr;
->   			}
-> +
-> +			if (protocol == IPPROTO_TCP)
-> +				ctx->l4_hdr_size = tcp_hdrlen(skb);
-> +			else if (protocol == IPPROTO_UDP)
-> +				ctx->l4_hdr_size = sizeof(struct udphdr);
-> +			else
-> +				ctx->l4_hdr_size = 0;
-> +
+>         /* Not currently probing/verifying,
+>          * not in recovery,
+> @@ -1854,11 +1856,17 @@ static int tcp_mtu_probe(struct sock *sk)
+>             tp->rx_opt.num_sacks || tp->rx_opt.dsack)
+>                 return -1;
+>
+> -       /* Very simple search strategy: just double the MSS. */
+> +       /* Use binary search for probe_size bewteen tcp_mss_base,
+> +        * and current mss_clamp. if (search_high - search_low)
+> +        * smaller than a threshold, backoff from probing.
+> +        */
+>         mss_now = tcp_current_mss(sk);
+> -       probe_size = 2 * tp->mss_cache;
+> +       probe_size = (icsk->icsk_mtup.search_high +
+> +                     icsk->icsk_mtup.search_low) >> 1;
+>         size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
+> -       if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high)) {
+> +       interval = icsk->icsk_mtup.search_high - icsk->icsk_mtup.search_low;
+> +       if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high) ||
+> +           interval < net->ipv4.sysctl_tcp_probe_threshold) {
+>                 /* TODO: set timer for probe_converge_event */
+>                 return -1;
+>         }
 
-    I think the above is asking to be a 'switch (protocol)' instead.
+A couple things: the local variable probe_size here is TCP segment
+size, while search_low and search_high are IP datagram sizes.  Use
+tcp_mtu_to_mss to subtract headers.  Also, I think if you set
+sysctl_tcp_probe_threshold <= 0, this will keep probing indefinitely
+at search_low (not useful).  You probably want to test interval <
+max(1, sysctl_tcp_probe_threshold).
 
-WBR, Sergei
+  -John
