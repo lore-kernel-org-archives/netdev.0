@@ -1,42 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] tipc: Don't use iocb argument in socket
- layer
-Date: Sat, 28 Feb 2015 16:59:47 -0500 (EST)
-Message-ID: <20150228.165947.531668369319195087.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net: Remove iocb argument from sendmsg
+ and recvmsg
+Date: Sat, 28 Feb 2015 17:12:50 -0500 (EST)
+Message-ID: <20150228.171250.1612351664541183290.davem@davemloft.net>
 References: <1425035198-12547-1-git-send-email-ying.xue@windriver.com>
-	<1425035198-12547-2-git-send-email-ying.xue@windriver.com>
-	<A2BAEFC30C8FD34388F02C9B3121859D1C399393@eusaamb103.ericsson.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, viro@ZenIV.linux.org.uk, hch@lst.de,
-	netdev@vger.kernel.org, erik.hugne@ericsson.com
-To: jon.maloy@ericsson.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: viro@ZenIV.linux.org.uk, hch@lst.de, netdev@vger.kernel.org,
+	erik.hugne@ericsson.com, jon.maloy@ericsson.com
+To: ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34864 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34939 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752050AbbB1V7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 16:59:49 -0500
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D1C399393@eusaamb103.ericsson.se>
+	with ESMTP id S1752680AbbB1WMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 17:12:52 -0500
+In-Reply-To: <1425035198-12547-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 27 Feb 2015 13:30:40 +0000
-
->> struct socket *sock,
->>  			struct msghdr *m, size_t dsz)
->>  {
->> +	struct sock *sk = sock->sk;
->> +	int ret;
-> 
-> alternative method: 
-> 
->                 bool has_lock = false;
->> +
-
-Conditional locking inside of a function is always very
-strongly discouraged.
-
-Every function should have static, simple, consistent locking
-requirements and side effects across calls.
+RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+DQpEYXRlOiBGcmksIDI3IEZl
+YiAyMDE1IDE5OjA2OjM1ICswODAwDQoNCj4gQ3VycmVudGx5IHRoZXJlIGlzIG9ubHkgb25lIHVz
+ZXIgLSBUSVBDIHdob3NlIHNlbmRtc2coKSBpbnN0YW5jZXMNCj4gdXNpbmcgaW9jYiBhcmd1bWVu
+dC4gTWVhbndoaWxlLCB0aGVyZSBpcyBubyB1c2VyIHVzaW5nIGlvY2IgYXJndW1lbnQNCj4gaW4g
+aXRzIHJlY3Ztc2coKSBpbnN0YW5jZS4gVGhlcmVmb3JlLCBpZiB3ZSBlbGltaW5hdGUgdGhlIHdl
+cmlkIHVzYWdlDQo+IG9mIGlvYmMgYXJndW1lbnQgZnJvbSBUSVBDLCB0aGUgaW9jYiBhcmd1bWVu
+dCBjYW4gYmUgcmVtb3ZlZCBmcm9tDQo+IGFsbCBzZW5kbXNnKCkgYW5kIHJlY3Ztc2coKSBpbnN0
+YW5jZXMgb2YgdGhlIHdob2xlIG5ldHdvcmsgc3RhY2suDQo+IA0KPiBCeSB0aGUgd2F5LCBhcyBw
+YXRjaCAjMiBpcyB2ZXJ5IGJpZywgSSBjYW4gZGl2aWRlIGl0IGludG8gc21hbGxlcg0KPiBwYXRj
+aGVzIHJlZ2FyZGluZyBtb2R1bGUgaW4gbmV4dCB2ZXJzaW9uIGlmIG5lY2Vzc2FyeS4NCj4gDQo+
+IFJlZmVyZW5jZToNCj4gaHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC80MzM5NjAv
+DQoNCllvdSBkaWRuJ3QgZXZlbiBwcm9wZXJseSBjb21waWxlIHRlc3QgdGhpcyBwYXRjaCBzZXJp
+ZXM6DQoNCm5ldC9kY2NwL3Byb3RvLmM6NzQ0OjU6IGVycm9yOiBjb25mbGljdGluZyB0eXBlcyBm
+b3IgoWRjY3Bfc2VuZG1zZ6INCiBpbnQgZGNjcF9zZW5kbXNnKHN0cnVjdCBzb2NrICpzaywgc3Ry
+dWN0IG1zZ2hkciAqbXNnLCBzaXplX3QgbGVuKQ0KICAgICBeDQpJbiBmaWxlIGluY2x1ZGVkIGZy
+b20gbmV0L2RjY3AvcHJvdG8uYzozNzowOg0KbmV0L2RjY3AvZGNjcC5oOjMxMzo1OiBub3RlOiBw
+cmV2aW91cyBkZWNsYXJhdGlvbiBvZiChZGNjcF9zZW5kbXNnoiB3YXMgaGVyZQ0KIGludCBkY2Nw
+X3NlbmRtc2coc3RydWN0IGtpb2NiICppb2NiLCBzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBtc2do
+ZHIgKm1zZywNCiAgICAgXg0KIC4uLg0KbmV0L2RjY3AvcHJvdG8uYzo4MDg6NTogZXJyb3I6IGNv
+bmZsaWN0aW5nIHR5cGVzIGZvciChZGNjcF9yZWN2bXNnog0KIGludCBkY2NwX3JlY3Ztc2coc3Ry
+dWN0IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2csIHNpemVfdCBsZW4sIGludCBub25ibG9j
+aywNCiAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIG5ldC9kY2NwL3Byb3RvLmM6Mzc6MDoN
+Cm5ldC9kY2NwL2RjY3AuaDozMTU6NTogbm90ZTogcHJldmlvdXMgZGVjbGFyYXRpb24gb2YgoWRj
+Y3BfcmVjdm1zZ6Igd2FzIGhlcmUNCiBpbnQgZGNjcF9yZWN2bXNnKHN0cnVjdCBraW9jYiAqaW9j
+Yiwgc3RydWN0IHNvY2sgKnNrLA0KICAgICBeDQo=
