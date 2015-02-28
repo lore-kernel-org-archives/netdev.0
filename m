@@ -1,67 +1,60 @@
-From: Arun Chandran <achandran@mvista.com>
-Subject: Re: [PATCH v3] net: macb: Add big endian CPU support
-Date: Sat, 28 Feb 2015 16:13:15 +0530
-Message-ID: <CAFdej01eLmP8WaE0Eex8sXP0UYJdpqreQr1jQ3psiGcXELXr0A@mail.gmail.com>
-References: <54EEF9C6.8070701@monstr.eu>
-	<1424948474-11872-1-git-send-email-achandran@mvista.com>
-	<20150227.172430.705343480463996651.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Michal Simek <monstr@monstr.eu>
-To: David Miller <davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/2] rxrpc: terminate retrans loop when sending of skb fails
+Date: Sat, 28 Feb 2015 11:51:36 +0100
+Message-ID: <1425120697-27791-1-git-send-email-fw@strlen.de>
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:45069 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766AbbB1KnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 05:43:16 -0500
-Received: by igjz20 with SMTP id z20so6585365igj.4
-        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 02:43:15 -0800 (PST)
-In-Reply-To: <20150227.172430.705343480463996651.davem@davemloft.net>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:49992 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759AbbB1KwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 05:52:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Typo, 'stop' is never set to true.
+Seems intent is to not attempt to retransmit more packets after sendmsg
+returns an error.
 
->> This patch converts all __raw_readl and __raw_writel function calls
->> to their corresponding readl_relaxed and writel_relaxed variants.
->>
->> It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
->> when the CPU is configured in big endian mode.
->>
->> Signed-off-by: Arun Chandran <achandran@mvista.com>
->
-> This does not apply cleanly to net-next, please respin.
+This change is based on code inspection only.
 
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/rxrpc/ar-ack.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-The net-next tree already contains the initial version
-of this change (commit: a50dad355a5314da64586da36804b86fbebb7c2a).
-
-This applies cleanly if you revert that.
-
-#~/work/open_source/net-next/net-next$ git log -2
-commit 3cbef72505634b346dadb5f4ffd0fdb68c07710c
-Author: Arun Chandran <achandran@mvista.com>
-Date:   Wed Feb 18 16:35:44 2015 +0530
-
-    net: macb: Add big endian CPU support
-
-    This patch converts all __raw_readl and __raw_writel function calls
-    to their corresponding readl_relaxed and writel_relaxed variants.
-
-    It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
-    when the CPU is configured in big endian mode.
-
-    Signed-off-by: Arun Chandran <achandran@mvista.com>
-
-commit 693aba8f896f286d9ddd4445ced374d2c96b41a2
-Author: Arun Chandran <achandran@mvista.com>
-Date:   Sat Feb 28 16:03:18 2015 +0530
-
-    Revert "net: macb: Add big endian CPU support"
-
-    This reverts commit a50dad355a5314da64586da36804b86fbebb7c2a.
-
---Arun
+diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
+index c6be17a..4040418 100644
+--- a/net/rxrpc/ar-ack.c
++++ b/net/rxrpc/ar-ack.c
+@@ -218,7 +218,8 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 	struct rxrpc_header *hdr;
+ 	struct sk_buff *txb;
+ 	unsigned long *p_txb, resend_at;
+-	int loop, stop;
++	bool stop;
++	int loop;
+ 	u8 resend;
+ 
+ 	_enter("{%d,%d,%d,%d},",
+@@ -226,7 +227,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 	       atomic_read(&call->sequence),
+ 	       CIRC_CNT(call->acks_head, call->acks_tail, call->acks_winsz));
+ 
+-	stop = 0;
++	stop = false;
+ 	resend = 0;
+ 	resend_at = 0;
+ 
+@@ -255,7 +256,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 			_proto("Tx DATA %%%u { #%d }",
+ 			       ntohl(sp->hdr.serial), ntohl(sp->hdr.seq));
+ 			if (rxrpc_send_packet(call->conn->trans, txb) < 0) {
+-				stop = 0;
++				stop = true;
+ 				sp->resend_at = jiffies + 3;
+ 			} else {
+ 				sp->resend_at =
+-- 
+2.0.5
