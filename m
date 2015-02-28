@@ -1,53 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] drivers: net: cpsw: Set SECURE for dual_emac ucast
-Date: Sat, 28 Feb 2015 14:49:49 -0500 (EST)
-Message-ID: <20150228.144949.451713735699145008.davem@davemloft.net>
-References: <1424985570-19193-1-git-send-email-george.mccollister@gmail.com>
+From: Emmanuel Grumbach <egrumbach@gmail.com>
+Subject: Re: [PATCH] iwlwifi: mvm: check time event is over before disconnecting
+Date: Sat, 28 Feb 2015 21:55:17 +0200
+Message-ID: <CANUX_P22MQEVkFsC_ToYiSTMVSB+QpSOMCb=d3+AH4224nhocw@mail.gmail.com>
+References: <1425078600-29882-1-git-send-email-filipayazi@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, balbi@ti.com,
-	lsorense@csclub.uwaterloo.ca, tony@atomide.com, mpa@pengutronix.de,
-	jhovold@gmail.com, george.cherian@ti.com, tklauser@distanz.ch
-To: george.mccollister@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34036 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937AbbB1Ttw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 14:49:52 -0500
-In-Reply-To: <1424985570-19193-1-git-send-email-george.mccollister@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Filip Ayazi <filipayazi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425078600-29882-1-git-send-email-filipayazi@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: George McCollister <george.mccollister@gmail.com>
-Date: Thu, 26 Feb 2015 15:19:30 -0600
+On Sat, Feb 28, 2015 at 1:10 AM, Filip Ayazi <filipayazi@gmail.com> wrote:
+> On the 7260 time event was often ended before end_time and connections failed
+> with "No association and the time event is over already...".
+> This checks that the time event is actually over before disconnecting.
+>
+> Signed-off-by: Filip Ayazi <filipayazi@gmail.com>
 
-> Prior to this patch, sending a packet with the source MAC address of one
-> of the CPSW interfaces to one of the CPSW slave ports while it's configured in
-> dual_emac mode would update the port_num field of the VLAN/Unicast Address
-> Table Entry. This would cause it to discard all incoming traffic addressed to
-> that MAC address, essentially rendering the port useless until the ALE table is
-> cleared (by starting and stopping the interface or rebooting.)
-> 
-> For example, if eth0 has a MAC address of 90:59:af:8f:43:e9 it will have
-> an ALE table entry:
-> 
-> 00 00 00 00 59 90 02 30 e9 43 8f af
-> (VLAN Addr vlan_id=2 unicast type=0 port_num=0 addr=90:59:af:8f:43:e9)
-> 
-> If you configure another device with the same MAC address and connect it
-> to the first CPSW slave port and send some traffic the ALE table entry
-> becomes:
-> 
-> 04 00 00 00 59 90 02 30 e9 43 8f af
-> (VLAN Addr vlan_id=2 unicast type=0 port_num=1 addr=90:59:af:8f:43:e9)
-> 
-> From this point forward all incoming traffic addressed to
-> 90:59:af:8f:43:e9 will be dropped.
-> 
-> Setting the SECURE bit for the VLAN/Unicast address table entry for each
-> interface's MAC address corrects the problem.
-> 
-> Signed-off-by: George McCollister <george.mccollister@gmail.com>
+While this patch is wrong I'd like to know if it helps.
+The patch is wrong because even if the driver thinks the time event
+should still be running, if the firmware indicates it has already
+ended, we should still disconnect. The reason for the disconnection is
+that we can't be sure that the firmware will have the proper timing
+for the beacon and hence for the DTIM. Both are critical to get a
+decent behavior while saving power.
+In any case, I doubt this patch does actually something because the
+firmware and the driver should really be close in their timings. If
+they aren't, it is fundamental bug in the firmware. While the firmware
+does have bugs just like any piece of software, I doubt it has such
+big ones :)
 
-Applied, thanks.
+> ---
+>  drivers/net/wireless/iwlwifi/mvm/time-event.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/iwlwifi/mvm/time-event.c b/drivers/net/wireless/iwlwifi/mvm/time-event.c
+> index 54fafbf..b0aa892 100644
+> --- a/drivers/net/wireless/iwlwifi/mvm/time-event.c
+> +++ b/drivers/net/wireless/iwlwifi/mvm/time-event.c
+> @@ -256,7 +256,8 @@ static void iwl_mvm_te_handle_notif(struct iwl_mvm *mvm,
+>                 }
+>         }
+>
+> -       if (le32_to_cpu(notif->action) & TE_V2_NOTIF_HOST_EVENT_END) {
+> +       if (le32_to_cpu(notif->action) & TE_V2_NOTIF_HOST_EVENT_END &&
+> +           time_after(jiffies, te_data->end_jiffies)) {
+>                 IWL_DEBUG_TE(mvm,
+>                              "TE ended - current time %lu, estimated end %lu\n",
+>                              jiffies, te_data->end_jiffies);
+> --
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
