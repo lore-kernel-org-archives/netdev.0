@@ -1,48 +1,66 @@
-From: Mr fredrik emerah <azizikhalid55@gmail.com>
-Subject: MUTUAL UNDERSTANDING
-Date: Sat, 28 Feb 2015 06:03:36 -0800
-Message-ID: <CABA8SjfCvWTFEoXnbRuFexA55-YT=_aemG7OJ95Dy+FV_LnUbg@mail.gmail.com>
-Reply-To: fredrik_emerah2013@ymail.com
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] net: smc91x: use run-time configuration on all ARM machines
+Date: Sat, 28 Feb 2015 17:50:46 +0100
+Message-ID: <877fv22d5l.fsf@free.fr>
+References: <2226303.iMQTNXSl1n@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f193.google.com ([74.125.82.193]:36651 "EHLO
-	mail-we0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbbB1ODi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 09:03:38 -0500
-Received: by wesw62 with SMTP id w62so6277072wes.3
-        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 06:03:37 -0800 (PST)
+Received: from smtp02.smtpout.orange.fr ([80.12.242.124]:55021 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750838AbbB1Qux (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 11:50:53 -0500
+In-Reply-To: <2226303.iMQTNXSl1n@wuerfel> (Arnd Bergmann's message of "Wed, 25
+	Feb 2015 16:31:57 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Friend,
+Arnd Bergmann <arnd@arndb.de> writes:
 
-I know that this message will come to you as a surprise. I am the
-Auditing and Accounting section manager with African Development Bank,
-Ouagadougou Burkina faso. I Hope that you will not expose or betray
-this trust and confident that I am about to repose on you for the
-mutual benefit of our both families.
+> The smc91x driver traditionally gets configured at compile-time
+> for whichever hardware it runs on. This no longer works on
+> ARM as we continue to move to building all-in-one kernels.
+>
+> Most ARM configurations with this driver already use run-time
+> configuration through DT or through platform_data, but a
+> few have not been converted yet.
+>
+> I've checked all ARM boards that use this driver in their
+> legacy board files, and converted the ones that were using
+> compile-time configuration in smc91x.h to behave like the
+> other ones and provide the interrupt polarity along with
+> the MMIO configuration (width, stride) at platform device
+> creation time.
+>
+> In particular, these combinations were previously selectable
+> in Kconfig but in fact broken:
+>
+> - sa1100 assabet plus pleb
+> - msm combined with any other armv6/v7 platform
+> - pxa-idp combined with any non-DMA pxa variant
+> - LogicPD PXA270 combined with any other pxa
+> - nomadik combined with any other armv4/v5 platform,
+>   e.g. versatile.
+>
+> None of these seem critical enough to warrant a backport
+> to stable, but it would be nice to clean this up for good.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ----
+> I would like the patch to get merged through netdev, after
+> Robert and/or Linus have verified it on at least some hardware.
+For lubbock (smcs 91c96) and zylonite (smcs 91c111) :
+Tested-by: Robert Jarzmik <robert.jarzmik@free.fr>
 
-I need your urgent assistance in transferring the sum of($39.5)million
-to your account within 10 or 14 banking days. This money has been
-dormant for years in our Bank without claim.I want the bank to release
-the money to you as the nearest person to our deceased customer late
-George small. who died along with his supposed next of kin in an air
-crash since 31st October 1999.
+Cheers.
 
-I don't want the money to go into government treasury as an abandoned
-fund. So this is the reason why I am contacting you so that the bank
-can release the money to you as the next of kin to the deceased
-customer. Please I would like you to keep this proposal as atop secret
-and delete it if you are not interested.
+--
+Robert
 
-Upon receipt of your reply, I will give you full details on how the
-business will be executed and also note that you will have 40% of the
-above mentioned sum if you agree to handle this business with me.
-
-I am expecting your urgent response as soon as you receive my message.
-
-Best Regard,
-
-Auditor Mr Fredrik Emerah.
+PS: My mainstone is a bit uncooperative right now, I'll have to convince her to
+boot in the near future ...
