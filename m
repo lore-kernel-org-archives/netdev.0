@@ -1,91 +1,69 @@
-From: Andre Valentin <avalentin@marcant.net>
-Subject: Re: Kernel Panic with vti Interfaces
-Date: Sat, 28 Feb 2015 22:21:53 +0100
-Message-ID: <54F23171.9010901@marcant.net>
-References: <54EC4C63.3050006@marcant.net> <20150226114052.GB20631@secunet.com> <54EFB312.8040309@marcant.net> <20150227103506.GD20631@secunet.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: Flows! Offload them.
+Date: Sat, 28 Feb 2015 22:31:32 +0100
+Message-ID: <20150228213132.GA21610@nanopsycho.orion>
+References: <CA+mtBx-sVMNFng_=DcM5mJTbzrRNsFhTvC8YxvjxcqEXwDcWWw@mail.gmail.com>
+ <20150226161705.GH1973@nanopsycho.lan>
+ <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
+ <20150228.150233.90829668077433241.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: therbert@google.com, simon.horman@netronome.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
+	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.marcant.net ([217.14.160.186]:42690 "EHLO
-	mail2.marcant.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbbB1VWB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 16:22:01 -0500
-In-Reply-To: <20150227103506.GD20631@secunet.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:37720 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751486AbbB1Vbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 16:31:37 -0500
+Received: by wivr20 with SMTP id r20so7188605wiv.2
+        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 13:31:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150228.150233.90829668077433241.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-
-Am 27.02.2015 um 11:35 schrieb Steffen Klassert:
-> On Fri, Feb 27, 2015 at 12:58:10AM +0100, Andre Valentin wrote:
->>
->>>
->>> I have never seen this, is the patch above the only locally
->>> applied patch?
->> No, the kernel is coming from the current openwrt 3.18 trunk.
->> It's 3.18.7 with serveral patches coming from openwrt.
->> I already checked the IPsec related patches but the error
->> persisted.
->>
->> I will remove more patches to be sure and forward my results!
+Sat, Feb 28, 2015 at 09:02:33PM CET, davem@davemloft.net wrote:
+>From: Tom Herbert <therbert@google.com>
+>Date: Thu, 26 Feb 2015 10:15:24 -0800
 >
-> Please try with an unpatched kernel from kernel.org, thanks!
+>> But, routing (aka switching) in the stack is not configured through
+>> TC. We have a whole forwarding and routing infrastructure (eg.
+>> iproute) with optimizations that  allow routes to be cached in
+>> sockets, etc. To me, it seems like offloading that basic functionality
+>> is a prerequisite before attempting to offload more advanced policy
+>> mechanisms of TC, netfilter, etc.
 >
+>+1
+>
+>I think this is the most important post in this entire thread.
+>
+>The current proposal here is jumping the gun by several weeks if
+>not months.
+>
+>We have no idea what roadblocks or design barriers we will hit
+>with just plain L2 and L3 forwarding yet.
+>
+>Therefore it is premature to move over to making major decisions
+>about flow offloading before we've made more progress with the
+>more fundamental (and in my opinion much more important) offload
+>facilities.
 
-I just retried with vanilla on x86_64 and there no such error.
-I'm sorry for the noise. I've been sure that I could exclude
-the openwrt patches.  Thank you very much for your help.
+Fair enough. I just felt that the flows are happening just now
+(John's work) so I wanted people to stay in focus. But I completely
+agree that plain L2, L3 forwarding should be handled first. Then some
+of the quirks connected with that, flows and other stuff after.
 
-Kind regards,
+>
+>Jiri, if you want to implement an example set of classifiers in
+>software that can completely replace openvswitch's datapath, that's
+>fine.  And it's a completely independant task to designing how we'll
+>offload flows to hardware in the future.
 
-Andr=E9
-
-
-Mit freundlichen Gr=FC=DFen
- Andr=E9 Valentin
-Systemadministrator
---
-
-++++++WIR ZIEHEN UM++++++
-Ab dem 09.03.2015 erreichen Sie uns unter folgender Anschrift.
-
-MarcanT GmbH
-Herforder Stra=DFe 163 a
-33609 Bielefeld
-
-Bitte beachten Sie, dass ab dem 09.03.2015 alle Rechnungen und
-Korrespondenz nur noch auf die oben genannte Anschrift ausgestellt
-werden. Aktualisieren Sie bitte Ihre Stammdaten entsprechend. Wir
-w=FCnschen uns, den Umzug f=FCr Sie und uns ohne Beeintr=E4chtigungen d=
-es
-Tagesgesch=E4ftes abwickeln zu k=F6nnen. Sollte es dennoch zu Schwierig=
-keiten
-kommen, hoffen wir auf Ihr Verst=E4ndnis.
-Auf unser Rechenzentrum hat der Umzug keinen Einfluss; die Funktionen
-wurden bereits Anfang Februar auf unsere Redundanzrechenzentren verteil=
-t.
-++++++++++++++++++++++++++++++++++++
-
-MarcanT GmbH, Ravensberger Str. 10 G, D - 33602 Bielefeld
-=46on: +49 (521) 95945-0 | Fax: +49 (521) 95945-18
-URL: http://www.marcant.net | http://www.global-m2m.com
-
-Internet * Netzwerk * Mobile Daten
-Citrix Silver Solution Advisor
-
-Gesch=E4ftsf=FChrer: Thorsten Hojas
-Handelsregister: AG Bielefeld, HRB 35827 USt-ID Nr.: DE 190203238
-___________________________________________________________
-Ausserhalb unserer Gesch=E4ftszeiten (Montag bis Freitag von 8:30 Uhr b=
-is
-17:30 Uhr, ausgenommen gesetzliche Feiertage in NRW) stehen wir Ihnen
-gem=E4=DF Ihrer jeweiligen Service-Level-Agreements unter der Ihnen
-mitgeteilten Telefonnummer f=FCr St=F6rungen und Notf=E4lle zur Verf=FC=
-gung.
-Sie k=F6nnen nat=FCrlich auch gerne jederzeit unter support@marcant.net=
- ein
-Ticket er=F6ffnen, welches am n=E4chsten Arbeitstag bearbeitet wird.
+Nod. Will do that.
