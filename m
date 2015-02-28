@@ -1,50 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
-Date: Fri, 27 Feb 2015 16:48:20 -0800
-Message-ID: <CAM_iQpUx69wuHyTY-L6eAhNzuCWxhVd-jSHcKXq7cW4NXBZpOQ@mail.gmail.com>
-References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	<54F09A95.8000507@6wind.com>
-	<CAM_iQpUPQVodJRGmf=GYOVK+R_84w-+yDtqyHCJGbCDH0hb44A@mail.gmail.com>
-	<1425060255.5130.39.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Sat, 28 Feb 2015 00:48:40 +0000
+Message-ID: <20150228004840.GA18513@acer.localdomain>
+References: <54EDF4DD.1060709@iogearbox.net>
+ <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150226100235.GA16032@casper.infradead.org>
+ <20150227.173011.720468189098021308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, eric.dumazet@gmail.com, daniel@iogearbox.net,
+	David.Laight@ACULAB.COM, pablo@netfilter.org, johunt@akamai.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:37972 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105AbbB1AsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 19:48:21 -0500
-Received: by pdbfp1 with SMTP id fp1so24759010pdb.5
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 16:48:21 -0800 (PST)
-In-Reply-To: <1425060255.5130.39.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from stinky.trash.net ([213.144.137.162]:45458 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592AbbB1Asq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 19:48:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20150227.173011.720468189098021308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2015 at 10:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2015-02-27 at 09:28 -0800, Cong Wang wrote:
->
->> I don't understand why you think this is over engineering,
->> clearly it is normal to allocate resources in newlink rather than
->> dumping. Look at other resources we allocate in newlink.
->
-> This has nothing to do with the splat you gave.
+On 27.02, David Miller wrote:
+> From: "tgraf@suug.ch" <tgraf@suug.ch>
+> Date: Thu, 26 Feb 2015 10:02:35 +0000
+> 
+> > I just want to point out here that TCP is not the only future
+> > use case. The station table for mac80211 has recently been
+> > converted. We need to keep all of them on the radar.
+> 
+> Just wanted to note in passing that I wonder how legal
+> net/core/neighbour.c:neigh_hash_grow() is.  It's growing an RCU
+> hashtable without using rhashtable. :-)
 
+I would like to note that it seem premature to convert all these
+users without having the fundamental problems solved, specifically
+the unbounded growing hash chains with async resizing.
 
-Why not? If we from the beginning can avoid allocate any
-memory in dumping, such rcu warning would not even trigger.
-
->
-> If you believe there is a _different_ bug, then submit another patch.
-
-I am not 100% sure it is a bug yet, but it does signal some bad sign.
-
->
-> But claiming your patch solves the rcu thing is misleading,
-> you gave already 2 wrong patches, trying to hide the real fix.
->
-
-If rcu read lock were the only problem, I wouldn't even want to
-reply, too trivial to worthy a reply.
+It seems to me that we have enough use cases right now that problems
+have become quite visible, and until we're sure they're actually
+solvable for all these different use cases I'd advocate for not
+moving more subsystems to use this.
