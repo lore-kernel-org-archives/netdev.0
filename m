@@ -1,210 +1,121 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] lib utils: Use helpers to get AF bit/byte len
-Date: Sat, 28 Feb 2015 02:50:24 +0200
-Message-ID: <1425084624-20025-1-git-send-email-vadim4j@gmail.com>
-Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
-To: stephen@networkplumber.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 0/8] Basic MPLS support
+Date: Fri, 27 Feb 2015 18:58:09 -0600
+Message-ID: <87mw3yg8da.fsf@x220.int.ebiederm.org>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
+	<20150227.162131.431559184124647735.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, santiago@crfreenet.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:34992 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbbB1BBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 20:01:47 -0500
-Received: by labgm9 with SMTP id gm9so20777738lab.2
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 17:01:46 -0800 (PST)
+Received: from out02.mta.xmission.com ([166.70.13.232]:54207 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750811AbbB1BBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 20:01:50 -0500
+In-Reply-To: <20150227.162131.431559184124647735.davem@davemloft.net> (David
+	Miller's message of "Fri, 27 Feb 2015 16:21:31 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+David Miller <davem@davemloft.net> writes:
 
-Added funcs to get AF_XXX len in bit/bytes and replace
-places where switch(AF_XXX) is used for this.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Wed, 25 Feb 2015 11:09:23 -0600
+>
+>> While trying to figure out what MPLS is and why MPLS support is not in
+>> the kernel on a lark I sat down and wrote an MPLS implemenation, so I
+>> could answer those questions for myself.
+>> 
+>> From what I can tell the short answer is MPLS is trivial-simple and the
+>> we don't have an in-kernel implementation because no one has sat down
+>> and done the work to have a good mergable implementation.
+>> 
+>> MPLS has it's good sides and it's bad sides but at the end of the day
+>> MPLS has users, and having an in-kernel implementation should help us
+>> understand MPLS and focus our conversations dealing with MPLS and
+>> VRFs.
+>> 
+>> Having MPLS in our toolkit as the entire world begins playing with
+>> overlay networks aka ``network virtualization'' to support VM and
+>> container migration seems appropriate as MPLS is the historical solution
+>> to this problem.
+>> 
+>> Constructive criticism about the netlink interface is especially
+>> appreciated.  Hopefully we can have at least one protocol in the kernel
+>> where the netlink interface doesn't have nasty corner case.
+>> 
+>> As for linux users.  The conversations I had at netdev01 this sounds
+>> like a case of if I build it people will use the code.
+>
+> At a high level I have no objections to this work and I'm in fact
+> extremely happy to see someone working on this.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- include/utils.h |  3 +++
- ip/iproute.c    | 22 ++++------------------
- ip/iprule.c     |  9 +--------
- lib/utils.c     | 58 +++++++++++++++++++++++++--------------------------------
- 4 files changed, 33 insertions(+), 59 deletions(-)
+Thank you.  That statement alone I think is enough to ensure that
+someone completes this work.
 
-diff --git a/include/utils.h b/include/utils.h
-index fec9ef4..9151c4f 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -101,6 +101,9 @@ extern int get_s8(__s8 *val, const char *arg, int base);
- extern char* hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
- extern __u8* hexstring_a2n(const char *str, __u8 *buf, int blen);
- 
-+extern int af_bit_len(int af);
-+extern int af_byte_len(int af);
-+
- extern const char *format_host(int af, int len, const void *addr,
- 			       char *buf, int buflen);
- extern const char *rt_addr_n2a(int af, const void *addr,
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 76d8e36..b32025f 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -268,20 +268,6 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
- 	return 1;
- }
- 
--static int calc_host_len(const struct rtmsg *r)
--{
--	if (r->rtm_family == AF_INET6)
--		return 128;
--	else if (r->rtm_family == AF_INET)
--		return 32;
--	else if (r->rtm_family == AF_DECnet)
--		return 16;
--	else if (r->rtm_family == AF_IPX)
--		return 80;
--	else
--		return -1;
--}
--
- static void print_rtax_features(FILE *fp, unsigned int features)
- {
- 	unsigned int of = features;
-@@ -302,7 +288,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	int len = n->nlmsg_len;
- 	struct rtattr * tb[RTA_MAX+1];
- 	char abuf[256];
--	int host_len = -1;
-+	int host_len;
- 	__u32 table;
- 	SPRINT_BUF(b1);
- 	static int hz;
-@@ -320,7 +306,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		return -1;
- 	}
- 
--	host_len = calc_host_len(r);
-+	host_len = af_bit_len(r->rtm_family);
- 
- 	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
- 	table = rtm_get_table(r, tb);
-@@ -1134,9 +1120,9 @@ static int save_route(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 	int len = n->nlmsg_len;
- 	struct rtmsg *r = NLMSG_DATA(n);
- 	struct rtattr *tb[RTA_MAX+1];
--	int host_len = -1;
-+	int host_len;
- 
--	host_len = calc_host_len(r);
-+	host_len = af_bit_len(r->rtm_family);
- 	len -= NLMSG_LENGTH(sizeof(*r));
- 	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
- 
-diff --git a/ip/iprule.c b/ip/iprule.c
-index 366878e..54ed753 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -66,14 +66,7 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 	parse_rtattr(tb, FRA_MAX, RTM_RTA(r), len);
- 
--	if (r->rtm_family == AF_INET)
--		host_len = 32;
--	else if (r->rtm_family == AF_INET6)
--		host_len = 128;
--	else if (r->rtm_family == AF_DECnet)
--		host_len = 16;
--	else if (r->rtm_family == AF_IPX)
--		host_len = 80;
-+	host_len = af_bit_len(r->rtm_family);
- 
- 	if (n->nlmsg_type == RTM_DELRULE)
- 		fprintf(fp, "Deleted ");
-diff --git a/lib/utils.c b/lib/utils.c
-index e2b05bc..9cda268 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -431,6 +431,27 @@ int get_addr_1(inet_prefix *addr, const char *name, int family)
- 	return 0;
- }
- 
-+int af_bit_len(int af)
-+{
-+	switch (af) {
-+	case AF_INET6:
-+		return 128;
-+	case AF_INET:
-+		return 32;
-+	case AF_DECnet:
-+		return 16;
-+	case AF_IPX:
-+		return 80;
-+	}
-+
-+	return 0;
-+}
-+
-+int af_byte_len(int af)
-+{
-+	return af_bit_len(af) / 8;
-+}
-+
- int get_prefix_1(inet_prefix *dst, char *arg, int family)
- {
- 	int err;
-@@ -456,17 +477,8 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
- 
- 	err = get_addr_1(dst, arg, family);
- 	if (err == 0) {
--		switch(dst->family) {
--		case AF_INET6:
--			dst->bitlen = 128;
--			break;
--		case AF_DECnet:
--			dst->bitlen = 16;
--			break;
--		default:
--		case AF_INET:
--			dst->bitlen = 32;
--		}
-+		dst->bitlen = af_bit_len(family);
-+
- 		if (slash) {
- 			if (get_netmask(&plen, slash+1, 0)
- 			    || plen > dst->bitlen) {
-@@ -697,7 +709,6 @@ static const char *resolve_address(const void *addr, int len, int af)
- }
- #endif
- 
--
- const char *format_host(int af, int len, const void *addr,
- 			char *buf, int buflen)
- {
-@@ -705,27 +716,8 @@ const char *format_host(int af, int len, const void *addr,
- 	if (resolve_hosts) {
- 		const char *n;
- 
--		if (len <= 0) {
--			switch (af) {
--			case AF_INET:
--				len = 4;
--				break;
--			case AF_INET6:
--				len = 16;
--				break;
--			case AF_IPX:
--				len = 10;
--				break;
--#ifdef AF_DECnet
--			/* I see no reasons why gethostbyname
--			   may not work for DECnet */
--			case AF_DECnet:
--				len = 2;
--				break;
--#endif
--			default: ;
--			}
--		}
-+		len = len <= 0 ? af_byte_len(af) : len;
-+
- 		if (len > 0 &&
- 		    (n = resolve_address(addr, len, af)) != NULL)
- 			return n;
--- 
-2.2.2
+> However I would ask you to reconsider the neighbour handling issue.
+>
+> It seems to me that routing daemons are going to more naturally work
+> with ipv4 addresses as MPLS next hops, and therefore when that's the
+> case we should too.
+>
+> Why?
+>
+> Because then the neighbour layer handles failover transparently for
+> you.
+
+I have no objection to using the neighbour table for ipv4 or ipv6
+next hops.  I simply did not implement them out of expediency.
+
+Part of that expediency was the realization that waiting for neighbour
+resolution before transmitting packets requires the packets have dst
+entries.  Something that is not otherwise required.  That seems to add
+a noticable amount of complexity to the forwarding code.  If nothing
+else I have to manage dst objects and their packet specific lifetimes.
+
+There is also my experience in router contexts that says arp or
+neighbour discovery is usually the last thing to know (short of
+gratuitious arps) that a neighbour has failed.  So some other protocol
+is needed to detect failure.
+
+At the same time if you have a static configuration a arp or ipv6
+neighbour discovery is the only thing you have so it those protocols
+definitely has some value.
+
+I think to properly handle ipv4 and ipv6 next hops I would need to pull
+the neighbour cache apart and and put it back together again while
+reexaming all of it's assumptions about which things are a good idea to
+optimize.   That feels like more work in benchmarking etc than the MPLS
+code has been so far.  
+
+Little details make a big difference, especially the question of when
+we are caching the link-layer header do we take a performance hit if we
+don't cache the protocol type in the cached link-layer header?   Upon
+that question revolves the effort of refactoring the neighbour cache to
+support multiple protocol types.  There are other questions such as is
+there actually a benefit in caching the link-layer header?
+
+> Think about it, if we have a case where some other resolving mechanism
+> would be used for MPLS nexthops, there would need to be some kind of
+> fail over handling mechanism for it as well.
+
+Good question.  What I know for certain is that the MPLS-TP
+specification does not use IPv4 or IPv6 next hops.  I think in those use
+cases some of the next hops don't actually have link-layer addresses,
+and I expect some of them are designed to be used on machines where the
+control plane and the data plane are separate interfaces.  Which
+suggests that there would not be any next hop resolution as we are
+familiar with it, in the case of ethernet and related networks.
+
+I don't know if any of those weird cases apply to Linux.  That is I
+don't know if anyone would ever connect one of those weird MPLS users
+as a nexthop to a MPLS speaking linux box.
+
+So I don't know that the usual conditions do not apply or if we would
+ever actually need a Link-Layer Gateway address.  I just know it was
+coding MPLS in that way seemed much simpler, easier and more performant
+than figuring out the neighbor cache.
+
+Eric
