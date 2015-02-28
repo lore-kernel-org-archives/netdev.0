@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Implement netvsc_get_channels()
- ethool op
-Date: Sat, 28 Feb 2015 16:52:00 -0500 (EST)
-Message-ID: <20150228.165200.1472902190649725857.davem@davemloft.net>
-References: <1424996834-6684-1-git-send-email-andrew@schwartzmeyer.com>
+Subject: Re: [PATCH net] tcp: cleanup static functions
+Date: Sat, 28 Feb 2015 16:57:12 -0500 (EST)
+Message-ID: <20150228.165712.1475174067350715954.davem@davemloft.net>
+References: <1425006539.5565.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, kys@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hall5714@vandals.uidaho.edu,
-	keithd@vandals.uidaho.edu, doma8101@vandals.uidaho.edu
-To: andrew@schwartzmeyer.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424996834-6684-1-git-send-email-andrew@schwartzmeyer.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34832 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796AbbB1V5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 16:57:19 -0500
+In-Reply-To: <1425006539.5565.186.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
-Date: Thu, 26 Feb 2015 16:27:14 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Feb 2015 19:08:59 -0800
 
-> This adds support for reporting the actual and maximum combined channels
-> count of the hv_netvsc driver via 'ethtool --show-channels'.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This required adding 'max_chn' to 'struct netvsc_device', and assigning
-> it 'rsscap.num_recv_que' in 'rndis_filter_device_add'. Now we can access
-> the combined maximum channel count via 'struct netvsc_device' in the
-> ethtool callback.
+> tcp_fastopen_create_child() is static and should not be exported.
 > 
-> Signed-off-by: Andrew Schwartzmeyer <andrew@schwartzmeyer.com>
+> tcp4_gso_segment() and tcp6_gso_segment() should be static.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied, thanks.
