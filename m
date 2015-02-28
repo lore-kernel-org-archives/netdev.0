@@ -1,71 +1,85 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
-Date: Fri, 27 Feb 2015 23:53:44 -0800
-Message-ID: <54F17408.4080105@roeck-us.net>
-References: <54EA8E7C.90401@roeck-us.net> <20150223031447.GA19267@lunn.ch> <54EAA767.6060105@roeck-us.net> <20150223042220.GA20063@lunn.ch> <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch> <54EB37C7.3090209@roeck-us.net> <20150223160109.GB27057@lunn.ch> <54EB6BF5.2020600@gmail.com> <20150223183537.GA23456@roeck-us.net> <54EDD172.4010606@nexvision.fr> <54EDDB72.1090706@roeck-us.net> <54F0A4DE.3020704@nexvision.fr>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCHi v2] ibmveth: Add function to enable live MAC address
+ changes
+Date: Sat, 28 Feb 2015 09:59:32 +0100
+Message-ID: <20150228085932.GA2012@nanopsycho.orion>
+References: <1425102964-3131-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	jerome.oufella@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Andrey Volkov <andrey.volkov@nexvision.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	davem@davemloft.net, brking@linux.vnet.ibm.com
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:40294 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835AbbB1HyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 02:54:22 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YRcE9-000Hy7-EO
-	for netdev@vger.kernel.org; Sat, 28 Feb 2015 07:54:21 +0000
-In-Reply-To: <54F0A4DE.3020704@nexvision.fr>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:35818 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877AbbB1I7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 03:59:36 -0500
+Received: by wevl61 with SMTP id l61so24502370wev.2
+        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 00:59:34 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1425102964-3131-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2015 09:09 AM, Andrey Volkov wrote:
-> Gunter,
+Sat, Feb 28, 2015 at 06:56:04AM CET, tlfalcon@linux.vnet.ibm.com wrote:
+>Add a function that will enable changing the MAC address
+>of an ibmveth interface while it is still running.
 >
-> Sorry with response delay, I very was busy yesterday
+>Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+>---
+>v2:
+>   If h_change_logical_lan_mac fails, dev->dev_addr will not be changed.
 >
-> Le 25/02/2015 15:25, Guenter Roeck a =E9crit :
->> Andrey,
+> drivers/net/ethernet/ibm/ibmveth.c | 25 ++++++++++++++++++++++++-
+> 1 file changed, 24 insertions(+), 1 deletion(-)
 >
-> ------- snip -------
->
->>>>
->>> I simply modify port's fid to the new one in the leave routine and =
-set to common bridge FID in enter
->>> (I'm using Marvell's chips). So the port's database will cleaned up=
- automatically for the leave and will
->>> contain something useful at the enter time. Also I've look through =
-yours patches and I haven't
->>
->> Does removing a port from a fid clean up the entries associated with=
- it
->> in the database ?
->
-> I've checked what happened when port changed its FID: switch logic bl=
-ock traffic to it
-> immediately, as far as I can see, meanwhile record still exists in th=
-e bridge database,
-> it was checked on 88e6185, 88e6097 and 88e6352 chips. And yet another=
- 5c: changing of group membership is
-> not atomic operation in the Marvell's chips known for me, so the port=
- must be in the disabled state when it
-> will happened.
->
-Hmm - interesting. I assume you mean updating port registers 5 and 6 ?
+>diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+>index 21978cc..b6ac676 100644
+>--- a/drivers/net/ethernet/ibm/ibmveth.c
+>+++ b/drivers/net/ethernet/ibm/ibmveth.c
+>@@ -1327,6 +1327,29 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
+> 	return ret;
+> }
+> 
+>+static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
+>+{
+>+	struct ibmveth_adapter *adapter = netdev_priv(dev);
+>+	struct sockaddr *addr = p;
+>+	u64 mac_address;
+>+	int rc;
+>+
+>+	if (!is_valid_ether_addr(addr->sa_data))
+>+		return -EADDRNOTAVAIL;
+>+
+>+	mac_address = ibmveth_encode_mac_addr(addr->sa_data);
+>+	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
+>+	if (rc) {
+>+		netdev_err(adapter->netdev, "h_change_logical_lan_mac failed "
+>+			   "with rc=%d\n", rc);
 
-Different question: For 6185, did you write a new driver or extend an e=
-xisting one ?
-I found that it is quite similar to 6131, and that adding support for i=
-t to the 6131
-driver should be straightforward.
+Please do not wrap text in message. For that, 80-char limit does not apply.
 
-Thanks,
-Guenter
+
+>+		return rc;
+>+	}
+>+
+>+	ether_addr_copy(dev->dev_addr, addr->sa_data);
+>+
+>+	return 0;
+>+}
+>+
+> static const struct net_device_ops ibmveth_netdev_ops = {
+> 	.ndo_open		= ibmveth_open,
+> 	.ndo_stop		= ibmveth_close,
+>@@ -1337,7 +1360,7 @@ static const struct net_device_ops ibmveth_netdev_ops = {
+> 	.ndo_fix_features	= ibmveth_fix_features,
+> 	.ndo_set_features	= ibmveth_set_features,
+> 	.ndo_validate_addr	= eth_validate_addr,
+>-	.ndo_set_mac_address	= eth_mac_addr,
+>+	.ndo_set_mac_address    = ibmveth_set_mac_addr,
+> #ifdef CONFIG_NET_POLL_CONTROLLER
+> 	.ndo_poll_controller	= ibmveth_poll_controller,
+> #endif
+>-- 
+>1.8.3.1
+>
