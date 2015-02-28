@@ -1,57 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Flows! Offload them.
-Date: Sat, 28 Feb 2015 15:02:33 -0500 (EST)
-Message-ID: <20150228.150233.90829668077433241.davem@davemloft.net>
-References: <CA+mtBx-sVMNFng_=DcM5mJTbzrRNsFhTvC8YxvjxcqEXwDcWWw@mail.gmail.com>
-	<20150226161705.GH1973@nanopsycho.lan>
-	<CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
+Subject: Re: [PATCH net-next v2 4/7] net: packet: use skb->dev as storage
+ for skb orig len instead of skb->cb[]
+Date: Sat, 28 Feb 2015 15:08:30 -0500 (EST)
+Message-ID: <20150228.150830.1726900309943339124.davem@davemloft.net>
+References: <1424977624-649-5-git-send-email-eyal.birger@gmail.com>
+	<20150228.142135.470339626705046722.davem@davemloft.net>
+	<CAHsH6Guq33N755dcuNEmzgP06O=PBdy2Tzt5vSr-iRFoj4uGtw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, simon.horman@netronome.com,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
-	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, shrijeet@gmail.com,
-	gospo@cumulusnetworks.com, bcrl@kvack.org
-To: therbert@google.com
+Cc: willemb@google.com, edumazet@google.com, shmulik.ladkani@gmail.com,
+	linux-bluetooth@vger.kernel.org, marcel@holtmann.org,
+	netdev@vger.kernel.org
+To: eyal.birger@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34147 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34230 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856AbbB1UCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 15:02:37 -0500
-In-Reply-To: <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
+	with ESMTP id S1751414AbbB1UIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 15:08:32 -0500
+In-Reply-To: <CAHsH6Guq33N755dcuNEmzgP06O=PBdy2Tzt5vSr-iRFoj4uGtw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu, 26 Feb 2015 10:15:24 -0800
+From: Eyal Birger <eyal.birger@gmail.com>
+Date: Sat, 28 Feb 2015 21:39:34 +0200
 
-> But, routing (aka switching) in the stack is not configured through
-> TC. We have a whole forwarding and routing infrastructure (eg.
-> iproute) with optimizations that  allow routes to be cached in
-> sockets, etc. To me, it seems like offloading that basic functionality
-> is a prerequisite before attempting to offload more advanced policy
-> mechanisms of TC, netfilter, etc.
+> On Sat, Feb 28, 2015 at 9:21 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Eyal Birger <eyal.birger@gmail.com>
+>> Date: Thu, 26 Feb 2015 21:07:01 +0200
+>>
+>>> As part of an effort to move skb->dropcount to skb->cb[], 4 bytes
+>>> of additional room are needed in skb->cb[] in packet sockets.
+>>>
+>>> Store the skb original length in skb->dev instead of skb->cb[] for
+>>> this purpose.
+>>>
+>>> Signed-off-by: Eyal Birger <eyal.birger@gmail.com>
+>>
+>> I'm a little confused, why is this even needed?
+>>
+>> packet_skb_cb is 24 bytes by my calculations, which is much
+>> smaller than the cb[] size which is 48 bytes.
+> 
+> Note the BUILD_BUG_ON in packet_rcv().
+> 
+> packet_skb_cb may contain an address as large as MAX_ADDR_LEN (32)
+> Therefore the required space is sizeof(packet_skb_cb) + MAX_ADDR_LEN - 8
+> which is 48 bytes before this change.
 
-+1
+So let's take a step back.
 
-I think this is the most important post in this entire thread.
+What link layer we support has 32-byte hardware addresses?
 
-The current proposal here is jumping the gun by several weeks if
-not months.
-
-We have no idea what roadblocks or design barriers we will hit
-with just plain L2 and L3 forwarding yet.
-
-Therefore it is premature to move over to making major decisions
-about flow offloading before we've made more progress with the
-more fundamental (and in my opinion much more important) offload
-facilities.
-
-Jiri, if you want to implement an example set of classifiers in
-software that can completely replace openvswitch's datapath, that's
-fine.  And it's a completely independant task to designing how we'll
-offload flows to hardware in the future.
+If the answer is lower than 32, we should use that value instead.
