@@ -1,58 +1,64 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ip tap: Simplify add 'tap' device w/o mode
-Date: Sat, 28 Feb 2015 11:59:46 +0200
-Message-ID: <1425117586-21461-1-git-send-email-vadim4j@gmail.com>
-Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:34748 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbbB1KLK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 05:11:10 -0500
-Received: by labhs14 with SMTP id hs14so21948395lab.1
-        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 02:11:09 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH v4 tip 3/7] tracing: allow BPF programs to call
+ ktime_get_ns()
+Date: Sat, 28 Feb 2015 11:20:43 +0100
+Message-ID: <20150228102043.GX5029@twins.programming.kicks-ass.net>
+References: <1425082135-11967-1-git-send-email-ast@plumgrid.com>
+ <1425082135-11967-4-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1425082135-11967-4-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+On Fri, Feb 27, 2015 at 04:08:51PM -0800, Alexei Starovoitov wrote:
+> bpf_ktime_get_ns() is used by programs to compue time delta between events
+> or as a timestamp
+> 
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+> ---
+>  include/uapi/linux/bpf.h |    1 +
+>  kernel/trace/bpf_trace.c |   10 ++++++++++
+>  2 files changed, 11 insertions(+)
+> 
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 4486d36d2e9e..101e509d1001 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -165,6 +165,7 @@ enum bpf_func_id {
+>  	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
+>  	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
+>  	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
+> +	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
+>  	__BPF_FUNC_MAX_ID,
+>  };
+>  
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index bcce9b238dad..64b918488607 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -36,6 +36,11 @@ static u64 bpf_probe_read(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+>  	return probe_kernel_read(dst, unsafe_ptr, size);
+>  }
+>  
+> +static u64 bpf_ktime_get_ns(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> +{
+> +	return ktime_get_ns();
+> +}
 
-It allows add 'tap' device w/o specify mode:
-
-    # ip tap add tap0
-
-instead of return error message.
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- ip/iptuntap.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-index b9b28a1..61b6c19 100644
---- a/ip/iptuntap.c
-+++ b/ip/iptuntap.c
-@@ -107,6 +107,7 @@ static int tap_del_ioctl(struct ifreq *ifr)
- static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_t *gid)
- {
- 	int count = 0;
-+	char *cmd = *(argv - 2);
- 
- 	memset(ifr, 0, sizeof(*ifr));
- 
-@@ -187,8 +188,12 @@ static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_
- 	}
- 
- 	if (!(ifr->ifr_flags & TUN_TYPE_MASK)) {
--		fprintf(stderr, "You failed to specify a tunnel mode\n");
--		return -1;
-+		if(strncmp("tap", cmd, 3) == 0) {
-+			ifr->ifr_flags |= IFF_TAP;
-+		} else {
-+			fprintf(stderr, "You failed to specify a tunnel mode\n");
-+			return -1;
-+		}
- 	}
- 
- 	return 0;
--- 
-2.2.2
+Please use ktime_get_mono_fast_ns() instead. If you ever want to allow
+running BPF stuff from general tracepoints and the like you need to
+be NMI safe.
