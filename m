@@ -1,64 +1,47 @@
 From: Fan Du <fan.du@intel.com>
-Subject: [PATCHv3 net-next 3/4] ipv4: shrink current mss for tcp PMTU blackhole detection
-Date: Sat, 28 Feb 2015 11:23:04 +0800
-Message-ID: <1425093785-27380-4-git-send-email-fan.du@intel.com>
+Subject: [PATCHv3 net-next 1/4] ipv4: Raise tcp PMTU probe mss base size
+Date: Sat, 28 Feb 2015 11:23:02 +0800
+Message-ID: <1425093785-27380-2-git-send-email-fan.du@intel.com>
 References: <1425093785-27380-1-git-send-email-fan.du@intel.com>
 Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
 	fengyuleidian0615@gmail.com
 To: johnwheffner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46020 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:31145 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752449AbbB1D1y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2015 22:27:54 -0500
+	id S1751780AbbB1D1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Feb 2015 22:27:50 -0500
 In-Reply-To: <1425093785-27380-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reducing current tcp mss instead of search_low will make
-more sense, as current tcp mss still got lost.
+Quotes from RFC4821 7.2.  Selecting Initial Values
 
-In addition, rename tcp_mtu_probing to tcp_blackhole_probe
-to clearify confusion between tcp_mtu_probing and
-tcp_mtu_probe.
+   It is RECOMMENDED that search_low be initially set to an MTU size
+   that is likely to work over a very wide range of environments.  Given
+   today's technologies, a value of 1024 bytes is probably safe enough.
+   The initial value for search_low SHOULD be configurable.
+
+Moreover, set a small value will introduce extra time for the search
+to converge. So set the initial probe base mss size to 1024 Bytes.
 
 Signed-off-by: Fan Du <fan.du@intel.com>
 ---
- net/ipv4/tcp_timer.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ include/net/tcp.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 0732b78..3465175 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -99,7 +99,8 @@ static int tcp_orphan_retries(struct sock *sk, int alive)
- 	return retries;
- }
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 8d6b983..7b57e5b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -65,7 +65,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCP_MIN_MSS		88U
  
--static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
-+static void tcp_blackhole_probe(struct inet_connection_sock *icsk,
-+				struct sock *sk)
- {
- 	struct net *net = sock_net(sk);
+ /* The least MTU to use for probing */
+-#define TCP_BASE_MSS		512
++#define TCP_BASE_MSS		1024
  
-@@ -113,7 +114,8 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
- 			struct tcp_sock *tp = tcp_sk(sk);
- 			int mss;
- 
--			mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1;
-+			/* try mss smaller than current mss */
-+			mss = tcp_current_mss(sk) >> 1;
- 			mss = min(net->ipv4.sysctl_tcp_base_mss, mss);
- 			mss = max(mss, 68 - tp->tcp_header_len);
- 			icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
-@@ -176,7 +178,7 @@ static int tcp_write_timeout(struct sock *sk)
- 	} else {
- 		if (retransmits_timed_out(sk, sysctl_tcp_retries1, 0, 0)) {
- 			/* Black hole detection */
--			tcp_mtu_probing(icsk, sk);
-+			tcp_blackhole_probe(icsk, sk);
- 
- 			dst_negative_advice(sk);
- 		}
+ /* After receiving this amount of duplicate ACKs fast retransmit starts. */
+ #define TCP_FASTRETRANS_THRESH 3
 -- 
 1.7.1
