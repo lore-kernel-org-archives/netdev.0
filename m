@@ -1,450 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/18] fm10k: Resolve various spelling errors and checkpatch warnings
-Date: Sat, 28 Feb 2015 03:29:34 -0800
-Message-ID: <1425122989-354-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1425122989-354-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/18][pull request] Intel Wired LAN Driver Updates 2015-02-28
+Date: Sat, 28 Feb 2015 03:29:31 -0800
+Message-ID: <1425122989-354-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:49619 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:50492 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750893AbbB1L3y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Feb 2015 06:29:54 -0500
-In-Reply-To: <1425122989-354-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750791AbbB1L3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Feb 2015 06:29:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+This series contains updates to fm10k, i40e and i40evf.
 
-Fix a few silly typos in the code and checkpatch warnings in support of
-general code cleanliness.
+Matthew updates the fm10k driver by cleaning up code comments and whitespace
+issues.  Also modifies the tunnel length header check, to make it more robust
+by calculating the inner L4 header length based on whether it is TCP or UDP.
+Implemented ndo_features_check() that allows drivers to report their offload
+capabilities per-skb.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_common.c  |  3 +--
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c     |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    |  4 ++--
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c     | 20 ++++++++++----------
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |  8 ++++----
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c     |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c      | 23 +++++++++++------------
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.c     |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_type.h    |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_vf.c      | 14 +++++++-------
- 11 files changed, 40 insertions(+), 42 deletions(-)
+Neerav updates the i40e driver to skip over priority tagging if DCB is not
+enabled.  Adds the capability to gather VEB per TC statistics and dump it
+via debugfs.  Fixes an issue where the driver is not flushing out the
+DCBNL app table for applications that are not present in the local DCBX
+application configuration TLVs.  Fixed i40e where, in the case of MFP
+mode, the driver was returning the incorrect number of traffic classes
+for partitions that are not enabled for iSCSI.  Even though the driver
+was not configuring these traffic classes in the transmit scheduler for
+the NIC partitions, it does use this map to setup the queue mappings.
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.c b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-index bf19dcc..6cfae6a 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-@@ -398,7 +398,7 @@ static void fm10k_update_hw_stats_rx_q(struct fm10k_hw *hw,
- 	/* Retrieve RX Owner Data */
- 	id_rx = fm10k_read_reg(hw, FM10K_RXQCTL(idx));
- 
--	/* Process RX Ring*/
-+	/* Process RX Ring */
- 	do {
- 		rx_drops = fm10k_read_hw_stats_32b(hw, FM10K_QPRDC(idx),
- 						   &q->rx_drops);
-@@ -466,7 +466,6 @@ void fm10k_update_hw_stats_q(struct fm10k_hw *hw, struct fm10k_hw_stats_q *q,
-  *  Function invalidates the index values for the queues so any updates that
-  *  may have happened are ignored and the base for the queue stats is reset.
-  **/
--
- void fm10k_unbind_hw_stats_q(struct fm10k_hw_stats_q *q, u32 idx, u32 count)
- {
- 	u32 i;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 651f53b..33b6106 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -1019,7 +1019,7 @@ static int fm10k_set_channels(struct net_device *dev,
- }
- 
- static int fm10k_get_ts_info(struct net_device *dev,
--			   struct ethtool_ts_info *info)
-+			     struct ethtool_ts_info *info)
- {
- 	struct fm10k_intfc *interface = netdev_priv(dev);
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-index 0601908..a02308f 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-@@ -275,7 +275,7 @@ s32 fm10k_iov_update_pvid(struct fm10k_intfc *interface, u16 glort, u16 pvid)
- 	if (vf_idx >= iov_data->num_vfs)
- 		return FM10K_ERR_PARAM;
- 
--	/* determine if an update has occured and if so notify the VF */
-+	/* determine if an update has occurred and if so notify the VF */
- 	vf_info = &iov_data->vf_info[vf_idx];
- 	if (vf_info->sw_vid != pvid) {
- 		vf_info->sw_vid = pvid;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 0cb6971b..c325bc0 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -949,10 +949,10 @@ static int __fm10k_maybe_stop_tx(struct fm10k_ring *tx_ring, u16 size)
- {
- 	netif_stop_subqueue(tx_ring->netdev, tx_ring->queue_index);
- 
-+	/* Memory barrier before checking head and tail */
- 	smp_mb();
- 
--	/* We need to check again in a case another CPU has just
--	 * made room available. */
-+	/* Check again in a case another CPU has just made room available */
- 	if (likely(fm10k_desc_unused(tx_ring) < size))
- 		return -EBUSY;
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-index 9f5457c..14ee696 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-@@ -72,7 +72,7 @@ static bool fm10k_fifo_empty(struct fm10k_mbx_fifo *fifo)
-  *  @fifo: pointer to FIFO
-  *  @offset: offset to add to head
-  *
-- *  This function returns the indicies into the fifo based on head + offset
-+ *  This function returns the indices into the fifo based on head + offset
-  **/
- static u16 fm10k_fifo_head_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
- {
-@@ -84,7 +84,7 @@ static u16 fm10k_fifo_head_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
-  *  @fifo: pointer to FIFO
-  *  @offset: offset to add to tail
-  *
-- *  This function returns the indicies into the fifo based on tail + offset
-+ *  This function returns the indices into the fifo based on tail + offset
-  **/
- static u16 fm10k_fifo_tail_offset(struct fm10k_mbx_fifo *fifo, u16 offset)
- {
-@@ -326,7 +326,7 @@ static u16 fm10k_mbx_validate_msg_size(struct fm10k_mbx_info *mbx, u16 len)
-  *  fm10k_mbx_write_copy - pulls data off of Tx FIFO and places it in mbmem
-  *  @mbx: pointer to mailbox
-  *
-- *  This function will take a seciton of the Rx FIFO and copy it into the
-+ *  This function will take a section of the Rx FIFO and copy it into the
- 		mbx->tail--;
-  *  mailbox memory.  The offset in mbmem is based on the lower bits of the
-  *  tail and len determines the length to copy.
-@@ -418,7 +418,7 @@ static void fm10k_mbx_pull_head(struct fm10k_hw *hw,
-  *  @hw: pointer to hardware structure
-  *  @mbx: pointer to mailbox
-  *
-- *  This function will take a seciton of the mailbox memory and copy it
-+ *  This function will take a section of the mailbox memory and copy it
-  *  into the Rx FIFO.  The offset is based on the lower bits of the
-  *  head and len determines the length to copy.
-  **/
-@@ -464,7 +464,7 @@ static void fm10k_mbx_read_copy(struct fm10k_hw *hw,
-  *  @tail: tail index of message
-  *
-  *  This function will first validate the tail index and size for the
-- *  incoming message.  It then updates the acknowlegment number and
-+ *  incoming message.  It then updates the acknowledgment number and
-  *  copies the data into the FIFO.  It will return the number of messages
-  *  dequeued on success and a negative value on error.
-  **/
-@@ -761,7 +761,7 @@ static s32 fm10k_mbx_enqueue_tx(struct fm10k_hw *hw,
- 		err = fm10k_fifo_enqueue(&mbx->tx, msg);
- 	}
- 
--	/* if we failed trhead the error */
-+	/* if we failed treat the error */
- 	if (err) {
- 		mbx->timeout = 0;
- 		mbx->tx_busy++;
-@@ -815,7 +815,7 @@ static void fm10k_mbx_write(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx)
- {
- 	u32 mbmem = mbx->mbmem_reg;
- 
--	/* write new msg header to notify recepient of change */
-+	/* write new msg header to notify recipient of change */
- 	fm10k_write_reg(hw, mbmem, mbx->mbx_hdr);
- 
- 	/* write mailbox to sent interrupt */
-@@ -1251,7 +1251,7 @@ static s32 fm10k_mbx_process_error(struct fm10k_hw *hw,
- 	/* we will need to pull all of the fields for verification */
- 	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
- 
--	/* we only have lower 10 bits of error number os add upper bits */
-+	/* we only have lower 10 bits of error number so add upper bits */
- 	err_no = FM10K_MSG_HDR_FIELD_GET(*hdr, ERR_NO);
- 	err_no |= ~FM10K_MSG_HDR_MASK(ERR_NO);
- 
-@@ -1548,7 +1548,7 @@ s32 fm10k_pfvf_mbx_init(struct fm10k_hw *hw, struct fm10k_mbx_info *mbx,
- 	mbx->timeout = 0;
- 	mbx->udelay = FM10K_MBX_INIT_DELAY;
- 
--	/* initalize tail and head */
-+	/* initialize tail and head */
- 	mbx->tail = 1;
- 	mbx->head = 1;
- 
-@@ -1627,7 +1627,7 @@ static void fm10k_sm_mbx_connect_reset(struct fm10k_mbx_info *mbx)
- 	mbx->local = FM10K_SM_MBX_VERSION;
- 	mbx->remote = 0;
- 
--	/* initalize tail and head */
-+	/* initialize tail and head */
- 	mbx->tail = 1;
- 	mbx->head = 1;
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 2a9b467..d5b303d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -356,7 +356,7 @@ static void fm10k_free_all_rx_resources(struct fm10k_intfc *interface)
-  * fm10k_request_glort_range - Request GLORTs for use in configuring rules
-  * @interface: board private structure
-  *
-- * This function allocates a range of glorts for this inteface to use.
-+ * This function allocates a range of glorts for this interface to use.
-  **/
- static void fm10k_request_glort_range(struct fm10k_intfc *interface)
- {
-@@ -781,7 +781,7 @@ static int fm10k_update_vid(struct net_device *netdev, u16 vid, bool set)
- 
- 	fm10k_mbx_lock(interface);
- 
--	/* only need to update the VLAN if not in promiscous mode */
-+	/* only need to update the VLAN if not in promiscuous mode */
- 	if (!(netdev->flags & IFF_PROMISC)) {
- 		err = hw->mac.ops.update_vlan(hw, vid, 0, set);
- 		if (err)
-@@ -970,7 +970,7 @@ static void fm10k_set_rx_mode(struct net_device *dev)
- 
- 	fm10k_mbx_lock(interface);
- 
--	/* syncronize all of the addresses */
-+	/* synchronize all of the addresses */
- 	if (xcast_mode != FM10K_XCAST_MODE_PROMISC) {
- 		__dev_uc_sync(dev, fm10k_uc_sync, fm10k_uc_unsync);
- 		if (xcast_mode != FM10K_XCAST_MODE_ALLMULTI)
-@@ -1051,7 +1051,7 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
- 					   vid, true, 0);
- 	}
- 
--	/* syncronize all of the addresses */
-+	/* synchronize all of the addresses */
- 	if (xcast_mode != FM10K_XCAST_MODE_PROMISC) {
- 		__dev_uc_sync(netdev, fm10k_uc_sync, fm10k_uc_unsync);
- 		if (xcast_mode != FM10K_XCAST_MODE_ALLMULTI)
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 4f5892c..8978d55 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -648,7 +648,7 @@ static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
- 	/* Configure the Rx buffer size for one buff without split */
- 	srrctl |= FM10K_RX_BUFSZ >> FM10K_SRRCTL_BSIZEPKT_SHIFT;
- 
--	/* Configure the Rx ring to supress loopback packets */
-+	/* Configure the Rx ring to suppress loopback packets */
- 	srrctl |= FM10K_SRRCTL_LOOPBACK_SUPPRESS;
- 	fm10k_write_reg(hw, FM10K_SRRCTL(reg_idx), srrctl);
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 7e47119..159cd84 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -234,8 +234,7 @@ static s32 fm10k_update_vlan_pf(struct fm10k_hw *hw, u32 vid, u8 vsi, bool set)
- 	vid = (vid << 17) >> 17;
- 
- 	/* verify the reserved 0 fields are 0 */
--	if (len >= FM10K_VLAN_TABLE_VID_MAX ||
--	    vid >= FM10K_VLAN_TABLE_VID_MAX)
-+	if (len >= FM10K_VLAN_TABLE_VID_MAX || vid >= FM10K_VLAN_TABLE_VID_MAX)
- 		return FM10K_ERR_PARAM;
- 
- 	/* Loop through the table updating all required VLANs */
-@@ -312,7 +311,7 @@ bool fm10k_glort_valid_pf(struct fm10k_hw *hw, u16 glort)
- }
- 
- /**
-- *  fm10k_update_uc_addr_pf - Update device unicast addresss
-+ *  fm10k_update_xc_addr_pf - Update device addresses
-  *  @hw: pointer to the HW structure
-  *  @glort: base resource tag for this request
-  *  @mac: MAC address to add/remove from table
-@@ -356,7 +355,7 @@ static s32 fm10k_update_xc_addr_pf(struct fm10k_hw *hw, u16 glort,
- }
- 
- /**
-- *  fm10k_update_uc_addr_pf - Update device unicast addresss
-+ *  fm10k_update_uc_addr_pf - Update device unicast addresses
-  *  @hw: pointer to the HW structure
-  *  @glort: base resource tag for this request
-  *  @mac: MAC address to add/remove from table
-@@ -454,7 +453,7 @@ static void fm10k_update_int_moderator_pf(struct fm10k_hw *hw)
- 			break;
- 	}
- 
--	/* always reset VFITR2[0] to point to last enabled PF vector*/
-+	/* always reset VFITR2[0] to point to last enabled PF vector */
- 	fm10k_write_reg(hw, FM10K_ITR2(FM10K_ITR_REG_COUNT_PF), i);
- 
- 	/* reset ITR2[0] to point to last enabled PF vector */
-@@ -812,7 +811,7 @@ static s32 fm10k_iov_assign_int_moderator_pf(struct fm10k_hw *hw, u16 vf_idx)
- 	if (vf_idx >= hw->iov.num_vfs)
- 		return FM10K_ERR_PARAM;
- 
--	/* determine vector offset and count*/
-+	/* determine vector offset and count */
- 	vf_v_idx = fm10k_vf_vector_index(hw, vf_idx);
- 	vf_v_limit = vf_v_idx + fm10k_vectors_per_pool(hw);
- 
-@@ -951,7 +950,7 @@ static s32 fm10k_iov_reset_resources_pf(struct fm10k_hw *hw,
- 	if (vf_info->mbx.ops.disconnect)
- 		vf_info->mbx.ops.disconnect(hw, &vf_info->mbx);
- 
--	/* determine vector offset and count*/
-+	/* determine vector offset and count */
- 	vf_v_idx = fm10k_vf_vector_index(hw, vf_idx);
- 	vf_v_limit = vf_v_idx + fm10k_vectors_per_pool(hw);
- 
-@@ -1035,7 +1034,7 @@ static s32 fm10k_iov_reset_resources_pf(struct fm10k_hw *hw,
- 			((u32)vf_info->mac[2]);
- 	}
- 
--	/* map queue pairs back to VF from last to first*/
-+	/* map queue pairs back to VF from last to first */
- 	for (i = queues_per_pool; i--;) {
- 		fm10k_write_reg(hw, FM10K_TDBAL(vf_q_idx + i), tdbal);
- 		fm10k_write_reg(hw, FM10K_TDBAH(vf_q_idx + i), tdbah);
-@@ -1141,7 +1140,7 @@ static s32 fm10k_iov_report_timestamp_pf(struct fm10k_hw *hw,
-  *
-  *  This function is a default handler for MSI-X requests from the VF.  The
-  *  assumption is that in this case it is acceptable to just directly
-- *  hand off the message form the VF to the underlying shared code.
-+ *  hand off the message from the VF to the underlying shared code.
-  **/
- s32 fm10k_iov_msg_msix_pf(struct fm10k_hw *hw, u32 **results,
- 			  struct fm10k_mbx_info *mbx)
-@@ -1160,7 +1159,7 @@ s32 fm10k_iov_msg_msix_pf(struct fm10k_hw *hw, u32 **results,
-  *
-  *  This function is a default handler for MAC/VLAN requests from the VF.
-  *  The assumption is that in this case it is acceptable to just directly
-- *  hand off the message form the VF to the underlying shared code.
-+ *  hand off the message from the VF to the underlying shared code.
-  **/
- s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *hw, u32 **results,
- 			      struct fm10k_mbx_info *mbx)
-@@ -1404,7 +1403,7 @@ static void fm10k_update_hw_stats_pf(struct fm10k_hw *hw,
- 						    &stats->vlan_drop);
- 		loopback_drop = fm10k_read_hw_stats_32b(hw,
- 							FM10K_STATS_LOOPBACK_DROP,
--						     &stats->loopback_drop);
-+							&stats->loopback_drop);
- 		nodesc_drop = fm10k_read_hw_stats_32b(hw,
- 						      FM10K_STATS_NODESC_DROP,
- 						      &stats->nodesc_drop);
-@@ -1573,7 +1572,7 @@ static s32 fm10k_get_host_state_pf(struct fm10k_hw *hw, bool *switch_ready)
- 	s32 ret_val = 0;
- 	u32 dma_ctrl2;
- 
--	/* verify the switch is ready for interraction */
-+	/* verify the switch is ready for interaction */
- 	dma_ctrl2 = fm10k_read_reg(hw, FM10K_DMA_CTRL2);
- 	if (!(dma_ctrl2 & FM10K_DMA_CTRL2_SWITCH_READY))
- 		goto out;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-index fd0a05f..9b29d7b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-@@ -710,7 +710,7 @@ void fm10k_tlv_msg_test_create(u32 *msg, u32 attr_flags)
- /**
-  *  fm10k_tlv_msg_test - Validate all results on test message receive
-  *  @hw: Pointer to hardware structure
-- *  @results: Pointer array to attributes in the mesage
-+ *  @results: Pointer array to attributes in the message
-  *  @mbx: Pointer to mailbox information structure
-  *
-  *  This function does a check to verify all attributes match what the test
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index abb8a03..4af9668 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -596,7 +596,7 @@ struct fm10k_vf_info {
- 	u16			sw_vid;		/* Switch API assigned VLAN */
- 	u16			pf_vid;		/* PF assigned Default VLAN */
- 	u8			mac[ETH_ALEN];	/* PF Default MAC address */
--	u8			vsi;		/* VSI idenfifier */
-+	u8			vsi;		/* VSI identifier */
- 	u8			vf_idx;		/* which VF this is */
- 	u8			vf_flags;	/* flags indicating what modes
- 						 * are supported for the port
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-index f0aa0f9..1721967 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_vf.c
-@@ -37,7 +37,7 @@ static s32 fm10k_stop_hw_vf(struct fm10k_hw *hw)
- 	if (err)
- 		return err;
- 
--	/* If permenant address is set then we need to restore it */
-+	/* If permanent address is set then we need to restore it */
- 	if (is_valid_ether_addr(perm_addr)) {
- 		bal = (((u32)perm_addr[3]) << 24) |
- 		      (((u32)perm_addr[4]) << 16) |
-@@ -65,7 +65,7 @@ static s32 fm10k_stop_hw_vf(struct fm10k_hw *hw)
-  *  fm10k_reset_hw_vf - VF hardware reset
-  *  @hw: pointer to hardware structure
-  *
-- *  This function should return the hardare to a state similar to the
-+ *  This function should return the hardware to a state similar to the
-  *  one it is in after just being initialized.
-  **/
- static s32 fm10k_reset_hw_vf(struct fm10k_hw *hw)
-@@ -252,7 +252,7 @@ static s32 fm10k_read_mac_addr_vf(struct fm10k_hw *hw)
- }
- 
- /**
-- *  fm10k_update_uc_addr_vf - Update device unicast address
-+ *  fm10k_update_uc_addr_vf - Update device unicast addresses
-  *  @hw: pointer to the HW structure
-  *  @glort: unused
-  *  @mac: MAC address to add/remove from table
-@@ -282,7 +282,7 @@ static s32 fm10k_update_uc_addr_vf(struct fm10k_hw *hw, u16 glort,
- 	    memcmp(hw->mac.perm_addr, mac, ETH_ALEN))
- 		return FM10K_ERR_PARAM;
- 
--	/* add bit to notify us if this is a set of clear operation */
-+	/* add bit to notify us if this is a set or clear operation */
- 	if (!add)
- 		vid |= FM10K_VLAN_CLEAR;
- 
-@@ -295,7 +295,7 @@ static s32 fm10k_update_uc_addr_vf(struct fm10k_hw *hw, u16 glort,
- }
- 
- /**
-- *  fm10k_update_mc_addr_vf - Update device multicast address
-+ *  fm10k_update_mc_addr_vf - Update device multicast addresses
-  *  @hw: pointer to the HW structure
-  *  @glort: unused
-  *  @mac: MAC address to add/remove from table
-@@ -319,7 +319,7 @@ static s32 fm10k_update_mc_addr_vf(struct fm10k_hw *hw, u16 glort,
- 	if (!is_multicast_ether_addr(mac))
- 		return FM10K_ERR_PARAM;
- 
--	/* add bit to notify us if this is a set of clear operation */
-+	/* add bit to notify us if this is a set or clear operation */
- 	if (!add)
- 		vid |= FM10K_VLAN_CLEAR;
- 
-@@ -515,7 +515,7 @@ static s32 fm10k_adjust_systime_vf(struct fm10k_hw *hw, s32 ppb)
-  *  @hw: pointer to the hardware structure
-  *
-  *  Function reads the content of 2 registers, combined to represent a 64 bit
-- *  value measured in nanosecods.  In order to guarantee the value is accurate
-+ *  value measured in nanoseconds.  In order to guarantee the value is accurate
-  *  we check the 32 most significant bits both before and after reading the
-  *  32 least significant bits to verify they didn't change as we were reading
-  *  the registers.
+Shannon updates i40e/i40evf to include the firmware build number in the
+formatted firmware version string.
+
+Akeem adds a safety net (by adding a 'default' case) for the possible
+unmatched switch calls.
+
+Mitch updates i40e to not automatically disable PF loopback at runtime,
+now that we have the functionality to enable and disable PF loopback.  This
+fix cleans up a bogus error message when removing the PF module with VFs
+enabled.  Adds a extra check to make sure that the indirection table
+pointer is valid before dereferencing it.
+
+Anjali enables i40e to enable more than the max RSS qps when running in a
+single TC mode for the main VSI.  It is possible to enable as many as
+num_online_cpus().  Adds a firmware check to ensure that DCB is disabled for
+firmware versions older than 4.33.  Updates i40e/i40evf to add missing
+packet types for VXLAN offload.  Updated i40e to be able to handle varying
+RSS table size for each VSI, since all VSI's do not have the same RSS table
+size.
+
+The following are changes since commit 721a57a02dfc81b6d63b93b8ca23be3004b61515:
+  Merge branch 'tipc-next'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (1):
+  i40e: Add safety net for switch calling
+
+Anjali Singhai Jain (5):
+  i40e: Enable more than 64 qps for the Main VSI
+  i40e: Add FW check to disable DCB and wrap autoneg workaround with FW
+    check
+  i40e/i40evf: Add missing packet types for VXLAN encapsulated packet
+    types
+  i40e: Move RSS table size for VSIs to the VSI struct
+  i40e: Fix RSS size at init since default num queue calculation has
+    changed
+
+Matthew Vick (3):
+  fm10k: Modify tunnel length header check when offloading
+  fm10k: Implement ndo_features_check
+  fm10k: Resolve various spelling errors and checkpatch warnings
+
+Mitch Williams (2):
+  i40e: don't disable PF LB when disabling VFs
+  i40evf: ethtool RSS fixes
+
+Neerav Parikh (5):
+  i40e: Skip the priority tagging if DCB is not enabled
+  i40e/i40evf: Add capability to gather VEB per TC stats
+  i40e: Fix issue with removal of apps from DBCNL app table
+  i40e: Register DCBNL ops in MFP mode
+  i40e: Only enable TC0 for NIC partition type
+
+Shannon Nelson (1):
+  i40e/i40evf: print FW build number in version string
+
+Sravanthi Tangeda (1):
+  i40e/i40evf: Bump versions
+
+ drivers/net/ethernet/intel/fm10k/fm10k.h           |   1 +
+ drivers/net/ethernet/intel/fm10k/fm10k_common.c    |   3 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c   |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c       |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c      |  39 ++++---
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c       |  20 ++--
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    |  19 +++-
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c       |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c        |  23 ++---
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.c       |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h      |   5 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_vf.c        |  14 +--
+ drivers/net/ethernet/intel/i40e/i40e.h             |  13 ++-
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c      |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h      |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  12 ++-
+ drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c      |  13 +--
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  24 +++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 115 +++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  13 ++-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   8 ++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   1 -
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |   1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   8 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   8 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  14 +--
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
+ 29 files changed, 259 insertions(+), 116 deletions(-)
+
 -- 
 1.9.3
