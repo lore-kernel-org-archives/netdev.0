@@ -1,63 +1,112 @@
-From: Emmanuel Grumbach <egrumbach@gmail.com>
-Subject: Re: [PATCH] iwlwifi: mvm: check time event is over before disconnecting
-Date: Sat, 28 Feb 2015 21:55:17 +0200
-Message-ID: <CANUX_P22MQEVkFsC_ToYiSTMVSB+QpSOMCb=d3+AH4224nhocw@mail.gmail.com>
-References: <1425078600-29882-1-git-send-email-filipayazi@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Filip Ayazi <filipayazi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425078600-29882-1-git-send-email-filipayazi@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped frame for IPv6 packets
+Date: Sat, 28 Feb 2015 11:58:29 -0800
+Message-ID: <1425153509-31582-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Amitabha Banerjee <banerjeea@vmware.com>
+To: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:59258 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751340AbbB1T7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 14:59:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 28, 2015 at 1:10 AM, Filip Ayazi <filipayazi@gmail.com> wrote:
-> On the 7260 time event was often ended before end_time and connections failed
-> with "No association and the time event is over already...".
-> This checks that the time event is actually over before disconnecting.
->
-> Signed-off-by: Filip Ayazi <filipayazi@gmail.com>
+Allows for packet parsing to be done by the fast path. This performance
+optimization already exists for IPv4. Add similar logic for IPv6.
 
-While this patch is wrong I'd like to know if it helps.
-The patch is wrong because even if the driver thinks the time event
-should still be running, if the firmware indicates it has already
-ended, we should still disconnect. The reason for the disconnection is
-that we can't be sure that the firmware will have the proper timing
-for the beacon and hence for the DTIM. Both are critical to get a
-decent behavior while saving power.
-In any case, I doubt this patch does actually something because the
-firmware and the driver should really be close in their timings. If
-they aren't, it is fundamental bug in the firmware. While the firmware
-does have bugs just like any piece of software, I doubt it has such
-big ones :)
+Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 26 ++++++++++++++++----------
+ drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
+ 2 files changed, 19 insertions(+), 12 deletions(-)
 
-> ---
->  drivers/net/wireless/iwlwifi/mvm/time-event.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/iwlwifi/mvm/time-event.c b/drivers/net/wireless/iwlwifi/mvm/time-event.c
-> index 54fafbf..b0aa892 100644
-> --- a/drivers/net/wireless/iwlwifi/mvm/time-event.c
-> +++ b/drivers/net/wireless/iwlwifi/mvm/time-event.c
-> @@ -256,7 +256,8 @@ static void iwl_mvm_te_handle_notif(struct iwl_mvm *mvm,
->                 }
->         }
->
-> -       if (le32_to_cpu(notif->action) & TE_V2_NOTIF_HOST_EVENT_END) {
-> +       if (le32_to_cpu(notif->action) & TE_V2_NOTIF_HOST_EVENT_END &&
-> +           time_after(jiffies, te_data->end_jiffies)) {
->                 IWL_DEBUG_TE(mvm,
->                              "TE ended - current time %lu, estimated end %lu\n",
->                              jiffies, te_data->end_jiffies);
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 294214c..9216e6a 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -819,6 +819,7 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 			   struct vmxnet3_adapter *adapter)
+ {
+ 	struct Vmxnet3_TxDataDesc *tdd;
++	u8 protocol = 0;
+ 
+ 	if (ctx->mss) {	/* TSO */
+ 		ctx->eth_ip_hdr_size = skb_transport_offset(skb);
+@@ -831,16 +832,20 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 			if (ctx->ipv4) {
+ 				const struct iphdr *iph = ip_hdr(skb);
+ 
+-				if (iph->protocol == IPPROTO_TCP)
+-					ctx->l4_hdr_size = tcp_hdrlen(skb);
+-				else if (iph->protocol == IPPROTO_UDP)
+-					ctx->l4_hdr_size = sizeof(struct udphdr);
+-				else
+-					ctx->l4_hdr_size = 0;
+-			} else {
+-				/* for simplicity, don't copy L4 headers */
+-				ctx->l4_hdr_size = 0;
++				protocol = iph->protocol;
++			} else if (ctx->ipv6) {
++				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
++
++				protocol = ipv6h->nexthdr;
+ 			}
++
++			if (protocol == IPPROTO_TCP)
++				ctx->l4_hdr_size = tcp_hdrlen(skb);
++			else if (protocol == IPPROTO_UDP)
++				ctx->l4_hdr_size = sizeof(struct udphdr);
++			else
++				ctx->l4_hdr_size = 0;
++
+ 			ctx->copy_size = min(ctx->eth_ip_hdr_size +
+ 					 ctx->l4_hdr_size, skb->len);
+ 		} else {
+@@ -887,7 +892,7 @@ vmxnet3_prepare_tso(struct sk_buff *skb,
+ 		iph->check = 0;
+ 		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, 0,
+ 						 IPPROTO_TCP, 0);
+-	} else {
++	} else if (ctx->ipv6) {
+ 		struct ipv6hdr *iph = ipv6_hdr(skb);
+ 
+ 		tcph->check = ~csum_ipv6_magic(&iph->saddr, &iph->daddr, 0,
+@@ -938,6 +943,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 	count = txd_estimate(skb);
+ 
+ 	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
++	ctx.ipv6 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IPV6));
+ 
+ 	ctx.mss = skb_shinfo(skb)->gso_size;
+ 	if (ctx.mss) {
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index cd71c77..6bb769a 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.3.4.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.3.5.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01030400
++#define VMXNET3_DRIVER_VERSION_NUM      0x01030500
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+@@ -211,6 +211,7 @@ struct vmxnet3_tq_driver_stats {
+ 
+ struct vmxnet3_tx_ctx {
+ 	bool   ipv4;
++	bool   ipv6;
+ 	u16 mss;
+ 	u32 eth_ip_hdr_size; /* only valid for pkts requesting tso or csum
+ 				 * offloading
+-- 
+1.8.5.6
