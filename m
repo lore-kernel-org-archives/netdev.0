@@ -1,36 +1,301 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: Re: [PATCH] sh_eth: Fix lost MAC address on kexec
-Date: Sat, 28 Feb 2015 02:48:41 +0000
-Message-ID: <1425091721.4444.91.camel@xylophone.i.decadent.org.uk>
-References: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Kevin Hilman <khilman@kernel.org>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>
+From: Jaedon Shin <jaedon.shin@gmail.com>
+Subject: [PATCH v3] net: bcmgenet: fix throughtput regression
+Date: Sat, 28 Feb 2015 11:48:26 +0900
+Message-ID: <1425091706-5811-1-git-send-email-jaedon.shin@gmail.com>
+Cc: davem@davemloft.net, pgynther@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jaedon Shin <jaedon.shin@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-02-27 at 17:16 +0100, Geert Uytterhoeven wrote:
-> Commit 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before
-> freeing buffers") added a call to sh_eth_reset() to the
-> sh_eth_set_ringparam() and sh_eth_close() paths.
-> 
-> However, setting the software reset bit(s) in the EDMR register resets
-> the MAC Address Registers to zero. Hence after kexec, the new kernel
-> doesn't detect a valid MAC address and assigns a random MAC address,
-> breaking DHCP.
-[...]
+This patch adds bcmgenet_tx_poll for the tx_rings. This can reduce the
+interrupt load and send xmit in network stack on time. This also
+separated for the completion of tx_ring16 from bcmgenet_poll.
 
-Sorry about that.  This would also affect removing and reloading the
-driver as a module, but currently I always have it built in and don't
-use kexec.
+The bcmgenet_tx_reclaim of tx_ring[{0,1,2,3}] operative by an interrupt
+is to be not more than a certain number TxBDs. It is caused by too
+slowly reclaiming the transmitted skb. Therefore, performance
+degradation of xmit after 605ad7f ("tcp: refine TSO autosizing").
 
-Ben.
+Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 111 +++++++++++++++++++------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |   2 +
+ 2 files changed, 87 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index ff83c46b..d2979ac 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -971,13 +971,14 @@ static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
+ }
+ 
+ /* Unlocked version of the reclaim routine */
+-static void __bcmgenet_tx_reclaim(struct net_device *dev,
++static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 				  struct bcmgenet_tx_ring *ring)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	int last_tx_cn, last_c_index, num_tx_bds;
+ 	struct enet_cb *tx_cb_ptr;
+ 	struct netdev_queue *txq;
++	unsigned int pkts_compl = 0;
+ 	unsigned int bds_compl;
+ 	unsigned int c_index;
+ 
+@@ -1005,6 +1006,7 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
+ 		tx_cb_ptr = ring->cbs + last_c_index;
+ 		bds_compl = 0;
+ 		if (tx_cb_ptr->skb) {
++			pkts_compl++;
+ 			bds_compl = skb_shinfo(tx_cb_ptr->skb)->nr_frags + 1;
+ 			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
+ 			dma_unmap_single(&dev->dev,
+@@ -1028,23 +1030,45 @@ static void __bcmgenet_tx_reclaim(struct net_device *dev,
+ 		last_c_index &= (num_tx_bds - 1);
+ 	}
+ 
+-	if (ring->free_bds > (MAX_SKB_FRAGS + 1))
+-		ring->int_disable(priv, ring);
+-
+-	if (netif_tx_queue_stopped(txq))
+-		netif_tx_wake_queue(txq);
++	if (ring->free_bds > (MAX_SKB_FRAGS + 1)) {
++		if (netif_tx_queue_stopped(txq))
++			netif_tx_wake_queue(txq);
++	}
+ 
+ 	ring->c_index = c_index;
++
++	return pkts_compl;
+ }
+ 
+-static void bcmgenet_tx_reclaim(struct net_device *dev,
++static unsigned int bcmgenet_tx_reclaim(struct net_device *dev,
+ 				struct bcmgenet_tx_ring *ring)
+ {
++	unsigned int released;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&ring->lock, flags);
+-	__bcmgenet_tx_reclaim(dev, ring);
++	released = __bcmgenet_tx_reclaim(dev, ring);
+ 	spin_unlock_irqrestore(&ring->lock, flags);
++
++	return released;
++}
++
++static int bcmgenet_tx_poll(struct napi_struct *napi, int budget)
++{
++	struct bcmgenet_tx_ring *ring =
++		container_of(napi, struct bcmgenet_tx_ring, napi);
++	unsigned int work_done = 0;
++
++	work_done = bcmgenet_tx_reclaim(ring->priv->dev, ring);
++
++	if (work_done == 0) {
++		napi_complete(napi);
++		ring->int_enable(ring->priv, ring);
++
++		return 0;
++	}
++
++	return budget;
+ }
+ 
+ static void bcmgenet_tx_reclaim_all(struct net_device *dev)
+@@ -1302,10 +1326,8 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	bcmgenet_tdma_ring_writel(priv, ring->index,
+ 				  ring->prod_index, TDMA_PROD_INDEX);
+ 
+-	if (ring->free_bds <= (MAX_SKB_FRAGS + 1)) {
++	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+ 		netif_tx_stop_queue(txq);
+-		ring->int_enable(priv, ring);
+-	}
+ 
+ out:
+ 	spin_unlock_irqrestore(&ring->lock, flags);
+@@ -1621,6 +1643,7 @@ static int init_umac(struct bcmgenet_priv *priv)
+ 	struct device *kdev = &priv->pdev->dev;
+ 	int ret;
+ 	u32 reg, cpu_mask_clear;
++	int index;
+ 
+ 	dev_dbg(&priv->pdev->dev, "bcmgenet: init_umac\n");
+ 
+@@ -1647,7 +1670,7 @@ static int init_umac(struct bcmgenet_priv *priv)
+ 
+ 	bcmgenet_intr_disable(priv);
+ 
+-	cpu_mask_clear = UMAC_IRQ_RXDMA_BDONE;
++	cpu_mask_clear = UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_TXDMA_BDONE;
+ 
+ 	dev_dbg(kdev, "%s:Enabling RXDMA_BDONE interrupt\n", __func__);
+ 
+@@ -1674,6 +1697,10 @@ static int init_umac(struct bcmgenet_priv *priv)
+ 
+ 	bcmgenet_intrl2_0_writel(priv, cpu_mask_clear, INTRL2_CPU_MASK_CLEAR);
+ 
++	for (index = 0; index < priv->hw_params->tx_queues; index++)
++		bcmgenet_intrl2_1_writel(priv, (1 << index),
++					 INTRL2_CPU_MASK_CLEAR);
++
+ 	/* Enable rx/tx engine.*/
+ 	dev_dbg(kdev, "done init umac\n");
+ 
+@@ -1693,6 +1720,8 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
+ 	unsigned int first_bd;
+ 
+ 	spin_lock_init(&ring->lock);
++	ring->priv = priv;
++	netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
+ 	ring->index = index;
+ 	if (index == DESC_INDEX) {
+ 		ring->queue = 0;
+@@ -1738,6 +1767,17 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
+ 				  TDMA_WRITE_PTR);
+ 	bcmgenet_tdma_ring_writel(priv, index, end_ptr * words_per_bd - 1,
+ 				  DMA_END_ADDR);
++
++	napi_enable(&ring->napi);
++}
++
++static void bcmgenet_fini_tx_ring(struct bcmgenet_priv *priv,
++				  unsigned int index)
++{
++	struct bcmgenet_tx_ring *ring = &priv->tx_rings[index];
++
++	napi_disable(&ring->napi);
++	netif_napi_del(&ring->napi);
+ }
+ 
+ /* Initialize a RDMA ring */
+@@ -1907,7 +1947,7 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
+ 	return ret;
+ }
+ 
+-static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
++static void __bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ {
+ 	int i;
+ 
+@@ -1926,6 +1966,18 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ 	kfree(priv->tx_cbs);
+ }
+ 
++static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
++{
++	int i;
++
++	bcmgenet_fini_tx_ring(priv, DESC_INDEX);
++
++	for (i = 0; i < priv->hw_params->tx_queues; i++)
++		bcmgenet_fini_tx_ring(priv, i);
++
++	__bcmgenet_fini_dma(priv);
++}
++
+ /* init_edma: Initialize DMA control register */
+ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
+ {
+@@ -1952,7 +2004,7 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
+ 	priv->tx_cbs = kcalloc(priv->num_tx_bds, sizeof(struct enet_cb),
+ 			       GFP_KERNEL);
+ 	if (!priv->tx_cbs) {
+-		bcmgenet_fini_dma(priv);
++		__bcmgenet_fini_dma(priv);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -1975,9 +2027,6 @@ static int bcmgenet_poll(struct napi_struct *napi, int budget)
+ 			struct bcmgenet_priv, napi);
+ 	unsigned int work_done;
+ 
+-	/* tx reclaim */
+-	bcmgenet_tx_reclaim(priv->dev, &priv->tx_rings[DESC_INDEX]);
+-
+ 	work_done = bcmgenet_desc_rx(priv, budget);
+ 
+ 	/* Advancing our consumer index*/
+@@ -2022,28 +2071,34 @@ static void bcmgenet_irq_task(struct work_struct *work)
+ static irqreturn_t bcmgenet_isr1(int irq, void *dev_id)
+ {
+ 	struct bcmgenet_priv *priv = dev_id;
++	struct bcmgenet_tx_ring *ring;
+ 	unsigned int index;
+ 
+ 	/* Save irq status for bottom-half processing. */
+ 	priv->irq1_stat =
+ 		bcmgenet_intrl2_1_readl(priv, INTRL2_CPU_STAT) &
+-		~priv->int1_mask;
++		~bcmgenet_intrl2_1_readl(priv, INTRL2_CPU_MASK_STATUS);
+ 	/* clear interrupts */
+ 	bcmgenet_intrl2_1_writel(priv, priv->irq1_stat, INTRL2_CPU_CLEAR);
+ 
+ 	netif_dbg(priv, intr, priv->dev,
+ 		  "%s: IRQ=0x%x\n", __func__, priv->irq1_stat);
++
+ 	/* Check the MBDONE interrupts.
+ 	 * packet is done, reclaim descriptors
+ 	 */
+-	if (priv->irq1_stat & 0x0000ffff) {
+-		index = 0;
+-		for (index = 0; index < 16; index++) {
+-			if (priv->irq1_stat & (1 << index))
+-				bcmgenet_tx_reclaim(priv->dev,
+-						    &priv->tx_rings[index]);
++	for (index = 0; index < priv->hw_params->tx_queues; index++) {
++		if (!(priv->irq1_stat & BIT(index)))
++			continue;
++
++		ring = &priv->tx_rings[index];
++
++		if (likely(napi_schedule_prep(&ring->napi))) {
++			ring->int_disable(priv, ring);
++			__napi_schedule(&ring->napi);
+ 		}
+ 	}
++
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -2075,8 +2130,12 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
+ 	}
+ 	if (priv->irq0_stat &
+ 			(UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE)) {
+-		/* Tx reclaim */
+-		bcmgenet_tx_reclaim(priv->dev, &priv->tx_rings[DESC_INDEX]);
++		struct bcmgenet_tx_ring *ring = &priv->tx_rings[DESC_INDEX];
++
++		if (likely(napi_schedule_prep(&ring->napi))) {
++			ring->int_disable(priv, ring);
++			__napi_schedule(&ring->napi);
++		}
+ 	}
+ 	if (priv->irq0_stat & (UMAC_IRQ_PHY_DET_R |
+ 				UMAC_IRQ_PHY_DET_F |
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index b36ddec..0d370d1 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -520,6 +520,7 @@ struct bcmgenet_hw_params {
+ 
+ struct bcmgenet_tx_ring {
+ 	spinlock_t	lock;		/* ring lock */
++	struct napi_struct napi;	/* NAPI per tx queue */
+ 	unsigned int	index;		/* ring index */
+ 	unsigned int	queue;		/* queue index */
+ 	struct enet_cb	*cbs;		/* tx ring buffer control block*/
+@@ -534,6 +535,7 @@ struct bcmgenet_tx_ring {
+ 			   struct bcmgenet_tx_ring *);
+ 	void (*int_disable)(struct bcmgenet_priv *priv,
+ 			    struct bcmgenet_tx_ring *);
++	struct bcmgenet_priv *priv;
+ };
+ 
+ /* device context */
+-- 
+2.3.0
