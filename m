@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] usbnet: Fix tx_packets stat for
- FLAG_MULTI_FRAME drivers
-Date: Sat, 28 Feb 2015 14:28:01 -0500 (EST)
-Message-ID: <20150228.142801.274701022130750604.davem@davemloft.net>
-References: <1424979277.4444.39.camel@xylophone.i.decadent.org.uk>
+From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v2 4/7] net: packet: use skb->dev as storage for
+ skb orig len instead of skb->cb[]
+Date: Sat, 28 Feb 2015 21:39:34 +0200
+Message-ID: <CAHsH6Guq33N755dcuNEmzgP06O=PBdy2Tzt5vSr-iRFoj4uGtw@mail.gmail.com>
+References: <1424977624-649-1-git-send-email-eyal.birger@gmail.com>
+	<1424977624-649-5-git-send-email-eyal.birger@gmail.com>
+	<20150228.142135.470339626705046722.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oliver@neukum.org,
-	linux-kernel@codethink.co.uk, linux-usb@vger.kernel.org
-To: ben.hutchings@codethink.co.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808AbbB1T2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 14:28:03 -0500
-In-Reply-To: <1424979277.4444.39.camel@xylophone.i.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Shmulik Ladkani <shmulik.ladkani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150228.142135.470339626705046722.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Date: Thu, 26 Feb 2015 19:34:37 +0000
+On Sat, Feb 28, 2015 at 9:21 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Thu, 26 Feb 2015 21:07:01 +0200
+>
+>> As part of an effort to move skb->dropcount to skb->cb[], 4 bytes
+>> of additional room are needed in skb->cb[] in packet sockets.
+>>
+>> Store the skb original length in skb->dev instead of skb->cb[] for
+>> this purpose.
+>>
+>> Signed-off-by: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+> I'm a little confused, why is this even needed?
+>
+> packet_skb_cb is 24 bytes by my calculations, which is much
+> smaller than the cb[] size which is 48 bytes.
 
-> Currently the usbnet core does not update the tx_packets statistic for
-> drivers with FLAG_MULTI_PACKET and there is no hook in the TX
-> completion path where they could do this.
-> 
-> cdc_ncm and dependent drivers are bumping tx_packets stat on the
-> transmit path while asix and sr9800 aren't updating it at all.
-> 
-> Add a packet count in struct skb_data so these drivers can fill it
-> in, initialise it to 1 for other drivers, and add the packet count
-> to the tx_packets statistic on completion.
-> 
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Note the BUILD_BUG_ON in packet_rcv().
 
-Applied, thanks Ben.
+packet_skb_cb may contain an address as large as MAX_ADDR_LEN (32)
+Therefore the required space is sizeof(packet_skb_cb) + MAX_ADDR_LEN - 8
+which is 48 bytes before this change.
+
+Regards,
+Eyal.
