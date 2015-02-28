@@ -1,98 +1,50 @@
-From: =?utf-8?B?Ss61YW4=?= Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH v2 net] net: do not use rcu in rtnl_dump_ifinfo()
-Date: Fri, 27 Feb 2015 17:43:57 -0700
-Message-ID: <20150228004357.GA28631@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] netns: avoid allocating idr when dumping info
+Date: Fri, 27 Feb 2015 16:48:20 -0800
+Message-ID: <CAM_iQpUx69wuHyTY-L6eAhNzuCWxhVd-jSHcKXq7cW4NXBZpOQ@mail.gmail.com>
 References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
- <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
- <54F09A95.8000507@6wind.com>
- <1425056838.5130.27.camel@edumazet-glaptop2.roam.corp.google.com>
- <1425058970.5130.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54F09A95.8000507@6wind.com>
+	<CAM_iQpUPQVodJRGmf=GYOVK+R_84w-+yDtqyHCJGbCDH0hb44A@mail.gmail.com>
+	<1425060255.5130.39.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: nicolas.dichtel@6wind.com, Daniel Borkmann <daniel@iogearbox.net>,
-	David Miller <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:64965 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbbB1Aqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 19:46:50 -0500
-Received: by mail-ob0-f173.google.com with SMTP id uy5so21964968obc.4
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 16:46:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1425058970.5130.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:37972 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105AbbB1AsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 19:48:21 -0500
+Received: by pdbfp1 with SMTP id fp1so24759010pdb.5
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 16:48:21 -0800 (PST)
+In-Reply-To: <1425060255.5130.39.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 27 Feb 2015 09:42:50 -0800
+On Fri, Feb 27, 2015 at 10:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2015-02-27 at 09:28 -0800, Cong Wang wrote:
 >
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We did a failed attempt in the past to only use rcu in rtnl dump
-> operations (commit e67f88dd12f6 "net: dont hold rtnl mutex during
-> netlink dump callbacks")
-> 
-> Now that dumps are holding RTNL anyway, there is no need to also
-> use rcu locking, as it forbids any scheduling ability, like
-> GFP_KERNEL allocations that controlling path should use instead
-> of GFP_ATOMIC whenever possible.
-> 
-> This should fix following splat Cong Wang reported :
-> 
->  [ INFO: suspicious RCU usage. ]
->  3.19.0+ #805 Tainted: G        W      
-> 
->  include/linux/rcupdate.h:538 Illegal context switch in RCU read-side critical section!
->  
->  other info that might help us debug this:
->  
->  
->  rcu_scheduler_active = 1, debug_locks = 0
->  2 locks held by ip/771:
->   #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8182b8f4>] netlink_dump+0x21/0x26c
->   #1:  (rcu_read_lock){......}, at: [<ffffffff817d785b>] rcu_read_lock+0x0/0x6e
->  
->  stack backtrace:
->  CPU: 3 PID: 771 Comm: ip Tainted: G        W       3.19.0+ #805
->  Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
->   0000000000000001 ffff8800d51e7718 ffffffff81a27457 0000000029e729e6
->   ffff8800d6108000 ffff8800d51e7748 ffffffff810b539b ffffffff820013dd
->   00000000000001c8 0000000000000000 ffff8800d7448088 ffff8800d51e7758
->  Call Trace:
->   [<ffffffff81a27457>] dump_stack+0x4c/0x65
->   [<ffffffff810b539b>] lockdep_rcu_suspicious+0x107/0x110
->   [<ffffffff8109796f>] rcu_preempt_sleep_check+0x45/0x47
->   [<ffffffff8109e457>] ___might_sleep+0x1d/0x1cb
->   [<ffffffff8109e67d>] __might_sleep+0x78/0x80
->   [<ffffffff814b9b1f>] idr_alloc+0x45/0xd1
->   [<ffffffff810cb7ab>] ? rcu_read_lock_held+0x3b/0x3d
->   [<ffffffff814b9f9d>] ? idr_for_each+0x53/0x101
->   [<ffffffff817c1383>] alloc_netid+0x61/0x69
->   [<ffffffff817c14c3>] __peernet2id+0x79/0x8d
->   [<ffffffff817c1ab7>] peernet2id+0x13/0x1f
->   [<ffffffff817d8673>] rtnl_fill_ifinfo+0xa8d/0xc20
->   [<ffffffff810b17d9>] ? __lock_is_held+0x39/0x52
->   [<ffffffff817d894f>] rtnl_dump_ifinfo+0x149/0x213
->   [<ffffffff8182b9c2>] netlink_dump+0xef/0x26c
->   [<ffffffff8182bcba>] netlink_recvmsg+0x17b/0x2c5
->   [<ffffffff817b0adc>] __sock_recvmsg+0x4e/0x59
->   [<ffffffff817b1b40>] sock_recvmsg+0x3f/0x51
->   [<ffffffff817b1f9a>] ___sys_recvmsg+0xf6/0x1d9
->   [<ffffffff8115dc67>] ? handle_pte_fault+0x6e1/0xd3d
->   [<ffffffff8100a3a0>] ? native_sched_clock+0x35/0x37
->   [<ffffffff8109f45b>] ? sched_clock_local+0x12/0x72
->   [<ffffffff8109f6ac>] ? sched_clock_cpu+0x9e/0xb7
->   [<ffffffff810cb7ab>] ? rcu_read_lock_held+0x3b/0x3d
->   [<ffffffff811abde8>] ? __fcheck_files+0x4c/0x58
->   [<ffffffff811ac556>] ? __fget_light+0x2d/0x52
->   [<ffffffff817b376f>] __sys_recvmsg+0x42/0x60
->   [<ffffffff817b379f>] SyS_recvmsg+0x12/0x1c
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: commit 0c7aecd4bde4b7302 ("netns: add rtnl cmd to add and get peer netns ids")
+>> I don't understand why you think this is over engineering,
+>> clearly it is normal to allocate resources in newlink rather than
+>> dumping. Look at other resources we allocate in newlink.
+>
+> This has nothing to do with the splat you gave.
 
-- The word 'commit' is not supposed to be there.
 
-- ${SHA1} is supposed to be 12-digit-long.
+Why not? If we from the beginning can avoid allocate any
+memory in dumping, such rcu warning would not even trigger.
+
+>
+> If you believe there is a _different_ bug, then submit another patch.
+
+I am not 100% sure it is a bug yet, but it does signal some bad sign.
+
+>
+> But claiming your patch solves the rcu thing is misleading,
+> you gave already 2 wrong patches, trying to hide the real fix.
+>
+
+If rcu read lock were the only problem, I wouldn't even want to
+reply, too trivial to worthy a reply.
