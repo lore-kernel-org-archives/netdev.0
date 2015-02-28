@@ -1,72 +1,98 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] i40e: crash on NMI by continuous module reload
-Date: Fri, 27 Feb 2015 16:45:58 -0800
-Message-ID: <1425084358.9477.76.camel@jtkirshe-mobl>
-References: <54F07630.1010802@kpanic.de> <54F078DF.5020100@gmail.com>
-	 <54F07C29.8010805@kpanic.de> <54F082C8.8040407@gmail.com>
-	 <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
-	 <3DA4D8F9-C0E0-41B9-8F9C-BD17BC7A09B3@gmail.com>
+From: =?utf-8?B?Ss61YW4=?= Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH v2 net] net: do not use rcu in rtnl_dump_ifinfo()
+Date: Fri, 27 Feb 2015 17:43:57 -0700
+Message-ID: <20150228004357.GA28631@mail.gmail.com>
+References: <1425018776-14725-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1425024069.5130.10.camel@edumazet-glaptop2.roam.corp.google.com>
+ <54F09A95.8000507@6wind.com>
+ <1425056838.5130.27.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1425058970.5130.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ON8iRdCb7ZMaXvFyZEC5"
-Cc: "Nelson, Shannon" <shannon.nelson@intel.com>,
-	Stefan Assmann <sassmann@kpanic.de>,
-	netdev <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Nicholas Krause <xerofoify@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: nicolas.dichtel@6wind.com, Daniel Borkmann <daniel@iogearbox.net>,
+	David Miller <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42744 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751179AbbB1Ap7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2015 19:45:59 -0500
-In-Reply-To: <3DA4D8F9-C0E0-41B9-8F9C-BD17BC7A09B3@gmail.com>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:64965 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbbB1Aqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 19:46:50 -0500
+Received: by mail-ob0-f173.google.com with SMTP id uy5so21964968obc.4
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 16:46:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1425058970.5130.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 27 Feb 2015 09:42:50 -0800
+>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> We did a failed attempt in the past to only use rcu in rtnl dump
+> operations (commit e67f88dd12f6 "net: dont hold rtnl mutex during
+> netlink dump callbacks")
+> 
+> Now that dumps are holding RTNL anyway, there is no need to also
+> use rcu locking, as it forbids any scheduling ability, like
+> GFP_KERNEL allocations that controlling path should use instead
+> of GFP_ATOMIC whenever possible.
+> 
+> This should fix following splat Cong Wang reported :
+> 
+>  [ INFO: suspicious RCU usage. ]
+>  3.19.0+ #805 Tainted: G        W      
+> 
+>  include/linux/rcupdate.h:538 Illegal context switch in RCU read-side critical section!
+>  
+>  other info that might help us debug this:
+>  
+>  
+>  rcu_scheduler_active = 1, debug_locks = 0
+>  2 locks held by ip/771:
+>   #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8182b8f4>] netlink_dump+0x21/0x26c
+>   #1:  (rcu_read_lock){......}, at: [<ffffffff817d785b>] rcu_read_lock+0x0/0x6e
+>  
+>  stack backtrace:
+>  CPU: 3 PID: 771 Comm: ip Tainted: G        W       3.19.0+ #805
+>  Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+>   0000000000000001 ffff8800d51e7718 ffffffff81a27457 0000000029e729e6
+>   ffff8800d6108000 ffff8800d51e7748 ffffffff810b539b ffffffff820013dd
+>   00000000000001c8 0000000000000000 ffff8800d7448088 ffff8800d51e7758
+>  Call Trace:
+>   [<ffffffff81a27457>] dump_stack+0x4c/0x65
+>   [<ffffffff810b539b>] lockdep_rcu_suspicious+0x107/0x110
+>   [<ffffffff8109796f>] rcu_preempt_sleep_check+0x45/0x47
+>   [<ffffffff8109e457>] ___might_sleep+0x1d/0x1cb
+>   [<ffffffff8109e67d>] __might_sleep+0x78/0x80
+>   [<ffffffff814b9b1f>] idr_alloc+0x45/0xd1
+>   [<ffffffff810cb7ab>] ? rcu_read_lock_held+0x3b/0x3d
+>   [<ffffffff814b9f9d>] ? idr_for_each+0x53/0x101
+>   [<ffffffff817c1383>] alloc_netid+0x61/0x69
+>   [<ffffffff817c14c3>] __peernet2id+0x79/0x8d
+>   [<ffffffff817c1ab7>] peernet2id+0x13/0x1f
+>   [<ffffffff817d8673>] rtnl_fill_ifinfo+0xa8d/0xc20
+>   [<ffffffff810b17d9>] ? __lock_is_held+0x39/0x52
+>   [<ffffffff817d894f>] rtnl_dump_ifinfo+0x149/0x213
+>   [<ffffffff8182b9c2>] netlink_dump+0xef/0x26c
+>   [<ffffffff8182bcba>] netlink_recvmsg+0x17b/0x2c5
+>   [<ffffffff817b0adc>] __sock_recvmsg+0x4e/0x59
+>   [<ffffffff817b1b40>] sock_recvmsg+0x3f/0x51
+>   [<ffffffff817b1f9a>] ___sys_recvmsg+0xf6/0x1d9
+>   [<ffffffff8115dc67>] ? handle_pte_fault+0x6e1/0xd3d
+>   [<ffffffff8100a3a0>] ? native_sched_clock+0x35/0x37
+>   [<ffffffff8109f45b>] ? sched_clock_local+0x12/0x72
+>   [<ffffffff8109f6ac>] ? sched_clock_cpu+0x9e/0xb7
+>   [<ffffffff810cb7ab>] ? rcu_read_lock_held+0x3b/0x3d
+>   [<ffffffff811abde8>] ? __fcheck_files+0x4c/0x58
+>   [<ffffffff811ac556>] ? __fget_light+0x2d/0x52
+>   [<ffffffff817b376f>] __sys_recvmsg+0x42/0x60
+>   [<ffffffff817b379f>] SyS_recvmsg+0x12/0x1c
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: commit 0c7aecd4bde4b7302 ("netns: add rtnl cmd to add and get peer netns ids")
 
---=-ON8iRdCb7ZMaXvFyZEC5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+- The word 'commit' is not supposed to be there.
 
-On Fri, 2015-02-27 at 16:25 -0500, Nicholas Krause wrote:
-> Thanks Shannon,=20
-> For the advice on there being a newer driver and firmware to test that
-> on before reporting the bug against this driver. I am curious as to
-> why this newer code is not up streamed to Linux next yet through.
-
-Because I still have ~40 patches in my queue for i40e that need to go
-upstream to get the upstream driver in sync with our out-of-tree driver.
-
-Also Nick, please do not take advantage of me being nice to you and
-letting you remain on e1000-devel mailing list, even though you have
-been banned on @vger.kernel.org mailing lists.  It is clear from your
-attempts to help Stefan, you do not know the driver and your "blind
-stabs in the dark" to assist, only hinder our abilities to assist
-others.
-
---=-ON8iRdCb7ZMaXvFyZEC5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU8Q/GAAoJEOVv75VaS+3OdowP/1TYVEDcTZjg+3+Rw/V4VpGj
-hGZqrdiCJNe/lECToXDMHGnDt/NKrtuAC6Q+haicRHtBEk1BC2/Q1Y43I1BNXIiv
-Rgtl/CbSyhGg0LaV2kpdncEszk3XdMNRch/PW3q57HB44EWzqdlE/pGEQNRmY2Nd
-vui+JBMkyXtnZ07mH6+DRi191P80k/CBU8kg2HpMlsUF/hVu9FvMVMXuENhDWwYb
-STo9ASnMUAZ8WVWSh1laXo532E31zeVCHvTkY+Ap47093s4/pNjGHvcQASpu2HMs
-Z/knM01IjD57itvJlF7URh9RIM40FrThHUbO3k6O9nk4lkVIvtWppB5M9efaWtRo
-CSu+e+8kcvxWs/nZUfVAmXt5SLFY4jQg/HJIaKYG7PDIaAb8Q/Q2MWich2HL/BGY
-+/Kf7VN0f/O6eaeL7rWZNJV/W2o5ZF+MmBEa7wmUebqZmL3jv2y/fhLgLVWevgSA
-a+E+t696qxNWvpEZy6YhdPF4zaoAzCsPY8+rb0EotrzLfn0N1nnrtGUJkF9BS6gw
-qXUlp5n46yU5g+FaS1t/ApenlO3eAYl5c/yxpqDJ7pOFOifA2XN+mkL9M6lYjsP4
-97+fhfUmQzyHAq3UCQy612eTYjLCephz/gQ8/W81rUmZQGZc3GV2zJleCb5Zvb2E
-smCPBbSgxzVFx5SW4SAL
-=4lbe
------END PGP SIGNATURE-----
-
---=-ON8iRdCb7ZMaXvFyZEC5--
+- ${SHA1} is supposed to be 12-digit-long.
