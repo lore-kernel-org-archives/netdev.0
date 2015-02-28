@@ -1,112 +1,57 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped frame for IPv6 packets
-Date: Sat, 28 Feb 2015 11:58:29 -0800
-Message-ID: <1425153509-31582-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Amitabha Banerjee <banerjeea@vmware.com>
-To: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: Flows! Offload them.
+Date: Sat, 28 Feb 2015 15:02:33 -0500 (EST)
+Message-ID: <20150228.150233.90829668077433241.davem@davemloft.net>
+References: <CA+mtBx-sVMNFng_=DcM5mJTbzrRNsFhTvC8YxvjxcqEXwDcWWw@mail.gmail.com>
+	<20150226161705.GH1973@nanopsycho.lan>
+	<CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, simon.horman@netronome.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, jpettit@nicira.com, joestringer@nicira.com,
+	john.r.fastabend@intel.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, shrijeet@gmail.com,
+	gospo@cumulusnetworks.com, bcrl@kvack.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:59258 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751340AbbB1T7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 14:59:33 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:34147 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856AbbB1UCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 15:02:37 -0500
+In-Reply-To: <CA+mtBx8r6OGGYXivBc86662peU81Z3UxxZbVS68a_Nadg5p3ZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows for packet parsing to be done by the fast path. This performance
-optimization already exists for IPv4. Add similar logic for IPv6.
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 26 Feb 2015 10:15:24 -0800
 
-Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_drv.c | 26 ++++++++++++++++----------
- drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
- 2 files changed, 19 insertions(+), 12 deletions(-)
+> But, routing (aka switching) in the stack is not configured through
+> TC. We have a whole forwarding and routing infrastructure (eg.
+> iproute) with optimizations that  allow routes to be cached in
+> sockets, etc. To me, it seems like offloading that basic functionality
+> is a prerequisite before attempting to offload more advanced policy
+> mechanisms of TC, netfilter, etc.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 294214c..9216e6a 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -819,6 +819,7 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 			   struct vmxnet3_adapter *adapter)
- {
- 	struct Vmxnet3_TxDataDesc *tdd;
-+	u8 protocol = 0;
- 
- 	if (ctx->mss) {	/* TSO */
- 		ctx->eth_ip_hdr_size = skb_transport_offset(skb);
-@@ -831,16 +832,20 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 			if (ctx->ipv4) {
- 				const struct iphdr *iph = ip_hdr(skb);
- 
--				if (iph->protocol == IPPROTO_TCP)
--					ctx->l4_hdr_size = tcp_hdrlen(skb);
--				else if (iph->protocol == IPPROTO_UDP)
--					ctx->l4_hdr_size = sizeof(struct udphdr);
--				else
--					ctx->l4_hdr_size = 0;
--			} else {
--				/* for simplicity, don't copy L4 headers */
--				ctx->l4_hdr_size = 0;
-+				protocol = iph->protocol;
-+			} else if (ctx->ipv6) {
-+				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+
-+				protocol = ipv6h->nexthdr;
- 			}
-+
-+			if (protocol == IPPROTO_TCP)
-+				ctx->l4_hdr_size = tcp_hdrlen(skb);
-+			else if (protocol == IPPROTO_UDP)
-+				ctx->l4_hdr_size = sizeof(struct udphdr);
-+			else
-+				ctx->l4_hdr_size = 0;
-+
- 			ctx->copy_size = min(ctx->eth_ip_hdr_size +
- 					 ctx->l4_hdr_size, skb->len);
- 		} else {
-@@ -887,7 +892,7 @@ vmxnet3_prepare_tso(struct sk_buff *skb,
- 		iph->check = 0;
- 		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, 0,
- 						 IPPROTO_TCP, 0);
--	} else {
-+	} else if (ctx->ipv6) {
- 		struct ipv6hdr *iph = ipv6_hdr(skb);
- 
- 		tcph->check = ~csum_ipv6_magic(&iph->saddr, &iph->daddr, 0,
-@@ -938,6 +943,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 	count = txd_estimate(skb);
- 
- 	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
-+	ctx.ipv6 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IPV6));
- 
- 	ctx.mss = skb_shinfo(skb)->gso_size;
- 	if (ctx.mss) {
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index cd71c77..6bb769a 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.3.4.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.3.5.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01030400
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01030500
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
-@@ -211,6 +211,7 @@ struct vmxnet3_tq_driver_stats {
- 
- struct vmxnet3_tx_ctx {
- 	bool   ipv4;
-+	bool   ipv6;
- 	u16 mss;
- 	u32 eth_ip_hdr_size; /* only valid for pkts requesting tso or csum
- 				 * offloading
--- 
-1.8.5.6
++1
+
+I think this is the most important post in this entire thread.
+
+The current proposal here is jumping the gun by several weeks if
+not months.
+
+We have no idea what roadblocks or design barriers we will hit
+with just plain L2 and L3 forwarding yet.
+
+Therefore it is premature to move over to making major decisions
+about flow offloading before we've made more progress with the
+more fundamental (and in my opinion much more important) offload
+facilities.
+
+Jiri, if you want to implement an example set of classifiers in
+software that can completely replace openvswitch's datapath, that's
+fine.  And it's a completely independant task to designing how we'll
+offload flows to hardware in the future.
