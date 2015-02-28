@@ -1,46 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: Remove iocb argument from sendmsg
- and recvmsg
-Date: Sat, 28 Feb 2015 17:12:50 -0500 (EST)
-Message-ID: <20150228.171250.1612351664541183290.davem@davemloft.net>
-References: <1425035198-12547-1-git-send-email-ying.xue@windriver.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped frame
+ for IPv6 packets
+Date: Sun, 01 Mar 2015 02:10:04 +0300
+Message-ID: <54F24ACC.7020108@cogentembedded.com>
+References: <1425153509-31582-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: viro@ZenIV.linux.org.uk, hch@lst.de, netdev@vger.kernel.org,
-	erik.hugne@ericsson.com, jon.maloy@ericsson.com
-To: ying.xue@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34939 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752680AbbB1WMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 17:12:52 -0500
-In-Reply-To: <1425035198-12547-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amitabha Banerjee <banerjeea@vmware.com>
+To: Shrikrishna Khare <skhare@vmware.com>, sbhatewara@vmware.com,
+	pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425153509-31582-1-git-send-email-skhare@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+DQpEYXRlOiBGcmksIDI3IEZl
-YiAyMDE1IDE5OjA2OjM1ICswODAwDQoNCj4gQ3VycmVudGx5IHRoZXJlIGlzIG9ubHkgb25lIHVz
-ZXIgLSBUSVBDIHdob3NlIHNlbmRtc2coKSBpbnN0YW5jZXMNCj4gdXNpbmcgaW9jYiBhcmd1bWVu
-dC4gTWVhbndoaWxlLCB0aGVyZSBpcyBubyB1c2VyIHVzaW5nIGlvY2IgYXJndW1lbnQNCj4gaW4g
-aXRzIHJlY3Ztc2coKSBpbnN0YW5jZS4gVGhlcmVmb3JlLCBpZiB3ZSBlbGltaW5hdGUgdGhlIHdl
-cmlkIHVzYWdlDQo+IG9mIGlvYmMgYXJndW1lbnQgZnJvbSBUSVBDLCB0aGUgaW9jYiBhcmd1bWVu
-dCBjYW4gYmUgcmVtb3ZlZCBmcm9tDQo+IGFsbCBzZW5kbXNnKCkgYW5kIHJlY3Ztc2coKSBpbnN0
-YW5jZXMgb2YgdGhlIHdob2xlIG5ldHdvcmsgc3RhY2suDQo+IA0KPiBCeSB0aGUgd2F5LCBhcyBw
-YXRjaCAjMiBpcyB2ZXJ5IGJpZywgSSBjYW4gZGl2aWRlIGl0IGludG8gc21hbGxlcg0KPiBwYXRj
-aGVzIHJlZ2FyZGluZyBtb2R1bGUgaW4gbmV4dCB2ZXJzaW9uIGlmIG5lY2Vzc2FyeS4NCj4gDQo+
-IFJlZmVyZW5jZToNCj4gaHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRjaC80MzM5NjAv
-DQoNCllvdSBkaWRuJ3QgZXZlbiBwcm9wZXJseSBjb21waWxlIHRlc3QgdGhpcyBwYXRjaCBzZXJp
-ZXM6DQoNCm5ldC9kY2NwL3Byb3RvLmM6NzQ0OjU6IGVycm9yOiBjb25mbGljdGluZyB0eXBlcyBm
-b3IgoWRjY3Bfc2VuZG1zZ6INCiBpbnQgZGNjcF9zZW5kbXNnKHN0cnVjdCBzb2NrICpzaywgc3Ry
-dWN0IG1zZ2hkciAqbXNnLCBzaXplX3QgbGVuKQ0KICAgICBeDQpJbiBmaWxlIGluY2x1ZGVkIGZy
-b20gbmV0L2RjY3AvcHJvdG8uYzozNzowOg0KbmV0L2RjY3AvZGNjcC5oOjMxMzo1OiBub3RlOiBw
-cmV2aW91cyBkZWNsYXJhdGlvbiBvZiChZGNjcF9zZW5kbXNnoiB3YXMgaGVyZQ0KIGludCBkY2Nw
-X3NlbmRtc2coc3RydWN0IGtpb2NiICppb2NiLCBzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBtc2do
-ZHIgKm1zZywNCiAgICAgXg0KIC4uLg0KbmV0L2RjY3AvcHJvdG8uYzo4MDg6NTogZXJyb3I6IGNv
-bmZsaWN0aW5nIHR5cGVzIGZvciChZGNjcF9yZWN2bXNnog0KIGludCBkY2NwX3JlY3Ztc2coc3Ry
-dWN0IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2csIHNpemVfdCBsZW4sIGludCBub25ibG9j
-aywNCiAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIG5ldC9kY2NwL3Byb3RvLmM6Mzc6MDoN
-Cm5ldC9kY2NwL2RjY3AuaDozMTU6NTogbm90ZTogcHJldmlvdXMgZGVjbGFyYXRpb24gb2YgoWRj
-Y3BfcmVjdm1zZ6Igd2FzIGhlcmUNCiBpbnQgZGNjcF9yZWN2bXNnKHN0cnVjdCBraW9jYiAqaW9j
-Yiwgc3RydWN0IHNvY2sgKnNrLA0KICAgICBeDQo=
+Hello.
+
+On 02/28/2015 10:58 PM, Shrikrishna Khare wrote:
+
+> Allows for packet parsing to be done by the fast path. This performance
+> optimization already exists for IPv4. Add similar logic for IPv6.
+
+> Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> ---
+>   drivers/net/vmxnet3/vmxnet3_drv.c | 26 ++++++++++++++++----------
+>   drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
+>   2 files changed, 19 insertions(+), 12 deletions(-)
+
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index 294214c..9216e6a 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+[...]
+> @@ -831,16 +832,20 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+>   			if (ctx->ipv4) {
+>   				const struct iphdr *iph = ip_hdr(skb);
+>
+> -				if (iph->protocol == IPPROTO_TCP)
+> -					ctx->l4_hdr_size = tcp_hdrlen(skb);
+> -				else if (iph->protocol == IPPROTO_UDP)
+> -					ctx->l4_hdr_size = sizeof(struct udphdr);
+> -				else
+> -					ctx->l4_hdr_size = 0;
+> -			} else {
+> -				/* for simplicity, don't copy L4 headers */
+> -				ctx->l4_hdr_size = 0;
+> +				protocol = iph->protocol;
+> +			} else if (ctx->ipv6) {
+> +				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+> +
+> +				protocol = ipv6h->nexthdr;
+>   			}
+> +
+> +			if (protocol == IPPROTO_TCP)
+> +				ctx->l4_hdr_size = tcp_hdrlen(skb);
+> +			else if (protocol == IPPROTO_UDP)
+> +				ctx->l4_hdr_size = sizeof(struct udphdr);
+> +			else
+> +				ctx->l4_hdr_size = 0;
+> +
+
+    I think the above is asking to be a 'switch (protocol)' instead.
+
+WBR, Sergei
