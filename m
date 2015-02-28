@@ -1,56 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smc91x: use run-time configuration on all ARM
- machines
-Date: Sat, 28 Feb 2015 12:57:21 -0500 (EST)
-Message-ID: <20150228.125721.1605776377351425463.davem@davemloft.net>
-References: <2226303.iMQTNXSl1n@wuerfel>
+Subject: Re: [patch -mainline] niu: fix error handling in
+ niu_class_to_ethflow()
+Date: Sat, 28 Feb 2015 12:59:40 -0500 (EST)
+Message-ID: <20150228.125940.2141368511096709635.davem@davemloft.net>
+References: <20150226165656.GB6820@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, robert.jarzmik@free.fr,
-	linus.walleij@linaro.org, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Cc: benoit.taine@lip6.fr, fabf@skynet.be, bhelgaas@google.com,
+	edumazet@google.com, alexander.h.duyck@redhat.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33204 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33250 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837AbbB1R50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 12:57:26 -0500
-In-Reply-To: <2226303.iMQTNXSl1n@wuerfel>
+	with ESMTP id S1752536AbbB1R7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 12:59:42 -0500
+In-Reply-To: <20150226165656.GB6820@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 25 Feb 2015 16:31:57 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 26 Feb 2015 19:56:56 +0300
 
-> The smc91x driver traditionally gets configured at compile-time
-> for whichever hardware it runs on. This no longer works on
-> ARM as we continue to move to building all-in-one kernels.
+> There is a discrepancy here because the niu_class_to_ethflow() returns
+> zero on failure and one on success but the caller expected zero on
+> success and negative on failure.
 > 
-> Most ARM configurations with this driver already use run-time
-> configuration through DT or through platform_data, but a
-> few have not been converted yet.
+> The problem means that we allow the user to pass classes and flow_types
+> which we don't want.  I've looked at it a bit and I don't see it as a
+> very serious bug.
 > 
-> I've checked all ARM boards that use this driver in their
-> legacy board files, and converted the ones that were using
-> compile-time configuration in smc91x.h to behave like the
-> other ones and provide the interrupt polarity along with
-> the MMIO configuration (width, stride) at platform device
-> creation time.
-> 
-> In particular, these combinations were previously selectable
-> in Kconfig but in fact broken:
-> 
-> - sa1100 assabet plus pleb
-> - msm combined with any other armv6/v7 platform
-> - pxa-idp combined with any non-DMA pxa variant
-> - LogicPD PXA270 combined with any other pxa
-> - nomadik combined with any other armv4/v5 platform,
->   e.g. versatile.
-> 
-> None of these seem critical enough to warrant a backport
-> to stable, but it would be nice to clean this up for good.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks Arnd.
+Applied, thanks Dan.
