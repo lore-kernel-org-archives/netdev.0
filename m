@@ -1,153 +1,53 @@
-From: Fan Du <fan.du@intel.com>
-Subject: [PATCHv3 net-next 2/4] ipv4: Use binary search to choose tcp PMTU probe_size
-Date: Sat, 28 Feb 2015 11:23:03 +0800
-Message-ID: <1425093785-27380-3-git-send-email-fan.du@intel.com>
-References: <1425093785-27380-1-git-send-email-fan.du@intel.com>
-Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
-	fengyuleidian0615@gmail.com
-To: johnwheffner@gmail.com
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Realtek ethernet broken with 4.0-rc1 (invalid MAC address)
+Date: Fri, 27 Feb 2015 21:20:29 -0800
+Message-ID: <2534A403-D18D-4CF5-919F-0A38285AA58F@holtmann.org>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:31145 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751577AbbB1D1x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Feb 2015 22:27:53 -0500
-In-Reply-To: <1425093785-27380-1-git-send-email-fan.du@intel.com>
+Received: from senator.holtmann.net ([87.106.208.187]:33850 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704AbbB1FUf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 00:20:35 -0500
+Received: from [192.168.1.122] (S010620c9d099deff.vc.shawcable.net [50.67.167.179])
+	by mail.holtmann.org (Postfix) with ESMTPSA id 8E8898B338
+	for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 06:20:32 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current probe_size is chosen by doubling mss_cache,
-the probing process will end shortly with a sub-optimal
-mss size, and the link mtu will not be taken full
-advantage of, in return, this will make user to tweak
-tcp_base_mss with care.
+Hi,
 
-Use binary search to choose probe_size in a fine
-granularity manner, an optimal mss will be found
-to boost performance as its maxmium.
+I am having the following Realtek ethernet card in the Minnowboard Max:
 
-In addition, introduce a sysctl_tcp_probe_threshold
-to control when probing will stop in respect to
-the width of search range.
+02:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 0c)
+        Subsystem: Realtek Semiconductor Co., Ltd. Device 0123
+        Flags: bus master, fast devsel, latency 0, IRQ 266
+        I/O ports at 1000 [size=256]
+        Memory at 90500000 (64-bit, non-prefetchable) [size=4K]
+        Memory at 90400000 (64-bit, prefetchable) [size=16K]
+        Capabilities: [40] Power Management version 3
+        Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+        Capabilities: [70] Express Endpoint, MSI 01
+        Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
+        Capabilities: [d0] Vital Product Data
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [140] Virtual Channel
+        Capabilities: [160] Device Serial Number xx-00-00-00-xx-xx-xx-00
+        Capabilities: [170] Latency Tolerance Reporting
+        Kernel driver in use: r8169
+        Kernel modules: r8169
 
-Test env:
-Docker instance with vxlan encapuslation(82599EB)
-iperf -c 10.0.0.24  -t 60
+When I am running the 4.0-rc1 kernel (4.0.0-0.rc1.git0.1.fc22.x86_64 to be precise), then the MAC address of this card is invalid:
 
-before this patch:
-1.26 Gbits/sec
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: enp2s0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether ff:ff:ff:ff:ff:ff brd ff:ff:ff:ff:ff:ff
 
-After this patch: increase 26%
-1.59 Gbits/sec
+Just for reference, when I boot a 3.18 kernel, then card just work fine and it has a valid MAC address. So somewhere in between something broke.
 
-Signed-off-by: Fan Du <fan.du@intel.com>
----
-v3:
-  - Fix commit message
-v2:
-  - Use sysctl_tcp_probe_threshold to control when probing
-    will stop wrt interval between search high and search low.
----
- include/net/netns/ipv4.h   |    1 +
- include/net/tcp.h          |    3 +++
- net/ipv4/sysctl_net_ipv4.c |    7 +++++++
- net/ipv4/tcp_ipv4.c        |    1 +
- net/ipv4/tcp_output.c      |   14 +++++++++++---
- 5 files changed, 23 insertions(+), 3 deletions(-)
+Regards
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index dbe2254..25200d4 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -84,6 +84,7 @@ struct netns_ipv4 {
- 	int sysctl_tcp_fwmark_accept;
- 	int sysctl_tcp_mtu_probing;
- 	int sysctl_tcp_base_mss;
-+	int sysctl_tcp_probe_threshold;
- 
- 	struct ping_group_range ping_group_range;
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7b57e5b..d269c91 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -67,6 +67,9 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- /* The least MTU to use for probing */
- #define TCP_BASE_MSS		1024
- 
-+/* Specify interval when tcp mtu probing will stop */
-+#define TCP_PROBE_THRESHOLD	8
-+
- /* After receiving this amount of duplicate ACKs fast retransmit starts. */
- #define TCP_FASTRETRANS_THRESH 3
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index d151539..d3c09c1 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -883,6 +883,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "tcp_probe_threshold",
-+		.data		= &init_net.ipv4.sysctl_tcp_probe_threshold,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5a2dfed..35790d9 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2460,6 +2460,7 @@ static int __net_init tcp_sk_init(struct net *net)
- 	}
- 	net->ipv4.sysctl_tcp_ecn = 2;
- 	net->ipv4.sysctl_tcp_base_mss = TCP_BASE_MSS;
-+	net->ipv4.sysctl_tcp_probe_threshold = TCP_PROBE_THRESHOLD;
- 	return 0;
- 
- fail:
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a2a796c..c418829 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1837,11 +1837,13 @@ static int tcp_mtu_probe(struct sock *sk)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct sk_buff *skb, *nskb, *next;
-+	struct net *net = sock_net(sk);
- 	int len;
- 	int probe_size;
- 	int size_needed;
- 	int copy;
- 	int mss_now;
-+	int interval;
- 
- 	/* Not currently probing/verifying,
- 	 * not in recovery,
-@@ -1854,11 +1856,17 @@ static int tcp_mtu_probe(struct sock *sk)
- 	    tp->rx_opt.num_sacks || tp->rx_opt.dsack)
- 		return -1;
- 
--	/* Very simple search strategy: just double the MSS. */
-+	/* Use binary search for probe_size bewteen tcp_mss_base,
-+	 * and current mss_clamp. if (search_high - search_low)
-+	 * smaller than a threshold, backoff from probing.
-+	 */
- 	mss_now = tcp_current_mss(sk);
--	probe_size = 2 * tp->mss_cache;
-+	probe_size = (icsk->icsk_mtup.search_high +
-+		      icsk->icsk_mtup.search_low) >> 1;
- 	size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
--	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high)) {
-+	interval = icsk->icsk_mtup.search_high - icsk->icsk_mtup.search_low;
-+	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high) ||
-+	    interval < net->ipv4.sysctl_tcp_probe_threshold) {
- 		/* TODO: set timer for probe_converge_event */
- 		return -1;
- 	}
--- 
-1.7.1
+Marcel
