@@ -1,29 +1,33 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute: ip-gue/ip-fou manpages
-Date: Fri, 27 Feb 2015 19:00:13 -0800
-Message-ID: <20150227190013.2a273f2b@urahara>
-References: <1425054459-12874-1-git-send-email-exa@fb.com>
+Subject: Re: [PATCH iproute2 v4] lib: Replace 16384 netlink buf size by
+ macro
+Date: Fri, 27 Feb 2015 19:01:19 -0800
+Message-ID: <20150227190119.0083f96f@urahara>
+References: <1425018700-32725-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Ebben Aries <exa@fb.com>
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:43709 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152AbbB1DAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 22:00:13 -0500
-Received: by igbhn18 with SMTP id hn18so5301960igb.2
-        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 19:00:12 -0800 (PST)
-In-Reply-To: <1425054459-12874-1-git-send-email-exa@fb.com>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:38216 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbbB1DBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Feb 2015 22:01:18 -0500
+Received: by iecrd18 with SMTP id rd18so35743944iec.5
+        for <netdev@vger.kernel.org>; Fri, 27 Feb 2015 19:01:17 -0800 (PST)
+In-Reply-To: <1425018700-32725-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Feb 2015 09:27:39 -0700
-Ebben Aries <exa@fb.com> wrote:
+On Fri, 27 Feb 2015 08:31:40 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> Add missing GUE/FOU manpages to Makefile
+> From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> Signed-off-by: Ebben Aries <exa@fb.com>
+> Replaced hard coded 16384 netlink buffer size by NLBUF_SIZE,
+> which can be overridden by -DNLBUF_SIZE.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-Applied
+I agree with Dave, add -b option
