@@ -1,47 +1,35 @@
-From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/7] net: packet: use skb->dev as storage for
- skb orig len instead of skb->cb[]
-Date: Sat, 28 Feb 2015 21:39:34 +0200
-Message-ID: <CAHsH6Guq33N755dcuNEmzgP06O=PBdy2Tzt5vSr-iRFoj4uGtw@mail.gmail.com>
-References: <1424977624-649-1-git-send-email-eyal.birger@gmail.com>
-	<1424977624-649-5-git-send-email-eyal.birger@gmail.com>
-	<20150228.142135.470339626705046722.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 3/4] Revert "sh_eth: Enable Rx descriptor word 0
+ shift for r8a7790"
+Date: Sat, 28 Feb 2015 14:47:44 -0500 (EST)
+Message-ID: <20150228.144744.744392539789358424.davem@davemloft.net>
+References: <54EF7163.80900@cogentembedded.com>
+	<1424981623.4444.65.camel@xylophone.i.decadent.org.uk>
+	<54EF8380.3030903@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Shmulik Ladkani <shmulik.ladkani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150228.142135.470339626705046722.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ben.hutchings@codethink.co.uk, netdev@vger.kernel.org,
+	linux-kernel@lists.codethink.co.uk,
+	nobuhiro.iwamatsu.yj@renesas.com, mitsuhiro.kimura.kc@renesas.com,
+	ykaneko0929@gmail.com, yoshihiro.shimoda.uh@renesas.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34015 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750829AbbB1Trr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 14:47:47 -0500
+In-Reply-To: <54EF8380.3030903@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 28, 2015 at 9:21 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Thu, 26 Feb 2015 21:07:01 +0200
->
->> As part of an effort to move skb->dropcount to skb->cb[], 4 bytes
->> of additional room are needed in skb->cb[] in packet sockets.
->>
->> Store the skb original length in skb->dev instead of skb->cb[] for
->> this purpose.
->>
->> Signed-off-by: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
-> I'm a little confused, why is this even needed?
->
-> packet_skb_cb is 24 bytes by my calculations, which is much
-> smaller than the cb[] size which is 48 bytes.
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 26 Feb 2015 23:35:12 +0300
 
-Note the BUILD_BUG_ON in packet_rcv().
+> On 02/26/2015 11:13 PM, Ben Hutchings wrote:
+>> Well, it's logically a revert.  I could mention that I'm also fixing a
+>> comment to match.
+> 
+>    Yes, please.
 
-packet_skb_cb may contain an address as large as MAX_ADDR_LEN (32)
-Therefore the required space is sizeof(packet_skb_cb) + MAX_ADDR_LEN - 8
-which is 48 bytes before this change.
-
-Regards,
-Eyal.
+Ok, then I'm waiting for a respin of this series.
