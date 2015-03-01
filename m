@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] eBPF support for cls_bpf
-Date: Sun, 01 Mar 2015 00:28:39 -0500 (EST)
-Message-ID: <20150301.002839.859474631671429798.davem@davemloft.net>
-References: <cover.1425040939.git.daniel@iogearbox.net>
+Subject: Re: [PATCH] sh_eth: Fix lost MAC address on kexec
+Date: Sun, 01 Mar 2015 00:28:47 -0500 (EST)
+Message-ID: <20150301.002847.261300841277182822.davem@davemloft.net>
+References: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36974 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751046AbbCAF2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 00:28:41 -0500
-In-Reply-To: <cover.1425040939.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ben.hutchings@codethink.co.uk, nobuhiro.iwamatsu.yj@renesas.com,
+	horms@verge.net.au, magnus.damm@gmail.com, khilman@kernel.org,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 27 Feb 2015 15:55:32 +0100
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Fri, 27 Feb 2015 17:16:26 +0100
 
-> This is the non-RFC version of my patchset posted before netdev01 [1]
-> conference. It contains a couple of eBPF cleanups and preparation
-> patches to get eBPF support into cls_bpf. The last patch adds the
-> actual support. I'll post the iproute2 parts after the kernel bits
-> are merged, an initial preview link to the code is mentioned in the
-> last patch.
+> Commit 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before
+> freeing buffers") added a call to sh_eth_reset() to the
+> sh_eth_set_ringparam() and sh_eth_close() paths.
 > 
-> Patch 4 and 5 were originally one patch, but I've split them into
-> two parts upon request as patch 4 only is also needed for Alexei's
-> tracing patches that go via tip tree.
+> However, setting the software reset bit(s) in the EDMR register resets
+> the MAC Address Registers to zero. Hence after kexec, the new kernel
+> doesn't detect a valid MAC address and assigns a random MAC address,
+> breaking DHCP.
 > 
-> Tested with tc and all in-kernel available test suites.
+> Set the MAC address again after the reset in sh_eth_dev_exit() to fix
+> this.
 > 
-> I have configured and built LLVM with --enable-experimental-targets=BPF
-> but as Alexei put it, the plan is to get rid of the experimental
-> status in future [2].
+> Tested on r8a7740/armadillo (GETHER) and r8a7791/koelsch (FAST_RCAR).
+> 
+> Fixes: 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before freeing buffers")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-Daniel please respin this without the arch patches, those should
-go via the various arch maintainer's tree(s).
+Applied.
