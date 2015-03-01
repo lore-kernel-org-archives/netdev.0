@@ -1,118 +1,122 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 6/8] ebpf: add sched_cls_type and map it to sk_filter's verifier ops
-Date: Sun,  1 Mar 2015 12:31:46 +0100
-Message-ID: <02d2196e18055c5d38aa09f74051ef7a9f9701b7.1425208502.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 5/8] ebpf: remove CONFIG_BPF_SYSCALL ifdefs in socket filter code
+Date: Sun,  1 Mar 2015 12:31:45 +0100
+Message-ID: <0cfa43b51eaacab86deeb8fda9bab342dfba4aaa.1425208502.git.daniel@iogearbox.net>
 References: <cover.1425208501.git.daniel@iogearbox.net>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52025 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:52018 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751513AbbCALcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 06:32:15 -0500
+	with ESMTP id S1751380AbbCALcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 06:32:14 -0500
 In-Reply-To: <cover.1425208501.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1425208501.git.daniel@iogearbox.net>
 References: <cover.1425208501.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As discussed recently and at netconf/netdev01, we want to prevent making
-bpf_verifier_ops registration available for modules, but have them at a
-controlled place inside the kernel instead.
+This gets rid of CONFIG_BPF_SYSCALL ifdefs in the socket filter code,
+now that the BPF internal header can deal with it.
 
-The reason for this is, that out-of-tree modules can go crazy and define
-and register any verfifier ops they want, doing all sorts of crap, even
-bypassing available GPLed eBPF helper functions. We don't want to offer
-such a shiny playground, of course, but keep strict control to ourselves
-inside the core kernel.
-
-This also encourages us to design eBPF user helpers carefully and
-generically, so they can be shared among various subsystems using eBPF.
-
-For the eBPF traffic classifier (cls_bpf), it's a good start to share
-the same helper facilities as we currently do in eBPF for socket filters.
-
-That way, we have BPF_PROG_TYPE_SCHED_CLS look like it's own type, thus
-one day if there's a good reason to diverge the set of helper functions
-from the set available to socket filters, we keep ABI compatibility.
-
-In future, we could place all bpf_prog_type_list at a central place,
-perhaps.
+While going over it, I also changed eBPF related functions to a sk_filter
+prefix to be more consistent with the rest of the file.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/uapi/linux/bpf.h |  1 +
- kernel/bpf/verifier.c    | 15 +++++++++++++--
- net/core/filter.c        |  7 +++++++
- 3 files changed, 21 insertions(+), 2 deletions(-)
+ net/core/filter.c | 36 ++++++++++++++----------------------
+ 1 file changed, 14 insertions(+), 22 deletions(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 0248180..3fa1af8 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -118,6 +118,7 @@ enum bpf_map_type {
- enum bpf_prog_type {
- 	BPF_PROG_TYPE_UNSPEC,
- 	BPF_PROG_TYPE_SOCKET_FILTER,
-+	BPF_PROG_TYPE_SCHED_CLS,
- };
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 6fe09e3..7417212 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1093,7 +1093,6 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sk_attach_filter);
  
- #define BPF_PSEUDO_MAP_FD	1
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index a28e09c..594d341 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1172,6 +1172,17 @@ static int check_ld_imm(struct verifier_env *env, struct bpf_insn *insn)
+-#ifdef CONFIG_BPF_SYSCALL
+ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ {
+ 	struct sk_filter *fp, *old_fp;
+@@ -1107,7 +1106,6 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ 		return PTR_ERR(prog);
+ 
+ 	if (prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
+-		/* valid fd, but invalid program type */
+ 		bpf_prog_put(prog);
+ 		return -EINVAL;
+ 	}
+@@ -1117,8 +1115,8 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ 		bpf_prog_put(prog);
+ 		return -ENOMEM;
+ 	}
+-	fp->prog = prog;
+ 
++	fp->prog = prog;
+ 	atomic_set(&fp->refcnt, 0);
+ 
+ 	if (!sk_filter_charge(sk, fp)) {
+@@ -1136,10 +1134,8 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
  	return 0;
  }
  
-+static bool may_access_skb(enum bpf_prog_type type)
-+{
-+	switch (type) {
-+	case BPF_PROG_TYPE_SOCKET_FILTER:
-+	case BPF_PROG_TYPE_SCHED_CLS:
-+		return true;
-+	default:
-+		return false;
-+	}
-+}
-+
- /* verify safety of LD_ABS|LD_IND instructions:
-  * - they can only appear in the programs where ctx == skb
-  * - since they are wrappers of function calls, they scratch R1-R5 registers,
-@@ -1194,8 +1205,8 @@ static int check_ld_abs(struct verifier_env *env, struct bpf_insn *insn)
- 	struct reg_state *reg;
- 	int i, err;
- 
--	if (env->prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
--		verbose("BPF_LD_ABS|IND instructions are only allowed in socket filters\n");
-+	if (!may_access_skb(env->prog->aux->prog_type)) {
-+		verbose("BPF_LD_ABS|IND instructions not allowed for this program type\n");
- 		return -EINVAL;
+-/* allow socket filters to call
+- * bpf_map_lookup_elem(), bpf_map_update_elem(), bpf_map_delete_elem()
+- */
+-static const struct bpf_func_proto *sock_filter_func_proto(enum bpf_func_id func_id)
++static const struct bpf_func_proto *
++sk_filter_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+ 	case BPF_FUNC_map_lookup_elem:
+@@ -1153,34 +1149,30 @@ static const struct bpf_func_proto *sock_filter_func_proto(enum bpf_func_id func
  	}
+ }
  
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7417212..514d408 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1166,9 +1166,16 @@ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+-static bool sock_filter_is_valid_access(int off, int size, enum bpf_access_type type)
++static bool sk_filter_is_valid_access(int off, int size,
++				      enum bpf_access_type type)
+ {
+ 	/* skb fields cannot be accessed yet */
+ 	return false;
+ }
+ 
+-static const struct bpf_verifier_ops sock_filter_ops = {
+-	.get_func_proto = sock_filter_func_proto,
+-	.is_valid_access = sock_filter_is_valid_access,
++static const struct bpf_verifier_ops sk_filter_ops = {
++	.get_func_proto = sk_filter_func_proto,
++	.is_valid_access = sk_filter_is_valid_access,
+ };
+ 
+-static struct bpf_prog_type_list sock_filter_type __read_mostly = {
+-	.ops = &sock_filter_ops,
++static struct bpf_prog_type_list sk_filter_type __read_mostly = {
++	.ops = &sk_filter_ops,
  	.type = BPF_PROG_TYPE_SOCKET_FILTER,
  };
  
-+static struct bpf_prog_type_list sched_cls_type __read_mostly = {
-+	.ops = &sk_filter_ops,
-+	.type = BPF_PROG_TYPE_SCHED_CLS,
-+};
-+
- static int __init register_sk_filter_ops(void)
+-static int __init register_sock_filter_ops(void)
++static int __init register_sk_filter_ops(void)
  {
- 	bpf_register_prog_type(&sk_filter_type);
-+	bpf_register_prog_type(&sched_cls_type);
-+
+-	bpf_register_prog_type(&sock_filter_type);
++	bpf_register_prog_type(&sk_filter_type);
  	return 0;
  }
- late_initcall(register_sk_filter_ops);
+-late_initcall(register_sock_filter_ops);
+-#else
+-int sk_attach_bpf(u32 ufd, struct sock *sk)
+-{
+-	return -EOPNOTSUPP;
+-}
+-#endif
++late_initcall(register_sk_filter_ops);
++
+ int sk_detach_filter(struct sock *sk)
+ {
+ 	int ret = -ENOENT;
 -- 
 1.9.3
