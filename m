@@ -1,78 +1,85 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 1/2] net: bcmgenet: fix software maintained statistics
-Date: Sat, 28 Feb 2015 18:09:16 -0800
-Message-ID: <1425175757-13378-2-git-send-email-f.fainelli@gmail.com>
-References: <1425175757-13378-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: Re: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped
+ frame for IPv6 packets
+Date: Sat, 28 Feb 2015 19:16:00 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1502281846330.20149@shri-linux.eng.vmware.com>
+References: <1425153509-31582-1-git-send-email-skhare@vmware.com> <54F24ACC.7020108@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amitabha Banerjee <banerjeea@vmware.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:44594 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752335AbbCACJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 21:09:34 -0500
-Received: by padbj1 with SMTP id bj1so7539633pad.11
-        for <netdev@vger.kernel.org>; Sat, 28 Feb 2015 18:09:33 -0800 (PST)
-In-Reply-To: <1425175757-13378-1-git-send-email-f.fainelli@gmail.com>
+Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:60282 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752280AbbCADQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 22:16:01 -0500
+In-Reply-To: <54F24ACC.7020108@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 44c8bc3ce39f ("net: bcmgenet: log RX buffer allocation and RX/TX dma
-failures") added a few software maintained statistics using
-BCMGENET_STAT_MIB_RX and BCMGENET_STAT_MIB_TX. These statistics are read from
-the hardware MIB counters, such that bcmgenet_update_mib_counters() was trying
-to read from a non-existing MIB offset for these counters.
 
-Fix this by introducing a special type: BCMGENET_STAT_SOFT, similar to
-BCMGENET_STAT_NETDEV, such that bcmgenet_get_ethtool_stats will read from the
-software mib.
 
-Fixes: 44c8bc3ce39f ("net: bcmgenet: log RX buffer allocation and RX/TX dma failures")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+On Sat, 28 Feb 2015, Sergei Shtylyov wrote:
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index ff83c46..c4c6d32 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -487,6 +487,7 @@ enum bcmgenet_stat_type {
- 	BCMGENET_STAT_MIB_TX,
- 	BCMGENET_STAT_RUNT,
- 	BCMGENET_STAT_MISC,
-+	BCMGENET_STAT_SOFT,
- };
- 
- struct bcmgenet_stats {
-@@ -515,6 +516,7 @@ struct bcmgenet_stats {
- #define STAT_GENET_MIB_RX(str, m) STAT_GENET_MIB(str, m, BCMGENET_STAT_MIB_RX)
- #define STAT_GENET_MIB_TX(str, m) STAT_GENET_MIB(str, m, BCMGENET_STAT_MIB_TX)
- #define STAT_GENET_RUNT(str, m) STAT_GENET_MIB(str, m, BCMGENET_STAT_RUNT)
-+#define STAT_GENET_SOFT_MIB(str, m) STAT_GENET_MIB(str, m, BCMGENET_STAT_SOFT)
- 
- #define STAT_GENET_MISC(str, m, offset) { \
- 	.stat_string = str, \
-@@ -614,9 +616,9 @@ static const struct bcmgenet_stats bcmgenet_gstrings_stats[] = {
- 			UMAC_RBUF_OVFL_CNT),
- 	STAT_GENET_MISC("rbuf_err_cnt", mib.rbuf_err_cnt, UMAC_RBUF_ERR_CNT),
- 	STAT_GENET_MISC("mdf_err_cnt", mib.mdf_err_cnt, UMAC_MDF_ERR_CNT),
--	STAT_GENET_MIB_RX("alloc_rx_buff_failed", mib.alloc_rx_buff_failed),
--	STAT_GENET_MIB_RX("rx_dma_failed", mib.rx_dma_failed),
--	STAT_GENET_MIB_TX("tx_dma_failed", mib.tx_dma_failed),
-+	STAT_GENET_SOFT_MIB("alloc_rx_buff_failed", mib.alloc_rx_buff_failed),
-+	STAT_GENET_SOFT_MIB("rx_dma_failed", mib.rx_dma_failed),
-+	STAT_GENET_SOFT_MIB("tx_dma_failed", mib.tx_dma_failed),
- };
- 
- #define BCMGENET_STATS_LEN	ARRAY_SIZE(bcmgenet_gstrings_stats)
-@@ -668,6 +670,7 @@ static void bcmgenet_update_mib_counters(struct bcmgenet_priv *priv)
- 		s = &bcmgenet_gstrings_stats[i];
- 		switch (s->type) {
- 		case BCMGENET_STAT_NETDEV:
-+		case BCMGENET_STAT_SOFT:
- 			continue;
- 		case BCMGENET_STAT_MIB_RX:
- 		case BCMGENET_STAT_MIB_TX:
--- 
-1.7.1
+> Hello.
+> 
+> On 02/28/2015 10:58 PM, Shrikrishna Khare wrote:
+> 
+> > Allows for packet parsing to be done by the fast path. This performance
+> > optimization already exists for IPv4. Add similar logic for IPv6.
+> 
+> > Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
+> > Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> > ---
+> >   drivers/net/vmxnet3/vmxnet3_drv.c | 26 ++++++++++++++++----------
+> >   drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
+> >   2 files changed, 19 insertions(+), 12 deletions(-)
+> 
+> > diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > b/drivers/net/vmxnet3/vmxnet3_drv.c
+> > index 294214c..9216e6a 100644
+> > --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> [...]
+> > @@ -831,16 +832,20 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct
+> > vmxnet3_tx_queue *tq,
+> >   			if (ctx->ipv4) {
+> >   				const struct iphdr *iph = ip_hdr(skb);
+> > 
+> > -				if (iph->protocol == IPPROTO_TCP)
+> > -					ctx->l4_hdr_size = tcp_hdrlen(skb);
+> > -				else if (iph->protocol == IPPROTO_UDP)
+> > -					ctx->l4_hdr_size = sizeof(struct
+> > udphdr);
+> > -				else
+> > -					ctx->l4_hdr_size = 0;
+> > -			} else {
+> > -				/* for simplicity, don't copy L4 headers */
+> > -				ctx->l4_hdr_size = 0;
+> > +				protocol = iph->protocol;
+> > +			} else if (ctx->ipv6) {
+> > +				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+> > +
+> > +				protocol = ipv6h->nexthdr;
+> >   			}
+> > +
+> > +			if (protocol == IPPROTO_TCP)
+> > +				ctx->l4_hdr_size = tcp_hdrlen(skb);
+> > +			else if (protocol == IPPROTO_UDP)
+> > +				ctx->l4_hdr_size = sizeof(struct udphdr);
+> > +			else
+> > +				ctx->l4_hdr_size = 0;
+> > +
+> 
+>    I think the above is asking to be a 'switch (protocol)' instead.
+> 
+> WBR, Sergei
+> 
+> 
+
+Thanks for the review, Sergei. Would fix it, and resubmit the patch.
+
+Thanks,
+Shri
