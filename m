@@ -1,116 +1,63 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped frame for IPv6 packets
-Date: Sat, 28 Feb 2015 20:33:09 -0800
-Message-ID: <1425184389-29481-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Amitabha Banerjee <banerjeea@vmware.com>
-To: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next v2 4/7] net: packet: use skb->dev as storage for
+ skb orig len instead of skb->cb[]
+Date: Sun, 1 Mar 2015 07:09:54 +0200
+Message-ID: <CAHsH6Gv8Dh3RQ0V7KURcca9bzZGY0FwiqGj-mP9oKA_Vv72nUA@mail.gmail.com>
+References: <CAHsH6Guq33N755dcuNEmzgP06O=PBdy2Tzt5vSr-iRFoj4uGtw@mail.gmail.com>
+	<20150228.150830.1726900309943339124.davem@davemloft.net>
+	<CAHsH6GvvQxHbt4JJrotn3y=BG172Wbw4NrMD+gTUA_R=jbPDTw@mail.gmail.com>
+	<20150228.160047.214686672558902639.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	linux-bluetooth@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:54182 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752989AbbCAEdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 23:33:14 -0500
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:36653 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbbCAFJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 00:09:57 -0500
+In-Reply-To: <20150228.160047.214686672558902639.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows for packet parsing to be done by the fast path. This performance
-optimization already exists for IPv4. Add similar logic for IPv6.
+On Sat, Feb 28, 2015 at 11:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eyal Birger <eyal.birger@gmail.com>
+> Date: Sat, 28 Feb 2015 22:38:04 +0200
+>
+>> My concern is that any value I pick based on the existing implementations
+>> would need to be adjusted come a protocol with a larger address length.
+>
+> Then we need a method that requires protocols to register their
+> address length in a manner that will allow us to validate that
+> limit at compile time.
+>
 
-Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_drv.c | 29 ++++++++++++++++++++---------
- drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
- 2 files changed, 23 insertions(+), 11 deletions(-)
+Sorry to reiterate this, but such validation will inherently become the
+actual limit for hardware addresses.
+So, it would be equivalent to changing the in-kernel definition of
+MAX_ADDR_SIZE.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 294214c..61c0840 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -819,6 +819,7 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 			   struct vmxnet3_adapter *adapter)
- {
- 	struct Vmxnet3_TxDataDesc *tdd;
-+	u8 protocol = 0;
- 
- 	if (ctx->mss) {	/* TSO */
- 		ctx->eth_ip_hdr_size = skb_transport_offset(skb);
-@@ -831,16 +832,25 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 			if (ctx->ipv4) {
- 				const struct iphdr *iph = ip_hdr(skb);
- 
--				if (iph->protocol == IPPROTO_TCP)
--					ctx->l4_hdr_size = tcp_hdrlen(skb);
--				else if (iph->protocol == IPPROTO_UDP)
--					ctx->l4_hdr_size = sizeof(struct udphdr);
--				else
--					ctx->l4_hdr_size = 0;
--			} else {
--				/* for simplicity, don't copy L4 headers */
-+				protocol = iph->protocol;
-+			} else if (ctx->ipv6) {
-+				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+
-+				protocol = ipv6h->nexthdr;
-+			}
-+
-+			switch (protocol) {
-+			case IPPROTO_TCP:
-+				ctx->l4_hdr_size = tcp_hdrlen(skb);
-+				break;
-+			case IPPROTO_UDP:
-+				ctx->l4_hdr_size = sizeof(struct udphdr);
-+				break;
-+			default:
- 				ctx->l4_hdr_size = 0;
-+				break;
- 			}
-+
- 			ctx->copy_size = min(ctx->eth_ip_hdr_size +
- 					 ctx->l4_hdr_size, skb->len);
- 		} else {
-@@ -887,7 +897,7 @@ vmxnet3_prepare_tso(struct sk_buff *skb,
- 		iph->check = 0;
- 		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, 0,
- 						 IPPROTO_TCP, 0);
--	} else {
-+	} else if (ctx->ipv6) {
- 		struct ipv6hdr *iph = ipv6_hdr(skb);
- 
- 		tcph->check = ~csum_ipv6_magic(&iph->saddr, &iph->daddr, 0,
-@@ -938,6 +948,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 	count = txd_estimate(skb);
- 
- 	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
-+	ctx.ipv6 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IPV6));
- 
- 	ctx.mss = skb_shinfo(skb)->gso_size;
- 	if (ctx.mss) {
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index cd71c77..6bb769a 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.3.4.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.3.5.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01030400
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01030500
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
-@@ -211,6 +211,7 @@ struct vmxnet3_tq_driver_stats {
- 
- struct vmxnet3_tx_ctx {
- 	bool   ipv4;
-+	bool   ipv6;
- 	u16 mss;
- 	u32 eth_ip_hdr_size; /* only valid for pkts requesting tso or csum
- 				 * offloading
--- 
-1.8.5.6
+Is this something to be considered?
+
+> This is not rocket science.
+>
+> Right now we're proposing to do utterly stupid shit like encoding
+> integers in device pointers in the sk_buff, when that is absolutely
+> not necessary at all.
+
+Ok. Another suggestion I received was to delay the preparation of the full
+sockaddr_ll until it is needed, and store the skb original length in the first
+two fields (sll_protocol and sll_family) as they can be derived later on from
+the skb.
+
+IMHO, It would still be somewhat of a hack though.
+
+Would that approach be considered?
+
+Regards,
+Eyal.
