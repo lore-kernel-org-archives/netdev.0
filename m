@@ -1,46 +1,50 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: iproute2:tc: Class names
-Date: Mon, 2 Mar 2015 00:19:56 +0200
-Message-ID: <20150301221956.GA25284@angus-think.lan>
+From: Mr Mussa Mohammed <mussa.mohammed03@gmail.com>
+Subject: PLEASE TRY TO DO THIS WITH ME.
+Date: Sun, 1 Mar 2015 22:25:26 +0000
+Message-ID: <CACYjzO-cbQSh6EcwUmcFwLAOXAahKez0AWW8t1qDJE1tY_WQFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:45989 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753652AbbCAWbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 17:31:20 -0500
-Received: by wibbs8 with SMTP id bs8so10951547wib.4
-        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 14:31:19 -0800 (PST)
-Received: from angus-think.lan (121-43-207-82.ip.ukrtel.net. [82.207.43.121])
-        by mx.google.com with ESMTPSA id fa3sm13365998wib.17.2015.03.01.14.31.18
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sun, 01 Mar 2015 14:31:18 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:44334 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324AbbCAWkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 17:40:51 -0500
+Received: by wiwl15 with SMTP id l15so10978652wiw.3
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 14:40:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+AUDITOR GENERAL
+MR MUSSA MOHAMMED
+DEAR,
 
-I have some local version of tc which can show class names in the
-following manners (-m means use names mapping):
+RE: TRANSFER OF US$10.500.000 00 MILLION TO YOUR ACCOUNT.
 
-# tc/tc -m class show dev lo
+I feel quite safe dealing with you in this important business. Though this
+medium (Internet) has been greatly abused, I choose to reach you through it
+because it still remains the fastest medium of communication. However, this
+correspondence is private, and it should be treated in strict confidence.
 
-class htb 1:10 parent 1:1 leaf 10: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb web:1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
-class htb voip:1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b 
-class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b 
 
-It uses special mapping file from /etc/iproute2/cls_map:
+At first I will like to assure you that this transaction is 100% risk and
+trouble free to both parties, In order to transfer out TEN MILLION FIVE HUNDRED
+THOUSAND DOLLARS, (US$10.500 000 00) from our bank here in Burkina Faso .
 
-1:20    web
-1:40    voip
 
-Also it can be used for specifying class name for filter.
+The fund for transfer is of clean origin. The owner of the fund is a foreigner,
+a program leader who was believed to acquire the fund through his secret Crude
+Oil deal with the Former IRAQ government. The deceased died with all the members
+of his family in an auto-accident in June 23, 2006 without a WILL. The amount
+involved is US$10,500,000.00
 
-What do you think about this ?
 
-Thanks,
+I want to transfer this money into your account as the foreign beneficiary of
+the fund. I know that this letter will come to you as a surprise as we don't
+know ourselves before, BUT BE SURE THAT IT IS REAL AND A GENUINE BUSINESS. I
+CONTACT YOU BELIEVING THAT YOU WILL NOT LET ME DOWN ONCE THE FUND GOES
+INTO YOUR ACCOUNT,
+
+
+ THANKS
+     MUSSA.
