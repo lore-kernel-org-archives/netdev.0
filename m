@@ -1,7 +1,7 @@
 From: "Arad, Ronen" <ronen.arad@intel.com>
 Subject: RE: Flows! Offload them.
-Date: Sun, 1 Mar 2015 09:36:43 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067DC283@ORSMSX101.amr.corp.intel.com>
+Date: Sun, 1 Mar 2015 09:47:46 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067DC29B@ORSMSX101.amr.corp.intel.com>
 References: <20150226074214.GF2074@nanopsycho.orion>
  <20150226083758.GA15139@vergenet.net>
  <20150226091628.GA4059@nanopsycho.orion>
@@ -34,10 +34,10 @@ Cc: Simon Horman <simon.horman@netronome.com>,
 To: Thomas Graf <tgraf@suug.ch>, Neil Horman <nhorman@tuxdriver.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:13771 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:22005 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751363AbbCAJgp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 04:36:45 -0500
+	id S1750794AbbCAJr7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 04:47:59 -0500
 In-Reply-To: <20150227084141.GA17240@casper.infradead.org>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
@@ -58,22 +58,23 @@ List-ID: <netdev.vger.kernel.org>
 >shrijeet@gmail.com; gospo@cumulusnetworks.com; bcrl@kvack.org
 >Subject: Re: Flows! Offload them.
 >
->Blind random offload of some packets is better than nothing but knowing
->and having control over which packets are offloaded is essential. You
->typically don't want to randomly give one flow priority over another ;-)
->Some software CPUs might not be able to handle the load. I know what
->you mean though and as long as we allow to disable and overwrite this
->behaviour we are good.
+>
+>Maybe I'm misunderstanding your statement here but I think it's essential
+>that the kernel is able to handle whatever we program in hardware even
+>if the hardware tables look differrent than the software tables, no matter
+>whether the configuration occurs through OVS or not. A punt to software
+>should always work even if it does not happen. So while I believe that
+>OVS needs more control over the hardware than available through the
+>datapath cache it must program both the hardware and software in parallel
+>even though the building blocks for doing so might look different.
 >
 
-Random offloading of flows does not preserve policy in general.
-For example let's consider two flows A.B.C.0/24 and A.B.C.D with the more
-specific rule has higher priority.
-If only the first rule is offloaded to HW, packets matched by the second
-rule will not be processed as expected by the user.
-Deciding which flow could be offloaded is an optimization decision that
-is better handled outside of the kernel. 
-  
+I believe that having an equivalent punt path should be optional and
+controlled by application policy. Some applications might give up on punt
+path due to its throughput implication and prefer to just drop in HW and 
+possibly leak some packets to software for exception processing and logging
+only. 
+
 >--
 >To unsubscribe from this list: send the line "unsubscribe netdev" in
 >the body of a message to majordomo@vger.kernel.org
