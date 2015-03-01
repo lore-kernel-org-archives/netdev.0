@@ -1,158 +1,202 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 7/8] ebpf: move read-only fields to bpf_prog and shrink bpf_prog_aux
-Date: Sun,  1 Mar 2015 12:31:47 +0100
-Message-ID: <2100dda7ab0668cb902c0468fb88074e5529e020.1425208502.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 2/8] ebpf: constify various function pointer structs
+Date: Sun,  1 Mar 2015 12:31:42 +0100
+Message-ID: <02e1b6f2f5e2ae915212ac86ee12a8b63798a4d4.1425208501.git.daniel@iogearbox.net>
 References: <cover.1425208501.git.daniel@iogearbox.net>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52029 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:52037 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751517AbbCALcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 06:32:16 -0500
+	with ESMTP id S1751855AbbCALcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 06:32:17 -0500
 In-Reply-To: <cover.1425208501.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1425208501.git.daniel@iogearbox.net>
 References: <cover.1425208501.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-is_gpl_compatible and prog_type should be moved directly into bpf_prog
-as they stay immutable during bpf_prog's lifetime, are core attributes
-and they can be locked as read-only later on via bpf_prog_select_runtime().
-
-With a bit of rearranging, this also allows us to shrink bpf_prog_aux
-to exactly 1 cacheline.
+We can move bpf_map_ops and bpf_verifier_ops and other structs into ro
+section, bpf_map_type_list and bpf_prog_type_list into read mostly.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/bpf.h    | 4 +---
- include/linux/filter.h | 4 +++-
- kernel/bpf/syscall.c   | 7 +++----
- kernel/bpf/verifier.c  | 4 ++--
- net/core/filter.c      | 4 ++--
- 5 files changed, 11 insertions(+), 12 deletions(-)
+ include/linux/bpf.h   | 14 +++++++-------
+ kernel/bpf/arraymap.c |  6 +++---
+ kernel/bpf/hashtab.c  |  6 +++---
+ kernel/bpf/helpers.c  |  6 +++---
+ net/core/filter.c     |  6 +++---
+ 5 files changed, 19 insertions(+), 19 deletions(-)
 
 diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 9c45814..a1a7ff2 100644
+index bbfceb7..7844686 100644
 --- a/include/linux/bpf.h
 +++ b/include/linux/bpf.h
-@@ -117,11 +117,9 @@ struct bpf_prog;
- 
- struct bpf_prog_aux {
- 	atomic_t refcnt;
--	bool is_gpl_compatible;
--	enum bpf_prog_type prog_type;
-+	u32 used_map_cnt;
- 	const struct bpf_verifier_ops *ops;
- 	struct bpf_map **used_maps;
--	u32 used_map_cnt;
- 	struct bpf_prog *prog;
+@@ -32,13 +32,13 @@ struct bpf_map {
+ 	u32 key_size;
+ 	u32 value_size;
+ 	u32 max_entries;
+-	struct bpf_map_ops *ops;
++	const struct bpf_map_ops *ops;
  	struct work_struct work;
  };
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 5e3863d..9ee8c67 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -308,9 +308,11 @@ struct bpf_binary_header {
- struct bpf_prog {
- 	u16			pages;		/* Number of allocated pages */
- 	bool			jited;		/* Is our filter JIT'ed? */
-+	bool			gpl_compatible;	/* Is our filter GPL compatible? */
- 	u32			len;		/* Number of filter blocks */
--	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
-+	enum bpf_prog_type	type;		/* Type of BPF program */
- 	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
-+	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
- 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
- 					    const struct bpf_insn *filter);
- 	/* Instructions for interpreter */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 536edc2..0d69449 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -354,10 +354,11 @@ static int find_prog_type(enum bpf_prog_type type, struct bpf_prog *prog)
- 	list_for_each_entry(tl, &bpf_prog_types, list_node) {
- 		if (tl->type == type) {
- 			prog->aux->ops = tl->ops;
--			prog->aux->prog_type = type;
-+			prog->type = type;
- 			return 0;
- 		}
- 	}
-+
- 	return -EINVAL;
+ 
+ struct bpf_map_type_list {
+ 	struct list_head list_node;
+-	struct bpf_map_ops *ops;
++	const struct bpf_map_ops *ops;
+ 	enum bpf_map_type type;
+ };
+ 
+@@ -109,7 +109,7 @@ struct bpf_verifier_ops {
+ 
+ struct bpf_prog_type_list {
+ 	struct list_head list_node;
+-	struct bpf_verifier_ops *ops;
++	const struct bpf_verifier_ops *ops;
+ 	enum bpf_prog_type type;
+ };
+ 
+@@ -121,7 +121,7 @@ struct bpf_prog_aux {
+ 	atomic_t refcnt;
+ 	bool is_gpl_compatible;
+ 	enum bpf_prog_type prog_type;
+-	struct bpf_verifier_ops *ops;
++	const struct bpf_verifier_ops *ops;
+ 	struct bpf_map **used_maps;
+ 	u32 used_map_cnt;
+ 	struct bpf_prog *prog;
+@@ -138,8 +138,8 @@ struct bpf_prog *bpf_prog_get(u32 ufd);
+ int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
+ 
+ /* verifier prototypes for helper functions called from eBPF programs */
+-extern struct bpf_func_proto bpf_map_lookup_elem_proto;
+-extern struct bpf_func_proto bpf_map_update_elem_proto;
+-extern struct bpf_func_proto bpf_map_delete_elem_proto;
++extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
++extern const struct bpf_func_proto bpf_map_update_elem_proto;
++extern const struct bpf_func_proto bpf_map_delete_elem_proto;
+ 
+ #endif /* _LINUX_BPF_H */
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 9eb4d8a..8a66165 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -134,7 +134,7 @@ static void array_map_free(struct bpf_map *map)
+ 	kvfree(array);
  }
  
-@@ -508,7 +509,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	prog->jited = false;
+-static struct bpf_map_ops array_ops = {
++static const struct bpf_map_ops array_ops = {
+ 	.map_alloc = array_map_alloc,
+ 	.map_free = array_map_free,
+ 	.map_get_next_key = array_map_get_next_key,
+@@ -143,14 +143,14 @@ static struct bpf_map_ops array_ops = {
+ 	.map_delete_elem = array_map_delete_elem,
+ };
  
- 	atomic_set(&prog->aux->refcnt, 1);
--	prog->aux->is_gpl_compatible = is_gpl;
-+	prog->gpl_compatible = is_gpl;
+-static struct bpf_map_type_list tl = {
++static struct bpf_map_type_list array_type __read_mostly = {
+ 	.ops = &array_ops,
+ 	.type = BPF_MAP_TYPE_ARRAY,
+ };
  
- 	/* find program type: socket_filter vs tracing_filter */
- 	err = find_prog_type(type, prog);
-@@ -517,7 +518,6 @@ static int bpf_prog_load(union bpf_attr *attr)
+ static int __init register_array_map(void)
+ {
+-	bpf_register_map_type(&tl);
++	bpf_register_map_type(&array_type);
+ 	return 0;
+ }
+ late_initcall(register_array_map);
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index b3ba436..83c209d 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -345,7 +345,7 @@ static void htab_map_free(struct bpf_map *map)
+ 	kfree(htab);
+ }
  
- 	/* run eBPF verifier */
- 	err = bpf_check(prog, attr);
--
- 	if (err < 0)
- 		goto free_used_maps;
+-static struct bpf_map_ops htab_ops = {
++static const struct bpf_map_ops htab_ops = {
+ 	.map_alloc = htab_map_alloc,
+ 	.map_free = htab_map_free,
+ 	.map_get_next_key = htab_map_get_next_key,
+@@ -354,14 +354,14 @@ static struct bpf_map_ops htab_ops = {
+ 	.map_delete_elem = htab_map_delete_elem,
+ };
  
-@@ -528,7 +528,6 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	bpf_prog_select_runtime(prog);
+-static struct bpf_map_type_list tl = {
++static struct bpf_map_type_list htab_type __read_mostly = {
+ 	.ops = &htab_ops,
+ 	.type = BPF_MAP_TYPE_HASH,
+ };
  
- 	err = anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, O_RDWR | O_CLOEXEC);
--
- 	if (err < 0)
- 		/* failed to allocate fd */
- 		goto free_used_maps;
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 594d341..bdf4192 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -852,7 +852,7 @@ static int check_call(struct verifier_env *env, int func_id)
- 	}
+ static int __init register_htab_map(void)
+ {
+-	bpf_register_map_type(&tl);
++	bpf_register_map_type(&htab_type);
+ 	return 0;
+ }
+ late_initcall(register_htab_map);
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index 9e3414d..a3c7701 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -41,7 +41,7 @@ static u64 bpf_map_lookup_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	return (unsigned long) value;
+ }
  
- 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
--	if (!env->prog->aux->is_gpl_compatible && fn->gpl_only) {
-+	if (!env->prog->gpl_compatible && fn->gpl_only) {
- 		verbose("cannot call GPL only function from proprietary program\n");
- 		return -EINVAL;
- 	}
-@@ -1205,7 +1205,7 @@ static int check_ld_abs(struct verifier_env *env, struct bpf_insn *insn)
- 	struct reg_state *reg;
- 	int i, err;
+-struct bpf_func_proto bpf_map_lookup_elem_proto = {
++const struct bpf_func_proto bpf_map_lookup_elem_proto = {
+ 	.func = bpf_map_lookup_elem,
+ 	.gpl_only = false,
+ 	.ret_type = RET_PTR_TO_MAP_VALUE_OR_NULL,
+@@ -60,7 +60,7 @@ static u64 bpf_map_update_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	return map->ops->map_update_elem(map, key, value, r4);
+ }
  
--	if (!may_access_skb(env->prog->aux->prog_type)) {
-+	if (!may_access_skb(env->prog->type)) {
- 		verbose("BPF_LD_ABS|IND instructions not allowed for this program type\n");
- 		return -EINVAL;
- 	}
+-struct bpf_func_proto bpf_map_update_elem_proto = {
++const struct bpf_func_proto bpf_map_update_elem_proto = {
+ 	.func = bpf_map_update_elem,
+ 	.gpl_only = false,
+ 	.ret_type = RET_INTEGER,
+@@ -80,7 +80,7 @@ static u64 bpf_map_delete_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	return map->ops->map_delete_elem(map, key);
+ }
+ 
+-struct bpf_func_proto bpf_map_delete_elem_proto = {
++const struct bpf_func_proto bpf_map_delete_elem_proto = {
+ 	.func = bpf_map_delete_elem,
+ 	.gpl_only = false,
+ 	.ret_type = RET_INTEGER,
 diff --git a/net/core/filter.c b/net/core/filter.c
-index 514d408..ff000cb 100644
+index f6bdc2b..6fe09e3 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -814,7 +814,7 @@ static void bpf_release_orig_filter(struct bpf_prog *fp)
+@@ -1159,19 +1159,19 @@ static bool sock_filter_is_valid_access(int off, int size, enum bpf_access_type
+ 	return false;
+ }
  
- static void __bpf_prog_release(struct bpf_prog *prog)
+-static struct bpf_verifier_ops sock_filter_ops = {
++static const struct bpf_verifier_ops sock_filter_ops = {
+ 	.get_func_proto = sock_filter_func_proto,
+ 	.is_valid_access = sock_filter_is_valid_access,
+ };
+ 
+-static struct bpf_prog_type_list tl = {
++static struct bpf_prog_type_list sock_filter_type __read_mostly = {
+ 	.ops = &sock_filter_ops,
+ 	.type = BPF_PROG_TYPE_SOCKET_FILTER,
+ };
+ 
+ static int __init register_sock_filter_ops(void)
  {
--	if (prog->aux->prog_type == BPF_PROG_TYPE_SOCKET_FILTER) {
-+	if (prog->type == BPF_PROG_TYPE_SOCKET_FILTER) {
- 		bpf_prog_put(prog);
- 	} else {
- 		bpf_release_orig_filter(prog);
-@@ -1105,7 +1105,7 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
- 
--	if (prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
-+	if (prog->type != BPF_PROG_TYPE_SOCKET_FILTER) {
- 		bpf_prog_put(prog);
- 		return -EINVAL;
- 	}
+-	bpf_register_prog_type(&tl);
++	bpf_register_prog_type(&sock_filter_type);
+ 	return 0;
+ }
+ late_initcall(register_sock_filter_ops);
 -- 
 1.9.3
