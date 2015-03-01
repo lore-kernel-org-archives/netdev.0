@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: Fix lost MAC address on kexec
-Date: Sun, 01 Mar 2015 00:28:47 -0500 (EST)
-Message-ID: <20150301.002847.261300841277182822.davem@davemloft.net>
-References: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
+Subject: Re: [PATCH v2 net] net: do not use rcu in rtnl_dump_ifinfo()
+Date: Sun, 01 Mar 2015 00:29:11 -0500 (EST)
+Message-ID: <20150301.002911.1745612209348133533.davem@davemloft.net>
+References: <54F09A95.8000507@6wind.com>
+	<1425056838.5130.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1425058970.5130.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben.hutchings@codethink.co.uk, nobuhiro.iwamatsu.yj@renesas.com,
-	horms@verge.net.au, magnus.damm@gmail.com, khilman@kernel.org,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1425053786-24223-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.dichtel@6wind.com, daniel@iogearbox.net,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36990 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbbCAF3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 00:29:13 -0500
+In-Reply-To: <1425058970.5130.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Fri, 27 Feb 2015 17:16:26 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 27 Feb 2015 09:42:50 -0800
 
-> Commit 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before
-> freeing buffers") added a call to sh_eth_reset() to the
-> sh_eth_set_ringparam() and sh_eth_close() paths.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> However, setting the software reset bit(s) in the EDMR register resets
-> the MAC Address Registers to zero. Hence after kexec, the new kernel
-> doesn't detect a valid MAC address and assigns a random MAC address,
-> breaking DHCP.
+> We did a failed attempt in the past to only use rcu in rtnl dump
+> operations (commit e67f88dd12f6 "net: dont hold rtnl mutex during
+> netlink dump callbacks")
 > 
-> Set the MAC address again after the reset in sh_eth_dev_exit() to fix
-> this.
+> Now that dumps are holding RTNL anyway, there is no need to also
+> use rcu locking, as it forbids any scheduling ability, like
+> GFP_KERNEL allocations that controlling path should use instead
+> of GFP_ATOMIC whenever possible.
 > 
-> Tested on r8a7740/armadillo (GETHER) and r8a7791/koelsch (FAST_RCAR).
-> 
-> Fixes: 740c7f31c094703c ("sh_eth: Ensure DMA engines are stopped before freeing buffers")
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> This should fix following splat Cong Wang reported :
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: commit 0c7aecd4bde4b7302 ("netns: add rtnl cmd to add and get peer netns ids")
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  v2: As suggested by Daniel, tweak the changelog to be patchwork compliant ;)
 
-Applied.
+Applied, thanks Eric.
