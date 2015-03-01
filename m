@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: bcmgenet: fix throughtput regression
-Date: Sun, 01 Mar 2015 00:30:07 -0500 (EST)
-Message-ID: <20150301.003007.247806713909808067.davem@davemloft.net>
-References: <1425091706-5811-1-git-send-email-jaedon.shin@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v2 4/7] net: packet: use skb->dev as storage
+ for skb orig len instead of skb->cb[]
+Date: Sun, 01 Mar 2015 00:31:43 -0500 (EST)
+Message-ID: <20150301.003143.1281961486875434872.davem@davemloft.net>
+References: <CAHsH6GvvQxHbt4JJrotn3y=BG172Wbw4NrMD+gTUA_R=jbPDTw@mail.gmail.com>
+	<20150228.160047.214686672558902639.davem@davemloft.net>
+	<CAHsH6Gv8Dh3RQ0V7KURcca9bzZGY0FwiqGj-mP9oKA_Vv72nUA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, pgynther@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jaedon.shin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425091706-5811-1-git-send-email-jaedon.shin@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, shmulik.ladkani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHsH6Gv8Dh3RQ0V7KURcca9bzZGY0FwiqGj-mP9oKA_Vv72nUA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jaedon Shin <jaedon.shin@gmail.com>
-Date: Sat, 28 Feb 2015 11:48:26 +0900
+From: Eyal Birger <eyal.birger-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sun, 1 Mar 2015 07:09:54 +0200
 
-> This patch adds bcmgenet_tx_poll for the tx_rings. This can reduce the
-> interrupt load and send xmit in network stack on time. This also
-> separated for the completion of tx_ring16 from bcmgenet_poll.
+> Ok. Another suggestion I received was to delay the preparation of the full
+> sockaddr_ll until it is needed, and store the skb original length in the first
+> two fields (sll_protocol and sll_family) as they can be derived later on from
+> the skb.
 > 
-> The bcmgenet_tx_reclaim of tx_ring[{0,1,2,3}] operative by an interrupt
-> is to be not more than a certain number TxBDs. It is caused by too
-> slowly reclaiming the transmitted skb. Therefore, performance
-> degradation of xmit after 605ad7f ("tcp: refine TSO autosizing").
+> IMHO, It would still be somewhat of a hack though.
 > 
-> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Would that approach be considered?
 
-Applied.
+I think it's better than mangling skb->dev
