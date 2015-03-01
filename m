@@ -1,114 +1,154 @@
-From: Simon Farnsworth <simon@farnz.org.uk>
-Subject: [PATCH net-next v2] pppoe: Use workqueue to die properly when a PADT is received
-Date: Sun,  1 Mar 2015 10:54:39 +0000
-Message-ID: <1425207279-4822-1-git-send-email-simon@farnz.org.uk>
-Cc: linux-ppp@vger.kernel.org, Michal Ostrowski <mostrows@gmail.com>,
-	Simon Farnsworth <simon@farnz.org.uk>
-To: netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2 1/8] ebpf: remove kernel test stubs
+Date: Sun,  1 Mar 2015 12:31:41 +0100
+Message-ID: <8f555942ca658efec21232efac25ad699243e265.1425208501.git.daniel@iogearbox.net>
+References: <cover.1425208501.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:52005 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbbCALcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 06:32:12 -0500
+In-Reply-To: <cover.1425208501.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1425208501.git.daniel@iogearbox.net>
+References: <cover.1425208501.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a PADT frame is received, the socket may not be in a good state to
-close down the PPP interface. The current implementation handles this by
-simply blocking all further PPP traffic, and hoping that the lack of traffic
-will trigger the user to investigate.
+Now that we have BPF_PROG_TYPE_SOCKET_FILTER up and running, we can
+remove the test stubs which were added to get the verifier suite up.
 
-Use schedule_work to get to a process context from which we clear down the
-PPP interface, in a fashion analogous to hangup on a TTY-based PPP
-interface. This causes pppd to disconnect immediately, and allows tools to
-take immediate corrective action.
+We can just let the test cases probe under socket filter type instead.
+In the fill/spill test case, we cannot (yet) access fields from the
+context (skb), but we may adapt that test case in future.
 
-Note that pppd's rp_pppoe.so plugin has code in it to disable the session
-when it disconnects; however, as a consequence of this patch, the session is
-already disabled before rp_pppoe.so is asked to disable the session. The
-result is a harmless error message:
-
-Failed to disconnect PPPoE socket: 114 Operation already in progress
-
-This message is safe to ignore, as long as the error is 114 Operation
-already in progress; in that specific case, it means that the PPPoE session
-has already been disabled before pppd tried to disable it.
-
-Signed-off-by: Simon Farnsworth <simon@farnz.org.uk>
-Tested-by: Dan Williams <dcbw@redhat.com>
-Tested-by: Christoph Schulz <develop@kristov.de>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
+ kernel/bpf/Makefile         |  3 --
+ kernel/bpf/test_stub.c      | 78 ---------------------------------------------
+ samples/bpf/test_verifier.c |  5 +--
+ 3 files changed, 3 insertions(+), 83 deletions(-)
+ delete mode 100644 kernel/bpf/test_stub.c
 
-Changes from v1:
-
- * Amend commit message to tell people about the harmless error from pppd
-
- * Add in Tested-by tags
-
- * Change subject to add net-next
-
- drivers/net/ppp/pppoe.c  | 17 ++++++++++++++++-
- include/linux/if_pppox.h |  2 ++
- 2 files changed, 18 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index d2408a5..9c97e9b 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -455,6 +455,18 @@ out:
- 	return NET_RX_DROP;
- }
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index a5ae60f..e6983be 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1,5 +1,2 @@
+ obj-y := core.o
+ obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o hashtab.o arraymap.o helpers.o
+-ifdef CONFIG_TEST_BPF
+-obj-$(CONFIG_BPF_SYSCALL) += test_stub.o
+-endif
+diff --git a/kernel/bpf/test_stub.c b/kernel/bpf/test_stub.c
+deleted file mode 100644
+index 0ceae1e..0000000
+--- a/kernel/bpf/test_stub.c
++++ /dev/null
+@@ -1,78 +0,0 @@
+-/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of version 2 of the GNU General Public
+- * License as published by the Free Software Foundation.
+- */
+-#include <linux/kernel.h>
+-#include <linux/types.h>
+-#include <linux/slab.h>
+-#include <linux/err.h>
+-#include <linux/bpf.h>
+-
+-/* test stubs for BPF_MAP_TYPE_UNSPEC and for BPF_PROG_TYPE_UNSPEC
+- * to be used by user space verifier testsuite
+- */
+-struct bpf_context {
+-	u64 arg1;
+-	u64 arg2;
+-};
+-
+-static const struct bpf_func_proto *test_func_proto(enum bpf_func_id func_id)
+-{
+-	switch (func_id) {
+-	case BPF_FUNC_map_lookup_elem:
+-		return &bpf_map_lookup_elem_proto;
+-	case BPF_FUNC_map_update_elem:
+-		return &bpf_map_update_elem_proto;
+-	case BPF_FUNC_map_delete_elem:
+-		return &bpf_map_delete_elem_proto;
+-	default:
+-		return NULL;
+-	}
+-}
+-
+-static const struct bpf_context_access {
+-	int size;
+-	enum bpf_access_type type;
+-} test_ctx_access[] = {
+-	[offsetof(struct bpf_context, arg1)] = {
+-		FIELD_SIZEOF(struct bpf_context, arg1),
+-		BPF_READ
+-	},
+-	[offsetof(struct bpf_context, arg2)] = {
+-		FIELD_SIZEOF(struct bpf_context, arg2),
+-		BPF_READ
+-	},
+-};
+-
+-static bool test_is_valid_access(int off, int size, enum bpf_access_type type)
+-{
+-	const struct bpf_context_access *access;
+-
+-	if (off < 0 || off >= ARRAY_SIZE(test_ctx_access))
+-		return false;
+-
+-	access = &test_ctx_access[off];
+-	if (access->size == size && (access->type & type))
+-		return true;
+-
+-	return false;
+-}
+-
+-static struct bpf_verifier_ops test_ops = {
+-	.get_func_proto = test_func_proto,
+-	.is_valid_access = test_is_valid_access,
+-};
+-
+-static struct bpf_prog_type_list tl_prog = {
+-	.ops = &test_ops,
+-	.type = BPF_PROG_TYPE_UNSPEC,
+-};
+-
+-static int __init register_test_ops(void)
+-{
+-	bpf_register_prog_type(&tl_prog);
+-	return 0;
+-}
+-late_initcall(register_test_ops);
+diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
+index b96175e..7b56b59 100644
+--- a/samples/bpf/test_verifier.c
++++ b/samples/bpf/test_verifier.c
+@@ -288,7 +288,8 @@ static struct bpf_test tests[] = {
+ 			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -8),
  
-+static void pppoe_unbind_sock_work(struct work_struct *work)
-+{
-+	struct pppox_sock *po = container_of(work, struct pppox_sock,
-+					     proto.pppoe.padt_work);
-+	struct sock *sk = sk_pppox(po);
-+
-+	lock_sock(sk);
-+	pppox_unbind_sock(sk);
-+	release_sock(sk);
-+	sock_put(sk);
-+}
-+
- /************************************************************************
-  *
-  * Receive a PPPoE Discovery frame.
-@@ -500,7 +512,8 @@ static int pppoe_disc_rcv(struct sk_buff *skb, struct net_device *dev,
+ 			/* should be able to access R0 = *(R2 + 8) */
+-			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_2, 8),
++			/* BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_2, 8), */
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
+ 			BPF_EXIT_INSN(),
+ 		},
+ 		.result = ACCEPT,
+@@ -687,7 +688,7 @@ static int test(void)
  		}
+ 		printf("#%d %s ", i, tests[i].descr);
  
- 		bh_unlock_sock(sk);
--		sock_put(sk);
-+		if (!schedule_work(&po->proto.pppoe.padt_work))
-+			sock_put(sk);
- 	}
+-		prog_fd = bpf_prog_load(BPF_PROG_TYPE_UNSPEC, prog,
++		prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog,
+ 					prog_len * sizeof(struct bpf_insn),
+ 					"GPL");
  
- abort:
-@@ -613,6 +626,8 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 
- 	lock_sock(sk);
- 
-+	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
-+
- 	error = -EINVAL;
- 	if (sp->sa_protocol != PX_PROTO_OE)
- 		goto end;
-diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
-index aff7ad8..66a7d76 100644
---- a/include/linux/if_pppox.h
-+++ b/include/linux/if_pppox.h
-@@ -19,6 +19,7 @@
- #include <linux/netdevice.h>
- #include <linux/ppp_channel.h>
- #include <linux/skbuff.h>
-+#include <linux/workqueue.h>
- #include <uapi/linux/if_pppox.h>
- 
- static inline struct pppoe_hdr *pppoe_hdr(const struct sk_buff *skb)
-@@ -32,6 +33,7 @@ struct pppoe_opt {
- 	struct pppoe_addr	pa;	  /* what this socket is bound to*/
- 	struct sockaddr_pppox	relay;	  /* what socket data will be
- 					     relayed to (PPPoE relaying) */
-+	struct work_struct      padt_work;/* Work item for handling PADT */
- };
- 
- struct pptp_opt {
 -- 
-2.1.0
-
+1.9.3
