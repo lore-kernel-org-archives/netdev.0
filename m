@@ -1,46 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 09/18] i40e/i40evf: Add capability to gather VEB per
- TC stats
-Date: Sat, 28 Feb 2015 23:30:43 -0500 (EST)
-Message-ID: <20150228.233043.1806944010152525182.davem@davemloft.net>
-References: <1425122989-354-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1425122989-354-10-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: neerav.parikh@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net-next] Driver: Vmxnet3: Copy TCP header to mapped frame for IPv6 packets
+Date: Sat, 28 Feb 2015 20:33:09 -0800
+Message-ID: <1425184389-29481-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Amitabha Banerjee <banerjeea@vmware.com>
+To: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36617 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbbCAEax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 23:30:53 -0500
-In-Reply-To: <1425122989-354-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:54182 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752989AbbCAEdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Feb 2015 23:33:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 28 Feb 2015 03:29:40 -0800
+Allows for packet parsing to be done by the fast path. This performance
+optimization already exists for IPv4. Add similar logic for IPv6.
 
-> From: Neerav Parikh <neerav.parikh@intel.com>
-> 
-> This patch adds capability to update per VEB per TC statistics and dump
-> it via debugfs. It also adds a structure to hold VEB per TC statistics.
-> The fields can be filled by reading the GLVEBTC_* counters.
-> 
-> Change-ID: I45cca003d8b12d96951a67f50d5dd7a789e09218
-> Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Amitabha Banerjee <banerjeea@vmware.com>
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 29 ++++++++++++++++++++---------
+ drivers/net/vmxnet3/vmxnet3_int.h |  5 +++--
+ 2 files changed, 23 insertions(+), 11 deletions(-)
 
-For the umpteenth time, stop dumping statistics into debugfs.
-
-Export them like any other statistic, via ethtool.
-
-This applies to the existing debugfs you're building on top
-of in this change as well, I very much regret not catching
-that when it initially went in.
-
-Please stop, in general, using debugfs as a dumping ground
-for thing you can't initially figure out how to export via
-normal standard interfaces.
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 294214c..61c0840 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -819,6 +819,7 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 			   struct vmxnet3_adapter *adapter)
+ {
+ 	struct Vmxnet3_TxDataDesc *tdd;
++	u8 protocol = 0;
+ 
+ 	if (ctx->mss) {	/* TSO */
+ 		ctx->eth_ip_hdr_size = skb_transport_offset(skb);
+@@ -831,16 +832,25 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 			if (ctx->ipv4) {
+ 				const struct iphdr *iph = ip_hdr(skb);
+ 
+-				if (iph->protocol == IPPROTO_TCP)
+-					ctx->l4_hdr_size = tcp_hdrlen(skb);
+-				else if (iph->protocol == IPPROTO_UDP)
+-					ctx->l4_hdr_size = sizeof(struct udphdr);
+-				else
+-					ctx->l4_hdr_size = 0;
+-			} else {
+-				/* for simplicity, don't copy L4 headers */
++				protocol = iph->protocol;
++			} else if (ctx->ipv6) {
++				const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
++
++				protocol = ipv6h->nexthdr;
++			}
++
++			switch (protocol) {
++			case IPPROTO_TCP:
++				ctx->l4_hdr_size = tcp_hdrlen(skb);
++				break;
++			case IPPROTO_UDP:
++				ctx->l4_hdr_size = sizeof(struct udphdr);
++				break;
++			default:
+ 				ctx->l4_hdr_size = 0;
++				break;
+ 			}
++
+ 			ctx->copy_size = min(ctx->eth_ip_hdr_size +
+ 					 ctx->l4_hdr_size, skb->len);
+ 		} else {
+@@ -887,7 +897,7 @@ vmxnet3_prepare_tso(struct sk_buff *skb,
+ 		iph->check = 0;
+ 		tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, 0,
+ 						 IPPROTO_TCP, 0);
+-	} else {
++	} else if (ctx->ipv6) {
+ 		struct ipv6hdr *iph = ipv6_hdr(skb);
+ 
+ 		tcph->check = ~csum_ipv6_magic(&iph->saddr, &iph->daddr, 0,
+@@ -938,6 +948,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 	count = txd_estimate(skb);
+ 
+ 	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
++	ctx.ipv6 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IPV6));
+ 
+ 	ctx.mss = skb_shinfo(skb)->gso_size;
+ 	if (ctx.mss) {
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index cd71c77..6bb769a 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.3.4.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.3.5.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01030400
++#define VMXNET3_DRIVER_VERSION_NUM      0x01030500
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+@@ -211,6 +211,7 @@ struct vmxnet3_tq_driver_stats {
+ 
+ struct vmxnet3_tx_ctx {
+ 	bool   ipv4;
++	bool   ipv6;
+ 	u16 mss;
+ 	u32 eth_ip_hdr_size; /* only valid for pkts requesting tso or csum
+ 				 * offloading
+-- 
+1.8.5.6
