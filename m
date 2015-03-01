@@ -1,26 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] s390: network patches for net-next
-Date: Sun, 01 Mar 2015 00:27:58 -0500 (EST)
-Message-ID: <20150301.002758.776025337913990851.davem@davemloft.net>
-References: <1425037954-50840-1-git-send-email-ubraun@linux.vnet.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2015-02-27
+Date: Sun, 01 Mar 2015 00:28:11 -0500 (EST)
+Message-ID: <20150301.002811.276074072031819764.davem@davemloft.net>
+References: <1425044670.1960.3.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36952 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750821AbbCAF2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 00:28:05 -0500
-In-Reply-To: <1425037954-50840-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1425044670.1960.3.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Fri, 27 Feb 2015 12:52:31 +0100
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Fri, 27 Feb 2015 14:44:30 +0100
 
-> here are some s390 related patches for net-next
+> Please pull some fixes I've currently accumulated - including the one
+> for Linus's four-way-handshake problem.
+> 
+> Let me know if there are any issues.
 
-Series applied.
+Pulled, thanks Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
