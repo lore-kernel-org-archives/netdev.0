@@ -1,50 +1,61 @@
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] wil6210: increase cmd buffer size to avoid sscanf buffer overflow
-Date: Sun,  1 Mar 2015 17:48:33 +0000
-Message-ID: <1425232113-5010-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Vladimir Kondratiev <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 3/6] flow_dissector: Add hash_extra field to
+ flow_keys struct
+Date: Sun, 1 Mar 2015 09:55:07 -0800
+Message-ID: <CA+mtBx8zP0rDG1Dh=KcG0t5dqaqnqS+8---4SBvLD_jGpgue2g@mail.gmail.com>
+References: <1425093109-1077-1-git-send-email-therbert@google.com>
+	<1425093109-1077-4-git-send-email-therbert@google.com>
+	<1425109054.5130.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150228203119.GA7687@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:46340 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751603AbbCARzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 12:55:08 -0500
+Received: by igbhl2 with SMTP id hl2so11918657igb.5
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 09:55:07 -0800 (PST)
+In-Reply-To: <20150228203119.GA7687@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+On Sat, Feb 28, 2015 at 12:31 PM, Florian Westphal <fw@strlen.de> wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Fri, 2015-02-27 at 19:11 -0800, Tom Herbert wrote:
+>>
+>> > diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+>> > index c605d30..d41a034 100644
+>> > --- a/include/net/sch_generic.h
+>> > +++ b/include/net/sch_generic.h
+>> > @@ -252,7 +252,7 @@ struct qdisc_skb_cb {
+>> >     unsigned int            pkt_len;
+>> >     u16                     slave_dev_queue_mapping;
+>> >     u16                     _pad;
+>> > -#define QDISC_CB_PRIV_LEN 20
+>> > +#define QDISC_CB_PRIV_LEN 24
+>> >     unsigned char           data[QDISC_CB_PRIV_LEN];
+>> >  };
+>> >
+>>
+>> This change breaks kernel build : We already are at the cb[] limit.
+>>
+>> Please check commit 257117862634d89de33fec74858b1a0ba5ab444b
+>> ("net: sched: shrink struct qdisc_skb_cb to 28 bytes")
+>
+> I've been toying around with reducing skb->cb[] to 44 bytes,
+> Seems Tom could integrate following patch from my test branch:
+>
+> http://git.breakpoint.cc/cgit/fw/net-next.git/commit/?h=skb_cb_44_01&id=29d711e1a71244b71940c2d1e346500bef4d6670
+>
+> It makes sfq use a smaller flow key state.
 
-cppcheck detected a buffer overflow:
-
-[drivers/net/wireless/ath/wil6210/debugfs.c:634]: (error) Width 8
-  given in format string (no. 1) is larger than destination buffer
-  'cmd[8]', use %7s to prevent overflowing it.
-
-For the current %8s sscanf we require cmd to be 9 chars long
-so increase it by 1 byte to prevent the sscan overflow (rather
-than reduce the %8s specifier to %7s as cppcheck recommends).
-
-Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/wireless/ath/wil6210/debugfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/wil6210/debugfs.c b/drivers/net/wireless/ath/wil6210/debugfs.c
-index 45c3558e..29aab12 100644
---- a/drivers/net/wireless/ath/wil6210/debugfs.c
-+++ b/drivers/net/wireless/ath/wil6210/debugfs.c
-@@ -618,7 +618,7 @@ static ssize_t wil_write_back(struct file *file, const char __user *buf,
- 	struct wil6210_priv *wil = file->private_data;
- 	int rc;
- 	char *kbuf = kmalloc(len + 1, GFP_KERNEL);
--	char cmd[8];
-+	char cmd[9];
- 	int p1, p2, p3;
- 
- 	if (!kbuf)
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alternatively, I think we might be able to eliminate the use of
+flow_keys and flow_dissect from the qdisc code altogether. It looks
+like this is only being used to determine a hash over the addresses,
+ports, and protocol so I am thinking that we can just call
+skb_get_hash for that. Will try to post some patches soon.
