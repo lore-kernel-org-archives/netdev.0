@@ -1,94 +1,72 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 2/6] sched: Eliminate use of flow_keys in sch_choke
-Date: Sun,  1 Mar 2015 14:09:45 -0800
-Message-ID: <1425247789-21211-3-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 4/6] sched: Eliminate use of flow_keys in sch_hhf
+Date: Sun,  1 Mar 2015 14:09:47 -0800
+Message-ID: <1425247789-21211-5-git-send-email-therbert@google.com>
 References: <1425247789-21211-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	eric.dumazet@gmail.com, fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:35643 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752613AbbCAWKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 17:10:16 -0500
-Received: by igqa13 with SMTP id a13so12789491igq.0
-        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 14:10:15 -0800 (PST)
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:38324 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752829AbbCAWKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 17:10:21 -0500
+Received: by iecrd18 with SMTP id rd18so43380152iec.5
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 14:10:20 -0800 (PST)
 In-Reply-To: <1425247789-21211-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In choke_match_flow compare skb_get_hash values for the skbuffs
-instead of explicitly matching keys after calling flow_dissector.
+Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
+jhash by hand.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/sched/sch_choke.c | 32 ++------------------------------
- 1 file changed, 2 insertions(+), 30 deletions(-)
+ net/sched/sch_hhf.c | 19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index c009eb9..8faa375 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -18,7 +18,6 @@
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
- #include <net/red.h>
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index 15d3aab..9d15cb6 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -9,7 +9,6 @@
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <linux/vmalloc.h>
 -#include <net/flow_keys.h>
+ #include <net/pkt_sched.h>
+ #include <net/sock.h>
  
- /*
-    CHOKe stateless AQM for fair bandwidth allocation
-@@ -133,16 +132,8 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
- 	--sch->q.qlen;
+@@ -176,22 +175,6 @@ static u32 hhf_time_stamp(void)
+ 	return jiffies;
  }
  
--/* private part of skb->cb[] that a qdisc is allowed to use
-- * is limited to QDISC_CB_PRIV_LEN bytes.
-- * As a flow key might be too large, we store a part of it only.
-- */
--#define CHOKE_K_LEN min_t(u32, sizeof(struct flow_keys), QDISC_CB_PRIV_LEN - 3)
+-static unsigned int skb_hash(const struct hhf_sched_data *q,
+-			     const struct sk_buff *skb)
+-{
+-	struct flow_keys keys;
+-	unsigned int hash;
 -
- struct choke_skb_cb {
- 	u16			classid;
--	u8			keys_valid;
--	u8			keys[QDISC_CB_PRIV_LEN - 3];
- };
- 
- static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
-@@ -169,26 +160,8 @@ static u16 choke_get_classid(const struct sk_buff *skb)
- static bool choke_match_flow(struct sk_buff *skb1,
- 			     struct sk_buff *skb2)
- {
--	struct flow_keys temp;
+-	if (skb->sk && skb->sk->sk_hash)
+-		return skb->sk->sk_hash;
 -
--	if (skb1->protocol != skb2->protocol)
--		return false;
+-	skb_flow_dissect(skb, &keys);
+-	hash = jhash_3words((__force u32)keys.dst,
+-			    (__force u32)keys.src ^ keys.ip_proto,
+-			    (__force u32)keys.ports, q->perturbation);
+-	return hash;
+-}
 -
--	if (!choke_skb_cb(skb1)->keys_valid) {
--		choke_skb_cb(skb1)->keys_valid = 1;
--		skb_flow_dissect(skb1, &temp);
--		memcpy(&choke_skb_cb(skb1)->keys, &temp, CHOKE_K_LEN);
--	}
--
--	if (!choke_skb_cb(skb2)->keys_valid) {
--		choke_skb_cb(skb2)->keys_valid = 1;
--		skb_flow_dissect(skb2, &temp);
--		memcpy(&choke_skb_cb(skb2)->keys, &temp, CHOKE_K_LEN);
--	}
--
--	return !memcmp(&choke_skb_cb(skb1)->keys,
--		       &choke_skb_cb(skb2)->keys,
--		       CHOKE_K_LEN);
-+	return (skb1->protocol == skb2->protocol &&
-+		skb_get_hash(skb1) == skb_get_hash(skb2));
- }
- 
- /*
-@@ -279,7 +252,6 @@ static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 			goto other_drop;	/* Packet was eaten by filter */
+ /* Looks up a heavy-hitter flow in a chaining list of table T. */
+ static struct hh_flow_state *seek_list(const u32 hash,
+ 				       struct list_head *head,
+@@ -280,7 +263,7 @@ static enum wdrr_bucket_idx hhf_classify(struct sk_buff *skb, struct Qdisc *sch)
  	}
  
--	choke_skb_cb(skb)->keys_valid = 0;
- 	/* Compute average queue usage (see RED) */
- 	q->vars.qavg = red_calc_qavg(p, &q->vars, sch->q.qlen);
- 	if (red_is_idling(&q->vars))
+ 	/* Get hashed flow-id of the skb. */
+-	hash = skb_hash(q, skb);
++	hash = skb_get_hash_perturb(skb, q->perturbation);
+ 
+ 	/* Check if this packet belongs to an already established HH flow. */
+ 	flow_pos = hash & HHF_BIT_MASK;
 -- 
 2.2.0.rc0.207.ga3a616c
