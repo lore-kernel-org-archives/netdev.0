@@ -1,37 +1,99 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 0/2] Mellanox driver fixes
-Date: Sun,  1 Mar 2015 16:56:12 +0200
-Message-ID: <1425221774-8874-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_core: Fix wrong mask and error flow for the update-qp command
+Date: Sun,  1 Mar 2015 16:56:13 +0200
+Message-ID: <1425221774-8874-2-git-send-email-ogerlitz@mellanox.com>
+References: <1425221774-8874-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:34457 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:34467 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751129AbbCAO4U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Mar 2015 09:56:20 -0500
+	id S1751129AbbCAO4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Mar 2015 09:56:22 -0500
+In-Reply-To: <1425221774-8874-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, 
+The bit mask for currently supported driver features (MLX4_UPDATE_QP_SUPPORTED_ATTRS)
+of the update-qp command was defined twice (using enum value and pre-processor
+define directive) and wrong.
 
-Two small fixes, please apply to net.
+The return value of the call to mlx4_update_qp() from within the SRIOV
+resource-tracker was wrongly voided down.
 
-Both patches should go to 3.19.y too.
+Fix both issues.
 
-thanks, 
-
-Or.
-
-Ido Shamay (1):
-  net/mlx4_en: Disbale GRO for incoming loopback/selftest packets
-
-Or Gerlitz (1):
-  net/mlx4_core: Fix wrong mask and error flow for the update-qp command
-
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c   |    8 +++++++-
+Fixes: 09e05c3f78e9 ('net/mlx4: Set vlan stripping policy by the right command')
+Fixes: ce8d9e0d6746 ('net/mlx4_core: Add UPDATE_QP SRIOV wrapper support')
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
  drivers/net/ethernet/mellanox/mlx4/qp.c            |    1 -
  .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    9 ++++++---
  include/linux/mlx4/qp.h                            |    2 +-
- 4 files changed, 14 insertions(+), 6 deletions(-)
+ 3 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+index 2bb8553..eda29db 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+@@ -412,7 +412,6 @@ err_icm:
+ 
+ EXPORT_SYMBOL_GPL(mlx4_qp_alloc);
+ 
+-#define MLX4_UPDATE_QP_SUPPORTED_ATTRS MLX4_UPDATE_QP_SMAC
+ int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
+ 		   enum mlx4_update_qp_attr attr,
+ 		   struct mlx4_update_qp_params *params)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 486e3d2..d97ca88 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -713,7 +713,7 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 	struct mlx4_vport_oper_state *vp_oper;
+ 	struct mlx4_priv *priv;
+ 	u32 qp_type;
+-	int port;
++	int port, err = 0;
+ 
+ 	port = (qpc->pri_path.sched_queue & 0x40) ? 2 : 1;
+ 	priv = mlx4_priv(dev);
+@@ -738,7 +738,9 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 			} else {
+ 				struct mlx4_update_qp_params params = {.flags = 0};
+ 
+-				mlx4_update_qp(dev, qpn, MLX4_UPDATE_QP_VSD, &params);
++				err = mlx4_update_qp(dev, qpn, MLX4_UPDATE_QP_VSD, &params);
++				if (err)
++					goto out;
+ 			}
+ 		}
+ 
+@@ -773,7 +775,8 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 		qpc->pri_path.feup |= MLX4_FSM_FORCE_ETH_SRC_MAC;
+ 		qpc->pri_path.grh_mylmc = (0x80 & qpc->pri_path.grh_mylmc) + vp_oper->mac_idx;
+ 	}
+-	return 0;
++out:
++	return err;
+ }
+ 
+ static int mpt_mask(struct mlx4_dev *dev)
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 2bbc62a..551f854 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -427,7 +427,7 @@ struct mlx4_wqe_inline_seg {
+ 
+ enum mlx4_update_qp_attr {
+ 	MLX4_UPDATE_QP_SMAC		= 1 << 0,
+-	MLX4_UPDATE_QP_VSD		= 1 << 2,
++	MLX4_UPDATE_QP_VSD		= 1 << 1,
+ 	MLX4_UPDATE_QP_SUPPORTED_ATTRS	= (1 << 2) - 1
+ };
+ 
+-- 
+1.7.1
