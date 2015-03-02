@@ -1,50 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 3/4] sparc: remove __GFP_NOFAIL reuquirement
-Date: Mon, 02 Mar 2015 15:44:24 -0500 (EST)
-Message-ID: <20150302.154424.30182050492471222.davem@davemloft.net>
-References: <1425304483-7987-4-git-send-email-mhocko@suse.cz>
-	<20150302.150405.2072800922470200977.davem@davemloft.net>
-	<20150302203304.GA20513@dhcp22.suse.cz>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH v3] net: bcmgenet: fix throughtput regression
+Date: Mon, 2 Mar 2015 12:49:22 -0800
+Message-ID: <CAGXr9JGQHCKav-Veo7zv2Vw=K-Zpupz7JEXCPPikU-Fqws5m4g@mail.gmail.com>
+References: <1425091706-5811-1-git-send-email-jaedon.shin@gmail.com>
+	<20150301.003007.247806713909808067.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hannes@cmpxchg.org,
-	rientjes@google.com, david@fromorbit.com, tytso@mit.edu,
-	mgorman@suse.de, penguin-kernel@I-love.SAKURA.ne.jp,
-	sparclinux@vger.kernel.org, vipul@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mhocko@suse.cz
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20150302203304.GA20513@dhcp22.suse.cz>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jaedon Shin <jaedon.shin@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:42873 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754643AbbCBUtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:49:23 -0500
+Received: by mail-qg0-f42.google.com with SMTP id z60so8643961qgd.1
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 12:49:22 -0800 (PST)
+In-Reply-To: <20150301.003007.247806713909808067.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Hocko <mhocko@suse.cz>
-Date: Mon, 2 Mar 2015 21:33:04 +0100
+When will this be available in net-next?
 
-> On Mon 02-03-15 15:04:05, David S. Miller wrote:
->> From: Michal Hocko <mhocko@suse.cz>
->> Date: Mon,  2 Mar 2015 14:54:42 +0100
->> 
->> > mdesc_kmalloc is currently requiring __GFP_NOFAIL allocation although it
->> > seems that the allocation failure is handled by all callers (via
->> > mdesc_alloc). __GFP_NOFAIL is a strong liability for the memory
->> > allocator and so the users are discouraged to use the flag unless the
->> > allocation failure is really a nogo. Drop the flag here as this doesn't
->> > seem to be the case.
->> > 
->> > Signed-off-by: Michal Hocko <mhocko@suse.cz>
->> 
->> It is a serious failure.
->> 
->> If we miss an MDESC update due to this allocation failure, the update
->> is not an event which gets retransmitted so we will lose the updated
->> machine description forever.
->> 
->> We really need this allocation to succeed.
-> 
-> OK, thanks for the clarification. This wasn't clear from the commit
-> which has introduced this code. I will drop this patch. Would you
-> accept something like the following instead?
-
-Sure.
+On Sat, Feb 28, 2015 at 9:30 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jaedon Shin <jaedon.shin@gmail.com>
+> Date: Sat, 28 Feb 2015 11:48:26 +0900
+>
+>> This patch adds bcmgenet_tx_poll for the tx_rings. This can reduce the
+>> interrupt load and send xmit in network stack on time. This also
+>> separated for the completion of tx_ring16 from bcmgenet_poll.
+>>
+>> The bcmgenet_tx_reclaim of tx_ring[{0,1,2,3}] operative by an interrupt
+>> is to be not more than a certain number TxBDs. It is caused by too
+>> slowly reclaiming the transmitted skb. Therefore, performance
+>> degradation of xmit after 605ad7f ("tcp: refine TSO autosizing").
+>>
+>> Signed-off-by: Jaedon Shin <jaedon.shin@gmail.com>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>
+> Applied.
