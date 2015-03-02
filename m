@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 6/6] sched: Eliminate use of flow_keys in
- sch_sfq
-Date: Sun, 01 Mar 2015 23:06:41 -0500 (EST)
-Message-ID: <20150301.230641.1074652099437388601.davem@davemloft.net>
-References: <1425247789-21211-1-git-send-email-therbert@google.com>
-	<1425247789-21211-7-git-send-email-therbert@google.com>
-	<1425257932.5130.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] bnx2: disable toggling of rxvlan if necessary
+Date: Sun, 01 Mar 2015 23:26:26 -0500 (EST)
+Message-ID: <20150301.232626.1088772157610816453.davem@davemloft.net>
+References: <1424958487-5737-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org, fw@strlen.de
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	Dept-HSGLinuxNICDev@qlogic.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46344 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46433 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752240AbbCBEGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 23:06:43 -0500
-In-Reply-To: <1425257932.5130.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752235AbbCBE02 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 23:26:28 -0500
+In-Reply-To: <1424958487-5737-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 01 Mar 2015 16:58:52 -0800
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Thu, 26 Feb 2015 14:48:07 +0100
 
-> On Sun, 2015-03-01 at 14:09 -0800, Tom Herbert wrote:
->> Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
->> jhash by hand.
+> The bnx2 driver uses .ndo_fix_features to force enable of Rx VLAN tag
+> stripping when the card cannot disable it. The driver should remove
+> NETIF_F_HW_VLAN_CTAG_RX flag from hw_features instead so it is fixed
+> for the ethtool.
 > 
-> This defeats one of the perturbation goal :
-> 
-> If two flows hashes into same hash, then skb_get_hash_perturb(skb,
-> q->perturbation) will also give same hash forever and map to same hash
-> bucket.
+> Cc: Sony Chacko <sony.chacko@qlogic.com>
+> Cc: Dept-HSGLinuxNICDev@qlogic.com
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Yes, this needs to be resolved.
+Applied, thanks.
