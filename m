@@ -1,35 +1,69 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 4/4] switchdev: don't support custom ip rules,
- for now
-Date: Mon, 02 Mar 2015 06:36:15 -0800
-Message-ID: <54F4755F.6020205@cumulusnetworks.com>
-References: <1425290777-22702-1-git-send-email-sfeldma@gmail.com> <1425290777-22702-5-git-send-email-sfeldma@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next v4 0/2] net: Introducing socket mark receive
+ socket option
+Date: Mon, 2 Mar 2015 15:36:47 +0100
+Message-ID: <20150302143647.GC7418@breakpoint.cc>
+References: <1425302043-669-1-git-send-email-eyal.birger@gmail.com>
+ <20150302132925.GB7418@breakpoint.cc>
+ <CAHsH6Gu+ZHSdnnritKk5cjTg4NuKppYjffXjNpou2i+uVeykYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eyal Birger <eyal.birger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:39632 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753529AbbCBOgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 09:36:18 -0500
-Received: by pablf10 with SMTP id lf10so44053683pab.6
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 06:36:17 -0800 (PST)
-In-Reply-To: <1425290777-22702-5-git-send-email-sfeldma@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53564 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754285AbbCBOgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 09:36:52 -0500
+Content-Disposition: inline
+In-Reply-To: <CAHsH6Gu+ZHSdnnritKk5cjTg4NuKppYjffXjNpou2i+uVeykYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
->
-> Keep switchdev FIB offload model simple for now and don't allow custom ip
-> rules.
->
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Eyal Birger <eyal.birger@gmail.com> wrote:
+> On Mon, Mar 2, 2015 at 3:29 PM, Florian Westphal <fw@strlen.de> wrote:
+> > Eyal Birger <eyal.birger@gmail.com> wrote:
+> >> This patch set introduces a new socket option for fetching the mark
+> >> of skbs passed to sockets as ancillary data.
+> >>
+> >> A userspace program may wish to receive the mark of packets it
+> >> receives, for example for distinguishing between different TPROXY
+> >> diversion rules to the same userspace proxy socket.
+> >
+> > Hmm... Whats the use case?
+> > Even if you cannot use multiple sockets for every divert rule,
+> > TPROXY doesn't mangle payload; applications could use sockaddrs
+> > returned by accept, getpeername, getsockname etc.  to figure out
+> > which original port/address the packet was sent to?
+> 
+> Right. But that would mean the criteria for traffic diversion would need to
+> be known to the application receiving the traffic.
 
-I don't see a need to do this. And seems very aggressive.
-Also, note that the rules in a system can be on non-hw accelerated ports.
+For your solution to work the application needs to know about the TPROXY
+rule set and how that is structured, no?
 
-Until rules are hw accelerated, its ok to document this limitation for 
-hw accelerated routes in my opinion.
+I don't see how that is 'better' than e.g. looking at dst port number.
+
+> Also, the feature has use-cases outside of TPROXY as the skb->mark may be set
+> by other mechanisms (including SO_MARK from user space).
+
+Right, but to me it seems very hacky to use SO_MARK as some kind of OOB signal.
+
+It won't work depending on loaded ruleset, it won't work with non-localhost
+traffic and it won't work when other application runs in another network
+namespace.
+
+Seems such facility would be limited to some pre-configured distribution where
+users don't run own software and make no changes to the default system
+setup.
+
+> For example, a user space daemon can receive traffic from multiple
+> applications using a single socket and distinguish between different traffic groups
+> according to the packet mark.
+
+Right, but it might as well use SO_PEERCRED to identify the other pid, right?
