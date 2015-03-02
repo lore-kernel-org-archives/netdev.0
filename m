@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 5/6] fib_trie: move leaf and tnode to occupy the
- same spot in the key vector
-Date: Mon, 02 Mar 2015 13:32:48 -0800
-Message-ID: <20150302213247.1490.45691.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 3/6] fib_trie: Fib find node should return parent
+Date: Mon, 02 Mar 2015 13:32:35 -0800
+Message-ID: <20150302213235.1490.88546.stgit@ahduyck-vm-fedora20>
 References: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,186 +9,114 @@ Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39758 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44900 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753689AbbCBVcu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 16:32:50 -0500
+	id S1755009AbbCBVch (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2015 16:32:37 -0500
 In-Reply-To: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we are going to compact the leaf and tnode we first need to make sure
-the fields are all in the same place.  In that regard I am moving the leaf
-pointer which represents the fib_alias hash list to occupy what is
-currently the first key_vector pointer.
+This change makes it so that the parent pointer is returned by reference in
+fib_find_node.  By doing this I can use it to find the parent node when I
+am performing an insertion and I don't have to look for it again in
+fib_insert_node.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |   51 +++++++++++++++++++++++++++------------------------
- 1 file changed, 27 insertions(+), 24 deletions(-)
+ net/ipv4/fib_trie.c |   28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 454b8c5..502c89c 100644
+index 5f8081f..6b9cc70 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -94,24 +94,27 @@ typedef unsigned int t_key;
- #define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> (_kv)->pos)
- 
- struct tnode {
-+	struct rcu_head rcu;
-+
-+	t_key empty_children; /* KEYLENGTH bits needed */
-+	t_key full_children;  /* KEYLENGTH bits needed */
-+	struct tnode __rcu *parent;
-+
- 	t_key key;
--	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char pos;		/* 2log(KEYLENGTH) bits needed */
-+	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char slen;
--	struct tnode __rcu *parent;
--	struct rcu_head rcu;
- 	union {
--		/* The fields in this struct are valid if bits > 0 (TNODE) */
--		struct {
--			t_key empty_children; /* KEYLENGTH bits needed */
--			t_key full_children;  /* KEYLENGTH bits needed */
--			struct tnode __rcu *child[0];
--		};
--		/* This list pointer if valid if bits == 0 (LEAF) */
-+		/* This list pointer if valid if (pos | bits) == 0 (LEAF) */
- 		struct hlist_head leaf;
-+		/* This array is valid if (pos | bits) > 0 (TNODE) */
-+		struct tnode __rcu *tnode[0];
- 	};
- };
- 
-+#define TNODE_SIZE(n)	offsetof(struct tnode, tnode[n])
-+#define LEAF_SIZE	TNODE_SIZE(1)
-+
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- struct trie_use_stats {
- 	unsigned int gets;
-@@ -180,14 +183,14 @@ static inline unsigned long tnode_child_length(const struct tnode *tn)
- static inline struct tnode *tnode_get_child(const struct tnode *tn,
- 					    unsigned long i)
- {
--	return rtnl_dereference(tn->child[i]);
-+	return rtnl_dereference(tn->tnode[i]);
+@@ -912,10 +912,12 @@ static void fib_insert_alias(struct tnode *l, struct fib_alias *fa,
  }
  
- /* caller must hold RCU read lock or RTNL */
- static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn,
- 						unsigned long i)
+ /* rcu_read_lock needs to be hold by caller from readside */
+-static struct tnode *fib_find_node(struct trie *t, u32 key)
++static struct tnode *fib_find_node(struct trie *t, struct tnode **tp, u32 key)
  {
--	return rcu_dereference_rtnl(tn->child[i]);
-+	return rcu_dereference_rtnl(tn->tnode[i]);
- }
+ 	struct tnode *n = rcu_dereference_rtnl(t->trie);
  
- /* To understand this stuff, an understanding of keys and all their bits is
-@@ -266,7 +269,7 @@ static inline void alias_free_mem_rcu(struct fib_alias *fa)
- }
++	*tp = NULL;
++
+ 	while (n) {
+ 		unsigned long index = get_index(key, n);
  
- #define TNODE_KMALLOC_MAX \
--	ilog2((PAGE_SIZE - sizeof(struct tnode)) / sizeof(struct tnode *))
-+	ilog2((PAGE_SIZE - TNODE_SIZE(0)) / sizeof(struct tnode *))
+@@ -936,6 +938,7 @@ static struct tnode *fib_find_node(struct trie *t, u32 key)
+ 		if (IS_LEAF(n))
+ 			break;
  
- static void __node_free_rcu(struct rcu_head *head)
- {
-@@ -324,7 +327,7 @@ static struct tnode *leaf_new(t_key key, struct fib_alias *fa)
- 
- static struct tnode *tnode_new(t_key key, int pos, int bits)
- {
--	size_t sz = offsetof(struct tnode, child[1ul << bits]);
-+	size_t sz = TNODE_SIZE(1ul << bits);
- 	struct tnode *tn = tnode_alloc(sz);
- 	unsigned int shift = pos + bits;
- 
-@@ -343,7 +346,7 @@ static struct tnode *tnode_new(t_key key, int pos, int bits)
- 			tn->empty_children = 1ul << bits;
++		*tp = n;
+ 		n = tnode_get_child_rcu(n, index);
  	}
  
--	pr_debug("AT %p s=%zu %zu\n", tn, sizeof(struct tnode),
-+	pr_debug("AT %p s=%zu %zu\n", tn, TNODE_SIZE(0),
- 		 sizeof(struct tnode *) << bits);
- 	return tn;
- }
-@@ -384,7 +387,7 @@ static void put_child(struct tnode *tn, unsigned long i, struct tnode *n)
- 	if (n && (tn->slen < n->slen))
- 		tn->slen = n->slen;
+@@ -1071,15 +1074,15 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
+  */
+ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ {
+-	struct trie *t = (struct trie *) tb->tb_data;
++	struct trie *t = (struct trie *)tb->tb_data;
+ 	struct fib_alias *fa, *new_fa;
++	struct tnode *l, *tp;
+ 	struct fib_info *fi;
+ 	u8 plen = cfg->fc_dst_len;
+ 	u8 slen = KEYLENGTH - plen;
+ 	u8 tos = cfg->fc_tos;
+-	u32 key, mask;
++	u32 key;
+ 	int err;
+-	struct tnode *l;
  
--	rcu_assign_pointer(tn->child[i], n);
-+	rcu_assign_pointer(tn->tnode[i], n);
- }
+ 	if (plen > KEYLENGTH)
+ 		return -EINVAL;
+@@ -1088,9 +1091,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
  
- static void update_children(struct tnode *tn)
-@@ -435,7 +438,7 @@ static void tnode_free(struct tnode *tn)
+ 	pr_debug("Insert table=%u %08x/%d\n", tb->tb_id, key, plen);
  
- 	while (head) {
- 		head = head->next;
--		tnode_free_size += offsetof(struct tnode, child[1 << tn->bits]);
-+		tnode_free_size += TNODE_SIZE(1ul << tn->bits);
- 		node_free(tn);
+-	mask = ntohl(inet_make_mask(plen));
+-
+-	if (key & ~mask)
++	if ((plen < KEYLENGTH) && (key << plen))
+ 		return -EINVAL;
  
- 		tn = container_of(head, struct tnode, rcu);
-@@ -788,7 +791,7 @@ static void resize(struct trie *t, struct tnode *tn)
- 	 * doing it ourselves.  This way we can let RCU fully do its
- 	 * thing without us interfering
- 	 */
--	cptr = tp ? &tp->child[get_index(tn->key, tp)] : &t->trie;
-+	cptr = tp ? &tp->tnode[get_index(tn->key, tp)] : &t->trie;
- 	BUG_ON(tn != rtnl_dereference(*cptr));
- 
- 	/* Double as long as the resulting node has a number of
-@@ -1235,7 +1238,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 	/* Step 2: Sort out leaves and begin backtracing for longest prefix */
- 	for (;;) {
- 		/* record the pointer where our next node pointer is stored */
--		struct tnode __rcu **cptr = n->child;
-+		struct tnode __rcu **cptr = n->tnode;
- 
- 		/* This test verifies that none of the bits that differ
- 		 * between the key and the prefix exist in the region of
-@@ -1281,7 +1284,7 @@ backtrace:
- 			cindex &= cindex - 1;
- 
- 			/* grab pointer for next child node */
--			cptr = &pn->child[cindex];
-+			cptr = &pn->tnode[cindex];
- 		}
+ 	fi = fib_create_info(cfg);
+@@ -1099,7 +1100,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 		goto err;
  	}
  
-@@ -1679,7 +1682,7 @@ void __init fib_trie_init(void)
- 					  0, SLAB_PANIC, NULL);
+-	l = fib_find_node(t, key);
++	l = fib_find_node(t, &tp, key);
+ 	fa = l ? fib_find_alias(&l->leaf, slen, tos, fi->fib_priority) : NULL;
  
- 	trie_leaf_kmem = kmem_cache_create("ip_fib_trie",
--					   sizeof(struct tnode),
-+					   LEAF_SIZE,
- 					   0, SLAB_PANIC, NULL);
- }
+ 	/* Now fa, if non-NULL, points to the first fib alias
+@@ -1406,22 +1407,21 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct trie *t = (struct trie *) tb->tb_data;
+ 	struct fib_alias *fa, *fa_to_delete;
++	struct tnode *l, *tp;
+ 	u8 plen = cfg->fc_dst_len;
+-	u8 tos = cfg->fc_tos;
+ 	u8 slen = KEYLENGTH - plen;
+-	struct tnode *l;
+-	u32 key, mask;
++	u8 tos = cfg->fc_tos;
++	u32 key;
  
-@@ -1837,13 +1840,13 @@ static void trie_show_stats(struct seq_file *seq, struct trie_stat *stat)
- 	seq_printf(seq, "\tMax depth:      %u\n", stat->maxdepth);
+ 	if (plen > KEYLENGTH)
+ 		return -EINVAL;
  
- 	seq_printf(seq, "\tLeaves:         %u\n", stat->leaves);
--	bytes = sizeof(struct tnode) * stat->leaves;
-+	bytes = LEAF_SIZE * stat->leaves;
+ 	key = ntohl(cfg->fc_dst);
+-	mask = ntohl(inet_make_mask(plen));
  
- 	seq_printf(seq, "\tPrefixes:       %u\n", stat->prefixes);
- 	bytes += sizeof(struct fib_alias) * stat->prefixes;
+-	if (key & ~mask)
++	if ((plen < KEYLENGTH) && (key << plen))
+ 		return -EINVAL;
  
- 	seq_printf(seq, "\tInternal nodes: %u\n\t", stat->tnodes);
--	bytes += sizeof(struct tnode) * stat->tnodes;
-+	bytes += TNODE_SIZE(0) * stat->tnodes;
+-	l = fib_find_node(t, key);
++	l = fib_find_node(t, &tp, key);
+ 	if (!l)
+ 		return -ESRCH;
  
- 	max = MAX_STAT_DEPTH;
- 	while (max > 0 && stat->nodesizes[max-1] == 0)
-@@ -1912,7 +1915,7 @@ static int fib_triestat_seq_show(struct seq_file *seq, void *v)
- 	seq_printf(seq,
- 		   "Basic info: size of leaf:"
- 		   " %Zd bytes, size of tnode: %Zd bytes.\n",
--		   sizeof(struct tnode), sizeof(struct tnode));
-+		   LEAF_SIZE, TNODE_SIZE(0));
- 
- 	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
- 		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
