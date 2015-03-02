@@ -1,101 +1,97 @@
-From: Andrey Volkov <andrey.volkov@nexvision.fr>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
-Date: Mon, 02 Mar 2015 16:27:14 +0100
-Message-ID: <54F48152.4070205@nexvision.fr>
-References: <54EA8E7C.90401@roeck-us.net> <20150223031447.GA19267@lunn.ch> <54EAA767.6060105@roeck-us.net> <20150223042220.GA20063@lunn.ch> <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch> <54EB37C7.3090209@roeck-us.net> <20150223160109.GB27057@lunn.ch> <54EB6BF5.2020600@gmail.com> <20150223183537.GA23456@roeck-us.net> <54EDD172.4010606@nexvision.fr> <54EDDB72.1090706@roeck-us.net> <54F0A4DE.3020704@nexvision.fr> <54F17408.4080105@roeck-us.net> <54F475E8.8010408@nexvision.fr> <54F47876.2000104@roeck-us.net>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: Flows! Offload them.
+Date: Mon, 2 Mar 2015 13:06:59 -0500
+Message-ID: <20150302180659.GC7971@gospo.home.greyhouse.net>
+References: <20150226083758.GA15139@vergenet.net>
+ <20150226091628.GA4059@nanopsycho.orion>
+ <20150226133326.GC23050@casper.infradead.org>
+ <54EF3A78.9020507@intel.com>
+ <20150226201635.GA366@hmsreliant.think-freely.org>
+ <20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
+ <20150227012239.GB8847@neilslaptop.think-freely.org>
+ <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
+ <20150302134946.GB7971@gospo.home.greyhouse.net>
+ <CAE4R7bCQrHqgyBkEuEpoZnn2npeuBrGUG60Zwpg8RBB20JwqeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <therbert@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Simon Horman <simon.horman@netronome.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Linux Netdev List <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	jerome.oufella@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
+	Joe Stringer <joestringer@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Shrijeet Mukherjee <shrijeet@gmail.com>,
+	Benjamin LaHaise <bcrl@kvack.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1.mo1.mail-out.ovh.net ([178.32.127.22]:57103 "EHLO
-	1.mo1.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754021AbbCBR4s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:56:48 -0500
-Received: from mail98.ha.ovh.net (gw6.ovh.net [213.251.189.206])
-	by mo1.mail-out.ovh.net (Postfix) with SMTP id 5D75FFF9D87
-	for <netdev@vger.kernel.org>; Mon,  2 Mar 2015 16:27:17 +0100 (CET)
-In-Reply-To: <54F47876.2000104@roeck-us.net>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:37190 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753364AbbCBSG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 13:06:58 -0500
+Received: by mail-qa0-f48.google.com with SMTP id dc16so24106958qab.7
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 10:06:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bCQrHqgyBkEuEpoZnn2npeuBrGUG60Zwpg8RBB20JwqeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2015 15:49, Guenter Roeck wrote:
-> On 03/02/2015 06:38 AM, Andrey Volkov wrote:
->>
->> On 28/02/2015 08:53, Guenter Roeck wrote:
->>> On 02/27/2015 09:09 AM, Andrey Volkov wrote:
->>>> Gunter,
->>>>
->>>> Sorry with response delay, I very was busy yesterday
->>>>
->>>> Le 25/02/2015 15:25, Guenter Roeck a =E9crit :
->>>>> Andrey,
->>>>
->>>> ------- snip -------
->>>>
->>>>>>>
->>>>>> I simply modify port's fid to the new one in the leave routine a=
-nd set to common bridge FID in enter
->>>>>> (I'm using Marvell's chips). So the port's database will cleaned=
- up automatically for the leave and will
->>>>>> contain something useful at the enter time. Also I've look throu=
-gh yours patches and I haven't
->>>>>
->>>>> Does removing a port from a fid clean up the entries associated w=
-ith it
->>>>> in the database ?
->>>>
->>>> I've checked what happened when port changed its FID: switch logic=
- block traffic to it
->>>> immediately, as far as I can see, meanwhile record still exists in=
- the bridge database,
->>>> it was checked on 88e6185, 88e6097 and 88e6352 chips. And yet anot=
-her 5c: changing of group membership is
->>>> not atomic operation in the Marvell's chips known for me, so the p=
-ort must be in the disabled state when it
->>>> will happened.
->>>>
->>> Hmm - interesting. I assume you mean updating port registers 5 and =
-6 ?
->> Yes sure, it's reason why we must disable the port before changing t=
-he FID.
->>
-> Yes, I think we'll need to do that once we use the bits in register 5=
-=2E
->=20
->>>
->>> Different question: For 6185, did you write a new driver or extend =
-an existing one ?
->>> I found that it is quite similar to 6131, and that adding support f=
-or it to the 6131
->>> driver should be straightforward.
->> Yes again :), and 88E6097 have same core as 6123_61_65. Difference i=
-n both cases only in the number
->> of supported ports, and it was main reason why hardcoded port's numb=
-er was unacceptable for me, difference is
->> large enough: for ex. 88e6123 have only 3 ports, but 88E6097 - 11.
->>
->=20
-> I have a patch set to change the number of ports to a variable in the=
- 6131 driver.
-> Want me to submit it now ? Though I guess you must have pretty much t=
-he same,
-> so we can also use your approach. Let me know.
+On Mon, Mar 02, 2015 at 08:54:06AM -0800, Scott Feldman wrote:
+> On Mon, Mar 2, 2015 at 5:49 AM, Andy Gospodarek
+> <gospo@cumulusnetworks.com> wrote:
+> > On Thu, Feb 26, 2015 at 05:52:16PM -0800, Tom Herbert wrote:
+> >> On Thu, Feb 26, 2015 at 5:22 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> > [...]
+> >> > Yes, exactly that, for the general traditional networking use case, that is
+> >> > exactly what we want, to opportunistically move traffic faster with less load on
+> >> > the cpu.  We don't nominally care what traffic is offloaded, as long as the
+> >> > hardware does a better job than just software alone.  If we get an occasional
+> >> > miss and have to do stuff in software, so be it.
+> >> >
+> >> +1 on an in kernel "Network Resource Manager". This also came up in
+> >> Sunil's plan to configure RPS affinities from a driver so I'm taking
+> >> liberty by generalizing the concept :-).
+> >
+> > I agree completely that there is a need for what you both describe.  Not
+> > only to handle what items to offload for users looking for that level
+> > of granularity, but also to allow driver implementers to decide if their
+> > hardware/driver implementation may allow for async write of data to
+> > hardware tables, and any other implementation specific detail they may
+> > want to provide.
+> 
+> Can you elaborate on "allow for async write of data to hardware
+> tables"?  Is this the trampoline model where user's request goes to
+> the kernel, and then back to user-space, and finally to the hardware
+> via an user-space SDK?I think we should exclude that model from
+> discussions about resource management.  With the recent L2/L3 offload
+> work, I'm advocating a synchronous call path from user to kernel to
+> hardware so we can return a actionable result code, and put the burden
+> of resource management in user-space, not in the kernel.
 
-I think that better to start from my patches: they are more generic and=
- have support of sysfs
-(should be useful for "MII over ethernet"). Also IMO it will be better =
-if we continue exchange/prereview
-our patches in more narrow mail list, since I do not want to pollute ne=
-tdev by useless discussions about drafts.
-Objections/suggestions?
+No, this would not be to enable a trampoline driver.  While that is
+interesting to some, developing explicit infra upstream to enable such a
+thing is not interesting to me.
 
---
-Regards
-Andrey
+This comes on the heels of recent discussions I've had with more than
+one vendor who have discussed the algorithmic complexity that often
+exists in their driver and the concern about whether or not they could
+allow some calls down to hardware to be async when it is known that
+there is no real pressure on the available space in any given table.
+
+When a driver would alert that limited space would be available, I would
+see these calls going synchronous to be positive that they would be
+allowed to complete and to allow a more standard error path.  Since
+behavior might change slightly depending on available resources, it
+seemed like a good topic to discuss when discussing a resource manager.  
+
+This may be an optimization that is not needed in the base version of a
+resource manager and if that is the case, that is fine with me. :)
