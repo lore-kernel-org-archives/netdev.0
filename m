@@ -1,113 +1,78 @@
 From: Michal Hocko <mhocko@suse.cz>
-Subject: [PATCH] sparc: clarify __GFP_NOFAIL allocation
-Date: Mon, 2 Mar 2015 22:36:10 +0100
-Message-ID: <20150302213610.GA31974@dhcp22.suse.cz>
-References: <1425304483-7987-4-git-send-email-mhocko@suse.cz>
- <20150302.150405.2072800922470200977.davem@davemloft.net>
- <20150302203304.GA20513@dhcp22.suse.cz>
- <20150302.154424.30182050492471222.davem@davemloft.net>
+Subject: Re: [RFC 2/4] jbd2: revert must-not-fail allocation loops back to
+ GFP_NOFAIL
+Date: Mon, 2 Mar 2015 22:42:47 +0100
+Message-ID: <20150302214247.GB31974@dhcp22.suse.cz>
+References: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
+ <1425304483-7987-3-git-send-email-mhocko@suse.cz>
+ <alpine.DEB.2.10.1503021225090.20808@chino.kir.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hannes@cmpxchg.org,
-	rientjes@google.com, david@fromorbit.com, tytso@mit.edu,
-	mgorman@suse.de, penguin-kernel@I-love.SAKURA.ne.jp,
-	sparclinux@vger.kernel.org, vipul@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Dave Chinner <david@fromorbit.com>, Theodore Ts'o <tytso@mit.edu>,
+	Mel Gorman <mgorman@suse.de>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	"David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org,
+	Vipul Pandya <vipul@chelsio.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20150302.154424.30182050492471222.davem@davemloft.net>
-Sender: sparclinux-owner@vger.kernel.org
+In-Reply-To: <alpine.DEB.2.10.1503021225090.20808@chino.kir.corp.google.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon 02-03-15 15:44:24, David S. Miller wrote:
-[...]
-> > OK, thanks for the clarification. This wasn't clear from the commit
-> > which has introduced this code. I will drop this patch. Would you
-> > accept something like the following instead?
+On Mon 02-03-15 12:33:21, David Rientjes wrote:
+> On Mon, 2 Mar 2015, Michal Hocko wrote:
 > 
-> Sure.
+> > This basically reverts 47def82672b3 (jbd2: Remove __GFP_NOFAIL from jbd2
+> > layer). The deprecation of __GFP_NOFAIL was a bad choice because it led
+> > to open coding the endless loop around the allocator rather than
+> > removing the dependency on the non failing allocation. So the
+> > deprecation was a clear failure and the reality tells us that
+> > __GFP_NOFAIL is not even close to go away.
+> > 
+> > It is still true that __GFP_NOFAIL allocations are generally discouraged
+> > and new uses should be evaluated and an alternative (pre-allocations or
+> > reservations) should be considered but it doesn't make any sense to lie
+> > the allocator about the requirements. Allocator can take steps to help
+> > making a progress if it knows the requirements.
+> > 
+> 
+> The changelog should state that this only changes the source code, there 
+> is no functional change since alloc_buffer_head() and 
+> kmem_cache_zalloc(transaction_cache) are already implicitly nofail due to 
+> the allocation order.  The failure code added by the commit you cite are 
+> never executed.
 
-Thanks!
+Well, even when those allocation would fail the resulting behavior is
+basically the same (modulo congestion_wait which imho doesn't make much
+difference). So I would prefer not getting that way and simply stay with
+the external loop vs. looping within the allocator.
 
----
->From dac5829e3a1d44ba7759b4188de01f15ddb77b8b Mon Sep 17 00:00:00 2001
-From: Michal Hocko <mhocko@suse.cz>
-Date: Mon, 2 Mar 2015 22:27:02 +0100
-Subject: [PATCH] sparc: clarify __GFP_NOFAIL allocation
+> I agree that if the implementation of the page allocator were to change 
+> with respect to PAGE_ALLOC_COSTLY_ORDER that we'd need __GFP_NOFAIL and 
+> that such an allocation is better handled in the page allocator.
+> 
+> > Signed-off-by: Michal Hocko <mhocko@suse.cz>
+> 
+> Acked-by: David Rientjes <rientjes@google.com>
 
-920c3ed74134 ([SPARC64]: Add basic infrastructure for MD add/remove
-notification.) has added __GFP_NOFAIL for the allocation request but
-it hasn't mentioned why is this strict requirement really needed.
-The code was handling an allocation failure and propagated it properly
-up the callchain so it is not clear why it is needed.
+Thanks
 
-Dave has clarified the intention when I tried to remove the flag as not
-being necessary:
-"
-It is a serious failure.
+> GFP_NOFS|__GFP_NOFAIL is scary.
 
-If we miss an MDESC update due to this allocation failure, the update
-is not an event which gets retransmitted so we will lose the updated
-machine description forever.
-
-We really need this allocation to succeed.
-"
-
-So add a comment to clarify the nofail flag and get rid of the failure
-check because __GFP_NOFAIL allocation doesn't fail.
-
-Signed-off-by: Michal Hocko <mhocko@suse.cz>
----
- arch/sparc/kernel/mdesc.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/arch/sparc/kernel/mdesc.c b/arch/sparc/kernel/mdesc.c
-index 99632a87e697..26c80e18d7b1 100644
---- a/arch/sparc/kernel/mdesc.c
-+++ b/arch/sparc/kernel/mdesc.c
-@@ -130,26 +130,26 @@ static struct mdesc_mem_ops memblock_mdesc_ops = {
- static struct mdesc_handle *mdesc_kmalloc(unsigned int mdesc_size)
- {
- 	unsigned int handle_size;
-+	struct mdesc_handle *hp;
-+	unsigned long addr;
- 	void *base;
- 
- 	handle_size = (sizeof(struct mdesc_handle) -
- 		       sizeof(struct mdesc_hdr) +
- 		       mdesc_size);
- 
-+	/*
-+	 * Allocation has to succeed because mdesc update would be missed
-+	 * and such events are not retransmitted.
-+	 */
- 	base = kmalloc(handle_size + 15, GFP_KERNEL | __GFP_NOFAIL);
--	if (base) {
--		struct mdesc_handle *hp;
--		unsigned long addr;
--
--		addr = (unsigned long)base;
--		addr = (addr + 15UL) & ~15UL;
--		hp = (struct mdesc_handle *) addr;
-+	addr = (unsigned long)base;
-+	addr = (addr + 15UL) & ~15UL;
-+	hp = (struct mdesc_handle *) addr;
- 
--		mdesc_handle_init(hp, handle_size, base);
--		return hp;
--	}
-+	mdesc_handle_init(hp, handle_size, base);
- 
--	return NULL;
-+	return hp;
- }
- 
- static void mdesc_kfree(struct mdesc_handle *hp)
--- 
-2.1.4
-
-
+Yes it is but as I've learned nothing unusual in the fs land and the
+situation should be improved a lot if we go reservation way suggested by
+David. Then __GFP_NOFAIL would consume the pre-reserved memory rather
+than trigger OOM killer.
 -- 
 Michal Hocko
 SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
