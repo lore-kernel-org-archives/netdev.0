@@ -1,71 +1,81 @@
-From: Trond Myklebust <trond.myklebust@primarydata.com>
-Subject: Re: Weird TCP hang when doing loopback NFS (wireshark traces attached)
-Date: Sun, 1 Mar 2015 23:31:31 -0500
-Message-ID: <CAHQdGtQnbPWYhdvwTGJKUD4mt8x_rmQjCH3AO4X17Y4RBSpUQQ@mail.gmail.com>
-References: <1425237291.24845.13.camel@primarydata.com>
-	<CAHQdGtSTJoKJZ8y72oLWTv30AZxVsRWAU0pTjZJy18jQ7Dhadw@mail.gmail.com>
-	<20150302010636.GA8033@fieldses.org>
-	<CAHQdGtQcrF4fs0Tb3jTQ6iGXzOhhjRNAezrq_eOfzo_cFxh1Xw@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 0/8] Basic MPLS support
+Date: Sun, 01 Mar 2015 23:10:12 -0600
+Message-ID: <871tl8dlxn.fsf@x220.int.ebiederm.org>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
+	<20150227.162131.431559184124647735.davem@davemloft.net>
+	<87mw3yg8da.fsf@x220.int.ebiederm.org>
+	<20150301.230306.2023670900391030920.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Network Devel Mailing List <netdev@vger.kernel.org>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>
-To: Bruce James Fields <bfields@fieldses.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, santiago@crfreenet.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:64979 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756AbbCBEbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 23:31:32 -0500
-Received: by mail-vc0-f174.google.com with SMTP id id10so10199564vcb.5
-        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 20:31:31 -0800 (PST)
-In-Reply-To: <CAHQdGtQcrF4fs0Tb3jTQ6iGXzOhhjRNAezrq_eOfzo_cFxh1Xw@mail.gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:46068 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750758AbbCBFNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 00:13:54 -0500
+In-Reply-To: <20150301.230306.2023670900391030920.davem@davemloft.net> (David
+	Miller's message of "Sun, 01 Mar 2015 23:03:06 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 1, 2015 at 8:20 PM, Trond Myklebust
-<trond.myklebust@primarydata.com> wrote:
-> On Sun, Mar 1, 2015 at 8:06 PM, Bruce James Fields <bfields@fieldses.org> wrote:
->> On Sun, Mar 01, 2015 at 07:52:28PM -0500, Trond Myklebust wrote:
->>> Hi Bruce,
->>>
->>> On Sun, Mar 1, 2015 at 2:14 PM, Trond Myklebust
->>> <trond.myklebust@primarydata.com> wrote:
->>> > Hi,
->>> >
->>> > When doing testing of NFSv3 loopback mounts (client and server are on
->>> > the same IP address), I'm seeing a very reproducible hang in which the
->>> > client stops receiving data from the server. The TCP connection is still
->>> > marked as established, and the server appears to continue to receive and
->>> > send data, however the client does not.
->>> >
->>> > So far, I've reproduced on both v4.0-rc1, and the Fedora v3.18.7 kernel.
->>> >
->>> > The reproducer is simply to loopback mount using NFSv3, and then run the
->>> > 'fsx' filesystem exerciser. I'm usually able to trigger the hang with
->>> > "fsx -N 100000 foobar".
->>> >
->>> > I've attached a couple of wireshark trace of a few frames just before
->>> > and during the hang in case it jogs any memories.
->>>
->>> This bug appears to go away when I disable the splice()-based reads by
->>> clearing the RQ_SPLICE_OK flag.
->>>
->>> I noticed that it always involved a combination of a READ and a
->>> truncating SETATTR call. Are you sure that it is safe to share
->>> pagecache pages directly with sendpage() in this way? As far as I can
->>> tell, there is no locking to prevent them from being modified while in
->>> the TCP send queue.
->>
->> This is the stable-pages problem that we've had forever, isn't it?  Or
->> is this a different problem?
->
-> It is causing the TCP socket to hang, so it goes beyond the usual
-> stable pages issue.
->
+David Miller <davem@davemloft.net> writes:
 
-Confirming that clearing RQ_SPLICE_OK fixes the issue on all kernel
-that I've tested so far.
--- 
-Trond Myklebust
-Linux NFS client maintainer, PrimaryData
-trond.myklebust@primarydata.com
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Fri, 27 Feb 2015 18:58:09 -0600
+>
+>> Part of that expediency was the realization that waiting for neighbour
+>> resolution before transmitting packets requires the packets have dst
+>> entries.  Something that is not otherwise required.  That seems to add
+>> a noticable amount of complexity to the forwarding code.  If nothing
+>> else I have to manage dst objects and their packet specific lifetimes.
+>
+> There is no requirement as such, in fact you can use your MPLS
+> forwarding frames to trigger neighbour resolution.
+>
+> You just put IPv4/IPv6 addresses in your mpls routes, and then
+> at transmit time:
+>
+> 	rcu_read_lock();
+> 	n = __ipv4_neigh_lookup_noref(&arp_tbl, &mpls_route->v4addr, dev, false);
+> 	if (unlikely(!n))
+> 		n = __neigh_create(&arp_tbl, &mpls_route->v4addr, dev, false);
+> 	if (!IS_ERR(n)) {
+> 		const struct hh_cache *hh = &n->hh;
+>
+> 		if ((n->nud_state & NUD_CONNECTED) && hh->hh_len)
+> 			return neigh_hh_output(hh, skb);
+> 		else
+> 			return n->output(n, skb);
+> 	}
+> 	rcu_read_unlock();
+
+Which fails miserably.  neigh_hh_output will use an ethertype of
+ETH_P_IP from the cached header, instead of a header type of
+ETH_P_MPLS_UC from skb->protocol.
+
+Just using n->output is better but if you look at neigh_resolve_output
+frames without a dst entry will be dropped.
+
+>> I think to properly handle ipv4 and ipv6 next hops I would need to pull
+>> the neighbour cache apart and and put it back together again while
+>> reexaming all of it's assumptions about which things are a good idea to
+>> optimize.   That feels like more work in benchmarking etc than the MPLS
+>> code has been so far.  
+>
+> No you don't, the neigh state machine is built to properly handle
+> everything, see above.
+
+The state machine is fine.  Things like hardware header caching and teql
+driver cause some interesting issues.
+
+That said I have figured out how to sourt out the neighbour cache
+without touching the fast path.  (Assuming I don't try to use the
+cached header).
+
+My neighbour table patches just need a final look over and then I will
+send them out.
+
+Eric
