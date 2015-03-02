@@ -1,57 +1,44 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] gianfar: Reduce logging noise seen due to phy polling if link is down
-Date: Mon,  2 Mar 2015 12:03:27 -0800
-Message-ID: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:49410 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754062AbbCBUDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:03:32 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YSWYt-001IFY-Cd
-	for netdev@vger.kernel.org; Mon, 02 Mar 2015 20:03:31 +0000
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC 3/4] sparc: remove __GFP_NOFAIL reuquirement
+Date: Mon, 02 Mar 2015 15:04:05 -0500 (EST)
+Message-ID: <20150302.150405.2072800922470200977.davem@davemloft.net>
+References: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
+	<1425304483-7987-4-git-send-email-mhocko@suse.cz>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hannes@cmpxchg.org,
+ rientjes@google.com, david@fromorbit.com, tytso@mit.edu, mgorman@suse.de,
+ penguin-kernel@I-love.SAKURA.ne.jp, sparclinux@vger.kernel.org,
+ vipul@chelsio.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mhocko@suse.cz
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1425304483-7987-4-git-send-email-mhocko@suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Commit 6ce29b0e2a04 ("gianfar: Avoid unnecessary reg accesses in adjust_link()")
-eliminates unnecessary calls to adjust_link for phy devices which don't support
-interrupts and need polling. As part of that work, the 'new_state' local flag,
-which was used to reduce logging noise on the console, was eliminated.
+From: Michal Hocko <mhocko@suse.cz>
+Date: Mon,  2 Mar 2015 14:54:42 +0100
 
-Unfortunately, that means that a 'Link is Down' log message will now be
-issued continuously if a link is configured as UP, the link state is down,
-and the associated phy requires polling. This occurs because priv->oldduplex
-is -1 in this case, which always differs from phydev->duplex. In addition,
-phydev->speed may also differ from priv->oldspeed.  gfar_update_link_state()
-is therefore called each time a phy is polled, even if the link state did not
-change.
+> mdesc_kmalloc is currently requiring __GFP_NOFAIL allocation although it
+> seems that the allocation failure is handled by all callers (via
+> mdesc_alloc). __GFP_NOFAIL is a strong liability for the memory
+> allocator and so the users are discouraged to use the flag unless the
+> allocation failure is really a nogo. Drop the flag here as this doesn't
+> seem to be the case.
+> 
+> Signed-off-by: Michal Hocko <mhocko@suse.cz>
 
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/ethernet/freescale/gianfar.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+It is a serious failure.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 43df788..178e540 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -3162,8 +3162,8 @@ static void adjust_link(struct net_device *dev)
- 	struct phy_device *phydev = priv->phydev;
- 
- 	if (unlikely(phydev->link != priv->oldlink ||
--		     phydev->duplex != priv->oldduplex ||
--		     phydev->speed != priv->oldspeed))
-+		     (phydev->link && (phydev->duplex != priv->oldduplex ||
-+				       phydev->speed != priv->oldspeed))))
- 		gfar_update_link_state(priv);
- }
- 
--- 
-2.1.0
+If we miss an MDESC update due to this allocation failure, the update
+is not an event which gets retransmitted so we will lose the updated
+machine description forever.
+
+We really need this allocation to succeed.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
