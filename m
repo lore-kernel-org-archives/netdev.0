@@ -1,38 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ti: cpsw: add hibernation callbacks
-Date: Sun, 01 Mar 2015 23:27:20 -0500 (EST)
-Message-ID: <20150301.232720.675390758407649123.davem@davemloft.net>
-References: <1425035985-8875-1-git-send-email-grygorii.strashko@linaro.org>
-	<1425035985-8875-2-git-send-email-grygorii.strashko@linaro.org>
+From: Trond Myklebust <trond.myklebust@primarydata.com>
+Subject: Re: Weird TCP hang when doing loopback NFS (wireshark traces attached)
+Date: Sun, 1 Mar 2015 23:31:31 -0500
+Message-ID: <CAHQdGtQnbPWYhdvwTGJKUD4mt8x_rmQjCH3AO4X17Y4RBSpUQQ@mail.gmail.com>
+References: <1425237291.24845.13.camel@primarydata.com>
+	<CAHQdGtSTJoKJZ8y72oLWTv30AZxVsRWAU0pTjZJy18jQ7Dhadw@mail.gmail.com>
+	<20150302010636.GA8033@fieldses.org>
+	<CAHQdGtQcrF4fs0Tb3jTQ6iGXzOhhjRNAezrq_eOfzo_cFxh1Xw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: balbi@ti.com, nm@ti.com, sumit.semwal@linaro.org,
-	mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	linux-omap@vger.kernel.org
-To: grygorii.strashko@linaro.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Network Devel Mailing List <netdev@vger.kernel.org>,
+	Linux NFS Mailing List <linux-nfs@vger.kernel.org>
+To: Bruce James Fields <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46439 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148AbbCBE1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 23:27:21 -0500
-In-Reply-To: <1425035985-8875-2-git-send-email-grygorii.strashko@linaro.org>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:64979 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756AbbCBEbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 23:31:32 -0500
+Received: by mail-vc0-f174.google.com with SMTP id id10so10199564vcb.5
+        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 20:31:31 -0800 (PST)
+In-Reply-To: <CAHQdGtQcrF4fs0Tb3jTQ6iGXzOhhjRNAezrq_eOfzo_cFxh1Xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <grygorii.strashko@linaro.org>
-Date: Fri, 27 Feb 2015 13:19:45 +0200
+On Sun, Mar 1, 2015 at 8:20 PM, Trond Myklebust
+<trond.myklebust@primarydata.com> wrote:
+> On Sun, Mar 1, 2015 at 8:06 PM, Bruce James Fields <bfields@fieldses.org> wrote:
+>> On Sun, Mar 01, 2015 at 07:52:28PM -0500, Trond Myklebust wrote:
+>>> Hi Bruce,
+>>>
+>>> On Sun, Mar 1, 2015 at 2:14 PM, Trond Myklebust
+>>> <trond.myklebust@primarydata.com> wrote:
+>>> > Hi,
+>>> >
+>>> > When doing testing of NFSv3 loopback mounts (client and server are on
+>>> > the same IP address), I'm seeing a very reproducible hang in which the
+>>> > client stops receiving data from the server. The TCP connection is still
+>>> > marked as established, and the server appears to continue to receive and
+>>> > send data, however the client does not.
+>>> >
+>>> > So far, I've reproduced on both v4.0-rc1, and the Fedora v3.18.7 kernel.
+>>> >
+>>> > The reproducer is simply to loopback mount using NFSv3, and then run the
+>>> > 'fsx' filesystem exerciser. I'm usually able to trigger the hang with
+>>> > "fsx -N 100000 foobar".
+>>> >
+>>> > I've attached a couple of wireshark trace of a few frames just before
+>>> > and during the hang in case it jogs any memories.
+>>>
+>>> This bug appears to go away when I disable the splice()-based reads by
+>>> clearing the RQ_SPLICE_OK flag.
+>>>
+>>> I noticed that it always involved a combination of a READ and a
+>>> truncating SETATTR call. Are you sure that it is safe to share
+>>> pagecache pages directly with sendpage() in this way? As far as I can
+>>> tell, there is no locking to prevent them from being modified while in
+>>> the TCP send queue.
+>>
+>> This is the stable-pages problem that we've had forever, isn't it?  Or
+>> is this a different problem?
+>
+> It is causing the TCP socket to hang, so it goes beyond the usual
+> stable pages issue.
+>
 
-> From: Grygorii Strashko <Grygorii.Strashko@linaro.org>
-> 
-> Setting a dev_pm_ops suspend/resume pair but not a set of
-> hibernation functions means those pm functions will not be
-> called upon hibernation.
-> Fix this by using SIMPLE_DEV_PM_OPS, which appropriately
-> assigns the suspend and hibernation handlers and move
-> cpsw_suspend/resume calbacks under CONFIG_PM_SLEEP
-> to avoid build warnings.
-> 
-> Signed-off-by: Grygorii Strashko <Grygorii.Strashko@linaro.org>
-
-Applied.
+Confirming that clearing RQ_SPLICE_OK fixes the issue on all kernel
+that I've tested so far.
+-- 
+Trond Myklebust
+Linux NFS client maintainer, PrimaryData
+trond.myklebust@primarydata.com
