@@ -1,395 +1,113 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 4/6] fib_trie: Update insert and delete to make use
- of tp from find_node
-Date: Mon, 02 Mar 2015 13:32:41 -0800
-Message-ID: <20150302213241.1490.19111.stgit@ahduyck-vm-fedora20>
-References: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: [PATCH] sparc: clarify __GFP_NOFAIL allocation
+Date: Mon, 2 Mar 2015 22:36:10 +0100
+Message-ID: <20150302213610.GA31974@dhcp22.suse.cz>
+References: <1425304483-7987-4-git-send-email-mhocko@suse.cz>
+ <20150302.150405.2072800922470200977.davem@davemloft.net>
+ <20150302203304.GA20513@dhcp22.suse.cz>
+ <20150302.154424.30182050492471222.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57229 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755774AbbCBVcn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 16:32:43 -0500
-In-Reply-To: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hannes@cmpxchg.org,
+	rientjes@google.com, david@fromorbit.com, tytso@mit.edu,
+	mgorman@suse.de, penguin-kernel@I-love.SAKURA.ne.jp,
+	sparclinux@vger.kernel.org, vipul@chelsio.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150302.154424.30182050492471222.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This change makes it so that the insert and delete functions make use of
-the tnode pointer returned in the fib_find_node call.  By doing this we
-will not have to rely on the parent pointer in the leaf which will be going
-away soon.
+On Mon 02-03-15 15:44:24, David S. Miller wrote:
+[...]
+> > OK, thanks for the clarification. This wasn't clear from the commit
+> > which has introduced this code. I will drop this patch. Would you
+> > accept something like the following instead?
+> 
+> Sure.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Thanks!
+
 ---
- net/ipv4/fib_trie.c |  237 ++++++++++++++++++++-------------------------------
- 1 file changed, 95 insertions(+), 142 deletions(-)
+>From dac5829e3a1d44ba7759b4188de01f15ddb77b8b Mon Sep 17 00:00:00 2001
+From: Michal Hocko <mhocko@suse.cz>
+Date: Mon, 2 Mar 2015 22:27:02 +0100
+Subject: [PATCH] sparc: clarify __GFP_NOFAIL allocation
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 6b9cc70..454b8c5 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -300,7 +300,7 @@ static inline void empty_child_dec(struct tnode *n)
- 	n->empty_children-- ? : n->full_children--;
- }
- 
--static struct tnode *leaf_new(t_key key)
-+static struct tnode *leaf_new(t_key key, struct fib_alias *fa)
+920c3ed74134 ([SPARC64]: Add basic infrastructure for MD add/remove
+notification.) has added __GFP_NOFAIL for the allocation request but
+it hasn't mentioned why is this strict requirement really needed.
+The code was handling an allocation failure and propagated it properly
+up the callchain so it is not clear why it is needed.
+
+Dave has clarified the intention when I tried to remove the flag as not
+being necessary:
+"
+It is a serious failure.
+
+If we miss an MDESC update due to this allocation failure, the update
+is not an event which gets retransmitted so we will lose the updated
+machine description forever.
+
+We really need this allocation to succeed.
+"
+
+So add a comment to clarify the nofail flag and get rid of the failure
+check because __GFP_NOFAIL allocation doesn't fail.
+
+Signed-off-by: Michal Hocko <mhocko@suse.cz>
+---
+ arch/sparc/kernel/mdesc.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/arch/sparc/kernel/mdesc.c b/arch/sparc/kernel/mdesc.c
+index 99632a87e697..26c80e18d7b1 100644
+--- a/arch/sparc/kernel/mdesc.c
++++ b/arch/sparc/kernel/mdesc.c
+@@ -130,26 +130,26 @@ static struct mdesc_mem_ops memblock_mdesc_ops = {
+ static struct mdesc_handle *mdesc_kmalloc(unsigned int mdesc_size)
  {
- 	struct tnode *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
- 	if (l) {
-@@ -310,12 +310,14 @@ static struct tnode *leaf_new(t_key key)
- 		 * as the nodes are searched
- 		 */
- 		l->key = key;
--		l->slen = 0;
-+		l->slen = fa->fa_slen;
- 		l->pos = 0;
- 		/* set bits to 0 indicating we are not a tnode */
- 		l->bits = 0;
+ 	unsigned int handle_size;
++	struct mdesc_handle *hp;
++	unsigned long addr;
+ 	void *base;
  
-+		/* link leaf to fib alias */
- 		INIT_HLIST_HEAD(&l->leaf);
-+		hlist_add_head(&fa->fa_list, &l->leaf);
- 	}
- 	return l;
- }
-@@ -842,10 +844,8 @@ static void resize(struct trie *t, struct tnode *tn)
- 	}
- }
+ 	handle_size = (sizeof(struct mdesc_handle) -
+ 		       sizeof(struct mdesc_hdr) +
+ 		       mdesc_size);
  
--static void leaf_pull_suffix(struct tnode *l)
-+static void leaf_pull_suffix(struct tnode *tp, struct tnode *l)
- {
--	struct tnode *tp = node_parent(l);
--
- 	while (tp && (tp->slen > tp->pos) && (tp->slen > l->slen)) {
- 		if (update_suffix(tp) > l->slen)
- 			break;
-@@ -853,10 +853,8 @@ static void leaf_pull_suffix(struct tnode *l)
- 	}
- }
- 
--static void leaf_push_suffix(struct tnode *l)
-+static void leaf_push_suffix(struct tnode *tn, struct tnode *l)
- {
--	struct tnode *tn = node_parent(l);
--
- 	/* if this is a new leaf then tn will be NULL and we can sort
- 	 * out parent suffix lengths as a part of trie_rebalance
- 	 */
-@@ -866,51 +864,6 @@ static void leaf_push_suffix(struct tnode *l)
- 	}
- }
- 
--static void fib_remove_alias(struct tnode *l, struct fib_alias *old)
--{
--	/* record the location of the previous list_info entry */
--	struct hlist_node **pprev = old->fa_list.pprev;
--	struct fib_alias *fa = hlist_entry(pprev, typeof(*fa), fa_list.next);
--
--	/* remove the fib_alias from the list */
--	hlist_del_rcu(&old->fa_list);
--
--	/* only access fa if it is pointing at the last valid hlist_node */
--	if (hlist_empty(&l->leaf) || (*pprev))
--		return;
--
--	/* update the trie with the latest suffix length */
--	l->slen = fa->fa_slen;
--	leaf_pull_suffix(l);
--}
--
--static void fib_insert_alias(struct tnode *l, struct fib_alias *fa,
--			     struct fib_alias *new)
--{
--	if (fa) {
--		hlist_add_before_rcu(&new->fa_list, &fa->fa_list);
--	} else {
--		struct fib_alias *last;
--
--		hlist_for_each_entry(last, &l->leaf, fa_list) {
--			if (new->fa_slen < last->fa_slen)
--				break;
--			fa = last;
--		}
--
--		if (fa)
--			hlist_add_behind_rcu(&new->fa_list, &fa->fa_list);
--		else
--			hlist_add_head_rcu(&new->fa_list, &l->leaf);
--	}
--
--	/* if we added to the tail node then we need to update slen */
--	if (l->slen < new->fa_slen) {
--		l->slen = new->fa_slen;
--		leaf_push_suffix(l);
--	}
--}
--
- /* rcu_read_lock needs to be hold by caller from readside */
- static struct tnode *fib_find_node(struct trie *t, struct tnode **tp, u32 key)
- {
-@@ -974,61 +927,28 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
- {
- 	struct tnode *tp;
- 
--	while ((tp = node_parent(tn)) != NULL) {
-+	while (tn) {
-+		tp = node_parent(tn);
- 		resize(t, tn);
- 		tn = tp;
- 	}
--
--	/* Handle last (top) tnode */
--	if (IS_TNODE(tn))
--		resize(t, tn);
- }
- 
- /* only used from updater-side */
--
--static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
-+static int fib_insert_node(struct trie *t, struct tnode *tp,
-+			   struct fib_alias *new, t_key key)
- {
--	struct tnode *l, *n, *tp = NULL;
--
--	n = rtnl_dereference(t->trie);
--
--	/* If we point to NULL, stop. Either the tree is empty and we should
--	 * just put a new leaf in if, or we have reached an empty child slot,
--	 * and we should just put our new leaf in that.
--	 *
--	 * If we hit a node with a key that does't match then we should stop
--	 * and create a new tnode to replace that node and insert ourselves
--	 * and the other node into the new tnode.
--	 */
--	while (n) {
--		unsigned long index = get_index(key, n);
--
--		/* This bit of code is a bit tricky but it combines multiple
--		 * checks into a single check.  The prefix consists of the
--		 * prefix plus zeros for the "bits" in the prefix. The index
--		 * is the difference between the key and this value.  From
--		 * this we can actually derive several pieces of data.
--		 *   if !(index >> bits)
--		 *     we know the value is child index
--		 *   else
--		 *     we have a mismatch in skip bits and failed
--		 */
--		if (index >> n->bits)
--			break;
--
--		/* we have found a leaf. Prefixes have already been compared */
--		if (IS_LEAF(n)) {
--			/* Case 1: n is a leaf, and prefixes match*/
--			return n;
--		}
--
--		tp = n;
--		n = tnode_get_child_rcu(n, index);
--	}
-+	struct tnode *n, *l;
- 
--	l = leaf_new(key);
-+	l = leaf_new(key, new);
- 	if (!l)
--		return NULL;
-+		return -ENOMEM;
-+
-+	/* retrieve child from parent node */
-+	if (tp)
-+		n = tnode_get_child(tp, get_index(key, tp));
-+	else
-+		n = rcu_dereference_rtnl(t->trie);
- 
- 	/* Case 2: n is a LEAF or a TNODE and the key doesn't match.
- 	 *
-@@ -1042,7 +962,7 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
- 		tn = tnode_new(key, __fls(key ^ n->key), 1);
- 		if (!tn) {
- 			node_free(l);
--			return NULL;
-+			return -ENOMEM;
- 		}
- 
- 		/* initialize routes out of node */
-@@ -1058,20 +978,47 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
- 	}
- 
- 	/* Case 3: n is NULL, and will just insert a new leaf */
--	if (tp) {
--		NODE_INIT_PARENT(l, tp);
--		put_child(tp, get_index(key, tp), l);
--		trie_rebalance(t, tp);
-+	NODE_INIT_PARENT(l, tp);
-+	put_child_root(tp, t, key, l);
-+	trie_rebalance(t, tp);
-+
-+	return 0;
-+}
-+
-+static int fib_insert_alias(struct trie *t, struct tnode *tp,
-+			    struct tnode *l, struct fib_alias *new,
-+			    struct fib_alias *fa, t_key key)
-+{
-+	if (!l)
-+		return fib_insert_node(t, tp, new, key);
-+
-+	if (fa) {
-+		hlist_add_before_rcu(&new->fa_list, &fa->fa_list);
- 	} else {
--		rcu_assign_pointer(t->trie, l);
-+		struct fib_alias *last;
-+
-+		hlist_for_each_entry(last, &l->leaf, fa_list) {
-+			if (new->fa_slen < last->fa_slen)
-+				break;
-+			fa = last;
-+		}
-+
-+		if (fa)
-+			hlist_add_behind_rcu(&new->fa_list, &fa->fa_list);
-+		else
-+			hlist_add_head_rcu(&new->fa_list, &l->leaf);
- 	}
- 
--	return l;
-+	/* if we added to the tail node then we need to update slen */
-+	if (l->slen < new->fa_slen) {
-+		l->slen = new->fa_slen;
-+		leaf_push_suffix(tp, l);
-+	}
-+
-+	return 0;
- }
- 
--/*
-- * Caller must hold RTNL.
-- */
-+/* Caller must hold RTNL. */
- int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- {
- 	struct trie *t = (struct trie *)tb->tb_data;
-@@ -1199,19 +1146,13 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	new_fa->fa_slen = slen;
- 
- 	/* Insert new entry to the list. */
--	if (!l) {
--		l = fib_insert_node(t, key, plen);
--		if (unlikely(!l)) {
--			err = -ENOMEM;
--			goto out_free_new_fa;
--		}
--	}
-+	err = fib_insert_alias(t, tp, l, new_fa, fa, key);
-+	if (err)
-+		goto out_free_new_fa;
- 
- 	if (!plen)
- 		tb->tb_num_default++;
- 
--	fib_insert_alias(l, fa, new_fa);
--
- 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
- 		  &cfg->fc_nlinfo, 0);
-@@ -1400,9 +1341,36 @@ found:
- }
- EXPORT_SYMBOL_GPL(fib_table_lookup);
- 
--/*
-- * Caller must hold RTNL.
-- */
-+static void fib_remove_alias(struct trie *t, struct tnode *tp,
-+			     struct tnode *l, struct fib_alias *old)
-+{
-+	/* record the location of the previous list_info entry */
-+	struct hlist_node **pprev = old->fa_list.pprev;
-+	struct fib_alias *fa = hlist_entry(pprev, typeof(*fa), fa_list.next);
-+
-+	/* remove the fib_alias from the list */
-+	hlist_del_rcu(&old->fa_list);
-+
-+	/* if we emptied the list this leaf will be freed and we can sort
-+	 * out parent suffix lengths as a part of trie_rebalance
++	/*
++	 * Allocation has to succeed because mdesc update would be missed
++	 * and such events are not retransmitted.
 +	 */
-+	if (hlist_empty(&l->leaf)) {
-+		put_child_root(tp, t, l->key, NULL);
-+		node_free(l);
-+		trie_rebalance(t, tp);
-+		return;
-+	}
-+
-+	/* only access fa if it is pointing at the last valid hlist_node */
-+	if (*pprev)
-+		return;
-+
-+	/* update the trie with the latest suffix length */
-+	l->slen = fa->fa_slen;
-+	leaf_pull_suffix(tp, l);
-+}
-+
-+/* Caller must hold RTNL. */
- int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- {
- 	struct trie *t = (struct trie *) tb->tb_data;
-@@ -1426,7 +1394,6 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 		return -ESRCH;
- 
- 	fa = fib_find_alias(&l->leaf, slen, tos, 0);
+ 	base = kmalloc(handle_size + 15, GFP_KERNEL | __GFP_NOFAIL);
+-	if (base) {
+-		struct mdesc_handle *hp;
+-		unsigned long addr;
 -
- 	if (!fa)
- 		return -ESRCH;
+-		addr = (unsigned long)base;
+-		addr = (addr + 15UL) & ~15UL;
+-		hp = (struct mdesc_handle *) addr;
++	addr = (unsigned long)base;
++	addr = (addr + 15UL) & ~15UL;
++	hp = (struct mdesc_handle *) addr;
  
-@@ -1455,33 +1422,19 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 	if (!fa_to_delete)
- 		return -ESRCH;
- 
--	fa = fa_to_delete;
--	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
-+	rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
- 		  &cfg->fc_nlinfo, 0);
- 
--	fib_remove_alias(l, fa);
--
- 	if (!plen)
- 		tb->tb_num_default--;
- 
--	if (hlist_empty(&l->leaf)) {
--		struct tnode *tp = node_parent(l);
--
--		if (tp) {
--			put_child(tp, get_index(l->key, tp), NULL);
--			trie_rebalance(t, tp);
--		} else {
--			RCU_INIT_POINTER(t->trie, NULL);
--		}
--
--		node_free(l);
+-		mdesc_handle_init(hp, handle_size, base);
+-		return hp;
 -	}
-+	fib_remove_alias(t, tp, l, fa_to_delete);
++	mdesc_handle_init(hp, handle_size, base);
  
--	if (fa->fa_state & FA_S_ACCESSED)
-+	if (fa_to_delete->fa_state & FA_S_ACCESSED)
- 		rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 
--	fib_release_info(fa->fa_info);
--	alias_free_mem_rcu(fa);
-+	fib_release_info(fa_to_delete->fa_info);
-+	alias_free_mem_rcu(fa_to_delete);
- 	return 0;
+-	return NULL;
++	return hp;
  }
  
-@@ -1620,7 +1573,7 @@ backtrace:
- 		put_child_root(pn, t, n->key, NULL);
- 		node_free(n);
- 	} else {
--		leaf_pull_suffix(n);
-+		leaf_pull_suffix(pn, n);
- 	}
- 
- 	/* if trie is leaf only loop is completed */
+ static void mdesc_kfree(struct mdesc_handle *hp)
+-- 
+2.1.4
+
+
+-- 
+Michal Hocko
+SUSE Labs
