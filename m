@@ -1,57 +1,64 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next v4 0/2] net: Introducing socket mark receive
- socket option
-Date: Mon, 2 Mar 2015 15:48:58 +0200
-Message-ID: <CAHsH6Gu+ZHSdnnritKk5cjTg4NuKppYjffXjNpou2i+uVeykYA@mail.gmail.com>
-References: <1425302043-669-1-git-send-email-eyal.birger@gmail.com>
-	<20150302132925.GB7418@breakpoint.cc>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: Flows! Offload them.
+Date: Mon, 2 Mar 2015 08:49:46 -0500
+Message-ID: <20150302134946.GB7971@gospo.home.greyhouse.net>
+References: <20150226074214.GF2074@nanopsycho.orion>
+ <20150226083758.GA15139@vergenet.net>
+ <20150226091628.GA4059@nanopsycho.orion>
+ <20150226133326.GC23050@casper.infradead.org>
+ <54EF3A78.9020507@intel.com>
+ <20150226201635.GA366@hmsreliant.think-freely.org>
+ <20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
+ <20150227012239.GB8847@neilslaptop.think-freely.org>
+ <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Simon Horman <simon.horman@netronome.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
+	Joe Stringer <joestringer@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Shrijeet Mukherjee <shrijeet@gmail.com>, bcrl@kvack.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:43749 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbbCBNs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 08:48:59 -0500
-Received: by ykp9 with SMTP id 9so13387965ykp.10
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 05:48:58 -0800 (PST)
-In-Reply-To: <20150302132925.GB7418@breakpoint.cc>
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:44235 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237AbbCBNtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 08:49:51 -0500
+Received: by mail-qa0-f44.google.com with SMTP id n8so22744161qaq.3
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 05:49:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 2, 2015 at 3:29 PM, Florian Westphal <fw@strlen.de> wrote:
-> Eyal Birger <eyal.birger@gmail.com> wrote:
->> This patch set introduces a new socket option for fetching the mark
->> of skbs passed to sockets as ancillary data.
->>
->> A userspace program may wish to receive the mark of packets it
->> receives, for example for distinguishing between different TPROXY
->> diversion rules to the same userspace proxy socket.
->
-> Hmm... Whats the use case?
-> Even if you cannot use multiple sockets for every divert rule,
-> TPROXY doesn't mangle payload; applications could use sockaddrs
-> returned by accept, getpeername, getsockname etc.  to figure out
-> which original port/address the packet was sent to?
+On Thu, Feb 26, 2015 at 05:52:16PM -0800, Tom Herbert wrote:
+> On Thu, Feb 26, 2015 at 5:22 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+[...]
+> > Yes, exactly that, for the general traditional networking use case, that is
+> > exactly what we want, to opportunistically move traffic faster with less load on
+> > the cpu.  We don't nominally care what traffic is offloaded, as long as the
+> > hardware does a better job than just software alone.  If we get an occasional
+> > miss and have to do stuff in software, so be it.
+> >
+> +1 on an in kernel "Network Resource Manager". This also came up in
+> Sunil's plan to configure RPS affinities from a driver so I'm taking
+> liberty by generalizing the concept :-).
 
-Right. But that would mean the criteria for traffic diversion would need to
-be known to the application receiving the traffic. IMHO It is a more elegant
-solution to use the mark in order to distinguish between different traffic flows
-instead of duplicating the match logic.
-
-Also, the feature has use-cases outside of TPROXY as the skb->mark may be set
-by other mechanisms (including SO_MARK from user space).
-
-For example, a user space daemon can receive traffic from multiple
-applications using
-a single socket and distinguish between different traffic groups
-according to the packet
-mark.
-
-Regards,
-Eyal.
+I agree completely that there is a need for what you both describe.  Not
+only to handle what items to offload for users looking for that level
+of granularity, but also to allow driver implementers to decide if their
+hardware/driver implementation may allow for async write of data to
+hardware tables, and any other implementation specific detail they may
+want to provide.
