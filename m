@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usb: plusb: Add support for National Instruments
- host-to-host cable
-Date: Mon, 02 Mar 2015 15:26:08 -0500 (EST)
-Message-ID: <20150302.152608.2005101977426036416.davem@davemloft.net>
-References: <20150227212632.GA11789@bshelton-desktop>
-	<20150227.173538.507712773812639200.davem@davemloft.net>
-	<20150302160014.GA28172@bshelton-desktop>
+Subject: Re: [PATCH V2 net 0/2] Mellanox driver fixes
+Date: Mon, 02 Mar 2015 15:29:24 -0500 (EST)
+Message-ID: <20150302.152924.2016710301400827124.davem@davemloft.net>
+References: <1425313336-28082-1-git-send-email-ogerlitz@mellanox.com>
+	<54F49383.9030905@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ben.shelton@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150302160014.GA28172@bshelton-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, talal@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53519 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753892AbbCBU31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:29:27 -0500
+In-Reply-To: <54F49383.9030905@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Shelton <ben.shelton@ni.com>
-Date: Mon, 2 Mar 2015 10:00:14 -0600
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Mon, 2 Mar 2015 18:44:51 +0200
 
-> On 02/27, David Miller wrote:
->> From: Ben Shelton <ben.shelton@ni.com>
->> Date: Fri, 27 Feb 2015 15:26:32 -0600
->> 
->> > On 02/20, David Miller wrote:
->> >> From: Ben Shelton <ben.shelton@ni.com>
->> >> Date: Mon, 16 Feb 2015 13:47:06 -0600
->> >> 
->> >> > The National Instruments USB Host-to-Host Cable is based on the Prolific
->> >> > PL-25A1 chipset.  Add its VID/PID so the plusb driver will recognize it.
->> >> > 
->> >> > Signed-off-by: Ben Shelton <ben.shelton@ni.com>
->> >> 
->> >> Applied, thanks.
->> > 
->> > Hi David,
->> > 
->> > Is this something you think would go into stable as well?
->> 
->> I'm ambivalent.
-> 
-> In that case, could you go ahead and apply it to stable as well?
+> On 3/2/2015 6:22 PM, Or Gerlitz wrote:
+>> changes from V2:
+>>    - removed Gerrit IDs
+> s/from/for/
+>>
+>> changes from V1:
+>>    - applied feedback from Sergei
+> here too "for V1"
 
-Done.
+Maybe if you didn't rush your work all the time you wouldn't find
+these sorts of errors in your submission mere seconds after posting
+it?
+
+How about you do this kind of re-reading and review _before_ rather
+than _after_ hitting send?
