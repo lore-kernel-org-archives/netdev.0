@@ -1,43 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 6/6] sched: Eliminate use of flow_keys in
- sch_sfq
-Date: Mon, 02 Mar 2015 11:43:17 -0800
-Message-ID: <1425325397.5130.117.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425247789-21211-1-git-send-email-therbert@google.com>
-	 <1425247789-21211-7-git-send-email-therbert@google.com>
-	 <1425257932.5130.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx-gAq=knRnf73qrOKuWy=WVaHvq2Vzb8RC39p81WBXZ8Q@mail.gmail.com>
-	 <CA+mtBx-Bhewd6Ez4OotWEhxvVO8rrOieWCGAnMa9vfhTbzj=yg@mail.gmail.com>
-	 <1425324483.5130.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx8sFBV4hFkdnvChuO0UaoN=XHKgVhreM5GwQXXgR9ARvg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: bluetooth-next 2015-03-02
+Date: Mon, 02 Mar 2015 14:48:13 -0500 (EST)
+Message-ID: <20150302.144813.2240523360918229942.davem@davemloft.net>
+References: <20150302065354.GA3613@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:40140 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753948AbbCBTnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 14:43:19 -0500
-Received: by igal13 with SMTP id l13so20346648iga.5
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 11:43:19 -0800 (PST)
-In-Reply-To: <CA+mtBx8sFBV4hFkdnvChuO0UaoN=XHKgVhreM5GwQXXgR9ARvg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53175 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754832AbbCBTsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 14:48:18 -0500
+In-Reply-To: <20150302065354.GA3613@t440s.P-661HNU-F1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-02 at 11:34 -0800, Tom Herbert wrote:
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Mon, 2 Mar 2015 08:53:54 +0200
 
-> Spraying would be quite easy by modulating txhash from TCP and using
-> either  UDP encapsulation like GUE or IPv6 flow labels. Only problem
-> is that this would constantly be changing rxhash at the receiver for
-> the connection, although flow labels might 'just work' with IPv6
-> Toeplitz in NICs.
+> Here's the first bluetooth-next pull request targeting the 4.1 kernel:
+> 
+>  - ieee802154/6lowpan cleanups
+>  - SCO routing to host interface support for the btmrvl driver
+>  - AMP code cleanups
+>  - Fixes to AMP HCI init sequence
+>  - Refactoring of the HCI callback mechanism
+>  - Added shutdown routine for Intel controllers in the btusb driver
+>  - New config option to enable/disable Bluetooth debugfs information
+>  - Fix for early data reception on L2CAP fixed channels
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-When I said 'regular IPv4/tcp traffic' this did not include any added
-encapsulation.
-
-Most NIC are not able to properly offload TCP (TSO) with such
-encapsulations.
+Pulled, thanks.
