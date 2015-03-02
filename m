@@ -1,50 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 4/4] switchdev: don't support custom ip
- rules, for now
-Date: Mon, 02 Mar 2015 15:40:21 -0500 (EST)
-Message-ID: <20150302.154021.291909338132330257.davem@davemloft.net>
-References: <54F4755F.6020205@cumulusnetworks.com>
-	<CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
-	<54F4B56C.5040709@cumulusnetworks.com>
+From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH RFC 00/14] shrink skb cb to 44 bytes
+Date: Mon, 2 Mar 2015 21:42:03 +0100
+Message-ID: <20150302204203.GD9762@breakpoint.cc>
+References: <1425318028-26531-1-git-send-email-fw@strlen.de>
+ <1425325763.5130.123.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53628 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754457AbbCBUkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:40:24 -0500
-In-Reply-To: <54F4B56C.5040709@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1425325763.5130.123.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: roopa <roopa@cumulusnetworks.com>
-Date: Mon, 02 Mar 2015 11:09:32 -0800
+Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > remarks/known issues:
+> > - adds __packet attribute to a few structures.
+> >   Its needed to not have padding at end of the structure, else
+> >   we get build assertion errors even if all members fit into cb[].
+> > - checkpatch isn't happy yet.
+> > - dccp changes are untested (its on my todo list)
+> > - rxrpc change is untested (on todo list).
+> > - wireless changes are untested, I don't own any of the affected hw.
+> > 
+> > The idea is to figure out what needs to be done to make build_skb() and
+> > friends only touch the first 3 cachelines of the skb on all architectures.
+> > 
+> > We'd need to reduce skbuff by 40 bytes to achieve this for allyesconfig.
+> > 
+> > Other sk_buff reduction ideas being worked:
+> > 
+> > - move truesize to shinfo (which has 4 byte hole)
+> > - turn ->data into offset on 64bit platforms (intrusive, > 1000 files
+> >   affected)
+> > - move pointers that are ususally not needed (nf_bridge, secpath) to the end,
+> >   with flag field that tells us when pointer is valid (so we don't have
+> >   to memset() them unconditionally at allocation time).
+> > - seems we could already to this for the inner header fields since the're only
+> >   valid once ->encapsulation / inner_protocol_type is set.
+> > 
+> > Comments and more ideas welcome.
+> 
+> Size of skb->cb[] is not the major factor. Trying to gain 4 or 8 bytes
+> is not going to improve performance a lot.
 
-> On 3/2/15, 9:00 AM, Scott Feldman wrote:
->> On Mon, Mar 2, 2015 at 6:36 AM, roopa <roopa@cumulusnetworks.com>
->> wrote:
->>> On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
->>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>> Keep switchdev FIB offload model simple for now and don't allow custom
->>>> ip
->>>> rules.
->>>>
->>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>
->>> I don't see a need to do this. And seems very aggressive.
->>> Also, note that the rules in a system can be on non-hw accelerated
->>> ports.
->> It is aggressive but it's the safest choice for the first pass on this
->> L3 offload.  Without, switchdev has no way to model custom ip rules
->> down to hardware.   Let's start with this aggressive case, and that'll
->> force us to work on relaxing it.
->>
->>
-> But, this will not allow hw acceleration of routes even if you had a
-> rule for the management traffic for example.
+Thats right, goal is to have build_skb etc. only touch 3 cachelines,
+and have those layers that need some particular feature initialise it on
+demand.
 
-We start simple, add complexity later.
+We could move skb->cb to end of skb, so that its not covered by the
+initial allocation memset anymore.
+
+Obviously that won't buy us anything at this point since gro needs
+to zero it out (GRO skb cb is 48 bytes).
+
+> The real problem is that we clear it in skb_alloc()/build_skb(), instead
+> of each layer doing so at demand, and only the part that matters for
+> this layer.
+
+Thats right.  Do you think its worth to already move cb[] near the end
+of skb and alter build_skb to not clear it anymore?
+
+Which of the ideas, in your opinion, is worth pursuing first (if any)?
+
+I'd love to get rid of nf_bridge* pointer and use percpu storage
+area for it but I did not yet find a simple way to deal with when
+skb that uses this percpu state leaves bridge code and is then dropped
+or queued later -- we need to make sure that another skb isn't accidentally
+believed to have valid nf_bridge context.
+
+kfree_skb doesn't seem to be a nice place to add bridge crap to, and
+neither is netif_rx...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
