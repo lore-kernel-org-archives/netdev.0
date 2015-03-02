@@ -1,66 +1,109 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] udp: only allow UFO for packets from SOCK_DGRAM sockets
-Date: Mon,  2 Mar 2015 18:27:11 +0100 (CET)
-Message-ID: <20150302172711.6BCE4A0B46@unicorn.suse.cz>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Mon,  2 Mar 2015 18:28:10 +0100
+Message-ID: <1425317290-1443-1-git-send-email-nschichan@freebox.fr>
+To: "David S. Miller" <davem@davemloft.net>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Felipe Balbi <balbi@ti.com>,
+	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If an over-MTU UDP datagram is sent through a SOCK_RAW socket to a
-UFO-capable device, ip_ufo_append_data() sets skb->ip_summed to
-CHECKSUM_PARTIAL unconditionally as all GSO code assumes transport layer
-checksum is to be computed on segmentation. However, in this case,
-skb->csum_start and skb->csum_offset are never set as raw socket
-transmit path bypasses udp_send_skb() where they are usually set. As a
-result, driver may access invalid memory when trying to calculate the
-checksum and store the result (as observed in virtio_net driver).
+In case there was some tx buffer reclaimed and not enough rx packets
+to consume the whole budget, napi_complete would not be called and
+interrupts would be kept disabled, effectively resulting in the
+network core never to call the poll callback again and no rx/tx
+interrupts to be fired either.
 
-Moreover, the very idea of modifying the userspace provided UDP header
-is IMHO against raw socket semantics (I wasn't able to find a document
-clearly stating this or the opposite, though). And while allowing
-CHECKSUM_NONE in the UFO case would be more efficient, it would be a bit
-too intrusive change just to handle a corner case like this. Therefore
-disallowing UFO for packets from SOCK_DGRAM seems to be the best option.
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Fix that by taking the tx buffer reclaim work into account in the poll
+callback, and keeping interrupts off only when the budget allowance
+has been exhausted.
 ---
- net/ipv4/ip_output.c  | 3 ++-
- net/ipv6/ip6_output.c | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index d68199d..a7aea20 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -888,7 +888,8 @@ static int __ip_append_data(struct sock *sk,
- 	cork->length += length;
- 	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
--	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len) {
-+	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len &&
-+	    (sk->sk_type == SOCK_DGRAM)) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
- 					 hh_len, fragheaderlen, transhdrlen,
- 					 maxfraglen, flags);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7deebf1..0a04a37 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1298,7 +1298,8 @@ emsgsize:
- 	if (((length > mtu) ||
- 	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
--	    (rt->dst.dev->features & NETIF_F_UFO)) {
-+	    (rt->dst.dev->features & NETIF_F_UFO) &&
-+	    (sk->sk_type == SOCK_DGRAM)) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen,
- 					  transhdrlen, mtu, flags, rt);
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 21206d3..e0d599a 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -427,7 +427,7 @@ static int bcm_enet_receive_queue(struct net_device *dev, int budget)
+ /*
+  * try to or force reclaim of transmitted buffers
+  */
+-static int bcm_enet_tx_reclaim(struct net_device *dev, int force)
++static int bcm_enet_tx_reclaim(struct net_device *dev, int force, int budget)
+ {
+ 	struct bcm_enet_priv *priv;
+ 	int released;
+@@ -471,6 +471,8 @@ static int bcm_enet_tx_reclaim(struct net_device *dev, int force)
+ 
+ 		dev_kfree_skb(skb);
+ 		released++;
++		if (!force && released == budget)
++			break;
+ 	}
+ 
+ 	if (netif_queue_stopped(dev) && released)
+@@ -486,7 +488,7 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct bcm_enet_priv *priv;
+ 	struct net_device *dev;
+-	int tx_work_done, rx_work_done;
++	int work_done;
+ 
+ 	priv = container_of(napi, struct bcm_enet_priv, napi);
+ 	dev = priv->net_dev;
+@@ -498,15 +500,15 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
+ 			 ENETDMAC_IR, priv->tx_chan);
+ 
+ 	/* reclaim sent skb */
+-	tx_work_done = bcm_enet_tx_reclaim(dev, 0);
++	work_done = bcm_enet_tx_reclaim(dev, 0, budget);
+ 
+ 	spin_lock(&priv->rx_lock);
+-	rx_work_done = bcm_enet_receive_queue(dev, budget);
++	work_done += bcm_enet_receive_queue(dev, budget - work_done);
+ 	spin_unlock(&priv->rx_lock);
+ 
+-	if (rx_work_done >= budget || tx_work_done > 0) {
++	if (work_done >= budget) {
+ 		/* rx/tx queue is not yet empty/clean */
+-		return rx_work_done;
++		return work_done;
+ 	}
+ 
+ 	/* no more packet in rx/tx queue, remove device from poll
+@@ -519,7 +521,7 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
+ 	enet_dmac_writel(priv, priv->dma_chan_int_mask,
+ 			 ENETDMAC_IRMASK, priv->tx_chan);
+ 
+-	return rx_work_done;
++	return work_done;
+ }
+ 
+ /*
+@@ -1208,7 +1210,7 @@ static int bcm_enet_stop(struct net_device *dev)
+ 	bcm_enet_disable_mac(priv);
+ 
+ 	/* force reclaim of all tx buffers */
+-	bcm_enet_tx_reclaim(dev, 1);
++	bcm_enet_tx_reclaim(dev, 1, 0);
+ 
+ 	/* free the rx skb ring */
+ 	for (i = 0; i < priv->rx_ring_size; i++) {
+@@ -2415,7 +2417,7 @@ static int bcm_enetsw_stop(struct net_device *dev)
+ 	bcm_enet_disable_dma(priv, priv->rx_chan);
+ 
+ 	/* force reclaim of all tx buffers */
+-	bcm_enet_tx_reclaim(dev, 1);
++	bcm_enet_tx_reclaim(dev, 1, 0);
+ 
+ 	/* free the rx skb ring */
+ 	for (i = 0; i < priv->rx_ring_size; i++) {
 -- 
-1.8.4.5
+1.9.1
