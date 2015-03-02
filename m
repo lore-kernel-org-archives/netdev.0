@@ -1,86 +1,84 @@
-From: Andrey Volkov <andrey.volkov@nexvision.fr>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
-Date: Mon, 02 Mar 2015 15:38:32 +0100
-Message-ID: <54F475E8.8010408@nexvision.fr>
-References: <54EA8E7C.90401@roeck-us.net> <20150223031447.GA19267@lunn.ch> <54EAA767.6060105@roeck-us.net> <20150223042220.GA20063@lunn.ch> <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch> <54EB37C7.3090209@roeck-us.net> <20150223160109.GB27057@lunn.ch> <54EB6BF5.2020600@gmail.com> <20150223183537.GA23456@roeck-us.net> <54EDD172.4010606@nexvision.fr> <54EDDB72.1090706@roeck-us.net> <54F0A4DE.3020704@nexvision.fr> <54F17408.4080105@roeck-us.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2 2/4] net: add IPv4 routing FIB support for switchdev
+Date: Mon, 2 Mar 2015 09:10:28 -0800
+Message-ID: <CAE4R7bCdpu+fUZdPJJkNMhxLBBdecdVF9hZFbooKhCWwWL-oXw@mail.gmail.com>
+References: <1425290777-22702-1-git-send-email-sfeldma@gmail.com>
+	<1425290777-22702-3-git-send-email-sfeldma@gmail.com>
+	<54F4741F.50406@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	jerome.oufella@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 6.mo68.mail-out.ovh.net ([46.105.63.100]:54846 "EHLO
-	6.mo68.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756203AbbCBRHG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:07:06 -0500
-Received: from mail440.ha.ovh.net (gw6.ovh.net [213.251.189.206])
-	by mo68.mail-out.ovh.net (Postfix) with SMTP id 29769FFAACC
-	for <netdev@vger.kernel.org>; Mon,  2 Mar 2015 15:38:38 +0100 (CET)
-In-Reply-To: <54F17408.4080105@roeck-us.net>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:35880 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755098AbbCBRK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:10:28 -0500
+Received: by qcxn11 with SMTP id n11so3608157qcx.3
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 09:10:28 -0800 (PST)
+In-Reply-To: <54F4741F.50406@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Mar 2, 2015 at 6:30 AM, roopa <roopa@cumulusnetworks.com> wrote:
+> On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
+>>
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>   +                     err = netdev_switch_fib_ipv4_add(key, plen, fi,
+>> +                                                        new_fa->fa_tos,
+>> +                                                        cfg->fc_type,
+>> +                                                        tb->tb_id);
+>> +                       if (err && err != -EOPNOTSUPP) {
+>> +                               kmem_cache_free(fn_alias_kmem, new_fa);
+>> +                               goto out;
+>> +                       }
+>> +
+>>                         hlist_replace_rcu(&fa->fa_list, &new_fa->fa_list);
+>> +
+>>                         alias_free_mem_rcu(fa);
+>>                         fib_release_info(fi_drop);
+>
+>
+> This looks like the replace case: It will need a netdev_switch_fib_ipv4_del
+> for fi_drop ?
 
-On 28/02/2015 08:53, Guenter Roeck wrote:
-> On 02/27/2015 09:09 AM, Andrey Volkov wrote:
->> Gunter,
->>
->> Sorry with response delay, I very was busy yesterday
->>
->> Le 25/02/2015 15:25, Guenter Roeck a =E9crit :
->>> Andrey,
->>
->> ------- snip -------
->>
->>>>>
->>>> I simply modify port's fid to the new one in the leave routine and=
- set to common bridge FID in enter
->>>> (I'm using Marvell's chips). So the port's database will cleaned u=
-p automatically for the leave and will
->>>> contain something useful at the enter time. Also I've look through=
- yours patches and I haven't
->>>
->>> Does removing a port from a fid clean up the entries associated wit=
-h it
->>> in the database ?
->>
->> I've checked what happened when port changed its FID: switch logic b=
-lock traffic to it
->> immediately, as far as I can see, meanwhile record still exists in t=
-he bridge database,
->> it was checked on 88e6185, 88e6097 and 88e6352 chips. And yet anothe=
-r 5c: changing of group membership is
->> not atomic operation in the Marvell's chips known for me, so the por=
-t must be in the disabled state when it
->> will happened.
->>
-> Hmm - interesting. I assume you mean updating port registers 5 and 6 =
-?
-Yes sure, it's reason why we must disable the port before changing the =
-=46ID.
+It is the replace case.  No del needed.  Failure to replace in HW
+results in replace not proceeding in SW and err return to user.  So HW
+and SW stay coherent and user can react to failure case.
 
->=20
-> Different question: For 6185, did you write a new driver or extend an=
- existing one ?
-> I found that it is quite similar to 6131, and that adding support for=
- it to the 6131
-> driver should be straightforward.
-Yes again :), and 88E6097 have same core as 6123_61_65. Difference in b=
-oth cases only in the number
-of supported ports, and it was main reason why hardcoded port's number =
-was unacceptable for me, difference is=20
-large enough: for ex. 88e6123 have only 3 ports, but 88E6097 - 11.
+>>
+>> @@ -1197,12 +1208,18 @@ int fib_table_insert(struct fib_table *tb, struct
+>> fib_config *cfg)
+>>         new_fa->fa_state = 0;
+>>         new_fa->fa_slen = slen;
+>>   +     /* (Optionally) offload fib entry to switch hardware. */
+>> +       err = netdev_switch_fib_ipv4_add(key, plen, fi, tos,
+>> +                                        cfg->fc_type, tb->tb_id);
+>
+>
+> This could be an NLM_F_APPEND case. Would be better for the switchdev API to
+> also take
+> nlflags as argument, to inform the switch driver of replace and append
+> cases.
 
->=20
-> Thanks,
-> Guenter
->=20
->=20
---
-Regards
-Andrey
+No, we can keep it simple.  The ndo add op is used for adds or mods.
+The driver/device will know if operation is a mod vs. add if object
+exists (it's an add if object doesn't exist).
+
+>> +       /* Recusively search from fib_dev down until we find
+>> +        * a sw port dev.  (A sw port dev supports
+>> +        * ndo_switch_parent_id_get).
+>> +        */
+>> +
+>> +       if (ops->ndo_switch_parent_id_get)
+>> +               return dev;
+>
+>
+> Maybe we can just check for NETIF_F_HW_SWITCH_OFFLOAD here ?
+> similar to netdev_switch_port_bridge_newlink/dellink
+
+Probably, yes.
+
+-scott
