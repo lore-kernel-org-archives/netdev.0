@@ -1,64 +1,52 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: Flows! Offload them.
-Date: Mon, 2 Mar 2015 08:49:46 -0500
-Message-ID: <20150302134946.GB7971@gospo.home.greyhouse.net>
-References: <20150226074214.GF2074@nanopsycho.orion>
- <20150226083758.GA15139@vergenet.net>
- <20150226091628.GA4059@nanopsycho.orion>
- <20150226133326.GC23050@casper.infradead.org>
- <54EF3A78.9020507@intel.com>
- <20150226201635.GA366@hmsreliant.think-freely.org>
- <20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
- <20150227012239.GB8847@neilslaptop.think-freely.org>
- <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Simon Horman <simon.horman@netronome.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
-	Joe Stringer <joestringer@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Shrijeet Mukherjee <shrijeet@gmail.com>, bcrl@kvack.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:44235 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbbCBNtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 08:49:51 -0500
-Received: by mail-qa0-f44.google.com with SMTP id n8so22744161qaq.3
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 05:49:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: [RFC PATCH 0/4] Clarify and cleanup some __GFP_NOFAIL usage
+Date: Mon,  2 Mar 2015 14:54:39 +0100
+Message-ID: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	David Rientjes <rientjes@google.com>,
+	Dave Chinner <david@fromorbit.com>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Mel Gorman <mgorman@suse.de>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	"David S. Miller" <davem@davemloft.net>,
+	sparclinux@vger.kernel.org,
+	Vipul Pandya <vipul@chelsio.com>,
+	netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: <linux-mm@kvack.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 26, 2015 at 05:52:16PM -0800, Tom Herbert wrote:
-> On Thu, Feb 26, 2015 at 5:22 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-[...]
-> > Yes, exactly that, for the general traditional networking use case, that is
-> > exactly what we want, to opportunistically move traffic faster with less load on
-> > the cpu.  We don't nominally care what traffic is offloaded, as long as the
-> > hardware does a better job than just software alone.  If we get an occasional
-> > miss and have to do stuff in software, so be it.
-> >
-> +1 on an in kernel "Network Resource Manager". This also came up in
-> Sunil's plan to configure RPS affinities from a driver so I'm taking
-> liberty by generalizing the concept :-).
+Hi,
+from the last discussion about __GFP_NOFAIL it turned out that the flag
+cannot be deprecated as easily as MM people hoped for.
+The current flag description leads people to inventing their own loops
+around GFP_{KERNEL|NOFS} allocations without any fallback failure
+policy. This makes the situation much worse for the MM layer because it
+is not aware of the hard no-fail requirements.
 
-I agree completely that there is a need for what you both describe.  Not
-only to handle what items to offload for users looking for that level
-of granularity, but also to allow driver implementers to decide if their
-hardware/driver implementation may allow for async write of data to
-hardware tables, and any other implementation specific detail they may
-want to provide.
+First patch in this series tries to rephrase the documentation to be
+more clear about our intention. __GFP_NOFAIL is generally discouraged
+but users shouldn't lie to the allocator if they really cannot have any
+failure strategy.
+
+Second patch removes such an open coded retry loop in the jbd2 code
+which was introduced exactly because of the deprecation wording. I am
+not sure the patch is still required because Ted has mentioned something
+about changing this code. If he was faster then we can simply drop
+this one. I was hoping for more such opencoded paths but wasn't very
+successful. The next plan is to abuse coccinelle to find such patterns.
+
+The last two patches are attempts to get rid of __GFP_NOFAIL when
+it seemed they are not needed because there are error paths handled
+properly. I am not familiar with that code so I might be clearly
+wrong here and I would appreciate double checking from the respective
+maintainer.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
