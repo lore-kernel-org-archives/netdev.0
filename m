@@ -1,33 +1,45 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
-Date: Mon, 2 Mar 2015 09:46:33 -0600 (CST)
-Message-ID: <alpine.DEB.2.11.1503020944200.5540@gentwo.org>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com> <54F469C1.9090601@suse.cz>
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Rientjes <rientjes@google.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Pekka Enberg <penberg@kernel.org>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Mel Gorman <mgorman@suse.de>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	Li Zefan <lizefan@huawei.com>,
-	Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	cgroups@vger.kernel.org, dev@openvswitch.org
-To: Vlastimil Babka <vbabka@suse.cz>
+From: Ben Shelton <ben.shelton@ni.com>
+Subject: Re: [PATCH] usb: plusb: Add support for National Instruments
+ host-to-host cable
+Date: Mon, 2 Mar 2015 10:00:14 -0600
+Message-ID: <20150302160014.GA28172@bshelton-desktop>
+References: <1424116026-27869-1-git-send-email-ben.shelton@ni.com>
+ <20150220.151417.1734124571561269613.davem@davemloft.net>
+ <20150227212632.GA11789@bshelton-desktop>
+ <20150227.173538.507712773812639200.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54F469C1.9090601@suse.cz>
+In-Reply-To: <20150227.173538.507712773812639200.davem@davemloft.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Mar 2015, Vlastimil Babka wrote:
+On 02/27, David Miller wrote:
+> From: Ben Shelton <ben.shelton@ni.com>
+> Date: Fri, 27 Feb 2015 15:26:32 -0600
+> 
+> > On 02/20, David Miller wrote:
+> >> From: Ben Shelton <ben.shelton@ni.com>
+> >> Date: Mon, 16 Feb 2015 13:47:06 -0600
+> >> 
+> >> > The National Instruments USB Host-to-Host Cable is based on the Prolific
+> >> > PL-25A1 chipset.  Add its VID/PID so the plusb driver will recognize it.
+> >> > 
+> >> > Signed-off-by: Ben Shelton <ben.shelton@ni.com>
+> >> 
+> >> Applied, thanks.
+> > 
+> > Hi David,
+> > 
+> > Is this something you think would go into stable as well?
+> 
+> I'm ambivalent.
 
-> So it would be IMHO better for longer-term maintainability to have the
-> relevant __GFP_THISNODE callers pass also __GFP_NO_KSWAPD to denote these
-> opportunistic allocation attempts, instead of having this subtle semantic
+In that case, could you go ahead and apply it to stable as well?
 
-You are thinking about an opportunistic allocation attempt in SLAB?
-
-AFAICT SLAB allocations should trigger reclaim.
+Thanks,
+Ben
