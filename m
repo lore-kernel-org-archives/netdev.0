@@ -1,40 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: repository for switch hardware info
-Date: Mon, 02 Mar 2015 15:40:06 -0500 (EST)
-Message-ID: <20150302.154006.225049966274593660.davem@davemloft.net>
-References: <20150222.160345.141886361578055811.davem@davemloft.net>
-	<CANmuVZcYEyoqDhtY+5UWakYqYa6MqO4hj2MNwE1uWH=hcUKcrA@mail.gmail.com>
-	<00a201d0551b$d982f2a0$8c88d7e0$@codeaurora.org>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
+Date: Mon, 2 Mar 2015 12:40:24 -0800 (PST)
+Message-ID: <alpine.DEB.2.10.1503021239410.20808@chino.kir.corp.google.com>
+References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com> <54F469C1.9090601@suse.cz> <alpine.DEB.2.11.1503020944200.5540@gentwo.org> <54F48980.3090008@suse.cz>
+ <alpine.DEB.2.11.1503021007030.6245@gentwo.org> <54F48E68.6070706@suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mathieu@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753447AbbCBUkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:40:08 -0500
-In-Reply-To: <00a201d0551b$d982f2a0$8c88d7e0$@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Christoph Lameter <cl@linux.com>,
+    Andrew Morton <akpm@linux-foundation.org>,
+    Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+    Johannes Weiner <hannes@cmpxchg.org>, Mel Gorman <mgorman@suse.de>,
+    Pravin Shelar <pshelar@nicira.com>,
+    Jarno Rajahalme <jrajahalme@nicira.com>, Li Zefan <lizefan@huawei.com>,
+    Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
+    linux-mm@kvack.org, netdev@vger.kernel.org, cgroups@vger.kernel.org,
+    dev@openvswitch.org
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <54F48E68.6070706@suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: "Mathieu Olivari" <mathieu@codeaurora.org>
-Date: Mon, 2 Mar 2015 11:05:28 -0800
+On Mon, 2 Mar 2015, Vlastimil Babka wrote:
 
-> Here is what's available publically for QCA devices.
+> > > > You are thinking about an opportunistic allocation attempt in SLAB?
+> > > > 
+> > > > AFAICT SLAB allocations should trigger reclaim.
+> > > > 
+> > > 
+> > > Well, let me quote your commit 952f3b51beb5:
+> > 
+> > This was about global reclaim. Local reclaim is good and that can be
+> > done via zone_reclaim.
 > 
-> AR8xxx/QCA8xxx (Ethernet xMII/MDIO based hardware switch widely deployed in home gateways):
-> - open source vendor SDK is available here: https://www.codeaurora.org/cgit/quic/qsdk/oss/lklm/qca-ssdk/ (configuration command can be found in https://www.codeaurora.org/cgit/quic/qsdk/oss/ssdk-shell/) 
-> - same devices (AR8xxx/QCA8xxx) are also supported by OpenWrt using a swconfig based driver: http://git.openwrt.org/?p=openwrt.git;a=tree;f=target/linux/generic/files/drivers/net/phy;h=ceb9d8c46e7ffb936e3e56dcf77a0253fa5b3468;hb=HEAD (files ar8216.c & ar8327.c)
+> Right, so the patch is a functional change for zone_reclaim_mode == 1, where
+> !__GFP_WAIT will prevent it.
 > 
-> IPQ806x (NPU we talked about during netdev01):
-> - code is available here: https://www.codeaurora.org/cgit/quic/qsdk/
-> Driver is split between oss/lklm/nss-drv, oss/lklm/nss-gmac and oss/lklm/qca-nss-ecm.
-> 
-> Both hardware can easily be found in home routers on the market today.
 
-Please post this publicly on the mailing list rather than as a private
-email to just me.
+My patch is not a functional change, get_page_from_freelist() handles 
+zone_reclaim_mode == 1 properly in the page allocator fastpath.  This 
+patch only touches the slowpath.
 
-THanks.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
