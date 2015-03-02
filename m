@@ -1,69 +1,64 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next v4 0/2] net: Introducing socket mark receive
- socket option
-Date: Mon, 2 Mar 2015 15:36:47 +0100
-Message-ID: <20150302143647.GC7418@breakpoint.cc>
-References: <1425302043-669-1-git-send-email-eyal.birger@gmail.com>
- <20150302132925.GB7418@breakpoint.cc>
- <CAHsH6Gu+ZHSdnnritKk5cjTg4NuKppYjffXjNpou2i+uVeykYA@mail.gmail.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH 2/3] dtb: change binding name to match with newer
+ firmware DT
+Date: Mon, 2 Mar 2015 14:48:58 +0000
+Message-ID: <20150302144858.GG16779@leverpostej>
+References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
+ <1425067710-14879-3-git-send-email-isubramanian@apm.com>
+ <4061014.S4PDWltU3G@wuerfel>
+ <CAKh23Fm5HpNEfs40RTf_XtQ6ris5cCheAcY1WdLND04AwsvdSQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eyal Birger <eyal.birger@gmail.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"mlangsdo@redhat.com" <mlangsdo@redhat.com>,
+	patches <patches@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53564 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754285AbbCBOgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 09:36:52 -0500
+Received: from foss.arm.com ([217.140.101.70]:47413 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753725AbbCBOt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2015 09:49:27 -0500
 Content-Disposition: inline
-In-Reply-To: <CAHsH6Gu+ZHSdnnritKk5cjTg4NuKppYjffXjNpou2i+uVeykYA@mail.gmail.com>
+In-Reply-To: <CAKh23Fm5HpNEfs40RTf_XtQ6ris5cCheAcY1WdLND04AwsvdSQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eyal Birger <eyal.birger@gmail.com> wrote:
-> On Mon, Mar 2, 2015 at 3:29 PM, Florian Westphal <fw@strlen.de> wrote:
-> > Eyal Birger <eyal.birger@gmail.com> wrote:
-> >> This patch set introduces a new socket option for fetching the mark
-> >> of skbs passed to sockets as ancillary data.
+On Fri, Feb 27, 2015 at 11:52:54PM +0000, Iyappan Subramanian wrote:
+> On Fri, Feb 27, 2015 at 12:33 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > On Friday 27 February 2015 12:08:29 Iyappan Subramanian wrote:
+> >> diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
+> >> index f1ad9c2..a857794 100644
+> >> --- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
+> >> +++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
+> >> @@ -622,7 +622,7 @@
+> >>                 };
 > >>
-> >> A userspace program may wish to receive the mark of packets it
-> >> receives, for example for distinguishing between different TPROXY
-> >> diversion rules to the same userspace proxy socket.
+> >>                 sgenet0: ethernet@1f210000 {
+> >> -                       compatible = "apm,xgene-enet";
+> >> +                       compatible = "apm,xgene1-sgenet";
+> >>                         status = "disabled";
+> >>                         reg = <0x0 0x1f210000 0x0 0xd100>,
+> >>                               <0x0 0x1f200000 0x0 0Xc300>,
+> >>
 > >
-> > Hmm... Whats the use case?
-> > Even if you cannot use multiple sockets for every divert rule,
-> > TPROXY doesn't mangle payload; applications could use sockaddrs
-> > returned by accept, getpeername, getsockname etc.  to figure out
-> > which original port/address the packet was sent to?
+> > This will break booting the new dtb on older kernels, right?
 > 
-> Right. But that would mean the criteria for traffic diversion would need to
-> be known to the application receiving the traffic.
+> This will not break booting older kernels.  In fact, this will fix it,
+> by having the specific binding,
+> older kernel that does not have support for these interfaces, will not
+> call probe.
+> 
+> For example, 3.17 kernel that does not have support for SGMII based 1G
+> and XFI 10G interfaces
+> will not probe these interfaces when booted with newer dtb.
 
-For your solution to work the application needs to know about the TPROXY
-rule set and how that is structured, no?
+I'm guessing that in the existing DTBs, these nodes are always disabled?
 
-I don't see how that is 'better' than e.g. looking at dst port number.
+If that's the case then we don't have a problem; we'll never probe these
+nodes for an existing DTB.
 
-> Also, the feature has use-cases outside of TPROXY as the skb->mark may be set
-> by other mechanisms (including SO_MARK from user space).
-
-Right, but to me it seems very hacky to use SO_MARK as some kind of OOB signal.
-
-It won't work depending on loaded ruleset, it won't work with non-localhost
-traffic and it won't work when other application runs in another network
-namespace.
-
-Seems such facility would be limited to some pre-configured distribution where
-users don't run own software and make no changes to the default system
-setup.
-
-> For example, a user space daemon can receive traffic from multiple
-> applications using a single socket and distinguish between different traffic groups
-> according to the packet mark.
-
-Right, but it might as well use SO_PEERCRED to identify the other pid, right?
+Mark.
