@@ -1,56 +1,54 @@
-From: Michal Hocko <mhocko@suse.cz>
-Subject: [RFC 3/4] sparc: remove __GFP_NOFAIL reuquirement
-Date: Mon,  2 Mar 2015 14:54:42 +0100
-Message-ID: <1425304483-7987-4-git-send-email-mhocko@suse.cz>
-References: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	David Rientjes <rientjes@google.com>,
-	Dave Chinner <david@fromorbit.com>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Mel Gorman <mgorman@suse.de>,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	"David S. Miller" <davem@davemloft.net>,
-	sparclinux@vger.kernel.org,
-	Vipul Pandya <vipul@chelsio.com>,
-	netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: <linux-mm@kvack.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
-Sender: owner-linux-mm@kvack.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] cosa.c : Array index 'i' is used before limits check.
+Date: Mon, 02 Mar 2015 17:16:15 +0300
+Message-ID: <54F470AF.6050401@cogentembedded.com>
+References: <1424807546-10013-1-git-send-email-ameenali023@gmail.com> <54ECD78F.7040607@cogentembedded.com> <20150302130652.GX19534@fi.muni.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ameen Ali <ameenali023@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jan Kasprzak <kas@fi.muni.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150302130652.GX19534@fi.muni.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-mdesc_kmalloc is currently requiring __GFP_NOFAIL allocation although it
-seems that the allocation failure is handled by all callers (via
-mdesc_alloc). __GFP_NOFAIL is a strong liability for the memory
-allocator and so the users are discouraged to use the flag unless the
-allocation failure is really a nogo. Drop the flag here as this doesn't
-seem to be the case.
+Hello.
 
-Signed-off-by: Michal Hocko <mhocko@suse.cz>
----
- arch/sparc/kernel/mdesc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 3/2/2015 4:06 PM, Jan Kasprzak wrote:
 
-diff --git a/arch/sparc/kernel/mdesc.c b/arch/sparc/kernel/mdesc.c
-index 99632a87e697..6801bd778af2 100644
---- a/arch/sparc/kernel/mdesc.c
-+++ b/arch/sparc/kernel/mdesc.c
-@@ -136,7 +136,7 @@ static struct mdesc_handle *mdesc_kmalloc(unsigned int mdesc_size)
- 		       sizeof(struct mdesc_hdr) +
- 		       mdesc_size);
- 
--	base = kmalloc(handle_size + 15, GFP_KERNEL | __GFP_NOFAIL);
-+	base = kmalloc(handle_size + 15, GFP_KERNEL);
- 	if (base) {
- 		struct mdesc_handle *hp;
- 		unsigned long addr;
--- 
-2.1.4
+> : >avoid out-of-bounds-read by checking count before indexing.
+> :
+> : >Signed-off-by: Ameen Ali <Ameenali023@gmail.com>
+> : >---
+> : >  drivers/net/wan/cosa.c | 2 +-
+> : >  1 file changed, 1 insertion(+), 1 deletion(-)
+> :
+> : >diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+> : >index 83c39e2..5252e21 100644
+> : >--- a/drivers/net/wan/cosa.c
+> : >+++ b/drivers/net/wan/cosa.c
+> : >@@ -376,7 +376,7 @@ static int __init cosa_init(void)
+> : >  	}
+> : >  	for (i=0; i<MAX_CARDS; i++)
+> : >  		cosa_cards[i].num = -1;
+> : >-	for (i=0; io[i] != 0 && i < MAX_CARDS; i++)
+> : >+	for (i=0; (i < MAX_CARDS) && (io[i] != 0) ; i++)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> :    Parens you've added aren't necessary.
+
+> 	Yes, but I am OK with both variants.
+
+    Anyway, space before ; should be removed (just noticed).
+
+> :    I suggest to add spaces after and before = in the first expression.
+
+> 	In that case, also the upper for() cycle should be modified
+> to match this. I don't think this is necessary.
+
+    As long as it doesn't cause complaints from scripts/checkpatch.pl...
+
+> -Yenya
+
+WBR, Sergei
