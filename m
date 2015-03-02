@@ -1,62 +1,80 @@
-From: Jan Kasprzak <kas@fi.muni.cz>
-Subject: Re: [PATCH 2/2] cosa.c : Array index 'i' is used before limits check.
-Date: Mon, 2 Mar 2015 14:06:52 +0100
-Message-ID: <20150302130652.GX19534@fi.muni.cz>
-References: <1424807546-10013-1-git-send-email-ameenali023@gmail.com>
- <54ECD78F.7040607@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ameen Ali <ameenali023@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: [PATCH net-next v4 0/2] net: Introducing socket mark receive socket option
+Date: Mon,  2 Mar 2015 15:14:01 +0200
+Message-ID: <1425302043-669-1-git-send-email-eyal.birger@gmail.com>
+Cc: willemb@google.com, edumazet@google.com, shmulik.ladkani@gmail.com,
+	netdev@vger.kernel.org, Eyal Birger <eyal.birger@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.ics.muni.cz ([147.251.4.46]:33996 "EHLO minas.ics.muni.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751266AbbCBNH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 08:07:29 -0500
-Content-Disposition: inline
-In-Reply-To: <54ECD78F.7040607@cogentembedded.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:37643 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754114AbbCBNOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 08:14:20 -0500
+Received: by wghk14 with SMTP id k14so33376233wgh.4
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 05:14:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sergei Shtylyov wrote:
-: Hello.
-: 
-: On 02/24/2015 10:52 PM, Ameen Ali wrote:
-: 
-: >avoid out-of-bounds-read by checking count before indexing.
-: 
-: >Signed-off-by: Ameen Ali <Ameenali023@gmail.com>
-: >---
-: >  drivers/net/wan/cosa.c | 2 +-
-: >  1 file changed, 1 insertion(+), 1 deletion(-)
-: 
-: >diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-: >index 83c39e2..5252e21 100644
-: >--- a/drivers/net/wan/cosa.c
-: >+++ b/drivers/net/wan/cosa.c
-: >@@ -376,7 +376,7 @@ static int __init cosa_init(void)
-: >  	}
-: >  	for (i=0; i<MAX_CARDS; i++)
-: >  		cosa_cards[i].num = -1;
-: >-	for (i=0; io[i] != 0 && i < MAX_CARDS; i++)
-: >+	for (i=0; (i < MAX_CARDS) && (io[i] != 0) ; i++)
-: 
-:    Parens you've added aren't necessary.
+This patch set introduces a new socket option for fetching the mark
+of skbs passed to sockets as ancillary data.
 
-	Yes, but I am OK with both variants.
+A userspace program may wish to receive the mark of packets it
+receives, for example for distinguishing between different TPROXY
+diversion rules to the same userspace proxy socket.
 
-:    I suggest to add spaces after and before = in the first expression.
+The patch set includes a minor function renaming.
 
-	In that case, also the upper for() cycle should be modified
-to match this. I don't think this is necessary.
+---
+Changes in v4:
+- Rebase
+- skb->mark is no longer aliased, so skb->priority is left as it is
+  and change in IGMPv3/MLD is no longer needed
+- rxrpc no longer uses sock_recv_ts_and_drops() so renaming there is
+  not needed
+Changes in v3:
+- Rebase
+- Set skb->priority immediately prior to transmittion in IGMPv3/MLD
+- Extended commit message regarding use of skb->priority instead of
+  skb->mark in struct sk_buff union
+Changes in v2:
+- Function parameter indentation
+- Commit message formatting
+---
 
--Yenya
+Eyal Birger (2):
+  net: Rename sock_recv_ts_and_drops() to sock_cmsg_recv()
+  net: Introducing socket mark receive socket option
+
+ arch/alpha/include/uapi/asm/socket.h   |  2 ++
+ arch/avr32/include/uapi/asm/socket.h   |  2 ++
+ arch/cris/include/uapi/asm/socket.h    |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  2 ++
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  2 ++
+ arch/mips/include/uapi/asm/socket.h    |  2 ++
+ arch/mn10300/include/uapi/asm/socket.h |  2 ++
+ arch/parisc/include/uapi/asm/socket.h  |  2 ++
+ arch/powerpc/include/uapi/asm/socket.h |  2 ++
+ arch/s390/include/uapi/asm/socket.h    |  2 ++
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  2 ++
+ include/net/sock.h                     | 18 ++++++++++--------
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/atm/common.c                       |  2 +-
+ net/bluetooth/af_bluetooth.c           |  4 ++--
+ net/can/bcm.c                          |  2 +-
+ net/can/raw.c                          |  2 +-
+ net/core/sock.c                        |  8 ++++++++
+ net/ieee802154/socket.c                |  4 ++--
+ net/ipv4/raw.c                         |  2 +-
+ net/ipv4/udp.c                         |  2 +-
+ net/ipv6/raw.c                         |  2 +-
+ net/ipv6/udp.c                         |  2 +-
+ net/key/af_key.c                       |  2 +-
+ net/packet/af_packet.c                 |  2 +-
+ net/sctp/socket.c                      |  2 +-
+ net/socket.c                           | 15 ++++++++++++---
+ 29 files changed, 72 insertions(+), 25 deletions(-)
 
 -- 
-| Jan "Yenya" Kasprzak   <kas at {fi.muni.cz - work | yenya.net - private}> |
-| New GPG 4096R/A45477D5 -- see http://www.fi.muni.cz/~kas/pgp-rollover.txt |
-| http://www.fi.muni.cz/~kas/     Journal: http://www.fi.muni.cz/~kas/blog/ |
-||| "New and improved" is only really improved if it also takes backwards |||
-||| compatibility into account, rather than saying "now everybody must do |||
-||| things the new and improved - and different - way"   --Linus Torvalds |||
+2.1.4
