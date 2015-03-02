@@ -1,124 +1,59 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [E1000-devel] i40e: crash on NMI by continuous module reload
-Date: Mon, 02 Mar 2015 09:08:54 +0100
-Message-ID: <54F41A96.4020605@kpanic.de>
-References: <54F07630.1010802@kpanic.de> <54F078DF.5020100@gmail.com>	<54F07C29.8010805@kpanic.de> <54F082C8.8040407@gmail.com> <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
+From: Vladimir Kondratiev <QCA_vkondrat-VexRPWKJR1Ry9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [PATCH] wil6210: increase cmd buffer size to avoid sscanf buffer
+ overflow
+Date: Mon, 2 Mar 2015 10:24:47 +0200
+Message-ID: <54F41E4F.8090502@qca.qualcomm.com>
+References: <1425232113-5010-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>,
-	nick <xerofoify@gmail.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from app1b.xlhost.de ([84.200.252.162]:46167 "EHLO app1b.xlhost.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751088AbbCBII7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 03:08:59 -0500
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1425232113-5010-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 27.02.2015 20:42, Nelson, Shannon wrote:
->> From: nick [mailto:xerofoify@gmail.com]
->> On 2015-02-27 09:16 AM, Stefan Assmann wrote:
->>> On 27.02.2015 15:02, nick wrote:
->>>
->>> [...]
->>>
->>>>>     i40e: Fix a bug where Rx would stop after some time
->>>>> [...]
->>>>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> b/drivers/net/ethernet/intel/i40e/i40e_main.c
->>>>> index f7464e8..ff6d94d 100644
->>>>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->>>>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->>>>> [...]
->>>>> @@ -9169,6 +9178,13 @@ static int i40e_probe(struct pci_dev *pdev,
->> const struct pci_device_id *ent)
->>>>>  	if (err)
->>>>>  		dev_info(&pf->pdev->dev, "set phy mask fail, aq_err %d\n",
->> err);
->>>>>
->>>>> +	msleep(75);
->>>>> +	err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
->>>>> +	if (err) {
->>>>> +		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
->>>>> +			 pf->hw.aq.asq_last_status);
->>>>> +	}
->>>>> +
->>>>>  	/* The main driver is (mostly) up and happy. We need to set this
->> state
->>>>>  	 * before setting up the misc vector or we get a race and the
->> vector
->>>>>  	 * ends up disabled forever.
->>>>>
->>>>> With this hunk removed the driver successfully unloaded/reloaded a
->>>>> couple of hundred times. Would it be safe to just remove this hunk?
->>>>> I haven't seen any negative effects by removing this yet.
->>>>>
->>>>>   Stefan
->>>>>
->>>> Stefan,
->>>> I wouldn't remove them yet as this does look like a valid idea to
->> check to see if the link is
->>>> restarting successfully. On the other hand can you try removing the
->> msleep line as this one is
->>>> most likely causing the issue due to sleeping for some long in a
->> probe function is generally a
->>>> bad idea.
->>>> Thanks,
->>>> Nick
->>>
->>> Thanks Nick for the quick reply. I tested removing the msleep but that
->>> didn't make a difference. You actually need to remove the complete
->> hunk
->>> to get a stable driver reload.
->>>
->>>   Stefan
->>>
->> Stefan,
->> Basically there are a few things that could be going wrong
->> 1. You are getting a error return for the
->> function,i40e_aq_set_link_restart_an
->> 2. You are trying to re able the device again when not needed
->> 3. You are sending a NULL value to a field for command arguments that
->> takes a 0 and not NULL
->> to take no arguments
->> Nick
-> 
-> First of all, I would make sure you've got a short sleep in between each load and unload in this stress test.  There's a lot going on under the covers in the Firmware that really should be allowed to settle out before jostling it again with another load/unload command.  
+On 03/01/2015 07:48 PM, Colin King wrote:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>
+> cppcheck detected a buffer overflow:
+>
+> [drivers/net/wireless/ath/wil6210/debugfs.c:634]: (error) Width 8
+>    given in format string (no. 1) is larger than destination buffer
+>    'cmd[8]', use %7s to prevent overflowing it.
+>
+> For the current %8s sscanf we require cmd to be 9 chars long
+> so increase it by 1 byte to prevent the sscan overflow (rather
+> than reduce the %8s specifier to %7s as cppcheck recommends).
+>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+>   drivers/net/wireless/ath/wil6210/debugfs.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/ath/wil6210/debugfs.c b/drivers/net/wireless/ath/wil6210/debugfs.c
+> index 45c3558e..29aab12 100644
+> --- a/drivers/net/wireless/ath/wil6210/debugfs.c
+> +++ b/drivers/net/wireless/ath/wil6210/debugfs.c
+> @@ -618,7 +618,7 @@ static ssize_t wil_write_back(struct file *file, const char __user *buf,
+>   	struct wil6210_priv *wil = file->private_data;
+>   	int rc;
+>   	char *kbuf = kmalloc(len + 1, GFP_KERNEL);
+> -	char cmd[8];
+> +	char cmd[9];
+>   	int p1, p2, p3;
+>
+>   	if (!kbuf)
+>
+Thanks for finding this. Here is my
+Acked-by: Vladimir Kondratiev <qca_vkondrat-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 
-If a short delay is needed I think this should be implemented by the
-driver. Triggering this kind of bug from userspace shouldn't be
-possible. I'm using this reload loop regularly on driver backports to
-test for regressions.
-Btw, I noticed this problem during a normal reboot and used the
-reloading while looking for a reproducer.
-
-> It would help to know what Firmware you have on your NIC - can you give us the output from "ethtool -i <ethX>"?
-
-# ethtool -i eth6
-driver: i40e
-version: 1.2.9-k
-firmware-version: f4.22 a1.1 n04.26 e800014b1
-bus-info: 0000:07:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: yes
-
-> The out-of-tree driver has just (finally!) been updated on SourceForge, so you might give this version 1.2.37 driver a try to see if it changes your result.  That code still has the hunk in question, but protected by a FW version check.  The related patch will be headed upstream to net-next very soon.
-
-1.2.37 fails the same way.
-
-> Firmware updates have also just been released, but I'm not sure they've made it to the Intel Downloads site yet.  Updating your FW will make a difference.
-
-If you could point me to the firmware updates and instructions I can
-perform the update.
-
-Thanks!
-
-  Stefan
+Thanks, Vladimir
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
