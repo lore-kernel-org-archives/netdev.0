@@ -1,48 +1,142 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH v5 tip 1/7] bpf: make internal bpf API independent of
- CONFIG_BPF_SYSCALL ifdefs
-Date: Mon, 02 Mar 2015 12:10:19 +0100
-Message-ID: <54F4451B.8000703@iogearbox.net>
-References: <1425252465-27527-1-git-send-email-ast@plumgrid.com> <1425252465-27527-2-git-send-email-ast@plumgrid.com> <54F44115.40505@hitachi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54F44115.40505-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] filter: refactor common filter attach code into __sk_attach_prog
+Date: Mon,  2 Mar 2015 12:25:51 +0100
+Message-ID: <8c751ae5e391a3b2dd7a541ad89b3255d2a1f19d.1425295277.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:44090 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754017AbbCBLZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 06:25:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2015 11:53 AM, Masami Hiramatsu wrote:
-...
-> Hmm, it seems that this still doesn't hide some APIs which is provided
-> only when CONFIG_BPF_SYSCALL. For example bpf_register_map_type etc.
-> I think all those APIs should be hidden in #ifdef or at least be commented
-> so that the user doesn't refer that without the kconfig.
-> (I don't think we need to provide dummy functions for those APIs,
->   but it's better to clarify which API we can use with which kconfig)
+Both sk_attach_filter() and sk_attach_bpf() are setting up sk_filter,
+charging skmem and attaching it to the socket after we got the eBPF
+prog up and ready. Lets refactor that into a common helper.
 
-Well, currently all possible map types (hash table, array map) that
-would actually call into bpf_register_map_type() are only built when
-CONFIG_BPF_SYSCALL is enabled (see kernel/bpf/Makefile). I don't think
-new map additions should be added that are not under kernel/bpf/ and/or
-enabled outside the CONFIG_BPF_SYSCALL, as it should be considered
-part of the eBPF core code.
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/core/filter.c | 71 ++++++++++++++++++++++++++-----------------------------
+ 1 file changed, 33 insertions(+), 38 deletions(-)
 
-The difference here (this patch) is simply that we don't want users to
-build ifdef spaghetti constructs in user code, so the API that is
-actually used by eBPF _users_ is being properly ifdef'ed in the headers.
-
-So, I don't think this is a big problem, but we could move these bits
-under the ifdef CONFIG_BPF_SYSCALL w/o providing a dummy in the else part.
-I can do that outside of the scope of this set.
+diff --git a/net/core/filter.c b/net/core/filter.c
+index ff000cb..7a4eb70 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1019,6 +1019,32 @@ void bpf_prog_destroy(struct bpf_prog *fp)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_destroy);
+ 
++static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
++{
++	struct sk_filter *fp, *old_fp;
++
++	fp = kmalloc(sizeof(*fp), GFP_KERNEL);
++	if (!fp)
++		return -ENOMEM;
++
++	fp->prog = prog;
++	atomic_set(&fp->refcnt, 0);
++
++	if (!sk_filter_charge(sk, fp)) {
++		kfree(fp);
++		return -ENOMEM;
++	}
++
++	old_fp = rcu_dereference_protected(sk->sk_filter,
++					   sock_owned_by_user(sk));
++	rcu_assign_pointer(sk->sk_filter, fp);
++
++	if (old_fp)
++		sk_filter_uncharge(sk, old_fp);
++
++	return 0;
++}
++
+ /**
+  *	sk_attach_filter - attach a socket filter
+  *	@fprog: the filter program
+@@ -1031,7 +1057,6 @@ EXPORT_SYMBOL_GPL(bpf_prog_destroy);
+  */
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+-	struct sk_filter *fp, *old_fp;
+ 	unsigned int fsize = bpf_classic_proglen(fprog);
+ 	unsigned int bpf_fsize = bpf_prog_size(fprog->len);
+ 	struct bpf_prog *prog;
+@@ -1068,35 +1093,20 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	if (IS_ERR(prog))
+ 		return PTR_ERR(prog);
+ 
+-	fp = kmalloc(sizeof(*fp), GFP_KERNEL);
+-	if (!fp) {
++	err = __sk_attach_prog(prog, sk);
++	if (err < 0) {
+ 		__bpf_prog_release(prog);
+-		return -ENOMEM;
+-	}
+-	fp->prog = prog;
+-
+-	atomic_set(&fp->refcnt, 0);
+-
+-	if (!sk_filter_charge(sk, fp)) {
+-		__sk_filter_release(fp);
+-		return -ENOMEM;
++		return err;
+ 	}
+ 
+-	old_fp = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
+-	rcu_assign_pointer(sk->sk_filter, fp);
+-
+-	if (old_fp)
+-		sk_filter_uncharge(sk, old_fp);
+-
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(sk_attach_filter);
+ 
+ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ {
+-	struct sk_filter *fp, *old_fp;
+ 	struct bpf_prog *prog;
++	int err;
+ 
+ 	if (sock_flag(sk, SOCK_FILTER_LOCKED))
+ 		return -EPERM;
+@@ -1110,27 +1120,12 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ 		return -EINVAL;
+ 	}
+ 
+-	fp = kmalloc(sizeof(*fp), GFP_KERNEL);
+-	if (!fp) {
++	err = __sk_attach_prog(prog, sk);
++	if (err < 0) {
+ 		bpf_prog_put(prog);
+-		return -ENOMEM;
+-	}
+-
+-	fp->prog = prog;
+-	atomic_set(&fp->refcnt, 0);
+-
+-	if (!sk_filter_charge(sk, fp)) {
+-		__sk_filter_release(fp);
+-		return -ENOMEM;
++		return err;
+ 	}
+ 
+-	old_fp = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
+-	rcu_assign_pointer(sk->sk_filter, fp);
+-
+-	if (old_fp)
+-		sk_filter_uncharge(sk, old_fp);
+-
+ 	return 0;
+ }
+ 
+-- 
+1.9.3
