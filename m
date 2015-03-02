@@ -1,103 +1,88 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: Flows! Offload them.
-Date: Mon, 02 Mar 2015 08:45:21 -0500
-Message-ID: <54F46971.4090302@mojatatu.com>
-References: <20150226074214.GF2074@nanopsycho.orion>	<20150226083758.GA15139@vergenet.net>	<20150226091628.GA4059@nanopsycho.orion>	<20150226133326.GC23050@casper.infradead.org> <CAGpadYGrjfkZqe0k7D05+cy3pY=1hXZtQqtV0J-8ogU80K7BUQ@mail.gmail.com> <54EF3E45.3070103@intel.com> <54F0721E.1030703@mojatatu.com> <54F08BE1.1080200@intel.com>
+From: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
+Date: Mon, 02 Mar 2015 14:46:41 +0100
+Message-ID: <54F469C1.9090601@suse.cz>
+References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Simon Horman <simon.horman@netronome.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"jpettit@nicira.com" <jpettit@nicira.com>,
-	"joestringer@nicira.com" <joestringer@nicira.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"bcrl@kvack.org" <bcrl@kvack.org>
-To: John Fastabend <john.r.fastabend@intel.com>,
-	Shrijeet Mukherjee <shrijeet@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:33066 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753339AbbCBNpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 08:45:25 -0500
-Received: by igbhl2 with SMTP id hl2so15936457igb.0
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 05:45:24 -0800 (PST)
-In-Reply-To: <54F08BE1.1080200@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	Pekka Enberg <penberg-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Joonsoo Kim <iamjoonsoo.kim-Hm3cg6mZ9cc@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
+	Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.10.1502271415510.7225-X6Q0R45D7oAcqpCFd4KODRPsWskHk0ljAL8bYrjMMd8@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi John,
-
-On 02/27/15 10:23, John Fastabend wrote:
-> On 02/27/2015 05:33 AM, Jamal Hadi Salim wrote:
-
-
->> tc filter add ingress ethx classifier foo priority X \
->> match xyz action redirect macvlan3 offload
->>
->> where "offload" sets the netlink or classifier specific instruction
->> to offload.
->>
->> You can easily map macvlan3 to vsi 3.
->>
+On 02/27/2015 11:16 PM, David Rientjes wrote:
+> NOTE: this is not about __GFP_THISNODE, this is only about GFP_THISNODE.
 >
-> This is why I said if you want to map my "flow" tool onto "tc" it can
-> be done. :) I made a jump from macvlans that have net device representations
-> to VFs being assigned to user space (VMs) where there is no net device
-> to "redirect" to. So my explanation wasn't clear. Couple additional notes,
+> GFP_THISNODE is a secret combination of gfp bits that have different
+> behavior than expected.  It is a combination of __GFP_THISNODE,
+> __GFP_NORETRY, and __GFP_NOWARN and is special-cased in the page allocator
+> slowpath to fail without trying reclaim even though it may be used in
+> combination with __GFP_WAIT.
 >
-> The only issue I have with your 'tc' case is the "ingress" qdisc is per port where
-> my flow tool is scoped at the switch pipeline so I would modify your cmd
-> slightly and use a new classifier hook,
+> An example of the problem this creates: commit e97ca8e5b864 ("mm: fix
+> GFP_THISNODE callers and clarify") fixed up many users of GFP_THISNODE
+> that really just wanted __GFP_THISNODE.  The problem doesn't end there,
+> however, because even it was a no-op for alloc_misplaced_dst_page(),
+> which also sets __GFP_NORETRY and __GFP_NOWARN, and
+> migrate_misplaced_transhuge_page(), where __GFP_NORETRY and __GFP_NOWAIT
+> is set in GFP_TRANSHUGE.  Converting GFP_THISNODE to __GFP_THISNODE is
+> a no-op in these cases since the page allocator special-cases
+> __GFP_THISNODE && __GFP_NORETRY && __GFP_NOWARN.
 >
->   tc filter add sw-pipeline ethx classifier flow priority X \
->      match xyz action redirect macvlan3 offload
+> It's time to just remove GFP_THISNODE entirely.  We leave __GFP_THISNODE
+> to restrict an allocation to a local node, but remove GFP_THISNODE and
+> its obscurity.  Instead, we require that a caller clear __GFP_WAIT if it
+> wants to avoid reclaim.
 >
+> This allows the aforementioned functions to actually reclaim as they
+> should.  It also enables any future callers that want to do
+> __GFP_THISNODE but also __GFP_NORETRY && __GFP_NOWARN to reclaim.  The
+> rule is simple: if you don't want to reclaim, then don't set __GFP_WAIT.
+>
+> Aside: ovs_flow_stats_update() really wants to avoid reclaim as well, so
+> it is unchanged.
+>
+> Signed-off-by: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-For hardware, we are talking abstractions, no? i.e it doesnt have
-to be 1-1 mapping. IOW, It shouldnt matter how the hardware table
-looks like as long as the kernel abstractions work on it.
-There are two hooks:
-either ingress or egress. These can be expressed in the kernel via
-policy. Most hardware supports either one or the other.
-IOW, I think the expressability in software is sufficient. In the
-h/ware you are referring to - it is ingress.
+Acked-by: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
 
-> The other thing to note is "redirect" to macvlan3 doesn't handle the case
-> where the VF is direct assigned to a VM in this case we don't have a netdev
-> in the hypervisor to "redirect" to. Using the VSI# allows the hardware
-> to translate the redirect cmd to the VF.
->
+So you've convinced me that this is a non-functional change for slab and 
+a prerequisity for patch 2/3 which is the main point of this series for 
+4.0. That said, the new 'goto nopage' condition is still triggered by a 
+combination of flag states, and the less we have those, the better for 
+us IMHO.
 
-I agree - this is an interesting exception from a policy expression
-view.
+Looking at commit 952f3b51be which introduced this particular check 
+using GFP_THISNODE, it seemed like it was a workaround to avoid 
+triggering reclaim, without needing a new gfp flag. Nowadays, we have 
+such flag called __GFP_NO_KSWAPD and as I explained in my reply to v1 
+(where I missed the new condition), passing the flag would already 
+prevent wake_all_kswapds() and treating the allocation as atomic in 
+gfp_to_alloc_flags(). So the whole difference would be another 
+get_page_from_freelist() attempt (possibly less constrained than the 
+fast path one) and then bail out on !wait.
 
-> So one more slight tweak,
->
->   tc filter add sw-pipeline ethx classifier flow priority X \
->      match xyz action redirect vsi:2 offload
->
-> use the "vsi:" prefix to indicate this is for a hardware mapped VSI this
-> way the user can use what ever notion is more convenient.
->
-
-we do need the namespace separation. The concept of a "netdev" that
-exists in hardware but is hidden at the hypervisor level is something
-that needs to be addressed. I am still in love with concept of
-abstracting these things as netdevs.
-The question is how do you map which "vsi:" to which netdev on which
-VM?
-
-cheers,
-jamal
+So it would be IMHO better for longer-term maintainability to have the 
+relevant __GFP_THISNODE callers pass also __GFP_NO_KSWAPD to denote 
+these opportunistic allocation attempts, instead of having this subtle 
+semantic difference attached to __GFP_THISNODE && !__GFP_WAIT. It would 
+be probably too risky for 4.0. On the other hand, I don't think even 
+this series is really urgent. It's true that patch 2/3 fixes two 
+commits, including a 4.0 one, but those commits are already not 
+regressions without the fix. But maybe current -rcX is low enough to 
+proceed with this series and catch any regressions in time, allowing the 
+larger cleanups later.
