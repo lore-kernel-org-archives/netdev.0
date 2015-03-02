@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: repository for switch hardware info
-Date: Mon, 02 Mar 2015 15:57:35 -0500 (EST)
-Message-ID: <20150302.155735.937483543338955659.davem@davemloft.net>
-References: <CANmuVZcYEyoqDhtY+5UWakYqYa6MqO4hj2MNwE1uWH=hcUKcrA@mail.gmail.com>
-	<00a201d0551b$d982f2a0$8c88d7e0$@codeaurora.org>
-	<20150302.154006.225049966274593660.davem@davemloft.net>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next v4 0/2] net: Introducing socket mark receive
+ socket option
+Date: Mon, 2 Mar 2015 23:11:28 +0200
+Message-ID: <CAHsH6Gvh1HwYXqK5mj167ED09R8K5nWMgjSduNOSUVSOcbPuKQ@mail.gmail.com>
+References: <20150302143647.GC7418@breakpoint.cc>
+	<20150302.150556.807426896557970379.davem@davemloft.net>
+	<CAHsH6Gt=WjRb99SrDNo7YLBqXu=p+GsOEFF6O4dhRApfF7fAxw@mail.gmail.com>
+	<20150302.155712.103799154284088691.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mathieu@codeaurora.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53764 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754643AbbCBU5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:57:37 -0500
-In-Reply-To: <20150302.154006.225049966274593660.davem@davemloft.net>
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:45612 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755073AbbCBVL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 16:11:28 -0500
+Received: by yhai57 with SMTP id i57so16066916yha.12
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 13:11:28 -0800 (PST)
+In-Reply-To: <20150302.155712.103799154284088691.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 02 Mar 2015 15:40:06 -0500 (EST)
+On Mon, Mar 2, 2015 at 10:57 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eyal Birger <eyal.birger@gmail.com>
+> Date: Mon, 2 Mar 2015 22:38:50 +0200
+>
+>> I can sum up the motivation for this feature as follows:
+>>
+>> - skb->mark is set by user-space policy. It would make sense for
+>> user-space to be
+>>   able to query the resolution of that policy on a per packet basis -
+>> even if solely for the
+>>   purpose of debugging (e.g. fetching this meta-data on packet sockets
+>> on the xmit path
+>>   in order to debug tc behavior)
+>
+> It is also set by routing, netfilter, classifier rules installed by the
+> administrator.
+>
+> Therefore it is not universally true that it is safe to allow applications
+> to access this value.
+>
+> I'm not applying this series, it's use case is at best dubious to me and
+> there are security/protection concerns as well.
 
-> From: "Mathieu Olivari" <mathieu@codeaurora.org>
-> Date: Mon, 2 Mar 2015 11:05:28 -0800
-> 
->> Here is what's available publically for QCA devices.
->> 
->> AR8xxx/QCA8xxx (Ethernet xMII/MDIO based hardware switch widely deployed in home gateways):
->> - open source vendor SDK is available here: https://www.codeaurora.org/cgit/quic/qsdk/oss/lklm/qca-ssdk/ (configuration command can be found in https://www.codeaurora.org/cgit/quic/qsdk/oss/ssdk-shell/) 
->> - same devices (AR8xxx/QCA8xxx) are also supported by OpenWrt using a swconfig based driver: http://git.openwrt.org/?p=openwrt.git;a=tree;f=target/linux/generic/files/drivers/net/phy;h=ceb9d8c46e7ffb936e3e56dcf77a0253fa5b3468;hb=HEAD (files ar8216.c & ar8327.c)
->> 
->> IPQ806x (NPU we talked about during netdev01):
->> - code is available here: https://www.codeaurora.org/cgit/quic/qsdk/
->> Driver is split between oss/lklm/nss-drv, oss/lklm/nss-gmac and oss/lklm/qca-nss-ecm.
->> 
->> Both hardware can easily be found in home routers on the market today.
-> 
-> Please post this publicly on the mailing list rather than as a private
-> email to just me.
+I understand. Thanks.
 
-Sorry I'm an idiot, I didn't see netdev in the CC: :-)
+Would it be considered if access to the mark value was under CAP_NET_ADMIN
+similar to setting SO_MARK?
