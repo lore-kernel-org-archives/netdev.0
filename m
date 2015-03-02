@@ -1,40 +1,75 @@
-From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Subject: RE: [PATCH net-next 0/8] Basic MPLS support
-Date: Sun, 1 Mar 2015 16:05:49 -0800
-Message-ID: <96cd5ea110617310654d828231f19fd4@mail.gmail.com>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>	<20150227.162131.431559184124647735.davem@davemloft.net>
- <87mw3yg8da.fsf@x220.int.ebiederm.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 2 Mar 2015 11:31:40 +1100
+Message-ID: <20150302113140.084ba95a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
-	stephen@networkplumber.org, santiago@crfreenet.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:41431 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751313AbbCBAFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 19:05:38 -0500
-Received: by widex7 with SMTP id ex7so11179476wid.0
-        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 16:05:37 -0800 (PST)
-In-Reply-To: <87mw3yg8da.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/luId0BZkcXy.hWZJELPAgJS"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Scott Feldman <sfeldma@gmail.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->There is also my experience in router contexts that says arp or neighbour
->discovery is usually the last thing to know (short of gratuitious arps)
-that a
->neighbour has failed.  So some other protocol is needed to detect
-failure.
+--Sig_/luId0BZkcXy.hWZJELPAgJS
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Definitely a longer discussion is needed here for the router/switch use
-case. Our current position on this (not unique) is to let the protocol
-manager which handles the neighbor state machine manage the need or lack
-thereof of the GARP's.
+Hi all,
 
-This also came up in the L3 offload/switchdev side of the discussion,
-where the need maybe more pronounced even.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/rocker/rocker.c between commit 5f2ebfbee688
+("rocker: silence shift wrapping warning") from the net tree and commit
+4a6bb6d35980 ("rocker: rename lport to pport") from the net-next tree.
 
-This has led to mechanisms like BFD to exist which in my opinion causes
-more problems than it solves. But sounds like some sunlight on mechanisms
-that can be used here may have far reaching benefits.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/ethernet/rocker/rocker.c
+index 9fb6948e14c6,e5a15a4c4e8f..000000000000
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@@ -1257,9 -1280,9 +1280,9 @@@ static void rocker_port_set_enable(stru
+  	u64 val =3D rocker_read64(rocker_port->rocker, PORT_PHYS_ENABLE);
+ =20
+  	if (enable)
+- 		val |=3D 1ULL << rocker_port->lport;
+ -		val |=3D 1 << rocker_port->pport;
+++		val |=3D 1ULL << rocker_port->pport;
+  	else
+- 		val &=3D ~(1ULL << rocker_port->lport);
+ -		val &=3D ~(1 << rocker_port->pport);
+++		val &=3D ~(1ULL << rocker_port->pport);
+  	rocker_write64(rocker_port->rocker, PORT_PHYS_ENABLE, val);
+  }
+ =20
+
+--Sig_/luId0BZkcXy.hWZJELPAgJS
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJU869xAAoJEMDTa8Ir7ZwV1+EP/1swmNBJ7hytq2WvjHHYMUIC
+9aKA0nmDJKN/2JajYS5HEnzOcfWoeeIgPSTua9Pr+jt2uxhy85ZWH2g2n6UaZ/SB
+udgxt14rkINR/gGFIyZlk2fx4/Hem2ff+MTm5UMI9WU7mBD6kO/xK4ZQ95ilnVLN
+wTlNExWZb7rfoz0E7+Fd3Mr0wSO6Tg+ibcwgFretauFFOkzGqN5mjb52Qwz2Zdyn
+nwLwJf9jXvHBbprGEH+pbblapioTNZJ4xk/hGUvMK54zFvM0Ak2skrdTzycH0WoS
+PEq1i+PoWSnCGPMk0saZftcBGz6V3QnJZvNX+YTiRzc3+RaTJH0sHvLUY5rwdHSI
+Gc5iTkf1S9YNB3Ba/n3Advla/qanUst5dYbyeOy2wP0sGkWMvXcszytC3l1Yacqq
+/HGUrsAUhCkv5K5AGO5sVearIqXN2IsNw4svDmGR/sEVoXyYZba2Q9CfIPgDFR/6
+DHQKchc0bATiIFP6MA5ALTMeYrQpaRyus+PTCTrOiAO2OtwKzRcSf8zPa8LDXY1r
+ofq5iYFTdhS2XDPG0F+p8ZfeAMch3exHgxNpYUujn9WbGjaEcjZ+uwdaIvy9bphm
+Q+fSs0U63i4chivdBJ0D8RPe4tGhHnRIe3kc5BfGwQ2wBqYdMPB7BuUi0N7hVpbZ
+lZp0G3AmyJWu31IHiAbT
+=l8Ra
+-----END PGP SIGNATURE-----
+
+--Sig_/luId0BZkcXy.hWZJELPAgJS--
