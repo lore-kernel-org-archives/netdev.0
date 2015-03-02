@@ -1,76 +1,124 @@
-From: Ido Shamay <idos@dev.mellanox.co.il>
-Subject: Re: [PATCH net 2/2] net/mlx4_en: Disbale GRO for incoming loopback/selftest
- packets
-Date: Mon, 02 Mar 2015 09:47:49 +0200
-Message-ID: <54F415A5.1020809@dev.mellanox.co.il>
-References: <1425221774-8874-1-git-send-email-ogerlitz@mellanox.com> <1425221774-8874-3-git-send-email-ogerlitz@mellanox.com> <54F34B36.2010202@cogentembedded.com>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [E1000-devel] i40e: crash on NMI by continuous module reload
+Date: Mon, 02 Mar 2015 09:08:54 +0100
+Message-ID: <54F41A96.4020605@kpanic.de>
+References: <54F07630.1010802@kpanic.de> <54F078DF.5020100@gmail.com>	<54F07C29.8010805@kpanic.de> <54F082C8.8040407@gmail.com> <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: "Nelson, Shannon" <shannon.nelson@intel.com>,
+	nick <xerofoify@gmail.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:42722 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805AbbCBHry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 02:47:54 -0500
-Received: by wghl2 with SMTP id l2so31649440wgh.9
-        for <netdev@vger.kernel.org>; Sun, 01 Mar 2015 23:47:53 -0800 (PST)
-In-Reply-To: <54F34B36.2010202@cogentembedded.com>
+Received: from app1b.xlhost.de ([84.200.252.162]:46167 "EHLO app1b.xlhost.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751088AbbCBII7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2015 03:08:59 -0500
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418ADF339C@fmsmsx115.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/1/2015 7:24 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 3/1/2015 5:56 PM, Or Gerlitz wrote:
->
->> From: Ido Shamay <idos@mellanox.com>
->
->> Packets which are sent from the selftest (ethtool) flow, should not
->> be passed to the GRO stack but rather dropped by the driver after
->> validation.
->> To achieve that, we disable GRO for the duration of the selftest.
->
->> Fixes: dd65beac48a5 ("net/mlx4_en: Extend usage of napi_gro_frags")
->> Reported-by: Carol Soto <clsoto@linux.vnet.ibm.com>
->> Signed-off-by: Ido Shamay <idos@mellanox.com>
->> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/en_selftest.c |    8 +++++++-
->>   1 files changed, 7 insertions(+), 1 deletions(-)
->
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
->> b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
->> index 2d8ee66..ac8870c 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
->> @@ -81,12 +81,14 @@ static int mlx4_en_test_loopback(struct
->> mlx4_en_priv *priv)
->>   {
->>       u32 loopback_ok = 0;
->>       int i;
->> -
->> +    bool gro_enabled;
->>
->>           priv->loopback_ok = 0;
->>       priv->validate_loopback = 1;
->> +    gro_enabled = (priv->dev->features & NETIF_F_GRO);
->
->     Parens not necessary here.
->
-Will be fixed in V1, thanks.
-Any chance checkpatch can identify such cases?
+On 27.02.2015 20:42, Nelson, Shannon wrote:
+>> From: nick [mailto:xerofoify@gmail.com]
+>> On 2015-02-27 09:16 AM, Stefan Assmann wrote:
+>>> On 27.02.2015 15:02, nick wrote:
+>>>
+>>> [...]
+>>>
+>>>>>     i40e: Fix a bug where Rx would stop after some time
+>>>>> [...]
+>>>>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>> index f7464e8..ff6d94d 100644
+>>>>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>> [...]
+>>>>> @@ -9169,6 +9178,13 @@ static int i40e_probe(struct pci_dev *pdev,
+>> const struct pci_device_id *ent)
+>>>>>  	if (err)
+>>>>>  		dev_info(&pf->pdev->dev, "set phy mask fail, aq_err %d\n",
+>> err);
+>>>>>
+>>>>> +	msleep(75);
+>>>>> +	err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
+>>>>> +	if (err) {
+>>>>> +		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
+>>>>> +			 pf->hw.aq.asq_last_status);
+>>>>> +	}
+>>>>> +
+>>>>>  	/* The main driver is (mostly) up and happy. We need to set this
+>> state
+>>>>>  	 * before setting up the misc vector or we get a race and the
+>> vector
+>>>>>  	 * ends up disabled forever.
+>>>>>
+>>>>> With this hunk removed the driver successfully unloaded/reloaded a
+>>>>> couple of hundred times. Would it be safe to just remove this hunk?
+>>>>> I haven't seen any negative effects by removing this yet.
+>>>>>
+>>>>>   Stefan
+>>>>>
+>>>> Stefan,
+>>>> I wouldn't remove them yet as this does look like a valid idea to
+>> check to see if the link is
+>>>> restarting successfully. On the other hand can you try removing the
+>> msleep line as this one is
+>>>> most likely causing the issue due to sleeping for some long in a
+>> probe function is generally a
+>>>> bad idea.
+>>>> Thanks,
+>>>> Nick
+>>>
+>>> Thanks Nick for the quick reply. I tested removing the msleep but that
+>>> didn't make a difference. You actually need to remove the complete
+>> hunk
+>>> to get a stable driver reload.
+>>>
+>>>   Stefan
+>>>
+>> Stefan,
+>> Basically there are a few things that could be going wrong
+>> 1. You are getting a error return for the
+>> function,i40e_aq_set_link_restart_an
+>> 2. You are trying to re able the device again when not needed
+>> 3. You are sending a NULL value to a field for command arguments that
+>> takes a 0 and not NULL
+>> to take no arguments
+>> Nick
+> 
+> First of all, I would make sure you've got a short sleep in between each load and unload in this stress test.  There's a lot going on under the covers in the Firmware that really should be allowed to settle out before jostling it again with another load/unload command.  
 
-> [...]
->
-> WBR, Sergei
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+If a short delay is needed I think this should be implemented by the
+driver. Triggering this kind of bug from userspace shouldn't be
+possible. I'm using this reload loop regularly on driver backports to
+test for regressions.
+Btw, I noticed this problem during a normal reboot and used the
+reloading while looking for a reproducer.
+
+> It would help to know what Firmware you have on your NIC - can you give us the output from "ethtool -i <ethX>"?
+
+# ethtool -i eth6
+driver: i40e
+version: 1.2.9-k
+firmware-version: f4.22 a1.1 n04.26 e800014b1
+bus-info: 0000:07:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
+supports-priv-flags: yes
+
+> The out-of-tree driver has just (finally!) been updated on SourceForge, so you might give this version 1.2.37 driver a try to see if it changes your result.  That code still has the hunk in question, but protected by a FW version check.  The related patch will be headed upstream to net-next very soon.
+
+1.2.37 fails the same way.
+
+> Firmware updates have also just been released, but I'm not sure they've made it to the Intel Downloads site yet.  Updating your FW will make a difference.
+
+If you could point me to the firmware updates and instructions I can
+perform the update.
+
+Thanks!
+
+  Stefan
