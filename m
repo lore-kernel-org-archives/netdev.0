@@ -1,41 +1,66 @@
-From: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
-Date: Mon, 02 Mar 2015 17:23:04 +0100
-Message-ID: <54F48E68.6070706@suse.cz>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com> <54F469C1.9090601@suse.cz> <alpine.DEB.2.11.1503020944200.5540@gentwo.org> <54F48980.3090008@suse.cz> <alpine.DEB.2.11.1503021007030.6245@gentwo.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 6/6] sched: Eliminate use of flow_keys in sch_sfq
+Date: Mon, 2 Mar 2015 08:25:53 -0800
+Message-ID: <CA+mtBx-Bhewd6Ez4OotWEhxvVO8rrOieWCGAnMa9vfhTbzj=yg@mail.gmail.com>
+References: <1425247789-21211-1-git-send-email-therbert@google.com>
+	<1425247789-21211-7-git-send-email-therbert@google.com>
+	<1425257932.5130.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+mtBx-gAq=knRnf73qrOKuWy=WVaHvq2Vzb8RC39p81WBXZ8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Pekka Enberg <penberg-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Joonsoo Kim <iamjoonsoo.kim-Hm3cg6mZ9cc@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
-	Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.11.1503021007030.6245-gkYfJU5Cukgdnm+yROfE0A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Florian Westphal <fw@strlen.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:41188 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753091AbbCBQZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 11:25:54 -0500
+Received: by igal13 with SMTP id l13so18660825iga.0
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 08:25:53 -0800 (PST)
+In-Reply-To: <CA+mtBx-gAq=knRnf73qrOKuWy=WVaHvq2Vzb8RC39p81WBXZ8Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2015 05:08 PM, Christoph Lameter wrote:
-> On Mon, 2 Mar 2015, Vlastimil Babka wrote:
+On Mon, Mar 2, 2015 at 7:31 AM, Tom Herbert <therbert@google.com> wrote:
 >
->>> You are thinking about an opportunistic allocation attempt in SLAB?
->>>
->>> AFAICT SLAB allocations should trigger reclaim.
->>>
->>
->> Well, let me quote your commit 952f3b51beb5:
+> On Sun, Mar 1, 2015 at 4:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Sun, 2015-03-01 at 14:09 -0800, Tom Herbert wrote:
+> >> Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
+> >> jhash by hand.
+> >
+> > This defeats one of the perturbation goal :
+> >
+> > If two flows hashes into same hash, then skb_get_hash_perturb(skb,
+> > q->perturbation) will also give same hash forever and map to same hash
+> > bucket.
+> >
+> As I already mentioned, the probability of skb_get_hash returning the
+> same value for two flows is 1/2^32. I suspect it's greater probability
+> to get a hash collision between two IPv6 flows with subtlety different
+> addresses or simply match 4-tuples in different address spaces (like
+> VLAN or with VNID). If hash collision is really a problem, we can
+> periodically rekey skb->hash (either SW or HW) or maybe move to 64 bit
+> hashes somehow. Anyway, we potentially have the same problem in RSS
+> and other uses of the hash, if hashes collide then two flows share the
+> same bucket forever unless there is an action to break that.
 >
-> This was about global reclaim. Local reclaim is good and that can be
-> done via zone_reclaim.
+One other possibility is that with the txhash changes we can rehash
+individual connections that are sourced from the host. I was planning
+to do this on too many TCP retransmits to try to get a different ECMP
+path (type of source routing), but we could also do this periodically
+or based on request from qdisc. ooo_okay could be taken into account
+to avoid OOO packets.
 
-Right, so the patch is a functional change for zone_reclaim_mode == 1, 
-where !__GFP_WAIT will prevent it.
+>
+> > Ideally, we could add a 'u32 perturbation' salt to
+> > __skb_get_hash()/__flow_hash_from_keys()/__flow_hash_3words instead of
+> > using a net_get_random_once(&hashrnd, sizeof(hashrnd));
+> >
+> > but I guess all these functions are becoming very fat.
+> >
+> Same thing as rekeying.
+>
+> >
+> >
