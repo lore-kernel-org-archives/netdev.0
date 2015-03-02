@@ -1,112 +1,99 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH RFC 02/14] net: sched: reduce qdisc size to 24 byte
-Date: Mon,  2 Mar 2015 18:40:16 +0100
-Message-ID: <1425318028-26531-3-git-send-email-fw@strlen.de>
-References: <1425318028-26531-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCHi v2] ibmveth: Add function to enable live MAC address
+ changes
+Date: Mon, 02 Mar 2015 11:52:38 -0600
+Message-ID: <54F4A366.90005@linux.vnet.ibm.com>
+References: <1425102964-3131-1-git-send-email-tlfalcon@linux.vnet.ibm.com> <20150228085932.GA2012@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	davem@davemloft.net, brking@linux.vnet.ibm.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54105 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753702AbbCBRkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:40:40 -0500
-In-Reply-To: <1425318028-26531-1-git-send-email-fw@strlen.de>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:48518 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753489AbbCBRxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:53:46 -0500
+Received: from /spool/local
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Mon, 2 Mar 2015 10:53:45 -0700
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 463D01FF0021
+	for <netdev@vger.kernel.org>; Mon,  2 Mar 2015 10:44:49 -0700 (MST)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by b03cxnp07028.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t22Hpt1j29360218
+	for <netdev@vger.kernel.org>; Mon, 2 Mar 2015 10:52:03 -0700
+Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t22Hr47t004923
+	for <netdev@vger.kernel.org>; Mon, 2 Mar 2015 10:53:05 -0700
+In-Reply-To: <20150228085932.GA2012@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Its fine as-is, BUT infiniband cb includes qdisc_skb_cb
-as first member so it can preserve its cb even if skb is
-enqueued in a packet scheduler.
+On 02/28/2015 02:59 AM, Jiri Pirko wrote:
+> Sat, Feb 28, 2015 at 06:56:04AM CET, tlfalcon@linux.vnet.ibm.com wrote:
+>> Add a function that will enable changing the MAC address
+>> of an ibmveth interface while it is still running.
+>>
+>> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+>> ---
+>> v2:
+>>   If h_change_logical_lan_mac fails, dev->dev_addr will not be changed.
+>>
+>> drivers/net/ethernet/ibm/ibmveth.c | 25 ++++++++++++++++++++++++-
+>> 1 file changed, 24 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+>> index 21978cc..b6ac676 100644
+>> --- a/drivers/net/ethernet/ibm/ibmveth.c
+>> +++ b/drivers/net/ethernet/ibm/ibmveth.c
+>> @@ -1327,6 +1327,29 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
+>> 	return ret;
+>> }
+>>
+>> +static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
+>> +{
+>> +	struct ibmveth_adapter *adapter = netdev_priv(dev);
+>> +	struct sockaddr *addr = p;
+>> +	u64 mac_address;
+>> +	int rc;
+>> +
+>> +	if (!is_valid_ether_addr(addr->sa_data))
+>> +		return -EADDRNOTAVAIL;
+>> +
+>> +	mac_address = ibmveth_encode_mac_addr(addr->sa_data);
+>> +	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
+>> +	if (rc) {
+>> +		netdev_err(adapter->netdev, "h_change_logical_lan_mac failed "
+>> +			   "with rc=%d\n", rc);
+> Please do not wrap text in message. For that, 80-char limit does not apply.
 
-And I haven't found a way to change infiniband so that
-it doesn't have to do that yet.
-The infiniband cb is currently exactly 48 bytes, reducing
-qdisc_cb also reduces ipoib_cb struct to 44 bytes as a result.
+I will send a new patch fixing this shortly.  Thanks to you, Brian, and Dave for reviewing this patch.
 
-Reducing qdisc_cb means we can no longer use flow_keys struct
-in sfq, but thats easy to work around, we don't need all its fields.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/net/sch_generic.h |  2 +-
- net/sched/sch_sfq.c       | 29 ++++++++++++++++++++++++-----
- 2 files changed, 25 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index c605d30..baf7e96 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -252,7 +252,7 @@ struct qdisc_skb_cb {
- 	unsigned int		pkt_len;
- 	u16			slave_dev_queue_mapping;
- 	u16			_pad;
--#define QDISC_CB_PRIV_LEN 20
-+#define QDISC_CB_PRIV_LEN 16
- 	unsigned char		data[QDISC_CB_PRIV_LEN];
- };
- 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index b877140..06485e8 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -158,10 +158,18 @@ static inline struct sfq_head *sfq_dep_head(struct sfq_sched_data *q, sfq_index
- 
- /*
-  * In order to be able to quickly rehash our queue when timer changes
-- * q->perturbation, we store flow_keys in skb->cb[]
-+ * q->perturbation, we store a few flow keys in skb->cb[]
-+ *
-+ * We're not using flow_key directly due to cb[] size limitation.
-  */
-+struct sfq_flow_keys {
-+	__be32 src;
-+	__be32 dst;
-+	__be32 ports;
-+};
-+
- struct sfq_skb_cb {
--       struct flow_keys        keys;
-+	struct sfq_flow_keys keys;
- };
- 
- static inline struct sfq_skb_cb *sfq_skb_cb(const struct sk_buff *skb)
-@@ -173,15 +181,26 @@ static inline struct sfq_skb_cb *sfq_skb_cb(const struct sk_buff *skb)
- static unsigned int sfq_hash(const struct sfq_sched_data *q,
- 			     const struct sk_buff *skb)
- {
--	const struct flow_keys *keys = &sfq_skb_cb(skb)->keys;
-+	const struct sfq_flow_keys *keys = &sfq_skb_cb(skb)->keys;
- 	unsigned int hash;
- 
- 	hash = jhash_3words((__force u32)keys->dst,
--			    (__force u32)keys->src ^ keys->ip_proto,
-+			    (__force u32)keys->src,
- 			    (__force u32)keys->ports, q->perturbation);
- 	return hash & (q->divisor - 1);
- }
- 
-+static void sfq_flow_dissect(const struct sk_buff *skb, struct sfq_flow_keys *flow)
-+{
-+	struct flow_keys flowk;
-+
-+	if (skb_flow_dissect(skb, &flowk)) {
-+		flow->src = flowk.src ^ flowk.ip_proto,
-+		flow->dst = flowk.dst;
-+		flow->ports = flowk.ports;
-+	}
-+}
-+
- static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 				 int *qerr)
- {
-@@ -197,7 +216,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 
- 	fl = rcu_dereference_bh(q->filter_list);
- 	if (!fl) {
--		skb_flow_dissect(skb, &sfq_skb_cb(skb)->keys);
-+		sfq_flow_dissect(skb, &sfq_skb_cb(skb)->keys);
- 		return sfq_hash(q, skb) + 1;
- 	}
- 
--- 
-2.0.5
+>
+>
+>> +		return rc;
+>> +	}
+>> +
+>> +	ether_addr_copy(dev->dev_addr, addr->sa_data);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> static const struct net_device_ops ibmveth_netdev_ops = {
+>> 	.ndo_open		= ibmveth_open,
+>> 	.ndo_stop		= ibmveth_close,
+>> @@ -1337,7 +1360,7 @@ static const struct net_device_ops ibmveth_netdev_ops = {
+>> 	.ndo_fix_features	= ibmveth_fix_features,
+>> 	.ndo_set_features	= ibmveth_set_features,
+>> 	.ndo_validate_addr	= eth_validate_addr,
+>> -	.ndo_set_mac_address	= eth_mac_addr,
+>> +	.ndo_set_mac_address    = ibmveth_set_mac_addr,
+>> #ifdef CONFIG_NET_POLL_CONTROLLER
+>> 	.ndo_poll_controller	= ibmveth_poll_controller,
+>> #endif
+>> -- 
+>> 1.8.3.1
+>>
