@@ -1,159 +1,104 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next v2 4/4] switchdev: don't support custom ip rules, for now
-Date: Mon,  2 Mar 2015 02:06:17 -0800
-Message-ID: <1425290777-22702-5-git-send-email-sfeldma@gmail.com>
-References: <1425290777-22702-1-git-send-email-sfeldma@gmail.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
-	roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:45577 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbbCBKF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 05:05:27 -0500
-Received: by pdjz10 with SMTP id z10so38401723pdj.12
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 02:05:26 -0800 (PST)
-In-Reply-To: <1425290777-22702-1-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH v5 tip 1/7] bpf: make internal bpf API independent
+ of CONFIG_BPF_SYSCALL ifdefs
+Date: Mon, 02 Mar 2015 19:53:09 +0900
+Message-ID: <54F44115.40505@hitachi.com>
+References: <1425252465-27527-1-git-send-email-ast@plumgrid.com> <1425252465-27527-2-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1425252465-27527-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Scott Feldman <sfeldma@gmail.com>
+(2015/03/02 8:27), Alexei Starovoitov wrote:
+> From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+> 
+> Socket filter code and other subsystems with upcoming eBPF support should
+> not need to deal with the fact that we have CONFIG_BPF_SYSCALL defined or
+> not.
+> 
+> Having the bpf syscall as a config option is a nice thing and I'd expect
+> it to stay that way for expert users (I presume one day the default setting
+> of it might change, though), but code making use of it should not care if
+> it's actually enabled or not.
 
-Keep switchdev FIB offload model simple for now and don't allow custom ip
-rules.
+Hmm, it seems that this still doesn't hide some APIs which is provided
+only when CONFIG_BPF_SYSCALL. For example bpf_register_map_type etc.
+I think all those APIs should be hidden in #ifdef or at least be commented
+so that the user doesn't refer that without the kconfig.
+(I don't think we need to provide dummy functions for those APIs,
+ but it's better to clarify which API we can use with which kconfig)
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- include/net/ip_fib.h      |    2 ++
- net/ipv4/fib_frontend.c   |   13 +++++++++++++
- net/ipv4/fib_rules.c      |    3 +++
- net/ipv4/fib_trie.c       |   27 +++++++++++++++++++++++++++
- net/switchdev/switchdev.c |    4 ++++
- 5 files changed, 49 insertions(+)
+Thank you,
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index cba4b7c..894a75c 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -195,6 +195,7 @@ int fib_table_delete(struct fib_table *, struct fib_config *);
- int fib_table_dump(struct fib_table *table, struct sk_buff *skb,
- 		   struct netlink_callback *cb);
- int fib_table_flush(struct fib_table *table);
-+void fib_table_flush_external(struct fib_table *table);
- void fib_free_table(struct fib_table *tb);
- 
- 
-@@ -294,6 +295,7 @@ static inline int fib_num_tclassid_users(struct net *net)
- 	return 0;
- }
- #endif
-+void fib_flush_external(struct net *net);
- 
- /* Exported by fib_semantics.c */
- int ip_fib_check_default(__be32 gw, struct net_device *dev);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 57be71d..c33c19a 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -146,6 +146,19 @@ static void fib_flush(struct net *net)
- 		rt_cache_flush(net);
- }
- 
-+void fib_flush_external(struct net *net)
-+{
-+	struct fib_table *tb;
-+	struct hlist_head *head;
-+	unsigned int h;
-+
-+	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
-+		head = &net->ipv4.fib_table_hash[h];
-+		hlist_for_each_entry(tb, head, tb_hlist)
-+			fib_table_flush_external(tb);
-+	}
-+}
-+
- /*
-  * Find address type as if only "dev" was present in the system. If
-  * on_dev is NULL then all interfaces are taken into consideration.
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index d3db718..190d0d0 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -209,6 +209,8 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 	rule4->tos = frh->tos;
- 
- 	net->ipv4.fib_has_custom_rules = true;
-+	fib_flush_external(rule->fr_net);
-+
- 	err = 0;
- errout:
- 	return err;
-@@ -224,6 +226,7 @@ static void fib4_rule_delete(struct fib_rule *rule)
- 		net->ipv4.fib_num_tclassid_users--;
- #endif
- 	net->ipv4.fib_has_custom_rules = true;
-+	fib_flush_external(rule->fr_net);
- }
- 
- static int fib4_rule_compare(struct fib_rule *rule, struct fib_rule_hdr *frh,
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 90cd812..5a487a7 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1517,6 +1517,23 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 	return 0;
- }
- 
-+static void trie_flush_leaf_external(struct fib_table *tb, struct tnode *l)
-+{
-+	struct hlist_node *tmp;
-+	struct fib_alias *fa;
-+
-+	hlist_for_each_entry_safe(fa, tmp, &l->leaf, fa_list) {
-+		struct fib_info *fi = fa->fa_info;
-+
-+		if (fi && (fi->fib_flags & RTNH_F_EXTERNAL)) {
-+			netdev_switch_fib_ipv4_del(l->key,
-+						   KEYLENGTH - fa->fa_slen,
-+						   fi, fa->fa_tos,
-+						   fa->fa_type, tb->tb_id);
-+		}
-+	}
-+}
-+
- static int trie_flush_leaf(struct fib_table *tb, struct tnode *l)
- {
- 	struct hlist_node *tmp;
-@@ -1643,6 +1660,16 @@ int fib_table_flush(struct fib_table *tb)
- 	return found;
- }
- 
-+/* Caller must hold RTNL */
-+void fib_table_flush_external(struct fib_table *tb)
-+{
-+	struct trie *t = (struct trie *)tb->tb_data;
-+	struct tnode *l;
-+
-+	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l))
-+		trie_flush_leaf_external(tb, l);
-+}
-+
- void fib_free_table(struct fib_table *tb)
- {
- #ifdef CONFIG_IP_FIB_TRIE_STATS
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index a84bdb4..9f87f3f 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -270,6 +270,10 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 	const struct net_device_ops *ops;
- 	int err = -EOPNOTSUPP;
- 
-+	/* Don't offload route if using custom ip rules */
-+	if (fi->fib_net->ipv4.fib_has_custom_rules)
-+		return -EOPNOTSUPP;
-+
- 	dev = netdev_switch_get_by_fib_dev(fi->fib_dev);
- 	if (!dev)
- 		return -EOPNOTSUPP;
+> 
+> Instead, hide this via header files and let the rest deal with it.
+> 
+> Signed-off-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+> ---
+>  include/linux/bpf.h |   20 ++++++++++++++++----
+>  1 file changed, 16 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index bbfceb756452..c2e21113ecc0 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -113,8 +113,6 @@ struct bpf_prog_type_list {
+>  	enum bpf_prog_type type;
+>  };
+>  
+> -void bpf_register_prog_type(struct bpf_prog_type_list *tl);
+> -
+>  struct bpf_prog;
+>  
+>  struct bpf_prog_aux {
+> @@ -129,11 +127,25 @@ struct bpf_prog_aux {
+>  };
+>  
+>  #ifdef CONFIG_BPF_SYSCALL
+> +void bpf_register_prog_type(struct bpf_prog_type_list *tl);
+> +
+>  void bpf_prog_put(struct bpf_prog *prog);
+> +struct bpf_prog *bpf_prog_get(u32 ufd);
+>  #else
+> -static inline void bpf_prog_put(struct bpf_prog *prog) {}
+> +static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
+> +{
+> +}
+> +
+> +static inline struct bpf_prog *bpf_prog_get(u32 ufd)
+> +{
+> +	return ERR_PTR(-EOPNOTSUPP);
+> +}
+> +
+> +static inline void bpf_prog_put(struct bpf_prog *prog)
+> +{
+> +}
+>  #endif
+> -struct bpf_prog *bpf_prog_get(u32 ufd);
+> +
+>  /* verify correctness of eBPF program */
+>  int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
+>  
+> 
+
+
 -- 
-1.7.10.4
+Masami HIRAMATSU
+Software Platform Research Dept. Linux Technology Research Center
+Hitachi, Ltd., Yokohama Research Laboratory
+E-mail: masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
