@@ -1,30 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] filter: refactor common filter attach code
- into __sk_attach_prog
-Date: Mon, 02 Mar 2015 14:54:11 -0500 (EST)
-Message-ID: <20150302.145411.1714833785061319525.davem@davemloft.net>
-References: <8c751ae5e391a3b2dd7a541ad89b3255d2a1f19d.1425295277.git.daniel@iogearbox.net>
+Subject: Re: [PATCH 0/5] Netfilter updates for net-next
+Date: Mon, 02 Mar 2015 14:55:30 -0500 (EST)
+Message-ID: <20150302.145530.168636281637118075.davem@davemloft.net>
+References: <1425296627-16391-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53227 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753870AbbCBTyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 14:54:13 -0500
-In-Reply-To: <8c751ae5e391a3b2dd7a541ad89b3255d2a1f19d.1425295277.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1425296627-16391-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon,  2 Mar 2015 12:25:51 +0100
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon,  2 Mar 2015 12:43:42 +0100
 
-> Both sk_attach_filter() and sk_attach_bpf() are setting up sk_filter,
-> charging skmem and attaching it to the socket after we got the eBPF
-> prog up and ready. Lets refactor that into a common helper.
+> A small batch with accumulated updates in nf-next, mostly IPVS updates,
+> they are:
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> 1) Add 64-bits stats counters to IPVS, from Julian Anastasov.
+> 
+> 2) Move NETFILTER_XT_MATCH_ADDRTYPE out of NETFILTER_ADVANCED as docker
+> seem to require this, from Anton Blanchard.
+> 
+> 3) Use boolean instead of numeric value in set_match_v*(), from
+> coccinelle via Fengguang Wu.
+> 
+> 4) Allows rescheduling of new connections in IPVS when port reuse is
+> detected, from Marcelo Ricardo Leitner.
+> 
+> 5) Add missing bits to support arptables extensions from nft_compat,
+> from Arturo Borrero.
+> 
+> Patrick is preparing a large batch to enhance the set infrastructure,
+> named expressions among other things, that should follow up soon after
+> this batch.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-Applied, thanks Daniel.
+Pulled, thanks a lot Pablo.
