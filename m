@@ -1,69 +1,73 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH 1/3] Documentation: dts: Update compatible field
- description for APM X-Gene
-Date: Mon, 2 Mar 2015 14:17:34 +0000
-Message-ID: <20150302141734.GC16779@leverpostej>
-References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
- <1425067710-14879-2-git-send-email-isubramanian@apm.com>
- <20150227201516.GA30683@leverpostej>
- <CAKh23FmLE-s_C5YUjLTQLT0_P9DT6LzmaBxJPRWY4AwXK9jQNA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"mlangsdo@redhat.com" <mlangsdo@redhat.com>,
-	"patches@apm.com" <patches@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-To: Iyappan Subramanian <isubramanian@apm.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] ebpf: move CONFIG_BPF_SYSCALL-only function declarations
+Date: Mon,  2 Mar 2015 15:21:55 +0100
+Message-ID: <4564a0e32064e77c4a96a21909423251e251916b.1425305972.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, masami.hiramatsu.pt@hitachi.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:47228 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752159AbbCBOSD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 09:18:03 -0500
-Content-Disposition: inline
-In-Reply-To: <CAKh23FmLE-s_C5YUjLTQLT0_P9DT6LzmaBxJPRWY4AwXK9jQNA@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:34529 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751949AbbCBOV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 09:21:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 27, 2015 at 11:58:28PM +0000, Iyappan Subramanian wrote:
-> On Fri, Feb 27, 2015 at 12:15 PM, Mark Rutland <mark.rutland@arm.com> wrote:
-> > On Fri, Feb 27, 2015 at 08:08:28PM +0000, Iyappan Subramanian wrote:
-> >> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> >> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-> >> Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
-> >> ---
-> >>  Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 3 ++-
-> >>  1 file changed, 2 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> >> index cfcc527..5355996 100644
-> >> --- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> >> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> >> @@ -4,7 +4,8 @@ Ethernet nodes are defined to describe on-chip ethernet interfaces in
-> >>  APM X-Gene SoC.
-> >>
-> >>  Required properties for all the ethernet interfaces:
-> >> -- compatible: Should be "apm,xgene-enet"
-> >> +- compatible: Should be "apm,xgene-enet", "apm,xgene1-sgenet" or
-> >> +  "apm,xgene1-xgenet"
-> >
-> > Please format this as a list. It'll be easier to read, and you can add
-> > more later.
-> 
-> Thanks.  I will do that.
-> 
-> >
-> > What are the diffences between these variants?
-> 
-> apm,xgene-enet - binding for RGMII based 1G interface
-> apm,xgene1-sgenet - binding for SGMII based 1G interface
-> apm,xgene1-xgenet - binding for XFI based 10G interface
+Masami noted that it would be better to hide the remaining CONFIG_BPF_SYSCALL-only
+function declarations within the BPF header ifdef, w/o else path dummy alternatives
+since these functions are not supposed to have a user outside of CONFIG_BPF_SYSCALL.
 
-I see. If you could keep notes to this effect in the list, that would
-help to keep this obvious.
+Suggested-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Reference: http://article.gmane.org/gmane.linux.kernel.api/8658
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ include/linux/bpf.h | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-Thanks,
-Mark.
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index a1a7ff2..a884f5a 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -42,10 +42,6 @@ struct bpf_map_type_list {
+ 	enum bpf_map_type type;
+ };
+ 
+-void bpf_register_map_type(struct bpf_map_type_list *tl);
+-void bpf_map_put(struct bpf_map *map);
+-struct bpf_map *bpf_map_get(struct fd f);
+-
+ /* function argument constraints */
+ enum bpf_arg_type {
+ 	ARG_ANYTHING = 0,	/* any argument is ok */
+@@ -126,9 +122,16 @@ struct bpf_prog_aux {
+ 
+ #ifdef CONFIG_BPF_SYSCALL
+ void bpf_register_prog_type(struct bpf_prog_type_list *tl);
++void bpf_register_map_type(struct bpf_map_type_list *tl);
+ 
+-void bpf_prog_put(struct bpf_prog *prog);
+ struct bpf_prog *bpf_prog_get(u32 ufd);
++void bpf_prog_put(struct bpf_prog *prog);
++
++struct bpf_map *bpf_map_get(struct fd f);
++void bpf_map_put(struct bpf_map *map);
++
++/* verify correctness of eBPF program */
++int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
+ #else
+ static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
+ {
+@@ -142,10 +145,7 @@ static inline struct bpf_prog *bpf_prog_get(u32 ufd)
+ static inline void bpf_prog_put(struct bpf_prog *prog)
+ {
+ }
+-#endif
+-
+-/* verify correctness of eBPF program */
+-int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
++#endif /* CONFIG_BPF_SYSCALL */
+ 
+ /* verifier prototypes for helper functions called from eBPF programs */
+ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
+-- 
+1.9.3
