@@ -1,44 +1,87 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 4/4] switchdev: don't support custom ip rules,
- for now
-Date: Mon, 02 Mar 2015 11:09:32 -0800
-Message-ID: <54F4B56C.5040709@cumulusnetworks.com>
-References: <1425290777-22702-1-git-send-email-sfeldma@gmail.com> <1425290777-22702-5-git-send-email-sfeldma@gmail.com> <54F4755F.6020205@cumulusnetworks.com> <CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH RFC 08/14] net: wireless: mac80211: shrink
+ ieee80211_tx_info
+Date: Mon, 02 Mar 2015 20:18:49 +0100
+Message-ID: <1425323929.1906.12.camel@sipsolutions.net>
+References: <1425318028-26531-1-git-send-email-fw@strlen.de>
+	 <1425318028-26531-9-git-send-email-fw@strlen.de>
+	 <1425322425.1906.4.camel@sipsolutions.net>
+	 <20150302190316.GB9762@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:37661 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753037AbbCBTJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 14:09:34 -0500
-Received: by pdbnh10 with SMTP id nh10so15928671pdb.4
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 11:09:33 -0800 (PST)
-In-Reply-To: <CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:51908 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751880AbbCBTS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2015 14:18:58 -0500
+In-Reply-To: <20150302190316.GB9762@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/2/15, 9:00 AM, Scott Feldman wrote:
-> On Mon, Mar 2, 2015 at 6:36 AM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
->>> From: Scott Feldman <sfeldma@gmail.com>
->>>
->>> Keep switchdev FIB offload model simple for now and don't allow custom ip
->>> rules.
->>>
->>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>
->> I don't see a need to do this. And seems very aggressive.
->> Also, note that the rules in a system can be on non-hw accelerated ports.
-> It is aggressive but it's the safest choice for the first pass on this
-> L3 offload.  Without, switchdev has no way to model custom ip rules
-> down to hardware.   Let's start with this aggressive case, and that'll
-> force us to work on relaxing it.
->
->
-But, this will not allow hw acceleration of routes even if you had a 
-rule for the management traffic for example.
+On Mon, 2015-03-02 at 20:03 +0100, Florian Westphal wrote:
+
+> Eventually reducing skb size to make it fit into 3 cachelines again even
+> on 64bit architectures.  For that 40 bytes need to go.
+
+That seems like a worthy goal I guess (I guess you should've copied a
+patch 0/N to us).
+
+> > Mind you - we are actually acutely out of space and would rather have
+> > *more*, not less.
+> 
+> :-(
+> 
+> I'm not familiar with mac80211, aside from that it seemed to me
+> that 40 byte cb would be doable, given enough work.
+
+Right now it is, mostly, yes.
+
+> Where are to main problems, exactly?
+
+Well, that depends. Right now clearly we're not really using all of it
+as you saw (even if this patch moving bits here and there is really
+ugly) but there are multiple things:
+ 1) Of course mac80211 isn't static, it keeps getting developed! Right
+now for
+    example we need to fix single TCP flow throughput over wifi, and for
+that we
+    need a timestamp. That won't even fit into skb->cb any more right
+now; we'll
+    probably be able to get away with (ab)using skb->tstamp or doing
+reshuffling
+    similar to yours to get some space, but that's just lucky this time.
+ 2) We're actually out of flags that are kept from TX generation to TX
+    destruction and it's almost certain that we'll need to add more
+things.
+
+Also, we already do a lot of bit twiddling here, doing it even more
+makes the code even harder to follow. It's bad enough as is if you ask
+me.
+
+> I known that pushing something into ->cb is a lot easier than e.g. keeping
+> extra state on stack, but, IMO cb should really only be used when you
+> need to associate data strictly with an skb so that this data is still
+> availabe even when skb gets queued somewehere.
+
+Right, and we do that. We've in the past moved out data from here to
+elsewhere, but it's extremely tedious and error-prone, and I'm not sure
+we have much that we can possibly move now, since we do need to hang on
+to SKBs in many cases like client powersaving etc.
+
+> Is there a document somewhere that lists all of the per-skb data that
+> mac80211 needs to store (or wants to store)?
+
+Not really, sorry.
+
+> +                                       enum mac80211_tx_control_flags flags:2;
+> +                                       /* used for BUILD_BUG_ON validation that ->flags won't
+> +                                        * overlap with jiffies below */
+> +                                       char flags_end[0];
+
+That "jiffies" should probably say "other members (currently jiffies)"
+or something ... I got a bit confused here.
+
+johannes
