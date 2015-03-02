@@ -1,56 +1,47 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v5 tip 1/7] bpf: make internal bpf API independent of
- CONFIG_BPF_SYSCALL ifdefs
-Date: Mon, 2 Mar 2015 08:58:19 -0800
-Message-ID: <CAMEtUuwh_P36K6+7NweYLsKrpnbLiNOtAazfJiKk8pUQfszfQg@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2 4/4] switchdev: don't support custom ip rules,
+ for now
+Date: Mon, 2 Mar 2015 09:00:58 -0800
+Message-ID: <CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
+References: <1425290777-22702-1-git-send-email-sfeldma@gmail.com>
+	<1425290777-22702-5-git-send-email-sfeldma@gmail.com>
+	<54F4755F.6020205@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
+Cc: Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:40063 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755925AbbCBRA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:00:59 -0500
+Received: by mail-qg0-f44.google.com with SMTP id z107so5883440qgd.3
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 09:00:58 -0800 (PST)
+In-Reply-To: <54F4755F.6020205@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 2, 2015 at 4:26 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 03/02/2015 12:51 PM, Masami Hiramatsu wrote:
->> (2015/03/02 20:10), Daniel Borkmann wrote:
->>>
->>> Well, currently all possible map types (hash table, array map) that
->>> would actually call into bpf_register_map_type() are only built when
->>> CONFIG_BPF_SYSCALL is enabled (see kernel/bpf/Makefile). I don't think
->>> new map additions should be added that are not under kernel/bpf/ and/or
->>> enabled outside the CONFIG_BPF_SYSCALL, as it should be considered
->>> part of the eBPF core code.
-
-agree. New map types will be only under kernel/bpf/
-since this is really core infra that every component should be
-able to share.
-
->>> The difference here (this patch) is simply that we don't want users to
->>> build ifdef spaghetti constructs in user code, so the API that is
->>> actually used by eBPF _users_ is being properly ifdef'ed in the headers.
-
-+1
-
->> Or, maybe we'd better move them into new include/linux/bpf_prog.h which
->> includes basic include/linux/bpf.h. Then, user can include the bpf_prog.h
->> instead of bpf.h. Also, we can check CONFIG_BPF_SYSCAL=y at the top of
->> bpf_prog.h. This makes things clearer :)
+On Mon, Mar 2, 2015 at 6:36 AM, roopa <roopa@cumulusnetworks.com> wrote:
+> On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
+>>
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> Keep switchdev FIB offload model simple for now and don't allow custom ip
+>> rules.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 >
-> I'm preferring the 1st variant, though. We have currently two native eBPF
-> users, that is, socket filters and tc's cls_bpf (queued in net-next) and
-> looking at the code/API usage, it's really not that hard, where it would
-> justify to move this to an extra header file, really.
+>
+> I don't see a need to do this. And seems very aggressive.
+> Also, note that the rules in a system can be on non-hw accelerated ports.
 
-agree. new header seems overkill to fix something
-that is not an issue today.
+It is aggressive but it's the safest choice for the first pass on this
+L3 offload.  Without, switchdev has no way to model custom ip rules
+down to hardware.   Let's start with this aggressive case, and that'll
+force us to work on relaxing it.
+
+> Until rules are hw accelerated, its ok to document this limitation for hw
+> accelerated routes in my opinion.
+>
