@@ -1,112 +1,69 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [PATCH net-next v2 2/4] net: add IPv4 routing FIB support for
- switchdev
-Date: Mon, 02 Mar 2015 14:27:04 -0800
-Message-ID: <54F4E3B8.5020705@intel.com>
-References: <1425290777-22702-1-git-send-email-sfeldma@gmail.com> <1425290777-22702-3-git-send-email-sfeldma@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 2/4] net: add IPv4 routing FIB support for switchdev
+Date: Mon, 2 Mar 2015 14:28:55 -0800
+Message-ID: <CAE4R7bAwC5QvteamkHs+J609DTM=jqNQeKLmEWResF0RLAD8WQ@mail.gmail.com>
+References: <1425288555-22598-1-git-send-email-sfeldma@gmail.com>
+	<1425288555-22598-3-git-send-email-sfeldma@gmail.com>
+	<20150302.132015.1646795699731313510.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
-	jiri@resnulli.us, roopa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:44670 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751937AbbCBW1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 17:27:07 -0500
-In-Reply-To: <1425290777-22702-3-git-send-email-sfeldma@gmail.com>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:39817 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880AbbCBW2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 17:28:55 -0500
+Received: by mail-qa0-f50.google.com with SMTP id f12so25440365qad.9
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 14:28:55 -0800 (PST)
+In-Reply-To: <20150302.132015.1646795699731313510.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/2/2015 2:06 AM, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
+On Mon, Mar 2, 2015 at 10:20 AM, David Miller <davem@davemloft.net> wrote:
+> From: sfeldma@gmail.com
+> Date: Mon,  2 Mar 2015 01:29:13 -0800
 >
-> Add two new ndo ops (ndo_switch_fib_ipv4_add/del) for switchdev devices
-> capable of offloading IPv4 L3 routing function from the kernel.  The ops are
-> called by the core IPv4 FIB code when installing/removing/modifying FIB entries
-> in the kernel FIB.  On install/modify, the driver should return 0 if FIB entry
-> (route) can be installed/modified to device; -EOPNOTSUPP if route cannot be
-> installed/modified due to device limitations; and any other negative error code
-> on failure to install route to device.  On failure error code, the route is not
-> installed to device, and not installed in kernel FIB, and the return code is
-> propagated back to the user-space caller (via netlink).  An -EOPNOTSUPP error
-> code is skipped for the device but installed in the kernel FIB.
+>> +     dev = netdev_switch_get_by_fib_dev(fi->fib_dev);
+>  ...
+>> +     dev = netdev_switch_get_by_fib_dev(fi->fib_dev);
 >
-> The FIB entry (route) nexthop list is used to find the switchdev netdev to
-> anchor the ndo op call.  The route's fib_dev (the first nexthop's dev) is used
-> find the switchdev netdev by recursively traversing the fib_dev's lower_dev
-> list until a switchdev netdev is found.  The ndo op is called on this switchdev
-> netdev.  This downward traversal is necessary for switchdev ports stacked under
-> bonds and/or bridges, where the bond or bridge has the L3 interface.
+> I really should get rid of the fib_dev define, it's always trouble.
 >
-> Thw switchdev driver can monitor netevent notifier NETEVENT_NEIGH_UPDATE to
-> know neighbor IP addresses which are resolved to a MAC address.  In the case
-> where the route's nexthops list contains unresolved neighbor IP addresses, the
-> driver can ask the kernel to resolve the neighbor.  As route nexthops are
-> resolved, the driver has enough information to program the device for
-> L3 forwarding offload.
+> Routes can have multiple next hops, and when that is the case you
+> cannot offload them to hardware in your initial implementation here.
 >
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   include/linux/netdevice.h |   22 +++++++++++
->   include/net/switchdev.h   |   19 +++++++++
->   net/ipv4/fib_trie.c       |   33 ++++++++++++++--
->   net/switchdev/switchdev.c |   95 +++++++++++++++++++++++++++++++++++++++++++++
->   4 files changed, 166 insertions(+), 3 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 5897b4e..73b2766 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -769,6 +769,8 @@ struct netdev_phys_item_id {
->   typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->   				       struct sk_buff *skb);
->   
-> +struct fib_info;
-> +
->   /*
->    * This structure defines the management hooks for network devices.
->    * The following hooks can be defined; unless noted otherwise, they are
-> @@ -1032,6 +1034,14 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->    * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
->    *	Called to notify switch device port of bridge port STP
->    *	state change.
-> + * int (*ndo_sw_parent_fib_ipv4_add)(struct net_device *dev, __be32 dst,
-> + *				     int dst_len, struct fib_info *fi,
-> + *				     u8 tos, u8 type, u32 tb_id);
-> + *	Called to add/modify IPv4 route to switch device.
-> + * int (*ndo_sw_parent_fib_ipv4_del)(struct net_device *dev, __be32 dst,
-> + *				     int dst_len, struct fib_info *fi,
-> + *				     u8 tos, u8 type, u32 tb_id);
-> + *	Called to delete IPv4 route from switch device.
->    */
->   struct net_device_ops {
->   	int			(*ndo_init)(struct net_device *dev);
-> @@ -1193,6 +1203,18 @@ struct net_device_ops {
->   							    struct netdev_phys_item_id *psid);
->   	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
->   							      u8 state);
-> +	int			(*ndo_switch_fib_ipv4_add)(struct net_device *dev,
-> +							   __be32 dst,
-> +							   int dst_len,
-> +							   struct fib_info *fi,
-> +							   u8 tos, u8 type,
-> +							   u32 tb_id);
-> +	int			(*ndo_switch_fib_ipv4_del)(struct net_device *dev,
-> +							   __be32 dst,
-> +							   int dst_len,
-> +							   struct fib_info *fi,
-> +							   u8 tos, u8 type,
-> +							   u32 tb_id);
->   #endif
->   };
->   
+> Next hops need to be iterated upon, and that currently can't be
+> modelled with your abstration right now.
 
-Don't we need ndo's to offload adding/deleting neighbor table entries 
-and router interface or gateway addresses?
-Is it expected that the switch driver can program the hardware in 
-response to the neighbor update events?
+This gets into the issue of how to solve the case of a route with
+nexthops devs not belonging to the same offload device.  So I think
+you're right, and probably what we should do in the model for a first
+pass is scan all the route's nh devs and make sure the devs have the
+same switch_id before calling into the driver.  We have everything to
+do this; I think I was punting on ECMP for this first pass to get
+something out for L3, even if it was single-path.
 
-Thanks
-Sridhar
+I can revisit this for v3, but keep rocker single-path, or I can do
+all for v3 and add the ECMP support to rocker.  I'm inclined to do the
+former, so we can take this one step at a time.
+
+> I also don't see you testing properly for
+> net->ipv4.fib_has_custom_rules,
+>
+> Oh, I see, that happens in patch #4.  Please make that logic present
+> from the very beginning.
+
+Ok, I'll shuffle things around for v3.
+
+> If you see a multi-nexthop route, for this initial implementation,
+> you will need to uninstall all routes from the hardware.
+
+I don't follow that?  In this initial implementation, rocker rejects
+ECMP routes, returning -EOPNTOSUPP, but the route is still installed
+in the kernel.  I'm not seeing why we'd need to uninstall from hw all
+the single-path routes.
+
+-scott
