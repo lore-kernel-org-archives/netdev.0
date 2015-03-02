@@ -1,43 +1,214 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 0/6] ipv4/fib_trie: Cleanups to prepare for
- introduction of key vector
-Date: Mon, 02 Mar 2015 13:32:16 -0800
-Message-ID: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 1/6] fib_trie: Only resize tnodes once instead of
+ on each leaf removal in fib_table_flush
+Date: Mon, 02 Mar 2015 13:32:22 -0800
+Message-ID: <20150302213222.1490.43423.stgit@ahduyck-vm-fedora20>
+References: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8648 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57198 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753942AbbCBVcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 16:32:18 -0500
+	id S1754988AbbCBVcY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2015 16:32:24 -0500
+In-Reply-To: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series is meant to mostly just clean up the fib_trie to prepare
-it for the introduction of the key_vector.  As such there are a number of
-minor clean-ups such as reformatting the tnode to match the format once the
-key vector is introduced, some optimizations to drop the need for a leaf
-parent pointer, and some changes to remove duplication of effort such as
-the 2 look-ups that were essentially being done per node insertion.
+This change makes it so that we only call resize on the tnodes, instead of
+from each of the leaves.  By doing this we can significantly reduce the
+amount of time spent resizing as we can update all of the leaves in the
+tnode first before we make any determinations about resizing.  As a result
+we can simply free the tnode in the case that all of the leaves from a
+given tnode are flushed instead of resizing with each leaf removed.
 
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
+ net/ipv4/fib_trie.c |  141 ++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 78 insertions(+), 63 deletions(-)
 
-Alexander Duyck (6):
-      fib_trie: Only resize tnodes once instead of on each leaf removal in fib_table_flush
-      fib_trie: Fib walk rcu should take a tnode and key instead of a trie and a leaf
-      fib_trie: Fib find node should return parent
-      fib_trie: Update insert and delete to make use of tp from find_node
-      fib_trie: move leaf and tnode to occupy the same spot in the key vector
-      fib_trie: Make fib_table rcu safe
-
-
- include/net/ip_fib.h     |   70 +++--
- include/net/netns/ipv4.h |    7 -
- net/ipv4/fib_frontend.c  |   52 +++-
- net/ipv4/fib_trie.c      |  628 +++++++++++++++++++++++-----------------------
- 4 files changed, 399 insertions(+), 358 deletions(-)
-
---
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index f485345..d8b68b4 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1400,25 +1400,6 @@ found:
+ EXPORT_SYMBOL_GPL(fib_table_lookup);
+ 
+ /*
+- * Remove the leaf and return parent.
+- */
+-static void trie_leaf_remove(struct trie *t, struct tnode *l)
+-{
+-	struct tnode *tp = node_parent(l);
+-
+-	pr_debug("entering trie_leaf_remove(%p)\n", l);
+-
+-	if (tp) {
+-		put_child(tp, get_index(l->key, tp), NULL);
+-		trie_rebalance(t, tp);
+-	} else {
+-		RCU_INIT_POINTER(t->trie, NULL);
+-	}
+-
+-	node_free(l);
+-}
+-
+-/*
+  * Caller must hold RTNL.
+  */
+ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+@@ -1483,8 +1464,18 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	if (!plen)
+ 		tb->tb_num_default--;
+ 
+-	if (hlist_empty(&l->leaf))
+-		trie_leaf_remove(t, l);
++	if (hlist_empty(&l->leaf)) {
++		struct tnode *tp = node_parent(l);
++
++		if (tp) {
++			put_child(tp, get_index(l->key, tp), NULL);
++			trie_rebalance(t, tp);
++		} else {
++			RCU_INIT_POINTER(t->trie, NULL);
++		}
++
++		node_free(l);
++	}
+ 
+ 	if (fa->fa_state & FA_S_ACCESSED)
+ 		rt_cache_flush(cfg->fc_nlinfo.nl_net);
+@@ -1494,33 +1485,6 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	return 0;
+ }
+ 
+-static int trie_flush_leaf(struct tnode *l)
+-{
+-	struct hlist_node *tmp;
+-	unsigned char slen = 0;
+-	struct fib_alias *fa;
+-	int found = 0;
+-
+-	hlist_for_each_entry_safe(fa, tmp, &l->leaf, fa_list) {
+-		struct fib_info *fi = fa->fa_info;
+-
+-		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
+-			hlist_del_rcu(&fa->fa_list);
+-			fib_release_info(fa->fa_info);
+-			alias_free_mem_rcu(fa);
+-			found++;
+-
+-			continue;
+-		}
+-
+-		slen = fa->fa_slen;
+-	}
+-
+-	l->slen = slen;
+-
+-	return found;
+-}
+-
+ /* Scan for the next right leaf starting at node p->child[idx]
+  * Since we have back pointer, no recursion necessary.
+  */
+@@ -1588,30 +1552,81 @@ static struct tnode *trie_leafindex(struct trie *t, int index)
+  */
+ int fib_table_flush(struct fib_table *tb)
+ {
+-	struct trie *t = (struct trie *) tb->tb_data;
+-	struct tnode *l, *ll = NULL;
++	struct trie *t = (struct trie *)tb->tb_data;
++	struct hlist_node *tmp;
++	struct fib_alias *fa;
++	struct tnode *n, *pn;
++	unsigned long cindex;
++	unsigned char slen;
+ 	int found = 0;
+ 
+-	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
+-		found += trie_flush_leaf(l);
++	n = rcu_dereference(t->trie);
++	if (!n)
++		goto flush_complete;
++
++	pn = NULL;
++	cindex = 0;
++
++	while (IS_TNODE(n)) {
++		/* record pn and cindex for leaf walking */
++		pn = n;
++		cindex = 1ul << n->bits;
++backtrace:
++		/* walk trie in reverse order */
++		do {
++			while (!(cindex--)) {
++				t_key pkey = pn->key;
++
++				n = pn;
++				pn = node_parent(n);
++
++				/* resize completed node */
++				resize(t, n);
++
++				/* if we got the root we are done */
++				if (!pn)
++					goto flush_complete;
+ 
+-		if (ll) {
+-			if (hlist_empty(&ll->leaf))
+-				trie_leaf_remove(t, ll);
+-			else
+-				leaf_pull_suffix(ll);
++				cindex = get_index(pkey, pn);
++			}
++
++			/* grab the next available node */
++			n = tnode_get_child(pn, cindex);
++		} while (!n);
++	}
++
++	/* track slen in case any prefixes survive */
++	slen = 0;
++
++	hlist_for_each_entry_safe(fa, tmp, &n->leaf, fa_list) {
++		struct fib_info *fi = fa->fa_info;
++
++		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
++			hlist_del_rcu(&fa->fa_list);
++			fib_release_info(fa->fa_info);
++			alias_free_mem_rcu(fa);
++			found++;
++
++			continue;
+ 		}
+ 
+-		ll = l;
++		slen = fa->fa_slen;
+ 	}
+ 
+-	if (ll) {
+-		if (hlist_empty(&ll->leaf))
+-			trie_leaf_remove(t, ll);
+-		else
+-			leaf_pull_suffix(ll);
++	/* update leaf slen */
++	n->slen = slen;
++
++	if (hlist_empty(&n->leaf)) {
++		put_child_root(pn, t, n->key, NULL);
++		node_free(n);
++	} else {
++		leaf_pull_suffix(n);
+ 	}
+ 
++	/* if trie is leaf only loop is completed */
++	if (pn)
++		goto backtrace;
++flush_complete:
+ 	pr_debug("trie_flush found=%d\n", found);
+ 	return found;
+ }
