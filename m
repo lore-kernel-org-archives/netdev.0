@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 08/15] arp: Remove special case to give AX25 it's open arp operations.
-Date: Mon, 02 Mar 2015 00:06:31 -0600
-Message-ID: <87385o7x20.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH net-next 09/15] neigh: Move neigh_compat_output into ax25_ip.c
+Date: Mon, 02 Mar 2015 00:07:37 -0600
+Message-ID: <87vbik6ifq.fsf_-_@x220.int.ebiederm.org>
 References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 	<20150227.162131.431559184124647735.davem@davemloft.net>
 	<87mw3yg8da.fsf@x220.int.ebiederm.org>
@@ -20,69 +20,98 @@ Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-The special case has been pushed out into ax25_neigh_construct so there
-is no need to keep this code in arp.c
+The only caller is now is ax25_neigh_construct so move
+neigh_compat_output into ax25_ip.c make it static and rename it
+ax25_neigh_output.
 
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: linux-hams@vger.kernel.org
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/arp.c | 37 -------------------------------------
- 1 file changed, 37 deletions(-)
+ include/net/neighbour.h |  1 -
+ net/ax25/ax25_ip.c      | 18 ++++++++++++++++--
+ net/core/neighbour.c    | 20 --------------------
+ 3 files changed, 16 insertions(+), 23 deletions(-)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 205e1472aa78..2557cf9a4648 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -149,14 +149,6 @@ static const struct neigh_ops arp_direct_ops = {
- 	.connected_output =	neigh_direct_output,
- };
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 76f708486aae..bc66babb5f27 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -268,7 +268,6 @@ void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb);
+ int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb);
+-int neigh_compat_output(struct neighbour *neigh, struct sk_buff *skb);
+ int neigh_direct_output(struct neighbour *neigh, struct sk_buff *skb);
+ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
+ 						u8 *lladdr, void *saddr,
+diff --git a/net/ax25/ax25_ip.c b/net/ax25/ax25_ip.c
+index bff12e0c9090..cc7415b33cfb 100644
+--- a/net/ax25/ax25_ip.c
++++ b/net/ax25/ax25_ip.c
+@@ -216,6 +216,20 @@ put:
+ 	return 1;
+ }
  
--static const struct neigh_ops arp_broken_ops = {
--	.family =		AF_INET,
--	.solicit =		arp_solicit,
--	.error_report =		arp_error_report,
--	.output =		neigh_compat_output,
--	.connected_output =	neigh_compat_output,
--};
--
- struct neigh_table arp_tbl = {
- 	.family		= AF_INET,
- 	.key_len	= 4,
-@@ -260,35 +252,6 @@ static int arp_constructor(struct neighbour *neigh)
- 		   in old paradigm.
- 		 */
++static int ax25_neigh_output(struct neighbour *neigh, struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++
++	__skb_pull(skb, skb_network_offset(skb));
++
++	if (dev_hard_header(skb, dev, ntohs(skb->protocol), NULL, NULL,
++			    skb->len) < 0 &&
++	    dev_rebuild_header(skb))
++		return 0;
++
++	return dev_queue_xmit(skb);
++}
++
+ int ax25_neigh_construct(struct neighbour *neigh)
+ {
+ 	/* This trouble could be saved if ax25 would right a proper
+@@ -227,8 +241,8 @@ int ax25_neigh_construct(struct neighbour *neigh)
+ 		return -EINVAL;
  
--#if 1
--		/* So... these "amateur" devices are hopeless.
--		   The only thing, that I can say now:
--		   It is very sad that we need to keep ugly obsolete
--		   code to make them happy.
+ 	priv->ops = *neigh->ops;
+-	priv->ops.output = neigh_compat_output;
+-	priv->ops.connected_output = neigh_compat_output;
++	priv->ops.output = ax25_neigh_output;
++	priv->ops.connected_output = ax25_neigh_output;
+ 	return 0;
+ }
+ 
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 70fe9e10ac86..8a319ff3e8d1 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1280,26 +1280,6 @@ static void neigh_hh_init(struct neighbour *n, struct dst_entry *dst)
+ 	write_unlock_bh(&n->lock);
+ }
+ 
+-/* This function can be used in contexts, where only old dev_queue_xmit
+- * worked, f.e. if you want to override normal output path (eql, shaper),
+- * but resolution is not made yet.
+- */
 -
--		   They should be moved to more reasonable state, now
--		   they use rebuild_header INSTEAD OF hard_start_xmit!!!
--		   Besides that, they are sort of out of date
--		   (a lot of redundant clones/copies, useless in 2.1),
--		   I wonder why people believe that they work.
--		 */
--		switch (dev->type) {
--		default:
--			break;
--		case ARPHRD_ROSE:
--#if IS_ENABLED(CONFIG_AX25)
--		case ARPHRD_AX25:
--#if IS_ENABLED(CONFIG_NETROM)
--		case ARPHRD_NETROM:
--#endif
--			neigh->ops = &arp_broken_ops;
--			neigh->output = neigh->ops->output;
--			return 0;
--#else
--			break;
--#endif
--		}
--#endif
- 		if (neigh->type == RTN_MULTICAST) {
- 			neigh->nud_state = NUD_NOARP;
- 			arp_mc_map(addr, neigh->ha, dev, 1);
+-int neigh_compat_output(struct neighbour *neigh, struct sk_buff *skb)
+-{
+-	struct net_device *dev = skb->dev;
+-
+-	__skb_pull(skb, skb_network_offset(skb));
+-
+-	if (dev_hard_header(skb, dev, ntohs(skb->protocol), NULL, NULL,
+-			    skb->len) < 0 &&
+-	    dev_rebuild_header(skb))
+-		return 0;
+-
+-	return dev_queue_xmit(skb);
+-}
+-EXPORT_SYMBOL(neigh_compat_output);
+-
+ /* Slow and careful. */
+ 
+ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
 -- 
 2.2.1
 
