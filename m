@@ -1,84 +1,154 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Flows! Offload them.
-Date: Mon, 02 Mar 2015 14:49:58 -0800
-Message-ID: <54F4E916.4050805@gmail.com>
-References: <20150226133326.GC23050@casper.infradead.org> <54EF3A78.9020507@intel.com> <20150226201635.GA366@hmsreliant.think-freely.org> <20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net> <20150227012239.GB8847@neilslaptop.think-freely.org> <CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com> <20150302134946.GB7971@gospo.home.greyhouse.net> <CAE4R7bCQrHqgyBkEuEpoZnn2npeuBrGUG60Zwpg8RBB20JwqeA@mail.gmail.com> <CAGpadYEC3-5AdkOG66q0vX+HM0c6EU-C0ZT=sKGe7rZRHsYYKg@mail.gmail.com> <CAE4R7bAueaSn7Z+Wcipf7UYQ57GteomTJDM8Ohn_-KFu5zw0sw@mail.gmail.com> <20150302224335.GA14057@gospo.home.greyhouse.net>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH v3 3/3] lib/string_helpers.c: Change semantics of string_escape_mem
+Date: Tue, 03 Mar 2015 00:03:40 +0100
+Message-ID: <87a8zvovcj.fsf@rasmusvillemoes.dk>
+References: <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
+	<1423525491-12613-1-git-send-email-linux@rasmusvillemoes.dk>
+	<1423525491-12613-4-git-send-email-linux@rasmusvillemoes.dk>
+	<1423571552.31903.468.camel@linux.intel.com>
+	<87386dj4x0.fsf@rasmusvillemoes.dk>
+	<1423578150.31903.480.camel@linux.intel.com>
+	<87oaoo59n2.fsf@rasmusvillemoes.dk>
+	<1424695820.14897.10.camel@linux.intel.com>
+	<87k2z86xvs.fsf@rasmusvillemoes.dk>
+	<1425299846.14897.124.camel@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Shrijeet Mukherjee <shrijeet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Simon Horman <simon.horman@netronome.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jesse Gross <jesse@nicira.com>,
-	"jpettit@nicira.com" <jpettit@nicira.com>,
-	Joe Stringer <joestringer@nicira.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Benjamin LaHaise <bcrl@kvack.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:41400 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753924AbbCBWu1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 17:50:27 -0500
-Received: by pdno5 with SMTP id o5so43102128pdn.8
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 14:50:27 -0800 (PST)
-In-Reply-To: <20150302224335.GA14057@gospo.home.greyhouse.net>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:42606 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752715AbbCBXDp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 18:03:45 -0500
+Received: by lbiw7 with SMTP id w7so33485907lbi.9
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 15:03:43 -0800 (PST)
+In-Reply-To: <1425299846.14897.124.camel@linux.intel.com> (Andy Shevchenko's
+	message of "Mon, 02 Mar 2015 14:37:26 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/15 14:43, Andy Gospodarek wrote:
-> On Mon, Mar 02, 2015 at 02:13:35PM -0800, Scott Feldman wrote:
->> On Mon, Mar 2, 2015 at 10:31 AM, Shrijeet Mukherjee <shrijeet@gmail.com> wrote:
->>>>
->>>> Can you elaborate on "allow for async write of data to hardware
->>>> tables"?  Is this the trampoline model where user's request goes to
->>>> the kernel, and then back to user-space, and finally to the hardware
->>>> via an user-space SDK?  I think we should exclude that model from
->>>> discussions about resource management.  With the recent L2/L3 offload
->>>> work, I'm advocating a synchronous call path from user to kernel to
->>>> hardware so we can return a actionable result code, and put the burden
->>>> of resource management in user-space, not in the kernel.
->>>>
->>> Scott you mean synchronous to the switchdev driver right ?
->>
->> Correct.
-> 
-> So while I agree with you that it would be ideal to be synchronous all
-> the way to the hardware (and that is what I continue to tell vendors
-> they should do) you would like to see each driver individually manage
-> whether or not they chose to make these calls async and handle the
-> fallout in their own?
+On Mon, Mar 02 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.com=
+> wrote:
 
-I am not sure I follow you here, the way I would see it is something
-like this:
+> On Mon, 2015-02-23 at 23:55 +0100, Rasmus Villemoes wrote:
+>> On Mon, Feb 23 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.=
+com> wrote:
+>
+>> > What about to make it a separate function *and* call from inside o=
+f
+>> > test_string_escape? Would it work for you?
+>>=20
+>> See my earlier point about "quite a lot of state to pass". But if th=
+is
+>>=20
+>> static __init void
+>> test_string_escape_overflow(const char *in, int p, char *out_real, i=
+nt out_size,
+>> 			    unsigned int flags, const char *esc, int q_test,
+>> 			    const char *name)
+>> {
+>> 	int q_real;
+>>=20
+>> 	memset(out_real, 'Z', out_size);
+>> 	q_real =3D string_escape_mem(in, p, out_real, 0, flags, esc);
+>> 	if (q_real !=3D q_test)
+>> 		pr_warn("Test '%s' failed: flags =3D %u, osz =3D 0, expected %d, g=
+ot %d\n",
+>> 			name, flags, q_test, q_real);
+>> 	if (memchr_inv(out_real, 'Z', out_size))
+>> 		pr_warn("Test '%s' failed: osz =3D 0 but string_escape_mem wrote t=
+o the buffer\n",
+>> 			name);
+>> }
+>>=20
+>> is what you want, sure, have it your way.
+>
+> Something like above, though might be few variables can be defined
+> inside it, such as out_real, out_size.
 
-SWITCHDEV	DRIVER
-ndo_foo ->
-		foo_op ->
-			bus_op() ->
-			# wait for interrupt
-			complete()
-ndo_foo 	<- return
+Or maybe not at all: We could pass NULL, 0, which is what has to work
+anyway for the kasprintf case - failure will then be detected through a=
+n
+oops, but I think that should be ok. That would also remove the memset =
+and
+memchr_inv calls above.
 
-at which point, the only things that matters is that the switch driver
-ensures calls serialization at its own level (concurrent HW registers
-access), eventually working under the assumption that ndo_foo() is also
-called with appropriate locking (rtnl) to prevent concurrent operations
-from occurring.
+I don't like the idea of just defining a small stack buffer (say
+buf[16]) and passing that (still with a size of 0): It's better to
+either detect writes directly (by passing a large enough buffer with
+known contents), or indirectly through an oops, as opposed to having to
+figure it out from random stack corruption. And kmalloc'ing+error
+handling+kfree'ing a buffer inside the overflow check would just be
+plain silly, when we have a large enough buffer already.
 
-If the model is more like the switch driver is responsible for locally
-queuing multiple commands, then I agree, we might not want that at all.
+>> I need to fix fs/proc/array.c in 3/3 as well, to make the kernel
+>> compile+boot and make the series bisectable. Before I send v4 please=
+ let
+>> me know what you think about this (the minimal fix I could come up w=
+ith):
+>>=20
+>> diff --git a/fs/proc/array.c b/fs/proc/array.c
+>> index 1295a00ca316..20f2d50e2dba 100644
+>> --- a/fs/proc/array.c
+>> +++ b/fs/proc/array.c
+>> @@ -99,10 +99,9 @@ static inline void task_name(struct seq_file *m, =
+struct task_struct *p)
+>>         buf =3D m->buf + m->count;
+>> =20
+>>         /* Ignore error for now */
+>> -       string_escape_str(tcomm, &buf, m->size - m->count,
+>> -                         ESCAPE_SPACE | ESCAPE_SPECIAL, "\n\\");
+>> +       m->count +=3D string_escape_str(tcomm, buf, m->size - m->cou=
+nt,
+>> +                                     ESCAPE_SPACE | ESCAPE_SPECIAL,=
+ "\n\\");
+>
+> Just a nitpick: what if we keep buf arithmetics in place, i.e.
+> buf +=3D string_escape_str();
+> m->count =3D =E2=80=A6
 
--- 
-Florian
+Yes, that will make the patch even smaller, just touching that single
+line. Done.
+
+> Also shouldn't we check if seq_overflow is set before even trying to
+> escape? Otherwise it will return something which is bigger that 0 and
+> advance m->count too far.
+
+I don't think we need to care. AFAICT, task_name is only used for
+/proc/*/status, and it is the first thing to fill anything into the
+seq_file, so overflow is impossible. [Testing for pre-existing overflow
+also wouldn't be enough; one should check whether there's actually room
+for ~32 bytes.]
+
+As I said, I do think that longer-term one shouldn't have to poke aroun=
+d
+in the seq_file internals, but for now I'd like to make the patch minim=
+al.
+
+>> Another option is to do everything with a single seq_printf call,
+>> something like
+>>=20
+>> seq_printf(m, "Name:\t%*pEcs\n, (int)strlen(tcomm), tcomm)
+>>=20
+>> That will escape more than just \ and \n, but that would IMO be an
+>> improvement. But of course this is out of scope for this series.]
+>
+> It should be %pT and reconsider policy how we print task name in
+> different cases (vsprintf.c::comm_name()).
+
+Well, %pT is a completely new addition to vsprintf.c. Also, I don't
+think that would be a very good match - not every user of %pT might wan=
+t
+escaping, so at the very least this would require implementing some
+extra flags for %pT. But if task_name would be the only user of those
+flags, I think the escaping logic is better kept there. Anyway, this is
+outside this series' scope.
+
+Rasmus
