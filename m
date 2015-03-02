@@ -1,106 +1,78 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH net-next 2/2] net: netcp: select davinci_mdio driver by
- default
-Date: Mon, 2 Mar 2015 08:11:55 -0800
-Message-ID: <20150302161155.GB3665@atomide.com>
-References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
- <1424813251-31610-2-git-send-email-m-karicheri2@ti.com>
- <20150227162921.GX11056@atomide.com>
- <54F0D9E9.1020705@ti.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: Flows! Offload them.
+Date: Mon, 2 Mar 2015 08:54:06 -0800
+Message-ID: <CAE4R7bCQrHqgyBkEuEpoZnn2npeuBrGUG60Zwpg8RBB20JwqeA@mail.gmail.com>
+References: <20150226074214.GF2074@nanopsycho.orion>
+	<20150226083758.GA15139@vergenet.net>
+	<20150226091628.GA4059@nanopsycho.orion>
+	<20150226133326.GC23050@casper.infradead.org>
+	<54EF3A78.9020507@intel.com>
+	<20150226201635.GA366@hmsreliant.think-freely.org>
+	<20150226215255.GA15033@penelope.isobedori.kobe.vergenet.net>
+	<20150227012239.GB8847@neilslaptop.think-freely.org>
+	<CA+mtBx_E5D-ryU=etdKf+7bnYwqHKJbqDc22A5=ypWCL5Z_E1g@mail.gmail.com>
+	<20150302134946.GB7971@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, mugunthanvnm@ti.com,
-	prabhakar.csengg@gmail.com, varkabhadram@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	grygorii.strashko@ti.com, lokeshvutla@ti.com, mpa@pengutronix.de,
-	w-kwok2@ti.com
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54F0D9E9.1020705@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Simon Horman <simon.horman@netronome.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jesse Gross <jesse@nicira.com>, jpettit@nicira.com,
+	Joe Stringer <joestringer@nicira.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Shrijeet Mukherjee <shrijeet@gmail.com>,
+	Benjamin LaHaise <bcrl@kvack.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:35253 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754250AbbCBQyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 11:54:07 -0500
+Received: by mail-qa0-f46.google.com with SMTP id n4so23780932qaq.5
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 08:54:06 -0800 (PST)
+In-Reply-To: <20150302134946.GB7971@gospo.home.greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Murali Karicheri <m-karicheri2@ti.com> [150227 12:59]:
-> On 02/27/2015 11:29 AM, Tony Lindgren wrote:
-> >* Murali Karicheri<m-karicheri2@ti.com>  [150224 13:31]:
-> >>Keystone netcp driver re-uses davinci mdio driver. So enable it
-> >>by default for keystone netcp driver.
-> >>
-> >>Signed-off-by: Murali Karicheri<m-karicheri2@ti.com>
-> >>---
-> >>  drivers/net/ethernet/ti/Kconfig |    1 +
-> >>  1 file changed, 1 insertion(+)
-> >>
-> >>diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-> >>index 3bc992c..945a221 100644
-> >>--- a/drivers/net/ethernet/ti/Kconfig
-> >>+++ b/drivers/net/ethernet/ti/Kconfig
-> >>@@ -88,6 +88,7 @@ config TI_CPTS
-> >>  config TI_KEYSTONE_NETCP
-> >>  	tristate "TI Keystone NETCP Core Support"
-> >>  	select TI_CPSW_ALE
-> >>+	select TI_DAVINCI_MDIO
-> >>  	depends on OF
-> >>  	depends on KEYSTONE_NAVIGATOR_DMA&&  KEYSTONE_NAVIGATOR_QMSS
-> >>  	---help---
-> >
-> >These options should be silent Kconfig options if we're selecting
-> >them. Or else you should use depends on instead.
-> >
-> Just followed the existing implementation as it made sense.
-> 
-> config TI_DAVINCI_EMAC
-> 	tristate "TI DaVinci EMAC Support"
-> 	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-> 	select TI_DAVINCI_MDIO
-> 	select TI_DAVINCI_CPDMA
-> 	select PHYLIB
-> 	---help---
-> 	  This driver supports TI's DaVinci Ethernet .
-> 
-> 	  To compile this driver as a module, choose M here: the module
-> 	  will be called davinci_emac_driver.  This is recommended.
-> 
-> config TI_CPSW
-> 	tristate "TI CPSW Switch Support"
-> 	depends on ARCH_DAVINCI || ARCH_OMAP2PLUS
-> 	select TI_DAVINCI_CPDMA
-> 	select TI_DAVINCI_MDIO
-> 	select TI_CPSW_PHY_SEL
-> 	select TI_CPSW_ALE
-> 	select MFD_SYSCON
-> 	select REGMAP
-> 	---help---
-> 	  This driver supports TI's CPSW Ethernet Switch.
-> 
-> 	  To compile this driver as a module, choose M here: the module
-> 	  will be called cpsw.
-> 
-> Why it has to be silent options?
+On Mon, Mar 2, 2015 at 5:49 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Thu, Feb 26, 2015 at 05:52:16PM -0800, Tom Herbert wrote:
+>> On Thu, Feb 26, 2015 at 5:22 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> [...]
+>> > Yes, exactly that, for the general traditional networking use case, that is
+>> > exactly what we want, to opportunistically move traffic faster with less load on
+>> > the cpu.  We don't nominally care what traffic is offloaded, as long as the
+>> > hardware does a better job than just software alone.  If we get an occasional
+>> > miss and have to do stuff in software, so be it.
+>> >
+>> +1 on an in kernel "Network Resource Manager". This also came up in
+>> Sunil's plan to configure RPS affinities from a driver so I'm taking
+>> liberty by generalizing the concept :-).
+>
+> I agree completely that there is a need for what you both describe.  Not
+> only to handle what items to offload for users looking for that level
+> of granularity, but also to allow driver implementers to decide if their
+> hardware/driver implementation may allow for async write of data to
+> hardware tables, and any other implementation specific detail they may
+> want to provide.
 
-Because we are now force selecting items that may have other
-dependencies later on that will not be satisfied. That causes
-all kinds of make randconfig build errors.
+Can you elaborate on "allow for async write of data to hardware
+tables"?  Is this the trampoline model where user's request goes to
+the kernel, and then back to user-space, and finally to the hardware
+via an user-space SDK?  I think we should exclude that model from
+discussions about resource management.  With the recent L2/L3 offload
+work, I'm advocating a synchronous call path from user to kernel to
+hardware so we can return a actionable result code, and put the burden
+of resource management in user-space, not in the kernel.
 
-> NetCP driver would require DAVINCI_MDIO driver to function.
-> So "select" make sense to me instead of "depend". How do
-> you think depend can be used here?
-
-In that case you'd have to have things the other way around:
-
-config TI_CPSW
-	tristate "TI CPSW Switch Support"
-	depends on ARCH_DAVINCI || ARCH_OMAP2PLUS || \
-		TI_DAVINCI_CPDMA || TI_DAVINCI_MDIO || \
-		TI_CPSW_PHY_SEL || TI_CPSW_ALE || \
-		MFD_SYSCON || REGMAP
-
-But I think it's best to make these options silent Kconfig
-options so the consumer drivers can select whatever components
-they need to use. There should not be any need for users to
-have to select these options.
-
-Regards,
-
-Tony 
+-scott
