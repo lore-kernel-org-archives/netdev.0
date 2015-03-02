@@ -1,100 +1,41 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V2 net 1/2] net/mlx4_core: Fix wrong mask and error flow for the update-qp command
-Date: Mon,  2 Mar 2015 18:22:15 +0200
-Message-ID: <1425313336-28082-2-git-send-email-ogerlitz@mellanox.com>
-References: <1425313336-28082-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37600 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753725AbbCBQW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Mar 2015 11:22:27 -0500
-In-Reply-To: <1425313336-28082-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlastimil Babka <vbabka-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
+Date: Mon, 02 Mar 2015 17:23:04 +0100
+Message-ID: <54F48E68.6070706@suse.cz>
+References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com> <54F469C1.9090601@suse.cz> <alpine.DEB.2.11.1503020944200.5540@gentwo.org> <54F48980.3090008@suse.cz> <alpine.DEB.2.11.1503021007030.6245@gentwo.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Pekka Enberg <penberg-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Joonsoo Kim <iamjoonsoo.kim-Hm3cg6mZ9cc@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
+	Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Greg Thelen <gthelen-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.11.1503021007030.6245-gkYfJU5Cukgdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The bit mask for currently supported driver features (MLX4_UPDATE_QP_SUPPORTED_ATTRS)
-of the update-qp command was defined twice (using enum value and pre-processor
-define directive) and wrong.
+On 03/02/2015 05:08 PM, Christoph Lameter wrote:
+> On Mon, 2 Mar 2015, Vlastimil Babka wrote:
+>
+>>> You are thinking about an opportunistic allocation attempt in SLAB?
+>>>
+>>> AFAICT SLAB allocations should trigger reclaim.
+>>>
+>>
+>> Well, let me quote your commit 952f3b51beb5:
+>
+> This was about global reclaim. Local reclaim is good and that can be
+> done via zone_reclaim.
 
-The return value of the call to mlx4_update_qp() from within the SRIOV
-resource-tracker was wrongly voided down.
-
-Fix both issues.
-
-issue: none
-Fixes: 09e05c3f78e9 ('net/mlx4: Set vlan stripping policy by the right command')
-Fixes: ce8d9e0d6746 ('net/mlx4_core: Add UPDATE_QP SRIOV wrapper support')
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/qp.c            |    1 -
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    9 ++++++---
- include/linux/mlx4/qp.h                            |    2 +-
- 3 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 2bb8553..eda29db 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -412,7 +412,6 @@ err_icm:
- 
- EXPORT_SYMBOL_GPL(mlx4_qp_alloc);
- 
--#define MLX4_UPDATE_QP_SUPPORTED_ATTRS MLX4_UPDATE_QP_SMAC
- int mlx4_update_qp(struct mlx4_dev *dev, u32 qpn,
- 		   enum mlx4_update_qp_attr attr,
- 		   struct mlx4_update_qp_params *params)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 486e3d2..d97ca88 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -713,7 +713,7 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 	struct mlx4_vport_oper_state *vp_oper;
- 	struct mlx4_priv *priv;
- 	u32 qp_type;
--	int port;
-+	int port, err = 0;
- 
- 	port = (qpc->pri_path.sched_queue & 0x40) ? 2 : 1;
- 	priv = mlx4_priv(dev);
-@@ -738,7 +738,9 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 			} else {
- 				struct mlx4_update_qp_params params = {.flags = 0};
- 
--				mlx4_update_qp(dev, qpn, MLX4_UPDATE_QP_VSD, &params);
-+				err = mlx4_update_qp(dev, qpn, MLX4_UPDATE_QP_VSD, &params);
-+				if (err)
-+					goto out;
- 			}
- 		}
- 
-@@ -773,7 +775,8 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 		qpc->pri_path.feup |= MLX4_FSM_FORCE_ETH_SRC_MAC;
- 		qpc->pri_path.grh_mylmc = (0x80 & qpc->pri_path.grh_mylmc) + vp_oper->mac_idx;
- 	}
--	return 0;
-+out:
-+	return err;
- }
- 
- static int mpt_mask(struct mlx4_dev *dev)
-diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-index 2bbc62a..551f854 100644
---- a/include/linux/mlx4/qp.h
-+++ b/include/linux/mlx4/qp.h
-@@ -427,7 +427,7 @@ struct mlx4_wqe_inline_seg {
- 
- enum mlx4_update_qp_attr {
- 	MLX4_UPDATE_QP_SMAC		= 1 << 0,
--	MLX4_UPDATE_QP_VSD		= 1 << 2,
-+	MLX4_UPDATE_QP_VSD		= 1 << 1,
- 	MLX4_UPDATE_QP_SUPPORTED_ATTRS	= (1 << 2) - 1
- };
- 
--- 
-1.7.1
+Right, so the patch is a functional change for zone_reclaim_mode == 1, 
+where !__GFP_WAIT will prevent it.
