@@ -1,85 +1,101 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH v3] ibmveth: Add function to enable live MAC address changes
-Date: Mon,  2 Mar 2015 11:56:12 -0600
-Message-ID: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: linuxppc-dev@lists.ozlabs.org, brking@linux.vnet.ibm.com,
-	jiri@resnulli.us, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Andrey Volkov <andrey.volkov@nexvision.fr>
+Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
+Date: Mon, 02 Mar 2015 16:27:14 +0100
+Message-ID: <54F48152.4070205@nexvision.fr>
+References: <54EA8E7C.90401@roeck-us.net> <20150223031447.GA19267@lunn.ch> <54EAA767.6060105@roeck-us.net> <20150223042220.GA20063@lunn.ch> <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch> <54EB37C7.3090209@roeck-us.net> <20150223160109.GB27057@lunn.ch> <54EB6BF5.2020600@gmail.com> <20150223183537.GA23456@roeck-us.net> <54EDD172.4010606@nexvision.fr> <54EDDB72.1090706@roeck-us.net> <54F0A4DE.3020704@nexvision.fr> <54F17408.4080105@roeck-us.net> <54F475E8.8010408@nexvision.fr> <54F47876.2000104@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	jerome.oufella@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:54028 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751785AbbCBR4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:56:20 -0500
-Received: from /spool/local
-	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-	Mon, 2 Mar 2015 10:56:19 -0700
-Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id CD1541FF0021
-	for <netdev@vger.kernel.org>; Mon,  2 Mar 2015 10:47:27 -0700 (MST)
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by b03cxnp08026.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t22HuUHt47382562
-	for <netdev@vger.kernel.org>; Mon, 2 Mar 2015 10:56:30 -0700
-Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t22HuFWa030402
-	for <netdev@vger.kernel.org>; Mon, 2 Mar 2015 10:56:15 -0700
+Received: from 1.mo1.mail-out.ovh.net ([178.32.127.22]:57103 "EHLO
+	1.mo1.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754021AbbCBR4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:56:48 -0500
+Received: from mail98.ha.ovh.net (gw6.ovh.net [213.251.189.206])
+	by mo1.mail-out.ovh.net (Postfix) with SMTP id 5D75FFF9D87
+	for <netdev@vger.kernel.org>; Mon,  2 Mar 2015 16:27:17 +0100 (CET)
+In-Reply-To: <54F47876.2000104@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a function that will enable changing the MAC address
-of an ibmveth interface while it is still running.
+On 02/03/2015 15:49, Guenter Roeck wrote:
+> On 03/02/2015 06:38 AM, Andrey Volkov wrote:
+>>
+>> On 28/02/2015 08:53, Guenter Roeck wrote:
+>>> On 02/27/2015 09:09 AM, Andrey Volkov wrote:
+>>>> Gunter,
+>>>>
+>>>> Sorry with response delay, I very was busy yesterday
+>>>>
+>>>> Le 25/02/2015 15:25, Guenter Roeck a =E9crit :
+>>>>> Andrey,
+>>>>
+>>>> ------- snip -------
+>>>>
+>>>>>>>
+>>>>>> I simply modify port's fid to the new one in the leave routine a=
+nd set to common bridge FID in enter
+>>>>>> (I'm using Marvell's chips). So the port's database will cleaned=
+ up automatically for the leave and will
+>>>>>> contain something useful at the enter time. Also I've look throu=
+gh yours patches and I haven't
+>>>>>
+>>>>> Does removing a port from a fid clean up the entries associated w=
+ith it
+>>>>> in the database ?
+>>>>
+>>>> I've checked what happened when port changed its FID: switch logic=
+ block traffic to it
+>>>> immediately, as far as I can see, meanwhile record still exists in=
+ the bridge database,
+>>>> it was checked on 88e6185, 88e6097 and 88e6352 chips. And yet anot=
+her 5c: changing of group membership is
+>>>> not atomic operation in the Marvell's chips known for me, so the p=
+ort must be in the disabled state when it
+>>>> will happened.
+>>>>
+>>> Hmm - interesting. I assume you mean updating port registers 5 and =
+6 ?
+>> Yes sure, it's reason why we must disable the port before changing t=
+he FID.
+>>
+> Yes, I think we'll need to do that once we use the bits in register 5=
+=2E
+>=20
+>>>
+>>> Different question: For 6185, did you write a new driver or extend =
+an existing one ?
+>>> I found that it is quite similar to 6131, and that adding support f=
+or it to the 6131
+>>> driver should be straightforward.
+>> Yes again :), and 88E6097 have same core as 6123_61_65. Difference i=
+n both cases only in the number
+>> of supported ports, and it was main reason why hardcoded port's numb=
+er was unacceptable for me, difference is
+>> large enough: for ex. 88e6123 have only 3 ports, but 88E6097 - 11.
+>>
+>=20
+> I have a patch set to change the number of ports to a variable in the=
+ 6131 driver.
+> Want me to submit it now ? Though I guess you must have pretty much t=
+he same,
+> so we can also use your approach. Let me know.
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
-v3:
-   removed text wrapping in error message
-v2:
-   If h_change_logical_lan_mac fails, dev->dev_addr will not be changed.
+I think that better to start from my patches: they are more generic and=
+ have support of sysfs
+(should be useful for "MII over ethernet"). Also IMO it will be better =
+if we continue exchange/prereview
+our patches in more narrow mail list, since I do not want to pollute ne=
+tdev by useless discussions about drafts.
+Objections/suggestions?
 
- drivers/net/ethernet/ibm/ibmveth.c | 24 +++++++++++++++++++++++-
- 1 file changed, 23 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 21978cc..072426a 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1327,6 +1327,28 @@ static unsigned long ibmveth_get_desired_dma(struct vio_dev *vdev)
- 	return ret;
- }
- 
-+static int ibmveth_set_mac_addr(struct net_device *dev, void *p)
-+{
-+	struct ibmveth_adapter *adapter = netdev_priv(dev);
-+	struct sockaddr *addr = p;
-+	u64 mac_address;
-+	int rc;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	mac_address = ibmveth_encode_mac_addr(addr->sa_data);
-+	rc = h_change_logical_lan_mac(adapter->vdev->unit_address, mac_address);
-+	if (rc) {
-+		netdev_err(adapter->netdev, "h_change_logical_lan_mac failed with rc=%d\n", rc);
-+		return rc;
-+	}
-+
-+	ether_addr_copy(dev->dev_addr, addr->sa_data);
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops ibmveth_netdev_ops = {
- 	.ndo_open		= ibmveth_open,
- 	.ndo_stop		= ibmveth_close,
-@@ -1337,7 +1359,7 @@ static const struct net_device_ops ibmveth_netdev_ops = {
- 	.ndo_fix_features	= ibmveth_fix_features,
- 	.ndo_set_features	= ibmveth_set_features,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_set_mac_address    = ibmveth_set_mac_addr,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ibmveth_poll_controller,
- #endif
--- 
-1.8.3.1
+--
+Regards
+Andrey
