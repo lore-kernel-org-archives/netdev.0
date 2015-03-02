@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 04/15] ax25/kiss: Replace ax_header_ops with ax25_header_ops
-Date: Mon, 02 Mar 2015 00:03:02 -0600
-Message-ID: <87twy47x7t.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH net-next 05/15] ax25/6pack: Replace sp_header_ops with ax25_header_ops
+Date: Mon, 02 Mar 2015 00:03:45 -0600
+Message-ID: <87oaoc7x6m.fsf_-_@x220.int.ebiederm.org>
 References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 	<20150227.162131.431559184124647735.davem@davemloft.net>
 	<87mw3yg8da.fsf@x220.int.ebiederm.org>
@@ -13,39 +13,33 @@ Content-Type: text/plain
 Cc: netdev@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>,
 	linux-hams@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:53229 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbbCBGGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 01:06:35 -0500
+Return-path: <linux-hams-owner@vger.kernel.org>
 In-Reply-To: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Sun, 01 Mar 2015 23:59:11 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-The two sets of header operations are functionally identical remove the
-duplicate definition.
+The two sets of header operations are functionally identical remove
+the duplicate definition.
 
 Cc: Ralf Baechle <ralf@linux-mips.org>
 Cc: linux-hams@vger.kernel.org
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/net/hamradio/mkiss.c | 33 +--------------------------------
- 1 file changed, 1 insertion(+), 32 deletions(-)
+ drivers/net/hamradio/6pack.c | 28 +---------------------------
+ 1 file changed, 1 insertion(+), 27 deletions(-)
 
-diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-index f990bb1c3e02..e37c8d515ce8 100644
---- a/drivers/net/hamradio/mkiss.c
-+++ b/drivers/net/hamradio/mkiss.c
-@@ -573,32 +573,6 @@ static int ax_open_dev(struct net_device *dev)
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index daca0dee88f3..2533933c79dc 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -284,18 +284,6 @@ static int sp_close(struct net_device *dev)
  	return 0;
  }
  
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
--
 -/* Return the frame type ID */
--static int ax_header(struct sk_buff *skb, struct net_device *dev,
+-static int sp_header(struct sk_buff *skb, struct net_device *dev,
 -		     unsigned short type, const void *daddr,
 -		     const void *saddr, unsigned len)
 -{
@@ -56,8 +50,14 @@ index f990bb1c3e02..e37c8d515ce8 100644
 -	return 0;
 -}
 -
--
--static int ax_rebuild_header(struct sk_buff *skb)
+ static int sp_set_mac_address(struct net_device *dev, void *addr)
+ {
+ 	struct sockaddr_ax25 *sa = addr;
+@@ -309,20 +297,6 @@ static int sp_set_mac_address(struct net_device *dev, void *addr)
+ 	return 0;
+ }
+ 
+-static int sp_rebuild_header(struct sk_buff *skb)
 -{
 -#ifdef CONFIG_INET
 -	return ax25_rebuild_header(skb);
@@ -66,31 +66,23 @@ index f990bb1c3e02..e37c8d515ce8 100644
 -#endif
 -}
 -
--#endif	/* CONFIG_{AX25,AX25_MODULE} */
--
- /* Open the low-level part of the AX25 channel. Easy! */
- static int ax_open(struct net_device *dev)
- {
-@@ -662,11 +636,6 @@ static int ax_close(struct net_device *dev)
- 	return 0;
- }
- 
--static const struct header_ops ax_header_ops = {
--	.create    = ax_header,
--	.rebuild   = ax_rebuild_header,
+-static const struct header_ops sp_header_ops = {
+-	.create		= sp_header,
+-	.rebuild	= sp_rebuild_header,
 -};
 -
- static const struct net_device_ops ax_netdev_ops = {
- 	.ndo_open            = ax_open_dev,
- 	.ndo_stop            = ax_close,
-@@ -682,7 +651,7 @@ static void ax_setup(struct net_device *dev)
- 	dev->addr_len        = 0;
- 	dev->type            = ARPHRD_AX25;
- 	dev->tx_queue_len    = 10;
--	dev->header_ops      = &ax_header_ops;
-+	dev->header_ops      = &ax25_header_ops;
- 	dev->netdev_ops	     = &ax_netdev_ops;
+ static const struct net_device_ops sp_netdev_ops = {
+ 	.ndo_open		= sp_open_dev,
+ 	.ndo_stop		= sp_close,
+@@ -337,7 +311,7 @@ static void sp_setup(struct net_device *dev)
+ 	dev->destructor		= free_netdev;
+ 	dev->mtu		= SIXP_MTU;
+ 	dev->hard_header_len	= AX25_MAX_HEADER_LEN;
+-	dev->header_ops 	= &sp_header_ops;
++	dev->header_ops 	= &ax25_header_ops;
  
- 
+ 	dev->addr_len		= AX25_ADDR_LEN;
+ 	dev->type		= ARPHRD_AX25;
 -- 
 2.2.1
+
