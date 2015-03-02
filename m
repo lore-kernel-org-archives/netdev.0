@@ -1,51 +1,30 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 6/6] sched: Eliminate use of flow_keys in sch_sfq
-Date: Mon, 2 Mar 2015 11:51:46 -0800
-Message-ID: <CA+mtBx__JSLgiX9MTa-ErR4kATnCxXbVX+6wQvj8fkh8ZD-mtg@mail.gmail.com>
-References: <1425247789-21211-1-git-send-email-therbert@google.com>
-	<1425247789-21211-7-git-send-email-therbert@google.com>
-	<1425257932.5130.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+mtBx-gAq=knRnf73qrOKuWy=WVaHvq2Vzb8RC39p81WBXZ8Q@mail.gmail.com>
-	<CA+mtBx-Bhewd6Ez4OotWEhxvVO8rrOieWCGAnMa9vfhTbzj=yg@mail.gmail.com>
-	<1425324483.5130.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+mtBx8sFBV4hFkdnvChuO0UaoN=XHKgVhreM5GwQXXgR9ARvg@mail.gmail.com>
-	<1425325397.5130.117.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] filter: refactor common filter attach code
+ into __sk_attach_prog
+Date: Mon, 02 Mar 2015 14:54:11 -0500 (EST)
+Message-ID: <20150302.145411.1714833785061319525.davem@davemloft.net>
+References: <8c751ae5e391a3b2dd7a541ad89b3255d2a1f19d.1425295277.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:35303 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753948AbbCBTvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 14:51:47 -0500
-Received: by igqa13 with SMTP id a13so20411932igq.0
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 11:51:47 -0800 (PST)
-In-Reply-To: <1425325397.5130.117.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53227 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753870AbbCBTyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 14:54:13 -0500
+In-Reply-To: <8c751ae5e391a3b2dd7a541ad89b3255d2a1f19d.1425295277.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 2, 2015 at 11:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2015-03-02 at 11:34 -0800, Tom Herbert wrote:
->
->> Spraying would be quite easy by modulating txhash from TCP and using
->> either  UDP encapsulation like GUE or IPv6 flow labels. Only problem
->> is that this would constantly be changing rxhash at the receiver for
->> the connection, although flow labels might 'just work' with IPv6
->> Toeplitz in NICs.
->
-> When I said 'regular IPv4/tcp traffic' this did not include any added
-> encapsulation.
->
-> Most NIC are not able to properly offload TCP (TSO) with such
-> encapsulations.
->
-IPv6 flow labels should work through TSO, they would just be
-replicated for each segment. You would need switches that can hash
-based on flow label though, and of course IPv6 deployed in the network
-:-).
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon,  2 Mar 2015 12:25:51 +0100
 
->
->
+> Both sk_attach_filter() and sk_attach_bpf() are setting up sk_filter,
+> charging skmem and attaching it to the socket after we got the eBPF
+> prog up and ready. Lets refactor that into a common helper.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Applied, thanks Daniel.
