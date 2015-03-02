@@ -1,38 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net 0/2] Mellanox driver fixes
-Date: Mon, 02 Mar 2015 15:29:24 -0500 (EST)
-Message-ID: <20150302.152924.2016710301400827124.davem@davemloft.net>
-References: <1425313336-28082-1-git-send-email-ogerlitz@mellanox.com>
-	<54F49383.9030905@mellanox.com>
+Subject: Re: [PATCH net-next v2 4/4] switchdev: don't support custom ip
+ rules, for now
+Date: Mon, 02 Mar 2015 15:30:00 -0500 (EST)
+Message-ID: <20150302.153000.14374017304430703.davem@davemloft.net>
+References: <1425290777-22702-5-git-send-email-sfeldma@gmail.com>
+	<54F4755F.6020205@cumulusnetworks.com>
+	<CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, talal@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org, jiri@resnulli.us
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53519 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53523 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753892AbbCBU31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:29:27 -0500
-In-Reply-To: <54F49383.9030905@mellanox.com>
+	with ESMTP id S1751914AbbCBUaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:30:03 -0500
+In-Reply-To: <CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 2 Mar 2015 18:44:51 +0200
+From: Scott Feldman <sfeldma@gmail.com>
+Date: Mon, 2 Mar 2015 09:00:58 -0800
 
-> On 3/2/2015 6:22 PM, Or Gerlitz wrote:
->> changes from V2:
->>    - removed Gerrit IDs
-> s/from/for/
+> On Mon, Mar 2, 2015 at 6:36 AM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
+>>>
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> Keep switchdev FIB offload model simple for now and don't allow custom ip
+>>> rules.
+>>>
+>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 >>
->> changes from V1:
->>    - applied feedback from Sergei
-> here too "for V1"
+>>
+>> I don't see a need to do this. And seems very aggressive.
+>> Also, note that the rules in a system can be on non-hw accelerated ports.
+> 
+> It is aggressive but it's the safest choice for the first pass on this
+> L3 offload.  Without, switchdev has no way to model custom ip rules
+> down to hardware.   Let's start with this aggressive case, and that'll
+> force us to work on relaxing it.
 
-Maybe if you didn't rush your work all the time you wouldn't find
-these sorts of errors in your submission mere seconds after posting
-it?
-
-How about you do this kind of re-reading and review _before_ rather
-than _after_ hitting send?
++1
