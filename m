@@ -1,55 +1,69 @@
-From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: Weird TCP hang when doing loopback NFS (wireshark traces attached)
-Date: Sun, 1 Mar 2015 19:52:28 -0500
-Message-ID: <CAHQdGtSTJoKJZ8y72oLWTv30AZxVsRWAU0pTjZJy18jQ7Dhadw@mail.gmail.com>
-References: <1425237291.24845.13.camel@primarydata.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 0/2] net: Remove iocb argument from sendmsg and
+ recvmsg
+Date: Mon, 2 Mar 2015 08:52:56 +0800
+Message-ID: <54F3B468.1060204@windriver.com>
+References: <1425035198-12547-1-git-send-email-ying.xue@windriver.com> <20150228.171250.1612351664541183290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Bruce James Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1425237291.24845.13.camel-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <viro@ZenIV.linux.org.uk>, <hch@lst.de>, <netdev@vger.kernel.org>,
+	<erik.hugne@ericsson.com>, <jon.maloy@ericsson.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:44910 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751612AbbCBAxM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Mar 2015 19:53:12 -0500
+In-Reply-To: <20150228.171250.1612351664541183290.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bruce,
+On 03/01/2015 06:12 AM, David Miller wrote:
+> From: Ying Xue <ying.xue@windriver.com>
+> Date: Fri, 27 Feb 2015 19:06:35 +0800
+>=20
+>> Currently there is only one user - TIPC whose sendmsg() instances
+>> using iocb argument. Meanwhile, there is no user using iocb argument
+>> in its recvmsg() instance. Therefore, if we eliminate the werid usag=
+e
+>> of iobc argument from TIPC, the iocb argument can be removed from
+>> all sendmsg() and recvmsg() instances of the whole network stack.
+>>
+>> By the way, as patch #2 is very big, I can divide it into smaller
+>> patches regarding module in next version if necessary.
+>>
+>> Reference:
+>> https://patchwork.ozlabs.org/patch/433960/
+>=20
+> You didn't even properly compile test this patch series:
+>=20
+> net/dccp/proto.c:744:5: error: conflicting types for =A1dccp_sendmsg=A2
+>  int dccp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+>      ^
+> In file included from net/dccp/proto.c:37:0:
+> net/dccp/dccp.h:313:5: note: previous declaration of =A1dccp_sendmsg=A2=
+ was here
+>  int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr =
+*msg,
+>      ^
+>  ...
+> net/dccp/proto.c:808:5: error: conflicting types for =A1dccp_recvmsg=A2
+>  int dccp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, in=
+t nonblock,
+>      ^
+> In file included from net/dccp/proto.c:37:0:
+> net/dccp/dccp.h:315:5: note: previous declaration of =A1dccp_recvmsg=A2=
+ was here
+>  int dccp_recvmsg(struct kiocb *iocb, struct sock *sk,
+>      ^
+>=20
 
-On Sun, Mar 1, 2015 at 2:14 PM, Trond Myklebust
-<trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org> wrote:
-> Hi,
->
-> When doing testing of NFSv3 loopback mounts (client and server are on
-> the same IP address), I'm seeing a very reproducible hang in which the
-> client stops receiving data from the server. The TCP connection is still
-> marked as established, and the server appears to continue to receive and
-> send data, however the client does not.
->
-> So far, I've reproduced on both v4.0-rc1, and the Fedora v3.18.7 kernel.
->
-> The reproducer is simply to loopback mount using NFSv3, and then run the
-> 'fsx' filesystem exerciser. I'm usually able to trigger the hang with
-> "fsx -N 100000 foobar".
->
-> I've attached a couple of wireshark trace of a few frames just before
-> and during the hang in case it jogs any memories.
+Oops! When I verified it, I almost enabled all functions and modules as=
+sociated
+with networking except DCCP module I accidentally missed. Thank you for=
+ the
+report. I would carefully verified the patch again.
 
-This bug appears to go away when I disable the splice()-based reads by
-clearing the RQ_SPLICE_OK flag.
-
-I noticed that it always involved a combination of a READ and a
-truncating SETATTR call. Are you sure that it is safe to share
-pagecache pages directly with sendpage() in this way? As far as I can
-tell, there is no locking to prevent them from being modified while in
-the TCP send queue.
-
-Cheers
-  Trond
--- 
-Trond Myklebust
-Linux NFS client maintainer, PrimaryData
-trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Ying
