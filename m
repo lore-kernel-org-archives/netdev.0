@@ -1,48 +1,50 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: [patch v2 1/3] mm: remove GFP_THISNODE
-Date: Mon, 2 Mar 2015 12:40:24 -0800 (PST)
-Message-ID: <alpine.DEB.2.10.1503021239410.20808@chino.kir.corp.google.com>
-References: <alpine.DEB.2.10.1502251621010.10303@chino.kir.corp.google.com> <alpine.DEB.2.10.1502271415510.7225@chino.kir.corp.google.com> <54F469C1.9090601@suse.cz> <alpine.DEB.2.11.1503020944200.5540@gentwo.org> <54F48980.3090008@suse.cz>
- <alpine.DEB.2.11.1503021007030.6245@gentwo.org> <54F48E68.6070706@suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 4/4] switchdev: don't support custom ip
+ rules, for now
+Date: Mon, 02 Mar 2015 15:40:21 -0500 (EST)
+Message-ID: <20150302.154021.291909338132330257.davem@davemloft.net>
+References: <54F4755F.6020205@cumulusnetworks.com>
+	<CAE4R7bALEVb1reyCzfXXi=ifv97jy14ozQuxnG6x9BWmWX10Hg@mail.gmail.com>
+	<54F4B56C.5040709@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Lameter <cl@linux.com>,
-    Andrew Morton <akpm@linux-foundation.org>,
-    Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-    Johannes Weiner <hannes@cmpxchg.org>, Mel Gorman <mgorman@suse.de>,
-    Pravin Shelar <pshelar@nicira.com>,
-    Jarno Rajahalme <jrajahalme@nicira.com>, Li Zefan <lizefan@huawei.com>,
-    Greg Thelen <gthelen@google.com>, linux-kernel@vger.kernel.org,
-    linux-mm@kvack.org, netdev@vger.kernel.org, cgroups@vger.kernel.org,
-    dev@openvswitch.org
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <54F48E68.6070706@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53628 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754457AbbCBUkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:40:24 -0500
+In-Reply-To: <54F4B56C.5040709@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2 Mar 2015, Vlastimil Babka wrote:
+From: roopa <roopa@cumulusnetworks.com>
+Date: Mon, 02 Mar 2015 11:09:32 -0800
 
-> > > > You are thinking about an opportunistic allocation attempt in SLAB?
-> > > > 
-> > > > AFAICT SLAB allocations should trigger reclaim.
-> > > > 
-> > > 
-> > > Well, let me quote your commit 952f3b51beb5:
-> > 
-> > This was about global reclaim. Local reclaim is good and that can be
-> > done via zone_reclaim.
-> 
-> Right, so the patch is a functional change for zone_reclaim_mode == 1, where
-> !__GFP_WAIT will prevent it.
-> 
+> On 3/2/15, 9:00 AM, Scott Feldman wrote:
+>> On Mon, Mar 2, 2015 at 6:36 AM, roopa <roopa@cumulusnetworks.com>
+>> wrote:
+>>> On 3/2/15, 2:06 AM, sfeldma@gmail.com wrote:
+>>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>>
+>>>> Keep switchdev FIB offload model simple for now and don't allow custom
+>>>> ip
+>>>> rules.
+>>>>
+>>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> I don't see a need to do this. And seems very aggressive.
+>>> Also, note that the rules in a system can be on non-hw accelerated
+>>> ports.
+>> It is aggressive but it's the safest choice for the first pass on this
+>> L3 offload.  Without, switchdev has no way to model custom ip rules
+>> down to hardware.   Let's start with this aggressive case, and that'll
+>> force us to work on relaxing it.
+>>
+>>
+> But, this will not allow hw acceleration of routes even if you had a
+> rule for the management traffic for example.
 
-My patch is not a functional change, get_page_from_freelist() handles 
-zone_reclaim_mode == 1 properly in the page allocator fastpath.  This 
-patch only touches the slowpath.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+We start simple, add complexity later.
