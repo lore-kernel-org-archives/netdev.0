@@ -1,109 +1,97 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH] bcm63xx_enet: fix poll callback.
-Date: Mon,  2 Mar 2015 18:28:10 +0100
-Message-ID: <1425317290-1443-1-git-send-email-nschichan@freebox.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	Tobias Klauser <tklauser@distanz.ch>,
-	Felipe Balbi <balbi@ti.com>,
-	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] ebpf: move CONFIG_BPF_SYSCALL-only function declarations
+Date: Mon, 2 Mar 2015 09:35:01 -0800
+Message-ID: <CAMEtUuw+6j5uNCxV7M7HXm_GUha9Dpk6Y-h6ey0yMQ+7Z_Wa4Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:51553 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbbCBRfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 12:35:22 -0500
+Received: by mail-qa0-f47.google.com with SMTP id v10so24034690qac.6
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 09:35:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In case there was some tx buffer reclaimed and not enough rx packets
-to consume the whole budget, napi_complete would not be called and
-interrupts would be kept disabled, effectively resulting in the
-network core never to call the poll callback again and no rx/tx
-interrupts to be fired either.
+On Mon, Mar 2, 2015 at 6:21 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Masami noted that it would be better to hide the remaining CONFIG_BPF_SYSCALL-only
+> function declarations within the BPF header ifdef, w/o else path dummy alternatives
+> since these functions are not supposed to have a user outside of CONFIG_BPF_SYSCALL.
 
-Fix that by taking the tx buffer reclaim work into account in the poll
-callback, and keeping interrupts off only when the budget allowance
-has been exhausted.
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+So far we didn't have anyone trying to add new map types
+outside of kernel/bpf/, so this patch is a defensive move.
+Such potential future abuser will get compile error for
+missing bpf_register_map_type() instead of linker error for the same.
+Not sure that's really needed.
+Also bpf_map_put() and bpf_map_get() are only used
+by bpf syscall and verifier. imo moving them under ifdef is overkill.
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 21206d3..e0d599a 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -427,7 +427,7 @@ static int bcm_enet_receive_queue(struct net_device *dev, int budget)
- /*
-  * try to or force reclaim of transmitted buffers
-  */
--static int bcm_enet_tx_reclaim(struct net_device *dev, int force)
-+static int bcm_enet_tx_reclaim(struct net_device *dev, int force, int budget)
- {
- 	struct bcm_enet_priv *priv;
- 	int released;
-@@ -471,6 +471,8 @@ static int bcm_enet_tx_reclaim(struct net_device *dev, int force)
- 
- 		dev_kfree_skb(skb);
- 		released++;
-+		if (!force && released == budget)
-+			break;
- 	}
- 
- 	if (netif_queue_stopped(dev) && released)
-@@ -486,7 +488,7 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
- {
- 	struct bcm_enet_priv *priv;
- 	struct net_device *dev;
--	int tx_work_done, rx_work_done;
-+	int work_done;
- 
- 	priv = container_of(napi, struct bcm_enet_priv, napi);
- 	dev = priv->net_dev;
-@@ -498,15 +500,15 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
- 			 ENETDMAC_IR, priv->tx_chan);
- 
- 	/* reclaim sent skb */
--	tx_work_done = bcm_enet_tx_reclaim(dev, 0);
-+	work_done = bcm_enet_tx_reclaim(dev, 0, budget);
- 
- 	spin_lock(&priv->rx_lock);
--	rx_work_done = bcm_enet_receive_queue(dev, budget);
-+	work_done += bcm_enet_receive_queue(dev, budget - work_done);
- 	spin_unlock(&priv->rx_lock);
- 
--	if (rx_work_done >= budget || tx_work_done > 0) {
-+	if (work_done >= budget) {
- 		/* rx/tx queue is not yet empty/clean */
--		return rx_work_done;
-+		return work_done;
- 	}
- 
- 	/* no more packet in rx/tx queue, remove device from poll
-@@ -519,7 +521,7 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
- 	enet_dmac_writel(priv, priv->dma_chan_int_mask,
- 			 ENETDMAC_IRMASK, priv->tx_chan);
- 
--	return rx_work_done;
-+	return work_done;
- }
- 
- /*
-@@ -1208,7 +1210,7 @@ static int bcm_enet_stop(struct net_device *dev)
- 	bcm_enet_disable_mac(priv);
- 
- 	/* force reclaim of all tx buffers */
--	bcm_enet_tx_reclaim(dev, 1);
-+	bcm_enet_tx_reclaim(dev, 1, 0);
- 
- 	/* free the rx skb ring */
- 	for (i = 0; i < priv->rx_ring_size; i++) {
-@@ -2415,7 +2417,7 @@ static int bcm_enetsw_stop(struct net_device *dev)
- 	bcm_enet_disable_dma(priv, priv->rx_chan);
- 
- 	/* force reclaim of all tx buffers */
--	bcm_enet_tx_reclaim(dev, 1);
-+	bcm_enet_tx_reclaim(dev, 1, 0);
- 
- 	/* free the rx skb ring */
- 	for (i = 0; i < priv->rx_ring_size; i++) {
--- 
-1.9.1
+I think ifdef should only be used for function that have
+real and dummy bodies.
+Today we have three:
+bpf_register_prog_type(), bpf_prog_get() and bpf_prog_put()
+and that makes sense.
+
+Hiding *map*() functions seems unnecessary.
+I think linker error is good enough.
+
+> Suggested-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+> Reference: http://article.gmane.org/gmane.linux.kernel.api/8658
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  include/linux/bpf.h | 18 +++++++++---------
+>  1 file changed, 9 insertions(+), 9 deletions(-)
+>
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index a1a7ff2..a884f5a 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -42,10 +42,6 @@ struct bpf_map_type_list {
+>         enum bpf_map_type type;
+>  };
+>
+> -void bpf_register_map_type(struct bpf_map_type_list *tl);
+> -void bpf_map_put(struct bpf_map *map);
+> -struct bpf_map *bpf_map_get(struct fd f);
+> -
+>  /* function argument constraints */
+>  enum bpf_arg_type {
+>         ARG_ANYTHING = 0,       /* any argument is ok */
+> @@ -126,9 +122,16 @@ struct bpf_prog_aux {
+>
+>  #ifdef CONFIG_BPF_SYSCALL
+>  void bpf_register_prog_type(struct bpf_prog_type_list *tl);
+> +void bpf_register_map_type(struct bpf_map_type_list *tl);
+>
+> -void bpf_prog_put(struct bpf_prog *prog);
+>  struct bpf_prog *bpf_prog_get(u32 ufd);
+> +void bpf_prog_put(struct bpf_prog *prog);
+> +
+> +struct bpf_map *bpf_map_get(struct fd f);
+> +void bpf_map_put(struct bpf_map *map);
+> +
+> +/* verify correctness of eBPF program */
+> +int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
+>  #else
+>  static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
+>  {
+> @@ -142,10 +145,7 @@ static inline struct bpf_prog *bpf_prog_get(u32 ufd)
+>  static inline void bpf_prog_put(struct bpf_prog *prog)
+>  {
+>  }
+> -#endif
+> -
+> -/* verify correctness of eBPF program */
+> -int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
+> +#endif /* CONFIG_BPF_SYSCALL */
+>
+>  /* verifier prototypes for helper functions called from eBPF programs */
+>  extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
+> --
+> 1.9.3
+>
