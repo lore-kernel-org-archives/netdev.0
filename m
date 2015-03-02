@@ -1,62 +1,92 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCHv3 net-next 3/4] ipv4: shrink current mss for tcp PMTU
- blackhole detection
-Date: Mon, 2 Mar 2015 15:32:22 -0500
-Message-ID: <CABrhC0nXCtWCgNm6Gz8UCXg=7Vt1pN0Q+aqO1TYZ74JK45Tq-g@mail.gmail.com>
-References: <1425093785-27380-1-git-send-email-fan.du@intel.com>
-	<1425093785-27380-4-git-send-email-fan.du@intel.com>
-	<CABrhC0m6nCwHy-CCLiFStYhSbMf78E1i6Lvh=DsPi6Pcg-GCOw@mail.gmail.com>
-	<54F42D94.6070802@gmail.com>
+From: Michal Hocko <mhocko@suse.cz>
+Subject: Re: [RFC 3/4] sparc: remove __GFP_NOFAIL reuquirement
+Date: Mon, 2 Mar 2015 21:33:04 +0100
+Message-ID: <20150302203304.GA20513@dhcp22.suse.cz>
+References: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
+ <1425304483-7987-4-git-send-email-mhocko@suse.cz>
+ <20150302.150405.2072800922470200977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fan Du <fan.du@intel.com>, Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Fan Du <fengyuleidian0615@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:43938 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753934AbbCBUcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 15:32:24 -0500
-Received: by labgf13 with SMTP id gf13so8426354lab.10
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 12:32:22 -0800 (PST)
-In-Reply-To: <54F42D94.6070802@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hannes@cmpxchg.org,
+	rientjes@google.com, david@fromorbit.com, tytso@mit.edu,
+	mgorman@suse.de, penguin-kernel@I-love.SAKURA.ne.jp,
+	sparclinux@vger.kernel.org, vipul@chelsio.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150302.150405.2072800922470200977.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 2, 2015 at 4:29 AM, Fan Du <fengyuleidian0615@gmail.com> wrote:
-> Timeout indicates search_high should be set to the new mtu corresponding to
-> current_mss no
-> matter how we change search_low. So the best shot here IMO would be updating
-> search_high
-> with current_mss, which in return makes the search window *slide* from right
-> to left, and
-> the probing will converge in good speed eventually.
->
-> So my thoughts is:
-> @@ -113,6 +113,7 @@ static void tcp_mtu_probing(struct inet_connection_sock
-> *icsk, struct sock *sk)
->                         struct tcp_sock *tp = tcp_sk(sk);
->                         int mss;
->
-> +                       icsk_mtup.search_high = tcp_mss_to_mtu(sk,
-> tcp_current_mss(sk));
->                         mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)
->>> 1;
->                         mss = min(net->ipv4.sysctl_tcp_base_mss, mss);
->                         mss = max(mss, 68 - tp->tcp_header_len);
+On Mon 02-03-15 15:04:05, David S. Miller wrote:
+> From: Michal Hocko <mhocko@suse.cz>
+> Date: Mon,  2 Mar 2015 14:54:42 +0100
+> 
+> > mdesc_kmalloc is currently requiring __GFP_NOFAIL allocation although it
+> > seems that the allocation failure is handled by all callers (via
+> > mdesc_alloc). __GFP_NOFAIL is a strong liability for the memory
+> > allocator and so the users are discouraged to use the flag unless the
+> > allocation failure is really a nogo. Drop the flag here as this doesn't
+> > seem to be the case.
+> > 
+> > Signed-off-by: Michal Hocko <mhocko@suse.cz>
+> 
+> It is a serious failure.
+> 
+> If we miss an MDESC update due to this allocation failure, the update
+> is not an event which gets retransmitted so we will lose the updated
+> machine description forever.
+> 
+> We really need this allocation to succeed.
 
-Search_high should be adjusted downward only when you're quite certain
-that you've gotten a negative signal.  There are many possible reasons
-for successive timeouts including intermittent disconnection, and they
-should not have a persistent (or very long-term) effect on MTU.  Leave
-search_high where it is until a working MTU can be established, then
-probe upward until probing can give you confidence you've found a new
-ceiling, or gotten back to the old one.
+OK, thanks for the clarification. This wasn't clear from the commit
+which has introduced this code. I will drop this patch. Would you
+accept something like the following instead?
+---
+diff --git a/arch/sparc/kernel/mdesc.c b/arch/sparc/kernel/mdesc.c
+index 99632a87e697..26c80e18d7b1 100644
+--- a/arch/sparc/kernel/mdesc.c
++++ b/arch/sparc/kernel/mdesc.c
+@@ -130,26 +130,26 @@ static struct mdesc_mem_ops memblock_mdesc_ops = {
+ static struct mdesc_handle *mdesc_kmalloc(unsigned int mdesc_size)
+ {
+ 	unsigned int handle_size;
++	struct mdesc_handle *hp;
++	unsigned long addr;
+ 	void *base;
+ 
+ 	handle_size = (sizeof(struct mdesc_handle) -
+ 		       sizeof(struct mdesc_hdr) +
+ 		       mdesc_size);
+ 
++	/*
++	 * Allocation has to succeed because mdesc update would be missed
++	 * and such events are not retransmitted.
++	 */
+ 	base = kmalloc(handle_size + 15, GFP_KERNEL | __GFP_NOFAIL);
+-	if (base) {
+-		struct mdesc_handle *hp;
+-		unsigned long addr;
+-
+-		addr = (unsigned long)base;
+-		addr = (addr + 15UL) & ~15UL;
+-		hp = (struct mdesc_handle *) addr;
++	addr = (unsigned long)base;
++	addr = (addr + 15UL) & ~15UL;
++	hp = (struct mdesc_handle *) addr;
+ 
+-		mdesc_handle_init(hp, handle_size, base);
+-		return hp;
+-	}
++	mdesc_handle_init(hp, handle_size, base);
+ 
+-	return NULL;
++	return hp;
+ }
+ 
+ static void mdesc_kfree(struct mdesc_handle *hp)
 
-If you think the current approach is broken, it would help to see a
-concrete demonstration of how it's deficient (a real packet trace is
-good!), and how a different approach work better.
-
-Thanks,
-  -John
+-- 
+Michal Hocko
+SUSE Labs
