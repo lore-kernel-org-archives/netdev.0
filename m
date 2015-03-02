@@ -1,75 +1,55 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 2 Mar 2015 11:31:40 +1100
-Message-ID: <20150302113140.084ba95a@canb.auug.org.au>
+From: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Subject: Re: Weird TCP hang when doing loopback NFS (wireshark traces attached)
+Date: Sun, 1 Mar 2015 19:52:28 -0500
+Message-ID: <CAHQdGtSTJoKJZ8y72oLWTv30AZxVsRWAU0pTjZJy18jQ7Dhadw@mail.gmail.com>
+References: <1425237291.24845.13.camel@primarydata.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/luId0BZkcXy.hWZJELPAgJS"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Scott Feldman <sfeldma@gmail.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bruce James Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1425237291.24845.13.camel-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/luId0BZkcXy.hWZJELPAgJS
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hi Bruce,
 
-Hi all,
+On Sun, Mar 1, 2015 at 2:14 PM, Trond Myklebust
+<trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org> wrote:
+> Hi,
+>
+> When doing testing of NFSv3 loopback mounts (client and server are on
+> the same IP address), I'm seeing a very reproducible hang in which the
+> client stops receiving data from the server. The TCP connection is still
+> marked as established, and the server appears to continue to receive and
+> send data, however the client does not.
+>
+> So far, I've reproduced on both v4.0-rc1, and the Fedora v3.18.7 kernel.
+>
+> The reproducer is simply to loopback mount using NFSv3, and then run the
+> 'fsx' filesystem exerciser. I'm usually able to trigger the hang with
+> "fsx -N 100000 foobar".
+>
+> I've attached a couple of wireshark trace of a few frames just before
+> and during the hang in case it jogs any memories.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/ethernet/rocker/rocker.c between commit 5f2ebfbee688
-("rocker: silence shift wrapping warning") from the net tree and commit
-4a6bb6d35980 ("rocker: rename lport to pport") from the net-next tree.
+This bug appears to go away when I disable the splice()-based reads by
+clearing the RQ_SPLICE_OK flag.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+I noticed that it always involved a combination of a READ and a
+truncating SETATTR call. Are you sure that it is safe to share
+pagecache pages directly with sendpage() in this way? As far as I can
+tell, there is no locking to prevent them from being modified while in
+the TCP send queue.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/ethernet/rocker/rocker.c
-index 9fb6948e14c6,e5a15a4c4e8f..000000000000
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@@ -1257,9 -1280,9 +1280,9 @@@ static void rocker_port_set_enable(stru
-  	u64 val =3D rocker_read64(rocker_port->rocker, PORT_PHYS_ENABLE);
- =20
-  	if (enable)
-- 		val |=3D 1ULL << rocker_port->lport;
- -		val |=3D 1 << rocker_port->pport;
-++		val |=3D 1ULL << rocker_port->pport;
-  	else
-- 		val &=3D ~(1ULL << rocker_port->lport);
- -		val &=3D ~(1 << rocker_port->pport);
-++		val &=3D ~(1ULL << rocker_port->pport);
-  	rocker_write64(rocker_port->rocker, PORT_PHYS_ENABLE, val);
-  }
- =20
-
---Sig_/luId0BZkcXy.hWZJELPAgJS
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJU869xAAoJEMDTa8Ir7ZwV1+EP/1swmNBJ7hytq2WvjHHYMUIC
-9aKA0nmDJKN/2JajYS5HEnzOcfWoeeIgPSTua9Pr+jt2uxhy85ZWH2g2n6UaZ/SB
-udgxt14rkINR/gGFIyZlk2fx4/Hem2ff+MTm5UMI9WU7mBD6kO/xK4ZQ95ilnVLN
-wTlNExWZb7rfoz0E7+Fd3Mr0wSO6Tg+ibcwgFretauFFOkzGqN5mjb52Qwz2Zdyn
-nwLwJf9jXvHBbprGEH+pbblapioTNZJ4xk/hGUvMK54zFvM0Ak2skrdTzycH0WoS
-PEq1i+PoWSnCGPMk0saZftcBGz6V3QnJZvNX+YTiRzc3+RaTJH0sHvLUY5rwdHSI
-Gc5iTkf1S9YNB3Ba/n3Advla/qanUst5dYbyeOy2wP0sGkWMvXcszytC3l1Yacqq
-/HGUrsAUhCkv5K5AGO5sVearIqXN2IsNw4svDmGR/sEVoXyYZba2Q9CfIPgDFR/6
-DHQKchc0bATiIFP6MA5ALTMeYrQpaRyus+PTCTrOiAO2OtwKzRcSf8zPa8LDXY1r
-ofq5iYFTdhS2XDPG0F+p8ZfeAMch3exHgxNpYUujn9WbGjaEcjZ+uwdaIvy9bphm
-Q+fSs0U63i4chivdBJ0D8RPe4tGhHnRIe3kc5BfGwQ2wBqYdMPB7BuUi0N7hVpbZ
-lZp0G3AmyJWu31IHiAbT
-=l8Ra
------END PGP SIGNATURE-----
-
---Sig_/luId0BZkcXy.hWZJELPAgJS--
+Cheers
+  Trond
+-- 
+Trond Myklebust
+Linux NFS client maintainer, PrimaryData
+trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
