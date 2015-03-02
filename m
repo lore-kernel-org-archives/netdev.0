@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 14/15] neigh: Don't require dst in neigh_hh_init
-Date: Mon, 02 Mar 2015 00:13:22 -0600
-Message-ID: <87vbik53lp.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH net-next 15/15] neigh: Don't require a dst in neigh_resolve_output
+Date: Mon, 02 Mar 2015 00:14:14 -0600
+Message-ID: <87oaoc53k9.fsf_-_@x220.int.ebiederm.org>
 References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
 	<20150227.162131.431559184124647735.davem@davemloft.net>
 	<87mw3yg8da.fsf@x220.int.ebiederm.org>
@@ -20,96 +20,41 @@ Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-- Add protocol to neigh_tbl so that dst->ops->protocol is not needed
-- Acquire the device from neigh->dev
-
-This results in a neigh_hh_init that will cache the samve values
-regardless of the packets flowing through it.
+Having a dst helps a little bit for teql but is fundamentally
+unnecessary and there are code paths where a dst is not available that
+it would be nice to use the neighbour cache.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/net/neighbour.h | 1 +
- net/core/neighbour.c    | 8 ++++----
- net/decnet/dn_neigh.c   | 1 +
- net/ipv4/arp.c          | 1 +
- net/ipv6/ndisc.c        | 1 +
- 5 files changed, 8 insertions(+), 4 deletions(-)
+ net/core/neighbour.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index bc66babb5f27..9f912e4d4232 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -193,6 +193,7 @@ struct neigh_table {
- 	int			family;
- 	int			entry_size;
- 	int			key_len;
-+	__be16			protocol;
- 	__u32			(*hash)(const void *pkey,
- 					const struct net_device *dev,
- 					__u32 *hash_rnd);
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 8a319ff3e8d1..af72b863e968 100644
+index af72b863e968..0f48ea3affed 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
-@@ -1263,10 +1263,10 @@ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
- EXPORT_SYMBOL(neigh_event_ns);
+@@ -1284,12 +1284,8 @@ static void neigh_hh_init(struct neighbour *n)
  
- /* called with read_lock_bh(&n->lock); */
--static void neigh_hh_init(struct neighbour *n, struct dst_entry *dst)
-+static void neigh_hh_init(struct neighbour *n)
+ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
  {
--	struct net_device *dev = dst->dev;
--	__be16 prot = dst->ops->protocol;
-+	struct net_device *dev = n->dev;
-+	__be16 prot = n->tbl->protocol;
- 	struct hh_cache	*hh = &n->hh;
+-	struct dst_entry *dst = skb_dst(skb);
+ 	int rc = 0;
  
- 	write_lock_bh(&n->lock);
-@@ -1296,7 +1296,7 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
- 		unsigned int seq;
- 
- 		if (dev->header_ops->cache && !neigh->hh.hh_len)
--			neigh_hh_init(neigh, dst);
-+			neigh_hh_init(neigh);
- 
- 		do {
- 			__skb_pull(skb, skb_network_offset(skb));
-diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
-index 7ca7c3143da3..f123c6c6748c 100644
---- a/net/decnet/dn_neigh.c
-+++ b/net/decnet/dn_neigh.c
-@@ -97,6 +97,7 @@ struct neigh_table dn_neigh_table = {
- 	.family =			PF_DECnet,
- 	.entry_size =			NEIGH_ENTRY_SIZE(sizeof(struct dn_neigh)),
- 	.key_len =			sizeof(__le16),
-+	.protocol =			cpu_to_be16(ETH_P_DNA_RT),
- 	.hash =				dn_neigh_hash,
- 	.constructor =			dn_neigh_construct,
- 	.id =				"dn_neigh_cache",
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index bca5b9d9b442..6b8aad6a0d7d 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -152,6 +152,7 @@ static const struct neigh_ops arp_direct_ops = {
- struct neigh_table arp_tbl = {
- 	.family		= AF_INET,
- 	.key_len	= 4,
-+	.protocol	= cpu_to_be16(ETH_P_IP),
- 	.hash		= arp_hash,
- 	.constructor	= arp_constructor,
- 	.proxy_redo	= parp_redo,
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 471ed24aabae..e363bbc2420d 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -117,6 +117,7 @@ static const struct neigh_ops ndisc_direct_ops = {
- struct neigh_table nd_tbl = {
- 	.family =	AF_INET6,
- 	.key_len =	sizeof(struct in6_addr),
-+	.protocol =	cpu_to_be16(ETH_P_IPV6),
- 	.hash =		ndisc_hash,
- 	.constructor =	ndisc_constructor,
- 	.pconstructor =	pndisc_constructor,
+-	if (!dst)
+-		goto discard;
+-
+ 	if (!neigh_event_send(neigh, skb)) {
+ 		int err;
+ 		struct net_device *dev = neigh->dev;
+@@ -1312,8 +1308,6 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	}
+ out:
+ 	return rc;
+-discard:
+-	neigh_dbg(1, "%s: dst=%p neigh=%p\n", __func__, dst, neigh);
+ out_kfree_skb:
+ 	rc = -EINVAL;
+ 	kfree_skb(skb);
 -- 
 2.2.1
 
