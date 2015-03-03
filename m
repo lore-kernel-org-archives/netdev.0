@@ -1,56 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 01/14] etherdevice: Add eth_<foo>_addr CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS code
-Date: Mon,  2 Mar 2015 19:54:46 -0800
-Message-ID: <cccde434d9a32d1b9fb3d7604083c05a2ef1fe0e.1425354528.git.joe@perches.com>
-References: <cover.1425354527.git.joe@perches.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: patchwork not picking up acks
+Date: Mon, 02 Mar 2015 23:01:03 -0500 (EST)
+Message-ID: <20150302.230103.672446543300180887.davem@davemloft.net>
+References: <CAMEtUuzeXMTeOq1dM_9OMKe_=i8=-Fc=jHyVYPJs9qakg4Hc7Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0252.hostedemail.com ([216.40.44.252]:42661 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754192AbbCCDzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 22:55:52 -0500
-In-Reply-To: <cover.1425354527.git.joe@perches.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56497 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756369AbbCCEBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 23:01:08 -0500
+In-Reply-To: <CAMEtUuzeXMTeOq1dM_9OMKe_=i8=-Fc=jHyVYPJs9qakg4Hc7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the memset possibly more efficient with the appropriate
-CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS #ifdef
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 2 Mar 2015 19:29:10 -0800
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/linux/etherdevice.h | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+> I've been alerted that my Acks don't get picked up by patchwork :(
+> Even normal email threads where I'm replying are also not
+> seen in a patchwork. I don't know when this issue started.
+> I'm using the same gmail setup as before. Not sure how to fix it.
+> Any suggestions?
+> Anyone seeing anything similar?
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 606563e..22ad94a 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -192,7 +192,12 @@ static inline void eth_random_addr(u8 *addr)
-  */
- static inline void eth_broadcast_addr(u8 *addr)
- {
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	*(u32 *)addr = 0xffffffff;
-+	*(u16 *)(addr + 4) = 0xffff;
-+#else
- 	memset(addr, 0xff, ETH_ALEN);
-+#endif
- }
- 
- /**
-@@ -203,7 +208,12 @@ static inline void eth_broadcast_addr(u8 *addr)
-  */
- static inline void eth_zero_addr(u8 *addr)
- {
--	memset(addr, 0x00, ETH_ALEN);
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	*(u32 *)addr = 0;
-+	*(u16 *)(addr + 4) = 0;
-+#else
-+	memset(addr, 0, ETH_ALEN);
-+#endif
- }
- 
- /**
--- 
-2.1.2
+No idea and I don't maintain patchwork so I'm the last
+person who would be able to help you, sorry.
