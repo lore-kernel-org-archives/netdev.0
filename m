@@ -1,79 +1,121 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 2/7] netdevice: add IPv4 fib add/del ops
-Date: Tue,  3 Mar 2015 15:31:55 -0800
-Message-ID: <1425425520-34017-3-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v3 3/7] switchdev: add IPv4 fib ndo ops wrappers
+Date: Tue,  3 Mar 2015 15:31:56 -0800
+Message-ID: <1425425520-34017-4-git-send-email-sfeldma@gmail.com>
 References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
 	roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:38485 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757638AbbCCXa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 18:30:59 -0500
-Received: by pdbfl12 with SMTP id fl12so21086524pdb.5
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 15:30:58 -0800 (PST)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:40225 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757682AbbCCXbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 18:31:00 -0500
+Received: by padfb1 with SMTP id fb1so18932863pad.7
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 15:30:59 -0800 (PST)
 In-Reply-To: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Add two new ndo ops for IPv4 fib offload support, add and del.  Add uses
-modifiy semantics if fib entry already offloaded.  Drivers implementing the new
-ndo ops will return err<0 if programming device fails, for example if device's
-tables are full.
+Add IPv4 fib ndo wrapper funcs and stub them out for now.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- include/linux/netdevice.h |   22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ include/net/switchdev.h   |   19 +++++++++++++++++++
+ net/switchdev/switchdev.c |   39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5897b4e..73b2766 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -769,6 +769,8 @@ struct netdev_phys_item_id {
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
- 
-+struct fib_info;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index cfcdac2..8d2ac66 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -51,6 +51,11 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 					       struct nlmsghdr *nlh, u16 flags);
+ int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
+ 					       struct nlmsghdr *nlh, u16 flags);
++int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++			       u8 tos, u8 type, u32 tb_id);
++int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++			       u8 tos, u8 type, u32 tb_id);
 +
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -1032,6 +1034,14 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
-  *	Called to notify switch device port of bridge port STP
-  *	state change.
-+ * int (*ndo_sw_parent_fib_ipv4_add)(struct net_device *dev, __be32 dst,
-+ *				     int dst_len, struct fib_info *fi,
-+ *				     u8 tos, u8 type, u32 tb_id);
-+ *	Called to add/modify IPv4 route to switch device.
-+ * int (*ndo_sw_parent_fib_ipv4_del)(struct net_device *dev, __be32 dst,
-+ *				     int dst_len, struct fib_info *fi,
-+ *				     u8 tos, u8 type, u32 tb_id);
-+ *	Called to delete IPv4 route from switch device.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1193,6 +1203,18 @@ struct net_device_ops {
- 							    struct netdev_phys_item_id *psid);
- 	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
- 							      u8 state);
-+	int			(*ndo_switch_fib_ipv4_add)(struct net_device *dev,
-+							   __be32 dst,
-+							   int dst_len,
-+							   struct fib_info *fi,
-+							   u8 tos, u8 type,
-+							   u32 tb_id);
-+	int			(*ndo_switch_fib_ipv4_del)(struct net_device *dev,
-+							   __be32 dst,
-+							   int dst_len,
-+							   struct fib_info *fi,
-+							   u8 tos, u8 type,
-+							   u32 tb_id);
- #endif
- };
+ #else
  
+ static inline int netdev_switch_parent_id_get(struct net_device *dev,
+@@ -109,6 +114,20 @@ static inline int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *
+ 	return 0;
+ }
+ 
++static inline int netdev_switch_fib_ipv4_add(u32 dst, int dst_len,
++					     struct fib_info *fi,
++					     u8 tos, u8 type, u32 tb_id)
++{
++	return 0;
++}
++
++static inline int netdev_switch_fib_ipv4_del(u32 dst, int dst_len,
++					     struct fib_info *fi,
++					     u8 tos, u8 type, u32 tb_id)
++{
++	return 0;
++}
++
+ #endif
+ 
+ #endif /* _LINUX_SWITCHDEV_H_ */
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 8c1e558..3c090f8 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -14,6 +14,7 @@
+ #include <linux/mutex.h>
+ #include <linux/notifier.h>
+ #include <linux/netdevice.h>
++#include <net/ip_fib.h>
+ #include <net/switchdev.h>
+ 
+ /**
+@@ -225,3 +226,41 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 	return ret;
+ }
+ EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
++
++/**
++ *	netdev_switch_fib_ipv4_add - Add IPv4 route entry to switch
++ *
++ *	@dst: route's IPv4 destination address
++ *	@dst_len: destination address length (prefix length)
++ *	@fi: route FIB info structure
++ *	@tos: route TOS
++ *	@type: route type
++ *	@tb_id: route table ID
++ *
++ *	Add IPv4 route entry to switch device.
++ */
++int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++			       u8 tos, u8 type, u32 tb_id)
++{
++	return 0;
++}
++EXPORT_SYMBOL(netdev_switch_fib_ipv4_add);
++
++/**
++ *	netdev_switch_fib_ipv4_del - Delete IPv4 route entry from switch
++ *
++ *	@dst: route's IPv4 destination address
++ *	@dst_len: destination address length (prefix length)
++ *	@fi: route FIB info structure
++ *	@tos: route TOS
++ *	@type: route type
++ *	@tb_id: route table ID
++ *
++ *	Delete IPv4 route entry from switch device.
++ */
++int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++			       u8 tos, u8 type, u32 tb_id)
++{
++	return 0;
++}
++EXPORT_SYMBOL(netdev_switch_fib_ipv4_del);
 -- 
 1.7.10.4
