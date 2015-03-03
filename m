@@ -1,62 +1,64 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH] bcm63xx_enet: fix poll callback.
-Date: Tue,  3 Mar 2015 12:45:12 +0100
-Message-ID: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	Tobias Klauser <tklauser@distanz.ch>,
-	Felipe Balbi <balbi@ti.com>,
-	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [RFC 4/4] cxgb4: drop __GFP_NOFAIL allocation
+Date: Tue, 3 Mar 2015 21:22:22 +0900
+Message-ID: <201503032122.HJD73998.OFFMQFLHtJOSOV@I-love.SAKURA.ne.jp>
+References: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
+	<1425304483-7987-5-git-send-email-mhocko@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hannes@cmpxchg.org,
+	rientjes@google.com, david@fromorbit.com, tytso@mit.edu,
+	mgorman@suse.de, sparclinux@vger.kernel.org, vipul@chelsio.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mhocko@suse.cz, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425304483-7987-5-git-send-email-mhocko@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In case there was some tx buffer reclaimed and not enough rx packets
-to consume the whole budget, napi_complete would not be called and
-interrupts would be kept disabled, effectively resulting in the
-network core never to call the poll callback again and no rx/tx
-interrupts to be fired either.
+Michal Hocko wrote:
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> index ccf3436024bc..f351920fc293 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -1220,6 +1220,10 @@ static int set_filter_wr(struct adapter *adapter, int fidx)
+>  	struct fw_filter_wr *fwr;
+>  	unsigned int ftid;
+>  
+> +	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
+> +	if (!skb)
+> +		return -ENOMEM;
+> +
+>  	/* If the new filter requires loopback Destination MAC and/or VLAN
+>  	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
+>  	 * the filter.
+> @@ -1227,19 +1231,21 @@ static int set_filter_wr(struct adapter *adapter, int fidx)
+>  	if (f->fs.newdmac || f->fs.newvlan) {
+>  		/* allocate L2T entry for new filter */
+>  		f->l2t = t4_l2t_alloc_switching(adapter->l2t);
+> -		if (f->l2t == NULL)
+> +		if (f->l2t == NULL) {
+> +			kfree(skb);
 
-Fix that by only accounting the rx work done in the poll callback.
+I think we need to use kfree_skb() than kfree() for memory allocated by alloc_skb().
 
-Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+>  			return -EAGAIN;
+> +		}
+>  		if (t4_l2t_set_switching(adapter, f->l2t, f->fs.vlan,
+>  					f->fs.eport, f->fs.dmac)) {
+>  			cxgb4_l2t_release(f->l2t);
+>  			f->l2t = NULL;
+> +			kfree(skb);
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 21206d3..a7f2cc3 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -486,7 +486,7 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
- {
- 	struct bcm_enet_priv *priv;
- 	struct net_device *dev;
--	int tx_work_done, rx_work_done;
-+	int rx_work_done;
- 
- 	priv = container_of(napi, struct bcm_enet_priv, napi);
- 	dev = priv->net_dev;
-@@ -498,14 +498,14 @@ static int bcm_enet_poll(struct napi_struct *napi, int budget)
- 			 ENETDMAC_IR, priv->tx_chan);
- 
- 	/* reclaim sent skb */
--	tx_work_done = bcm_enet_tx_reclaim(dev, 0);
-+	bcm_enet_tx_reclaim(dev, 0);
- 
- 	spin_lock(&priv->rx_lock);
- 	rx_work_done = bcm_enet_receive_queue(dev, budget);
- 	spin_unlock(&priv->rx_lock);
- 
--	if (rx_work_done >= budget || tx_work_done > 0) {
--		/* rx/tx queue is not yet empty/clean */
-+	if (rx_work_done >= budget) {
-+		/* rx queue is not yet empty/clean */
- 		return rx_work_done;
- 	}
- 
--- 
-1.9.1
+Ditto.
+
+>  			return -ENOMEM;
+>  		}
+>  	}
+>  
+>  	ftid = adapter->tids.ftid_base + fidx;
+>  
+> -	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL | __GFP_NOFAIL);
+>  	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
+>  	memset(fwr, 0, sizeof(*fwr));
+>  
