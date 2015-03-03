@@ -1,131 +1,45 @@
-From: Zoltan Kiss <zoltan.kiss@linaro.org>
-Subject: Re: [Xen-devel] [PATCHv1 2/2] xen-netback: unref frags when handling
- a from-guest skb with a frag list
-Date: Tue, 03 Mar 2015 16:56:44 +0000
-Message-ID: <54F5E7CC.6060903@linaro.org>
-References: <1425399971-27630-1-git-send-email-david.vrabel@citrix.com> <1425399971-27630-3-git-send-email-david.vrabel@citrix.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH RFC 14/14] net: introduce and use KERNEL_MAX_HEADER_PARSE_ADDRLEN
+Date: Tue, 3 Mar 2015 12:03:46 -0500
+Message-ID: <CA+FuTSexA71zArCtidoxYGt0rOn9whaeRnYh7AbgbmOYGDqFTw@mail.gmail.com>
+References: <1425318028-26531-1-git-send-email-fw@strlen.de> <1425318028-26531-15-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:41039 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755811AbbCCQ4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 11:56:47 -0500
-Received: by widex7 with SMTP id ex7so24267458wid.0
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 08:56:45 -0800 (PST)
-In-Reply-To: <1425399971-27630-3-git-send-email-david.vrabel@citrix.com>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:45083 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932192AbbCCRER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 12:04:17 -0500
+Received: by oifu20 with SMTP id u20so649238oif.12
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 09:04:17 -0800 (PST)
+In-Reply-To: <1425318028-26531-15-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> index 6fb6bdf..97eb50c 100644
+> --- a/net/mac802154/iface.c
+> +++ b/net/mac802154/iface.c
+> @@ -433,6 +433,7 @@ mac802154_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+>                 return 0;
+>         }
+>
+> +       dev_validate_header_parse_addrlen(sizeof(*addr));
+>         *addr = hdr.source;
+>         return sizeof(*addr);
+>  }
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 9db8369..1a4dcbb 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1816,7 +1816,8 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
+>                 skb = nskb;
+>         }
+>
+> -       sock_skb_cb_check_size(sizeof(*PACKET_SKB_CB(skb)) + MAX_ADDR_LEN - 8);
+> +       sock_skb_cb_check_size(sizeof(*PACKET_SKB_CB(skb)) +
+> +                              KERNEL_MAX_HEADER_PARSE_ADDRLEN);
 
-
-On 03/03/15 16:26, David Vrabel wrote:
-> Every time a VIF is destroyed up-to 256 pages may be leaked if packets
-                                 "up to" (and maybe a comma before it?)
-> with more than MAX_SKB_FRAGS frags where transmitted from the guest.
-                                      were
-> Even worse, if another user of ballooned pages allocated one of these
-> ballooned pages it would not handle the the unexpectedly non-zero page
-                                           ^^^
-One too many "the"
-> count (e.g., gntdev would deadlock when unmapping a grant because the
-> page count would never reach 1).
->
-> When handling a from-guest skb with a frag list, unref the frags
-> before releasing them so they are freed correctly when the VIF is
-> destroyed.
->
-> Also swap over to the new (local) frags /after/ calling the skb
-> destructor.  This isn't strictly necessary but it's less confusing.
->
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Reviewed-by: Zoltan Kiss <zoltan.kiss@linaro.org>
-> ---
->   drivers/net/xen-netback/netback.c |   43 +++++++++++++++++++------------------
->   1 file changed, 22 insertions(+), 21 deletions(-)
->
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index f7a31d2..3d06eeb 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1343,7 +1343,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
->   {
->   	unsigned int offset = skb_headlen(skb);
->   	skb_frag_t frags[MAX_SKB_FRAGS];
-> -	int i;
-> +	int i, nr_frags;
->   	struct ubuf_info *uarg;
->   	struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
->
-> @@ -1357,17 +1357,16 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
->   	skb->data_len += nskb->len;
->
->   	/* create a brand new frags array and coalesce there */
-> -	for (i = 0; offset < skb->len; i++) {
-> +	for (nr_frags = 0; offset < skb->len; nr_frags++) {
->   		struct page *page;
->   		unsigned int len;
->
-> -		BUG_ON(i >= MAX_SKB_FRAGS);
-> +		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
->   		page = alloc_page(GFP_ATOMIC);
->   		if (!page) {
-> -			int j;
->   			skb->truesize += skb->data_len;
-> -			for (j = 0; j < i; j++)
-> -				put_page(frags[j].page.p);
-> +			for (i = 0; i < nr_frags; i++)
-> +				put_page(frags[i].page.p);
->   			return -ENOMEM;
->   		}
->
-> @@ -1379,27 +1378,29 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
->   			BUG();
->
->   		offset += len;
-> -		frags[i].page.p = page;
-> -		frags[i].page_offset = 0;
-> -		skb_frag_size_set(&frags[i], len);
-> +		frags[nr_frags].page.p = page;
-> +		frags[nr_frags].page_offset = 0;
-> +		skb_frag_size_set(&frags[nr_frags], len);
->   	}
-> -	/* swap out with old one */
-> -	memcpy(skb_shinfo(skb)->frags,
-> -	       frags,
-> -	       i * sizeof(skb_frag_t));
-> -	skb_shinfo(skb)->nr_frags = i;
-> -	skb->truesize += i * PAGE_SIZE;
-> -
-> -	/* remove traces of mapped pages and frag_list */
-> +
-> +	/* Copied all the bits from the frag list -- free it. */
->   	skb_frag_list_init(skb);
-> -	uarg = skb_shinfo(skb)->destructor_arg;
-> -	/* increase inflight counter to offset decrement in callback */
-> +	xenvif_skb_zerocopy_prepare(queue, nskb);
-> +	kfree_skb(nskb);
-> +
-> +	/* Release all the original (foreign) frags. */
-> +	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-> +		skb_frag_unref(skb, i);
->   	atomic_inc(&queue->inflight_packets);
-> +	uarg = skb_shinfo(skb)->destructor_arg;
->   	uarg->callback(uarg, true);
->   	skb_shinfo(skb)->destructor_arg = NULL;
->
-> -	xenvif_skb_zerocopy_prepare(queue, nskb);
-> -	kfree_skb(nskb);
-> +	/* Fill the skb with the new (local) frags. */
-> +	memcpy(skb_shinfo(skb)->frags, frags,
-> +	       nr_frags * sizeof(skb_frag_t));
-> +	skb_shinfo(skb)->nr_frags = nr_frags;
-> +	skb->truesize += nr_frags * PAGE_SIZE;
->
->   	return 0;
->   }
->
+KERNEL_MAX_HEADER_PARSE_ADDRLEN - 8, as the first 8
+bytes are still written into the space allocated in packet_skb_cb?
