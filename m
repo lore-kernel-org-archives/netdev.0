@@ -1,62 +1,52 @@
-From: Michel Machado <michel@digirati.com.br>
-Subject: Linux XIA - merge proposal
-Date: Tue, 03 Mar 2015 12:29:18 -0500
-Message-ID: <54F5EF6E.9090303@digirati.com.br>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] tc class: Show class names from file
+Date: Tue, 3 Mar 2015 09:58:45 -0800
+Message-ID: <20150303095845.5aa844a0@urahara>
+References: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:45008 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932174AbbCCR6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 12:58:44 -0500
+Received: by igdh15 with SMTP id h15so30138576igd.3
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 09:58:44 -0800 (PST)
+In-Reply-To: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi there,
+On Tue,  3 Mar 2015 18:41:18 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-    We have been developing Linux XIA, a new network stack that 
-emphasizes evolvability and interoperability, for a couple of years, and 
-it has now reached a degree of maturity that allows others to experiment 
-with it.  In addition to the kernel implementation, we have a userland 
-tool to set up the stack, a Wireshark fork with extensions for XIA 
-packets, an implemented solution to interoperate with IPv4 networks, 
-forwarding performance evaluation of our code, support for Linux 
-containers, and an exemplifying demo; all documented on our wiki [1]. 
-Outlining the full benefits of XIA goes beyond the scope of this e-mail, 
-but we present an in-depth discussion on our wiki and in our 
-peer-reviewed academic publications referenced there.
+> From: Vadim Kochan <vadim4j@gmail.com>
+> 
+> It is possible to use class names from file /etc/iproute2/cls_names
+> which tc will use when showing class info:
+> 
+>     # tc/tc -nm class show dev lo
+> 	class htb 1:10 parent 1:1 leaf 10: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> 	class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb web#1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb voip#1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> 	class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> 
+> or to specify via file path:
+> 
+>     # tc/tc -nm -cf /tmp/cls_names class show dev lo
+> 
+> Class names file contains simple "maj:min  name" structure:
+> 
+> 1:20    web
+> 1:40    voip
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-    Linux XIA is not yet mature enough for production, but we do think 
-that broader exposure will help us to move forward faster, and get more 
-in tune with the interested community. Thus, we are writing to ask to 
-merge our work into the Linux kernel.
-
-    We are aware of all of the effort required to review a large chunk 
-of code, so to lower this burden, we propose to merge our new network 
-stack via staging. This would give time for the community at large to 
-get acquainted with XIA's concepts, and review the code. Of course, we 
-will address feedback as it comes in. We're aware that the current Linux 
-staging process [2] is geared toward drivers and filesystems, but not 
-network stacks. We're fine with clearly marking Linux XIA as being under 
-staging as well as helping to define this review process for network stacks.
-
-    Linux XIA is highly confined in its folder net/xia. There are a few 
-headers in folder include/net, but all the names of these headers are of 
-the form xia_*.h. Patches outside these files are minimal. This high 
-isolation is a guarantee that Linux XIA can be dropped out of the kernel 
-with little work if needed.
-
-    Finally, there are several other research groups around the world 
-working on other future Internet architectures.  We hope that the 
-process of merging Linux XIA will provide a template for these other 
-groups to merge their network stacks into Linux in the future.
-
-    Thank you very much for your time,
-
-
-[1] https://github.com/AltraMayor/XIA-for-Linux/wiki
-[2] http://www.kroah.com/log/linux/linux-staging-update.html
-
--- 
-[ ]'s
-Michel Machado
-on behalf of the Linux XIA team at Boston University
+This adds new dependency on berkely db.
+See how iproute handled that for arpd and use same #ifdef and config.
