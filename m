@@ -1,39 +1,45 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [RFCv2 net-next 6/7] net: Refactor ip_defrag() APIs
-Date: Tue, 3 Mar 2015 11:55:35 -0800
-Message-ID: <CACzMAJ+Lsf-xshZZhdvp8dXTtGMb8spauBaKBqdajGimUdxbbw@mail.gmail.com>
-References: <1425333305-19702-1-git-send-email-joestringer@nicira.com>
-	<1425333305-19702-7-git-send-email-joestringer@nicira.com>
-	<20150303082054.GA11110@acer.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 01/14] etherdevice: Add eth_<foo>_addr
+ CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS code
+Date: Tue, 03 Mar 2015 11:56:41 -0800
+Message-ID: <1425412601.5130.194.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425407104.17273.27.camel@perches.com>
+	 <1425408125.5130.191.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1425409671.17273.42.camel@perches.com>
+	 <20150303.142758.822602589629075339.davem@davemloft.net>
+	 <1425411669.17273.52.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joe Stringer <joestringer@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Justin Pettit <jpettit@nicira.com>, Thomas Graf <tgraf@suug.ch>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:43032 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751500AbbCCTzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 14:55:36 -0500
-Received: by mail-oi0-f54.google.com with SMTP id h136so1579715oig.1
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 11:55:35 -0800 (PST)
-In-Reply-To: <20150303082054.GA11110@acer.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425411669.17273.52.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ah, I missed it.  Currently it is passed via IPCB. Would it be better
-to pass it as a parameter?
+On Tue, 2015-03-03 at 11:41 -0800, Joe Perches wrote:
 
-On Tue, Mar 3, 2015 at 12:20 AM, Patrick McHardy <kaber@trash.net> wrote:
-> On 02.03, Joe Stringer wrote:
->> From: Andy Zhou <azhou@nicira.com>
->>
->> Currently, ip_defrag() does not keep track of the maximum fragmentation
->> size for each fragmented packet. This information is not necessary since
->> current Linux IP fragmentation always fragments a packet based on output
->> devices' MTU.
->
-> It does, search for max_size.
+> Until such time as the linux crosstools compilers are updated,
+> (they seem stuck on 4.6.3 from 3 years ago)
+> https://www.kernel.org/pub/tools/crosstool/
+> I think the series is a trivial, small improvement.
+> 
+> I believe that's the only "argument" I've made.
+> 
+> Your choice to apply it or not, but if the series
+> isn't appropriate, likely the existence of both
+> eth_zero_addr and eth_broadcast_addr is suspect too.
+> 
+
+Please not that my objection was on patch 1/14 itself :
+
+Using if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) in a slow path,
+instead of leaving the existing memset() in place.
+
+If people likes eth_broadcast_addr(), I have nothing against this.
+
+Commit 6d57e9078e880a3dd232d579f42ac437a8f1ef7b
+("etherdevice: introduce help function eth_zero_addr()")
+was fine.
