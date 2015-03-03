@@ -1,70 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: randconfig build error with next-20150302, in
- drivers/net/ethernet/intel/i40e/i40e_configfs.c
-Date: Mon, 02 Mar 2015 15:03:54 -0800
-Message-ID: <1425337434.2409.11.camel@jtkirshe-mobl>
-References: <CA+r1ZhiO8i7b4XQatEX-9X12M9hYPo5F51wrOCYdA8JSMOHnpg@mail.gmail.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH net-next 2/2] net: netcp: select davinci_mdio driver by
+ default
+Date: Mon, 2 Mar 2015 16:04:45 -0800
+Message-ID: <20150303000444.GC3756@atomide.com>
+References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
+ <1424813251-31610-2-git-send-email-m-karicheri2@ti.com>
+ <20150227162921.GX11056@atomide.com>
+ <54F0D9E9.1020705@ti.com>
+ <20150302161155.GB3665@atomide.com>
+ <54F4DA06.9070505@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-zhAHmJaLjF1APSRyUtqs"
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
-To: Jim Davis <jim.epost@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, mugunthanvnm@ti.com,
+	prabhakar.csengg@gmail.com, varkabhadram@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	grygorii.strashko@ti.com, lokeshvutla@ti.com, mpa@pengutronix.de,
+	w-kwok2@ti.com
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+r1ZhiO8i7b4XQatEX-9X12M9hYPo5F51wrOCYdA8JSMOHnpg@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <54F4DA06.9070505@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Murali Karicheri <m-karicheri2@ti.com> [150302 13:49]:
+> On 03/02/2015 11:11 AM, Tony Lindgren wrote:
+> >
+> >Because we are now force selecting items that may have other
+> >dependencies later on that will not be satisfied. That causes
+> >all kinds of make randconfig build errors.
+> >
+> My mistake.  I didn't ask you what is your definition of a silent option? An
+> option not selected by any other option? Or an option for which default
+> value not defined? Can you clarify this so that I can make sense of your
+> comment? I checked Documentation/kbuild/kconfig.txt as well as
+> Documentation/kbuild/kconfig-language.txt for defintion, but can't find it.
+> 
+> Howeve, I read the warning about using "select" in the above document since
+> it blindly select the option without checking dependencies. So AFAIK, select
+> becomes an issue if the config option is not the leaf option of the config
+> tree as the dependency checking is not in place and can cause issues. In
+> this case it is safe as DAVINCI_MDIO is a leaf option and only selects
+> PHYLIB which dependents on NETDEVICES and we know this is true for NETCP
+> devices. So select is just fine here.
 
---=-zhAHmJaLjF1APSRyUtqs
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+OK I think you're right that in this case it won't cause issues.
 
-On Mon, 2015-03-02 at 09:29 -0700, Jim Davis wrote:
-> Building with the attached random configuration file,
->=20
-> drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
-> i40e_configfs.c:(.text+0x3df4ce): undefined reference to
-> `config_item_init_type_name'
-> drivers/built-in.o: In function `i40e_configfs_init':
-> (.text+0x3df4ee): undefined reference to `config_group_init'
-> drivers/built-in.o: In function `i40e_configfs_init':
-> (.text+0x3df50c): undefined reference to `configfs_register_subsystem'
-> drivers/built-in.o: In function `i40e_configfs_exit':
-> (.text+0x3df52e): undefined reference to `configfs_unregister_subsystem'
-> Makefile:939: recipe for target 'vmlinux' failed
+But if these cpsw components are never selectable by the user for
+any real use case, then you may want to make them silent Kconfig
+options:
 
-We found this issue and already have a patch to resolve the problem.
-The issue is that we cannot have configfs as a module when our driver is
-compiled into the kernel.  The solution is to use the similar Kconfig
-logic we used for PTP (which had the same issue) for configfs.
+config TI_DAVINCI_MDIO
+	bool
+	select PHYLIB
 
-I should have the patch pushed upstream in the next batch of patches I
-push upstream.
+config TI_DAVINCI_CPDMA
+	bool
 
---=-zhAHmJaLjF1APSRyUtqs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+config TI_CPSW_PHY_SEL
+	bool
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+config TI_CPSW_ALE
+	bool
+...
 
-iQIcBAABCgAGBQJU9OxaAAoJEOVv75VaS+3OgjAP/3c8QjYX3WbnzdJkzBGnofZf
-iLD+DTpvjKWwf4Kr16XL3MrOvQ96++0AGwQOdbPqaSpsowQL3Xrs9oFmu6kS2B0J
-Ff6+FoTSPXAIfG8Ye+qyYiIZYtDGU1KH43BjORSPL+fd1BHlYI6LZjJQtSuNbnaE
-/KXDwob4WAD+l6QA1U8hCl2p0eakjl75byYMjYWfQBo1/zNdu4mPeoEmnb60CqS8
-401r+oiRpIdQljdffxCzGJXf0IooN54jRDMfyFpiUSdS6FiTzTfTkKAMUaDtgBvZ
-8rwyJiMEw0khKZVWWdXrEucQiQcqzQNTo/z/lwkbduVTpna1lE0oq4qvtb3H1o2g
-MTghroh+0n6k8MPueSLb4hgJOl4EFqCoWKXt/jF/vfQfXeV/kHWcktbqx8z4T9Sg
-WwSsUjqunyw5ZeziVxDYWM9dEvYE1rFxjGeesKgP69Raiw9Kwdj70oOjA6wjLQug
-P9Tc9geqCCEzeefNbF0u98bN2QEMdAApWvyE5fvdbOSUWsw6U/x84eqgbeNw6vjG
-KXxxxqe5VIsmxw+lotJiLVNbAIS9TJzrVjNPg0bq6whvb0w7p/REOG8e89HXKUbJ
-H++hFXFnNAEalmfjlL/Drg7ed9mfyH/ov2iDgXIc6b4SCxlWwTqNbpmnhav2UHoL
-5jP3DkiF2qduvKuPslli
-=Hn+O
------END PGP SIGNATURE-----
+Regards,
 
---=-zhAHmJaLjF1APSRyUtqs--
+Tony
