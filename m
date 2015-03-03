@@ -1,40 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 13/14] wireless: Use eth_<foo>_addr instead of
- memset
-Date: Tue, 03 Mar 2015 11:03:17 -0800
-Message-ID: <1425409397.17273.38.camel@perches.com>
-References: <cover.1425354527.git.joe@perches.com>
-	 <0c710456e4875ff00c1a9fcff9378ed15110dcd3.1425354528.git.joe@perches.com>
-	 <1425370617.2450.3.camel@sipsolutions.net>
-	 <20150303.135737.630359651880852880.davem@davemloft.net>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] tc class: Show class names from file
+Date: Tue, 3 Mar 2015 20:52:49 +0200
+Message-ID: <20150303185249.GA2227@angus-think.lan>
+References: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
+ <20150303095845.5aa844a0@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150303.135737.630359651880852880.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:37801 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932218AbbCCTEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 14:04:16 -0500
+Received: by wibhm9 with SMTP id hm9so2039986wib.2
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 11:04:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150303095845.5aa844a0@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-03-03 at 13:57 -0500, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Tue, 03 Mar 2015 09:16:57 +0100
+On Tue, Mar 03, 2015 at 09:58:45AM -0800, Stephen Hemminger wrote:
+> On Tue,  3 Mar 2015 18:41:18 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
 > 
-> > Other than that, I guess I'll apply this, but I really wish there was a
-> > way to distinguish more easily which of these require alignment and
-> > which don't.
+> > From: Vadim Kochan <vadim4j@gmail.com>
+> > 
+> > It is possible to use class names from file /etc/iproute2/cls_names
+> > which tc will use when showing class info:
+> > 
+> >     # tc/tc -nm class show dev lo
+> > 	class htb 1:10 parent 1:1 leaf 10: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> > 	class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > 	class htb web#1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > 	class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > 	class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> > 	class htb voip#1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> > 	class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> > 	class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> > 
+> > or to specify via file path:
+> > 
+> >     # tc/tc -nm -cf /tmp/cls_names class show dev lo
+> > 
+> > Class names file contains simple "maj:min  name" structure:
+> > 
+> > 1:20    web
+> > 1:40    voip
+> > 
+> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 > 
-> You can't apply "this" without the dependency patch #1.
-> 
-> Therefore this should probably all go through my tree.
+> This adds new dependency on berkely db.
+> See how iproute handled that for arpd and use same #ifdef and config.
 
-Hey David.
+Sorry I did not get how this adds the dependency for berkely db ?
+Would you please help me to understand the problem ?
 
-The eth_<foo>_addr functions already exist so
-1/14 isn't a dependency.
-
-It's just a trivial improvement on existing code
-with CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS and
-at least the arm 4.6.3 compiler.
+Thanks,
