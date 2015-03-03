@@ -1,76 +1,69 @@
-From: nick <xerofoify@gmail.com>
-Subject: Re: [PATCH] ath:Release resources for structure pointer, ar if error
- pointing device in the function, ath10k_core_register_work
-Date: Tue, 03 Mar 2015 13:21:06 -0500
-Message-ID: <54F5FB92.6090702@gmail.com>
-References: <1425350171-26333-1-git-send-email-xerofoify@gmail.com>
- <CA+BoTQnNgNd4V9FN5SON387s7XuowFSDgrFUjZTn9Qm-sJ+NbQ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 01/14] etherdevice: Add eth_<foo>_addr
+ CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS code
+Date: Tue, 03 Mar 2015 10:25:04 -0800
+Message-ID: <1425407104.17273.27.camel@perches.com>
+References: <cover.1425354527.git.joe@perches.com>
+	 <cccde434d9a32d1b9fb3d7604083c05a2ef1fe0e.1425354528.git.joe@perches.com>
+	 <1425388752.5130.164.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
- Kalle Valo <kvalo@qca.qualcomm.com>,
- linux-wireless <linux-wireless@vger.kernel.org>, linux-kernel@vger.kernel.org,
- "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Michal Kazior <michal.kazior@tieto.com>
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CA+BoTQnNgNd4V9FN5SON387s7XuowFSDgrFUjZTn9Qm-sJ+NbQ@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425388752.5130.164.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE1LTAzLTAzIDAxOjQwIEFNLCBNaWNoYWwgS2F6aW9yIHdyb3RlOgo+IE9uIDMgTWFy
-Y2ggMjAxNSBhdCAwMzozNiwgTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPiB3
-cm90ZToKPj4gUmVsZWFzZXMgcmVzb3VyY2VzIGFuZCBkZXJlZ2lzdGVycyB0aGUgc3R1Y3R1cmUg
-cG9pbnRlciBhciBwYXNzZWQgYnkgdGhlIGNhbGxlciB0byB0aGUgZnVuY3Rpb24sIGF0aDEwa19j
-b3JlX3JlZ2lzdGVyX3dvcmsKPj4gaWYgdW5hYmxlIHRvIHByb2JlIHRoZSBzdHJ1Y3R1cmUgcG9p
-bnRlciBzdWNjZXNzZnVsbHkgd2l0aCBhIGNhbGwgdG8gYXRoMTBrX2NvcmVfcHJvYmVfZncuIEZ1
-cnRoZXIgbW9yZSBpZiB0aGlzIGhhcHBlcm5zCj4+IHdlIG11c3QgZmlyc3QganVtcCB0byB0aGUg
-bGFiZWwgZXJyIGZvciB0aGUgZ290byBzdGF0ZW1lbnQgcmVxdWlyZWQgdG8ganVtcCB0byBoYW5k
-bGUgdGhpcyBwYXJ0aWN1bGFyIGVycm9yIGluIHRoZSBmdW5jdGlvbiwKPj4gYXRoMTBrX2NvcmVf
-cmVnaXN0ZXJfd29yay4gIEFmdGVyIHdlIGFyZSBpbiB0aGUgY29ycmVjdCBlcnJvciBzZWN0aW9u
-IHdlIG11c3QgZnJlZSB0aGUgcmVzb3VyY2VzIGZvciB0aGUgc3RydWN0dXJlIHBvaW50ZXIsYXIK
-Pj4gd2l0aCBhIGNhbGwgdG8gdGhlIGZ1bmN0aW9uLCAgYXRoMTBrX2NvcmVfdW5yZWdpc3RlciB0
-byBmcmVlIHJlc291cmNlcyBhbGxvY2F0ZWQgZm9yIHRoZSBzdHJ1Y3R1cmUgcG9pbnRlcixhci4K
-Pj4KPj4gU2lnbmVkLW9mZi1ieTogTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29t
-Pgo+PiAtLS0KPj4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jIHwgNCAr
-LS0tCj4+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDMgZGVsZXRpb25zKC0pCj4+
-Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL2NvcmUuYyBi
-L2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jCj4+IGluZGV4IDMxMGUxMmIu
-LjhiMmNhMjUgMTAwNjQ0Cj4+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsv
-Y29yZS5jCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jCj4+
-IEBAIC0xMzA3LDkgKzEzMDcsNyBAQCBlcnJfdW5yZWdpc3Rlcl9tYWM6Cj4+ICBlcnJfcmVsZWFz
-ZV9mdzoKPj4gICAgICAgICBhdGgxMGtfY29yZV9mcmVlX2Zpcm13YXJlX2ZpbGVzKGFyKTsKPj4g
-IGVycjoKPj4gLSAgICAgICAvKiBUT0RPOiBJdCdzIHByb2JhYmx5IGEgZ29vZCBpZGVhIHRvIHJl
-bGVhc2UgZGV2aWNlIGZyb20gdGhlIGRyaXZlcgo+PiAtICAgICAgICAqIGJ1dCBjYWxsaW5nIGRl
-dmljZV9yZWxlYXNlX2RyaXZlcigpIGhlcmUgd2lsbCBjYXVzZSBhIGRlYWRsb2NrLgo+PiAtICAg
-ICAgICAqLwo+PiArICAgICAgIGF0aDEwa19jb3JlX3VucmVnaXN0ZXIoYXIpOwo+PiAgICAgICAg
-IHJldHVybjsKPj4gIH0KPiAKPiBEaWQgeW91IHRlc3QgdGhpcz8gVGhpcyB3aWxsIGRlYWRsb2Nr
-LiBhdGgxMGtfY29yZV91bnJlZ2lzdGVyKCkgdHJpZXMKPiB0byBjYW5jZWwgYXItPnJlZ2lzdGVy
-X3dvcmsuIFRoaXMgd29uJ3Qgd29yayBpZiB5b3UgY2FsbCBpdCBmcm9tIHRoZQo+IHdvcmtlciBp
-dHNlbGYuIE1vcmVvdmVyIGlmIEkgaWdub3JlIHRoZSBkZWFkbG9jawo+IGF0aDEwa19jb3JlX3Vu
-cmVnaXN0ZXIoKSB3b3VsZCBkbyBub3RoaW5nIGVsc2UgaW4gdGhpcyBjb250ZXh0IGJlY2F1c2UK
-PiBBVEgxMEtfRkxBR19DT1JFX1JFR0lTVEVSRUQgd291bGRuJ3QgYmUgZXZlbiBzZXQuCj4gCj4g
-SWYgeW91J3JlIGludGVyZXN0ZWQgaW4gZGVhbGluZyB3aXRoIHRoaXMgVE9ETyBJIHN1Z2dlc3Qg
-eW91IHJlYWQKPiB0aHJvdWdoIHRoZSBvcmlnaW5hbCB0aHJlYWQgd2hpY2ggbGVkIHRvIHRoZSBj
-dXJyZW50IHN0YXRlIG9mIGFmZmFpcnM6Cj4gCj4gICBodHRwOi8vd3d3LnNwaW5pY3MubmV0L2xp
-c3RzL2xpbnV4LXdpcmVsZXNzL21zZzEyNDAwNC5odG1sCj4gCj4gCj4gTWljaGHFggo+IApNaWNo
-YWwsClRoYW5rcyBmb3IgdGhlIGluZm8gYW5kIHRoZSB0aHJlYWQgcmVsYXRlZCB0byB0aGlzIGlz
-c3VlLiBBZnRlciByZWFkaW5nIGl0IEkgd2FzIHdvbmRlcmluZyBpZiB3ZSBjYW4gdGVzdCBteQpw
-YXRjaCBvbiBhY3R1YWwgaGFyZHdhcmUgdXNpbmcgdGhpcyBkcml2ZXIgd2l0aCBteSBwYXRjaCBp
-bmNsdWRlZCBpbiBvcmRlciB0byBzZWUgd2hhdCBpc3N1ZXMgYXJlIHN0aWxsIHRoZXJlLgpJIGRv
-bid0IGhhdmUgdGhlIGhhcmR3YXJlIGx5aW5nIGFyb3VuZCBmb3IgdGhpcyBidXQgaWYgc29tZW9u
-ZSBjYW4gdGVzdCBteSBwYXRjaCBvdXQgYW5kIHNlZSB3aGVyZSB0aGVyZSBhcmUKc3RpbGwgZGVh
-ZGxvY2sgaXNzdWVzIG9yIG90aGVyIGJ1Z3MgdG8gbXkgcGF0Y2ggSSBhbSBjZXJ0YWluIEkgd2ls
-bCBiZSBhYmxlIHRvIGZpZ3VyZSB0aGlzIG91dC4KVGhhbmtzLApOaWNrClAuUy4gSSBhbSBhIHN0
-dWRlbnQgc28gbXkgYnVkZ2V0IGZvciB0ZXN0IGhhcmR3YXJlIGlzIGEgbGl0dGxlIHRoaW4uIDoo
-CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwphdGgxMGsg
-bWFpbGluZyBsaXN0CmF0aDEwa0BsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZy
-YWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vYXRoMTBrCg==
+On Tue, 2015-03-03 at 05:19 -0800, Eric Dumazet wrote:
+> On Mon, 2015-03-02 at 19:54 -0800, Joe Perches wrote:
+> > Make the memset possibly more efficient with the appropriate
+> > CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS #ifdef
+[]
+> > diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+[]
+> > @@ -192,7 +192,12 @@ static inline void eth_random_addr(u8 *addr)
+> >   */
+> >  static inline void eth_broadcast_addr(u8 *addr)
+> >  {
+> > +#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+> > +	*(u32 *)addr = 0xffffffff;
+> > +	*(u16 *)(addr + 4) = 0xffff;
+> > +#else
+> >  	memset(addr, 0xff, ETH_ALEN);
+> > +#endif
+> >  }
+> >  
+> 
+> I am pretty sure compiler already does an inline, and might chose to 
+> emit equivalent instructions for :
+>  *(u16 *) addr = 0xffff;
+>  *(u32 *)(addr + 2) = 0xffffffff;
+> 
+> if (addr % 4) is known to be 2
+
+(cross-compiled on x86)
+
+At least for arm gcc 4.6.3, it emits different code
+for net/l2tp/l2tp_eth.o
+
+old:
+
+-    1cc0:	e3a010ff 	mov	r1, #255	; 0xff
+-    1cc4:	e3a02006 	mov	r2, #6
+-    1cc8:	e3c33001 	bic	r3, r3, #1
+-    1ccc:	e3833002 	orr	r3, r3, #2
+-    1cd0:	e5c53000 	strb	r3, [r5]
+-    1cd4:	ebfffffe 	bl	0 <memset>
+-    1cc8:	e3c33001 	bic	r3, r3, #1
+
+new:
+
++    1cc0:	e3a02f8a 	mov	r2, #552	; 0x228
++    1cc4:	e3c33001 	bic	r3, r3, #1
++    1cc8:	e3833002 	orr	r3, r3, #2
++    1ccc:	e5c53000 	strb	r3, [r5]
++    1cd0:	e3e03000 	mvn	r3, #0
++    1cd4:	e5843224 	str	r3, [r4, #548]	; 0x224
++    1cd8:	e18430b2 	strh	r3, [r4, r2]
