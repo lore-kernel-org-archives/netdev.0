@@ -1,186 +1,59 @@
 From: Fan Du <fan.du@intel.com>
-Subject: [PATCHv4 net-next 3/3] ipv4: Create probe timer for tcp PMTU as per RFC4821
-Date: Tue,  3 Mar 2015 17:19:21 +0800
-Message-ID: <1425374361-21047-4-git-send-email-fan.du@intel.com>
-References: <1425374361-21047-1-git-send-email-fan.du@intel.com>
+Subject: [PATCHv4 net-next 0/3] Improvements for TCP PMTU
+Date: Tue,  3 Mar 2015 17:19:18 +0800
+Message-ID: <1425374361-21047-1-git-send-email-fan.du@intel.com>
 Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
 	fengyuleidian0615@gmail.com
 To: johnwheffner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:10476 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174AbbCCJYN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 04:24:13 -0500
-In-Reply-To: <1425374361-21047-1-git-send-email-fan.du@intel.com>
+	id S1752174AbbCCJYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 04:24:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As per RFC4821 7.3.  Selecting Probe Size, a probe timer should
-be armed once probing has converged. Once this timer expired,
-probing again to take advantage of any path PMTU change. The
-recommended probing interval is 10 minutes per RFC1981. Probing
-interval could be sysctled by sysctl_tcp_probe_interval.
+Hi,
 
-Eric Dumazet suggested to implement pseudo timer based on 32bits
-jiffies tcp_time_stamp instead of using classic timer for such
-rare event.
+This patchset performs some improvements and enhancement
+for current TCP PMTU as per RFC4821 with the aim to find
+optimal mms size quickly, and also be adaptive to route
+changes like enlarged path MTU. Then TCP PMTU could be
+used to probe a effective pmtu in absence of ICMP message
+for tunnels(e.g. vxlan) across different networking stack.
 
-Signed-off-by: Fan Du <fan.du@intel.com>
----
+Patch1/3: Set probe mss base to 1024 Bytes per RFC4821
+Patch2/3: Do not double probe_size for each probing,
+          use a simple binary search to gain maximum performance.
+	  mss for next probing.
+Patch3/3: Create a probe timer to detect enlarged path MTU.
+
+Changelog:
+v4:
+  - Convert probe_size to mss, not directly from search_low/high
+  - Clamp probe_threshold
+  - Don't adjust search_high in blackhole probe, so drop orignal patch3
 v3:
-  - Fix pseudo timer delta caculation.
+  - Update commit message for patch2
+  - Fix pseudo timer delta calculation in patch4
 v2:
-  - Create a pseudo timer based on 32bits jiffies tcp_time_stamp
-    to control when to reprobing as suggested by Eric.
----
- include/net/inet_connection_sock.h |    2 ++
- include/net/netns/ipv4.h           |    1 +
- include/net/tcp.h                  |    3 +++
- net/ipv4/sysctl_net_ipv4.c         |    7 +++++++
- net/ipv4/tcp_ipv4.c                |    1 +
- net/ipv4/tcp_output.c              |   34 ++++++++++++++++++++++++++++++++--
- net/ipv4/tcp_timer.c               |    1 +
- 7 files changed, 47 insertions(+), 2 deletions(-)
+  - Introduce sysctl_tcp_probe_threshold to control when
+    probing will stop, as suggested by John Heffner.
+  - Add patch3 to shrink current mss value for search low boundary.
+  - Drop cannonical timer usages, implements pseudo timer based on
+    32bits jiffies tcp_time_stamp, as suggested by Eric Dumazet.
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 5976bde..b9a6b0a 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -126,6 +126,8 @@ struct inet_connection_sock {
- 
- 		/* Information on the current probe. */
- 		int		  probe_size;
-+
-+		u32		  probe_timestamp;
- 	} icsk_mtup;
- 	u32			  icsk_ca_priv[16];
- 	u32			  icsk_user_timeout;
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 374bf3f..6323a22 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -86,6 +86,7 @@ struct netns_ipv4 {
- 	int sysctl_tcp_mtu_probing;
- 	int sysctl_tcp_base_mss;
- 	int sysctl_tcp_probe_threshold;
-+	u32 sysctl_tcp_probe_interval;
- 
- 	struct ping_group_range ping_group_range;
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index d269c91..dd6adbc 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -67,6 +67,9 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- /* The least MTU to use for probing */
- #define TCP_BASE_MSS		1024
- 
-+/* probing interval, default to 10 minutes as per RFC4821 */
-+#define TCP_PROBE_INTERVAL	600
-+
- /* Specify interval when tcp mtu probing will stop */
- #define TCP_PROBE_THRESHOLD	8
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index d3c09c1..fdf8991 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -890,6 +890,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "tcp_probe_interval",
-+		.data		= &init_net.ipv4.sysctl_tcp_probe_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 35790d9..f0c6fc3 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2461,6 +2461,7 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.sysctl_tcp_ecn = 2;
- 	net->ipv4.sysctl_tcp_base_mss = TCP_BASE_MSS;
- 	net->ipv4.sysctl_tcp_probe_threshold = TCP_PROBE_THRESHOLD;
-+	net->ipv4.sysctl_tcp_probe_interval = TCP_PROBE_INTERVAL;
- 	return 0;
- 
- fail:
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 46acddc..e99edf2 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1354,6 +1354,8 @@ void tcp_mtup_init(struct sock *sk)
- 			       icsk->icsk_af_ops->net_header_len;
- 	icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, net->ipv4.sysctl_tcp_base_mss);
- 	icsk->icsk_mtup.probe_size = 0;
-+	if (icsk->icsk_mtup.enabled)
-+		icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
- }
- EXPORT_SYMBOL(tcp_mtup_init);
- 
-@@ -1823,6 +1825,31 @@ send_now:
- 	return false;
- }
- 
-+static inline void tcp_mtu_check_reprobe(struct sock *sk)
-+{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct net *net = sock_net(sk);
-+	u32 interval;
-+	s32 delta;
-+
-+	interval = net->ipv4.sysctl_tcp_probe_interval;
-+	delta = tcp_time_stamp - icsk->icsk_mtup.probe_timestamp;
-+	if (unlikely(delta >= interval * HZ)) {
-+		int mss = tcp_current_mss(sk);
-+
-+		/* Update current search range */
-+		icsk->icsk_mtup.search_high = tp->rx_opt.mss_clamp +
-+			sizeof(struct tcphdr) +
-+			icsk->icsk_af_ops->net_header_len;
-+		icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
-+		icsk->icsk_mtup.probe_size = 0;
-+
-+		/* Update probe time stamp */
-+		icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
-+	}
-+}
-+
- /* Create a new MTU probe if we are ready.
-  * MTU probe is regularly attempting to increase the path MTU by
-  * deliberately sending larger packets.  This discovers routing
-@@ -1866,8 +1893,11 @@ static int tcp_mtu_probe(struct sock *sk)
- 	size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
- 	interval = icsk->icsk_mtup.search_high - icsk->icsk_mtup.search_low;
- 	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high) ||
--	    interval < max(1, net->ipv4.sysctl_tcp_probe_threshold)) {
--		/* TODO: set timer for probe_converge_event */
-+		interval < net->ipv4.sysctl_tcp_probe_threshold) {
-+		/* Check whether enough time has elaplased for
-+		 * another round of probing.
-+		 */
-+		tcp_mtu_check_reprobe(sk);
- 		return -1;
- 	}
- 
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 0732b78..1550593 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -107,6 +107,7 @@ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
- 	if (net->ipv4.sysctl_tcp_mtu_probing) {
- 		if (!icsk->icsk_mtup.enabled) {
- 			icsk->icsk_mtup.enabled = 1;
-+			icsk->icsk_mtup.probe_timestamp = tcp_time_stamp;
- 			tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
- 		} else {
- 			struct net *net = sock_net(sk);
--- 
-1.7.1
+
+Fan Du (3):
+  ipv4: Raise tcp PMTU probe mss base size
+  ipv4: Use binary search to choose tcp PMTU probe_size
+  ipv4: Create probe timer for tcp PMTU as per RFC4821
+
+ include/net/inet_connection_sock.h |    2 +
+ include/net/netns/ipv4.h           |    2 +
+ include/net/tcp.h                  |    8 +++++-
+ net/ipv4/sysctl_net_ipv4.c         |   14 +++++++++++
+ net/ipv4/tcp_ipv4.c                |    2 +
+ net/ipv4/tcp_output.c              |   46 ++++++++++++++++++++++++++++++++---
+ net/ipv4/tcp_timer.c               |    1 +
+ 7 files changed, 70 insertions(+), 5 deletions(-)
