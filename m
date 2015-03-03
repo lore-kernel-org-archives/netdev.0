@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ibmveth: Add function to enable live MAC address
- changes
-Date: Tue, 03 Mar 2015 14:36:34 -0500 (EST)
-Message-ID: <20150303.143634.1288503571033945996.davem@davemloft.net>
-References: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH] gianfar: Reduce logging noise seen due to phy polling
+ if link is down
+Date: Tue, 03 Mar 2015 14:37:48 -0500 (EST)
+Message-ID: <20150303.143748.2255336109763734319.davem@davemloft.net>
+References: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	brking@linux.vnet.ibm.com, jiri@resnulli.us
-To: tlfalcon@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36685 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754306AbbCCTgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 14:36:37 -0500
-In-Reply-To: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com,
+	linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Mon,  2 Mar 2015 11:56:12 -0600
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Mon,  2 Mar 2015 12:03:27 -0800
 
-> Add a function that will enable changing the MAC address
-> of an ibmveth interface while it is still running.
+> Commit 6ce29b0e2a04 ("gianfar: Avoid unnecessary reg accesses in adjust_link()")
+> eliminates unnecessary calls to adjust_link for phy devices which don't support
+> interrupts and need polling. As part of that work, the 'new_state' local flag,
+> which was used to reduce logging noise on the console, was eliminated.
 > 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> Unfortunately, that means that a 'Link is Down' log message will now be
+> issued continuously if a link is configured as UP, the link state is down,
+> and the associated phy requires polling. This occurs because priv->oldduplex
+> is -1 in this case, which always differs from phydev->duplex. In addition,
+> phydev->speed may also differ from priv->oldspeed.  gfar_update_link_state()
+> is therefore called each time a phy is polled, even if the link state did not
+> change.
+> 
+> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
 Applied, thanks.
