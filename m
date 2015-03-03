@@ -1,108 +1,63 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 2/2] neigh: Add helper function neigh_xmit
-Date: Tue, 03 Mar 2015 17:11:16 -0600
-Message-ID: <8761ahy8vf.fsf_-_@x220.int.ebiederm.org>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60684 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756649AbbCCXPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 18:15:32 -0500
-In-Reply-To: <87h9u1y8y8.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Tue, 03 Mar 2015 17:09:35 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH v4 0/3] Two printf fixes
+Date: Wed,  4 Mar 2015 00:20:32 +0100
+Message-ID: <1425424836-17947-1-git-send-email-linux@rasmusvillemoes.dk>
+References: <1423525491-12613-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423525491-12613-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Both %pE and %ph are unusable in kasprintf(), since the occurrence of
+either will trigger an oops during the first vsnprintf call where
+kasprintf tries to find the correct size to allocate. These oopses
+could be papered over with somewhat smaller patches than these, but
+then the return value from vsnprintf would still not reflect the
+actual size needed. For %pE, this requires a change of semantics of
+string_escape_mem and hence an annoyingly large diffstat.
+
+v4: Also update fs/proc/array.c, factor overflow test into separate
+helper, minor stylistic changes.
+
+Changed in v3:
+
+* Add Andy's ack to 1/3.
+
+* Ensure that string_escape_mem doesn't output partial escape
+  sequences after 2/3, while still preparing for it to do exactly that
+  in 3/3.
+
+* Leave the return value of string_escape_mem as int.
+
+v2: Suggestions from Andy Shevchenko:
+
+* Simpler fix of hex_string().
+
+* The string_escape_mem change is split in two, 2/3 updating the
+  internal helpers and 3/3 then changing the external interface.
 
 
-For MPLS I am building the code so that either the neighbour mac
-address can be specified or we can have a next hop in ipv4 or ipv6.
+Rasmus Villemoes (3):
+  lib/vsprintf.c: Fix potential NULL deref in hex_string
+  lib/string_helpers.c: Refactor string_escape_mem
+  lib/string_helpers.c: Change semantics of string_escape_mem
 
-The kind of next hop we have is indicated by the neighbour table
-pointer.  A neighbour table pointer of NULL is a link layer address.
-A non-NULL neighbour table pointer indicates which neighbour table and
-thus which address family the next hop address is in that we need to
-look up.
+ fs/proc/array.c                |   4 +-
+ include/linux/string_helpers.h |   8 +-
+ lib/string_helpers.c           | 193 +++++++++++++++++------------------------
+ lib/test-string_helpers.c      |  38 ++++----
+ lib/vsprintf.c                 |  24 +++--
+ net/sunrpc/cache.c             |   8 +-
+ 6 files changed, 127 insertions(+), 148 deletions(-)
 
-The code either sends a packet directly or looks up the appropriate
-neighbour table entry and sends the packet.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/net/neighbour.h |  3 +++
- net/core/neighbour.c    | 34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 37 insertions(+)
-
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 14e3f017966b..afb8237b0a8c 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -358,6 +358,7 @@ void neigh_for_each(struct neigh_table *tbl,
- 		    void (*cb)(struct neighbour *, void *), void *cookie);
- void __neigh_for_each_release(struct neigh_table *tbl,
- 			      int (*cb)(struct neighbour *));
-+int neigh_xmit(int fam, struct net_device *, const void *, struct sk_buff *);
- void pneigh_for_each(struct neigh_table *tbl,
- 		     void (*cb)(struct pneigh_entry *));
- 
-@@ -511,4 +512,6 @@ static inline void neigh_ha_snapshot(char *dst, const struct neighbour *n,
- 		memcpy(dst, n->ha, dev->addr_len);
- 	} while (read_seqretry(&n->ha_lock, seq));
- }
-+
-+
- #endif
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index fe3c6eac5805..cffaf00561e7 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2391,6 +2391,40 @@ void __neigh_for_each_release(struct neigh_table *tbl,
- }
- EXPORT_SYMBOL(__neigh_for_each_release);
- 
-+int neigh_xmit(int family, struct net_device *dev,
-+	       const void *addr, struct sk_buff *skb)
-+{
-+	int err;
-+	if (family == AF_PACKET) {
-+		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
-+				      addr, NULL, skb->len);
-+		if (err < 0)
-+			goto out_kfree_skb;
-+		err = dev_queue_xmit(skb);
-+	} else {
-+		struct neigh_table *tbl;
-+		struct neighbour *neigh;
-+
-+		err = -ENETDOWN;
-+		tbl = neigh_find_table(family);
-+		if (!tbl)
-+			goto out;
-+		neigh = __neigh_lookup_noref(tbl, addr, dev);
-+		if (!neigh)
-+			neigh = __neigh_create(tbl, addr, dev, false);
-+		err = PTR_ERR(neigh);
-+		if (IS_ERR(neigh))
-+			goto out_kfree_skb;
-+		err = neigh->output(neigh, skb);
-+	}
-+out:
-+	return err;
-+out_kfree_skb:
-+	kfree_skb(skb);
-+	goto out;
-+}
-+EXPORT_SYMBOL(neigh_xmit);
-+
- #ifdef CONFIG_PROC_FS
- 
- static struct neighbour *neigh_get_first(struct seq_file *seq)
 -- 
-2.2.1
+2.1.3
