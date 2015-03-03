@@ -1,34 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/14] etherdevice: Add eth_<foo>_addr
- CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS code
-Date: Tue, 03 Mar 2015 17:01:57 -0500 (EST)
-Message-ID: <20150303.170157.1158245155960991442.davem@davemloft.net>
-References: <1425411669.17273.52.camel@perches.com>
-	<20150303.145815.1129211297511474723.davem@davemloft.net>
-	<1425413068.17273.58.camel@perches.com>
+From: Jonas Gorski <jogo@openwrt.org>
+Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Wed, 04 Mar 2015 00:05:15 +0100
+Message-ID: <54F63E2B.1050100@openwrt.org>
+References: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>	 <1425389399.5130.169.camel@edumazet-glaptop2.roam.corp.google.com> <1425390142.5130.173.camel@edumazet-glaptop2.roam.corp.google.com> <54F5BCE0.3060507@freebox.fr> <54F5F28C.40202@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425413068.17273.58.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Felipe Balbi <balbi@ti.com>,
+	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arrakis.dune.hu ([78.24.191.176]:41897 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756618AbbCCXFT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 18:05:19 -0500
+In-Reply-To: <54F5F28C.40202@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 03 Mar 2015 12:04:28 -0800
-
-> On Tue, 2015-03-03 at 14:58 -0500, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Tue, 03 Mar 2015 11:41:09 -0800
->> 
->> Converting these locations to consistently use eth_*() is fine,
->> but then "optimizing" a 6 by memset for configuration paths when
->> the compiler should be more than capable of doing this just fine
->> is not convincing at all to me.
+On 03.03.2015 18:42, Florian Fainelli wrote:
+> On 03/03/15 05:53, Nicolas Schichan wrote:
+>> On 03/03/2015 02:42 PM, Eric Dumazet wrote:
+>>>> To avoid that, I would take priv->tx_lock only once, or add a limit on
+>>>> the number of skbs that can be drained per round.
+>>>
+>>> Something like this (untested) patch
+>>
+>> I'm not against testing this patch, but we do not have any SMP capable bcm63xx
+>> board here so I don't think it will be of any use.
+>>
+>> bcm6358 and bcm6368 do indeed have two MIPS threads, but SMP is not possible
+>> (due to a data cache or TLB shared across all MIPS threads , unbearably
+>> complicating things, IIRC).
 > 
-> Swell, then perhaps you could simply skip 1/14.
+> 6358 does have the shared TLB (early BMIPS4350), but 6368 (later
+> BMIPS4350) runs just fine in a regular SMP configuration, that's the
+> default for OpenWrt actually. Maybe Jonas has something readily
+> available he could test on?
 
-Yes, that's reasonable, applied to net-next.
+While I do have several SMP capable boards here, I'm not sure what I'm
+supposed to test and especially how.
+
+I mean I can test whether it breaks things, but for testing whether it
+fixes things I would need some help on how to break it first ;-)
+
+
+Jonas
