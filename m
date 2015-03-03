@@ -1,48 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3] bridge: fix bridge netlink RCU usage
-Date: Tue, 03 Mar 2015 15:51:32 +0100
-Message-ID: <1425394292.2450.47.camel@sipsolutions.net>
-References: <1425390556-17844-1-git-send-email-johannes@sipsolutions.net>
-	 <54F5C5C1.9000306@cumulusnetworks.com>
-	 (sfid-20150303_153134_259974_794D3171)
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH v2] net: bridge: add compile-time assert for cb struct size
+Date: Tue, 3 Mar 2015 16:51:56 +0200
+Message-ID: <CAHsH6GuN+of0rKru0oPrYiR_eSJkwzCa2WEU27FKmpzxV19C2g@mail.gmail.com>
+References: <1425387211-16807-1-git-send-email-fw@strlen.de>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAF3BB7@AcuExch.aculab.com>
+	<54F5C51F.5020906@iogearbox.net>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAF3C48@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:56217 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751263AbbCCOvh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 09:51:37 -0500
-In-Reply-To: <54F5C5C1.9000306@cumulusnetworks.com> (sfid-20150303_153134_259974_794D3171)
+Received: from mail-yk0-f182.google.com ([209.85.160.182]:37850 "EHLO
+	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751475AbbCCOv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 09:51:56 -0500
+Received: by ykq19 with SMTP id 19so16931044ykq.4
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 06:51:56 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAF3C48@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Roopa,
+On Tue, Mar 3, 2015 at 4:44 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Daniel Borkmann
+>> On 03/03/2015 02:50 PM, David Laight wrote:
+>> ...
+>> >> +  BUILD_BUG_ON(sizeof(struct br_input_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
+>> >> +
+>> >
+>> > What about using something based on:
+>> > #define GET_CB(skb, type) ((type *)((skb)->cb + (sizeof (char[(sizeof (type) <= sizeof (skb->cb)) ? 1 : -1] - 1)))
+>> > to access skb->sb?
+>>
+>> That would require to change all skb->cb[] call-sites everywhere.
+>
+> Well, only once for each type.
 
-> My subsequent patch  in net-next related to this code, changes things a 
-> bit (fed0a159c8c5e453d79d6a73897c576efea0a8a5 bridge: fix link 
-> notification skb size calculation to include vlan ranges).
-
-Yeah, I saw this, but thought the original patch had already gone to
-net.git. Then later I found it hasn't but didn't remember ... sorry
-about that.
-
-> It reverts the use of this function which makes sure this is always 
-> called under rtnl.
-> But, I did add another version of this function in net-next which has 
-> the same problem.
-> Assuming that patch in net-next is on its way to net soon, am wondering 
-> if fixing it in net-next is the right course.
-
-Of course, this patch should then only ever be applied to net-next.
-
-> I can apply your patch there and re-submit. Or if you prefer to 
-> re-submit your patch on net-next that's great too.
-
-I can resend it. I even have a pretty simple test case to reproduce the
-failure :)
-
-johannes
+Note that there are cases where skb->cb[] used size is greater than
+the associated
+type.
+For example, in packet_rcv() a full hw address is stored in skb->cb[], exceeding
+the packet_skb_cb struct size. This is also true for can/raw.c (in
+raw_flags()), though
+in that specific case the skb->cb[] use could have been wrapped in a struct.
