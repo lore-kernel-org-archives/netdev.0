@@ -1,122 +1,31 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 2/2] xen-netback: unref frags when handling a from-guest skb with a frag list
-Date: Tue, 3 Mar 2015 16:26:11 +0000
-Message-ID: <1425399971-27630-3-git-send-email-david.vrabel@citrix.com>
-References: <1425399971-27630-1-git-send-email-david.vrabel@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Tue, 03 Mar 2015 08:32:26 -0800
+Message-ID: <1425400346.5130.189.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
+	 <1425389399.5130.169.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1425390142.5130.173.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54F5DCAF.9070102@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:58634 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757143AbbCCQaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 11:30:20 -0500
-In-Reply-To: <1425399971-27630-1-git-send-email-david.vrabel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Schichan <nschichan@freebox.fr>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Felipe Balbi <balbi@ti.com>,
+	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54F5DCAF.9070102@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Every time a VIF is destroyed up-to 256 pages may be leaked if packets
-with more than MAX_SKB_FRAGS frags where transmitted from the guest.
-Even worse, if another user of ballooned pages allocated one of these
-ballooned pages it would not handle the the unexpectedly non-zero page
-count (e.g., gntdev would deadlock when unmapping a grant because the
-page count would never reach 1).
+On Tue, 2015-03-03 at 08:09 -0800, Alexander Duyck wrote:
 
-When handling a from-guest skb with a frag list, unref the frags
-before releasing them so they are freed correctly when the VIF is
-destroyed.
+> This rmb() can probably be replaced with a dma_rmb() since it is just a 
+> coherent/coherent ordering you are concerned with based on the comment.
 
-Also swap over to the new (local) frags /after/ calling the skb
-destructor.  This isn't strictly necessary but it's less confusing.
-
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netback/netback.c |   43 +++++++++++++++++++------------------
- 1 file changed, 22 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f7a31d2..3d06eeb 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1343,7 +1343,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- {
- 	unsigned int offset = skb_headlen(skb);
- 	skb_frag_t frags[MAX_SKB_FRAGS];
--	int i;
-+	int i, nr_frags;
- 	struct ubuf_info *uarg;
- 	struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
- 
-@@ -1357,17 +1357,16 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- 	skb->data_len += nskb->len;
- 
- 	/* create a brand new frags array and coalesce there */
--	for (i = 0; offset < skb->len; i++) {
-+	for (nr_frags = 0; offset < skb->len; nr_frags++) {
- 		struct page *page;
- 		unsigned int len;
- 
--		BUG_ON(i >= MAX_SKB_FRAGS);
-+		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
- 		page = alloc_page(GFP_ATOMIC);
- 		if (!page) {
--			int j;
- 			skb->truesize += skb->data_len;
--			for (j = 0; j < i; j++)
--				put_page(frags[j].page.p);
-+			for (i = 0; i < nr_frags; i++)
-+				put_page(frags[i].page.p);
- 			return -ENOMEM;
- 		}
- 
-@@ -1379,27 +1378,29 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- 			BUG();
- 
- 		offset += len;
--		frags[i].page.p = page;
--		frags[i].page_offset = 0;
--		skb_frag_size_set(&frags[i], len);
-+		frags[nr_frags].page.p = page;
-+		frags[nr_frags].page_offset = 0;
-+		skb_frag_size_set(&frags[nr_frags], len);
- 	}
--	/* swap out with old one */
--	memcpy(skb_shinfo(skb)->frags,
--	       frags,
--	       i * sizeof(skb_frag_t));
--	skb_shinfo(skb)->nr_frags = i;
--	skb->truesize += i * PAGE_SIZE;
--
--	/* remove traces of mapped pages and frag_list */
-+
-+	/* Copied all the bits from the frag list -- free it. */
- 	skb_frag_list_init(skb);
--	uarg = skb_shinfo(skb)->destructor_arg;
--	/* increase inflight counter to offset decrement in callback */
-+	xenvif_skb_zerocopy_prepare(queue, nskb);
-+	kfree_skb(nskb);
-+
-+	/* Release all the original (foreign) frags. */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+		skb_frag_unref(skb, i);
- 	atomic_inc(&queue->inflight_packets);
-+	uarg = skb_shinfo(skb)->destructor_arg;
- 	uarg->callback(uarg, true);
- 	skb_shinfo(skb)->destructor_arg = NULL;
- 
--	xenvif_skb_zerocopy_prepare(queue, nskb);
--	kfree_skb(nskb);
-+	/* Fill the skb with the new (local) frags. */
-+	memcpy(skb_shinfo(skb)->frags, frags,
-+	       nr_frags * sizeof(skb_frag_t));
-+	skb_shinfo(skb)->nr_frags = nr_frags;
-+	skb->truesize += nr_frags * PAGE_SIZE;
- 
- 	return 0;
- }
--- 
-1.7.10.4
+Right, but this patch would be a stable candidate, where dma_rmb() does
+not exist yet.
