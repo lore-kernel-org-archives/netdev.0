@@ -1,95 +1,49 @@
-From: Michal Hocko <mhocko@suse.cz>
-Subject: Re: [RFC 4/4] cxgb4: drop __GFP_NOFAIL allocation
-Date: Tue, 3 Mar 2015 14:18:26 +0100
-Message-ID: <20150303131826.GB2409@dhcp22.suse.cz>
-References: <1425304483-7987-1-git-send-email-mhocko@suse.cz>
- <1425304483-7987-5-git-send-email-mhocko@suse.cz>
- <201503032122.HJD73998.OFFMQFLHtJOSOV@I-love.SAKURA.ne.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 01/14] etherdevice: Add eth_<foo>_addr
+ CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS code
+Date: Tue, 03 Mar 2015 05:19:12 -0800
+Message-ID: <1425388752.5130.164.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1425354527.git.joe@perches.com>
+	 <cccde434d9a32d1b9fb3d7604083c05a2ef1fe0e.1425354528.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-mm@kvack.org, akpm@linux-foundation.org,
-	hannes@cmpxchg.org, rientjes@google.com, david@fromorbit.com,
-	tytso@mit.edu, mgorman@suse.de, sparclinux@vger.kernel.org,
-	vipul@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201503032122.HJD73998.OFFMQFLHtJOSOV@I-love.SAKURA.ne.jp>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cccde434d9a32d1b9fb3d7604083c05a2ef1fe0e.1425354528.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue 03-03-15 21:22:22, Tetsuo Handa wrote:
-> Michal Hocko wrote:
-> > diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> > index ccf3436024bc..f351920fc293 100644
-> > --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> > +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> > @@ -1220,6 +1220,10 @@ static int set_filter_wr(struct adapter *adapter, int fidx)
-> >  	struct fw_filter_wr *fwr;
-> >  	unsigned int ftid;
-> >  
-> > +	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
-> > +	if (!skb)
-> > +		return -ENOMEM;
-> > +
-> >  	/* If the new filter requires loopback Destination MAC and/or VLAN
-> >  	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
-> >  	 * the filter.
-> > @@ -1227,19 +1231,21 @@ static int set_filter_wr(struct adapter *adapter, int fidx)
-> >  	if (f->fs.newdmac || f->fs.newvlan) {
-> >  		/* allocate L2T entry for new filter */
-> >  		f->l2t = t4_l2t_alloc_switching(adapter->l2t);
-> > -		if (f->l2t == NULL)
-> > +		if (f->l2t == NULL) {
-> > +			kfree(skb);
+On Mon, 2015-03-02 at 19:54 -0800, Joe Perches wrote:
+> Make the memset possibly more efficient with the appropriate
+> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS #ifdef
 > 
-> I think we need to use kfree_skb() than kfree() for memory allocated by alloc_skb().
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  include/linux/etherdevice.h | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+> index 606563e..22ad94a 100644
+> --- a/include/linux/etherdevice.h
+> +++ b/include/linux/etherdevice.h
+> @@ -192,7 +192,12 @@ static inline void eth_random_addr(u8 *addr)
+>   */
+>  static inline void eth_broadcast_addr(u8 *addr)
+>  {
+> +#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+> +	*(u32 *)addr = 0xffffffff;
+> +	*(u16 *)(addr + 4) = 0xffff;
+> +#else
+>  	memset(addr, 0xff, ETH_ALEN);
+> +#endif
+>  }
+>  
 
-Definitely! Good point, thanks!
+I am pretty sure compiler already does an inline, and might chose to 
+emit equivalent instructions for :
+ *(u16 *) addr = 0xffff;
+ *(u32 *)(addr + 2) = 0xffffffff;
 
-Andrew, I've noticed you have picked up the patch. Should I resend or
-the below incremental one is good enough?
----
->From eee05867dd55efa236ba065a3e7b7eb6e6ea511d Mon Sep 17 00:00:00 2001
-From: Michal Hocko <mhocko@suse.cz>
-Date: Tue, 3 Mar 2015 14:16:30 +0100
-Subject: [PATCH] mmotm: cxgb4-drop-__gfp_nofail-allocation-fix
-
-Use kfree_skb instead of kfree because the allocation is done by
-alloc_skb.
-
-Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Signed-off-by: Michal Hocko <mhocko@suse.cz>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index f351920fc293..e1e5028a714c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1232,14 +1232,14 @@ static int set_filter_wr(struct adapter *adapter, int fidx)
- 		/* allocate L2T entry for new filter */
- 		f->l2t = t4_l2t_alloc_switching(adapter->l2t);
- 		if (f->l2t == NULL) {
--			kfree(skb);
-+			kfree_skb(skb);
- 			return -EAGAIN;
- 		}
- 		if (t4_l2t_set_switching(adapter, f->l2t, f->fs.vlan,
- 					f->fs.eport, f->fs.dmac)) {
- 			cxgb4_l2t_release(f->l2t);
- 			f->l2t = NULL;
--			kfree(skb);
-+			kfree_skb(skb);
- 			return -ENOMEM;
- 		}
- 	}
--- 
-2.1.4
-
-
--- 
-Michal Hocko
-SUSE Labs
+if (addr % 4) is known to be 2
