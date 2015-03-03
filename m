@@ -1,46 +1,30 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH net-next 10/14] bluetooth: Use eth_<foo>_addr instead of memset
-Date: Mon, 2 Mar 2015 23:04:27 -0800
-Message-ID: <235052A1-0253-41FB-B381-FBC8B312ADE6@holtmann.org>
-References: <cover.1425354527.git.joe@perches.com> <3e4a2efa6cbc9bea479bd3d8460ea56dda128faf.1425354528.git.joe@perches.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v3] ibmveth: Add function to enable live MAC address
+ changes
+Date: Tue, 3 Mar 2015 09:11:14 +0100
+Message-ID: <20150303081114.GA2045@nanopsycho.orion>
+References: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3e4a2efa6cbc9bea479bd3d8460ea56dda128faf.1425354528.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	brking@linux.vnet.ibm.com, davem@davemloft.net
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:38495 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbbCCILV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 03:11:21 -0500
+Received: by wiwh11 with SMTP id h11so20696808wiw.3
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 00:11:20 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
+Mon, Mar 02, 2015 at 06:56:12PM CET, tlfalcon@linux.vnet.ibm.com wrote:
+>Add a function that will enable changing the MAC address
+>of an ibmveth interface while it is still running.
+>
+>Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
-> Use the built-in function instead of memset.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> net/bluetooth/bnep/netdev.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
-> index 4b488ec..6ceb5d3 100644
-> --- a/net/bluetooth/bnep/netdev.c
-> +++ b/net/bluetooth/bnep/netdev.c
-> @@ -218,7 +218,7 @@ static const struct net_device_ops bnep_netdev_ops = {
-> void bnep_net_setup(struct net_device *dev)
-> {
-> 
-> -	memset(dev->broadcast, 0xff, ETH_ALEN);
-> +	eth_broadcast_addr(dev->broadcast);
-> 	dev->addr_len = ETH_ALEN;
-
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
-
-Regards
-
-Marcel
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
