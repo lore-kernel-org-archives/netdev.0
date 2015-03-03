@@ -1,46 +1,69 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH v3] bridge: fix bridge netlink RCU usage
-Date: Tue, 03 Mar 2015 06:57:12 -0800
-Message-ID: <54F5CBC8.2000303@cumulusnetworks.com>
-References: <1425390556-17844-1-git-send-email-johannes@sipsolutions.net>  <54F5C5C1.9000306@cumulusnetworks.com>  (sfid-20150303_153134_259974_794D3171) <1425394292.2450.47.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH v4] bridge: fix bridge netlink RCU usage
+Date: Tue,  3 Mar 2015 16:02:16 +0100
+Message-ID: <1425394936-11595-1-git-send-email-johannes@sipsolutions.net>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:37624 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756644AbbCCO5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 09:57:14 -0500
-Received: by paceu11 with SMTP id eu11so10735906pac.4
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 06:57:13 -0800 (PST)
-In-Reply-To: <1425394292.2450.47.camel@sipsolutions.net>
+Received: from s3.sipsolutions.net ([5.9.151.49]:56255 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751263AbbCCPCV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 10:02:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/3/15, 6:51 AM, Johannes Berg wrote:
-> Hi Roopa,
->
->> My subsequent patch  in net-next related to this code, changes things a
->> bit (fed0a159c8c5e453d79d6a73897c576efea0a8a5 bridge: fix link
->> notification skb size calculation to include vlan ranges).
-> Yeah, I saw this, but thought the original patch had already gone to
-> net.git. Then later I found it hasn't but didn't remember ... sorry
-> about that.
->
->> It reverts the use of this function which makes sure this is always
->> called under rtnl.
->> But, I did add another version of this function in net-next which has
->> the same problem.
->> Assuming that patch in net-next is on its way to net soon, am wondering
->> if fixing it in net-next is the right course.
-> Of course, this patch should then only ever be applied to net-next.
->
->> I can apply your patch there and re-submit. Or if you prefer to
->> re-submit your patch on net-next that's great too.
-> I can resend it. I even have a pretty simple test case to reproduce the
-> failure :)
->
-great!. Thank you.
+From: Johannes Berg <johannes.berg@intel.com>
+
+When the STP timer fires, it can call br_ifinfo_notify(),
+which in turn ends up in the new br_get_link_af_size().
+This function is annotated to be using RTNL locking, which
+clearly isn't the case here, and thus lockdep warns:
+
+  ===============================
+  [ INFO: suspicious RCU usage. ]
+  3.19.0+ #569 Not tainted
+  -------------------------------
+  net/bridge/br_private.h:204 suspicious rcu_dereference_protected() usage!
+
+Fix this by doing RCU locking here.
+
+Fixes: b7853d73e39b ("bridge: add vlan info to bridge setlink and dellink notification messages")
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/bridge/br_netlink.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 3de0eefe2b82..c72083968768 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -81,17 +81,19 @@ static size_t br_get_link_af_size_filtered(const struct net_device *dev,
+ 	struct net_port_vlans *pv;
+ 	int num_vlan_infos;
+ 
++	rcu_read_lock();
+ 	if (br_port_exists(dev))
+-		pv = nbp_get_vlan_info(br_port_get_rtnl(dev));
++		pv = nbp_get_vlan_info(br_port_get_rcu(dev));
+ 	else if (dev->priv_flags & IFF_EBRIDGE)
+ 		pv = br_get_vlan_info((struct net_bridge *)netdev_priv(dev));
+ 	else
+-		return 0;
+-
+-	if (!pv)
+-		return 0;
++		pv = NULL;
++	if (pv)
++		num_vlan_infos = br_get_num_vlan_infos(pv, filter_mask);
++	else
++		num_vlan_infos = 0;
++	rcu_read_unlock();
+ 
+-	num_vlan_infos = br_get_num_vlan_infos(pv, filter_mask);
+ 	if (!num_vlan_infos)
+ 		return 0;
+ 
+-- 
+2.1.4
