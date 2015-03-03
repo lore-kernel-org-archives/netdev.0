@@ -1,90 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH -next] net: i40e: fix build, depends on CONFIGFS_FS
-Date: Tue, 03 Mar 2015 12:23:56 -0800
-Message-ID: <1425414236.2556.81.camel@jtkirshe-mobl>
-References: <54F60D0A.6020903@infradead.org>
-	 <20150303.150207.742456888724586407.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] ax25: Stop using magic neighbour cache operations.
+Date: Tue, 03 Mar 2015 14:22:41 -0600
+Message-ID: <87mw3tzv8u.fsf@x220.int.ebiederm.org>
+References: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org>
+	<20150302.164426.494515497595921630.davem@davemloft.net>
+	<874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-wN4726QxVfpSfyPQT6ew"
-Cc: rdunlap@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux.nics@intel.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
+	linux-hams@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150303.150207.742456888724586407.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20150303.144509.1694022322984204895.davem@davemloft.net> (David
+	Miller's message of "Tue, 03 Mar 2015 14:45:09 -0500 (EST)")
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller <davem@davemloft.net> writes:
 
---=-wN4726QxVfpSfyPQT6ew
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 03 Mar 2015 09:41:47 -0600
+>
+>> 
+>> Before the ax25 stack calls dev_queue_xmit it always calls
+>> ax25_type_trans which sets skb->protocol to ETH_P_AX25.
+>> 
+>> Which means that by looking at the protocol type it is possible to
+>> detect IP packets that have not been munged by the ax25 stack in
+>> ndo_start_xmit and call a function to munge them.
+>> 
+>> Rename ax25_neigh_xmit to ax25_ip_xmit and tweak the return type and
+>> value to be appropriate for an ndo_start_xmit function.
+>> 
+>> Update all of the ax25 devices to test the protocol type for ETH_P_IP
+>> and return ax25_ip_xmit as the first thing they do.  This preserves
+>> the existing semantics of IP packet processing, but the timing will be
+>> a little different as the IP packets now pass through the qdisc layer
+>> before reaching the ax25 ip packet processing.
+>> 
+>> Remove the now unnecessary ax25 neighbour table operations.
+>> 
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>
+> Another nice cleanup, applied, thanks Eric.
 
-On Tue, 2015-03-03 at 15:02 -0500, David Miller wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> Date: Tue, 03 Mar 2015 11:35:38 -0800
->=20
-> > From: Randy Dunlap <rdunlap@infradead.org>
-> >=20
-> > i40e uses configfs interfaces so it should depend on CONFIGFS_FS.
-> >=20
-> > Fixes these build errors:
-> >=20
-> > drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
-> > i40e_configfs.c:(.text+0x2fcdca): undefined reference to `config_item_i=
-nit_type_name'
-> > drivers/built-in.o: In function `i40e_configfs_init':
-> > (.text+0x2fcee6): undefined reference to `config_group_init'
-> > drivers/built-in.o: In function `i40e_configfs_init':
-> > (.text+0x2fcf0c): undefined reference to `configfs_register_subsystem'
-> > drivers/built-in.o: In function `i40e_configfs_exit':
-> > (.text+0x2fcf71): undefined reference to `configfs_unregister_subsystem=
-'
-> >=20
-> > Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
->=20
-> Intel guys, I am furiously mad.
->=20
-> I've told you guys a thousand times to use portable, reasonable
-> mechanisms to configure your hardware.  Using facilities that can
-> be used for other cards from other vendors with similar facilities.
->=20
-> If such portable netdevice configuration frameworks do not exist,
-> create it.
->=20
-> Every time you make a device specific mechanism for configuration,
-> a small kitten dies somewhere in the world.
->=20
-> Please remove all of this configfs crap for twiddling bandwidth
-> et al. knobs, before I do it for you.
+We can almost universally use the same procedures for generating
+link layer headers from neighbour table entries now.  I had hoped
+to optimized things by removing function pointers.
 
-Sorry Dave, I did not see the configfs changes as being in the same boat
-as some of the debugfs changes which were unacceptable.
+The big hold out is DECnet that sets src_mac based on the DECnet source
+address.  
 
-I am working with Greg Rose and Jesse Brandeburg to address your
-concerns with these recent changes.
+Which leads me to the conclusion that since DECnet has a different
+algorithm for setting the src_mac than everything else in the kernel
+DECnet neighbour table entries can not be used for nexthops for other
+protocols :(
 
---=-wN4726QxVfpSfyPQT6ew
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+DECnet also abuses neigh->output to select by output device which kind
+of DECnet header to put on the packets.  But that is easily fixable.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Anyway slowly slowly the neighbour table code becomes more readable
+and maintable.
 
-iQIcBAABCgAGBQJU9hhcAAoJEOVv75VaS+3Op+MQAI2+mT8NbHJkwaW6ffFp1xkK
-Z1cXc2IgzLI4AwMy6zBWySOJHRq68G0BRH0P8nvIvUK34VmpbpsOxkH5+t/icjj2
-TEEpj0DqutXbRog1syM15YfvKmkY5jelKgT/FzBZAWqnogkwMZ1henhJVcCjhUCA
-b0lFZCxMTAWDpRmRqye7B3z4JrgGMnfW4mYIu0JmerytOPeTGuvDKrBOlQk0VdoX
-Xr4B5Hvo9UVP34mzSlMCB0o9l/oT6g3BV/gy5gGz0Mj9UJYRuq4PyfKbccO0+iVg
-kSgXZeB9plDR/L0zu+nl/0Xj+ZBEsuSCQYqMWOKYGBh/TRVtpbUfURifkuB5UFra
-H9mhSbV02sTO6jBFAMt9ctIaZ6VMgjePBOSenXqmMwGPxR6iWCXnP6fTIAaFBF2e
-y078fEGIgFEa+KixU2wWI0OfWfFNWiJ0wRs70SPoNCG6qshNcd6yXCl96ybSg3ED
-XlvRwD/nHQqilx8OF8+jNjmfyMFc37d5xuHet5Q9qHCJ7b3yg2Eu8ahiP40GUHLK
-eTO1TAHburH1E0aXcY/k43AxtnmU/6wUrIjAUv4+i4frLEU8kMyO2wx83FPspm+7
-Ye/CiOr4Us1rRxqW6SrqFG92qblVtjfp1ggU4IM9UXN+bllOr992dfVXeC9DAww1
-u9j1oaRw+nYf2+4KlnmP
-=acCI
------END PGP SIGNATURE-----
+Eric
 
---=-wN4726QxVfpSfyPQT6ew--
