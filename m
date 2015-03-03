@@ -1,63 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] bridge: fix bridge netlink RCU usage
-Date: Tue,  3 Mar 2015 14:29:34 +0100
-Message-ID: <1425389374-12568-1-git-send-email-johannes@sipsolutions.net>
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55802 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752490AbbCCN3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 08:29:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Tue, 03 Mar 2015 05:29:59 -0800
+Message-ID: <1425389399.5130.169.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Felipe Balbi <balbi@ti.com>,
+	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Schichan <nschichan@freebox.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes.berg@intel.com>
+On Tue, 2015-03-03 at 12:45 +0100, Nicolas Schichan wrote:
+> In case there was some tx buffer reclaimed and not enough rx packets
+> to consume the whole budget, napi_complete would not be called and
+> interrupts would be kept disabled, effectively resulting in the
+> network core never to call the poll callback again and no rx/tx
+> interrupts to be fired either.
+> 
+> Fix that by only accounting the rx work done in the poll callback.
+> 
+> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+> ---
 
-When the STP timer fires, it can call br_ifinfo_notify(),
-which in turn ends up in the new br_get_link_af_size().
-This function is annotated to be using RTNL locking, which
-clearly isn't the case here, and thus lockdep warns:
+This looks better, thanks.
 
-  ===============================
-  [ INFO: suspicious RCU usage. ]
-  3.19.0+ #569 Not tainted
-  -------------------------------
-  net/bridge/br_private.h:204 suspicious rcu_dereference_protected() usage!
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Fix this by doing RCU locking here.
+Note that the way bcm_enet_tx_reclaim() is written, it can livelock on
+SMP hosts :
 
-Fixes: b7853d73e39b ("bridge: add vlan info to bridge setlink and dellink notification messages")
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/bridge/br_netlink.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+CPU 1,2,3,...  keep queuing packets via ndo_start_xmit()
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 17e0177467f5..c63ac0d13add 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -26,12 +26,15 @@ static size_t br_get_link_af_size(const struct net_device *dev)
- {
- 	struct net_port_vlans *pv;
- 
--	if (br_port_exists(dev))
--		pv = nbp_get_vlan_info(br_port_get_rtnl(dev));
--	else if (dev->priv_flags & IFF_EBRIDGE)
-+	if (br_port_exists(dev)) {
-+		rcu_read_lock();
-+		pv = nbp_get_vlan_info(br_port_get_rcu(dev));
-+		rcu_read_unlock();
-+	} else if (dev->priv_flags & IFF_EBRIDGE) {
- 		pv = br_get_vlan_info((struct net_bridge *)netdev_priv(dev));
--	else
-+	} else {
- 		return 0;
-+	}
- 
- 	if (!pv)
- 		return 0;
--- 
-2.1.4
+CPU 0 is looping forever in bcm_enet_tx_reclaim() draining queue and
+freeing skbs.
+
+To avoid that, I would take priv->tx_lock only once, or add a limit on
+the number of skbs that can be drained per round.
