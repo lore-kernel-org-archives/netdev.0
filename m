@@ -1,37 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: bridge: add compile-time assert for cb struct
- size
-Date: Tue, 03 Mar 2015 06:33:25 -0800
-Message-ID: <1425393205.5130.184.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425387211-16807-1-git-send-email-fw@strlen.de>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CAF3BB7@AcuExch.aculab.com>
-	 <1425391664.5130.174.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CAF3C01@AcuExch.aculab.com>
+From: Fred Chou <fred.chou.nd@gmail.com>
+Subject: Re: [PATCH] ath9k_htc: avoid memcpy when downloading firmware
+Date: Tue, 03 Mar 2015 22:41:23 +0800
+Message-ID: <54F5C813.4030505@gmail.com>
+References: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com> <1425362407.5130.161.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: 'Florian Westphal' <fw@strlen.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:44324 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756422AbbCCOd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 09:33:27 -0500
-Received: by igdh15 with SMTP id h15so28152026igd.3
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 06:33:27 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAF3C01@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425362407.5130.161.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-03-03 at 14:15 +0000, David Laight wrote:
 
-> That is a build error.
 
-Yes, but we want a build error that this obvious to understand.
+On 3/3/2015 2:00 PM, Eric Dumazet wrote:
+> On Tue, 2015-03-03 at 12:24 +0800, Fred Chou wrote:
+>> From: Fred Chou <fred.chou.nd@gmail.com>
+>>
+>> The temporary buffer to hold firmware data is not really needed,
+>> and memcpy can be avoided by using data pointer instead.
+>>
+>> Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
+>> ---
+>>  drivers/net/wireless/ath/ath9k/hif_usb.c | 12 ++----------
+>>  1 file changed, 2 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+>> index 10c02f5..0bc35a8 100644
+>> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
+>> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+>> @@ -986,30 +986,22 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
+>>  	const void *data = hif_dev->fw_data;
+> 
+> Here data can be vmalloc() backed.
+> 
+>>  	size_t len = hif_dev->fw_size;
+>>  	u32 addr = AR9271_FIRMWARE;
+>> -	u8 *buf = kzalloc(4096, GFP_KERNEL);
+> 
+> Here buf is kmalloc() backed.
+> 
+>>  	u32 firm_offset;
+>>  
+>> -	if (!buf)
+>> -		return -ENOMEM;
+>> -
+>>  	while (len) {
+>>  		transfer = min_t(size_t, len, 4096);
+>> -		memcpy(buf, data, transfer);
+>>  
+>>  		err = usb_control_msg(hif_dev->udev,
+>>  				      usb_sndctrlpipe(hif_dev->udev, 0),
+>>  				      FIRMWARE_DOWNLOAD, 0x40 | USB_DIR_OUT,
+>> -				      addr >> 8, 0, buf, transfer, HZ);
+> 
+> 
+> Are you sure usb_control_msg() accepts vmalloc()ed buffers ?
+> 
+> My guess is the answer is no.
+> 
+> 
 
-Like :
-
-BUILD_BUG_ON(sizeof(struct br_input_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
-
-Please send a tested patch so that we can compare the solutions.
+I agree, and I would like to drop the patch. Thanks.
