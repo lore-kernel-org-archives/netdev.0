@@ -1,47 +1,42 @@
-From: Fan Du <fan.du@intel.com>
-Subject: [PATCHv4 net-next 1/3] ipv4: Raise tcp PMTU probe mss base size
-Date: Tue,  3 Mar 2015 17:19:19 +0800
-Message-ID: <1425374361-21047-2-git-send-email-fan.du@intel.com>
-References: <1425374361-21047-1-git-send-email-fan.du@intel.com>
-Cc: edumazet@google.com, davem@davemloft.net, netdev@vger.kernel.org,
-	fengyuleidian0615@gmail.com
-To: johnwheffner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:10476 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751678AbbCCJYK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 04:24:10 -0500
-In-Reply-To: <1425374361-21047-1-git-send-email-fan.du@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] SUNRPC: use jiffies_to_msecs for converting jiffies
+Date: Tue,  3 Mar 2015 04:24:25 -0500
+Message-ID: <1425374665-446-1-git-send-email-hofrat@osadl.org>
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quotes from RFC4821 7.2.  Selecting Initial Values
+Use jiffies_to_msecs for converting jiffies as it handles all of the corner
+cases reliably and also helps readability.
 
-   It is RECOMMENDED that search_low be initially set to an MTU size
-   that is likely to work over a very wide range of environments.  Given
-   today's technologies, a value of 1024 bytes is probably safe enough.
-   The initial value for search_low SHOULD be configurable.
-
-Moreover, set a small value will introduce extra time for the search
-to converge. So set the initial probe base mss size to 1024 Bytes.
-
-Signed-off-by: Fan Du <fan.du@intel.com>
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 ---
- include/net/tcp.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 8d6b983..7b57e5b 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -65,7 +65,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCP_MIN_MSS		88U
+This was only compile tested for x86_64_defconfig (implies CONFIG_SUNRPC=y)
+
+Patch is against 4.0-rc1 (localversion-next is -next-20150303)
+
+ net/sunrpc/sched.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
+index b91fd9c..c234e7f 100644
+--- a/net/sunrpc/sched.c
++++ b/net/sunrpc/sched.c
+@@ -90,7 +90,7 @@ __rpc_add_timer(struct rpc_wait_queue *queue, struct rpc_task *task)
+ 		return;
  
- /* The least MTU to use for probing */
--#define TCP_BASE_MSS		512
-+#define TCP_BASE_MSS		1024
+ 	dprintk("RPC: %5u setting alarm for %lu ms\n",
+-			task->tk_pid, task->tk_timeout * 1000 / HZ);
++			task->tk_pid, jiffies_to_msecs(task->tk_timeout));
  
- /* After receiving this amount of duplicate ACKs fast retransmit starts. */
- #define TCP_FASTRETRANS_THRESH 3
+ 	task->u.tk_wait.expires = jiffies + task->tk_timeout;
+ 	if (list_empty(&queue->timer_list.list) || time_before(task->u.tk_wait.expires, queue->timer_list.expires))
 -- 
-1.7.1
+1.7.10.4
