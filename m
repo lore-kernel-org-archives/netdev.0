@@ -1,68 +1,57 @@
-From: Fred Chou <fred.chou.nd@gmail.com>
-Subject: Re: [PATCH] ath9k_htc: avoid memcpy when downloading firmware
-Date: Tue, 03 Mar 2015 22:41:23 +0800
-Message-ID: <54F5C813.4030505@gmail.com>
-References: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com> <1425362407.5130.161.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH v2] net: cadence: Remove Kconfig dependency on ARCH
+Date: Tue,  3 Mar 2015 15:43:00 +0100
+Message-ID: <daf443b5c92099b2dd2fc490189bddc51659a0cd.1425393771.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Zach Pfeffer <zachp@xilinx.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, monstr@monstr.eu
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425362407.5130.161.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Remove Kconfig dependency and enable driver for
+all ARCHs.
 
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+---
 
-On 3/3/2015 2:00 PM, Eric Dumazet wrote:
-> On Tue, 2015-03-03 at 12:24 +0800, Fred Chou wrote:
->> From: Fred Chou <fred.chou.nd@gmail.com>
->>
->> The temporary buffer to hold firmware data is not really needed,
->> and memcpy can be avoided by using data pointer instead.
->>
->> Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
->> ---
->>  drivers/net/wireless/ath/ath9k/hif_usb.c | 12 ++----------
->>  1 file changed, 2 insertions(+), 10 deletions(-)
->>
->> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
->> index 10c02f5..0bc35a8 100644
->> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
->> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
->> @@ -986,30 +986,22 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
->>  	const void *data = hif_dev->fw_data;
-> 
-> Here data can be vmalloc() backed.
-> 
->>  	size_t len = hif_dev->fw_size;
->>  	u32 addr = AR9271_FIRMWARE;
->> -	u8 *buf = kzalloc(4096, GFP_KERNEL);
-> 
-> Here buf is kmalloc() backed.
-> 
->>  	u32 firm_offset;
->>  
->> -	if (!buf)
->> -		return -ENOMEM;
->> -
->>  	while (len) {
->>  		transfer = min_t(size_t, len, 4096);
->> -		memcpy(buf, data, transfer);
->>  
->>  		err = usb_control_msg(hif_dev->udev,
->>  				      usb_sndctrlpipe(hif_dev->udev, 0),
->>  				      FIRMWARE_DOWNLOAD, 0x40 | USB_DIR_OUT,
->> -				      addr >> 8, 0, buf, transfer, HZ);
-> 
-> 
-> Are you sure usb_control_msg() accepts vmalloc()ed buffers ?
-> 
-> My guess is the answer is no.
-> 
-> 
+Changes in v2:
+- Remove ARCH checking reported by
+  Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+- Change patch subject and description
+- Tested by Kbuild test system without any reported problem.
 
-I agree, and I would like to drop the patch. Thanks.
+ drivers/net/ethernet/cadence/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/etherne=
+t/cadence/Kconfig
+index 321d2ad235d9..739bb0048ebf 100644
+--- a/drivers/net/ethernet/cadence/Kconfig
++++ b/drivers/net/ethernet/cadence/Kconfig
+@@ -4,7 +4,7 @@
+=20
+ config NET_CADENCE
+ 	bool "Cadence devices"
+-	depends on HAS_IOMEM && (ARM || AVR32 || MICROBLAZE || COMPILE_TEST)
++	depends on HAS_IOMEM
+ 	default y
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say =
+Y.
+@@ -30,7 +30,7 @@ config ARM_AT91_ETHER
+=20
+ config MACB
+ 	tristate "Cadence MACB/GEM support"
+-	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL=
+ || ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST)
++	depends on HAS_DMA
+ 	select PHYLIB
+ 	---help---
+ 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
+--=20
+1.8.2.3
