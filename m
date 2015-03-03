@@ -1,58 +1,131 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCHv4 net-next 1/3] ipv4: Raise tcp PMTU probe mss base size
-Date: Tue, 3 Mar 2015 11:52:39 -0500
-Message-ID: <CABrhC0nMEJuPA44OxxQrwPWvLOWfqGpJVS3-xExjY4LD2mx8aA@mail.gmail.com>
-References: <1425374361-21047-1-git-send-email-fan.du@intel.com>
-	<1425374361-21047-2-git-send-email-fan.du@intel.com>
+From: Zoltan Kiss <zoltan.kiss@linaro.org>
+Subject: Re: [Xen-devel] [PATCHv1 2/2] xen-netback: unref frags when handling
+ a from-guest skb with a frag list
+Date: Tue, 03 Mar 2015 16:56:44 +0000
+Message-ID: <54F5E7CC.6060903@linaro.org>
+References: <1425399971-27630-1-git-send-email-david.vrabel@citrix.com> <1425399971-27630-3-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Fan Du <fengyuleidian0615@gmail.com>
-To: Fan Du <fan.du@intel.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xenproject.org, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:44943 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756618AbbCCQwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 11:52:41 -0500
-Received: by lams18 with SMTP id s18so38701279lam.11
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 08:52:39 -0800 (PST)
-In-Reply-To: <1425374361-21047-2-git-send-email-fan.du@intel.com>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:41039 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755811AbbCCQ4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 11:56:47 -0500
+Received: by widex7 with SMTP id ex7so24267458wid.0
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 08:56:45 -0800 (PST)
+In-Reply-To: <1425399971-27630-3-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 3, 2015 at 4:19 AM, Fan Du <fan.du@intel.com> wrote:
-> Quotes from RFC4821 7.2.  Selecting Initial Values
->
->    It is RECOMMENDED that search_low be initially set to an MTU size
->    that is likely to work over a very wide range of environments.  Given
->    today's technologies, a value of 1024 bytes is probably safe enough.
->    The initial value for search_low SHOULD be configurable.
->
-> Moreover, set a small value will introduce extra time for the search
-> to converge. So set the initial probe base mss size to 1024 Bytes.
->
-> Signed-off-by: Fan Du <fan.du@intel.com>
-> ---
->  include/net/tcp.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 8d6b983..7b57e5b 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -65,7 +65,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
->  #define TCP_MIN_MSS            88U
->
->  /* The least MTU to use for probing */
-> -#define TCP_BASE_MSS           512
-> +#define TCP_BASE_MSS           1024
->
->  /* After receiving this amount of duplicate ACKs fast retransmit starts. */
->  #define TCP_FASTRETRANS_THRESH 3
-> --
-> 1.7.1
->
 
-Acked-by: John Heffner <johnwheffner@gmail.com>
+
+On 03/03/15 16:26, David Vrabel wrote:
+> Every time a VIF is destroyed up-to 256 pages may be leaked if packets
+                                 "up to" (and maybe a comma before it?)
+> with more than MAX_SKB_FRAGS frags where transmitted from the guest.
+                                      were
+> Even worse, if another user of ballooned pages allocated one of these
+> ballooned pages it would not handle the the unexpectedly non-zero page
+                                           ^^^
+One too many "the"
+> count (e.g., gntdev would deadlock when unmapping a grant because the
+> page count would never reach 1).
+>
+> When handling a from-guest skb with a frag list, unref the frags
+> before releasing them so they are freed correctly when the VIF is
+> destroyed.
+>
+> Also swap over to the new (local) frags /after/ calling the skb
+> destructor.  This isn't strictly necessary but it's less confusing.
+>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Reviewed-by: Zoltan Kiss <zoltan.kiss@linaro.org>
+> ---
+>   drivers/net/xen-netback/netback.c |   43 +++++++++++++++++++------------------
+>   1 file changed, 22 insertions(+), 21 deletions(-)
+>
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index f7a31d2..3d06eeb 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1343,7 +1343,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+>   {
+>   	unsigned int offset = skb_headlen(skb);
+>   	skb_frag_t frags[MAX_SKB_FRAGS];
+> -	int i;
+> +	int i, nr_frags;
+>   	struct ubuf_info *uarg;
+>   	struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
+>
+> @@ -1357,17 +1357,16 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+>   	skb->data_len += nskb->len;
+>
+>   	/* create a brand new frags array and coalesce there */
+> -	for (i = 0; offset < skb->len; i++) {
+> +	for (nr_frags = 0; offset < skb->len; nr_frags++) {
+>   		struct page *page;
+>   		unsigned int len;
+>
+> -		BUG_ON(i >= MAX_SKB_FRAGS);
+> +		BUG_ON(nr_frags >= MAX_SKB_FRAGS);
+>   		page = alloc_page(GFP_ATOMIC);
+>   		if (!page) {
+> -			int j;
+>   			skb->truesize += skb->data_len;
+> -			for (j = 0; j < i; j++)
+> -				put_page(frags[j].page.p);
+> +			for (i = 0; i < nr_frags; i++)
+> +				put_page(frags[i].page.p);
+>   			return -ENOMEM;
+>   		}
+>
+> @@ -1379,27 +1378,29 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+>   			BUG();
+>
+>   		offset += len;
+> -		frags[i].page.p = page;
+> -		frags[i].page_offset = 0;
+> -		skb_frag_size_set(&frags[i], len);
+> +		frags[nr_frags].page.p = page;
+> +		frags[nr_frags].page_offset = 0;
+> +		skb_frag_size_set(&frags[nr_frags], len);
+>   	}
+> -	/* swap out with old one */
+> -	memcpy(skb_shinfo(skb)->frags,
+> -	       frags,
+> -	       i * sizeof(skb_frag_t));
+> -	skb_shinfo(skb)->nr_frags = i;
+> -	skb->truesize += i * PAGE_SIZE;
+> -
+> -	/* remove traces of mapped pages and frag_list */
+> +
+> +	/* Copied all the bits from the frag list -- free it. */
+>   	skb_frag_list_init(skb);
+> -	uarg = skb_shinfo(skb)->destructor_arg;
+> -	/* increase inflight counter to offset decrement in callback */
+> +	xenvif_skb_zerocopy_prepare(queue, nskb);
+> +	kfree_skb(nskb);
+> +
+> +	/* Release all the original (foreign) frags. */
+> +	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+> +		skb_frag_unref(skb, i);
+>   	atomic_inc(&queue->inflight_packets);
+> +	uarg = skb_shinfo(skb)->destructor_arg;
+>   	uarg->callback(uarg, true);
+>   	skb_shinfo(skb)->destructor_arg = NULL;
+>
+> -	xenvif_skb_zerocopy_prepare(queue, nskb);
+> -	kfree_skb(nskb);
+> +	/* Fill the skb with the new (local) frags. */
+> +	memcpy(skb_shinfo(skb)->frags, frags,
+> +	       nr_frags * sizeof(skb_frag_t));
+> +	skb_shinfo(skb)->nr_frags = nr_frags;
+> +	skb->truesize += nr_frags * PAGE_SIZE;
+>
+>   	return 0;
+>   }
+>
