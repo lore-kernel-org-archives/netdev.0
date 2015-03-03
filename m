@@ -1,114 +1,84 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFCv2 net-next 0/7] OVS conntrack support
-Date: Mon, 2 Mar 2015 16:59:28 -0800
-Message-ID: <CA+mtBx8QxrCYN1xyunOMmQM55zJFxZWOSqJ7d-znj=SUmUh8FQ@mail.gmail.com>
-References: <1425333305-19702-1-git-send-email-joestringer@nicira.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH 2/3] dtb: change binding name to match with newer firmware DT
+Date: Mon, 2 Mar 2015 16:59:40 -0800
+Message-ID: <CAKh23FmLyagk93PHuCxE1Qc=ck6Djkf9oFxjGALe1mqF+U6yPQ@mail.gmail.com>
+References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
+	<1425067710-14879-3-git-send-email-isubramanian@apm.com>
+	<4061014.S4PDWltU3G@wuerfel>
+	<CAKh23Fm5HpNEfs40RTf_XtQ6ris5cCheAcY1WdLND04AwsvdSQ@mail.gmail.com>
+	<20150302144858.GG16779@leverpostej>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Justin Pettit <jpettit@nicira.com>,
-	Andy Zhou <azhou@nicira.com>, Thomas Graf <tgraf@suug.ch>,
-	Patrick McHardy <kaber@trash.net>
-To: Joe Stringer <joestringer@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425333305-19702-1-git-send-email-joestringer@nicira.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"mlangsdo@redhat.com" <mlangsdo@redhat.com>,
+	patches <patches@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og108.obsmtp.com ([64.18.0.186]:53510 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755428AbbCCA7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 19:59:43 -0500
+Received: by lams18 with SMTP id s18so34175015lam.13
+        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 16:59:41 -0800 (PST)
+In-Reply-To: <20150302144858.GG16779@leverpostej>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 2, 2015 at 1:54 PM, Joe Stringer <joestringer@nicira.com> wrote:
-> The goal of this series is to allow OVS to send packets through the Linux
-> kernel connection tracker, and subsequently match on fields populated by
-> conntrack.
+On Mon, Mar 2, 2015 at 6:48 AM, Mark Rutland <mark.rutland@arm.com> wrote:
+> On Fri, Feb 27, 2015 at 11:52:54PM +0000, Iyappan Subramanian wrote:
+>> On Fri, Feb 27, 2015 at 12:33 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> > On Friday 27 February 2015 12:08:29 Iyappan Subramanian wrote:
+>> >> diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
+>> >> index f1ad9c2..a857794 100644
+>> >> --- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
+>> >> +++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
+>> >> @@ -622,7 +622,7 @@
+>> >>                 };
+>> >>
+>> >>                 sgenet0: ethernet@1f210000 {
+>> >> -                       compatible = "apm,xgene-enet";
+>> >> +                       compatible = "apm,xgene1-sgenet";
+>> >>                         status = "disabled";
+>> >>                         reg = <0x0 0x1f210000 0x0 0xd100>,
+>> >>                               <0x0 0x1f200000 0x0 0Xc300>,
+>> >>
+>> >
+>> > This will break booting the new dtb on older kernels, right?
+>>
+>> This will not break booting older kernels.  In fact, this will fix it,
+>> by having the specific binding,
+>> older kernel that does not have support for these interfaces, will not
+>> call probe.
+>>
+>> For example, 3.17 kernel that does not have support for SGMII based 1G
+>> and XFI 10G interfaces
+>> will not probe these interfaces when booted with newer dtb.
 >
-> Sending this out as another RFC change as this is the first time IP fragment
-> support is included. Only IPv4 is added right now, as we'd like to get some
-> feedback on that approach before we implement IPv6 frag support.
->
-> Helper support is also yet to be addressed, for tracking a particular flow a la
-> iptables CT targets. I think this is just a matter of having userspace specify
-> the helper to use (eg via 8-bit field in conntrack action), and setting up the
-> conntrack template accordingly when OVS first installs the flow containing a
-> conntrack action.
->
-> There are some additional related items that I intend to work on, which I do
-> not see as prerequisite for this series:
-> - OVS Connlabel support.
-> - Allow OVS to register logging facilities for conntrack.
-> - Conntrack per-zone configuration.
->
-> The branch below has been updated with the corresponding userspace pieces:
-> https://github.com/justinpettit/ovs/tree/conntrack
->
->
-> RFCv2:
-> - Support IPv4 fragments
-> - Warn when ct->net is different from skb net in skb_has_valid_nfct().
-> - Set OVS_CS_F_TRACKED when a flow cannot be identified ("invalid")
-> - Continue processing packets when conntrack marks the flow invalid.
-> - Use PF_INET6 family when sending IPv6 packets to conntrack.
-> - Verify conn_* matches when deserializing metadata from netlink.
-> - Only allow conntrack action on IPv4/IPv6 packets.
-> - Remove explicit dependencies on conn_zone, conn_mark.
-> - General tidyups
->
-> RFCv1:
-> - Rebase to net-next.
-> - Add conn_zone field to the flow key.
-> - Add explicit dependencies on conn_zone, conn_mark.
-> - Refactor conntrack changes into net/openvswitch/ovs_conntrack.*.
-> - Don't allow set_field() actions to change conn_state, conn_zone.
-> - Add OVS_CS_F_* flags to indicate connection state.
-> - Add "invalid" connection state.
->
->
-> Andy Zhou (3):
->   net: refactor ip_fragment()
->   net: Refactor ip_defrag() APIs
->   openvswitch: Support fragmented IPv4 packets for conntrack
->
-> Joe Stringer (2):
->   openvswitch: Serialize acts with original netlink len
->   openvswitch: Move MASKED* macros to datapath.h
->
-> Justin Pettit (2):
->   openvswitch: Add conntrack action
->   openvswitch: Allow matching on conntrack mark
->
->  drivers/net/macvlan.c               |    2 +-
->  include/net/ip.h                    |   13 +-
->  include/uapi/linux/openvswitch.h    |   42 +++-
->  net/ipv4/ip_fragment.c              |   46 ++--
->  net/ipv4/ip_input.c                 |    5 +-
->  net/ipv4/ip_output.c                |  113 +++++----
+> I'm guessing that in the existing DTBs, these nodes are always disabled?
 
-This is a lot of change to core IP. It probably should be done in its
-own patch set.
+These nodes does not exist on 3.17 kernel dtb.
+The problem was reported when booted using Tianocore with Device tree,
+which has these nodes, but the 3.17 kernel does not have support for
+these nodes.
 
->  net/ipv4/netfilter/nf_defrag_ipv4.c |    2 +-
->  net/netfilter/ipvs/ip_vs_core.c     |    2 +-
->  net/openvswitch/Kconfig             |   11 +
->  net/openvswitch/Makefile            |    1 +
->  net/openvswitch/actions.c           |  140 +++++++++---
->  net/openvswitch/conntrack.c         |  427 +++++++++++++++++++++++++++++++++++
->  net/openvswitch/conntrack.h         |   91 ++++++++
->  net/openvswitch/datapath.c          |   60 +++--
->  net/openvswitch/datapath.h          |   10 +
->  net/openvswitch/flow.c              |    4 +
->  net/openvswitch/flow.h              |    4 +
->  net/openvswitch/flow_netlink.c      |   95 ++++++--
->  net/openvswitch/flow_netlink.h      |    4 +-
->  net/openvswitch/vport.c             |    1 +
->  net/packet/af_packet.c              |    2 +-
->  21 files changed, 938 insertions(+), 137 deletions(-)
->  create mode 100644 net/openvswitch/conntrack.c
->  create mode 100644 net/openvswitch/conntrack.h
 >
-> --
-> 1.7.10.4
+> If that's the case then we don't have a problem; we'll never probe these
+> nodes for an existing DTB.
+
+With this patch, the following combinations were tested,
+u-boot + 3.17 kernel + 3.17 dtb -> this patch will no effect on this
+combination, only RGMII based 1G will be probed
+u-boot + 3.19 kernel + 3.19 dtb + this patch -> all the 3 ethernet
+interfaces was probed
+Tianocore (w/ Device Tree) + 3.19 kernel + this patch -> all the 3
+ethernet interfaces were probed
+Tianocore (w/ ACPI) + 3.19 kernel + this patch -> all the 3 ethernet
+interfaces were probed
+
+
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Mark.
