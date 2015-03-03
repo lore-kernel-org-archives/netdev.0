@@ -1,48 +1,65 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: Fix serialization of non-masked set actions.
-Date: Tue, 3 Mar 2015 12:40:16 -0800
-Message-ID: <CANr6G5y9KhwmCCw2NNqFcFzctKFqwNrrXaG1iCfCstwXrTOjqQ@mail.gmail.com>
-References: <1425350996-2930-1-git-send-email-joestringer@nicira.com>
- <20150303.143945.661201418308735762.davem@davemloft.net> <CANr6G5zPg_RC=Dw=KD=AW4O4DY2j=Sc81SSYnfp8ZvyrkYOgLw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next] i40e: Fix dependencies in the i40e driver on configfs
+Date: Tue, 03 Mar 2015 12:42:25 -0800
+Message-ID: <1425415345.2556.85.camel@jtkirshe-mobl>
+References: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Jarno Rajahalme <jrajahalme@nicira.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-yYNOwoTVHVKAVQl/yq3h"
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:58561 "HELO
-	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751441AbbCCUki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 15:40:38 -0500
-Received: by mail-wi0-f179.google.com with SMTP id em10so25900116wid.1
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 12:40:37 -0800 (PST)
-In-Reply-To: <CANr6G5zPg_RC=Dw=KD=AW4O4DY2j=Sc81SSYnfp8ZvyrkYOgLw@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:5633 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756753AbbCCUmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 15:42:25 -0500
+In-Reply-To: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3 March 2015 at 12:38, Joe Stringer <joestringer@nicira.com> wrote:
-> On 3 March 2015 at 11:39, David Miller <davem@davemloft.net> wrote:
->> From: Joe Stringer <joestringer@nicira.com>
->> Date: Mon,  2 Mar 2015 18:49:56 -0800
->>
->>> Set actions consist of a regular OVS_KEY_ATTR_* attribute nested inside
->>> of a OVS_ACTION_ATTR_SET action attribute. When converting masked actions
->>> back to regular set actions, the inner attribute length was not changed,
->>> ie, double the length being serialized. This patch fixes the bug.
->>>
->>> Fixes: 83d2b9b ("net: openvswitch: Support masked set actions.")
->>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->>> ---
->>> This fix needs to be applied to net as well; it applies cleanly.
->>
->> This is backwards, don't do this.  Just say that 'net' needs the fix
->> and submit it targetting that tree only.  Things in 'net' propagate
->> into 'net-next' automatically as I do merges over time, but the
->> opposite is not true.
->
-> OK, I'll resend.
 
-Nevermind, I see that you picked it up anyway. Thanks, I'll send fixes
-to the appropriate branch in future.
+--=-yYNOwoTVHVKAVQl/yq3h
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2015-03-03 at 12:38 -0800, Jeff Kirsher wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+>=20
+> Module dependencies are broken in the case where CONFIG_I40E=3Dy and
+> CONFIG_CONFIGFS_FS=3Dm.  This fixes the broken dependency.
+>=20
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/Kconfig | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+
+This is to fix the current compile issues, I will continue to work with
+the i40e development team to address Dave's concerns expressed earlier
+in using configfs.
+
+--=-yYNOwoTVHVKAVQl/yq3h
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU9hyxAAoJEOVv75VaS+3OsgwP/RRoIz8DqOAeqtHlCxRCzjhb
+hcMZ+fw1CIXus8Utw9n7CSsUpBIoyblmCHcg2f46RH4/G2Wig7s9eR2ZdYwjoOcI
+NbggHsFOdpB5qK9sJ1H4FXaW+IUFP4qApqXCibsK6Nu3g7M/9dZqjS/vXWhrbZNG
+IkiJg/VU7jYBeonah5qe4QOmNIEcAGSBlu29NOi2NFl8PAAR47Yh0yj6xVG++IiH
+G6hWV/1LLTCmmM4XYZle3sy+BL5o42VdwRhsaUtEThPcGbGYBvbsUevm71Orsd+S
+B4e6ENO8ztMo6YQp+/yCHuxHakRTlhs18ubL3pY4O3OuCIouXY2L0bo/Nyks8Fnk
+AuKUgr5y2iNVFCmqI3520bxsHoT5mX0xUAeEuxc5uABmYMf2rawspTVRGagM0zD/
+EcBm2OLmni7yNKel90BGWVwfMneM27dAlHUozyfybRlra+bjH46U+Pds3ot4w1SV
+iWN+z/X4AHS6HlRA57xwBfEC+r5hXX5tcg/RUHWY91ZDgRz0ovpQTyD+fkD+NkM8
+FLEJtO+MZZeywdV1fDsJr5qRiAPOnFWYu1WS0aUjYUT3s8yCyvNiRaGUvhhdzgDa
+gSIw2Qins6UKwkTxvbl6+OuoMXEItppRj2XZ31vN2f0wp3QdNvvtDLCy1trJ+4LM
+dNjU2ziSGJDWA5yH+PMv
+=sjqM
+-----END PGP SIGNATURE-----
+
+--=-yYNOwoTVHVKAVQl/yq3h--
