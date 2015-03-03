@@ -1,130 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/17] i40e: Enable more than 64 qps for the Main VSI
-Date: Tue,  3 Mar 2015 01:44:15 -0800
-Message-ID: <1425375864-25117-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/17] fm10k: Modify tunnel length header check when offloading
+Date: Tue,  3 Mar 2015 01:44:08 -0800
+Message-ID: <1425375864-25117-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Shannon Nelson <shannon.nelson@intel.com>,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Joe Stringer <joestringer@nicira.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:7373 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755748AbbCCJoe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 04:44:34 -0500
+	id S1755851AbbCCJoa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 04:44:30 -0500
 In-Reply-To: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Matthew Vick <matthew.vick@intel.com>
 
-When running in a single TC mode the HW can be configured to enable more
-than max RSS qps for the Main VSI. This  patch makes it possible to
-enable as many as num_online_cpus().
+The FM10000 host interface can only support up to 184 bytes when
+performing tunnel offloads. Because of this, a check was added to
+prevent the driver from attempting to feed a header to the hardware too
+big for it to parse. Make this check a little more robust by calculating
+the inner L4 header length based on whether it is TCP or UDP.
 
-ethtool -L can still be used to reconfigure number of qps
-to a smaller value.
-
-Change-ID: I3e2df085276982603d86dfd79477c0ada8d30b8f
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Cc: Joe Stringer <joestringer@nicira.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  4 ----
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 25 ++++++++++++++++++++-----
- 3 files changed, 21 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 33 +++++++++++++++++++--------
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h |  3 +++
+ 2 files changed, 27 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 5fa4eab..e4e963a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -488,6 +488,7 @@ struct i40e_vsi {
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 84ab9ee..a7d3798 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -711,10 +711,6 @@ static struct ethhdr *fm10k_gre_is_nvgre(struct sk_buff *skb)
+ 	if (nvgre_hdr->flags & FM10K_NVGRE_RESERVED0_FLAGS)
+ 		return NULL;
  
- 	u16 base_queue;      /* vsi's first queue in hw array */
- 	u16 alloc_queue_pairs; /* Allocated Tx/Rx queues */
-+	u16 req_queue_pairs; /* User requested queue pairs */
- 	u16 num_queue_pairs; /* Used tx and rx pairs */
- 	u16 num_desc;
- 	enum i40e_vsi_type type;  /* VSI type, e.g., LAN, FCoE, etc */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 8a9d6a2..7413b0e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2348,10 +2348,6 @@ static int i40e_set_channels(struct net_device *dev,
- 	/* update feature limits from largest to smallest supported values */
- 	/* TODO: Flow director limit, DCB etc */
- 
--	/* cap RSS limit */
--	if (count > pf->rss_size_max)
--		count = pf->rss_size_max;
+-	/* verify protocol is transparent Ethernet bridging */
+-	if (nvgre_hdr->proto != htons(ETH_P_TEB))
+-		return NULL;
 -
- 	/* use rss_reconfig to rebuild with new queue count and update traffic
- 	 * class queue mapping
- 	 */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2757926..849fec7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1566,6 +1566,12 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	/* report start of ethernet header */
+ 	if (nvgre_hdr->flags & NVGRE_TNI)
+ 		return (struct ethhdr *)(nvgre_hdr + 1);
+@@ -724,13 +720,11 @@ static struct ethhdr *fm10k_gre_is_nvgre(struct sk_buff *skb)
  
- 	/* Set actual Tx/Rx queue pairs */
- 	vsi->num_queue_pairs = offset;
-+	if ((vsi->type == I40E_VSI_MAIN) && (numtc == 1)) {
-+		if (vsi->req_queue_pairs > 0)
-+			vsi->num_queue_pairs = vsi->req_queue_pairs;
-+		else
-+			vsi->num_queue_pairs = pf->num_lan_msix;
-+	}
- 
- 	/* Scheduler section valid can only be set for ADD VSI */
- 	if (is_add) {
-@@ -6921,7 +6927,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 	 * If we can't get what we want, we'll simplify to nearly nothing
- 	 * and try again.  If that still fails, we punt.
- 	 */
--	pf->num_lan_msix = pf->num_lan_qps - (pf->rss_size_max - pf->rss_size);
-+	pf->num_lan_msix = min_t(int, num_online_cpus(),
-+				 hw->func_caps.num_msix_vectors);
- 	pf->num_vmdq_msix = pf->num_vmdq_qps;
- 	other_vecs = 1;
- 	other_vecs += (pf->num_vmdq_vsis * pf->num_vmdq_msix);
-@@ -7251,15 +7258,19 @@ static int i40e_config_rss(struct i40e_pf *pf)
-  **/
- int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
+ static __be16 fm10k_tx_encap_offload(struct sk_buff *skb)
  {
-+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
-+	int new_rss_size;
-+
- 	if (!(pf->flags & I40E_FLAG_RSS_ENABLED))
++	u8 l4_hdr = 0, inner_l4_hdr = 0, inner_l4_hlen;
+ 	struct ethhdr *eth_hdr;
+-	u8 l4_hdr = 0;
+ 
+-/* fm10k supports 184 octets of outer+inner headers. Minus 20 for inner L4. */
+-#define FM10K_MAX_ENCAP_TRANSPORT_OFFSET	164
+-	if (skb_inner_transport_header(skb) - skb_mac_header(skb) >
+-	    FM10K_MAX_ENCAP_TRANSPORT_OFFSET)
++	if (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
++	    skb->inner_protocol != htons(ETH_P_TEB))
  		return 0;
  
--	queue_count = min_t(int, queue_count, pf->rss_size_max);
-+	new_rss_size = min_t(int, queue_count, pf->rss_size_max);
+ 	switch (vlan_get_protocol(skb)) {
+@@ -760,12 +754,33 @@ static __be16 fm10k_tx_encap_offload(struct sk_buff *skb)
  
--	if (queue_count != pf->rss_size) {
-+	if (queue_count != vsi->num_queue_pairs) {
-+		vsi->req_queue_pairs = queue_count;
- 		i40e_prep_for_reset(pf);
- 
--		pf->rss_size = queue_count;
-+		pf->rss_size = new_rss_size;
- 
- 		i40e_reset_and_rebuild(pf, true);
- 		i40e_config_rss(pf);
-@@ -9258,7 +9269,11 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 			pf->flags &= ~I40E_FLAG_DCB_CAPABLE;
- 			dev_info(&pf->pdev->dev, "not enough queues for DCB. DCB is disabled.\n");
- 		}
--		pf->num_lan_qps = pf->rss_size_max;
-+		pf->num_lan_qps = max_t(int, pf->rss_size_max,
-+					num_online_cpus());
-+		pf->num_lan_qps = min_t(int, pf->num_lan_qps,
-+					pf->hw.func_caps.num_tx_qp);
-+
- 		queues_left -= pf->num_lan_qps;
+ 	switch (eth_hdr->h_proto) {
+ 	case htons(ETH_P_IP):
++		inner_l4_hdr = inner_ip_hdr(skb)->protocol;
++		break;
+ 	case htons(ETH_P_IPV6):
++		inner_l4_hdr = inner_ipv6_hdr(skb)->nexthdr;
+ 		break;
+ 	default:
+ 		return 0;
  	}
  
++	switch (inner_l4_hdr) {
++	case IPPROTO_TCP:
++		inner_l4_hlen = inner_tcp_hdrlen(skb);
++		break;
++	case IPPROTO_UDP:
++		inner_l4_hlen = 8;
++		break;
++	default:
++		return 0;
++	}
++
++	/* The hardware allows tunnel offloads only if the combined inner and
++	 * outer header is 184 bytes or less
++	 */
++	if (skb_inner_transport_header(skb) + inner_l4_hlen -
++	    skb_mac_header(skb) > FM10K_TUNNEL_HEADER_LENGTH)
++		return 0;
++
+ 	return eth_hdr->h_proto;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+index 7c6d9d5..abb8a03 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+@@ -356,6 +356,9 @@ struct fm10k_hw;
+ #define FM10K_QUEUE_DISABLE_TIMEOUT		100
+ #define FM10K_RESET_TIMEOUT			150
+ 
++/* Maximum supported combined inner and outer header length for encapsulation */
++#define FM10K_TUNNEL_HEADER_LENGTH	184
++
+ /* VF registers */
+ #define FM10K_VFCTRL		0x00000
+ #define FM10K_VFCTRL_RST			0x00000008
 -- 
 1.9.3
