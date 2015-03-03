@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add SO_MAX_DGRAM_QLEN for AF_UNIX SOCK_DGRAM
- sockets
-Date: Tue, 03 Mar 2015 13:59:15 -0500 (EST)
-Message-ID: <20150303.135915.946638858654752454.davem@davemloft.net>
-References: <1425342774-32667-1-git-send-email-christian@iwakd.de>
-	<20150302.213807.367185406305242762.davem@davemloft.net>
-	<0b5908020d83bcbaa7f4938e5cb433ea@iwakd.de>
+Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Tue, 03 Mar 2015 14:03:03 -0500 (EST)
+Message-ID: <20150303.140303.1041460094574986792.davem@davemloft.net>
+References: <1425317290-1443-1-git-send-email-nschichan@freebox.fr>
+	<20150302.221547.345365592649851304.davem@davemloft.net>
+	<54F59885.1000203@freebox.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan@mindstab.net, edumazet@google.com,
-	hannes@stressinduktion.org, linux-api@vger.kernel.org
-To: christian@iwakd.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36274 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932296AbbCCS7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 13:59:18 -0500
-In-Reply-To: <0b5908020d83bcbaa7f4938e5cb433ea@iwakd.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tklauser@distanz.ch, balbi@ti.com,
+	w-lkml@lebenslange-mailadresse.de, ebiederm@xmission.com,
+	alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nschichan@freebox.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54F59885.1000203@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christian Seiler <christian@iwakd.de>
-Date: Tue, 03 Mar 2015 10:04:10 +0100
+From: Nicolas Schichan <nschichan@freebox.fr>
+Date: Tue, 03 Mar 2015 12:18:29 +0100
 
->  - More importantly, timestamps of messages can't be faked at all. So
->    in the example of a socket used for syslog purposes, all the
->    timestamps on the messages queued would be wrong.
+> I took inspiration from the mv643xx_eth driver which seems to
+> account the tx buffer reclaim in the work done in its poll callback.
 
-You can timestamp in the application and put that into your protocol
-for sending the syslog messages.
+It also should be fixed to not do so.
