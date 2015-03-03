@@ -1,53 +1,118 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/17] i40e: Add safety net for switch calling
-Date: Tue,  3 Mar 2015 01:44:13 -0800
-Message-ID: <1425375864-25117-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50490 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755714AbbCCJoa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 04:44:30 -0500
-In-Reply-To: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Tue, 03 Mar 2015 10:45:10 +0100
+Message-ID: <1842407.4EyTjGZBVF@pcimr>
+References: <1521782.cXqN30N6pA@pcimr> <CAAVeFuLnHQpsduHRsEkSC31+HDiApNoB3DNDQLzZxng=OVx6eg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Alexandre Courbot <gnurou@gmail.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <CAAVeFuLnHQpsduHRsEkSC31+HDiApNoB3DNDQLzZxng=OVx6eg@mail.gmail.com>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+On Thursday 26 February 2015 18:54:53 Alexandre Courbot wrote:
+> On Thu, Feb 12, 2015 at 1:28 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+> > Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
+> > disposing of GPIO descriptors.
+> >
+> > Cc: David Miller <davem@davemloft.net>
+> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> > ---
+> > Change log:
+> >   v5: no change
+> >   v4: use shorter names for members of struct gpio_descs
+> >   v3: no change
+> >   v2: use the new interface
+> >
+> >  drivers/net/phy/mdio-mux-gpio.c | 60 ++++++++++++-----------------------------
+> >  1 file changed, 17 insertions(+), 43 deletions(-)
+> >
+> > diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+> > index 320eb15..c49ad09 100644
+> > --- a/drivers/net/phy/mdio-mux-gpio.c
+> > +++ b/drivers/net/phy/mdio-mux-gpio.c
+> > @@ -12,33 +12,30 @@
+> >  #include <linux/module.h>
+> >  #include <linux/phy.h>
+> >  #include <linux/mdio-mux.h>
+> > -#include <linux/of_gpio.h>
+> > +#include <linux/gpio/consumer.h>
+> >
+> >  #define DRV_VERSION "1.1"
+> >  #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
+> >
+> > -#define MDIO_MUX_GPIO_MAX_BITS 8
+> > -
+> >  struct mdio_mux_gpio_state {
+> > -       struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
+> > -       unsigned int num_gpios;
+> > +       struct gpio_descs *gpios;
+> >         void *mux_handle;
+> >  };
+> >
+> >  static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+> >                                    void *data)
+> >  {
+> > -       int values[MDIO_MUX_GPIO_MAX_BITS];
+> > -       unsigned int n;
+> >         struct mdio_mux_gpio_state *s = data;
+> > +       int values[s->gpios->ndescs];
+> > +       unsigned int n;
+> >
+> >         if (current_child == desired_child)
+> >                 return 0;
+> >
+> > -       for (n = 0; n < s->num_gpios; n++) {
+> > +       for (n = 0; n < s->gpios->ndescs; n++)
+> >                 values[n] = (desired_child >> n) & 1;
+> > -       }
+> > -       gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
+> > +
+> > +       gpiod_set_array_cansleep(s->gpios->ndescs, s->gpios->desc, values);
+> 
+> One suggestion for a possible further improvement: it would be great
+> if the gpiod_set/get_array() functions would work on a struct
+> gpio_descs so users don't have to pass both the number of GPIOs and
+> the array.
+> 
+> I don't know whether it would be desirable to keep alternative
+> functions that preserve the current form, for users who want to set
+> multiple GPIOs but cannot use gpiod_get_array(). struct gpiod_descs is
+> easy to build, so maybe we don't need them?
+> 
 
-This patch adds default case to handle unmatched switch calls.
+I thought about that, but didn't want to change the interface in this
+patch series.
 
-Change-ID: Icd203570a1dc5322c1038f68b98a83195e8ad28c
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Furthermore there is this use case (my use case):
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 309bd1c..8a9d6a2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1413,6 +1413,8 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 			data += ETH_GSTRING_LEN;
- 		}
- 		break;
-+	default:
-+		break;
- 	}
- }
- 
-@@ -1654,6 +1656,8 @@ static int i40e_set_phys_id(struct net_device *netdev,
- 	case ETHTOOL_ID_INACTIVE:
- 		i40e_led_set(hw, pf->led_status, false);
- 		break;
-+	default:
-+		break;
- 	}
- 
- 	return 0;
--- 
-1.9.3
+I acquire a descriptor array for multiple data outputs and (among others) a
+single descriptor for a clock output. Afterwards I want to set the data bits
+and simultaneously clear the clock bit (using gpiod_set_array) before setting
+only the clock output (using gpiod_set_value).
+
+Therefore I need an array containing the data bits and the clock bit which
+is easy to build.
+
+I could also create a struct gpiod_descs but it would be more complicated
+since I would have to allocate a new struct before populating it with the
+descriptors and also free the allocated memory afterwards. It's not really
+a big deal but more complicated than before.
+
+But this might not be a very common use case.
+
+If we can assume that for the common use case the group of descriptors that
+can be acquired using gpiod_get_array() is the same group that should be
+set using gpiod_set_array(), it might make sense to change the interface.
+
+   Rojhalat
+
