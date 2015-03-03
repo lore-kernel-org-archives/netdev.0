@@ -1,57 +1,56 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH v2] net: cadence: Remove Kconfig dependency on ARCH
-Date: Tue,  3 Mar 2015 15:43:00 +0100
-Message-ID: <daf443b5c92099b2dd2fc490189bddc51659a0cd.1425393771.git.michal.simek@xilinx.com>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Tue, 03 Mar 2015 15:43:28 +0100
+Message-ID: <54F5C890.7080403@freebox.fr>
+References: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>	 <1425389399.5130.169.camel@edumazet-glaptop2.roam.corp.google.com>	 <1425390142.5130.173.camel@edumazet-glaptop2.roam.corp.google.com>	 <54F5BCE0.3060507@freebox.fr> <1425392282.5130.176.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Zach Pfeffer <zachp@xilinx.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Felipe Balbi <balbi@ti.com>,
+	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425392282.5130.176.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove Kconfig dependency and enable driver for
-all ARCHs.
+On 03/03/2015 03:18 PM, Eric Dumazet wrote:
+> On Tue, 2015-03-03 at 14:53 +0100, Nicolas Schichan wrote:
+>> On 03/03/2015 02:42 PM, Eric Dumazet wrote:
+>>>> To avoid that, I would take priv->tx_lock only once, or add a limit on
+>>>> the number of skbs that can be drained per round.
+>>>
+>>> Something like this (untested) patch
+>>
+>> I'm not against testing this patch, but we do not have any SMP capable bcm63xx
+>> board here so I don't think it will be of any use.
+>>
+>> bcm6358 and bcm6368 do indeed have two MIPS threads, but SMP is not possible
+>> (due to a data cache or TLB shared across all MIPS threads , unbearably
+>> complicating things, IIRC).
+>>
+>> bcm63xx ARM SoCs look like they can support SMP though.
+>>
+>> Regards,
+>>
+> 
+> I am reasonably confident the patch is OK, but I cannot easily compile
+> it on my laptop (x86_64) :
 
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
----
+Okay, I gave your patch a go and it works correctly on our non-SMP capable
+boards (and with DEBUG_SPINLOCK=y).
 
-Changes in v2:
-- Remove ARCH checking reported by
-  Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-- Change patch subject and description
-- Tested by Kbuild test system without any reported problem.
+Feel free to add:
 
- drivers/net/ethernet/cadence/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Tested-by: Nicolas Schichan <nschichan@freebox.fr>
 
-diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/etherne=
-t/cadence/Kconfig
-index 321d2ad235d9..739bb0048ebf 100644
---- a/drivers/net/ethernet/cadence/Kconfig
-+++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -4,7 +4,7 @@
-=20
- config NET_CADENCE
- 	bool "Cadence devices"
--	depends on HAS_IOMEM && (ARM || AVR32 || MICROBLAZE || COMPILE_TEST)
-+	depends on HAS_IOMEM
- 	default y
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say =
-Y.
-@@ -30,7 +30,7 @@ config ARM_AT91_ETHER
-=20
- config MACB
- 	tristate "Cadence MACB/GEM support"
--	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL=
- || ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST)
-+	depends on HAS_DMA
- 	select PHYLIB
- 	---help---
- 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
---=20
-1.8.2.3
+Regards,
+
+-- 
+Nicolas Schichan
+Freebox SAS
