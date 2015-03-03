@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bridge: add compile-time assert for cb struct size
-Date: Mon, 02 Mar 2015 22:00:27 -0500 (EST)
-Message-ID: <20150302.220027.1732186270596185340.davem@davemloft.net>
-References: <1425351022-5415-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
+Date: Mon, 02 Mar 2015 22:15:47 -0500 (EST)
+Message-ID: <20150302.221547.345365592649851304.davem@davemloft.net>
+References: <1425317290-1443-1-git-send-email-nschichan@freebox.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56218 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753759AbbCCDOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 22:14:03 -0500
-In-Reply-To: <1425351022-5415-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tklauser@distanz.ch, balbi@ti.com,
+	w-lkml@lebenslange-mailadresse.de, ebiederm@xmission.com,
+	alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nschichan@freebox.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425317290-1443-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue,  3 Mar 2015 03:50:22 +0100
+From: Nicolas Schichan <nschichan@freebox.fr>
+Date: Mon,  2 Mar 2015 18:28:10 +0100
 
-> @@ -188,8 +188,11 @@ static const struct stp_proto br_stp_proto = {
->  
->  static int __init br_init(void)
->  {
-> +	struct sk_buff *skb;
->  	int err;
->  
-> +	BUILD_BUG_ON(sizeof(struct br_input_skb_cb) > sizeof(skb->cb));
-> +
->  	err = stp_proto_register(&br_stp_proto);
->  	if (err < 0) {
->  		pr_err("bridge: can't register sap for STP\n");
+> In case there was some tx buffer reclaimed and not enough rx packets
+> to consume the whole budget, napi_complete would not be called and
+> interrupts would be kept disabled, effectively resulting in the
+> network core never to call the poll callback again and no rx/tx
+> interrupts to be fired either.
+> 
+> Fix that by taking the tx buffer reclaim work into account in the poll
+> callback, and keeping interrupts off only when the budget allowance
+> has been exhausted.
 
-The canonical way to do this, unless you needed the 'skb' variable
-for another reason, is to use FIELD_SIZEOF().
+First, no signoff, that is required for your patch.
+
+Secondly, we strongly recommend that TX buffer reclaim be not
+accounted at all in the poll budget.
+
+Just do all of the TX work, unconditionally, every time the poll
+routine is invoked.  Do not add it into the work variable that
+gets compared against the budget.  Pretend it took '0' units of
+work.
