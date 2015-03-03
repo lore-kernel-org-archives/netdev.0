@@ -1,70 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] i40e: Fix dependencies in the i40e driver on
- configfs
-Date: Tue, 03 Mar 2015 15:45:15 -0500 (EST)
-Message-ID: <20150303.154515.1426526534548261925.davem@davemloft.net>
-References: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] openvswitch: Fix serialization of non-masked
+ set actions.
+Date: Tue, 03 Mar 2015 15:56:12 -0500 (EST)
+Message-ID: <20150303.155612.1846533641562316910.davem@davemloft.net>
+References: <1425350996-2930-1-git-send-email-joestringer@nicira.com>
+	<20150303.143945.661201418308735762.davem@davemloft.net>
+	<CANr6G5zPg_RC=Dw=KD=AW4O4DY2j=Sc81SSYnfp8ZvyrkYOgLw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756619AbbCCUpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 15:45:18 -0500
-In-Reply-To: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, pshelar@nicira.com,
+	linux-kernel@vger.kernel.org, jrajahalme@nicira.com
+To: joestringer@nicira.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANr6G5zPg_RC=Dw=KD=AW4O4DY2j=Sc81SSYnfp8ZvyrkYOgLw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue,  3 Mar 2015 12:38:55 -0800
+From: Joe Stringer <joestringer@nicira.com>
+Date: Tue, 3 Mar 2015 12:38:54 -0800
 
-> From: Greg Rose <gregory.v.rose@intel.com>
+> On 3 March 2015 at 11:39, David Miller <davem@davemloft.net> wrote:
+>> From: Joe Stringer <joestringer@nicira.com>
+>> Date: Mon,  2 Mar 2015 18:49:56 -0800
+>>
+>>> Set actions consist of a regular OVS_KEY_ATTR_* attribute nested inside
+>>> of a OVS_ACTION_ATTR_SET action attribute. When converting masked actions
+>>> back to regular set actions, the inner attribute length was not changed,
+>>> ie, double the length being serialized. This patch fixes the bug.
+>>>
+>>> Fixes: 83d2b9b ("net: openvswitch: Support masked set actions.")
+>>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>>> ---
+>>> This fix needs to be applied to net as well; it applies cleanly.
+>>
+>> This is backwards, don't do this.  Just say that 'net' needs the fix
+>> and submit it targetting that tree only.  Things in 'net' propagate
+>> into 'net-next' automatically as I do merges over time, but the
+>> opposite is not true.
 > 
-> Module dependencies are broken in the case where CONFIG_I40E=y and
-> CONFIG_CONFIGFS_FS=m.  This fixes the broken dependency.
-> 
-> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> OK, I'll resend.
 
-This doesn't fix anything, nothing tests I40E_CONFIGFS_FS:
-
-[davem@abraco net-next]$ make -s -j8
-scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
-scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
-kernel/Makefile:133: *** No X.509 certificates found ***
-kernel/Makefile:133: *** No X.509 certificates found ***
-drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
-i40e_configfs.c:(.text+0x192db7): undefined reference to `config_item_init_type_name'
-drivers/built-in.o: In function `i40e_configfs_init':
-(.text+0x192df1): undefined reference to `config_group_init'
-drivers/built-in.o: In function `i40e_configfs_init':
-(.text+0x192e25): undefined reference to `configfs_register_subsystem'
-drivers/built-in.o: In function `i40e_configfs_exit':
-(.text+0x192e7a): undefined reference to `configfs_unregister_subsystem'
-make: *** [vmlinux] Error 1
-[davem@abraco net-next]$ git am --signoff diff
-Applying: i40e: Fix dependencies in the i40e driver on configfs
-[davem@abraco net-next]$ make oldconfig
-scripts/kconfig/conf --oldconfig Kconfig
-#
-# configuration written to .config
-#
-[davem@abraco net-next]$ make -s -j8
-scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
-scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
-kernel/Makefile:133: *** No X.509 certificates found ***
-kernel/Makefile:133: *** No X.509 certificates found ***
-drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
-i40e_configfs.c:(.text+0x192db7): undefined reference to `config_item_init_type_name'
-drivers/built-in.o: In function `i40e_configfs_init':
-(.text+0x192df1): undefined reference to `config_group_init'
-drivers/built-in.o: In function `i40e_configfs_init':
-(.text+0x192e25): undefined reference to `configfs_register_subsystem'
-drivers/built-in.o: In function `i40e_configfs_exit':
-(.text+0x192e7a): undefined reference to `configfs_unregister_subsystem'
-make: *** [vmlinux] Error 1
-[davem@abraco net-next]$ 
+If you actually checked the 'net' tree, I applied your patch and even sent
+it off to Linus via a pull request 15 minutes ago.
