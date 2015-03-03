@@ -1,72 +1,116 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 6/6] sched: Eliminate use of flow_keys in sch_sfq
-Date: Tue, 3 Mar 2015 13:00:53 -0800
-Message-ID: <CA+mtBx-CmSPRP4TAOA1rO7UZUFJBtppirbMV-=OOa14LsJq0Yw@mail.gmail.com>
-References: <1425247789-21211-1-git-send-email-therbert@google.com>
-	<1425247789-21211-7-git-send-email-therbert@google.com>
-	<1425257932.5130.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+mtBx-gAq=knRnf73qrOKuWy=WVaHvq2Vzb8RC39p81WBXZ8Q@mail.gmail.com>
-	<1425324278.5130.111.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next] i40e: Fix dependencies in the i40e driver on configfs
+Date: Tue, 03 Mar 2015 13:04:40 -0800
+Message-ID: <1425416680.2556.92.camel@jtkirshe-mobl>
+References: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20150303.154515.1426526534548261925.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-i9wVK/dte3o5X3RuUjdm"
+Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:43888 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755711AbbCCVAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 16:00:54 -0500
-Received: by igbhn18 with SMTP id hn18so31695785igb.2
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 13:00:53 -0800 (PST)
-In-Reply-To: <1425324278.5130.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga01.intel.com ([192.55.52.88]:55535 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755450AbbCCVEl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 16:04:41 -0500
+In-Reply-To: <20150303.154515.1426526534548261925.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 2, 2015 at 11:24 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2015-03-02 at 07:31 -0800, Tom Herbert wrote:
->
->> As I already mentioned, the probability of skb_get_hash returning the
->> same value for two flows is 1/2^32. I suspect it's greater probability
->> to get a hash collision between two IPv6 flows with subtlety different
->> addresses or simply match 4-tuples in different address spaces (like
->> VLAN or with VNID). If hash collision is really a problem, we can
->> periodically rekey skb->hash (either SW or HW) or maybe move to 64 bit
->> hashes somehow. Anyway, we potentially have the same problem in RSS
->> and other uses of the hash, if hashes collide then two flows share the
->> same bucket forever unless there is an action to break that.
->
-> Main historical use of SFQ is for routers.
->
-> We do not control skb->hash for forwarding workload, unless you
-> reprogram RSS keys on the NIC.
->
-> If you remember, we used to have a problem on some NIC using a well
-> known RSS key. It is fortunate SFQ/fq_codel did not rely on skb->hash
-> too much.
->
-Okay, I'll audit the drivers returning skb->hash fro HW to make sure
-they are properly randomizing the initial hash key.
 
-Unless, there's other material objections, I'll formally post these
-patches. Consolidating the packet hash for different use cases should
-be more efficient and we'll be able focus efforts on strengthening it
-over time in one place. As for SW vs. HW hash, it still seems like
-getting a Toeplitz hash from the hardware is going to be stronger at
-least for TCP/IPv6 than what we can currently do with jhash as the
-input is the full 40 bytes of 4-tuple. I must admit I wish Microsoft
-would have continued to make advancements with Toeplitz hash, it would
-be nice if there was a real definition for use with UDP and maybe we
-had instructions for this in x86!
+--=-i9wVK/dte3o5X3RuUjdm
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Tom
+On Tue, 2015-03-03 at 15:45 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue,  3 Mar 2015 12:38:55 -0800
+>=20
+> > From: Greg Rose <gregory.v.rose@intel.com>
+> >=20
+> > Module dependencies are broken in the case where CONFIG_I40E=3Dy and
+> > CONFIG_CONFIGFS_FS=3Dm.  This fixes the broken dependency.
+> >=20
+> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> This doesn't fix anything, nothing tests I40E_CONFIGFS_FS:
+>=20
+> [davem@abraco net-next]$ make -s -j8
+> scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=3Dkernel-a=
+ddress is not supported by compiler
+> scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=3Dkernel-a=
+ddress is not supported by compiler
+> kernel/Makefile:133: *** No X.509 certificates found ***
+> kernel/Makefile:133: *** No X.509 certificates found ***
+> drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
+> i40e_configfs.c:(.text+0x192db7): undefined reference to `config_item_ini=
+t_type_name'
+> drivers/built-in.o: In function `i40e_configfs_init':
+> (.text+0x192df1): undefined reference to `config_group_init'
+> drivers/built-in.o: In function `i40e_configfs_init':
+> (.text+0x192e25): undefined reference to `configfs_register_subsystem'
+> drivers/built-in.o: In function `i40e_configfs_exit':
+> (.text+0x192e7a): undefined reference to `configfs_unregister_subsystem'
+> make: *** [vmlinux] Error 1
+> [davem@abraco net-next]$ git am --signoff diff
+> Applying: i40e: Fix dependencies in the i40e driver on configfs
+> [davem@abraco net-next]$ make oldconfig
+> scripts/kconfig/conf --oldconfig Kconfig
+> #
+> # configuration written to .config
+> #
+> [davem@abraco net-next]$ make -s -j8
+> scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=3Dkernel-a=
+ddress is not supported by compiler
+> scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=3Dkernel-a=
+ddress is not supported by compiler
+> kernel/Makefile:133: *** No X.509 certificates found ***
+> kernel/Makefile:133: *** No X.509 certificates found ***
+> drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
+> i40e_configfs.c:(.text+0x192db7): undefined reference to `config_item_ini=
+t_type_name'
+> drivers/built-in.o: In function `i40e_configfs_init':
+> (.text+0x192df1): undefined reference to `config_group_init'
+> drivers/built-in.o: In function `i40e_configfs_init':
+> (.text+0x192e25): undefined reference to `configfs_register_subsystem'
+> drivers/built-in.o: In function `i40e_configfs_exit':
+> (.text+0x192e7a): undefined reference to `configfs_unregister_subsystem'
+> make: *** [vmlinux] Error 1
+> [davem@abraco net-next]$=20
 
-> If to target one flow, attackers need to attack your big boxes to flood
-> one particular RX queue at NIC level, this has a huge cost for them.
->
-> While targeting one hash bucket on a qdisc might be much easier, if they
-> know even a hash perturbation has no effect against their attack.
->
->
->
+Sorry it appears there were two issues that we needed to resolve.  The
+first was the issue found with a randonconfig build where if the i40e
+was compiled into the kernel and configfs was module, which this was
+trying to correct.
+
+The checks in the driver need to be changed from CONFIG_CONFIGFS_FS to
+checking for CONFIG_I40E_CONFIGFS_FS, now that there is a Kconfig
+option.
+
+--=-i9wVK/dte3o5X3RuUjdm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU9iHoAAoJEOVv75VaS+3O1BQP/1wBujXkFEErwZGF3B+8/Yp/
+gmMOJz4cDHq37Vb4mYEgWlf6MskikRzaQYO+5Ybj4pbZK+Hf/hCS8BZkErpGOW6B
+agG1yIwbLBBpP2dZbaiaaxkP98mE8T8JYtxbjjgSjGraQ8AtdsQfcZhIhX69e5q+
+3Ab52TLECLLdIAWAoRd4s7AzD4wOX1mLjRgtVfPCDkWgOc3UilLhvv6G7MU1KY5N
+0jJz6dmUGie86U5xBFGmIyY2nnVRi/QW6rDGqmGwBCs2x0/Oj+eCNLm8FYlbSkuG
+qsuvnPR20pXYAstEVt118asWpFnVSBgA2AyoR3JO71AWF71QUUX+MRipYtAdcP2D
+P9skwTR8swSud8OhpFEigOAxMqiFHNm7W15UagmgIP1/e4QV4XJ291RVmA3XfaW1
+DLmCRRWc6yRwIY/BX0JFJVba0v7J9MIqsSZ6tuqmmJCmzggdeRyafS8Lxt8OSXBo
+yEq5ITE4ZmpAWvCQ+jnvvo2COM5zG+R6V5E1THIX1+/MEs2M/xOBot5FWWf0Xtnn
+C/BQxtj2rSoNZLvWD40P9RfTHx8hS5kJIt0CNM0i8PWw2F0ea+K2Y5aYZF0zjpl4
+Ky4+y+KX/4/o7Gk7naqc9uMGLG/T0FpQmD2hh30FhyiPzLwBKHJuC9bzNnKoaT6M
+SL70Kj3A69U+owTOlmcw
+=bCBA
+-----END PGP SIGNATURE-----
+
+--=-i9wVK/dte3o5X3RuUjdm--
