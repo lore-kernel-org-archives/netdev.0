@@ -1,61 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ath9k_htc: avoid memcpy when downloading firmware
-Date: Mon, 02 Mar 2015 22:00:07 -0800
-Message-ID: <1425362407.5130.161.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [PATCH] ath:Release resources for structure pointer, ar if error
+ pointing device in the function, ath10k_core_register_work
+Date: Tue, 3 Mar 2015 07:40:17 +0100
+Message-ID: <CA+BoTQnNgNd4V9FN5SON387s7XuowFSDgrFUjZTn9Qm-sJ+NbQ@mail.gmail.com>
+References: <1425350171-26333-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Fred Chou <fred.chou.nd@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+To: Nicholas Krause <xerofoify@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com>
+In-Reply-To: <1425350171-26333-1-git-send-email-xerofoify@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-03-03 at 12:24 +0800, Fred Chou wrote:
-> From: Fred Chou <fred.chou.nd@gmail.com>
-> 
-> The temporary buffer to hold firmware data is not really needed,
-> and memcpy can be avoided by using data pointer instead.
-> 
-> Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
+On 3 March 2015 at 03:36, Nicholas Krause <xerofoify@gmail.com> wrote:
+> Releases resources and deregisters the stucture pointer ar passed by =
+the caller to the function, ath10k_core_register_work
+> if unable to probe the structure pointer successfully with a call to =
+ath10k_core_probe_fw. Further more if this happerns
+> we must first jump to the label err for the goto statement required t=
+o jump to handle this particular error in the function,
+> ath10k_core_register_work.  After we are in the correct error section=
+ we must free the resources for the structure pointer,ar
+> with a call to the function,  ath10k_core_unregister to free resource=
+s allocated for the structure pointer,ar.
+>
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 > ---
->  drivers/net/wireless/ath/ath9k/hif_usb.c | 12 ++----------
->  1 file changed, 2 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-> index 10c02f5..0bc35a8 100644
-> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-> @@ -986,30 +986,22 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
->  	const void *data = hif_dev->fw_data;
+>  drivers/net/wireless/ath/ath10k/core.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wir=
+eless/ath/ath10k/core.c
+> index 310e12b..8b2ca25 100644
+> --- a/drivers/net/wireless/ath/ath10k/core.c
+> +++ b/drivers/net/wireless/ath/ath10k/core.c
+> @@ -1307,9 +1307,7 @@ err_unregister_mac:
+>  err_release_fw:
+>         ath10k_core_free_firmware_files(ar);
+>  err:
+> -       /* TODO: It's probably a good idea to release device from the=
+ driver
+> -        * but calling device_release_driver() here will cause a dead=
+lock.
+> -        */
+> +       ath10k_core_unregister(ar);
+>         return;
+>  }
 
-Here data can be vmalloc() backed.
+Did you test this? This will deadlock. ath10k_core_unregister() tries
+to cancel ar->register_work. This won't work if you call it from the
+worker itself. Moreover if I ignore the deadlock
+ath10k_core_unregister() would do nothing else in this context because
+ATH10K_FLAG_CORE_REGISTERED wouldn't be even set.
 
->  	size_t len = hif_dev->fw_size;
->  	u32 addr = AR9271_FIRMWARE;
-> -	u8 *buf = kzalloc(4096, GFP_KERNEL);
+If you're interested in dealing with this TODO I suggest you read
+through the original thread which led to the current state of affairs:
 
-Here buf is kmalloc() backed.
-
->  	u32 firm_offset;
->  
-> -	if (!buf)
-> -		return -ENOMEM;
-> -
->  	while (len) {
->  		transfer = min_t(size_t, len, 4096);
-> -		memcpy(buf, data, transfer);
->  
->  		err = usb_control_msg(hif_dev->udev,
->  				      usb_sndctrlpipe(hif_dev->udev, 0),
->  				      FIRMWARE_DOWNLOAD, 0x40 | USB_DIR_OUT,
-> -				      addr >> 8, 0, buf, transfer, HZ);
+  http://www.spinics.net/lists/linux-wireless/msg124004.html
 
 
-Are you sure usb_control_msg() accepts vmalloc()ed buffers ?
-
-My guess is the answer is no.
+Micha=C5=82
