@@ -1,58 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 17/17] i40e/i40evf: Bump versions
-Date: Tue,  3 Mar 2015 01:44:24 -0800
-Message-ID: <1425375864-25117-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/17] i40e: Skip the priority tagging if DCB is not enabled
+Date: Tue,  3 Mar 2015 01:44:11 -0800
+Message-ID: <1425375864-25117-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:7373 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:10578 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755992AbbCCJoi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 04:44:38 -0500
+	id S1752697AbbCCJob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 04:44:31 -0500
 In-Reply-To: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-Bump i40e to 1.2.10 and i40evf to 1.2.4
+If DCB is not enabled priority tagging is not needed
+so skip over that section.
 
-Change-ID: I48aa64df05fcc8356e7026f3a9e69ecf78d0c785
-Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+Change-ID: Ia3f3fa07945b421259a9ca38329d6d1cbd6c6bcc
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 31450f9..3c4f419 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index f8c863b..352dafe 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2043,6 +2043,9 @@ static int i40e_tx_prepare_vlan_flags(struct sk_buff *skb,
+ 		tx_flags |= I40E_TX_FLAGS_SW_VLAN;
+ 	}
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 2
--#define DRV_VERSION_BUILD 9
-+#define DRV_VERSION_BUILD 10
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 31d35e2..a951358 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
- 
--#define DRV_VERSION "1.2.3"
-+#define DRV_VERSION "1.2.4"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
++	if (!(tx_ring->vsi->back->flags & I40E_FLAG_DCB_ENABLED))
++		goto out;
++
+ 	/* Insert 802.1p priority into VLAN header */
+ 	if ((tx_flags & (I40E_TX_FLAGS_HW_VLAN | I40E_TX_FLAGS_SW_VLAN)) ||
+ 	    (skb->priority != TC_PRIO_CONTROL)) {
+@@ -2063,6 +2066,8 @@ static int i40e_tx_prepare_vlan_flags(struct sk_buff *skb,
+ 			tx_flags |= I40E_TX_FLAGS_HW_VLAN;
+ 		}
+ 	}
++
++out:
+ 	*flags = tx_flags;
+ 	return 0;
+ }
 -- 
 1.9.3
