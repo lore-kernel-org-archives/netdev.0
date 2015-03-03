@@ -1,54 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
-Date: Tue, 03 Mar 2015 06:18:02 -0800
-Message-ID: <1425392282.5130.176.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
-	 <1425389399.5130.169.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1425390142.5130.173.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54F5BCE0.3060507@freebox.fr>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2] net: bridge: add compile-time assert for cb struct
+ size
+Date: Tue, 03 Mar 2015 15:28:47 +0100
+Message-ID: <54F5C51F.5020906@iogearbox.net>
+References: <1425387211-16807-1-git-send-email-fw@strlen.de> <063D6719AE5E284EB5DD2968C1650D6D1CAF3BB7@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tobias Klauser <tklauser@distanz.ch>,
-	Felipe Balbi <balbi@ti.com>,
-	Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Schichan <nschichan@freebox.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54F5BCE0.3060507@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Florian Westphal' <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:44215 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756752AbbCCO25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 09:28:57 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAF3BB7@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-03-03 at 14:53 +0100, Nicolas Schichan wrote:
-> On 03/03/2015 02:42 PM, Eric Dumazet wrote:
-> >> To avoid that, I would take priv->tx_lock only once, or add a limit on
-> >> the number of skbs that can be drained per round.
-> > 
-> > Something like this (untested) patch
-> 
-> I'm not against testing this patch, but we do not have any SMP capable bcm63xx
-> board here so I don't think it will be of any use.
-> 
-> bcm6358 and bcm6368 do indeed have two MIPS threads, but SMP is not possible
-> (due to a data cache or TLB shared across all MIPS threads , unbearably
-> complicating things, IIRC).
-> 
-> bcm63xx ARM SoCs look like they can support SMP though.
-> 
-> Regards,
-> 
+On 03/03/2015 02:50 PM, David Laight wrote:
+...
+>> +	BUILD_BUG_ON(sizeof(struct br_input_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
+>> +
+>
+> What about using something based on:
+> #define GET_CB(skb, type) ((type *)((skb)->cb + (sizeof (char[(sizeof (type) <= sizeof (skb->cb)) ? 1 : -1] - 1)))
+> to access skb->sb?
 
-I am reasonably confident the patch is OK, but I cannot easily compile
-it on my laptop (x86_64) :
+That would require to change all skb->cb[] call-sites everywhere.
 
-  CC      drivers/net/ethernet/broadcom/bcm63xx_enet.o
-drivers/net/ethernet/broadcom/bcm63xx_enet.c:34:30: fatal error:
-bcm63xx_dev_enet.h: No such file or directory
- #include <bcm63xx_dev_enet.h>
-                              ^
-compilation terminated.
-make[1]: *** [drivers/net/ethernet/broadcom/bcm63xx_enet.o] Error 1
-make: *** [drivers/net/ethernet/broadcom/bcm63xx_enet.o] Error 2
+Besides that, this macro is also buggy, my totally untrained lisp-eye tells
+me that you got your brackets wrong.
+
+Cheers,
+Daniel
