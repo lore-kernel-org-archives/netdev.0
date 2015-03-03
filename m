@@ -1,161 +1,159 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: OVS Offload Decision Proposal
-Date: Wed, 4 Mar 2015 10:18:21 +0900
-Message-ID: <20150304011817.GA29502@vergenet.net>
+From: Peter Chen <peter.chen@freescale.com>
+Subject: [PATCH 1/1] net: fec: fix rcv is not last issue when do suspend/resume test
+Date: Wed, 4 Mar 2015 07:52:11 +0800
+Message-ID: <1425426763-23361-1-git-send-email-peter.chen@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: dev@openvswitch.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Fugang Duan <b38611@freescale.com>,
+	<stable@vger.kernel.org>, Peter Chen <peter.chen@freescale.com>,
+	Fugang Duan <B38611@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:42867 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbbCDBSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 20:18:30 -0500
-Received: by padfa1 with SMTP id fa1so28754358pad.9
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 17:18:29 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-by2on0128.outbound.protection.outlook.com ([207.46.100.128]:60840
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755974AbbCDBTn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 20:19:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ CCed netdev as although this is primarily about Open vSwitch userspace
-  I believe there are some interested parties not on the Open vSwitch
-  dev mailing list ]
+From: Fugang Duan <b38611@freescale.com>
 
-Hi,
+When do suspend/resume stress test, some log shows "rcv is not +last".
+The issue is that enet suspend will disable phy clock, phy link down,
+after resume back, enet MAC redo initial and ready to tx/rx packet,
+but phy still is not ready which is doing auto-negotiation. When phy
+link is not up, don't schdule napi soft irq.
 
-The purpose of this email is to describe a rough design for driving Open
-vSwitch flow offload from user-space. But before getting to that I would
-like to provide some background information.
+[Peter]
+It has fixed kernel panic after long time suspend/resume test
+with nfs rootfs.
 
-The proposed design is for "OVS Offload Decision": a proposed component of
-ovs-vswitchd. In short the top-most red box in the first figure in the
-"OVS HW Offload Architecture" document edited by Thomas Graf[1].
+[ 8864.429458] fec 2188000.ethernet eth0: rcv is not +last
+[ 8864.434799] fec 2188000.ethernet eth0: rcv is not +last
+[ 8864.440088] fec 2188000.ethernet eth0: rcv is not +last
+[ 8864.445424] fec 2188000.ethernet eth0: rcv is not +last
+[ 8864.450782] fec 2188000.ethernet eth0: rcv is not +last
+[ 8864.456111] Unable to handle kernel NULL pointer dereference at virtual address 00000000
+[ 8864.464225] pgd = 80004000
+[ 8864.466997] [00000000] *pgd=00000000
+[ 8864.470627] Internal error: Oops: 17 [#1] SMP ARM
+[ 8864.475353] Modules linked in: evbug
+[ 8864.479006] CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 4.0.0-rc1-00044-g7a2a1d2 #234
+[ 8864.486854] Hardware name: Freescale i.MX6 SoloX (Device Tree)
+[ 8864.492709] task: be069380 ti: be07a000 task.ti: be07a000
+[ 8864.498137] PC is at memcpy+0x80/0x330
+[ 8864.501919] LR is at gro_pull_from_frag0+0x34/0xa8
+[ 8864.506735] pc : [<802bb080>]    lr : [<8057c204>]    psr: 00000113
+[ 8864.506735] sp : be07bbd4  ip : 00000010  fp : be07bc0c
+[ 8864.518235] r10: 0000000e  r9 : 00000000  r8 : 809c7754
+[ 8864.523479] r7 : 809c7754  r6 : bb43c040  r5 : bd280cc0  r4 : 00000012
+[ 8864.530025] r3 : 00000804  r2 : fffffff2  r1 : 00000000  r0 : bb43b83c
+[ 8864.536575] Flags: nzcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
+[ 8864.543904] Control: 10c5387d  Table: bd14c04a  DAC: 00000015
+[ 8864.549669] Process ksoftirqd/0 (pid: 3, stack limit = 0xbe07a210)
+[ 8864.555869] Stack: (0xbe07bbd4 to 0xbe07c000)
+[ 8864.560250] bbc0:                                              bd280cc0 bb43c040 809c7754
+[ 8864.568455] bbe0: 809c7754 bb43b83c 00000012 8057c204 00000000 bd280cc0 bd8a0718 00000003
+[ 8864.576658] bc00: be07bc5c be07bc10 8057ebf0 8057c1dc 00000000 00000000 8057ecc4 bef59760
+[ 8864.584863] bc20: 00000002 bd8a0000 be07bc64 809c7754 00000000 bd8a0718 bd280cc0 bd8a0000
+[ 8864.593066] bc40: 00000000 0000001c 00000000 bd8a0000 be07bc74 be07bc60 8057f148 8057eb90
+[ 8864.601268] bc60: bf0810a0 00000000 be07bcf4 be07bc78 8044e7b4 8057f12c 00000000 8007df6c
+[ 8864.609470] bc80: bd8a0718 00000040 00000000 bd280a80 00000002 00000019 bd8a0600 bd8a1214
+[ 8864.617672] bca0: bd8a0690 bf0810a0 00000000 00000000 bd8a1000 00000000 00000027 bd280cc0
+[ 8864.625874] bcc0: 80062708 800625cc 000943db bd8a0718 00000001 000d1166 00000040 be7c1ec0
+[ 8864.634077] bce0: 0000012c be07bd00 be07bd3c be07bcf8 8057fc98 8044e3ac 809c2ec0 3ddff000
+[ 8864.642280] bd00: be07bd00 be07bd00 be07bd08 be07bd08 00000000 00000020 809c608c 00000003
+[ 8864.650481] bd20: 809c6080 40000001 809c6088 00200100 be07bd84 be07bd40 8002e690 8057fac8
+[ 8864.658684] bd40: be07bd64 be07bd50 00000001 04208040 000d1165 0000000a be07bd84 809c0d7c
+[ 8864.666885] bd60: 00000000 809c6af8 00000000 00000001 be008000 00000000 be07bd9c be07bd88
+[ 8864.675087] bd80: 8002eb64 8002e564 00000125 809c0d7c be07bdc4 be07bda0 8006f100 8002eaac
+[ 8864.683291] bda0: c080e10c be07bde8 809c6c6c c080e100 00000002 00000000 be07bde4 be07bdc8
+[ 8864.691492] bdc0: 800087a0 8006f098 806f2934 20000013 ffffffff be07be1c be07be44 be07bde8
+[ 8864.699695] bde0: 800133a4 80008784 00000001 00000001 00000000 00000000 be7c1680 00000000
+[ 8864.707896] be00: be0cfe00 bd93eb40 00000002 00000000 00000000 be07be44 be07be00 be07be30
+[ 8864.716098] be20: 8006278c 806f2934 20000013 ffffffff be069380 be7c1680 be07be7c be07be48
+[ 8864.724300] be40: 80049cfc 806f2910 00000001 00000000 80049cb4 00000000 be07be7c be7c1680
+[ 8864.732502] be60: be3289c0 be069380 bd23b600 be0cfe00 be07bebc be07be80 806ed614 80049c68
+[ 8864.740706] be80: be07a000 0000020a 809c608c 00000003 00000001 8002e858 be07a000 be035740
+[ 8864.748907] bea0: 00000000 00000001 809d4598 00000000 be07bed4 be07bec0 806edd0c 806ed440
+[ 8864.757110] bec0: be07a000 be07a000 be07bee4 be07bed8 806edd68 806edcf0 be07bef4 be07bee8
+[ 8864.765311] bee0: 8002e860 806edd34 be07bf24 be07bef8 800494b0 8002e828 be069380 00000000
+[ 8864.773512] bf00: be035780 be035740 8004938c 00000000 00000000 00000000 be07bfac be07bf28
+[ 8864.781715] bf20: 80045928 80049398 be07bf44 00000001 00000000 be035740 00000000 00030003
+[ 8864.789917] bf40: dead4ead ffffffff ffffffff 80a2716c 80b59b00 00000000 8088c954 be07bf5c
+[ 8864.798120] bf60: be07bf5c 00000000 00000000 dead4ead ffffffff ffffffff 80a2716c 00000000
+[ 8864.806320] bf80: 00000000 8088c954 be07bf88 be07bf88 be035780 8004584c 00000000 00000000
+[ 8864.814523] bfa0: 00000000 be07bfb0 8000ed10 80045858 00000000 00000000 00000000 00000000
+[ 8864.822723] bfc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[ 8864.830925] bfe0: 00000000 00000000 00000000 00000000 00000013 00000000 5ffbb5f7 f9fcf5e7
+[ 8864.839115] Backtrace:
+[ 8864.841631] [<8057c1d0>] (gro_pull_from_frag0) from [<8057ebf0>] (dev_gro_receive+0x6c/0x3f8)
+[ 8864.850173]  r6:00000003 r5:bd8a0718 r4:bd280cc0 r3:00000000
+[ 8864.855958] [<8057eb84>] (dev_gro_receive) from [<8057f148>] (napi_gro_receive+0x28/0xac)
+[ 8864.864152]  r10:bd8a0000 r9:00000000 r8:0000001c r7:00000000 r6:bd8a0000 r5:bd280cc0
+[ 8864.872115]  r4:bd8a0718
+[ 8864.874713] [<8057f120>] (napi_gro_receive) from [<8044e7b4>] (fec_enet_rx_napi+0x414/0xc74)
+[ 8864.883167]  r5:00000000 r4:bf0810a0
+[ 8864.886823] [<8044e3a0>] (fec_enet_rx_napi) from [<8057fc98>] (net_rx_action+0x1dc/0x2ec)
+[ 8864.895016]  r10:be07bd00 r9:0000012c r8:be7c1ec0 r7:00000040 r6:000d1166 r5:00000001
+[ 8864.902982]  r4:bd8a0718
+[ 8864.905570] [<8057fabc>] (net_rx_action) from [<8002e690>] (__do_softirq+0x138/0x2c4)
+[ 8864.913417]  r10:00200100 r9:809c6088 r8:40000001 r7:809c6080 r6:00000003 r5:809c608c
+[ 8864.921382]  r4:00000020
+[ 8864.923966] [<8002e558>] (__do_softirq) from [<8002eb64>] (irq_exit+0xc4/0x138)
+[ 8864.931289]  r10:00000000 r9:be008000 r8:00000001 r7:00000000 r6:809c6af8 r5:00000000
+[ 8864.939252]  r4:809c0d7c
+[ 8864.941841] [<8002eaa0>] (irq_exit) from [<8006f100>] (__handle_domain_irq+0x74/0xe8)
+[ 8864.949688]  r4:809c0d7c r3:00000125
+[ 8864.953342] [<8006f08c>] (__handle_domain_irq) from [<800087a0>] (gic_handle_irq+0x28/0x68)
+[ 8864.961707]  r9:00000000 r8:00000002 r7:c080e100 r6:809c6c6c r5:be07bde8 r4:c080e10c
+[ 8864.969597] [<80008778>] (gic_handle_irq) from [<800133a4>] (__irq_svc+0x44/0x5c)
+[ 8864.977097] Exception stack(0xbe07bde8 to 0xbe07be30)
+[ 8864.982173] bde0:                   00000001 00000001 00000000 00000000 be7c1680 00000000
+[ 8864.990377] be00: be0cfe00 bd93eb40 00000002 00000000 00000000 be07be44 be07be00 be07be30
+[ 8864.998573] be20: 8006278c 806f2934 20000013 ffffffff
+[ 8865.003638]  r7:be07be1c r6:ffffffff r5:20000013 r4:806f2934
+[ 8865.009447] [<806f2904>] (_raw_spin_unlock_irq) from [<80049cfc>] (finish_task_switch+0xa0/0x160)
+[ 8865.018334]  r4:be7c1680 r3:be069380
+[ 8865.021993] [<80049c5c>] (finish_task_switch) from [<806ed614>] (__schedule+0x1e0/0x5dc)
+[ 8865.030098]  r8:be0cfe00 r7:bd23b600 r6:be069380 r5:be3289c0 r4:be7c1680
+[ 8865.036942] [<806ed434>] (__schedule) from [<806edd0c>] (preempt_schedule_common+0x28/0x44)
+[ 8865.045307]  r9:00000000 r8:809d4598 r7:00000001 r6:00000000 r5:be035740 r4:be07a000
+[ 8865.053197] [<806edce4>] (preempt_schedule_common) from [<806edd68>] (_cond_resched+0x40/0x48)
+[ 8865.061822]  r4:be07a000 r3:be07a000
+[ 8865.065472] [<806edd28>] (_cond_resched) from [<8002e860>] (run_ksoftirqd+0x44/0x64)
+[ 8865.073252] [<8002e81c>] (run_ksoftirqd) from [<800494b0>] (smpboot_thread_fn+0x124/0x190)
+[ 8865.081550] [<8004938c>] (smpboot_thread_fn) from [<80045928>] (kthread+0xdc/0xf8)
+[ 8865.089133]  r10:00000000 r9:00000000 r8:00000000 r7:8004938c r6:be035740 r5:be035780
+[ 8865.097097]  r4:00000000 r3:be069380
+[ 8865.100752] [<8004584c>] (kthread) from [<8000ed10>] (ret_from_fork+0x14/0x24)
+[ 8865.107990]  r7:00000000 r6:00000000 r5:8004584c r4:be035780
+[ 8865.113767] Code: e320f000 e4913004 e4914004 e4915004 (e4916004)
+[ 8865.120006] ---[ end trace b0a4c6bd499288ca ]---
+[ 8865.124697] Kernel panic - not syncing: Fatal exception in interrupt
+[ 8865.131084] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
 
-[1] https://docs.google.com/document/d/195waUliu7G5YYVuXHmLmHgJ38DFSte321WPq0oaFhyU/edit#heading=h.116je16s8xzw
+Cc: [v3.19+] stable@vger.kernel.org
+Tested-by: Peter Chen <peter.chen@freescale.com>
+Signed-off-by: Peter Chen <peter.chen@freescale.com>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Assumptions
------------
-
-There is currently a lively debate on various aspects of flow offloads
-within the Linux networking community. As of writing the latest discussion
-centers around the "Flows! Offload them." thread[2] on the netdev mailing
-list.
-
-[2] http://thread.gmane.org/gmane.linux.network/351860
-
-My aim is not to preempt the outcome of those discussions. But rather to
-investigate what offloads might look like in ovs-vswitchd. In order to make
-that investigation concrete I have made some assumptions about facilities
-that may be provided by the kernel in future. Clearly if the discussions
-within the Linux networking community end in a solution that differs from
-my assumptions then this work will need to be revisited. Indeed, I entirely
-expect this work to be revised and refined and possibly even radically
-rethought as time goes on.
-
-That said, my working assumptions are:
-
-* That Open vSwitch may manage flow offloads from user-space. This is as
-  opposed to them being transparently handled in the datapath. This does
-  not preclude the existence of transparent offloading in the datapath.
-  But rather limits this discussion to a mode where offloads are managed
-  from user-space.
-
-* That Open vSwitch may add flows to hardware via an API provided by the
-  kernel. In particular my working assumption is that the Flow API proposed
-  by John Fastabend[3] may be used to add flows to hardware. While the
-  existing netlink API may be used to add flows to the kernel datapath.
-
-* That there will be an API provided by the kernel to allow the discovery
-  of hardware offload capabilities by user-space. Again my working
-  assumption is that the Flow API proposed by John Fastabend[3] may be used
-  for this purpose.
-
-[3] http://thread.gmane.org/gmane.linux.network/347188
-
-Rough Design
-------------
-
-* Modify flow translation so that the switch parent id[4] of the flow is
-  recorded as part of its translation context. The switch parent id was
-  recently added to the Linux kernel and provides a common identifier for
-  all netdevices that are backed by the same underlying switch hardware for
-  some very loose definition of switch. In this scheme if the input and all
-  output ports of a flow belong to the same switch hardware then the switch
-  id of the translation context would be set accordingly, indicating
-  offload of the flow may occur to that switch.
-
-  [4] https://github.com/torvalds/linux/blob/master/Documentation/networking/switchdev.txt
-
-  At this time this excludes both flows that either span multiple switch
-  devices or use vports that are not backed directly by netdevices, for
-  example tunnel vports. While important I believe these are topics for
-  further work.
-
-* At the point where a flow is to be added to the datapath ovs-vswitchd
-  should determine if it should be offloaded and if so translate it to a
-  flow for the hardware offload API and queue this translated flow up to be
-  added to hardware as well as the datapath.
-
-  The translation to hardware flows could be performed along with the
-  translation that already occurs from OpenFlow to ODP flows. However, that
-  translation is already quite complex and called for a variety of reasons
-  other than to prepare flows to be added to the datapath. So I think it
-  makes some sense to keep the new translation separate from the existing
-  one.
-
-  The determination mentioned above could first check if the switch id is
-  set and then may make further checks: for example that there is space in
-  the hardware for a new flow, that all the matches and actions of the flow
-  may be offloaded.
-
-  There seems to be ample scope for complex logic to determine which flows
-  should be offloaded. And I believe that one motivation for handling
-  offloads in user-space for such complex logic to live in user-space.
-  However, in order to keep things simple in the beginning I propose some
-  very simple logic: offload all flows that the hardware supports up until
-  the hardware runs out of space.
-
-  This seems like a reasonable start keeping in mind that all flows will
-  also be added to the datapath and that ovs-vswitchd constructs flows such
-  that they do not overlap.
-
-  A more conservative version of this simple rule would be to remove all
-  flows from hardware if a flow is encountered that is not to be added to
-  hardware. That is, ensure either all flows that are in hardware are also
-  in software or no flows are in hardware at all. This is the approach
-  being initially taken for L3 offloads in the Linux kernel[5].
-
-  [5] http://thread.gmane.org/gmane.linux.network/352481/focus=352658
-
-* It seems to me that somewhat tricky problem is how to manage flows in
-  hardware. As things stand ovs-vswitchd generally manages flows in the
-  datapath by dumping flows, inspecting the dumped flows to see how
-  recently they have been used and removing idle flows from the datapath.
-  Unfortunately this approach may not be well suited to flows offloaded to
-  hardware as dumping flows may be prohibitively expensive. As such I would
-  like some consideration given to three approaches. Perhaps in the end all
-  will need to be supported. And perhaps there are others:
-
-  1. Dump Flows
-     This is the approach currently taken to managing datapath flows. As
-     stated above my feeling is that this will not be well suited much
-     hardware. However, for simplicity it may be a good place to start.
-
-  2. Notifications
-     In this approach flows are added to hardware with a soft timeout and
-     hardware removes flows when they timeout sending a notification when
-     that occurs. Notifications would be relayed up to user space from the
-     driver in the kernel. Some effort may be required to mitigate
-     notification storms if many flows are removed in a short space of
-     time. It is also of note that there is likely to be hardware that
-     can't generate notifications on flow removal.
-
-  3. Aging in hardware
-     In this approach flows are added to hardware with a soft timeout and
-     hardware removes the flows when they timeout. However no notification
-     is generated. And thus ovs-vswitchd has no way of knowing if a flow is
-     still present in hardware or not. From a hardware point of view this
-     seems to be the simplest to support. But I suspect that it would
-     present some significant challenges to ovs-vswitchd in the context of
-     its current implementation of flow management. Especially if flows are
-     also to be present in the datapath as proposed above.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 9bb6220..5ff8fee 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1597,7 +1597,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 	writel(int_events, fep->hwp + FEC_IEVENT);
+ 	fec_enet_collect_events(fep, int_events);
+ 
+-	if (fep->work_tx || fep->work_rx) {
++	if ((fep->work_tx || fep->work_rx) && fep->link) {
+ 		ret = IRQ_HANDLED;
+ 
+ 		if (napi_schedule_prep(&fep->napi)) {
+-- 
+1.9.1
