@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
-Date: Tue, 03 Mar 2015 14:03:03 -0500 (EST)
-Message-ID: <20150303.140303.1041460094574986792.davem@davemloft.net>
-References: <1425317290-1443-1-git-send-email-nschichan@freebox.fr>
-	<20150302.221547.345365592649851304.davem@davemloft.net>
-	<54F59885.1000203@freebox.fr>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 13/14] wireless: Use eth_<foo>_addr instead of
+ memset
+Date: Tue, 03 Mar 2015 11:03:17 -0800
+Message-ID: <1425409397.17273.38.camel@perches.com>
+References: <cover.1425354527.git.joe@perches.com>
+	 <0c710456e4875ff00c1a9fcff9378ed15110dcd3.1425354528.git.joe@perches.com>
+	 <1425370617.2450.3.camel@sipsolutions.net>
+	 <20150303.135737.630359651880852880.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: tklauser@distanz.ch, balbi@ti.com,
-	w-lkml@lebenslange-mailadresse.de, ebiederm@xmission.com,
-	alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nschichan@freebox.fr
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54F59885.1000203@freebox.fr>
+In-Reply-To: <20150303.135737.630359651880852880.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Schichan <nschichan@freebox.fr>
-Date: Tue, 03 Mar 2015 12:18:29 +0100
+On Tue, 2015-03-03 at 13:57 -0500, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Tue, 03 Mar 2015 09:16:57 +0100
+> 
+> > Other than that, I guess I'll apply this, but I really wish there was a
+> > way to distinguish more easily which of these require alignment and
+> > which don't.
+> 
+> You can't apply "this" without the dependency patch #1.
+> 
+> Therefore this should probably all go through my tree.
 
-> I took inspiration from the mv643xx_eth driver which seems to
-> account the tx buffer reclaim in the work done in its poll callback.
+Hey David.
 
-It also should be fixed to not do so.
+The eth_<foo>_addr functions already exist so
+1/14 isn't a dependency.
+
+It's just a trivial improvement on existing code
+with CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS and
+at least the arm 4.6.3 compiler.
