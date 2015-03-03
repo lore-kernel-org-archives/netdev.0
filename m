@@ -1,56 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 01/14] etherdevice: Add eth_<foo>_addr
- CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS code
-Date: Tue, 03 Mar 2015 11:41:09 -0800
-Message-ID: <1425411669.17273.52.camel@perches.com>
-References: <1425407104.17273.27.camel@perches.com>
-	 <1425408125.5130.191.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1425409671.17273.42.camel@perches.com>
-	 <20150303.142758.822602589629075339.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ax25: Stop using magic neighbour cache
+ operations.
+Date: Tue, 03 Mar 2015 14:45:09 -0500 (EST)
+Message-ID: <20150303.144509.1694022322984204895.davem@davemloft.net>
+References: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org>
+	<20150302.164426.494515497595921630.davem@davemloft.net>
+	<874mq22imc.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150303.142758.822602589629075339.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
+	linux-hams@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-03-03 at 14:27 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 03 Mar 2015 11:07:51 -0800
-> > On Tue, 2015-03-03 at 10:42 -0800, Eric Dumazet wrote:
-> >> On Tue, 2015-03-03 at 10:25 -0800, Joe Perches wrote:
-> >> 
-> >> > At least for arm gcc 4.6.3, it emits different code
-> >> > for net/l2tp/l2tp_eth.o
-> >> 
-> >> Then it looks like arm gcc or arm linux memset() should be improved.
-> > 
-> > Perhaps you can take that up with the gcc folk.
-> > 
-> > I think it appropriate to improve the actual emitted
-> > code for the compiler I use.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 03 Mar 2015 09:41:47 -0600
+
 > 
-> In the long term, this is poor time spent.  If you fixed GCC
-> everyone would benefit in the world, not just kernel builders.
+> Before the ax25 stack calls dev_queue_xmit it always calls
+> ax25_type_trans which sets skb->protocol to ETH_P_AX25.
 > 
-> Furthermore, none of this crap is in the fast path of anything.
+> Which means that by looking at the protocol type it is possible to
+> detect IP packets that have not been munged by the ax25 stack in
+> ndo_start_xmit and call a function to munge them.
 > 
-> I'm not applying this series, it's basis is not well founded
-> yet you keep trying to argue otherwise.
+> Rename ax25_neigh_xmit to ax25_ip_xmit and tweak the return type and
+> value to be appropriate for an ndo_start_xmit function.
+> 
+> Update all of the ax25 devices to test the protocol type for ETH_P_IP
+> and return ax25_ip_xmit as the first thing they do.  This preserves
+> the existing semantics of IP packet processing, but the timing will be
+> a little different as the IP packets now pass through the qdisc layer
+> before reaching the ax25 ip packet processing.
+> 
+> Remove the now unnecessary ax25 neighbour table operations.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Until such time as the linux crosstools compilers are updated,
-(they seem stuck on 4.6.3 from 3 years ago)
-https://www.kernel.org/pub/tools/crosstool/
-I think the series is a trivial, small improvement.
-
-I believe that's the only "argument" I've made.
-
-Your choice to apply it or not, but if the series
-isn't appropriate, likely the existence of both
-eth_zero_addr and eth_broadcast_addr is suspect too.
-
-cheers, Joe
+Another nice cleanup, applied, thanks Eric.
