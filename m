@@ -1,46 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/17] i40e: don't disable PF LB when disabling VFs
-Date: Tue,  3 Mar 2015 01:44:14 -0800
-Message-ID: <1425375864-25117-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/17] i40e: Move RSS table size for VSIs to the VSI struct
+Date: Tue,  3 Mar 2015 01:44:19 -0800
+Message-ID: <1425375864-25117-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50490 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:10578 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755933AbbCCJoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 04:44:32 -0500
+	id S1755933AbbCCJog (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 04:44:36 -0500
 In-Reply-To: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Since we now have functionality to enable and disable PF loopback at
-runtime, don't try to do it automatically. Removing this call also gets
-rid of a bogus error message when removing the PF module with VFs
-enabled.
+Since all VSIs don't have the same RSS table size,
+have one for each VSI instead of having a single define
+for RSS table size
 
-Change-ID: Ic38652d8a3b9498d96113bfaa5ea7bad050862e9
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: Ic2c7c66e4a389d4b6c8841a707510a9735041f02
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      | 2 ++
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 +++
+ 2 files changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 493335c..910c45e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -832,7 +832,6 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 			bit_idx = (hw->func_caps.vf_base_id + vf_id) % 32;
- 			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), (1 << bit_idx));
- 		}
--		i40e_disable_pf_switch_lb(pf);
- 	} else {
- 		dev_warn(&pf->pdev->dev,
- 			 "unable to disable SR-IOV because VFs are assigned.\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 27d1d92..e7ceae8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -471,6 +471,8 @@ struct i40e_vsi {
+ 	u16 rx_itr_setting;
+ 	u16 tx_itr_setting;
+ 
++	u16 rss_table_size;
++
+ 	u16 max_frame;
+ 	u16 rx_hdr_len;
+ 	u16 rx_buf_len;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index fae83ac..d6d8c30 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6713,6 +6713,8 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	vsi->idx = vsi_idx;
+ 	vsi->rx_itr_setting = pf->rx_itr_default;
+ 	vsi->tx_itr_setting = pf->tx_itr_default;
++	vsi->rss_table_size = (vsi->type == I40E_VSI_MAIN) ?
++				pf->rss_table_size : 64;
+ 	vsi->netdev_registered = false;
+ 	vsi->work_limit = I40E_DEFAULT_IRQ_WORK;
+ 	INIT_LIST_HEAD(&vsi->mac_filter_list);
+@@ -7452,6 +7454,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	 */
+ 	pf->rss_size_max = 0x1 << pf->hw.func_caps.rss_table_entry_width;
+ 	pf->rss_size = 1;
++	pf->rss_table_size = pf->hw.func_caps.rss_table_size;
+ 	pf->rss_size_max = min_t(int, pf->rss_size_max,
+ 				 pf->hw.func_caps.num_tx_qp);
+ 	if (pf->hw.func_caps.rss) {
 -- 
 1.9.3
