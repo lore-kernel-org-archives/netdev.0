@@ -1,47 +1,56 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: [PATCH -next] net: i40e: fix build, depends on CONFIGFS_FS
-Date: Tue, 03 Mar 2015 11:35:38 -0800
-Message-ID: <54F60D0A.6020903@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux NICS <linux.nics@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 3/3] drivers: net: xgene: fix new firmware backward compatibility with older driver
+Date: Tue,  3 Mar 2015 11:39:41 -0800
+Message-ID: <1425411581-25463-4-git-send-email-isubramanian@apm.com>
+References: <1425411581-25463-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, mlangsdo@redhat.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og120.obsmtp.com ([64.18.0.137]:33198 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932150AbbCCTfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 14:35:39 -0500
+Received: by pablj1 with SMTP id lj1so17422730pab.10
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 11:35:38 -0800 (PST)
+In-Reply-To: <1425411581-25463-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
+This patch fixes the backward compatibile of the older driver with the
+newer firmware by making the binding unique so that the older driver won't
+recognize the non-supported interfaces.
 
-i40e uses configfs interfaces so it should depend on CONFIGFS_FS.
-
-Fixes these build errors:
-
-drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
-i40e_configfs.c:(.text+0x2fcdca): undefined reference to `config_item_init_type_name'
-drivers/built-in.o: In function `i40e_configfs_init':
-(.text+0x2fcee6): undefined reference to `config_group_init'
-drivers/built-in.o: In function `i40e_configfs_init':
-(.text+0x2fcf0c): undefined reference to `configfs_register_subsystem'
-drivers/built-in.o: In function `i40e_configfs_exit':
-(.text+0x2fcf71): undefined reference to `configfs_unregister_subsystem'
-
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Cc:	Linux NICS <linux.nics@intel.com>
-Cc:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
 ---
- drivers/net/ethernet/intel/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
---- linux-next-20150303.orig/drivers/net/ethernet/intel/Kconfig
-+++ linux-next-20150303/drivers/net/ethernet/intel/Kconfig
-@@ -256,6 +256,7 @@ config I40E
- 	tristate "Intel(R) Ethernet Controller XL710 Family support"
- 	select PTP_1588_CLOCK
- 	depends on PCI
-+	depends on CONFIGFS_FS
- 	---help---
- 	  This driver supports Intel(R) Ethernet Controller XL710 Family of
- 	  devices.  For more information on how to identify your adapter, go
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 4de62b2..635a83b 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -1025,6 +1025,8 @@ static int xgene_enet_remove(struct platform_device *pdev)
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id xgene_enet_acpi_match[] = {
+ 	{ "APMC0D05", },
++	{ "APMC0D30", },
++	{ "APMC0D31", },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
+@@ -1033,6 +1035,8 @@ MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
+ #ifdef CONFIG_OF
+ static struct of_device_id xgene_enet_of_match[] = {
+ 	{.compatible = "apm,xgene-enet",},
++	{.compatible = "apm,xgene1-sgenet",},
++	{.compatible = "apm,xgene1-xgenet",},
+ 	{},
+ };
+ 
+-- 
+1.9.1
