@@ -1,39 +1,61 @@
-From: Sriram Raghunathan <sriram.r@nsn.com>
-Subject: About Raw socket, vlan + ip header
-Date: Tue, 03 Mar 2015 10:44:15 +0530
-Message-ID: <54F54327.7090002@nsn.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ath9k_htc: avoid memcpy when downloading firmware
+Date: Mon, 02 Mar 2015 22:00:07 -0800
+Message-ID: <1425362407.5130.161.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:41993 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbbCCFdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 00:33:47 -0500
-Received: from demuprx017.emea.nsn-intra.net ([10.150.129.56])
-	by demumfd001.nsn-inter.net (8.14.3/8.14.3) with ESMTP id t235EGbB017433
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 3 Mar 2015 05:14:16 GMT
-Received: from [10.143.85.61] ([10.143.85.61])
-	by demuprx017.emea.nsn-intra.net (8.12.11.20060308/8.12.11) with ESMTP id t235EFMv006329
-	for <netdev@vger.kernel.org>; Tue, 3 Mar 2015 06:14:16 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Fred Chou <fred.chou.nd@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 2015-03-03 at 12:24 +0800, Fred Chou wrote:
+> From: Fred Chou <fred.chou.nd@gmail.com>
+> 
+> The temporary buffer to hold firmware data is not really needed,
+> and memcpy can be avoided by using data pointer instead.
+> 
+> Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
+> ---
+>  drivers/net/wireless/ath/ath9k/hif_usb.c | 12 ++----------
+>  1 file changed, 2 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+> index 10c02f5..0bc35a8 100644
+> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
+> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+> @@ -986,30 +986,22 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
+>  	const void *data = hif_dev->fw_data;
 
-My name is Sriram, have a question about raw socket programming.
+Here data can be vmalloc() backed.
 
-Writing a socket program where, I'm trying to construct a ether frame
-with vlan id and copying ip header there after. By using PF_PACKET
-family.
+>  	size_t len = hif_dev->fw_size;
+>  	u32 addr = AR9271_FIRMWARE;
+> -	u8 *buf = kzalloc(4096, GFP_KERNEL);
 
-But when I do a sendto, the ip header is stripped off from the
-packet. Could you please let me know how to go about?
+Here buf is kmalloc() backed.
 
-Having the ip header is necessary for a software here.
+>  	u32 firm_offset;
+>  
+> -	if (!buf)
+> -		return -ENOMEM;
+> -
+>  	while (len) {
+>  		transfer = min_t(size_t, len, 4096);
+> -		memcpy(buf, data, transfer);
+>  
+>  		err = usb_control_msg(hif_dev->udev,
+>  				      usb_sndctrlpipe(hif_dev->udev, 0),
+>  				      FIRMWARE_DOWNLOAD, 0x40 | USB_DIR_OUT,
+> -				      addr >> 8, 0, buf, transfer, HZ);
 
-Thanks for the time.
 
-Sriram
+Are you sure usb_control_msg() accepts vmalloc()ed buffers ?
+
+My guess is the answer is no.
