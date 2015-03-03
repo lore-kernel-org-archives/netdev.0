@@ -1,46 +1,43 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 06/14] xen: Use eth_<foo>_addr instead
-	of memset
-Date: Mon,  2 Mar 2015 19:54:51 -0800
-Message-ID: <8762529463d8d2290ef0b67e5ed91f4bccb98b37.1425354528.git.joe@perches.com>
+Subject: [PATCH net-next 11/14] ethernet: Use eth_<foo>_addr instead of memset
+Date: Mon,  2 Mar 2015 19:54:56 -0800
+Message-ID: <01fdfdeae449c5164143d3b094075e38f8302429.1425354528.git.joe@perches.com>
 References: <cover.1425354527.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1425354527.git.joe@perches.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Use the built-in function instead of memset.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/xen-netback/interface.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ethernet/eth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index f38227a..4ae98e2 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -438,7 +438,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	 * stolen by an Ethernet bridge for STP purposes.
- 	 * (FE:FF:FF:FF:FF:FF)
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 8dbdf6c..f3bad41 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -104,7 +104,7 @@ int eth_header(struct sk_buff *skb, struct net_device *dev,
  	 */
--	memset(dev->dev_addr, 0xFF, ETH_ALEN);
-+	eth_broadcast_addr(dev->dev_addr);
- 	dev->dev_addr[0] &= ~0x01;
  
- 	netif_carrier_off(dev);
+ 	if (dev->flags & (IFF_LOOPBACK | IFF_NOARP)) {
+-		memset(eth->h_dest, 0, ETH_ALEN);
++		eth_zero_addr(eth->h_dest);
+ 		return ETH_HLEN;
+ 	}
+ 
+@@ -357,7 +357,7 @@ void ether_setup(struct net_device *dev)
+ 	dev->flags		= IFF_BROADCAST|IFF_MULTICAST;
+ 	dev->priv_flags		|= IFF_TX_SKB_SHARING;
+ 
+-	memset(dev->broadcast, 0xFF, ETH_ALEN);
++	eth_broadcast_addr(dev->broadcast);
+ 
+ }
+ EXPORT_SYMBOL(ether_setup);
 -- 
 2.1.2
