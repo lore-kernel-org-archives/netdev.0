@@ -1,52 +1,105 @@
-From: "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
-Subject: RE: [PATCH] gianfar: Reduce logging noise seen due to phy polling if
- link is down
-Date: Tue, 3 Mar 2015 14:42:10 +0000
-Message-ID: <DM2PR03MB414A9B4827E955E774C85029C110@DM2PR03MB414.namprd03.prod.outlook.com>
-References: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] ipv6: expose RFC4191 route preference via rtnetlink
+Date: Tue, 3 Mar 2015 16:17:15 +0100
+Message-ID: <20150303151715.GA2020@nanopsycho.lan>
+References: <1425376912-31983-1-git-send-email-lkundrak@v3.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Lubomir Rintel <lkundrak@v3.sk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1425376912-31983-1-git-send-email-lkundrak@v3.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Guenter Roeck [mailto:linux@roeck-us.net]
-> Sent: Monday, March 02, 2015 10:03 PM
+Tue, Mar 03, 2015 at 11:01:52AM CET, lkundrak@v3.sk wrote:
+>This makes it possible to retain the route preference when RAs are handled in
+>userspace.
+>
+>Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
+>---
+> include/uapi/linux/rtnetlink.h |  1 +
+> net/ipv6/route.c               | 16 +++++++++++++++-
+> 2 files changed, 16 insertions(+), 1 deletion(-)
+>
+>diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+>index 5cc5d66..0671524 100644
+>--- a/include/uapi/linux/rtnetlink.h
+>+++ b/include/uapi/linux/rtnetlink.h
+>@@ -303,6 +303,7 @@ enum rtattr_type_t {
+> 	RTA_TABLE,
+> 	RTA_MARK,
+> 	RTA_MFC_STATS,
+>+	RTA_PREF,
+> 	__RTA_MAX
+> };
 > 
-[...]
+>diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>index 47b5109..08f689e 100644
+>--- a/net/ipv6/route.c
+>+++ b/net/ipv6/route.c
+>@@ -2401,6 +2401,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+> 	[RTA_PRIORITY]          = { .type = NLA_U32 },
+> 	[RTA_METRICS]           = { .type = NLA_NESTED },
+> 	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
+>+	[RTA_PREF]              = { .type = NLA_U8 },
+> };
 > 
-> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-[...]
->  	if (unlikely(phydev->link != priv->oldlink ||
-> -		     phydev->duplex != priv->oldduplex ||
-> -		     phydev->speed != priv->oldspeed))
-> +		     (phydev->link && (phydev->duplex != priv->oldduplex ||
-> +				       phydev->speed != priv->oldspeed))))
->  		gfar_update_link_state(priv);
->  }
+> static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+>@@ -2408,6 +2409,7 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+> {
+> 	struct rtmsg *rtm;
+> 	struct nlattr *tb[RTA_MAX+1];
+>+	unsigned int pref;
+> 	int err;
+> 
+> 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv6_policy);
+>@@ -2483,6 +2485,14 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+> 		cfg->fc_mp_len = nla_len(tb[RTA_MULTIPATH]);
+> 	}
+> 
+>+	if (tb[RTA_PREF]) {
+>+		pref = nla_get_u8(tb[RTA_PREF]);
+>+		if (pref == ICMPV6_ROUTER_PREF_LOW ||
+>+		    pref == ICMPV6_ROUTER_PREF_MEDIUM ||
+>+		    pref == ICMPV6_ROUTER_PREF_HIGH)
+>+			cfg->fc_flags |= RTF_PREF(pref);
 
-I did a quick check and, indeed, phydev->duplex or phydev->speed
-may change even if phydev->link is 0.  I could reproduce the issue
-with the following test for an eth with a polling mode phy:
-1) initially link is up - autoneg on, speed 1000;
-2) taking the link down - link down message printed only once;
-3) turning autoneg to off for the same eth  - link down message
-is printed continuously;
+Don't we want to do "goto errout;" in case pref is invalid ?
 
-So, given this, I agree that the driver needs this protection before
-accessing the phydev->duplex/speed fields, namely to check first whether
-phydev->link is 1.  If link is 0, phydev->speed/duplex may be bogus.
 
-Thanks for spotting this.
-
-Reviewed-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+>+	}
+>+
+> 	err = 0;
+> errout:
+> 	return err;
+>@@ -2586,7 +2596,8 @@ static inline size_t rt6_nlmsg_size(void)
+> 	       + nla_total_size(4) /* RTA_PRIORITY */
+> 	       + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
+> 	       + nla_total_size(sizeof(struct rta_cacheinfo))
+>-	       + nla_total_size(TCP_CA_NAME_MAX); /* RTAX_CC_ALGO */
+>+	       + nla_total_size(TCP_CA_NAME_MAX) /* RTAX_CC_ALGO */
+>+	       + nla_total_size(1); /* RTA_PREF */
+> }
+> 
+> static int rt6_fill_node(struct net *net,
+>@@ -2727,6 +2738,9 @@ static int rt6_fill_node(struct net *net,
+> 	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, rt->dst.error) < 0)
+> 		goto nla_put_failure;
+> 
+>+	if (nla_put_u8(skb, RTA_PREF, IPV6_EXTRACT_PREF(rt->rt6i_flags)))
+>+		goto nla_put_failure;
+>+
+> 	nlmsg_end(skb, nlh);
+> 	return 0;
+> 
+>-- 
+>2.1.0
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
