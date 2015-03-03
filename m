@@ -1,129 +1,90 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/17] i40e: Fix issue with removal of apps from DBCNL app table
-Date: Tue,  3 Mar 2015 01:44:17 -0800
-Message-ID: <1425375864-25117-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/17] i40e: Add FW check to disable DCB and wrap autoneg workaround with FW check
+Date: Tue,  3 Mar 2015 01:44:16 -0800
+Message-ID: <1425375864-25117-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:63685 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:10578 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755935AbbCCJoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755806AbbCCJoe (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 3 Mar 2015 04:44:34 -0500
 In-Reply-To: <1425375864-25117-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This patch fixes an issue where the driver is not flushing out the
-DCBNL app table for applications that are not present in the local
-DCBX application configuration TLVs.
+For FW < 4.33 DCB should be disabled.
+Also Autoneg workaround to avoid Rx stall is still needed for FW < 4.33.
 
-Change-ID: I1f1ee04c81c145071b2ab15657546eb10b81fadb
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Change-ID: Iff36ad86be2f597e7701096014d6d094332a9a21
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c |  9 ++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c   | 15 +++++++++------
- 3 files changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 31 ++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index e4e963a..27d1d92 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -726,6 +726,7 @@ void i40e_fcoe_handle_status(struct i40e_ring *rx_ring,
- void i40e_vlan_stripping_enable(struct i40e_vsi *vsi);
- #ifdef CONFIG_I40E_DCB
- void i40e_dcbnl_flush_apps(struct i40e_pf *pf,
-+			   struct i40e_dcbx_config *old_cfg,
- 			   struct i40e_dcbx_config *new_cfg);
- void i40e_dcbnl_set_all(struct i40e_vsi *vsi);
- void i40e_dcbnl_setup(struct i40e_vsi *vsi);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c b/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-index 183dcb6..f4070b5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
-@@ -269,22 +269,21 @@ static bool i40e_dcbnl_find_app(struct i40e_dcbx_config *cfg,
- /**
-  * i40e_dcbnl_flush_apps - Delete all removed APPs
-  * @pf: the corresponding pf
-+ * @old_cfg: old DCBX configuration data
-  * @new_cfg: new DCBX configuration data
-  *
-  * Find and delete all APPs that are not present in the passed
-  * DCB configuration
-  **/
- void i40e_dcbnl_flush_apps(struct i40e_pf *pf,
-+			   struct i40e_dcbx_config *old_cfg,
- 			   struct i40e_dcbx_config *new_cfg)
- {
- 	struct i40e_dcb_app_priority_table app;
--	struct i40e_dcbx_config *dcbxcfg;
--	struct i40e_hw *hw = &pf->hw;
- 	int i;
- 
--	dcbxcfg = &hw->local_dcbx_config;
--	for (i = 0; i < dcbxcfg->numapps; i++) {
--		app = dcbxcfg->app[i];
-+	for (i = 0; i < old_cfg->numapps; i++) {
-+		app = old_cfg->app[i];
- 		/* The APP is not available anymore delete it */
- 		if (!i40e_dcbnl_find_app(new_cfg, &app))
- 			i40e_dcbnl_del_app(pf, &app);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4fb05b4..fae83ac 100644
+index 849fec7..4fb05b4 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5166,7 +5166,6 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
- 	struct i40e_aqc_lldp_get_mib *mib =
- 		(struct i40e_aqc_lldp_get_mib *)&e->desc.params.raw;
+@@ -4551,6 +4551,11 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
  	struct i40e_hw *hw = &pf->hw;
--	struct i40e_dcbx_config *dcbx_cfg = &hw->local_dcbx_config;
- 	struct i40e_dcbx_config tmp_dcbx_cfg;
- 	bool need_reconfig = false;
- 	int ret = 0;
-@@ -5199,8 +5198,10 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
+ 	int err = 0;
  
- 	memset(&tmp_dcbx_cfg, 0, sizeof(tmp_dcbx_cfg));
- 	/* Store the old configuration */
--	tmp_dcbx_cfg = *dcbx_cfg;
-+	memcpy(&tmp_dcbx_cfg, &hw->local_dcbx_config, sizeof(tmp_dcbx_cfg));
- 
-+	/* Reset the old DCBx configuration data */
-+	memset(&hw->local_dcbx_config, 0, sizeof(hw->local_dcbx_config));
- 	/* Get updated DCBX data from firmware */
- 	ret = i40e_get_dcb_config(&pf->hw);
- 	if (ret) {
-@@ -5209,20 +5210,22 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
++	/* Do not enable DCB for SW1 and SW2 images even if the FW is capable */
++	if (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
++	    (pf->hw.aq.fw_maj_ver < 4))
++		goto out;
++
+ 	/* Get the initial DCB configuration */
+ 	err = i40e_init_dcb(hw);
+ 	if (!err) {
+@@ -6311,13 +6316,14 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+ 		}
  	}
  
- 	/* No change detected in DCBX configs */
--	if (!memcmp(&tmp_dcbx_cfg, dcbx_cfg, sizeof(tmp_dcbx_cfg))) {
-+	if (!memcmp(&tmp_dcbx_cfg, &hw->local_dcbx_config,
-+		    sizeof(tmp_dcbx_cfg))) {
- 		dev_dbg(&pf->pdev->dev, "No change detected in DCBX configuration.\n");
- 		goto exit;
+-	msleep(75);
+-	ret = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
+-	if (ret) {
+-		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
+-			 pf->hw.aq.asq_last_status);
++	if (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
++	    (pf->hw.aq.fw_maj_ver < 4)) {
++		msleep(75);
++		ret = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
++		if (ret)
++			dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
++				 pf->hw.aq.asq_last_status);
  	}
+-
+ 	/* reinit the misc interrupt */
+ 	if (pf->flags & I40E_FLAG_MSIX_ENABLED)
+ 		ret = i40e_setup_misc_vector(pf);
+@@ -9677,13 +9683,14 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		dev_info(&pf->pdev->dev, "set phy mask fail, aq_err %d\n", err);
  
--	need_reconfig = i40e_dcb_need_reconfig(pf, &tmp_dcbx_cfg, dcbx_cfg);
-+	need_reconfig = i40e_dcb_need_reconfig(pf, &tmp_dcbx_cfg,
-+					       &hw->local_dcbx_config);
- 
--	i40e_dcbnl_flush_apps(pf, dcbx_cfg);
-+	i40e_dcbnl_flush_apps(pf, &tmp_dcbx_cfg, &hw->local_dcbx_config);
- 
- 	if (!need_reconfig)
- 		goto exit;
- 
- 	/* Enable DCB tagging only when more than one TC */
--	if (i40e_dcb_get_num_tc(dcbx_cfg) > 1)
-+	if (i40e_dcb_get_num_tc(&hw->local_dcbx_config) > 1)
- 		pf->flags |= I40E_FLAG_DCB_ENABLED;
- 	else
- 		pf->flags &= ~I40E_FLAG_DCB_ENABLED;
+-	msleep(75);
+-	err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
+-	if (err) {
+-		dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
+-			 pf->hw.aq.asq_last_status);
++	if (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
++	    (pf->hw.aq.fw_maj_ver < 4)) {
++		msleep(75);
++		err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
++		if (err)
++			dev_info(&pf->pdev->dev, "link restart failed, aq_err=%d\n",
++				 pf->hw.aq.asq_last_status);
+ 	}
+-
+ 	/* The main driver is (mostly) up and happy. We need to set this state
+ 	 * before setting up the misc vector or we get a race and the vector
+ 	 * ends up disabled forever.
 -- 
 1.9.3
