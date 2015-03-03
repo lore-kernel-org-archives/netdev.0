@@ -1,44 +1,33 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
-Date: Tue, 03 Mar 2015 12:18:29 +0100
-Message-ID: <54F59885.1000203@freebox.fr>
-References: <1425317290-1443-1-git-send-email-nschichan@freebox.fr> <20150302.221547.345365592649851304.davem@davemloft.net>
+From: "David" <by1@a.bdtyn.net>
+Subject: Best price, Best quality to supply you the best service solar water
+ heaters
+Date: Tue, 3 Mar 2015 19:28:10 +0800
+Message-ID: <201503031928100257899@a.bdtyn.net>
+Reply-To: jasonsolar@188.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: tklauser@distanz.ch, balbi@ti.com,
-	w-lkml@lebenslange-mailadresse.de, ebiederm@xmission.com,
-	alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150302.221547.345365592649851304.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [103.30.43.18] ([103.30.43.18]:56424 "EHLO a.bdtyn.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752322AbbCCLgo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 06:36:44 -0500
+Received: from zbcefgijl (unknown [112.11.65.198])
+	by a.bdtyn.net (Postfix) with ESMTPA id 40B0540C6
+	for <netdev@vger.kernel.org>; Tue,  3 Mar 2015 19:28:21 +0800 (CST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-
-On 03/03/2015 04:15 AM, David Miller wrote:
-> First, no signoff, that is required for your patch.
-
-Hello David,
-
-I realized that I had forgotten the signoff-by line too late unfortunately.
-
-> Secondly, we strongly recommend that TX buffer reclaim be not
-> accounted at all in the poll budget.
->
-> Just do all of the TX work, unconditionally, every time the poll
-> routine is invoked.  Do not add it into the work variable that
-> gets compared against the budget.  Pretend it took '0' units of
-> work.
-
-I took inspiration from the mv643xx_eth driver which seems to account the tx
-buffer reclaim in the work done in its poll callback. I'll send an updated patch.
-
-Thanks,
-
--- 
-Nicolas Schichan
-Freebox SAS
+TmV3IFllYXIsIE5ldyBQcm9kdWN0LCBOZXcgQ2VydGlmaWNhdGUsIE5ldyBQcmljZSwgTmV3IE9w
+cG9ydHVuaXR5DQoNCg0KSGksDQpOb3csIEl0IGlzIG15IHBsZWFzdXJlIHRvIGludHJvZHVjZSB5
+b3UgdGhlIG5ldyBwcm9kdWN0LCBtb2RlbCBTSEMsIFRoZSBDUEMgaGVhdCBwaXBlIGNvbGxlY3Rv
+cnMuDQpJdHMgbWFpbiBhZHZhbnRhZ2VzIGFyZTogDQpiaWdnZXN0IGFwZXJ0dXJlIGFyZWEgb2Yg
+ZXZhY3VhdGVkIHR1YmVzIGNvbGxlY3RvcnMsIA0KaGlnaGVzdCBwb3dlciBvdXRwdXQsIGFuZCBv
+dmVyaGVhdGluZyBzb2x1dGlvbi4gDQpQbGVhc2UgY2hlY2sgdGhlIGF0dGFjaG1lbnQuDQoNCkFu
+b3RoZXIgbW9kZWwsQTlILCBpbnRlZ3JhdGVkIHByZXNzdXJlIHNvbGFyIHN5c3RlbSB3ZXJlIEVO
+MTI5NzYtMSwyIHRlc3RlZCBhbmQgS2V5bWFyayBhcHByb3ZlZC4NCg0KRm9yIG1vcmUgaW5mb3Jt
+YXRpb24sIHBsZWFzZSBsZXQgbWUga25vdy4NCg0KYmVzdCByZWdhcmRzDQpEYXZpZA0KZS0tLW1h
+aWw6IHNhbGVzQHN1bnRhc2tzb2xhci5jb20NCm1vYmlsZS9WaWJlci9XZWNoYXQ6IDAwODYtMTM1
+MTEzMDI4Nzc=
