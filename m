@@ -1,49 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] i40e: Fix dependencies in the i40e driver on configfs
-Date: Tue,  3 Mar 2015 12:38:55 -0800
-Message-ID: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Joe Stringer <joestringer@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Fix serialization of non-masked set actions.
+Date: Tue, 3 Mar 2015 12:38:54 -0800
+Message-ID: <CANr6G5zPg_RC=Dw=KD=AW4O4DY2j=Sc81SSYnfp8ZvyrkYOgLw@mail.gmail.com>
+References: <1425350996-2930-1-git-send-email-joestringer@nicira.com> <20150303.143945.661201418308735762.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Jarno Rajahalme <jrajahalme@nicira.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31840 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756607AbbCCUi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 15:38:58 -0500
+Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:52853 "HELO
+	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756650AbbCCUjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 15:39:16 -0500
+Received: by mail-we0-f171.google.com with SMTP id w55so42250697wes.4
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 12:39:14 -0800 (PST)
+In-Reply-To: <20150303.143945.661201418308735762.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On 3 March 2015 at 11:39, David Miller <davem@davemloft.net> wrote:
+> From: Joe Stringer <joestringer@nicira.com>
+> Date: Mon,  2 Mar 2015 18:49:56 -0800
+>
+>> Set actions consist of a regular OVS_KEY_ATTR_* attribute nested inside
+>> of a OVS_ACTION_ATTR_SET action attribute. When converting masked actions
+>> back to regular set actions, the inner attribute length was not changed,
+>> ie, double the length being serialized. This patch fixes the bug.
+>>
+>> Fixes: 83d2b9b ("net: openvswitch: Support masked set actions.")
+>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>> ---
+>> This fix needs to be applied to net as well; it applies cleanly.
+>
+> This is backwards, don't do this.  Just say that 'net' needs the fix
+> and submit it targetting that tree only.  Things in 'net' propagate
+> into 'net-next' automatically as I do merges over time, but the
+> opposite is not true.
 
-Module dependencies are broken in the case where CONFIG_I40E=y and
-CONFIG_CONFIGFS_FS=m.  This fixes the broken dependency.
-
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/Kconfig | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index f4ff465..7216a53 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -303,6 +303,15 @@ config I40E_FCOE
- 
- 	  If unsure, say N.
- 
-+config I40E_CONFIGFS_FS
-+	bool "Config File System Support (configfs)"
-+	default n
-+	depends on I40E && CONFIGFS_FS && !(I40E=y && CONFIGFS_FS=m)
-+	---help---
-+	  Provides support for the configfs file system for additional
-+	  driver configuration.  Say Y here if you want to use the
-+	  configuration file system in the driver.
-+
- config I40EVF
- 	tristate "Intel(R) XL710 X710 Virtual Function Ethernet support"
- 	depends on PCI_MSI
--- 
-1.9.3
+OK, I'll resend.
