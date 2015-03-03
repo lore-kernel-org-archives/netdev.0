@@ -1,65 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next] i40e: Fix dependencies in the i40e driver on configfs
-Date: Tue, 03 Mar 2015 12:42:25 -0800
-Message-ID: <1425415345.2556.85.camel@jtkirshe-mobl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] i40e: Fix dependencies in the i40e driver on
+ configfs
+Date: Tue, 03 Mar 2015 15:45:15 -0500 (EST)
+Message-ID: <20150303.154515.1426526534548261925.davem@davemloft.net>
 References: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-yYNOwoTVHVKAVQl/yq3h"
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: davem@davemloft.net
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5633 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756753AbbCCUmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Mar 2015 15:42:25 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:37346 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756619AbbCCUpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 15:45:18 -0500
 In-Reply-To: <1425415135-10257-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  3 Mar 2015 12:38:55 -0800
 
---=-yYNOwoTVHVKAVQl/yq3h
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2015-03-03 at 12:38 -0800, Jeff Kirsher wrote:
 > From: Greg Rose <gregory.v.rose@intel.com>
->=20
-> Module dependencies are broken in the case where CONFIG_I40E=3Dy and
-> CONFIG_CONFIGFS_FS=3Dm.  This fixes the broken dependency.
->=20
+> 
+> Module dependencies are broken in the case where CONFIG_I40E=y and
+> CONFIG_CONFIGFS_FS=m.  This fixes the broken dependency.
+> 
 > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/Kconfig | 9 +++++++++
->  1 file changed, 9 insertions(+)
 
-This is to fix the current compile issues, I will continue to work with
-the i40e development team to address Dave's concerns expressed earlier
-in using configfs.
+This doesn't fix anything, nothing tests I40E_CONFIGFS_FS:
 
---=-yYNOwoTVHVKAVQl/yq3h
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU9hyxAAoJEOVv75VaS+3OsgwP/RRoIz8DqOAeqtHlCxRCzjhb
-hcMZ+fw1CIXus8Utw9n7CSsUpBIoyblmCHcg2f46RH4/G2Wig7s9eR2ZdYwjoOcI
-NbggHsFOdpB5qK9sJ1H4FXaW+IUFP4qApqXCibsK6Nu3g7M/9dZqjS/vXWhrbZNG
-IkiJg/VU7jYBeonah5qe4QOmNIEcAGSBlu29NOi2NFl8PAAR47Yh0yj6xVG++IiH
-G6hWV/1LLTCmmM4XYZle3sy+BL5o42VdwRhsaUtEThPcGbGYBvbsUevm71Orsd+S
-B4e6ENO8ztMo6YQp+/yCHuxHakRTlhs18ubL3pY4O3OuCIouXY2L0bo/Nyks8Fnk
-AuKUgr5y2iNVFCmqI3520bxsHoT5mX0xUAeEuxc5uABmYMf2rawspTVRGagM0zD/
-EcBm2OLmni7yNKel90BGWVwfMneM27dAlHUozyfybRlra+bjH46U+Pds3ot4w1SV
-iWN+z/X4AHS6HlRA57xwBfEC+r5hXX5tcg/RUHWY91ZDgRz0ovpQTyD+fkD+NkM8
-FLEJtO+MZZeywdV1fDsJr5qRiAPOnFWYu1WS0aUjYUT3s8yCyvNiRaGUvhhdzgDa
-gSIw2Qins6UKwkTxvbl6+OuoMXEItppRj2XZ31vN2f0wp3QdNvvtDLCy1trJ+4LM
-dNjU2ziSGJDWA5yH+PMv
-=sjqM
------END PGP SIGNATURE-----
-
---=-yYNOwoTVHVKAVQl/yq3h--
+[davem@abraco net-next]$ make -s -j8
+scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
+scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
+kernel/Makefile:133: *** No X.509 certificates found ***
+kernel/Makefile:133: *** No X.509 certificates found ***
+drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
+i40e_configfs.c:(.text+0x192db7): undefined reference to `config_item_init_type_name'
+drivers/built-in.o: In function `i40e_configfs_init':
+(.text+0x192df1): undefined reference to `config_group_init'
+drivers/built-in.o: In function `i40e_configfs_init':
+(.text+0x192e25): undefined reference to `configfs_register_subsystem'
+drivers/built-in.o: In function `i40e_configfs_exit':
+(.text+0x192e7a): undefined reference to `configfs_unregister_subsystem'
+make: *** [vmlinux] Error 1
+[davem@abraco net-next]$ git am --signoff diff
+Applying: i40e: Fix dependencies in the i40e driver on configfs
+[davem@abraco net-next]$ make oldconfig
+scripts/kconfig/conf --oldconfig Kconfig
+#
+# configuration written to .config
+#
+[davem@abraco net-next]$ make -s -j8
+scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
+scripts/Makefile.kasan:16: Cannot use CONFIG_KASAN: -fsanitize=kernel-address is not supported by compiler
+kernel/Makefile:133: *** No X.509 certificates found ***
+kernel/Makefile:133: *** No X.509 certificates found ***
+drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
+i40e_configfs.c:(.text+0x192db7): undefined reference to `config_item_init_type_name'
+drivers/built-in.o: In function `i40e_configfs_init':
+(.text+0x192df1): undefined reference to `config_group_init'
+drivers/built-in.o: In function `i40e_configfs_init':
+(.text+0x192e25): undefined reference to `configfs_register_subsystem'
+drivers/built-in.o: In function `i40e_configfs_exit':
+(.text+0x192e7a): undefined reference to `configfs_unregister_subsystem'
+make: *** [vmlinux] Error 1
+[davem@abraco net-next]$ 
