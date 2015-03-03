@@ -1,44 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ax25: Stop using magic neighbour cache
- operations.
-Date: Tue, 03 Mar 2015 14:45:09 -0500 (EST)
-Message-ID: <20150303.144509.1694022322984204895.davem@davemloft.net>
-References: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org>
-	<20150302.164426.494515497595921630.davem@davemloft.net>
-	<874mq22imc.fsf_-_@x220.int.ebiederm.org>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH v3] brcmfmac: avoid duplicated suspend/resume operation
+Date: Tue, 3 Mar 2015 20:49:16 +0100
+Message-ID: <54F6103C.5090108@broadcom.com>
+References: <54DC1D7D.5050407@linux.intel.com>	<54E0072D.3020802@linux.intel.com> <54E01209.7010300@erley.org>	<54E05961.7000201@broadcom.com>	<878ufzi5s3.fsf@kamboji.qca.qualcomm.com>	<54E19DA1.4030407@linux.intel.com> <54E1B9F4.6090302@broadcom.com>	<54F02271.5070202@linux.intel.com> <54F03412.2050902@broadcom.com> <874mq3bfnu.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
-	linux-hams@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-Sender: linux-hams-owner@vger.kernel.org
+Cc: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
+	Pat Erley <pat-lkml@erley.org>, <brudley@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>, <meuleman@broadcom.com>,
+	<linville@tuxdriver.com>, <pieterpg@broadcom.com>,
+	<hdegoede@redhat.com>, <wens@csie.org>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <874mq3bfnu.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 03 Mar 2015 09:41:47 -0600
+On 03/02/15 16:08, Kalle Valo wrote:
+> Arend van Spriel<arend@broadcom.com>  writes:
+>
+>>> Now that there is not 3.20 version. My understanding is that this
+>>> patch will be in linus' tree 4.1-rc1, right?
+>>
+>> Yes. It will go into linux-next first, which you can consider to be an
+>> incubator where all stuff for the next release is integrated. Stuff
+>> will be added there until 4.0 is released. At that moment the merge
+>> window starts which moves all the stuff from linux-next into the
+>> mainline linux repo to prepare 4.1-rc1.
+>>
+>> Now regarding your patch I have to give a heads up. Our pending
+>> patches have been applied by Kalle and includes similar fix.
+>
+> Yeah, Zhonghui's patch doesn't apply anymore. There is similar code in
+> wireless-drivers-next but still a bit different. So what should we do?
+> Is the driver ok now?
 
-> 
-> Before the ax25 stack calls dev_queue_xmit it always calls
-> ax25_type_trans which sets skb->protocol to ETH_P_AX25.
-> 
-> Which means that by looking at the protocol type it is possible to
-> detect IP packets that have not been munged by the ax25 stack in
-> ndo_start_xmit and call a function to munge them.
-> 
-> Rename ax25_neigh_xmit to ax25_ip_xmit and tweak the return type and
-> value to be appropriate for an ndo_start_xmit function.
-> 
-> Update all of the ax25 devices to test the protocol type for ETH_P_IP
-> and return ax25_ip_xmit as the first thing they do.  This preserves
-> the existing semantics of IP packet processing, but the timing will be
-> a little different as the IP packets now pass through the qdisc layer
-> before reaching the ax25 ip packet processing.
-> 
-> Remove the now unnecessary ax25 neighbour table operations.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+The idea of Zhonghui's patch was to avoid entering suspend and resume 
+callbacks twice. The current behavior is same as his patch intended so 
+yes the driver is ok (pending undiscovered bugs :-p ).
 
-Another nice cleanup, applied, thanks Eric.
+Regards,
+Arend
