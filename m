@@ -1,68 +1,46 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [PATCH] ath:Release resources for structure pointer, ar if error
- pointing device in the function, ath10k_core_register_work
-Date: Tue, 3 Mar 2015 07:40:17 +0100
-Message-ID: <CA+BoTQnNgNd4V9FN5SON387s7XuowFSDgrFUjZTn9Qm-sJ+NbQ@mail.gmail.com>
-References: <1425350171-26333-1-git-send-email-xerofoify@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-kernel@vger.kernel.org,
-	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Nicholas Krause <xerofoify@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next 10/14] bluetooth: Use eth_<foo>_addr instead of memset
+Date: Mon, 2 Mar 2015 23:04:27 -0800
+Message-ID: <235052A1-0253-41FB-B381-FBC8B312ADE6@holtmann.org>
+References: <cover.1425354527.git.joe@perches.com> <3e4a2efa6cbc9bea479bd3d8460ea56dda128faf.1425354528.git.joe@perches.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425350171-26333-1-git-send-email-xerofoify@gmail.com>
+In-Reply-To: <3e4a2efa6cbc9bea479bd3d8460ea56dda128faf.1425354528.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3 March 2015 at 03:36, Nicholas Krause <xerofoify@gmail.com> wrote:
-> Releases resources and deregisters the stucture pointer ar passed by =
-the caller to the function, ath10k_core_register_work
-> if unable to probe the structure pointer successfully with a call to =
-ath10k_core_probe_fw. Further more if this happerns
-> we must first jump to the label err for the goto statement required t=
-o jump to handle this particular error in the function,
-> ath10k_core_register_work.  After we are in the correct error section=
- we must free the resources for the structure pointer,ar
-> with a call to the function,  ath10k_core_unregister to free resource=
-s allocated for the structure pointer,ar.
->
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+Hi Joe,
+
+> Use the built-in function instead of memset.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 > ---
->  drivers/net/wireless/ath/ath10k/core.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
->
-> diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wir=
-eless/ath/ath10k/core.c
-> index 310e12b..8b2ca25 100644
-> --- a/drivers/net/wireless/ath/ath10k/core.c
-> +++ b/drivers/net/wireless/ath/ath10k/core.c
-> @@ -1307,9 +1307,7 @@ err_unregister_mac:
->  err_release_fw:
->         ath10k_core_free_firmware_files(ar);
->  err:
-> -       /* TODO: It's probably a good idea to release device from the=
- driver
-> -        * but calling device_release_driver() here will cause a dead=
-lock.
-> -        */
-> +       ath10k_core_unregister(ar);
->         return;
->  }
+> net/bluetooth/bnep/netdev.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
+> index 4b488ec..6ceb5d3 100644
+> --- a/net/bluetooth/bnep/netdev.c
+> +++ b/net/bluetooth/bnep/netdev.c
+> @@ -218,7 +218,7 @@ static const struct net_device_ops bnep_netdev_ops = {
+> void bnep_net_setup(struct net_device *dev)
+> {
+> 
+> -	memset(dev->broadcast, 0xff, ETH_ALEN);
+> +	eth_broadcast_addr(dev->broadcast);
+> 	dev->addr_len = ETH_ALEN;
 
-Did you test this? This will deadlock. ath10k_core_unregister() tries
-to cancel ar->register_work. This won't work if you call it from the
-worker itself. Moreover if I ignore the deadlock
-ath10k_core_unregister() would do nothing else in this context because
-ATH10K_FLAG_CORE_REGISTERED wouldn't be even set.
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
-If you're interested in dealing with this TODO I suggest you read
-through the original thread which led to the current state of affairs:
+Regards
 
-  http://www.spinics.net/lists/linux-wireless/msg124004.html
-
-
-Micha=C5=82
+Marcel
