@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Reduce logging noise seen due to phy polling
- if link is down
-Date: Tue, 03 Mar 2015 14:37:48 -0500 (EST)
-Message-ID: <20150303.143748.2255336109763734319.davem@davemloft.net>
-References: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
+Subject: Re: [PATCH net-next] openvswitch: Fix serialization of non-masked
+ set actions.
+Date: Tue, 03 Mar 2015 14:39:45 -0500 (EST)
+Message-ID: <20150303.143945.661201418308735762.davem@davemloft.net>
+References: <1425350996-2930-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com,
-	linux-kernel@vger.kernel.org
-To: linux@roeck-us.net
+Cc: netdev@vger.kernel.org, pshelar@nicira.com,
+	linux-kernel@vger.kernel.org, jrajahalme@nicira.com
+To: joestringer@nicira.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425326607-21464-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1425350996-2930-1-git-send-email-joestringer@nicira.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Mon,  2 Mar 2015 12:03:27 -0800
+From: Joe Stringer <joestringer@nicira.com>
+Date: Mon,  2 Mar 2015 18:49:56 -0800
 
-> Commit 6ce29b0e2a04 ("gianfar: Avoid unnecessary reg accesses in adjust_link()")
-> eliminates unnecessary calls to adjust_link for phy devices which don't support
-> interrupts and need polling. As part of that work, the 'new_state' local flag,
-> which was used to reduce logging noise on the console, was eliminated.
+> Set actions consist of a regular OVS_KEY_ATTR_* attribute nested inside
+> of a OVS_ACTION_ATTR_SET action attribute. When converting masked actions
+> back to regular set actions, the inner attribute length was not changed,
+> ie, double the length being serialized. This patch fixes the bug.
 > 
-> Unfortunately, that means that a 'Link is Down' log message will now be
-> issued continuously if a link is configured as UP, the link state is down,
-> and the associated phy requires polling. This occurs because priv->oldduplex
-> is -1 in this case, which always differs from phydev->duplex. In addition,
-> phydev->speed may also differ from priv->oldspeed.  gfar_update_link_state()
-> is therefore called each time a phy is polled, even if the link state did not
-> change.
-> 
-> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> Fixes: 83d2b9b ("net: openvswitch: Support masked set actions.")
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+> ---
+> This fix needs to be applied to net as well; it applies cleanly.
 
-Applied, thanks.
+This is backwards, don't do this.  Just say that 'net' needs the fix
+and submit it targetting that tree only.  Things in 'net' propagate
+into 'net-next' automatically as I do merges over time, but the
+opposite is not true.
