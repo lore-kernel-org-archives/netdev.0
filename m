@@ -1,66 +1,39 @@
-From: Fred Chou <fred.chou.nd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] ath9k_htc: avoid memcpy when downloading firmware
-Date: Tue,  3 Mar 2015 12:24:03 +0800
-Message-ID: <1425356643-2707-1-git-send-email-fred.chou.nd@gmail.com>
-Cc: Fred Chou <fred.chou.nd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sriram Raghunathan <sriram.r@nsn.com>
+Subject: About Raw socket, vlan + ip header
+Date: Tue, 03 Mar 2015 10:44:15 +0530
+Message-ID: <54F54327.7090002@nsn.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:41993 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbbCCFdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 00:33:47 -0500
+Received: from demuprx017.emea.nsn-intra.net ([10.150.129.56])
+	by demumfd001.nsn-inter.net (8.14.3/8.14.3) with ESMTP id t235EGbB017433
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 3 Mar 2015 05:14:16 GMT
+Received: from [10.143.85.61] ([10.143.85.61])
+	by demuprx017.emea.nsn-intra.net (8.12.11.20060308/8.12.11) with ESMTP id t235EFMv006329
+	for <netdev@vger.kernel.org>; Tue, 3 Mar 2015 06:14:16 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fred Chou <fred.chou.nd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Hi,
 
-The temporary buffer to hold firmware data is not really needed,
-and memcpy can be avoided by using data pointer instead.
+My name is Sriram, have a question about raw socket programming.
 
-Signed-off-by: Fred Chou <fred.chou.nd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/ath/ath9k/hif_usb.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+Writing a socket program where, I'm trying to construct a ether frame
+with vlan id and copying ip header there after. By using PF_PACKET
+family.
 
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 10c02f5..0bc35a8 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -986,30 +986,22 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
- 	const void *data = hif_dev->fw_data;
- 	size_t len = hif_dev->fw_size;
- 	u32 addr = AR9271_FIRMWARE;
--	u8 *buf = kzalloc(4096, GFP_KERNEL);
- 	u32 firm_offset;
- 
--	if (!buf)
--		return -ENOMEM;
--
- 	while (len) {
- 		transfer = min_t(size_t, len, 4096);
--		memcpy(buf, data, transfer);
- 
- 		err = usb_control_msg(hif_dev->udev,
- 				      usb_sndctrlpipe(hif_dev->udev, 0),
- 				      FIRMWARE_DOWNLOAD, 0x40 | USB_DIR_OUT,
--				      addr >> 8, 0, buf, transfer, HZ);
--		if (err < 0) {
--			kfree(buf);
-+				      addr >> 8, 0, data, transfer, HZ);
-+		if (err < 0)
- 			return err;
--		}
- 
- 		len -= transfer;
- 		data += transfer;
- 		addr += transfer;
- 	}
--	kfree(buf);
- 
- 	if (IS_AR7010_DEVICE(hif_dev->usb_device_id->driver_info))
- 		firm_offset = AR7010_FIRMWARE_TEXT;
--- 
-1.9.1
+But when I do a sendto, the ip header is stripped off from the
+packet. Could you please let me know how to go about?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Having the ip header is necessary for a software here.
+
+Thanks for the time.
+
+Sriram
