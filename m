@@ -1,84 +1,81 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH 2/3] dtb: change binding name to match with newer firmware DT
-Date: Mon, 2 Mar 2015 16:59:40 -0800
-Message-ID: <CAKh23FmLyagk93PHuCxE1Qc=ck6Djkf9oFxjGALe1mqF+U6yPQ@mail.gmail.com>
-References: <1425067710-14879-1-git-send-email-isubramanian@apm.com>
-	<1425067710-14879-3-git-send-email-isubramanian@apm.com>
-	<4061014.S4PDWltU3G@wuerfel>
-	<CAKh23Fm5HpNEfs40RTf_XtQ6ris5cCheAcY1WdLND04AwsvdSQ@mail.gmail.com>
-	<20150302144858.GG16779@leverpostej>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 09/18] i40e/i40evf: Add capability to gather VEB per
+ TC stats
+Date: Mon, 02 Mar 2015 17:34:12 -0800
+Message-ID: <1425346452.2556.1.camel@jtkirshe-mobl>
+References: <1425122989-354-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1425122989-354-10-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20150228.233043.1806944010152525182.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"mlangsdo@redhat.com" <mlangsdo@redhat.com>,
-	patches <patches@apm.com>, Keyur Chudgar <kchudgar@apm.com>
-To: Mark Rutland <mark.rutland@arm.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-YqUSDBPngN31mSuoRyKd"
+Cc: neerav.parikh@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og108.obsmtp.com ([64.18.0.186]:53510 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755428AbbCCA7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Mar 2015 19:59:43 -0500
-Received: by lams18 with SMTP id s18so34175015lam.13
-        for <netdev@vger.kernel.org>; Mon, 02 Mar 2015 16:59:41 -0800 (PST)
-In-Reply-To: <20150302144858.GG16779@leverpostej>
+Received: from mga02.intel.com ([134.134.136.20]:31804 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752896AbbCCBeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Mar 2015 20:34:13 -0500
+In-Reply-To: <20150228.233043.1806944010152525182.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 2, 2015 at 6:48 AM, Mark Rutland <mark.rutland@arm.com> wrote:
-> On Fri, Feb 27, 2015 at 11:52:54PM +0000, Iyappan Subramanian wrote:
->> On Fri, Feb 27, 2015 at 12:33 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> > On Friday 27 February 2015 12:08:29 Iyappan Subramanian wrote:
->> >> diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
->> >> index f1ad9c2..a857794 100644
->> >> --- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
->> >> +++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
->> >> @@ -622,7 +622,7 @@
->> >>                 };
->> >>
->> >>                 sgenet0: ethernet@1f210000 {
->> >> -                       compatible = "apm,xgene-enet";
->> >> +                       compatible = "apm,xgene1-sgenet";
->> >>                         status = "disabled";
->> >>                         reg = <0x0 0x1f210000 0x0 0xd100>,
->> >>                               <0x0 0x1f200000 0x0 0Xc300>,
->> >>
->> >
->> > This will break booting the new dtb on older kernels, right?
->>
->> This will not break booting older kernels.  In fact, this will fix it,
->> by having the specific binding,
->> older kernel that does not have support for these interfaces, will not
->> call probe.
->>
->> For example, 3.17 kernel that does not have support for SGMII based 1G
->> and XFI 10G interfaces
->> will not probe these interfaces when booted with newer dtb.
->
-> I'm guessing that in the existing DTBs, these nodes are always disabled?
 
-These nodes does not exist on 3.17 kernel dtb.
-The problem was reported when booted using Tianocore with Device tree,
-which has these nodes, but the 3.17 kernel does not have support for
-these nodes.
+--=-YqUSDBPngN31mSuoRyKd
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
->
-> If that's the case then we don't have a problem; we'll never probe these
-> nodes for an existing DTB.
+On Sat, 2015-02-28 at 23:30 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Sat, 28 Feb 2015 03:29:40 -0800
+>=20
+> > From: Neerav Parikh <neerav.parikh@intel.com>
+> >=20
+> > This patch adds capability to update per VEB per TC statistics and dump
+> > it via debugfs. It also adds a structure to hold VEB per TC statistics.
+> > The fields can be filled by reading the GLVEBTC_* counters.
+> >=20
+> > Change-ID: I45cca003d8b12d96951a67f50d5dd7a789e09218
+> > Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> For the umpteenth time, stop dumping statistics into debugfs.
+>=20
+> Export them like any other statistic, via ethtool.
+>=20
+> This applies to the existing debugfs you're building on top
+> of in this change as well, I very much regret not catching
+> that when it initially went in.
+>=20
+> Please stop, in general, using debugfs as a dumping ground
+> for thing you can't initially figure out how to export via
+> normal standard interfaces.
 
-With this patch, the following combinations were tested,
-u-boot + 3.17 kernel + 3.17 dtb -> this patch will no effect on this
-combination, only RGMII based 1G will be probed
-u-boot + 3.19 kernel + 3.19 dtb + this patch -> all the 3 ethernet
-interfaces was probed
-Tianocore (w/ Device Tree) + 3.19 kernel + this patch -> all the 3
-ethernet interfaces were probed
-Tianocore (w/ ACPI) + 3.19 kernel + this patch -> all the 3 ethernet
-interfaces were probed
+Sorry that slipped by me as well, my fault for not catching it and
+pushing back on the developer for putting this into ethtool stats.
 
+--=-YqUSDBPngN31mSuoRyKd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
->
-> Mark.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU9Q+UAAoJEOVv75VaS+3O0bAP/AqhzO3XXmovNGc0CYukE43d
+a2N/+nCmUeCAG/kTBG5R04Rz1zMESX9wkhEh7EkWV8vh4sAIw1FoV9pF1wKkUKQl
+EjJ1iBI5ZxTO58SpVtk1Os7O5PVsSdXkDTejswridBcHLs9wHcibHvTopbF27Ler
+o47sKC1HHHtisqfqm6j/iwkwoP2ZWI9Hla92KwsQsFbgSQpov++kXQkrjFKM/OXT
+F9F6bm6SoyOYX1dqaKfqCks5DBOhRulx64hcaRk3JHSWQTdIfJzi7qH/gQGPigAb
+oZuxLmhpF5bsf6pYNslJVvzYOk0Azyxeu6qGksAYLNqbjPxyG66D0DKo3FayCKJR
+lGKEPFye0ViR0ShkKxHjYGdPjubX25rnRlnoLkvS/zKBr31NGVRiEOKvY7oiWG+3
+ii4pa6Ow1zepf8vblpLJZhLNBYoRfy5R0+3G0eWBWd66PBUVviFlDawtFblASFrD
+wgpB0EjLaDvtlhV/B4VPJaBDCAhanYiAtgduDxVQ4d+xJ4R/D36VH1QQcQBIp6Lz
+EQzMLSWzluCf8jZQIPuMuTrfQL8lv3eFjekUKwQR8djLojzHZ+s7E5YNUM+JVYeG
+mvHIQ1vOTQEMeqPpZuRHThV+2co9/vSlc8O2yS/BXRi89PuYgzP5Zwy+SlIjsCom
+wn5xu4cuk2vPjjrPf1h5
+=1wLz
+-----END PGP SIGNATURE-----
+
+--=-YqUSDBPngN31mSuoRyKd--
