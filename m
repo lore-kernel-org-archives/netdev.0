@@ -1,52 +1,76 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] tc class: Show class names from file
-Date: Tue, 3 Mar 2015 09:58:45 -0800
-Message-ID: <20150303095845.5aa844a0@urahara>
-References: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
+From: nick <xerofoify@gmail.com>
+Subject: Re: [PATCH] ath:Release resources for structure pointer, ar if error
+ pointing device in the function, ath10k_core_register_work
+Date: Tue, 03 Mar 2015 13:21:06 -0500
+Message-ID: <54F5FB92.6090702@gmail.com>
+References: <1425350171-26333-1-git-send-email-xerofoify@gmail.com>
+ <CA+BoTQnNgNd4V9FN5SON387s7XuowFSDgrFUjZTn9Qm-sJ+NbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:45008 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932174AbbCCR6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 12:58:44 -0500
-Received: by igdh15 with SMTP id h15so30138576igd.3
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 09:58:44 -0800 (PST)
-In-Reply-To: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>,
+ Kalle Valo <kvalo@qca.qualcomm.com>,
+ linux-wireless <linux-wireless@vger.kernel.org>, linux-kernel@vger.kernel.org,
+ "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CA+BoTQnNgNd4V9FN5SON387s7XuowFSDgrFUjZTn9Qm-sJ+NbQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
+List-Post: <mailto:ath10k@lists.infradead.org>
+List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
+Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
+Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue,  3 Mar 2015 18:41:18 +0200
-Vadim Kochan <vadim4j@gmail.com> wrote:
-
-> From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> It is possible to use class names from file /etc/iproute2/cls_names
-> which tc will use when showing class info:
-> 
->     # tc/tc -nm class show dev lo
-> 	class htb 1:10 parent 1:1 leaf 10: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-> 	class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-> 	class htb web#1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-> 	class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
-> 	class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-> 	class htb voip#1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
-> 	class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
-> 	class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
-> 
-> or to specify via file path:
-> 
->     # tc/tc -nm -cf /tmp/cls_names class show dev lo
-> 
-> Class names file contains simple "maj:min  name" structure:
-> 
-> 1:20    web
-> 1:40    voip
-> 
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-
-This adds new dependency on berkely db.
-See how iproute handled that for arpd and use same #ifdef and config.
+CgpPbiAyMDE1LTAzLTAzIDAxOjQwIEFNLCBNaWNoYWwgS2F6aW9yIHdyb3RlOgo+IE9uIDMgTWFy
+Y2ggMjAxNSBhdCAwMzozNiwgTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPiB3
+cm90ZToKPj4gUmVsZWFzZXMgcmVzb3VyY2VzIGFuZCBkZXJlZ2lzdGVycyB0aGUgc3R1Y3R1cmUg
+cG9pbnRlciBhciBwYXNzZWQgYnkgdGhlIGNhbGxlciB0byB0aGUgZnVuY3Rpb24sIGF0aDEwa19j
+b3JlX3JlZ2lzdGVyX3dvcmsKPj4gaWYgdW5hYmxlIHRvIHByb2JlIHRoZSBzdHJ1Y3R1cmUgcG9p
+bnRlciBzdWNjZXNzZnVsbHkgd2l0aCBhIGNhbGwgdG8gYXRoMTBrX2NvcmVfcHJvYmVfZncuIEZ1
+cnRoZXIgbW9yZSBpZiB0aGlzIGhhcHBlcm5zCj4+IHdlIG11c3QgZmlyc3QganVtcCB0byB0aGUg
+bGFiZWwgZXJyIGZvciB0aGUgZ290byBzdGF0ZW1lbnQgcmVxdWlyZWQgdG8ganVtcCB0byBoYW5k
+bGUgdGhpcyBwYXJ0aWN1bGFyIGVycm9yIGluIHRoZSBmdW5jdGlvbiwKPj4gYXRoMTBrX2NvcmVf
+cmVnaXN0ZXJfd29yay4gIEFmdGVyIHdlIGFyZSBpbiB0aGUgY29ycmVjdCBlcnJvciBzZWN0aW9u
+IHdlIG11c3QgZnJlZSB0aGUgcmVzb3VyY2VzIGZvciB0aGUgc3RydWN0dXJlIHBvaW50ZXIsYXIK
+Pj4gd2l0aCBhIGNhbGwgdG8gdGhlIGZ1bmN0aW9uLCAgYXRoMTBrX2NvcmVfdW5yZWdpc3RlciB0
+byBmcmVlIHJlc291cmNlcyBhbGxvY2F0ZWQgZm9yIHRoZSBzdHJ1Y3R1cmUgcG9pbnRlcixhci4K
+Pj4KPj4gU2lnbmVkLW9mZi1ieTogTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29t
+Pgo+PiAtLS0KPj4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jIHwgNCAr
+LS0tCj4+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDMgZGVsZXRpb25zKC0pCj4+
+Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL2NvcmUuYyBi
+L2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jCj4+IGluZGV4IDMxMGUxMmIu
+LjhiMmNhMjUgMTAwNjQ0Cj4+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsv
+Y29yZS5jCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jCj4+
+IEBAIC0xMzA3LDkgKzEzMDcsNyBAQCBlcnJfdW5yZWdpc3Rlcl9tYWM6Cj4+ICBlcnJfcmVsZWFz
+ZV9mdzoKPj4gICAgICAgICBhdGgxMGtfY29yZV9mcmVlX2Zpcm13YXJlX2ZpbGVzKGFyKTsKPj4g
+IGVycjoKPj4gLSAgICAgICAvKiBUT0RPOiBJdCdzIHByb2JhYmx5IGEgZ29vZCBpZGVhIHRvIHJl
+bGVhc2UgZGV2aWNlIGZyb20gdGhlIGRyaXZlcgo+PiAtICAgICAgICAqIGJ1dCBjYWxsaW5nIGRl
+dmljZV9yZWxlYXNlX2RyaXZlcigpIGhlcmUgd2lsbCBjYXVzZSBhIGRlYWRsb2NrLgo+PiAtICAg
+ICAgICAqLwo+PiArICAgICAgIGF0aDEwa19jb3JlX3VucmVnaXN0ZXIoYXIpOwo+PiAgICAgICAg
+IHJldHVybjsKPj4gIH0KPiAKPiBEaWQgeW91IHRlc3QgdGhpcz8gVGhpcyB3aWxsIGRlYWRsb2Nr
+LiBhdGgxMGtfY29yZV91bnJlZ2lzdGVyKCkgdHJpZXMKPiB0byBjYW5jZWwgYXItPnJlZ2lzdGVy
+X3dvcmsuIFRoaXMgd29uJ3Qgd29yayBpZiB5b3UgY2FsbCBpdCBmcm9tIHRoZQo+IHdvcmtlciBp
+dHNlbGYuIE1vcmVvdmVyIGlmIEkgaWdub3JlIHRoZSBkZWFkbG9jawo+IGF0aDEwa19jb3JlX3Vu
+cmVnaXN0ZXIoKSB3b3VsZCBkbyBub3RoaW5nIGVsc2UgaW4gdGhpcyBjb250ZXh0IGJlY2F1c2UK
+PiBBVEgxMEtfRkxBR19DT1JFX1JFR0lTVEVSRUQgd291bGRuJ3QgYmUgZXZlbiBzZXQuCj4gCj4g
+SWYgeW91J3JlIGludGVyZXN0ZWQgaW4gZGVhbGluZyB3aXRoIHRoaXMgVE9ETyBJIHN1Z2dlc3Qg
+eW91IHJlYWQKPiB0aHJvdWdoIHRoZSBvcmlnaW5hbCB0aHJlYWQgd2hpY2ggbGVkIHRvIHRoZSBj
+dXJyZW50IHN0YXRlIG9mIGFmZmFpcnM6Cj4gCj4gICBodHRwOi8vd3d3LnNwaW5pY3MubmV0L2xp
+c3RzL2xpbnV4LXdpcmVsZXNzL21zZzEyNDAwNC5odG1sCj4gCj4gCj4gTWljaGHFggo+IApNaWNo
+YWwsClRoYW5rcyBmb3IgdGhlIGluZm8gYW5kIHRoZSB0aHJlYWQgcmVsYXRlZCB0byB0aGlzIGlz
+c3VlLiBBZnRlciByZWFkaW5nIGl0IEkgd2FzIHdvbmRlcmluZyBpZiB3ZSBjYW4gdGVzdCBteQpw
+YXRjaCBvbiBhY3R1YWwgaGFyZHdhcmUgdXNpbmcgdGhpcyBkcml2ZXIgd2l0aCBteSBwYXRjaCBp
+bmNsdWRlZCBpbiBvcmRlciB0byBzZWUgd2hhdCBpc3N1ZXMgYXJlIHN0aWxsIHRoZXJlLgpJIGRv
+bid0IGhhdmUgdGhlIGhhcmR3YXJlIGx5aW5nIGFyb3VuZCBmb3IgdGhpcyBidXQgaWYgc29tZW9u
+ZSBjYW4gdGVzdCBteSBwYXRjaCBvdXQgYW5kIHNlZSB3aGVyZSB0aGVyZSBhcmUKc3RpbGwgZGVh
+ZGxvY2sgaXNzdWVzIG9yIG90aGVyIGJ1Z3MgdG8gbXkgcGF0Y2ggSSBhbSBjZXJ0YWluIEkgd2ls
+bCBiZSBhYmxlIHRvIGZpZ3VyZSB0aGlzIG91dC4KVGhhbmtzLApOaWNrClAuUy4gSSBhbSBhIHN0
+dWRlbnQgc28gbXkgYnVkZ2V0IGZvciB0ZXN0IGhhcmR3YXJlIGlzIGEgbGl0dGxlIHRoaW4uIDoo
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwphdGgxMGsg
+bWFpbGluZyBsaXN0CmF0aDEwa0BsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZy
+YWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vYXRoMTBrCg==
