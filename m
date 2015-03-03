@@ -1,77 +1,80 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 3.2 06/24] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Tue, 03 Mar 2015 22:11:28 +0000
-Message-ID: <lsq.1425420688.754261621@decadent.org.uk>
-References: <lsq.1425420688.806916072@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: akpm@linux-foundation.org, "Al Viro" <viro@ZenIV.linux.org.uk>,
-	netdev@vger.kernel.org, "karl beldan" <karl.beldan@gmail.com>,
-	"Arnd Bergmann" <arnd@arndb.de>,
-	"Karl Beldan" <karl.beldan@rivierawaves.com>,
-	"Eric Dumazet" <edumazet@google.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Mike Frysinger" <vapier@gentoo.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <lsq.1425420688.806916072@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v3 0/7] switchdev: add IPv4 routing offload
+Date: Tue,  3 Mar 2015 15:31:53 -0800
+Message-ID: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
+	roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:34321 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757638AbbCCXa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 18:30:57 -0500
+Received: by pdjg10 with SMTP id g10so52343048pdj.1
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 15:30:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.2.68-rc1 review patch.  If anyone has any objections, please let me know.
+From: Scott Feldman <sfeldma@gmail.com>
 
-------------------
+v3:
 
-From: karl beldan <karl.beldan@gmail.com>
+Changes based on v2 review comments:
 
-commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
+  - Move check for custom rules up earlier in patch set, to keep git bisect
+    safe.
+  - Simplify the route add/modify failure handling to simple try until
+    failure, and then on failure, undo everything.  The switchdev driver
+    will return err when route can normally be installed to device, but
+    the install fails for one reason or another (no space left on device,
+    etc).  If a failure happens, uninstall all routes from the device,
+    punting forwarding for all routes back to the kernel.
+  - Scan route's full nexthop list, ensuring all nexthop devs belong
+    to the same switchdev device, otherwise don't try to install route
+    to device.
 
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
+v2:
 
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- lib/checksum.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+Changes based on v1 review comments and discussions at netconf:
 
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(
- 	return x;
- }
- 
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
-+
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -193,8 +202,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
+  - Allow route modification, but use same ndo op used for adding route.
+    Driver/device is expected to modify route in-place, if it can, to avoid
+    interruption of service.
+  - Add new RTNH_F_EXTERNAL flag to mark FIB entries offloaded externally.
+  - Don't offload routes if using custom IP rules.  If routes are already
+    offloaded, and custom IP rules are turned on, flush routes from offload
+    device.  (Offloaded routes are marked with RTNH_F_EXTERNAL).
+  - Use kernel's neigh resolution code to resolve route's nexthops' neigh
+    MAC addrs.  (Thanks davem, works great!).
+  - Use fib->fib_priority in rocker driver to give priorities to routes in
+    OF-DPA unicast route table.
+
+v1:
+
+This patch set adds L3 routing offload support for IPv4 routes.  The idea is to
+mirror routes installed in the kernel's FIB down to a hardware switch device to
+offload the data forwarding path for L3.  Only the data forwarding path is
+intercepted.  Control and management of the kernel's FIB remains with the
+kernel.
+
+Scott Feldman (7):
+  rtnetlink: add RTNH_F_EXTERNAL flag for fib offload
+  netdevice: add IPv4 fib add/del ops
+  switchdev: add IPv4 fib ndo ops wrappers
+  switchdev: don't support custom ip rules, for now
+  switchdev: implement IPv4 fib ndo wrappers
+  fib: hook IPv4 fib for hardware offload
+  rocker: implement IPv4 fib offloading
+
+ drivers/net/ethernet/rocker/rocker.c |  527 +++++++++++++++++++++++++++++++---
+ include/linux/netdevice.h            |   22 ++
+ include/net/ip_fib.h                 |    2 +
+ include/net/switchdev.h              |   19 ++
+ include/uapi/linux/rtnetlink.h       |    1 +
+ net/ipv4/fib_frontend.c              |   13 +
+ net/ipv4/fib_rules.c                 |    3 +
+ net/ipv4/fib_trie.c                  |   63 +++-
+ net/switchdev/switchdev.c            |  127 ++++++++
+ 9 files changed, 729 insertions(+), 48 deletions(-)
+
+-- 
+1.7.10.4
