@@ -1,116 +1,53 @@
-From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH v3 3/3] lib/string_helpers.c: Change semantics of
- string_escape_mem
-Date: Tue, 03 Mar 2015 12:26:45 +0200
-Message-ID: <1425378405.14897.139.camel@linux.intel.com>
-References: <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1423525491-12613-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1423525491-12613-4-git-send-email-linux@rasmusvillemoes.dk>
-	 <1423571552.31903.468.camel@linux.intel.com>
-	 <87386dj4x0.fsf@rasmusvillemoes.dk>
-	 <1423578150.31903.480.camel@linux.intel.com>
-	 <87oaoo59n2.fsf@rasmusvillemoes.dk>
-	 <1424695820.14897.10.camel@linux.intel.com>
-	 <87k2z86xvs.fsf@rasmusvillemoes.dk>
-	 <1425299846.14897.124.camel@linux.intel.com>
-	 <87a8zvovcj.fsf@rasmusvillemoes.dk>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 13/14] wireless: Use eth_<foo>_addr instead of
+ memset
+Date: Tue, 03 Mar 2015 02:29:33 -0800
+Message-ID: <1425378573.17273.9.camel@perches.com>
+References: <cover.1425354527.git.joe@perches.com>
+	 <0c710456e4875ff00c1a9fcff9378ed15110dcd3.1425354528.git.joe@perches.com>
+	 <1425370617.2450.3.camel@sipsolutions.net>
+	 <1425371858.17273.3.camel@perches.com>
+	 <1425372295.2450.9.camel@sipsolutions.net>
+	 <1425372748.17273.6.camel@perches.com>
+	 <1425373219.2450.13.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87a8zvovcj.fsf-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425373219.2450.13.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-03-03 at 00:03 +0100, Rasmus Villemoes wrote:
-> On Mon, Mar 02 2015, Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
-> > On Mon, 2015-02-23 at 23:55 +0100, Rasmus Villemoes wrote:
-> >> On Mon, Feb 23 2015, Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
-> >
-> >> > What about to make it a separate function *and* call from inside of
-> >> > test_string_escape? Would it work for you?
-> >> 
-> >> See my earlier point about "quite a lot of state to pass". But if this
-> >> 
-> >> static __init void
-> >> test_string_escape_overflow(const char *in, int p, char *out_real, int out_size,
-> >> 			    unsigned int flags, const char *esc, int q_test,
-> >> 			    const char *name)
-> >> {
-> >> 	int q_real;
-> >> 
-> >> 	memset(out_real, 'Z', out_size);
-> >> 	q_real = string_escape_mem(in, p, out_real, 0, flags, esc);
-> >> 	if (q_real != q_test)
-> >> 		pr_warn("Test '%s' failed: flags = %u, osz = 0, expected %d, got %d\n",
-> >> 			name, flags, q_test, q_real);
-> >> 	if (memchr_inv(out_real, 'Z', out_size))
-> >> 		pr_warn("Test '%s' failed: osz = 0 but string_escape_mem wrote to the buffer\n",
-> >> 			name);
-> >> }
-> >> 
-> >> is what you want, sure, have it your way.
-> >
-> > Something like above, though might be few variables can be defined
-> > inside it, such as out_real, out_size.
+On Tue, 2015-03-03 at 10:00 +0100, Johannes Berg wrote:
+> On Tue, 2015-03-03 at 00:52 -0800, Joe Perches wrote:
 > 
-> Or maybe not at all: We could pass NULL, 0, which is what has to work
-> anyway for the kasprintf case - failure will then be detected through an
-> oops, but I think that should be ok. That would also remove the memset and
-> memchr_inv calls above.
+> > > > My guess is the eth_zero_addr and eth_broadcast functions
+> > > > are always taking aligned(2) arguments, just like all the
+> > > > is_<foo>_ether_addr functions.
+> > > 
+> > > Err, are you serious???
+> > 
+> > Yes.
+> > 
+> > > That *clearly* isn't true, and if it was then
+> > > this patch wouldn't be safe at all.
+> > 
+> > And why is that?
+> > 
+> > Until patch 1 of this series, eth_zero_addr and
+> > eth_broadcast_addr was just an inline for a memset.
+> > 
+> > Even after patch 1, it's effectively still memset.
 > 
-> I don't like the idea of just defining a small stack buffer (say
-> buf[16]) and passing that (still with a size of 0): It's better to
-> either detect writes directly (by passing a large enough buffer with
-> known contents), or indirectly through an oops, as opposed to having to
-> figure it out from random stack corruption. And kmalloc'ing+error
-> handling+kfree'ing a buffer inside the overflow check would just be
-> plain silly, when we have a large enough buffer already.
+> Exactly. It therefore *doesn't* require an aligned(2) argument, unlike
+> what you stated above, hence my question if you're serious (and perhaps
+> looking at some other code that I don't have).
 
-Come with v4, I think I have no big objections to the approach.
+Nope, you simply misunderstood what I did write.
 
-> As I said, I do think that longer-term one shouldn't have to poke around
-> in the seq_file internals, but for now I'd like to make the patch minimal.
-
-Ok.
-
-> >> Another option is to do everything with a single seq_printf call,
-> >> something like
-> >> 
-> >> seq_printf(m, "Name:\t%*pEcs\n, (int)strlen(tcomm), tcomm)
-> >> 
-> >> That will escape more than just \ and \n, but that would IMO be an
-> >> improvement. But of course this is out of scope for this series.]
-> >
-> > It should be %pT and reconsider policy how we print task name in
-> > different cases (vsprintf.c::comm_name()).
-> 
-> Well, %pT is a completely new addition to vsprintf.c. Also, I don't
-> think that would be a very good match - not every user of %pT might want
-> escaping, so at the very least this would require implementing some
-> extra flags for %pT.
-
-Something like %pTe (for 'sanely Escaped' with flags you proposed
-earlier) ?
-
->  But if task_name would be the only user of those
-> flags, I think the escaping logic is better kept there. Anyway, this is
-> outside this series' scope.
-
-Yes.
-
--- 
-Andy Shevchenko <andriy.shevchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Intel Finland Oy
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What I said was that the arguments were likely
+already aligned(2), not that the alignment was
+a requirement.
