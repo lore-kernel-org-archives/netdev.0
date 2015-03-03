@@ -1,58 +1,47 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v2 2/3] dtb: change binding name to match with newer firmware DT
-Date: Tue,  3 Mar 2015 11:39:40 -0800
-Message-ID: <1425411581-25463-3-git-send-email-isubramanian@apm.com>
-References: <1425411581-25463-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, mlangsdo@redhat.com,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og104.obsmtp.com ([64.18.0.178]:42692 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754306AbbCCTfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 14:35:37 -0500
-Received: by paceu11 with SMTP id eu11so12690372pac.1
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 11:35:36 -0800 (PST)
-In-Reply-To: <1425411581-25463-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH -next] net: i40e: fix build, depends on CONFIGFS_FS
+Date: Tue, 03 Mar 2015 11:35:38 -0800
+Message-ID: <54F60D0A.6020903@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux NICS <linux.nics@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the backward compatibility of the older driver with the
-newer firmware by making the binding unique so that the older driver won't
-recognize the non-supported interfaces.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-The new bindings are in sync with the newer firmware.
+i40e uses configfs interfaces so it should depend on CONFIGFS_FS.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
+Fixes these build errors:
+
+drivers/built-in.o: In function `i40e_cfgfs_group_make_item':
+i40e_configfs.c:(.text+0x2fcdca): undefined reference to `config_item_init_type_name'
+drivers/built-in.o: In function `i40e_configfs_init':
+(.text+0x2fcee6): undefined reference to `config_group_init'
+drivers/built-in.o: In function `i40e_configfs_init':
+(.text+0x2fcf0c): undefined reference to `configfs_register_subsystem'
+drivers/built-in.o: In function `i40e_configfs_exit':
+(.text+0x2fcf71): undefined reference to `configfs_unregister_subsystem'
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc:	Linux NICS <linux.nics@intel.com>
+Cc:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- arch/arm64/boot/dts/apm/apm-storm.dtsi | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
-index f1ad9c2..a857794 100644
---- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
-@@ -622,7 +622,7 @@
- 		};
- 
- 		sgenet0: ethernet@1f210000 {
--			compatible = "apm,xgene-enet";
-+			compatible = "apm,xgene1-sgenet";
- 			status = "disabled";
- 			reg = <0x0 0x1f210000 0x0 0xd100>,
- 			      <0x0 0x1f200000 0x0 0Xc300>,
-@@ -636,7 +636,7 @@
- 		};
- 
- 		xgenet: ethernet@1f610000 {
--			compatible = "apm,xgene-enet";
-+			compatible = "apm,xgene1-xgenet";
- 			status = "disabled";
- 			reg = <0x0 0x1f610000 0x0 0xd100>,
- 			      <0x0 0x1f600000 0x0 0Xc300>,
--- 
-1.9.1
+--- linux-next-20150303.orig/drivers/net/ethernet/intel/Kconfig
++++ linux-next-20150303/drivers/net/ethernet/intel/Kconfig
+@@ -256,6 +256,7 @@ config I40E
+ 	tristate "Intel(R) Ethernet Controller XL710 Family support"
+ 	select PTP_1588_CLOCK
+ 	depends on PCI
++	depends on CONFIGFS_FS
+ 	---help---
+ 	  This driver supports Intel(R) Ethernet Controller XL710 Family of
+ 	  devices.  For more information on how to identify your adapter, go
