@@ -1,45 +1,30 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: [PATCH v2 1/3] Documentation: dts: Update compatible field description for APM X-Gene
-Date: Tue,  3 Mar 2015 11:39:39 -0800
-Message-ID: <1425411581-25463-2-git-send-email-isubramanian@apm.com>
-References: <1425411581-25463-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	patches-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1425411581-25463-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] ibmveth: Add function to enable live MAC address
+ changes
+Date: Tue, 03 Mar 2015 14:36:34 -0500 (EST)
+Message-ID: <20150303.143634.1288503571033945996.davem@davemloft.net>
+References: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	brking@linux.vnet.ibm.com, jiri@resnulli.us
+To: tlfalcon@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36685 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754306AbbCCTgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 14:36:37 -0500
+In-Reply-To: <1425318972-19455-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-Tested-by: Mark Langsdorf <mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Mon,  2 Mar 2015 11:56:12 -0600
 
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-index cfcc527..6151999 100644
---- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -4,7 +4,10 @@ Ethernet nodes are defined to describe on-chip ethernet interfaces in
- APM X-Gene SoC.
- 
- Required properties for all the ethernet interfaces:
--- compatible: Should be "apm,xgene-enet"
-+- compatible: Should state binding information from the following list,
-+  - "apm,xgene-enet":    RGMII based 1G interface
-+  - "apm,xgene1-sgenet": SGMII based 1G interface
-+  - "apm,xgene1-xgenet": XFI based 10G interface
- - reg: Address and length of the register set for the device. It contains the
-   information of registers in the same order as described by reg-names
- - reg-names: Should contain the register set names
--- 
-1.9.1
+> Add a function that will enable changing the MAC address
+> of an ibmveth interface while it is still running.
+> 
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
