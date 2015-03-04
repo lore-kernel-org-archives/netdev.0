@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] be2net: patch set
-Date: Wed, 04 Mar 2015 15:59:05 -0500 (EST)
-Message-ID: <20150304.155905.224074842471355703.davem@davemloft.net>
-References: <1425447874-5406-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [patch net] team: don't traverse port list using rcu in
+ team_set_mac_address
+Date: Wed, 04 Mar 2015 16:02:00 -0500 (EST)
+Message-ID: <20150304.160200.1361747224026478715.davem@davemloft.net>
+References: <1425454591-7686-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49558 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704AbbCDU7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 15:59:06 -0500
-In-Reply-To: <1425447874-5406-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1750884AbbCDVCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 16:02:02 -0500
+In-Reply-To: <1425454591-7686-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Wed, 4 Mar 2015 00:44:31 -0500
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  4 Mar 2015 08:36:31 +0100
 
-> Hi Dave, the following patch set includes three feature additions relating
-> to SR-IOV to be2net. 
+> Currently the list is traversed using rcu variant. That is not correct
+> since dev_set_mac_address can be called which eventually calls
+> rtmsg_ifinfo_build_skb and there, skb allocation can sleep. So fix this
+> by remove the rcu usage here.
 > 
-> Patch 1 avoid creating a non-RSS default RXQ when FW allows it.
-> This prevents wasting one RXQ for each VF.
-> 
-> Patch 2 adds support for evenly distributing all queue & filter resources
-> across VFs. The FW informs the driver as to which resources are distributable.
-> 
-> Patch 3 implements the sriov_configure PCI method to allow runtime
-> enablement of VFs via sysfs.
-> 
-> Pls consider applying this patch-set to the net-next tree. Thanks!
+> Fixes: 3d249d4ca7 "net: introduce ethernet teaming device"
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
