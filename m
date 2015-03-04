@@ -1,7 +1,8 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 0/5] TTY: fix tty_wait_until_sent on 64-bit machines
-Date: Wed,  4 Mar 2015 10:39:02 +0100
-Message-ID: <1425461947-15888-1-git-send-email-johan@kernel.org>
+Subject: [PATCH 2/5] TTY: bfin_jtag_comm: remove incorrect wait_until_sent operation
+Date: Wed,  4 Mar 2015 10:39:04 +0100
+Message-ID: <1425461947-15888-3-git-send-email-johan@kernel.org>
+References: <1425461947-15888-1-git-send-email-johan@kernel.org>
 Cc: Jiri Slaby <jslaby@suse.cz>, Samuel Ortiz <samuel@sortiz.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Peter Hurley <peter@hurleysoftware.com>,
@@ -12,37 +13,50 @@ Cc: Jiri Slaby <jslaby@suse.cz>, Samuel Ortiz <samuel@sortiz.org>,
 	Johan Hovold <johan@kernel.org>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425461947-15888-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series fixes an overflow bug in tty_wait_until_sent, which is
-currently broken on 64-bit machines for most TTY drivers (with
-serial-core being the notable exception).
+Remove incorrect and redundant wait_until_sent operation, which waits
+for the driver buffer rather than any hardware buffers to drain,
+something which is already taken care of by the tty layer (and
+chars_in_buffer).
 
-The final patch makes the tty_wait_until_sent timeout a maximum one so
-that we actually honour the closing-wait timeout.
-
-All but the second (clean-up) and final patch are marked for stable.
-
-These patches are for v4.0 and I suggest Greg takes them all through the
-TTY tree.
-
-Thanks,
-Johan
-
-
-Johan Hovold (5):
-  net: irda: fix wait_until_sent poll timeout
-  TTY: bfin_jtag_comm: remove incorrect wait_until_sent operation
-  USB: serial: fix infinite wait_until_sent timeout
-  TTY: fix tty_wait_until_sent on 64-bit machines
-  TTY: fix tty_wait_until_sent maximum timeout
-
+Signed-off-by: Johan Hovold <johan@kernel.org>
+---
  drivers/tty/bfin_jtag_comm.c | 13 -------------
- drivers/tty/tty_ioctl.c      | 16 +++++++++++-----
- drivers/usb/serial/generic.c |  5 +++--
- net/irda/ircomm/ircomm_tty.c |  4 +++-
- 4 files changed, 17 insertions(+), 21 deletions(-)
+ 1 file changed, 13 deletions(-)
 
+diff --git a/drivers/tty/bfin_jtag_comm.c b/drivers/tty/bfin_jtag_comm.c
+index d7b198c400c7..ce24182f8514 100644
+--- a/drivers/tty/bfin_jtag_comm.c
++++ b/drivers/tty/bfin_jtag_comm.c
+@@ -210,18 +210,6 @@ bfin_jc_chars_in_buffer(struct tty_struct *tty)
+ 	return circ_cnt(&bfin_jc_write_buf);
+ }
+ 
+-static void
+-bfin_jc_wait_until_sent(struct tty_struct *tty, int timeout)
+-{
+-	unsigned long expire = jiffies + timeout;
+-	while (!circ_empty(&bfin_jc_write_buf)) {
+-		if (signal_pending(current))
+-			break;
+-		if (time_after(jiffies, expire))
+-			break;
+-	}
+-}
+-
+ static const struct tty_operations bfin_jc_ops = {
+ 	.open            = bfin_jc_open,
+ 	.close           = bfin_jc_close,
+@@ -230,7 +218,6 @@ static const struct tty_operations bfin_jc_ops = {
+ 	.flush_chars     = bfin_jc_flush_chars,
+ 	.write_room      = bfin_jc_write_room,
+ 	.chars_in_buffer = bfin_jc_chars_in_buffer,
+-	.wait_until_sent = bfin_jc_wait_until_sent,
+ };
+ 
+ static int __init bfin_jc_init(void)
 -- 
 2.0.5
