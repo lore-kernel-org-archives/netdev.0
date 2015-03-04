@@ -1,23 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH jtkirshe-net-next] mpls: rtm_mpls_policy[] can be static
-Date: Wed, 04 Mar 2015 16:40:00 -0500 (EST)
-Message-ID: <20150304.164000.916928049467432129.davem@davemloft.net>
-References: <201503050540.GRC4YbDo%fengguang.wu@intel.com>
-	<20150304213354.GA121629@lkp-sb04.lkp.intel.com>
+Subject: Re: pull-request: can-next 2015-03-04
+Date: Wed, 04 Mar 2015 16:41:29 -0500 (EST)
+Message-ID: <20150304.164129.1603382229075943877.davem@davemloft.net>
+References: <54F6D375.8060301@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, kbuild-all@01.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: fengguang.wu@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150304213354.GA121629@lkp-sb04.lkp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54F6D375.8060301@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: kbuild test robot <fengguang.wu@intel.com>
-Date: Thu, 5 Mar 2015 05:33:54 +0800
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 04 Mar 2015 10:42:13 +0100
 
-> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> this is a pull request of 3 patches for net-next/master.
+> 
+> Aaron Wu contributes three patches for the blackfin can driver, which
+> cleans up the driver and makes use of more platform independent code.
 
-Applied, thanks.
+Pulled, thanks Marc.
