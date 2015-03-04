@@ -1,32 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bcm63xx_enet: fix poll callback.
-Date: Wed, 04 Mar 2015 15:45:22 -0500 (EST)
-Message-ID: <20150304.154522.665232561815766240.davem@davemloft.net>
-References: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
+Subject: Re: [PATCH v2] net: ping: Return EAFNOSUPPORT when appropriate.
+Date: Wed, 04 Mar 2015 15:47:23 -0500 (EST)
+Message-ID: <20150304.154723.1071370525446900440.davem@davemloft.net>
+References: <1425392176-29114-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tklauser@distanz.ch, balbi@ti.com,
-	w-lkml@lebenslange-mailadresse.de, ebiederm@xmission.com,
-	alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nschichan@freebox.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425383112-23851-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49399 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbbCDUr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 15:47:27 -0500
+In-Reply-To: <1425392176-29114-1-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Schichan <nschichan@freebox.fr>
-Date: Tue,  3 Mar 2015 12:45:12 +0100
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue,  3 Mar 2015 23:16:16 +0900
 
-> In case there was some tx buffer reclaimed and not enough rx packets
-> to consume the whole budget, napi_complete would not be called and
-> interrupts would be kept disabled, effectively resulting in the
-> network core never to call the poll callback again and no rx/tx
-> interrupts to be fired either.
+> 1. For an IPv4 ping socket, ping_check_bind_addr does not check
+>    the family of the socket address that's passed in. Instead,
+>    make it behave like inet_bind, which enforces either that the
+>    address family is AF_INET, or that the family is AF_UNSPEC and
+>    the address is 0.0.0.0.
+> 2. For an IPv6 ping socket, ping_check_bind_addr returns EINVAL
+>    if the socket family is not AF_INET6. Return EAFNOSUPPORT
+>    instead, for consistency with inet6_bind.
+> 3. Make ping_v4_sendmsg and ping_v6_sendmsg return EAFNOSUPPORT
+>    instead of EINVAL if an incorrect socket address structure is
+>    passed in.
+> 4. Make IPv6 ping sockets be IPv6-only. The code does not support
+>    IPv4, and it cannot easily be made to support IPv4 because
+>    the protocol numbers for ICMP and ICMPv6 are different. This
+>    makes connect(::ffff:192.0.2.1) fail with EAFNOSUPPORT instead
+>    of making the socket unusable.
 > 
-> Fix that by only accounting the rx work done in the poll callback.
+> Among other things, this fixes an oops that can be triggered by:
 > 
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+>     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+>     struct sockaddr_in6 sin6 = {
+>         .sin6_family = AF_INET6,
+>         .sin6_addr = in6addr_any,
+>     };
+>     bind(s, (struct sockaddr *) &sin6, sizeof(sin6));
+> 
+> Change-Id: If06ca86d9f1e4593c0d6df174caca3487c57a241
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
