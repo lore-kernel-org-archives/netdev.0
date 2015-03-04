@@ -1,159 +1,163 @@
-From: Pat Erley <pat-lkml@erley.org>
-Subject: Re: brcmsmac not compliant to 802.11 for BCM4313
-Date: Wed, 04 Mar 2015 11:13:02 -0600
-Message-ID: <54F73D1E.80109@erley.org>
-References: <1424007136.2042747.227726249.45B6A0E2@webmail.messagingengine.com> <1424094835.3188168.228077393.0E2006F5@webmail.messagingengine.com> <54E2107F.4000709@broadcom.com> <1424112787.3303548.228201005.68F1D224@webmail.messagingengine.com> <54E24B48.80601@broadcom.com> <1424163814.3140549.228461101.1C2E5AB1@webmail.messagingengine.com> <1425483570.3947119.235432705.0D7855AE@webmail.messagingengine.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net/dcb: Add IEEE QCN attribute
+Date: Wed, 04 Mar 2015 09:19:34 -0800
+Message-ID: <54F73EA6.2030006@gmail.com>
+References: <1425473468-25969-1-git-send-email-ogerlitz@mellanox.com> <1425473468-25969-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hauke@hauke-m.de, brcm80211-dev-list@broadcom.com,
-	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
-	meuleman@broadcom.com, linville@tuxdriver.com,
-	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Nikita N." <nikitan@operamail.com>,
-	Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425483570.3947119.235432705.0D7855AE@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:33604 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758854AbbCDRTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 12:19:48 -0500
+Received: by obcvb8 with SMTP id vb8so4304276obc.0
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 09:19:47 -0800 (PST)
+In-Reply-To: <1425473468-25969-2-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(I don't know why I've been added on this e-mail chain, I'm not in any
-  way linked to broadcom or any of their drivers)
+On 03/04/2015 04:51 AM, Or Gerlitz wrote:
+> From: Shani Michaeli <shanim@mellanox.com>
+>
+> As specified in 802.1Qau spec. Add this optional attribute to the
+> DCB netlink layer. To allow for application to use the new attribute,
+> NIC drivers should implement and register the  callbacks ieee_getqcn,
+> ieee_setqcn and ieee_getqcnstats.
+>
+> The QCN attribute holds a set of parameters for management, and
+> a set of statistics to provide informative data on Congestion-Control
+> defined by this spec.
+>
+> Signed-off-by: Shani Michaeli <shanim@mellanox.com>
+> Signed-off-by: Shachar Raindel <raindel@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
 
-On 03/04/2015 09:39 AM, Nikita N. wrote:
-> Dear Arend,
-> as followup to my last inquiry, since it's passed more than 2 weeks, I'm
-> afraid I didn't receive any answer.
-> As from subject, I finally discovered that brcmsmac is not compliant to
-> 802.11 regulations for BCM4313.
-> So, as purchasing customer, and member of Linux users community, I try
-> to propose my questions to you again now, 3 in total:
+Looks good to me. Do you have a QCN enabled switch? I looked at
+implementing this awhile ago but didn't have any switch support so
+I never did it.
 
-If it's not compliant to 802.11 Regulations, please state in what way 
-it's not compliant, and how to reproduce that.  People will take lack of 
-compliance seriously.  Read on for what I know about the various parts.
+Also do you have a user space client to configure this? I would like
+it if someone wanted to add support to lldpad/dcbtool.
+
+[...]
+
+> +
+> +/* This structure contains the IEEE 802.1Qau QCN managed object.
+> + *
+> + *@rpg_enable: enable QCN RP
+> + *@rppp_max_rps: maximum number of RPs allowed for this CNPV on this port
+> + *@rpg_time_reset: time between rate increases if no CNMs received.
+> + *		   given in u-seconds
+> + *@rpg_byte_reset: transmitted data between rate increases if no CNMs received.
+> + *		   given in Bytes
+> + *@rpg_threshold: The number of times rpByteStage or rpTimeStage can count
+> + *		   before RP rate control state machine advances states
+> + *@rpg_max_rate: the maxinun rate, in Mbits per second,
+> + *		 at which an RP can transmit
+> + *@rpg_ai_rate: The rate, in Mbits per second,
+> + *		used to increase rpTargetRate in the RPR_ACTIVE_INCREASE
+> + *@rpg_hai_rate: The rate, in Mbits per second,
+> + *		 used to increase rpTargetRate in the RPR_HYPER_INCREASE state
+> + *@rpg_gd: Upon CNM receive, flow rate is limited to (Fb/Gd)*CurrentRate.
+> + *	   rpgGd is given as log2(Gd), where Gd may only be powers of 2
+> + *@rpg_min_dec_fac: The minimum factor by which the current transmit rate
+> + *		    can be changed by reception of a CNM.
+> + *		    value is given as percentage (1-100)
+> + *@rpg_min_rate: The minimum value, in bits per second, for rate to limit
+> + *@cndd_state_machine: The state of the congestion notification domain
+> + *		       defense state machine, as defined by IEEE 802.3Qau
+> + *		       section 32.1.1. In the interior ready state,
+> + *		       the QCN capable hardware may add CN-TAG TLV to the
+> + *		       outgoing traffic, to specifically identify outgoing
+> + *		       flows.
+> + */
+
+I'm assuming this structure maps to an IEEE MIB? Its a rather large
+structure for a single netlink type but this seems to be how we built
+the dcbnl interface and if it does seem logical that the structure is
+one logical block, meaning you need to supply all fields.
+
+[...]
 
 >
-> 1) Regulatory domain - you wrote "brcmsmac does assure tx power is
-> within regulatory limits by enforcing a world regulatory domain"
-> That affirmation is *FALSE*.
-> I spent the whole weekend putting brcmsmac under heavy trace, all
-> functions, above all the phy ones.
-> Some code "supposes" to enforce a regulatory domain, but the effect is
-> total null.
-> I tried recompile the regulatory domain database, those functions did
-> not retrieve the new values.
-> Whatever values I set for domain 00, the effect was null - BCM4313 kept
-> functioning independently.
-> The functions, phy and not, which are "supposed" to set the eeprom
-> registries for regdomain enforce, have effect null - the BCM4313 kept
-> functioning independently.
-> I tried setting random numbers in those functions and registries, the
-> effect was null - the BCM4313 kept functioning independently.
-> At the edge of my frustration, I started commenting away from the code
-> those whole phy functions, the effect was null again - the BCM4313 kept
-> functioning independently.
-> I don't know for what Broadcom hw device were written and *tested* those
-> functions - but sure is, they do *NOT* work for BCM4313.
-> Could you please explain how/where the BCM4313 is supposed to "enforcing
-> a world regulatory domain" ?
+> +	if (ops->ieee_getqcn) {
+> +		struct ieee_qcn qcn;
 
-The 'World regulatory domain' is a basic set of rules that you can 
-create by taking all of the rules of the world and joining them into 1 
-'Most Restricted' set of rules.  It's likely that this is enforced in 
-the firmware and not in the driver.  The reason that recompiling the 
-regulatory database has no effect is, the firmware probably has it's own 
-'determination' of what those rules are.  If you want a device you can 
-tweak this stuff on (and possibly end up out of regulatory compliance), 
-find one that doesn't include it's own internal regulatory handling. 
-The World Regulatory Domain (00) was setup such that it should be legal 
-to use everywhere in the world.
+you might consider adding a newline here it  is the best practice for
+new code although dcbnl has plenty of examples where it doesn't use
+this convention.
 
->
-> 2) MCS - 11n modulated frames are not detected in BCM4313 monitor mode -
-> I informed you about this issue more than 1 year ago, and again 2 weeks
-> ago.
-> The issue still reproduces, and no sign of any fix.
-> When/in what backports version, this issue is supposed to be fixed
-> finally?
 
-They likely have higher priority 'problems' on their list like getting 
-new hardware that doesn't work at all (for any use case) working.  This 
-could be a firmware issue and not a driver issue, which would mean 
-they'd have to pass the issue to the firmware developers, who are also 
-likely working on whatever firmware management says they should be.
+> +		memset(&qcn, 0, sizeof(qcn));
+> +		err = ops->ieee_getqcn(netdev, &qcn);
+> +		if (!err) {
+> +			err = nla_put(skb, DCB_ATTR_IEEE_QCN,
+> +				      sizeof(qcn), &qcn);
+> +			if (err)
+> +				return -EMSGSIZE;
+> +		}
+> +	}
+> +
+> +	if (ops->ieee_getqcnstats) {
+> +		struct ieee_qcn_stats qcn_stats;
 
->
-> 3) I explicitly purchased this BCM4313 already 1 year ago, with the
-> following specs: 0x4313 rev 0x01 package 0x08, 3 cores ChipCommon,
-> IEEE802.11 and PCIe.
-> I have been searching for any technical datasheet specification document
-> about BCM4313 on Broadcom website and others.
-> Did not find any.
-> Could you please send me a detailed technical datasheet specification
-> document about BCM4313, for programming/dev purposes?
+same here.
 
-MOST chip manufacturers won't give you the detailed low level datasheets 
-for their wifi chips as often times you can make changes that cause the 
-hardware to transmit out of calibrated specs(and potentially damage 
-hardware) or outside of legal limits(and risk legal troubles).
+> +		memset(&qcn_stats, 0, sizeof(qcn_stats));
+> +		err = ops->ieee_getqcnstats(netdev, &qcn_stats);
+> +		if (!err) {
+> +			err = nla_put(skb, DCB_ATTR_IEEE_QCN_STATS,
+> +				      sizeof(qcn_stats), &qcn_stats);
+> +			if (err)
+> +				return -EMSGSIZE;
+> +		}
+> +	}
+> +
+>   	if (ops->ieee_getpfc) {
+>   		struct ieee_pfc pfc;
+>   		memset(&pfc, 0, sizeof(pfc));
+> @@ -1379,8 +1405,9 @@ int dcbnl_cee_notify(struct net_device *dev, int event, int cmd,
+>   }
+>   EXPORT_SYMBOL(dcbnl_cee_notify);
+>
+> -/* Handle IEEE 802.1Qaz SET commands. If any requested operation can not
+> - * be completed the entire msg is aborted and error value is returned.
+> +/* Handle IEEE 802.1Qaz/802.1Qau/802.1Qbb SET commands.
+> + * If any requested operation can not be completed
+> + * the entire msg is aborted and error value is returned.
+>    * No attempt is made to reconcile the case where only part of the
+>    * cmd can be completed.
+>    */
+> @@ -1417,6 +1444,14 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlmsghdr *nlh,
+>   			goto err;
+>   	}
+>
+> +	if (ieee[DCB_ATTR_IEEE_QCN] && ops->ieee_setqcn) {
+> +		struct ieee_qcn *qcn =
+> +			nla_data(ieee[DCB_ATTR_IEEE_QCN]);
 
->
-> Thank you & Greetings
->
->
->
-> On Tue, Feb 17, 2015, at 01:03 AM, Nikita N. wrote:
->> Hi Arend,
->>
->>> brcmsmac does assure tx power is within regulatory limits by enforcing a
->>> world regulatory domain. So what is not supported is modifying tx power
->>> settings through user-space.
->>
->> Yes, I believe that could be right, *a* world regulatory domain looks
->> indeed enforced, the USA one only, which is pre-set default inside
->> EEPROM registries device, isn't it?
->>
->>> I know, but that driver is not fully open-source as it links in a binary
->>> blob.
->>
->> AFAIK, also brcmsmac needs at least 2 firmware files to operate, without
->> those nothing works.
->> Isn't it the same concept?
->>
->>> I totally lost track of this one. I am using brcmsmac in monitor mode
->>> using bcm43224 which captures 11n frames just fine. I will give it a try
->>> with a bcm4313. The assoc response in your capture shows undefined MCS
->>> set so maybe there really are no 11n MCS rates used (?).
->>
->> If that was a suggestion about to purchase a bcm43224 or any other
->> Broadcom Corp. product, isn't really convincing, seen the overall
->> support quality Customers are experiencing in here...
->> About my capture file, in the case it was really incomplete someone
->> could have informed me at least a year ago.
->> But anyway no respectable QA Testing team needs a purchasing Customer to
->> help in verifying such enormous issue, isn't it?
->>
->>> Our team consist of two man working full-time on the upstream linux
->>> drivers. So our "customer care" is something that we try to deal with on
->>> the side and admittedly things slip between the cracks.
->>
->> Really, *TWO* men? Are you kidding? Is that how much Broadcom Corp.
->> values the Linux community?
->> Needles to remind, even if Linux users don't pay for the OS license as
->> Windows do, they do pay allright for any Broadcom hardware they
->> purchase!
->> Internet startups which sell a button on internet, they have Dev and QA
->> team 5 times bigger than that!
->> I sense a very gross capacity and resource planning competence issue in
->> here.
->> I kindly ask you, please forward that mail to your higher Managers, on
->> my personal behalf, Thanks.
->>
->> --
->> http://www.fastmail.com - Same, same, but different...
->>
->
+same here.
+
+> +		err = ops->ieee_setqcn(netdev, qcn);
+> +		if (err)
+> +			goto err;
+> +	}
+> +
+
+[...]
+
+Feel free to add my acked by if you respin it with the newlines.
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
+
+-- 
+John Fastabend         Intel Corporation
