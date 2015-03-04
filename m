@@ -1,7 +1,7 @@
 From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv2 1/3] xen-netback: return correct ethtool stats
-Date: Wed, 4 Mar 2015 11:14:46 +0000
-Message-ID: <1425467688-12846-2-git-send-email-david.vrabel@citrix.com>
+Subject: [PATCHv2 2/3] xen-netback: unref frags when handling a from-guest skb with a frag list
+Date: Wed, 4 Mar 2015 11:14:47 +0000
+Message-ID: <1425467688-12846-3-git-send-email-david.vrabel@citrix.com>
 References: <1425467688-12846-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,38 +11,54 @@ Cc: David Vrabel <david.vrabel@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:27909 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932903AbbCDLO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 06:14:59 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:8652 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932926AbbCDLPA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2015 06:15:00 -0500
 In-Reply-To: <1425467688-12846-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use correct pointer arithmetic to get the pointer to each stat.
+Every time a VIF is destroyed up to 256 pages may be leaked if packets
+with more than MAX_SKB_FRAGS frags were transmitted from the guest.
+Even worse, if another user of ballooned pages allocated one of these
+ballooned pages it would not handle the unexpectedly >1 page count
+(e.g., gntdev would deadlock when unmapping a grant because the page
+count would never reach 1).
+
+When handling a from-guest skb with a frag list, unref the frags
+before releasing them so they are freed correctly when the VIF is
+destroyed.
 
 Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 ---
- drivers/net/xen-netback/interface.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/xen-netback/netback.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index f38227a..3aa8648 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -340,12 +340,11 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
- 	unsigned int num_queues = vif->num_queues;
- 	int i;
- 	unsigned int queue_index;
--	struct xenvif_stats *vif_stats;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f7a31d2..f5560cd 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1343,7 +1343,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+ {
+ 	unsigned int offset = skb_headlen(skb);
+ 	skb_frag_t frags[MAX_SKB_FRAGS];
+-	int i;
++	int i, f;
+ 	struct ubuf_info *uarg;
+ 	struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
  
- 	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
- 		unsigned long accum = 0;
- 		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
--			vif_stats = &vif->queues[queue_index].stats;
-+			void *vif_stats = &vif->queues[queue_index].stats;
- 			accum += *(unsigned long *)(vif_stats + xenvif_stats[i].offset);
- 		}
- 		data[i] = accum;
+@@ -1383,6 +1383,11 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+ 		frags[i].page_offset = 0;
+ 		skb_frag_size_set(&frags[i], len);
+ 	}
++
++	/* Release all the original (foreign) frags. */
++	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
++		skb_frag_unref(skb, f);
++
+ 	/* swap out with old one */
+ 	memcpy(skb_shinfo(skb)->frags,
+ 	       frags,
 -- 
 1.7.10.4
