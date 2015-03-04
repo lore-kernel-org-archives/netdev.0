@@ -1,43 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/6] ipv4/fib_trie: Cleanups to prepare for
- introduction of key vector
-Date: Wed, 04 Mar 2015 00:16:40 -0500 (EST)
-Message-ID: <20150304.001640.1653151786060996185.davem@davemloft.net>
-References: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
+Subject: Re: [PATCH v4] bridge: fix bridge netlink RCU usage
+Date: Wed, 04 Mar 2015 00:20:44 -0500 (EST)
+Message-ID: <20150304.002044.1989204876340561150.davem@davemloft.net>
+References: <1425394936-11595-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, johannes.berg@intel.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40641 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40671 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753270AbbCDFQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:16:43 -0500
-In-Reply-To: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
+	with ESMTP id S1752743AbbCDFUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:20:46 -0500
+In-Reply-To: <1425394936-11595-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0ByZWRoYXQuY29tPg0KRGF0
-ZTogTW9uLCAwMiBNYXIgMjAxNSAxMzozMjoxNiAtMDgwMA0KDQo+IFRoaXMgcGF0Y2ggc2VyaWVz
-IGlzIG1lYW50IHRvIG1vc3RseSBqdXN0IGNsZWFuIHVwIHRoZSBmaWJfdHJpZSB0byBwcmVwYXJl
-DQo+IGl0IGZvciB0aGUgaW50cm9kdWN0aW9uIG9mIHRoZSBrZXlfdmVjdG9yLiAgQXMgc3VjaCB0
-aGVyZSBhcmUgYSBudW1iZXIgb2YNCj4gbWlub3IgY2xlYW4tdXBzIHN1Y2ggYXMgcmVmb3JtYXR0
-aW5nIHRoZSB0bm9kZSB0byBtYXRjaCB0aGUgZm9ybWF0IG9uY2UgdGhlDQo+IGtleSB2ZWN0b3Ig
-aXMgaW50cm9kdWNlZCwgc29tZSBvcHRpbWl6YXRpb25zIHRvIGRyb3AgdGhlIG5lZWQgZm9yIGEg
-bGVhZg0KPiBwYXJlbnQgcG9pbnRlciwgYW5kIHNvbWUgY2hhbmdlcyB0byByZW1vdmUgZHVwbGlj
-YXRpb24gb2YgZWZmb3J0IHN1Y2ggYXMNCj4gdGhlIDIgbG9vay11cHMgdGhhdCB3ZXJlIGVzc2Vu
-dGlhbGx5IGJlaW5nIGRvbmUgcGVyIG5vZGUgaW5zZXJ0aW9uLg0KDQpUaGlzIGRvZXNuJ3QgY29t
-cGlsZSB3aXRoIHRyaWUgc3RhdHMgZW5hYmxlZCwgSSBzZWUgc29tZXRoaW5nIHNuZWFraW5nDQpp
-biBmcm9tIHRoZSBtYWluL2xvY2FsIHRhYmxlIGNvbGxhcHNpbmcgcGF0Y2ggOi0pDQoNCm5ldC9p
-cHY0L2ZpYl90cmllLmM6IEluIGZ1bmN0aW9uIKFfX3RyaWVfZnJlZV9yY3WiOg0KbmV0L2lwdjQv
-ZmliX3RyaWUuYzoxNjAxOjM2OiBlcnJvcjogoXN0cnVjdCBmaWJfdGFibGWiIGhhcyBubyBtZW1i
-ZXIgbmFtZWQgoWRhdGGiDQogIHN0cnVjdCB0cmllICp0ID0gKHN0cnVjdCB0cmllICopdGItPmRh
-dGE7DQoNCkFsc28sIHR3byBjb21tZW50czoNCg0KMSkgV2hlbiB5b3UgZ28gImlmIChpZHggPj4g
-bi0+Yml0cykiLCBjYW4gbi0+Yml0cyBiZSA9PSAzMj8gIElmIHNvLCB0aGlzDQogICBleHByZXNz
-aW9uIGlzIHVuZGVmaW5lZC4NCg0KMikgSW4geW91ciBzaW1wbGlmaWNhdGlvbiBvZiBmaWJfZmlu
-ZF9ub2RlKCksIGRvbid0IGtlZXAgc3RvcmluZyBvdmVyDQogICBhbmQgb3ZlciBhZ2FpbiBpbnRv
-IHRoZSBvbi1zdGFjayB2YXJpYWJsZSAnKnRwJywgaW5zdGVhZCBqdXN0IG1haW50YWluDQogICBh
-IG9uZSBiZWhpbmQgcG9pbnRlciBpbiBhIGxvY2FsIHZhcmlhYmxlIGZvciB0aGUgcGFyZW50LCBh
-bmQgc3RvcmUgaXQNCiAgIG9uZSB0aW1lIGFzIHlvdXIgZXhpdCB0aGUgZnVuY3Rpb24uDQoNClRo
-YW5rcy4NCg0KDQo=
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue,  3 Mar 2015 16:02:16 +0100
+
+> From: Johannes Berg <johannes.berg@intel.com>
+> 
+> When the STP timer fires, it can call br_ifinfo_notify(),
+> which in turn ends up in the new br_get_link_af_size().
+> This function is annotated to be using RTNL locking, which
+> clearly isn't the case here, and thus lockdep warns:
+> 
+>   ===============================
+>   [ INFO: suspicious RCU usage. ]
+>   3.19.0+ #569 Not tainted
+>   -------------------------------
+>   net/bridge/br_private.h:204 suspicious rcu_dereference_protected() usage!
+> 
+> Fix this by doing RCU locking here.
+> 
+> Fixes: b7853d73e39b ("bridge: add vlan info to bridge setlink and dellink notification messages")
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+
+Applied to net-next, thanks Johannes.
