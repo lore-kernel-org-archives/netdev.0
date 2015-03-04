@@ -1,150 +1,146 @@
-From: Alexandre Courbot <gnurou@gmail.com>
-Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and
- gpiod_put_array functions
-Date: Wed, 4 Mar 2015 22:22:24 +0900
-Message-ID: <CAAVeFuLt0Oy9QK+BJ5zAb-CugKi0n4ruy6=+CWQwgS9J0=dfrQ@mail.gmail.com>
-References: <1521782.cXqN30N6pA@pcimr> <CAAVeFuLnHQpsduHRsEkSC31+HDiApNoB3DNDQLzZxng=OVx6eg@mail.gmail.com>
- <1842407.4EyTjGZBVF@pcimr>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: [PATCHv4 net-next 3/3] ipv4: Create probe timer for tcp PMTU as
+ per RFC4821
+Date: Wed, 4 Mar 2015 08:26:52 -0500
+Message-ID: <CABrhC0nO3E_kPGDGc1Rxe8d5nXQ0-EcX_DLRcZk4NOTqqZ7BPw@mail.gmail.com>
+References: <1425374361-21047-1-git-send-email-fan.du@intel.com>
+	<1425374361-21047-4-git-send-email-fan.du@intel.com>
+	<CABrhC0nQcFSkAcMmnJ+fw0nhOGKiebEDnU4P9=nRsn=u16Lotw@mail.gmail.com>
+	<54F669BE.7060706@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, Eric Dumazet <edumazet@google.com>,
 	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rojhalat Ibrahim <imr@rtschenk.de>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <1842407.4EyTjGZBVF@pcimr>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Netdev <netdev@vger.kernel.org>
+To: Fan Du <fengyuleidian0615@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:36860 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926AbbCDN0y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 08:26:54 -0500
+Received: by lbiz11 with SMTP id z11so18193202lbi.3
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 05:26:52 -0800 (PST)
+In-Reply-To: <54F669BE.7060706@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 3, 2015 at 6:45 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-> On Thursday 26 February 2015 18:54:53 Alexandre Courbot wrote:
->> On Thu, Feb 12, 2015 at 1:28 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
->> > Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
->> > disposing of GPIO descriptors.
->> >
->> > Cc: David Miller <davem@davemloft.net>
->> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
->> > ---
->> > Change log:
->> >   v5: no change
->> >   v4: use shorter names for members of struct gpio_descs
->> >   v3: no change
->> >   v2: use the new interface
->> >
->> >  drivers/net/phy/mdio-mux-gpio.c | 60 ++++++++++++-----------------------------
->> >  1 file changed, 17 insertions(+), 43 deletions(-)
->> >
->> > diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
->> > index 320eb15..c49ad09 100644
->> > --- a/drivers/net/phy/mdio-mux-gpio.c
->> > +++ b/drivers/net/phy/mdio-mux-gpio.c
->> > @@ -12,33 +12,30 @@
->> >  #include <linux/module.h>
->> >  #include <linux/phy.h>
->> >  #include <linux/mdio-mux.h>
->> > -#include <linux/of_gpio.h>
->> > +#include <linux/gpio/consumer.h>
->> >
->> >  #define DRV_VERSION "1.1"
->> >  #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
->> >
->> > -#define MDIO_MUX_GPIO_MAX_BITS 8
->> > -
->> >  struct mdio_mux_gpio_state {
->> > -       struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
->> > -       unsigned int num_gpios;
->> > +       struct gpio_descs *gpios;
->> >         void *mux_handle;
->> >  };
->> >
->> >  static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
->> >                                    void *data)
->> >  {
->> > -       int values[MDIO_MUX_GPIO_MAX_BITS];
->> > -       unsigned int n;
->> >         struct mdio_mux_gpio_state *s = data;
->> > +       int values[s->gpios->ndescs];
->> > +       unsigned int n;
->> >
->> >         if (current_child == desired_child)
->> >                 return 0;
->> >
->> > -       for (n = 0; n < s->num_gpios; n++) {
->> > +       for (n = 0; n < s->gpios->ndescs; n++)
->> >                 values[n] = (desired_child >> n) & 1;
->> > -       }
->> > -       gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
->> > +
->> > +       gpiod_set_array_cansleep(s->gpios->ndescs, s->gpios->desc, values);
+On Tue, Mar 3, 2015 at 9:11 PM, Fan Du <fengyuleidian0615@gmail.com> wr=
+ote:
+> =E4=BA=8E 2015=E5=B9=B403=E6=9C=8804=E6=97=A5 00:39, John Heffner =E5=
+=86=99=E9=81=93:
+>
+>> On Tue, Mar 3, 2015 at 4:19 AM, Fan Du <fan.du@intel.com> wrote:
+>>>
+>>> As per RFC4821 7.3.  Selecting Probe Size, a probe timer should
+>>> be armed once probing has converged. Once this timer expired,
+>>> probing again to take advantage of any path PMTU change. The
+>>> recommended probing interval is 10 minutes per RFC1981. Probing
+>>> interval could be sysctled by sysctl_tcp_probe_interval.
+>>>
+>>> Eric Dumazet suggested to implement pseudo timer based on 32bits
+>>> jiffies tcp_time_stamp instead of using classic timer for such
+>>> rare event.
+>>>
+>>> Signed-off-by: Fan Du <fan.du@intel.com>
 >>
->> One suggestion for a possible further improvement: it would be great
->> if the gpiod_set/get_array() functions would work on a struct
->> gpio_descs so users don't have to pass both the number of GPIOs and
->> the array.
 >>
->> I don't know whether it would be desirable to keep alternative
->> functions that preserve the current form, for users who want to set
->> multiple GPIOs but cannot use gpiod_get_array(). struct gpiod_descs is
->> easy to build, so maybe we don't need them?
+>>> @@ -1823,6 +1825,31 @@ send_now:
+>>>          return false;
+>>>   }
+>>>
+>>> +static inline void tcp_mtu_check_reprobe(struct sock *sk)
+>>> +{
+>>> +       struct inet_connection_sock *icsk =3D inet_csk(sk);
+>>> +       struct tcp_sock *tp =3D tcp_sk(sk);
+>>> +       struct net *net =3D sock_net(sk);
+>>> +       u32 interval;
+>>> +       s32 delta;
+>>> +
+>>> +       interval =3D net->ipv4.sysctl_tcp_probe_interval;
+>>> +       delta =3D tcp_time_stamp - icsk->icsk_mtup.probe_timestamp;
+>>> +       if (unlikely(delta >=3D interval * HZ)) {
+>>> +               int mss =3D tcp_current_mss(sk);
+>>> +
+>>> +               /* Update current search range */
+>>> +               icsk->icsk_mtup.search_high =3D tp->rx_opt.mss_clam=
+p +
+>>> +                       sizeof(struct tcphdr) +
+>>> +                       icsk->icsk_af_ops->net_header_len;
+>>> +               icsk->icsk_mtup.search_low =3D tcp_mss_to_mtu(sk, m=
+ss);
+>>> +               icsk->icsk_mtup.probe_size =3D 0;
+>>> +
+>>> +               /* Update probe time stamp */
+>>> +               icsk->icsk_mtup.probe_timestamp =3D tcp_time_stamp;
+>>> +       }
+>>> +}
+>>> +
+>>>   /* Create a new MTU probe if we are ready.
+>>>    * MTU probe is regularly attempting to increase the path MTU by
+>>>    * deliberately sending larger packets.  This discovers routing
 >>
+>>
+>> I think the only update to the search range required here is
+>> potentially moving search_high upward.  Touching search_low seems
+>> unnecessary,
 >
-> I thought about that, but didn't want to change the interface in this
-> patch series.
+> No.
 >
-> Furthermore there is this use case (my use case):
->
-> I acquire a descriptor array for multiple data outputs and (among others) a
-> single descriptor for a clock output. Afterwards I want to set the data bits
-> and simultaneously clear the clock bit (using gpiod_set_array) before setting
-> only the clock output (using gpiod_set_value).
->
-> Therefore I need an array containing the data bits and the clock bit which
-> is easy to build.
->
-> I could also create a struct gpiod_descs but it would be more complicated
-> since I would have to allocate a new struct before populating it with the
-> descriptors and also free the allocated memory afterwards. It's not really
-> a big deal but more complicated than before.
->
-> But this might not be a very common use case.
->
-> If we can assume that for the common use case the group of descriptors that
-> can be acquired using gpiod_get_array() is the same group that should be
-> set using gpiod_set_array(), it might make sense to change the interface.
+> If you restoring search_low to its original, the first probe will pro=
+bably
+> be no better than using current mss, because current mss is working g=
+ood,
+> there may be better mss between mtu(current mss) and search_high. Rep=
+robing
+> from search_low to search_high is definitely not worth the effort.
 
-Ah, thanks for sharing your use-case. I wish I had heard it earlier as
-it seems we should make things more flexible than they currently are.
+Set search_high to the maximal MSS.  The next probe will be halfway
+between search_low and MSS.  There's no reason to reduce search_low
+when the current MSS =3D=3D search_low.
 
-If I followed you correctly, you need to call gpiod_get_array() to
-obtain the data lines, and gpiod_get() for the clock line. Then you
-need to allocate a new array of gpio_desc * and copy all the
-descriptors there before calling gpiod_set_array(). So simply put, the
-struct gpio_descs you obtained is just useless to you.
 
-It seems like we have been doing things wrong. Maybe gpiod_get_array()
-should simply take a pointer to a gpio_desc * array that it would
-fill, as you originally proposed?
+>>> @@ -1866,8 +1893,11 @@ static int tcp_mtu_probe(struct sock *sk)
+>>>          size_needed =3D probe_size + (tp->reordering + 1) * tp->ms=
+s_cache;
+>>>          interval =3D icsk->icsk_mtup.search_high -
+>>> icsk->icsk_mtup.search_low;
+>>>          if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search=
+_high)
+>>> ||
+>>> -           interval < max(1, net->ipv4.sysctl_tcp_probe_threshold)=
+) {
+>>> -               /* TODO: set timer for probe_converge_event */
+>>> +               interval < net->ipv4.sysctl_tcp_probe_threshold) {
+>>> +               /* Check whether enough time has elaplased for
+>>> +                * another round of probing.
+>>> +                */
+>>> +               tcp_mtu_check_reprobe(sk);
+>>>                  return -1;
+>>>          }
+>>
+>>
+>> The way this check works, I think putting it here may not be exactly
+>> what we want.  The comment was to set a timer here, but that's not
+>> exactly what tcp_mtu_check_reprobe does.  Since it may update the
+>> search range, I think it would be better to call prior to comparing
+>> the candidate probe_size to search_high.
+>
+> Semantically speaking, reprobe checking should be placed inside where
+> a decision to not probe has been made, reprobing from a stable state =
+;)
+> If we moving the reporobe checking outside, current probing may be le=
+gal,
+> but the reprobe check will rule it out.
+>
+> So I don't see any compelling reason to move the reprobe checking out=
+side.
 
-So now, the question is: do we need struct gpiod_descs at all? It can
-help reducing the number of arguments passed to functions, but also
-makes the whole API more rigid. Use it with gpiod_get_array(), and you
-end up with unneeded copies and memory allocations. Pass it to
-gpiod_set_array() and you cannot do things like setting only part of
-the GPIOs you requested.
+The reprobe check should happen when you know you don't already have a
+pending probe, not when a decision has already been made not to probe.
+The impact is relatively minor because practically you're just
+extending the duration of a long timer a bit more, but there's not a
+good reason to do so.
 
-Argh, and looking closer there is some possible confusion between
-gpiod_set_array() and gpiod_get_array(). One might expect the latter
-to return the *values* of the GPIOs, considering the name of the
-former, while it actually is the array counterpart of gpiod_get(). To
-be consistent with the single descriptor API, I suppose we should
-rename gpiod_set_array() to gpiod_set_array_value(). But that's a
-separate issue.
-
-For now, since you are the main user of the array API, what is your
-opinion about gpiod_descs? Do you think it is worth making the API
-less flexible just to not have to carry an array lengh separately?
-Should we just get rid of it?
+Thanks,
+  -John
