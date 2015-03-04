@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] team: don't traverse port list using rcu in
- team_set_mac_address
-Date: Wed, 04 Mar 2015 16:02:00 -0500 (EST)
-Message-ID: <20150304.160200.1361747224026478715.davem@davemloft.net>
-References: <1425454591-7686-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] af_unix: don't poll dead peers
+Date: Wed, 04 Mar 2015 13:02:32 -0800
+Message-ID: <1425502952.5130.234.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425499629-15223-1-git-send-email-minipli@googlemail.com>
+	 <1425500502.5130.232.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jiri@resnulli.us
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Olivier Mauras <olivier@mauras.ch>,
+	Rainer Weikusat <rweikusat@mssgmbh.com>,
+	PaX Team <pageexec@freemail.hu>
+To: Mathias Krause <minipli@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49558 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbbCDVCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 16:02:02 -0500
-In-Reply-To: <1425454591-7686-1-git-send-email-jiri@resnulli.us>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:35568 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750917AbbCDVCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 16:02:34 -0500
+Received: by igqa13 with SMTP id a13so40113063igq.0
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 13:02:34 -0800 (PST)
+In-Reply-To: <CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed,  4 Mar 2015 08:36:31 +0100
-
-> Currently the list is traversed using rcu variant. That is not correct
-> since dev_set_mac_address can be called which eventually calls
-> rtmsg_ifinfo_build_skb and there, skb allocation can sleep. So fix this
-> by remove the rcu usage here.
+On Wed, 2015-03-04 at 21:39 +0100, Mathias Krause wrote:
+> On 4 March 2015 at 21:21, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > Using locks in _poll() is going to be tremendously expensive for some
+> > applications still using poll() or select() ?
 > 
-> Fixes: 3d249d4ca7 "net: introduce ethernet teaming device"
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> I've no idea but we're already taking this very lock in the
+> unix_peer_get() call a few lines above.
 
-Applied and queued up for -stable, thanks.
+This is not the same lock.
+
+other != sk
