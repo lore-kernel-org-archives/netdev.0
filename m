@@ -1,149 +1,161 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 7/7] mpls: Multicast route table change notifications
-Date: Tue, 03 Mar 2015 19:14:31 -0600
-Message-ID: <87r3t5sgw8.fsf_-_@x220.int.ebiederm.org>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: OVS Offload Decision Proposal
+Date: Wed, 4 Mar 2015 10:18:21 +0900
+Message-ID: <20150304011817.GA29502@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:36710 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbbCDBSF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 20:18:05 -0500
-In-Reply-To: <87vbihtvts.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Tue, 03 Mar 2015 19:06:39 -0600")
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:42867 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752278AbbCDBSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 20:18:30 -0500
+Received: by padfa1 with SMTP id fa1so28754358pad.9
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 17:18:29 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+[ CCed netdev as although this is primarily about Open vSwitch userspace
+  I believe there are some interested parties not on the Open vSwitch
+  dev mailing list ]
 
-Unlike IPv4 this code notifies on all cases where mpls routes
-are added or removed and it never automatically removes routes.
-Avoiding both the userspace confusion that is caused by omitting
-route updates and the possibility of a flood of netlink traffic
-when an interface goes doew.
+Hi,
 
-For now reserved labels are handled automatically and userspace
-is not notified.
+The purpose of this email is to describe a rough design for driving Open
+vSwitch flow offload from user-space. But before getting to that I would
+like to provide some background information.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/uapi/linux/rtnetlink.h |  2 ++
- net/mpls/af_mpls.c             | 60 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 62 insertions(+)
+The proposed design is for "OVS Offload Decision": a proposed component of
+ovs-vswitchd. In short the top-most red box in the first figure in the
+"OVS HW Offload Architecture" document edited by Thomas Graf[1].
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index bad65550ae3e..06f75a407f74 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -631,6 +631,8 @@ enum rtnetlink_groups {
- #define RTNLGRP_IPV6_NETCONF	RTNLGRP_IPV6_NETCONF
- 	RTNLGRP_MDB,
- #define RTNLGRP_MDB		RTNLGRP_MDB
-+	RTNLGRP_MPLS_ROUTE,
-+#define RTNLGRP_MPLS_ROUTE	RTNLGRP_MPLS_ROUTE
- 	__RTNLGRP_MAX
- };
- #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index b4d7cec398d2..75a994a50381 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -36,6 +36,10 @@ struct mpls_route { /* next hop label forwarding entry */
- static int zero = 0;
- static int label_limit = (1 << 20) - 1;
- 
-+static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
-+		       struct nlmsghdr *nlh, struct net *net, u32 portid,
-+		       unsigned int nlm_flags);
-+
- static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned index)
- {
- 	struct mpls_route *rt = NULL;
-@@ -246,6 +250,20 @@ static void mpls_rt_free(struct mpls_route *rt)
- 		kfree_rcu(rt, rt_rcu);
- }
- 
-+static void mpls_notify_route(struct net *net, unsigned index,
-+			      struct mpls_route *old, struct mpls_route *new,
-+			      const struct nl_info *info)
-+{
-+	struct nlmsghdr *nlh = info ? info->nlh : NULL;
-+	unsigned portid = info ? info->portid : 0;
-+	int event = new ? RTM_NEWROUTE : RTM_DELROUTE;
-+	struct mpls_route *rt = new ? new : old;
-+	unsigned nlm_flags = (old && new) ? NLM_F_REPLACE : 0;
-+	/* Ignore reserved labels for now */
-+	if (rt && (index >= 16))
-+		rtmsg_lfib(event, index, rt, nlh, net, portid, nlm_flags);
-+}
-+
- static void mpls_route_update(struct net *net, unsigned index,
- 			      struct net_device *dev, struct mpls_route *new,
- 			      const struct nl_info *info)
-@@ -260,6 +278,8 @@ static void mpls_route_update(struct net *net, unsigned index,
- 		old = rt;
- 	}
- 
-+	mpls_notify_route(net, index, old, new, info);
-+
- 	/* If we removed a route free it now */
- 	mpls_rt_free(old);
- }
-@@ -692,6 +712,46 @@ static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
-+static inline size_t lfib_nlmsg_size(struct mpls_route *rt)
-+{
-+	size_t payload =
-+		NLMSG_ALIGN(sizeof(struct rtmsg))
-+		+ nla_total_size(2 + rt->rt_via_alen)	/* RTA_VIA */
-+		+ nla_total_size(4);			/* RTA_DST */
-+	if (rt->rt_labels)				/* RTA_NEWDST */
-+		payload += nla_total_size(rt->rt_labels * 4);
-+	if (rt->rt_dev)					/* RTA_OIF */
-+		payload += nla_total_size(4);
-+	return payload;
-+}
-+
-+static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
-+		       struct nlmsghdr *nlh, struct net *net, u32 portid,
-+		       unsigned int nlm_flags)
-+{
-+	struct sk_buff *skb;
-+	u32 seq = nlh ? nlh->nlmsg_seq : 0;
-+	int err = -ENOBUFS;
-+
-+	skb = nlmsg_new(lfib_nlmsg_size(rt), GFP_KERNEL);
-+	if (skb == NULL)
-+		goto errout;
-+
-+	err = mpls_dump_route(skb, portid, seq, event, label, rt, nlm_flags);
-+	if (err < 0) {
-+		/* -EMSGSIZE implies BUG in lfib_nlmsg_size */
-+		WARN_ON(err == -EMSGSIZE);
-+		kfree_skb(skb);
-+		goto errout;
-+	}
-+	rtnl_notify(skb, net, portid, RTNLGRP_MPLS_ROUTE, nlh, GFP_KERNEL);
-+
-+	return;
-+errout:
-+	if (err < 0)
-+		rtnl_set_sk_err(net, RTNLGRP_MPLS_ROUTE, err);
-+}
-+
- static int resize_platform_label_table(struct net *net, size_t limit)
- {
- 	size_t size = sizeof(struct mpls_route *) * limit;
--- 
-2.2.1
+[1] https://docs.google.com/document/d/195waUliu7G5YYVuXHmLmHgJ38DFSte321WPq0oaFhyU/edit#heading=h.116je16s8xzw
+
+Assumptions
+-----------
+
+There is currently a lively debate on various aspects of flow offloads
+within the Linux networking community. As of writing the latest discussion
+centers around the "Flows! Offload them." thread[2] on the netdev mailing
+list.
+
+[2] http://thread.gmane.org/gmane.linux.network/351860
+
+My aim is not to preempt the outcome of those discussions. But rather to
+investigate what offloads might look like in ovs-vswitchd. In order to make
+that investigation concrete I have made some assumptions about facilities
+that may be provided by the kernel in future. Clearly if the discussions
+within the Linux networking community end in a solution that differs from
+my assumptions then this work will need to be revisited. Indeed, I entirely
+expect this work to be revised and refined and possibly even radically
+rethought as time goes on.
+
+That said, my working assumptions are:
+
+* That Open vSwitch may manage flow offloads from user-space. This is as
+  opposed to them being transparently handled in the datapath. This does
+  not preclude the existence of transparent offloading in the datapath.
+  But rather limits this discussion to a mode where offloads are managed
+  from user-space.
+
+* That Open vSwitch may add flows to hardware via an API provided by the
+  kernel. In particular my working assumption is that the Flow API proposed
+  by John Fastabend[3] may be used to add flows to hardware. While the
+  existing netlink API may be used to add flows to the kernel datapath.
+
+* That there will be an API provided by the kernel to allow the discovery
+  of hardware offload capabilities by user-space. Again my working
+  assumption is that the Flow API proposed by John Fastabend[3] may be used
+  for this purpose.
+
+[3] http://thread.gmane.org/gmane.linux.network/347188
+
+Rough Design
+------------
+
+* Modify flow translation so that the switch parent id[4] of the flow is
+  recorded as part of its translation context. The switch parent id was
+  recently added to the Linux kernel and provides a common identifier for
+  all netdevices that are backed by the same underlying switch hardware for
+  some very loose definition of switch. In this scheme if the input and all
+  output ports of a flow belong to the same switch hardware then the switch
+  id of the translation context would be set accordingly, indicating
+  offload of the flow may occur to that switch.
+
+  [4] https://github.com/torvalds/linux/blob/master/Documentation/networking/switchdev.txt
+
+  At this time this excludes both flows that either span multiple switch
+  devices or use vports that are not backed directly by netdevices, for
+  example tunnel vports. While important I believe these are topics for
+  further work.
+
+* At the point where a flow is to be added to the datapath ovs-vswitchd
+  should determine if it should be offloaded and if so translate it to a
+  flow for the hardware offload API and queue this translated flow up to be
+  added to hardware as well as the datapath.
+
+  The translation to hardware flows could be performed along with the
+  translation that already occurs from OpenFlow to ODP flows. However, that
+  translation is already quite complex and called for a variety of reasons
+  other than to prepare flows to be added to the datapath. So I think it
+  makes some sense to keep the new translation separate from the existing
+  one.
+
+  The determination mentioned above could first check if the switch id is
+  set and then may make further checks: for example that there is space in
+  the hardware for a new flow, that all the matches and actions of the flow
+  may be offloaded.
+
+  There seems to be ample scope for complex logic to determine which flows
+  should be offloaded. And I believe that one motivation for handling
+  offloads in user-space for such complex logic to live in user-space.
+  However, in order to keep things simple in the beginning I propose some
+  very simple logic: offload all flows that the hardware supports up until
+  the hardware runs out of space.
+
+  This seems like a reasonable start keeping in mind that all flows will
+  also be added to the datapath and that ovs-vswitchd constructs flows such
+  that they do not overlap.
+
+  A more conservative version of this simple rule would be to remove all
+  flows from hardware if a flow is encountered that is not to be added to
+  hardware. That is, ensure either all flows that are in hardware are also
+  in software or no flows are in hardware at all. This is the approach
+  being initially taken for L3 offloads in the Linux kernel[5].
+
+  [5] http://thread.gmane.org/gmane.linux.network/352481/focus=352658
+
+* It seems to me that somewhat tricky problem is how to manage flows in
+  hardware. As things stand ovs-vswitchd generally manages flows in the
+  datapath by dumping flows, inspecting the dumped flows to see how
+  recently they have been used and removing idle flows from the datapath.
+  Unfortunately this approach may not be well suited to flows offloaded to
+  hardware as dumping flows may be prohibitively expensive. As such I would
+  like some consideration given to three approaches. Perhaps in the end all
+  will need to be supported. And perhaps there are others:
+
+  1. Dump Flows
+     This is the approach currently taken to managing datapath flows. As
+     stated above my feeling is that this will not be well suited much
+     hardware. However, for simplicity it may be a good place to start.
+
+  2. Notifications
+     In this approach flows are added to hardware with a soft timeout and
+     hardware removes flows when they timeout sending a notification when
+     that occurs. Notifications would be relayed up to user space from the
+     driver in the kernel. Some effort may be required to mitigate
+     notification storms if many flows are removed in a short space of
+     time. It is also of note that there is likely to be hardware that
+     can't generate notifications on flow removal.
+
+  3. Aging in hardware
+     In this approach flows are added to hardware with a soft timeout and
+     hardware removes the flows when they timeout. However no notification
+     is generated. And thus ovs-vswitchd has no way of knowing if a flow is
+     still present in hardware or not. From a hardware point of view this
+     seems to be the simplest to support. But I suspect that it would
+     present some significant challenges to ovs-vswitchd in the context of
+     its current implementation of flow management. Especially if flows are
+     also to be present in the datapath as proposed above.
