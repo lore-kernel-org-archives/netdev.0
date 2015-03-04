@@ -1,7 +1,7 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH 2/5] TTY: bfin_jtag_comm: remove incorrect wait_until_sent operation
-Date: Wed,  4 Mar 2015 10:39:04 +0100
-Message-ID: <1425461947-15888-3-git-send-email-johan@kernel.org>
+Subject: [PATCH 3/5] USB: serial: fix infinite wait_until_sent timeout
+Date: Wed,  4 Mar 2015 10:39:05 +0100
+Message-ID: <1425461947-15888-4-git-send-email-johan@kernel.org>
 References: <1425461947-15888-1-git-send-email-johan@kernel.org>
 Cc: Jiri Slaby <jslaby@suse.cz>, Samuel Ortiz <samuel@sortiz.org>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -10,53 +10,50 @@ Cc: Jiri Slaby <jslaby@suse.cz>, Samuel Ortiz <samuel@sortiz.org>,
 	linux-usb@vger.kernel.org, linux-serial@vger.kernel.org,
 	netdev@vger.kernel.org,
 	ZIV-Asier Llano Palacios <asier.llano@cgglobal.com>,
-	Johan Hovold <johan@kernel.org>
+	Johan Hovold <johan@kernel.org>,
+	stable <stable@vger.kernel.org>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1425461947-15888-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove incorrect and redundant wait_until_sent operation, which waits
-for the driver buffer rather than any hardware buffers to drain,
-something which is already taken care of by the tty layer (and
-chars_in_buffer).
+Make sure to handle an infinite timeout (0).
+
+Note that wait_until_sent is currently never called with a 0-timeout
+argument due to a bug in tty_wait_until_sent.
+
+Fixes: dcf010503966 ("USB: serial: add generic wait_until_sent
+implementation")
+Cc: stable <stable@vger.kernel.org>	# v3.10
 
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/tty/bfin_jtag_comm.c | 13 -------------
- 1 file changed, 13 deletions(-)
+ drivers/usb/serial/generic.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/tty/bfin_jtag_comm.c b/drivers/tty/bfin_jtag_comm.c
-index d7b198c400c7..ce24182f8514 100644
---- a/drivers/tty/bfin_jtag_comm.c
-+++ b/drivers/tty/bfin_jtag_comm.c
-@@ -210,18 +210,6 @@ bfin_jc_chars_in_buffer(struct tty_struct *tty)
- 	return circ_cnt(&bfin_jc_write_buf);
- }
+diff --git a/drivers/usb/serial/generic.c b/drivers/usb/serial/generic.c
+index ccf1df7c4b80..54e170dd3dad 100644
+--- a/drivers/usb/serial/generic.c
++++ b/drivers/usb/serial/generic.c
+@@ -258,7 +258,8 @@ void usb_serial_generic_wait_until_sent(struct tty_struct *tty, long timeout)
+ 	 * character or at least one jiffy.
+ 	 */
+ 	period = max_t(unsigned long, (10 * HZ / bps), 1);
+-	period = min_t(unsigned long, period, timeout);
++	if (timeout)
++		period = min_t(unsigned long, period, timeout);
  
--static void
--bfin_jc_wait_until_sent(struct tty_struct *tty, int timeout)
--{
--	unsigned long expire = jiffies + timeout;
--	while (!circ_empty(&bfin_jc_write_buf)) {
--		if (signal_pending(current))
--			break;
+ 	dev_dbg(&port->dev, "%s - timeout = %u ms, period = %u ms\n",
+ 					__func__, jiffies_to_msecs(timeout),
+@@ -268,7 +269,7 @@ void usb_serial_generic_wait_until_sent(struct tty_struct *tty, long timeout)
+ 		schedule_timeout_interruptible(period);
+ 		if (signal_pending(current))
+ 			break;
 -		if (time_after(jiffies, expire))
--			break;
--	}
--}
--
- static const struct tty_operations bfin_jc_ops = {
- 	.open            = bfin_jc_open,
- 	.close           = bfin_jc_close,
-@@ -230,7 +218,6 @@ static const struct tty_operations bfin_jc_ops = {
- 	.flush_chars     = bfin_jc_flush_chars,
- 	.write_room      = bfin_jc_write_room,
- 	.chars_in_buffer = bfin_jc_chars_in_buffer,
--	.wait_until_sent = bfin_jc_wait_until_sent,
- };
- 
- static int __init bfin_jc_init(void)
++		if (timeout && time_after(jiffies, expire))
+ 			break;
+ 	}
+ }
 -- 
 2.0.5
