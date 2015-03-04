@@ -1,51 +1,56 @@
-From: Michel Machado <michel@digirati.com.br>
-Subject: Re: Linux XIA - merge proposal
-Date: Tue, 03 Mar 2015 19:14:45 -0500
-Message-ID: <54F64E75.8060300@digirati.com.br>
-References: <54F5EF6E.9090303@digirati.com.br> <87a8ztwta9.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a8ztwta9.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge setlink handler
+Date: Tue,  3 Mar 2015 16:15:29 -0800
+Message-ID: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: sfeldma@gmail.com, jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33786 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756006AbbCDAPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 19:15:33 -0500
+Received: by padet14 with SMTP id et14so31881587pad.0
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 16:15:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
->>     Linux XIA is not yet mature enough for production, but we do think
->> that broader exposure will help us to move forward faster, and get
->> more in tune with the interested community. Thus, we are writing to
->> ask to merge our work into the Linux kernel.
->
-> I took a quick glance at the code to see if could figure out what
-> you were talking about.   Especialy as I could not find any documents
-> on the packet format.  The code does not transmit packets.  All of the
-> packet transmit functions are stubs.  I can think of no greater failure
-> for a networking protocol.
+With the recent addition of the NETIF_F_HW_SWITCH_OFFLOAD flag
+on rocker ports, the second command (bridge link set) below will turn off
+learning in the rocker hw (Scott/Jiri, need some confirmation from
+you that this is indeed a problem and if the below patch is ok).
 
-    I don't know what led you this wrong conclusion, but please let me 
-show that is not the case. Section 3.3 of our original paper linked 
-below describes the forwarding algorithm as well as the header format.
+ip link set dev swp1 master br0
+bridge link set dev swp1 learning off master
+bridge link set dev swp1 learning_sync on self
 
-    https://www.usenix.org/system/files/conference/nsdi12/nsdi12-final13.pdf
+This patch fixes rocker to ignore learning setting when 'master'
+is set. This makes it possible to set/unset learning in kernel and bridge
+driver independently.
 
-    One can find the reference to this paper in our XIA 101 page in our 
-wiki:
+The below command will continue to set learning on in both kernel and rocker
+hw:
+bridge link set dev swp1 learning on
 
-https://github.com/AltraMayor/XIA-for-Linux/wiki/XIA-101
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ drivers/net/ethernet/rocker/rocker.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-    The code does transmit packet, you can find function 
-__xip_fill_in_hdr() in file net/xia/output.c 
-(https://github.com/AltraMayor/XIA-for-Linux/blob/xia/net/xia/output.c) 
-that fills out the XIP header, and examples to how set up some 
-experiments with our stack are available here:
-
-https://github.com/AltraMayor/XIA-for-Linux/wiki/zFilter-principal
-https://github.com/AltraMayor/XIA-for-Linux/wiki/4ID-principals
-https://github.com/AltraMayor/XIA-for-Linux/wiki/An-exemplifying-demo
-
-[ ]'s
-Michel Machado
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index e5a15a4..d7c31d2 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3769,6 +3769,9 @@ static int rocker_port_bridge_setlink(struct net_device *dev,
+ 	struct nlattr *attr;
+ 	int err;
+ 
++	if (flags && !(flags & BRIDGE_FLAGS_SELF))
++		return 0;
++
+ 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+ 				   IFLA_PROTINFO);
+ 	if (protinfo) {
+-- 
+1.7.10.4
