@@ -1,33 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/6] net: Call skb_get_hash in qdiscs
-Date: Wed, 04 Mar 2015 14:31:13 -0800
-Message-ID: <1425508273.5130.236.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425494404-24114-1-git-send-email-therbert@google.com>
-	 <1425499383.5130.227.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx8Y+AQ5nc5B=qvBZnJOpgTVy0Q6VFMR3r9t6MPrGb5gRA@mail.gmail.com>
+From: Stephen Wadeley <swadeley@redhat.com>
+Subject: iproute 2, man bridge(8)
+Date: Wed, 04 Mar 2015 23:33:50 +0100
+Message-ID: <54F7884E.70305@redhat.com>
+References: <54F41DF4.1000805@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Florian Westphal <fw@strlen.de>
-To: Tom Herbert <therbert@google.com>
+Cc: pavlix@pavlix.net, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:38256 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751824AbbCDWbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 17:31:15 -0500
-Received: by iecrd18 with SMTP id rd18so71460029iec.5
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 14:31:14 -0800 (PST)
-In-Reply-To: <CA+mtBx8Y+AQ5nc5B=qvBZnJOpgTVy0Q6VFMR3r9t6MPrGb5gRA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49592 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752754AbbCDWeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2015 17:34:05 -0500
+In-Reply-To: <54F41DF4.1000805@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-04 at 13:49 -0800, Tom Herbert wrote:
 
-> Then choke is broke :-) ipv6_addr_hash already makes the "flow" match
-> stochastic.
+Dear Stephen
 
-Right, so lets break IPv4 as well ;)
+I am proofreading iproute2 man pages.
 
-What about fixing bugs, instead of adding new ones ?
+In bridge.8 , I found this trailing sentence:
+
+
+Such a history file can be generated with the
+
+
+git blame reveals:
+d04bc300 (Stephen Hemminger 2012-08-01 15:23:49 -0700 530) and dumps
+them.  Such a history file can be generated with the
+
+can you check your sources to see what you intended there?
+
+
+Searching for inspiration, I found this, and more, in the
+iproute2/doc/ip-cref.tex file:
+
+Such a history file can be generated with the
+rtmon utility. This utility has a command line syntax  similar
+to ig monitor.
+
+
+Thank you
+
+Regards
+Stephen
+
+-- 
+Stephen Wadeley
+Content Author | Red Hat, Inc.
+Purkynova 99 | Brno, Czech Republic
