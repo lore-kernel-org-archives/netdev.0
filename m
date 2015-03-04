@@ -1,62 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: bcmgenet: properly disable password matching
-Date: Wed,  4 Mar 2015 11:43:03 -0800
-Message-ID: <1425498183-28832-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/6] net: Call skb_get_hash in qdiscs
+Date: Wed, 04 Mar 2015 12:03:03 -0800
+Message-ID: <1425499383.5130.227.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425494404-24114-1-git-send-email-therbert@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, fw@strlen.de
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:37036 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759457AbbCDToJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 14:44:09 -0500
-Received: by paceu11 with SMTP id eu11so22088522pac.4
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 11:44:09 -0800 (PST)
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:44592 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759852AbbCDUDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 15:03:06 -0500
+Received: by igdh15 with SMTP id h15so39780192igd.3
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 12:03:05 -0800 (PST)
+In-Reply-To: <1425494404-24114-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcmgenet_set_wol() correctly sets MPD_PW_EN when a password is specified
-to match magic packets against, however, when we switch from a
-password-matching to a matching without password we would leave this bit
-turned on, and GENET would only match magic packets with passwords.
+On Wed, 2015-03-04 at 10:39 -0800, Tom Herbert wrote:
 
-This can be reproduced using the following sequence:
+> - The flow keys are passed in cb[] structure. This severely limits
+>   our ability to increase the key space. For instance, the folding
+>   of IPv6 addresses in flow_dissector to make a 32-bit value
+>   represents a significant loss of information (it would be easy
+>   to create millions of different 4-tuples that would always produce the
+>   same hash value). 
 
-ethtool -s eth0 wol g
-ethtool -s eth0 wol s sopass 00:11:22:33:44:55
-ethtool -s eth0 wol g
 
-The simple fix is to clear the MPD_PWD_EN bit when WAKE_MAGICSECURE is
-not set.
+Yes, but then your patch is all about reducing flow compares to a single
+u32 comparison in qdiscs (and elsewhere)
 
-Fixes: c51de7f3976b ("net: bcmgenet: add Wake-on-LAN support code")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+choke for example explicitly wants to make sure we drop a companion
+if incoming packet belongs to the same flow.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c b/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c
-index 149a0d70c108..b97122926d3a 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c
-@@ -73,15 +73,17 @@ int bcmgenet_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_MAGICSECURE))
- 		return -EINVAL;
- 
-+	reg = bcmgenet_umac_readl(priv, UMAC_MPD_CTRL);
- 	if (wol->wolopts & WAKE_MAGICSECURE) {
- 		bcmgenet_umac_writel(priv, get_unaligned_be16(&wol->sopass[0]),
- 				     UMAC_MPD_PW_MS);
- 		bcmgenet_umac_writel(priv, get_unaligned_be32(&wol->sopass[2]),
- 				     UMAC_MPD_PW_LS);
--		reg = bcmgenet_umac_readl(priv, UMAC_MPD_CTRL);
- 		reg |= MPD_PW_EN;
--		bcmgenet_umac_writel(priv, reg, UMAC_MPD_CTRL);
-+	} else {
-+		reg &= ~MPD_PW_EN;
- 	}
-+	bcmgenet_umac_writel(priv, reg, UMAC_MPD_CTRL);
- 
- 	/* Flag the device and relevant IRQ as wakeup capable */
- 	if (wol->wolopts) {
--- 
-2.1.0
+Relying on a 'strong hash' whatever it can be was not considered in
+Choke paper. There is no mention of a stochastic match.
+
+If we no longer can store the keys in skb->cb[], fine (although I claim
+skb->cb[] size should be irrelevant, see our discussion on this topic
+with Florian)
+ -> Just recompute the keys, using a local variable, from packet
+content. Yes, it will be more expensive, but hey, we get what we want.
+
+Same for sfq : your skb_get_hash_perturb() doesn't address the point I
+made earlier.
+
+It is only giving a false sense of security.
+I would rather not spread it.
+(Note that there is no documentation or changelog to explain the
+pro/cons)
+
+I doubt OVS would condense their flow keys in a single u32...
