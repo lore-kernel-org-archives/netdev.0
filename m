@@ -1,51 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] Basic MPLS support take 2
-Date: Wed, 04 Mar 2015 00:27:34 -0500 (EST)
-Message-ID: <20150304.002734.1453464446418392919.davem@davemloft.net>
-References: <20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+Subject: Re: [PATCH net-next v3 0/7] switchdev: add IPv4 routing offload
+Date: Wed, 04 Mar 2015 00:38:44 -0500 (EST)
+Message-ID: <20150304.003844.1400829201582760359.davem@davemloft.net>
+References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	stephen@networkplumber.org, santiago@crfreenet.org,
-	horms@verge.net.au
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, roopa@cumulusnetworks.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40713 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40790 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753802AbbCDF1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:27:36 -0500
-In-Reply-To: <87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+	with ESMTP id S1751820AbbCDFiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:38:46 -0500
+In-Reply-To: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 03 Mar 2015 19:06:39 -0600
+From: sfeldma@gmail.com
+Date: Tue,  3 Mar 2015 15:31:53 -0800
 
-> On top of my two pending neighbour table prep patches here is the mpls
-> support refactored to use them, and edited to not drop routes when
-> an interface goes down.  Additionally the addition of RTA_LLGATEWAY
-> has been replaced with the addtion of RTA_VIA.  RTA_VIA being an
-> attribute that includes the address family as well as the address
-> of the next hop.
+> v3:
 > 
-> MPLS is at it's heart simple and I have endeavoured to maintain that
-> simplicity in my implemenation.
+> Changes based on v2 review comments:
 > 
-> This is an implementation of a RFC3032 forwarding engine, and basic MPLS
-> egress logic.  Which should make linux sufficient to be a mpls
-> forwarding node or to be a LSA (Label Switched Router) as it says in all
-> of the MPLS documents.  The ingress support will follow but it deserves
-> it's own discussion so I am pushing it separately.
+>   - Move check for custom rules up earlier in patch set, to keep git bisect
+>     safe.
+>   - Simplify the route add/modify failure handling to simple try until
+>     failure, and then on failure, undo everything.  The switchdev driver
+>     will return err when route can normally be installed to device, but
+>     the install fails for one reason or another (no space left on device,
+>     etc).  If a failure happens, uninstall all routes from the device,
+>     punting forwarding for all routes back to the kernel.
+>   - Scan route's full nexthop list, ensuring all nexthop devs belong
+>     to the same switchdev device, otherwise don't try to install route
+>     to device.
 
-Ok, with the neigh changes, I think I'm fine with this.
+Getting really close.
 
-Series applied, thanks.
+I think you have to make some minor adjustments to the
+fib_flush_external() cases.
 
-Please think very carefully about the netlink API you've created to
-config this stuff, once we hit the next merge window we will be stuck
-with this thing forever.
+First of all, that code that unloads the entries from the hardware
+should clear the RTNH_F_EXTERNAL flag.
+
+Secondly, if you call fib_flush_external() because an add returned an
+error, you have to set some boolean state which prevents the next new
+route insert from loading only that new route into the hardware
+because that's exactly what will happen with your current
+implementation.
 
 Thanks.
