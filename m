@@ -1,42 +1,55 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: Re: [PATCH net] af_unix: don't poll dead peers
-Date: Wed, 4 Mar 2015 22:26:12 +0100
-Message-ID: <CA+rthh_B-eZ6xjW+ZmcUuHjZy-Mw4v6NUPypWLn2W9nfjyOZ7Q@mail.gmail.com>
-References: <1425499629-15223-1-git-send-email-minipli@googlemail.com>
-	<1425500502.5130.232.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
-	<1425502952.5130.234.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v1] mv643xx_eth: only account for work done in
+ rxq_process in poll callback.
+Date: Wed, 4 Mar 2015 22:32:35 +0100
+Message-ID: <20150304213235.GA20596@electric-eye.fr.zoreil.com>
+References: <1425492124-5033-1-git-send-email-nschichan@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Olivier Mauras <olivier@mauras.ch>,
-	PaX Team <pageexec@freemail.hu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:38434 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135AbbCDV0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 16:26:13 -0500
-Received: by wiwh11 with SMTP id h11so34137570wiw.3
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 13:26:12 -0800 (PST)
-In-Reply-To: <1425502952.5130.234.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Schichan <nschichan@freebox.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1425492124-5033-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[ Removed Rainer from the Cc list, his address is bouncing. ]
+Nicolas Schichan <nschichan@freebox.fr> :
+[...]
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index 1c75829..52bc56b 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+[...]
+> @@ -1050,7 +1049,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+>  	__netif_tx_lock_bh(nq);
+>  
+>  	reclaimed = 0;
+> -	while (reclaimed < budget && txq->tx_desc_count > 0) {
+> +	while (txq->tx_desc_count > 0) {
+>  		int tx_index;
+>  		struct tx_desc *desc;
+>  		u32 cmd_sts;
 
-On 4 March 2015 at 22:02, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-03-04 at 21:39 +0100, Mathias Krause wrote:
->> On 4 March 2015 at 21:21, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> >
->> > Using locks in _poll() is going to be tremendously expensive for some
->> > applications still using poll() or select() ?
->>
->> I've no idea but we're already taking this very lock in the
->> unix_peer_get() call a few lines above.
->
-> This is not the same lock.
->
-> other != sk
+You may use a local 'int count = txq->tx_desc_count' variable then
+perform a single update at the end of the locked section. 
+txq->tx_used_desc could be reworked in a similar way.
 
-True. So, do you propose to not take the lock at all?
+> @@ -1105,8 +1104,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+>  
+>  	__netif_tx_unlock_bh(nq);
+>  
+> -	if (reclaimed < budget)
+> -		mp->work_tx &= ~(1 << txq->index);
+> +	mp->work_tx &= ~(1 << txq->index);
+>  
+>  	return reclaimed;
+>  }
+
+work_tx is also updated in irq context. I'd rather see "clear_flag() then
+reclaim()" than "reclaim() then clear_flag()" in a subsequent patch.
+
+-- 
+Ueimor
