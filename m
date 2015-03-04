@@ -1,95 +1,159 @@
-From: Mark Salter <msalter@redhat.com>
-Subject: [PATCH] net: eth: xgene: fix booting with devicetree
-Date: Wed,  4 Mar 2015 11:51:57 -0500
-Message-ID: <1425487917-19040-1-git-send-email-msalter@redhat.com>
-Cc: Iyappan Subramanian <isubramanian@apm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Mark Salter <msalter@redhat.com>
-To: Feng Kan <fkan@apm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42413 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758172AbbCDQwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2015 11:52:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pat Erley <pat-lkml@erley.org>
+Subject: Re: brcmsmac not compliant to 802.11 for BCM4313
+Date: Wed, 04 Mar 2015 11:13:02 -0600
+Message-ID: <54F73D1E.80109@erley.org>
+References: <1424007136.2042747.227726249.45B6A0E2@webmail.messagingengine.com> <1424094835.3188168.228077393.0E2006F5@webmail.messagingengine.com> <54E2107F.4000709@broadcom.com> <1424112787.3303548.228201005.68F1D224@webmail.messagingengine.com> <54E24B48.80601@broadcom.com> <1424163814.3140549.228461101.1C2E5AB1@webmail.messagingengine.com> <1425483570.3947119.235432705.0D7855AE@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hauke@hauke-m.de, brcm80211-dev-list@broadcom.com,
+	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
+	meuleman@broadcom.com, linville@tuxdriver.com,
+	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Nikita N." <nikitan@operamail.com>,
+	Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425483570.3947119.235432705.0D7855AE@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit de7b5b3d790a ("net: eth: xgene: change APM X-Gene SoC platform
-ethernet to support ACPI") breaks booting with devicetree with UEFI
-firmware. In that case, I get:
+(I don't know why I've been added on this e-mail chain, I'm not in any
+  way linked to broadcom or any of their drivers)
 
-Unhandled fault: synchronous external abort (0x96000010) at 0xfffffc0000620010
- Internal error: : 96000010 [#1] SMP
- Modules linked in: vfat fat xfs libcrc32c ahci_xgene libahci_platform libahci
- CPU: 7 PID: 634 Comm: NetworkManager Not tainted 4.0.0-rc1+ #4
- Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0-rh-0.14 Mar  1 2015
- task: fffffe03d4c7e100 ti: fffffe03d4e24000 task.ti: fffffe03d4e24000
- PC is at xgene_enet_rd_mcx_mac.isra.11+0x58/0xd4
- LR is at xgene_gmac_tx_enable+0x2c/0x50
- pc : [<fffffe000069d6fc>] lr : [<fffffe000069dcc4>] pstate: 80000145
- sp : fffffe03d4e27590
- x29: fffffe03d4e27590 x28: 0000000000000000
- x27: fffffe03d4e277c0 x26: fffffe03da8fda10
- x25: fffffe03d4e2760c x24: fffffe03d49e28c0
- x23: fffffc0000620004 x22: 0000000000000000
- x21: fffffc0000620000 x20: fffffc0000620010
- x19: 000000000000000b x18: 000003ffd4a96020
- x17: 000003ff7fc1f7a0 x16: fffffe000079b9cc
- x15: 0000000000000000 x14: 0000000000000000
- x13: 0000000000000000 x12: fffffe03d4e24000
- x11: fffffe03d4e27da0 x10: 0000000000000001
- x9 : 0000000000000000 x8 : fffffe03d4e27a20
- x7 : 0000000000000000 x6 : 00000000ffffffef
- x5 : fffffe000105f7d0 x4 : fffffe00007ca8c8
- x3 : fffffe03d4e2760c x2 : 0000000000000000
- x1 : fffffc0000620000 x0 : 0000000040000000
+On 03/04/2015 09:39 AM, Nikita N. wrote:
+> Dear Arend,
+> as followup to my last inquiry, since it's passed more than 2 weeks, I'm
+> afraid I didn't receive any answer.
+> As from subject, I finally discovered that brcmsmac is not compliant to
+> 802.11 regulations for BCM4313.
+> So, as purchasing customer, and member of Linux users community, I try
+> to propose my questions to you again now, 3 in total:
 
- Process NetworkManager (pid: 634, stack limit = 0xfffffe03d4e24028)
- Stack: (0xfffffe03d4e27590 to 0xfffffe03d4e28000)
- ...
- Call trace:
- [<fffffe000069d6fc>] xgene_enet_rd_mcx_mac.isra.11+0x58/0xd4
- [<fffffe000069dcc0>] xgene_gmac_tx_enable+0x28/0x50
- [<fffffe00006a112c>] xgene_enet_open+0x2c/0x130
- [<fffffe00007b9254>] __dev_open+0xc8/0x148
- [<fffffe00007b956c>] __dev_change_flags+0x90/0x158
- [<fffffe00007b9664>] dev_change_flags+0x30/0x70
- [<fffffe00007c8ab8>] do_setlink+0x278/0x870
- [<fffffe00007c95bc>] rtnl_newlink+0x404/0x6a8
- [<fffffe00007c8040>] rtnetlink_rcv_msg+0x98/0x218
- [<fffffe00007e78e4>] netlink_rcv_skb+0xe0/0xf8
- [<fffffe00007c7f94>] rtnetlink_rcv+0x30/0x44
- [<fffffe00007e6f2c>] netlink_unicast+0xfc/0x210
- [<fffffe00007e75b8>] netlink_sendmsg+0x498/0x5ac
- [<fffffe00007990b8>] do_sock_sendmsg+0xa4/0xcc
- [<fffffe000079a958>] ___sys_sendmsg+0x1fc/0x208
- [<fffffe000079b984>] __sys_sendmsg+0x4c/0x94
- [<fffffe000079b9f8>] SyS_sendmsg+0x2c/0x3c
+If it's not compliant to 802.11 Regulations, please state in what way 
+it's not compliant, and how to reproduce that.  People will take lack of 
+compliance seriously.  Read on for what I know about the various parts.
 
-The problem here is that the enet hw clocks are not getting
-initialized because of a test to avoid the initialization if
-UEFI is used to boot. This is an incorrect test. When booting
-with UEFI and devicetree, the kernel must still initialize
-the enet hw clocks. If booting with ACPI, the clock hw is
-not exposed to the kernel and it is that case where we want
-to avoid initializing clocks.
+>
+> 1) Regulatory domain - you wrote "brcmsmac does assure tx power is
+> within regulatory limits by enforcing a world regulatory domain"
+> That affirmation is *FALSE*.
+> I spent the whole weekend putting brcmsmac under heavy trace, all
+> functions, above all the phy ones.
+> Some code "supposes" to enforce a regulatory domain, but the effect is
+> total null.
+> I tried recompile the regulatory domain database, those functions did
+> not retrieve the new values.
+> Whatever values I set for domain 00, the effect was null - BCM4313 kept
+> functioning independently.
+> The functions, phy and not, which are "supposed" to set the eeprom
+> registries for regdomain enforce, have effect null - the BCM4313 kept
+> functioning independently.
+> I tried setting random numbers in those functions and registries, the
+> effect was null - the BCM4313 kept functioning independently.
+> At the edge of my frustration, I started commenting away from the code
+> those whole phy functions, the effect was null again - the BCM4313 kept
+> functioning independently.
+> I don't know for what Broadcom hw device were written and *tested* those
+> functions - but sure is, they do *NOT* work for BCM4313.
+> Could you please explain how/where the BCM4313 is supposed to "enforcing
+> a world regulatory domain" ?
 
-Signed-off-by: Mark Salter <msalter@redhat.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The 'World regulatory domain' is a basic set of rules that you can 
+create by taking all of the rules of the world and joining them into 1 
+'Most Restricted' set of rules.  It's likely that this is enforced in 
+the firmware and not in the driver.  The reason that recompiling the 
+regulatory database has no effect is, the firmware probably has it's own 
+'determination' of what those rules are.  If you want a device you can 
+tweak this stuff on (and possibly end up out of regulatory compliance), 
+find one that doesn't include it's own internal regulatory handling. 
+The World Regulatory Domain (00) was setup such that it should be legal 
+to use everywhere in the world.
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 869d97f..b927021 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -593,7 +593,7 @@ static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
- 	if (!xgene_ring_mgr_init(pdata))
- 		return -ENODEV;
- 
--	if (!efi_enabled(EFI_BOOT)) {
-+	if (pdata->clk) {
- 		clk_prepare_enable(pdata->clk);
- 		clk_disable_unprepare(pdata->clk);
- 		clk_prepare_enable(pdata->clk);
--- 
-1.8.3.1
+>
+> 2) MCS - 11n modulated frames are not detected in BCM4313 monitor mode -
+> I informed you about this issue more than 1 year ago, and again 2 weeks
+> ago.
+> The issue still reproduces, and no sign of any fix.
+> When/in what backports version, this issue is supposed to be fixed
+> finally?
+
+They likely have higher priority 'problems' on their list like getting 
+new hardware that doesn't work at all (for any use case) working.  This 
+could be a firmware issue and not a driver issue, which would mean 
+they'd have to pass the issue to the firmware developers, who are also 
+likely working on whatever firmware management says they should be.
+
+>
+> 3) I explicitly purchased this BCM4313 already 1 year ago, with the
+> following specs: 0x4313 rev 0x01 package 0x08, 3 cores ChipCommon,
+> IEEE802.11 and PCIe.
+> I have been searching for any technical datasheet specification document
+> about BCM4313 on Broadcom website and others.
+> Did not find any.
+> Could you please send me a detailed technical datasheet specification
+> document about BCM4313, for programming/dev purposes?
+
+MOST chip manufacturers won't give you the detailed low level datasheets 
+for their wifi chips as often times you can make changes that cause the 
+hardware to transmit out of calibrated specs(and potentially damage 
+hardware) or outside of legal limits(and risk legal troubles).
+
+>
+> Thank you & Greetings
+>
+>
+>
+> On Tue, Feb 17, 2015, at 01:03 AM, Nikita N. wrote:
+>> Hi Arend,
+>>
+>>> brcmsmac does assure tx power is within regulatory limits by enforcing a
+>>> world regulatory domain. So what is not supported is modifying tx power
+>>> settings through user-space.
+>>
+>> Yes, I believe that could be right, *a* world regulatory domain looks
+>> indeed enforced, the USA one only, which is pre-set default inside
+>> EEPROM registries device, isn't it?
+>>
+>>> I know, but that driver is not fully open-source as it links in a binary
+>>> blob.
+>>
+>> AFAIK, also brcmsmac needs at least 2 firmware files to operate, without
+>> those nothing works.
+>> Isn't it the same concept?
+>>
+>>> I totally lost track of this one. I am using brcmsmac in monitor mode
+>>> using bcm43224 which captures 11n frames just fine. I will give it a try
+>>> with a bcm4313. The assoc response in your capture shows undefined MCS
+>>> set so maybe there really are no 11n MCS rates used (?).
+>>
+>> If that was a suggestion about to purchase a bcm43224 or any other
+>> Broadcom Corp. product, isn't really convincing, seen the overall
+>> support quality Customers are experiencing in here...
+>> About my capture file, in the case it was really incomplete someone
+>> could have informed me at least a year ago.
+>> But anyway no respectable QA Testing team needs a purchasing Customer to
+>> help in verifying such enormous issue, isn't it?
+>>
+>>> Our team consist of two man working full-time on the upstream linux
+>>> drivers. So our "customer care" is something that we try to deal with on
+>>> the side and admittedly things slip between the cracks.
+>>
+>> Really, *TWO* men? Are you kidding? Is that how much Broadcom Corp.
+>> values the Linux community?
+>> Needles to remind, even if Linux users don't pay for the OS license as
+>> Windows do, they do pay allright for any Broadcom hardware they
+>> purchase!
+>> Internet startups which sell a button on internet, they have Dev and QA
+>> team 5 times bigger than that!
+>> I sense a very gross capacity and resource planning competence issue in
+>> here.
+>> I kindly ask you, please forward that mail to your higher Managers, on
+>> my personal behalf, Thanks.
+>>
+>> --
+>> http://www.fastmail.com - Same, same, but different...
+>>
+>
