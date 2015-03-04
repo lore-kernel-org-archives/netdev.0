@@ -1,57 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv1 1/2] xen-netback: return correct ethtool stats
-Date: Wed, 04 Mar 2015 15:50:48 +0300
-Message-ID: <54F6FFA8.70505@cogentembedded.com>
-References: <1425399971-27630-1-git-send-email-david.vrabel@citrix.com> <1425399971-27630-2-git-send-email-david.vrabel@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/3] Add QCN support to the DCB NL layer
+Date: Wed,  4 Mar 2015 14:51:05 +0200
+Message-ID: <1425473468-25969-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:40352 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754347AbbCDMux (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 07:50:53 -0500
-Received: by labgm9 with SMTP id gm9so4577578lab.7
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 04:50:51 -0800 (PST)
-In-Reply-To: <1425399971-27630-2-git-send-email-david.vrabel@citrix.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:53496 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756050AbbCDMvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2015 07:51:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Dave, John, all
 
-On 3/3/2015 7:26 PM, David Vrabel wrote:
+This series from Shani Michaeli adds support for the IEEE QCN attribute 
+to the kernel DCB NL stack, and implementation in the mlx4 driver which
+programs the firmware according to the admin directives.
 
-> Use correct pointer arithmetic to get the pointer to each stat.
+Or.
 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> ---
->   drivers/net/xen-netback/interface.c |    3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
+Shani Michaeli (3):
+  net/dcb: Add IEEE QCN attribute
+  net/mlx4_core: Add basic elements for QCN
+  net/mlx4_en: Add QCN parameters and statistics handling
 
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index f38227a..3aa8648 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -340,12 +340,11 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
->   	unsigned int num_queues = vif->num_queues;
->   	int i;
->   	unsigned int queue_index;
-> -	struct xenvif_stats *vif_stats;
->
->   	for (i = 0; i < ARRAY_SIZE(xenvif_stats); i++) {
->   		unsigned long accum = 0;
->   		for (queue_index = 0; queue_index < num_queues; ++queue_index) {
-> -			vif_stats = &vif->queues[queue_index].stats;
-> +			void *vif_stats = &vif->queues[queue_index].stats;
-
-    Need empty line after declaration; checkpatch.pl should have complained here.
-
->   			accum += *(unsigned long *)(vif_stats + xenvif_stats[i].offset);
->   		}
->   		data[i] = accum;
-
-WBR, Sergei
+ drivers/net/ethernet/mellanox/mlx4/cmd.c       |    9 +
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |  218 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c        |   13 ++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    1 +
+ include/linux/mlx4/cmd.h                       |   13 ++
+ include/linux/mlx4/device.h                    |    3 +-
+ include/net/dcbnl.h                            |    3 +
+ include/uapi/linux/dcbnl.h                     |   66 +++++++
+ net/dcb/dcbnl.c                                |   41 ++++-
+ 9 files changed, 361 insertions(+), 6 deletions(-)
