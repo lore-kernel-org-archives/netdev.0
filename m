@@ -1,30 +1,99 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: IPSec hmac(sha256) truncation bits length
-Date: Wed, 4 Mar 2015 12:38:34 -0600
-Message-ID: <20150304123834.c27417981d6ef63c0b310e11@freescale.com>
-References: <CAH=tA9Fnd6+gHsvjCv8oXqRVGLtdV9jr-KP1hxUGFg5orC5Qcw@mail.gmail.com>
-	<CAH=tA9GQ643vpmk=wJUC1fmpD6A87SU-onhweMp8aYrTu+qsTA@mail.gmail.com>
+From: Feng Kan <fkan@apm.com>
+Subject: Re: [PATCH] net: eth: xgene: fix booting with devicetree
+Date: Wed, 4 Mar 2015 10:46:55 -0800
+Message-ID: <CAL85gmCWD344JgzTrr3KD2OP_8SiFgQyo-CAUas557DwfBW1bQ@mail.gmail.com>
+References: <1425487917-19040-1-git-send-email-msalter@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@intercode.com.au>,
-	<netdev@vger.kernel.org>
-To: Nicolae Rosia <nicolae.rosia@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CAH=tA9GQ643vpmk=wJUC1fmpD6A87SU-onhweMp8aYrTu+qsTA@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Iyappan Subramanian <isubramanian@apm.com>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Mark Salter <msalter@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425487917-19040-1-git-send-email-msalter@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Mar 2015 20:28:26 +0200
-Nicolae Rosia <nicolae.rosia@gmail.com> wrote:
+On Wed, Mar 4, 2015 at 8:51 AM, Mark Salter <msalter@redhat.com> wrote:
+> Commit de7b5b3d790a ("net: eth: xgene: change APM X-Gene SoC platform
+> ethernet to support ACPI") breaks booting with devicetree with UEFI
+> firmware. In that case, I get:
+>
+> Unhandled fault: synchronous external abort (0x96000010) at 0xfffffc0000620010
+>  Internal error: : 96000010 [#1] SMP
+>  Modules linked in: vfat fat xfs libcrc32c ahci_xgene libahci_platform libahci
+>  CPU: 7 PID: 634 Comm: NetworkManager Not tainted 4.0.0-rc1+ #4
+>  Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0-rh-0.14 Mar  1 2015
+>  task: fffffe03d4c7e100 ti: fffffe03d4e24000 task.ti: fffffe03d4e24000
+>  PC is at xgene_enet_rd_mcx_mac.isra.11+0x58/0xd4
+>  LR is at xgene_gmac_tx_enable+0x2c/0x50
+>  pc : [<fffffe000069d6fc>] lr : [<fffffe000069dcc4>] pstate: 80000145
+>  sp : fffffe03d4e27590
+>  x29: fffffe03d4e27590 x28: 0000000000000000
+>  x27: fffffe03d4e277c0 x26: fffffe03da8fda10
+>  x25: fffffe03d4e2760c x24: fffffe03d49e28c0
+>  x23: fffffc0000620004 x22: 0000000000000000
+>  x21: fffffc0000620000 x20: fffffc0000620010
+>  x19: 000000000000000b x18: 000003ffd4a96020
+>  x17: 000003ff7fc1f7a0 x16: fffffe000079b9cc
+>  x15: 0000000000000000 x14: 0000000000000000
+>  x13: 0000000000000000 x12: fffffe03d4e24000
+>  x11: fffffe03d4e27da0 x10: 0000000000000001
+>  x9 : 0000000000000000 x8 : fffffe03d4e27a20
+>  x7 : 0000000000000000 x6 : 00000000ffffffef
+>  x5 : fffffe000105f7d0 x4 : fffffe00007ca8c8
+>  x3 : fffffe03d4e2760c x2 : 0000000000000000
+>  x1 : fffffc0000620000 x0 : 0000000040000000
+>
+>  Process NetworkManager (pid: 634, stack limit = 0xfffffe03d4e24028)
+>  Stack: (0xfffffe03d4e27590 to 0xfffffe03d4e28000)
+>  ...
+>  Call trace:
+>  [<fffffe000069d6fc>] xgene_enet_rd_mcx_mac.isra.11+0x58/0xd4
+>  [<fffffe000069dcc0>] xgene_gmac_tx_enable+0x28/0x50
+>  [<fffffe00006a112c>] xgene_enet_open+0x2c/0x130
+>  [<fffffe00007b9254>] __dev_open+0xc8/0x148
+>  [<fffffe00007b956c>] __dev_change_flags+0x90/0x158
+>  [<fffffe00007b9664>] dev_change_flags+0x30/0x70
+>  [<fffffe00007c8ab8>] do_setlink+0x278/0x870
+>  [<fffffe00007c95bc>] rtnl_newlink+0x404/0x6a8
+>  [<fffffe00007c8040>] rtnetlink_rcv_msg+0x98/0x218
+>  [<fffffe00007e78e4>] netlink_rcv_skb+0xe0/0xf8
+>  [<fffffe00007c7f94>] rtnetlink_rcv+0x30/0x44
+>  [<fffffe00007e6f2c>] netlink_unicast+0xfc/0x210
+>  [<fffffe00007e75b8>] netlink_sendmsg+0x498/0x5ac
+>  [<fffffe00007990b8>] do_sock_sendmsg+0xa4/0xcc
+>  [<fffffe000079a958>] ___sys_sendmsg+0x1fc/0x208
+>  [<fffffe000079b984>] __sys_sendmsg+0x4c/0x94
+>  [<fffffe000079b9f8>] SyS_sendmsg+0x2c/0x3c
+>
+> The problem here is that the enet hw clocks are not getting
+> initialized because of a test to avoid the initialization if
+> UEFI is used to boot. This is an incorrect test. When booting
+> with UEFI and devicetree, the kernel must still initialize
+> the enet hw clocks. If booting with ACPI, the clock hw is
+> not exposed to the kernel and it is that case where we want
+> to avoid initializing clocks.
+>
+> Signed-off-by: Mark Salter <msalter@redhat.com>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> index 869d97f..b927021 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> @@ -593,7 +593,7 @@ static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
+>         if (!xgene_ring_mgr_init(pdata))
+>                 return -ENODEV;
+>
+> -       if (!efi_enabled(EFI_BOOT)) {
+> +       if (pdata->clk) {
+>                 clk_prepare_enable(pdata->clk);
+>                 clk_disable_unprepare(pdata->clk);
+>                 clk_prepare_enable(pdata->clk);
 
-> On Wed, Mar 4, 2015 at 7:13 PM, Nicolae Rosia <nicolae.rosia@gmail.com> wrote:
-> > I'm trying to understand why icv_truncbits is set to 96 for
-> > hmac(sha256) in xfrm_algo.c because
-> > RFC4868 [1] says that the truncation length for HMAC-SHA256 should be 128.
-
-See http://comments.gmane.org/gmane.linux.kernel.cryptoapi/6767
-
-Kim
+Acked-by: Feng Kan <fkan@apm.com>
+> --
+> 1.8.3.1
+>
