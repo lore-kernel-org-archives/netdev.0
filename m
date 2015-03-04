@@ -1,60 +1,85 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 1/6] net: Add skb_get_hash_perturb
-Date: Wed,  4 Mar 2015 10:39:59 -0800
-Message-ID: <1425494404-24114-2-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 6/6] sched: Eliminate use of flow_keys in sch_sfq
+Date: Wed,  4 Mar 2015 10:40:04 -0800
+Message-ID: <1425494404-24114-7-git-send-email-therbert@google.com>
 References: <1425494404-24114-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	eric.dumazet@gmail.com, fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:35131 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759219AbbCDSkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:40:20 -0500
-Received: by igqa13 with SMTP id a13so39026401igq.0
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 10:40:19 -0800 (PST)
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:33735 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759394AbbCDSk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:40:29 -0500
+Received: by iecar1 with SMTP id ar1so69668422iec.0
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 10:40:29 -0800 (PST)
 In-Reply-To: <1425494404-24114-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is used to get the skb->hash and then perturb it for a local use.
+Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
+jhash by hand.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/skbuff.h | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ net/sched/sch_sfq.c | 29 +++--------------------------
+ 1 file changed, 3 insertions(+), 26 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index bba1330..10572b6 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -17,6 +17,7 @@
- #include <linux/kernel.h>
- #include <linux/kmemcheck.h>
- #include <linux/compiler.h>
-+#include <linux/jhash.h>
- #include <linux/time.h>
- #include <linux/bug.h>
- #include <linux/cache.h>
-@@ -920,6 +921,20 @@ static inline __u32 skb_get_hash(struct sk_buff *skb)
- 	return skb->hash;
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index b877140..e7ed8a5 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -23,7 +23,6 @@
+ #include <linux/vmalloc.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+-#include <net/flow_keys.h>
+ #include <net/red.h>
+ 
+ 
+@@ -156,30 +155,10 @@ static inline struct sfq_head *sfq_dep_head(struct sfq_sched_data *q, sfq_index
+ 	return &q->dep[val - SFQ_MAX_FLOWS];
  }
  
-+static inline __u32 skb_get_hash_perturb(struct sk_buff *skb,
-+					 u32 perturb)
-+{
-+	u32 hash = skb_get_hash(skb);
-+
-+	if (likely(hash)) {
-+		hash = jhash_1word((__force __u32) hash, perturb);
-+		if (unlikely(!hash))
-+			hash = 1;
-+	}
-+
-+	return hash;
-+}
-+
- static inline __u32 skb_get_hash_raw(const struct sk_buff *skb)
+-/*
+- * In order to be able to quickly rehash our queue when timer changes
+- * q->perturbation, we store flow_keys in skb->cb[]
+- */
+-struct sfq_skb_cb {
+-       struct flow_keys        keys;
+-};
+-
+-static inline struct sfq_skb_cb *sfq_skb_cb(const struct sk_buff *skb)
+-{
+-	qdisc_cb_private_validate(skb, sizeof(struct sfq_skb_cb));
+-	return (struct sfq_skb_cb *)qdisc_skb_cb(skb)->data;
+-}
+-
+ static unsigned int sfq_hash(const struct sfq_sched_data *q,
+-			     const struct sk_buff *skb)
++			     struct sk_buff *skb)
  {
- 	return skb->hash;
+-	const struct flow_keys *keys = &sfq_skb_cb(skb)->keys;
+-	unsigned int hash;
+-
+-	hash = jhash_3words((__force u32)keys->dst,
+-			    (__force u32)keys->src ^ keys->ip_proto,
+-			    (__force u32)keys->ports, q->perturbation);
+-	return hash & (q->divisor - 1);
++	return skb_get_hash_perturb(skb, q->perturbation) & (q->divisor - 1);
+ }
+ 
+ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+@@ -196,10 +175,8 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
+ 		return TC_H_MIN(skb->priority);
+ 
+ 	fl = rcu_dereference_bh(q->filter_list);
+-	if (!fl) {
+-		skb_flow_dissect(skb, &sfq_skb_cb(skb)->keys);
++	if (!fl)
+ 		return sfq_hash(q, skb) + 1;
+-	}
+ 
+ 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 	result = tc_classify(skb, fl, &res);
 -- 
 2.2.0.rc0.207.ga3a616c
