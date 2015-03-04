@@ -1,52 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ping: Return EAFNOSUPPORT when appropriate.
-Date: Wed, 04 Mar 2015 15:47:23 -0500 (EST)
-Message-ID: <20150304.154723.1071370525446900440.davem@davemloft.net>
-References: <1425392176-29114-1-git-send-email-lorenzo@google.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v5 tip 0/7] tracing: attach eBPF programs to kprobes
+Date: Wed, 4 Mar 2015 15:48:24 -0500
+Message-ID: <20150304154824.5f165c6d@gandalf.local.home>
+References: <1425252465-27527-1-git-send-email-ast@plumgrid.com>
+	<CAMEtUuzOQqyXgZaytwOPxAfn5ucu08HjAMrFUgeSaLRVg9E0rg@mail.gmail.com>
+	<20150304203316.GA7142@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: lorenzo@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49399 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbbCDUr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 15:47:27 -0500
-In-Reply-To: <1425392176-29114-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150304203316.GA7142@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Tue,  3 Mar 2015 23:16:16 +0900
+On Wed, 4 Mar 2015 21:33:16 +0100
+Ingo Molnar <mingo@kernel.org> wrote:
 
-> 1. For an IPv4 ping socket, ping_check_bind_addr does not check
->    the family of the socket address that's passed in. Instead,
->    make it behave like inet_bind, which enforces either that the
->    address family is AF_INET, or that the family is AF_UNSPEC and
->    the address is 0.0.0.0.
-> 2. For an IPv6 ping socket, ping_check_bind_addr returns EINVAL
->    if the socket family is not AF_INET6. Return EAFNOSUPPORT
->    instead, for consistency with inet6_bind.
-> 3. Make ping_v4_sendmsg and ping_v6_sendmsg return EAFNOSUPPORT
->    instead of EINVAL if an incorrect socket address structure is
->    passed in.
-> 4. Make IPv6 ping sockets be IPv6-only. The code does not support
->    IPv4, and it cannot easily be made to support IPv4 because
->    the protocol numbers for ICMP and ICMPv6 are different. This
->    makes connect(::ffff:192.0.2.1) fail with EAFNOSUPPORT instead
->    of making the socket unusable.
 > 
-> Among other things, this fixes an oops that can be triggered by:
+> * Alexei Starovoitov <ast@plumgrid.com> wrote:
 > 
->     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
->     struct sockaddr_in6 sin6 = {
->         .sin6_family = AF_INET6,
->         .sin6_addr = in6addr_any,
->     };
->     bind(s, (struct sockaddr *) &sin6, sizeof(sin6));
+> > On Sun, Mar 1, 2015 at 3:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> > > Peter, Steven,
+> > > I think this set addresses everything we've discussed.
+> > > Please review/ack. Thanks!
+> > 
+> > icmp echo request
 > 
-> Change-Id: If06ca86d9f1e4593c0d6df174caca3487c57a241
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> I'd really like to have an Acked-by from Steve (propagated into the 
+> changelogs) before looking at applying these patches.
 
-Applied and queued up for -stable, thanks.
+I'll have to look at this tomorrow. I'm a bit swamped with other things
+at the moment :-/
+
+-- Steve
