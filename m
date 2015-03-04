@@ -1,46 +1,49 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 4/8] netfilter: bridge: refactor conditional in br_nf_dev_queue_xmit
-Date: Thu,  5 Mar 2015 00:52:36 +0100
-Message-ID: <1425513160-496-5-git-send-email-fw@strlen.de>
-References: <1425513160-496-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+Subject: [PATCH nf-next 0/8] netfilter: untangle bridge and bridge netfilter
+Date: Thu,  5 Mar 2015 00:52:32 +0100
+Message-ID: <1425513160-496-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org
 To: <netfilter-devel@vger.kernel.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1425513160-496-1-git-send-email-fw@strlen.de>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-simpilifies followup patch that re-works brnf ip_fragment handling.
+bridge_netfilter.h contains various helpers, some only used by br_netfilter,
+others however are also called in bridge or even ip stack.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/bridge/br_netfilter.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+Lets start untangling bridge, bridge netfilter, and the
+rest of the ip stack (esp. ip_fragment).
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 5b3bceb..ef1fe28 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -803,13 +803,16 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- {
- 	int ret;
- 	int frag_max_size;
-+	unsigned int mtu_reserved;
- 
-+	if (skb_is_gso(skb) || skb->protocol != htons(ETH_P_IP))
-+		return br_dev_queue_push_xmit(skb);
-+
-+	mtu_reserved = nf_bridge_mtu_reduction(skb);
- 	/* This is wrong! We should preserve the original fragment
- 	 * boundaries by preserving frag_list rather than refragmenting.
- 	 */
--	if (skb->protocol == htons(ETH_P_IP) &&
--	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
--	    !skb_is_gso(skb)) {
-+	if (skb->len + mtu_reserved > skb->dev->mtu) {
- 		frag_max_size = BR_INPUT_SKB_CB(skb)->frag_max_size;
- 		if (br_parse_ip_options(skb))
- 			/* Drop invalid packet */
--- 
-2.0.5
+This changes ip_fragment() so that bridge netfilter
+can pass in the required information as arguments instead
+of using skb->nf_bridge to pass some extra information to it.
+
+Another problem with br_netfilter and the way its plumbed to
+ip/ip6-tables (physdev match) is skb->nf_bridge.
+
+nf_bridge is kmalloced blob with some extra information, including
+the bridge in and outports (mainly for iptables' physdev match).
+It also has various state bits so we know what manipulations
+have been performed by bridge netfilter on the skb (e.g.
+ppp header stripping).
+
+nf_bridge also provides scratch space where br_netfilter saves
+(and later restores) various things, e.g. ipv4 address for
+dnat detection, mac address to fix up ip fragmented skbs, etc.
+
+But in almost all cases we can avoid using ->data completely.
+
+Tested, on host connected to kvm-bridge:
+ping -s $bignum $ip_behind_bridge
+-j REDIRECT
+-j DNAT --to-destination $ip_behind_bridge
+
+ include/linux/netfilter_bridge.h |   86 -------------------------
+ include/linux/skbuff.h           |    2 
+ include/net/ip.h                 |    8 +-
+ net/bridge/br_device.c           |   27 +++++++-
+ net/bridge/br_forward.c          |    4 -
+ net/bridge/br_netfilter.c        |  131 ++++++++++++++++++++++++++++++---------
+ net/ipv4/ip_output.c             |   47 ++++++++-----
+ 7 files changed, 161 insertions(+), 144 deletions(-)
 
