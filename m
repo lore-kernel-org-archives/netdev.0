@@ -1,29 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: Michel Machado <michel@digirati.com.br>
 Subject: Re: Linux XIA - merge proposal
-Date: Wed, 04 Mar 2015 01:01:57 +0100
-Message-ID: <54F64B75.3010109@iogearbox.net>
-References: <54F5EF6E.9090303@digirati.com.br>
+Date: Tue, 03 Mar 2015 19:14:45 -0500
+Message-ID: <54F64E75.8060300@digirati.com.br>
+References: <54F5EF6E.9090303@digirati.com.br> <87a8ztwta9.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Michel Machado <michel@digirati.com.br>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54F5EF6E.9090303@digirati.com.br>
+In-Reply-To: <87a8ztwta9.fsf@x220.int.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/03/2015 06:29 PM, Michel Machado wrote:
-...
->     We're fine with clearly marking Linux XIA as being under staging as well as helping to define this review process for network stacks.
+Hi Eric,
 
-With regard to staging, the code there is usually horrible and I'm
-not sure anyone really looks there, that would mitigate the review
-problem to the time when you try to get it out from there, so I'm
-not sure it brings anything. ;)
+>>     Linux XIA is not yet mature enough for production, but we do think
+>> that broader exposure will help us to move forward faster, and get
+>> more in tune with the interested community. Thus, we are writing to
+>> ask to merge our work into the Linux kernel.
+>
+> I took a quick glance at the code to see if could figure out what
+> you were talking about.   Especialy as I could not find any documents
+> on the packet format.  The code does not transmit packets.  All of the
+> packet transmit functions are stubs.  I can think of no greater failure
+> for a networking protocol.
 
-+1 on what Eric said, would have also been nice if you had clearly
-described in your mail (w/o buzz words) what it is and what it does.
+    I don't know what led you this wrong conclusion, but please let me 
+show that is not the case. Section 3.3 of our original paper linked 
+below describes the forwarding algorithm as well as the header format.
 
-Are you trying to introduce a new network stack as an alternative
-to the current one, e.g. something like FreeBSD's netgraph?
+    https://www.usenix.org/system/files/conference/nsdi12/nsdi12-final13.pdf
+
+    One can find the reference to this paper in our XIA 101 page in our 
+wiki:
+
+https://github.com/AltraMayor/XIA-for-Linux/wiki/XIA-101
+
+    The code does transmit packet, you can find function 
+__xip_fill_in_hdr() in file net/xia/output.c 
+(https://github.com/AltraMayor/XIA-for-Linux/blob/xia/net/xia/output.c) 
+that fills out the XIP header, and examples to how set up some 
+experiments with our stack are available here:
+
+https://github.com/AltraMayor/XIA-for-Linux/wiki/zFilter-principal
+https://github.com/AltraMayor/XIA-for-Linux/wiki/4ID-principals
+https://github.com/AltraMayor/XIA-for-Linux/wiki/An-exemplifying-demo
+
+[ ]'s
+Michel Machado
