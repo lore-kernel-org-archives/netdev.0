@@ -1,7 +1,7 @@
 From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv2 2/3] xen-netback: unref frags when handling a from-guest skb with a frag list
-Date: Wed, 4 Mar 2015 11:14:47 +0000
-Message-ID: <1425467688-12846-3-git-send-email-david.vrabel@citrix.com>
+Subject: [PATCHv2 3/3] xen-netback: refactor xenvif_handle_frag_list()
+Date: Wed, 4 Mar 2015 11:14:48 +0000
+Message-ID: <1425467688-12846-4-git-send-email-david.vrabel@citrix.com>
 References: <1425467688-12846-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,54 +11,66 @@ Cc: David Vrabel <david.vrabel@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:8652 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932926AbbCDLPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2015 06:15:00 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:27909 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932943AbbCDLPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 06:15:00 -0500
 In-Reply-To: <1425467688-12846-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Every time a VIF is destroyed up to 256 pages may be leaked if packets
-with more than MAX_SKB_FRAGS frags were transmitted from the guest.
-Even worse, if another user of ballooned pages allocated one of these
-ballooned pages it would not handle the unexpectedly >1 page count
-(e.g., gntdev would deadlock when unmapping a grant because the page
-count would never reach 1).
+When handling a from-guest frag list, xenvif_handle_frag_list()
+replaces the frags before calling the destructor to clean up the
+original (foreign) frags.  Whilst this is safe (the destructor doesn't
+actually use the frags), it looks odd.
 
-When handling a from-guest skb with a frag list, unref the frags
-before releasing them so they are freed correctly when the VIF is
-destroyed.
+Reorder the function to be less confusing.
 
 Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/xen-netback/netback.c |   21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f7a31d2..f5560cd 100644
+index f5560cd..56c4a81 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -1343,7 +1343,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- {
- 	unsigned int offset = skb_headlen(skb);
- 	skb_frag_t frags[MAX_SKB_FRAGS];
--	int i;
-+	int i, f;
- 	struct ubuf_info *uarg;
- 	struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
- 
-@@ -1383,6 +1383,11 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- 		frags[i].page_offset = 0;
+@@ -1384,27 +1384,24 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
  		skb_frag_size_set(&frags[i], len);
  	}
+ 
++	/* Copied all the bits from the frag list -- free it. */
++	skb_frag_list_init(skb);
++	xenvif_skb_zerocopy_prepare(queue, nskb);
++	kfree_skb(nskb);
 +
-+	/* Release all the original (foreign) frags. */
-+	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
-+		skb_frag_unref(skb, f);
-+
- 	/* swap out with old one */
- 	memcpy(skb_shinfo(skb)->frags,
- 	       frags,
+ 	/* Release all the original (foreign) frags. */
+ 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+ 		skb_frag_unref(skb, f);
+-
+-	/* swap out with old one */
+-	memcpy(skb_shinfo(skb)->frags,
+-	       frags,
+-	       i * sizeof(skb_frag_t));
+-	skb_shinfo(skb)->nr_frags = i;
+-	skb->truesize += i * PAGE_SIZE;
+-
+-	/* remove traces of mapped pages and frag_list */
+-	skb_frag_list_init(skb);
+ 	uarg = skb_shinfo(skb)->destructor_arg;
+ 	/* increase inflight counter to offset decrement in callback */
+ 	atomic_inc(&queue->inflight_packets);
+ 	uarg->callback(uarg, true);
+ 	skb_shinfo(skb)->destructor_arg = NULL;
+ 
+-	xenvif_skb_zerocopy_prepare(queue, nskb);
+-	kfree_skb(nskb);
++	/* Fill the skb with the new (local) frags. */
++	memcpy(skb_shinfo(skb)->frags, frags, i * sizeof(skb_frag_t));
++	skb_shinfo(skb)->nr_frags = i;
++	skb->truesize += i * PAGE_SIZE;
+ 
+ 	return 0;
+ }
 -- 
 1.7.10.4
