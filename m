@@ -1,38 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] af_unix: don't poll dead peers
-Date: Wed, 04 Mar 2015 13:02:32 -0800
-Message-ID: <1425502952.5130.234.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425499629-15223-1-git-send-email-minipli@googlemail.com>
-	 <1425500502.5130.232.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
+Date: Wed, 04 Mar 2015 13:03:50 -0800
+Message-ID: <54F77336.7040006@plumgrid.com>
+References: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Olivier Mauras <olivier@mauras.ch>,
-	Rainer Weikusat <rweikusat@mssgmbh.com>,
-	PaX Team <pageexec@freemail.hu>
-To: Mathias Krause <minipli@googlemail.com>
+Cc: Jiri Pirko <jpirko@redhat.com>
+To: Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:35568 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750917AbbCDVCe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 16:02:34 -0500
-Received: by igqa13 with SMTP id a13so40113063igq.0
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 13:02:34 -0800 (PST)
-In-Reply-To: <CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:36264 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbbCDVDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 16:03:54 -0500
+Received: by ierx19 with SMTP id x19so70812992ier.3
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 13:03:53 -0800 (PST)
+In-Reply-To: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-04 at 21:39 +0100, Mathias Krause wrote:
-> On 4 March 2015 at 21:21, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > Using locks in _poll() is going to be tremendously expensive for some
-> > applications still using poll() or select() ?
-> 
-> I've no idea but we're already taking this very lock in the
-> unix_peer_get() call a few lines above.
+On 3/4/15 12:41 PM, Michal Sekletar wrote:
+> This commit introduces new BPF extension. It makes possible to load value of
+> skb->vlan_proto (vlan tpid) to register A.
+>
+> Currently, vlan header is removed from frame and information is available to
+> userspace only via tpacket interface. Hence, it is not possible to install
+> filter which uses value of vlan tpid field.
+>
+> AFAICT only way how to filter based on tpid value is to reconstruct original
+> frame encapsulation and interpret BPF filter code in userspace. Doing that is
+> way slower than doing filtering in kernel.
+>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+> ---
+> @@ -282,6 +282,7 @@ Possible BPF extensions are shown in the following table:
+>     vlan_tci                              skb_vlan_tag_get(skb)
+>     vlan_pr                               skb_vlan_tag_present(skb)
+>     rand                                  prandom_u32()
+> +  vlan_proto                            skb->vlan_proto
 
-This is not the same lock.
-
-other != sk
+the patch is correct and looks clean, but I don't understand
+the motivation for the patch.
+There is already SKF_AD_VLAN_TAG_PRESENT. If it is set then only
+two possible values of vlan_proto are ETH_P_8021Q or ETH_P_8021AD.
+If there another vlan header inside the packet, it's AD.
+So you can do the filtering already without adding new bpf extension...
