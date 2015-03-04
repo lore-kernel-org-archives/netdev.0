@@ -1,115 +1,159 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v3 6/7] fib: hook IPv4 fib for hardware offload
-Date: Tue, 3 Mar 2015 19:16:49 -0800
-Message-ID: <CAE4R7bBhWZSmmzbs+vZOG69EJu=HgzXHr9HxY1hcE2D-J3AQ1w@mail.gmail.com>
-References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
-	<1425425520-34017-7-git-send-email-sfeldma@gmail.com>
-	<54F64B48.8040707@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Switchdev Application to SR-IOV NICs
+Date: Tue, 03 Mar 2015 20:05:03 -0800
+Message-ID: <54F6846F.70203@gmail.com>
+References: <3A5015FE9E557D448AF7238AF0ACE20A2D8ACC6F@IRVEXCHMB11.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?UTF-8?B?IkppxZnDrQ==?=
+	 =?UTF-8?B?IFDDrXJrbyAoamlyaUByZXNudWxsaS51cyki?=
+	<jiri@resnulli.us>
+To: David Christensen <davidch@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f54.google.com ([209.85.216.54]:44164 "EHLO
-	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756036AbbCDDQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 22:16:50 -0500
-Received: by mail-qa0-f54.google.com with SMTP id v8so3229104qal.13
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 19:16:49 -0800 (PST)
-In-Reply-To: <54F64B48.8040707@redhat.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:34673 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758151AbbCDEFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 23:05:13 -0500
+Received: by oigh136 with SMTP id h136so3526338oig.1
+        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 20:05:12 -0800 (PST)
+In-Reply-To: <3A5015FE9E557D448AF7238AF0ACE20A2D8ACC6F@IRVEXCHMB11.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 3, 2015 at 4:01 PM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
+On 03/03/2015 04:26 PM, David Christensen wrote:
+> I'm struggling with the concept of implementing switchdev on an SR-IOV NIC.
+> Most slides presented at Netdev 0.1 agreed that switchdev should be applicable
+> to SR-IOV NICs as well as switch ASICs, but I'm having difficulty figuring
+> out exactly how things should operate.  Here's how things look today with
+> netdev and SR-IOV VFs passed-through to a virtual machine.
 >
-> On 03/03/2015 03:31 PM, sfeldma@gmail.com wrote:
->>
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Call into the switchdev driver any time an IPv4 fib entry is
->> added/modified/deleted from the kernel's FIB.  The switchdev driver may or
->> may not install the route to the offload device.  In the case where the
->> driver tries to install the route and something goes wrong (device's
->> routing
->> table is full, etc), then all of the offloaded routes will be flushed from
->> the
->> device, and route forwarding falls back to the kernel.
->>
->> We can refine this fail-over logic in subsequent patches.  For now, use
->> the
->> simplist model of offloading routes up to the point of failure, and then
->> on
->> failure, undo everything.
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->>   net/ipv4/fib_trie.c |   36 +++++++++++++++++++++++++++++++++---
->>   1 file changed, 33 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
->> index 32c0117..668f09b 100644
->> --- a/net/ipv4/fib_trie.c
->> +++ b/net/ipv4/fib_trie.c
->> @@ -79,6 +79,7 @@
->>   #include <net/tcp.h>
->>   #include <net/sock.h>
->>   #include <net/ip_fib.h>
->> +#include <net/switchdev.h>
->>   #include "fib_lookup.h"
->>     #define MAX_STAT_DEPTH 32
->> @@ -1161,7 +1162,18 @@ int fib_table_insert(struct fib_table *tb, struct
->> fib_config *cfg)
->>                         new_fa->fa_state = state & ~FA_S_ACCESSED;
->>                         new_fa->fa_slen = fa->fa_slen;
->>   +                     err = netdev_switch_fib_ipv4_add(key, plen, fi,
->> +                                                        new_fa->fa_tos,
->> +                                                        cfg->fc_type,
->> +                                                        tb->tb_id);
->> +                       if (err) {
->> +                               fib_flush_external(fi->fib_net);
->> +                               kmem_cache_free(fn_alias_kmem, new_fa);
->> +                               goto out;
->> +                       }
->> +
->>                         hlist_replace_rcu(&fa->fa_list, &new_fa->fa_list);
->> +
->>                         alias_free_mem_rcu(fa);
->>                         fib_release_info(fi_drop);
->> @@ -1197,12 +1209,20 @@ int fib_table_insert(struct fib_table *tb, struct
->> fib_config *cfg)
->>         new_fa->fa_state = 0;
->>         new_fa->fa_slen = slen;
->>   +     /* (Optionally) offload fib entry to switch hardware. */
->> +       err = netdev_switch_fib_ipv4_add(key, plen, fi, tos,
->> +                                        cfg->fc_type, tb->tb_id);
->> +       if (err) {
->> +               fib_flush_external(fi->fib_net);
->> +               goto out_free_new_fa;
->> +       }
->> +
->>         /* Insert new entry to the list. */
->>         if (!l) {
->>                 l = fib_insert_node(t, key, plen);
->>                 if (unlikely(!l)) {
->>                         err = -ENOMEM;
->> -                       goto out_free_new_fa;
->> +                       goto out_sw_fib_del;
->>                 }
->>         }
->>
+>        +-----+-----+-----+
+>        | vm0 | vm1 | vm2 | Virtual
+>        | eth0| eth0| eth0| Machines
+> +-----+--|--+--|--+--|--+----------
+> |eth0 |  |     |     |    Kernel
+> +--|--+--|-----|-----|--+----------
+> | pf0   vf0   vf1   vf2 | PCIe
+> +--|-----|-----|-----|--+----------
+> | ++-----+-----+-----++ | SR-IOV NIC
+> | | VEB               | |
+> | +------------+------+ |
+> +--------------|--------+
+>                 |
+>                PHY
 >
+> Connectivity between VMs and the host is handled by the VEB operating in the
+> NIC, other traffic is forwarded normally by the VEB from the external network
+> to the host/VM based on destination MAC and VLAN with special handling
+> required for broadcast/multicast.
 >
-> Wouldn't it make more sense to insert the route in the trie first, and then
-> notify the hardware of the new route?  It seems like it would be much easier
-> to pull the route back out of the trie on failure rather than having to
-> delete a route from the hardware on a failure to allocate memory to store
+> Based on some separate conversations I've had with Jiri, I'm lead to believe
+> switchdev would look something like this.
+>
+>        +-----+-----+-----+
+>        | vm0 | vm1 | vm2 | Virtual
+>        | eth0| eth0| eth0| Machines
+> +-----+--|--+--|--+--|--+----------
+> |sw0p0 sw0p1 sw0p2 sw0p3| Kernel
+> +--|-----|-----|-----|--+----------
+> | pf0   vf0   vf1   vf2 | PCIe
+> +--|-----|-----|-----|--+----------
+> | ++-----+-----+-----++ | SR-IOV NIC
+> | | VEB               | |
+> | +------------+------+ |
+> | SR-IOV NIC   |        |
+> +--------------|--------+
+>                 |
+>                PHY
 
-6 one way half a dozen the other.  At one point I wanted return code
-from hw install to indicate if route is installed to kernel FIB, so I
-needed to try hw install first.  Now we've simplified the logic, so
-order could be reversed.  Maybe lets keep it the way it is so we can
-fancy with hw install return code later.
+That looks good to me I might add one more netdev to represent the
+egress port though. This could be used to submit control traffic
+that should not by spec be sent through a VEB. For example STP,
+LLDP, etc. At the moment we send this traffic on sw0p0 which is
+exactly correct.
+
+I had some prototype code @ one point that did this I can dig it
+up if folks think its useful.
+
+Also it might be worth noting the "Kernel" net_devices are not
+actually bound to the virtual function but multiplexed/demux'd
+over the physical function pf0 in the diagram. The diagram might
+be read to imply some PCIe relationship between sw0p3 and vf2.
+
+>
+> The use of switchdev would show that all sw0* devices are associated with the
+> same switch, and the instantiation of the sw0* devices in the kernel would
+> provide higher level applications like OVS/Linux bridge/etc. to control traffic
+> in a way not possible in the earlier example.  So far so good?
+>
+> Now the question becomes how to plumb SR-IOV NIC to create this representation.
+> Looking at one specific path:
+>
+>    +-----+
+>    | vm0 |
+>    | eth0|
+>    +--|--+
+>    |sw0p1|
+>    +--|--+
+>    | vf0 |
+> +----|----+
+> | +--+--+ |
+> | | VEB | |
+> | +-----+ |
+> +---------+
+>
+> It's unclear to me when traffic egressing the VEB should terminate at sw0p1 vs.
+> vm0's eth0.  They both represent the same MAC/VLAN.  Similarly, for traffic
+> egressing vm0's eth0, when should it terminate at sw0p1 vs. the VEB.
+>
+> Can anyone offer an alternate diagram for switchdev on an SR-IOV NIC?
+>
+
+One approach would be to treat it like the switch case where instead
+of a physical port you have a VF. In this case if you xmit a packet on
+sw0p1 it is sent to eth0. Then if vm0 (eth0) xmits a packet it enters
+the VEB. The only way to get packets onto sw0p1 is to use a rule to
+either "trap" or "mirror" packets to the "CPU sw0p1 port". Maybe a
+better name would be "hypervisor sw0p1 port". This would be analagous
+to the switch case, I have experimented with adding this support to
+the Flow API I'm working on but have not implemented it on rocker yet.
+
+
+  +-----+      +-----+
+  |hyper|      | vm1 |
+  |visor|      | eth0|
+  +-----+      +-----+
+     |            |
+  +--|--+      +--|--+
+  |sw0p0|      |sw0p2|
+  +-----+      +-----+
+     |           |
+  +--|-----|-----|-----|--+
+  | ++-----+-----+-----++ |
+  | | VEB               | |
+  | +------------+------+ |
+  | SR-IOV NIC   |        |
+  +--------------|--------+
+                  |
+                 PHY
+
+here the link between sw0p2 and vm1 is a virtual function instead of a
+physical wire. And sw0p0 is the "CPU port" directly to the hypervisor.
+
+Is that at all clear? Let me know I can try to do a better write up
+in the AM.
+
+.John
+
+> Dave
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
+-- 
+John Fastabend         Intel Corporation
