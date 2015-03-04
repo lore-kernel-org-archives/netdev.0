@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH v2 5/8] fib_trie: move leaf and tnode to occupy the
- same spot in the key vector
-Date: Wed, 04 Mar 2015 15:02:33 -0800
-Message-ID: <20150304230225.1612.1865.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH v2 4/8] fib_trie: Update insert and delete to make
+ use of tp from find_node
+Date: Wed, 04 Mar 2015 15:02:18 -0800
+Message-ID: <20150304230205.1612.56202.stgit@ahduyck-vm-fedora20>
 References: <20150304225459.1612.45514.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,186 +10,386 @@ Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44628 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51717 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751207AbbCDXCe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2015 18:02:34 -0500
+	id S1751051AbbCDXCV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2015 18:02:21 -0500
 In-Reply-To: <20150304225459.1612.45514.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we are going to compact the leaf and tnode we first need to make sure
-the fields are all in the same place.  In that regard I am moving the leaf
-pointer which represents the fib_alias hash list to occupy what is
-currently the first key_vector pointer.
+This change makes it so that the insert and delete functions make use of
+the tnode pointer returned in the fib_find_node call.  By doing this we
+will not have to rely on the parent pointer in the leaf which will be going
+away soon.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |   51 +++++++++++++++++++++++++++------------------------
- 1 file changed, 27 insertions(+), 24 deletions(-)
+ net/ipv4/fib_trie.c |  237 ++++++++++++++++++++-------------------------------
+ 1 file changed, 95 insertions(+), 142 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 5be88df..2233ebf2 100644
+index 5d0f145..5be88df 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -94,24 +94,27 @@ typedef unsigned int t_key;
- #define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> (_kv)->pos)
- 
- struct tnode {
-+	struct rcu_head rcu;
-+
-+	t_key empty_children; /* KEYLENGTH bits needed */
-+	t_key full_children;  /* KEYLENGTH bits needed */
-+	struct tnode __rcu *parent;
-+
- 	t_key key;
--	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char pos;		/* 2log(KEYLENGTH) bits needed */
-+	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char slen;
--	struct tnode __rcu *parent;
--	struct rcu_head rcu;
- 	union {
--		/* The fields in this struct are valid if bits > 0 (TNODE) */
--		struct {
--			t_key empty_children; /* KEYLENGTH bits needed */
--			t_key full_children;  /* KEYLENGTH bits needed */
--			struct tnode __rcu *child[0];
--		};
--		/* This list pointer if valid if bits == 0 (LEAF) */
-+		/* This list pointer if valid if (pos | bits) == 0 (LEAF) */
- 		struct hlist_head leaf;
-+		/* This array is valid if (pos | bits) > 0 (TNODE) */
-+		struct tnode __rcu *tnode[0];
- 	};
- };
- 
-+#define TNODE_SIZE(n)	offsetof(struct tnode, tnode[n])
-+#define LEAF_SIZE	TNODE_SIZE(1)
-+
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- struct trie_use_stats {
- 	unsigned int gets;
-@@ -180,14 +183,14 @@ static inline unsigned long tnode_child_length(const struct tnode *tn)
- static inline struct tnode *tnode_get_child(const struct tnode *tn,
- 					    unsigned long i)
- {
--	return rtnl_dereference(tn->child[i]);
-+	return rtnl_dereference(tn->tnode[i]);
+@@ -300,7 +300,7 @@ static inline void empty_child_dec(struct tnode *n)
+ 	n->empty_children-- ? : n->full_children--;
  }
  
- /* caller must hold RCU read lock or RTNL */
- static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn,
- 						unsigned long i)
+-static struct tnode *leaf_new(t_key key)
++static struct tnode *leaf_new(t_key key, struct fib_alias *fa)
  {
--	return rcu_dereference_rtnl(tn->child[i]);
-+	return rcu_dereference_rtnl(tn->tnode[i]);
- }
+ 	struct tnode *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+ 	if (l) {
+@@ -310,12 +310,14 @@ static struct tnode *leaf_new(t_key key)
+ 		 * as the nodes are searched
+ 		 */
+ 		l->key = key;
+-		l->slen = 0;
++		l->slen = fa->fa_slen;
+ 		l->pos = 0;
+ 		/* set bits to 0 indicating we are not a tnode */
+ 		l->bits = 0;
  
- /* To understand this stuff, an understanding of keys and all their bits is
-@@ -266,7 +269,7 @@ static inline void alias_free_mem_rcu(struct fib_alias *fa)
- }
- 
- #define TNODE_KMALLOC_MAX \
--	ilog2((PAGE_SIZE - sizeof(struct tnode)) / sizeof(struct tnode *))
-+	ilog2((PAGE_SIZE - TNODE_SIZE(0)) / sizeof(struct tnode *))
- 
- static void __node_free_rcu(struct rcu_head *head)
- {
-@@ -324,7 +327,7 @@ static struct tnode *leaf_new(t_key key, struct fib_alias *fa)
- 
- static struct tnode *tnode_new(t_key key, int pos, int bits)
- {
--	size_t sz = offsetof(struct tnode, child[1ul << bits]);
-+	size_t sz = TNODE_SIZE(1ul << bits);
- 	struct tnode *tn = tnode_alloc(sz);
- 	unsigned int shift = pos + bits;
- 
-@@ -343,7 +346,7 @@ static struct tnode *tnode_new(t_key key, int pos, int bits)
- 			tn->empty_children = 1ul << bits;
++		/* link leaf to fib alias */
+ 		INIT_HLIST_HEAD(&l->leaf);
++		hlist_add_head(&fa->fa_list, &l->leaf);
  	}
- 
--	pr_debug("AT %p s=%zu %zu\n", tn, sizeof(struct tnode),
-+	pr_debug("AT %p s=%zu %zu\n", tn, TNODE_SIZE(0),
- 		 sizeof(struct tnode *) << bits);
- 	return tn;
+ 	return l;
  }
-@@ -384,7 +387,7 @@ static void put_child(struct tnode *tn, unsigned long i, struct tnode *n)
- 	if (n && (tn->slen < n->slen))
- 		tn->slen = n->slen;
- 
--	rcu_assign_pointer(tn->child[i], n);
-+	rcu_assign_pointer(tn->tnode[i], n);
+@@ -842,10 +844,8 @@ static void resize(struct trie *t, struct tnode *tn)
+ 	}
  }
  
- static void update_children(struct tnode *tn)
-@@ -435,7 +438,7 @@ static void tnode_free(struct tnode *tn)
+-static void leaf_pull_suffix(struct tnode *l)
++static void leaf_pull_suffix(struct tnode *tp, struct tnode *l)
+ {
+-	struct tnode *tp = node_parent(l);
+-
+ 	while (tp && (tp->slen > tp->pos) && (tp->slen > l->slen)) {
+ 		if (update_suffix(tp) > l->slen)
+ 			break;
+@@ -853,10 +853,8 @@ static void leaf_pull_suffix(struct tnode *l)
+ 	}
+ }
  
- 	while (head) {
- 		head = head->next;
--		tnode_free_size += offsetof(struct tnode, child[1 << tn->bits]);
-+		tnode_free_size += TNODE_SIZE(1ul << tn->bits);
- 		node_free(tn);
- 
- 		tn = container_of(head, struct tnode, rcu);
-@@ -788,7 +791,7 @@ static void resize(struct trie *t, struct tnode *tn)
- 	 * doing it ourselves.  This way we can let RCU fully do its
- 	 * thing without us interfering
+-static void leaf_push_suffix(struct tnode *l)
++static void leaf_push_suffix(struct tnode *tn, struct tnode *l)
+ {
+-	struct tnode *tn = node_parent(l);
+-
+ 	/* if this is a new leaf then tn will be NULL and we can sort
+ 	 * out parent suffix lengths as a part of trie_rebalance
  	 */
--	cptr = tp ? &tp->child[get_index(tn->key, tp)] : &t->trie;
-+	cptr = tp ? &tp->tnode[get_index(tn->key, tp)] : &t->trie;
- 	BUG_ON(tn != rtnl_dereference(*cptr));
- 
- 	/* Double as long as the resulting node has a number of
-@@ -1241,7 +1244,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 	/* Step 2: Sort out leaves and begin backtracing for longest prefix */
- 	for (;;) {
- 		/* record the pointer where our next node pointer is stored */
--		struct tnode __rcu **cptr = n->child;
-+		struct tnode __rcu **cptr = n->tnode;
- 
- 		/* This test verifies that none of the bits that differ
- 		 * between the key and the prefix exist in the region of
-@@ -1287,7 +1290,7 @@ backtrace:
- 			cindex &= cindex - 1;
- 
- 			/* grab pointer for next child node */
--			cptr = &pn->child[cindex];
-+			cptr = &pn->tnode[cindex];
- 		}
+@@ -866,51 +864,6 @@ static void leaf_push_suffix(struct tnode *l)
  	}
- 
-@@ -1685,7 +1688,7 @@ void __init fib_trie_init(void)
- 					  0, SLAB_PANIC, NULL);
- 
- 	trie_leaf_kmem = kmem_cache_create("ip_fib_trie",
--					   sizeof(struct tnode),
-+					   LEAF_SIZE,
- 					   0, SLAB_PANIC, NULL);
  }
  
-@@ -1843,13 +1846,13 @@ static void trie_show_stats(struct seq_file *seq, struct trie_stat *stat)
- 	seq_printf(seq, "\tMax depth:      %u\n", stat->maxdepth);
+-static void fib_remove_alias(struct tnode *l, struct fib_alias *old)
+-{
+-	/* record the location of the previous list_info entry */
+-	struct hlist_node **pprev = old->fa_list.pprev;
+-	struct fib_alias *fa = hlist_entry(pprev, typeof(*fa), fa_list.next);
+-
+-	/* remove the fib_alias from the list */
+-	hlist_del_rcu(&old->fa_list);
+-
+-	/* only access fa if it is pointing at the last valid hlist_node */
+-	if (hlist_empty(&l->leaf) || (*pprev))
+-		return;
+-
+-	/* update the trie with the latest suffix length */
+-	l->slen = fa->fa_slen;
+-	leaf_pull_suffix(l);
+-}
+-
+-static void fib_insert_alias(struct tnode *l, struct fib_alias *fa,
+-			     struct fib_alias *new)
+-{
+-	if (fa) {
+-		hlist_add_before_rcu(&new->fa_list, &fa->fa_list);
+-	} else {
+-		struct fib_alias *last;
+-
+-		hlist_for_each_entry(last, &l->leaf, fa_list) {
+-			if (new->fa_slen < last->fa_slen)
+-				break;
+-			fa = last;
+-		}
+-
+-		if (fa)
+-			hlist_add_behind_rcu(&new->fa_list, &fa->fa_list);
+-		else
+-			hlist_add_head_rcu(&new->fa_list, &l->leaf);
+-	}
+-
+-	/* if we added to the tail node then we need to update slen */
+-	if (l->slen < new->fa_slen) {
+-		l->slen = new->fa_slen;
+-		leaf_push_suffix(l);
+-	}
+-}
+-
+ /* rcu_read_lock needs to be hold by caller from readside */
+ static struct tnode *fib_find_node(struct trie *t, struct tnode **tn, u32 key)
+ {
+@@ -980,61 +933,28 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
+ {
+ 	struct tnode *tp;
  
- 	seq_printf(seq, "\tLeaves:         %u\n", stat->leaves);
--	bytes = sizeof(struct tnode) * stat->leaves;
-+	bytes = LEAF_SIZE * stat->leaves;
+-	while ((tp = node_parent(tn)) != NULL) {
++	while (tn) {
++		tp = node_parent(tn);
+ 		resize(t, tn);
+ 		tn = tp;
+ 	}
+-
+-	/* Handle last (top) tnode */
+-	if (IS_TNODE(tn))
+-		resize(t, tn);
+ }
  
- 	seq_printf(seq, "\tPrefixes:       %u\n", stat->prefixes);
- 	bytes += sizeof(struct fib_alias) * stat->prefixes;
+ /* only used from updater-side */
+-
+-static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
++static int fib_insert_node(struct trie *t, struct tnode *tp,
++			   struct fib_alias *new, t_key key)
+ {
+-	struct tnode *l, *n, *tp = NULL;
+-
+-	n = rtnl_dereference(t->trie);
+-
+-	/* If we point to NULL, stop. Either the tree is empty and we should
+-	 * just put a new leaf in if, or we have reached an empty child slot,
+-	 * and we should just put our new leaf in that.
+-	 *
+-	 * If we hit a node with a key that does't match then we should stop
+-	 * and create a new tnode to replace that node and insert ourselves
+-	 * and the other node into the new tnode.
+-	 */
+-	while (n) {
+-		unsigned long index = get_index(key, n);
+-
+-		/* This bit of code is a bit tricky but it combines multiple
+-		 * checks into a single check.  The prefix consists of the
+-		 * prefix plus zeros for the "bits" in the prefix. The index
+-		 * is the difference between the key and this value.  From
+-		 * this we can actually derive several pieces of data.
+-		 *   if !(index >> bits)
+-		 *     we know the value is child index
+-		 *   else
+-		 *     we have a mismatch in skip bits and failed
+-		 */
+-		if (index >> n->bits)
+-			break;
+-
+-		/* we have found a leaf. Prefixes have already been compared */
+-		if (IS_LEAF(n)) {
+-			/* Case 1: n is a leaf, and prefixes match*/
+-			return n;
+-		}
+-
+-		tp = n;
+-		n = tnode_get_child_rcu(n, index);
+-	}
++	struct tnode *n, *l;
  
- 	seq_printf(seq, "\tInternal nodes: %u\n\t", stat->tnodes);
--	bytes += sizeof(struct tnode) * stat->tnodes;
-+	bytes += TNODE_SIZE(0) * stat->tnodes;
+-	l = leaf_new(key);
++	l = leaf_new(key, new);
+ 	if (!l)
+-		return NULL;
++		return -ENOMEM;
++
++	/* retrieve child from parent node */
++	if (tp)
++		n = tnode_get_child(tp, get_index(key, tp));
++	else
++		n = rcu_dereference_rtnl(t->trie);
  
- 	max = MAX_STAT_DEPTH;
- 	while (max > 0 && stat->nodesizes[max-1] == 0)
-@@ -1918,7 +1921,7 @@ static int fib_triestat_seq_show(struct seq_file *seq, void *v)
- 	seq_printf(seq,
- 		   "Basic info: size of leaf:"
- 		   " %Zd bytes, size of tnode: %Zd bytes.\n",
--		   sizeof(struct tnode), sizeof(struct tnode));
-+		   LEAF_SIZE, TNODE_SIZE(0));
+ 	/* Case 2: n is a LEAF or a TNODE and the key doesn't match.
+ 	 *
+@@ -1048,7 +968,7 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
+ 		tn = tnode_new(key, __fls(key ^ n->key), 1);
+ 		if (!tn) {
+ 			node_free(l);
+-			return NULL;
++			return -ENOMEM;
+ 		}
  
- 	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
- 		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
+ 		/* initialize routes out of node */
+@@ -1064,20 +984,47 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
+ 	}
+ 
+ 	/* Case 3: n is NULL, and will just insert a new leaf */
+-	if (tp) {
+-		NODE_INIT_PARENT(l, tp);
+-		put_child(tp, get_index(key, tp), l);
+-		trie_rebalance(t, tp);
++	NODE_INIT_PARENT(l, tp);
++	put_child_root(tp, t, key, l);
++	trie_rebalance(t, tp);
++
++	return 0;
++}
++
++static int fib_insert_alias(struct trie *t, struct tnode *tp,
++			    struct tnode *l, struct fib_alias *new,
++			    struct fib_alias *fa, t_key key)
++{
++	if (!l)
++		return fib_insert_node(t, tp, new, key);
++
++	if (fa) {
++		hlist_add_before_rcu(&new->fa_list, &fa->fa_list);
+ 	} else {
+-		rcu_assign_pointer(t->trie, l);
++		struct fib_alias *last;
++
++		hlist_for_each_entry(last, &l->leaf, fa_list) {
++			if (new->fa_slen < last->fa_slen)
++				break;
++			fa = last;
++		}
++
++		if (fa)
++			hlist_add_behind_rcu(&new->fa_list, &fa->fa_list);
++		else
++			hlist_add_head_rcu(&new->fa_list, &l->leaf);
+ 	}
+ 
+-	return l;
++	/* if we added to the tail node then we need to update slen */
++	if (l->slen < new->fa_slen) {
++		l->slen = new->fa_slen;
++		leaf_push_suffix(tp, l);
++	}
++
++	return 0;
+ }
+ 
+-/*
+- * Caller must hold RTNL.
+- */
++/* Caller must hold RTNL. */
+ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct trie *t = (struct trie *)tb->tb_data;
+@@ -1205,19 +1152,13 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 	new_fa->fa_slen = slen;
+ 
+ 	/* Insert new entry to the list. */
+-	if (!l) {
+-		l = fib_insert_node(t, key, plen);
+-		if (unlikely(!l)) {
+-			err = -ENOMEM;
+-			goto out_free_new_fa;
+-		}
+-	}
++	err = fib_insert_alias(t, tp, l, new_fa, fa, key);
++	if (err)
++		goto out_free_new_fa;
+ 
+ 	if (!plen)
+ 		tb->tb_num_default++;
+ 
+-	fib_insert_alias(l, fa, new_fa);
+-
+ 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
+ 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
+ 		  &cfg->fc_nlinfo, 0);
+@@ -1406,9 +1347,36 @@ found:
+ }
+ EXPORT_SYMBOL_GPL(fib_table_lookup);
+ 
+-/*
+- * Caller must hold RTNL.
+- */
++static void fib_remove_alias(struct trie *t, struct tnode *tp,
++			     struct tnode *l, struct fib_alias *old)
++{
++	/* record the location of the previous list_info entry */
++	struct hlist_node **pprev = old->fa_list.pprev;
++	struct fib_alias *fa = hlist_entry(pprev, typeof(*fa), fa_list.next);
++
++	/* remove the fib_alias from the list */
++	hlist_del_rcu(&old->fa_list);
++
++	/* if we emptied the list this leaf will be freed and we can sort
++	 * out parent suffix lengths as a part of trie_rebalance
++	 */
++	if (hlist_empty(&l->leaf)) {
++		put_child_root(tp, t, l->key, NULL);
++		node_free(l);
++		trie_rebalance(t, tp);
++		return;
++	}
++
++	/* only access fa if it is pointing at the last valid hlist_node */
++	if (*pprev)
++		return;
++
++	/* update the trie with the latest suffix length */
++	l->slen = fa->fa_slen;
++	leaf_pull_suffix(tp, l);
++}
++
++/* Caller must hold RTNL. */
+ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct trie *t = (struct trie *) tb->tb_data;
+@@ -1432,7 +1400,6 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 		return -ESRCH;
+ 
+ 	fa = fib_find_alias(&l->leaf, slen, tos, 0);
+-
+ 	if (!fa)
+ 		return -ESRCH;
+ 
+@@ -1461,33 +1428,19 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	if (!fa_to_delete)
+ 		return -ESRCH;
+ 
+-	fa = fa_to_delete;
+-	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
++	rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
+ 		  &cfg->fc_nlinfo, 0);
+ 
+-	fib_remove_alias(l, fa);
+-
+ 	if (!plen)
+ 		tb->tb_num_default--;
+ 
+-	if (hlist_empty(&l->leaf)) {
+-		struct tnode *tp = node_parent(l);
+-
+-		if (tp) {
+-			put_child(tp, get_index(l->key, tp), NULL);
+-			trie_rebalance(t, tp);
+-		} else {
+-			RCU_INIT_POINTER(t->trie, NULL);
+-		}
+-
+-		node_free(l);
+-	}
++	fib_remove_alias(t, tp, l, fa_to_delete);
+ 
+-	if (fa->fa_state & FA_S_ACCESSED)
++	if (fa_to_delete->fa_state & FA_S_ACCESSED)
+ 		rt_cache_flush(cfg->fc_nlinfo.nl_net);
+ 
+-	fib_release_info(fa->fa_info);
+-	alias_free_mem_rcu(fa);
++	fib_release_info(fa_to_delete->fa_info);
++	alias_free_mem_rcu(fa_to_delete);
+ 	return 0;
+ }
+ 
+@@ -1626,7 +1579,7 @@ backtrace:
+ 		put_child_root(pn, t, n->key, NULL);
+ 		node_free(n);
+ 	} else {
+-		leaf_pull_suffix(n);
++		leaf_pull_suffix(pn, n);
+ 	}
+ 
+ 	/* if trie is leaf only loop is completed */
