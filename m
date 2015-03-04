@@ -1,46 +1,43 @@
-From: Sriram Raghunathan <srirr@nsn-intra.net>
-Subject: Re: About Raw socket, vlan + ip header
-Date: Wed, 04 Mar 2015 10:06:58 +0530
-Message-ID: <54F68BEA.8040605@nsn-intra.net>
-References: <54F54327.7090002@nsn.com> <1425402181.25299.1.camel@niobium.home.fifi.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/6] ipv4/fib_trie: Cleanups to prepare for
+ introduction of key vector
+Date: Wed, 04 Mar 2015 00:16:40 -0500 (EST)
+Message-ID: <20150304.001640.1653151786060996185.davem@davemloft.net>
+References: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: ext Philippe Troin <phil@fifi.org>,
-	Sriram Raghunathan <sriram.r@nsn.com>
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:36768 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755647AbbCDEtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 23:49:39 -0500
-In-Reply-To: <1425402181.25299.1.camel@niobium.home.fifi.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40641 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753270AbbCDFQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:16:43 -0500
+In-Reply-To: <20150302212637.1490.33609.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Philippe,
-
-Using SOCK_RAW.
-
-Sriram
-On Tuesday 03 March 2015 10:33 PM, ext Philippe Troin wrote:
-> On Tue, 2015-03-03 at 10:44 +0530, Sriram Raghunathan wrote:
->> Writing a socket program where, I'm trying to construct a ether frame
->> with vlan id and copying ip header there after. By using PF_PACKET
->> family.
->>
->> But when I do a sendto, the ip header is stripped off from the
->> packet. Could you please let me know how to go about?
-> man 7 packet
->
-> ...
->         The  socket_type  is either SOCK_RAW for raw packets including the link
->         level header or SOCK_DGRAM for  cooked  packets  with  the  link  level
->         header  removed.   The  link level header information is available in a
->         common format in a sockaddr_ll.  protocol is the  IEEE  802.3  protocol
-> ...
->
-> Are you opening a SOCK_RAW or a SOCK_DGRAM PF_PACKET socket?
->
-> Phil.
->
+RnJvbTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0ByZWRoYXQuY29tPg0KRGF0
+ZTogTW9uLCAwMiBNYXIgMjAxNSAxMzozMjoxNiAtMDgwMA0KDQo+IFRoaXMgcGF0Y2ggc2VyaWVz
+IGlzIG1lYW50IHRvIG1vc3RseSBqdXN0IGNsZWFuIHVwIHRoZSBmaWJfdHJpZSB0byBwcmVwYXJl
+DQo+IGl0IGZvciB0aGUgaW50cm9kdWN0aW9uIG9mIHRoZSBrZXlfdmVjdG9yLiAgQXMgc3VjaCB0
+aGVyZSBhcmUgYSBudW1iZXIgb2YNCj4gbWlub3IgY2xlYW4tdXBzIHN1Y2ggYXMgcmVmb3JtYXR0
+aW5nIHRoZSB0bm9kZSB0byBtYXRjaCB0aGUgZm9ybWF0IG9uY2UgdGhlDQo+IGtleSB2ZWN0b3Ig
+aXMgaW50cm9kdWNlZCwgc29tZSBvcHRpbWl6YXRpb25zIHRvIGRyb3AgdGhlIG5lZWQgZm9yIGEg
+bGVhZg0KPiBwYXJlbnQgcG9pbnRlciwgYW5kIHNvbWUgY2hhbmdlcyB0byByZW1vdmUgZHVwbGlj
+YXRpb24gb2YgZWZmb3J0IHN1Y2ggYXMNCj4gdGhlIDIgbG9vay11cHMgdGhhdCB3ZXJlIGVzc2Vu
+dGlhbGx5IGJlaW5nIGRvbmUgcGVyIG5vZGUgaW5zZXJ0aW9uLg0KDQpUaGlzIGRvZXNuJ3QgY29t
+cGlsZSB3aXRoIHRyaWUgc3RhdHMgZW5hYmxlZCwgSSBzZWUgc29tZXRoaW5nIHNuZWFraW5nDQpp
+biBmcm9tIHRoZSBtYWluL2xvY2FsIHRhYmxlIGNvbGxhcHNpbmcgcGF0Y2ggOi0pDQoNCm5ldC9p
+cHY0L2ZpYl90cmllLmM6IEluIGZ1bmN0aW9uIKFfX3RyaWVfZnJlZV9yY3WiOg0KbmV0L2lwdjQv
+ZmliX3RyaWUuYzoxNjAxOjM2OiBlcnJvcjogoXN0cnVjdCBmaWJfdGFibGWiIGhhcyBubyBtZW1i
+ZXIgbmFtZWQgoWRhdGGiDQogIHN0cnVjdCB0cmllICp0ID0gKHN0cnVjdCB0cmllICopdGItPmRh
+dGE7DQoNCkFsc28sIHR3byBjb21tZW50czoNCg0KMSkgV2hlbiB5b3UgZ28gImlmIChpZHggPj4g
+bi0+Yml0cykiLCBjYW4gbi0+Yml0cyBiZSA9PSAzMj8gIElmIHNvLCB0aGlzDQogICBleHByZXNz
+aW9uIGlzIHVuZGVmaW5lZC4NCg0KMikgSW4geW91ciBzaW1wbGlmaWNhdGlvbiBvZiBmaWJfZmlu
+ZF9ub2RlKCksIGRvbid0IGtlZXAgc3RvcmluZyBvdmVyDQogICBhbmQgb3ZlciBhZ2FpbiBpbnRv
+IHRoZSBvbi1zdGFjayB2YXJpYWJsZSAnKnRwJywgaW5zdGVhZCBqdXN0IG1haW50YWluDQogICBh
+IG9uZSBiZWhpbmQgcG9pbnRlciBpbiBhIGxvY2FsIHZhcmlhYmxlIGZvciB0aGUgcGFyZW50LCBh
+bmQgc3RvcmUgaXQNCiAgIG9uZSB0aW1lIGFzIHlvdXIgZXhpdCB0aGUgZnVuY3Rpb24uDQoNClRo
+YW5rcy4NCg0KDQo=
