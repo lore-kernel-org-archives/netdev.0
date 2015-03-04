@@ -1,47 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Neighbour table prep for MPLS
-Date: Wed, 04 Mar 2015 00:25:02 -0500 (EST)
-Message-ID: <20150304.002502.1950561993507910047.davem@davemloft.net>
-References: <87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] Basic MPLS support take 2
+Date: Wed, 04 Mar 2015 00:27:34 -0500 (EST)
+Message-ID: <20150304.002734.1453464446418392919.davem@davemloft.net>
+References: <20150303.153310.624302583835136622.davem@davemloft.net>
 	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, santiago@crfreenet.org,
+	horms@verge.net.au
 To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40706 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40713 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753968AbbCDFZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:25:04 -0500
-In-Reply-To: <87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	with ESMTP id S1753802AbbCDF1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 00:27:36 -0500
+In-Reply-To: <87vbihtvts.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 03 Mar 2015 17:09:35 -0600
+Date: Tue, 03 Mar 2015 19:06:39 -0600
 
-> In preparation for using the IPv4 and IPv6 neighbour tables in my mpls
-> code this patchset factors out ___neigh_lookup_noref from
-> __ipv4_neigh_lookup_noref, __ipv6_lookup_noref and neigh_lookup.
-> Allowing the lookup logic to be shared between the different
-> implementations.  At what appears to be no cost. (Aka the same assembly
-> is generated for ip6_finish_output2 and ip_finish_output2).
+> On top of my two pending neighbour table prep patches here is the mpls
+> support refactored to use them, and edited to not drop routes when
+> an interface goes down.  Additionally the addition of RTA_LLGATEWAY
+> has been replaced with the addtion of RTA_VIA.  RTA_VIA being an
+> attribute that includes the address family as well as the address
+> of the next hop.
 > 
-> After that I add a simple function that takes an address family and an
-> address consults the neighbour table and sends the packet to the
-> appropriate location.  The address family argument decoupls callers
-> of neigh_xmit from the addresses families the packets are sent over.
-> (Aka The ipv6 module can be loaded after mpls and a previously
-> configured ipv6 next hop will start working).
+> MPLS is at it's heart simple and I have endeavoured to maintain that
+> simplicity in my implemenation.
 > 
-> The refactoring in ___neigh_lookup_noref may be a bit overkill but it
-> feels like the right thing to do.  Especially since the same code is
-> generated.
+> This is an implementation of a RFC3032 forwarding engine, and basic MPLS
+> egress logic.  Which should make linux sufficient to be a mpls
+> forwarding node or to be a LSA (Label Switched Router) as it says in all
+> of the MPLS documents.  The ingress support will follow but it deserves
+> it's own discussion so I am pushing it separately.
+
+Ok, with the neigh changes, I think I'm fine with this.
 
 Series applied, thanks.
 
-Maybe we can make neigh_table_find() faster by making it a direct
-array demux of some kind instead of some switch statment thing?
-It's the only think I don't like about neigh_xmit().
+Please think very carefully about the netlink API you've created to
+config this stuff, once we hit the next merge window we will be stuck
+with this thing forever.
+
+Thanks.
