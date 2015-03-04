@@ -1,39 +1,37 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: link failures with bpf_map_xxx_elem_proto calls from net/core/filiter.c
-Date: Wed, 4 Mar 2015 10:56:50 +0200
-Message-ID: <54F6C8D2.3080007@mellanox.com>
-References: <54F6C55C.9090400@mellanox.com>
+From: Erik Kline <ek@google.com>
+Subject: Re: [PATCH v2] net: ping: Return EAFNOSUPPORT when appropriate.
+Date: Wed, 4 Mar 2015 17:58:25 +0900
+Message-ID: <CAAedzxqmUUfcQh7tsqS8BZXo2Ru-wGofSWpyW4dEOBnaACig2Q@mail.gmail.com>
+References: <1425387387-22874-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0060.outbound.protection.outlook.com ([157.56.112.60]:32598
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751537AbbCDI6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2015 03:58:23 -0500
-In-Reply-To: <54F6C55C.9090400@mellanox.com>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:64803 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbbCDI6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 03:58:46 -0500
+Received: by mail-qa0-f47.google.com with SMTP id v10so32396184qac.6
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 00:58:45 -0800 (PST)
+In-Reply-To: <1425387387-22874-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/4/2015 10:42 AM, Or Gerlitz wrote:
-> Hi Daniel,
+> @@ -305,6 +308,11 @@ static int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
+>                 if (addr_len < sizeof(*addr))
+>                         return -EINVAL;
 >
-> With net-next (and probably net or Linus tree too), I am getting these 
-> link failures
->
-> net/built-in.o:(.rodata+0x2210): undefined reference to 
-> `bpf_map_lookup_elem_proto'
-> net/built-in.o:(.rodata+0x2218): undefined reference to 
-> `bpf_map_update_elem_proto'
-> net/built-in.o:(.rodata+0x2220): undefined reference to 
-> `bpf_map_delete_elem_proto'
->
+> +               if (addr->sin_family != AF_INET &&
+> +                   !(addr->sin_family == AF_UNSPEC &&
+> +                     addr->sin_addr.s_addr == htonl(INADDR_ANY)))
+> +                       return -EAFNOSUPPORT;
+> +
 
-suddenly solved after make clean and make, probably a leftover from the 
-fact that net-next was rebased tonight from 3.19 to 4.0-rc2
+Aside: I would be all in favor of deprecating this legacy "bind to \0
+and gee whiz it just works (for IPv4)" kind of behaviour.  But
+anyway...
 
-Or.
+Acked-by: Erik Kline <ek@google.com>
