@@ -1,58 +1,46 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Tue, 03 Mar 2015 20:15:46 -0800
-Message-ID: <54F686F2.5010404@gmail.com>
-References: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com>
+From: Sriram Raghunathan <srirr@nsn-intra.net>
+Subject: Re: About Raw socket, vlan + ip header
+Date: Wed, 04 Mar 2015 10:06:58 +0530
+Message-ID: <54F68BEA.8040605@nsn-intra.net>
+References: <54F54327.7090002@nsn.com> <1425402181.25299.1.camel@niobium.home.fifi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: roopa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org
+To: ext Philippe Troin <phil@fifi.org>,
+	Sriram Raghunathan <sriram.r@nsn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:46178 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757633AbbCDEP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 23:15:59 -0500
-Received: by oiav63 with SMTP id v63so3561919oia.13
-        for <netdev@vger.kernel.org>; Tue, 03 Mar 2015 20:15:58 -0800 (PST)
-In-Reply-To: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:36768 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755647AbbCDEtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 23:49:39 -0500
+In-Reply-To: <1425402181.25299.1.camel@niobium.home.fifi.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2015 04:15 PM, roopa@cumulusnetworks.com wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> With the recent addition of the NETIF_F_HW_SWITCH_OFFLOAD flag
-> on rocker ports, the second command (bridge link set) below will turn off
-> learning in the rocker hw (Scott/Jiri, need some confirmation from
-> you that this is indeed a problem and if the below patch is ok).
->
-> ip link set dev swp1 master br0
-> bridge link set dev swp1 learning off master
-> bridge link set dev swp1 learning_sync on self
->
-> This patch fixes rocker to ignore learning setting when 'master'
-> is set. This makes it possible to set/unset learning in kernel and bridge
-> driver independently.
->
-> The below command will continue to set learning on in both kernel and rocker
-> hw:
-> bridge link set dev swp1 learning on
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
+Hi Philippe,
 
-We will at least want this behaviour in the NIC case where the NIC
-can support l2 learning and forwarding to VF's or even other ports.
-(remind again when a NIC becomes a switch and a switch becomes a NIC?).
+Using SOCK_RAW.
 
-In this case you may want to learn in the hardware but in the
-hypervisor only support assigned MAC address because this is
-controlled by a libvirt/qemu for example.
-
-.John
-
--- 
-John Fastabend         Intel Corporation
+Sriram
+On Tuesday 03 March 2015 10:33 PM, ext Philippe Troin wrote:
+> On Tue, 2015-03-03 at 10:44 +0530, Sriram Raghunathan wrote:
+>> Writing a socket program where, I'm trying to construct a ether frame
+>> with vlan id and copying ip header there after. By using PF_PACKET
+>> family.
+>>
+>> But when I do a sendto, the ip header is stripped off from the
+>> packet. Could you please let me know how to go about?
+> man 7 packet
+>
+> ...
+>         The  socket_type  is either SOCK_RAW for raw packets including the link
+>         level header or SOCK_DGRAM for  cooked  packets  with  the  link  level
+>         header  removed.   The  link level header information is available in a
+>         common format in a sockaddr_ll.  protocol is the  IEEE  802.3  protocol
+> ...
+>
+> Are you opening a SOCK_RAW or a SOCK_DGRAM PF_PACKET socket?
+>
+> Phil.
+>
