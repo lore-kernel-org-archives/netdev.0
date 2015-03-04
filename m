@@ -1,163 +1,153 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net/dcb: Add IEEE QCN attribute
-Date: Wed, 04 Mar 2015 09:19:34 -0800
-Message-ID: <54F73EA6.2030006@gmail.com>
-References: <1425473468-25969-1-git-send-email-ogerlitz@mellanox.com> <1425473468-25969-2-git-send-email-ogerlitz@mellanox.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v5 tip 0/7] tracing: attach eBPF programs to kprobes
+Date: Wed, 4 Mar 2015 09:23:54 -0800
+Message-ID: <CAMEtUuzOQqyXgZaytwOPxAfn5ucu08HjAMrFUgeSaLRVg9E0rg@mail.gmail.com>
+References: <1425252465-27527-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:33604 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758854AbbCDRTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 12:19:48 -0500
-Received: by obcvb8 with SMTP id vb8so4304276obc.0
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 09:19:47 -0800 (PST)
-In-Reply-To: <1425473468-25969-2-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425252465-27527-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/04/2015 04:51 AM, Or Gerlitz wrote:
-> From: Shani Michaeli <shanim@mellanox.com>
+On Sun, Mar 1, 2015 at 3:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> Peter, Steven,
+> I think this set addresses everything we've discussed.
+> Please review/ack. Thanks!
+
+icmp echo request
+
+> V4->V5:
+> - switched to ktime_get_mono_fast_ns() as suggested by Peter
+> - in libbpf.c fixed zero init of 'union bpf_attr' padding
+> - fresh rebase on tip/master
 >
-> As specified in 802.1Qau spec. Add this optional attribute to the
-> DCB netlink layer. To allow for application to use the new attribute,
-> NIC drivers should implement and register the  callbacks ieee_getqcn,
-> ieee_setqcn and ieee_getqcnstats.
+> Hi All,
 >
-> The QCN attribute holds a set of parameters for management, and
-> a set of statistics to provide informative data on Congestion-Control
-> defined by this spec.
+> This is targeting 'tip' tree, since most of the changes are perf_event related.
+> There will be a small conflict between net-next and tip, since they both
+> add new bpf_prog_type (BPF_PROG_TYPE_SCHED_CLS and BPF_PROG_TYPE_KPROBE).
 >
-> Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-> Signed-off-by: Shachar Raindel <raindel@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
-
-Looks good to me. Do you have a QCN enabled switch? I looked at
-implementing this awhile ago but didn't have any switch support so
-I never did it.
-
-Also do you have a user space client to configure this? I would like
-it if someone wanted to add support to lldpad/dcbtool.
-
-[...]
-
-> +
-> +/* This structure contains the IEEE 802.1Qau QCN managed object.
-> + *
-> + *@rpg_enable: enable QCN RP
-> + *@rppp_max_rps: maximum number of RPs allowed for this CNPV on this port
-> + *@rpg_time_reset: time between rate increases if no CNMs received.
-> + *		   given in u-seconds
-> + *@rpg_byte_reset: transmitted data between rate increases if no CNMs received.
-> + *		   given in Bytes
-> + *@rpg_threshold: The number of times rpByteStage or rpTimeStage can count
-> + *		   before RP rate control state machine advances states
-> + *@rpg_max_rate: the maxinun rate, in Mbits per second,
-> + *		 at which an RP can transmit
-> + *@rpg_ai_rate: The rate, in Mbits per second,
-> + *		used to increase rpTargetRate in the RPR_ACTIVE_INCREASE
-> + *@rpg_hai_rate: The rate, in Mbits per second,
-> + *		 used to increase rpTargetRate in the RPR_HYPER_INCREASE state
-> + *@rpg_gd: Upon CNM receive, flow rate is limited to (Fb/Gd)*CurrentRate.
-> + *	   rpgGd is given as log2(Gd), where Gd may only be powers of 2
-> + *@rpg_min_dec_fac: The minimum factor by which the current transmit rate
-> + *		    can be changed by reception of a CNM.
-> + *		    value is given as percentage (1-100)
-> + *@rpg_min_rate: The minimum value, in bits per second, for rate to limit
-> + *@cndd_state_machine: The state of the congestion notification domain
-> + *		       defense state machine, as defined by IEEE 802.3Qau
-> + *		       section 32.1.1. In the interior ready state,
-> + *		       the QCN capable hardware may add CN-TAG TLV to the
-> + *		       outgoing traffic, to specifically identify outgoing
-> + *		       flows.
-> + */
-
-I'm assuming this structure maps to an IEEE MIB? Its a rather large
-structure for a single netlink type but this seems to be how we built
-the dcbnl interface and if it does seem logical that the structure is
-one logical block, meaning you need to supply all fields.
-
-[...]
-
+> V3 discussion:
+> https://lkml.org/lkml/2015/2/9/738
 >
-> +	if (ops->ieee_getqcn) {
-> +		struct ieee_qcn qcn;
-
-you might consider adding a newline here it  is the best practice for
-new code although dcbnl has plenty of examples where it doesn't use
-this convention.
-
-
-> +		memset(&qcn, 0, sizeof(qcn));
-> +		err = ops->ieee_getqcn(netdev, &qcn);
-> +		if (!err) {
-> +			err = nla_put(skb, DCB_ATTR_IEEE_QCN,
-> +				      sizeof(qcn), &qcn);
-> +			if (err)
-> +				return -EMSGSIZE;
-> +		}
-> +	}
-> +
-> +	if (ops->ieee_getqcnstats) {
-> +		struct ieee_qcn_stats qcn_stats;
-
-same here.
-
-> +		memset(&qcn_stats, 0, sizeof(qcn_stats));
-> +		err = ops->ieee_getqcnstats(netdev, &qcn_stats);
-> +		if (!err) {
-> +			err = nla_put(skb, DCB_ATTR_IEEE_QCN_STATS,
-> +				      sizeof(qcn_stats), &qcn_stats);
-> +			if (err)
-> +				return -EMSGSIZE;
-> +		}
-> +	}
-> +
->   	if (ops->ieee_getpfc) {
->   		struct ieee_pfc pfc;
->   		memset(&pfc, 0, sizeof(pfc));
-> @@ -1379,8 +1405,9 @@ int dcbnl_cee_notify(struct net_device *dev, int event, int cmd,
->   }
->   EXPORT_SYMBOL(dcbnl_cee_notify);
+> V3->V4:
+> - since the boundary of stable ABI in bpf+tracepoints is not clear yet,
+>   I've dropped them for now.
+> - bpf+syscalls are ok from stable ABI point of view, but bpf+seccomp
+>   would want to do very similar analysis of syscalls, so I've dropped
+>   them as well to take time and define common bpf+syscalls and bpf+seccomp
+>   infra in the future.
+> - so only bpf+kprobes left. kprobes by definition is not a stable ABI,
+>   so bpf+kprobe is not stable ABI either. To stress on that point added
+>   kernel version attribute that user space must pass along with the program
+>   and kernel will reject programs when version code doesn't match.
+>   So bpf+kprobe is very similar to kernel modules, but unlike modules
+>   version check is not used for safety, but for enforcing 'non-ABI-ness'.
+>   (version check doesn't apply to bpf+sockets which are stable)
 >
-> -/* Handle IEEE 802.1Qaz SET commands. If any requested operation can not
-> - * be completed the entire msg is aborted and error value is returned.
-> +/* Handle IEEE 802.1Qaz/802.1Qau/802.1Qbb SET commands.
-> + * If any requested operation can not be completed
-> + * the entire msg is aborted and error value is returned.
->    * No attempt is made to reconcile the case where only part of the
->    * cmd can be completed.
->    */
-> @@ -1417,6 +1444,14 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlmsghdr *nlh,
->   			goto err;
->   	}
+> Patch 1 is in net-next and needs to be in tip too, since patch 2 depends on it.
 >
-> +	if (ieee[DCB_ATTR_IEEE_QCN] && ops->ieee_setqcn) {
-> +		struct ieee_qcn *qcn =
-> +			nla_data(ieee[DCB_ATTR_IEEE_QCN]);
-
-same here.
-
-> +		err = ops->ieee_setqcn(netdev, qcn);
-> +		if (err)
-> +			goto err;
-> +	}
-> +
-
-[...]
-
-Feel free to add my acked by if you respin it with the newlines.
-
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-
--- 
-John Fastabend         Intel Corporation
+> Patch 2 actually adds bpf+kprobe infra:
+> programs receive 'struct pt_regs' on input and can walk data structures
+> using bpf_probe_read() helper which is a wrapper of probe_kernel_read()
+>
+> Programs are attached to kprobe events via API:
+>
+> prog_fd = bpf_prog_load(...);
+> struct perf_event_attr attr = {
+>   .type = PERF_TYPE_TRACEPOINT,
+>   .config = event_id, /* ID of just created kprobe event */
+> };
+> event_fd = perf_event_open(&attr,...);
+> ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
+>
+> Patch 3 adds bpf_ktime_get_ns() helper function, so that bpf programs can
+> measure time delta between events to compute disk io latency, etc.
+>
+> Patch 4 adds bpf_trace_printk() helper that is used to debug programs.
+> When bpf verifier sees that program is calling bpf_trace_printk() it inits
+> trace_printk buffers which emits nasty 'this is debug only' banner.
+> That's exactly what we want. bpf_trace_printk() is for debugging only.
+>
+> Patch 5 sample code that shows how to use bpf_probe_read/bpf_trace_printk
+>
+> Patch 6 sample code - combination of kfree_skb and sys_write tracing.
+>
+> Patch 7 sample code that computes disk io latency and prints it as 'heatmap'
+>
+> Interesting bit is that patch 6 has log2() function implemented in C
+> and patch 7 has another log2() function using different algorithm in C.
+> In the future if 'log2' usage becomes common, we can add it as in-kernel
+> helper function, but for now bpf programs can implement them on bpf side.
+>
+> Another interesting bit from patch 7 is that it does approximation of
+> floating point log10(X)*10 using integer arithmetic, which demonstrates
+> the power of C->BPF vs traditional tracing language alternatives,
+> where one would need to introduce new helper functions to add functionality,
+> whereas bpf can just implement such things in C as part of the program.
+>
+> Next step is to prototype TCP stack instrumentation (like web10g) using
+> bpf+kprobe, but without adding any new code tcp stack.
+> Though kprobes are slow comparing to tracepoints, they are good enough
+> for prototyping and trace_marker/debug_tracepoint ideas can accelerate
+> them in the future.
+>
+> Alexei Starovoitov (6):
+>   tracing: attach BPF programs to kprobes
+>   tracing: allow BPF programs to call bpf_ktime_get_ns()
+>   tracing: allow BPF programs to call bpf_trace_printk()
+>   samples: bpf: simple non-portable kprobe filter example
+>   samples: bpf: counting example for kfree_skb and write syscall
+>   samples: bpf: IO latency analysis (iosnoop/heatmap)
+>
+> Daniel Borkmann (1):
+>   bpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
+>
+>  include/linux/bpf.h             |   20 ++++-
+>  include/linux/ftrace_event.h    |   14 +++
+>  include/uapi/linux/bpf.h        |    5 ++
+>  include/uapi/linux/perf_event.h |    1 +
+>  kernel/bpf/syscall.c            |    7 +-
+>  kernel/events/core.c            |   59 +++++++++++++
+>  kernel/trace/Makefile           |    1 +
+>  kernel/trace/bpf_trace.c        |  178 +++++++++++++++++++++++++++++++++++++++
+>  kernel/trace/trace_kprobe.c     |   10 ++-
+>  samples/bpf/Makefile            |   12 +++
+>  samples/bpf/bpf_helpers.h       |    6 ++
+>  samples/bpf/bpf_load.c          |  112 ++++++++++++++++++++++--
+>  samples/bpf/bpf_load.h          |    3 +
+>  samples/bpf/libbpf.c            |   14 ++-
+>  samples/bpf/libbpf.h            |    5 +-
+>  samples/bpf/sock_example.c      |    2 +-
+>  samples/bpf/test_verifier.c     |    2 +-
+>  samples/bpf/tracex1_kern.c      |   50 +++++++++++
+>  samples/bpf/tracex1_user.c      |   25 ++++++
+>  samples/bpf/tracex2_kern.c      |   86 +++++++++++++++++++
+>  samples/bpf/tracex2_user.c      |   95 +++++++++++++++++++++
+>  samples/bpf/tracex3_kern.c      |   89 ++++++++++++++++++++
+>  samples/bpf/tracex3_user.c      |  150 +++++++++++++++++++++++++++++++++
+>  23 files changed, 930 insertions(+), 16 deletions(-)
+>  create mode 100644 kernel/trace/bpf_trace.c
+>  create mode 100644 samples/bpf/tracex1_kern.c
+>  create mode 100644 samples/bpf/tracex1_user.c
+>  create mode 100644 samples/bpf/tracex2_kern.c
+>  create mode 100644 samples/bpf/tracex2_user.c
+>  create mode 100644 samples/bpf/tracex3_kern.c
+>  create mode 100644 samples/bpf/tracex3_user.c
+>
+> --
+> 1.7.9.5
+>
