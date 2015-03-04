@@ -1,55 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v1] mv643xx_eth: only account for work done in
- rxq_process in poll callback.
-Date: Wed, 4 Mar 2015 22:32:35 +0100
-Message-ID: <20150304213235.GA20596@electric-eye.fr.zoreil.com>
-References: <1425492124-5033-1-git-send-email-nschichan@freebox.fr>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [PATCH jtkirshe-net-next] mpls: rtm_mpls_policy[] can be static
+Date: Thu, 5 Mar 2015 05:33:54 +0800
+Message-ID: <20150304213354.GA121629@lkp-sb04.lkp.intel.com>
+References: <201503050540.GRC4YbDo%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Schichan <nschichan@freebox.fr>
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1425492124-5033-1-git-send-email-nschichan@freebox.fr>
+In-Reply-To: <201503050540.GRC4YbDo%fengguang.wu@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nicolas Schichan <nschichan@freebox.fr> :
-[...]
-> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> index 1c75829..52bc56b 100644
-> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-[...]
-> @@ -1050,7 +1049,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
->  	__netif_tx_lock_bh(nq);
->  
->  	reclaimed = 0;
-> -	while (reclaimed < budget && txq->tx_desc_count > 0) {
-> +	while (txq->tx_desc_count > 0) {
->  		int tx_index;
->  		struct tx_desc *desc;
->  		u32 cmd_sts;
 
-You may use a local 'int count = txq->tx_desc_count' variable then
-perform a single update at the end of the locked section. 
-txq->tx_used_desc could be reworked in a similar way.
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+ af_mpls.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> @@ -1105,8 +1104,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
->  
->  	__netif_tx_unlock_bh(nq);
->  
-> -	if (reclaimed < budget)
-> -		mp->work_tx &= ~(1 << txq->index);
-> +	mp->work_tx &= ~(1 << txq->index);
->  
->  	return reclaimed;
->  }
-
-work_tx is also updated in irq context. I'd rather see "clear_flag() then
-reclaim()" than "reclaim() then clear_flag()" in a subsequent patch.
-
--- 
-Ueimor
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index b4d7cec..ee9a4b6 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -212,7 +212,7 @@ static struct packet_type mpls_packet_type __read_mostly = {
+ 	.func = mpls_forward,
+ };
+ 
+-const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
++static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
+ 	[RTA_DST]		= { .type = NLA_U32 },
+ 	[RTA_OIF]		= { .type = NLA_U32 },
+ };
