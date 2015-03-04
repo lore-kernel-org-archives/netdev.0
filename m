@@ -1,102 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ARM: fix typos in smc91x platform data
-Date: Wed, 04 Mar 2015 23:39:18 +0100
-Message-ID: <3483843.L07cLWCFPN@wuerfel>
-References: <2226303.iMQTNXSl1n@wuerfel> <20150228.125721.1605776377351425463.davem@davemloft.net> <55454365.1GsbtFBXGk@wuerfel>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH v2 0/8] ipv4/fib_trie: Cleanups to prepare for
+ introduction of key vector
+Date: Wed, 04 Mar 2015 14:57:55 -0800
+Message-ID: <20150304225459.1612.45514.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linus.walleij@linaro.org, robert.jarzmik@free.fr,
-	linux@arm.linux.org.uk, arm@kernel.org
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:55958 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbbCDWjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 17:39:32 -0500
-In-Reply-To: <55454365.1GsbtFBXGk@wuerfel>
+Received: from mx1.redhat.com ([209.132.183.28]:44189 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751121AbbCDW55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2015 17:57:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I recently did a rework of the smc91x driver and did some build-testing
-by compiling hundreds of randconfig kernels. Unfortunately, my script
-was wrong and did not actually test the configurations that mattered,
-so I introduced stupid typos in almost every file I touched.
+This patch series is meant to mostly just clean up the fib_trie to prepare
+it for the introduction of the key_vector.  As such there are a number of
+minor clean-ups such as reformatting the tnode to match the format once the
+key vector is introduced, some optimizations to drop the need for a leaf
+parent pointer, and some changes to remove duplication of effort such as
+the 2 look-ups that were essentially being done per node insertion.
 
-I fixed my script now, built all configurations that actually matter
-and fixed all the typos, this is the result.
+v2: Added code to cleanup idx >> n->bits and explain unsigned long logic
+    Added code to prevent allocation when tnode size is larger than size_t
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: b70661c70830d ("net: smc91x: use run-time configuration on all ARM machines")
 ---
-Hi Dave,
 
-I could either take this through our arm-soc tree, or through netdev,
-whichever suits you.
+Alexander Duyck (8):
+      fib_trie: Only resize tnodes once instead of on each leaf removal in fib_table_flush
+      fib_trie: Fib walk rcu should take a tnode and key instead of a trie and a leaf
+      fib_trie: Fib find node should return parent
+      fib_trie: Update insert and delete to make use of tp from find_node
+      fib_trie: move leaf and tnode to occupy the same spot in the key vector
+      fib_trie: Make fib_table rcu safe
+      fib_trie: Update last spot w/ idx >> n->bits code and explanation
+      fib_trie: Prevent allocating tnode if bits is too big for size_t
 
-diff --git a/arch/arm/mach-pxa/idp.c b/arch/arm/mach-pxa/idp.c
-index ddad190c8abc..c5d9b02d5cbf 100644
---- a/arch/arm/mach-pxa/idp.c
-+++ b/arch/arm/mach-pxa/idp.c
-@@ -36,6 +36,7 @@
- #include <linux/platform_data/video-pxafb.h>
- #include <mach/bitfield.h>
- #include <linux/platform_data/mmc-pxamci.h>
-+#include <linux/smc91x.h>
- 
- #include "generic.h"
- #include "devices.h"
-diff --git a/arch/arm/mach-pxa/lpd270.c b/arch/arm/mach-pxa/lpd270.c
-index 5f9f64e4726e..6c896c9375cb 100644
---- a/arch/arm/mach-pxa/lpd270.c
-+++ b/arch/arm/mach-pxa/lpd270.c
-@@ -195,7 +195,7 @@ static struct resource smc91x_resources[] = {
- };
- 
- struct smc91x_platdata smc91x_platdata = {
--	.flags = SMC91X_USE_16BIT | SMC91X_NOWAIT;
-+	.flags = SMC91X_USE_16BIT | SMC91X_NOWAIT,
- };
- 
- static struct platform_device smc91x_device = {
-diff --git a/arch/arm/mach-sa1100/neponset.c b/arch/arm/mach-sa1100/neponset.c
-index 7b0cd3172354..af868d258e66 100644
---- a/arch/arm/mach-sa1100/neponset.c
-+++ b/arch/arm/mach-sa1100/neponset.c
-@@ -268,8 +268,8 @@ static int neponset_probe(struct platform_device *dev)
- 		.id = 0,
- 		.res = smc91x_resources,
- 		.num_res = ARRAY_SIZE(smc91x_resources),
--		.data = &smc91c_platdata,
--		.size_data = sizeof(smc91c_platdata),
-+		.data = &smc91x_platdata,
-+		.size_data = sizeof(smc91x_platdata),
- 	};
- 	int ret, irq;
- 
-diff --git a/arch/arm/mach-sa1100/pleb.c b/arch/arm/mach-sa1100/pleb.c
-index 696fd0fe4806..1525d7b5f1b7 100644
---- a/arch/arm/mach-sa1100/pleb.c
-+++ b/arch/arm/mach-sa1100/pleb.c
-@@ -54,7 +54,7 @@ static struct platform_device smc91x_device = {
- 	.num_resources	= ARRAY_SIZE(smc91x_resources),
- 	.resource	= smc91x_resources,
- 	.dev = {
--		.platform_data  = &smc91c_platdata,
-+		.platform_data  = &smc91x_platdata,
- 	},
- };
- 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 209ee1b27f8d..5d093dc0f5f5 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -92,6 +92,7 @@ static const char version[] =
- #include "smc91x.h"
- 
- #if defined(CONFIG_ASSABET_NEPONSET)
-+#include <mach/assabet.h>
- #include <mach/neponset.h>
- #endif
- 
+
+ include/net/ip_fib.h     |   70 +++--
+ include/net/netns/ipv4.h |    7 
+ net/ipv4/fib_frontend.c  |   52 +++-
+ net/ipv4/fib_trie.c      |  672 ++++++++++++++++++++++++----------------------
+ 4 files changed, 433 insertions(+), 368 deletions(-)
+
+--
