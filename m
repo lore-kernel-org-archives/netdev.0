@@ -1,92 +1,60 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 5/6] sched: Eliminate use of flow_keys in sch_sfb
-Date: Wed,  4 Mar 2015 10:40:03 -0800
-Message-ID: <1425494404-24114-6-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 1/6] net: Add skb_get_hash_perturb
+Date: Wed,  4 Mar 2015 10:39:59 -0800
+Message-ID: <1425494404-24114-2-git-send-email-therbert@google.com>
 References: <1425494404-24114-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	eric.dumazet@gmail.com, fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:34375 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759394AbbCDSk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:40:28 -0500
-Received: by iecvy18 with SMTP id vy18so5568694iec.1
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 10:40:27 -0800 (PST)
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:35131 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759219AbbCDSkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:40:20 -0500
+Received: by igqa13 with SMTP id a13so39026401igq.0
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 10:40:19 -0800 (PST)
 In-Reply-To: <1425494404-24114-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
-jhash by hand.
+This is used to get the skb->hash and then perturb it for a local use.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/sched/sch_sfb.c | 24 ++++++++----------------
- 1 file changed, 8 insertions(+), 16 deletions(-)
+ include/linux/skbuff.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index 5819dd8..402d051 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -26,7 +26,6 @@
- #include <net/ip.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
--#include <net/flow_keys.h>
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index bba1330..10572b6 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -17,6 +17,7 @@
+ #include <linux/kernel.h>
+ #include <linux/kmemcheck.h>
+ #include <linux/compiler.h>
++#include <linux/jhash.h>
+ #include <linux/time.h>
+ #include <linux/bug.h>
+ #include <linux/cache.h>
+@@ -920,6 +921,20 @@ static inline __u32 skb_get_hash(struct sk_buff *skb)
+ 	return skb->hash;
+ }
  
- /*
-  * SFB uses two B[l][n] : L x N arrays of bins (L levels, N bins per level)
-@@ -285,9 +284,9 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	int i;
- 	u32 p_min = ~0;
- 	u32 minqlen = ~0;
--	u32 r, slot, salt, sfbhash;
-+	u32 r, sfbhash;
-+	u32 slot = q->slot;
- 	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
--	struct flow_keys keys;
- 
- 	if (unlikely(sch->q.qlen >= q->limit)) {
- 		qdisc_qstats_overlimit(sch);
-@@ -309,22 +308,17 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	fl = rcu_dereference_bh(q->filter_list);
- 	if (fl) {
-+		u32 salt;
++static inline __u32 skb_get_hash_perturb(struct sk_buff *skb,
++					 u32 perturb)
++{
++	u32 hash = skb_get_hash(skb);
 +
- 		/* If using external classifiers, get result and record it. */
- 		if (!sfb_classify(skb, fl, &ret, &salt))
- 			goto other_drop;
--		keys.src = salt;
--		keys.dst = 0;
--		keys.ports = 0;
-+		sfbhash = jhash_1word(salt, q->bins[q->slot].perturbation);
- 	} else {
--		skb_flow_dissect(skb, &keys);
-+		sfbhash = skb_get_hash_perturb(skb, q->bins[slot].perturbation);
- 	}
- 
--	slot = q->slot;
- 
--	sfbhash = jhash_3words((__force u32)keys.dst,
--			       (__force u32)keys.src,
--			       (__force u32)keys.ports,
--			       q->bins[slot].perturbation);
- 	if (!sfbhash)
- 		sfbhash = 1;
- 	sfb_skb_cb(skb)->hashes[slot] = sfbhash;
-@@ -356,10 +350,8 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	if (unlikely(p_min >= SFB_MAX_PROB)) {
- 		/* Inelastic flow */
- 		if (q->double_buffering) {
--			sfbhash = jhash_3words((__force u32)keys.dst,
--					       (__force u32)keys.src,
--					       (__force u32)keys.ports,
--					       q->bins[slot].perturbation);
-+			sfbhash = skb_get_hash_perturb(skb,
-+			    q->bins[slot].perturbation);
- 			if (!sfbhash)
- 				sfbhash = 1;
- 			sfb_skb_cb(skb)->hashes[slot] = sfbhash;
++	if (likely(hash)) {
++		hash = jhash_1word((__force __u32) hash, perturb);
++		if (unlikely(!hash))
++			hash = 1;
++	}
++
++	return hash;
++}
++
+ static inline __u32 skb_get_hash_raw(const struct sk_buff *skb)
+ {
+ 	return skb->hash;
 -- 
 2.2.0.rc0.207.ga3a616c
