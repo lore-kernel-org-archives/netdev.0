@@ -1,72 +1,92 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: SOCK_MEMALLOC vs loopback
-Date: Wed, 4 Mar 2015 21:38:48 +0300
-Message-ID: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sage Weil <sage@redhat.com>, Mike Christie <mchristi@redhat.com>,
-	Mel Gorman <mgorman@suse.de>, NeilBrown <neilb@suse.de>,
-	netdev@vger.kernel.org
-To: ceph-devel@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 0/6] net: Call skb_get_hash in qdiscs
+Date: Wed,  4 Mar 2015 10:39:58 -0800
+Message-ID: <1425494404-24114-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:42035 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758660AbbCDSkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:40:15 -0500
+Received: by igkb16 with SMTP id b16so39137116igk.1
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 10:40:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+In several qdiscs, we currently compute packet hashes primarily as part
+of queue selection. This is done by calling flow_dissect and then
+performing a jhash.
 
-A short while ago Mike added a patch to libceph to set SOCK_MEMALLOC on
-libceph sockets and PF_MEMALLOC around send/receive paths (commit
-89baaa570ab0, "libceph: use memalloc flags for net IO").  rbd is much
-like nbd and is succeptible to all the same memory allocation
-deadlocks, so it seemed like a step in the right direction.
+There are several problems with this:
 
-However that turned out to not play nice with loopback - such a simple
-workload as 'dd if=/dev/zero of=/dev/rbd0 bs=4M' would now lock up in
-no time if one or more ceph-osd (think nbd-server) processes are
-running on the same box - as soon as memory gets tight and
-__alloc_skb() dips into PF_MEMALLOC reserves and marks skb as
-pfmemalloc, packets start being dropped on the receiving side:
+- The functionality of doing a packet hash is replicated in the qdiscs.
+- The hashing algorithm is not consistent, for instance in hhf an
+  attempt is made to get the hash out of sk_hash, but other qdiscs
+  don't do that. Some qdiscs XOR ip_proto into the source before
+  jhash, some don't.
+- Without a common infrastructure, if we want to use a new (potentially
+  stronger) hash function or wanted to add more input to the hash,
+  we would need to address this in each qdisc.
+- Flow dissector is potentially called multiple times for a single
+  packet.
+- The flow keys are passed in cb[] structure. This severely limits
+  our ability to increase the key space. For instance, the folding
+  of IPv6 addresses in flow_dissector to make a 32-bit value
+  represents a significant loss of information (it would be easy
+  to create millions of different 4-tuples that would always produce the
+  same hash value). 
 
-int sk_filter(struct sock *sk, struct sk_buff *skb)
-{
-        ...
+This patch set consolidates the packet hashing in the qdiscs to use the
+common skb_get_hash function. Specifically:
 
-        /*
-         * If the skb was allocated from pfmemalloc reserves, only
-         * allow SOCK_MEMALLOC sockets to use it as this socket is
-         * helping free memory
-         */
-        if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
-                return -ENOMEM;
+- Add skb_get_hash_perturb. This allows a caller to perturb the
+  skb->hash value for a local use. This support the pertubation
+  feature in qdiscs.
+- Call skb_get_hash or skb_get_hash_perturb from the qdiscs
 
-as the receiving ceph-osd socket is not a SOCK_MEMALLOC socket.
+There are at least two caveats to mention:
 
-The motivation behind this is clear but this makes loopback rbd just
-plain unusable and while we never recommended it to our users and
-advised against it, we had a few "it worked for us for more than
-a year" kind of reports.  It's also very useful for testing.
+- The probability that two different flows randomly match to the same
+  hash from skb_get_hash is 1/2^32. If such a collision were to happen,
+  then the flows potentially also map to the same qdisc queue in
+  perpetuity despite perturbation being performed. Given the very low
+  probability of this occurring, this may in practice only be an
+  academic issue. If it is a real concern, rekeying of the underlying
+  mechanisms of skb->hash could be done.
+- skb_get_hash may return a value from the hardware. There are two
+  questions around that:
+  1) Does this produce predicatable hash values that can be exploited
+     by an attacker? The answer for this is that we need to enforce
+     that any device returning a hash to host must be initialized
+     with a random hash key.
+  2) Is the quality of the hash done in HW poorer than what host can
+     do? Hardware typically provides a Toeplitz hash which was
+     originally specified by MS for RSS. The application of Toeplitz
+     hash was only specified for TCP and IPv4/v6, although some NICs
+     have extrapolated the algorithm to apply to UDP also. Toeplitz
+     is fairly well known at this point, it doesn't seem like there
+     is evidence that this is poorer quality than Jenkin's hash, and
+     in fact in the case of TCP/IPv6 the hash quality is probably
+     better since the fully 40 bytes of 4-tuple are used as input.
+     However, if there are concerns about the quality of HW hash,
+     we do have the option of turning it off.
 
-Some googling revealed that I'm not the first one to hit this.  SUSE
-guys carried (are carrying?) a patch to sk_filter() to allow pfmemalloc
-skbs through to make up for GPFS's misuse of PF_MEMALLOC [1], this was
-mentioned tangentially by Eric in [2] and he suggested a possible fix
-in [3].
+Tom Herbert (6):
+  net: Add skb_get_hash_perturb
+  sched: Eliminate use of flow_keys in sch_choke
+  sched: Eliminate use of flow_keys in sch_fq_codel
+  sched: Eliminate use of flow_keys in sch_hhf
+  sched: Eliminate use of flow_keys in sch_sfb
+  sched: Eliminate use of flow_keys in sch_sfq
 
-"When I discussed with David on this issue, I said that one possibility
-would be to accept a pfmemalloc skb on regular skb if no other packet is
-in a receive queue, to get a chance to make progress (and limit memory
-consumption to no more than one skb per TCP socket)"
+ include/linux/skbuff.h   | 15 +++++++++++++++
+ net/sched/sch_choke.c    | 32 ++------------------------------
+ net/sched/sch_fq_codel.c | 11 ++---------
+ net/sched/sch_hhf.c      | 19 +------------------
+ net/sched/sch_sfb.c      | 24 ++++++++----------------
+ net/sched/sch_sfq.c      | 29 +++--------------------------
+ 6 files changed, 31 insertions(+), 99 deletions(-)
 
-Eric, was there any progress on this front?  We would like to work on
-fixing this, but need some mm and net input.
-
-(I also CC'ed Neil as he did the NFS loopback series recently and this
-may touch on swap-on-nfs.)
-
-[1] https://gitorious.org/opensuse/kernel-source/commit/a78bfd6
-[2] http://article.gmane.org/gmane.linux.kernel/1418791
-[3] http://article.gmane.org/gmane.linux.kernel.stable/46128
-
-Thanks,
-
-                Ilya
+-- 
+2.2.0.rc0.207.ga3a616c
