@@ -1,55 +1,100 @@
-From: rfgvsavnaerid fgrsa <rfgvsavnaerid@freemail.hu>
-Subject: =?UTF-8?B?44COQk9EWembnOiqjOmHkee6lueNjuOAj+WwiOWutuiplemRkei2heS6uuawo+WPo+eikee1leWwjeacieS/oeW/gyFvaGFvenpzZnJoazI=?=
-Date: Wed, 4 Mar 2015 00:52:34 +0100 (CET)
-Message-ID: <freemail.20150304005234.29849.108@fmxmldata02.freemail.hu>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH net-next v3 6/7] fib: hook IPv4 fib for hardware offload
+Date: Tue, 03 Mar 2015 16:01:12 -0800
+Message-ID: <54F64B48.8040707@redhat.com>
+References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com> <1425425520-34017-7-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, ageha304@gmail.com, kendingwu@gmail.com,
-	 lpo0921@yahoo.com.tw, milktea59430@hotmail.com,
-	 yes2014edm14@yahoo.com.tw
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
+	jiri@resnulli.us, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iwiw02d.mail.t-online.hu ([84.2.42.67]:10278 "EHLO
-	iwiw02d.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756509AbbCCX6e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Mar 2015 18:58:34 -0500
-Received: from fmx24.freemail.hu (fmx24.freemail.hu [195.228.245.74])
-	by iwiw02d.mail.t-online.hu (Postfix) with SMTP id C497048B277
-	for <netdev@vger.kernel.org>; Wed,  4 Mar 2015 00:54:07 +0100 (CET)
+Received: from mx1.redhat.com ([209.132.183.28]:58530 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756234AbbCDABU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Mar 2015 19:01:20 -0500
+In-Reply-To: <1425425520-34017-7-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E7=83=8F=E9=9F=BB=E8=8A=B3ohaozzsfrhk2
 
+On 03/03/2015 03:31 PM, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+>
+> Call into the switchdev driver any time an IPv4 fib entry is
+> added/modified/deleted from the kernel's FIB.  The switchdev driver may or
+> may not install the route to the offload device.  In the case where the
+> driver tries to install the route and something goes wrong (device's routing
+> table is full, etc), then all of the offloaded routes will be flushed from the
+> device, and route forwarding falls back to the kernel.
+>
+> We can refine this fail-over logic in subsequent patches.  For now, use the
+> simplist model of offloading routes up to the point of failure, and then on
+> failure, undo everything.
+>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> ---
+>   net/ipv4/fib_trie.c |   36 +++++++++++++++++++++++++++++++++---
+>   1 file changed, 33 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index 32c0117..668f09b 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -79,6 +79,7 @@
+>   #include <net/tcp.h>
+>   #include <net/sock.h>
+>   #include <net/ip_fib.h>
+> +#include <net/switchdev.h>
+>   #include "fib_lookup.h"
+>   
+>   #define MAX_STAT_DEPTH 32
+> @@ -1161,7 +1162,18 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>   			new_fa->fa_state = state & ~FA_S_ACCESSED;
+>   			new_fa->fa_slen = fa->fa_slen;
+>   
+> +			err = netdev_switch_fib_ipv4_add(key, plen, fi,
+> +							 new_fa->fa_tos,
+> +							 cfg->fc_type,
+> +							 tb->tb_id);
+> +			if (err) {
+> +				fib_flush_external(fi->fib_net);
+> +				kmem_cache_free(fn_alias_kmem, new_fa);
+> +				goto out;
+> +			}
+> +
+>   			hlist_replace_rcu(&fa->fa_list, &new_fa->fa_list);
+> +
+>   			alias_free_mem_rcu(fa);
+>   
+>   			fib_release_info(fi_drop);
+> @@ -1197,12 +1209,20 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>   	new_fa->fa_state = 0;
+>   	new_fa->fa_slen = slen;
+>   
+> +	/* (Optionally) offload fib entry to switch hardware. */
+> +	err = netdev_switch_fib_ipv4_add(key, plen, fi, tos,
+> +					 cfg->fc_type, tb->tb_id);
+> +	if (err) {
+> +		fib_flush_external(fi->fib_net);
+> +		goto out_free_new_fa;
+> +	}
+> +
+>   	/* Insert new entry to the list. */
+>   	if (!l) {
+>   		l = fib_insert_node(t, key, plen);
+>   		if (unlikely(!l)) {
+>   			err = -ENOMEM;
+> -			goto out_free_new_fa;
+> +			goto out_sw_fib_del;
+>   		}
+>   	}
+>   
 
+Wouldn't it make more sense to insert the route in the trie first, and 
+then notify the hardware of the new route?  It seems like it would be 
+much easier to pull the route back out of the trie on failure rather 
+than having to delete a route from the hardware on a failure to allocate 
+memory to store it.
 
-=E5=85=A8=E6=96=B0=E7=AC=AC=E5=9B=9B=E4=BB=A3=E9=87=91=E5=96=84=E7=BE=8E=
-=E6=9C=89=E6=95=88=E6=8F=90=E5=8D=87=E4=BB=A3=E8=AC=9D=EF=BC=8C
-
-=E9=82=84=E5=A6=B3=E7=AA=88=E5=AE=A8=E6=9B=B2=E7=B7=9A=EF=BC=8C=E4=BA=AB=
-=E5=8F=9728=E8=85=B0=E7=9C=9F=E7=9A=84=E4=B8=8D=E9=9B=A3=E3=80=82
-
-=E3=80=8EBODY=E9=9B=9C=E8=AA=8C=E9=87=91=E7=BA=96=E7=8D=8E=E3=80=8F=E5=B0=
-=88=E5=AE=B6=E8=A9=95=E9=91=91=E8=B6=85=E4=BA=BA=E6=B0=A3=E5=8F=A3=E7=A2=
-=91=EF=BC=8C
-
-=E7=B5=95=E5=B0=8D=E6=9C=89=E4=BF=A1=E5=BF=83=EF=BC=8C=E5=A4=A9=E7=84=B6=
-=E9=85=8D=E6=96=B9=E5=AE=89=E5=85=A8=E7=84=A1=E6=85=AE=EF=BC=8C=E8=B6=85=
-=E5=BC=B7=E5=8A=9B=E6=8F=90=E5=8D=87=E5=9F=BA=E7=A4=8E=E4=BB=A3=E8=AC=9D=
-=E3=80=82
-
-=E9=87=91=E5=96=84=E7=BE=8E=E5=AE=98=E6=96=B9=E7=B6=B2=E7=AB=99 http://=
-ow.ly/HpafR=20
-
-
-
-
-
-
-
-
-
-
-
-
-afcmk=E7=83=8F=E9=9F=BB=E8=8A=B3
+- Alex
