@@ -1,36 +1,40 @@
-From: Madhu Challa <challa@noironetworks.com>
-Subject: [PATCH iproute2 net-next 1/2] Header rebase for IFA_F_MCAUTOJOIN
-Date: Wed,  4 Mar 2015 10:30:09 -0800
-Message-ID: <1425493810-2537-2-git-send-email-challa@noironetworks.com>
-References: <1425493810-2537-1-git-send-email-challa@noironetworks.com>
-Cc: Madhu Challa <challa@noironetworks.com>
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+From: Nicolae Rosia <nicolae.rosia@gmail.com>
+Subject: Re: IPSec hmac(sha256) truncation bits length
+Date: Wed, 4 Mar 2015 20:56:58 +0200
+Message-ID: <CAH=tA9FD2z2LAPU51yuhvM8-K_Ep6h09uk3+ZEk0kCROp7ahug@mail.gmail.com>
+References: <CAH=tA9Fnd6+gHsvjCv8oXqRVGLtdV9jr-KP1hxUGFg5orC5Qcw@mail.gmail.com>
+	<CAH=tA9GQ643vpmk=wJUC1fmpD6A87SU-onhweMp8aYrTu+qsTA@mail.gmail.com>
+	<20150304123834.c27417981d6ef63c0b310e11@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Kim Phillips <kim.phillips@freescale.com>,
+	Andreas Steffen <andreas.steffen@strongswan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:41198 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759812AbbCDSrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:47:24 -0500
-Received: by pablj1 with SMTP id lj1so29460068pab.8
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 10:47:23 -0800 (PST)
-In-Reply-To: <1425493810-2537-1-git-send-email-challa@noironetworks.com>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:39006 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758260AbbCDS5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 13:57:00 -0500
+In-Reply-To: <20150304123834.c27417981d6ef63c0b310e11@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- include/linux/if_addr.h | 1 +
- 1 file changed, 1 insertion(+)
+Thank you, Andreas and Kim.
 
-diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
-index cc375e4..2033adc 100644
---- a/include/linux/if_addr.h
-+++ b/include/linux/if_addr.h
-@@ -50,6 +50,7 @@ enum {
- #define IFA_F_PERMANENT		0x80
- #define IFA_F_MANAGETEMPADDR	0x100
- #define IFA_F_NOPREFIXROUTE	0x200
-+#define IFA_F_MCAUTOJOIN	0x400
- 
- struct ifa_cacheinfo {
- 	__u32	ifa_prefered;
--- 
-1.9.1
+Best regards,
+Nicolae Rosia
+
+On Wed, Mar 4, 2015 at 8:38 PM, Kim Phillips <kim.phillips@freescale.com> wrote:
+> On Wed, 4 Mar 2015 20:28:26 +0200
+> Nicolae Rosia <nicolae.rosia@gmail.com> wrote:
+>
+>> On Wed, Mar 4, 2015 at 7:13 PM, Nicolae Rosia <nicolae.rosia@gmail.com> wrote:
+>> > I'm trying to understand why icv_truncbits is set to 96 for
+>> > hmac(sha256) in xfrm_algo.c because
+>> > RFC4868 [1] says that the truncation length for HMAC-SHA256 should be 128.
+>
+> See http://comments.gmane.org/gmane.linux.kernel.cryptoapi/6767
+>
+> Kim
