@@ -1,132 +1,63 @@
-From: "Nikita N." <nikitan@operamail.com>
-Subject: brcmsmac not compliant to 802.11 for BCM4313
-Date: Wed, 04 Mar 2015 07:39:30 -0800
-Message-ID: <1425483570.3947119.235432705.0D7855AE@webmail.messagingengine.com>
-References: <1424007136.2042747.227726249.45B6A0E2@webmail.messagingengine.com>
- <1424094835.3188168.228077393.0E2006F5@webmail.messagingengine.com>
- <54E2107F.4000709@broadcom.com>
- <1424112787.3303548.228201005.68F1D224@webmail.messagingengine.com>
- <54E24B48.80601@broadcom.com>
- <1424163814.3140549.228461101.1C2E5AB1@webmail.messagingengine.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 1/2] neigh: Factor out ___neigh_lookup_noref
+Date: Wed, 04 Mar 2015 09:58:28 -0600
+Message-ID: <87sidkoiu3.fsf@x220.int.ebiederm.org>
+References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
+	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
+	<20150303.153310.624302583835136622.davem@davemloft.net>
+	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87bnk9y8wb.fsf_-_@x220.int.ebiederm.org>
+	<20150304145331.GA1551@gospo>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hauke@hauke-m.de, brcm80211-dev-list@broadcom.com,
-	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	Pat Erley <pat-lkml@erley.org>, brudley@broadcom.com,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
-	wens@csie.org, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424163814.3140549.228461101.1C2E5AB1@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:40728 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758509AbbCDQCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 11:02:04 -0500
+In-Reply-To: <20150304145331.GA1551@gospo> (Andy Gospodarek's message of "Wed,
+	4 Mar 2015 09:53:31 -0500")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Arend,
-as followup to my last inquiry, since it's passed more than 2 weeks, I'm
-afraid I didn't receive any answer.
-As from subject, I finally discovered that brcmsmac is not compliant to
-802.11 regulations for BCM4313.
-So, as purchasing customer, and member of Linux users community, I try
-to propose my questions to you again now, 3 in total:
- 
-1) Regulatory domain - you wrote "brcmsmac does assure tx power is
-within regulatory limits by enforcing a world regulatory domain"
-That affirmation is *FALSE*.
-I spent the whole weekend putting brcmsmac under heavy trace, all
-functions, above all the phy ones.
-Some code "supposes" to enforce a regulatory domain, but the effect is
-total null.
-I tried recompile the regulatory domain database, those functions did
-not retrieve the new values.
-Whatever values I set for domain 00, the effect was null - BCM4313 kept
-functioning independently.
-The functions, phy and not, which are "supposed" to set the eeprom
-registries for regdomain enforce, have effect null - the BCM4313 kept
-functioning independently.
-I tried setting random numbers in those functions and registries, the
-effect was null - the BCM4313 kept functioning independently.
-At the edge of my frustration, I started commenting away from the code
-those whole phy functions, the effect was null again - the BCM4313 kept
-functioning independently.
-I don't know for what Broadcom hw device were written and *tested* those
-functions - but sure is, they do *NOT* work for BCM4313.
-Could you please explain how/where the BCM4313 is supposed to "enforcing
-a world regulatory domain" ?
+Andy Gospodarek <gospo@cumulusnetworks.com> writes:
 
-2) MCS - 11n modulated frames are not detected in BCM4313 monitor mode -
-I informed you about this issue more than 1 year ago, and again 2 weeks
-ago.
-The issue still reproduces, and no sign of any fix.
-When/in what backports version, this issue is supposed to be fixed
-finally?
+> On Tue, Mar 03, 2015 at 05:10:44PM -0600, Eric W. Biederman wrote:
+>> 
+>> While looking at the mpls code I found myself writing yet another
+>> version of neigh_lookup_noref.  We currently have __ipv4_lookup_noref
+>> and __ipv6_lookup_noref.
+>> 
+>> So to make my work a little easier and to make it a smidge easier to
+>> verify/maintain the mpls code in the future I stopped and wrote
+>> ___neigh_lookup_noref.  Then I rewote __ipv4_lookup_noref and
+>> __ipv6_lookup_noref in terms of this new function.  I tested my new
+>> version by verifying that the same code is generated in
+>> ip_finish_output2 and ip6_finish_output2 where these functions are
+>> inlined.
+>> 
+>> To get to ___neigh_lookup_noref I added a new neighbour cache table
+>> function key_eq.  So that the static size of the key would be
+>> available.
+>> 
+>> I also added __neigh_lookup_noref for people who want to to lookup
+>> a neighbour table entry quickly but don't know which neibhgour table
+>> they are going to look up.
+>
+> While I understand your intent here, you do really need to know which
+> neighbour table being used in order to do the look-up with your new
+> function, so this changelog isn't quite accurate.  I know Dave has
+> already accepted this patch, but it did not appear in the tree I just
+> updated, so hopefully there is time to fix this if you agree with me.
 
-3) I explicitly purchased this BCM4313 already 1 year ago, with the
-following specs: 0x4313 rev 0x01 package 0x08, 3 cores ChipCommon,
-IEEE802.11 and PCIe.
-I have been searching for any technical datasheet specification document
-about BCM4313 on Broadcom website and others.
-Did not find any.
-Could you please send me a detailed technical datasheet specification
-document about BCM4313, for programming/dev purposes?
+Currently __ipv4_lookup_noref and __ipv6_lookup_noref hard code the
+table.  __neigh_lookup_noref works without needing to hard code the
+neighbour table.  The neighbour table being a variable in the code and
+not a hard coded value is what I was referring to above when I said you
+don't need to know your neighbour table.  That is you still need a
+neighbour table it just doesn't need to be hard coded.
 
-Thank you & Greetings
-
-
-
-On Tue, Feb 17, 2015, at 01:03 AM, Nikita N. wrote:
-> Hi Arend,
->  
-> > brcmsmac does assure tx power is within regulatory limits by enforcing a 
-> > world regulatory domain. So what is not supported is modifying tx power 
-> > settings through user-space.
-> 
-> Yes, I believe that could be right, *a* world regulatory domain looks
-> indeed enforced, the USA one only, which is pre-set default inside
-> EEPROM registries device, isn't it?
->  
-> > I know, but that driver is not fully open-source as it links in a binary 
-> > blob.
-> 
-> AFAIK, also brcmsmac needs at least 2 firmware files to operate, without
-> those nothing works.
-> Isn't it the same concept?
->  
-> > I totally lost track of this one. I am using brcmsmac in monitor mode 
-> > using bcm43224 which captures 11n frames just fine. I will give it a try 
-> > with a bcm4313. The assoc response in your capture shows undefined MCS 
-> > set so maybe there really are no 11n MCS rates used (?).
-> 
-> If that was a suggestion about to purchase a bcm43224 or any other
-> Broadcom Corp. product, isn't really convincing, seen the overall
-> support quality Customers are experiencing in here...
-> About my capture file, in the case it was really incomplete someone
-> could have informed me at least a year ago.
-> But anyway no respectable QA Testing team needs a purchasing Customer to
-> help in verifying such enormous issue, isn't it? 
->  
-> > Our team consist of two man working full-time on the upstream linux 
-> > drivers. So our "customer care" is something that we try to deal with on 
-> > the side and admittedly things slip between the cracks.
-> 
-> Really, *TWO* men? Are you kidding? Is that how much Broadcom Corp.
-> values the Linux community?
-> Needles to remind, even if Linux users don't pay for the OS license as
-> Windows do, they do pay allright for any Broadcom hardware they
-> purchase!
-> Internet startups which sell a button on internet, they have Dev and QA
-> team 5 times bigger than that!
-> I sense a very gross capacity and resource planning competence issue in
-> here.
-> I kindly ask you, please forward that mail to your higher Managers, on
-> my personal behalf, Thanks.
-> 
-> -- 
-> http://www.fastmail.com - Same, same, but different...
-> 
-
--- 
-http://www.fastmail.com - Or how I learned to stop worrying and
-                          love email again
+Eric
