@@ -1,49 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: bcmgenet: simplify
- __bcmgenet_tx_reclaim()
-Date: Wed, 04 Mar 2015 23:55:25 -0500 (EST)
-Message-ID: <20150304.235525.768945224673443511.davem@davemloft.net>
-References: <20150304223002.0233E22021A@puck.mtv.corp.google.com>
+Subject: Re: [Fwd: Re: [PATCH -next] net: i40e: fix build, depends on
+ CONFIGFS_FS]
+Date: Wed, 04 Mar 2015 23:58:48 -0500 (EST)
+Message-ID: <20150304.235848.1415311271924658171.davem@davemloft.net>
+References: <1425413366.2556.76.camel@jtkirshe-mobl>
+	<C5551D9AAB213A418B7FD5E4A6F30A0789282B02@ORSMSX108.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, jaedon.shin@gmail.com
-To: pgynther@google.com
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	john.ronciak@intel.com
+To: gregory.v.rose@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52711 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52743 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751589AbbCEEz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 23:55:27 -0500
-In-Reply-To: <20150304223002.0233E22021A@puck.mtv.corp.google.com>
+	with ESMTP id S1751168AbbCEE6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 23:58:50 -0500
+In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0789282B02@ORSMSX108.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petri Gynther <pgynther@google.com>
-Date: Wed,  4 Mar 2015 14:30:01 -0800 (PST)
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Date: Thu, 5 Mar 2015 00:34:05 +0000
 
-> 1. Use c_index and ring->c_index to determine how many TxCBs/TxBDs are
->    ready for cleanup
->    - c_index = the current value of TDMA_CONS_INDEX
->    - TDMA_CONS_INDEX is HW-incremented and auto-wraparound (0x0-0xFFFF)
->    - ring->c_index = __bcmgenet_tx_reclaim() cleaned up to this point on
->      the previous invocation
-> 
-> 2. Add bcmgenet_tx_ring->clean_ptr
->    - index of the next TxCB to be cleaned
->    - incremented as TxCBs/TxBDs are processed
->    - value always in range [ring->cb_ptr, ring->end_ptr]
-> 
-> 3. Fix incrementing of dev->stats.tx_packets
->    - should be incremented only when tx_cb_ptr->skb != NULL
-> 
-> These changes simplify __bcmgenet_tx_reclaim(). Furthermore, Tx ring size
-> can now be any value.
-> 
-> With the old code, Tx ring size had to be a power-of-2:
->    num_tx_bds = ring->size;
->    c_index &= (num_tx_bds - 1);
->    last_c_index &= (num_tx_bds - 1);
-> 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> Dell will be the only vendor selling systems with Ethernet NICs that
+> support this feature.  Dell will be providing documentation to their
+> users about how to use configfs for configuration of this feature.
+> Dell will be taking the customer calls that result from any issues
+> that arise.
 
-Applied, thanks.
+And if they use non-INTEL NICs that provide this feature, oh well we
+duplicate this bastardized configfs turd into those driver too, right?
+
+Not acceptable.
