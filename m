@@ -1,100 +1,79 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/7] netfilter: nft_compat: don't truncate ethernet protocol type to u8
-Date: Thu,  5 Mar 2015 21:48:43 +0100
-Message-ID: <1425588529-4573-2-git-send-email-pablo@netfilter.org>
-References: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/7] Netfilter/IPVS fixes for net
+Date: Thu,  5 Mar 2015 21:48:42 +0100
+Message-ID: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arturo Borrero <arturo.borrero.glez@gmail.com>
+Hi David,
 
-Use u16 for protocol and then cast it to __be16
+The following patchset contains Netfilter/IPVS fixes for your net tree,
+they are:
 
->> net/netfilter/nft_compat.c:140:37: sparse: incorrect type in assignment (different base types)
-   net/netfilter/nft_compat.c:140:37:    expected restricted __be16 [usertype] ethproto
-   net/netfilter/nft_compat.c:140:37:    got unsigned char [unsigned] [usertype] proto
->> net/netfilter/nft_compat.c:351:37: sparse: incorrect type in assignment (different base types)
-   net/netfilter/nft_compat.c:351:37:    expected restricted __be16 [usertype] ethproto
-   net/netfilter/nft_compat.c:351:37:    got unsigned char [unsigned] [usertype] proto
+1) Don't truncate ethernet protocol type to u8 in nft_compat, from
+   Arturo Borrero.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nft_compat.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+2) Fix several problems in the addition/deletion of elements in nf_tables.
 
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index 1279cd8..213584c 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -123,7 +123,7 @@ static void
- nft_target_set_tgchk_param(struct xt_tgchk_param *par,
- 			   const struct nft_ctx *ctx,
- 			   struct xt_target *target, void *info,
--			   union nft_entry *entry, u8 proto, bool inv)
-+			   union nft_entry *entry, u16 proto, bool inv)
- {
- 	par->net	= ctx->net;
- 	par->table	= ctx->table->name;
-@@ -137,7 +137,7 @@ nft_target_set_tgchk_param(struct xt_tgchk_param *par,
- 		entry->e6.ipv6.invflags = inv ? IP6T_INV_PROTO : 0;
- 		break;
- 	case NFPROTO_BRIDGE:
--		entry->ebt.ethproto = proto;
-+		entry->ebt.ethproto = (__force __be16)proto;
- 		entry->ebt.invflags = inv ? EBT_IPROTO : 0;
- 		break;
- 	}
-@@ -171,7 +171,7 @@ static const struct nla_policy nft_rule_compat_policy[NFTA_RULE_COMPAT_MAX + 1]
- 	[NFTA_RULE_COMPAT_FLAGS]	= { .type = NLA_U32 },
- };
- 
--static int nft_parse_compat(const struct nlattr *attr, u8 *proto, bool *inv)
-+static int nft_parse_compat(const struct nlattr *attr, u16 *proto, bool *inv)
- {
- 	struct nlattr *tb[NFTA_RULE_COMPAT_MAX+1];
- 	u32 flags;
-@@ -203,7 +203,7 @@ nft_target_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 	struct xt_target *target = expr->ops->data;
- 	struct xt_tgchk_param par;
- 	size_t size = XT_ALIGN(nla_len(tb[NFTA_TARGET_INFO]));
--	u8 proto = 0;
-+	u16 proto = 0;
- 	bool inv = false;
- 	union nft_entry e = {};
- 	int ret;
-@@ -334,7 +334,7 @@ static const struct nla_policy nft_match_policy[NFTA_MATCH_MAX + 1] = {
- static void
- nft_match_set_mtchk_param(struct xt_mtchk_param *par, const struct nft_ctx *ctx,
- 			  struct xt_match *match, void *info,
--			  union nft_entry *entry, u8 proto, bool inv)
-+			  union nft_entry *entry, u16 proto, bool inv)
- {
- 	par->net	= ctx->net;
- 	par->table	= ctx->table->name;
-@@ -348,7 +348,7 @@ nft_match_set_mtchk_param(struct xt_mtchk_param *par, const struct nft_ctx *ctx,
- 		entry->e6.ipv6.invflags = inv ? IP6T_INV_PROTO : 0;
- 		break;
- 	case NFPROTO_BRIDGE:
--		entry->ebt.ethproto = proto;
-+		entry->ebt.ethproto = (__force __be16)proto;
- 		entry->ebt.invflags = inv ? EBT_IPROTO : 0;
- 		break;
- 	}
-@@ -385,7 +385,7 @@ nft_match_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 	struct xt_match *match = expr->ops->data;
- 	struct xt_mtchk_param par;
- 	size_t size = XT_ALIGN(nla_len(tb[NFTA_MATCH_INFO]));
--	u8 proto = 0;
-+	u16 proto = 0;
- 	bool inv = false;
- 	union nft_entry e = {};
- 	int ret;
--- 
-1.7.10.4
+3) Fix module refcount leak in ip_vs_sync, from Julian Anastasov.
 
+4) Fix a race condition in the abort path in the nf_tables transaction
+   infrastructure. Basically aborted rules can show up as active rules
+   until changes are unrolled, oneliner from Patrick McHardy.
+
+5) Check for overflows in the data area of the rule, also from Patrick.
+
+6) Fix off-by-one in the per-rule user data size field. This introduces
+   a new nft_userdata structure that is placed at the beginning of the
+   user data area that contains the length to save some bits from the
+   rule and we only need one bit to indicate its presence, from Patrick.
+
+7) Fix rule replacement error path, the replaced rule is deleted on
+   error instead of leaving it in place. This has been fixed by relying
+   on the abort path to undo the incomplete replacement.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks a lot!
+
+----------------------------------------------------------------
+
+The following changes since commit 3f34b24a732bab9635c4b32823268c37c01b40f0:
+
+  af_packet: allow packets defragmentation not only for hash fanout type (2015-02-21 23:00:18 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to 59900e0a019e7c2bdb7809a03ed5742d311b15b3:
+
+  netfilter: nf_tables: fix error handling of rule replacement (2015-03-04 18:46:08 +0100)
+
+----------------------------------------------------------------
+Arturo Borrero (1):
+      netfilter: nft_compat: don't truncate ethernet protocol type to u8
+
+Julian Anastasov (1):
+      ipvs: add missing ip_vs_pe_put in sync code
+
+Pablo Neira Ayuso (3):
+      netfilter: nf_tables: fix addition/deletion of elements from commit/abort
+      Merge https://git.kernel.org/.../horms/ipvs
+      netfilter: nf_tables: fix error handling of rule replacement
+
+Patrick McHardy (3):
+      netfilter: nf_tables: fix transaction race condition
+      netfilter: nf_tables: check for overflow of rule dlen field
+      netfilter: nf_tables: fix userdata length overflow
+
+ include/net/netfilter/nf_tables.h |   22 +++++++++++--
+ net/netfilter/ipvs/ip_vs_sync.c   |    3 ++
+ net/netfilter/nf_tables_api.c     |   61 ++++++++++++++++++++++---------------
+ net/netfilter/nft_compat.c        |   14 ++++-----
+ 4 files changed, 65 insertions(+), 35 deletions(-)
