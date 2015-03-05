@@ -1,39 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
-Date: Thu, 5 Mar 2015 09:52:17 +0100
-Message-ID: <20150305085217.GD2033@nanopsycho.orion>
-References: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH v5 2/4] gpiolib: add gpiod_get_array and gpiod_put_array functions
+Date: Thu, 5 Mar 2015 09:55:09 +0100
+Message-ID: <CACRpkdZS5N62zoD-zPeYM3KOJp1zUWE8yUGXTpZ4msoAXgVj9Q@mail.gmail.com>
+References: <3417970.NJsESPLFsD@pcimr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Michal Sekletar <msekleta@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:46952 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbbCEIwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 03:52:22 -0500
-Received: by widem10 with SMTP id em10so36600127wid.5
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 00:52:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Rojhalat Ibrahim <imr@rtschenk.de>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <3417970.NJsESPLFsD@pcimr>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Mar 04, 2015 at 09:41:58PM CET, msekleta@redhat.com wrote:
->This commit introduces new BPF extension. It makes possible to load value of
->skb->vlan_proto (vlan tpid) to register A.
->
->Currently, vlan header is removed from frame and information is available to
->userspace only via tpacket interface. Hence, it is not possible to install
->filter which uses value of vlan tpid field.
->
->AFAICT only way how to filter based on tpid value is to reconstruct original
->frame encapsulation and interpret BPF filter code in userspace. Doing that is
->way slower than doing filtering in kernel.
->
->Cc: Alexei Starovoitov <ast@plumgrid.com>
->Cc: Jiri Pirko <jpirko@redhat.com>
->Signed-off-by: Michal Sekletar <msekleta@redhat.com>
+On Wed, Feb 11, 2015 at 5:27 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+> Introduce new functions for conveniently obtaining and disposing of an entire
+> array of GPIOs with one function call.
+>
+> Suggested-by: Alexandre Courbot <acourbot@nvidia.com>
+> Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> Reviewed-by: Alexandre Courbot <acourbot@nvidia.com>
+>
+> ACPI part:
+> Reviewed-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+> Tested-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+>
+> DT part:
+> Tested-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> ---
+> Change log:
+>   v5: move the ACPI functions to gpiolib-acpi.c
+>   v4: - use shorter names for members of struct gpio_descs
+>       - rename lut_gpio_count to platform_gpio_count for clarity
+>       - add check for successful memory allocation
+>       - use ERR_CAST()
+>   v3: - rebase on current linux-gpio devel branch
+>       - fix ACPI GPIO counting
+>       - allow for zero-sized arrays
+>       - make the flags argument mandatory for the new functions
+>       - clarify documentation
+>   v2: change interface
+
+Patch applied with some fuzzing, check that it ended up correctly
+in my git (or linux-next).
+
+Yours,
+Linus Walleij
