@@ -1,79 +1,153 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/7] Netfilter/IPVS fixes for net
-Date: Thu,  5 Mar 2015 21:48:42 +0100
-Message-ID: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 6/7] netfilter: nf_tables: fix userdata length overflow
+Date: Thu,  5 Mar 2015 21:48:48 +0100
+Message-ID: <1425588529-4573-7-git-send-email-pablo@netfilter.org>
+References: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Patrick McHardy <kaber@trash.net>
 
-The following patchset contains Netfilter/IPVS fixes for your net tree,
-they are:
+The NFT_USERDATA_MAXLEN is defined to 256, however we only have a u8
+to store its size. Introduce a struct nft_userdata which contains a
+length field and indicate its presence using a single bit in the rule.
 
-1) Don't truncate ethernet protocol type to u8 in nft_compat, from
-   Arturo Borrero.
+The length field of struct nft_userdata is also a u8, however we don't
+store zero sized data, so the actual length is udata->len + 1.
 
-2) Fix several problems in the addition/deletion of elements in nf_tables.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/netfilter/nf_tables.h |   22 +++++++++++++++++++---
+ net/netfilter/nf_tables_api.c     |   28 +++++++++++++++++++---------
+ 2 files changed, 38 insertions(+), 12 deletions(-)
 
-3) Fix module refcount leak in ip_vs_sync, from Julian Anastasov.
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 9eaaa78..decb9a0 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -119,6 +119,22 @@ int nft_validate_data_load(const struct nft_ctx *ctx, enum nft_registers reg,
+ 			   const struct nft_data *data,
+ 			   enum nft_data_types type);
+ 
++
++/**
++ *	struct nft_userdata - user defined data associated with an object
++ *
++ *	@len: length of the data
++ *	@data: content
++ *
++ *	The presence of user data is indicated in an object specific fashion,
++ *	so a length of zero can't occur and the value "len" indicates data
++ *	of length len + 1.
++ */
++struct nft_userdata {
++	u8			len;
++	unsigned char		data[0];
++};
++
+ /**
+  *	struct nft_set_elem - generic representation of set elements
+  *
+@@ -380,7 +396,7 @@ static inline void *nft_expr_priv(const struct nft_expr *expr)
+  *	@handle: rule handle
+  *	@genmask: generation mask
+  *	@dlen: length of expression data
+- *	@ulen: length of user data (used for comments)
++ *	@udata: user data is appended to the rule
+  *	@data: expression data
+  */
+ struct nft_rule {
+@@ -388,7 +404,7 @@ struct nft_rule {
+ 	u64				handle:42,
+ 					genmask:2,
+ 					dlen:12,
+-					ulen:8;
++					udata:1;
+ 	unsigned char			data[]
+ 		__attribute__((aligned(__alignof__(struct nft_expr))));
+ };
+@@ -476,7 +492,7 @@ static inline struct nft_expr *nft_expr_last(const struct nft_rule *rule)
+ 	return (struct nft_expr *)&rule->data[rule->dlen];
+ }
+ 
+-static inline void *nft_userdata(const struct nft_rule *rule)
++static inline struct nft_userdata *nft_userdata(const struct nft_rule *rule)
+ {
+ 	return (void *)&rule->data[rule->dlen];
+ }
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 7baafd5..74e4b87 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1711,9 +1711,12 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
+ 	}
+ 	nla_nest_end(skb, list);
+ 
+-	if (rule->ulen &&
+-	    nla_put(skb, NFTA_RULE_USERDATA, rule->ulen, nft_userdata(rule)))
+-		goto nla_put_failure;
++	if (rule->udata) {
++		struct nft_userdata *udata = nft_userdata(rule);
++		if (nla_put(skb, NFTA_RULE_USERDATA, udata->len + 1,
++			    udata->data) < 0)
++			goto nla_put_failure;
++	}
+ 
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+@@ -1896,11 +1899,12 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
+ 	struct nft_table *table;
+ 	struct nft_chain *chain;
+ 	struct nft_rule *rule, *old_rule = NULL;
++	struct nft_userdata *udata;
+ 	struct nft_trans *trans = NULL;
+ 	struct nft_expr *expr;
+ 	struct nft_ctx ctx;
+ 	struct nlattr *tmp;
+-	unsigned int size, i, n, ulen = 0;
++	unsigned int size, i, n, ulen = 0, usize = 0;
+ 	int err, rem;
+ 	bool create;
+ 	u64 handle, pos_handle;
+@@ -1973,11 +1977,14 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
+ 	if (size >= 1 << 12)
+ 		goto err1;
+ 
+-	if (nla[NFTA_RULE_USERDATA])
++	if (nla[NFTA_RULE_USERDATA]) {
+ 		ulen = nla_len(nla[NFTA_RULE_USERDATA]);
++		if (ulen > 0)
++			usize = sizeof(struct nft_userdata) + ulen;
++	}
+ 
+ 	err = -ENOMEM;
+-	rule = kzalloc(sizeof(*rule) + size + ulen, GFP_KERNEL);
++	rule = kzalloc(sizeof(*rule) + size + usize, GFP_KERNEL);
+ 	if (rule == NULL)
+ 		goto err1;
+ 
+@@ -1985,10 +1992,13 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
+ 
+ 	rule->handle = handle;
+ 	rule->dlen   = size;
+-	rule->ulen   = ulen;
++	rule->udata  = ulen ? 1 : 0;
+ 
+-	if (ulen)
+-		nla_memcpy(nft_userdata(rule), nla[NFTA_RULE_USERDATA], ulen);
++	if (ulen) {
++		udata = nft_userdata(rule);
++		udata->len = ulen - 1;
++		nla_memcpy(udata->data, nla[NFTA_RULE_USERDATA], ulen);
++	}
+ 
+ 	expr = nft_expr_first(rule);
+ 	for (i = 0; i < n; i++) {
+-- 
+1.7.10.4
 
-4) Fix a race condition in the abort path in the nf_tables transaction
-   infrastructure. Basically aborted rules can show up as active rules
-   until changes are unrolled, oneliner from Patrick McHardy.
-
-5) Check for overflows in the data area of the rule, also from Patrick.
-
-6) Fix off-by-one in the per-rule user data size field. This introduces
-   a new nft_userdata structure that is placed at the beginning of the
-   user data area that contains the length to save some bits from the
-   rule and we only need one bit to indicate its presence, from Patrick.
-
-7) Fix rule replacement error path, the replaced rule is deleted on
-   error instead of leaving it in place. This has been fixed by relying
-   on the abort path to undo the incomplete replacement.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks a lot!
-
-----------------------------------------------------------------
-
-The following changes since commit 3f34b24a732bab9635c4b32823268c37c01b40f0:
-
-  af_packet: allow packets defragmentation not only for hash fanout type (2015-02-21 23:00:18 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to 59900e0a019e7c2bdb7809a03ed5742d311b15b3:
-
-  netfilter: nf_tables: fix error handling of rule replacement (2015-03-04 18:46:08 +0100)
-
-----------------------------------------------------------------
-Arturo Borrero (1):
-      netfilter: nft_compat: don't truncate ethernet protocol type to u8
-
-Julian Anastasov (1):
-      ipvs: add missing ip_vs_pe_put in sync code
-
-Pablo Neira Ayuso (3):
-      netfilter: nf_tables: fix addition/deletion of elements from commit/abort
-      Merge https://git.kernel.org/.../horms/ipvs
-      netfilter: nf_tables: fix error handling of rule replacement
-
-Patrick McHardy (3):
-      netfilter: nf_tables: fix transaction race condition
-      netfilter: nf_tables: check for overflow of rule dlen field
-      netfilter: nf_tables: fix userdata length overflow
-
- include/net/netfilter/nf_tables.h |   22 +++++++++++--
- net/netfilter/ipvs/ip_vs_sync.c   |    3 ++
- net/netfilter/nf_tables_api.c     |   61 ++++++++++++++++++++++---------------
- net/netfilter/nft_compat.c        |   14 ++++-----
- 4 files changed, 65 insertions(+), 35 deletions(-)
