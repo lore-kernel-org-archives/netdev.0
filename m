@@ -1,59 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] i40e/i40evf: Version bump
-Date: Thu,  5 Mar 2015 08:46:32 -0800
-Message-ID: <1425573992-30955-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] i40e: fix XPS mask when resetting
+Date: Thu,  5 Mar 2015 08:46:24 -0800
+Message-ID: <1425573992-30955-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425573992-30955-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:47536 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41895 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1945978AbbCEQqm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 11:46:42 -0500
+	id S1757944AbbCEQqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 11:46:53 -0500
 In-Reply-To: <1425573992-30955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Bump i40e to 1.2.11 and i40evf to 1.2.5
+During resets (possibly caused by a Tx hang) the driver would
+accidentally clear the XPS mask for all queues back to 0.
 
-Change-ID: Ie13375941606b0a027e5b5dbc235f5f5f03b75c8
-Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
+This caused higher CPU utilization and had some other performance impacts
+for transmit tests.
+
+Change-ID: I95f112432c9e643a153eaa31cd28cdcbfdd01831
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index bca62c1..fb369f7 100644
+index 620dd23..a287cc8 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+@@ -2399,20 +2399,20 @@ static void i40e_config_xps_tx_ring(struct i40e_ring *ring)
+ 	struct i40e_vsi *vsi = ring->vsi;
+ 	cpumask_var_t mask;
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 2
--#define DRV_VERSION_BUILD 10
-+#define DRV_VERSION_BUILD 11
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index a951358..3d53bb4 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+-	if (ring->q_vector && ring->netdev) {
+-		/* Single TC mode enable XPS */
+-		if (vsi->tc_config.numtc <= 1 &&
+-		    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state)) {
++	if (!ring->q_vector || !ring->netdev)
++		return;
++
++	/* Single TC mode enable XPS */
++	if (vsi->tc_config.numtc <= 1) {
++		if (!test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state))
+ 			netif_set_xps_queue(ring->netdev,
+ 					    &ring->q_vector->affinity_mask,
+ 					    ring->queue_index);
+-		} else if (alloc_cpumask_var(&mask, GFP_KERNEL)) {
+-			/* Disable XPS to allow selection based on TC */
+-			bitmap_zero(cpumask_bits(mask), nr_cpumask_bits);
+-			netif_set_xps_queue(ring->netdev, mask,
+-					    ring->queue_index);
+-			free_cpumask_var(mask);
+-		}
++	} else if (alloc_cpumask_var(&mask, GFP_KERNEL)) {
++		/* Disable XPS to allow selection based on TC */
++		bitmap_zero(cpumask_bits(mask), nr_cpumask_bits);
++		netif_set_xps_queue(ring->netdev, mask, ring->queue_index);
++		free_cpumask_var(mask);
+ 	}
+ }
  
--#define DRV_VERSION "1.2.4"
-+#define DRV_VERSION "1.2.5"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
