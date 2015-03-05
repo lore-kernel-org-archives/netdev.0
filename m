@@ -1,95 +1,162 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Thu, 5 Mar 2015 13:42:47 +1100
-Message-ID: <20150305134247.5a55e4db@canb.auug.org.au>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH net-next 4/7] mpls: Basic support for adding and
+ removing routes
+Date: Wed, 4 Mar 2015 21:50:06 -0500
+Message-ID: <20150304215006.019f1eaffaf3e0bfa53aadcf@mindspring.com>
+References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
+	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
+	<20150303.153310.624302583835136622.davem@davemloft.net>
+	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+	<878ufdtvjr.fsf_-_@x220.int.ebiederm.org>
+	<54F6BEAA.2080708@cumulusnetworks.com>
+	<87h9u0lctq.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/hmfJc680P+W=FCwCO._W9.J"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Sig_/hmfJc680P+W=FCwCO._W9.J
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: roopa <roopa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:60205 "EHLO
+	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753254AbbCECu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 21:50:59 -0500
+In-Reply-To: <87h9u0lctq.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Wed, 04 Mar 2015, Eric W. Biederman wrote:
 
-After merging the net-next tree, today's linux-next build (powerpc
-allyesconfig) failed like this:
+> roopa <roopa@cumulusnetworks.com> writes:
+> 
+> > On 3/3/15, 5:12 PM, Eric W. Biederman wrote:
+> >> mpls_route_add and mpls_route_del implement the basic logic for adding
+> >> and removing Next Hop Label Forwarding Entries from the MPLS input
+> >> label map.  The addition and subtraction is done in a way that is
+> >> consistent with how the existing routing table in Linux are
+> >> maintained.  Thus all of the work to deal with NLM_F_APPEND,
+> >> NLM_F_EXCL, NLM_F_REPLACE, and NLM_F_CREATE.
+> >>
+> >> Cases that are not clearly defined such as changing the interpretation
+> >> of the mpls reserved labels is not allowed.
+> >>
+> >> Because it seems like the right thing to do adding an MPLS route without
+> >> specifying an input label and allowing the kernel to pick a free label
+> >> table entry is supported.   The implementation is currently less than optimal
+> >> but that can be changed.
+> >>
+> >> As I don't have anything else to test with only ethernet and the loopback
+> >> device are the only two device types currently supported for forwarding
+> >> MPLS over.
+> >>
+> >> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> >> ---
+> >>   net/mpls/af_mpls.c | 133 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+> >>   1 file changed, 133 insertions(+)
+> >>
+> >> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+> >> index b097125dfa33..e432f092f2fb 100644
+> >> --- a/net/mpls/af_mpls.c
+> >> +++ b/net/mpls/af_mpls.c
+> >> @@ -16,6 +16,7 @@
+> >>   #include <net/netns/generic.h>
+> >>   #include "internal.h"
+> >>   +#define LABEL_NOT_SPECIFIED (1<<20)
+> >>   #define MAX_NEW_LABELS 2
+> >>     /* This maximum ha length copied from the definition of struct
+> >> neighbour */
+> >> @@ -211,6 +212,19 @@ static struct packet_type mpls_packet_type __read_mostly = {
+> >>   	.func = mpls_forward,
+> >>   };
+> >>   +struct mpls_route_config {
+> >> +	u32		rc_protocol;
+> >> +	u32		rc_ifindex;
+> >> +	u16		rc_via_family;
+> >> +	u16		rc_via_alen;
+> >> +	u8		rc_via[MAX_VIA_ALEN];
+> >> +	u32		rc_label;
+> >> +	u32		rc_output_labels;
+> >> +	u32		rc_output_label[MAX_NEW_LABELS];
+> >> +	u32		rc_nlflags;
+> >> +	struct nl_info	rc_nlinfo;
+> >> +};
+> >> +
+> >>   static struct mpls_route *mpls_rt_alloc(size_t alen)
+> >>   {
+> >>   	struct mpls_route *rt;
+> >> @@ -245,6 +259,125 @@ static void mpls_route_update(struct net *net, unsigned index,
+> >>   	mpls_rt_free(old);
+> >>   }
+> >>   +static unsigned find_free_label(struct net *net)
+> >> +{
+> >> +	unsigned index;
+> >> +	for (index = 16; index < net->mpls.platform_labels; index++) {
+> >> +		if (!net->mpls.platform_label[index])
+> >> +			return index;
+> >> +	}
+> >> +	return LABEL_NOT_SPECIFIED;
+> >> +}
+> >> +
+> >> +static int mpls_route_add(struct mpls_route_config *cfg)
+> >> +{
+> >> +	struct net *net = cfg->rc_nlinfo.nl_net;
+> >> +	struct net_device *dev = NULL;
+> >> +	struct mpls_route *rt, *old;
+> >> +	unsigned index;
+> >> +	int i;
+> >> +	int err = -EINVAL;
+> >> +
+> >> +	index = cfg->rc_label;
+> >> +
+> >> +	/* If a label was not specified during insert pick one */
+> >> +	if ((index == LABEL_NOT_SPECIFIED) &&
+> >> +	    (cfg->rc_nlflags & NLM_F_CREATE)) {
+> >> +		index = find_free_label(net);
+> >> +	}
+> >> +
+> >> +	/* The first 16 labels are reserved, and may not be set */
+> >> +	if (index < 16)
+> >> +		goto errout;
+> >> +
+> >> +	/* The full 20 bit range may not be supported. */
+> >> +	if (index >= net->mpls.platform_labels)
+> >> +		goto errout;
+> >> +
+> >> +	/* Ensure only a supported number of labels are present */
+> >> +	if (cfg->rc_output_labels > MAX_NEW_LABELS)
+> >> +		goto errout;
+> >> +
+> >> +	err = -ENODEV;
+> >> +	dev = dev_get_by_index(net, cfg->rc_ifindex);
+> >> +	if (!dev)
+> >> +		goto errout;
+> >> +
+> >> +	/* For now just support ethernet devices */
+> >> +	err = -EINVAL;
+> >> +	if ((dev->type != ARPHRD_ETHER) && (dev->type != ARPHRD_LOOPBACK))
+> >> +		goto errout;
+> >> +
+> >> +	err = -EINVAL;
+> >> +	if ((cfg->rc_via_family == AF_PACKET) &&
+> >> +	    (dev->addr_len != cfg->rc_via_alen))
+> >> +		goto errout;
+> >> +
+> >> +	/* Append makes no sense with mpls */
+> >> +	err = -EINVAL;
+> >
+> > minor nit: should this be -ENOTSUPP in that case ? (NLM_F_REPLACE and NLM_F_APPEND are
+> > really operations. But, one can argue that they are an attribute of the msg and hence -EINVAL might be ok).
+> > I did not find any other such case for consistency check.
+> 
+> Yes.  IPv4 implements NLM_F_APPEND and IPv6 ignores it.
+> 
+> I will add a patch to change the error code.
 
-net/mpls/af_mpls.c: In function 'resize_platform_label_table':
-net/mpls/af_mpls.c:767:4: error: implicit declaration of function 'vzalloc'=
- [-Werror=3Dimplicit-function-declaration]
-    labels =3D vzalloc(size);
-    ^
+I believe the error -ENOTSUPP is deprecated and -EOPNOTSUPP should
+be used instead.
 
-Caused by commit 7720c01f3f59 ("mpls: Add a sysctl to control the size
-of the mpls label table").
-
-I have added this commit for today:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 5 Mar 2015 13:37:05 +1100
-Subject: [PATCH] mpls: using vzalloc requires including vmalloc.h
-
-Fixes this build error:
-
-net/mpls/af_mpls.c: In function 'resize_platform_label_table':
-net/mpls/af_mpls.c:767:4: error: implicit declaration of function 'vzalloc'=
- [-Werror=3Dimplicit-function-declaration]
-    labels =3D vzalloc(size);
-    ^
-
-Fixes: 7720c01f3f59 ("mpls: Add a sysctl to control the size of the mpls la=
-bel table")
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- net/mpls/af_mpls.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 23e51d13b0ff..20cf48a8593d 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -7,6 +7,7 @@
- #include <linux/if_arp.h>
- #include <linux/ipv6.h>
- #include <linux/mpls.h>
-+#include <linux/vmalloc.h>
- #include <net/ip.h>
- #include <net/dst.h>
- #include <net/sock.h>
---=20
-2.1.4
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/hmfJc680P+W=FCwCO._W9.J
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJU98KrAAoJEMDTa8Ir7ZwVRHUQAIVfev8pyheQhKyEENlJCh58
-MmJmNTPYyreggvj3nd0NsRFy0vnqm/BQZholsbjwHpLI0TBi6d0mFTxmJLVkiKDZ
-LPCqb0Vl4gEjxS4ZuQoQoi94tcjRSVekQAvKjMkD2fr6ODnPAb/ZqTwk98fKU2Ci
-kubunh4FPpWNtV5tNgS4vTpSXYCahmLLNmk+G4uJYUZRMj1fJ7mRUnYoLb/O1Yei
-meLvCp0kW/z0y8zZCCo5sp/wrUFc43am9+FeMMmnrg2XBFrkCZCRuiYHpzWKjt5c
-Xr0K1G4KGPEEskFDLKpUozw2MYlEw1dUDXeUOKFGi55oEm43C4LppvXhjMYASZce
-GgWSXEGXzSNcK2hOJu8SkScSBT9MQtp3I9EkUihYr1Qin2r7L6sdHexqQO9bMMgB
-22DGHh4wf0oPTdeU2kIlCCCnD1NYrJV/mXFAUFZci9qBxNVs9HsSvy3PNpdpi4lW
-yQKjCmx8aPH65yXG62CklueLnS8UiNQh7SLFADX8WOpCnlpm2GWxEkjeAzfkdjZ6
-OnVkK8+NfUjEfDhbSukDfGVIiR+sw6b7NiyHXz83dkcdYx4Cjmj2YSuHPgVEWmHE
-Rftgy5IxW0cQG/PpEf0dLKDqiW5AIyZX1Onzyq3ORR9VQK0lwGfyq3WPjSo4S6S8
-y4iE4FDndUesvq7d1GDv
-=/Fyg
------END PGP SIGNATURE-----
-
---Sig_/hmfJc680P+W=FCwCO._W9.J--
+						-Bill
