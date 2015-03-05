@@ -1,77 +1,93 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [ovs-dev] OVS Offload Decision Proposal
-Date: Thu, 05 Mar 2015 06:52:14 -0800
-Message-ID: <54F86D9E.7000200@gmail.com>
-References: <54F7B76E.4040902@gmail.com> <20150305.000015.1427044514000703740.davem@davemloft.net> <CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com> <20150305.014257.974664546228241067.davem@davemloft.net> <54F80815.5030208@gmail.com> <54F84E21.7030207@mojatatu.com> <54F8572B.4020309@mojatatu.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Thu, 05 Mar 2015 06:55:07 -0800
+Message-ID: <54F86E4B.9040403@cumulusnetworks.com>
+References: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bArwsNUdtNM25Zm=ZccrmVqC8e45E6qsjMdO3s0FrOVog@mail.gmail.com> <54F6C788.2010201@cumulusnetworks.com> <20150305080218.GB2033@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	davidch@broadcom.com, simon.horman@netronome.com,
-	dev@openvswitch.org, netdev@vger.kernel.org, pablo@netfilter.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:35054 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966AbbCEOwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 09:52:30 -0500
-Received: by obbgq1 with SMTP id gq1so14273523obb.2
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 06:52:30 -0800 (PST)
-In-Reply-To: <54F8572B.4020309@mojatatu.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:38516 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752360AbbCEOzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 09:55:24 -0500
+Received: by pabrd3 with SMTP id rd3so19218034pab.5
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 06:55:23 -0800 (PST)
+In-Reply-To: <20150305080218.GB2033@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2015 05:16 AM, Jamal Hadi Salim wrote:
-> On 03/05/15 07:37, Jamal Hadi Salim wrote:
->> On 03/05/15 02:39, John Fastabend wrote:
->
->> Would kernel boot/module options passed to the driver not suffice?
->> That implies a central authority that decides what these table size
->> slicing looks like.
+On 3/5/15, 12:02 AM, Jiri Pirko wrote:
+> Wed, Mar 04, 2015 at 09:51:20AM CET, roopa@cumulusnetworks.com wrote:
+>> On 3/3/15, 11:02 PM, Scott Feldman wrote:
+>>> On Tue, Mar 3, 2015 at 4:15 PM,  <roopa@cumulusnetworks.com> wrote:
+>>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>>
+>>>> With the recent addition of the NETIF_F_HW_SWITCH_OFFLOAD flag
+>>>> on rocker ports, the second command (bridge link set) below will turn off
+>>>> learning in the rocker hw (Scott/Jiri, need some confirmation from
+>>>> you that this is indeed a problem and if the below patch is ok).
+>>>>
+>>>> ip link set dev swp1 master br0
+>>>> bridge link set dev swp1 learning off master
+>>>> bridge link set dev swp1 learning_sync on self
+>>>>
+>>>> This patch fixes rocker to ignore learning setting when 'master'
+>>>> is set. This makes it possible to set/unset learning in kernel and bridge
+>>>> driver independently.
+>>>>
+>>>> The below command will continue to set learning on in both kernel and rocker
+>>>> hw:
+>>>> bridge link set dev swp1 learning on
+>>>>
+>>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>> ---
+>>>>   drivers/net/ethernet/rocker/rocker.c |    3 +++
+>>>>   1 file changed, 3 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>>>> index e5a15a4..d7c31d2 100644
+>>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>>> @@ -3769,6 +3769,9 @@ static int rocker_port_bridge_setlink(struct net_device *dev,
+>>>>          struct nlattr *attr;
+>>>>          int err;
+>>>>
+>>>> +       if (flags && !(flags & BRIDGE_FLAGS_SELF))
+>>>> +               return 0;
+>>>> +
+>>>>          protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+>>>>                                     IFLA_PROTINFO);
+>>>>          if (protinfo) {
+>>> NACK on this patch.  This is the problem with netlink creeping into
+>>> ndo ops: it's too tempting to push work-arounds down to driver.
+>> netlink has already crept into the driver. You do parse the netlink message
+>> right below.
+>> The patch actually does not touch the message. It is just using one of the
+>> args already passed to the handler.
 >>
-
-The problem with boot/module options is they are really difficult to
-manage from a controller agent. And yes in most cases I am working on
-there is central authority that "knows" how to map the network policy
-onto a set of table size slices. At least in my space I don't believe
-people are logging into systems and using the CLI except for debugging
-and experimenting.
-
->>> Once the reservation of resources occurs we wouldn't let user space
->>> arbitrarily write to any table but only tables that have been
->>> explicitly reserved for user space to write to.
+>>> In this case, you're making the driver check to see if it's SELF when
+>>> it's already SELF by definition.
+>>>
+>>> Rocker setlink wasn't broken prior to the NETIF_F_HW_SWITCH_OFFLOAD
+>>> patches.
+>>>   Now it is,
+>> sure, I can submit a patch to remove the flag on rocker ports if thats what
+>> you prefer.
+> I don't believe that Scott prefers that. The offload flag is there not
+> only for this case, but also for many future switch offloading cases.
+I very well understand that.
+> Rocker port have to have that port set by default. I do not really
+> understand why you suggest removing it...
 >
-> Seems i misread what you are saying.
-> I thought you wanted to just create the tables from user space
-> directly; however, rereading the above:
-> you are actually  asking *to write* to these tables directly from user
-> space ;->
->
->
-
-Actually I was proposing both. But I can see a workaround for the set
-rule or *to write* by mapping a new xflow classifier onto my hardware.
-Not ideal for my work but I guess it might be possible.
-
-The 'create' table from user space though I don't see any good work
-around for. You need this in order to provide some guidance to the
-driver otherwise we have to try and "guess" what the table size slicing
-should look like and this can create rather large variations in how
-many rules fit in the table think 100 - 100k difference. Also at least
-on the hardware I have this is not dynamic I can't start adding rules
-to a table and then do a resizing later without disrupting the traffic.
-It would be interesting for folks working on other switch devices to
-chime in.
-
-Also just to the point out even in the 'set' case we wouldn't let
-arbitrary 'set rule' writes hit the hardware we would verify the rule
-set is for a table that is pre-defined for it and that the rule itself
-is well-formed. In that sense the xflow classifier path is not
-particularly different.
-
-cheers,
-> jamal
-
-
--- 
-John Fastabend         Intel Corporation
+I was just making sure scott is on board with the use of the flag.
+I added it on rocker ports for l2 and learning might be broken because 
+of that. Which i am trying to fix.
+also, scotts l3 patches dont seem to use the flag.
+So, if the patch in this thread is not the right way to fix it..,.i was 
+just trying to give scott an option to remove the flag to keep l2 
+working and for him to bring back the flag when he is ready.
