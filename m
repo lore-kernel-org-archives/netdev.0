@@ -1,71 +1,135 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 0/6] net: Call skb_get_hash in qdiscs
-Date: Thu, 5 Mar 2015 09:19:01 -0800
-Message-ID: <CA+mtBx-2pjHmi4B0bo+oCQfMGWn7k26qvYUvNNwSLTZaK8YTwg@mail.gmail.com>
-References: <1425494404-24114-1-git-send-email-therbert@google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAF571E@AcuExch.aculab.com>
+From: B Viswanath <marichika4@gmail.com>
+Subject: Re: [ovs-dev] OVS Offload Decision Proposal
+Date: Thu, 5 Mar 2015 23:15:10 +0530
+Message-ID: <CAN+pFw+LDAiebOzFF+DD81vJp7y0OfVg=5BE0m47B2ZUp6zpeQ@mail.gmail.com>
+References: <54F7B76E.4040902@gmail.com>
+	<20150305.000015.1427044514000703740.davem@davemloft.net>
+	<CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com>
+	<20150305.014257.974664546228241067.davem@davemloft.net>
+	<54F80815.5030208@gmail.com>
+	<54F84E21.7030207@mojatatu.com>
+	<54F8572B.4020309@mojatatu.com>
+	<54F86D9E.7000200@gmail.com>
+	<CAN+pFwJ6XoCghw9uHb5UA88o8zoXqGNhEnVHPQWrOV1p=O-15Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	davidch@broadcom.com, simon.horman@netronome.com,
+	dev@openvswitch.org,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"fw@strlen.de" <fw@strlen.de>
-To: David Laight <David.Laight@aculab.com>
+	pablo@netfilter.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:43123 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751256AbbCERTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 12:19:03 -0500
-Received: by igbhn18 with SMTP id hn18so47735053igb.2
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 09:19:02 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAF571E@AcuExch.aculab.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33245 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751786AbbCERpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 12:45:12 -0500
+Received: by padet14 with SMTP id et14so47749266pad.0
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 09:45:11 -0800 (PST)
+In-Reply-To: <CAN+pFwJ6XoCghw9uHb5UA88o8zoXqGNhEnVHPQWrOV1p=O-15Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 5, 2015 at 3:13 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Tom Herbert
-> ...
->> - The probability that two different flows randomly match to the same
->>   hash from skb_get_hash is 1/2^32. If such a collision were to happen,
->>   then the flows potentially also map to the same qdisc queue in
->>   perpetuity despite perturbation being performed. Given the very low
->>   probability of this occurring, this may in practice only be an
->>   academic issue. If it is a real concern, rekeying of the underlying
->>   mechanisms of skb->hash could be done.
-> ...
+On 5 March 2015 at 22:03, B Viswanath <marichika4@gmail.com> wrote:
+> On 5 March 2015 at 20:22, John Fastabend <john.fastabend@gmail.com> wrote:
+>> On 03/05/2015 05:16 AM, Jamal Hadi Salim wrote:
+>>>
+> <snip>
+>>>>> Once the reservation of resources occurs we wouldn't let user space
+>>>>> arbitrarily write to any table but only tables that have been
+>>>>> explicitly reserved for user space to write to.
+>>>
+>>>
+>>> Seems i misread what you are saying.
+>>> I thought you wanted to just create the tables from user space
+>>> directly; however, rereading the above:
+>>> you are actually  asking *to write* to these tables directly from user
+>>> space ;->
+>>>
+>>>
+>>
+>> Actually I was proposing both. But I can see a workaround for the set
+>> rule or *to write* by mapping a new xflow classifier onto my hardware.
+>> Not ideal for my work but I guess it might be possible.
+>>
+>> The 'create' table from user space though I don't see any good work
+>> around for. You need this in order to provide some guidance to the
+>> driver otherwise we have to try and "guess" what the table size slicing
+>> should look like and this can create rather large variations in how
+>> many rules fit in the table think 100 - 100k difference. Also at least
+>> on the hardware I have this is not dynamic I can't start adding rules
+>> to a table and then do a resizing later without disrupting the traffic.
+>> It would be interesting for folks working on other switch devices to
+>> chime in.
 >
-> The probability of a collision is much higher than that.
-> With 10000 flows it is (if my 'ballpark maths' is right) nearer 1/100.
+> Some of these abstractions are a little tough to map into for me.
+> Probably I need more reading.  But it is very interesting to follow
+> the central resource manager notion. The question being asked is where
+> this will be, user space or kernel space.
 >
-
-Probably a little closer to 1/50. But this is the best case scenario
-that assumes a completely random input. In reality the input could be
-heavily biased substantially increasing collisions. Consider if
-we're in the forwarding path for two NVEs tunneling using VXLAN.
-Encapsulated flows will differ in flow_keys only in source port with
-14 bits of entropy. Now with 100 flows collision probability is 1/25,
-at at 1000 flows you're pretty much guaranteed collisions. In such a
-scenario, any amount of perturbation, re-keying of hashes, even
-switching to more fancy hash algorithms doesn't help-- the root
-problem is that the input domain does not contain sufficient entropy.
-
-This is not just a performance issue, this is an obvious security
-issue. It's fairly easy to DOS 5-tuples at will by spoofing packets
-with different 5-tuples. This is absolutely trivial with IPv6. Given
-we want to DOS a TCP connection with four tuple <S,D,s,d> and source
-address is of form w::x:y, we can just change to the source address to
-be w::x^J:y:^J and copy rest of the four-tuple. For any J this creates
-same src value in flow_keys as w::x:y, hence always the same hash.
-There are similar ways to spoof 4-tuple with IPv4 tunnels like the
-VXLAN case above.
-
-So if we want to fix this, we need to address the limited information
-used in flow_keys. 1) flow_keys needs more information such as full
-IPv6 address, VLAN, GRE keyid, and flow label. 2) We need a hash
-function that can take more bits of flow_kesy as input to avoid the
-aliasing problems like we see with the IPv6 case. This is where I am
-going with these patches.
-
-Tom
->         David
+> The drivers (and the SDKs) I have worked upon provided a simple add
+> rule , delete rule notion. They have hidden away the complexity of how
+> it is managing stuff inside. They do tend to be complicated. For
+> example, the simple question of how many rules can be supported inside
+> a chip, doesn't have a single answer. It depends on how deep the
+> packets need to be looked into, how many tags the packets are expected
+> to be supported, ipv6, tunnels, tunnels inside tunnels and many other
+> factors. Depending on the chip, some of the standard operations (such
+> as vlans) are managed via rules, and some chips support them natively.
+> This knowledge tends to be chip specific and very likely varies from
+> chip to chip and manufacturer to manufacturer.
 >
+> Given this, the place the 'resources (rules)' need to be managed
+> should be close to the chip, the driver. Kernel ? May be. It needs to
+> define lot of 'generic' interfaces and manage in a single place. User
+> space ? I don't think it can do it, not for the chips I am aware of.
+> Note that by 'user space', I  mean close to user and not an SDK
+> running in user space.
+
+I would like to mention couple of real world issues I faced in a
+previous life, with some of  the switch chips, to support my argument
+about where the rules must be managed.
+
+1. One of the chips required that I install three rules to just have a
+simple packet classification into a vlan, based on Source MAC. Two
+rules out of these three are work-around rules to avoid a bug on the
+silicon.  One of the work around rules is needed to be installed only
+for the first mac-to-vlan classification rule . In other words, if a
+mac-to-vlan classification rule is already installed, I need to
+install just two rules.
+
+2. Some chips can detect voice traffic, and automatically classify
+such traffic into a vlan. So no rules are necessary for voice-vlans.
+For some chips, a list of the OUI of the VOIP phones to be supported
+is configured as a set of rules for matching incoming packets.
+
+So, for a seemingly simple operation, the number of rules that will be
+exhausted out of the available set will vary depending on the chip. It
+gets very difficult to manage this rule set as we move away from the
+driver. Only the driver knows all the needed work-arounds to make
+something happen.
+
+Vissu
+
+>
+>
+>>
+>> Also just to the point out even in the 'set' case we wouldn't let
+>> arbitrary 'set rule' writes hit the hardware we would verify the rule
+>> set is for a table that is pre-defined for it and that the rule itself
+>> is well-formed. In that sense the xflow classifier path is not
+>> particularly different.
+>>
+>> cheers,
+>>>
+>>> jamal
+>>
+>>
+>>
+>> --
+>> John Fastabend         Intel Corporation
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
