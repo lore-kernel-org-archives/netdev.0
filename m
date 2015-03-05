@@ -1,60 +1,68 @@
 From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: Re: [PATCH v5 2/4] gpiolib: add gpiod_get_array and gpiod_put_array functions
-Date: Thu, 05 Mar 2015 12:52:43 +0100
-Message-ID: <9200350.WRsxatTQK5@pcimr>
-References: <3417970.NJsESPLFsD@pcimr> <CACRpkdZS5N62zoD-zPeYM3KOJp1zUWE8yUGXTpZ4msoAXgVj9Q@mail.gmail.com>
+Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Thu, 05 Mar 2015 12:57:56 +0100
+Message-ID: <5728340.kX3ri7Iz4s@pcimr>
+References: <1521782.cXqN30N6pA@pcimr> <7922544.OK5CjAi0mG@pcimr> <CACRpkdaU7cK1LNdhDMBnir0WX92JnT=s6BV-jidNH3i-Ty6HgQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
+Cc: Alexandre Courbot <gnurou@gmail.com>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
 	Alexandre Courbot <acourbot@nvidia.com>,
 	Mika Westerberg <mika.westerberg@linux.intel.com>,
 	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
 	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	netdev <netdev@vger.kernel.org>
 To: Linus Walleij <linus.walleij@linaro.org>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <CACRpkdZS5N62zoD-zPeYM3KOJp1zUWE8yUGXTpZ4msoAXgVj9Q@mail.gmail.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:41331 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932320AbbCEL6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 06:58:00 -0500
+In-Reply-To: <CACRpkdaU7cK1LNdhDMBnir0WX92JnT=s6BV-jidNH3i-Ty6HgQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 05 March 2015 09:55:09 Linus Walleij wrote:
-> On Wed, Feb 11, 2015 at 5:27 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+On Thursday 05 March 2015 10:04:20 Linus Walleij wrote:
+> On Wed, Mar 4, 2015 at 3:33 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
 > 
-> > Introduce new functions for conveniently obtaining and disposing of an entire
-> > array of GPIOs with one function call.
+> > And the interface as proposed in this series is very convenient for obtaining
+> > all the GPIOs belonging to a group with a single function call and without
+> > having to know the number of GPIOs within the group beforehand.
 > >
-> > Suggested-by: Alexandre Courbot <acourbot@nvidia.com>
-> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
-> > Reviewed-by: Alexandre Courbot <acourbot@nvidia.com>
+> > So if we want to support different use cases, I think it's quite good as it is.
+> > People who want to set a group of GPIOs as obtained by gpiod_get_array() can
+> > do so with a single call to gpiod_set_array(), the only overhead being that
+> > they have to specify the two elements of struct gpiod_descs explicitly.
+> > Likewise people who want to set a group of GPIOs obtained with a combination
+> > of calls to gpiod_get_array() and gpiod_get() can do so too. They just have
+> > to create that group first.
 > >
-> > ACPI part:
-> > Reviewed-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> > Tested-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+> > On the other hand if gpiod_set_array() would require a struct gpiod_descs as
+> > argument the creation of a group for the second use case would become more
+> > complicated as you would have to allocate a struct instead of an array, etc.
 > >
-> > DT part:
-> > Tested-by: Rojhalat Ibrahim <imr@rtschenk.de>
-> > ---
-> > Change log:
-> >   v5: move the ACPI functions to gpiolib-acpi.c
-> >   v4: - use shorter names for members of struct gpio_descs
-> >       - rename lut_gpio_count to platform_gpio_count for clarity
-> >       - add check for successful memory allocation
-> >       - use ERR_CAST()
-> >   v3: - rebase on current linux-gpio devel branch
-> >       - fix ACPI GPIO counting
-> >       - allow for zero-sized arrays
-> >       - make the flags argument mandatory for the new functions
-> >       - clarify documentation
-> >   v2: change interface
+> > So let's just keep it the way it is and get this series merged.
 > 
-> Patch applied with some fuzzing, check that it ended up correctly
-> in my git (or linux-next).
+> I've merged it.
 > 
-
-Looks good to me.
 
 Thanks.
-   Rojhalat
 
+> But can you make a separate patch to Documentation/gpio/consumer.txt
+> describing the array usecase(s) a bit in detail so people realize when it's
+> good to use these functions?
+> 
+
+Sure.
+
+> > About the confusing function names: I would be happy to submit a patch
+> > renaming gpiod_set_array() to gpiod_set_array_value(), once this has been
+> > merged. I'm a little concerned about the length of some function names though.
+> > Isn't gpiod_set_raw_array_value_cansleep() a bit long?
+> 
+> Just patch it and we'll discuss it... :)
+> 
+
+Ok. I'll submit a patch after you've merged patch 4/4 in this series in order
+to avoid conflicts.
