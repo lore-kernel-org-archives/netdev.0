@@ -1,68 +1,70 @@
-From: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 0/3] net: macb: rework at91 specific handling
-Date: Thu, 5 Mar 2015 20:42:58 +0100
-Message-ID: <20150305194258.GX3989@piout.net>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: Re: [PATCH 3/3] net: macb: remove #if defined(CONFIG_ARCH_AT91)
+ sections
+Date: Thu, 5 Mar 2015 20:44:18 +0100
+Message-ID: <20150305194418.GY3989@piout.net>
 References: <1425572842-6084-1-git-send-email-boris.brezillon@free-electrons.com>
+ <1425572842-6084-4-git-send-email-boris.brezillon@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Boris Brezillon <boris.brezillon@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1425572842-6084-1-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1425572842-6084-4-git-send-email-boris.brezillon@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/03/2015 at 17:27:19 +0100, Boris Brezillon wrote :
-> Hello,
-> 
-> This removes the #if defined(ARCH_AT91) sections to prevent any problem
-> when enabling ARM multi-platform support.
-> The at91 specific logic is now activated when the "at91sam9260-macb"
-> compatible string is found. 
-> 
+On 05/03/2015 at 17:27:22 +0100, Boris Brezillon wrote :
+> @@ -2388,21 +2392,20 @@ static int macb_probe(struct platform_device *pdev)
+>  		bp->phy_interface = err;
+>  	}
+>  
+> +	config = 0;
+>  	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
+> -		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
+> -	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
+> -#if defined(CONFIG_ARCH_AT91)
+> -		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
+> -					       MACB_BIT(CLKEN)));
+> -#else
+> -		macb_or_gem_writel(bp, USRIO, 0);
+> -#endif
+> -	else
+> -#if defined(CONFIG_ARCH_AT91)
+> -		macb_or_gem_writel(bp, USRIO, MACB_BIT(CLKEN));
+> -#else
+> -		macb_or_gem_writel(bp, USRIO, MACB_BIT(MII));
+> -#endif
+> +		config = GEM_BIT(RGMII);
+> +	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
+> +		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> +		config = MACB_BIT(RMII);
+> +	else if (bp->phy_interface == PHY_INTERFACE_MODE_MII &&
 
-A small nit in patch 3 but I'm fine with the series
+I'm not sure you should check for PHY_INTERFACE_MODE_MII here as this
+may change the previous behaviour.
 
-Reviewed-by: Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-
-> Best Regards,
-> 
-> Boris
-> 
-> Boris Brezillon (3):
->   net/macb: Update DT bindings documentation
->   ARM: at91/dt: fix macb compatible strings
->   net: macb: remove #if defined(CONFIG_ARCH_AT91) sections
-> 
->  Documentation/devicetree/bindings/net/macb.txt |  5 +++-
->  arch/arm/boot/dts/at91sam9260.dtsi             |  2 +-
->  arch/arm/boot/dts/at91sam9263.dtsi             |  2 +-
->  arch/arm/boot/dts/at91sam9g45.dtsi             |  2 +-
->  arch/arm/boot/dts/at91sam9x5_macb0.dtsi        |  2 +-
->  arch/arm/boot/dts/at91sam9x5_macb1.dtsi        |  2 +-
->  arch/arm/boot/dts/sama5d3_emac.dtsi            |  2 +-
->  drivers/net/ethernet/cadence/macb.c            | 33 ++++++++++++++------------
->  drivers/net/ethernet/cadence/macb.h            |  2 ++
->  9 files changed, 30 insertions(+), 22 deletions(-)
-> 
-> -- 
-> 1.9.1
-> 
+> +		 !(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> +		config = MACB_BIT(MII);
+> +
+> +	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+> +		config |= MACB_BIT(CLKEN);
+> +
+> +	macb_or_gem_writel(bp, USRIO, config);
+>  
+>  	err = register_netdev(dev);
+>  	if (err) {
 
 -- 
 Alexandre Belloni, Free Electrons
 Embedded Linux, Kernel and Android engineering
 http://free-electrons.com
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
