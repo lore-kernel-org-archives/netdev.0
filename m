@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] bnx2x: Force fundamental reset for EEH recovery
-Date: Thu, 05 Mar 2015 15:38:49 -0500 (EST)
-Message-ID: <20150305.153849.1655091847908709969.davem@davemloft.net>
-References: <201503041410.t24EAAix006027@d03av03.boulder.ibm.com>
+Subject: Re: [PATCH] net: eth: xgene: fix booting with devicetree
+Date: Thu, 05 Mar 2015 15:40:28 -0500 (EST)
+Message-ID: <20150305.154028.1720279992189151467.davem@davemloft.net>
+References: <1425487917-19040-1-git-send-email-msalter@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
-	cascardo@linux.vnet.ibm.com, stable@vger.kernel.org
-To: brking@linux.vnet.ibm.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <201503041410.t24EAAix006027@d03av03.boulder.ibm.com>
-Sender: stable-owner@vger.kernel.org
+Cc: fkan@apm.com, isubramanian@apm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: msalter@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425487917-19040-1-git-send-email-msalter@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brian King <brking@linux.vnet.ibm.com>
-Date: Wed, 04 Mar 2015 08:09:44 -0600
+From: Mark Salter <msalter@redhat.com>
+Date: Wed,  4 Mar 2015 11:51:57 -0500
 
-> EEH recovery for bnx2x based adapters is not reliable on all Power
-> systems using the default hot reset, which can result in an
-> unrecoverable EEH error. Forcing the use of fundamental reset
-> during EEH recovery fixes this.
+> Commit de7b5b3d790a ("net: eth: xgene: change APM X-Gene SoC platform
+> ethernet to support ACPI") breaks booting with devicetree with UEFI
+> firmware. In that case, I get:
+ ...
+> The problem here is that the enet hw clocks are not getting
+> initialized because of a test to avoid the initialization if
+> UEFI is used to boot. This is an incorrect test. When booting
+> with UEFI and devicetree, the kernel must still initialize
+> the enet hw clocks. If booting with ACPI, the clock hw is
+> not exposed to the kernel and it is that case where we want
+> to avoid initializing clocks.
 > 
-> Cc: stable<stable@vger.kernel.org>
-> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+> Signed-off-by: Mark Salter <msalter@redhat.com>
 
-Applied, thanks Brian.
+Applied, thanks Mark.
