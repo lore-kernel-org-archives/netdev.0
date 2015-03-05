@@ -1,53 +1,85 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [Fwd: Re: [PATCH -next] net: i40e: fix build, depends on
- CONFIGFS_FS]
-Date: Thu, 5 Mar 2015 05:49:19 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789282CB7@ORSMSX108.amr.corp.intel.com>
-References: <1425413366.2556.76.camel@jtkirshe-mobl>
-	<C5551D9AAB213A418B7FD5E4A6F30A0789282B02@ORSMSX108.amr.corp.intel.com>
- <20150304.235848.1415311271924658171.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: David Miller <davem@davemloft.net>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next v2] bonding: implement bond_poll_controller()
+Date: Wed,  4 Mar 2015 21:57:52 -0800
+Message-ID: <1425535072-23068-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:36301 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752067AbbCEFtY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 00:49:24 -0500
-In-Reply-To: <20150304.235848.1415311271924658171.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:52936 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbbCEF54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 00:57:56 -0500
+Received: by mail-qa0-f74.google.com with SMTP id w8so7072517qac.1
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 21:57:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, March 04, 2015 8:59 PM
-> To: Rose, Gregory V
-> Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org; Brandeburg, Jesse; Nelson,
-> Shannon; Ronciak, John
-> Subject: Re: [Fwd: Re: [PATCH -next] net: i40e: fix build, depends on
-> CONFIGFS_FS]
-> 
-> From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-> Date: Thu, 5 Mar 2015 00:34:05 +0000
-> 
-> > Dell will be the only vendor selling systems with Ethernet NICs that
-> > support this feature.  Dell will be providing documentation to their
-> > users about how to use configfs for configuration of this feature.
-> > Dell will be taking the customer calls that result from any issues
-> > that arise.
-> 
-> And if they use non-INTEL NICs that provide this feature, oh well we
-> duplicate this bastardized configfs turd into those driver too, right?
-> 
-> Not acceptable.
+This patches implements the poll_controller support for all
+bonding driver. If the slaves have poll_controller net_op defined,
+this implementation calls them. This is mode agnostic implementation
+and iterates through all slaves (based on mode) and calls respective
+handler.
 
-I'll work with Jeff to remove the offending code.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+v1:
+  Initial patch
+v2:
+  Corrected rcu mismatch.
 
-- Greg
+ drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index af5908a2190c..19eabea2d7d9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slave *slave)
+ 
+ static void bond_poll_controller(struct net_device *bond_dev)
+ {
++	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave = NULL;
++	struct list_head *iter;
++	struct ad_info ad_info;
++	struct netpoll_info *ni;
++	const struct net_device_ops *ops;
++
++	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++		if (bond_3ad_get_active_agg_info(bond, &ad_info))
++			return;
++
++	rcu_read_lock_bh();
++	bond_for_each_slave_rcu(bond, slave, iter) {
++		ops = slave->dev->netdev_ops;
++		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
++			continue;
++
++		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
++			struct aggregator *agg =
++			    SLAVE_AD_INFO(slave)->port.aggregator;
++
++			if (agg &&
++			    agg->aggregator_identifier != ad_info.aggregator_id)
++				continue;
++		}
++
++		ni = rcu_dereference_bh(slave->dev->npinfo);
++		if (down_trylock(&ni->dev_lock))
++			continue;
++		ops->ndo_poll_controller(slave->dev);
++		up(&ni->dev_lock);
++	}
++	rcu_read_unlock_bh();
+ }
+ 
+ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+-- 
+2.2.0.rc0.207.ga3a616c
