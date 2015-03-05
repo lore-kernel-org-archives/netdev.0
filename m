@@ -1,76 +1,136 @@
-From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: OVS Offload Decision Proposal
-Date: Wed, 04 Mar 2015 17:54:54 -0800
-Message-ID: <54F7B76E.4040902@gmail.com>
-References: <20150304011817.GA29502@vergenet.net>
- <CA+mtBx9U-HUXcfk+oOuNRwpKq74WXmbkWvQDrYURCavfWZjQaQ@mail.gmail.com>
- <3A5015FE9E557D448AF7238AF0ACE20A2D8AE08A@IRVEXCHMB11.corp.ad.broadcom.com>
+Date: Wed, 04 Mar 2015 17:58:08 -0800
+Message-ID: <54F7B830.3060603@gmail.com>
+References: <20150304011817.GA29502@vergenet.net> <CA+mtBx9U-HUXcfk+oOuNRwpKq74WXmbkWvQDrYURCavfWZjQaQ@mail.gmail.com> <54F75802.90705@gmail.com> <CA+mtBx-WYTo7tzvNKPYhBHkrPo8_W795+6tAMqVySLsMBqeRdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: David Christensen <davidch-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <3A5015FE9E557D448AF7238AF0ACE20A2D8AE08A-Wwdb2uEOBX+nNEFK5l6JbL1+IgudQmzARxWJa1zDYLQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <simon.horman@netronome.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>, tgraf <tgraf@suug.ch>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:43339 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753903AbbCEB6V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 20:58:21 -0500
+Received: by obcvb8 with SMTP id vb8so7071911obc.10
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 17:58:21 -0800 (PST)
+In-Reply-To: <CA+mtBx-WYTo7tzvNKPYhBHkrPo8_W795+6tAMqVySLsMBqeRdQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDMvMDQvMjAxNSAwNDowNCBQTSwgRGF2aWQgQ2hyaXN0ZW5zZW4gd3JvdGU6Cj4+PiBUaGF0
-IHNhaWQsIG15IHdvcmtpbmcgYXNzdW1wdGlvbnMgYXJlOgo+Pj4KPj4+ICogVGhhdCBPcGVuIHZT
-d2l0Y2ggbWF5IG1hbmFnZSBmbG93IG9mZmxvYWRzIGZyb20gdXNlci1zcGFjZS4gVGhpcyBpcyBh
-cwo+Pj4gICAgb3Bwb3NlZCB0byB0aGVtIGJlaW5nIHRyYW5zcGFyZW50bHkgaGFuZGxlZCBpbiB0
-aGUgZGF0YXBhdGguIFRoaXMgZG9lcwo+Pj4gICAgbm90IHByZWNsdWRlIHRoZSBleGlzdGVuY2Ug
-b2YgdHJhbnNwYXJlbnQgb2ZmbG9hZGluZyBpbiB0aGUgZGF0YXBhdGguCj4+PiAgICBCdXQgcmF0
-aGVyIGxpbWl0cyB0aGlzIGRpc2N1c3Npb24gdG8gYSBtb2RlIHdoZXJlIG9mZmxvYWRzIGFyZSBt
-YW5hZ2VkCj4+PiAgICBmcm9tIHVzZXItc3BhY2UuCj4+Pgo+Pj4gKiBUaGF0IE9wZW4gdlN3aXRj
-aCBtYXkgYWRkIGZsb3dzIHRvIGhhcmR3YXJlIHZpYSBhbiBBUEkgcHJvdmlkZWQgYnkgdGhlCj4+
-PiAgICBrZXJuZWwuIEluIHBhcnRpY3VsYXIgbXkgd29ya2luZyBhc3N1bXB0aW9uIGlzIHRoYXQg
-dGhlIEZsb3cgQVBJCj4+IHByb3Bvc2VkCj4+PiAgICBieSBKb2huIEZhc3RhYmVuZFszXSBtYXkg
-YmUgdXNlZCB0byBhZGQgZmxvd3MgdG8gaGFyZHdhcmUuIFdoaWxlIHRoZQo+Pj4gICAgZXhpc3Rp
-bmcgbmV0bGluayBBUEkgbWF5IGJlIHVzZWQgdG8gYWRkIGZsb3dzIHRvIHRoZSBrZXJuZWwgZGF0
-YXBhdGguCj4+Pgo+PiBEb2Vzbid0IHRoaXMgaW1wbHkgdHdvIGVudGl0aWVzIHRvIGJlIGluZGVw
-ZW5kZW50bHkgbWFuYWdpbmcgdGhlIHNhbWUKPj4gcGh5c2ljYWwgcmVzb3VyY2U/IElmIHNvLCB0
-aGlzIHJhaXNlcyBxdWVzdGlvbnMgb2YgaG93IHRoZSByZXNvdXJjZQo+PiB3b3VsZCBiZSBwYXJ0
-aXRpb25lZCBiZXR3ZWVuIHRoZW0/IEhvdyBhcmUgY29uZmxpY3RpbmcgcmVxdWVzdHMKPj4gYmV0
-d2VlbiB0aGUgdHdvIHJlY3RpZmllZD8KPgo+IFRoZSBjb25zZW5zdXMgYXQgTmV0ZGV2IHdhcyB0
-aGF0ICJzZXQiIG9wZXJhdGlvbnMgd291bGQgYmUgcmVtb3ZlZCBmcm9tCj4gZmxvdyBBUEkgdG8g
-bGltaXQgaGFyZHdhcmUgbWFuYWdlbWVudCB0byB0aGUga2VybmVsIG9ubHkuICBFeGlzdGluZyAi
-Z2V0Igo+IG9wZXJhdGlvbnMgd291bGQgcmVtYWluIHNvIHVzZXIgc3BhY2UgaXMgYXdhcmUgb2Yg
-dGhlIGRldmljZSBjYXBhYmlsaXRpZXMuCj4KPiBEYXZlCgpJIHRoaW5rIGEgc2V0IG9wZXJhdGlv
-biBfaXNfIG5lY2Vzc2FyeSBmb3IgT1ZTIGFuZCBvdGhlciBhcHBsaWNhdGlvbnMKdGhhdCBydW4g
-aW4gdXNlciBzcGFjZS4gVGhlIG1vcmUgSSB3b3JrIHdpdGggdGhpcyB0aGUgY2xlYXJlciBpdCBp
-cwp0aGF0IHRoaXMgaXMgbmVlZGVkIGZvciBhIGNsYXNzIG9mIGFwcGxpY2F0aW9ucy9jb250cm9s
-bGVycyB0aGF0IHdhbnQKdG8gd29yayBvbiBhIHJpY2hlciBzZXQgb2YgdGhlIHBpcGVsaW5lIGZv
-ciBvcHRpbWl6YXRpb24gcmVhc29ucy4gRm9yCmV4YW1wbGUgT1ZTIGRvZXNuJ3Qgd2FudCB0byBx
-dWVyeS9zZXQgb24gYSBzaW5nbGUgdGFibGUgb2YgdGhlIHBpcGVsaW5lCmJ1dCBwb3NzaWJseSBt
-dWx0aXBsZSB0YWJsZXMgYW5kIGl0IG5lZWRzIHRvIGtub3cgdGhlIGxheW91dC4gTm93CmlmIHlv
-dSB3YW50IHRvIG1ha2UgdGhhdCBzZXQgb3BlcmF0aW9uIGxvb2sgbGlrZSBhICd0YycgY29tbWFu
-ZCBvciAnbmZ0Jwpjb21tYW5kIEkgdGhpbmsgd2UgY2FuIGRlYmF0ZSB0aGF0LiBBbHRob3VnaCBJ
-J20gaW4gZmF2b3VyIG9mIGtlZXBpbmcKdGhlIGV4aXN0aW5nIGZsb3cgYXBpIHdpdGggdGhlICdz
-ZXQnIGNvbW1hbmQgZm9yIHRoZSBjbGFzcyBvZgphcHBsaWNhdGlvbnMgdGhhdCB3YW50IHRvIHVz
-ZSBpdC4gVGhlIHNldCBvcGVyYXRpb24gYXMgaXQgZXhpc3RzIG5vdwppcyBpZGVhbCBmb3IgdGhl
-IGhhcmR3YXJlIGNhc2UgJ25mdCcgd2lsbCByZXF1aXJlIGEgdHJhbnNsYXRpb24gc3RlcC4KJ3Rj
-JyBpcyBhY3R1YWxseSBhIGJpdCBjbG9zZXIgSU1PIGJ1dCBJJ20gbm90IHN1cmUgJ3RjJyBhcHBs
-aWNhdGlvbnMKd2FudCB0byB3b3JrIG9uIG9wdGltaXppbmcgaGFyZHdhcmUgdGFibGVzLgoKV2Ug
-bmVlZCB0byBzdXBwb3J0IGJvdGggbW9kZWxzLCBib3RoIHRoZSBrZXJuZWwgY29uc3VtZXIgYW5k
-IHRoZSB1c2VyCnNwYWNlIGNvbnN1bWVyLgoKV2hhdCB3YXMgd3Jvbmcgd2l0aCB0aGUgaW5pdGlh
-bCBzZXQgd2hpY2ggSSd2ZSBzdWJzZXF1ZW50bHkgcmVzb2x2ZWQgaXMKaXQgbmVlZHMgdG8gYmUg
-Y29uc3RyYWluZWQgYSBiaXQgdG8gb25seSBhbGxvdyB3ZWxsLWRlZmluZWQgYWN0aW9ucyBhbmQK
-d2VsbC1kZWZpbmVkIG1hdGNoZXMuIEFsc28gdGhlIGNvcmUgbW9kdWxlIG5lZWRzIHRvIG1hbmFn
-ZSB0aGUgaGFyZHdhcmUKcmVzb3VyY2UgYW5kIGVuc3VyZSBpdCBpcyBtYW5hZ2VkIGNvcnJlY3Rs
-eSBzbyB0aGF0IG11bHRpcGxlIGNvbnN1bWVycwpkbyBub3Qgc3RvbXAgb24gZWFjaG90aGVyLgoK
-SSd2ZSBDQydkIFBhYmxvLgoKVGhhbmtzLAouSm9obgoKLS0gCkpvaG4gRmFzdGFiZW5kICAgICAg
-ICAgSW50ZWwgQ29ycG9yYXRpb24KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
-cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+[...]
+
+>>> Doesn't this imply two entities to be independently managing the same
+>>> physical resource? If so, this raises questions of how the resource
+>>> would be partitioned between them? How are conflicting requests
+>>> between the two rectified?
+>>
+>>
+>> What two entities? The driver + flow API code I have in this case manage
+>> the physical resource.
+>>
+> OVS and non-OVS kernel. Management in this context refers to policies
+> for optimizing use of the HW resource (like which subset of flows to
+> offload for best utilization).
+>
+>> I'm guessing the conflict you are thinking about is if we want to use
+>> both L3 (or some other kernel subsystem) and OVS in the above case at
+>> the same time? Not sure if people actually do this but what I expect is
+>> the L3 sub-system should request a table from the hardware for L3
+>> routes. Then the driver/kernel can allocate a part of the hardware
+>> resources for L3 and a set for OVS.
+>>
+> I'm thinking of this as a more general problem. We've established that
+> the existing kernel mechanisms (routing, tc, qdiscs, etc) should and
+> maybe are required to work with these HW offloads. I don't think that
+> a model where we can't use offloads with OVS and kernel simultaneously
+> would fly, nor are we going to want the kernel to be dependent on OVS
+> for resource management. So at some point, these two are going to need
+> to work together somehow to share common HW resources. By this
+> reasoning,  OVS offload can't be defined in a vacuum. Strict
+> partitioning only goes so far an inevitably leads to poor resource
+> utilization. For instance, if we gave OVS and kernel each 1000 flow
+> states each to offload, but OVS has 2000 flows that are inundated and
+> kernel ones are getting any traffic then we have achieved poor
+> utilization. This problem becomes even more evident when someone adds
+> rate limiting to flows. What would it mean if both OVS and kernel
+> tried to instantiate a flow with guaranteed line rate bandwidth? It
+> seems like we need either a centralized resource manager,  or at least
+> some sort of fairly dynamic delegation mechanism for managing the
+> resource (presumably kernel is master of the resource).
+>
+> Maybe a solution to all of this has already been fleshed out, but I
+> didn't readily see this in Simon's write-up.
+
+I agree with all this and no I don't think it is all flushed out yet.
+
+I currently have something like the following although currently
+proto-typed on a user space driver I plan to move the prototype into
+the kernel rocker switch over the next couple weeks. The biggest amount
+of work left is getting a "world" into rocker that doesn't have a
+pre-defined table model and implementing constraints on the resources
+to reflect how the tables are created.
+
+Via user space tool I can call into an API to allocate tables,
+
+#./flowtl create table type flow name flow-table \
+	  matches $my_matches actions $my_actions \
+	  size 1024 source 1
+
+this allocates a flow table resource in the hardware with the identifier
+'flow-table' that can match on fields in $my_matches and provide actions
+in $my_actions. This lets the driver create an optimized table in the
+hardware that matches on just the matches and just the actions. One
+reason we need this is because if the hardware (at least the hardware I
+generally work on) tries to use wide matches it is severely limited in
+the number of entries it can support. But if you build tables that just
+match on the relevant fields we can support many more entries in the
+table.
+
+Then I have a few other 'well-defined' types to handle L3, L2.
+
+#./flowtl create table type l3-route route-table size 2048 source dflt
+
+these don't need matches/actions specifiers because it is known what
+a l3-route type table is. Similarly we can have a l2 table,
+
+#./flowtl create table type l2-fwd l2-table size 8k source dflt
+
+the 'source' field instructs the hardware where to place the table in
+the forwarding pipeline. I use 'dflt' to indicate the driver should
+place it in the "normal" spot for that type.
+
+Then the flow-api module in the kernel acts as the resource manager. If
+a "route" rule is received it maps to the l3-route table if a l2 ndo op
+is received we point it at the "l2-table" and so on. User space flowtl
+set rule commands can only be directed at tables of type 'flow'. If the
+user tries to push a flow rule into l2-table or l3-table it will be
+rejected because these are reserved for the kernel subsystems.
+
+I would expect OVS user space data plane for example to reserve a table
+or maybe multiple tables like this,
+
+#./flowtl create table type flow name ovs-table-1 \
+	matches $ovs_matches1 actions $ovs_actions1 \
+	size 1k source 1
+
+#./flowtl create table type flow name ovs-table-2 \
+	matches $ovs_matches2 actions $ovs_actoins2 \
+	size 1k source 2
+
+By manipulating the source fields you could have a table that forward
+packets to the l2/l3 tables or a "flow" table depending on some criteria
+or you could work the other way have a set of routes and if they miss
+forward to a "flow" table. Other combinations are possible as well.
+
+I hope that is helpful I'll try to do a better write-up when I post the
+code. Also it seems like a reasonable approach to me any thoughts?
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
