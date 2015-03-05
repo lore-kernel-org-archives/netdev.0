@@ -1,91 +1,76 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 7/8] mpls: Multicast route table change
- notifications
-Date: Wed, 4 Mar 2015 20:56:06 -0500
-Message-ID: <20150305015606.GD1551@gospo>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
- <87fv9tvrgq.fsf@x220.int.ebiederm.org>
- <54EEC967.20106@cumulusnetworks.com>
- <87oaogn51k.fsf@x220.int.ebiederm.org>
- <54EF37E2.1040506@cumulusnetworks.com>
+From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: OVS Offload Decision Proposal
+Date: Wed, 04 Mar 2015 17:54:54 -0800
+Message-ID: <54F7B76E.4040902@gmail.com>
+References: <20150304011817.GA29502@vergenet.net>
+ <CA+mtBx9U-HUXcfk+oOuNRwpKq74WXmbkWvQDrYURCavfWZjQaQ@mail.gmail.com>
+ <3A5015FE9E557D448AF7238AF0ACE20A2D8AE08A@IRVEXCHMB11.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org,
-	Vivek Venkatraman <vivek@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:45727 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147AbbCEB4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 20:56:11 -0500
-Received: by qcwb13 with SMTP id b13so3144070qcw.12
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 17:56:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54EF37E2.1040506@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+ Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: David Christensen <davidch-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <3A5015FE9E557D448AF7238AF0ACE20A2D8AE08A-Wwdb2uEOBX+nNEFK5l6JbL1+IgudQmzARxWJa1zDYLQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 26, 2015 at 07:12:34AM -0800, roopa wrote:
-> On 2/26/15, 6:03 AM, Eric W. Biederman wrote:
-> >roopa <roopa@cumulusnetworks.com> writes:
-> >
-> >>On 2/25/15, 9:19 AM, Eric W. Biederman wrote:
-> >>>Unlike IPv4 this code notifies on all cases where mpls routes
-> >>>are added or removed as that was the simplest to implement.
-> >>>
-> >>>In particular routes being removed because a network interface
-> >>>goes down or is removed are notified about.  Are there technical
-> >>>arguments for handling this differently ? Userspace developers
-> >>>don't particularly like the way IPv4 handles route removal
-> >>>on ifdown.
-> >>that is true. However, from previous emails on this topic on netdev,
-> >>there is no reason to notify these deletes to userspace thereby creating a
-> >>notification storm
-> >>when userspace can figure this out. Which seems like a valid reason.
-> >>(Your approach resembles IPv6 which does generate these notifications and
-> >>userspace is usually happy with this).
-> >Grr.  There is an even better way to do this.
-> >
-> >The semantically best way to handle this is to simply not use routes for
-> >forwarding where the network inteface is down, the carrier is down, or
-> >the network device has gone away for forwarding.
-> 
-> agreed, And we have an internal patch that does this for regular routing
-> on carrier down (which we will upstream soon).
-Yep, I should be able to easily forward-port it from 3.17 to net-next
-without much issue.  Eric feel free to email me directly if you want to
-see what I've got now.
-
-> >
-> >Apparently there are some multi-path scenearios that already do this
-> >legitimately, and routes going away auto-matically can cause userspace
-> >other kinds of problems.
-> >
-> >In MPLS I especially don't want to free the routing table slot until I
-> >know that the change has propagated in the network and I can be
-> >reasonably confident that no-one will send me traffic on that label.
-> >Otherwise there is a chance the label will be reused too soon.
-> ack
-> >
-> >Grumble.  That is a code change I need to make.  Grumble.
-> >
-> >I also need to look and see if those multi-path scenarios report a next
-> >hop as dead or just rely on the network interface state (which I think
-> >it is) to be sufficient information relayed to userspace
-> >
-> they are marked DEAD on ifdown today (AFAIR they dont generate a
-> notification in IPv4)  and are skipped during route lookup.
-> Only when all the nexthops in a multi-path route are dead, is the route
-> multipath route declared dead
-> and is deleted today (with no notification to userspace in the IPv4 case).
-> 
-> Thanks,
-> Roopa
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gMDMvMDQvMjAxNSAwNDowNCBQTSwgRGF2aWQgQ2hyaXN0ZW5zZW4gd3JvdGU6Cj4+PiBUaGF0
+IHNhaWQsIG15IHdvcmtpbmcgYXNzdW1wdGlvbnMgYXJlOgo+Pj4KPj4+ICogVGhhdCBPcGVuIHZT
+d2l0Y2ggbWF5IG1hbmFnZSBmbG93IG9mZmxvYWRzIGZyb20gdXNlci1zcGFjZS4gVGhpcyBpcyBh
+cwo+Pj4gICAgb3Bwb3NlZCB0byB0aGVtIGJlaW5nIHRyYW5zcGFyZW50bHkgaGFuZGxlZCBpbiB0
+aGUgZGF0YXBhdGguIFRoaXMgZG9lcwo+Pj4gICAgbm90IHByZWNsdWRlIHRoZSBleGlzdGVuY2Ug
+b2YgdHJhbnNwYXJlbnQgb2ZmbG9hZGluZyBpbiB0aGUgZGF0YXBhdGguCj4+PiAgICBCdXQgcmF0
+aGVyIGxpbWl0cyB0aGlzIGRpc2N1c3Npb24gdG8gYSBtb2RlIHdoZXJlIG9mZmxvYWRzIGFyZSBt
+YW5hZ2VkCj4+PiAgICBmcm9tIHVzZXItc3BhY2UuCj4+Pgo+Pj4gKiBUaGF0IE9wZW4gdlN3aXRj
+aCBtYXkgYWRkIGZsb3dzIHRvIGhhcmR3YXJlIHZpYSBhbiBBUEkgcHJvdmlkZWQgYnkgdGhlCj4+
+PiAgICBrZXJuZWwuIEluIHBhcnRpY3VsYXIgbXkgd29ya2luZyBhc3N1bXB0aW9uIGlzIHRoYXQg
+dGhlIEZsb3cgQVBJCj4+IHByb3Bvc2VkCj4+PiAgICBieSBKb2huIEZhc3RhYmVuZFszXSBtYXkg
+YmUgdXNlZCB0byBhZGQgZmxvd3MgdG8gaGFyZHdhcmUuIFdoaWxlIHRoZQo+Pj4gICAgZXhpc3Rp
+bmcgbmV0bGluayBBUEkgbWF5IGJlIHVzZWQgdG8gYWRkIGZsb3dzIHRvIHRoZSBrZXJuZWwgZGF0
+YXBhdGguCj4+Pgo+PiBEb2Vzbid0IHRoaXMgaW1wbHkgdHdvIGVudGl0aWVzIHRvIGJlIGluZGVw
+ZW5kZW50bHkgbWFuYWdpbmcgdGhlIHNhbWUKPj4gcGh5c2ljYWwgcmVzb3VyY2U/IElmIHNvLCB0
+aGlzIHJhaXNlcyBxdWVzdGlvbnMgb2YgaG93IHRoZSByZXNvdXJjZQo+PiB3b3VsZCBiZSBwYXJ0
+aXRpb25lZCBiZXR3ZWVuIHRoZW0/IEhvdyBhcmUgY29uZmxpY3RpbmcgcmVxdWVzdHMKPj4gYmV0
+d2VlbiB0aGUgdHdvIHJlY3RpZmllZD8KPgo+IFRoZSBjb25zZW5zdXMgYXQgTmV0ZGV2IHdhcyB0
+aGF0ICJzZXQiIG9wZXJhdGlvbnMgd291bGQgYmUgcmVtb3ZlZCBmcm9tCj4gZmxvdyBBUEkgdG8g
+bGltaXQgaGFyZHdhcmUgbWFuYWdlbWVudCB0byB0aGUga2VybmVsIG9ubHkuICBFeGlzdGluZyAi
+Z2V0Igo+IG9wZXJhdGlvbnMgd291bGQgcmVtYWluIHNvIHVzZXIgc3BhY2UgaXMgYXdhcmUgb2Yg
+dGhlIGRldmljZSBjYXBhYmlsaXRpZXMuCj4KPiBEYXZlCgpJIHRoaW5rIGEgc2V0IG9wZXJhdGlv
+biBfaXNfIG5lY2Vzc2FyeSBmb3IgT1ZTIGFuZCBvdGhlciBhcHBsaWNhdGlvbnMKdGhhdCBydW4g
+aW4gdXNlciBzcGFjZS4gVGhlIG1vcmUgSSB3b3JrIHdpdGggdGhpcyB0aGUgY2xlYXJlciBpdCBp
+cwp0aGF0IHRoaXMgaXMgbmVlZGVkIGZvciBhIGNsYXNzIG9mIGFwcGxpY2F0aW9ucy9jb250cm9s
+bGVycyB0aGF0IHdhbnQKdG8gd29yayBvbiBhIHJpY2hlciBzZXQgb2YgdGhlIHBpcGVsaW5lIGZv
+ciBvcHRpbWl6YXRpb24gcmVhc29ucy4gRm9yCmV4YW1wbGUgT1ZTIGRvZXNuJ3Qgd2FudCB0byBx
+dWVyeS9zZXQgb24gYSBzaW5nbGUgdGFibGUgb2YgdGhlIHBpcGVsaW5lCmJ1dCBwb3NzaWJseSBt
+dWx0aXBsZSB0YWJsZXMgYW5kIGl0IG5lZWRzIHRvIGtub3cgdGhlIGxheW91dC4gTm93CmlmIHlv
+dSB3YW50IHRvIG1ha2UgdGhhdCBzZXQgb3BlcmF0aW9uIGxvb2sgbGlrZSBhICd0YycgY29tbWFu
+ZCBvciAnbmZ0Jwpjb21tYW5kIEkgdGhpbmsgd2UgY2FuIGRlYmF0ZSB0aGF0LiBBbHRob3VnaCBJ
+J20gaW4gZmF2b3VyIG9mIGtlZXBpbmcKdGhlIGV4aXN0aW5nIGZsb3cgYXBpIHdpdGggdGhlICdz
+ZXQnIGNvbW1hbmQgZm9yIHRoZSBjbGFzcyBvZgphcHBsaWNhdGlvbnMgdGhhdCB3YW50IHRvIHVz
+ZSBpdC4gVGhlIHNldCBvcGVyYXRpb24gYXMgaXQgZXhpc3RzIG5vdwppcyBpZGVhbCBmb3IgdGhl
+IGhhcmR3YXJlIGNhc2UgJ25mdCcgd2lsbCByZXF1aXJlIGEgdHJhbnNsYXRpb24gc3RlcC4KJ3Rj
+JyBpcyBhY3R1YWxseSBhIGJpdCBjbG9zZXIgSU1PIGJ1dCBJJ20gbm90IHN1cmUgJ3RjJyBhcHBs
+aWNhdGlvbnMKd2FudCB0byB3b3JrIG9uIG9wdGltaXppbmcgaGFyZHdhcmUgdGFibGVzLgoKV2Ug
+bmVlZCB0byBzdXBwb3J0IGJvdGggbW9kZWxzLCBib3RoIHRoZSBrZXJuZWwgY29uc3VtZXIgYW5k
+IHRoZSB1c2VyCnNwYWNlIGNvbnN1bWVyLgoKV2hhdCB3YXMgd3Jvbmcgd2l0aCB0aGUgaW5pdGlh
+bCBzZXQgd2hpY2ggSSd2ZSBzdWJzZXF1ZW50bHkgcmVzb2x2ZWQgaXMKaXQgbmVlZHMgdG8gYmUg
+Y29uc3RyYWluZWQgYSBiaXQgdG8gb25seSBhbGxvdyB3ZWxsLWRlZmluZWQgYWN0aW9ucyBhbmQK
+d2VsbC1kZWZpbmVkIG1hdGNoZXMuIEFsc28gdGhlIGNvcmUgbW9kdWxlIG5lZWRzIHRvIG1hbmFn
+ZSB0aGUgaGFyZHdhcmUKcmVzb3VyY2UgYW5kIGVuc3VyZSBpdCBpcyBtYW5hZ2VkIGNvcnJlY3Rs
+eSBzbyB0aGF0IG11bHRpcGxlIGNvbnN1bWVycwpkbyBub3Qgc3RvbXAgb24gZWFjaG90aGVyLgoK
+SSd2ZSBDQydkIFBhYmxvLgoKVGhhbmtzLAouSm9obgoKLS0gCkpvaG4gRmFzdGFiZW5kICAgICAg
+ICAgSW50ZWwgQ29ycG9yYXRpb24KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
+cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
