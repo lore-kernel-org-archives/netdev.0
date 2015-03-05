@@ -1,224 +1,148 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 1/3] net/dcb: Add IEEE QCN attribute
-Date: Thu,  5 Mar 2015 20:16:11 +0200
-Message-ID: <1425579373-25899-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 2/3] net/mlx4_core: Add basic elements for QCN
+Date: Thu,  5 Mar 2015 20:16:12 +0200
+Message-ID: <1425579373-25899-3-git-send-email-ogerlitz@mellanox.com>
 References: <1425579373-25899-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Shani Michaeli <shanim@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33898 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:33904 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752735AbbCESQY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 13:16:24 -0500
+	id S1758544AbbCESQ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 13:16:26 -0500
 In-Reply-To: <1425579373-25899-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shani Michaeli <shanim@mellanox.com>
 
-As specified in 802.1Qau spec. Add this optional attribute to the
-DCB netlink layer. To allow for application to use the new attribute,
-NIC drivers should implement and register the  callbacks ieee_getqcn,
-ieee_setqcn and ieee_getqcnstats.
+Add device capability, firmware command opcode and etc prior elements
+needed for QCN suppprt. Disable SRIOV VF view/access for QCN is disabled.
 
-The QCN attribute holds a set of parameters for management, and
-a set of statistics to provide informative data on Congestion-Control
-defined by this spec.
+While here, remove a redundant offset definition into the
+QUERY_DEV_CAP mailbox.
 
 Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-Signed-off-by: Shachar Raindel <raindel@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/dcbnl.h        |    3 ++
- include/uapi/linux/dcbnl.h |   66 ++++++++++++++++++++++++++++++++++++++++++++
- net/dcb/dcbnl.c            |   44 +++++++++++++++++++++++++++--
- 3 files changed, 110 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c |    9 +++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c  |   13 +++++++++++--
+ include/linux/mlx4/cmd.h                 |   13 +++++++++++++
+ include/linux/mlx4/device.h              |    3 ++-
+ 4 files changed, 35 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index 597b88a..207d9ba 100644
---- a/include/net/dcbnl.h
-+++ b/include/net/dcbnl.h
-@@ -49,6 +49,9 @@ struct dcbnl_rtnl_ops {
- 	int (*ieee_setets) (struct net_device *, struct ieee_ets *);
- 	int (*ieee_getmaxrate) (struct net_device *, struct ieee_maxrate *);
- 	int (*ieee_setmaxrate) (struct net_device *, struct ieee_maxrate *);
-+	int (*ieee_getqcn) (struct net_device *, struct ieee_qcn *);
-+	int (*ieee_setqcn) (struct net_device *, struct ieee_qcn *);
-+	int (*ieee_getqcnstats) (struct net_device *, struct ieee_qcn_stats *);
- 	int (*ieee_getpfc) (struct net_device *, struct ieee_pfc *);
- 	int (*ieee_setpfc) (struct net_device *, struct ieee_pfc *);
- 	int (*ieee_getapp) (struct net_device *, struct dcb_app *);
-diff --git a/include/uapi/linux/dcbnl.h b/include/uapi/linux/dcbnl.h
-index e711f20..6497d79 100644
---- a/include/uapi/linux/dcbnl.h
-+++ b/include/uapi/linux/dcbnl.h
-@@ -78,6 +78,70 @@ struct ieee_maxrate {
- 	__u64	tc_maxrate[IEEE_8021QAZ_MAX_TCS];
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index a681d7c..20b3c7b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -1499,6 +1499,15 @@ static struct mlx4_cmd_info cmd_info[] = {
+ 		.verify = NULL,
+ 		.wrapper = mlx4_ACCESS_REG_wrapper,
+ 	},
++	{
++		.opcode = MLX4_CMD_CONGESTION_CTRL_OPCODE,
++		.has_inbox = false,
++		.has_outbox = false,
++		.out_is_imm = false,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = mlx4_CMD_EPERM_wrapper,
++	},
+ 	/* Native multicast commands are not available for guests */
+ 	{
+ 		.opcode = MLX4_CMD_QP_ATTACH,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 5a21e5d..242bcee 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -143,7 +143,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[18] = "More than 80 VFs support",
+ 		[19] = "Performance optimized for limited rule configuration flow steering support",
+ 		[20] = "Recoverable error events support",
+-		[21] = "Port Remap support"
++		[21] = "Port Remap support",
++		[22] = "QCN support"
+ 	};
+ 	int i;
  
-+enum dcbnl_cndd_states {
-+	DCB_CNDD_RESET = 0,
-+	DCB_CNDD_EDGE,
-+	DCB_CNDD_INTERIOR,
-+	DCB_CNDD_INTERIOR_READY,
-+};
-+
-+/* This structure contains the IEEE 802.1Qau QCN managed object.
-+ *
-+ *@rpg_enable: enable QCN RP
-+ *@rppp_max_rps: maximum number of RPs allowed for this CNPV on this port
-+ *@rpg_time_reset: time between rate increases if no CNMs received.
-+ *		   given in u-seconds
-+ *@rpg_byte_reset: transmitted data between rate increases if no CNMs received.
-+ *		   given in Bytes
-+ *@rpg_threshold: The number of times rpByteStage or rpTimeStage can count
-+ *		   before RP rate control state machine advances states
-+ *@rpg_max_rate: the maxinun rate, in Mbits per second,
-+ *		 at which an RP can transmit
-+ *@rpg_ai_rate: The rate, in Mbits per second,
-+ *		used to increase rpTargetRate in the RPR_ACTIVE_INCREASE
-+ *@rpg_hai_rate: The rate, in Mbits per second,
-+ *		 used to increase rpTargetRate in the RPR_HYPER_INCREASE state
-+ *@rpg_gd: Upon CNM receive, flow rate is limited to (Fb/Gd)*CurrentRate.
-+ *	   rpgGd is given as log2(Gd), where Gd may only be powers of 2
-+ *@rpg_min_dec_fac: The minimum factor by which the current transmit rate
-+ *		    can be changed by reception of a CNM.
-+ *		    value is given as percentage (1-100)
-+ *@rpg_min_rate: The minimum value, in bits per second, for rate to limit
-+ *@cndd_state_machine: The state of the congestion notification domain
-+ *		       defense state machine, as defined by IEEE 802.3Qau
-+ *		       section 32.1.1. In the interior ready state,
-+ *		       the QCN capable hardware may add CN-TAG TLV to the
-+ *		       outgoing traffic, to specifically identify outgoing
-+ *		       flows.
-+ */
-+
-+struct ieee_qcn {
-+	__u8 rpg_enable[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rppp_max_rps[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_time_reset[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_byte_reset[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_threshold[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_max_rate[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_ai_rate[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_hai_rate[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_gd[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_min_dec_fac[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rpg_min_rate[IEEE_8021QAZ_MAX_TCS];
-+	__u32 cndd_state_machine[IEEE_8021QAZ_MAX_TCS];
-+};
-+
-+/* This structure contains the IEEE 802.1Qau QCN statistics.
-+ *
-+ *@rppp_rp_centiseconds: the number of RP-centiseconds accumulated
-+ *			 by RPs at this priority level on this Port
-+ *@rppp_created_rps: number of active RPs(flows) that react to CNMs
-+ */
-+
-+struct ieee_qcn_stats {
-+	__u64 rppp_rp_centiseconds[IEEE_8021QAZ_MAX_TCS];
-+	__u32 rppp_created_rps[IEEE_8021QAZ_MAX_TCS];
-+};
-+
- /* This structure contains the IEEE 802.1Qaz PFC managed object
-  *
-  * @pfc_cap: Indicates the number of traffic classes on the local device
-@@ -334,6 +398,8 @@ enum ieee_attrs {
- 	DCB_ATTR_IEEE_PEER_PFC,
- 	DCB_ATTR_IEEE_PEER_APP,
- 	DCB_ATTR_IEEE_MAXRATE,
-+	DCB_ATTR_IEEE_QCN,
-+	DCB_ATTR_IEEE_QCN_STATS,
- 	__DCB_ATTR_IEEE_MAX
- };
- #define DCB_ATTR_IEEE_MAX (__DCB_ATTR_IEEE_MAX - 1)
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 93ea801..5b21f6f 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -177,6 +177,8 @@ static const struct nla_policy dcbnl_ieee_policy[DCB_ATTR_IEEE_MAX + 1] = {
- 	[DCB_ATTR_IEEE_PFC]	    = {.len = sizeof(struct ieee_pfc)},
- 	[DCB_ATTR_IEEE_APP_TABLE]   = {.type = NLA_NESTED},
- 	[DCB_ATTR_IEEE_MAXRATE]   = {.len = sizeof(struct ieee_maxrate)},
-+	[DCB_ATTR_IEEE_QCN]         = {.len = sizeof(struct ieee_qcn)},
-+	[DCB_ATTR_IEEE_QCN_STATS]   = {.len = sizeof(struct ieee_qcn_stats)},
- };
+@@ -675,7 +676,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ #define QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET	0x76
+ #define QUERY_DEV_CAP_FLOW_STEERING_MAX_QP_OFFSET	0x77
+ #define QUERY_DEV_CAP_CQ_EQ_CACHE_LINE_STRIDE	0x7a
+-#define QUERY_DEV_CAP_ETH_PROT_CTRL_OFFSET	0x7a
++#define QUERY_DEV_CAP_ECN_QCN_VER_OFFSET	0x7b
+ #define QUERY_DEV_CAP_RDMARC_ENTRY_SZ_OFFSET	0x80
+ #define QUERY_DEV_CAP_QPC_ENTRY_SZ_OFFSET	0x82
+ #define QUERY_DEV_CAP_AUX_ENTRY_SZ_OFFSET	0x84
+@@ -777,6 +778,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_DMFS_IPOIB;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_FLOW_STEERING_MAX_QP_OFFSET);
+ 	dev_cap->fs_max_num_qp_per_entry = field;
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_ECN_QCN_VER_OFFSET);
++	if (field & 0x1)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_QCN;
+ 	MLX4_GET(stat_rate, outbox, QUERY_DEV_CAP_RATE_SUPPORT_OFFSET);
+ 	dev_cap->stat_rate_support = stat_rate;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_CQ_TS_SUPPORT_OFFSET);
+@@ -1149,6 +1153,11 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 		     DEV_CAP_EXT_2_FLAG_FSM);
+ 	MLX4_PUT(outbox->buf, field32, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
  
- static const struct nla_policy dcbnl_ieee_app[DCB_ATTR_IEEE_APP_MAX + 1] = {
-@@ -1030,7 +1032,7 @@ nla_put_failure:
- 	return err;
++	/* turn off QCN for guests */
++	MLX4_GET(field, outbox->buf, QUERY_DEV_CAP_ECN_QCN_VER_OFFSET);
++	field &= 0xfe;
++	MLX4_PUT(outbox->buf, field, QUERY_DEV_CAP_ECN_QCN_VER_OFFSET);
++
+ 	return 0;
  }
  
--/* Handle IEEE 802.1Qaz GET commands. */
-+/* Handle IEEE 802.1Qaz/802.1Qau/802.1Qbb GET commands. */
- static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct nlattr *ieee, *app;
-@@ -1067,6 +1069,32 @@ static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- 		}
- 	}
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 7b6d4e9..7299e95 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -163,6 +163,9 @@ enum {
+ 	MLX4_QP_FLOW_STEERING_ATTACH = 0x65,
+ 	MLX4_QP_FLOW_STEERING_DETACH = 0x66,
+ 	MLX4_FLOW_STEERING_IB_UC_QP_RANGE = 0x64,
++
++	/* Update and read QCN parameters */
++	MLX4_CMD_CONGESTION_CTRL_OPCODE = 0x68,
+ };
  
-+	if (ops->ieee_getqcn) {
-+		struct ieee_qcn qcn;
-+
-+		memset(&qcn, 0, sizeof(qcn));
-+		err = ops->ieee_getqcn(netdev, &qcn);
-+		if (!err) {
-+			err = nla_put(skb, DCB_ATTR_IEEE_QCN,
-+				      sizeof(qcn), &qcn);
-+			if (err)
-+				return -EMSGSIZE;
-+		}
-+	}
-+
-+	if (ops->ieee_getqcnstats) {
-+		struct ieee_qcn_stats qcn_stats;
-+
-+		memset(&qcn_stats, 0, sizeof(qcn_stats));
-+		err = ops->ieee_getqcnstats(netdev, &qcn_stats);
-+		if (!err) {
-+			err = nla_put(skb, DCB_ATTR_IEEE_QCN_STATS,
-+				      sizeof(qcn_stats), &qcn_stats);
-+			if (err)
-+				return -EMSGSIZE;
-+		}
-+	}
-+
- 	if (ops->ieee_getpfc) {
- 		struct ieee_pfc pfc;
- 		memset(&pfc, 0, sizeof(pfc));
-@@ -1379,8 +1407,9 @@ int dcbnl_cee_notify(struct net_device *dev, int event, int cmd,
- }
- EXPORT_SYMBOL(dcbnl_cee_notify);
+ enum {
+@@ -233,6 +236,16 @@ struct mlx4_config_dev_params {
+ 	u8	rx_csum_flags_port_2;
+ };
  
--/* Handle IEEE 802.1Qaz SET commands. If any requested operation can not
-- * be completed the entire msg is aborted and error value is returned.
-+/* Handle IEEE 802.1Qaz/802.1Qau/802.1Qbb SET commands.
-+ * If any requested operation can not be completed
-+ * the entire msg is aborted and error value is returned.
-  * No attempt is made to reconcile the case where only part of the
-  * cmd can be completed.
-  */
-@@ -1417,6 +1446,15 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlmsghdr *nlh,
- 			goto err;
- 	}
++enum mlx4_en_congestion_control_algorithm {
++	MLX4_CTRL_ALGO_802_1_QAU_REACTION_POINT = 0,
++};
++
++enum mlx4_en_congestion_control_opmod {
++	MLX4_CONGESTION_CONTROL_GET_PARAMS,
++	MLX4_CONGESTION_CONTROL_GET_STATISTICS,
++	MLX4_CONGESTION_CONTROL_SET_PARAMS = 4,
++};
++
+ struct mlx4_dev;
  
-+	if (ieee[DCB_ATTR_IEEE_QCN] && ops->ieee_setqcn) {
-+		struct ieee_qcn *qcn =
-+			nla_data(ieee[DCB_ATTR_IEEE_QCN]);
-+
-+		err = ops->ieee_setqcn(netdev, qcn);
-+		if (err)
-+			goto err;
-+	}
-+
- 	if (ieee[DCB_ATTR_IEEE_PFC] && ops->ieee_setpfc) {
- 		struct ieee_pfc *pfc = nla_data(ieee[DCB_ATTR_IEEE_PFC]);
- 		err = ops->ieee_setpfc(netdev, pfc);
+ struct mlx4_cmd_mailbox {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index e4ebff7..1cc5482 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -203,7 +203,8 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_80_VFS		= 1LL <<  18,
+ 	MLX4_DEV_CAP_FLAG2_FS_A0		= 1LL <<  19,
+ 	MLX4_DEV_CAP_FLAG2_RECOVERABLE_ERROR_EVENT = 1LL << 20,
+-	MLX4_DEV_CAP_FLAG2_PORT_REMAP		= 1LL <<  21
++	MLX4_DEV_CAP_FLAG2_PORT_REMAP		= 1LL <<  21,
++	MLX4_DEV_CAP_FLAG2_QCN			= 1LL <<  22,
+ };
+ 
+ enum {
 -- 
 1.7.1
