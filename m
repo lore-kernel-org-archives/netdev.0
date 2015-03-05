@@ -1,153 +1,85 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/7] netfilter: nf_tables: fix userdata length overflow
-Date: Thu,  5 Mar 2015 21:48:48 +0100
-Message-ID: <1425588529-4573-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/7] netfilter: nf_tables: fix addition/deletion of elements from commit/abort
+Date: Thu,  5 Mar 2015 21:48:44 +0100
+Message-ID: <1425588529-4573-3-git-send-email-pablo@netfilter.org>
 References: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34425 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757113AbbCEUpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 15:45:17 -0500
 In-Reply-To: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+We have several problems in this path:
 
-The NFT_USERDATA_MAXLEN is defined to 256, however we only have a u8
-to store its size. Introduce a struct nft_userdata which contains a
-length field and indicate its presence using a single bit in the rule.
+1) There is a use-after-free when removing individual elements from
+   the commit path.
 
-The length field of struct nft_userdata is also a u8, however we don't
-store zero sized data, so the actual length is udata->len + 1.
+2) We have to uninit() the data part of the element from the abort
+   path to avoid a chain refcount leak.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+3) We have to check for set->flags to see if there's a mapping, instead
+   of the element flags.
+
+4) We have to check for !(flags & NFT_SET_ELEM_INTERVAL_END) to skip
+   elements that are part of the interval that have no data part, so
+   they don't need to be uninit().
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |   22 +++++++++++++++++++---
- net/netfilter/nf_tables_api.c     |   28 +++++++++++++++++++---------
- 2 files changed, 38 insertions(+), 12 deletions(-)
+ net/netfilter/nf_tables_api.c |   21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 9eaaa78..decb9a0 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -119,6 +119,22 @@ int nft_validate_data_load(const struct nft_ctx *ctx, enum nft_registers reg,
- 			   const struct nft_data *data,
- 			   enum nft_data_types type);
- 
-+
-+/**
-+ *	struct nft_userdata - user defined data associated with an object
-+ *
-+ *	@len: length of the data
-+ *	@data: content
-+ *
-+ *	The presence of user data is indicated in an object specific fashion,
-+ *	so a length of zero can't occur and the value "len" indicates data
-+ *	of length len + 1.
-+ */
-+struct nft_userdata {
-+	u8			len;
-+	unsigned char		data[0];
-+};
-+
- /**
-  *	struct nft_set_elem - generic representation of set elements
-  *
-@@ -380,7 +396,7 @@ static inline void *nft_expr_priv(const struct nft_expr *expr)
-  *	@handle: rule handle
-  *	@genmask: generation mask
-  *	@dlen: length of expression data
-- *	@ulen: length of user data (used for comments)
-+ *	@udata: user data is appended to the rule
-  *	@data: expression data
-  */
- struct nft_rule {
-@@ -388,7 +404,7 @@ struct nft_rule {
- 	u64				handle:42,
- 					genmask:2,
- 					dlen:12,
--					ulen:8;
-+					udata:1;
- 	unsigned char			data[]
- 		__attribute__((aligned(__alignof__(struct nft_expr))));
- };
-@@ -476,7 +492,7 @@ static inline struct nft_expr *nft_expr_last(const struct nft_rule *rule)
- 	return (struct nft_expr *)&rule->data[rule->dlen];
- }
- 
--static inline void *nft_userdata(const struct nft_rule *rule)
-+static inline struct nft_userdata *nft_userdata(const struct nft_rule *rule)
- {
- 	return (void *)&rule->data[rule->dlen];
- }
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 7baafd5..74e4b87 100644
+index 199fd0f..a8c9462 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -1711,9 +1711,12 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
- 	}
- 	nla_nest_end(skb, list);
+@@ -3612,12 +3612,11 @@ static int nf_tables_commit(struct sk_buff *skb)
+ 						 &te->elem,
+ 						 NFT_MSG_DELSETELEM, 0);
+ 			te->set->ops->get(te->set, &te->elem);
+-			te->set->ops->remove(te->set, &te->elem);
+ 			nft_data_uninit(&te->elem.key, NFT_DATA_VALUE);
+-			if (te->elem.flags & NFT_SET_MAP) {
+-				nft_data_uninit(&te->elem.data,
+-						te->set->dtype);
+-			}
++			if (te->set->flags & NFT_SET_MAP &&
++			    !(te->elem.flags & NFT_SET_ELEM_INTERVAL_END))
++				nft_data_uninit(&te->elem.data, te->set->dtype);
++			te->set->ops->remove(te->set, &te->elem);
+ 			nft_trans_destroy(trans);
+ 			break;
+ 		}
+@@ -3658,7 +3657,7 @@ static int nf_tables_abort(struct sk_buff *skb)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nft_trans *trans, *next;
+-	struct nft_set *set;
++	struct nft_trans_elem *te;
  
--	if (rule->ulen &&
--	    nla_put(skb, NFTA_RULE_USERDATA, rule->ulen, nft_userdata(rule)))
--		goto nla_put_failure;
-+	if (rule->udata) {
-+		struct nft_userdata *udata = nft_userdata(rule);
-+		if (nla_put(skb, NFTA_RULE_USERDATA, udata->len + 1,
-+			    udata->data) < 0)
-+			goto nla_put_failure;
-+	}
- 
- 	nlmsg_end(skb, nlh);
- 	return 0;
-@@ -1896,11 +1899,12 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 	struct nft_table *table;
- 	struct nft_chain *chain;
- 	struct nft_rule *rule, *old_rule = NULL;
-+	struct nft_userdata *udata;
- 	struct nft_trans *trans = NULL;
- 	struct nft_expr *expr;
- 	struct nft_ctx ctx;
- 	struct nlattr *tmp;
--	unsigned int size, i, n, ulen = 0;
-+	unsigned int size, i, n, ulen = 0, usize = 0;
- 	int err, rem;
- 	bool create;
- 	u64 handle, pos_handle;
-@@ -1973,11 +1977,14 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 	if (size >= 1 << 12)
- 		goto err1;
- 
--	if (nla[NFTA_RULE_USERDATA])
-+	if (nla[NFTA_RULE_USERDATA]) {
- 		ulen = nla_len(nla[NFTA_RULE_USERDATA]);
-+		if (ulen > 0)
-+			usize = sizeof(struct nft_userdata) + ulen;
-+	}
- 
- 	err = -ENOMEM;
--	rule = kzalloc(sizeof(*rule) + size + ulen, GFP_KERNEL);
-+	rule = kzalloc(sizeof(*rule) + size + usize, GFP_KERNEL);
- 	if (rule == NULL)
- 		goto err1;
- 
-@@ -1985,10 +1992,13 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 
- 	rule->handle = handle;
- 	rule->dlen   = size;
--	rule->ulen   = ulen;
-+	rule->udata  = ulen ? 1 : 0;
- 
--	if (ulen)
--		nla_memcpy(nft_userdata(rule), nla[NFTA_RULE_USERDATA], ulen);
-+	if (ulen) {
-+		udata = nft_userdata(rule);
-+		udata->len = ulen - 1;
-+		nla_memcpy(udata->data, nla[NFTA_RULE_USERDATA], ulen);
-+	}
- 
- 	expr = nft_expr_first(rule);
- 	for (i = 0; i < n; i++) {
+ 	list_for_each_entry_safe(trans, next, &net->nft.commit_list, list) {
+ 		switch (trans->msg_type) {
+@@ -3719,9 +3718,13 @@ static int nf_tables_abort(struct sk_buff *skb)
+ 			break;
+ 		case NFT_MSG_NEWSETELEM:
+ 			nft_trans_elem_set(trans)->nelems--;
+-			set = nft_trans_elem_set(trans);
+-			set->ops->get(set, &nft_trans_elem(trans));
+-			set->ops->remove(set, &nft_trans_elem(trans));
++			te = (struct nft_trans_elem *)trans->data;
++			te->set->ops->get(te->set, &te->elem);
++			nft_data_uninit(&te->elem.key, NFT_DATA_VALUE);
++			if (te->set->flags & NFT_SET_MAP &&
++			    !(te->elem.flags & NFT_SET_ELEM_INTERVAL_END))
++				nft_data_uninit(&te->elem.data, te->set->dtype);
++			te->set->ops->remove(te->set, &te->elem);
+ 			nft_trans_destroy(trans);
+ 			break;
+ 		case NFT_MSG_DELSETELEM:
 -- 
 1.7.10.4
-
