@@ -1,88 +1,71 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
-Date: Thu, 05 Mar 2015 08:52:59 -0800
-Message-ID: <54F889EB.7000203@plumgrid.com>
-References: <1425501718-12066-1-git-send-email-msekleta@redhat.com> <54F77336.7040006@plumgrid.com> <20150305103715.GA3432@morgoth.brq.redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/6] net: Call skb_get_hash in qdiscs
+Date: Thu, 5 Mar 2015 09:19:01 -0800
+Message-ID: <CA+mtBx-2pjHmi4B0bo+oCQfMGWn7k26qvYUvNNwSLTZaK8YTwg@mail.gmail.com>
+References: <1425494404-24114-1-git-send-email-therbert@google.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAF571E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>
-To: Michal Sekletar <msekleta@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"fw@strlen.de" <fw@strlen.de>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:42012 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757950AbbCEQw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 11:52:56 -0500
-Received: by igkb16 with SMTP id b16so47423928igk.1
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 08:52:55 -0800 (PST)
-In-Reply-To: <20150305103715.GA3432@morgoth.brq.redhat.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:43123 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbbCERTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 12:19:03 -0500
+Received: by igbhn18 with SMTP id hn18so47735053igb.2
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 09:19:02 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAF571E@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/5/15 2:37 AM, Michal Sekletar wrote:
-> On Wed, Mar 04, 2015 at 01:03:50PM -0800, Alexei Starovoitov wrote:
->> On 3/4/15 12:41 PM, Michal Sekletar wrote:
->>> This commit introduces new BPF extension. It makes possible to load value of
->>> skb->vlan_proto (vlan tpid) to register A.
->>>
->>> Currently, vlan header is removed from frame and information is available to
->>> userspace only via tpacket interface. Hence, it is not possible to install
->>> filter which uses value of vlan tpid field.
->>>
->>> AFAICT only way how to filter based on tpid value is to reconstruct original
->>> frame encapsulation and interpret BPF filter code in userspace. Doing that is
->>> way slower than doing filtering in kernel.
->>>
->>> Cc: Alexei Starovoitov <ast@plumgrid.com>
->>> Cc: Jiri Pirko <jpirko@redhat.com>
->>> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
->>> ---
->>> @@ -282,6 +282,7 @@ Possible BPF extensions are shown in the following table:
->>>     vlan_tci                              skb_vlan_tag_get(skb)
->>>     vlan_pr                               skb_vlan_tag_present(skb)
->>>     rand                                  prandom_u32()
->>> +  vlan_proto                            skb->vlan_proto
->>
->> the patch is correct and looks clean, but I don't understand
->> the motivation for the patch.
+On Thu, Mar 5, 2015 at 3:13 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Tom Herbert
+> ...
+>> - The probability that two different flows randomly match to the same
+>>   hash from skb_get_hash is 1/2^32. If such a collision were to happen,
+>>   then the flows potentially also map to the same qdisc queue in
+>>   perpetuity despite perturbation being performed. Given the very low
+>>   probability of this occurring, this may in practice only be an
+>>   academic issue. If it is a real concern, rekeying of the underlying
+>>   mechanisms of skb->hash could be done.
+> ...
 >
-> Way how libpcap currently uses BPF extensions is not compatible with old
-> behavior where actual value of tpid field was checked. I wanted to address
-> that, i.e. if "vlan" keyword is used as filter expression, libpcap should
-> install a filter such that only ethernet frames having tpid value of 0x8100 or
-> 0x9100 will pass. That is not the case with current libpcap git and 4.0-rc1
-> kernel.
+> The probability of a collision is much higher than that.
+> With 10000 flows it is (if my 'ballpark maths' is right) nearer 1/100.
 >
-> Given that I broke libpcap as described above I tried to come up with the way
-> how to fix that. However I realized that with recent kernels there is no other
-> way than adding new BPF extension.
->
->> There is already SKF_AD_VLAN_TAG_PRESENT. If it is set then only
->> two possible values of vlan_proto are ETH_P_8021Q or ETH_P_8021AD.
->
-> Any reason why ETH_P_QINQ1, ETH_P_QINQ2, ETH_P_QINQ3 no longer works? If I
-> understand correctly, you are basically saying, that there is no point checking
-> for vlan tpid because PF_PACKET socket will never receive frame having other
-> tpid value than above two anyway.
->
-> So bottom line is that I wanted to grant userspace programs more flexibility,
-> and you are saying that it is pointless because for example if outer tpid is
-> 0x9100 socket will never receive the frame. If that is the case then
-> disregard the patch.
 
-steering towards vlan device happens only for ETH_P_8021Q and
-ETH_P_8021AD. Non-standard 0x9100 and other tags won't be popped into
-skb metadata and will stay as-is in the packet body.
-If the meaning of 'vlan 100' in libpcap is to detect all possible
-vlan tpid then bpf program would need to check VLAN_TAG_PRESENT
-(that would mean vlan_proto is either 0x8100 or 0x88A8)
-and parse packet body for tpids 0x9[123]00.
-Whether we add access to skb->vlan_proto or not, the program would
-still need to do the above steps, but instead of checking for
-vlan_tag_present only, it would need to do vlan_proto==0x8100
-or vlan_proto=0x88a8 and then parse the packet for tpid=0x9[123]00
-so adding access to vlan_proto will not simplify libpcap job.
-At this point I think it's up to Dave to decide whether we need
-this patch (after fixing the issue pointed by Denis) or not.
-imo there is a benefit of giving programs more visibility into
-skb metadata.
+Probably a little closer to 1/50. But this is the best case scenario
+that assumes a completely random input. In reality the input could be
+heavily biased substantially increasing collisions. Consider if
+we're in the forwarding path for two NVEs tunneling using VXLAN.
+Encapsulated flows will differ in flow_keys only in source port with
+14 bits of entropy. Now with 100 flows collision probability is 1/25,
+at at 1000 flows you're pretty much guaranteed collisions. In such a
+scenario, any amount of perturbation, re-keying of hashes, even
+switching to more fancy hash algorithms doesn't help-- the root
+problem is that the input domain does not contain sufficient entropy.
+
+This is not just a performance issue, this is an obvious security
+issue. It's fairly easy to DOS 5-tuples at will by spoofing packets
+with different 5-tuples. This is absolutely trivial with IPv6. Given
+we want to DOS a TCP connection with four tuple <S,D,s,d> and source
+address is of form w::x:y, we can just change to the source address to
+be w::x^J:y:^J and copy rest of the four-tuple. For any J this creates
+same src value in flow_keys as w::x:y, hence always the same hash.
+There are similar ways to spoof 4-tuple with IPv4 tunnels like the
+VXLAN case above.
+
+So if we want to fix this, we need to address the limited information
+used in flow_keys. 1) flow_keys needs more information such as full
+IPv6 address, VLAN, GRE keyid, and flow label. 2) We need a hash
+function that can take more bits of flow_kesy as input to avoid the
+aliasing problems like we see with the IPv6 case. This is where I am
+going with these patches.
+
+Tom
+>         David
+>
