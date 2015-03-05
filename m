@@ -1,59 +1,78 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and
- gpiod_put_array functions
-Date: Thu, 5 Mar 2015 10:04:20 +0100
-Message-ID: <CACRpkdaU7cK1LNdhDMBnir0WX92JnT=s6BV-jidNH3i-Ty6HgQ@mail.gmail.com>
-References: <1521782.cXqN30N6pA@pcimr>
-	<1842407.4EyTjGZBVF@pcimr>
-	<CAAVeFuLt0Oy9QK+BJ5zAb-CugKi0n4ruy6=+CWQwgS9J0=dfrQ@mail.gmail.com>
-	<7922544.OK5CjAi0mG@pcimr>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] net: smc91x: use run-time configuration on all ARM
+ machines
+Date: Thu, 5 Mar 2015 09:06:04 +0000
+Message-ID: <20150305090604.GE8656@n2100.arm.linux.org.uk>
+References: <2226303.iMQTNXSl1n@wuerfel>
+ <20150228.125721.1605776377351425463.davem@davemloft.net>
+ <55454365.1GsbtFBXGk@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexandre Courbot <gnurou@gmail.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rojhalat Ibrahim <imr@rtschenk.de>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <7922544.OK5CjAi0mG@pcimr>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linus.walleij@linaro.org, robert.jarzmik@free.fr
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:52048 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751170AbbCEJGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 04:06:19 -0500
+Content-Disposition: inline
+In-Reply-To: <55454365.1GsbtFBXGk@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 4, 2015 at 3:33 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+On Wed, Mar 04, 2015 at 11:36:16PM +0100, Arnd Bergmann wrote:
+> On Saturday 28 February 2015 12:57:21 David Miller wrote:
+> > From: Arnd Bergmann <arnd@arndb.de>
+> > Date: Wed, 25 Feb 2015 16:31:57 +0100
+> > 
+> > > The smc91x driver traditionally gets configured at compile-time
+> > > for whichever hardware it runs on. This no longer works on
+> > > ARM as we continue to move to building all-in-one kernels.
+> > > 
+> > > Most ARM configurations with this driver already use run-time
+> > > configuration through DT or through platform_data, but a
+> > > few have not been converted yet.
+> > > 
+> > > I've checked all ARM boards that use this driver in their
+> > > legacy board files, and converted the ones that were using
+> > > compile-time configuration in smc91x.h to behave like the
+> > > other ones and provide the interrupt polarity along with
+> > > the MMIO configuration (width, stride) at platform device
+> > > creation time.
+> > > 
+> > > In particular, these combinations were previously selectable
+> > > in Kconfig but in fact broken:
+> > > 
+> > > - sa1100 assabet plus pleb
+> > > - msm combined with any other armv6/v7 platform
+> > > - pxa-idp combined with any non-DMA pxa variant
+> > > - LogicPD PXA270 combined with any other pxa
+> > > - nomadik combined with any other armv4/v5 platform,
+> > >   e.g. versatile.
+> > > 
+> > > None of these seem critical enough to warrant a backport
+> > > to stable, but it would be nice to clean this up for good.
+> > > 
+> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > 
+> > Applied, thanks Arnd.
+> > 
+> 
+> It seems my build testing went wrong and although I was building
+> lots of kernels, it did not catch the obvious typos I introduced.
+> 
+> I'm deeply sorry about that, following up with a fix now (which
+> was actually tested).
 
-> And the interface as proposed in this series is very convenient for obtaining
-> all the GPIOs belonging to a group with a single function call and without
-> having to know the number of GPIOs within the group beforehand.
->
-> So if we want to support different use cases, I think it's quite good as it is.
-> People who want to set a group of GPIOs as obtained by gpiod_get_array() can
-> do so with a single call to gpiod_set_array(), the only overhead being that
-> they have to specify the two elements of struct gpiod_descs explicitly.
-> Likewise people who want to set a group of GPIOs obtained with a combination
-> of calls to gpiod_get_array() and gpiod_get() can do so too. They just have
-> to create that group first.
->
-> On the other hand if gpiod_set_array() would require a struct gpiod_descs as
-> argument the creation of a group for the second use case would become more
-> complicated as you would have to allocate a struct instead of an array, etc.
->
-> So let's just keep it the way it is and get this series merged.
+Maybe it would be better to wait for someone to actually build and
+run the change on real hardware?  You know I have a neponset, which
+is one of the platforms you've changed.
 
-I've merged it.
+(I may not be able to do that for a while yet however... still
+recovering post-op.)
 
-But can you make a separate patch to Documentation/gpio/consumer.txt
-describing the array usecase(s) a bit in detail so people realize when it's
-good to use these functions?
-
-> About the confusing function names: I would be happy to submit a patch
-> renaming gpiod_set_array() to gpiod_set_array_value(), once this has been
-> merged. I'm a little concerned about the length of some function names though.
-> Isn't gpiod_set_raw_array_value_cansleep() a bit long?
-
-Just patch it and we'll discuss it... :)
-
-Yours,
-Linus Walleij
+-- 
+FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
+according to speedtest.net.
