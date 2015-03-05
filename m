@@ -1,44 +1,72 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: SOCK_MEMALLOC vs loopback
-Date: Thu, 5 Mar 2015 09:50:44 +0000
-Message-ID: <20150305095044.GR3087@suse.de>
-References: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com>
- <20150304200427.GQ3087@suse.de>
- <54F7D5A7.1060404@redhat.com>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: Re: [PATCH net-next] ax25: Stop using magic neighbour cache operations.
+Date: Thu, 05 Mar 2015 10:14:55 +0000
+Message-ID: <54F82C9F.5050307@redhat.com>
+References: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org>	<20150302.164426.494515497595921630.davem@davemloft.net>	<874mq22imc.fsf_-_@x220.int.ebiederm.org>	<20150303.144509.1694022322984204895.davem@davemloft.net> <87mw3tzv8u.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Ilya Dryomov <idryomov@gmail.com>, ceph-devel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Sage Weil <sage@redhat.com>, NeilBrown <neilb@suse.de>,
-	netdev@vger.kernel.org
-To: Mike Christie <mchristi@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52933 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932147AbbCEJuu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 04:50:50 -0500
-Content-Disposition: inline
-In-Reply-To: <54F7D5A7.1060404@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
+	linux-hams@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <87mw3tzv8u.fsf@x220.int.ebiederm.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 04, 2015 at 10:03:51PM -0600, Mike Christie wrote:
-> On 03/04/2015 02:04 PM, Mel Gorman wrote:
-> > other options. If that contract is not met then using it can deadlock the
-> > system. It's the same for PF_MEMALLOC -- activating that is a recipe for
-> > deadlock due to memory exhaustion.
-> 
-> For rbd and iscsi's SOCK_MEMALLOC/PF_MEMALLOC use, I copied what you did
-> for nbd in commit 7f338fe4540b1d0600b02314c7d885fd358e9eca which always
-> sets those flags and seems to rely on the network layer to do the right
-> thing. Are they all incorrect?
+Hi,
 
-NBD is a poor example and if it comes to that, I would suggest removing it
-and let NBD easily deadlock like it used to. NBD has other failure cases
-such as the client can get paged out if -swap is not specified. The same
-commit notes that NBD may still deadlock and that min_free_kbytes may have
-to be increased.
+On 03/03/15 20:22, Eric W. Biederman wrote:
+> David Miller <davem@davemloft.net> writes:
+>
+>> From: ebiederm@xmission.com (Eric W. Biederman)
+>> Date: Tue, 03 Mar 2015 09:41:47 -0600
+>>
+>>> Before the ax25 stack calls dev_queue_xmit it always calls
+>>> ax25_type_trans which sets skb->protocol to ETH_P_AX25.
+>>>
+>>> Which means that by looking at the protocol type it is possible to
+>>> detect IP packets that have not been munged by the ax25 stack in
+>>> ndo_start_xmit and call a function to munge them.
+>>>
+>>> Rename ax25_neigh_xmit to ax25_ip_xmit and tweak the return type and
+>>> value to be appropriate for an ndo_start_xmit function.
+>>>
+>>> Update all of the ax25 devices to test the protocol type for ETH_P_IP
+>>> and return ax25_ip_xmit as the first thing they do.  This preserves
+>>> the existing semantics of IP packet processing, but the timing will be
+>>> a little different as the IP packets now pass through the qdisc layer
+>>> before reaching the ax25 ip packet processing.
+>>>
+>>> Remove the now unnecessary ax25 neighbour table operations.
+>>>
+>>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Another nice cleanup, applied, thanks Eric.
+> We can almost universally use the same procedures for generating
+> link layer headers from neighbour table entries now.  I had hoped
+> to optimized things by removing function pointers.
+>
+> The big hold out is DECnet that sets src_mac based on the DECnet source
+> address.
+That is a requirement of DECnet I'm afraid - DECnet does not have an 
+exact equivalent of ARP/ndisc and many hosts will refuse to communicate 
+if the MAC address is not the expected one based on the DECnet address. 
+This is one bit of DECnet that is being used (to the best of my 
+knowledge) and working.
 
--- 
-Mel Gorman
-SUSE Labs
+> Which leads me to the conclusion that since DECnet has a different
+> algorithm for setting the src_mac than everything else in the kernel
+> DECnet neighbour table entries can not be used for nexthops for other
+> protocols :(
+>
+> DECnet also abuses neigh->output to select by output device which kind
+> of DECnet header to put on the packets.  But that is easily fixable.
+One way to fix it would be to drop support for non-broadcast devices. We 
+don't have an implementation of DDCMP currently. Ethernet is the only 
+working DECnet device at the moment. PPP could also potentially work, 
+with a bit of tweeking, but strangely PPP is a broadcast device so far 
+as DECnet is concerned,
+
+Steve.
+
