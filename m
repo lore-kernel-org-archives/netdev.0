@@ -1,53 +1,50 @@
-From: Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH 0/3] net: macb: rework at91 specific handling
-Date: Thu,  5 Mar 2015 17:27:19 +0100
-Message-ID: <1425572842-6084-1-git-send-email-boris.brezillon@free-electrons.com>
-Cc: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
-	Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Boris Brezillon <boris.brezillon@free-electrons.com>
+Subject: [PATCH 1/3] net/macb: Update DT bindings documentation
+Date: Thu,  5 Mar 2015 17:27:20 +0100
+Message-ID: <1425572842-6084-2-git-send-email-boris.brezillon@free-electrons.com>
+References: <1425572842-6084-1-git-send-email-boris.brezillon@free-electrons.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Boris Brezillon <boris.brezillon@free-electrons.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425572842-6084-1-git-send-email-boris.brezillon@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Add missing "cdns,at91sam9260-macb", "atmel,sama5d3-gem" and
+"atmel,sama5d4-gem" compatible strings.
 
-This removes the #if defined(ARCH_AT91) sections to prevent any problem
-when enabling ARM multi-platform support.
-The at91 specific logic is now activated when the "at91sam9260-macb"
-compatible string is found. 
+Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+---
+ Documentation/devicetree/bindings/net/macb.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Best Regards,
-
-Boris
-
-Boris Brezillon (3):
-  net/macb: Update DT bindings documentation
-  ARM: at91/dt: fix macb compatible strings
-  net: macb: remove #if defined(CONFIG_ARCH_AT91) sections
-
- Documentation/devicetree/bindings/net/macb.txt |  5 +++-
- arch/arm/boot/dts/at91sam9260.dtsi             |  2 +-
- arch/arm/boot/dts/at91sam9263.dtsi             |  2 +-
- arch/arm/boot/dts/at91sam9g45.dtsi             |  2 +-
- arch/arm/boot/dts/at91sam9x5_macb0.dtsi        |  2 +-
- arch/arm/boot/dts/at91sam9x5_macb1.dtsi        |  2 +-
- arch/arm/boot/dts/sama5d3_emac.dtsi            |  2 +-
- drivers/net/ethernet/cadence/macb.c            | 33 ++++++++++++++------------
- drivers/net/ethernet/cadence/macb.h            |  2 ++
- 9 files changed, 30 insertions(+), 22 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index aaa6964..ba19d67 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -2,10 +2,13 @@
+ 
+ Required properties:
+ - compatible: Should be "cdns,[<chip>-]{macb|gem}"
+-  Use "cdns,at91sam9260-macb" Atmel at91sam9260 and at91sam9263 SoCs.
++  Use "cdns,at91sam9260-macb" for Atmel at91sam9 SoCs or the 10/100Mbit IP
++  available on sama5d3 SoCs.
+   Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb".
+   Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later devices based on
+   the Cadence GEM, or the generic form: "cdns,gem".
++  Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
++  Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain macb interrupt
+ - phy-mode: See ethernet.txt file in the same directory.
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
