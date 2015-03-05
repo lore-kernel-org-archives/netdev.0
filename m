@@ -1,42 +1,69 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
-Date: Thu, 5 Mar 2015 00:35:01 -0800
-Message-ID: <96C60242-C380-4B97-9BA5-6E88ABFB18EC@alum.mit.edu>
-References: <1425501718-12066-1-git-send-email-msekleta@redhat.com> <54F77336.7040006@plumgrid.com> <6E5AAA23-4000-4C29-BB4E-AA7C05B6F619@alum.mit.edu> <54F7997A.3020604@plumgrid.com> <20150305065053.GA2062@nanopsycho.orion> <20150305072413.GB25656@unicorn.suse.cz>
-Mime-Version: 1.0 (Mac OS X Mail 6.6 \(1510\))
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Thu, 5 Mar 2015 09:36:21 +0100
+Message-ID: <20150305083621.GC2033@nanopsycho.orion>
+References: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c.mail.sonic.net ([64.142.111.80]:35748 "EHLO c.mail.sonic.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751390AbbCEIfB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 03:35:01 -0500
-In-Reply-To: <20150305072413.GB25656@unicorn.suse.cz>
+Received: from mail-we0-f172.google.com ([74.125.82.172]:41963 "EHLO
+	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963AbbCEIgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 03:36:25 -0500
+Received: by wevm14 with SMTP id m14so51389710wev.8
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 00:36:23 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Wed, Mar 04, 2015 at 01:15:29AM CET, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>With the recent addition of the NETIF_F_HW_SWITCH_OFFLOAD flag
+>on rocker ports, the second command (bridge link set) below will turn off
+>learning in the rocker hw (Scott/Jiri, need some confirmation from
+>you that this is indeed a problem and if the below patch is ok).
+>
+>ip link set dev swp1 master br0
+>bridge link set dev swp1 learning off master
+>bridge link set dev swp1 learning_sync on self
+>
+>This patch fixes rocker to ignore learning setting when 'master'
+>is set. This makes it possible to set/unset learning in kernel and bridge
+>driver independently.
+>
+>The below command will continue to set learning on in both kernel and rocker
+>hw:
+>bridge link set dev swp1 learning on
+>
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>---
+> drivers/net/ethernet/rocker/rocker.c |    3 +++
+> 1 file changed, 3 insertions(+)
+>
+>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>index e5a15a4..d7c31d2 100644
+>--- a/drivers/net/ethernet/rocker/rocker.c
+>+++ b/drivers/net/ethernet/rocker/rocker.c
+>@@ -3769,6 +3769,9 @@ static int rocker_port_bridge_setlink(struct net_device *dev,
+> 	struct nlattr *attr;
+> 	int err;
+> 
+>+	if (flags && !(flags & BRIDGE_FLAGS_SELF))
+>+		return 0;
+>+
 
-On Mar 4, 2015, at 11:24 PM, Michal Kubecek <mkubecek@suse.cz> wrote:
+I think that the called should handle this case, not every particular
+driver. How about to put this into rtnl_bridge_setlink?
 
-> To be more precise, it does not need it now as there is no syntax for
-> pcap filter on TPID,
 
-In the current version of libpcap (and the commit dates back to November 2011), the filter "vlan" checks both for 0x8100 and 0x9100 (it should perhaps also check for other TPID values), in userland and in the kernel on platforms other than Linux, as the generated code checks for both values.
-
-If there is a way that an in-kernel BPF program can check for all VLAN TPID values, that would be helpful; that would be sufficient to implement the filter "vlan" in a fashion that works the same in the Linux kernel and in other contexts.  (I presume that one can, from the data delivered to a PF_PACKET SOCK_RAW socket, reconstruct the packet as received, with all the VLAN tags in place in the packet just as they were when the packet hit the adapter's transceiver from the network.  If not, that's a *separate* deficiency.)
-
-I'm not currently worried about Backbone Service Instance Tag Control Information right now, as libpcap currently doesn't handle that, so there's no need to, for the generated code for "vlan", actually test what particular TPID value is in the packet, as long as we can test whether there's a VLAN header or not.  In the future, that might be useful.
-
-(BTW, why did the IEEE remove 802.1Q from the IEEE Get program for IEEE 802 standards?
-
-	http://standards.ieee.org/about/get/802/802.1.html
-
-Are they waiting for 802.1Q-2014 to be published?
-
-	http://www.ieee802.org/1/pages/802.1Q-2014.html
-
-And what's the current status of 802.1ad?  Is QinQ deprecated or something?)
+> 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+> 				   IFLA_PROTINFO);
+> 	if (protinfo) {
+>-- 
+>1.7.10.4
+>
