@@ -1,53 +1,56 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: I can tell no FIB
-Date: Thu, 05 Mar 2015 14:01:45 -0800
-Message-ID: <54F8D249.4080404@gmail.com>
-References: <CAE4R7bBwrB8==aYuN9gYoADwZHDwr5zYjL3tL=jqPP24p74VUw@mail.gmail.com>	<54F8C802.1010706@gmail.com> <20150305.162711.545663291988773902.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] ebpf: bpf_map_*: fix linker error on avr32 and openrisc arch
+Date: Thu,  5 Mar 2015 23:27:51 +0100
+Message-ID: <dc0fc4f224a95f2a9813079229cb9cc0ac069d52.1425594286.git.daniel@iogearbox.net>
+Cc: fengguang.wu@intel.com, ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:42168 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbbCEWBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 17:01:47 -0500
-Received: by padfa1 with SMTP id fa1so45861862pad.9
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 14:01:46 -0800 (PST)
-In-Reply-To: <20150305.162711.545663291988773902.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:44012 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbbCEW16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 17:27:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2015 01:27 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.duyck@gmail.com>
-> Date: Thu, 05 Mar 2015 13:17:54 -0800
->
->> On 03/05/2015 12:49 PM, Scott Feldman wrote:
->>> Hi Alex, turns out you're required to take a mandatory week-long
->>> vacation after your fourth patch set to net/ipv4/fib_*.  See you in a
->>> week!  Take lots of pictures.
->>>
->>> -scott
->> Well I have one more set of 9 and then I will stop for a while.  I was
->> planning to send it later tonight.  Then I can probably take that
->> week-long vacation..
->>
->> I'm going to drop the portion of the patches I had where I was
->> up-levelling the key vector since I still don't have a solution for the
->> extra costs of insertion/deletion from the trie.  Also I don't think it
->> would work well with the merge of the main and local tries if that is
->> the route we are planning to take.
-> Ok, where do you want to place the main/local tree patch then?
->
-> Scott's L3 work logically depends upon that, and actually I think
-> Scott is sending you on vacation so that he doesn't have to rebase so
-> much :-)
+Fengguang reported, that on openrisc and avr32 architectures, we
+get the following linker errors on *_defconfig builds that have
+no bpf syscall support:
 
-Yeah, I kind of figured that might be the case.  If needed I can hold
-off for a day or so while Scott gets the FIB offloading stuff in and I
-could just submit the remaining 9 plus the main/local merge patch as an
-RFC so that it can be reviewed while the offload stuff is accepted.
+  net/built-in.o:(.rodata+0x1cd0): undefined reference to `bpf_map_lookup_elem_proto'
+  net/built-in.o:(.rodata+0x1cd4): undefined reference to `bpf_map_update_elem_proto'
+  net/built-in.o:(.rodata+0x1cd8): undefined reference to `bpf_map_delete_elem_proto'
 
-- Alex
+Fix it up by providing built-in weak definitions of the symbols,
+so they can be overridden when the syscall is enabled. I think
+the issue might be that gcc is not able to optimize all that away.
+This patch fixes the linker errors for me, tested with Fengguang's
+make.cross [1] script.
+
+  [1] https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Fixes: d4052c4aea0c ("ebpf: remove CONFIG_BPF_SYSCALL ifdefs in socket filter code")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/bpf/core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index a64e7a2..50603ae 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -656,6 +656,11 @@ void bpf_prog_free(struct bpf_prog *fp)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_free);
+ 
++/* Weak definitions of helper functions in case we don't have bpf syscall. */
++const struct bpf_func_proto bpf_map_lookup_elem_proto __weak;
++const struct bpf_func_proto bpf_map_update_elem_proto __weak;
++const struct bpf_func_proto bpf_map_delete_elem_proto __weak;
++
+ /* To execute LD_ABS/LD_IND instructions __bpf_prog_run() may call
+  * skb_copy_bits(), so provide a weak definition of it for NET-less config.
+  */
+-- 
+1.9.3
