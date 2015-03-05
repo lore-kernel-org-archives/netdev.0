@@ -1,29 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ax25: Fix the build when CONFIG_INET is
- disabled
-Date: Thu, 05 Mar 2015 13:18:17 -0500 (EST)
-Message-ID: <20150305.131817.735620951660849236.davem@davemloft.net>
-References: <87pp8nip07.fsf@x220.int.ebiederm.org>
+From: Michel Machado <michel@digirati.com.br>
+Subject: Re: Linux XIA - merge proposal
+Date: Thu, 05 Mar 2015 13:34:56 -0500
+Message-ID: <54F8A1D0.308@digirati.com.br>
+References: <54F5EF6E.9090303@digirati.com.br>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59863 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753400AbbCESST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 13:18:19 -0500
-In-Reply-To: <87pp8nip07.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alex Elsayed <eternaleye@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54F5EF6E.9090303@digirati.com.br>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 05 Mar 2015 06:54:00 -0600
+ >>    We have been developing Linux XIA, a new network stack that
+ >> emphasizes evolvability and interoperability, for a couple of years,
+ >> and it has now reached a degree of maturity that allows others to
+ >> experiment with it.
+ >
+ > From looking at your wiki, "network stack" may have been a poor
+ > choice of term - it looks like rather than being a new network
+ > stack (which in Linux, is commonly used to refer to the software
+ > stack that lives between the APIs and the hardware), this is a
+ > new protocol (and framework _for_ protocols) operating at
+ > the same level of the network as IP, with ideas extending
+ > upwards through TCP.
+ >
+ > Now, that's a rather different proposal - witness that RDS, TIPC,
+ > etc all made it into the kernel relatively easily, especially when
+ > compared to netmap, or any other system that tried to replace
+ > the Linux networking infrastructure.
 
-...
-> Ooops I misspelled struct...
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Hi Alex,
 
-Applied, thanks.
+    Thank you very much for having caught this definition mismatch! I 
+personally see TCP/IP as a network stack on its own right. From this 
+perspective, XIA, TCP/IP, RDS, and TIPC are all at the same level as you 
+concluded. I don't mind adopting the definitions that are more common 
+among kernel developers.
+
+    Linux XIA is not replacing the other protocols (using your 
+definition). Linux XIA is another protocol, and, as you correctly 
+pointed out: a framework for other protocols.
+
+[ ]'s
+Michel Machado
