@@ -1,68 +1,61 @@
-From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
-Date: Thu, 05 Mar 2015 12:57:56 +0100
-Message-ID: <5728340.kX3ri7Iz4s@pcimr>
-References: <1521782.cXqN30N6pA@pcimr> <7922544.OK5CjAi0mG@pcimr> <CACRpkdaU7cK1LNdhDMBnir0WX92JnT=s6BV-jidNH3i-Ty6HgQ@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 4/7] mpls: Basic support for adding and removing routes
+Date: Thu, 05 Mar 2015 05:54:50 -0600
+Message-ID: <87y4nbk6b9.fsf@x220.int.ebiederm.org>
+References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
+	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
+	<20150303.153310.624302583835136622.davem@davemloft.net>
+	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+	<878ufdtvjr.fsf_-_@x220.int.ebiederm.org>
+	<54F6BEAA.2080708@cumulusnetworks.com>
+	<87h9u0lctq.fsf@x220.int.ebiederm.org>
+	<20150304215006.019f1eaffaf3e0bfa53aadcf@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexandre Courbot <gnurou@gmail.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Linus Walleij <linus.walleij@linaro.org>
+Content-Type: text/plain
+Cc: roopa <roopa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:41331 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932320AbbCEL6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 06:58:00 -0500
-In-Reply-To: <CACRpkdaU7cK1LNdhDMBnir0WX92JnT=s6BV-jidNH3i-Ty6HgQ@mail.gmail.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:44488 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbbCEL61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 06:58:27 -0500
+In-Reply-To: <20150304215006.019f1eaffaf3e0bfa53aadcf@mindspring.com> (Bill
+	Fink's message of "Wed, 4 Mar 2015 21:50:06 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 05 March 2015 10:04:20 Linus Walleij wrote:
-> On Wed, Mar 4, 2015 at 3:33 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-> 
-> > And the interface as proposed in this series is very convenient for obtaining
-> > all the GPIOs belonging to a group with a single function call and without
-> > having to know the number of GPIOs within the group beforehand.
-> >
-> > So if we want to support different use cases, I think it's quite good as it is.
-> > People who want to set a group of GPIOs as obtained by gpiod_get_array() can
-> > do so with a single call to gpiod_set_array(), the only overhead being that
-> > they have to specify the two elements of struct gpiod_descs explicitly.
-> > Likewise people who want to set a group of GPIOs obtained with a combination
-> > of calls to gpiod_get_array() and gpiod_get() can do so too. They just have
-> > to create that group first.
-> >
-> > On the other hand if gpiod_set_array() would require a struct gpiod_descs as
-> > argument the creation of a group for the second use case would become more
-> > complicated as you would have to allocate a struct instead of an array, etc.
-> >
-> > So let's just keep it the way it is and get this series merged.
-> 
-> I've merged it.
-> 
+Bill Fink <billfink@mindspring.com> writes:
 
-Thanks.
+> On Wed, 04 Mar 2015, Eric W. Biederman wrote:
+>
+>> roopa <roopa@cumulusnetworks.com> writes:
+>> 
+>> > On 3/3/15, 5:12 PM, Eric W. Biederman wrote:
+>> >> +	/* Append makes no sense with mpls */
+>> >> +	err = -EINVAL;
+>> >
+>> > minor nit: should this be -ENOTSUPP in that case ? (NLM_F_REPLACE and NLM_F_APPEND are
+>> > really operations. But, one can argue that they are an attribute of the msg and hence -EINVAL might be ok).
+>> > I did not find any other such case for consistency check.
+>> 
+>> Yes.  IPv4 implements NLM_F_APPEND and IPv6 ignores it.
+>> 
+>> I will add a patch to change the error code.
+>
+> I believe the error -ENOTSUPP is deprecated and -EOPNOTSUPP should
+> be used instead.
 
-> But can you make a separate patch to Documentation/gpio/consumer.txt
-> describing the array usecase(s) a bit in detail so people realize when it's
-> good to use these functions?
-> 
+Ack.
 
-Sure.
+In particular ENOTSUPP is not allowed to make it to user space while
+EOPNOTSUPP is.
 
-> > About the confusing function names: I would be happy to submit a patch
-> > renaming gpiod_set_array() to gpiod_set_array_value(), once this has been
-> > merged. I'm a little concerned about the length of some function names though.
-> > Isn't gpiod_set_raw_array_value_cansleep() a bit long?
-> 
-> Just patch it and we'll discuss it... :)
-> 
+Which makes me a little leary when I grep the kernel code and I see so
+may uses of ENOTSUPP in the kernel when I grep for it.
 
-Ok. I'll submit a patch after you've merged patch 4/4 in this series in order
-to avoid conflicts.
+Eric
