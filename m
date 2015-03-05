@@ -1,89 +1,223 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tg3: use napi_complete_done()
-Date: Thu, 05 Mar 2015 10:41:34 -0800
-Message-ID: <1425580894.5130.263.camel@edumazet-glaptop2.roam.corp.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 2/7] mpls: Basic routing support
+Date: Thu, 05 Mar 2015 12:42:17 -0600
+Message-ID: <87zj7r9th2.fsf@x220.int.ebiederm.org>
+References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
+	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
+	<20150303.153310.624302583835136622.davem@davemloft.net>
+	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+	<87k2yxtvmw.fsf_-_@x220.int.ebiederm.org>
+	<CAMs_D1-RkdA_Fy7VoY105vjEkkFZaAV_bvKtw9+qQFWsRyKRaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	roopa <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
+To: Vivek Venkatraman <vivek@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:41489 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756892AbbCESlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 13:41:36 -0500
-Received: by iecrd18 with SMTP id rd18so78935309iec.8
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 10:41:35 -0800 (PST)
+Received: from out01.mta.xmission.com ([166.70.13.231]:51245 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbbCESp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 13:45:58 -0500
+In-Reply-To: <CAMs_D1-RkdA_Fy7VoY105vjEkkFZaAV_bvKtw9+qQFWsRyKRaQ@mail.gmail.com>
+	(Vivek Venkatraman's message of "Thu, 5 Mar 2015 08:36:58 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
 
-Using napi_complete_done() instead of napi_complete() allows
-us to use /sys/class/net/ethX/gro_flush_timeout
+> On Tue, Mar 3, 2015 at 5:10 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>>
+>> This change adds a new Kconfig option MPLS_ROUTING.
+>>
+>> The core of this change is the code to look at an mpls packet received
+>> from another machine.  Look that packet up in a routing table and
+>> forward the packet on.
+>>
+>> Support of MPLS over ATM is not considered or attempted here.  This
+>> implemntation follows RFC3032 and implements the MPLS shim header that
+>> can pass over essentially any network.
+>>
+>> What RFC3021 refers to as the as the Incoming Label Map (ILM) I call
+>> net->mpls.platform_label[].  What RFC3031 refers to as the Next Label
+>> Hop Forwarding Entry (NHLFE) I call mpls_route.  Though calling it the
+>> label fordwarding information base (lfib) might also be valid.
+>>
+>
+> This currently does not allow for ECMP when acting as a transit,
+> correct?
 
-GRO layer can aggregate more packets if the flush is delayed a bit,
-without having to set too big coalescing parameters that impact
-latencies.
+Correct.  There is no fundamental reason for that, ECMP just has not
+been implemented yet.
 
-Tested:
+>> Further the implemntation forwards packets as described in RFC3032.
+>> There is no need and given the original motivation for MPLS a strong
+>> discincentive to have a flexible label forwarding path.  In essence
+>> the logic is the topmost label is read, looked up, removed, and
+>> replaced by 0 or more new lables and the sent out the specified
+>> interface to it's next hop.
+>>
+>> Quite a few optional features are not implemented here.  Among them
+>> are generation of ICMP errors when the TTL is exceeded or the packet
+>> is larger than the next hop MTU (those conditions are detected and the
+>> packets are dropped instead of generating an icmp error).  The traffic
+>> class field is always set to 0.  The implementation focuses on IP over
+>> MPLS and does not handle egress of other kinds of protocols.
+>>
+>> Instead of implementing coordination with the neighbour table and
+>> sorting out how to input next hops in a different address family (for
+>> which there is value).  I was lazy and implemented a next hop mac
+>> address instead.  The code is simpler and there are flavor of MPLS
+>> such as MPLS-TP where neither an IPv4 nor an IPv6 next hop is
+>> appropriate so a next hop by mac address would need to be implemented
+>> at some point.
+>>
+>
+> I guess the above is no longer the case with this revised patch which
+> can support a IPv4 or IPv6 next hop too, right?
 
-lpx:~# echo 0 >/sys/class/net/eth1/gro_flush_timeout
+Correct.
 
-lpx:~# sar -n DEV 1 10 | grep eth1
-10:36:25 AM      eth1  81290.00  40617.00 120479.67   2777.01      0.00      0.00      0.00
-10:36:26 AM      eth1  81283.00  40608.00 120481.81   2778.13      0.00      0.00      1.00
-10:36:27 AM      eth1  81304.00  40639.00 120518.42   2778.28      0.00      0.00      0.00
-10:36:28 AM      eth1  81255.00  40605.00 120437.34   2775.95      0.00      0.00      1.00
-10:36:29 AM      eth1  81306.00  40630.00 120521.44   2777.70      0.00      0.00      0.00
-10:36:30 AM      eth1  81286.00  40564.00 120480.20   2773.31      0.00      0.00      0.00
-10:36:31 AM      eth1  81256.00  40599.00 120438.81   2776.27      0.00      0.00      0.00
-10:36:32 AM      eth1  81287.00  40594.00 120480.69   2776.69      0.00      0.00      0.00
-10:36:33 AM      eth1  81279.00  40601.00 120478.53   2775.84      0.00      0.00      0.00
-10:36:34 AM      eth1  81277.00  40610.00 120476.94   2776.25      0.00      0.00      0.00
-Average:         eth1  81282.30  40606.70 120479.39   2776.54      0.00      0.00      0.20
+>> Two new definitions AF_MPLS and PF_MPLS are exposed to userspace.
+>>
+>> Decoding the mpls header must be done by first byeswapping a 32bit bit
+>> endian word into the local cpu endian and then bit shifting to extract
+>> the pieces.  There is no C bit-field that can represent a wire format
+>> mpls header on a little endian machine as the low bits of the 20bit
+>> label wind up in the wrong half of third byte.  Therefore internally
+>> everything is deal with in cpu native byte order except when writing
+>> to and reading from a packet.
+>>
+>> For management simplicity if a label is configured to forward out
+>> an interface that is down the packet is dropped early.  Similarly
+>> if an network interface is removed rt_dev is updated to NULL
+>> (so no reference is preserved) and any packets for that label
+>> are dropped.  Keeping the label entries in the kernel allows
+>> the kernel label table to function as the definitive source
+>> of which labels are allocated and which are not.
+>>
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+>>  include/linux/socket.h      |   2 +
+>>  include/net/net_namespace.h |   4 +
+>>  include/net/netns/mpls.h    |  15 ++
+>>  net/mpls/Kconfig            |   5 +
+>>  net/mpls/Makefile           |   1 +
+>>  net/mpls/af_mpls.c          | 349 ++++++++++++++++++++++++++++++++++++++++++++
+>>  net/mpls/internal.h         |  56 +++++++
+>>  7 files changed, 432 insertions(+)
+>>  create mode 100644 include/net/netns/mpls.h
+>>  create mode 100644 net/mpls/af_mpls.c
+>>  create mode 100644 net/mpls/internal.h
+>>
+>> <snip>
+>> +
+>> +static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>> +                       struct packet_type *pt, struct net_device *orig_dev)
+>> +{
+>> +       struct net *net = dev_net(dev);
+>> +       struct mpls_shim_hdr *hdr;
+>> +       struct mpls_route *rt;
+>> +       struct mpls_entry_decoded dec;
+>> +       struct net_device *out_dev;
+>> +       unsigned int hh_len;
+>> +       unsigned int new_header_size;
+>> +       unsigned int mtu;
+>> +       int err;
+>> +
+>> +       /* Careful this entire function runs inside of an rcu critical section */
+>> +
+>> +       if (skb->pkt_type != PACKET_HOST)
+>> +               goto drop;
+>> +
+>> +       if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+>> +               goto drop;
+>> +
+>> +       if (!pskb_may_pull(skb, sizeof(*hdr)))
+>> +               goto drop;
+>> +
+>> +       /* Read and decode the label */
+>> +       hdr = mpls_hdr(skb);
+>> +       dec = mpls_entry_decode(hdr);
+>> +
+>> +       /* Pop the label */
+>> +       skb_pull(skb, sizeof(*hdr));
+>> +       skb_reset_network_header(skb);
+>> +
+>> +       skb_orphan(skb);
+>> +
+>> +       rt = mpls_route_input_rcu(net, dec.label);
+>> +       if (!rt)
+>> +               goto drop;
+>> +
+>> +       /* Find the output device */
+>> +       out_dev = rt->rt_dev;
+>> +       if (!mpls_output_possible(out_dev))
+>> +               goto drop;
+>> +
+>> +       if (skb_warn_if_lro(skb))
+>> +               goto drop;
+>> +
+>> +       skb_forward_csum(skb);
+>> +
+>> +       /* Verify ttl is valid */
+>> +       if (dec.ttl <= 2)
+>
+> Why is this "<= 2"?
 
-lpx:~# echo 13000 >/sys/class/net/eth1/gro_flush_timeout
+It appears I rewrote that section one too many times it should be <= 1.
 
-lpx:~# sar -n DEV 1 10 | grep eth1
-10:36:43 AM      eth1  81257.00   7747.00 120437.44    530.00      0.00      0.00      0.00
-10:36:44 AM      eth1  81278.00   7748.00 120480.00    529.85      0.00      0.00      0.00
-10:36:45 AM      eth1  81282.00   7752.00 120479.09    531.09      0.00      0.00      0.00
-10:36:46 AM      eth1  81282.00   7751.00 120478.80    530.90      0.00      0.00      0.00
-10:36:47 AM      eth1  81276.00   7745.00 120478.31    529.64      0.00      0.00      0.00
-10:36:48 AM      eth1  81278.00   7747.00 120478.50    529.81      0.00      0.00      0.00
-10:36:49 AM      eth1  81282.00   7749.00 120478.88    530.01      0.00      0.00      0.00
-10:36:50 AM      eth1  81284.00   7751.00 120481.52    530.20      0.00      0.00      0.00
-10:36:51 AM      eth1  81299.00   7769.00 120481.74    533.81      0.00      0.00      0.00
-10:36:52 AM      eth1  81281.00   7748.00 120478.62    529.96      0.00      0.00      0.00
-Average:         eth1  81279.90   7750.70 120475.29    530.53      0.00      0.00      0.00
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 23a019cee279af1e502d05dc5f2363372d35b2ce..22b33da32ba46204beb1cb5fd7c725bfaa1dfc71 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7244,7 +7244,7 @@ static int tg3_poll_msix(struct napi_struct *napi, int budget)
- 			if (tnapi == &tp->napi[1] && tp->rx_refill)
- 				continue;
- 
--			napi_complete(napi);
-+			napi_complete_done(napi, work_done);
- 			/* Reenable interrupts. */
- 			tw32_mailbox(tnapi->int_mbox, tnapi->last_tag << 24);
- 
-@@ -7337,7 +7337,7 @@ static int tg3_poll(struct napi_struct *napi, int budget)
- 			sblk->status &= ~SD_STATUS_UPDATED;
- 
- 		if (likely(!tg3_has_work(tnapi))) {
--			napi_complete(napi);
-+			napi_complete_done(napi, work_done);
- 			tg3_int_reenable(tnapi);
- 			break;
- 		}
+>> +               goto drop;
+>> +       dec.ttl -= 1;
+>> +
+>> +       /* Verify the destination can hold the packet */
+>> +       new_header_size = mpls_rt_header_size(rt);
+>> +       mtu = mpls_dev_mtu(out_dev);
+>> +       if (mpls_pkt_too_big(skb, mtu - new_header_size))
+>> +               goto drop;
+>> +
+>> +       hh_len = LL_RESERVED_SPACE(out_dev);
+>> +       if (!out_dev->header_ops)
+>> +               hh_len = 0;
+>> +
+>> +       /* Ensure there is enough space for the headers in the skb */
+>> +       if (skb_cow(skb, hh_len + new_header_size))
+>> +               goto drop;
+>> +
+>> +       skb->dev = out_dev;
+>> +       skb->protocol = htons(ETH_P_MPLS_UC);
+>> +
+>> +       if (unlikely(!new_header_size && dec.bos)) {
+>> +               /* Penultimate hop popping */
+>> +               if (!mpls_egress(rt, skb, dec))
+>> +                       goto drop;
+>> +       } else {
+>> +               bool bos;
+>> +               int i;
+>> +               skb_push(skb, new_header_size);
+>> +               skb_reset_network_header(skb);
+>> +               /* Push the new labels */
+>> +               hdr = mpls_hdr(skb);
+>> +               bos = dec.bos;
+>> +               for (i = rt->rt_labels - 1; i >= 0; i--) {
+>> +                       hdr[i] = mpls_entry_encode(rt->rt_label[i], dec.ttl, 0, bos);
+>> +                       bos = false;
+>> +               }
+>> +       }
+>> +
+>> +       err = neigh_xmit(rt->rt_via_family, out_dev, rt->rt_via, skb);
+>> +       if (err)
+>> +               net_dbg_ratelimited("%s: packet transmission failed: %d\n",
+>> +                                   __func__, err);
+>> +       return 0;
+>> +
+>> +drop:
+>> +       kfree_skb(skb);
+>> +       return NET_RX_DROP;
+>> +}
+>> +
+>
+> Vivek
