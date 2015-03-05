@@ -1,80 +1,91 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [Fwd: Re: [PATCH -next] net: i40e: fix build, depends on
- CONFIGFS_FS]
-Date: Thu, 5 Mar 2015 00:34:05 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789282B02@ORSMSX108.amr.corp.intel.com>
-References: <1425413366.2556.76.camel@jtkirshe-mobl>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 7/8] mpls: Multicast route table change
+ notifications
+Date: Wed, 4 Mar 2015 20:56:06 -0500
+Message-ID: <20150305015606.GD1551@gospo>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
+ <87fv9tvrgq.fsf@x220.int.ebiederm.org>
+ <54EEC967.20106@cumulusnetworks.com>
+ <87oaogn51k.fsf@x220.int.ebiederm.org>
+ <54EF37E2.1040506@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:15609 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751824AbbCEAeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2015 19:34:16 -0500
-In-Reply-To: <1425413366.2556.76.camel@jtkirshe-mobl>
-Content-Language: en-US
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:45727 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147AbbCEB4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 20:56:11 -0500
+Received: by qcwb13 with SMTP id b13so3144070qcw.12
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 17:56:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54EF37E2.1040506@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tLS0tIEZvcndhcmRlZCBNZXNzYWdlIC0tLS0tLS0tDQo+IEZyb206IERhdmlkIE1p
-bGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gVG86IHJkdW5sYXBAaW5mcmFkZWFkLm9yZw0K
-PiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZywgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9y
-ZywNCj4gbGludXgubmljc0BpbnRlbC5jb20sIGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbQ0K
-PiBTdWJqZWN0OiBSZTogW1BBVENIIC1uZXh0XSBuZXQ6IGk0MGU6IGZpeCBidWlsZCwgZGVwZW5k
-cyBvbiBDT05GSUdGU19GUw0KPiBEYXRlOiBUdWUsIDMgTWFyIDIwMTUgMTU6MDI6MDcgLTA1MDAN
-Cj4gDQoNCltzbmlwXQ0KDQo+IA0KPiBJbnRlbCBndXlzLCBJIGFtIGZ1cmlvdXNseSBtYWQuDQo+
-IA0KPiBJJ3ZlIHRvbGQgeW91IGd1eXMgYSB0aG91c2FuZCB0aW1lcyB0byB1c2UgcG9ydGFibGUs
-IHJlYXNvbmFibGUgbWVjaGFuaXNtcw0KPiB0byBjb25maWd1cmUgeW91ciBoYXJkd2FyZS4gIFVz
-aW5nIGZhY2lsaXRpZXMgdGhhdCBjYW4gYmUgdXNlZCBmb3Igb3RoZXINCj4gY2FyZHMgZnJvbSBv
-dGhlciB2ZW5kb3JzIHdpdGggc2ltaWxhciBmYWNpbGl0aWVzLg0KDQpXZSdyZSBzb3JyeSBmb3Ig
-Y2F1c2luZyBoZWFydGJ1cm4gb24gdGhpcyBob3dldmVyIHRoZSB2ZXJ5IHRlY2hub2xvZ3kgd2Un
-cmUgYXR0ZW1wdGluZyB0byBjb25maWd1cmUgaXMgaXRzZWxmIG5vdCBwb3J0YWJsZS4gIERlbGwg
-TlBBUiBpcyBhIHZlbmRvciBzcGVjaWZpYyB2ZXJ0aWNhbCB0ZWNobm9sb2d5IHRoYXQgYnlwYXNz
-ZXMgYW5kIHN1YnZlcnRzIHRoZSBzdGFuZGFyZCBpbmR1c3RyeSB0ZWNobm9sb2d5IGZvciBJL08g
-cGFydGl0aW9uaW5nIC0gaS5lLiBTUi1JT1YuICBXZSBsb29rZWQgZm9yIHdheXMgdG8gZG8gdGhp
-cyB1c2luZyBzdGFuZGFyZCB0b29scyBmb3VuZCB0aHJlZSBpc3N1ZXMuDQoNCgkqIFRoZSAnaXAg
-bGluaycgY29tbWFuZCB3b3VsZCBiZSB1c2VkIGZvciBiYW5kd2lkdGggcGFydGl0aW9uaW5nDQoJ
-KiBldGh0b29sIHdvdWxkIGJlIHVzZWQgZm9yIHBlcm1hbmVudGx5IGNvbW1pdHRpbmcgdGhlIGJh
-bmR3aWR0aCB2YWx1ZXMgdG8gbm9uLXZvbGF0aWxlIFJBTQ0KCSogV2UgY2Fubm90IGF1dG9jb21t
-aXQgdGhlIEJXIHNldHRpbmdzIHRvIE5WTSBpbiB0aGUgJ2lwIGxpbmsnIHRvb2wgYmVjYXVzZSBv
-ZiBjdXN0b21lciByZXF1aXJlbWVudHMNCg0KV2UgZmVsdCByZXF1aXJpbmcgdXNlcnMgdG8gdXNl
-IHR3byBzZXBhcmF0ZSB0b29scyB0byBjb25maWd1cmUgdGhlIHNhbWUgYXJlYSBvZiBIVyBmdW5j
-dGlvbmFsaXR5IHNlZW1lZCBvbmVyb3VzIHRvIHVzLiAgQW5kIHBvbGx1dGluZyB0aGUgaXAgYW5k
-IGV0aHRvb2wgdXRpbGl0aWVzIHdpdGggRGVsbCBOUEFSIHNwZWNpZmljIGZlYXR1cmUgc3VwcG9y
-dCBtZWFucyB0aGVyZSB3aWxsIGJlIG1hbnkgbm9uLURlbGwgc3lzdGVtcyBjYXJyeWluZyBjb2Rl
-IHRoYXQgY291bGQgY2F1c2UgcHJvYmxlbXMuDQoNCj4gDQo+IElmIHN1Y2ggcG9ydGFibGUgbmV0
-ZGV2aWNlIGNvbmZpZ3VyYXRpb24gZnJhbWV3b3JrcyBkbyBub3QgZXhpc3QsIGNyZWF0ZQ0KPiBp
-dC4NCg0KU2VlIGFib3ZlIGZvciBvdXIgcHJvYmxlbSB3aXRoIGRvaW5nIHNvIGluIHRoaXMgY2Fz
-ZS4NCg0KRGVsbCB3aWxsIGJlIHRoZSBvbmx5IHZlbmRvciBzZWxsaW5nIHN5c3RlbXMgd2l0aCBF
-dGhlcm5ldCBOSUNzIHRoYXQgc3VwcG9ydCB0aGlzIGZlYXR1cmUuICBEZWxsIHdpbGwgYmUgcHJv
-dmlkaW5nIGRvY3VtZW50YXRpb24gdG8gdGhlaXIgdXNlcnMgYWJvdXQgaG93IHRvIHVzZSBjb25m
-aWdmcyBmb3IgY29uZmlndXJhdGlvbiBvZiB0aGlzIGZlYXR1cmUuICBEZWxsIHdpbGwgYmUgdGFr
-aW5nIHRoZSBjdXN0b21lciBjYWxscyB0aGF0IHJlc3VsdCBmcm9tIGFueSBpc3N1ZXMgdGhhdCBh
-cmlzZS4NCg0KQW55b25lIHdobyBkb2Vzbid0IHdhbnQgdGhpcyBjb25maWdmcyBmdW5jdGlvbmFs
-aXR5IGlzIGZyZWUgdG8gY29tcGlsZSBpdCBvdXQgYW5kIG5vdCB1c2UgaXQgYW5kIGl0IGlzIHR1
-cm5lZCBvZmYgYnkgZGVmYXVsdC4NCg0KPiANCj4gRXZlcnkgdGltZSB5b3UgbWFrZSBhIGRldmlj
-ZSBzcGVjaWZpYyBtZWNoYW5pc20gZm9yIGNvbmZpZ3VyYXRpb24sIGEgc21hbGwNCj4ga2l0dGVu
-IGRpZXMgc29tZXdoZXJlIGluIHRoZSB3b3JsZC4NCj4gDQo+IFBsZWFzZSByZW1vdmUgYWxsIG9m
-IHRoaXMgY29uZmlnZnMgY3JhcCBmb3IgdHdpZGRsaW5nIGJhbmR3aWR0aCBldCBhbC4NCj4ga25v
-YnMsIGJlZm9yZSBJIGRvIGl0IGZvciB5b3UuDQoNCldlJ2xsIGRvIHRoYXQgaWYgeW91IGluc2lz
-dCBidXQga2VlcCBpbiBtaW5kIHRoYXQgdGhlcmUgaXMgYWxzbyBzb21lIGNvbmZ1c2luZyBkaXJl
-Y3Rpb24gY29taW5nIGZyb20gR3JlZyBLSCByZWdhcmRpbmcgdXNlIG9mIGNvbmZpZ2ZzLg0KDQpI
-ZXJlOg0KDQpodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LW5ldGRldiZtPTEzNTc5Mjg3NjUyMzQw
-OCZ3PTINCg0KQW5kIEhlcmU6DQoNCmh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgtbmV0ZGV2Jm09
-MTQyMDc0NTEyNDIyMzM1Jnc9Mg0KDQpXZSB3ZXJlIHRvbGQgdG8gZ28gYWhlYWQgYW5kIHVzZSBj
-b25maWdmcyBiZWNhdXNlIHRoYXQncyB3aHkgaXQncyBwYXJ0IG9mIHRoZSBrZXJuZWwgLSBhIHN0
-YW5kYXJkIGludGVyZmFjZSB0aGF0IGlzIHB1Ymxpc2hlZCBhbmQga25vd24uDQogDQpJZiB5b3Ug
-c3RpbGwgd2FudCB1cyB0byByaXAgdGhpcyBvdXQgYW5kIHJld3JpdGUgaXQgYWxsIHRoZW4gd2Ug
-Y2FuIGdvIGJhY2sgdG8gRGVsbCBhbmQgdGVsbCB0aGVtIHRoYXQgdGhlIExpbnV4IG1haW50YWlu
-ZXJzIGhhdmUgc2hvdCB0aGlzIGNvbmZpZ3VyYXRpb24gbWVjaGFuaXNtIGRvd24gYW5kIHRoYXQg
-d2UncmUgd29ya2luZyBvbiBhIGRpZmZlcmVudCBhcHByb2FjaCBidXQgaW4gdGhhdCBjYXNlIEkn
-ZCByZWFsbHkgbGlrZSB5b3VyIGlkZWFzIGFuZCB0aG91Z2h0cyBhYm91dCB0aGUgaXNzdWVzIEkg
-ZGVzY3JpYmUgYWJvdmUgd2l0aCB1c2luZyB0aGUgJ2lwJyBhbmQgJ2V0aHRvb2wnIGNvbW1hbmRz
-Lg0KDQpUaGFua3MgYW5kIHJlZ2FyZHMsDQoNCi0gR3JlZw0KDQo=
+On Thu, Feb 26, 2015 at 07:12:34AM -0800, roopa wrote:
+> On 2/26/15, 6:03 AM, Eric W. Biederman wrote:
+> >roopa <roopa@cumulusnetworks.com> writes:
+> >
+> >>On 2/25/15, 9:19 AM, Eric W. Biederman wrote:
+> >>>Unlike IPv4 this code notifies on all cases where mpls routes
+> >>>are added or removed as that was the simplest to implement.
+> >>>
+> >>>In particular routes being removed because a network interface
+> >>>goes down or is removed are notified about.  Are there technical
+> >>>arguments for handling this differently ? Userspace developers
+> >>>don't particularly like the way IPv4 handles route removal
+> >>>on ifdown.
+> >>that is true. However, from previous emails on this topic on netdev,
+> >>there is no reason to notify these deletes to userspace thereby creating a
+> >>notification storm
+> >>when userspace can figure this out. Which seems like a valid reason.
+> >>(Your approach resembles IPv6 which does generate these notifications and
+> >>userspace is usually happy with this).
+> >Grr.  There is an even better way to do this.
+> >
+> >The semantically best way to handle this is to simply not use routes for
+> >forwarding where the network inteface is down, the carrier is down, or
+> >the network device has gone away for forwarding.
+> 
+> agreed, And we have an internal patch that does this for regular routing
+> on carrier down (which we will upstream soon).
+Yep, I should be able to easily forward-port it from 3.17 to net-next
+without much issue.  Eric feel free to email me directly if you want to
+see what I've got now.
+
+> >
+> >Apparently there are some multi-path scenearios that already do this
+> >legitimately, and routes going away auto-matically can cause userspace
+> >other kinds of problems.
+> >
+> >In MPLS I especially don't want to free the routing table slot until I
+> >know that the change has propagated in the network and I can be
+> >reasonably confident that no-one will send me traffic on that label.
+> >Otherwise there is a chance the label will be reused too soon.
+> ack
+> >
+> >Grumble.  That is a code change I need to make.  Grumble.
+> >
+> >I also need to look and see if those multi-path scenarios report a next
+> >hop as dead or just rely on the network interface state (which I think
+> >it is) to be sufficient information relayed to userspace
+> >
+> they are marked DEAD on ifdown today (AFAIR they dont generate a
+> notification in IPv4)  and are skipped during route lookup.
+> Only when all the nexthops in a multi-path route are dead, is the route
+> multipath route declared dead
+> and is deleted today (with no notification to userspace in the IPv4 case).
+> 
+> Thanks,
+> Roopa
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
