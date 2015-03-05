@@ -1,61 +1,131 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 4/7] mpls: Basic support for adding and removing routes
-Date: Thu, 05 Mar 2015 05:54:50 -0600
-Message-ID: <87y4nbk6b9.fsf@x220.int.ebiederm.org>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
-	<878ufdtvjr.fsf_-_@x220.int.ebiederm.org>
-	<54F6BEAA.2080708@cumulusnetworks.com>
-	<87h9u0lctq.fsf@x220.int.ebiederm.org>
-	<20150304215006.019f1eaffaf3e0bfa53aadcf@mindspring.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v1] bonding: implement bond_poll_controller()
+Date: Thu, 05 Mar 2015 12:10:25 +0000
+Message-ID: <1425557425.3164.55.camel@decadent.org.uk>
+References: <1425522400-3671-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: roopa <roopa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-NqKvvJEGJshS8ieAbH2j"
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:44488 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805AbbCEL61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 06:58:27 -0500
-In-Reply-To: <20150304215006.019f1eaffaf3e0bfa53aadcf@mindspring.com> (Bill
-	Fink's message of "Wed, 4 Mar 2015 21:50:06 -0500")
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43945 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751868AbbCEMKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 07:10:39 -0500
+In-Reply-To: <1425522400-3671-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bill Fink <billfink@mindspring.com> writes:
 
-> On Wed, 04 Mar 2015, Eric W. Biederman wrote:
->
->> roopa <roopa@cumulusnetworks.com> writes:
->> 
->> > On 3/3/15, 5:12 PM, Eric W. Biederman wrote:
->> >> +	/* Append makes no sense with mpls */
->> >> +	err = -EINVAL;
->> >
->> > minor nit: should this be -ENOTSUPP in that case ? (NLM_F_REPLACE and NLM_F_APPEND are
->> > really operations. But, one can argue that they are an attribute of the msg and hence -EINVAL might be ok).
->> > I did not find any other such case for consistency check.
->> 
->> Yes.  IPv4 implements NLM_F_APPEND and IPv6 ignores it.
->> 
->> I will add a patch to change the error code.
->
-> I believe the error -ENOTSUPP is deprecated and -EOPNOTSUPP should
-> be used instead.
+--=-NqKvvJEGJshS8ieAbH2j
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Ack.
+On Wed, 2015-03-04 at 18:26 -0800, Mahesh Bandewar wrote:
+> This patches implements the poll_controller support for all
+> bonding driver. If the slaves have poll_controller net_op defined,
+> this implementation calls them. This is mode agnostic implementation
+> and iterates through all slaves (based on mode) and calls respective
+> handler.
+>=20
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
+>  1 file changed, 33 insertions(+)
+>=20
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_m=
+ain.c
+> index af5908a2190c..cbf77d388f53 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slav=
+e *slave)
+> =20
+>  static void bond_poll_controller(struct net_device *bond_dev)
+>  {
+> +	struct bonding *bond =3D netdev_priv(bond_dev);
+> +	struct slave *slave =3D NULL;
+> +	struct list_head *iter;
+> +	struct ad_info ad_info;
+> +	struct netpoll_info *ni;
+> +	const struct net_device_ops *ops;
+> +
+> +	if (BOND_MODE(bond) =3D=3D BOND_MODE_8023AD)
+> +		if (bond_3ad_get_active_agg_info(bond, &ad_info))
+> +			return;
 
-In particular ENOTSUPP is not allowed to make it to user space while
-EOPNOTSUPP is.
+I don't think you need all that information...
 
-Which makes me a little leary when I grep the kernel code and I see so
-may uses of ENOTSUPP in the kernel when I grep for it.
+> +	rcu_read_lock();
+> +	bond_for_each_slave_rcu(bond, slave, iter) {
+> +		ops =3D slave->dev->netdev_ops;
+> +		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
+> +			continue;
+> +
+> +		if (BOND_MODE(bond) =3D=3D BOND_MODE_8023AD) {
+> +			struct aggregator *agg =3D
+> +			    SLAVE_AD_INFO(slave)->port.aggregator;
+> +
+> +			if (agg &&
+> +			    agg->aggregator_identifier !=3D ad_info.aggregator_id)
+> +				continue;
 
-Eric
+I think this could be:
+
+			if (!(agg && agg->is_active))
+				continue;
+
+Ben.
+
+> +		}
+> +
+> +		ni =3D rcu_dereference_bh(slave->dev->npinfo);
+> +		if (down_trylock(&ni->dev_lock))
+> +			continue;
+> +		ops->ndo_poll_controller(slave->dev);
+> +		up(&ni->dev_lock);
+> +	}
+> +	rcu_read_unlock();
+>  }
+> =20
+>  static void bond_netpoll_cleanup(struct net_device *bond_dev)
+
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=-NqKvvJEGJshS8ieAbH2j
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVPhHsee/yOyVhhEJAQr3dxAAoPZXXFF/5hhoQ8hO35b7t3IiWgCPCnKk
+gVwuGZ6EwL6Jlynv90J6kMmkTG7abnELK5PYPyD7JKTQkMA9KgV8lv4/3aZE8CxB
+3Vb2dhkJDLXTF13xgmxtYYKqxs0iE3NRcTNG6ftMjhk141DqVGE5B9Jg7a7dF038
+bFniFT67v2vofbvtSl1RnS1AfVKliqyzE4keuEr3PQ5g71zuP+pKv4MyHZY/sPO6
+ilK+3/bLpmrWX1DDwOB0izskYt/WXA4rafbLMklDYYtH1Nso7Alq3XBQ9aQKCYYZ
++lLMjyOS7ILUVq6VCODbb/UdZUWaaucKYfLQ01bUCdsYd1vXVFuoRAPqpeJy73pz
+j2f7SgS9BkFUGZDqha6tq4rrWn4ifau1+Y7ESrJZd5b2mgLOXA9J2fqSxCuCsWZu
+79PZIG5Fb4sxaoIow961K9p+d+u0RdzJJdzLo3U21S4oSbA0MSbK1JD7t+bDfA0S
+tfHduOdno4kr0qrB6pZ+6SUDS45ZJ7Q18fK3jm2PzuRVh9H2k16rzyeG9EEdFhEY
+xzX3WfF2FNlwPv5D0uClw7LhqvC26eouPy1TGB/2tJQ8dH66bhOEDCgtHzTj33YF
+tB4wYjNIAsXNEvyRWiNC7V2fZfAgoZp2P2dum7Nsd9YLW+j5nBUPEaryTYZbMobz
+OqR4NydE8Bk=
+=YnhK
+-----END PGP SIGNATURE-----
+
+--=-NqKvvJEGJshS8ieAbH2j--
