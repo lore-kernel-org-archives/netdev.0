@@ -1,78 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v1] bonding: implement bond_poll_controller()
-Date: Wed, 04 Mar 2015 20:01:15 -0800
-Message-ID: <1425528075.5130.238.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425522400-3671-1-git-send-email-maheshb@google.com>
+From: Mike Christie <mchristi@redhat.com>
+Subject: Re: SOCK_MEMALLOC vs loopback
+Date: Wed, 04 Mar 2015 22:03:51 -0600
+Message-ID: <54F7D5A7.1060404@redhat.com>
+References: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com> <20150304200427.GQ3087@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: ceph-devel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Sage Weil <sage@redhat.com>, NeilBrown <neilb@suse.de>,
+	netdev@vger.kernel.org
+To: Mel Gorman <mgorman@suse.de>, Ilya Dryomov <idryomov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:41059 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057AbbCEEBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 23:01:18 -0500
-Received: by igal13 with SMTP id l13so42868890iga.0
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 20:01:17 -0800 (PST)
-In-Reply-To: <1425522400-3671-1-git-send-email-maheshb@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40770 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750998AbbCEEEC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Mar 2015 23:04:02 -0500
+In-Reply-To: <20150304200427.GQ3087@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-04 at 18:26 -0800, Mahesh Bandewar wrote:
+On 03/04/2015 02:04 PM, Mel Gorman wrote:
+> On Wed, Mar 04, 2015 at 09:38:48PM +0300, Ilya Dryomov wrote:
+>> Hello,
+>>
+>> A short while ago Mike added a patch to libceph to set SOCK_MEMALLOC on
+>> libceph sockets and PF_MEMALLOC around send/receive paths (commit
+>> 89baaa570ab0, "libceph: use memalloc flags for net IO").  rbd is much
+>> like nbd and is succeptible to all the same memory allocation
+>> deadlocks, so it seemed like a step in the right direction.
+>>
+> 
+> The contract for SOCK_MEMALLOC is that it would only be used for temporary
+> allocations that were necessary for the system to make forward progress. In
+> the case of swap-over-NFS, it would only be used for transmitting
+> buffers that were necessary to write data to swap when there were no
 
-...
+Are upper layers like NFS/iSCSI/NBD/RBD supposed to know or track when
+there are no other options (for example if a GFP_ATOMIC allocation
+fails, then set the flags and retry the operation), or are they supposed
+to be able to set the flags, send IO and let the network layer handle it?
 
-> +	rcu_read_lock();
-> +	bond_for_each_slave_rcu(bond, slave, iter) {
-> +		ops = slave->dev->netdev_ops;
-> +		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
-> +			continue;
-> +
-> +		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-> +			struct aggregator *agg =
-> +			    SLAVE_AD_INFO(slave)->port.aggregator;
-> +
-> +			if (agg &&
-> +			    agg->aggregator_identifier != ad_info.aggregator_id)
-> +				continue;
-> +		}
-> +
-> +		ni = rcu_dereference_bh(slave->dev->npinfo);
+> other options. If that contract is not met then using it can deadlock the
+> system. It's the same for PF_MEMALLOC -- activating that is a recipe for
+> deadlock due to memory exhaustion.
 
-rcu_read_lock();
-X = rcu_dereference_bh(Y);
-rcu_read_unlock();
-
-Is a mismatch of RCU API.
-
-It should be either :
-
-rcu_read_lock();
-X = rcu_dereference(Y);
-rcu_read_unlock();
-
-or
-
-rcu_read_lock_bh();
-X = rcu_dereference_bh(Y);
-rcu_read_unlock_bh();
-
-
-
-> +		if (down_trylock(&ni->dev_lock))
-> +			continue;
-> +		ops->ndo_poll_controller(slave->dev);
-> +		up(&ni->dev_lock);
-> +	}
-> +	rcu_read_unlock();
->  }
->  
->  static void bond_netpoll_cleanup(struct net_device *bond_dev)
+For rbd and iscsi's SOCK_MEMALLOC/PF_MEMALLOC use, I copied what you did
+for nbd in commit 7f338fe4540b1d0600b02314c7d885fd358e9eca which always
+sets those flags and seems to rely on the network layer to do the right
+thing. Are they all incorrect?
