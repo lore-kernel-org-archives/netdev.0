@@ -1,85 +1,63 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next v2] bonding: implement bond_poll_controller()
-Date: Wed,  4 Mar 2015 21:57:52 -0800
-Message-ID: <1425535072-23068-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ovs-dev] OVS Offload Decision Proposal
+Date: Thu, 05 Mar 2015 01:42:57 -0500 (EST)
+Message-ID: <20150305.014257.974664546228241067.davem@davemloft.net>
+References: <54F7B76E.4040902@gmail.com>
+	<20150305.000015.1427044514000703740.davem@davemloft.net>
+	<CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, davidch@broadcom.com,
+	simon.horman@netronome.com, dev@openvswitch.org,
+	netdev@vger.kernel.org, pablo@netfilter.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:52936 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752083AbbCEF54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 00:57:56 -0500
-Received: by mail-qa0-f74.google.com with SMTP id w8so7072517qac.1
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 21:57:56 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:53348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753791AbbCEGnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 01:43:01 -0500
+In-Reply-To: <CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches implements the poll_controller support for all
-bonding driver. If the slaves have poll_controller net_op defined,
-this implementation calls them. This is mode agnostic implementation
-and iterates through all slaves (based on mode) and calls respective
-handler.
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 4 Mar 2015 21:20:41 -0800
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
-v1:
-  Initial patch
-v2:
-  Corrected rcu mismatch.
+> On Wed, Mar 4, 2015 at 9:00 PM, David Miller <davem@davemloft.net> wrote:
+>> From: John Fastabend <john.fastabend@gmail.com>
+>> Date: Wed, 04 Mar 2015 17:54:54 -0800
+>>
+>>> I think a set operation _is_ necessary for OVS and other
+>>> applications that run in user space.
+>>
+>> It's necessary for the kernel to internally manage the chip
+>> flow resources.
+>>
+>> Full stop.
+>>
+>> It's not being exported to userspace.  That is exactly the kind
+>> of open ended, outside the model, crap we're trying to avoid
+>> by putting everything into the kernel where we have consistent
+>> mechanisms, well understood behaviors, and rules.
+> 
+> David,
+> 
+> Just to make sure everyone is on the same page... this discussion has
+> been about where the policy of offload is implemented, not just who is
+> actually sending config bits to the device. The question is who gets
+> to decide how to best divvy up the finite resources of the device and
+> network amongst various requestors. Is this what you're referring to?
 
- drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
- 1 file changed, 33 insertions(+)
+I'm talking about only the kernel being able to make ->set() calls
+through the flow manager API to the device.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index af5908a2190c..19eabea2d7d9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slave *slave)
- 
- static void bond_poll_controller(struct net_device *bond_dev)
- {
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave = NULL;
-+	struct list_head *iter;
-+	struct ad_info ad_info;
-+	struct netpoll_info *ni;
-+	const struct net_device_ops *ops;
-+
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+		if (bond_3ad_get_active_agg_info(bond, &ad_info))
-+			return;
-+
-+	rcu_read_lock_bh();
-+	bond_for_each_slave_rcu(bond, slave, iter) {
-+		ops = slave->dev->netdev_ops;
-+		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
-+			continue;
-+
-+		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+			struct aggregator *agg =
-+			    SLAVE_AD_INFO(slave)->port.aggregator;
-+
-+			if (agg &&
-+			    agg->aggregator_identifier != ad_info.aggregator_id)
-+				continue;
-+		}
-+
-+		ni = rcu_dereference_bh(slave->dev->npinfo);
-+		if (down_trylock(&ni->dev_lock))
-+			continue;
-+		ops->ndo_poll_controller(slave->dev);
-+		up(&ni->dev_lock);
-+	}
-+	rcu_read_unlock_bh();
- }
- 
- static void bond_netpoll_cleanup(struct net_device *bond_dev)
--- 
-2.2.0.rc0.207.ga3a616c
+Resource control is the kernel's job.
+
+You cannot delegate this crap between ipv4 routing in the kernel,
+L2 bridging in the kernel, and some user space crap.  It's simply
+not going to happen.
+
+All of the delegation of the hardware resource must occur in the
+kernel.  Because only the kernel has a full view of all of the
+resources and how each and every subsystem needs to use it.
