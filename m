@@ -1,61 +1,98 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v3 0/7] switchdev: add IPv4 routing offload
-Date: Wed, 4 Mar 2015 20:50:28 -0800
-Message-ID: <CAE4R7bDTV38bR2Oo2nfO6gFQQBhC4avmWdYeK_2sj1bqZWQiEg@mail.gmail.com>
-References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
-	<20150304.003844.1400829201582760359.davem@davemloft.net>
-	<CAE4R7bDBJye388V+itU9XqFNjruf0GcbXWFydx60fghiZp+NQw@mail.gmail.com>
-	<20150304.160604.2259380248170644628.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: ipset-based "htb over mq/multiq" outgoing queue selection problem
+Date: Wed, 4 Mar 2015 20:54:53 -0800
+Message-ID: <CAHA+R7OPBW4z=qA81g+f43pU3NDRynOqa7o=pc1hzK+TA1WEyw@mail.gmail.com>
+References: <CA+GmxbY-DmS+maLuwEV_dK-qapkJWDw8WxLAA6Hk+padz7vk6w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Dmitry Sytchev <kbdfck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:32807 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbbCEEu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 23:50:28 -0500
-Received: by mail-qa0-f46.google.com with SMTP id n4so37399463qaq.5
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 20:50:28 -0800 (PST)
-In-Reply-To: <20150304.160604.2259380248170644628.davem@davemloft.net>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:33258 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589AbbCEEyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 23:54:54 -0500
+Received: by igbhl2 with SMTP id hl2so39294789igb.0
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 20:54:53 -0800 (PST)
+In-Reply-To: <CA+GmxbY-DmS+maLuwEV_dK-qapkJWDw8WxLAA6Hk+padz7vk6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 4, 2015 at 1:06 PM, David Miller <davem@davemloft.net> wrote:
+On Wed, Mar 4, 2015 at 6:12 AM, Dmitry Sytchev <kbdfck@gmail.com> wrote:
+> Hi all!
 >
-> From: Scott Feldman <sfeldma@gmail.com>
-> Date: Tue, 3 Mar 2015 23:28:06 -0800
+> I'm trying to setup shaper based on htb over mq / multiq with class
+> matching and queue selection done by ipset. I use kernel 3.19 and
+> latest git iptables/ipset/iproute.
 >
-> > On Tue, Mar 3, 2015 at 9:38 PM, David Miller <davem@davemloft.net> wrote:
-> > In v3, the setting and clearing of RTNH_F_EXTERNAL moved to the
-> > driver, the implementer of the add/del ndo ops.  So RTNH_F_EXTERNAL
-> > does get cleared by the driver on fib_flush_external().  We could add
-> > an additional clear above the driver, just in case the driver screwed
-> > up and forgot to clear it.  Driver bug in that case; not sure where to
-> > draw the line.
+> Outgoing hardware queue selection doesn't work if I use ipset with
+> recent skbinfo additions plus iptables SET target, which seems to be
+> the fastest and most convenient way to match and process packets in my
+> case.
 >
-> I'd rather the state bit get managed by net/ipv4/*.c rather than
-> duplicate this into every driver, that's error prone and duplicates
-> logic unnecessarily.
+> If I use tc filter skbedit action on outgoing interface to select
+> outgoing queue, everything works fine.
+> If I use tc filter on incoming interface, it doesn't work too, but I
+> actually don't know if these skbinfo marks may be persisted between
+> interfaces.
 
-That's the way it was in v2 :(
+It is not, it is recalculated after forwarding if the TX interface has less
+queues than the skbqueue set either by the RX driver or you, since TX
+interface may not be same with TX interface and may not have the
+same number of hardware queues.
 
-In v3, net/ipv4/*.c doesn't know if the driver skipped installing a
-route to hw.  The driver returns 0 as if it was installed. So the
-driver has to mark the ones actually installed.
+So how many queues do you have on your RX interface and TX
+interface? (`ls /sys/class/net/$NIC/queues` can show you)
 
-This is why in v2 had return code -EOPNOTSUPP for routes that are
-skipped by driver.  For example, rocker currently skips ECMP routes.
-It's not an err condition.
+>
+> I create qdiscs after mq queues and trying to make packets go to
+> queues depending on ipset skbqueue/skbprio map.
+>
+> I do the following:
+> $IPT -F -t mangle
+> $IPT -t mangle -A FORWARD -o $IF_OUT -j SET --map-set users dst
+> --map-prio --map-queue
+> $IPT -t mangle -A FORWARD -o $IF_IN -j SET  --map-set users src
+> --map-prio --map-queue
+> $IPT -t mangle -A FORWARD -o $IF_IN -j SET --map-set users src
+> --map-prio --map-queue
+> $IPT -t mangle -A FORWARD -o $IF_OUT -j SET  --map-set users dst
+> -map-prio --map-queue
+>
+> ipset add users 1.1.1.1 skbqueue 3 skbprio 12:1
+>
+> All packets still go to first queue, despite iptables show matches on
+> rules and applies maps (I added some debug output to netfilter SET
+> extension):
+> qdisc multiq 1: dev eth2 root refcnt 65 bands 4/64
+> qdisc htb 11: dev eth2 parent 1:1 r2q 2000 default 5
+> direct_packets_stat 29 direct_qlen 10000
+> qdisc htb 12: dev eth2 parent 1:2 r2q 2000 default 5
+> direct_packets_stat 0 direct_qlen 10000
+> qdisc htb 13: dev eth2 parent 1:3 r2q 2000 default 5
+> direct_packets_stat 0 direct_qlen 10000
+> qdisc htb 14: dev eth2 parent 1:4 r2q 2000 default 5
+> direct_packets_stat 0 direct_qlen 10000
+>
+>
+> If I use tc filter with skbedit action, everything  works fine:
+> tc filter add dev eth2 parent 1: protocol ip prio 1 u32 match ip src
+> 1.1.1.1 action skbedit queue_mapping 3
+>
+> Here we can see packets started to go 4th queue:
+> qdisc multiq 1: dev eth2 root refcnt 65 bands 4/64
+> qdisc htb 11: dev eth2 parent 1:1 r2q 2000 default 5
+> direct_packets_stat 29 direct_qlen 10000
+> qdisc htb 12: dev eth2 parent 1:2 r2q 2000 default 5
+> direct_packets_stat 0 direct_qlen 10000
+> qdisc htb 13: dev eth2 parent 1:3 r2q 2000 default 5
+> direct_packets_stat 0 direct_qlen 10000
+> qdisc htb 14: dev eth2 parent 1:4 r2q 2000 default 5
+> direct_packets_stat 14 direct_qlen 10000
+>
+> How can the same behaviour be achieved with ipset? Or it requires
+> queue number to be set on rules of outgoing interface only, so it is
+> not possible with ipset+iptables at all? Or maybe there is some bug?
 
-But I see driver could skip and not skip the wrong combination of
-routes such that we get a prefix split, for example.  We can't trust
-driver.
-
-I don't know what to do for v4.  Bummer, we got pretty close.  My only
-ideas right now involve more code to handling unwinding some routes
-from hw when related route fails to install to hw.
-
--scott
+I guess skb->queue_mapping is cleared or recalculated somewhere
+inbetween ipt FORWARD/POST_ROUTING and dev_queue_xmit().
