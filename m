@@ -1,77 +1,93 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Thu, 05 Mar 2015 07:01:44 -0800
-Message-ID: <54F86FD8.9000409@cumulusnetworks.com>
-References: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com> <20150305083621.GC2033@nanopsycho.orion>
+From: Emil Medve <Emilian.Medve@Freescale.com>
+Subject: Re: [PATCH 0/7] Freescale DPAA FMan FLIB(s)
+Date: Thu, 5 Mar 2015 09:04:54 -0600
+Message-ID: <54F87096.2070709@Freescale.com>
+References: <1425534351-1065-1-git-send-email-Emilian.Medve@Freescale.com>
+ <54F84CF1.80702@mojatatu.com> <54F85ECB.3070200@Freescale.com>
+ <54F869CE.1080701@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Igal Liberman <Igal.Liberman@Freescale.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	<linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:41318 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbbCEPBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 10:01:55 -0500
-Received: by pablj1 with SMTP id lj1so37020070pab.8
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 07:01:55 -0800 (PST)
-In-Reply-To: <20150305083621.GC2033@nanopsycho.orion>
+Received: from mail-by2on0101.outbound.protection.outlook.com ([207.46.100.101]:41476
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752625AbbCEPE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 10:04:27 -0500
+In-Reply-To: <54F869CE.1080701@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/5/15, 12:36 AM, Jiri Pirko wrote:
-> Wed, Mar 04, 2015 at 01:15:29AM CET, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> With the recent addition of the NETIF_F_HW_SWITCH_OFFLOAD flag
->> on rocker ports, the second command (bridge link set) below will turn off
->> learning in the rocker hw (Scott/Jiri, need some confirmation from
->> you that this is indeed a problem and if the below patch is ok).
->>
->> ip link set dev swp1 master br0
->> bridge link set dev swp1 learning off master
->> bridge link set dev swp1 learning_sync on self
->>
->> This patch fixes rocker to ignore learning setting when 'master'
->> is set. This makes it possible to set/unset learning in kernel and bridge
->> driver independently.
->>
->> The below command will continue to set learning on in both kernel and rocker
->> hw:
->> bridge link set dev swp1 learning on
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->> drivers/net/ethernet/rocker/rocker.c |    3 +++
->> 1 file changed, 3 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->> index e5a15a4..d7c31d2 100644
->> --- a/drivers/net/ethernet/rocker/rocker.c
->> +++ b/drivers/net/ethernet/rocker/rocker.c
->> @@ -3769,6 +3769,9 @@ static int rocker_port_bridge_setlink(struct net_device *dev,
->> 	struct nlattr *attr;
->> 	int err;
->>
->> +	if (flags && !(flags & BRIDGE_FLAGS_SELF))
->> +		return 0;
->> +
-> I think that the called should handle this case, not every particular
-> driver. How about to put this into rtnl_bridge_setlink?
+Hello Jamal,
 
-The problem is setlink can contain many more attributes than just learning.
-And for most attributes you want to mirror them in hardware.
-Only a few attributes like learning, you want to be able to set them in 
-the kernel driver
-differently than in hardware.
 
-We have previously discussed encoding hw/sw in the upper bits of bridge 
-port attributes.
-I was trying to avoid that and use the existing master/self to achieve 
-the same.
+On 03/05/2015 08:35 AM, Jamal Hadi Salim wrote:
+> Hi Emil,
+> 
+> On 03/05/15 08:48, Emil Medve wrote:
+> 
+>> The intent is to upstream the entire suite of the DPAA drivers. All the
+>> drivers are still WIP, but B/QMan have been already presented to the
+>> upstream community and this is the first attempt to publish (some low
+>> level code of) the FMan driver. As we go through our internal checklist
+>> and in the same time address community feedback we'll soon get the
+>> drivers to be acceptable for the upstream trees
+>>
+>> The first version of the actual Ethernet driver will follow imminently
+>>
+>> SDK enablement is a side-effect
+> 
+> Meaning? Let me ask the question differently:
+> Do i need your sdk to use the features exposed
 
-I will repost alternatives if I can think of something.
+No. All the kernel drivers/code we want to upstream is meant to stand on
+its own and be used the "normal" Linux/Unix way
 
-Thanks,
-Roopa
+> or can i use something
+> like tc to set up the deficit rr or wred or the exposed classifiers
+> and associated actions?
+
+The SDK doesn't currently support the enablement of any HW QoS features
+via standard Linux user-space tools. The SDK contains some FSL tools for
+that. As a time moving target we intend to support lots of the DPAA
+features via standard kernel/user-space means: ethtool, iptables,
+iproute2, etc.
+
+> Would your sdk (via user space direct programming) benefit because you
+> have pushed these pieces into the kernel?
+
+Not specifically because of the kernel drivers. In support for the
+user-space DPAA the kernel will have some UIO/VFIO drivers to allow the
+user-space to "mmap" these devices (portals, ports, MAC(s), etc.). The
+intent is to use the same driver sources for the kernel- and user-space
+drivers
+
+>>> How are you planning to
+>>> add support for your classifiers, queue schedulers etc?
+>>
+>> Yes
+> 
+> Yes as in these will be available via linux kernel or via your sdk?
+
+As in these will be available via familiar kernel-/user-space tools
+
+>>> Is that a patch
+>>> on top of this or it is something that sits on user space?
+>>
+>> Both. Full DPAA/Ethernet enablement will be present in the kernel. We
+>> also have support for user-space based approach. I'm unsure where/when
+>> we might publish that. Of course the SDK is always a place you can turn
+>> to for all the code we have (in whatever state it might be)
+> 
+> the sdk is open source?
+
+I'm uncertain about *all* the licenses included, but you can look into
+it and download the SDK via git.freescale.com and/or
+http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=SDKLINUX
+
+
+Cheers,
