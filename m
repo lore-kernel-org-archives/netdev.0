@@ -1,47 +1,58 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] netlink: drop (int) cast on length arg in NLMSG_OK
-Date: Thu,  5 Mar 2015 00:47:08 -0500
-Message-ID: <1425534428-24182-1-git-send-email-vapier@gentoo.org>
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Don Fry <pcnet32@frontier.com>
+Subject: Re: [PATCH net-next 02/14] ethernet: Use eth_<foo>_addr instead of
+ memset
+Date: Wed, 04 Mar 2015 21:39:01 -0800
+Message-ID: <1425533941.22905.45.camel@Lunix2.home>
+References: <cover.1425354527.git.joe@perches.com>
+	 <86d963752051ae24a93c9a26da1e847459723aed.1425354528.git.joe@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <86d963752051ae24a93c9a26da1e847459723aed.1425354528.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The NLMSG_OK macro compares three things:
- - the len arg from the user
- - a size_t: sizeof(struct nlmsghdr)
- - an int: sizeof(struct nlmsghdr) casted
- - an u32: the nlmsghdr->nlmsg_len member
+On Mon, 2015-03-02 at 19:54 -0800, Joe Perches wrote:
+> Use the built-in function instead of memset.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-When building with -Wsign-compare, this macro triggers a signed compare
-warning.  This is because it compares len to an int, and then compares
-it to a u32.  If len is signed, we get a warning due to the last test.
-If len is unsigned, we get a warning due to the first test.  Like in
-strace:
-socketutils.c:145:8: warning: comparison between signed and unsigned
-                              integer expressions [-Wsign-compare]
+Acked-by: Don Fry <pcnet32@frontier.com>
+for pcnet32.c
 
-Lets drop the int cast on the first sizeof.  This way, once the user
-casts len to an unsigned value, everything shakes out correctly.
-
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- include/uapi/linux/netlink.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index 1a85940..3eb4e24 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -84,7 +84,7 @@ struct nlmsghdr {
- #define NLMSG_DATA(nlh)  ((void*)(((char*)nlh) + NLMSG_LENGTH(0)))
- #define NLMSG_NEXT(nlh,len)	 ((len) -= NLMSG_ALIGN((nlh)->nlmsg_len), \
- 				  (struct nlmsghdr*)(((char*)(nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len)))
--#define NLMSG_OK(nlh,len) ((len) >= (int)sizeof(struct nlmsghdr) && \
-+#define NLMSG_OK(nlh,len) ((len) >= sizeof(struct nlmsghdr) && \
- 			   (nlh)->nlmsg_len >= sizeof(struct nlmsghdr) && \
- 			   (nlh)->nlmsg_len <= (len))
- #define NLMSG_PAYLOAD(nlh,len) ((nlh)->nlmsg_len - NLMSG_SPACE((len)))
--- 
-2.3.1
+> ---
+>  drivers/net/ethernet/amd/pcnet32.c                  | 2 +-
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 2 +-
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c    | 6 +++---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c   | 2 +-
+>  drivers/net/ethernet/cisco/enic/enic_main.c         | 8 ++++----
+>  drivers/net/ethernet/emulex/benet/be_cmds.c         | 2 +-
+>  drivers/net/ethernet/emulex/benet/be_main.c         | 2 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c       | 4 ++--
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c      | 4 ++--
+>  drivers/net/ethernet/mellanox/mlx4/en_selftest.c    | 2 +-
+>  drivers/net/ethernet/micrel/ksz884x.c               | 2 +-
+>  drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c  | 2 +-
+>  drivers/net/ethernet/qlogic/qlge/qlge_main.c        | 2 +-
+>  drivers/net/ethernet/smsc/smsc911x.c                | 2 +-
+>  drivers/net/ethernet/ti/netcp_core.c                | 2 +-
+>  drivers/net/ethernet/toshiba/ps3_gelic_wireless.c   | 4 ++--
+>  drivers/net/ethernet/xscale/ixp4xx_eth.c            | 2 +-
+>  17 files changed, 25 insertions(+), 25 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+> index 11d6e65..8eb37e0 100644
+> --- a/drivers/net/ethernet/amd/pcnet32.c
+> +++ b/drivers/net/ethernet/amd/pcnet32.c
+> @@ -1708,7 +1708,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+>  
+>  	/* if the ethernet address is not valid, force to 00:00:00:00:00:00 */
+>  	if (!is_valid_ether_addr(dev->dev_addr))
+> -		memset(dev->dev_addr, 0, ETH_ALEN);
+> +		eth_zero_addr(dev->dev_addr);
+>  
+>  	if (pcnet32_debug & NETIF_MSG_PROBE) {
+>  		pr_cont(" %pM", dev->dev_addr);
