@@ -1,125 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] net: gro: remove obsolete code from
- skb_gro_receive()
-Date: Thu, 05 Mar 2015 13:47:48 -0800
-Message-ID: <1425592068.5130.266.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425493600.5130.208.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Subject: [PATCH] team: add support to get speed via ethtool
+Date: Thu,  5 Mar 2015 13:48:35 -0800
+Message-ID: <1425592115-1750-1-git-send-email-sridhar.samudrala@intel.com>
+To: davem@davemloft.net, jiri@resnulli.us, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:44608 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423AbbCEVru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 16:47:50 -0500
-Received: by iecar1 with SMTP id ar1so80527096iec.11
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 13:47:49 -0800 (PST)
-In-Reply-To: <1425493600.5130.208.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga11.intel.com ([192.55.52.93]:65259 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751278AbbCEVrn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 16:47:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+With this patch ethtool <team> OR cat /sys/class/net/<team>/speed
+returns the speed of team based on member ports speed and state.
 
-Some drivers use copybreak to copy tiny frames into smaller skb,
-and this smaller skb might not have skb->head_frag set for various
-reasons.
+Based on get speed support in bonding driver.
 
-skb_gro_receive() currently doesn't allow to aggregate the smaller skb
-into the previous GRO packet if this GRO packet has at least 2 MSS in
-it.
-
-Following workload easily demonstrates the problem.
-
-netperf -t TCP_RR -H target -- -r 3000,3000 
-
-(tcpdump shows one GRO packet with 2 MSS, plus one additional packet of
-104 bytes that should have been appended.)
-
-It turns out that we can remove code from skb_gro_receive(), because
-commit 8a29111c7ca6 ("net: gro: allow to build full sized skb") and its
-followups removed the assumption that a GRO packet with a frag_list had
-to have an empty head.
-
-Removing this code allows the aggregation of the last (incomplete) frame
-in some RPC workloads. Note that tcp_gro_receive() already takes care of
-forcing a flush if necessary, including this case.
-
-If we want to avoid using frag_list in the first place (in forwarding
-workloads for example, as the outgoing NIC is generally not able to cope
-with skbs having a frag_list), we need to address this separately.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 ---
-v2: removed headroom & nskb variables, no longer needed.
+ drivers/net/team/team.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
- net/core/skbuff.c |   45 --------------------------------------------
- 1 file changed, 1 insertion(+), 44 deletions(-)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 913b94a77060a04197f6e98df8cb2700d3263136..47c32413d5b94c4911939f98772a8ab1d98c3740 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3206,10 +3206,9 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
- 	unsigned int offset = skb_gro_offset(skb);
- 	unsigned int headlen = skb_headlen(skb);
--	struct sk_buff *nskb, *lp, *p = *head;
- 	unsigned int len = skb_gro_len(skb);
-+	struct sk_buff *lp, *p = *head;
- 	unsigned int delta_truesize;
--	unsigned int headroom;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 9d3366f..e822803 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1954,6 +1954,30 @@ static int team_change_carrier(struct net_device *dev, bool new_carrier)
+ 	return 0;
+ }
  
- 	if (unlikely(p->len + len >= 65536))
- 		return -E2BIG;
-@@ -3276,48 +3275,6 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		NAPI_GRO_CB(skb)->free = NAPI_GRO_FREE_STOLEN_HEAD;
- 		goto done;
- 	}
--	/* switch back to head shinfo */
--	pinfo = skb_shinfo(p);
--
--	if (pinfo->frag_list)
--		goto merge;
--	if (skb_gro_len(p) != pinfo->gso_size)
--		return -E2BIG;
--
--	headroom = skb_headroom(p);
--	nskb = alloc_skb(headroom + skb_gro_offset(p), GFP_ATOMIC);
--	if (unlikely(!nskb))
--		return -ENOMEM;
--
--	__copy_skb_header(nskb, p);
--	nskb->mac_len = p->mac_len;
--
--	skb_reserve(nskb, headroom);
--	__skb_put(nskb, skb_gro_offset(p));
--
--	skb_set_mac_header(nskb, skb_mac_header(p) - p->data);
--	skb_set_network_header(nskb, skb_network_offset(p));
--	skb_set_transport_header(nskb, skb_transport_offset(p));
--
--	__skb_pull(p, skb_gro_offset(p));
--	memcpy(skb_mac_header(nskb), skb_mac_header(p),
--	       p->data - skb_mac_header(p));
--
--	skb_shinfo(nskb)->frag_list = p;
--	skb_shinfo(nskb)->gso_size = pinfo->gso_size;
--	pinfo->gso_size = 0;
--	__skb_header_release(p);
--	NAPI_GRO_CB(nskb)->last = p;
--
--	nskb->data_len += p->len;
--	nskb->truesize += p->truesize;
--	nskb->len += p->len;
--
--	*head = nskb;
--	nskb->next = p->next;
--	p->next = NULL;
--
--	p = nskb;
++static int team_ethtool_get_settings(struct net_device *dev,
++				     struct ethtool_cmd *ecmd)
++{
++	struct team *team = netdev_priv(dev);
++	struct team_port *port;
++	unsigned long speed = 0;
++
++	ecmd->duplex = DUPLEX_UNKNOWN;
++	ecmd->port = PORT_OTHER;
++
++	mutex_lock(&team->lock);
++	list_for_each_entry(port, &team->port_list, list) {
++		if (port->linkup)
++			speed += port->state.speed;
++		if (ecmd->duplex == DUPLEX_UNKNOWN &&
++		    port->state.duplex != 0)
++			ecmd->duplex = port->state.duplex;
++	}
++	ethtool_cmd_speed_set(ecmd, speed);
++	mutex_unlock(&team->lock);
++
++	return 0;
++}
++
+ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_init		= team_init,
+ 	.ndo_uninit		= team_uninit,
+@@ -1995,6 +2019,7 @@ static void team_ethtool_get_drvinfo(struct net_device *dev,
+ static const struct ethtool_ops team_ethtool_ops = {
+ 	.get_drvinfo		= team_ethtool_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
++	.get_settings		= team_ethtool_get_settings,
+ };
  
- merge:
- 	delta_truesize = skb->truesize;
+ /***********************
+-- 
+1.8.4.2
