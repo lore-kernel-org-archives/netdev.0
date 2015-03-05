@@ -1,61 +1,96 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 0/7] Freescale DPAA FMan FLIB(s)
-Date: Thu, 05 Mar 2015 09:35:58 -0500
-Message-ID: <54F869CE.1080701@mojatatu.com>
-References: <1425534351-1065-1-git-send-email-Emilian.Medve@Freescale.com> <54F84CF1.80702@mojatatu.com> <54F85ECB.3070200@Freescale.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/7] mpls: Add a sysctl to control the size of the mpls label table
+Date: Thu, 05 Mar 2015 08:38:25 -0600
+Message-ID: <87bnk7bjby.fsf@x220.int.ebiederm.org>
+References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
+	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
+	<20150303.153310.624302583835136622.davem@davemloft.net>
+	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+	<87egp5tvlz.fsf_-_@x220.int.ebiederm.org>
+	<CAMs_D1-Ohar0CbgaB08jM0iGcORJxx_B9Ta778nd4m5unT6wMg@mail.gmail.com>
+	<878ufbh93t.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Igal Liberman <Igal.Liberman@Freescale.com>
-To: Emil Medve <Emilian.Medve@Freescale.com>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54F85ECB.3070200@Freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	roopa <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
+To: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:33772 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbbCEOmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 09:42:02 -0500
+In-Reply-To: <878ufbh93t.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Thu, 05 Mar 2015 07:22:46 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Emil,
+ebiederm@xmission.com (Eric W. Biederman) writes:
 
-On 03/05/15 08:48, Emil Medve wrote:
-
-> The intent is to upstream the entire suite of the DPAA drivers. All the
-> drivers are still WIP, but B/QMan have been already presented to the
-> upstream community and this is the first attempt to publish (some low
-> level code of) the FMan driver. As we go through our internal checklist
-> and in the same time address community feedback we'll soon get the
-> drivers to be acceptable for the upstream trees
+> Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
 >
-> The first version of the actual Ethernet driver will follow imminently
+>> On Tue, Mar 3, 2015 at 5:11 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>>>
+>>> This sysctl gives two benefits.  By defaulting the table size to 0
+>>> mpls even when compiled in and enabled defaults to not forwarding
+>>> any packets.  This prevents unpleasant surprises for users.
+>>>
+>>> The other benefit is that as mpls labels are allocated locally a dense
+>>> table a small dense label table may be used which saves memory and
+>>> is extremely simple and efficient to implement.
+>>>
+>>
+>> The label space is often partitioned into multiple sets in MPLS and
+>> used for different purposes - for example, LSP labels, VPN labels,
+>> Segment labels. This in turn means that the table may no longer be
+>> dense. A sysctl allowing min and max label that spans the sets of
+>> labels may be useful. Or should the ILM be made a hash table?
 >
-> SDK enablement is a side-effect
+> Good question.
 >
-
-Meaning? Let me ask the question differently:
-Do i need your sdk to use the features exposed or can i use something
-like tc to set up the deficit rr or wred or the exposed classifiers
-and associated actions?
-Would your sdk (via user space direct programming) benefit because you
-have pushed these pieces into the kernel?
-
->> How are you planning to
->> add support for your classifiers, queue schedulers etc?
+> These kinds of labels are a local label management problem.
 >
-> Yes
+> Given how nice it is to have a reasonably dense label space I am not
+> keen to abandon the notion of having a dense label space, as it makes
+> the code simple and fast for forwarding mpls packets.
 >
+> That said my code is a starting point.  If you have a real world use
+> case and you can show a better way to deal with it.  Go for it.
+> Now is definitely time to evolve the API.
 
-Yes as in these will be available via linux kernel or via your sdk?
+A couple more thoughts.  
 
->> Is that a patch
->> on top of this or it is something that sits on user space?
->
-> Both. Full DPAA/Ethernet enablement will be present in the kernel. We
-> also have support for user-space based approach. I'm unsure where/when
-> we might publish that. Of course the SDK is always a place you can turn
-> to for all the code we have (in whatever state it might be)
->
+The rtnetlink interface and my implementation carries a type field so it
+is possible to mark which routing protocol uses an mpls route.
 
-the sdk is open source?
+The global routing table is already over 500,000 routes so the 1 million
+forward equivalanece classes of mpls with a single label may be
+exhausted in the not too distant future so a dense label space may be a
+necessity.
 
-cheers,
-jamal
+In a similar vein.  When I look at top of rack switches and their
+hardware forwarding capacity it looks like they are in the ballpark
+of 32K MPLS routes.
+
+All of which says to me that the MPLS label space is limited and it
+should be managed as a precious resource.  (A good example of why I
+might want to rethink my mpls ingress path).
+
+So while I can see arguments for one use of labels getting one quota of
+labels and another use of labels getting another quota when I look at
+the space there are not that many labels and I don't see how or why it
+would make sense to manage the labels explicitly with ranges.
+
+At some point for MPLS multicast traffic and MPLS source specific
+addresses if we choose to support those we will need a hash table
+as those addresses are assigned by others, though in that case
+we will be limited in our egress set of labels we can use.
+
+So I think MPLS interfaces need to encourage thrifty label use,
+which in my mind almost certainly means not manually allocated
+label use.
+
+Eric
