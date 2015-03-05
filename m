@@ -1,81 +1,70 @@
 From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: [PATCH 6/7] soc/fman: Add the FMan RTC FLIB
-Date: Wed, 4 Mar 2015 23:45:50 -0600
-Message-ID: <1425534351-1065-7-git-send-email-Emilian.Medve@Freescale.com>
+Subject: [PATCH 7/7] soc/fman: Add the FMan SP FLIB
+Date: Wed, 4 Mar 2015 23:45:51 -0600
+Message-ID: <1425534351-1065-8-git-send-email-Emilian.Medve@Freescale.com>
 References: <1425534351-1065-1-git-send-email-Emilian.Medve@Freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Igal Liberman <Igal.Liberman@Freescale.com>
 To: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bbn0101.outbound.protection.outlook.com ([157.56.111.101]:15748
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752216AbbCEFaw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 00:30:52 -0500
 In-Reply-To: <1425534351-1065-1-git-send-email-Emilian.Medve@Freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Igal Liberman <Igal.Liberman@freescale.com>
 
 Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
 ---
- drivers/soc/fsl/fman/Kconfig        |   6 +
- drivers/soc/fsl/fman/Makefile       |   1 +
- drivers/soc/fsl/fman/rtc/Makefile   |  13 ++
- drivers/soc/fsl/fman/rtc/fman_rtc.c | 354 ++++++++++++++++++++++++++++++++++++
- 4 files changed, 374 insertions(+)
- create mode 100644 drivers/soc/fsl/fman/rtc/Makefile
- create mode 100644 drivers/soc/fsl/fman/rtc/fman_rtc.c
+ drivers/soc/fsl/fman/Makefile     |   1 +
+ drivers/soc/fsl/fman/sp/Makefile  |  13 +++
+ drivers/soc/fsl/fman/sp/fman_sp.c | 204 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 218 insertions(+)
+ create mode 100644 drivers/soc/fsl/fman/sp/Makefile
+ create mode 100644 drivers/soc/fsl/fman/sp/fman_sp.c
 
-diff --git a/drivers/soc/fsl/fman/Kconfig b/drivers/soc/fsl/fman/Kconfig
-index 2559ee9..a144eb5 100644
---- a/drivers/soc/fsl/fman/Kconfig
-+++ b/drivers/soc/fsl/fman/Kconfig
-@@ -26,4 +26,10 @@ config FSL_FMAN_PCD
- 	help
- 		Freescale DPAA FMan Parse, Classify and Distribute support
- 
-+config FSL_FMAN_RTC
-+	bool "FMan RTC"
-+	default n
-+	help
-+		Freescale DPAA FMan Real Time Clock (PTP) support
-+
- endif	# FSL_FMAN
 diff --git a/drivers/soc/fsl/fman/Makefile b/drivers/soc/fsl/fman/Makefile
-index dc37f35..f415188 100644
+index f415188..4a854b3 100644
 --- a/drivers/soc/fsl/fman/Makefile
 +++ b/drivers/soc/fsl/fman/Makefile
-@@ -13,5 +13,6 @@ fsl_fman-objs			:= fman.o
- obj-$(CONFIG_FSL_FMAN_PORT)	+= port/
+@@ -14,5 +14,6 @@ obj-$(CONFIG_FSL_FMAN_PORT)	+= port/
  obj-$(CONFIG_FSL_FMAN_MAC)	+= mac/
  obj-$(CONFIG_FSL_FMAN_PCD)	+= pcd/
-+obj-$(CONFIG_FSL_FMAN_RTC)	+= rtc/
+ obj-$(CONFIG_FSL_FMAN_RTC)	+= rtc/
++obj-$(CONFIG_FSL_FMAN)		+= sp/
  
  endif
-diff --git a/drivers/soc/fsl/fman/rtc/Makefile b/drivers/soc/fsl/fman/rtc/Makefile
+diff --git a/drivers/soc/fsl/fman/sp/Makefile b/drivers/soc/fsl/fman/sp/Makefile
 new file mode 100644
-index 0000000..69a92fb
+index 0000000..4655c11
 --- /dev/null
-+++ b/drivers/soc/fsl/fman/rtc/Makefile
++++ b/drivers/soc/fsl/fman/sp/Makefile
 @@ -0,0 +1,13 @@
 +ccflags-y += -DVERSION=\"\"
 +
-+ifeq ($(CONFIG_FSL_FMAN_RTC),y)
++ifeq ($(CONFIG_FSL_FMAN),y)
 +
 +FMAN = $(srctree)/drivers/soc/fsl/fman
 +
 +ccflags-y += -I$(FMAN)/flib
 +
-+obj-$(CONFIG_FSL_FMAN_RTC)	+= fsl_fman_rtc.o
++obj-$(CONFIG_FSL_FMAN)	+= fsl_fman_sp.o
 +
-+fsl_fman_rtc-objs		:= fman_rtc.o
++fsl_fman_sp-objs	:= fman_sp.o
 +
 +endif
-diff --git a/drivers/soc/fsl/fman/rtc/fman_rtc.c b/drivers/soc/fsl/fman/rtc/fman_rtc.c
+diff --git a/drivers/soc/fsl/fman/sp/fman_sp.c b/drivers/soc/fsl/fman/sp/fman_sp.c
 new file mode 100644
-index 0000000..e6d6dae
+index 0000000..e11413d
 --- /dev/null
-+++ b/drivers/soc/fsl/fman/rtc/fman_rtc.c
-@@ -0,0 +1,354 @@
++++ b/drivers/soc/fsl/fman/sp/fman_sp.c
+@@ -0,0 +1,204 @@
 +/*
 + * Copyright 2008-2015 Freescale Semiconductor Inc.
 + *
@@ -108,327 +97,177 @@ index 0000000..e6d6dae
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include "fsl_fman_rtc.h"
++#include "fsl_fman_sp.h"
 +
-+void fman_rtc_defconfig(struct rtc_cfg *cfg)
++uint32_t fman_vsp_get_statistics(struct fm_pcd_storage_profile_regs *regs,
++				 uint16_t index)
 +{
-+	int i;
++	struct fm_pcd_storage_profile_regs *sp_regs;
 +
-+	cfg->src_clk = DEFAULT_SRC_CLOCK;
-+	cfg->invert_input_clk_phase = DEFAULT_INVERT_INPUT_CLK_PHASE;
-+	cfg->invert_output_clk_phase = DEFAULT_INVERT_OUTPUT_CLK_PHASE;
-+	cfg->pulse_realign = DEFAULT_PULSE_REALIGN;
-+	for (i = 0; i < FMAN_RTC_MAX_NUM_OF_ALARMS; i++)
-+		cfg->alarm_polarity[i] = DEFAULT_ALARM_POLARITY;
-+	for (i = 0; i < FMAN_RTC_MAX_NUM_OF_EXT_TRIGGERS; i++)
-+		cfg->trigger_polarity[i] = DEFAULT_TRIGGER_POLARITY;
++	sp_regs = &regs[index];
++	return ioread32be(&sp_regs->fm_sp_acnt);
 +}
 +
-+uint32_t fman_rtc_get_events(struct rtc_regs __iomem *regs)
++void fman_vsp_set_statistics(struct fm_pcd_storage_profile_regs *regs,
++			     uint16_t index, uint32_t value)
 +{
-+	return ioread32be(&regs->tmr_tevent);
++	struct fm_pcd_storage_profile_regs *sp_regs;
++
++	sp_regs = &regs[index];
++	iowrite32be(value, &sp_regs->fm_sp_acnt);
 +}
 +
-+uint32_t fman_rtc_get_event(struct rtc_regs __iomem *regs, uint32_t ev_mask)
++void fman_vsp_defconfig(struct fm_storage_profile_params *cfg)
 +{
-+	return ioread32be(&regs->tmr_tevent) & ev_mask;
++	cfg->dma_swap_data = DEFAULT_FMAN_SP_DMA_SWAP_DATA;
++	cfg->int_context_cache_attr =
++	    DEFAULT_FMAN_SP_DMA_INT_CONTEXT_CACHE_ATTR;
++	cfg->header_cache_attr = DEFAULT_FMAN_SP_DMA_HEADER_CACHE_ATTR;
++	cfg->scatter_gather_cache_attr =
++	    DEFAULT_FMAN_SP_DMA_SCATTER_GATHER_CACHE_ATTR;
++	cfg->dma_write_optimize = DEFAULT_FMAN_SP_DMA_WRITE_OPTIMIZE;
++	cfg->no_scather_gather = DEFAULT_FMAN_SP_NO_SCATTER_GATHER;
 +}
 +
-+uint32_t fman_rtc_get_interrupt_mask(struct rtc_regs __iomem *regs)
++static inline uint32_t calc_vec_dep(int max_pools, bool *pools,
++				    struct fman_ext_pools *ext_buf_pools,
++				    uint32_t mask)
 +{
-+	return ioread32be(&regs->tmr_temask);
++	int i, j;
++	uint32_t vector = 0;
++
++	for (i = 0; i < max_pools; i++)
++		if (pools[i])
++			for (j = 0; j < ext_buf_pools->num_pools_used; j++)
++				if (i == ext_buf_pools->ext_buf_pool[j].id) {
++					vector |= mask >> j;
++					break;
++				}
++	return vector;
 +}
 +
-+void fman_rtc_set_interrupt_mask(struct rtc_regs __iomem *regs, uint32_t mask)
++void fman_vsp_init(struct fm_pcd_storage_profile_regs *regs,
++		   uint16_t index,
++		   struct fm_storage_profile_params *fm_vsp_params,
++		   int port_max_num_of_ext_pools, int bm_max_num_of_pools,
++		   int max_num_of_pfc_priorities)
 +{
-+	iowrite32be(mask, &regs->tmr_temask);
-+}
++	int i = 0, j = 0;
++	struct fm_pcd_storage_profile_regs *sp_regs;
++	uint32_t tmp_reg, vector;
++	struct fman_ext_pools *ext_buf_pools = &fm_vsp_params->fm_ext_pools;
++	struct fman_buf_pool_depletion *buf_pool_depletion =
++	    &fm_vsp_params->buf_pool_depletion;
++	struct fman_backup_bm_pools *backup_pools =
++	    &fm_vsp_params->backup_pools;
++	struct fman_sp_int_context_data_copy *int_context_data_copy =
++	    fm_vsp_params->int_context;
++	struct fman_sp_buf_margins *external_buffer_margins =
++	    fm_vsp_params->buf_margins;
++	bool no_scather_gather = fm_vsp_params->no_scather_gather;
++	uint16_t liodn_offset = fm_vsp_params->liodn_offset;
 +
-+void fman_rtc_ack_event(struct rtc_regs __iomem *regs, uint32_t events)
-+{
-+	iowrite32be(events, &regs->tmr_tevent);
-+}
++	sp_regs = &regs[index];
 +
-+uint32_t fman_rtc_check_and_clear_event(struct rtc_regs __iomem *regs)
-+{
-+	uint32_t event;
-+
-+	event = ioread32be(&regs->tmr_tevent);
-+	event &= ioread32be(&regs->tmr_temask);
-+
-+	if (event)
-+		iowrite32be(event, &regs->tmr_tevent);
-+	return event;
-+}
-+
-+uint32_t fman_rtc_get_frequency_compensation(struct rtc_regs __iomem *regs)
-+{
-+	return ioread32be(&regs->tmr_add);
-+}
-+
-+void fman_rtc_set_frequency_compensation(struct rtc_regs __iomem *regs,
-+					 uint32_t val)
-+{
-+	iowrite32be(val, &regs->tmr_add);
-+}
-+
-+void fman_rtc_enable_interrupt(struct rtc_regs __iomem *regs, uint32_t events)
-+{
-+	fman_rtc_set_interrupt_mask(regs,
-+				    fman_rtc_get_interrupt_mask(regs) | events);
-+}
-+
-+void fman_rtc_disable_interrupt(struct rtc_regs __iomem *regs, uint32_t events)
-+{
-+	fman_rtc_set_interrupt_mask(regs,
-+				    fman_rtc_get_interrupt_mask(regs) &
-+				    ~events);
-+}
-+
-+void fman_rtc_set_timer_alarm_l(struct rtc_regs __iomem *regs, int index,
-+				uint32_t val)
-+{
-+	iowrite32be(val, &regs->tmr_alarm[index].tmr_alarm_l);
-+}
-+
-+void fman_rtc_set_timer_fiper(struct rtc_regs __iomem *regs, int index,
-+			      uint32_t val)
-+{
-+	iowrite32be(val, &regs->tmr_fiper[index]);
-+}
-+
-+void fman_rtc_set_timer_alarm(struct rtc_regs __iomem *regs, int index,
-+			      int64_t val)
-+{
-+	iowrite32be((uint32_t)val, &regs->tmr_alarm[index].tmr_alarm_l);
-+	iowrite32be((uint32_t)(val >> 32),
-+		    &regs->tmr_alarm[index].tmr_alarm_h);
-+}
-+
-+void fman_rtc_set_timer_offset(struct rtc_regs __iomem *regs, int64_t val)
-+{
-+	iowrite32be((uint32_t)val, &regs->tmr_off_l);
-+	iowrite32be((uint32_t)(val >> 32), &regs->tmr_off_h);
-+}
-+
-+uint64_t fman_rtc_get_trigger_stamp(struct rtc_regs __iomem *regs, int id)
-+{
-+	uint64_t time;
-+	/* TMR_CNT_L must be read first to get an accurate value */
-+	time = (uint64_t)ioread32be(&regs->tmr_etts[id].tmr_etts_l);
-+	time |= ((uint64_t)ioread32be(&regs->tmr_etts[id].tmr_etts_h)
-+		 << 32);
-+
-+	return time;
-+}
-+
-+uint32_t fman_rtc_get_timer_ctrl(struct rtc_regs __iomem *regs)
-+{
-+	return ioread32be(&regs->tmr_ctrl);
-+}
-+
-+void fman_rtc_set_timer_ctrl(struct rtc_regs __iomem *regs, uint32_t val)
-+{
-+	iowrite32be(val, &regs->tmr_ctrl);
-+}
-+
-+void fman_rtc_timers_soft_reset(struct rtc_regs __iomem *regs)
-+{
-+	fman_rtc_set_timer_ctrl(regs, FMAN_RTC_TMR_CTRL_TMSR);
-+	udelay(10);
-+	fman_rtc_set_timer_ctrl(regs, 0);
-+}
-+
-+void fman_rtc_init(struct rtc_cfg *cfg, struct rtc_regs __iomem *regs,
-+		   int num_alarms, int num_fipers, int num_ext_triggers,
-+		   bool init_freq_comp, uint32_t freq_compensation,
-+		   uint32_t output_clock_divisor)
-+{
-+	uint32_t tmr_ctrl;
-+	int i;
-+
-+	fman_rtc_timers_soft_reset(regs);
-+
-+	/* Set the source clock */
-+	switch (cfg->src_clk) {
-+	case FMAN_RTC_SOURCE_CLOCK_SYSTEM:
-+		tmr_ctrl = FMAN_RTC_TMR_CTRL_CKSEL_MAC_CLK;
-+		break;
-+	case FMAN_RTC_SOURCE_CLOCK_OSCILATOR:
-+		tmr_ctrl = FMAN_RTC_TMR_CTRL_CKSEL_OSC_CLK;
-+		break;
-+	default:
-+		/* Use a clock from the External TMR reference clock. */
-+		tmr_ctrl = FMAN_RTC_TMR_CTRL_CKSEL_EXT_CLK;
-+		break;
++	/* fill external buffers manager pool information register */
++	for (i = 0; i < ext_buf_pools->num_pools_used; i++) {
++		tmp_reg = FMAN_SP_EXT_BUF_POOL_VALID |
++		    FMAN_SP_EXT_BUF_POOL_EN_COUNTER;
++		tmp_reg |= ((uint32_t)ext_buf_pools->ext_buf_pool[i].id <<
++			    FMAN_SP_EXT_BUF_POOL_ID_SHIFT);
++		tmp_reg |= ext_buf_pools->ext_buf_pool[i].size;
++		/* functionality available only for some deriviatives
++		 * (limited by config)
++		 **/
++		for (j = 0; j < backup_pools->num_backup_pools; j++)
++			if (ext_buf_pools->ext_buf_pool[i].id ==
++			    backup_pools->pool_ids[j]) {
++				tmp_reg |= FMAN_SP_EXT_BUF_POOL_BACKUP;
++				break;
++			}
++		iowrite32be(tmp_reg, &sp_regs->fm_sp_ebmpi[i]);
 +	}
 +
-+	/* whatever period the user picked, the timestamp will advance in '1'
-+	 * every time the period passed.
-+	 **/
-+	tmr_ctrl |= ((1 << FMAN_RTC_TMR_CTRL_TCLK_PERIOD_SHIFT) &
-+		     FMAN_RTC_TMR_CTRL_TCLK_PERIOD_MASK);
++	/* clear unused pools */
++	for (i = ext_buf_pools->num_pools_used;
++	     i < port_max_num_of_ext_pools; i++)
++		iowrite32be(0, &sp_regs->fm_sp_ebmpi[i]);
 +
-+	if (cfg->invert_input_clk_phase)
-+		tmr_ctrl |= FMAN_RTC_TMR_CTRL_CIPH;
-+	if (cfg->invert_output_clk_phase)
-+		tmr_ctrl |= FMAN_RTC_TMR_CTRL_COPH;
++	/* fill pool depletion register */
++	tmp_reg = 0;
++	if (buf_pool_depletion->buf_pool_depletion_enabled &&
++	    buf_pool_depletion->pools_grp_mode_enable) {
++		/* calculate vector for number of pools depletion */
++		vector =
++		    calc_vec_dep(bm_max_num_of_pools,
++				 buf_pool_depletion->pools_to_consider,
++				 ext_buf_pools, 0x80000000);
 +
-+	for (i = 0; i < num_alarms; i++) {
-+		if (cfg->alarm_polarity[i] ==
-+		    FMAN_RTC_ALARM_POLARITY_ACTIVE_LOW)
-+			tmr_ctrl |= (FMAN_RTC_TMR_CTRL_ALMP1 >> i);
++		/* configure num of pools and vector for number of pools mode */
++		tmp_reg |= (((uint32_t)buf_pool_depletion->num_pools - 1) <<
++			    FMAN_SP_POOL_DEP_NUM_OF_POOLS_SHIFT);
++		tmp_reg |= vector;
 +	}
 +
-+	for (i = 0; i < num_ext_triggers; i++)
-+		if (cfg->trigger_polarity[i] ==
-+		    FMAN_RTC_TRIGGER_ON_FALLING_EDGE)
-+			tmr_ctrl |= (FMAN_RTC_TMR_CTRL_ETEP1 << i);
++	if (buf_pool_depletion->buf_pool_depletion_enabled &&
++	    buf_pool_depletion->single_pool_mode_enable) {
++		/* calculate vector for number of pools depletion */
++		vector =
++		    calc_vec_dep(bm_max_num_of_pools,
++				 buf_pool_depletion->
++				 pools_to_consider_for_single_mode,
++				 ext_buf_pools, 0x00000080);
 +
-+	if (!cfg->timer_slave_mode && cfg->bypass)
-+		tmr_ctrl |= FMAN_RTC_TMR_CTRL_BYP;
-+
-+	fman_rtc_set_timer_ctrl(regs, tmr_ctrl);
-+	if (init_freq_comp)
-+		fman_rtc_set_frequency_compensation(regs, freq_compensation);
-+
-+	/* Clear TMR_ALARM registers */
-+	for (i = 0; i < num_alarms; i++)
-+		fman_rtc_set_timer_alarm(regs, i, 0xFFFFFFFFFFFFFFFFLL);
-+
-+	/* Clear TMR_TEVENT */
-+	fman_rtc_ack_event(regs, FMAN_RTC_TMR_TEVENT_ALL);
-+
-+	/* Initialize TMR_TEMASK */
-+	fman_rtc_set_interrupt_mask(regs, 0);
-+
-+	/* Clear TMR_FIPER registers */
-+	for (i = 0; i < num_fipers; i++)
-+		fman_rtc_set_timer_fiper(regs, i, 0xFFFFFFFF);
-+
-+	/* Initialize TMR_PRSC */
-+	iowrite32be(output_clock_divisor, &regs->tmr_prsc);
-+
-+	/* Clear TMR_OFF */
-+	fman_rtc_set_timer_offset(regs, 0);
-+}
-+
-+bool fman_rtc_is_enabled(struct rtc_regs __iomem *regs)
-+{
-+	return (bool)(fman_rtc_get_timer_ctrl(regs) & FMAN_RTC_TMR_CTRL_TE);
-+}
-+
-+void fman_rtc_enable(struct rtc_regs __iomem *regs, bool reset_clock)
-+{
-+	uint32_t tmr_ctrl = fman_rtc_get_timer_ctrl(regs);
-+
-+	/* TODO check that no timestamping MACs are working in this stage. */
-+	if (reset_clock) {
-+		fman_rtc_set_timer_ctrl(regs,
-+					(tmr_ctrl | FMAN_RTC_TMR_CTRL_TMSR));
-+
-+		udelay(10);
-+		/* Clear TMR_OFF */
-+		fman_rtc_set_timer_offset(regs, 0);
++		/* configure num of pools and vector for number of pools mode */
++		tmp_reg |= vector;
 +	}
 +
-+	fman_rtc_set_timer_ctrl(regs, (tmr_ctrl | FMAN_RTC_TMR_CTRL_TE));
-+}
-+
-+void fman_rtc_disable(struct rtc_regs __iomem *regs)
-+{
-+	fman_rtc_set_timer_ctrl(regs,
-+				(fman_rtc_get_timer_ctrl(regs) &
-+				~(FMAN_RTC_TMR_CTRL_TE)));
-+}
-+
-+void fman_rtc_clear_periodic_pulse(struct rtc_regs __iomem *regs, int id)
-+{
-+	uint32_t tmp_reg;
-+
-+	if (id == 0)
-+		tmp_reg = FMAN_RTC_TMR_TEVENT_PP1;
-+	else
-+		tmp_reg = FMAN_RTC_TMR_TEVENT_PP2;
-+	fman_rtc_disable_interrupt(regs, tmp_reg);
-+
-+	tmp_reg = fman_rtc_get_timer_ctrl(regs);
-+	if (tmp_reg & FMAN_RTC_TMR_CTRL_FS)
-+		fman_rtc_set_timer_ctrl(regs, tmp_reg & ~FMAN_RTC_TMR_CTRL_FS);
-+
-+	fman_rtc_set_timer_fiper(regs, id, 0xFFFFFFFF);
-+}
-+
-+void fman_rtc_clear_external_trigger(struct rtc_regs __iomem *regs, int id)
-+{
-+	uint32_t tmp_reg, tmp_ctrl;
-+
-+	if (id == 0)
-+		tmp_reg = FMAN_RTC_TMR_TEVENT_ETS1;
-+	else
-+		tmp_reg = FMAN_RTC_TMR_TEVENT_ETS2;
-+	fman_rtc_disable_interrupt(regs, tmp_reg);
-+
-+	if (id == 0)
-+		tmp_reg = FMAN_RTC_TMR_CTRL_PP1L;
-+	else
-+		tmp_reg = FMAN_RTC_TMR_CTRL_PP2L;
-+	tmp_ctrl = fman_rtc_get_timer_ctrl(regs);
-+	if (tmp_ctrl & tmp_reg)
-+		fman_rtc_set_timer_ctrl(regs, tmp_ctrl & ~tmp_reg);
-+}
-+
-+void fman_rtc_set_alarm(struct rtc_regs __iomem *regs, int id, uint32_t val,
-+			bool enable)
-+{
-+	uint32_t tmp_reg;
-+
-+	fman_rtc_set_timer_alarm(regs, id, val);
-+	if (enable) {
-+		if (id == 0)
-+			tmp_reg = FMAN_RTC_TMR_TEVENT_ALM1;
-+		else
-+			tmp_reg = FMAN_RTC_TMR_TEVENT_ALM2;
-+		fman_rtc_enable_interrupt(regs, tmp_reg);
++	/* fill QbbPEV */
++	if (buf_pool_depletion->buf_pool_depletion_enabled) {
++		vector = 0;
++		for (i = 0; i < max_num_of_pfc_priorities; i++)
++			if (buf_pool_depletion->pfc_priorities_en[i])
++				vector |= 0x00000100 << i;
++		tmp_reg |= vector;
 +	}
-+}
++	iowrite32be(tmp_reg, &sp_regs->fm_sp_mpd);
 +
-+void fman_rtc_set_periodic_pulse(struct rtc_regs __iomem *regs, int id,
-+				 uint32_t val, bool enable)
-+{
-+	uint32_t tmp_reg;
++	/* fill dma attributes register */
++	tmp_reg = 0;
++	tmp_reg |= (uint32_t)fm_vsp_params->dma_swap_data <<
++	    FMAN_SP_DMA_ATTR_SWP_SHIFT;
++	tmp_reg |= (uint32_t)fm_vsp_params->int_context_cache_attr <<
++	    FMAN_SP_DMA_ATTR_IC_CACHE_SHIFT;
++	tmp_reg |= (uint32_t)fm_vsp_params->header_cache_attr <<
++	    FMAN_SP_DMA_ATTR_HDR_CACHE_SHIFT;
++	tmp_reg |= (uint32_t)fm_vsp_params->scatter_gather_cache_attr <<
++	    FMAN_SP_DMA_ATTR_SG_CACHE_SHIFT;
++	if (fm_vsp_params->dma_write_optimize)
++		tmp_reg |= FMAN_SP_DMA_ATTR_WRITE_OPTIMIZE;
++	iowrite32be(tmp_reg, &sp_regs->fm_sp_da);
 +
-+	fman_rtc_set_timer_fiper(regs, id, val);
-+	if (enable) {
-+		if (id == 0)
-+			tmp_reg = FMAN_RTC_TMR_TEVENT_PP1;
-+		else
-+			tmp_reg = FMAN_RTC_TMR_TEVENT_PP2;
-+		fman_rtc_enable_interrupt(regs, tmp_reg);
-+	}
-+}
++	/* IC parameters - fill internal context parameters register */
++	tmp_reg = 0;
++	tmp_reg |= (((uint32_t)int_context_data_copy->ext_buf_offset /
++		     OFFSET_UNITS) << FMAN_SP_IC_TO_EXT_SHIFT);
++	tmp_reg |= (((uint32_t)int_context_data_copy->int_context_offset /
++		     OFFSET_UNITS) << FMAN_SP_IC_FROM_INT_SHIFT);
++	tmp_reg |= (((uint32_t)int_context_data_copy->size / OFFSET_UNITS) <<
++		    FMAN_SP_IC_SIZE_SHIFT);
++	iowrite32be(tmp_reg, &sp_regs->fm_sp_icp);
 +
-+void fman_rtc_set_ext_trigger(struct rtc_regs __iomem *regs, int id,
-+			      bool enable, bool use_pulse_as_input)
-+{
-+	uint32_t tmp_reg;
++	/* buffer margins - fill external buffer margins register */
++	tmp_reg = 0;
++	tmp_reg |= (((uint32_t)external_buffer_margins->start_margins) <<
++		    FMAN_SP_EXT_BUF_MARG_START_SHIFT);
++	tmp_reg |= (((uint32_t)external_buffer_margins->end_margins) <<
++		    FMAN_SP_EXT_BUF_MARG_END_SHIFT);
++	if (no_scather_gather)
++		tmp_reg |= FMAN_SP_SG_DISABLE;
++	iowrite32be(tmp_reg, &sp_regs->fm_sp_ebm);
 +
-+	if (enable) {
-+		if (id == 0)
-+			tmp_reg = FMAN_RTC_TMR_TEVENT_ETS1;
-+		else
-+			tmp_reg = FMAN_RTC_TMR_TEVENT_ETS2;
-+		fman_rtc_enable_interrupt(regs, tmp_reg);
-+	}
-+	if (use_pulse_as_input) {
-+		if (id == 0)
-+			tmp_reg = FMAN_RTC_TMR_CTRL_PP1L;
-+		else
-+			tmp_reg = FMAN_RTC_TMR_CTRL_PP2L;
-+		fman_rtc_set_timer_ctrl(regs,
-+					fman_rtc_get_timer_ctrl(regs) |
-+					tmp_reg);
-+	}
++	/* buffer margins - fill spliodn register */
++	iowrite32be(liodn_offset, &sp_regs->fm_sp_spliodn);
 +}
 -- 
 2.3.1
