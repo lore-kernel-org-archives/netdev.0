@@ -1,68 +1,45 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH net-next 4/7] mpls: Basic support for adding and
- removing routes
-Date: Thu, 5 Mar 2015 14:10:03 -0500
-Message-ID: <20150305141003.91520e3c6f48341bb6b3f72c@mindspring.com>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
-	<878ufdtvjr.fsf_-_@x220.int.ebiederm.org>
-	<54F6BEAA.2080708@cumulusnetworks.com>
-	<87h9u0lctq.fsf@x220.int.ebiederm.org>
-	<20150304215006.019f1eaffaf3e0bfa53aadcf@mindspring.com>
-	<87y4nbk6b9.fsf@x220.int.ebiederm.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: OVS Offload Decision Proposal
+Date: Thu, 05 Mar 2015 14:21:57 -0500 (EST)
+Message-ID: <20150305.142157.803216605925013984.davem@davemloft.net>
+References: <54F86D9E.7000200@gmail.com>
+ <CAN+pFwJ6XoCghw9uHb5UA88o8zoXqGNhEnVHPQWrOV1p=O-15Q@mail.gmail.com>
+ <CAN+pFw+LDAiebOzFF+DD81vJp7y0OfVg=5BE0m47B2ZUp6zpeQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: roopa <roopa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:44018
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751029AbbCETKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 14:10:11 -0500
-In-Reply-To: <87y4nbk6b9.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+ therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+To: marichika4-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAN+pFw+LDAiebOzFF+DD81vJp7y0OfVg=5BE0m47B2ZUp6zpeQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 05 Mar 2015, Eric W. Biederman wrote:
-
-> Bill Fink <billfink@mindspring.com> writes:
-> 
-> > On Wed, 04 Mar 2015, Eric W. Biederman wrote:
-> >
-> >> roopa <roopa@cumulusnetworks.com> writes:
-> >> 
-> >> > On 3/3/15, 5:12 PM, Eric W. Biederman wrote:
-> >> >> +	/* Append makes no sense with mpls */
-> >> >> +	err = -EINVAL;
-> >> >
-> >> > minor nit: should this be -ENOTSUPP in that case ? (NLM_F_REPLACE and NLM_F_APPEND are
-> >> > really operations. But, one can argue that they are an attribute of the msg and hence -EINVAL might be ok).
-> >> > I did not find any other such case for consistency check.
-> >> 
-> >> Yes.  IPv4 implements NLM_F_APPEND and IPv6 ignores it.
-> >> 
-> >> I will add a patch to change the error code.
-> >
-> > I believe the error -ENOTSUPP is deprecated and -EOPNOTSUPP should
-> > be used instead.
-> 
-> Ack.
-> 
-> In particular ENOTSUPP is not allowed to make it to user space while
-> EOPNOTSUPP is.
-> 
-> Which makes me a little leary when I grep the kernel code and I see so
-> may uses of ENOTSUPP in the kernel when I grep for it.
-
-Perhaps checkpatch.pl could be modified to warn about new uses
-of ENOTSUPP.
-
-						-Bill
+CkkgZmluZCBpdCBmdW5ueSB0aGF0IHdlIGhhdmVuJ3QgZXZlbiBnb3QgYSBMMyBmb3J3YXJkaW5n
+CmltcGxlbWVudGF0aW9uIGZsZXNoZWQgb3V0IGVub3VnaCB0byBtZXJnZSBpbnRvIHRoZSB0cmVl
+LCBhbmQgcGVvcGxlCmFyZSB0YWxraW5nIGFib3V0IFZPSVAgdG8gVkxBTiBjbGFzc2lmaWNhdGlv
+biwgaHcgYnVnIHdvcmthcm91bmRzLCBhbmQKc2hpdCBsaWtlIHRoYXQuCgpFdmVyeW9uZSBpcyBy
+ZWFsbHkganVtcGluZyB0aGUgZ3VuIG9uIGFsbCBvZiB0aGlzLgoKTm9ib2R5IGtub3dzIHdoYXQg
+d2Ugd2lsbCBuZWVkLCBhbmQgSSBkbyBtZWFuIG5vYm9keS4gIE5vdCBtZSwgbm90CnN3aXRjaCBo
+YXJkd2FyZSBndXlzLCBub3QgcGVvcGxlIHdvcmtpbmcgb24gdGhlIGNvZGUgYWN0aXZlbHkgcmln
+aHQKbm93LiAgTm9ib2R5LgoKVGhlIG9ubHkgd2F5IHRvIGZpbmQgb3V0IGlzIHRvIF9kb18sIGlu
+IHNtYWxsIGluY3JlbWVudGFsIHN0ZXBzLApyYXRoZXIgdGhhbiBiaWcgcmV2b2x1dGlvbmFyeSBj
+aGFuZ2VzLgoKU2ltcGxpZnksIGNvbnNvbGlkYXRlLCBhbmQgb3B0aW1pemUgbGF0ZXIuCgpMZXQn
+cyBnZXQgc29tZXRoaW5nIHRoYXQgd29ya3MgZm9yIGF0IGxlYXN0IHRoZSBzaW1wbGVzdCBjYXNl
+cyBmaXJzdC4KV2UgZG9uJ3QgZXZlbiBoYXZlIHRoYXQgeWV0LgoKU28gaWYgcGVvcGxlIGNvdWxk
+IGRyaXZlIHRoZWlyIGF0dGVudGlvbiB0b3dhcmRzIFNjb3R0J3MgTDMgZm9yd2FyZGluZwp3b3Jr
+IGluc3RlYWQgb2YgdGhpcyBmbG93IGNyYXAgd2hpY2ggaXMgdG9vIGZhciBpbnRvIHRoZSBob3Jp
+em9uIHRvCmV2ZW4gYmUgcHJvcGVybHkgc2VlbiB5ZXQsIEknZCBfcmVhbGx5XyBhcHByZWNpYXRl
+IGl0LgoKVGhhbmtzLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
+dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
