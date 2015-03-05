@@ -1,55 +1,62 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: SOCK_MEMALLOC vs loopback
-Date: Thu, 5 Mar 2015 10:09:59 +0300
-Message-ID: <CAOi1vP8QWhqSSYPAOitx25AeKg0epkSTbez6R8ySz9kvO2nkAg@mail.gmail.com>
-References: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com>
-	<20150304200427.GQ3087@suse.de>
-	<54F7D5A7.1060404@redhat.com>
-	<54F7D7EA.6010303@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next v3 0/7] switchdev: add IPv4 routing offload
+Date: Wed, 04 Mar 2015 23:18:52 -0800
+Message-ID: <54F8035C.3060400@gmail.com>
+References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com> <20150304.003844.1400829201582760359.davem@davemloft.net> <CAE4R7bDBJye388V+itU9XqFNjruf0GcbXWFydx60fghiZp+NQw@mail.gmail.com> <20150304.160604.2259380248170644628.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mel Gorman <mgorman@suse.de>, ceph-devel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Sage Weil <sage@redhat.com>, NeilBrown <neilb@suse.de>,
-	netdev@vger.kernel.org
-To: Mike Christie <mchristi@redhat.com>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <54F7D7EA.6010303@redhat.com>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:33071 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754047AbbCEHTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 02:19:09 -0500
+Received: by obcvb8 with SMTP id vb8so8183543obc.0
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 23:19:08 -0800 (PST)
+In-Reply-To: <20150304.160604.2259380248170644628.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 5, 2015 at 7:13 AM, Mike Christie <mchristi@redhat.com> wrote:
-> On 03/04/2015 10:03 PM, Mike Christie wrote:
->> On 03/04/2015 02:04 PM, Mel Gorman wrote:
->>> > On Wed, Mar 04, 2015 at 09:38:48PM +0300, Ilya Dryomov wrote:
->>>> >> Hello,
->>>> >>
->>>> >> A short while ago Mike added a patch to libceph to set SOCK_MEMALLOC on
->>>> >> libceph sockets and PF_MEMALLOC around send/receive paths (commit
->>>> >> 89baaa570ab0, "libceph: use memalloc flags for net IO").  rbd is much
->>>> >> like nbd and is succeptible to all the same memory allocation
->>>> >> deadlocks, so it seemed like a step in the right direction.
->>>> >>
->>> >
->>> > The contract for SOCK_MEMALLOC is that it would only be used for temporary
->>> > allocations that were necessary for the system to make forward progress. In
->>> > the case of swap-over-NFS, it would only be used for transmitting
->>> > buffers that were necessary to write data to swap when there were no
->> Are upper layers like NFS/iSCSI/NBD/RBD supposed to know or track when
->> there are no other options (for example if a GFP_ATOMIC allocation
->> fails, then set the flags and retry the operation), or are they supposed
->> to be able to set the flags, send IO and let the network layer handle it?
->>
+On 03/04/2015 01:06 PM, David Miller wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> Date: Tue, 3 Mar 2015 23:28:06 -0800
 >
-> Oh yeah, maybe I misunderstood you. Were you just saying we should not
-> be using it for the configuration we are hitting the problem on?
+>> On Tue, Mar 3, 2015 at 9:38 PM, David Miller <davem@davemloft.net> wrote:
+>> In v3, the setting and clearing of RTNH_F_EXTERNAL moved to the
+>> driver, the implementer of the add/del ndo ops.  So RTNH_F_EXTERNAL
+>> does get cleared by the driver on fib_flush_external().  We could add
+>> an additional clear above the driver, just in case the driver screwed
+>> up and forgot to clear it.  Driver bug in that case; not sure where to
+>> draw the line.
+>
+> I'd rather the state bit get managed by net/ipv4/*.c rather than
+> duplicate this into every driver, that's error prone and duplicates
+> logic unnecessarily.
+>
+>>> Secondly, if you call fib_flush_external() because an add returned an
+>>> error, you have to set some boolean state which prevents the next new
+>>> route insert from loading only that new route into the hardware
+>>> because that's exactly what will happen with your current
+>>> implementation.
+>>
+>> I guess we could add a net.ipv4.fib_hw_screwed.  But that kills other
+>> innocent switch devices on same netns.  Or is it a private driver
+>> bool, which gets set on first install err, and is checked on
+>> subsequent installs?
+>
+> You can make it per-netdevice if you want.  Put it into the inetdevice
+> area perhaps.
 
-NFS seems to be a bit of special case: its SOCK_MEMALLOC is set only
-for swap sockets and it's a filesystem.  Mel's patch sets SOCK_MEMALLOC
-on all nbd sockets unconditionally, but AFAICT there was a distinct
-effort to make loopback nbd work (commit 48cf6061b302, "NBD: allow nbd
-to be used locally").  I suspect it's currently broken in the same way.
+Also at some point we will need a way to get it out of the
+fib_hw_screwed state. But I guess we can lump this into the "better
+policy" later.
 
-Thanks,
+Sorry for the noise on the last post...
 
-                Ilya
+.John
+
+-- 
+John Fastabend         Intel Corporation
