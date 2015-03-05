@@ -1,71 +1,121 @@
-From: Vivek Venkatraman <vivek@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 8/8] ipmpls: Basic device for injecting packets
- into an mpls tunnel
-Date: Thu, 5 Mar 2015 01:17:59 -0800
-Message-ID: <CAMs_D1-KtgYEG4-4H7L6uWmUYw-vM2pnqVfDJJECPR+v6Y4QTw@mail.gmail.com>
-References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
-	<87lhjlvriq.fsf@x220.int.ebiederm.org>
+From: Shachar Raindel <raindel@mellanox.com>
+Subject: RE: [PATCH net-next 1/3] net/dcb: Add IEEE QCN attribute
+Date: Thu, 5 Mar 2015 09:21:14 +0000
+Message-ID: <AM3PR05MB0935C9AF7EDFA7F90F3CAC6EDC1F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+References: <1425473468-25969-1-git-send-email-ogerlitz@mellanox.com>
+	<1425473468-25969-2-git-send-email-ogerlitz@mellanox.com>
+	<54F73EA6.2030006@gmail.com>
+ <CAJ3xEMiXAMfDaYvAELVmhEuQd7+R-f9=kELHrMxTz7ksFGPQLQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"Linux Netdev List" <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	"Tal Alon" <talal@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+	John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:43474 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932068AbbCEJSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 04:18:01 -0500
-Received: by wibhm9 with SMTP id hm9so13614075wib.2
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 01:17:59 -0800 (PST)
-In-Reply-To: <87lhjlvriq.fsf@x220.int.ebiederm.org>
+Received: from mail-db3on0088.outbound.protection.outlook.com ([157.55.234.88]:4553
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754520AbbCEJVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 04:21:20 -0500
+In-Reply-To: <CAJ3xEMiXAMfDaYvAELVmhEuQd7+R-f9=kELHrMxTz7ksFGPQLQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is great to see an MPLS data plane implementation make it into the
-kernel. I have a couple of questions on this patch.
-
-On Wed, Feb 25, 2015 at 9:18 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
->
->
-> Allow creating an mpls tunnel endpoint with
->
-> ip link add type ipmpls.
->
-> This tunnel has an mpls label for it's link layer address, and by
-> default sends all ingress packets over loopback to the local MPLS
-> forwarding logic which performs all of the work.
->
-
-Is it correct that to achieve IPoMPLS, each LSP has to be installed as
-a link/netdevice?
-
-If ingress packets loopback with the label associated with the link to
-hit the MPLS forwarding logic, how does it work if each packet has to
-be then forwarded with a different label stack? One use case is a
-common IP/MPLS application such as L3VPNs (RFC 4364) where multiple
-VPNs may reside over the same LSP, each having its own VPN (inner)
-label.
-
-> Ingress IPv4, IPv6 and MPLS packets are supported.
->
-> A new arp type ARPHRD_MPLS is defined for network devices that
-> whose link-layer addresses is an mpls label stack.
->
-> This is the most bare bones version of this tunnel device I can think
-> of.  Not even packet counters have been implemented. Offloads
-> and features in general are not supported, just to keep it simple and
-> obviously correct to start with.  In principle it should be able to
-> allow binding to a physical network device and pass all of the
-> offloads through ipmpls like the vlan, macvlan, or even ipvlan does.
-> Allowing a very fast light weight connection to the network.
->
-> The technical tricky bit to residing over something besides
-> the loopback device is how to get the next-hop mac address.
-> Neighbour table integration?  Something else?
->
-
-Thanks,
-Vivek
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFp
+bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgTWFyY2ggMDUsIDIw
+MTUgODo1NCBBTQ0KPiBUbzogSm9obiBGYXN0YWJlbmQNCj4gQ2M6IE9yIEdlcmxpdHo7IERhdmlk
+IFMuIE1pbGxlcjsgSm9obiBGYXN0YWJlbmQ7IExpbnV4IE5ldGRldiBMaXN0OyBBbWlyDQo+IFZh
+ZGFpOyBUYWwgQWxvbjsgU2hhbmkgTWljaGFlbGk7IFNoYWNoYXIgUmFpbmRlbA0KPiBTdWJqZWN0
+OiBSZTogW1BBVENIIG5ldC1uZXh0IDEvM10gbmV0L2RjYjogQWRkIElFRUUgUUNOIGF0dHJpYnV0
+ZQ0KPiANCj4gT24gV2VkLCBNYXIgNCwgMjAxNSBhdCA3OjE5IFBNLCBKb2huIEZhc3RhYmVuZA0K
+PiA8am9obi5mYXN0YWJlbmRAZ21haWwuY29tPiB3cm90ZToNCj4gPiBPbiAwMy8wNC8yMDE1IDA0
+OjUxIEFNLCBPciBHZXJsaXR6IHdyb3RlOg0KPiA+Pg0KPiA+PiBGcm9tOiBTaGFuaSBNaWNoYWVs
+aSA8c2hhbmltQG1lbGxhbm94LmNvbT4NCj4gPj4NCj4gPj4gQXMgc3BlY2lmaWVkIGluIDgwMi4x
+UWF1IHNwZWMuIEFkZCB0aGlzIG9wdGlvbmFsIGF0dHJpYnV0ZSB0byB0aGUNCj4gPj4gRENCIG5l
+dGxpbmsgbGF5ZXIuIFRvIGFsbG93IGZvciBhcHBsaWNhdGlvbiB0byB1c2UgdGhlIG5ldyBhdHRy
+aWJ1dGUsDQo+ID4+IE5JQyBkcml2ZXJzIHNob3VsZCBpbXBsZW1lbnQgYW5kIHJlZ2lzdGVyIHRo
+ZSAgY2FsbGJhY2tzIGllZWVfZ2V0cWNuLA0KPiA+PiBpZWVlX3NldHFjbiBhbmQgaWVlZV9nZXRx
+Y25zdGF0cy4NCj4gPj4NCj4gPj4gVGhlIFFDTiBhdHRyaWJ1dGUgaG9sZHMgYSBzZXQgb2YgcGFy
+YW1ldGVycyBmb3IgbWFuYWdlbWVudCwgYW5kDQo+ID4+IGEgc2V0IG9mIHN0YXRpc3RpY3MgdG8g
+cHJvdmlkZSBpbmZvcm1hdGl2ZSBkYXRhIG9uIENvbmdlc3Rpb24tQ29udHJvbA0KPiA+PiBkZWZp
+bmVkIGJ5IHRoaXMgc3BlYy4NCj4gPj4NCj4gPj4gU2lnbmVkLW9mZi1ieTogU2hhbmkgTWljaGFl
+bGkgPHNoYW5pbUBtZWxsYW5veC5jb20+DQo+ID4+IFNpZ25lZC1vZmYtYnk6IFNoYWNoYXIgUmFp
+bmRlbCA8cmFpbmRlbEBtZWxsYW5veC5jb20+DQo+ID4+IFNpZ25lZC1vZmYtYnk6IE9yIEdlcmxp
+dHogPG9nZXJsaXR6QG1lbGxhbm94LmNvbT4NCj4gDQo+ID4gTG9va3MgZ29vZCB0byBtZS4gRG8g
+eW91IGhhdmUgYSBRQ04gZW5hYmxlZCBzd2l0Y2g/IEkgbG9va2VkIGF0DQo+ID4gaW1wbGVtZW50
+aW5nIHRoaXMgYXdoaWxlIGFnbyBidXQgZGlkbid0IGhhdmUgYW55IHN3aXRjaCBzdXBwb3J0IHNv
+DQo+ID4gSSBuZXZlciBkaWQgaXQuDQo+IA0KPiBJJ2wgbGV0IFNoYWNoYXIgdG8gYWRkcmVzcyB0
+aGUgdGVzdGluZyBhbmQgdGhlIE1JQiBxdWVzdGlvbnMuDQoNClRoZSBNZWxsYW5veCBTd2l0Y2hY
+LTIgSUMgc3VwcG9ydHMgUUNOLiBXZSB3ZXJlIHRlc3Rpbmcgb3VyIE5JQ3MgYm90aA0Kd2l0aCB0
+aGlzIHN3aXRjaCBJQyBhbmQgdXNpbmcgaW50ZXJuYWwgdGVzdCBmaXh0dXJlcyB3aGVyZSB3ZSB3
+ZXJlDQppbmplY3RpbmcgY29uZ2VzdGlvbiBub3RpZmljYXRpb24gbWVzc2FnZXMgYXMgcmF3IEV0
+aGVybmV0IHBhY2tldHMgYnkNCmFub3RoZXIgaG9zdC4NCg0KPiANCj4gPiBBbHNvIGRvIHlvdSBo
+YXZlIGEgdXNlciBzcGFjZSBjbGllbnQgdG8gY29uZmlndXJlIHRoaXM/IEkgd291bGQgbGlrZQ0K
+PiA+IGl0IGlmIHNvbWVvbmUgd2FudGVkIHRvIGFkZCBzdXBwb3J0IHRvIGxsZHBhZC9kY2J0b29s
+Lg0KPiANCj4gU3VyZSwgd2UgaGF2ZSBzb21lIG5ldGxpbmsgKHB5dGhvbiBzY3JpcHRzKSBjb2Rl
+IHRvIGNvbmZpZ3VyZS9yZWFkDQo+IHRoaXMgdG93YXJkcyB0aGUga2VybmVsLg0KPiANCj4gDQo+
+ID4gWy4uLl0NCj4gPj4gKw0KPiA+PiArLyogVGhpcyBzdHJ1Y3R1cmUgY29udGFpbnMgdGhlIElF
+RUUgODAyLjFRYXUgUUNOIG1hbmFnZWQgb2JqZWN0Lg0KPiA+PiArICoNCj4gPj4gKyAqQHJwZ19l
+bmFibGU6IGVuYWJsZSBRQ04gUlANCj4gPj4gKyAqQHJwcHBfbWF4X3JwczogbWF4aW11bSBudW1i
+ZXIgb2YgUlBzIGFsbG93ZWQgZm9yIHRoaXMgQ05QViBvbiB0aGlzDQo+IHBvcnQNCj4gPj4gKyAq
+QHJwZ190aW1lX3Jlc2V0OiB0aW1lIGJldHdlZW4gcmF0ZSBpbmNyZWFzZXMgaWYgbm8gQ05NcyBy
+ZWNlaXZlZC4NCj4gPj4gKyAqICAgICAgICAgICAgICAgIGdpdmVuIGluIHUtc2Vjb25kcw0KPiA+
+PiArICpAcnBnX2J5dGVfcmVzZXQ6IHRyYW5zbWl0dGVkIGRhdGEgYmV0d2VlbiByYXRlIGluY3Jl
+YXNlcyBpZiBubw0KPiBDTk1zDQo+ID4+IHJlY2VpdmVkLg0KPiA+PiArICogICAgICAgICAgICAg
+ICAgZ2l2ZW4gaW4gQnl0ZXMNCj4gPj4gKyAqQHJwZ190aHJlc2hvbGQ6IFRoZSBudW1iZXIgb2Yg
+dGltZXMgcnBCeXRlU3RhZ2Ugb3IgcnBUaW1lU3RhZ2UgY2FuDQo+ID4+IGNvdW50DQo+ID4+ICsg
+KiAgICAgICAgICAgICAgICBiZWZvcmUgUlAgcmF0ZSBjb250cm9sIHN0YXRlIG1hY2hpbmUgYWR2
+YW5jZXMNCj4gc3RhdGVzDQo+ID4+ICsgKkBycGdfbWF4X3JhdGU6IHRoZSBtYXhpbnVuIHJhdGUs
+IGluIE1iaXRzIHBlciBzZWNvbmQsDQo+ID4+ICsgKiAgICAgICAgICAgICAgYXQgd2hpY2ggYW4g
+UlAgY2FuIHRyYW5zbWl0DQo+ID4+ICsgKkBycGdfYWlfcmF0ZTogVGhlIHJhdGUsIGluIE1iaXRz
+IHBlciBzZWNvbmQsDQo+ID4+ICsgKiAgICAgICAgICAgICB1c2VkIHRvIGluY3JlYXNlIHJwVGFy
+Z2V0UmF0ZSBpbiB0aGUNCj4gUlBSX0FDVElWRV9JTkNSRUFTRQ0KPiA+PiArICpAcnBnX2hhaV9y
+YXRlOiBUaGUgcmF0ZSwgaW4gTWJpdHMgcGVyIHNlY29uZCwNCj4gPj4gKyAqICAgICAgICAgICAg
+ICB1c2VkIHRvIGluY3JlYXNlIHJwVGFyZ2V0UmF0ZSBpbiB0aGUNCj4gUlBSX0hZUEVSX0lOQ1JF
+QVNFDQo+ID4+IHN0YXRlDQo+ID4+ICsgKkBycGdfZ2Q6IFVwb24gQ05NIHJlY2VpdmUsIGZsb3cg
+cmF0ZSBpcyBsaW1pdGVkIHRvDQo+IChGYi9HZCkqQ3VycmVudFJhdGUuDQo+ID4+ICsgKiAgICAg
+ICAgcnBnR2QgaXMgZ2l2ZW4gYXMgbG9nMihHZCksIHdoZXJlIEdkIG1heSBvbmx5IGJlIHBvd2Vy
+cyBvZg0KPiAyDQo+ID4+ICsgKkBycGdfbWluX2RlY19mYWM6IFRoZSBtaW5pbXVtIGZhY3RvciBi
+eSB3aGljaCB0aGUgY3VycmVudCB0cmFuc21pdA0KPiByYXRlDQo+ID4+ICsgKiAgICAgICAgICAg
+ICAgICAgY2FuIGJlIGNoYW5nZWQgYnkgcmVjZXB0aW9uIG9mIGEgQ05NLg0KPiA+PiArICogICAg
+ICAgICAgICAgICAgIHZhbHVlIGlzIGdpdmVuIGFzIHBlcmNlbnRhZ2UgKDEtMTAwKQ0KPiA+PiAr
+ICpAcnBnX21pbl9yYXRlOiBUaGUgbWluaW11bSB2YWx1ZSwgaW4gYml0cyBwZXIgc2Vjb25kLCBm
+b3IgcmF0ZSB0bw0KPiBsaW1pdA0KPiA+PiArICpAY25kZF9zdGF0ZV9tYWNoaW5lOiBUaGUgc3Rh
+dGUgb2YgdGhlIGNvbmdlc3Rpb24gbm90aWZpY2F0aW9uDQo+IGRvbWFpbg0KPiA+PiArICogICAg
+ICAgICAgICAgICAgICAgIGRlZmVuc2Ugc3RhdGUgbWFjaGluZSwgYXMgZGVmaW5lZCBieSBJRUVF
+DQo+IDgwMi4zUWF1DQo+ID4+ICsgKiAgICAgICAgICAgICAgICAgICAgc2VjdGlvbiAzMi4xLjEu
+IEluIHRoZSBpbnRlcmlvciByZWFkeSBzdGF0ZSwNCj4gPj4gKyAqICAgICAgICAgICAgICAgICAg
+ICB0aGUgUUNOIGNhcGFibGUgaGFyZHdhcmUgbWF5IGFkZCBDTi1UQUcgVExWIHRvDQo+IHRoZQ0K
+PiA+PiArICogICAgICAgICAgICAgICAgICAgIG91dGdvaW5nIHRyYWZmaWMsIHRvIHNwZWNpZmlj
+YWxseSBpZGVudGlmeQ0KPiBvdXRnb2luZw0KPiA+PiArICogICAgICAgICAgICAgICAgICAgIGZs
+b3dzLg0KPiA+PiArICovDQo+ID4NCj4gPg0KPiA+IEknbSBhc3N1bWluZyB0aGlzIHN0cnVjdHVy
+ZSBtYXBzIHRvIGFuIElFRUUgTUlCPw0KPiANCj4geWVwLCBJIGd1ZXNzIHNvDQoNClRoZSBzdHJ1
+Y3R1cmVzIG1hcCB0byB0aGUgSUVFRSBNSUIgZm9yIFFDTiAocGFydCBvZiBJRUVFIDgwMi4xUWF1
+KS4NClRoZSBmaWVsZHMgcnBwcF9tYXhfcnBzIGFuZCBjbmRkX3N0YXRlX21hY2hpbmUgYXJlIGlu
+IGRpZmZlcmVudCBzZWN0aW9ucw0KdGhhbiB0aGUgcmVzdCBvZiB0aGUgZmllbGRzLiBIb3dldmVy
+LCBpdCBzZWVtcyBiaXQgcmVkdW5kYW50IHRvIGRlZmluZSBhDQp3aG9sZSBzdHJ1Y3QganVzdCBm
+b3Igb25lIGZpZWxkLiBUaGUgY25kZF9zdGF0ZV9tYWNoaW5lIGlzIG5vdCBleHBsaWNpdGx5DQpk
+ZWZpbmVkIGluIHRoZSBNSUIsIGFzIHRoZSBMTERQIG5lZ290aWF0aW9uLCB3aGljaCB0aGUgc3Rh
+bmRhcmQgYXNzdW1lcywNCmlzIGltcGxlbWVudGVkIGJ5IGxsZHBhZC4NCg0KPiANCj4gPiBJdHMg
+YSByYXRoZXIgbGFyZ2Ugc3RydWN0dXJlIGZvciBhIHNpbmdsZSBuZXRsaW5rIHR5cGUgYnV0IHRo
+aXMgc2VlbXMNCj4gPiB0byBiZSBob3cgd2UgYnVpbHQNCj4gPiB0aGUgZGNibmwgaW50ZXJmYWNl
+IGFuZCBpZiBpdCBkb2VzIHNlZW0gbG9naWNhbCB0aGF0IHRoZSBzdHJ1Y3R1cmUgaXMNCj4gPiBv
+bmUgbG9naWNhbCBibG9jaywgbWVhbmluZyB5b3UgbmVlZCB0byBzdXBwbHkgYWxsIGZpZWxkcy4N
+Cj4gDQoNClRoaXMgaXMgdGhlIHNldCBvZiBwYXJhbWV0ZXJzIGRlZmluaW5nIGhvdyB5b3Ugd2ls
+bCByZWR1Y2Ugb3IgaW5jcmVhc2UgeW91DQpUWCByYXRlIHVwb24gcmVjZWl2aW5nIENOTSBmcm9t
+IHRoZSBuZXR3b3JrLiBJIGFncmVlIHRoYXQgaXQgaXMgYSBsb25nIGxpc3QsDQpidXQgdGhpcyBp
+cyBob3cgdGhlIHN0YW5kYXJkIHdhcyB3cml0dGVuLi4uDQoNCj4gPiBbLi4uXQ0KPiA+PiArICAg
+ICAgIGlmIChvcHMtPmllZWVfZ2V0cWNuKSB7DQo+ID4+ICsgICAgICAgICAgICAgICBzdHJ1Y3Qg
+aWVlZV9xY24gcWNuOw0KPiANCj4gPiB5b3UgbWlnaHQgY29uc2lkZXIgYWRkaW5nIGEgbmV3bGlu
+ZSBoZXJlIGl0ICBpcyB0aGUgYmVzdCBwcmFjdGljZSBmb3INCj4gPiBuZXcgY29kZSBhbHRob3Vn
+aCBkY2JubCBoYXMgcGxlbnR5IG9mIGV4YW1wbGVzIHdoZXJlIGl0IGRvZXNuJ3QgdXNlDQo+ID4g
+dGhpcyBjb252ZW50aW9uLg0KPiANCj4gT0ssIHdpbGwgYWRkIHRoaXMgaGVyZSBhbmQgaW4gdGhl
+IG90aGVyIHBsYWNlcyB3aGVyZSB1c2VkIHRoYXQgcHJhY3RpY2UuDQo=
