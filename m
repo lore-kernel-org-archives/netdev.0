@@ -1,64 +1,44 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 2/8] netfilter: bridge: move nf_bridge_update_protocol to where its used
-Date: Thu,  5 Mar 2015 00:52:34 +0100
-Message-ID: <1425513160-496-3-git-send-email-fw@strlen.de>
-References: <1425513160-496-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: <netfilter-devel@vger.kernel.org>
+From: David Christensen <davidch@broadcom.com>
+Subject: RE: [ovs-dev] OVS Offload Decision Proposal
+Date: Thu, 5 Mar 2015 00:04:15 +0000
+Message-ID: <3A5015FE9E557D448AF7238AF0ACE20A2D8AE08A@IRVEXCHMB11.corp.ad.broadcom.com>
+References: <20150304011817.GA29502@vergenet.net>
+ <CA+mtBx9U-HUXcfk+oOuNRwpKq74WXmbkWvQDrYURCavfWZjQaQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>,
+	Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33796 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753170AbbCDXw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 18:52:56 -0500
-In-Reply-To: <1425513160-496-1-git-send-email-fw@strlen.de>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:19272 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483AbbCEAES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 19:04:18 -0500
+In-Reply-To: <CA+mtBx9U-HUXcfk+oOuNRwpKq74WXmbkWvQDrYURCavfWZjQaQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-no need to keep it in a header file.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/netfilter_bridge.h | 8 --------
- net/bridge/br_netfilter.c        | 8 ++++++++
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index 332ef8a..dd580a9 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -36,14 +36,6 @@ static inline unsigned int nf_bridge_encap_header_len(const struct sk_buff *skb)
- 	}
- }
- 
--static inline void nf_bridge_update_protocol(struct sk_buff *skb)
--{
--	if (skb->nf_bridge->mask & BRNF_8021Q)
--		skb->protocol = htons(ETH_P_8021Q);
--	else if (skb->nf_bridge->mask & BRNF_PPPoE)
--		skb->protocol = htons(ETH_P_PPP_SES);
--}
--
- static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
- {
- 	if (unlikely(skb->nf_bridge->mask & BRNF_PPPoE))
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index e547911..5b3bceb 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -239,6 +239,14 @@ drop:
- 	return -1;
- }
- 
-+static void nf_bridge_update_protocol(struct sk_buff *skb)
-+{
-+	if (skb->nf_bridge->mask & BRNF_8021Q)
-+		skb->protocol = htons(ETH_P_8021Q);
-+	else if (skb->nf_bridge->mask & BRNF_PPPoE)
-+		skb->protocol = htons(ETH_P_PPP_SES);
-+}
-+
- /* PF_BRIDGE/PRE_ROUTING *********************************************/
- /* Undo the changes made for ip6tables PREROUTING and continue the
-  * bridge PRE_ROUTING hook. */
--- 
-2.0.5
+PiA+IFRoYXQgc2FpZCwgbXkgd29ya2luZyBhc3N1bXB0aW9ucyBhcmU6DQo+ID4NCj4gPiAqIFRo
+YXQgT3BlbiB2U3dpdGNoIG1heSBtYW5hZ2UgZmxvdyBvZmZsb2FkcyBmcm9tIHVzZXItc3BhY2Uu
+IFRoaXMgaXMgYXMNCj4gPiAgIG9wcG9zZWQgdG8gdGhlbSBiZWluZyB0cmFuc3BhcmVudGx5IGhh
+bmRsZWQgaW4gdGhlIGRhdGFwYXRoLiBUaGlzIGRvZXMNCj4gPiAgIG5vdCBwcmVjbHVkZSB0aGUg
+ZXhpc3RlbmNlIG9mIHRyYW5zcGFyZW50IG9mZmxvYWRpbmcgaW4gdGhlIGRhdGFwYXRoLg0KPiA+
+ICAgQnV0IHJhdGhlciBsaW1pdHMgdGhpcyBkaXNjdXNzaW9uIHRvIGEgbW9kZSB3aGVyZSBvZmZs
+b2FkcyBhcmUgbWFuYWdlZA0KPiA+ICAgZnJvbSB1c2VyLXNwYWNlLg0KPiA+DQo+ID4gKiBUaGF0
+IE9wZW4gdlN3aXRjaCBtYXkgYWRkIGZsb3dzIHRvIGhhcmR3YXJlIHZpYSBhbiBBUEkgcHJvdmlk
+ZWQgYnkgdGhlDQo+ID4gICBrZXJuZWwuIEluIHBhcnRpY3VsYXIgbXkgd29ya2luZyBhc3N1bXB0
+aW9uIGlzIHRoYXQgdGhlIEZsb3cgQVBJDQo+IHByb3Bvc2VkDQo+ID4gICBieSBKb2huIEZhc3Rh
+YmVuZFszXSBtYXkgYmUgdXNlZCB0byBhZGQgZmxvd3MgdG8gaGFyZHdhcmUuIFdoaWxlIHRoZQ0K
+PiA+ICAgZXhpc3RpbmcgbmV0bGluayBBUEkgbWF5IGJlIHVzZWQgdG8gYWRkIGZsb3dzIHRvIHRo
+ZSBrZXJuZWwgZGF0YXBhdGguDQo+ID4NCj4gRG9lc24ndCB0aGlzIGltcGx5IHR3byBlbnRpdGll
+cyB0byBiZSBpbmRlcGVuZGVudGx5IG1hbmFnaW5nIHRoZSBzYW1lDQo+IHBoeXNpY2FsIHJlc291
+cmNlPyBJZiBzbywgdGhpcyByYWlzZXMgcXVlc3Rpb25zIG9mIGhvdyB0aGUgcmVzb3VyY2UNCj4g
+d291bGQgYmUgcGFydGl0aW9uZWQgYmV0d2VlbiB0aGVtPyBIb3cgYXJlIGNvbmZsaWN0aW5nIHJl
+cXVlc3RzDQo+IGJldHdlZW4gdGhlIHR3byByZWN0aWZpZWQ/DQoNClRoZSBjb25zZW5zdXMgYXQg
+TmV0ZGV2IHdhcyB0aGF0ICJzZXQiIG9wZXJhdGlvbnMgd291bGQgYmUgcmVtb3ZlZCBmcm9tDQpm
+bG93IEFQSSB0byBsaW1pdCBoYXJkd2FyZSBtYW5hZ2VtZW50IHRvIHRoZSBrZXJuZWwgb25seS4g
+IEV4aXN0aW5nICJnZXQiDQpvcGVyYXRpb25zIHdvdWxkIHJlbWFpbiBzbyB1c2VyIHNwYWNlIGlz
+IGF3YXJlIG9mIHRoZSBkZXZpY2UgY2FwYWJpbGl0aWVzLg0KDQpEYXZlDQo=
