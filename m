@@ -1,64 +1,51 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
-Date: Wed, 04 Mar 2015 18:41:50 -0800
-Message-ID: <54F7C26E.3040704@plumgrid.com>
-References: <1425501718-12066-1-git-send-email-msekleta@redhat.com> <54F77336.7040006@plumgrid.com> <54F7BF43.80203@lab.ntt.co.jp>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCHv4 net-next 2/3] ipv4: Use binary search to choose tcp
+ PMTU probe_size
+Date: Thu, 05 Mar 2015 10:36:54 +0800
+Message-ID: <54F7C146.603@gmail.com>
+References: <1425374361-21047-1-git-send-email-fan.du@intel.com> <1425374361-21047-3-git-send-email-fan.du@intel.com> <CABrhC0k3YgvcXdx1aVzVfsgnD0FoGHaqOuqk8fUQiZhAmyVkPg@mail.gmail.com> <CABrhC0kTmdv7TJUFo88HjGgzLmm1p4_XRnuQZUoaOGh8DwmhVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: John Heffner <johnwheffner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:38251 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860AbbCEClt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 21:41:49 -0500
-Received: by iecrd18 with SMTP id rd18so72830349iec.5
-        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 18:41:48 -0800 (PST)
-In-Reply-To: <54F7BF43.80203@lab.ntt.co.jp>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:38461 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754106AbbCEClz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 21:41:55 -0500
+Received: by pdbfl12 with SMTP id fl12so31255071pdb.5
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 18:41:54 -0800 (PST)
+In-Reply-To: <CABrhC0kTmdv7TJUFo88HjGgzLmm1p4_XRnuQZUoaOGh8DwmhVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/4/15 6:28 PM, Toshiaki Makita wrote:
-> On 2015/03/05 6:03, Alexei Starovoitov wrote:
->> On 3/4/15 12:41 PM, Michal Sekletar wrote:
->>> This commit introduces new BPF extension. It makes possible to load
->>> value of
->>> skb->vlan_proto (vlan tpid) to register A.
->>>
->>> Currently, vlan header is removed from frame and information is
->>> available to
->>> userspace only via tpacket interface. Hence, it is not possible to
->>> install
->>> filter which uses value of vlan tpid field.
->>>
->>> AFAICT only way how to filter based on tpid value is to reconstruct
->>> original
->>> frame encapsulation and interpret BPF filter code in userspace. Doing
->>> that is
->>> way slower than doing filtering in kernel.
->>>
->>> Cc: Alexei Starovoitov <ast@plumgrid.com>
->>> Cc: Jiri Pirko <jpirko@redhat.com>
->>> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
->>> ---
->>> @@ -282,6 +282,7 @@ Possible BPF extensions are shown in the following
->>> table:
->>>      vlan_tci                              skb_vlan_tag_get(skb)
->>>      vlan_pr                               skb_vlan_tag_present(skb)
->>>      rand                                  prandom_u32()
->>> +  vlan_proto                            skb->vlan_proto
->>
->> the patch is correct and looks clean, but I don't understand
->> the motivation for the patch.
->> There is already SKF_AD_VLAN_TAG_PRESENT. If it is set then only
->> two possible values of vlan_proto are ETH_P_8021Q or ETH_P_8021AD.
->> If there another vlan header inside the packet, it's AD.
->
-> 802.1ad can be used without an inner vlan tag.
-> Also, we can send/receive QinQ frames with 802.1Q outer tags.
-> (We can create vlan interface on 802.1Q vlan interface.)
+=E4=BA=8E 2015=E5=B9=B403=E6=9C=8804=E6=97=A5 21:39, John Heffner =E5=86=
+=99=E9=81=93:
+>> >I suspect there's plenty of room for further improvement in the
+>> >probing heuristic, but this seems like a reasonable improvement.
+>> >
+>> >Acked-by: John Heffner<johnwheffner@gmail.com>
+> Actually, one final suggestion here.  The cost of a failed probe is
+> much higher than a successful probe.  I'd suggest still bounding the
+> probe segment size to no more than 2*cur_mss.  (Think of a common cas=
+e
+> where mss_clamp =3D 9000 - headers, but the actual path MTU =3D 1500.=
+)
 
-yes, but I think existing 'vlan_tag_present' would be enough
-to address the issue mentioned in two bugs reports.
+huh...
+Are you serious about clamping probe size to no more than 2*current_mss=
+?
+What about the opposite scenario where path MTU enlarges, e.g., current=
+_mss
+is nearing search_low?
+
+I will make next version incorporating:
+a. Update ip-sysctl.txt
+b. Zero probe_size before reset search_low/high
+
+
+>    -John
