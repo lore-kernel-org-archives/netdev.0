@@ -1,93 +1,90 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: Re: [PATCH 0/7] Freescale DPAA FMan FLIB(s)
-Date: Thu, 5 Mar 2015 09:04:54 -0600
-Message-ID: <54F87096.2070709@Freescale.com>
-References: <1425534351-1065-1-git-send-email-Emilian.Medve@Freescale.com>
- <54F84CF1.80702@mojatatu.com> <54F85ECB.3070200@Freescale.com>
- <54F869CE.1080701@mojatatu.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net/dcb: Add IEEE QCN attribute
+Date: Thu, 05 Mar 2015 07:05:43 -0800
+Message-ID: <54F870C7.4030707@gmail.com>
+References: <1425473468-25969-1-git-send-email-ogerlitz@mellanox.com> <1425473468-25969-2-git-send-email-ogerlitz@mellanox.com> <54F73EA6.2030006@gmail.com> <CAJ3xEMiXAMfDaYvAELVmhEuQd7+R-f9=kELHrMxTz7ksFGPQLQ@mail.gmail.com> <AM3PR05MB0935C9AF7EDFA7F90F3CAC6EDC1F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Igal Liberman <Igal.Liberman@Freescale.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	<linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>
+To: Shachar Raindel <raindel@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0101.outbound.protection.outlook.com ([207.46.100.101]:41476
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752625AbbCEPE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 10:04:27 -0500
-In-Reply-To: <54F869CE.1080701@mojatatu.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:44724 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755846AbbCEPGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 10:06:02 -0500
+Received: by oifu20 with SMTP id u20so12116207oif.11
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 07:06:01 -0800 (PST)
+In-Reply-To: <AM3PR05MB0935C9AF7EDFA7F90F3CAC6EDC1F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jamal,
+[...]
 
-
-On 03/05/2015 08:35 AM, Jamal Hadi Salim wrote:
-> Hi Emil,
-> 
-> On 03/05/15 08:48, Emil Medve wrote:
-> 
->> The intent is to upstream the entire suite of the DPAA drivers. All the
->> drivers are still WIP, but B/QMan have been already presented to the
->> upstream community and this is the first attempt to publish (some low
->> level code of) the FMan driver. As we go through our internal checklist
->> and in the same time address community feedback we'll soon get the
->> drivers to be acceptable for the upstream trees
 >>
->> The first version of the actual Ethernet driver will follow imminently
+>>> Looks good to me. Do you have a QCN enabled switch? I looked at
+>>> implementing this awhile ago but didn't have any switch support so
+>>> I never did it.
 >>
->> SDK enablement is a side-effect
-> 
-> Meaning? Let me ask the question differently:
-> Do i need your sdk to use the features exposed
+>> I'l let Shachar to address the testing and the MIB questions.
+>
+> The Mellanox SwitchX-2 IC supports QCN. We were testing our NICs both
+> with this switch IC and using internal test fixtures where we were
+> injecting congestion notification messages as raw Ethernet packets by
+> another host.
 
-No. All the kernel drivers/code we want to upstream is meant to stand on
-its own and be used the "normal" Linux/Unix way
+ah great didn't know that switch supported QCN.
 
-> or can i use something
-> like tc to set up the deficit rr or wred or the exposed classifiers
-> and associated actions?
-
-The SDK doesn't currently support the enablement of any HW QoS features
-via standard Linux user-space tools. The SDK contains some FSL tools for
-that. As a time moving target we intend to support lots of the DPAA
-features via standard kernel/user-space means: ethtool, iptables,
-iproute2, etc.
-
-> Would your sdk (via user space direct programming) benefit because you
-> have pushed these pieces into the kernel?
-
-Not specifically because of the kernel drivers. In support for the
-user-space DPAA the kernel will have some UIO/VFIO drivers to allow the
-user-space to "mmap" these devices (portals, ports, MAC(s), etc.). The
-intent is to use the same driver sources for the kernel- and user-space
-drivers
-
->>> How are you planning to
->>> add support for your classifiers, queue schedulers etc?
+>
 >>
->> Yes
-> 
-> Yes as in these will be available via linux kernel or via your sdk?
-
-As in these will be available via familiar kernel-/user-space tools
-
->>> Is that a patch
->>> on top of this or it is something that sits on user space?
+>>> Also do you have a user space client to configure this? I would like
+>>> it if someone wanted to add support to lldpad/dcbtool.
 >>
->> Both. Full DPAA/Ethernet enablement will be present in the kernel. We
->> also have support for user-space based approach. I'm unsure where/when
->> we might publish that. Of course the SDK is always a place you can turn
->> to for all the code we have (in whatever state it might be)
-> 
-> the sdk is open source?
+>> Sure, we have some netlink (python scripts) code to configure/read
+>> this towards the kernel.
+>>
+>>
+>>> [...]
 
-I'm uncertain about *all* the licenses included, but you can look into
-it and download the SDK via git.freescale.com and/or
-http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=SDKLINUX
+[...]
 
+>>>
+>>>
+>>> I'm assuming this structure maps to an IEEE MIB?
+>>
+>> yep, I guess so
+>
+> The structures map to the IEEE MIB for QCN (part of IEEE 802.1Qau).
+> The fields rppp_max_rps and cndd_state_machine are in different sections
+> than the rest of the fields. However, it seems bit redundant to define a
+> whole struct just for one field. The cndd_state_machine is not explicitly
+> defined in the MIB, as the LLDP negotiation, which the standard assumes,
+> is implemented by lldpad.
+>
+>>
+>>> Its a rather large structure for a single netlink type but this seems
+>>> to be how we built
+>>> the dcbnl interface and if it does seem logical that the structure is
+>>> one logical block, meaning you need to supply all fields.
+>>
+>
+> This is the set of parameters defining how you will reduce or increase you
+> TX rate upon receiving CNM from the network. I agree that it is a long list,
+> but this is how the standard was written...
 
-Cheers,
+yep works for me. I was just checking my assumptions are correct and
+admittedly being a bit lazy so I didn't pull up the spec myself.
+
+Thanks,
+John
+
+[...]
+
+-- 
+John Fastabend         Intel Corporation
