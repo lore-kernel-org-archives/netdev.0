@@ -1,70 +1,50 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [PATCH 3/3] net: macb: remove #if defined(CONFIG_ARCH_AT91)
- sections
-Date: Thu, 5 Mar 2015 20:44:18 +0100
-Message-ID: <20150305194418.GY3989@piout.net>
-References: <1425572842-6084-1-git-send-email-boris.brezillon@free-electrons.com>
- <1425572842-6084-4-git-send-email-boris.brezillon@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: Extend Proxy ARP design to allow optional
+ rules for Wi-Fi
+Date: Thu, 05 Mar 2015 14:52:48 -0500 (EST)
+Message-ID: <20150305.145248.37517018117219982.davem@davemloft.net>
+References: <1425466461-1371-1-git-send-email-jouni@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Boris Brezillon <boris.brezillon@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1425572842-6084-4-git-send-email-boris.brezillon@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jouni@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60849 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750947AbbCETzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 14:55:35 -0500
+In-Reply-To: <1425466461-1371-1-git-send-email-jouni@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/03/2015 at 17:27:22 +0100, Boris Brezillon wrote :
-> @@ -2388,21 +2392,20 @@ static int macb_probe(struct platform_device *pdev)
->  		bp->phy_interface = err;
->  	}
->  
-> +	config = 0;
->  	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
-> -		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
-> -	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
-> -#if defined(CONFIG_ARCH_AT91)
-> -		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
-> -					       MACB_BIT(CLKEN)));
-> -#else
-> -		macb_or_gem_writel(bp, USRIO, 0);
-> -#endif
-> -	else
-> -#if defined(CONFIG_ARCH_AT91)
-> -		macb_or_gem_writel(bp, USRIO, MACB_BIT(CLKEN));
-> -#else
-> -		macb_or_gem_writel(bp, USRIO, MACB_BIT(MII));
-> -#endif
-> +		config = GEM_BIT(RGMII);
-> +	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
-> +		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-> +		config = MACB_BIT(RMII);
-> +	else if (bp->phy_interface == PHY_INTERFACE_MODE_MII &&
+From: Jouni Malinen <jouni@codeaurora.org>
+Date: Wed,  4 Mar 2015 12:54:21 +0200
 
-I'm not sure you should check for PHY_INTERFACE_MODE_MII here as this
-may change the previous behaviour.
+> This extends the design in commit 958501163ddd ("bridge: Add support for
+> IEEE 802.11 Proxy ARP") with optional set of rules that are needed to
+> meet the IEEE 802.11 and Hotspot 2.0 requirements for ProxyARP. The
+> previously added BR_PROXYARP behavior is left as-is and a new
+> BR_PROXYARP_WIFI alternative is added so that this behavior can be
+> configured from user space when required.
+> 
+> In addition, this enables proxyarp functionality for unicast ARP
+> requests for both BR_PROXYARP and BR_PROXYARP_WIFI since it is possible
+> to use unicast as well as broadcast for these frames.
+> 
+> The key differences in functionality:
+> 
+> BR_PROXYARP:
+> - uses the flag on the bridge port on which the request frame was
+>   received to determine whether to reply
+> - block bridge port flooding completely on ports that enable proxy ARP
+> 
+> BR_PROXYARP_WIFI:
+> - uses the flag on the bridge port to which the target device of the
+>   request belongs
+> - block bridge port flooding selectively based on whether the proxyarp
+>   functionality replied
+> 
+> Signed-off-by: Jouni Malinen <jouni@codeaurora.org>
 
-> +		 !(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-> +		config = MACB_BIT(MII);
-> +
-> +	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-> +		config |= MACB_BIT(CLKEN);
-> +
-> +	macb_or_gem_writel(bp, USRIO, config);
->  
->  	err = register_netdev(dev);
->  	if (err) {
-
--- 
-Alexandre Belloni, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Applied to net-next, thanks.
