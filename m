@@ -1,64 +1,52 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next 1/2] tipc: increase size of tipc discovery messages
-Date: Thu, 5 Mar 2015 10:23:48 +0100
-Message-ID: <1425547429-21164-1-git-send-email-erik.hugne@ericsson.com>
+From: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 3/7] mpls: Add a sysctl to control the size of
+ the mpls label table
+Date: Thu, 5 Mar 2015 01:45:55 -0800
+Message-ID: <CAMs_D1-Ohar0CbgaB08jM0iGcORJxx_B9Ta778nd4m5unT6wMg@mail.gmail.com>
+References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
+	<20150303.144509.1694022322984204895.davem@davemloft.net>
+	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
+	<20150303.153310.624302583835136622.davem@davemloft.net>
+	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
+	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
+	<87egp5tvlz.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<ying.xue@windriver.com>, <richard.alpe@ericsson.com>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	roopa <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:56926 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663AbbCEJ2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 04:28:00 -0500
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:37503 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932389AbbCEJp4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 04:45:56 -0500
+Received: by wibhm9 with SMTP id hm9so13931235wib.2
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 01:45:55 -0800 (PST)
+In-Reply-To: <87egp5tvlz.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On Tue, Mar 3, 2015 at 5:11 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>
+> This sysctl gives two benefits.  By defaulting the table size to 0
+> mpls even when compiled in and enabled defaults to not forwarding
+> any packets.  This prevents unpleasant surprises for users.
+>
+> The other benefit is that as mpls labels are allocated locally a dense
+> table a small dense label table may be used which saves memory and
+> is extremely simple and efficient to implement.
+>
 
-The payload area following the TIPC discovery message header is an
-opaque area defined by the media. INT_H_SIZE was enough for
-Ethernet/IB/IPv4 but needs to be expanded to carry IPv6 addressing
-information.
+The label space is often partitioned into multiple sets in MPLS and
+used for different purposes - for example, LSP labels, VPN labels,
+Segment labels. This in turn means that the table may no longer be
+dense. A sysctl allowing min and max label that spans the sets of
+labels may be useful. Or should the ILM be made a hash table?
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/discover.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+> This sysctl allows userspace to choose the restrictions on the label
+> table size userspace applications need to cope with.
+>
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index feef375..5967506 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -86,7 +86,7 @@ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
- 
- 	msg = buf_msg(buf);
- 	tipc_msg_init(tn->own_addr, msg, LINK_CONFIG, type,
--		      INT_H_SIZE, dest_domain);
-+		      MAX_H_SIZE, dest_domain);
- 	msg_set_non_seq(msg, 1);
- 	msg_set_node_sig(msg, tn->random);
- 	msg_set_dest_domain(msg, dest_domain);
-@@ -249,7 +249,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
- 
- 	/* Send response, if necessary */
- 	if (respond && (mtyp == DSC_REQ_MSG)) {
--		rbuf = tipc_buf_acquire(INT_H_SIZE);
-+		rbuf = tipc_buf_acquire(MAX_H_SIZE);
- 		if (rbuf) {
- 			tipc_disc_init_msg(net, rbuf, DSC_RESP_MSG, bearer);
- 			tipc_bearer_send(net, bearer->identity, rbuf, &maddr);
-@@ -359,8 +359,7 @@ int tipc_disc_create(struct net *net, struct tipc_bearer *b_ptr,
- 	req = kmalloc(sizeof(*req), GFP_ATOMIC);
- 	if (!req)
- 		return -ENOMEM;
--
--	req->buf = tipc_buf_acquire(INT_H_SIZE);
-+	req->buf = tipc_buf_acquire(MAX_H_SIZE);
- 	if (!req->buf) {
- 		kfree(req);
- 		return -ENOMEM;
--- 
-2.1.4
+Vivek
