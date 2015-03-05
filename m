@@ -1,58 +1,38 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next] ax25: Fix the build when CONFIG_INET is disabled
-Date: Thu, 05 Mar 2015 06:54:00 -0600
-Message-ID: <87pp8nip07.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:45359 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbbCEM5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 07:57:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH 1/2] net: macb: Include multi queue support for xilinx ZynqMP ethernet version
+Date: Thu,  5 Mar 2015 14:04:11 +0100
+Message-ID: <c4d6dd80406da35180f2f4fc163b1c7fc526d92a.1425560649.git.michal.simek@xilinx.com>
+Cc: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
 
-From: kbuild test robot <fengguang.wu@intel.com>
->
-> >> net/ax25/ax25_ip.c:225:26: error: unknown type name 'sturct'
->     netdev_tx_t ax25_ip_xmit(sturct sk_buff *skb)
->                              ^
->
-> vim +/sturct +225 net/ax25/ax25_ip.c
->
->    219				    unsigned short type, const void *daddr,
->    220				    const void *saddr, unsigned int len)
->    221	{
->    222		return -AX25_HEADER_LEN;
->    223	}
->    224
->  > 225	netdev_tx_t ax25_ip_xmit(sturct sk_buff *skb)
->    226	{
->    227		kfree_skb(skb);
->    228		return NETDEV_TX_OK;
+Include multi queue support for the ethernet IP version in xilinx ZynqMP
+SoC.
 
-Ooops I misspelled struct...
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
- net/ax25/ax25_ip.c | 2 +-
+
+ drivers/net/ethernet/cadence/macb.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ax25/ax25_ip.c b/net/ax25/ax25_ip.c
-index 8b35af4ef93e..7c646bb2c6f7 100644
---- a/net/ax25/ax25_ip.c
-+++ b/net/ax25/ax25_ip.c
-@@ -222,7 +222,7 @@ static int ax25_hard_header(struct sk_buff *skb, struct net_device *dev,
- 	return -AX25_HEADER_LEN;
- }
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index ad76b8e35a00..24b1eb466e52 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2192,7 +2192,7 @@ static void macb_probe_queues(void __iomem *mem,
  
--netdev_tx_t ax25_ip_xmit(sturct sk_buff *skb)
-+netdev_tx_t ax25_ip_xmit(struct sk_buff *skb)
- {
- 	kfree_skb(skb);
- 	return NETDEV_TX_OK;
+ 	/* is it macb or gem ? */
+ 	mid = __raw_readl(mem + MACB_MID);
+-	if (MACB_BFEXT(IDNUM, mid) != 0x2)
++	if (MACB_BFEXT(IDNUM, mid) < 0x2)
+ 		return;
+ 
+ 	/* bit 0 is never set but queue 0 always exists */
 -- 
-2.2.1
+1.8.2.3
