@@ -1,52 +1,44 @@
-From: Vivek Venkatraman <vivek@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 3/7] mpls: Add a sysctl to control the size of
- the mpls label table
-Date: Thu, 5 Mar 2015 01:45:55 -0800
-Message-ID: <CAMs_D1-Ohar0CbgaB08jM0iGcORJxx_B9Ta778nd4m5unT6wMg@mail.gmail.com>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
-	<87egp5tvlz.fsf_-_@x220.int.ebiederm.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: SOCK_MEMALLOC vs loopback
+Date: Thu, 5 Mar 2015 09:50:44 +0000
+Message-ID: <20150305095044.GR3087@suse.de>
+References: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com>
+ <20150304200427.GQ3087@suse.de>
+ <54F7D5A7.1060404@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Ilya Dryomov <idryomov@gmail.com>, ceph-devel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Sage Weil <sage@redhat.com>, NeilBrown <neilb@suse.de>,
+	netdev@vger.kernel.org
+To: Mike Christie <mchristi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:37503 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932389AbbCEJp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 04:45:56 -0500
-Received: by wibhm9 with SMTP id hm9so13931235wib.2
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 01:45:55 -0800 (PST)
-In-Reply-To: <87egp5tvlz.fsf_-_@x220.int.ebiederm.org>
+Received: from cantor2.suse.de ([195.135.220.15]:52933 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932147AbbCEJuu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 04:50:50 -0500
+Content-Disposition: inline
+In-Reply-To: <54F7D5A7.1060404@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 3, 2015 at 5:11 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->
-> This sysctl gives two benefits.  By defaulting the table size to 0
-> mpls even when compiled in and enabled defaults to not forwarding
-> any packets.  This prevents unpleasant surprises for users.
->
-> The other benefit is that as mpls labels are allocated locally a dense
-> table a small dense label table may be used which saves memory and
-> is extremely simple and efficient to implement.
->
+On Wed, Mar 04, 2015 at 10:03:51PM -0600, Mike Christie wrote:
+> On 03/04/2015 02:04 PM, Mel Gorman wrote:
+> > other options. If that contract is not met then using it can deadlock the
+> > system. It's the same for PF_MEMALLOC -- activating that is a recipe for
+> > deadlock due to memory exhaustion.
+> 
+> For rbd and iscsi's SOCK_MEMALLOC/PF_MEMALLOC use, I copied what you did
+> for nbd in commit 7f338fe4540b1d0600b02314c7d885fd358e9eca which always
+> sets those flags and seems to rely on the network layer to do the right
+> thing. Are they all incorrect?
 
-The label space is often partitioned into multiple sets in MPLS and
-used for different purposes - for example, LSP labels, VPN labels,
-Segment labels. This in turn means that the table may no longer be
-dense. A sysctl allowing min and max label that spans the sets of
-labels may be useful. Or should the ILM be made a hash table?
+NBD is a poor example and if it comes to that, I would suggest removing it
+and let NBD easily deadlock like it used to. NBD has other failure cases
+such as the client can get paged out if -swap is not specified. The same
+commit notes that NBD may still deadlock and that min_free_kbytes may have
+to be increased.
 
-> This sysctl allows userspace to choose the restrictions on the label
-> table size userspace applications need to cope with.
->
-
-Vivek
+-- 
+Mel Gorman
+SUSE Labs
