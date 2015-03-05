@@ -1,96 +1,77 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 3/7] mpls: Add a sysctl to control the size of the mpls label table
-Date: Thu, 05 Mar 2015 08:38:25 -0600
-Message-ID: <87bnk7bjby.fsf@x220.int.ebiederm.org>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
-	<87egp5tvlz.fsf_-_@x220.int.ebiederm.org>
-	<CAMs_D1-Ohar0CbgaB08jM0iGcORJxx_B9Ta778nd4m5unT6wMg@mail.gmail.com>
-	<878ufbh93t.fsf@x220.int.ebiederm.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [ovs-dev] OVS Offload Decision Proposal
+Date: Thu, 05 Mar 2015 06:52:14 -0800
+Message-ID: <54F86D9E.7000200@gmail.com>
+References: <54F7B76E.4040902@gmail.com> <20150305.000015.1427044514000703740.davem@davemloft.net> <CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com> <20150305.014257.974664546228241067.davem@davemloft.net> <54F80815.5030208@gmail.com> <54F84E21.7030207@mojatatu.com> <54F8572B.4020309@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
-To: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	davidch@broadcom.com, simon.horman@netronome.com,
+	dev@openvswitch.org, netdev@vger.kernel.org, pablo@netfilter.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:33772 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbbCEOmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 09:42:02 -0500
-In-Reply-To: <878ufbh93t.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 05 Mar 2015 07:22:46 -0600")
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:35054 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752966AbbCEOwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 09:52:30 -0500
+Received: by obbgq1 with SMTP id gq1so14273523obb.2
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 06:52:30 -0800 (PST)
+In-Reply-To: <54F8572B.4020309@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
-
-> Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
+On 03/05/2015 05:16 AM, Jamal Hadi Salim wrote:
+> On 03/05/15 07:37, Jamal Hadi Salim wrote:
+>> On 03/05/15 02:39, John Fastabend wrote:
 >
->> On Tue, Mar 3, 2015 at 5:11 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->>>
->>> This sysctl gives two benefits.  By defaulting the table size to 0
->>> mpls even when compiled in and enabled defaults to not forwarding
->>> any packets.  This prevents unpleasant surprises for users.
->>>
->>> The other benefit is that as mpls labels are allocated locally a dense
->>> table a small dense label table may be used which saves memory and
->>> is extremely simple and efficient to implement.
->>>
+>> Would kernel boot/module options passed to the driver not suffice?
+>> That implies a central authority that decides what these table size
+>> slicing looks like.
 >>
->> The label space is often partitioned into multiple sets in MPLS and
->> used for different purposes - for example, LSP labels, VPN labels,
->> Segment labels. This in turn means that the table may no longer be
->> dense. A sysctl allowing min and max label that spans the sets of
->> labels may be useful. Or should the ILM be made a hash table?
+
+The problem with boot/module options is they are really difficult to
+manage from a controller agent. And yes in most cases I am working on
+there is central authority that "knows" how to map the network policy
+onto a set of table size slices. At least in my space I don't believe
+people are logging into systems and using the CLI except for debugging
+and experimenting.
+
+>>> Once the reservation of resources occurs we wouldn't let user space
+>>> arbitrarily write to any table but only tables that have been
+>>> explicitly reserved for user space to write to.
 >
-> Good question.
+> Seems i misread what you are saying.
+> I thought you wanted to just create the tables from user space
+> directly; however, rereading the above:
+> you are actually  asking *to write* to these tables directly from user
+> space ;->
 >
-> These kinds of labels are a local label management problem.
 >
-> Given how nice it is to have a reasonably dense label space I am not
-> keen to abandon the notion of having a dense label space, as it makes
-> the code simple and fast for forwarding mpls packets.
->
-> That said my code is a starting point.  If you have a real world use
-> case and you can show a better way to deal with it.  Go for it.
-> Now is definitely time to evolve the API.
 
-A couple more thoughts.  
+Actually I was proposing both. But I can see a workaround for the set
+rule or *to write* by mapping a new xflow classifier onto my hardware.
+Not ideal for my work but I guess it might be possible.
 
-The rtnetlink interface and my implementation carries a type field so it
-is possible to mark which routing protocol uses an mpls route.
+The 'create' table from user space though I don't see any good work
+around for. You need this in order to provide some guidance to the
+driver otherwise we have to try and "guess" what the table size slicing
+should look like and this can create rather large variations in how
+many rules fit in the table think 100 - 100k difference. Also at least
+on the hardware I have this is not dynamic I can't start adding rules
+to a table and then do a resizing later without disrupting the traffic.
+It would be interesting for folks working on other switch devices to
+chime in.
 
-The global routing table is already over 500,000 routes so the 1 million
-forward equivalanece classes of mpls with a single label may be
-exhausted in the not too distant future so a dense label space may be a
-necessity.
+Also just to the point out even in the 'set' case we wouldn't let
+arbitrary 'set rule' writes hit the hardware we would verify the rule
+set is for a table that is pre-defined for it and that the rule itself
+is well-formed. In that sense the xflow classifier path is not
+particularly different.
 
-In a similar vein.  When I look at top of rack switches and their
-hardware forwarding capacity it looks like they are in the ballpark
-of 32K MPLS routes.
+cheers,
+> jamal
 
-All of which says to me that the MPLS label space is limited and it
-should be managed as a precious resource.  (A good example of why I
-might want to rethink my mpls ingress path).
 
-So while I can see arguments for one use of labels getting one quota of
-labels and another use of labels getting another quota when I look at
-the space there are not that many labels and I don't see how or why it
-would make sense to manage the labels explicitly with ranges.
-
-At some point for MPLS multicast traffic and MPLS source specific
-addresses if we choose to support those we will need a hash table
-as those addresses are assigned by others, though in that case
-we will be limited in our egress set of labels we can use.
-
-So I think MPLS interfaces need to encourage thrifty label use,
-which in my mind almost certainly means not manually allocated
-label use.
-
-Eric
+-- 
+John Fastabend         Intel Corporation
