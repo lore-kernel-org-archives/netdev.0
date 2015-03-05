@@ -1,118 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2015-03-05
-Date: Thu,  5 Mar 2015 08:46:18 -0800
-Message-ID: <1425573992-30955-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 05/14] i40e: use more portable sign extension
+Date: Thu,  5 Mar 2015 08:46:23 -0800
+Message-ID: <1425573992-30955-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1425573992-30955-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Kevin Scott <kevin.c.scott@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8609 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41895 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756890AbbCEQqv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 11:46:51 -0500
+	id S1757896AbbCEQqw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 11:46:52 -0500
+In-Reply-To: <1425573992-30955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e only.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Greg provides fixes for the NPAR transmit scheduler where the driver
-initialization caused the BW configurations to not take effect, so use
-a BW configuration read and write back to "kick" the transmit scheduler
-into action.  Fixes the ethtool offline test, where we were not actually
-taking the device offline before doing the testing.
+Use automatic sign extension by replacing 0xffff... constants
+with ~(u64)0 or ~(u32)0.
 
-Matt modifies the get and set LED functions so they ignore activity LEDs
-since we are required to blink the link LEDs only.
+Change-ID: I73cab4cd2611795bb12e00f0f24fafaaee07457c
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Neerav provides a workaround for whenever a DCBX configuration is changed,
-where the firmware doe not set the operational status bit of the
-application TLV status as returned from the "Get CEE DCBX Oper Cfg" admin
-queue command.  So remove the check for the operational and sync bits of
-the application TLV status until a firmware fix is provided.
-
-Shannon changes the driver to grab the NVM devstarter version and not
-the image version, since it is the more useful version and is what
-should be displayed.  Moves the IRQ tracking setup and tear down into
-the same routines that do the IRQ setup and tear down.  This keeps
-like activities together and allows us to track exactly the number
-of vectors reserved from the OS, which may be fewer than are available
-from the hardware.
-
-Jesse provides a fix to use a more portable sign extension by replacing
-0xffff.... with ~(u64)0 or ~(u32)0.  Also fixes XPS mask when resetting,
-where the driver would accidentally clear the XPS mask for all queues
-back to 0.  This caused higher CPU utilization and had some other
-performance impacts for transmit tests.  Cleans up some whitespace
-formatting.
-
-Catherine provides a fix where some firmware versions are incorrectly
-reporting a breakout cable as PHY type 0x3 when it should be 0x16
-(I40E_PHY_TYPE_10GBASE_SFPP_CU).  Adds the 10G and 40G AOC PHY types
-to the case statement in get_media_type and ethtool get_settings so
-that the correct information gets reported back to the user. 
-
-Anjali provides IOREMAP changes for future device support, where we
-do not want to map the whole CSR space since some of it is mapped by
-other drivers with different mapping methods.
-
-Mitch changes the i40e driver to not "spam" the system log with
-messages about VF VSI when VFs are created and when they are reset to
-reduce user annoyance.
-
-The following are changes since commit 66d06757d9eb74a29775737b8c770e3b57e536d9:
-  net: bcmgenet: simplify __bcmgenet_tx_reclaim()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai (1):
-  i40e: Ioremap changes
-
-Catherine Sullivan (2):
-  i40e: Reassign incorrect PHY type to fix a FW bug
-  i40e: Add AOC PHY types to case statements
-
-Greg Rose (2):
-  i40e: Fix NPAR Tx Scheduler init
-  i40e: Fix ethtool offline test
-
-Jesse Brandeburg (3):
-  i40e: use more portable sign extension
-  i40e: fix XPS mask when resetting
-  i40e/i40evf: Clean up some formatting and other things
-
-Matt Jared (1):
-  i40e: during LED interaction ignore activity LED src modes
-
-Mitch A Williams (1):
-  i40e: don't spam the system log
-
-Neerav Parikh (1):
-  i40e: Don't check operational or sync bit for App TLV
-
-Shannon Nelson (2):
-  i40e/i40evf: grab NVM devstarter version not image version
-  i40e: move IRQ tracking setup into MSIX setup
-
-Sravanthi Tangeda (1):
-  i40e/i40evf: Version bump
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  3 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 42 +++++++++-
- drivers/net/ethernet/intel/i40e/i40e_dcb.c         |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 14 +++-
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |  2 -
- drivers/net/ethernet/intel/i40e/i40e_fcoe.h        |  1 -
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 97 ++++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  3 -
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  3 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  1 -
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  2 +-
- 16 files changed, 114 insertions(+), 66 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+index 4627588..0079ad7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+@@ -856,7 +856,7 @@ static void i40e_write_dword(u8 *hmc_bits,
+ 	if (ce_info->width < 32)
+ 		mask = ((u32)1 << ce_info->width) - 1;
+ 	else
+-		mask = 0xFFFFFFFF;
++		mask = ~(u32)0;
+ 
+ 	/* don't swizzle the bits until after the mask because the mask bits
+ 	 * will be in a different bit position on big endian machines
+@@ -908,7 +908,7 @@ static void i40e_write_qword(u8 *hmc_bits,
+ 	if (ce_info->width < 64)
+ 		mask = ((u64)1 << ce_info->width) - 1;
+ 	else
+-		mask = 0xFFFFFFFFFFFFFFFF;
++		mask = ~(u64)0;
+ 
+ 	/* don't swizzle the bits until after the mask because the mask bits
+ 	 * will be in a different bit position on big endian machines
 -- 
 1.9.3
