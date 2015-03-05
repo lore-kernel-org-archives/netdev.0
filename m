@@ -1,64 +1,96 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: [PATCH] ipv4: ip_check_defrag should not assume that skb_network_offset is zero
-Date: Thu,  5 Mar 2015 10:29:39 +0300
-Message-ID: <1425540579-27464-1-git-send-email-al.drozdov@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexander Drozdov <al.drozdov@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [ovs-dev] OVS Offload Decision Proposal
+Date: Wed, 04 Mar 2015 23:39:01 -0800
+Message-ID: <54F80815.5030208@gmail.com>
+References: <54F7B76E.4040902@gmail.com> <20150305.000015.1427044514000703740.davem@davemloft.net> <CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com> <20150305.014257.974664546228241067.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, davidch@broadcom.com,
+	simon.horman@netronome.com, dev@openvswitch.org,
+	netdev@vger.kernel.org, pablo@netfilter.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:37411 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754365AbbCEHjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 02:39:21 -0500
+Received: by oigi138 with SMTP id i138so10296815oig.4
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 23:39:20 -0800 (PST)
+In-Reply-To: <20150305.014257.974664546228241067.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ip_check_defrag() may be used by af_packet to defragment outgoing packets.
-skb_network_offset() of af_packet's outgoing packets is not zero.
+On 03/04/2015 10:42 PM, David Miller wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Wed, 4 Mar 2015 21:20:41 -0800
+>
+>> On Wed, Mar 4, 2015 at 9:00 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: John Fastabend <john.fastabend@gmail.com>
+>>> Date: Wed, 04 Mar 2015 17:54:54 -0800
+>>>
+>>>> I think a set operation _is_ necessary for OVS and other
+>>>> applications that run in user space.
+>>>
+>>> It's necessary for the kernel to internally manage the chip
+>>> flow resources.
+>>>
+>>> Full stop.
+>>>
+>>> It's not being exported to userspace.  That is exactly the kind
+>>> of open ended, outside the model, crap we're trying to avoid
+>>> by putting everything into the kernel where we have consistent
+>>> mechanisms, well understood behaviors, and rules.
+>>
+>> David,
+>>
+>> Just to make sure everyone is on the same page... this discussion has
+>> been about where the policy of offload is implemented, not just who is
+>> actually sending config bits to the device. The question is who gets
+>> to decide how to best divvy up the finite resources of the device and
+>> network amongst various requestors. Is this what you're referring to?
+>
+> I'm talking about only the kernel being able to make ->set() calls
+> through the flow manager API to the device.
+>
+> Resource control is the kernel's job.
+>
+> You cannot delegate this crap between ipv4 routing in the kernel,
+> L2 bridging in the kernel, and some user space crap.  It's simply
+> not going to happen.
 
-Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
----
- net/ipv4/ip_fragment.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+The intent was to reserve space in the tables for l2, l3, user space,
+and whatever else is needed. This reservation needs to come from the
+administrator because even the kernel doesn't know how much of my
+table space I want to reserve for l2 vs l3 vs tc vs ... The sizing
+of each of these tables will depend on the use case. If I'm provisioning
+L3 networks I may want to create a large l3 table and no 'tc' table.
+If I'm building a firewall box I might want a small l3 table and a
+large 'tc' table. Also depending on how wide I want my matches in the
+'tc' case I may consume more or less resources in the hardware.
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 2c8d98e..145a50c 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -659,27 +659,30 @@ EXPORT_SYMBOL(ip_defrag);
- struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32 user)
- {
- 	struct iphdr iph;
-+	int netoff;
- 	u32 len;
- 
- 	if (skb->protocol != htons(ETH_P_IP))
- 		return skb;
- 
--	if (skb_copy_bits(skb, 0, &iph, sizeof(iph)) < 0)
-+	netoff = skb_network_offset(skb);
-+
-+	if (skb_copy_bits(skb, netoff, &iph, sizeof(iph)) < 0)
- 		return skb;
- 
- 	if (iph.ihl < 5 || iph.version != 4)
- 		return skb;
- 
- 	len = ntohs(iph.tot_len);
--	if (skb->len < len || len < (iph.ihl * 4))
-+	if (skb->len < netoff + len || len < (iph.ihl * 4))
- 		return skb;
- 
- 	if (ip_is_fragment(&iph)) {
- 		skb = skb_share_check(skb, GFP_ATOMIC);
- 		if (skb) {
--			if (!pskb_may_pull(skb, iph.ihl*4))
-+			if (!pskb_may_pull(skb, netoff + iph.ihl * 4))
- 				return skb;
--			if (pskb_trim_rcsum(skb, len))
-+			if (pskb_trim_rcsum(skb, netoff + len))
- 				return skb;
- 			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
- 			if (ip_defrag(skb, user))
+Once the reservation of resources occurs we wouldn't let user space
+arbitrarily write to any table but only tables that have been
+explicitly reserved for user space to write to.
+
+Even without the user space piece we need this reservation when
+the table space for l2, l3, etc are shared. Otherwise driver writers
+end up doing a best guess for you or end up delivering driver flavours
+based on firmware and you can hope the driver writer guessed something
+that is close to your network.
+
+>
+> All of the delegation of the hardware resource must occur in the
+> kernel.  Because only the kernel has a full view of all of the
+> resources and how each and every subsystem needs to use it.
+>
+
+So I'm going to ask... even if we restrict the set() using the above
+scheme to only work on pre-defined tables you see an issue with it?
+I might be missing the point but I could similarly drive the set()
+calls through 'tc' via a new filter call it xflow.
+
+.John
+
 -- 
-1.9.1
+John Fastabend         Intel Corporation
