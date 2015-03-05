@@ -1,63 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ovs-dev] OVS Offload Decision Proposal
-Date: Thu, 05 Mar 2015 01:42:57 -0500 (EST)
-Message-ID: <20150305.014257.974664546228241067.davem@davemloft.net>
-References: <54F7B76E.4040902@gmail.com>
-	<20150305.000015.1427044514000703740.davem@davemloft.net>
-	<CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
+Date: Thu, 5 Mar 2015 07:50:53 +0100
+Message-ID: <20150305065053.GA2062@nanopsycho.orion>
+References: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
+ <54F77336.7040006@plumgrid.com>
+ <6E5AAA23-4000-4C29-BB4E-AA7C05B6F619@alum.mit.edu>
+ <54F7997A.3020604@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, davidch@broadcom.com,
-	simon.horman@netronome.com, dev@openvswitch.org,
-	netdev@vger.kernel.org, pablo@netfilter.org
-To: therbert@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Guy Harris <guy@alum.mit.edu>,
+	Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53348 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753791AbbCEGnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 01:43:01 -0500
-In-Reply-To: <CA+mtBx_Q5Zp58ZkBB0oeyHm5NC8sg1kx=uzTN_8TYG6zYh8yUA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754087AbbCEGvD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 01:51:03 -0500
+Content-Disposition: inline
+In-Reply-To: <54F7997A.3020604@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 4 Mar 2015 21:20:41 -0800
-
-> On Wed, Mar 4, 2015 at 9:00 PM, David Miller <davem@davemloft.net> wrote:
->> From: John Fastabend <john.fastabend@gmail.com>
->> Date: Wed, 04 Mar 2015 17:54:54 -0800
+Thu, Mar 05, 2015 at 12:47:06AM CET, ast@plumgrid.com wrote:
+>On 3/4/15 1:14 PM, Guy Harris wrote:
 >>
->>> I think a set operation _is_ necessary for OVS and other
->>> applications that run in user space.
+>>On Mar 4, 2015, at 1:03 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
 >>
->> It's necessary for the kernel to internally manage the chip
->> flow resources.
+>>>the patch is correct and looks clean, but I don't understand
+>>>the motivation for the patch.
+>>>There is already SKF_AD_VLAN_TAG_PRESENT. If it is set then only
+>>>two possible values of vlan_proto are ETH_P_8021Q or ETH_P_8021AD.
+>>>If there another vlan header inside the packet, it's AD.
+>>>So you can do the filtering already without adding new bpf extension...
 >>
->> Full stop.
+>>I presume he's referring to
 >>
->> It's not being exported to userspace.  That is exactly the kind
->> of open ended, outside the model, crap we're trying to avoid
->> by putting everything into the kernel where we have consistent
->> mechanisms, well understood behaviors, and rules.
-> 
-> David,
-> 
-> Just to make sure everyone is on the same page... this discussion has
-> been about where the policy of offload is implemented, not just who is
-> actually sending config bits to the device. The question is who gets
-> to decide how to best divvy up the finite resources of the device and
-> network amongst various requestors. Is this what you're referring to?
+>>	https://github.com/the-tcpdump-group/libpcap/issues/397
+>>
+>>or
+>>
+>>	https://github.com/the-tcpdump-group/libpcap/issues/390
+>
+>ok. context is clear.
+>yet, it still sounds like something to fix inside libpcap.
 
-I'm talking about only the kernel being able to make ->set() calls
-through the flow manager API to the device.
-
-Resource control is the kernel's job.
-
-You cannot delegate this crap between ipv4 routing in the kernel,
-L2 bridging in the kernel, and some user space crap.  It's simply
-not going to happen.
-
-All of the delegation of the hardware resource must occur in the
-kernel.  Because only the kernel has a full view of all of the
-resources and how each and every subsystem needs to use it.
+Libpcap need to somehow let kernel now what vlan proto it should filter on.
+Also, it is not true that another vlan header inside packet is AD. You
+can have packet with just AD header (or 2 AD or 2 Q, etc).
