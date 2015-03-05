@@ -1,202 +1,76 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH] ipv4: FIB Local/MAIN table collapse
-Date: Thu, 05 Mar 2015 15:12:12 -0800
-Message-ID: <20150305230029.1987.68126.stgit@ahduyck-vm-fedora20>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Fri, 6 Mar 2015 10:26:14 +1100
+Message-ID: <20150306102614.206e5ec6@canb.auug.org.au>
+References: <20150305134247.5a55e4db@canb.auug.org.au>
+	<20150305.000158.1662853297584626367.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40984 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752512AbbCEXMR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 18:12:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/m_frNs=4qCu_Oun.GuKRmU."; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150305.000158.1662853297584626367.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is meant to collapse local and main into one by converting
-tb_data from an array to a pointer.  Doing this allows us to point the
-local table into the main while maintaining the same variables in the
-table.
+--Sig_/m_frNs=4qCu_Oun.GuKRmU.
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-As such the tb_data was converted from an array to a pointer, and a new
-array called data is added in order to still provide an object for tb_data
-to point to.
+Hi Dave,
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+On Thu, 05 Mar 2015 00:01:58 -0500 (EST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 5 Mar 2015 13:42:47 +1100
+>=20
+> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Date: Thu, 5 Mar 2015 13:37:05 +1100
+> > Subject: [PATCH] mpls: using vzalloc requires including vmalloc.h
+> >=20
+> > Fixes this build error:
+> >=20
+> > net/mpls/af_mpls.c: In function 'resize_platform_label_table':
+> > net/mpls/af_mpls.c:767:4: error: implicit declaration of function 'vzal=
+loc' [-Werror=3Dimplicit-function-declaration]
+> >     labels =3D vzalloc(size);
+> >     ^
+> >=20
+> > Fixes: 7720c01f3f59 ("mpls: Add a sysctl to control the size of the mpl=
+s label table")
+> > Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>=20
+> Applied, thanks Stephen.
 
----
+I don't see it in net-next?
 
-This is the latest version I have for the combined local/main trie.  It
-applies on top of the patches I submitted earlier today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-The performance gains with this patch applied are fairly impressive.  I
-have seen reductions of up to 40ns (from ~120ns to ~80ns) for routing
-look-ups with the depth 7 local and main trie.
+--Sig_/m_frNs=4qCu_Oun.GuKRmU.
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-However, I belive this breaks things if custom rules are defined that try
-to place another table between the local and main look-ups.  As such this
-approach may only be usable if there are no custom rules or
-CONFIG_IP_MULTIPLE_TABLES is not defined.  Another patch would be needed to
-split or merge the tables depending on if custom rules are enabled or not.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
- include/net/ip_fib.h    |   12 +++---------
- net/ipv4/fib_frontend.c |   17 ++++++++++-------
- net/ipv4/fib_trie.c     |   23 +++++++++++++++++++----
- 3 files changed, 32 insertions(+), 20 deletions(-)
+iQIcBAEBCAAGBQJU+OYbAAoJEMDTa8Ir7ZwVR2IQAITWu6ZSnTnJRAAxNtVYuiuk
+E4oDHDFUGnFo5vpj4V3y1959Dg53gVLRyGZjyyBsYD7B1TuHtf6z3tdb7/C5qaAQ
+6qQjAiWKdImY6eGl+OhWxC5BuN5kGTC7EZRsuNnOVycxosKyf5kp7kngT3WoUcNb
+gS3fE+GQSqJtHRy2WkPuw1cm47FGUSii/g0/FTn4+9eEvGy5Wl3mz/pSNbbf4aBS
+FhZY8RiaAO7k2zqe5qH6QUDHxNoFNILf4x6QIfnAWdOU65m2oBwIGCbpgz3f5mky
+FKEGEWZJ9V8laN9jS/HzbvOPNbB1YcIYhIX2ftmhTc6BsuPhWhPd99+7g36mZ3xd
+NNIDz02Cij9H6vj7PMfT1yIrVailqHb1IKg3U/l+yEpbleZZ3VcLx2SmKEmMy46a
+p7KRasch9rrgiXTubD1+hjB4lx5SnHU2rBDZoXP8wQ0fNPXgd+FidJgzYT1mHz07
+4IfUh6Embw1ucquEX0U5Gq1Bs+2dwA+QsEv9jqIe3b+buOO93gIpoC16u0BLsTNB
+9MQd06/IT/APqay10SagfrCgb0o2d+WsxPRGYrYZxwu8nxoiOaFCfalXKffhiEX8
+Qh8TczBlXcnzw3a82y9dv/uDpUiupQU/0jbYBEgYbu+Sbj+Apvy+hdRUWgve/zHe
+GuGXE7IWZ+oNECj26w8c
+=3Yf0
+-----END PGP SIGNATURE-----
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 825cb28..29b9e63 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -186,7 +186,8 @@ struct fib_table {
- 	int			tb_default;
- 	int			tb_num_default;
- 	struct rcu_head		rcu;
--	unsigned long		tb_data[0];
-+	unsigned long 		*tb_data;
-+	unsigned long		__data[0];
- };
- 
- int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
-@@ -233,9 +234,6 @@ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
- 	rcu_read_lock();
- 
- 	for (err = 0; !err; err = -ENETUNREACH) {
--		tb = fib_get_table(net, RT_TABLE_LOCAL);
--		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
--			break;
- 		tb = fib_get_table(net, RT_TABLE_MAIN);
- 		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
- 			break;
-@@ -269,10 +267,6 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
- 	res->tclassid = 0;
- 
- 	for (err = 0; !err; err = -ENETUNREACH) {
--		tb = rcu_dereference_rtnl(net->ipv4.fib_local);
--		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
--			break;
--
- 		tb = rcu_dereference_rtnl(net->ipv4.fib_main);
- 		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
- 			break;
-@@ -318,7 +312,7 @@ void fib_select_multipath(struct fib_result *res);
- 
- /* Exported by fib_trie.c */
- void fib_trie_init(void);
--struct fib_table *fib_trie_table(u32 id);
-+struct fib_table *fib_trie_table(u32 id, struct fib_table *alias);
- 
- static inline void fib_combine_itag(u32 *itag, const struct fib_result *res)
- {
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 220c4b4..b1adda9 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -52,14 +52,14 @@ static int __net_init fib4_rules_init(struct net *net)
- {
- 	struct fib_table *local_table, *main_table;
- 
--	local_table = fib_trie_table(RT_TABLE_LOCAL);
--	if (local_table == NULL)
--		return -ENOMEM;
--
--	main_table  = fib_trie_table(RT_TABLE_MAIN);
-+	main_table  = fib_trie_table(RT_TABLE_MAIN, NULL);
- 	if (main_table == NULL)
- 		goto fail;
- 
-+	local_table = fib_trie_table(RT_TABLE_LOCAL, main_table);
-+	if (local_table == NULL)
-+		return -ENOMEM;
-+
- 	hlist_add_head_rcu(&local_table->tb_hlist,
- 				&net->ipv4.fib_table_hash[TABLE_LOCAL_INDEX]);
- 	hlist_add_head_rcu(&main_table->tb_hlist,
-@@ -74,7 +74,7 @@ fail:
- 
- struct fib_table *fib_new_table(struct net *net, u32 id)
- {
--	struct fib_table *tb;
-+	struct fib_table *tb, *alias = NULL;
- 	unsigned int h;
- 
- 	if (id == 0)
-@@ -83,7 +83,10 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
- 	if (tb)
- 		return tb;
- 
--	tb = fib_trie_table(id);
-+	if (id == RT_TABLE_LOCAL)
-+		alias = fib_new_table(net, RT_TABLE_MAIN);
-+
-+	tb = fib_trie_table(id, alias);
- 	if (!tb)
- 		return NULL;
- 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 86f2d50..cf3ff18 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1220,7 +1220,7 @@ static inline t_key prefix_mismatch(t_key key, struct key_vector *n)
- int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 		     struct fib_result *res, int fib_flags)
- {
--	struct trie *t = (struct trie *)tb->tb_data;
-+	struct trie *t = (struct trie *) tb->tb_data;
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 	struct trie_use_stats __percpu *stats = t->stats;
- #endif
-@@ -1628,7 +1628,8 @@ static void __trie_free_rcu(struct rcu_head *head)
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 	struct trie *t = (struct trie *)tb->tb_data;
- 
--	free_percpu(t->stats);
-+	if (tb->tb_data == tb->__data)
-+		free_percpu(t->stats);
- #endif /* CONFIG_IP_FIB_TRIE_STATS */
- 	kfree(tb);
- }
-@@ -1655,6 +1656,12 @@ static int fn_trie_dump_leaf(struct key_vector *l, struct fib_table *tb,
- 			continue;
- 		}
- 
-+		if (tb->tb_id == ((fa->fa_type == RTN_LOCAL) ? RT_TABLE_MAIN :
-+							       RT_TABLE_LOCAL)) {
-+			i++;
-+			continue;
-+		}
-+
- 		if (fib_dump_info(skb, NETLINK_CB(cb->skb).portid,
- 				  cb->nlh->nlmsg_seq,
- 				  RTM_NEWROUTE,
-@@ -1721,18 +1728,26 @@ void __init fib_trie_init(void)
- 					   0, SLAB_PANIC, NULL);
- }
- 
--struct fib_table *fib_trie_table(u32 id)
-+struct fib_table *fib_trie_table(u32 id, struct fib_table *alias)
- {
- 	struct fib_table *tb;
- 	struct trie *t;
-+	size_t sz = sizeof(*tb);
- 
--	tb = kzalloc(sizeof(*tb) + sizeof(struct trie), GFP_KERNEL);
-+	if (!alias)
-+		sz += sizeof(struct trie);
-+
-+	tb = kzalloc(sz, GFP_KERNEL);
- 	if (tb == NULL)
- 		return NULL;
- 
- 	tb->tb_id = id;
- 	tb->tb_default = -1;
- 	tb->tb_num_default = 0;
-+	tb->tb_data = (alias ? alias->__data : tb->__data);
-+
-+	if (alias)
-+		return tb;
- 
- 	t = (struct trie *) tb->tb_data;
- 	t->kv[0].pos = KEYLENGTH;
+--Sig_/m_frNs=4qCu_Oun.GuKRmU.--
