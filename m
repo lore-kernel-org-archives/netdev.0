@@ -1,35 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 6/7] fib: hook IPv4 fib for hardware offload
-Date: Thu, 05 Mar 2015 02:05:19 -0500 (EST)
-Message-ID: <20150305.020519.1302163071820735824.davem@davemloft.net>
-References: <1425425520-34017-1-git-send-email-sfeldma@gmail.com>
-	<1425425520-34017-7-git-send-email-sfeldma@gmail.com>
-	<54F7FFD5.8080407@gmail.com>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: SOCK_MEMALLOC vs loopback
+Date: Thu, 5 Mar 2015 10:09:59 +0300
+Message-ID: <CAOi1vP8QWhqSSYPAOitx25AeKg0epkSTbez6R8ySz9kvO2nkAg@mail.gmail.com>
+References: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com>
+	<20150304200427.GQ3087@suse.de>
+	<54F7D5A7.1060404@redhat.com>
+	<54F7D7EA.6010303@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us,
-	roopa@cumulusnetworks.com
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53495 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065AbbCEHFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 02:05:21 -0500
-In-Reply-To: <54F7FFD5.8080407@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mel Gorman <mgorman@suse.de>, ceph-devel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Sage Weil <sage@redhat.com>, NeilBrown <neilb@suse.de>,
+	netdev@vger.kernel.org
+To: Mike Christie <mchristi@redhat.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <54F7D7EA.6010303@redhat.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Wed, 04 Mar 2015 23:03:49 -0800
+On Thu, Mar 5, 2015 at 7:13 AM, Mike Christie <mchristi@redhat.com> wrote:
+> On 03/04/2015 10:03 PM, Mike Christie wrote:
+>> On 03/04/2015 02:04 PM, Mel Gorman wrote:
+>>> > On Wed, Mar 04, 2015 at 09:38:48PM +0300, Ilya Dryomov wrote:
+>>>> >> Hello,
+>>>> >>
+>>>> >> A short while ago Mike added a patch to libceph to set SOCK_MEMALLOC on
+>>>> >> libceph sockets and PF_MEMALLOC around send/receive paths (commit
+>>>> >> 89baaa570ab0, "libceph: use memalloc flags for net IO").  rbd is much
+>>>> >> like nbd and is succeptible to all the same memory allocation
+>>>> >> deadlocks, so it seemed like a step in the right direction.
+>>>> >>
+>>> >
+>>> > The contract for SOCK_MEMALLOC is that it would only be used for temporary
+>>> > allocations that were necessary for the system to make forward progress. In
+>>> > the case of swap-over-NFS, it would only be used for transmitting
+>>> > buffers that were necessary to write data to swap when there were no
+>> Are upper layers like NFS/iSCSI/NBD/RBD supposed to know or track when
+>> there are no other options (for example if a GFP_ATOMIC allocation
+>> fails, then set the flags and retry the operation), or are they supposed
+>> to be able to set the flags, send IO and let the network layer handle it?
+>>
+>
+> Oh yeah, maybe I misunderstood you. Were you just saying we should not
+> be using it for the configuration we are hitting the problem on?
 
-> Don't you need something to disable further fib entries from being
-> added
-> once you get a failure and flush the table? Maybe I'm just not seeing.
-> 
-> The case being you add a set of entries, you get a failure and flush
-> the
-> table then add another entry. The last entry is successfully inserted
-> but now your out of sync.
+NFS seems to be a bit of special case: its SOCK_MEMALLOC is set only
+for swap sockets and it's a filesystem.  Mel's patch sets SOCK_MEMALLOC
+on all nbd sockets unconditionally, but AFAICT there was a distinct
+effort to make loopback nbd work (commit 48cf6061b302, "NBD: allow nbd
+to be used locally").  I suspect it's currently broken in the same way.
 
-Yes, he knows, we've been discussing exactly this problem.
+Thanks,
+
+                Ilya
