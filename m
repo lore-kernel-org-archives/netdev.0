@@ -1,56 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch net-next] net_sched: move tp->root allocation into route4_init()
-Date: Thu, 05 Mar 2015 17:26:13 +0300
-Message-ID: <54F86785.70906@cogentembedded.com>
-References: <1425528704-21646-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: [PATCH 4/5] TTY: fix tty_wait_until_sent on 64-bit machines
+Date: Thu, 05 Mar 2015 09:31:19 -0500
+Message-ID: <54F868B7.9010709@hurleysoftware.com>
+References: <1425461947-15888-1-git-send-email-johan@kernel.org> <1425461947-15888-5-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:33448 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751670AbbCEO0R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 09:26:17 -0500
-Received: by lbdu14 with SMTP id u14so30480041lbd.0
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 06:26:16 -0800 (PST)
-In-Reply-To: <1425528704-21646-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Slaby <jslaby@suse.cz>, Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alan Cox <alan@linux.intel.com>, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-serial@vger.kernel.org,
+	netdev@vger.kernel.org,
+	ZIV-Asier Llano Palacios <asier.llano@cgglobal.com>,
+	stable <stable@vger.kernel.org>
+To: Johan Hovold <johan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1425461947-15888-5-git-send-email-johan@kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 03/04/2015 04:39 AM, Johan Hovold wrote:
+> Fix overflow bug in tty_wait_until_sent on 64-bit machines, where an
+> infinite timeout (0) would be passed to the underlying tty-driver's
+> wait_until_sent-operation as a negative timeout (-1), causing it to
+> return immediately.
 
-On 3/5/2015 7:11 AM, Cong Wang wrote:
+Wow, that is a nasty bug.
 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->   net/sched/cls_route.c | 14 +++++++-------
->   1 file changed, 7 insertions(+), 7 deletions(-)
+> This manifests itself for example as tcdrain() returning immediately,
+> drivers not honouring the drain flags when setting terminal attributes,
+> or even dropped data on close as a requested infinite closing-wait
+> timeout would be ignored.
+> 
+> The first symptom  was reported by Asier LLANO who noted that tcdrain()
+> returned prematurely when using the ftdi_sio usb-serial driver.
+> 
+> Fix this by passing 0 rather than MAX_SCHEDULE_TIMEOUT (LONG_MAX) to the
+> underlying tty driver.
+> 
+> Note that the serial-core wait_until_sent-implementation is not affected
+> by this bug due to a lucky chance (comparison to an unsigned maximum
+> timeout), and neither is the cyclades one that had an explicit check for
+> negative timeouts, but all other tty drivers appear to be affected.
 
-> diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-> index 2ecd246..bb8a602 100644
-> --- a/net/sched/cls_route.c
-> +++ b/net/sched/cls_route.c
-> @@ -258,6 +258,13 @@ static unsigned long route4_get(struct tcf_proto *tp, u32 handle)
->
->   static int route4_init(struct tcf_proto *tp)
->   {
-> +	struct route4_head *head;
-> +
-> +	head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
-
-    Hm, checkpatch.pl should have suggested using sizeof(*head) instead...
-
-> +	if (head == NULL)
-
-    And using !head instead.
-
-> +		return -ENOBUFS;
-> +
-> +	rcu_assign_pointer(tp->root, head);
->   	return 0;
->   }
-
-WBR, Sergei
+Reviewed-by: Peter Hurley <peter@hurleysoftware.com>
