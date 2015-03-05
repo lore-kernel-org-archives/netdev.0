@@ -1,57 +1,109 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: =?utf-8?q?=5Bnet-next_PATCH_1/2=5D_igb=3A_Fix_warni?=
- =?utf-8?q?ng_=E2=80=98pin=E2=80=99_may_be_used_uninitialized?=
-Date: Thu, 05 Mar 2015 11:24:59 -0800
-Message-ID: <20150305192459.22228.86492.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH 2/2] igb: Make arrays on stack static const to
+ avoid reallocation
+Date: Thu, 05 Mar 2015 11:25:06 -0800
+Message-ID: <20150305192506.22228.28385.stgit@ahduyck-vm-fedora20>
 References: <20150305192031.22228.75375.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54802 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758222AbbCETZS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 14:25:18 -0500
 In-Reply-To: <20150305192031.22228.75375.stgit@ahduyck-vm-fedora20>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-V2hlbiBidWlsZGluZyB0aGUga2VybmVsIHVzaW5nIHRoZSBnY2MgNC44LjMgY29tcGlsZXIgaW5j
-bHVkZWQgaW4gRmVkb3JhIDIwCkkgd2FzIHJlcGVhdGVkbHkgc2VlaW5nIHRoZSB3YXJuaW5nOgoK
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmM6IEluIGZ1bmN0aW9uIOKA
-mGlnYl9wdHBfZmVhdHVyZV9lbmFibGVfaTIxMOKAmToKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2lnYi9pZ2JfcHRwLmM6Mzk1OjIxOiB3YXJuaW5nOiDigJhwaW7igJkgbWF5IGJlIHVzZWQg
-dW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCiBbLVdtYXliZS11bmluaXRpYWxpemVkXQog
-ICB0c3NkcCAmPSB+dHNfc2RwX2VuW3Bpbl07CiAgICAgICAgICAgICAgICAgICAgIF4KIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmM6NDcxOjY6IG5vdGU6IOKAmHBpbuKA
-mSB3YXMgZGVjbGFyZWQgaGVyZQogICBpbnQgcGluOwogICAgICAgXgoKVG8gcmVzb2x2ZSBpdCBJ
-IGFtIGFzc2lnbmluZyB0aGUgcGluIGEgdmFsdWUgb2YgLTEgd2hlbiBpdCBpcyBpbnN0YW50aWF0
-ZWQuCgpTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQHJl
-ZGhhdC5jb20+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9wdHAuYyB8
-ICAgIDIgKy0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoK
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRwLmMgYi9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX3B0cC5jCmluZGV4IGQyMGZjOGUuLjUy
-NWU1YzQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfcHRw
-LmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9wdHAuYwpAQCAtNDY4
-LDcgKzQ2OCw3IEBAIHN0YXRpYyBpbnQgaWdiX3B0cF9mZWF0dXJlX2VuYWJsZV9pMjEwKHN0cnVj
-dCBwdHBfY2xvY2tfaW5mbyAqcHRwLAogCXUzMiB0c2F1eGMsIHRzaW0sIHRzYXV4Y19tYXNrLCB0
-c2ltX21hc2ssIHRyZ3R0aW1sLCB0cmd0dGltaDsKIAl1bnNpZ25lZCBsb25nIGZsYWdzOwogCXN0
-cnVjdCB0aW1lc3BlYyB0czsKLQlpbnQgcGluOworCWludCBwaW4gPSAtMTsKIAlzNjQgbnM7CiAK
-IAlzd2l0Y2ggKHJxLT50eXBlKSB7CgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRpdmUgaW50byB0
-aGUgV29ybGQgb2YgUGFyYWxsZWwgUHJvZ3JhbW1pbmcgVGhlIEdvIFBhcmFsbGVsIFdlYnNpdGUs
-IHNwb25zb3JlZApieSBJbnRlbCBhbmQgZGV2ZWxvcGVkIGluIHBhcnRuZXJzaGlwIHdpdGggU2xh
-c2hkb3QgTWVkaWEsIGlzIHlvdXIgaHViIGZvciBhbGwKdGhpbmdzIHBhcmFsbGVsIHNvZnR3YXJl
-IGRldmVsb3BtZW50LCBmcm9tIHdlZWtseSB0aG91Z2h0IGxlYWRlcnNoaXAgYmxvZ3MgdG8KbmV3
-cywgdmlkZW9zLCBjYXNlIHN0dWRpZXMsIHR1dG9yaWFscyBhbmQgbW9yZS4gVGFrZSBhIGxvb2sg
-YW5kIGpvaW4gdGhlIApjb252ZXJzYXRpb24gbm93LiBodHRwOi8vZ29wYXJhbGxlbC5zb3VyY2Vm
-b3JnZS5uZXQvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-CkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
-ZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2
-ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDov
-L2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+While addressing the pin problem I noticed that all of the pin register
+values where having to be pushed onto the stack each time the function was
+called.  To avoid that I am making them static const so that they should
+only need to be allocated once and we can avoid all the instructions to get
+them onto the stack..
+
+size before:
+   text	   data	    bss	    dec	    hex	filename
+ 161477	  10512	      8	 171997	  29fdd	drivers/net/ethernet/intel/igb/igb.ko
+
+size after:
+   text	   data	    bss	    dec	    hex	filename
+ 161205	  10512	      8	 171725	  29ecd	drivers/net/ethernet/intel/igb/igb.ko
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ drivers/net/ethernet/intel/igb/igb_ptp.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index 525e5c4..d6be4c6 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -358,7 +358,7 @@ static int igb_ptp_settime_i210(struct ptp_clock_info *ptp,
+ static void igb_pin_direction(int pin, int input, u32 *ctrl, u32 *ctrl_ext)
+ {
+ 	u32 *ptr = pin < 2 ? ctrl : ctrl_ext;
+-	u32 mask[IGB_N_SDP] = {
++	static const u32 mask[IGB_N_SDP] = {
+ 		E1000_CTRL_SDP0_DIR,
+ 		E1000_CTRL_SDP1_DIR,
+ 		E1000_CTRL_EXT_SDP2_DIR,
+@@ -373,16 +373,16 @@ static void igb_pin_direction(int pin, int input, u32 *ctrl, u32 *ctrl_ext)
+ 
+ static void igb_pin_extts(struct igb_adapter *igb, int chan, int pin)
+ {
+-	struct e1000_hw *hw = &igb->hw;
+-	u32 aux0_sel_sdp[IGB_N_SDP] = {
++	static const u32 aux0_sel_sdp[IGB_N_SDP] = {
+ 		AUX0_SEL_SDP0, AUX0_SEL_SDP1, AUX0_SEL_SDP2, AUX0_SEL_SDP3,
+ 	};
+-	u32 aux1_sel_sdp[IGB_N_SDP] = {
++	static const u32 aux1_sel_sdp[IGB_N_SDP] = {
+ 		AUX1_SEL_SDP0, AUX1_SEL_SDP1, AUX1_SEL_SDP2, AUX1_SEL_SDP3,
+ 	};
+-	u32 ts_sdp_en[IGB_N_SDP] = {
++	static const u32 ts_sdp_en[IGB_N_SDP] = {
+ 		TS_SDP0_EN, TS_SDP1_EN, TS_SDP2_EN, TS_SDP3_EN,
+ 	};
++	struct e1000_hw *hw = &igb->hw;
+ 	u32 ctrl, ctrl_ext, tssdp = 0;
+ 
+ 	ctrl = rd32(E1000_CTRL);
+@@ -409,28 +409,28 @@ static void igb_pin_extts(struct igb_adapter *igb, int chan, int pin)
+ 
+ static void igb_pin_perout(struct igb_adapter *igb, int chan, int pin)
+ {
+-	struct e1000_hw *hw = &igb->hw;
+-	u32 aux0_sel_sdp[IGB_N_SDP] = {
++	static const u32 aux0_sel_sdp[IGB_N_SDP] = {
+ 		AUX0_SEL_SDP0, AUX0_SEL_SDP1, AUX0_SEL_SDP2, AUX0_SEL_SDP3,
+ 	};
+-	u32 aux1_sel_sdp[IGB_N_SDP] = {
++	static const u32 aux1_sel_sdp[IGB_N_SDP] = {
+ 		AUX1_SEL_SDP0, AUX1_SEL_SDP1, AUX1_SEL_SDP2, AUX1_SEL_SDP3,
+ 	};
+-	u32 ts_sdp_en[IGB_N_SDP] = {
++	static const u32 ts_sdp_en[IGB_N_SDP] = {
+ 		TS_SDP0_EN, TS_SDP1_EN, TS_SDP2_EN, TS_SDP3_EN,
+ 	};
+-	u32 ts_sdp_sel_tt0[IGB_N_SDP] = {
++	static const u32 ts_sdp_sel_tt0[IGB_N_SDP] = {
+ 		TS_SDP0_SEL_TT0, TS_SDP1_SEL_TT0,
+ 		TS_SDP2_SEL_TT0, TS_SDP3_SEL_TT0,
+ 	};
+-	u32 ts_sdp_sel_tt1[IGB_N_SDP] = {
++	static const u32 ts_sdp_sel_tt1[IGB_N_SDP] = {
+ 		TS_SDP0_SEL_TT1, TS_SDP1_SEL_TT1,
+ 		TS_SDP2_SEL_TT1, TS_SDP3_SEL_TT1,
+ 	};
+-	u32 ts_sdp_sel_clr[IGB_N_SDP] = {
++	static const u32 ts_sdp_sel_clr[IGB_N_SDP] = {
+ 		TS_SDP0_SEL_FC1, TS_SDP1_SEL_FC1,
+ 		TS_SDP2_SEL_FC1, TS_SDP3_SEL_FC1,
+ 	};
++	struct e1000_hw *hw = &igb->hw;
+ 	u32 ctrl, ctrl_ext, tssdp = 0;
+ 
+ 	ctrl = rd32(E1000_CTRL);
