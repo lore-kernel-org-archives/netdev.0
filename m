@@ -1,50 +1,57 @@
-From: Mike Christie <mchristi@redhat.com>
-Subject: Re: SOCK_MEMALLOC vs loopback
-Date: Wed, 04 Mar 2015 22:03:51 -0600
-Message-ID: <54F7D5A7.1060404@redhat.com>
-References: <CAOi1vP8tJTMhbCyKVD66pc_Tz7+aOS236KgvQnA-S63yv1P-sA@mail.gmail.com> <20150304200427.GQ3087@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: ceph-devel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Sage Weil <sage@redhat.com>, NeilBrown <neilb@suse.de>,
-	netdev@vger.kernel.org
-To: Mel Gorman <mgorman@suse.de>, Ilya Dryomov <idryomov@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: move tp->root allocation into route4_init()
+Date: Wed,  4 Mar 2015 20:11:43 -0800
+Message-ID: <1425528704-21646-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40770 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750998AbbCEEEC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Mar 2015 23:04:02 -0500
-In-Reply-To: <20150304200427.GQ3087@suse.de>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:46553 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbbCEEL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Mar 2015 23:11:58 -0500
+Received: by pdev10 with SMTP id v10so2553628pde.13
+        for <netdev@vger.kernel.org>; Wed, 04 Mar 2015 20:11:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2015 02:04 PM, Mel Gorman wrote:
-> On Wed, Mar 04, 2015 at 09:38:48PM +0300, Ilya Dryomov wrote:
->> Hello,
->>
->> A short while ago Mike added a patch to libceph to set SOCK_MEMALLOC on
->> libceph sockets and PF_MEMALLOC around send/receive paths (commit
->> 89baaa570ab0, "libceph: use memalloc flags for net IO").  rbd is much
->> like nbd and is succeptible to all the same memory allocation
->> deadlocks, so it seemed like a step in the right direction.
->>
-> 
-> The contract for SOCK_MEMALLOC is that it would only be used for temporary
-> allocations that were necessary for the system to make forward progress. In
-> the case of swap-over-NFS, it would only be used for transmitting
-> buffers that were necessary to write data to swap when there were no
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_route.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Are upper layers like NFS/iSCSI/NBD/RBD supposed to know or track when
-there are no other options (for example if a GFP_ATOMIC allocation
-fails, then set the flags and retry the operation), or are they supposed
-to be able to set the flags, send IO and let the network layer handle it?
-
-> other options. If that contract is not met then using it can deadlock the
-> system. It's the same for PF_MEMALLOC -- activating that is a recipe for
-> deadlock due to memory exhaustion.
-
-For rbd and iscsi's SOCK_MEMALLOC/PF_MEMALLOC use, I copied what you did
-for nbd in commit 7f338fe4540b1d0600b02314c7d885fd358e9eca which always
-sets those flags and seems to rely on the network layer to do the right
-thing. Are they all incorrect?
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 2ecd246..bb8a602 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -258,6 +258,13 @@ static unsigned long route4_get(struct tcf_proto *tp, u32 handle)
+ 
+ static int route4_init(struct tcf_proto *tp)
+ {
++	struct route4_head *head;
++
++	head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
++	if (head == NULL)
++		return -ENOBUFS;
++
++	rcu_assign_pointer(tp->root, head);
+ 	return 0;
+ }
+ 
+@@ -484,13 +491,6 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 			return -EINVAL;
+ 
+ 	err = -ENOBUFS;
+-	if (head == NULL) {
+-		head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
+-		if (head == NULL)
+-			goto errout;
+-		rcu_assign_pointer(tp->root, head);
+-	}
+-
+ 	f = kzalloc(sizeof(struct route4_filter), GFP_KERNEL);
+ 	if (!f)
+ 		goto errout;
+-- 
+1.8.1.4
