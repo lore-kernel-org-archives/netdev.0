@@ -1,51 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gro: remove obsolete code from
- skb_gro_receive()
-Date: Thu, 05 Mar 2015 16:00:28 -0500 (EST)
-Message-ID: <20150305.160028.1421983637301031004.davem@davemloft.net>
-References: <1425493600.5130.208.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: I can tell no FIB
+Date: Thu, 5 Mar 2015 13:01:20 -0800
+Message-ID: <CAA93jw5oMK-KC-EkG71LKThqQxsHYcft+OHuu=APzjLdWSuO4g@mail.gmail.com>
+References: <CAE4R7bBwrB8==aYuN9gYoADwZHDwr5zYjL3tL=jqPP24p74VUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33337 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322AbbCEVAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 16:00:30 -0500
-In-Reply-To: <1425493600.5130.208.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:34423 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753388AbbCEVBU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 16:01:20 -0500
+Received: by obcwp18 with SMTP id wp18so5278936obc.1
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 13:01:20 -0800 (PST)
+In-Reply-To: <CAE4R7bBwrB8==aYuN9gYoADwZHDwr5zYjL3tL=jqPP24p74VUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogV2VkLCAw
-NCBNYXIgMjAxNSAxMDoyNjo0MCAtMDgwMA0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6
-ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IFNvbWUgZHJpdmVycyB1c2UgY29weWJyZWFrIHRvIGNvcHkg
-dGlueSBmcmFtZXMgaW50byBzbWFsbGVyIHNrYiwNCj4gYW5kIHRoaXMgc21hbGxlciBza2IgbWln
-aHQgbm90IGhhdmUgc2tiLT5oZWFkX2ZyYWcgc2V0IGZvciB2YXJpb3VzDQo+IHJlYXNvbnMuDQo+
-IA0KPiBza2JfZ3JvX3JlY2VpdmUoKSBjdXJyZW50bHkgZG9lc24ndCBhbGxvdyB0byBhZ2dyZWdh
-dGUgdGhlIHNtYWxsZXIgc2tiDQo+IGludG8gdGhlIHByZXZpb3VzIEdSTyBwYWNrZXQgaWYgdGhp
-cyBHUk8gcGFja2V0IGhhcyBhdCBsZWFzdCAyIE1TUyBpbg0KPiBpdC4NCj4gDQo+IEZvbGxvd2lu
-ZyB3b3JrbG9hZCBlYXNpbHkgZGVtb25zdHJhdGVzIHRoZSBwcm9ibGVtLg0KPiANCj4gbmV0cGVy
-ZiAtdCBUQ1BfUlIgLUggdGFyZ2V0IC0tIC1yIDMwMDAsMzAwMCANCj4gDQo+ICh0Y3BkdW1wIHNo
-b3dzIG9uZSBHUk8gcGFja2V0IHdpdGggMiBNU1MsIHBsdXMgb25lIGFkZGl0aW9uYWwgcGFja2V0
-IG9mDQo+IDEwNCBieXRlcyB0aGF0IHNob3VsZCBoYXZlIGJlZW4gYXBwZW5kZWQuKQ0KPiANCj4g
-SXQgdHVybnMgb3V0IHRoYXQgd2UgY2FuIHJlbW92ZSBjb2RlIGZyb20gc2tiX2dyb19yZWNlaXZl
-KCksIGJlY2F1c2UNCj4gY29tbWl0IDhhMjkxMTFjN2NhNiAoIm5ldDogZ3JvOiBhbGxvdyB0byBi
-dWlsZCBmdWxsIHNpemVkIHNrYiIpIGFuZCBpdHMNCj4gZm9sbG93dXBzIHJlbW92ZWQgdGhlIGFz
-c3VtcHRpb24gdGhhdCBhIEdSTyBwYWNrZXQgd2l0aCBhIGZyYWdfbGlzdCBoYWQNCj4gdG8gaGF2
-ZSBhbiBlbXB0eSBoZWFkLg0KPiANCj4gUmVtb3ZpbmcgdGhpcyBjb2RlIGFsbG93cyB0aGUgYWdn
-cmVnYXRpb24gb2YgdGhlIGxhc3QgKGluY29tcGxldGUpIGZyYW1lDQo+IGluIHNvbWUgUlBDIHdv
-cmtsb2Fkcy4gTm90ZSB0aGF0IHRjcF9ncm9fcmVjZWl2ZSgpIGFscmVhZHkgdGFrZXMgY2FyZSBv
-Zg0KPiBmb3JjaW5nIGEgZmx1c2ggaWYgbmVjZXNzYXJ5LCBpbmNsdWRpbmcgdGhpcyBjYXNlLg0K
-PiANCj4gSWYgd2Ugd2FudCB0byBhdm9pZCB1c2luZyBmcmFnX2xpc3QgaW4gdGhlIGZpcnN0IHBs
-YWNlIChpbiBmb3J3YXJkaW5nDQo+IHdvcmtsb2FkcyBmb3IgZXhhbXBsZSwgYXMgdGhlIG91dGdv
-aW5nIE5JQyBpcyBnZW5lcmFsbHkgbm90IGFibGUgdG8gY29wZQ0KPiB3aXRoIHNrYnMgaGF2aW5n
-IGEgZnJhZ19saXN0KSwgd2UgbmVlZCB0byBhZGRyZXNzIHRoaXMgc2VwYXJhdGVseS4NCj4gDQo+
-IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCg0KUGxl
-YXNlIGdldCByaWQgb2YgdGhlIGxvY2FsIHZhcmlhYmxlcyB0aGF0IGFyZSBubyBtYWRlIHVudXNl
-ZCBieSB0aGlzDQpjaGFuZ2U6DQoNCm5ldC9jb3JlL3NrYnVmZi5jOiBJbiBmdW5jdGlvbiChc2ti
-X2dyb19yZWNlaXZlojoNCm5ldC9jb3JlL3NrYnVmZi5jOjMyMTI6MTU6IHdhcm5pbmc6IHVudXNl
-ZCB2YXJpYWJsZSChaGVhZHJvb22iIFstV3VudXNlZC12YXJpYWJsZV0NCm5ldC9jb3JlL3NrYnVm
-Zi5jOjMyMDk6MTg6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChbnNrYqIgWy1XdW51c2VkLXZh
-cmlhYmxlXQ0K
+On Thu, Mar 5, 2015 at 12:49 PM, Scott Feldman <sfeldma@gmail.com> wrot=
+e:
+> Hi Alex, turns out you're required to take a mandatory week-long
+> vacation after your fourth patch set to net/ipv4/fib_*.  See you in a
+> week!  Take lots of pictures.
+
++10!
+
+Is anyone here working on testing the new FIB stuff on itty bitty 32
+bit platforms? It looks really promising
+but openwrt is stabilizing on 3.18 and the prospect of backporting all
+this stuff to that to test at scale is intimidating. (*I* am willing
+to wait for 4.2)
+
+But boy, could openwrt test at scale:
+
+https://downloads.openwrt.org/snapshots/trunk/
+
+>
+> -scott
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+--=20
+Dave T=C3=A4ht
+Let's make wifi fast, less jittery and reliable again!
+
+https://plus.google.com/u/0/107942175615993706558/posts/TVX3o84jjmb
