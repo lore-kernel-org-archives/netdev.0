@@ -1,54 +1,37 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: I can tell no FIB
-Date: Thu, 5 Mar 2015 13:01:20 -0800
-Message-ID: <CAA93jw5oMK-KC-EkG71LKThqQxsHYcft+OHuu=APzjLdWSuO4g@mail.gmail.com>
-References: <CAE4R7bBwrB8==aYuN9gYoADwZHDwr5zYjL3tL=jqPP24p74VUw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: gro: remove obsolete code from
+ skb_gro_receive()
+Date: Thu, 05 Mar 2015 13:04:18 -0800
+Message-ID: <1425589458.5130.264.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425493600.5130.208.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150305.160028.1421983637301031004.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:34423 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753388AbbCEVBU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 16:01:20 -0500
-Received: by obcwp18 with SMTP id wp18so5278936obc.1
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 13:01:20 -0800 (PST)
-In-Reply-To: <CAE4R7bBwrB8==aYuN9gYoADwZHDwr5zYjL3tL=jqPP24p74VUw@mail.gmail.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:33054 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbbCEVEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 16:04:21 -0500
+Received: by iecar1 with SMTP id ar1so80244734iec.0
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 13:04:20 -0800 (PST)
+In-Reply-To: <20150305.160028.1421983637301031004.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 5, 2015 at 12:49 PM, Scott Feldman <sfeldma@gmail.com> wrot=
-e:
-> Hi Alex, turns out you're required to take a mandatory week-long
-> vacation after your fourth patch set to net/ipv4/fib_*.  See you in a
-> week!  Take lots of pictures.
+On Thu, 2015-03-05 at 16:00 -0500, David Miller wrote:
 
-+10!
+> Please get rid of the local variables that are no made unused by this
+> change:
+>=20
+> net/core/skbuff.c: In function =E2=80=98skb_gro_receive=E2=80=99:
+> net/core/skbuff.c:3212:15: warning: unused variable =E2=80=98headroom=
+=E2=80=99 [-Wunused-variable]
+> net/core/skbuff.c:3209:18: warning: unused variable =E2=80=98nskb=E2=80=
+=99 [-Wunused-variable]
 
-Is anyone here working on testing the new FIB stuff on itty bitty 32
-bit platforms? It looks really promising
-but openwrt is stabilizing on 3.18 and the prospect of backporting all
-this stuff to that to test at scale is intimidating. (*I* am willing
-to wait for 4.2)
+Hmpff... I sent the wrong patch it seems. Sorry.
 
-But boy, could openwrt test at scale:
-
-https://downloads.openwrt.org/snapshots/trunk/
-
->
-> -scott
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
---=20
-Dave T=C3=A4ht
-Let's make wifi fast, less jittery and reliable again!
-
-https://plus.google.com/u/0/107942175615993706558/posts/TVX3o84jjmb
+Will fix this after my lunch ;)
