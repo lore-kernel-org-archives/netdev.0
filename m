@@ -1,76 +1,83 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Fri, 6 Mar 2015 10:26:14 +1100
-Message-ID: <20150306102614.206e5ec6@canb.auug.org.au>
-References: <20150305134247.5a55e4db@canb.auug.org.au>
-	<20150305.000158.1662853297584626367.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/m_frNs=4qCu_Oun.GuKRmU."; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150305.000158.1662853297584626367.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Salam Noureddine <noureddine@arista.com>
+Subject: [PATCH net-next] vlan: avoid a synchronize_net when parent device goes down
+Date: Thu,  5 Mar 2015 15:37:01 -0800
+Message-ID: <1425598621-18083-1-git-send-email-noureddine@arista.com>
+Cc: Salam Noureddine <noureddine@arista.com>
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:49950 "EHLO
+	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751291AbbCEXms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 18:42:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/m_frNs=4qCu_Oun.GuKRmU.
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+When a parent device is brought down, all of the vlan devices
+on top of it are brought down in vlan_device_event which ultimately
+leads to a call to synchronize_net in dev_deactivate_many. If many
+vlan devices are configured on top of one device, these calls can
+take a significant time. This patch works around this issue by
+setting the dismantle flag in vlandev. It is a bit hacky and
+overloads the meaning of dismantle but can bring a big improvement
+on busy systems where synchronize_net can take longer than usual.
 
-Hi Dave,
+The call stack leading to the synchronize_net is,
 
-On Thu, 05 Mar 2015 00:01:58 -0500 (EST) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Thu, 5 Mar 2015 13:42:47 +1100
->=20
-> > From: Stephen Rothwell <sfr@canb.auug.org.au>
-> > Date: Thu, 5 Mar 2015 13:37:05 +1100
-> > Subject: [PATCH] mpls: using vzalloc requires including vmalloc.h
-> >=20
-> > Fixes this build error:
-> >=20
-> > net/mpls/af_mpls.c: In function 'resize_platform_label_table':
-> > net/mpls/af_mpls.c:767:4: error: implicit declaration of function 'vzal=
-loc' [-Werror=3Dimplicit-function-declaration]
-> >     labels =3D vzalloc(size);
-> >     ^
-> >=20
-> > Fixes: 7720c01f3f59 ("mpls: Add a sysctl to control the size of the mpl=
-s label table")
-> > Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
->=20
-> Applied, thanks Stephen.
+[<ffffffff812f8747>] synchronize_net+0x25/0x2e
+[<ffffffff8130f94a>] dev_deactivate_many+0x186/0x222
+[<ffffffff812fb7a8>] __dev_close_many+0x83/0xca
+[<ffffffff812fb820>] __dev_close+0x31/0x42
+[<ffffffff812f9220>] __dev_change_flags+0xa8/0x12b
+[<ffffffff812fc42c>] dev_change_flags+0x1c/0x51
+[<ffffffffa00ab6be>] vlan_device_event+0x39a/0x4cc [8021q]
+[<ffffffff813d982b>] notifier_call_chain+0x32/0x5e
+[<ffffffff8104642c>] raw_notifier_call_chain+0xf/0x11
+[<ffffffff812fb720>] call_netdevice_notifiers+0x45/0x4a
+[<ffffffff812fb8e3>] dev_close_many+0xb2/0xfd
 
-I don't see it in net-next?
+Signed-off-by: Salam Noureddine <noureddine@arista.com>
+---
+ net/8021q/vlan.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/m_frNs=4qCu_Oun.GuKRmU.
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJU+OYbAAoJEMDTa8Ir7ZwVR2IQAITWu6ZSnTnJRAAxNtVYuiuk
-E4oDHDFUGnFo5vpj4V3y1959Dg53gVLRyGZjyyBsYD7B1TuHtf6z3tdb7/C5qaAQ
-6qQjAiWKdImY6eGl+OhWxC5BuN5kGTC7EZRsuNnOVycxosKyf5kp7kngT3WoUcNb
-gS3fE+GQSqJtHRy2WkPuw1cm47FGUSii/g0/FTn4+9eEvGy5Wl3mz/pSNbbf4aBS
-FhZY8RiaAO7k2zqe5qH6QUDHxNoFNILf4x6QIfnAWdOU65m2oBwIGCbpgz3f5mky
-FKEGEWZJ9V8laN9jS/HzbvOPNbB1YcIYhIX2ftmhTc6BsuPhWhPd99+7g36mZ3xd
-NNIDz02Cij9H6vj7PMfT1yIrVailqHb1IKg3U/l+yEpbleZZ3VcLx2SmKEmMy46a
-p7KRasch9rrgiXTubD1+hjB4lx5SnHU2rBDZoXP8wQ0fNPXgd+FidJgzYT1mHz07
-4IfUh6Embw1ucquEX0U5Gq1Bs+2dwA+QsEv9jqIe3b+buOO93gIpoC16u0BLsTNB
-9MQd06/IT/APqay10SagfrCgb0o2d+WsxPRGYrYZxwu8nxoiOaFCfalXKffhiEX8
-Qh8TczBlXcnzw3a82y9dv/uDpUiupQU/0jbYBEgYbu+Sbj+Apvy+hdRUWgve/zHe
-GuGXE7IWZ+oNECj26w8c
-=3Yf0
------END PGP SIGNATURE-----
-
---Sig_/m_frNs=4qCu_Oun.GuKRmU.--
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 64c6bed..6846ca2 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -355,6 +355,7 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 	struct net_device *vlandev;
+ 	struct vlan_dev_priv *vlan;
+ 	bool last = false;
++	bool old_dismantle, no_sync = true;
+ 	LIST_HEAD(list);
+ 
+ 	if (is_vlan_dev(dev)) {
+@@ -423,11 +424,24 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 			if (!(flgs & IFF_UP))
+ 				continue;
+ 
++			/* Set vlandev->dismantle to avoid synchronize_net
++			 * getting called for every vlan device in
++			 * dev_deactivate_many. A synchronize_net is needed
++			 * at the end of the loop if at least one vlandev
++			 * and the parent device didn't have dismantle set
++			 */
++			old_dismantle = vlandev->dismantle;
++			no_sync = no_sync && old_dismantle;
++			vlandev->dismantle = true;
++
+ 			vlan = vlan_dev_priv(vlandev);
+ 			if (!(vlan->flags & VLAN_FLAG_LOOSE_BINDING))
+ 				dev_change_flags(vlandev, flgs & ~IFF_UP);
+ 			netif_stacked_transfer_operstate(dev, vlandev);
++			vlandev->dismantle = old_dismantle;
+ 		}
++		if (!dev->dismantle && !no_sync)
++			synchronize_net();
+ 		break;
+ 
+ 	case NETDEV_UP:
+-- 
+1.8.1.4
