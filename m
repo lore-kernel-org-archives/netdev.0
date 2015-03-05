@@ -1,90 +1,85 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net/dcb: Add IEEE QCN attribute
-Date: Thu, 05 Mar 2015 07:05:43 -0800
-Message-ID: <54F870C7.4030707@gmail.com>
-References: <1425473468-25969-1-git-send-email-ogerlitz@mellanox.com> <1425473468-25969-2-git-send-email-ogerlitz@mellanox.com> <54F73EA6.2030006@gmail.com> <CAJ3xEMiXAMfDaYvAELVmhEuQd7+R-f9=kELHrMxTz7ksFGPQLQ@mail.gmail.com> <AM3PR05MB0935C9AF7EDFA7F90F3CAC6EDC1F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Thu, 05 Mar 2015 07:09:01 -0800
+Message-ID: <54F8718D.2000003@cumulusnetworks.com>
+References: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com> <20150305083621.GC2033@nanopsycho.orion> <54F86FD8.9000409@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>
-To: Shachar Raindel <raindel@mellanox.com>
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:44724 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755846AbbCEPGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 10:06:02 -0500
-Received: by oifu20 with SMTP id u20so12116207oif.11
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 07:06:01 -0800 (PST)
-In-Reply-To: <AM3PR05MB0935C9AF7EDFA7F90F3CAC6EDC1F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:38800 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756330AbbCEPJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 10:09:14 -0500
+Received: by pdbfl12 with SMTP id fl12so35814347pdb.5
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 07:09:13 -0800 (PST)
+In-Reply-To: <54F86FD8.9000409@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
-
->>
->>> Looks good to me. Do you have a QCN enabled switch? I looked at
->>> implementing this awhile ago but didn't have any switch support so
->>> I never did it.
->>
->> I'l let Shachar to address the testing and the MIB questions.
->
-> The Mellanox SwitchX-2 IC supports QCN. We were testing our NICs both
-> with this switch IC and using internal test fixtures where we were
-> injecting congestion notification messages as raw Ethernet packets by
-> another host.
-
-ah great didn't know that switch supported QCN.
-
->
->>
->>> Also do you have a user space client to configure this? I would like
->>> it if someone wanted to add support to lldpad/dcbtool.
->>
->> Sure, we have some netlink (python scripts) code to configure/read
->> this towards the kernel.
->>
->>
->>> [...]
-
-[...]
-
+On 3/5/15, 7:01 AM, roopa wrote:
+> On 3/5/15, 12:36 AM, Jiri Pirko wrote:
+>> Wed, Mar 04, 2015 at 01:15:29AM CET, roopa@cumulusnetworks.com wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>>
+>>> With the recent addition of the NETIF_F_HW_SWITCH_OFFLOAD flag
+>>> on rocker ports, the second command (bridge link set) below will 
+>>> turn off
+>>> learning in the rocker hw (Scott/Jiri, need some confirmation from
+>>> you that this is indeed a problem and if the below patch is ok).
 >>>
->>> I'm assuming this structure maps to an IEEE MIB?
->>
->> yep, I guess so
+>>> ip link set dev swp1 master br0
+>>> bridge link set dev swp1 learning off master
+>>> bridge link set dev swp1 learning_sync on self
+>>>
+>>> This patch fixes rocker to ignore learning setting when 'master'
+>>> is set. This makes it possible to set/unset learning in kernel and 
+>>> bridge
+>>> driver independently.
+>>>
+>>> The below command will continue to set learning on in both kernel 
+>>> and rocker
+>>> hw:
+>>> bridge link set dev swp1 learning on
+>>>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> ---
+>>> drivers/net/ethernet/rocker/rocker.c |    3 +++
+>>> 1 file changed, 3 insertions(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/rocker/rocker.c 
+>>> b/drivers/net/ethernet/rocker/rocker.c
+>>> index e5a15a4..d7c31d2 100644
+>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>> @@ -3769,6 +3769,9 @@ static int rocker_port_bridge_setlink(struct 
+>>> net_device *dev,
+>>>     struct nlattr *attr;
+>>>     int err;
+>>>
+>>> +    if (flags && !(flags & BRIDGE_FLAGS_SELF))
+>>> +        return 0;
+>>> +
+>> I think that the called should handle this case, not every particular
+>> driver. How about to put this into rtnl_bridge_setlink?
 >
-> The structures map to the IEEE MIB for QCN (part of IEEE 802.1Qau).
-> The fields rppp_max_rps and cndd_state_machine are in different sections
-> than the rest of the fields. However, it seems bit redundant to define a
-> whole struct just for one field. The cndd_state_machine is not explicitly
-> defined in the MIB, as the LLDP negotiation, which the standard assumes,
-> is implemented by lldpad.
+> The problem is setlink can contain many more attributes than just 
+> learning.
+> And for most attributes you want to mirror them in hardware.
+> Only a few attributes like learning, you want to be able to set them 
+> in the kernel driver
+> differently than in hardware.
 >
->>
->>> Its a rather large structure for a single netlink type but this seems
->>> to be how we built
->>> the dcbnl interface and if it does seem logical that the structure is
->>> one logical block, meaning you need to supply all fields.
->>
+> We have previously discussed encoding hw/sw in the upper bits of 
+> bridge port attributes.
+> I was trying to avoid that and use the existing master/self to achieve 
+> the same.
 >
-> This is the set of parameters defining how you will reduce or increase you
-> TX rate upon receiving CNM from the network. I agree that it is a long list,
-> but this is how the standard was written...
-
-yep works for me. I was just checking my assumptions are correct and
-admittedly being a bit lazy so I didn't pull up the spec myself.
-
-Thanks,
-John
-
-[...]
-
--- 
-John Fastabend         Intel Corporation
+> I will repost alternatives if I can think of something.
+Just adding more clarification to my previous comment: I have not 
+confirmed if learning in rocker is really broken.
+My patch comment specifically says that the sequence of commands listed 
+may turn off learning in rocker hardware unintentionally.
