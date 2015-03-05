@@ -1,223 +1,311 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 2/7] mpls: Basic routing support
-Date: Thu, 05 Mar 2015 12:42:17 -0600
-Message-ID: <87zj7r9th2.fsf@x220.int.ebiederm.org>
-References: <874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org>
-	<20150303.153310.624302583835136622.davem@davemloft.net>
-	<87h9u1y8y8.fsf_-_@x220.int.ebiederm.org>
-	<87vbihtvts.fsf_-_@x220.int.ebiederm.org>
-	<87k2yxtvmw.fsf_-_@x220.int.ebiederm.org>
-	<CAMs_D1-RkdA_Fy7VoY105vjEkkFZaAV_bvKtw9+qQFWsRyKRaQ@mail.gmail.com>
+From: "Nikita N." <nikitan@operamail.com>
+Subject: Re: brcmsmac not compliant to 802.11 for BCM4313
+Date: Thu, 05 Mar 2015 10:50:44 -0800
+Message-ID: <1425581444.688217.236062177.3E9A0D68@webmail.messagingengine.com>
+References: <1424007136.2042747.227726249.45B6A0E2@webmail.messagingengine.com>
+ <1424094835.3188168.228077393.0E2006F5@webmail.messagingengine.com>
+ <54E2107F.4000709@broadcom.com>
+ <1424112787.3303548.228201005.68F1D224@webmail.messagingengine.com>
+ <54E24B48.80601@broadcom.com>
+ <1424163814.3140549.228461101.1C2E5AB1@webmail.messagingengine.com>
+ <1425483570.3947119.235432705.0D7855AE@webmail.messagingengine.com>
+ <54F7486B.7050608@broadcom.com>
+ <1425543782.472412.235829781.15C5ACE0@webmail.messagingengine.com>
+ <54F824D2.9030504@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roopa <roopa@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	santiago@crfreenet.org, Simon Horman <horms@verge.net.au>
-To: Vivek Venkatraman <vivek@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:51245 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbbCESp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 13:45:58 -0500
-In-Reply-To: <CAMs_D1-RkdA_Fy7VoY105vjEkkFZaAV_bvKtw9+qQFWsRyKRaQ@mail.gmail.com>
-	(Vivek Venkatraman's message of "Thu, 5 Mar 2015 08:36:58 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: hauke@hauke-m.de, brcm80211-dev-list@broadcom.com,
+	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	Pat Erley <pat-lkml@erley.org>, brudley@broadcom.com,
+	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
+	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
+	wens@csie.org, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54F824D2.9030504@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
+Dear Arend,
+thanks for answering, unfortunately the answers open new questions
+indeed, if I may.
 
-> On Tue, Mar 3, 2015 at 5:10 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->>
->> This change adds a new Kconfig option MPLS_ROUTING.
->>
->> The core of this change is the code to look at an mpls packet received
->> from another machine.  Look that packet up in a routing table and
->> forward the packet on.
->>
->> Support of MPLS over ATM is not considered or attempted here.  This
->> implemntation follows RFC3032 and implements the MPLS shim header that
->> can pass over essentially any network.
->>
->> What RFC3021 refers to as the as the Incoming Label Map (ILM) I call
->> net->mpls.platform_label[].  What RFC3031 refers to as the Next Label
->> Hop Forwarding Entry (NHLFE) I call mpls_route.  Though calling it the
->> label fordwarding information base (lfib) might also be valid.
->>
->
-> This currently does not allow for ECMP when acting as a transit,
-> correct?
+> > 1) What is assuring that proprietary "strict custom regulatory domain"
+> > is not obsolete/deprecated and compliant to 802.11 regulations?
+> This is a very hypothetical question. If regulation would indeed change 
+> in such way we would have to release new firmware.
 
-Correct.  There is no fundamental reason for that, ECMP just has not
-been implemented yet.
+That is not hypothetical at all, since we do *NOT* know what that
+proprietary regdomain is enforcing.
+That "strict custom regulatory domain" is proprietary Broadcom, hence
+nobody knows what is written inside it, following all sad&known
+considerations that Pat Erley explained (that is also the answer to you
+Pat)
+Now, to verify that such proprietary regdomain is enforcing a legal and
+compliant regdomain, we should know it's details.
+Question, is it possible to know how/what is written in that proprietary
+regdomain inside the firmware?
 
->> Further the implemntation forwards packets as described in RFC3032.
->> There is no need and given the original motivation for MPLS a strong
->> discincentive to have a flexible label forwarding path.  In essence
->> the logic is the topmost label is read, looked up, removed, and
->> replaced by 0 or more new lables and the sent out the specified
->> interface to it's next hop.
->>
->> Quite a few optional features are not implemented here.  Among them
->> are generation of ICMP errors when the TTL is exceeded or the packet
->> is larger than the next hop MTU (those conditions are detected and the
->> packets are dropped instead of generating an icmp error).  The traffic
->> class field is always set to 0.  The implementation focuses on IP over
->> MPLS and does not handle egress of other kinds of protocols.
->>
->> Instead of implementing coordination with the neighbour table and
->> sorting out how to input next hops in a different address family (for
->> which there is value).  I was lazy and implemented a next hop mac
->> address instead.  The code is simpler and there are flavor of MPLS
->> such as MPLS-TP where neither an IPv4 nor an IPv6 next hop is
->> appropriate so a next hop by mac address would need to be implemented
->> at some point.
->>
->
-> I guess the above is no longer the case with this revised patch which
-> can support a IPv4 or IPv6 next hop too, right?
+> > 2) Regulatory domains can by 802.11 regulation change dynamically within
+> > time/country, why BCM4313 users are obliged to lock only on 1
+> > proprietary regdomain?
+> This is not mandatory. Using 1 restricted world regulatory domain is 
+> fine as well as Pat Erley explained in his response.
 
-Correct.
+Sorry, what is not mandatory?
+It is not mandatory that users are obliged to lock only on 1 proprietary
+regdomain?
+Of course it is not, it is not fair nor compliant to any regulations I
+know of - do you?
+It is not mandatory that 802.11 regulations change? sure, but they
+change, indeed.
+It is not mandatory regdomains rules change? sure, but they change,
+indeed.
 
->> Two new definitions AF_MPLS and PF_MPLS are exposed to userspace.
->>
->> Decoding the mpls header must be done by first byeswapping a 32bit bit
->> endian word into the local cpu endian and then bit shifting to extract
->> the pieces.  There is no C bit-field that can represent a wire format
->> mpls header on a little endian machine as the low bits of the 20bit
->> label wind up in the wrong half of third byte.  Therefore internally
->> everything is deal with in cpu native byte order except when writing
->> to and reading from a packet.
->>
->> For management simplicity if a label is configured to forward out
->> an interface that is down the packet is dropped early.  Similarly
->> if an network interface is removed rt_dev is updated to NULL
->> (so no reference is preserved) and any packets for that label
->> are dropped.  Keeping the label entries in the kernel allows
->> the kernel label table to function as the definitive source
->> of which labels are allocated and which are not.
->>
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
->>  include/linux/socket.h      |   2 +
->>  include/net/net_namespace.h |   4 +
->>  include/net/netns/mpls.h    |  15 ++
->>  net/mpls/Kconfig            |   5 +
->>  net/mpls/Makefile           |   1 +
->>  net/mpls/af_mpls.c          | 349 ++++++++++++++++++++++++++++++++++++++++++++
->>  net/mpls/internal.h         |  56 +++++++
->>  7 files changed, 432 insertions(+)
->>  create mode 100644 include/net/netns/mpls.h
->>  create mode 100644 net/mpls/af_mpls.c
->>  create mode 100644 net/mpls/internal.h
->>
->> <snip>
->> +
->> +static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->> +                       struct packet_type *pt, struct net_device *orig_dev)
->> +{
->> +       struct net *net = dev_net(dev);
->> +       struct mpls_shim_hdr *hdr;
->> +       struct mpls_route *rt;
->> +       struct mpls_entry_decoded dec;
->> +       struct net_device *out_dev;
->> +       unsigned int hh_len;
->> +       unsigned int new_header_size;
->> +       unsigned int mtu;
->> +       int err;
->> +
->> +       /* Careful this entire function runs inside of an rcu critical section */
->> +
->> +       if (skb->pkt_type != PACKET_HOST)
->> +               goto drop;
->> +
->> +       if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
->> +               goto drop;
->> +
->> +       if (!pskb_may_pull(skb, sizeof(*hdr)))
->> +               goto drop;
->> +
->> +       /* Read and decode the label */
->> +       hdr = mpls_hdr(skb);
->> +       dec = mpls_entry_decode(hdr);
->> +
->> +       /* Pop the label */
->> +       skb_pull(skb, sizeof(*hdr));
->> +       skb_reset_network_header(skb);
->> +
->> +       skb_orphan(skb);
->> +
->> +       rt = mpls_route_input_rcu(net, dec.label);
->> +       if (!rt)
->> +               goto drop;
->> +
->> +       /* Find the output device */
->> +       out_dev = rt->rt_dev;
->> +       if (!mpls_output_possible(out_dev))
->> +               goto drop;
->> +
->> +       if (skb_warn_if_lro(skb))
->> +               goto drop;
->> +
->> +       skb_forward_csum(skb);
->> +
->> +       /* Verify ttl is valid */
->> +       if (dec.ttl <= 2)
->
-> Why is this "<= 2"?
+> > 4) Has been done any step so far, to root the cause of this issue?
+> I did hunt down a 4313 to do so and put it in my test laptop.
+Thank you very much! :)
+In the meantime, if you could please verify a possible solution coming
+now to my mind.
+I understood that Broadcom management doesn't want to give power
+controls to user.
+Very sad personally, but I don't see any help to that coming from you
+(your managers).
+So, maybe, do BCM4313 has more than 1 special proprietary preset
+regdomain buried in the firmware?
+If yes, it would be great if you could tell us (programmers) how we can
+switch to any of those other preset regdomains.
+So that we could test them, and find the one which best conform to our
+local/country regulation.
+It seems to me a fair compromise for solving that issue, isn't?
 
-It appears I rewrote that section one too many times it should be <= 1.
+> > 5) Since I have spent money&time on that device, I would like at least
+> > to monitor the work in progress done to root the cause of this issue -
+> > how can I?
+> 
+> You could create a bugzilla item on kernel.org.
 
->> +               goto drop;
->> +       dec.ttl -= 1;
->> +
->> +       /* Verify the destination can hold the packet */
->> +       new_header_size = mpls_rt_header_size(rt);
->> +       mtu = mpls_dev_mtu(out_dev);
->> +       if (mpls_pkt_too_big(skb, mtu - new_header_size))
->> +               goto drop;
->> +
->> +       hh_len = LL_RESERVED_SPACE(out_dev);
->> +       if (!out_dev->header_ops)
->> +               hh_len = 0;
->> +
->> +       /* Ensure there is enough space for the headers in the skb */
->> +       if (skb_cow(skb, hh_len + new_header_size))
->> +               goto drop;
->> +
->> +       skb->dev = out_dev;
->> +       skb->protocol = htons(ETH_P_MPLS_UC);
->> +
->> +       if (unlikely(!new_header_size && dec.bos)) {
->> +               /* Penultimate hop popping */
->> +               if (!mpls_egress(rt, skb, dec))
->> +                       goto drop;
->> +       } else {
->> +               bool bos;
->> +               int i;
->> +               skb_push(skb, new_header_size);
->> +               skb_reset_network_header(skb);
->> +               /* Push the new labels */
->> +               hdr = mpls_hdr(skb);
->> +               bos = dec.bos;
->> +               for (i = rt->rt_labels - 1; i >= 0; i--) {
->> +                       hdr[i] = mpls_entry_encode(rt->rt_label[i], dec.ttl, 0, bos);
->> +                       bos = false;
->> +               }
->> +       }
->> +
->> +       err = neigh_xmit(rt->rt_via_family, out_dev, rt->rt_via, skb);
->> +       if (err)
->> +               net_dbg_ratelimited("%s: packet transmission failed: %d\n",
->> +                                   __func__, err);
->> +       return 0;
->> +
->> +drop:
->> +       kfree_skb(skb);
->> +       return NET_RX_DROP;
->> +}
->> +
->
-> Vivek
+Sure will do.
+As soon as someone from Broadcom QA Testing Team, will find that the
+root cause of that issue depends on Linux kernel.
+I guess I already did my best to try debugging and solving for *free* a
+Broadcom issue which: 1) doesn't depend on me, 2) is locked down in a
+proprietary firmware, 3) is protected by secrecy of proprietary Broadcom
+informations.
+
+Thanks & Greetings.
+
+-- 
+  Nikita N.
+  nikitan@operamail.com
+
+
+On Thu, Mar 5, 2015, at 01:41 AM, Arend van Spriel wrote:
+> On 03/05/15 09:23, Nikita N. wrote:
+> > Dear Arend,
+> >
+> >>> I tried recompile the regulatory domain database, those functions did
+> >>> not retrieve the new values.
+> >>> Whatever values I set for domain 00, the effect was null - BCM4313 kept
+> >>> functioning independently.
+> >> That is exactly what should happen. The brcmsmac driver applies a
+> >> so-called strict custom regulatory domain and does not follow any
+> >> regulatory domain provisioning.
+> >
+> > As I understand your words, the BCM4313 has a proprietary regdomain, a
+> > so called "strict custom regulatory domain" buried in the firmware, and
+> > finish.
+> > That proprietary regdomain is applied when attaching brcmsmac Linux
+> > driver.
+> > But in other drivers, e.g. the wl driver, or ms-windows drivers all
+> > versions, the BCM4313 doesn't apply that "strict custom regulatory
+> > domain".
+> > In all other drivers, the BCM4313 applies different regdomains and
+> > relative power levels according to the system/OS.
+> > So now, after your explanation, logic tells me, the BCM4313 regdomain is
+> > locked only in the brcmsmac driver for Linux.
+> > Instead it operates open and fully functional in the other drivers.
+> > So now 3 more questions, if I'm allowed:
+> > 1) What is assuring that proprietary "strict custom regulatory domain"
+> > is not obsolete/deprecated and compliant to 802.11 regulations?
+> 
+> This is a very hypothetical question. If regulation would indeed change 
+> in such way we would have to release new firmware.
+> 
+> > 2) Regulatory domains can by 802.11 regulation change dynamically within
+> > time/country, why BCM4313 users are obliged to lock only on 1
+> > proprietary regdomain?
+> 
+> This is not mandatory. Using 1 restricted world regulatory domain is 
+> fine as well as Pat Erley explained in his response.
+> 
+> > 3) Why BCM4313 is locked only for brcmsmac?
+> 
+> I explained that in an earlier email. It was a requirement for getting 
+> the driver open-sourced to avoid releasing proprietary code. For wl 
+> driver that part is in the binary blob that runs on the host so it does 
+> not need the restriction. Guess no further explanation is needed for the 
+> windows driver.
+> 
+> >>> 2) MCS - 11n modulated frames are not detected in BCM4313 monitor mode -
+> >>> I informed you about this issue more than 1 year ago, and again 2 weeks
+> >>> ago.
+> >>> The issue still reproduces, and no sign of any fix.
+> >>> When/in what backports version, this issue is supposed to be fixed
+> >>> finally?
+> >> What is the deal about backports here. If there will be a fix it will be
+> >> done upstream and eventually end up in a backports package. First need
+> >> to root cause this issue.
+> >
+> > So now 2 more questions, if I'm allowed:
+> 
+> You're pushing the limit ;-)
+> 
+> > 4) Has been done any step so far, to root the cause of this issue?
+> 
+> I did hunt down a 4313 to do so and put it in my test laptop.
+> 
+> > 5) Since I have spent money&time on that device, I would like at least
+> > to monitor the work in progress done to root the cause of this issue -
+> > how can I?
+> 
+> You could create a bugzilla item on kernel.org.
+> 
+> Regards,
+> Arend
+> 
+> > Thanks&  Greetings
+> >
+> > On Wed, Mar 4, 2015, at 10:01 AM, Arend van Spriel wrote:
+> >> On 03/04/15 16:39, Nikita N. wrote:
+> >>> Dear Arend,
+> >>> as followup to my last inquiry, since it's passed more than 2 weeks, I'm
+> >>> afraid I didn't receive any answer.
+> >>
+> >> Ok, you diverted my attention by presenting an absurd sense of reality.
+> >> But let me put emotions aside and answer your questions below.
+> >>
+> >>> As from subject, I finally discovered that brcmsmac is not compliant to
+> >>> 802.11 regulations for BCM4313.
+> >>> So, as purchasing customer, and member of Linux users community, I try
+> >>> to propose my questions to you again now, 3 in total:
+> >>>
+> >>> 1) Regulatory domain - you wrote "brcmsmac does assure tx power is
+> >>> within regulatory limits by enforcing a world regulatory domain"
+> >>> That affirmation is *FALSE*.
+> >>> I spent the whole weekend putting brcmsmac under heavy trace, all
+> >>> functions, above all the phy ones.
+> >>> Some code "supposes" to enforce a regulatory domain, but the effect is
+> >>> total null.
+> >>> I tried recompile the regulatory domain database, those functions did
+> >>> not retrieve the new values.
+> >>> Whatever values I set for domain 00, the effect was null - BCM4313 kept
+> >>> functioning independently.
+> >>
+> >> That is exactly what should happen. The brcmsmac driver applies a
+> >> so-called strict custom regulatory domain and does not follow any
+> >> regulatory domain provisioning.
+> >>
+> >> [87636.143361] cfg80211: Ignoring regulatory request set by core since
+> >> the driver uses its own custom regulatory domain
+> >>
+> >>> The functions, phy and not, which are "supposed" to set the eeprom
+> >>> registries for regdomain enforce, have effect null - the BCM4313 kept
+> >>> functioning independently.
+> >>> I tried setting random numbers in those functions and registries, the
+> >>> effect was null - the BCM4313 kept functioning independently.
+> >>> At the edge of my frustration, I started commenting away from the code
+> >>> those whole phy functions, the effect was null again - the BCM4313 kept
+> >>> functioning independently.
+> >>> I don't know for what Broadcom hw device were written and *tested* those
+> >>> functions - but sure is, they do *NOT* work for BCM4313.
+> >>> Could you please explain how/where the BCM4313 is supposed to "enforcing
+> >>> a world regulatory domain" ?
+> >>
+> >> It is done in firmware.
+> >>
+> >>> 2) MCS - 11n modulated frames are not detected in BCM4313 monitor mode -
+> >>> I informed you about this issue more than 1 year ago, and again 2 weeks
+> >>> ago.
+> >>> The issue still reproduces, and no sign of any fix.
+> >>> When/in what backports version, this issue is supposed to be fixed
+> >>> finally?
+> >>
+> >> What is the deal about backports here. If there will be a fix it will be
+> >> done upstream and eventually end up in a backports package. First need
+> >> to root cause this issue.
+> >>
+> >>> 3) I explicitly purchased this BCM4313 already 1 year ago, with the
+> >>> following specs: 0x4313 rev 0x01 package 0x08, 3 cores ChipCommon,
+> >>> IEEE802.11 and PCIe.
+> >>> I have been searching for any technical datasheet specification document
+> >>> about BCM4313 on Broadcom website and others.
+> >>> Did not find any.
+> >>> Could you please send me a detailed technical datasheet specification
+> >>> document about BCM4313, for programming/dev purposes?
+> >>
+> >> That is all proprietary information.
+> >>
+> >> Regards.
+> >> Arend
+> >>
+> >>>
+> >>> On Tue, Feb 17, 2015, at 01:03 AM, Nikita N. wrote:
+> >>>> Hi Arend,
+> >>>>
+> >>>>> brcmsmac does assure tx power is within regulatory limits by enforcing a
+> >>>>> world regulatory domain. So what is not supported is modifying tx power
+> >>>>> settings through user-space.
+> >>>>
+> >>>> Yes, I believe that could be right, *a* world regulatory domain looks
+> >>>> indeed enforced, the USA one only, which is pre-set default inside
+> >>>> EEPROM registries device, isn't it?
+> >>>>
+> >>>>> I know, but that driver is not fully open-source as it links in a binary
+> >>>>> blob.
+> >>>>
+> >>>> AFAIK, also brcmsmac needs at least 2 firmware files to operate, without
+> >>>> those nothing works.
+> >>>> Isn't it the same concept?
+> >>>>
+> >>>>> I totally lost track of this one. I am using brcmsmac in monitor mode
+> >>>>> using bcm43224 which captures 11n frames just fine. I will give it a try
+> >>>>> with a bcm4313. The assoc response in your capture shows undefined MCS
+> >>>>> set so maybe there really are no 11n MCS rates used (?).
+> >>>>
+> >>>> If that was a suggestion about to purchase a bcm43224 or any other
+> >>>> Broadcom Corp. product, isn't really convincing, seen the overall
+> >>>> support quality Customers are experiencing in here...
+> >>>> About my capture file, in the case it was really incomplete someone
+> >>>> could have informed me at least a year ago.
+> >>>> But anyway no respectable QA Testing team needs a purchasing Customer to
+> >>>> help in verifying such enormous issue, isn't it?
+> >>>>
+> >>>>> Our team consist of two man working full-time on the upstream linux
+> >>>>> drivers. So our "customer care" is something that we try to deal with on
+> >>>>> the side and admittedly things slip between the cracks.
+> >>>>
+> >>>> Really, *TWO* men? Are you kidding? Is that how much Broadcom Corp.
+> >>>> values the Linux community?
+> >>>> Needles to remind, even if Linux users don't pay for the OS license as
+> >>>> Windows do, they do pay allright for any Broadcom hardware they
+> >>>> purchase!
+> >>>> Internet startups which sell a button on internet, they have Dev and QA
+> >>>> team 5 times bigger than that!
+> >>>> I sense a very gross capacity and resource planning competence issue in
+> >>>> here.
+> >>>> I kindly ask you, please forward that mail to your higher Managers, on
+> >>>> my personal behalf, Thanks.
+> >>>>
+> >>>> --
+> >>>> http://www.fastmail.com - Same, same, but different...
+> >>>>
+> >>>
+> >>
+> >
+> 
+
+-- 
+http://www.fastmail.com - The way an email service should be
