@@ -1,58 +1,53 @@
-From: Don Fry <pcnet32@frontier.com>
-Subject: Re: [PATCH net-next 02/14] ethernet: Use eth_<foo>_addr instead of
- memset
-Date: Wed, 04 Mar 2015 21:39:01 -0800
-Message-ID: <1425533941.22905.45.camel@Lunix2.home>
-References: <cover.1425354527.git.joe@perches.com>
-	 <86d963752051ae24a93c9a26da1e847459723aed.1425354528.git.joe@perches.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [Fwd: Re: [PATCH -next] net: i40e: fix build, depends on
+ CONFIGFS_FS]
+Date: Thu, 5 Mar 2015 05:49:19 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789282CB7@ORSMSX108.amr.corp.intel.com>
+References: <1425413366.2556.76.camel@jtkirshe-mobl>
+	<C5551D9AAB213A418B7FD5E4A6F30A0789282B02@ORSMSX108.amr.corp.intel.com>
+ <20150304.235848.1415311271924658171.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <86d963752051ae24a93c9a26da1e847459723aed.1425354528.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:36301 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752067AbbCEFtY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 00:49:24 -0500
+In-Reply-To: <20150304.235848.1415311271924658171.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-02 at 19:54 -0800, Joe Perches wrote:
-> Use the built-in function instead of memset.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, March 04, 2015 8:59 PM
+> To: Rose, Gregory V
+> Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org; Brandeburg, Jesse; Nelson,
+> Shannon; Ronciak, John
+> Subject: Re: [Fwd: Re: [PATCH -next] net: i40e: fix build, depends on
+> CONFIGFS_FS]
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
-
-Acked-by: Don Fry <pcnet32@frontier.com>
-for pcnet32.c
-
-> ---
->  drivers/net/ethernet/amd/pcnet32.c                  | 2 +-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 2 +-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c    | 6 +++---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c   | 2 +-
->  drivers/net/ethernet/cisco/enic/enic_main.c         | 8 ++++----
->  drivers/net/ethernet/emulex/benet/be_cmds.c         | 2 +-
->  drivers/net/ethernet/emulex/benet/be_main.c         | 2 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c       | 4 ++--
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c      | 4 ++--
->  drivers/net/ethernet/mellanox/mlx4/en_selftest.c    | 2 +-
->  drivers/net/ethernet/micrel/ksz884x.c               | 2 +-
->  drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c  | 2 +-
->  drivers/net/ethernet/qlogic/qlge/qlge_main.c        | 2 +-
->  drivers/net/ethernet/smsc/smsc911x.c                | 2 +-
->  drivers/net/ethernet/ti/netcp_core.c                | 2 +-
->  drivers/net/ethernet/toshiba/ps3_gelic_wireless.c   | 4 ++--
->  drivers/net/ethernet/xscale/ixp4xx_eth.c            | 2 +-
->  17 files changed, 25 insertions(+), 25 deletions(-)
+> From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+> Date: Thu, 5 Mar 2015 00:34:05 +0000
 > 
-> diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-> index 11d6e65..8eb37e0 100644
-> --- a/drivers/net/ethernet/amd/pcnet32.c
-> +++ b/drivers/net/ethernet/amd/pcnet32.c
-> @@ -1708,7 +1708,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
->  
->  	/* if the ethernet address is not valid, force to 00:00:00:00:00:00 */
->  	if (!is_valid_ether_addr(dev->dev_addr))
-> -		memset(dev->dev_addr, 0, ETH_ALEN);
-> +		eth_zero_addr(dev->dev_addr);
->  
->  	if (pcnet32_debug & NETIF_MSG_PROBE) {
->  		pr_cont(" %pM", dev->dev_addr);
+> > Dell will be the only vendor selling systems with Ethernet NICs that
+> > support this feature.  Dell will be providing documentation to their
+> > users about how to use configfs for configuration of this feature.
+> > Dell will be taking the customer calls that result from any issues
+> > that arise.
+> 
+> And if they use non-INTEL NICs that provide this feature, oh well we
+> duplicate this bastardized configfs turd into those driver too, right?
+> 
+> Not acceptable.
+
+I'll work with Jeff to remove the offending code.
+
+- Greg
