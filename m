@@ -1,75 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] ax25: Stop using magic neighbour cache operations.
-Date: Fri, 06 Mar 2015 14:44:09 -0600
-Message-ID: <87twxx7t5y.fsf@x220.int.ebiederm.org>
-References: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org>
-	<20150302.164426.494515497595921630.davem@davemloft.net>
-	<874mq22imc.fsf_-_@x220.int.ebiederm.org>
-	<20150303.144509.1694022322984204895.davem@davemloft.net>
-	<87mw3tzv8u.fsf@x220.int.ebiederm.org> <54F82C9F.5050307@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/2] mv88e6131: bonding: implement single device
+ trunking
+Date: Fri, 06 Mar 2015 12:47:26 -0800
+Message-ID: <54FA125E.6050605@gmail.com>
+References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com> <1424429473-4601-3-git-send-email-jonasj76@gmail.com> <20150220152644.GD13797@lunn.ch> <54F9DEAA.50606@gmail.com> <20150306192359.GA582@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ralf@linux-mips.org, linux-hams@vger.kernel.org
-To: Steven Whitehouse <swhiteho@redhat.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <54F82C9F.5050307@redhat.com> (Steven Whitehouse's message of
-	"Thu, 05 Mar 2015 10:14:55 +0000")
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
+	Jonas Johansson <jonas.johansson@westermo.se>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36224 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781AbbCFUrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:47:55 -0500
+Received: by padfa1 with SMTP id fa1so48191061pad.3
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 12:47:54 -0800 (PST)
+In-Reply-To: <20150306192359.GA582@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Steven Whitehouse <swhiteho@redhat.com> writes:
-
-> Hi,
-
-
->> We can almost universally use the same procedures for generating
->> link layer headers from neighbour table entries now.  I had hoped
->> to optimized things by removing function pointers.
+On 06/03/15 11:23, Andrew Lunn wrote:
+> On Fri, Mar 06, 2015 at 09:06:50AM -0800, Florian Fainelli wrote:
+>> On 20/02/15 07:26, Andrew Lunn wrote:
+>>> On Fri, Feb 20, 2015 at 11:51:13AM +0100, Jonas Johansson wrote:
+>>>
+>>> Please could you look at all your functions and see what is specific
+>>> to the 6131 and what is generic. Place the generic code into mv88e6xxx
+>>> please so we can all use it.
 >>
->> The big hold out is DECnet that sets src_mac based on the DECnet source
->> address.
-> That is a requirement of DECnet I'm afraid - DECnet does not have an exact
-> equivalent of ARP/ndisc and many hosts will refuse to communicate if the MAC
-> address is not the expected one based on the DECnet address. This is one bit of
-> DECnet that is being used (to the best of my knowledge) and working.
-
-Having a mac address that matches the DECnet address completely makes
-sense.  Sourcing packets with a different mac address than the devices
-default mac address make sense.  This latter case doesn't usually happen
-for IP packets but we force it with the macvlan driver for example.
-
->> Which leads me to the conclusion that since DECnet has a different
->> algorithm for setting the src_mac than everything else in the kernel
->> DECnet neighbour table entries can not be used for nexthops for other
->> protocols :(
+>> Out of curiosity, how many bonding/trunking groups are supported on the
+>> switches models currently in tree?
 >>
->> DECnet also abuses neigh->output to select by output device which kind
->> of DECnet header to put on the packets.  But that is easily fixable.
-> One way to fix it would be to drop support for non-broadcast devices. We don't
-> have an implementation of DDCMP currently. Ethernet is the only working DECnet
-> device at the moment. PPP could also potentially work, with a bit of tweeking,
-> but strangely PPP is a broadcast device so far as DECnet is concerned,
+>> Let's say there is a limitation: like no more than 2 different bonding
+>> groups on a given physical switch, where would we put this limitation,
+>> down to the switch driver?
+> 
+> Hi Florian
+> 
+> It is limited, but it seems to be quite a high limit. I don't have
+> exact numbers for the devices currently in tree, but i've used an 10
+> port switch which had a limit something like 8 trunk groups, and a
+> maximum of 8 ports per trunk.
+> 
+> I suspect we would put the resource tracking in the shared mv88e6xxx
+> code, and configure it with the limitations from the specific chip
+> driver.
+> 
+> However, does SF2 have similar trunking capabilities, and limits? Does
+> it make sense to have this at a higher level so it can be used by all
+> drivers?
 
-What I wound up doing was just doing a shuffle of which function was in
-the neigh->output method.  Which meant there was no need to disable any
-of the current code.
+Most Broadcom switches, either SF2 or roboswitch (b53) have a limit of 2
+trunking groups, without limitations on the number of ports included in
+any of these two groups.
 
-That should fix interactions between DECnet and drivers like sch_teql
-and the netfilter bridge code which after a packet has already been
-output turn around and do:
-
-	dst = skb_dst(skb);
-	neigh = n = dst_neigh_lookup_skb(dst, skb);
-        if (dst->dev != dev)
-        	neigh = __neigh_lookup_errno(n->tbl, n->primary_key, dev);
-	neigh->output(neigh, skb);
-
-Which I think if the DECnet code hit one of those code paths today would
-result in double DECnet headers.  :(
-
-When looking at the DECnet code there is a flag that enables phase3
-support but I don't seeing it set anywhere.  Should DECnet phase3
-support actually work?
-
-Eric
+The larger question is once we start advertising capabilities, where
+does that stop, right? It would probably be simpler for now to e.g:
+allow 2 trunking groups to be configured, and when trying to configure a
+3rd one, return -ENOSPC and act upon that to either take the software
+slow path (which is probably not possible) or just return a hard error
+condition.
+-- 
+Florian
