@@ -1,7 +1,7 @@
 From: Boris Brezillon <boris.brezillon@free-electrons.com>
-Subject: [PATCH v2 3/3] net: macb: remove #if defined(CONFIG_ARCH_AT91) sections
-Date: Fri,  6 Mar 2015 11:24:02 +0100
-Message-ID: <1425637442-8724-4-git-send-email-boris.brezillon@free-electrons.com>
+Subject: [PATCH v2 2/3] ARM: at91/dt: fix macb compatible strings
+Date: Fri,  6 Mar 2015 11:24:01 +0100
+Message-ID: <1425637442-8724-3-git-send-email-boris.brezillon@free-electrons.com>
 References: <1425637442-8724-1-git-send-email-boris.brezillon@free-electrons.com>
 Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
 	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
@@ -14,99 +14,103 @@ Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
 	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Boris Brezillon <boris.brezillon@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:36269 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932705AbbCFKYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 05:24:09 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1425637442-8724-1-git-send-email-boris.brezillon@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With multi platform support those sections could lead to unexpected
-behavior if both ARCH_AT91 and another ARM SoC using the MACB IP are
-selected.
-Add two new capabilities to encode the default MII mode and the presence
-of a CLKEN bit in USRIO register.
-Then define the appropriate config for IPs embedded in at91 SoCs.
+Some at91 SoCs embed a 10/100 Mbit Ethernet IP, that is based on the
+at91sam9260 SoC.
+Fix at91 DTs accordingly.
 
 Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
 Reviewed-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 32 +++++++++++++++++---------------
- drivers/net/ethernet/cadence/macb.h |  2 ++
- 2 files changed, 19 insertions(+), 15 deletions(-)
+ arch/arm/boot/dts/at91sam9260.dtsi      | 2 +-
+ arch/arm/boot/dts/at91sam9263.dtsi      | 2 +-
+ arch/arm/boot/dts/at91sam9g45.dtsi      | 2 +-
+ arch/arm/boot/dts/at91sam9x5_macb0.dtsi | 2 +-
+ arch/arm/boot/dts/at91sam9x5_macb1.dtsi | 2 +-
+ arch/arm/boot/dts/sama5d3_emac.dtsi     | 2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index ad76b8e..86e915f 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2113,6 +2113,10 @@ static const struct net_device_ops macb_netdev_ops = {
- };
+diff --git a/arch/arm/boot/dts/at91sam9260.dtsi b/arch/arm/boot/dts/at91sam9260.dtsi
+index fff0ee6..9f7c737 100644
+--- a/arch/arm/boot/dts/at91sam9260.dtsi
++++ b/arch/arm/boot/dts/at91sam9260.dtsi
+@@ -842,7 +842,7 @@
+ 			};
  
- #if defined(CONFIG_OF)
-+static struct macb_config at91sam9260_config = {
-+	.caps = MACB_CAPS_USRIO_HAS_CLKEN | MACB_CAPS_USRIO_DEFAULT_IS_MII,
-+};
-+
- static struct macb_config pc302gem_config = {
- 	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
- 	.dma_burst_length = 16,
-@@ -2130,7 +2134,7 @@ static struct macb_config sama5d4_config = {
+ 			macb0: ethernet@fffc4000 {
+-				compatible = "cdns,at32ap7000-macb", "cdns,macb";
++				compatible = "cdns,at91sam9260-macb", "cdns,macb";
+ 				reg = <0xfffc4000 0x100>;
+ 				interrupts = <21 IRQ_TYPE_LEVEL_HIGH 3>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/at91sam9263.dtsi b/arch/arm/boot/dts/at91sam9263.dtsi
+index 1f67bb4..340179e 100644
+--- a/arch/arm/boot/dts/at91sam9263.dtsi
++++ b/arch/arm/boot/dts/at91sam9263.dtsi
+@@ -845,7 +845,7 @@
+ 			};
  
- static const struct of_device_id macb_dt_ids[] = {
- 	{ .compatible = "cdns,at32ap7000-macb" },
--	{ .compatible = "cdns,at91sam9260-macb" },
-+	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
- 	{ .compatible = "cdns,macb" },
- 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
- 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
-@@ -2388,21 +2392,19 @@ static int macb_probe(struct platform_device *pdev)
- 		bp->phy_interface = err;
- 	}
+ 			macb0: ethernet@fffbc000 {
+-				compatible = "cdns,at32ap7000-macb", "cdns,macb";
++				compatible = "cdns,at91sam9260-macb", "cdns,macb";
+ 				reg = <0xfffbc000 0x100>;
+ 				interrupts = <21 IRQ_TYPE_LEVEL_HIGH 3>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/at91sam9g45.dtsi b/arch/arm/boot/dts/at91sam9g45.dtsi
+index ee80aa9..586eab7 100644
+--- a/arch/arm/boot/dts/at91sam9g45.dtsi
++++ b/arch/arm/boot/dts/at91sam9g45.dtsi
+@@ -956,7 +956,7 @@
+ 			};
  
-+	config = 0;
- 	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
--		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
--	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
--#if defined(CONFIG_ARCH_AT91)
--		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
--					       MACB_BIT(CLKEN)));
--#else
--		macb_or_gem_writel(bp, USRIO, 0);
--#endif
--	else
--#if defined(CONFIG_ARCH_AT91)
--		macb_or_gem_writel(bp, USRIO, MACB_BIT(CLKEN));
--#else
--		macb_or_gem_writel(bp, USRIO, MACB_BIT(MII));
--#endif
-+		config = GEM_BIT(RGMII);
-+	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
-+		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+		config = MACB_BIT(RMII);
-+	else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+		config = MACB_BIT(MII);
-+
-+	if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-+		config |= MACB_BIT(CLKEN);
-+
-+	macb_or_gem_writel(bp, USRIO, config);
+ 			macb0: ethernet@fffbc000 {
+-				compatible = "cdns,at32ap7000-macb", "cdns,macb";
++				compatible = "cdns,at91sam9260-macb", "cdns,macb";
+ 				reg = <0xfffbc000 0x100>;
+ 				interrupts = <25 IRQ_TYPE_LEVEL_HIGH 3>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/at91sam9x5_macb0.dtsi b/arch/arm/boot/dts/at91sam9x5_macb0.dtsi
+index 57e89d1..73d7e30 100644
+--- a/arch/arm/boot/dts/at91sam9x5_macb0.dtsi
++++ b/arch/arm/boot/dts/at91sam9x5_macb0.dtsi
+@@ -53,7 +53,7 @@
+ 			};
  
- 	err = register_netdev(dev);
- 	if (err) {
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 31dc080..efe0247 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -389,6 +389,8 @@
+ 			macb0: ethernet@f802c000 {
+-				compatible = "cdns,at32ap7000-macb", "cdns,macb";
++				compatible = "cdns,at91sam9260-macb", "cdns,macb";
+ 				reg = <0xf802c000 0x100>;
+ 				interrupts = <24 IRQ_TYPE_LEVEL_HIGH 3>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/at91sam9x5_macb1.dtsi b/arch/arm/boot/dts/at91sam9x5_macb1.dtsi
+index 663676c..d81980c 100644
+--- a/arch/arm/boot/dts/at91sam9x5_macb1.dtsi
++++ b/arch/arm/boot/dts/at91sam9x5_macb1.dtsi
+@@ -41,7 +41,7 @@
+ 			};
  
- /* Capability mask bits */
- #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
-+#define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
-+#define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
- #define MACB_CAPS_FIFO_MODE			0x10000000
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
+ 			macb1: ethernet@f8030000 {
+-				compatible = "cdns,at32ap7000-macb", "cdns,macb";
++				compatible = "cdns,at91sam9260-macb", "cdns,macb";
+ 				reg = <0xf8030000 0x100>;
+ 				interrupts = <27 IRQ_TYPE_LEVEL_HIGH 3>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/sama5d3_emac.dtsi b/arch/arm/boot/dts/sama5d3_emac.dtsi
+index fe2af92..b4544cf 100644
+--- a/arch/arm/boot/dts/sama5d3_emac.dtsi
++++ b/arch/arm/boot/dts/sama5d3_emac.dtsi
+@@ -41,7 +41,7 @@
+ 			};
+ 
+ 			macb1: ethernet@f802c000 {
+-				compatible = "cdns,at32ap7000-macb", "cdns,macb";
++				compatible = "cdns,at91sam9260-macb", "cdns,macb";
+ 				reg = <0xf802c000 0x100>;
+ 				interrupts = <35 IRQ_TYPE_LEVEL_HIGH 3>;
+ 				pinctrl-names = "default";
 -- 
 1.9.1
