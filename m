@@ -1,8 +1,8 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2 0/3] net: macb: rework at91 specific handling
-Date: Fri, 6 Mar 2015 17:44:44 +0100
-Message-ID: <54F9D97C.3050100@atmel.com>
-References: <1425637442-8724-1-git-send-email-boris.brezillon@free-electrons.com>
+Subject: Re: [PATCH v2 1/3] net/macb: Update DT bindings documentation
+Date: Fri, 6 Mar 2015 17:45:00 +0100
+Message-ID: <54F9D98C.2020807@atmel.com>
+References: <1425637442-8724-1-git-send-email-boris.brezillon@free-electrons.com> <1425637442-8724-2-git-send-email-boris.brezillon@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -18,46 +18,49 @@ Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
 To: Boris Brezillon <boris.brezillon@free-electrons.com>,
 	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425637442-8724-1-git-send-email-boris.brezillon@free-electrons.com>
+In-Reply-To: <1425637442-8724-2-git-send-email-boris.brezillon@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 06/03/2015 11:23, Boris Brezillon a =E9crit :
-> Hello,
+Le 06/03/2015 11:24, Boris Brezillon a =E9crit :
+> Add missing "cdns,at91sam9260-macb", "atmel,sama5d3-gem" and
+> "atmel,sama5d4-gem" compatible strings.
 >=20
-> This removes the #if defined(ARCH_AT91) sections to prevent any probl=
-em
-> when enabling ARM multi-platform support.
-> The at91 specific logic is now activated when the "at91sam9260-macb"
-> compatible string is found.=20
->=20
-> Best Regards,
->=20
-> Boris
+> Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+> Reviewed-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
 
-I'm okay with the whole series:
 Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
+> ---
+>  Documentation/devicetree/bindings/net/macb.txt | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 >=20
-> Changes since v1:
-> - avoid changing existing behavior as Alexandre suggested
->=20
-> Boris Brezillon (3):
->   net/macb: Update DT bindings documentation
->   ARM: at91/dt: fix macb compatible strings
->   net: macb: remove #if defined(CONFIG_ARCH_AT91) sections
->=20
->  Documentation/devicetree/bindings/net/macb.txt |  5 +++-
->  arch/arm/boot/dts/at91sam9260.dtsi             |  2 +-
->  arch/arm/boot/dts/at91sam9263.dtsi             |  2 +-
->  arch/arm/boot/dts/at91sam9g45.dtsi             |  2 +-
->  arch/arm/boot/dts/at91sam9x5_macb0.dtsi        |  2 +-
->  arch/arm/boot/dts/at91sam9x5_macb1.dtsi        |  2 +-
->  arch/arm/boot/dts/sama5d3_emac.dtsi            |  2 +-
->  drivers/net/ethernet/cadence/macb.c            | 32 ++++++++++++++--=
-----------
->  drivers/net/ethernet/cadence/macb.h            |  2 ++
->  9 files changed, 29 insertions(+), 22 deletions(-)
+> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documen=
+tation/devicetree/bindings/net/macb.txt
+> index aaa6964..ba19d67 100644
+> --- a/Documentation/devicetree/bindings/net/macb.txt
+> +++ b/Documentation/devicetree/bindings/net/macb.txt
+> @@ -2,10 +2,13 @@
+> =20
+>  Required properties:
+>  - compatible: Should be "cdns,[<chip>-]{macb|gem}"
+> -  Use "cdns,at91sam9260-macb" Atmel at91sam9260 and at91sam9263 SoCs=
+=2E
+> +  Use "cdns,at91sam9260-macb" for Atmel at91sam9 SoCs or the 10/100M=
+bit IP
+> +  available on sama5d3 SoCs.
+>    Use "cdns,at32ap7000-macb" for other 10/100 usage or use the gener=
+ic form: "cdns,macb".
+>    Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later device=
+s based on
+>    the Cadence GEM, or the generic form: "cdns,gem".
+> +  Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5=
+d3 SoCs.
+> +  Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5=
+d4 SoCs.
+>  - reg: Address and length of the register set for the device
+>  - interrupts: Should contain macb interrupt
+>  - phy-mode: See ethernet.txt file in the same directory.
 >=20
 
 
