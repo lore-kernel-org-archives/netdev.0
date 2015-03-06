@@ -1,50 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to
- traverse the bridge without hitting netfilter
-Date: Fri, 06 Mar 2015 12:49:30 -0500 (EST)
-Message-ID: <20150306.124930.216237089666857656.davem@davemloft.net>
-References: <54EEF32D.2010202@amazon.de>
-	<20150226.113431.238255529591339000.davem@davemloft.net>
-	<54F982B5.90108@gmail.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH v2 00/10] The rest of the FIB patches (add
+ key_vector to fib_table)
+Date: Fri, 06 Mar 2015 09:53:49 -0800
+Message-ID: <20150306174814.2452.18308.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, imrep@amazon.de, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, fw@strlen.de,
-	linux-kernel@vger.kernel.org, aliguori@amazon.com
-To: imrep.amz@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <54F982B5.90108@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45305 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753429AbbCFRxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2015 12:53:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Imre Palik <imrep.amz@gmail.com>
-Date: Fri, 06 Mar 2015 11:34:29 +0100
+This patch series is the rest of what I had originally planned for this kernel
+release.  It adds a structure called key_vector which is embedded within
+every tnode, leaf, and the trie root itself.  By doing this we can navigate
+from any point within the trie to any other point fairly quickly and
+avoiding NULL pointer checks in the case of a backtrace.  As a result we
+can pipeline things a bit further since we don't have to worry about
+dereferencing NULL in a backtrace.  This can amount to significant savings
+on a long backtrace.
 
-> Removed those pieces of the packet pipeline that I don't necessarily
-> need one-by-one.  Then measured their effect on small packet
-> performance.
-> 
-> This was the only part that produced considerable effect.
-> 
-> The pure speculation was about why the effect is more than 15%
-> increase in packet throughput, although the code path avoided
-> contains way less code than 15% of the packet pipeline.  It seems,
-> Felix Fietkau profiled similar changes, and found my guess well
-> founded.
+I decided to drop the up-level code as that conflicts with combining the
+main and local tries.  I have one patch as an RFC that currently combines
+the tries however it still needs some work as we have to split the local
+and main tries in the event of custom rules being defined.  As such we are
+probably going to be doing some more hacking on fib_table_flush_external as
+that will also need to flush the local entries from the main trie and place
+them back in the local trie.
 
-Yes and that's the part being left out, the "why".
+v2: Rebased on the switchdev FIB offload work
 
-That's part of what I expect in the justification.
+---
 
-Look, we're not doing things this way.  We need to find a clean
-and generic way to make the netfilter hooks as cheap as possible
-when netfilter rules are not in use.
+Alexander Duyck (10):
+      fib_trie: Minor cleanups to fib_table_flush_external
+      fib_trie: Return pointer to tnode pointer in resize/inflate/halve
+      fib_trie: Rename tnode to key_vector
+      fib_trie: replace tnode_get_child functions with get_child macros
+      fib_trie: Rename tnode_child_length to child_length
+      fib_trie: Add tnode struct as a container for fields not needed in key_vector
+      fib_trie: Move rcu from key_vector to tnode, add accessors.
+      fib_trie: Pull empty_children and full_children into tnode
+      fib_trie: Move parent from key_vector to tnode
+      fib_trie: Add key vector to root, return parent key_vector in resize
+
+
+ net/ipv4/fib_trie.c |  807 +++++++++++++++++++++++++--------------------------
+ 1 file changed, 401 insertions(+), 406 deletions(-)
+
+--
