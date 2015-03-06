@@ -1,57 +1,104 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: fix unbalanced clk disable on driver unbind
-Date: Fri, 6 Mar 2015 01:22:09 +0000
-Message-ID: <BY2PR03MB3779D6C22F6089A410E3331F51C0@BY2PR03MB377.namprd03.prod.outlook.com>
-References: <1425564569-12184-1-git-send-email-stefan@agner.ch>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next v1] bonding: implement bond_poll_controller()
+Date: Thu, 5 Mar 2015 17:37:42 -0800
+Message-ID: <CAF2d9jjH-8FkZwkNPF3iC=3cVLnGi739amwchWZ7hRqHj_DeJA@mail.gmail.com>
+References: <1425522400-3671-1-git-send-email-maheshb@google.com> <1425557425.3164.55.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stefan Agner <stefan@agner.ch>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425564569-12184-1-git-send-email-stefan@agner.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:44555 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755289AbbCFBiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 20:38:05 -0500
+Received: by obcuy5 with SMTP id uy5so10796098obc.11
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 17:38:02 -0800 (PST)
+In-Reply-To: <1425557425.3164.55.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Agner <stefan@agner.ch> Sent: Thursday, March 05, 2015 10:09 PM
-> To: davem@davemloft.net
-> Cc: Duan Fugang-B38611; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; stefan@agner.ch
-> Subject: [PATCH] net: fec: fix unbalanced clk disable on driver unbind
-> 
-> When the driver is removed (e.g. using unbind through sysfs), the clocks
-> get disabled twice, once on fec_enet_close and once on fec_drv_remove.
-> Since the clocks are enabled only once, this leads to a warning:
-> 
-> WARNING: CPU: 0 PID: 402 at drivers/clk/clk.c:992
-> clk_core_disable+0x64/0x68()
-> 
-> Remove the call to fec_enet_clk_enable in fec_drv_remove to balance the
-> clock enable/disable calls again. This has been introduce by e8fcfcd5684a
-> ("net: fec: optimize the clock management to save power").
-> 
-> Signed-off-by: Stefan Agner <stefan@agner.ch>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 9bb6220..5fbdf72 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -3383,7 +3383,6 @@ fec_drv_remove(struct platform_device *pdev)
->  		regulator_disable(fep->reg_phy);
->  	if (fep->ptp_clock)
->  		ptp_clock_unregister(fep->ptp_clock);
-> -	fec_enet_clk_enable(ndev, false);
->  	of_node_put(fep->phy_node);
->  	free_netdev(ndev);
-> 
+On Thu, Mar 5, 2015 at 4:10 AM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> On Wed, 2015-03-04 at 18:26 -0800, Mahesh Bandewar wrote:
+>> This patches implements the poll_controller support for all
+>> bonding driver. If the slaves have poll_controller net_op defined,
+>> this implementation calls them. This is mode agnostic implementation
+>> and iterates through all slaves (based on mode) and calls respective
+>> handler.
+>>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> ---
+>>  drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
+>>  1 file changed, 33 insertions(+)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index af5908a2190c..cbf77d388f53 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slave *slave)
+>>
+>>  static void bond_poll_controller(struct net_device *bond_dev)
+>>  {
+>> +     struct bonding *bond = netdev_priv(bond_dev);
+>> +     struct slave *slave = NULL;
+>> +     struct list_head *iter;
+>> +     struct ad_info ad_info;
+>> +     struct netpoll_info *ni;
+>> +     const struct net_device_ops *ops;
+>> +
+>> +     if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>> +             if (bond_3ad_get_active_agg_info(bond, &ad_info))
+>> +                     return;
+>
+> I don't think you need all that information...
+>
+>> +     rcu_read_lock();
+>> +     bond_for_each_slave_rcu(bond, slave, iter) {
+>> +             ops = slave->dev->netdev_ops;
+>> +             if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
+>> +                     continue;
+>> +
+>> +             if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+>> +                     struct aggregator *agg =
+>> +                         SLAVE_AD_INFO(slave)->port.aggregator;
+>> +
+>> +                     if (agg &&
+>> +                         agg->aggregator_identifier != ad_info.aggregator_id)
+>> +                             continue;
+>
+> I think this could be:
+>
+>                         if (!(agg && agg->is_active))
+>                                 continue;
+>
+> Ben.
+>
+yes, thanks for this micro-optimization.
+
+>> +             }
+>> +
+>> +             ni = rcu_dereference_bh(slave->dev->npinfo);
+>> +             if (down_trylock(&ni->dev_lock))
+>> +                     continue;
+>> +             ops->ndo_poll_controller(slave->dev);
+>> +             up(&ni->dev_lock);
+>> +     }
+>> +     rcu_read_unlock();
+>>  }
+>>
+>>  static void bond_netpoll_cleanup(struct net_device *bond_dev)
+>
 > --
-> 2.3.0
-
-Acked-by: Fugang Duan <B38611@freescale.com>
+> Ben Hutchings
+> Beware of programmers who carry screwdrivers. - Leonard Brandwein
+>
+> --
+> Ben Hutchings
+> Beware of programmers who carry screwdrivers. - Leonard Brandwein
