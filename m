@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 00/10] The rest of the FIB patches (add
- key_vector to fib_table)
-Date: Fri, 06 Mar 2015 15:52:05 -0500 (EST)
-Message-ID: <20150306.155205.1495845027833807835.davem@davemloft.net>
-References: <20150306174814.2452.18308.stgit@ahduyck-vm-fedora20>
+Subject: Re: [PATCH v2 net-next] net: gro: remove obsolete code from
+ skb_gro_receive()
+Date: Fri, 06 Mar 2015 15:59:32 -0500 (EST)
+Message-ID: <20150306.155932.2228013423238139112.davem@davemloft.net>
+References: <1425592068.5130.266.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150306.010441.1755035570297062470.davem@davemloft.net>
+	<1425674388.18614.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56207 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56311 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932092AbbCFUwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:52:08 -0500
-In-Reply-To: <20150306174814.2452.18308.stgit@ahduyck-vm-fedora20>
+	with ESMTP id S1750892AbbCFU7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:59:34 -0500
+In-Reply-To: <1425674388.18614.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Fri, 06 Mar 2015 09:53:49 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 06 Mar 2015 12:39:48 -0800
 
-> This patch series is the rest of what I had originally planned for this kernel
-> release.  It adds a structure called key_vector which is embedded within
-> every tnode, leaf, and the trie root itself.  By doing this we can navigate
-> from any point within the trie to any other point fairly quickly and
-> avoiding NULL pointer checks in the case of a backtrace.  As a result we
-> can pipeline things a bit further since we don't have to worry about
-> dereferencing NULL in a backtrace.  This can amount to significant savings
-> on a long backtrace.
+> On Fri, 2015-03-06 at 01:04 -0500, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
 > 
-> I decided to drop the up-level code as that conflicts with combining the
-> main and local tries.  I have one patch as an RFC that currently combines
-> the tries however it still needs some work as we have to split the local
-> and main tries in the event of custom rules being defined.  As such we are
-> probably going to be doing some more hacking on fib_table_flush_external as
-> that will also need to flush the local entries from the main trie and place
-> them back in the local trie.
+>> > v2: removed headroom & nskb variables, no longer needed.
+>> 
+>> Looks good, applied, thanks!
 > 
-> v2: Rebased on the switchdev FIB offload work
+> Strange, I do not see it on net-next ?
 
-Looks good, series applied, thanks Alex.
+I left changes on my workstation at home before going to the office today,
+will fix things up tonight.
+
+I suggested to Daniel, also effect by this brain-o, that I should setup
+my workstations to deliver an electric shock to me if I leave unpushed
+GIT changes around.
