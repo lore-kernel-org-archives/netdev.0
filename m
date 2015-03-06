@@ -1,113 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] igb: Make arrays on stack static const to avoid reallocation
-Date: Fri,  6 Mar 2015 03:06:04 -0800
-Message-ID: <1425639966-6829-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/6] e1000: call netif_carrier_off early on down
+Date: Fri,  6 Mar 2015 03:06:05 -0800
+Message-ID: <1425639966-6829-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425639966-6829-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:46782 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:50981 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756081AbbCFLGM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756082AbbCFLGM (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Mar 2015 06:06:12 -0500
 In-Reply-To: <1425639966-6829-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 
-While addressing the pin problem I noticed that all of the pin register
-values where having to be pushed onto the stack each time the function was
-called.  To avoid that I am making them static const so that they should
-only need to be allocated once and we can avoid all the instructions to get
-them onto the stack..
+When bringing down an interface netif_carrier_off() should be
+one the first things we do, since this will prevent the stack
+from queuing more packets to this interface.
+This operation is very fast, and should make the device behave
+much nicer when trying to bring down an interface under load.
 
-size before:
-   text	   data	    bss	    dec	    hex	filename
- 161477	  10512	      8	 171997	  29fdd	drivers/net/ethernet/intel/igb/igb.ko
+Also, this would Do The Right Thing (TM) if this device has some
+sort of fail-over teaming and redirect traffic to the other IF.
 
-size after:
-   text	   data	    bss	    dec	    hex	filename
- 161205	  10512	      8	 171725	  29ecd	drivers/net/ethernet/intel/igb/igb.ko
+Move netif_carrier_off as early as possible.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 525e5c4..d6be4c6 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -358,7 +358,7 @@ static int igb_ptp_settime_i210(struct ptp_clock_info *ptp,
- static void igb_pin_direction(int pin, int input, u32 *ctrl, u32 *ctrl_ext)
- {
- 	u32 *ptr = pin < 2 ? ctrl : ctrl_ext;
--	u32 mask[IGB_N_SDP] = {
-+	static const u32 mask[IGB_N_SDP] = {
- 		E1000_CTRL_SDP0_DIR,
- 		E1000_CTRL_SDP1_DIR,
- 		E1000_CTRL_EXT_SDP2_DIR,
-@@ -373,16 +373,16 @@ static void igb_pin_direction(int pin, int input, u32 *ctrl, u32 *ctrl_ext)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 7f997d3..26dcb44 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -516,6 +516,7 @@ void e1000_down(struct e1000_adapter *adapter)
+ 	struct net_device *netdev = adapter->netdev;
+ 	u32 rctl, tctl;
  
- static void igb_pin_extts(struct igb_adapter *igb, int chan, int pin)
- {
--	struct e1000_hw *hw = &igb->hw;
--	u32 aux0_sel_sdp[IGB_N_SDP] = {
-+	static const u32 aux0_sel_sdp[IGB_N_SDP] = {
- 		AUX0_SEL_SDP0, AUX0_SEL_SDP1, AUX0_SEL_SDP2, AUX0_SEL_SDP3,
- 	};
--	u32 aux1_sel_sdp[IGB_N_SDP] = {
-+	static const u32 aux1_sel_sdp[IGB_N_SDP] = {
- 		AUX1_SEL_SDP0, AUX1_SEL_SDP1, AUX1_SEL_SDP2, AUX1_SEL_SDP3,
- 	};
--	u32 ts_sdp_en[IGB_N_SDP] = {
-+	static const u32 ts_sdp_en[IGB_N_SDP] = {
- 		TS_SDP0_EN, TS_SDP1_EN, TS_SDP2_EN, TS_SDP3_EN,
- 	};
-+	struct e1000_hw *hw = &igb->hw;
- 	u32 ctrl, ctrl_ext, tssdp = 0;
++	netif_carrier_off(netdev);
  
- 	ctrl = rd32(E1000_CTRL);
-@@ -409,28 +409,28 @@ static void igb_pin_extts(struct igb_adapter *igb, int chan, int pin)
+ 	/* disable receives in the hardware */
+ 	rctl = er32(RCTL);
+@@ -544,7 +545,6 @@ void e1000_down(struct e1000_adapter *adapter)
  
- static void igb_pin_perout(struct igb_adapter *igb, int chan, int pin)
- {
--	struct e1000_hw *hw = &igb->hw;
--	u32 aux0_sel_sdp[IGB_N_SDP] = {
-+	static const u32 aux0_sel_sdp[IGB_N_SDP] = {
- 		AUX0_SEL_SDP0, AUX0_SEL_SDP1, AUX0_SEL_SDP2, AUX0_SEL_SDP3,
- 	};
--	u32 aux1_sel_sdp[IGB_N_SDP] = {
-+	static const u32 aux1_sel_sdp[IGB_N_SDP] = {
- 		AUX1_SEL_SDP0, AUX1_SEL_SDP1, AUX1_SEL_SDP2, AUX1_SEL_SDP3,
- 	};
--	u32 ts_sdp_en[IGB_N_SDP] = {
-+	static const u32 ts_sdp_en[IGB_N_SDP] = {
- 		TS_SDP0_EN, TS_SDP1_EN, TS_SDP2_EN, TS_SDP3_EN,
- 	};
--	u32 ts_sdp_sel_tt0[IGB_N_SDP] = {
-+	static const u32 ts_sdp_sel_tt0[IGB_N_SDP] = {
- 		TS_SDP0_SEL_TT0, TS_SDP1_SEL_TT0,
- 		TS_SDP2_SEL_TT0, TS_SDP3_SEL_TT0,
- 	};
--	u32 ts_sdp_sel_tt1[IGB_N_SDP] = {
-+	static const u32 ts_sdp_sel_tt1[IGB_N_SDP] = {
- 		TS_SDP0_SEL_TT1, TS_SDP1_SEL_TT1,
- 		TS_SDP2_SEL_TT1, TS_SDP3_SEL_TT1,
- 	};
--	u32 ts_sdp_sel_clr[IGB_N_SDP] = {
-+	static const u32 ts_sdp_sel_clr[IGB_N_SDP] = {
- 		TS_SDP0_SEL_FC1, TS_SDP1_SEL_FC1,
- 		TS_SDP2_SEL_FC1, TS_SDP3_SEL_FC1,
- 	};
-+	struct e1000_hw *hw = &igb->hw;
- 	u32 ctrl, ctrl_ext, tssdp = 0;
+ 	adapter->link_speed = 0;
+ 	adapter->link_duplex = 0;
+-	netif_carrier_off(netdev);
  
- 	ctrl = rd32(E1000_CTRL);
+ 	e1000_reset(adapter);
+ 	e1000_clean_all_tx_rings(adapter);
 -- 
 1.9.3
