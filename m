@@ -1,51 +1,46 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH net-next 0/5] net: dsa: code re-organization
-Date: Fri, 06 Mar 2015 06:50:24 -0800
-Message-ID: <54F9BEB0.9060609@roeck-us.net>
-References: <1425587708-26786-1-git-send-email-f.fainelli@gmail.com> <20150306.001855.2219598159441758214.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 2/8] netdevice: add IPv4 fib add/del ops
+Date: Fri, 06 Mar 2015 09:55:07 -0500
+Message-ID: <54F9BFCB.5030100@mojatatu.com>
+References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com> <1425619280-27492-3-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
-	andrey.volkov@nexvision.fr
-To: David Miller <davem@davemloft.net>, f.fainelli@gmail.com
+To: sfeldma@gmail.com, netdev@vger.kernel.org, davem@davemloft.net,
+	jiri@resnulli.us, roopa@cumulusnetworks.com,
+	alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:39233 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753883AbbCFOvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 09:51:14 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YTtar-003Do1-UJ
-	for netdev@vger.kernel.org; Fri, 06 Mar 2015 14:51:14 +0000
-In-Reply-To: <20150306.001855.2219598159441758214.davem@davemloft.net>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:43190 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754459AbbCFOzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 09:55:16 -0500
+Received: by igbhn18 with SMTP id hn18so4300448igb.2
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 06:55:15 -0800 (PST)
+In-Reply-To: <1425619280-27492-3-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2015 09:18 PM, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Thu,  5 Mar 2015 12:35:03 -0800
+On 03/06/15 00:21, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
 >
->> This pull request contains the first part of the patches required to implement
->> the grand plan detailed here:
->>
->> http://www.spinics.net/lists/netdev/msg295942.html
->>
->> These are mostly code re-organization and function bodies re-arrangement to
->> allow different callers of lower-level initialization functions for 'struct
->> dsa_switch' and 'struct dsa_switch_tree' to be later introduced.
->>
->> There is no functional code change at this point.
->
-> Looks great, applied, thanks Florian.
->
-I applied the series (and all other pending dsa patches) on top of 4.0-rc2
-and tested the result. Everything is working fine.
+> Add two new ndo ops for IPv4 fib offload support, add and del.  Add uses
+> modifiy semantics if fib entry already offloaded.
 
-Too late for the commit, but anyway
 
-Tested-by: Guenter Roeck <linux@roeck-us.net>
+The above semantic will not express correctly the intent that the tools
+like iproute2 expose and user space expects.
+I think you need to pass the netlink flags to do it correctly at
+the driver level.
+i.e classical table operations per netlink flags (NLM_F_CREATE,
+NLM_F_REPLACE, NLM_F_EXCL, NLM_F_APPEND)
 
-Guenter
+1) Create: NLM_F_CREATE
+2) Create exclusively i.e reject if already created
+(NLM_F_CREATE|NLM_F_EXCL)
+3) Create or modify (which is the semantic you are refering to)
+NLM_F_CREATE|NLM_F_REPLACE
+4) Append - which means "I dont care if it exists, just append it"
+NLM_F_CREATE|NLM_F_APPEND
+
+cheers,
+jamal
