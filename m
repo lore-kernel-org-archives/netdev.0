@@ -1,60 +1,164 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: gro: remove obsolete code from
- skb_gro_receive()
-Date: Fri, 06 Mar 2015 01:04:41 -0500 (EST)
-Message-ID: <20150306.010441.1755035570297062470.davem@davemloft.net>
-References: <1425493600.5130.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1425592068.5130.266.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 8/8] ipmpls: Basic device for injecting packets
+ into an mpls tunnel
+Date: Thu, 5 Mar 2015 22:05:24 -0800
+Message-ID: <CAMs_D19uPsshwSDtwP44GCJNO-xeWDVP7Lp03UnC5c7+J2RtPQ@mail.gmail.com>
+References: <87pp8xx6ik.fsf@x220.int.ebiederm.org>
+	<87lhjlvriq.fsf@x220.int.ebiederm.org>
+	<CAMs_D1-KtgYEG4-4H7L6uWmUYw-vM2pnqVfDJJECPR+v6Y4QTw@mail.gmail.com>
+	<87oao7cznh.fsf@x220.int.ebiederm.org>
+	<CAMs_D18nbQwaFaWd9ojG3b_0G+PzCsSPGnX3_bNAU8MQJ-BhFg@mail.gmail.com>
+	<871tl39q8v.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	roopa <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	santiago@crfreenet.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40496 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755781AbbCFGEn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 01:04:43 -0500
-In-Reply-To: <1425592068.5130.266.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:40275 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755781AbbCFGF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 01:05:26 -0500
+Received: by wghk14 with SMTP id k14so14152695wgh.7
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 22:05:24 -0800 (PST)
+In-Reply-To: <871tl39q8v.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Mar 2015 13:47:48 -0800
+On Thu, Mar 5, 2015 at 11:52 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
+>
+>> On Thu, Mar 5, 2015 at 6:00 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>>> Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
+>>>
+>>>> It is great to see an MPLS data plane implementation make it into the
+>>>> kernel. I have a couple of questions on this patch.
+>>>>
+>>>> On Wed, Feb 25, 2015 at 9:18 AM, Eric W. Biederman
+>>>> <ebiederm@xmission.com> wrote:
+>>>>>
+>>>>>
+>>>>> Allow creating an mpls tunnel endpoint with
+>>>>>
+>>>>> ip link add type ipmpls.
+>>>>>
+>>>>> This tunnel has an mpls label for it's link layer address, and by
+>>>>> default sends all ingress packets over loopback to the local MPLS
+>>>>> forwarding logic which performs all of the work.
+>>>>>
+>>>>
+>>>> Is it correct that to achieve IPoMPLS, each LSP has to be installed as
+>>>> a link/netdevice?
+>>>
+>>> This is still a bit in flux.  The ingress logic is not yet merged.  When
+>>> I resent the patches I did not resend this one as I am less happy with
+>>> it than I am about the others and the problem is orthogonal.
+>>>
+>>>> If ingress packets loopback with the label associated with the link to
+>>>> hit the MPLS forwarding logic, how does it work if each packet has to
+>>>> be then forwarded with a different label stack? One use case is a
+>>>> common IP/MPLS application such as L3VPNs (RFC 4364) where multiple
+>>>> VPNs may reside over the same LSP, each having its own VPN (inner)
+>>>> label.
+>>>
+>>> If we continue using this approach (which I picked because it was simple
+>>> for bootstrapping and testing) the way it would work is that you have a
+>>> local label that when you forward packets with that label all of the
+>>> other needed labels are pushed.
+>>>
+>>
+>> Yes, I can see that this approach is simple for bootstrapping.
+>>
+>> However, I think the need for a local label is going to be bit of a
+>> challenge as well as not intuitive. I say the latter because at an
+>> ingress LSP (i.e., the kernel is performing an MPLS LER function), you
+>> are only pushing labels just based on normal IP routing (or L2, if
+>> implementing a pseudowire), so needing to assign a local label that
+>> then gets popped seems convoluted. The challenge is because the local
+>> label has to be unique for the label stack that needs to be imposed,
+>> it is not just a 1-to-1 mapping with the tunnel.
+>
+> Agreed.
+>
+>>> That said I think the approach I chose has a lot going for it.
+>>>
+>>> Fundamentally I think the ingress to an mpls tunnel fundamentally needs
+>>> the same knobs and parameters as struct mpls_route.  Aka which machine
+>>> do we forward the packets to, and which labels do we push.
+>>>
+>>> The extra decrement of the hop count on ingress is not my favorite
+>>> thing.
+>>>
+>>> The question in my mind is how do we select which mpls route to use.
+>>> Spending a local label for that purpose does not seem particularly
+>>> unreasonable.
+>>>
+>>> Using one network device per tunnel it a bit more questionable.  I keep
+>>> playing with ideas that would allow a single device to serve multiple
+>>> mpls tunnels.
+>>>
+>>
+>> For the scenario I mentioned (L3VPNs) which would be common at the
+>> edge, isn't it a network device per "VPN" (or more precisely, per VPN
+>> per LSP)? I don't think this scales well.
+>
+> We need a data structure in the kernel for each
+> Forwarding Equivalent Class (aka per VPN per LSP) the only question is
+> how expensive that data structure should be.
+>
+> In big-O notation the scaling is equal.  The practical question how large
+> are our constant factors and are they a problem.  If the L3VPN results
+> in enough entries on a machine then it is a scaling problem otherwise
+> not so much.
+>
+>>> For going from normal ip routing to mpls routing somewhere we need the
+>>> the destination ip prefix to mpls tunnel mapping. There are a couple of
+>>> possible ways this could be solved.
+>>> - One ingress network device per mpls tunnel.
+>>> - One ingress network device and with with a a configurable routing
+>>>   prefix to mpls mapping.  Possibly loaded on the fly.  net/atm/clip.c
+>>>   does something like this for ATM virtual circuits.
+>>> - One ingress network device that looks at IP_ROUTE_CLASSID and
+>>>   use that to select the mpls labels to use.
+>>> - Teach the IP network stack how to insert packets in tunnels without
+>>>   needing a magic netdevice.
+>>>
+>>
+>> I feel it should be along the lines of "teach the IP network stack how
+>> to push labels".
+>
+> That phrasing sets off alarms bells in my mind of mpls specific hacks in
+> the kernel, which most likely will cause performance regression and
+> maintenance complications.
+>
+>> In general, MPLS LSPs can be setup as hop-by-hop
+>> routed LSPs (when using a signaling protocol like LDP or BGP) as well
+>> as tunnels that may take a different path than normal routing. I feel
+>> it is good if the dataplane can support both models. In the former,
+>> the IP network stack should push the labels which are just
+>> encapsulation and then just transmit on the underlying netdevice that
+>> corresponds to the neighbor interface. To achieve this, maybe it is
+>> the neighbor (nexthop) that has to reference the mpls_route. In the
+>> latter (LSPs are treated as tunnels and/or this is the only model
+>> supported), the IP network stack would still need to impose any inner
+>> labels (i.e., VPN or pseudowire, later on Entropy or Segment labels)
+>> and then transmit over the tunnel netdevice which would impose the
+>> tunnel label.
+>
+> Potentially.  This part of the discussion has reached the point where I
+> need to see code to carry this part of the discussion any farther.
+>
+> Eric
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Some drivers use copybreak to copy tiny frames into smaller skb,
-> and this smaller skb might not have skb->head_frag set for various
-> reasons.
-> 
-> skb_gro_receive() currently doesn't allow to aggregate the smaller skb
-> into the previous GRO packet if this GRO packet has at least 2 MSS in
-> it.
-> 
-> Following workload easily demonstrates the problem.
-> 
-> netperf -t TCP_RR -H target -- -r 3000,3000 
-> 
-> (tcpdump shows one GRO packet with 2 MSS, plus one additional packet of
-> 104 bytes that should have been appended.)
-> 
-> It turns out that we can remove code from skb_gro_receive(), because
-> commit 8a29111c7ca6 ("net: gro: allow to build full sized skb") and its
-> followups removed the assumption that a GRO packet with a frag_list had
-> to have an empty head.
-> 
-> Removing this code allows the aggregation of the last (incomplete) frame
-> in some RPC workloads. Note that tcp_gro_receive() already takes care of
-> forcing a flush if necessary, including this case.
-> 
-> If we want to avoid using frag_list in the first place (in forwarding
-> workloads for example, as the outgoing NIC is generally not able to cope
-> with skbs having a frag_list), we need to address this separately.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> ---
-> v2: removed headroom & nskb variables, no longer needed.
+I'm in full agreement too that there shouldn't be any mpls-specific
+hacks in the kernel.
 
-Looks good, applied, thanks!
+Thank you for the discussion. We shall take your patches and
+brainstorm internally on what we'd add or change. As soon as we have
+code to share, I'll come back to seek opinion and continue the
+discussion.
+
+Vivek
