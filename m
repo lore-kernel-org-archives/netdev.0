@@ -1,160 +1,59 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v1] mv643xx_eth: only account for work done in
- rxq_process in poll callback.
-Date: Fri, 6 Mar 2015 22:49:08 +0100
-Message-ID: <20150306214908.GA15939@electric-eye.fr.zoreil.com>
-References: <1425492124-5033-1-git-send-email-nschichan@freebox.fr>
- <20150304213235.GA20596@electric-eye.fr.zoreil.com>
- <54F9D590.5000406@freebox.fr>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/2] mv88e6131: bonding: implement single device
+ trunking
+Date: Fri, 6 Mar 2015 22:47:23 +0100
+Message-ID: <20150306214723.GB582@lunn.ch>
+References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
+ <1424429473-4601-3-git-send-email-jonasj76@gmail.com>
+ <20150220152644.GD13797@lunn.ch>
+ <54F9DEAA.50606@gmail.com>
+ <20150306192359.GA582@lunn.ch>
+ <54FA125E.6050605@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Schichan <nschichan@freebox.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
+	Jonas Johansson <jonas.johansson@westermo.se>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:54666 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754469AbbCFVui (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2015 16:50:38 -0500
 Content-Disposition: inline
-In-Reply-To: <54F9D590.5000406@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <54FA125E.6050605@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas Schichan <nschichan@freebox.fr> :
-[...]
-> I was trying to minimize the code changes wrt the current source, but if you
-> want that change to be in the same patch, I can certainly respin a V2 with it.
+Hi Florian
 
-No need to respin, you elegantly minimized the changes. The body of the
-while loop could be more spartan, especially with bql in sight. Say:
+> Most Broadcom switches, either SF2 or roboswitch (b53) have a limit of 2
+> trunking groups, without limitations on the number of ports included in
+> any of these two groups.
 
-@@ -1041,52 +1041,37 @@ out:
- 	mp->work_tx_end &= ~(1 << txq->index);
- }
+O.K, so maybe we want the basic resource management in the DSA layer,
+not the switch drivers.
  
--static int txq_reclaim(struct tx_queue *txq, int budget, int force)
-+static void txq_reclaim(struct tx_queue *txq, int force)
- {
- 	struct mv643xx_eth_private *mp = txq_to_mp(txq);
--	struct netdev_queue *nq = netdev_get_tx_queue(mp->dev, txq->index);
--	int reclaimed;
-+	struct net_device *dev = mp->dev;
-+	struct netdev_queue *nq = netdev_get_tx_queue(dev, txq->index);
-+	int used = txq->tx_used_desc;
-+	int count;
- 
--	__netif_tx_lock_bh(nq);
-+	mp->work_tx &= ~(1 << txq->index);
- 
--	reclaimed = 0;
--	while (reclaimed < budget && txq->tx_desc_count > 0) {
--		int tx_index;
--		struct tx_desc *desc;
--		u32 cmd_sts;
--		char desc_dma_map;
--
--		tx_index = txq->tx_used_desc;
--		desc = &txq->tx_desc_area[tx_index];
--		desc_dma_map = txq->tx_desc_mapping[tx_index];
-+	__netif_tx_lock(nq, smp_processor_id());
- 
--		cmd_sts = desc->cmd_sts;
-+	for (count = txq->tx_desc_count; count > 0; count--) {
-+		struct tx_desc *desc = &txq->tx_desc_area[used];
-+		char desc_dma_map = txq->tx_desc_mapping[used];
- 
--		if (cmd_sts & BUFFER_OWNED_BY_DMA) {
-+		if (desc->cmd_sts & BUFFER_OWNED_BY_DMA) {
- 			if (!force)
- 				break;
--			desc->cmd_sts = cmd_sts & ~BUFFER_OWNED_BY_DMA;
-+			desc->cmd_sts &= ~BUFFER_OWNED_BY_DMA;
- 		}
- 
--		txq->tx_used_desc = tx_index + 1;
--		if (txq->tx_used_desc == txq->tx_ring_size)
--			txq->tx_used_desc = 0;
--
--		reclaimed++;
--		txq->tx_desc_count--;
-+		used = (used + 1) % txq->tx_ring_size;
- 
- 		if (!IS_TSO_HEADER(txq, desc->buf_ptr)) {
--
- 			if (desc_dma_map == DESC_DMA_MAP_PAGE)
--				dma_unmap_page(mp->dev->dev.parent,
--					       desc->buf_ptr,
--					       desc->byte_cnt,
--					       DMA_TO_DEVICE);
-+				dma_unmap_page(dev->dev.parent, desc->buf_ptr,
-+					       desc->byte_cnt, DMA_TO_DEVICE);
- 			else
--				dma_unmap_single(mp->dev->dev.parent,
--						 desc->buf_ptr,
--						 desc->byte_cnt,
--						 DMA_TO_DEVICE);
-+				dma_unmap_single(dev->dev.parent, desc->buf_ptr,
-+						 desc->byte_cnt, DMA_TO_DEVICE);
- 		}
- 
- 		if (cmd_sts & TX_ENABLE_INTERRUPT) {
-@@ -1097,18 +1082,15 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
- 		}
- 
- 		if (cmd_sts & ERROR_SUMMARY) {
--			netdev_info(mp->dev, "tx error\n");
--			mp->dev->stats.tx_errors++;
-+			netdev_info(dev, "tx error\n");
-+			dev->stats.tx_errors++;
- 		}
--
- 	}
- 
--	__netif_tx_unlock_bh(nq);
--
--	if (reclaimed < budget)
--		mp->work_tx &= ~(1 << txq->index);
-+	txq->tx_used_desc = used;
-+	txq->tx_desc_count = count;
- 
--	return reclaimed;
-+	__netif_tx_unlock(nq);
- }
- 
-Nobody uses txq_reclaim return status code. You can turn it void.
+> The larger question is once we start advertising capabilities, where
+> does that stop, right? It would probably be simpler for now to e.g:
+> allow 2 trunking groups to be configured, and when trying to configure a
+> 3rd one, return -ENOSPC and act upon that to either take the software
+> slow path (which is probably not possible) or just return a hard error
+> condition.
 
-[...]
-> > work_tx is also updated in irq context. I'd rather see "clear_flag() then
-> > reclaim()" than "reclaim() then clear_flag()" in a subsequent patch.
-> 
-> Just to be sure that I understand the issue here, under normal conditions,
-> work_tx is updated in irq context via mv643xx_eth_collect_events() and then
-> the mv643xx interrupts are masked and napi_schedule() is called. Only once all
-> the work has been completed in the poll callback and the work flags have been
-> cleared, are the interrupt unmasked and napi_complete() is called. As far as I
-> can see there should be no issue here.
+This is more than a DSA question. It applies to all the hardware
+acceleration being discussed at the moment. As you hinted to above, i
+suppose we have two different situations:
 
-IRQF_SHARED and mv643xx_eth_netpoll make me marginally nervous.
+1) We can fall back to a software slow path.
 
-My concern was mostly stylistic given the current code. Things get
-easier - call me lazy - if the bit is cleared before reclaiming.
+2) There is no software fallback, we have to error out, and it would
+   be nice to have a well defined error code for out of hardware
+   resources.
 
-> The only problem I can see is in OOM condition when napi_schedule is called
-> from a timer callback (oom_timer_wrapper()) which will result in the poll
-> callback being called with the interrupts unmasked and if an interrupt fires
-> (possibly in an other CPU) at the wrong time, mv643xx_eth_collect_events()
-> will race with the various flags clear in txq_reclaim, rxq_process and
-> rxq_refill ?
+We also should think about how we tell user space we have fallen back
+to a slow path. I'm sure users want to know why it works, but works
+much slower.
 
-<knee jerk>
-You can ignore OOM: the driver should drop received packets immediately
-instead of poking holes in its receive descriptor ring.
-</knee jerk>
-
-> In that case wouldn't be something like clear_bit/set_bit preferred compared
-> to the direct bitwise operations ?
-
-I don't have any strong feeling about it.
-
-Thanks.
-
--- 
-Ueimor
+     Andrew
