@@ -1,41 +1,69 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] tc class: Show class names from file
-Date: Fri, 6 Mar 2015 13:06:47 +0200
-Message-ID: <20150306110647.GA17353@angus-think.wlc.globallogic.com>
-References: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
- <20150303095845.5aa844a0@urahara>
- <20150303185249.GA2227@angus-think.lan>
- <20150305162716.6145cdf2@urahara>
+From: Boris Brezillon <boris.brezillon@free-electrons.com>
+Subject: Re: [PATCH 3/3] net: macb: remove #if defined(CONFIG_ARCH_AT91)
+ sections
+Date: Fri, 6 Mar 2015 12:25:49 +0100
+Message-ID: <20150306122549.314c6439@bbrezillon>
+References: <1425572842-6084-1-git-send-email-boris.brezillon@free-electrons.com>
+	<1425572842-6084-4-git-send-email-boris.brezillon@free-electrons.com>
+	<20150305194418.GY3989@piout.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:35921 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756599AbbCFLSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 06:18:32 -0500
-Received: by lbiz11 with SMTP id z11so30912655lbi.3
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 03:18:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150305162716.6145cdf2@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150305194418.GY3989@piout.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 05, 2015 at 04:27:16PM -0800, Stephen Hemminger wrote:
-> On Tue, 3 Mar 2015 20:52:49 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
+On Thu, 5 Mar 2015 20:44:18 +0100
+Alexandre Belloni <alexandre.belloni@free-electrons.com> wrote:
+
+> On 05/03/2015 at 17:27:22 +0100, Boris Brezillon wrote :
+> > @@ -2388,21 +2392,20 @@ static int macb_probe(struct platform_device *pdev)
+> >  		bp->phy_interface = err;
+> >  	}
+> >  
+> > +	config = 0;
+> >  	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
+> > -		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
+> > -	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
+> > -#if defined(CONFIG_ARCH_AT91)
+> > -		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
+> > -					       MACB_BIT(CLKEN)));
+> > -#else
+> > -		macb_or_gem_writel(bp, USRIO, 0);
+> > -#endif
+> > -	else
+> > -#if defined(CONFIG_ARCH_AT91)
+> > -		macb_or_gem_writel(bp, USRIO, MACB_BIT(CLKEN));
+> > -#else
+> > -		macb_or_gem_writel(bp, USRIO, MACB_BIT(MII));
+> > -#endif
+> > +		config = GEM_BIT(RGMII);
+> > +	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
+> > +		 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
+> > +		config = MACB_BIT(RMII);
+> > +	else if (bp->phy_interface == PHY_INTERFACE_MODE_MII &&
 > 
-> > Sorry I did not get how this adds the dependency for berkely db ?
-> > Would you please help me to understand the problem ?
-> > 
-> > Thanks,
-> 
-> Sorry, i was thinking and typing at same time.
-> I was thinking this would be a good case for using a berkely db for
-> 1000's of classes, but a file works ok.
+> I'm not sure you should check for PHY_INTERFACE_MODE_MII here as this
+> may change the previous behaviour.
 
-I think that /etc/iproute2/tc_cls might be better name for the default db file.
+Absolutely (I fixed it in v2).
 
-Also if this feature have chance to be applied I will try to add ability
-to use class name to other places - 'tc filter', 'tc class del/change/show'.
+Thanks,
+
+Boris
+
+-- 
+Boris Brezillon, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
