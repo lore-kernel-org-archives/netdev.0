@@ -1,57 +1,81 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] mv88e6131: bonding: implement single device
- trunking
-Date: Fri, 6 Mar 2015 20:23:59 +0100
-Message-ID: <20150306192359.GA582@lunn.ch>
-References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
- <1424429473-4601-3-git-send-email-jonasj76@gmail.com>
- <20150220152644.GD13797@lunn.ch>
- <54F9DEAA.50606@gmail.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [PATCH] team: add support to get speed via ethtool
+Date: Fri, 06 Mar 2015 11:30:53 -0800
+Message-ID: <54FA006D.3010604@intel.com>
+References: <1425592115-1750-1-git-send-email-sridhar.samudrala@intel.com> <20150306071617.GA2011@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
-	Jonas Johansson <jonas.johansson@westermo.se>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54578 "EHLO vps0.lunn.ch"
+Received: from mga02.intel.com ([134.134.136.20]:36013 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755684AbbCFT1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2015 14:27:15 -0500
-Content-Disposition: inline
-In-Reply-To: <54F9DEAA.50606@gmail.com>
+	id S1756839AbbCFTay (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2015 14:30:54 -0500
+In-Reply-To: <20150306071617.GA2011@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 06, 2015 at 09:06:50AM -0800, Florian Fainelli wrote:
-> On 20/02/15 07:26, Andrew Lunn wrote:
-> > On Fri, Feb 20, 2015 at 11:51:13AM +0100, Jonas Johansson wrote:
-> > 
-> > Please could you look at all your functions and see what is specific
-> > to the 6131 and what is generic. Place the generic code into mv88e6xxx
-> > please so we can all use it.
-> 
-> Out of curiosity, how many bonding/trunking groups are supported on the
-> switches models currently in tree?
-> 
-> Let's say there is a limitation: like no more than 2 different bonding
-> groups on a given physical switch, where would we put this limitation,
-> down to the switch driver?
 
-Hi Florian
+On 3/5/2015 11:16 PM, Jiri Pirko wrote:
+> Thu, Mar 05, 2015 at 10:48:35PM CET, sridhar.samudrala@intel.com wrote:
+>> With this patch ethtool <team> OR cat /sys/class/net/<team>/speed
+>> returns the speed of team based on member ports speed and state.
+>>
+>> Based on get speed support in bonding driver.
+>>
+>> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+>> ---
+>> drivers/net/team/team.c | 25 +++++++++++++++++++++++++
+>> 1 file changed, 25 insertions(+)
+>>
+>> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>> index 9d3366f..e822803 100644
+>> --- a/drivers/net/team/team.c
+>> +++ b/drivers/net/team/team.c
+>> @@ -1954,6 +1954,30 @@ static int team_change_carrier(struct net_device *dev, bool new_carrier)
+>> 	return 0;
+>> }
+>>
+>> +static int team_ethtool_get_settings(struct net_device *dev,
+>> +				     struct ethtool_cmd *ecmd)
+>> +{
+>> +	struct team *team = netdev_priv(dev);
+>> +	struct team_port *port;
+>> +	unsigned long speed = 0;
+>> +
+>> +	ecmd->duplex = DUPLEX_UNKNOWN;
+>> +	ecmd->port = PORT_OTHER;
+>> +
+>> +	mutex_lock(&team->lock);
+>> +	list_for_each_entry(port, &team->port_list, list) {
+>> +		if (port->linkup)
+>> +			speed += port->state.speed;
+>> +		if (ecmd->duplex == DUPLEX_UNKNOWN &&
+>> +		    port->state.duplex != 0)
+>> +			ecmd->duplex = port->state.duplex;
+>> +	}
+>> +	ethtool_cmd_speed_set(ecmd, speed);
+>> +	mutex_unlock(&team->lock);
+>> +
+>> +	return 0;
+>> +}
+> Sridar, what exactly you are trying to achieve? I agree with DaveM that
+> this make no sense for soft devices. The fact bonding has it is a
+> mistake.
+>
+We are currently looking into the possibility of using team as a way to
+offload link aggregation support to switch hardware.
+To support LAG, a team device is created and the switch ports are added
+as members of the team. We are considering if we should create a new team
+mode specifically to support offload or the existing modes can be extended
+to enable offloading. Will appreciate any thoughts you have on this?
 
-It is limited, but it seems to be quite a high limit. I don't have
-exact numbers for the devices currently in tree, but i've used an 10
-port switch which had a limit something like 8 trunk groups, and a
-maximum of 8 ports per trunk.
+For the specific usecase of a team where all the member ports correspond
+to offloaded switch ports, does it make sense to support getting speed OR
+we should just leave it to the mgmt apps to figure out the speed based on
+the speed of the member ports?
 
-I suspect we would put the resource tracking in the shared mv88e6xxx
-code, and configure it with the limitations from the specific chip
-driver.
-
-However, does SF2 have similar trunking capabilities, and limits? Does
-it make sense to have this at a higher level so it can be used by all
-drivers?
-
-	Andrew
+Thanks
+Sridhar
