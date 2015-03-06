@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: I can tell no FIB
-Date: Thu, 05 Mar 2015 22:20:28 -0500 (EST)
-Message-ID: <20150305.222028.124409116923713198.davem@davemloft.net>
-References: <54F8D249.4080404@gmail.com>
-	<CAE4R7bB1Z_gBbaUQLXz2FRS3SSVZp__n-PNnGfX16-Apscf=YA@mail.gmail.com>
-	<54F8F2DB.5070901@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCHv5 net-next 1/4] ipv4: Raise tcp PMTU probe mss base size
+Date: Fri,  6 Mar 2015 11:18:22 +0800
+Message-ID: <1425611905-28503-2-git-send-email-fan.du@intel.com>
+References: <1425611905-28503-1-git-send-email-fan.du@intel.com>
+Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38697 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753806AbbCFDUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 22:20:31 -0500
-In-Reply-To: <54F8F2DB.5070901@gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:38531 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754121AbbCFDXT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 22:23:19 -0500
+In-Reply-To: <1425611905-28503-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Thu, 05 Mar 2015 16:20:43 -0800
+Quotes from RFC4821 7.2.  Selecting Initial Values
 
-> Well the last batch of patches are out there, but there isn't any rush
-> on them.  If need be Dave can just leave them in review until we get the
-> thumbs up or down on the v4 changes since I think you and I are probably
-> the only two patching that region for now.  I suspect the changes
-> shouldn't be as bad as the past patches have been since most of it is
-> just reworking structures and updating the resize code.
+   It is RECOMMENDED that search_low be initially set to an MTU size
+   that is likely to work over a very wide range of environments.  Given
+   today's technologies, a value of 1024 bytes is probably safe enough.
+   The initial value for search_low SHOULD be configurable.
 
-Scott just tell me what you want me to do, I can hold off on
-Alex's current series while you put v4 of your stuff together.
+Moreover, set a small value will introduce extra time for the search
+to converge. So set the initial probe base mss size to 1024 Bytes.
+
+Signed-off-by: Fan Du <fan.du@intel.com>
+Acked-by: John Heffner <johnwheffner@gmail.com>
+---
+ include/net/tcp.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 8d6b983..7b57e5b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -65,7 +65,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define TCP_MIN_MSS		88U
+ 
+ /* The least MTU to use for probing */
+-#define TCP_BASE_MSS		512
++#define TCP_BASE_MSS		1024
+ 
+ /* After receiving this amount of duplicate ACKs fast retransmit starts. */
+ #define TCP_FASTRETRANS_THRESH 3
+-- 
+1.7.1
