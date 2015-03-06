@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: ip_check_defrag should not assume that
- skb_network_offset is zero
-Date: Thu, 05 Mar 2015 21:44:02 -0500 (EST)
-Message-ID: <20150305.214402.2193386882481808720.davem@davemloft.net>
-References: <1425540579-27464-1-git-send-email-al.drozdov@gmail.com>
+Subject: Re: [PATCH 0/7] Netfilter/IPVS fixes for net
+Date: Thu, 05 Mar 2015 21:51:27 -0500 (EST)
+Message-ID: <20150305.215127.1701067624231814943.davem@davemloft.net>
+References: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: al.drozdov@gmail.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38293 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38374 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837AbbCFCoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 21:44:04 -0500
-In-Reply-To: <1425540579-27464-1-git-send-email-al.drozdov@gmail.com>
+	with ESMTP id S1751126AbbCFCv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 21:51:29 -0500
+In-Reply-To: <1425588529-4573-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Date: Thu,  5 Mar 2015 10:29:39 +0300
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu,  5 Mar 2015 21:48:42 +0100
 
-> ip_check_defrag() may be used by af_packet to defragment outgoing packets.
-> skb_network_offset() of af_packet's outgoing packets is not zero.
-> 
-> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+> The following patchset contains Netfilter/IPVS fixes for your net tree,
+> they are:
+ ...
 
-Applied, thanks.
+Pulled, thanks a lot Pablo.
