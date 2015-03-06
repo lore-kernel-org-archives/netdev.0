@@ -1,45 +1,134 @@
-From: Michal Sekletar <msekleta@redhat.com>
-Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
-Date: Fri, 6 Mar 2015 09:09:51 +0100
-Message-ID: <20150306080951.GB2841@morgoth.brq.redhat.com>
-References: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
- <54F77336.7040006@plumgrid.com>
- <20150305103715.GA3432@morgoth.brq.redhat.com>
- <54F889EB.7000203@plumgrid.com>
- <54F8B680.4050307@iogearbox.net>
- <54F8BF4A.3090702@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>, guy@alum.mit.edu,
-	atzm@stratosphere.co.jp
-To: Alexei Starovoitov <ast@plumgrid.com>
+From: Boris Brezillon <boris.brezillon@free-electrons.com>
+Subject: [PATCH v2 1/2] net/macb: unify clock management
+Date: Fri,  6 Mar 2015 09:11:26 +0100
+Message-ID: <1425629486-6180-1-git-send-email-boris.brezillon@free-electrons.com>
+References: <1425622439-2372-1-git-send-email-boris.brezillon@free-electrons.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54275 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754365AbbCFIKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2015 03:10:16 -0500
-Content-Disposition: inline
-In-Reply-To: <54F8BF4A.3090702@plumgrid.com>
+Received: from down.free-electrons.com ([37.187.137.238]:35148 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754392AbbCFILb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 03:11:31 -0500
+In-Reply-To: <1425622439-2372-1-git-send-email-boris.brezillon@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 05, 2015 at 12:40:42PM -0800, Alexei Starovoitov wrote:
-> On 3/5/15 12:03 PM, Daniel Borkmann wrote:
-> >On 03/05/2015 05:52 PM, Alexei Starovoitov wrote:
-> >>imo there is a benefit of giving programs more visibility into
-> >>skb metadata.
-> >
-> >I'm not really a big fan of it, but given we added commit a0cdfcf39362
-> >("packet: deliver VLAN TPID to userspace") to packet sockets ...
-> 
-> good point, since skb->vlan_proto is already exposed to user space
-> via that commit, it makes sense to let bpf see it as well.
-> For consistency with tpacket, I'd call it SKF_AD_VLAN_TPID
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
 
-Thanks everyone for taking the time to look into this. I will post v2 soon.
-Hopefully addressing all the problems brought up.
+Most of the functions from the Common Clk Framework handle NULL pointer as
+input argument.
 
-Michal
+Since the TX clock is optional, we now set tx_clk to NULL value
+instead of ERR_PTR(-ENOENT) when this clock is not available. This simplifies
+the clock management and avoid the need to test tx_clk value.
 
-> 
+Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Acked-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+Acked-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 31 ++++++++++++++-----------------
+ 1 file changed, 14 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index a7dbf04..a429cf8 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -213,6 +213,9 @@ static void macb_set_tx_clk(struct clk *clk, int speed, struct net_device *dev)
+ {
+ 	long ferr, rate, rate_rounded;
+ 
++	if (!clk)
++		return;
++
+ 	switch (speed) {
+ 	case SPEED_10:
+ 		rate = 2500000;
+@@ -292,8 +295,7 @@ static void macb_handle_link_change(struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore(&bp->lock, flags);
+ 
+-	if (!IS_ERR(bp->tx_clk))
+-		macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
++	macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
+ 
+ 	if (status_change) {
+ 		if (phydev->link) {
+@@ -2244,6 +2246,8 @@ static int macb_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	tx_clk = devm_clk_get(&pdev->dev, "tx_clk");
++	if (IS_ERR(tx_clk))
++		tx_clk = NULL;
+ 
+ 	err = clk_prepare_enable(pclk);
+ 	if (err) {
+@@ -2257,13 +2261,10 @@ static int macb_probe(struct platform_device *pdev)
+ 		goto err_out_disable_pclk;
+ 	}
+ 
+-	if (!IS_ERR(tx_clk)) {
+-		err = clk_prepare_enable(tx_clk);
+-		if (err) {
+-			dev_err(&pdev->dev, "failed to enable tx_clk (%u)\n",
+-				err);
+-			goto err_out_disable_hclk;
+-		}
++	err = clk_prepare_enable(tx_clk);
++	if (err) {
++		dev_err(&pdev->dev, "failed to enable tx_clk (%u)\n", err);
++		goto err_out_disable_hclk;
+ 	}
+ 
+ 	err = -ENOMEM;
+@@ -2436,8 +2437,7 @@ err_out_unregister_netdev:
+ err_out_free_netdev:
+ 	free_netdev(dev);
+ err_out_disable_clocks:
+-	if (!IS_ERR(tx_clk))
+-		clk_disable_unprepare(tx_clk);
++	clk_disable_unprepare(tx_clk);
+ err_out_disable_hclk:
+ 	clk_disable_unprepare(hclk);
+ err_out_disable_pclk:
+@@ -2461,8 +2461,7 @@ static int macb_remove(struct platform_device *pdev)
+ 		kfree(bp->mii_bus->irq);
+ 		mdiobus_free(bp->mii_bus);
+ 		unregister_netdev(dev);
+-		if (!IS_ERR(bp->tx_clk))
+-			clk_disable_unprepare(bp->tx_clk);
++		clk_disable_unprepare(bp->tx_clk);
+ 		clk_disable_unprepare(bp->hclk);
+ 		clk_disable_unprepare(bp->pclk);
+ 		free_netdev(dev);
+@@ -2480,8 +2479,7 @@ static int __maybe_unused macb_suspend(struct device *dev)
+ 	netif_carrier_off(netdev);
+ 	netif_device_detach(netdev);
+ 
+-	if (!IS_ERR(bp->tx_clk))
+-		clk_disable_unprepare(bp->tx_clk);
++	clk_disable_unprepare(bp->tx_clk);
+ 	clk_disable_unprepare(bp->hclk);
+ 	clk_disable_unprepare(bp->pclk);
+ 
+@@ -2496,8 +2494,7 @@ static int __maybe_unused macb_resume(struct device *dev)
+ 
+ 	clk_prepare_enable(bp->pclk);
+ 	clk_prepare_enable(bp->hclk);
+-	if (!IS_ERR(bp->tx_clk))
+-		clk_prepare_enable(bp->tx_clk);
++	clk_prepare_enable(bp->tx_clk);
+ 
+ 	netif_device_attach(netdev);
+ 
+-- 
+1.9.1
