@@ -1,47 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/8] switchdev: add IPv4 routing offload
-Date: Fri, 06 Mar 2015 00:27:25 -0500 (EST)
-Message-ID: <20150306.002725.2246917689017515390.davem@davemloft.net>
-References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: I can tell no FIB
+Date: Thu, 5 Mar 2015 21:34:46 -0800
+Message-ID: <CAE4R7bCNjmUcUR0pBiknvbF=YR9i=CDZ8CQ4OVpy3KNFhgYSxw@mail.gmail.com>
+References: <54F8D249.4080404@gmail.com>
+	<CAE4R7bB1Z_gBbaUQLXz2FRS3SSVZp__n-PNnGfX16-Apscf=YA@mail.gmail.com>
+	<54F8F2DB.5070901@gmail.com>
+	<20150305.222028.124409116923713198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	roopa@cumulusnetworks.com, alexander.h.duyck@redhat.com
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40114 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755524AbbCFF11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 00:27:27 -0500
-In-Reply-To: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:38660 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755583AbbCFFer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 00:34:47 -0500
+Received: by qgdz60 with SMTP id z60so10436909qgd.5
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 21:34:47 -0800 (PST)
+In-Reply-To: <20150305.222028.124409116923713198.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sfeldma@gmail.com
-Date: Thu,  5 Mar 2015 21:21:12 -0800
+On Thu, Mar 5, 2015 at 7:20 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Thu, 05 Mar 2015 16:20:43 -0800
+>
+>> Well the last batch of patches are out there, but there isn't any rush
+>> on them.  If need be Dave can just leave them in review until we get the
+>> thumbs up or down on the v4 changes since I think you and I are probably
+>> the only two patching that region for now.  I suspect the changes
+>> shouldn't be as bad as the past patches have been since most of it is
+>> just reworking structures and updating the resize code.
+>
+> Scott just tell me what you want me to do, I can hold off on
+> Alex's current series while you put v4 of your stuff together.
 
-> v4:
-> 
->   - Add NETIF_F_NETNS_LOCAL to rocker port feature list to keep rocker
->     ports in the default netns.  Rocker hardware can't be partitioned
->     to support multiple namespaces, currently.  It would be interesting
->     to add netns support to rocker device by basically adding another
->     match field to each table to match on some unique netns ID, with
->     a port knowing it's netns ID.  Future work TDB.
->   - Up-level the RTNH_F_EXTERNAL marking of routes installed to offload
->     device from driver to switchdev common code.  Now driver can't skip
->     routes.  Either it can install the route or it cannot.  Yes or No.
->     If no on any route, all offloading is aborted by removing routes
->     from offload device and setting ipv4.fib_offload_disabled so no more
->     routes can be offloaded.  This is harsh, but it's our starting point.
->     We can refine the policies in follow-up work.
->   - Add new net.ipv4.fib_offload_disabled bool that is set if anything
->     goes wrong with route offloading.  We can refine this later to make
->     the setting per-device or per-device-port-netdev, but let's start
->     here simple and refine in follow-up work.
->   - Rebase against Alex's latest FIB changes.  I think I did everything
->     correctly, and didn't run into any issues with testing, but I'd like
->     Alex to look over the changes and maybe follow-up with any cleanups.
+I just sent v4.  I need Alex to look over my fib changes.  My testing
+didn't hit any problems, but lots of things are moving right where I
+was making some insertions and I want to make sure it's clean from a
+coding standpoint and also clean from a calling-context standpoint.
 
-Looks great, series applied, thanks!
+Also Alex, can you run my v4 patches on your benchmark setup?  You'll
+not have rocker so nothing is getting offloaded, but I wanted to see
+if your benchmarks show any degradation from your baseline, for route
+insertions and deletions.  There is a per-route cost associated with
+my changes, but I'm hoping the costs are negligible.  Please run two
+tests: one with CONFIG_NET_SWITCHDEV=y and one with
+CONFIG_NET_SWITCHDEV=n.  Thanks Alex!
+
+And thanks Dave for pushing me along on v4.
+
+-scott
