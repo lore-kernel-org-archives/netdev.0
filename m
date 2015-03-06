@@ -1,44 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 0/2] net/macb: merge at91_ether driver into macb
- driver
-Date: Fri, 06 Mar 2015 15:16:53 -0500 (EST)
-Message-ID: <20150306.151653.2133726487330517804.davem@davemloft.net>
-References: <1425622439-2372-1-git-send-email-boris.brezillon@free-electrons.com>
+From: Joseph Salisbury <joseph.salisbury@canonical.com>
+Subject: Re: [PATCH][v3.18.y][v3.19.y]  tg3: Hold tp->lock before calling
+ tg3_halt() from tg3_init_one()
+Date: Fri, 06 Mar 2015 15:17:28 -0500
+Message-ID: <54FA0B58.3040806@canonical.com>
+References: <54F8CDDE.6090002@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
-	plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1425622439-2372-1-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: prashant@broadcom.com, mchan@broadcom.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54F8CDDE.6090002@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Date: Fri,  6 Mar 2015 07:13:57 +0100
+On 03/05/2015 04:42 PM, Joseph Salisbury wrote:
+> Hello,
+>     
+> Please consider including mainline commit
+> d0af71a3573f1217b140c60b66f1a9b335fb058b in the next v3.18.y and v3.19.y
+> stable releases.  It was included in the mainline tree as of v4.0-rc1. 
+> It has been tested and confirmed to resolve:
+> http://bugs.launchpad.net/bugs/1428111 .
+>
+> This commit fixes a regression introduced going from 3.16 to 3.19, so it
+> may not be needed in earlier than 3.18 stable releases.
+>
+> commit d0af71a3573f1217b140c60b66f1a9b335fb058b
+> Author: Jun'ichi Nomura \(NEC\) <j-nomura@ce.jp.nec.com>
+> Date:   Thu Feb 12 01:26:24 2015 +0000
+>
+>     tg3: Hold tp->lock before calling tg3_halt() from tg3_init_one()
+>
+>
+> Sincerely,
+> Joseph Salisbury
+>
+>
 
-> The rm9200 boards use the dedicated at91_ether driver instead of the
-> regular macb driver.
-> 
-> Both the macb and at91_ether drivers can be compiled as separated
-> modules.
-> Since the at91_ether driver uses code from the macb driver, at91_ether.ko
-> depends on macb.ko.
-> 
-> However the macb.ko module always fails to load on rm9200 boards: the
-> macb_probe() function expects a hclk clock which doesn't exist on rm9200.
-> Then the at91_ether.ko can't be loaded in turn due to unresolved
-> dependencies.
-> 
-> This series of patches fix this issue by merging at91_ether into macb.
+After some further testing, it looks like only 3.19 is affected by the
+bug.  The upstream 3.18.y stable kernel does not require the commit.
 
-Series applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+
+Joe
