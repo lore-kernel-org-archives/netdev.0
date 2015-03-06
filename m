@@ -1,35 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: gro: remove obsolete code from
- skb_gro_receive()
-Date: Fri, 06 Mar 2015 15:56:50 -0800
-Message-ID: <1425686210.18614.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425592068.5130.266.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150306.010441.1755035570297062470.davem@davemloft.net>
-	 <1425674388.18614.0.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150306.155932.2228013423238139112.davem@davemloft.net>
+From: <dinguyen@opensource.altera.com>
+Subject: [PATCHv2 net-next] net: stmmac: make reset control an optional requirement
+Date: Fri, 6 Mar 2015 17:48:28 -0600
+Message-ID: <1425685708-12600-1-git-send-email-dinguyen@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:45116 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859AbbCFX4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 18:56:52 -0500
-Received: by igjz20 with SMTP id z20so8075797igj.4
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 15:56:51 -0800 (PST)
-In-Reply-To: <20150306.155932.2228013423238139112.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <dinh.linux@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Dinh Nguyen <dinguyen@opensource.altera.com>,
+	Vince Bridgers <vbridger@opensource.altera.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-03-06 at 15:59 -0500, David Miller wrote:
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
 
-> I left changes on my workstation at home before going to the office today,
-> will fix things up tonight.
-> 
-> I suggested to Daniel, also effect by this brain-o, that I should setup
-> my workstations to deliver an electric shock to me if I leave unpushed
-> GIT changes around.
+Not having a reset control line to the ethernet controller should not be a
+hard failure. Instead, add support for deferred probing and just print out
+a debug statement.
 
-Ah OK, thanks David, no worries ;)
+Signed-off-by: Dinh Nguyen <dinguyen@opensource.altera.com>
+Cc: Vince Bridgers <vbridger@opensource.altera.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+v2: return EPROBE_DEFER directly as 'ret' is not used as return variable
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 3aad413..9987b34 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -89,7 +89,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 						  STMMAC_RESOURCE_NAME);
+ 	if (IS_ERR(dwmac->stmmac_rst)) {
+ 		dev_info(dev, "Could not get reset control!\n");
+-		return -EINVAL;
++		if (PTR_ERR(dwmac->stmmac_rst) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		dwmac->stmmac_rst = NULL;
+ 	}
+ 
+ 	dwmac->interface = of_get_phy_mode(np);
+-- 
+2.2.1
