@@ -1,94 +1,76 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 5/8] switchdev: implement IPv4 fib ndo
- wrappers
-Date: Fri, 6 Mar 2015 12:53:44 +0100
-Message-ID: <20150306115344.GC2034@nanopsycho.orion>
-References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
- <1425619280-27492-6-git-send-email-sfeldma@gmail.com>
- <20150306072400.GB2011@nanopsycho.orion>
- <CAE4R7bA=sh944g7S-+JTxechQca-7S3B0u9Z26B9fDZUTqk+1w@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next PATCH 5/9] fib_trie: Add tnode struct as a container
+ for fields not needed in key_vector
+Date: Fri, 06 Mar 2015 16:17:11 +0300
+Message-ID: <54F9A8D7.4070304@cogentembedded.com>
+References: <20150305224208.1642.34205.stgit@ahduyck-vm-fedora20> <20150305225100.1642.67688.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:37259 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218AbbCFLxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 06:53:49 -0500
-Received: by wesx3 with SMTP id x3so12338878wes.4
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 03:53:48 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bA=sh944g7S-+JTxechQca-7S3B0u9Z26B9fDZUTqk+1w@mail.gmail.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:42300 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754452AbbCFNRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 08:17:14 -0500
+Received: by lbjb6 with SMTP id b6so22232575lbj.9
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 05:17:12 -0800 (PST)
+In-Reply-To: <20150305225100.1642.67688.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Mar 06, 2015 at 10:38:43AM CET, sfeldma@gmail.com wrote:
->On Thu, Mar 5, 2015 at 11:24 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Fri, Mar 06, 2015 at 06:21:17AM CET, sfeldma@gmail.com wrote:
->>>From: Scott Feldman <sfeldma@gmail.com>
->>>
->>>Flesh out ndo wrappers to call into device driver.  To call into device driver,
->>>the wrapper must interate over route's nexthops to ensure all nexthop devs
->>>belong to the same switch device.  Currently, there is no support for route's
->>>nexthops spanning offloaded and non-offloaded devices, or spanning ports of
->>>multiple offload devices.
->>>
->>>Since switch device ports may be stacked under virtual interfaces (bonds and/or
->>>bridges), and the route's nexthop may be on the virtual interface, the wrapper
->>>will traverse the nexthop dev down to the base dev.  It's the base dev that's
->>>passed to the switchdev driver's ndo ops.
->>>
->>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>---
->>> net/switchdev/switchdev.c |   98 ++++++++++++++++++++++++++++++++++++++++++++-
->>> 1 file changed, 96 insertions(+), 2 deletions(-)
->>>
->>>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>>index 81c4c02..99907d8 100644
->>>--- a/net/switchdev/switchdev.c
->>>+++ b/net/switchdev/switchdev.c
->>>@@ -227,6 +227,65 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
->>> }
->>> EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
->>>
->>>+static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
->>>+{
->>>+      const struct net_device_ops *ops = dev->netdev_ops;
->>>+      struct net_device *lower_dev;
->>>+      struct net_device *port_dev;
->>>+      struct list_head *iter;
->>>+
->>>+      /* Recusively search down until we find a sw port dev.
->>>+       * (A sw port dev supports ndo_switch_parent_id_get).
->>>+       */
->>>+
->>>+      if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
->>>+          ops->ndo_switch_parent_id_get)
->>>+              return dev;
->>>+
->>>+      netdev_for_each_lower_dev(dev, lower_dev, iter) {
->>>+              port_dev = netdev_switch_get_lowest_dev(lower_dev);
->>>+              if (port_dev)
->>>+                      return port_dev;
->>>+      }
->>
->>
->> I think we should proparate through stacked devices properly as we do in
->> case of netdev_switch_port_bridge_setlink and netdev_switch_port_bridge_dellink
->> (and also with roopa's new patchset in case of
->> netdev_switch_port_stp_update)
->
->I think it's actually ndo_switch_parent_id_get you want to Roopa-fy
->(new word, has a nice ring to it).  But yes, do-able.
+Hello.
 
-No, I definitelly do not want to propagate ndo_switch_parent_id_get
-call. It should be implemented for switch port devices only.
+On 3/6/2015 1:51 AM, Alexander Duyck wrote:
 
+> This change pulls the fields not explicitly needed in the key_vector and
+> placed them in the new tnode structure.  By doing this we will eventually
+> be able to reduce the key_vector down to 16 bytes on 64 bit systems, and
+> 12 bytes on 32 bit systems.
+
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> ---
+>   net/ipv4/fib_trie.c |   72 ++++++++++++++++++++++++++++-----------------------
+>   1 file changed, 39 insertions(+), 33 deletions(-)
 >
->> Other than this I like this patchset. Great work! Thanks.
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index f06c92e..5e1c469 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+[...]
+> @@ -316,48 +320,50 @@ static inline void empty_child_dec(struct key_vector *n)
 >
->Thanks for the early reviews.
+>   static struct key_vector *leaf_new(t_key key, struct fib_alias *fa)
+>   {
+[...]
+> +	struct tnode *kv = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+> +	struct key_vector *l = kv->kv;
+> +
+> +	if (!kv)
+
+    You dereference 'kv' before this check.
+
+[...]
+>   static struct key_vector *tnode_new(t_key key, int pos, int bits)
+>   {
+> -	struct key_vector *tn = tnode_alloc(bits);
+> +	struct tnode *tnode = tnode_alloc(bits);
+>   	unsigned int shift = pos + bits;
+> +	struct key_vector *tn = tnode->kv;
+>
+>   	/* verify bits and pos their msb bits clear and values are valid */
+>   	BUG_ON(!bits || (shift > KEYLENGTH));
+>
+[...]
+> +	pr_debug("AT %p s=%zu %zu\n", tnode, TNODE_SIZE(0),
+>   		 sizeof(struct key_vector *) << bits);
+> +
+> +	if (!tnode)
+
+    Likewise with 'tnode'.
+
+[...]
+
+WBR, Sergei
