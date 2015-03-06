@@ -1,64 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 11/14] i40e: Ioremap changes
-Date: Thu, 05 Mar 2015 18:36:55 -0800
-Message-ID: <1425609415.2556.150.camel@jtkirshe-mobl>
-References: <1425573992-30955-12-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1425600978.8804.6.camel@decadent.org.uk>
-	 <1425606943.2556.149.camel@jtkirshe-mobl>
-	 <20150305.211502.1957384315003366364.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Fri, 6 Mar 2015 13:42:31 +1100
+Message-ID: <20150306134231.52ad7349@canb.auug.org.au>
+References: <20150305134247.5a55e4db@canb.auug.org.au>
+	<20150305.000158.1662853297584626367.davem@davemloft.net>
+	<20150306102614.206e5ec6@canb.auug.org.au>
+	<20150305.210147.1680796621485642860.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BkTvro8i+8JLtamd/fSR"
-Cc: ben@decadent.org.uk, anjali.singhai@intel.com,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, jesse.brandeburg@intel.com
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/nRCfbXcc+C1Ic/.q+WVL4XC"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:26806 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752775AbbCFCg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Mar 2015 21:36:57 -0500
-In-Reply-To: <20150305.211502.1957384315003366364.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150305.210147.1680796621485642860.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-BkTvro8i+8JLtamd/fSR
-Content-Type: text/plain; charset="UTF-8"
+--Sig_/nRCfbXcc+C1Ic/.q+WVL4XC
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2015-03-05 at 21:15 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Thu, 05 Mar 2015 17:55:43 -0800
->=20
-> > Yeah, I agree.  Once Dave updates his net-next tree with the patches he
-> > has accepted, I will send out a fix.
->=20
-> Just push it out now, sorry about that.
+Hi Dave,
 
-Ok, working on it now and will have it sent here soon.
+On Thu, 05 Mar 2015 21:01:47 -0500 (EST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> The perils of working on multiple workstations :-)
+>=20
+> Pushed out now, sorry about that.
 
---=-BkTvro8i+8JLtamd/fSR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+No worries.  I know what its like as we get older ;-)
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/nRCfbXcc+C1Ic/.q+WVL4XC
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJU+RLHAAoJEOVv75VaS+3OKe0P/iECUrxUyXALfTffwDa3el+Q
-v56B8Z+ev18AaLEP2SVDZvhrawiYvYL6WOAY6N+sw/JovrB/v4etgJIwUHpyVpIR
-SUf940mZrWGuSh8tyrO/ROUZKSQzG9JMzFzNqvotSYWLoojN2w1/l7xsk1S35pzg
-Eh64BkBw5maQUjPW6XjPHZwADL3nK9YX7l/TSmYL/tK7fh+aISOgE5U3R+9mS31c
-ZTMqb6xMd5g1gD3Ts28sGp3o3lpyR5AO3mAIMiEgSrjFjSw3YsxxmZ7E1xeEl003
-MLUQ2rRNxEPAZpCSqMTM3C7UmpV5XiK0XcdK0cP4khRQktfjZOS4pkf9zv/9KVIx
-Pg/tmIK3mD4cWPXQRaFRx4wmhehjqTc5cVhlHDgbuBxOdawF9lGhJn2azAvTnxq3
-YODGWuQXEpo87Uj0ZHLfsQGzAI4WeYdusqyT1W4H7rMHEe6cTW16e1kWbrkfSL/i
-VP439D518tbsfgvGOG2vgRuwRZugAxyeNRf4UA/53fnlebjMFjWcH4BZmW2G64N1
-GTSLsfgI2Xo5TNDTw42a/eO0nb1yHDa8o0AI+WrjFPIs0Z5VKaNG4oRQOIsk94wT
-8I6YqCbZnamf6KsHmpuev4f/21dAfY21r5N8oJMxy7Mmc4iS4UJB5+JfPG94l4/P
-smlM6k+G9KrbiUNBfNkv
-=W+/b
+iQIcBAEBCAAGBQJU+RQcAAoJEMDTa8Ir7ZwVFaYP/0enQfWeqO0PImDXxMshC0QG
+f87eoNGl+MpHMPmdmQ3mZauJMdEcX8cAcjHvLtJuzdAOy+CBdeQJ58tis64BVlkb
+EEM1XKnRRuDmQHGsWsRgNvyBG+DHV1G5nAP0pA9knyb4CvJRmCadrDtRToSj+GoQ
+AwCD7bFVGYJ53UtET0Ki+n5x4VyOaRy0mbaWuRxrt3W/auLO6JwIPJye+R1HOro+
+2610GdDScCUUXsoEKQ/CwrI4FfBCG+4jZEdCeWvxbgTcBwYxW81BWgDLKU8TP3QM
+enLBbA9hFisg5WMVKRoHO3eU6vyd4jN46lNkUVItTVmUALoqJOR05y3pZSPn0qsm
+fZYTC9VBjdQcF1XfynucsDnCXDhQWqNRlhP6BnL4I7hnfKsp4fy4kQfQa3rCElXq
+GFPPBQT9DQrvsHfWnUTfLuXpMNMuMIP58UsDha9TGzFM77qGFiP1aBWbNcABwPeE
+bEYaxcl2Jgjr2dRmr5+humc0Zsna+mcsDnqpkqms/kgMq6GDCd0DB2v5x0FHo6Fd
+SgTpIOGR9XyQSo3cMDwNU3HI3yVTb1BMKod/cXqimMOdWgyh2uyBluIPyYwO4iAh
+IagNwlQlF3ePcYW0tC8O4gnatnxt0n6ZhvkCqHeuV/Hj4Dd6FmJ49t/eT/wQp/3+
+0xJpCMjB1d6Q0k0ABWXp
+=F1qi
 -----END PGP SIGNATURE-----
 
---=-BkTvro8i+8JLtamd/fSR--
+--Sig_/nRCfbXcc+C1Ic/.q+WVL4XC--
