@@ -1,42 +1,183 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next] ebpf: bpf_map_*: fix linker error on avr32 and
- openrisc arch
-Date: Fri, 6 Mar 2015 09:20:23 +0200
-Message-ID: <CAJ3xEMgyiurkgaUwU7utcG+qdRD6k5SfS8Vsebf=fH_8-pYW0g@mail.gmail.com>
-References: <dc0fc4f224a95f2a9813079229cb9cc0ac069d52.1425594286.git.daniel@iogearbox.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v4 5/8] switchdev: implement IPv4 fib ndo
+ wrappers
+Date: Fri, 6 Mar 2015 08:24:00 +0100
+Message-ID: <20150306072400.GB2011@nanopsycho.orion>
+References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
+ <1425619280-27492-6-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	roopa@cumulusnetworks.com, alexander.h.duyck@redhat.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:41879 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752767AbbCFHUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 02:20:24 -0500
-Received: by oiav63 with SMTP id v63so16251876oia.8
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 23:20:23 -0800 (PST)
-In-Reply-To: <dc0fc4f224a95f2a9813079229cb9cc0ac069d52.1425594286.git.daniel@iogearbox.net>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:39355 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752767AbbCFHYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 02:24:03 -0500
+Received: by wesu56 with SMTP id u56so14197135wes.6
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 23:24:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1425619280-27492-6-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 6, 2015 at 12:27 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> Fengguang reported, that on openrisc and avr32 architectures, we
-> get the following linker errors on *_defconfig builds that have
-> no bpf syscall support:
->   net/built-in.o:(.rodata+0x1cd0): undefined reference to `bpf_map_lookup_elem_proto'
->   net/built-in.o:(.rodata+0x1cd4): undefined reference to `bpf_map_update_elem_proto'
->   net/built-in.o:(.rodata+0x1cd8): undefined reference to `bpf_map_delete_elem_proto'
+Fri, Mar 06, 2015 at 06:21:17AM CET, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
 >
-> Fix it up by providing built-in weak definitions of the symbols,
-> so they can be overridden when the syscall is enabled. I think
-> the issue might be that gcc is not able to optimize all that away.
-> This patch fixes the linker errors for me, tested with Fengguang's
-> make.cross [1] script.
+>Flesh out ndo wrappers to call into device driver.  To call into device driver,
+>the wrapper must interate over route's nexthops to ensure all nexthop devs
+>belong to the same switch device.  Currently, there is no support for route's
+>nexthops spanning offloaded and non-offloaded devices, or spanning ports of
+>multiple offload devices.
 >
->   [1] https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross
+>Since switch device ports may be stacked under virtual interfaces (bonds and/or
+>bridges), and the route's nexthop may be on the virtual interface, the wrapper
+>will traverse the nexthop dev down to the base dev.  It's the base dev that's
+>passed to the switchdev driver's ndo ops.
 >
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Fixes: d4052c4aea0c ("ebpf: remove CONFIG_BPF_SYSCALL ifdefs in socket filter code")
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>---
+> net/switchdev/switchdev.c |   98 ++++++++++++++++++++++++++++++++++++++++++++-
+> 1 file changed, 96 insertions(+), 2 deletions(-)
+>
+>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>index 81c4c02..99907d8 100644
+>--- a/net/switchdev/switchdev.c
+>+++ b/net/switchdev/switchdev.c
+>@@ -227,6 +227,65 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+> }
+> EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
+> 
+>+static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+>+{
+>+	const struct net_device_ops *ops = dev->netdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct net_device *port_dev;
+>+	struct list_head *iter;
+>+
+>+	/* Recusively search down until we find a sw port dev.
+>+	 * (A sw port dev supports ndo_switch_parent_id_get).
+>+	 */
+>+
+>+	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
+>+	    ops->ndo_switch_parent_id_get)
+>+		return dev;
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>+		port_dev = netdev_switch_get_lowest_dev(lower_dev);
+>+		if (port_dev)
+>+			return port_dev;
+>+	}
 
 
-isn't that a 4.0-rc commit? if this is the case, this is for net, not net-next
+I think we should proparate through stacked devices properly as we do in
+case of netdev_switch_port_bridge_setlink and netdev_switch_port_bridge_dellink
+(and also with roopa's new patchset in case of
+netdev_switch_port_stp_update)
+
+Other than this I like this patchset. Great work! Thanks.
+
+Jiri
+
+>+
+>+	return NULL;
+>+}
+>+
+>+static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
+>+{
+>+	struct netdev_phys_item_id psid;
+>+	struct netdev_phys_item_id prev_psid;
+>+	struct net_device *dev = NULL;
+>+	int nhsel;
+>+
+>+	/* For this route, all nexthop devs must be on the same switch. */
+>+
+>+	for (nhsel = 0; nhsel < fi->fib_nhs; nhsel++) {
+>+		const struct fib_nh *nh = &fi->fib_nh[nhsel];
+>+
+>+		if (!nh->nh_dev)
+>+			return NULL;
+>+
+>+		dev = netdev_switch_get_lowest_dev(nh->nh_dev);
+>+		if (!dev)
+>+			return NULL;
+>+
+>+		if (netdev_switch_parent_id_get(dev, &psid))
+>+			return NULL;
+>+
+>+		if (nhsel > 0) {
+>+			if (prev_psid.id_len != psid.id_len)
+>+				return NULL;
+>+			if (memcmp(prev_psid.id, psid.id, psid.id_len))
+>+				return NULL;
+>+		}
+>+
+>+		prev_psid = psid;
+>+	}
+>+
+>+	return dev;
+>+}
+>+
+> /**
+>  *	netdev_switch_fib_ipv4_add - Add IPv4 route entry to switch
+>  *
+>@@ -242,11 +301,27 @@ EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
+> int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+> 			       u8 tos, u8 type, u32 tb_id)
+> {
+>+	struct net_device *dev;
+>+	const struct net_device_ops *ops;
+>+	int err = 0;
+>+
+> 	/* Don't offload route if using custom ip rules */
+> 	if (fi->fib_net->ipv4.fib_has_custom_rules)
+> 		return 0;
+> 
+>-	return 0;
+>+	dev = netdev_switch_get_dev_by_nhs(fi);
+>+	if (!dev)
+>+		return 0;
+>+	ops = dev->netdev_ops;
+>+
+>+	if (ops->ndo_switch_fib_ipv4_add) {
+>+		err = ops->ndo_switch_fib_ipv4_add(dev, htonl(dst), dst_len,
+>+						   fi, tos, type, tb_id);
+>+		if (!err)
+>+			fi->fib_flags |= RTNH_F_EXTERNAL;
+>+	}
+>+
+>+	return err;
+> }
+> EXPORT_SYMBOL(netdev_switch_fib_ipv4_add);
+> 
+>@@ -265,6 +340,25 @@ EXPORT_SYMBOL(netdev_switch_fib_ipv4_add);
+> int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+> 			       u8 tos, u8 type, u32 tb_id)
+> {
+>-	return 0;
+>+	struct net_device *dev;
+>+	const struct net_device_ops *ops;
+>+	int err = 0;
+>+
+>+	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
+>+		return 0;
+>+
+>+	dev = netdev_switch_get_dev_by_nhs(fi);
+>+	if (!dev)
+>+		return 0;
+>+	ops = dev->netdev_ops;
+>+
+>+	if (ops->ndo_switch_fib_ipv4_del) {
+>+		err = ops->ndo_switch_fib_ipv4_del(dev, htonl(dst), dst_len,
+>+						   fi, tos, type, tb_id);
+>+		if (!err)
+>+			fi->fib_flags &= ~RTNH_F_EXTERNAL;
+>+	}
+>+
+>+	return err;
+> }
+> EXPORT_SYMBOL(netdev_switch_fib_ipv4_del);
+>-- 
+>1.7.10.4
+>
