@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fib: make netdev_switch_fib_ipv4_abort in
- header file static inline
-Date: Fri, 06 Mar 2015 15:44:50 -0500 (EST)
-Message-ID: <20150306.154450.371792927238444330.davem@davemloft.net>
-References: <1425660268-23344-1-git-send-email-willemb@google.com>
+Subject: Re: pull-request: wireless-drivers-next 2015-03-06
+Date: Fri, 06 Mar 2015 15:46:39 -0500 (EST)
+Message-ID: <20150306.154639.1922888192237476633.davem@davemloft.net>
+References: <874mpy2gw5.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@gmail.com,
-	alexander.duyck@gmail.com
-To: willemb@google.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56087 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56098 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755288AbbCFUox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:44:53 -0500
-In-Reply-To: <1425660268-23344-1-git-send-email-willemb@google.com>
+	with ESMTP id S1750709AbbCFUqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:46:42 -0500
+In-Reply-To: <874mpy2gw5.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Fri,  6 Mar 2015 11:44:28 -0500
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Fri, 06 Mar 2015 19:08:10 +0200
 
-> From: Willem de Bruijn <willemb@google.com>
+> here's a pull request for net-next. Lots of smaller fixes and cleanup,
+> major changes are documented in the signed tag and available below
 > 
-> When building without CONFIG_NET_SWITCHDEV,
-> netdev_switch_fib_ipv4_abort is defined in the header file. It must
-> be static inline to avoid build failure at link time.
+> Do note that I wasn't able compile net-next (commit 23375a0fd549) with
+> my config:
 > 
-> Fixes: 8e05fd7166c6 ("fib: hook IPv4 fib for hardware offload")
+> wireless-drivers-next/include/net/switchdev.h:133: multiple definition of `netdev_switch_fib_ipv4_abort'
+> net/bridge/br.o:wireless-drivers-next/include/net/switchdev.h:133: first defined here
+> net/bridge/br_netlink.o: In function `netdev_switch_fib_ipv4_abort':
+> wireless-drivers-next/include/net/switchdev.h:133: multiple definition of `netdev_switch_fib_ipv4_abort'
+> net/bridge/br.o:wireless-drivers-next/include/net/switchdev.h:133: first defined here
 > 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> But this pull request should still merge to net-next without conflicts.
 
-Applied, thanks Willem.
+Yeah I just applied a fix for that.
+
+> Please let me know if you have any problems.
+
+Pulled, thanks.
