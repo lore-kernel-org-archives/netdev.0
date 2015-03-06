@@ -1,69 +1,106 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/6] e1000e: remove calls to ioremap/unmap for NVM addr
-Date: Fri,  6 Mar 2015 03:06:02 -0800
-Message-ID: <1425639966-6829-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/6] e1000: add dummy allocator to fix race condition between mtu change and netpoll
+Date: Fri,  6 Mar 2015 03:06:06 -0800
+Message-ID: <1425639966-6829-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425639966-6829-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>, netdev@vger.kernel.org,
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	John W Linville <linville@tuxdriver.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:50981 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:14541 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756079AbbCFLGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2015 06:06:11 -0500
+	id S1756083AbbCFLGN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2015 06:06:13 -0500
 In-Reply-To: <1425639966-6829-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
 
-Starting I219, the NVM will not be mapped to its own BAR, but to an
-address region in another bar.  The mapping/unmapping is relevant
-to older HW only.
+There is a race condition between e1000_change_mtu's cleanups and
+netpoll, when we change the MTU across jumbo size:
 
-CC: John W Linville <linville@tuxdriver.com>
-Reported-by: John W Linville <linville@tuxdriver.com>
-Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+Changing MTU frees all the rx buffers:
+    e1000_change_mtu -> e1000_down -> e1000_clean_all_rx_rings ->
+        e1000_clean_rx_ring
+
+Then, close to the end of e1000_change_mtu:
+    pr_info -> ... -> netpoll_poll_dev -> e1000_clean ->
+        e1000_clean_rx_irq -> e1000_alloc_rx_buffers -> e1000_alloc_frag
+
+And when we come back to do the rest of the MTU change:
+    e1000_up -> e1000_configure -> e1000_configure_rx ->
+        e1000_alloc_jumbo_rx_buffers
+
+alloc_jumbo finds the buffers already != NULL, since data (shared with
+page in e1000_rx_buffer->rxbuf) has been re-alloc'd, but it's garbage,
+or at least not what is expected when in jumbo state.
+
+This results in an unusable adapter (packets don't get through), and a
+NULL pointer dereference on the next call to e1000_clean_rx_ring
+(other mtu change, link down, shutdown):
+
+BUG: unable to handle kernel NULL pointer dereference at           (null)
+IP: [<ffffffff81194d6e>] put_compound_page+0x7e/0x330
+
+    [...]
+
+Call Trace:
+ [<ffffffff81195445>] put_page+0x55/0x60
+ [<ffffffff815d9f44>] e1000_clean_rx_ring+0x134/0x200
+ [<ffffffff815da055>] e1000_clean_all_rx_rings+0x45/0x60
+ [<ffffffff815df5e0>] e1000_down+0x1c0/0x1d0
+ [<ffffffff811e2260>] ? deactivate_slab+0x7f0/0x840
+ [<ffffffff815e21bc>] e1000_change_mtu+0xdc/0x170
+ [<ffffffff81647050>] dev_set_mtu+0xa0/0x140
+ [<ffffffff81664218>] do_setlink+0x218/0xac0
+ [<ffffffff814459e9>] ? nla_parse+0xb9/0x120
+ [<ffffffff816652d0>] rtnl_newlink+0x6d0/0x890
+ [<ffffffff8104f000>] ? kvm_clock_read+0x20/0x40
+ [<ffffffff810a2068>] ? sched_clock_cpu+0xa8/0x100
+ [<ffffffff81663802>] rtnetlink_rcv_msg+0x92/0x260
+
+By setting the allocator to a dummy version, netpoll can't mess up our
+rx buffers.  The allocator is set back to a sane value in
+e1000_configure_rx.
+
+Fixes: edbbb3ca1077 ("e1000: implement jumbo receive with partial descriptors")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 6fa4fc0..4be4576 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6833,7 +6833,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_ioremap;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 26dcb44..73c98d3 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -144,6 +144,11 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 				     struct e1000_rx_ring *rx_ring,
+ 				     int *work_done, int work_to_do);
++static void e1000_alloc_dummy_rx_buffers(struct e1000_adapter *adapter,
++					 struct e1000_rx_ring *rx_ring,
++					 int cleaned_count)
++{
++}
+ static void e1000_alloc_rx_buffers(struct e1000_adapter *adapter,
+ 				   struct e1000_rx_ring *rx_ring,
+ 				   int cleaned_count);
+@@ -3552,8 +3557,11 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 		msleep(1);
+ 	/* e1000_down has a dependency on max_frame_size */
+ 	hw->max_frame_size = max_frame;
+-	if (netif_running(netdev))
++	if (netif_running(netdev)) {
++		/* prevent buffers from being reallocated */
++		adapter->alloc_rx_buf = e1000_alloc_dummy_rx_buffers;
+ 		e1000_down(adapter);
++	}
  
- 	if ((adapter->flags & FLAG_HAS_FLASH) &&
--	    (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
-+	    (pci_resource_flags(pdev, 1) & IORESOURCE_MEM) &&
-+	    (hw->mac.type < e1000_pch_spt)) {
- 		flash_start = pci_resource_start(pdev, 1);
- 		flash_len = pci_resource_len(pdev, 1);
- 		adapter->hw.flash_address = ioremap(flash_start, flash_len);
-@@ -7069,7 +7070,7 @@ err_hw_init:
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
- err_sw_init:
--	if (adapter->hw.flash_address)
-+	if ((adapter->hw.flash_address) && (hw->mac.type < e1000_pch_spt))
- 		iounmap(adapter->hw.flash_address);
- 	e1000e_reset_interrupt_capability(adapter);
- err_flashmap:
-@@ -7142,7 +7143,8 @@ static void e1000_remove(struct pci_dev *pdev)
- 	kfree(adapter->rx_ring);
- 
- 	iounmap(adapter->hw.hw_addr);
--	if (adapter->hw.flash_address)
-+	if ((adapter->hw.flash_address) &&
-+	    (adapter->hw.mac.type < e1000_pch_spt))
- 		iounmap(adapter->hw.flash_address);
- 	pci_release_selected_regions(pdev,
- 				     pci_select_bars(pdev, IORESOURCE_MEM));
+ 	/* NOTE: netdev_alloc_skb reserves 16 bytes, and typically NET_IP_ALIGN
+ 	 * means we reserve 2 more, this pushes us to allocate from the next
 -- 
 1.9.3
