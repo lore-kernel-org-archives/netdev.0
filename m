@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: bcmgenet: preparation for multiple
- Rx queues
-Date: Fri, 06 Mar 2015 15:14:44 -0500 (EST)
-Message-ID: <20150306.151444.1533902822259577764.davem@davemloft.net>
-References: <20150306014008.DDA6C2214B6@puck.mtv.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 0/2] net/macb: merge at91_ether driver into macb
+ driver
+Date: Fri, 06 Mar 2015 15:16:53 -0500 (EST)
+Message-ID: <20150306.151653.2133726487330517804.davem@davemloft.net>
+References: <1425622439-2372-1-git-send-email-boris.brezillon@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: pgynther@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55681 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751247AbbCFUOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:14:47 -0500
-In-Reply-To: <20150306014008.DDA6C2214B6@puck.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
+	plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1425622439-2372-1-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Petri Gynther <pgynther@google.com>
-Date: Thu,  5 Mar 2015 17:40:08 -0800 (PST)
+From: Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Date: Fri,  6 Mar 2015 07:13:57 +0100
 
-> Three small patches in preparation for supporting multiple Rx queues:
-> 1. set hw_params->rx_queues = 0
-> 2. adjust the call to alloc_etherdev_mqs()
-> 3. add GENET_Q16_RX_BD_CNT and hw_params->rx_bds_per_q
+> The rm9200 boards use the dedicated at91_ether driver instead of the
+> regular macb driver.
+> 
+> Both the macb and at91_ether drivers can be compiled as separated
+> modules.
+> Since the at91_ether driver uses code from the macb driver, at91_ether.ko
+> depends on macb.ko.
+> 
+> However the macb.ko module always fails to load on rm9200 boards: the
+> macb_probe() function expects a hclk clock which doesn't exist on rm9200.
+> Then the at91_ether.ko can't be loaded in turn due to unresolved
+> dependencies.
+> 
+> This series of patches fix this issue by merging at91_ether into macb.
 
-Series applied, thanks.
+Series applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
