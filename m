@@ -1,44 +1,63 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH] filter: introduce SKF_AD_VLAN_PROTO BPF extension
-Date: Fri, 6 Mar 2015 15:02:34 +0100
-Message-ID: <20150306140233.GD25656@unicorn.suse.cz>
-References: <1425501718-12066-1-git-send-email-msekleta@redhat.com>
- <54F77336.7040006@plumgrid.com>
- <20150305103715.GA3432@morgoth.brq.redhat.com>
- <54F889EB.7000203@plumgrid.com>
- <54F8B680.4050307@iogearbox.net>
+From: Mr Adams Paul <erjio08.2004v1@gmail.com>
+Subject: My Dearest Friend,
+Date: Fri, 6 Mar 2015 15:16:51 +0100
+Message-ID: <CAP_PqkV3UzosmTY44Bh4Q5-2rFFczLQbZOqJErH6F12wXBaqSg@mail.gmail.com>
+Reply-To: mr_adamspaul@outlook.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>, guy@alum.mit.edu,
-	atzm@stratosphere.co.jp
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:57359 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843AbbCFOCh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2015 09:02:37 -0500
-Content-Disposition: inline
-In-Reply-To: <54F8B680.4050307@iogearbox.net>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33985 "EHLO
+	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbbCFOQw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 09:16:52 -0500
+Received: by oifu20 with SMTP id u20so3225568oif.1
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 06:16:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 05, 2015 at 09:03:12PM +0100, Daniel Borkmann wrote:
-> On 03/05/2015 05:52 PM, Alexei Starovoitov wrote:
-> 
-> >At this point I think it's up to Dave to decide whether we need
-> >this patch (after fixing the issue pointed by Denis) or not.
-> >imo there is a benefit of giving programs more visibility into
-> >skb metadata.
-> 
-> I'm not really a big fan of it, but given we added commit a0cdfcf39362
-> ("packet: deliver VLAN TPID to userspace") to packet sockets ...
+My Dearest Friend,
 
-IMHO the motivation here was not to allow filtering by TPID but because
-without it, libpcap and its users had no chance to get this information
-for packets captured on devices with Rx VLAN offloading so that e.g.
-"tcpdump -e" was showing (guessed) TPID of 0x8100 for all of them, no
-matter what the actual TPID was.
+I am Mr .Adams Paul, The chief auditor in bank of Africa (boa) Burkina
+=46aso West African, One of our customers, with his entire family was
+among the victims of plane crash and before his death, he has an
+account with us valued at $27.2million us dollars(twenty-seven million
+two hundred thousand us dollars) in our bank and according to the
+Burkina Faso law, at the expiration of Ten years if nobody applies to
+claim the funds a grace of one year also will be given before the
+money will revert to the ownership of the Burkina Faso government.
 
-                                                         Michal Kubecek
+My proposals is that i will like you as a foreigner to stand in as the
+next of kin or distant cousin for us to claim this money, so that the
+fruits of this old man=E2=80=99s labour will not get into the hands of =
+some
+corrupt government officials who will later use the money to sponsor
+war in Africa and kill innocent citizens in the search for political
+power.
+
+As a foreign partner which this money will be transfer into your
+account, you are entitle to 40% of the total money while 55% will be
+for me as the moderator of this transaction and 5% will be mapped out
+for any expenditure that may be incur during the course of this
+transaction. Please note that there will be no problem as my bank has
+made all effort through to reach for any of his
+relation but all was fruitless.
+
+My position as the chief auditor in this bank guarantees the
+successful execution of this (deal) transaction.Please send the
+following: Reply To This E-mail Address...mr_adamspaul@outlook.fr
+
+1)your full name.....
+2) sex.....
+3) age.....
+4) country.....
+5)passport or photo.....
+6)occupation.....
+7) personal Mobile number.....
+8) Personal fax number.....
+9) Home &office address.....
+
+Thanks.
+
+Mr .Adams Paul
