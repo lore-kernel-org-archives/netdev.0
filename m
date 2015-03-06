@@ -1,102 +1,84 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next 3/3] net: bcmgenet: add GENET_Q16_RX_BD_CNT and hw_params->rx_bds_per_q
-Date: Thu,  5 Mar 2015 17:40:14 -0800 (PST)
-Message-ID: <20150306014014.ED3DF2214B6@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 11/14] i40e: Ioremap changes
+Date: Thu, 05 Mar 2015 17:55:43 -0800
+Message-ID: <1425606943.2556.149.camel@jtkirshe-mobl>
+References: <1425573992-30955-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1425573992-30955-12-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1425600978.8804.6.camel@decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-h9N8vUOg9E3cv6X2L0Nn"
+Cc: davem@davemloft.net, Anjali Singhai <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f201.google.com ([209.85.220.201]:36916 "EHLO
-	mail-vc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374AbbCFBkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Mar 2015 20:40:16 -0500
-Received: by mail-vc0-f201.google.com with SMTP id le20so5611885vcb.0
-        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 17:40:15 -0800 (PST)
+Received: from mga02.intel.com ([134.134.136.20]:32214 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753921AbbCFBz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Mar 2015 20:55:58 -0500
+In-Reply-To: <1425600978.8804.6.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for supporting multiple Rx queues, add GENET_Q16_RX_BD_CNT
-and hw_params->rx_bds_per_q.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++++--
- drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
- 2 files changed, 9 insertions(+), 2 deletions(-)
+--=-h9N8vUOg9E3cv6X2L0Nn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 57271f7..d90785c 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -54,6 +54,8 @@
- /* Default highest priority queue for multi queue support */
- #define GENET_Q0_PRIORITY	0
- 
-+#define GENET_Q16_RX_BD_CNT	\
-+	(TOTAL_DESC - priv->hw_params->rx_queues * priv->hw_params->rx_bds_per_q)
- #define GENET_Q16_TX_BD_CNT	\
- 	(TOTAL_DESC - priv->hw_params->tx_queues * priv->hw_params->tx_bds_per_q)
- 
-@@ -2488,6 +2490,7 @@ static struct bcmgenet_hw_params bcmgenet_hw_params[] = {
- 		.tx_queues = 0,
- 		.tx_bds_per_q = 0,
- 		.rx_queues = 0,
-+		.rx_bds_per_q = 0,
- 		.bp_in_en_shift = 16,
- 		.bp_in_mask = 0xffff,
- 		.hfb_filter_cnt = 16,
-@@ -2501,6 +2504,7 @@ static struct bcmgenet_hw_params bcmgenet_hw_params[] = {
- 		.tx_queues = 4,
- 		.tx_bds_per_q = 32,
- 		.rx_queues = 0,
-+		.rx_bds_per_q = 0,
- 		.bp_in_en_shift = 16,
- 		.bp_in_mask = 0xffff,
- 		.hfb_filter_cnt = 16,
-@@ -2517,6 +2521,7 @@ static struct bcmgenet_hw_params bcmgenet_hw_params[] = {
- 		.tx_queues = 4,
- 		.tx_bds_per_q = 32,
- 		.rx_queues = 0,
-+		.rx_bds_per_q = 0,
- 		.bp_in_en_shift = 17,
- 		.bp_in_mask = 0x1ffff,
- 		.hfb_filter_cnt = 48,
-@@ -2533,6 +2538,7 @@ static struct bcmgenet_hw_params bcmgenet_hw_params[] = {
- 		.tx_queues = 4,
- 		.tx_bds_per_q = 32,
- 		.rx_queues = 0,
-+		.rx_bds_per_q = 0,
- 		.bp_in_en_shift = 17,
- 		.bp_in_mask = 0x1ffff,
- 		.hfb_filter_cnt = 48,
-@@ -2632,7 +2638,7 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
- #endif
- 
- 	pr_debug("Configuration for version: %d\n"
--		"TXq: %1d, TXqBDs: %1d, RXq: %1d\n"
-+		"TXq: %1d, TXqBDs: %1d, RXq: %1d, RXqBDs: %1d\n"
- 		"BP << en: %2d, BP msk: 0x%05x\n"
- 		"HFB count: %2d, QTAQ msk: 0x%05x\n"
- 		"TBUF: 0x%04x, HFB: 0x%04x, HFBreg: 0x%04x\n"
-@@ -2640,7 +2646,7 @@ static void bcmgenet_set_hw_params(struct bcmgenet_priv *priv)
- 		"Words/BD: %d\n",
- 		priv->version,
- 		params->tx_queues, params->tx_bds_per_q,
--		params->rx_queues,
-+		params->rx_queues, params->rx_bds_per_q,
- 		params->bp_in_en_shift, params->bp_in_mask,
- 		params->hfb_filter_cnt, params->qtag_mask,
- 		params->tbuf_offset, params->hfb_offset,
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index 548b7e9..5684e85 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -505,6 +505,7 @@ struct bcmgenet_hw_params {
- 	u8		tx_queues;
- 	u8		tx_bds_per_q;
- 	u8		rx_queues;
-+	u8		rx_bds_per_q;
- 	u8		bp_in_en_shift;
- 	u32		bp_in_mask;
- 	u8		hfb_filter_cnt;
--- 
-2.2.0.rc0.207.ga3a616c
+On Fri, 2015-03-06 at 00:16 +0000, Ben Hutchings wrote:
+> On Thu, 2015-03-05 at 08:46 -0800, Jeff Kirsher wrote:
+> [...]
+> > --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > @@ -9459,6 +9459,7 @@ static int i40e_probe(struct pci_dev *pdev,
+> const struct pci_device_id *ent)
+> >       struct i40e_pf *pf;
+> >       struct i40e_hw *hw;
+> >       static u16 pfs_found;
+> > +     u32 ioremap_len;
+> >       u16 link_status;
+> >       int err =3D 0;
+> >       u32 len;
+> > @@ -9507,8 +9508,11 @@ static int i40e_probe(struct pci_dev *pdev,
+> const struct pci_device_id *ent)
+> > =20
+> >       hw =3D &pf->hw;
+> >       hw->back =3D pf;
+> > -     hw->hw_addr =3D ioremap(pci_resource_start(pdev, 0),
+> > -                           pci_resource_len(pdev, 0));
+> > +
+> > +     ioremap_len =3D min_t(int, pci_resource_len(pdev, 0),
+> > +                         I40E_MAX_CSR_SPACE);
+>=20
+> What type do you really want ioremap_len to be, u32 or int?  (I think
+> the correct answer is unsigned long as that's the ioremap() parameter
+> type.)
+
+Yeah, I agree.  Once Dave updates his net-next tree with the patches he
+has accepted, I will send out a fix.
+
+--=-h9N8vUOg9E3cv6X2L0Nn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU+QkfAAoJEOVv75VaS+3O/+EP/2ApZh3CStlOy+kMAfch6ifK
+V911sI4luOpHiT7ai2ju5m3m98Hmmu3F51LhtHXm0j5U2XoZ/WGRJYdcwPcfbXXr
+Nk7NAiR7DZy1T7ldVB5N/zXRfcDy1lBv2ttW/rjmGNSBieVkvT67JZY25DREwTdG
+2I7b50NIR7y7rylTVUb9dodLV5cRnFLyaAABl1GIBJeJ6psJ1Yp1Ro7cCNpF3SCb
+V8Y40SCnmuNKpNeE37qP/gVb/D7uXW1vNomSMiPTurrb+VHKawvbFnhECVA7v26t
+aWV6ie4hgD4/Cdgfg80Lp4imsW3FnECW7Y9BG/7w1ZHrNO/m5CEPcaxaSV4MkvqG
+e+JLFMYAbW39LK0YSbBFC7/T0eSjEoTg7x/Kg0ADmDYbf8RDw9cbu6ujvWgebKfo
+SnAZA+b9lDI7eN2+7E+z+3jvDMHQHyZPgzW28Kj31X4j1vq2iWHX5eEqNlV4chT7
+Pu0rhxYXW9JxqVtOLt5fob3uhZdkCrs1ctgQTP2crAvBsdJI6UtqceG+epMbEhZx
+6Rj98G3sAgwiotxO3mQ3U1zB1sZ9DkRgTLfiZSXqop0EaPk/84Zuods8SiTF89MY
+e7SiFIWIV1RNTA53gfzTpDq5J+WR+H67q+n4vUiRFYKkXomGhyPF+I/hz2f6C+qc
+SNS+05p6/KftKKJBdVET
+=8uF4
+-----END PGP SIGNATURE-----
+
+--=-h9N8vUOg9E3cv6X2L0Nn--
