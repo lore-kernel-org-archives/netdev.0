@@ -1,54 +1,35 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next 2/2] rocker: sparse: fix dynamic allocation on stack warning
-Date: Fri,  6 Mar 2015 15:54:52 -0800
-Message-ID: <1425686092-2836-2-git-send-email-sfeldma@gmail.com>
-References: <1425686092-2836-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: gro: remove obsolete code from
+ skb_gro_receive()
+Date: Fri, 06 Mar 2015 15:56:50 -0800
+Message-ID: <1425686210.18614.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425592068.5130.266.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150306.010441.1755035570297062470.davem@davemloft.net>
+	 <1425674388.18614.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150306.155932.2228013423238139112.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:46153 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755896AbbCFXx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 18:53:58 -0500
-Received: by pabli10 with SMTP id li10so55370971pab.13
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 15:53:58 -0800 (PST)
-In-Reply-To: <1425686092-2836-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:45116 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859AbbCFX4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 18:56:52 -0500
+Received: by igjz20 with SMTP id z20so8075797igj.4
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 15:56:51 -0800 (PST)
+In-Reply-To: <20150306.155932.2228013423238139112.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+On Fri, 2015-03-06 at 15:59 -0500, David Miller wrote:
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- drivers/net/ethernet/rocker/rocker.c |    2 +-
- drivers/net/ethernet/rocker/rocker.h |    2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+> I left changes on my workstation at home before going to the office today,
+> will fix things up tonight.
+> 
+> I suggested to Daniel, also effect by this brain-o, that I should setup
+> my workstations to deliver an electric shock to me if I leave unpushed
+> GIT changes around.
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 9629352..65e1403 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -2955,7 +2955,7 @@ static int rocker_port_vlan_flood_group(struct rocker_port *rocker_port,
- 	struct rocker_port *p;
- 	struct rocker *rocker = rocker_port->rocker;
- 	u32 group_id = ROCKER_GROUP_L2_FLOOD(vlan_id, 0);
--	u32 group_ids[rocker->port_count];
-+	u32 group_ids[ROCKER_FP_PORTS_MAX];
- 	u8 group_count = 0;
- 	int err;
- 	int i;
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index 0a94b7c..51e430d 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -27,6 +27,8 @@ enum {
- 	ROCKER_ENOBUFS = 105,
- };
- 
-+#define ROCKER_FP_PORTS_MAX 62
-+
- #define PCI_VENDOR_ID_REDHAT		0x1b36
- #define PCI_DEVICE_ID_REDHAT_ROCKER	0x0006
- 
--- 
-1.7.10.4
+Ah OK, thanks David, no worries ;)
