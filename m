@@ -1,51 +1,48 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: [PATCH] netfilter: ipset: make ip_set_get_ip*_port to use skb_network_offset
-Date: Fri,  6 Mar 2015 13:44:06 +0300
-Message-ID: <1425638646-5906-1-git-send-email-al.drozdov@gmail.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexander Drozdov <al.drozdov@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next] mpls: Properly validate RTA_VIA payload length
+Date: Fri, 6 Mar 2015 10:47:00 +0000
+Message-ID: <1425638820-19990-1-git-send-email-rshearma@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46546 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932195AbbCFKsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 05:48:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All the ipset functions respect skb->network_header value,
-except for ip_set_get_ip4_port() & ip_set_get_ip6_port(). The
-functions should use skb_network_offset() to get the transport
-header offset.
+If the nla length is less than 2 then the nla data could be accessed
+beyond the accessible bounds. So ensure that the nla is big enough to
+at least read the via_family before doing so. Replace magic value of
+2.
 
-Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+Fixes: 03c0566542f4 ("mpls: Basic support for adding and removing routes")
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- net/netfilter/ipset/ip_set_getport.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/mpls/af_mpls.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipset/ip_set_getport.c b/net/netfilter/ipset/ip_set_getport.c
-index 29fb01d..1981f02 100644
---- a/net/netfilter/ipset/ip_set_getport.c
-+++ b/net/netfilter/ipset/ip_set_getport.c
-@@ -98,7 +98,7 @@ ip_set_get_ip4_port(const struct sk_buff *skb, bool src,
- 		    __be16 *port, u8 *proto)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
--	unsigned int protooff = ip_hdrlen(skb);
-+	unsigned int protooff = skb_network_offset(skb) + ip_hdrlen(skb);
- 	int protocol = iph->protocol;
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 23e51d1..4ce39f6 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -585,8 +585,11 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 		case RTA_VIA:
+ 		{
+ 			struct rtvia *via = nla_data(nla);
++			if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
++				goto errout;
+ 			cfg->rc_via_family = via->rtvia_family;
+-			cfg->rc_via_alen   = nla_len(nla) - 2;
++			cfg->rc_via_alen   = nla_len(nla) -
++				offsetof(struct rtvia, rtvia_addr);
+ 			if (cfg->rc_via_alen > MAX_VIA_ALEN)
+ 				goto errout;
  
- 	/* See comments at tcp_match in ip_tables.c */
-@@ -135,7 +135,9 @@ ip_set_get_ip6_port(const struct sk_buff *skb, bool src,
- 	__be16 frag_off = 0;
- 
- 	nexthdr = ipv6_hdr(skb)->nexthdr;
--	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
-+	protoff = ipv6_skip_exthdr(skb,
-+				   skb_network_offset(skb) +
-+					sizeof(struct ipv6hdr), &nexthdr,
- 				   &frag_off);
- 	if (protoff < 0 || (frag_off & htons(~0x7)) != 0)
- 		return false;
 -- 
-1.9.1
+2.1.4
