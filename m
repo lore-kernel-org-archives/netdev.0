@@ -1,72 +1,99 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to traverse
- the bridge without hitting netfilter
-Date: Fri, 6 Mar 2015 17:37:00 +0100
-Message-ID: <20150306163700.GC20382@breakpoint.cc>
-References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
- <20150223160619.GF24297@breakpoint.cc>
- <54EEF32D.2010202@amazon.de>
- <20150226.113431.238255529591339000.davem@davemloft.net>
- <54F982B5.90108@gmail.com>
- <20150306142932.GA15926@salvia>
+From: Wilco Baan Hofman <wilco@baanhofman.nl>
+Subject: IPv6 GRE sending to undefined destinations
+Date: Fri, 06 Mar 2015 17:34:20 +0100
+Message-ID: <54F9D70C.7030409@baanhofman.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Imre Palik <imrep.amz@gmail.com>,
-	David Miller <davem@davemloft.net>, imrep@amazon.de,
-	fw@strlen.de, bridge@lists.linux-foundation.org,
-	stephen@networkplumber.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, aliguori@amazon.com, nbd@openwrt.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150306142932.GA15926@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps.baanhofman.nl ([92.222.219.102]:58029 "EHLO
+	vps.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755643AbbCFQlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 11:41:36 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by vps.baanhofman.nl (Postfix) with ESMTP id DED141040D86
+	for <netdev@vger.kernel.org>; Fri,  6 Mar 2015 17:34:45 +0100 (CET)
+Received: from vps.baanhofman.nl ([127.0.0.1])
+	by localhost (vps.baanhofman.nl [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id VcOaiQeCyMyL for <netdev@vger.kernel.org>;
+	Fri,  6 Mar 2015 17:34:20 +0100 (CET)
+Received: from [10.255.1.55] (84-245-6-207.dsl.cambrium.nl [84.245.6.207])
+	(Authenticated sender: wilco)
+	by vps.baanhofman.nl (Postfix) with ESMTPSA id B1B8F1040D85
+	for <netdev@vger.kernel.org>; Fri,  6 Mar 2015 17:34:20 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Fri, Mar 06, 2015 at 11:34:29AM +0100, Imre Palik wrote:
-> > On 02/26/15 17:34, David Miller wrote:
-> > > From: Imre Palik <imrep@amazon.de>
-> > > Date: Thu, 26 Feb 2015 11:19:25 +0100
-> > > 
-> > >> If you are looking for peculiarities in my setup then here they are:
-> > >> I am on 4k pages, and perf is not working :-(
-> > >> (I am trying to fix those too, but that is far from being a low hanging fruit.)
-> > >> So my guess would be that the packet pipeline doesn't fit in the cache/tlb
-> > > 
-> > > Pure specualtion until you can actually use perf to measure these
-> > > things.
-> > > 
-> > > And I don't want to apply patches which were designed based upon
-> > > pure speculation.
-> > > 
-> > 
-> > I did performance measurements in the following way:
-> > 
-> > Removed those pieces of the packet pipeline that I don't necessarily
-> > need one-by-one.  Then measured their effect on small packet
-> > performance.
-> > 
-> > This was the only part that produced considerable effect.
-> > 
-> > The pure speculation was about why the effect is more than 15%
-> > increase in packet throughput, although the code path avoided
-> > contains way less code than 15% of the packet pipeline.  It seems,
-> > Felix Fietkau profiled similar changes, and found my guess well
-> > founded.
-> > 
-> > Now could anybody explain me what else is wrong with my patch?
-> 
-> We have to come up with a more generic solution for this.
+Hi,
 
-Jiri Benc suggested to allowing to attach netfilter hooks e.g. via tc
-action, maybe that would be an option worth investigating.
+When using the netlink sendmsg api to pass sockaddr_ll to an IPv6 GRE
+interface, strange things happen.
 
-Then you could for instance add filtering rules only to the bridge port
-that needs it.
+For one, an IPv6 address does not fit into sockaddr_ll.ssl_addr (8 bytes).
+Writing 8 0xff bytes into this field causes it to send the packet, but
+it also leaks 8 bytes of kernel memory into the packet going out of the
+interface.
 
-> These sysfs tweaks you're proposing look to me like an obscure way to
-> tune this.
+Now, I have a use case for using this, that is to implement DMVPN/NHRP
+over IPv6 GRE, with OpenNHRP for which I need to have a multipoint GRE
+connection. With IPv4 this was already implemented with the sll
+interface, changing the sll_addr changes the destination of the packet
+header.
 
-I agree, adding more tunables isn't all that helpful, in the past this
-only helped to prolong the problem.
+With the following patch I am able to make it work, but I'm not sure
+about the implications of changing the size of the sll_addr buffer.
+
+-- Wilco Baan Hofman
+
+
+
+>From 9cebcdd74cdbdeda0159aebfb5e64d9b8efc4006 Mon Sep 17 00:00:00 2001
+From: Wilco Baan Hofman <wilco@baanhofman.nl>
+Date: Fri, 6 Mar 2015 17:25:05 +0100
+Subject: [PATCH] Fix ip6_gre sending packets to undefined destinations.
+
+---
+ include/uapi/linux/if_packet.h | 2 +-
+ net/ipv6/ip6_gre.c             | 8 ++++++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+index da2d668..415cbc4 100644
+--- a/include/uapi/linux/if_packet.h
++++ b/include/uapi/linux/if_packet.h
+@@ -16,7 +16,7 @@ struct sockaddr_ll {
+     unsigned short    sll_hatype;
+     unsigned char    sll_pkttype;
+     unsigned char    sll_halen;
+-    unsigned char    sll_addr[8];
++    unsigned char    sll_addr[16];
+ };
+ 
+ /* Packet types */
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index bc28b7d..c9aee7d 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1205,8 +1205,16 @@ static int ip6gre_header(struct sk_buff *skb,
+struct net_device *dev,
+     return -t->hlen;
+ }
+ 
++static int ip6gre_header_parse(const struct sk_buff *skb, unsigned char
+*haddr)
++{
++    const struct ipv6hdr *ipv6h = (const struct ipv6hdr
+*)skb_mac_header(skb);
++    memcpy(haddr, &ipv6h->saddr, sizeof(struct in6_addr));
++    return sizeof(struct in6_addr);
++}
++
+ static const struct header_ops ip6gre_header_ops = {
+     .create    = ip6gre_header,
++    .parse    = ip6gre_header_parse,
+ };
+ 
+ static const struct net_device_ops ip6gre_netdev_ops = {
+-- 
+1.8.5.2
