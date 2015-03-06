@@ -1,51 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] mpls: Properly validate RTA_VIA payload length
-Date: Fri, 06 Mar 2015 14:06:39 -0600
-Message-ID: <87vbid99gw.fsf@x220.int.ebiederm.org>
-References: <1425638820-19990-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: bcmgenet: preparation for multiple
+ Rx queues
+Date: Fri, 06 Mar 2015 15:14:44 -0500 (EST)
+Message-ID: <20150306.151444.1533902822259577764.davem@davemloft.net>
+References: <20150306014008.DDA6C2214B6@puck.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:37935 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755982AbbCFUKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:10:16 -0500
-In-Reply-To: <1425638820-19990-1-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Fri, 6 Mar 2015 10:47:00 +0000")
+Received: from shards.monkeyblade.net ([149.20.54.216]:55681 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247AbbCFUOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 15:14:47 -0500
+In-Reply-To: <20150306014008.DDA6C2214B6@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+From: Petri Gynther <pgynther@google.com>
+Date: Thu,  5 Mar 2015 17:40:08 -0800 (PST)
 
-> If the nla length is less than 2 then the nla data could be accessed
-> beyond the accessible bounds. So ensure that the nla is big enough to
-> at least read the via_family before doing so. Replace magic value of
-> 2.
->
+> Three small patches in preparation for supporting multiple Rx queues:
+> 1. set hw_params->rx_queues = 0
+> 2. adjust the call to alloc_etherdev_mqs()
+> 3. add GENET_Q16_RX_BD_CNT and hw_params->rx_bds_per_q
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> Fixes: 03c0566542f4 ("mpls: Basic support for adding and removing routes")
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
->  net/mpls/af_mpls.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index 23e51d1..4ce39f6 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -585,8 +585,11 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->  		case RTA_VIA:
->  		{
->  			struct rtvia *via = nla_data(nla);
-> +			if (nla_len(nla) < offsetof(struct rtvia, rtvia_addr))
-> +				goto errout;
->  			cfg->rc_via_family = via->rtvia_family;
-> -			cfg->rc_via_alen   = nla_len(nla) - 2;
-> +			cfg->rc_via_alen   = nla_len(nla) -
-> +				offsetof(struct rtvia, rtvia_addr);
->  			if (cfg->rc_via_alen > MAX_VIA_ALEN)
->  				goto errout;
+Series applied, thanks.
