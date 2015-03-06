@@ -1,56 +1,70 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH v2 00/10] The rest of the FIB patches (add
- key_vector to fib_table)
-Date: Fri, 06 Mar 2015 09:53:49 -0800
-Message-ID: <20150306174814.2452.18308.stgit@ahduyck-vm-fedora20>
+Subject: [net-next PATCH v2 01/10] fib_trie: Minor cleanups to
+ fib_table_flush_external
+Date: Fri, 06 Mar 2015 09:53:56 -0800
+Message-ID: <20150306175356.2452.11301.stgit@ahduyck-vm-fedora20>
+References: <20150306174814.2452.18308.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45305 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33956 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753429AbbCFRxv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Mar 2015 12:53:51 -0500
+	id S1752905AbbCFRx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2015 12:53:58 -0500
+In-Reply-To: <20150306174814.2452.18308.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series is the rest of what I had originally planned for this kernel
-release.  It adds a structure called key_vector which is embedded within
-every tnode, leaf, and the trie root itself.  By doing this we can navigate
-from any point within the trie to any other point fairly quickly and
-avoiding NULL pointer checks in the case of a backtrace.  As a result we
-can pipeline things a bit further since we don't have to worry about
-dereferencing NULL in a backtrace.  This can amount to significant savings
-on a long backtrace.
+This change just does a couple of minor cleanups on
+fib_table_flush_external.  Specifically it addresses the fact that resize
+was being called even though nothing was being removed from the table, and
+it drops an unecessary indent since we could just call continue on the
+inverse of the fi && flag check.
 
-I decided to drop the up-level code as that conflicts with combining the
-main and local tries.  I have one patch as an RFC that currently combines
-the tries however it still needs some work as we have to split the local
-and main tries in the event of custom rules being defined.  As such we are
-probably going to be doing some more hacking on fib_table_flush_external as
-that will also need to flush the local entries from the main trie and place
-them back in the local trie.
-
-v2: Rebased on the switchdev FIB offload work
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
+ net/ipv4/fib_trie.c |   20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
 
-Alexander Duyck (10):
-      fib_trie: Minor cleanups to fib_table_flush_external
-      fib_trie: Return pointer to tnode pointer in resize/inflate/halve
-      fib_trie: Rename tnode to key_vector
-      fib_trie: replace tnode_get_child functions with get_child macros
-      fib_trie: Rename tnode_child_length to child_length
-      fib_trie: Add tnode struct as a container for fields not needed in key_vector
-      fib_trie: Move rcu from key_vector to tnode, add accessors.
-      fib_trie: Pull empty_children and full_children into tnode
-      fib_trie: Move parent from key_vector to tnode
-      fib_trie: Add key vector to root, return parent key_vector in resize
-
-
- net/ipv4/fib_trie.c |  807 +++++++++++++++++++++++++--------------------------
- 1 file changed, 401 insertions(+), 406 deletions(-)
-
---
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 0131f36..488cebc 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1586,13 +1586,8 @@ backtrace:
+ 			while (!(cindex--)) {
+ 				t_key pkey = pn->key;
+ 
+-				n = pn;
+-				pn = node_parent(n);
+-
+-				/* resize completed node */
+-				resize(t, n);
+-
+ 				/* if we got the root we are done */
++				pn = node_parent(pn);
+ 				if (!pn)
+ 					return;
+ 
+@@ -1607,12 +1602,13 @@ backtrace:
+ 	hlist_for_each_entry(fa, &n->leaf, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
+ 
+-		if (fi && (fi->fib_flags & RTNH_F_EXTERNAL)) {
+-			netdev_switch_fib_ipv4_del(n->key,
+-						   KEYLENGTH - fa->fa_slen,
+-						   fi, fa->fa_tos,
+-						   fa->fa_type, tb->tb_id);
+-		}
++		if (!fi || !(fi->fib_flags & RTNH_F_EXTERNAL))
++			continue;
++
++		netdev_switch_fib_ipv4_del(n->key,
++					   KEYLENGTH - fa->fa_slen,
++					   fi, fa->fa_tos,
++					   fa->fa_type, tb->tb_id);
+ 	}
+ 
+ 	/* if trie is leaf only loop is completed */
