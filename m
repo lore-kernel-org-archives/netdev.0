@@ -1,86 +1,94 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v4 5/8] switchdev: implement IPv4 fib ndo wrappers
-Date: Fri, 6 Mar 2015 01:38:43 -0800
-Message-ID: <CAE4R7bA=sh944g7S-+JTxechQca-7S3B0u9Z26B9fDZUTqk+1w@mail.gmail.com>
-References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
-	<1425619280-27492-6-git-send-email-sfeldma@gmail.com>
-	<20150306072400.GB2011@nanopsycho.orion>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: Re: [PATCH v2] ixgbe: make VLAN filter conditional
+Date: Fri, 6 Mar 2015 09:46:41 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E4F392@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E4EC48@BPXM14GP.gisp.nec.co.jp>
+	<1425634456.2556.160.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:42492 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932760AbbCFJio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 04:38:44 -0500
-Received: by qgfi50 with SMTP id i50so11266675qgf.9
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 01:38:43 -0800 (PST)
-In-Reply-To: <20150306072400.GB2011@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1425634456.2556.160.camel@jtkirshe-mobl>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 5, 2015 at 11:24 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Mar 06, 2015 at 06:21:17AM CET, sfeldma@gmail.com wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
->>
->>Flesh out ndo wrappers to call into device driver.  To call into device driver,
->>the wrapper must interate over route's nexthops to ensure all nexthop devs
->>belong to the same switch device.  Currently, there is no support for route's
->>nexthops spanning offloaded and non-offloaded devices, or spanning ports of
->>multiple offload devices.
->>
->>Since switch device ports may be stacked under virtual interfaces (bonds and/or
->>bridges), and the route's nexthop may be on the virtual interface, the wrapper
->>will traverse the nexthop dev down to the base dev.  It's the base dev that's
->>passed to the switchdev driver's ndo ops.
->>
->>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>---
->> net/switchdev/switchdev.c |   98 ++++++++++++++++++++++++++++++++++++++++++++-
->> 1 file changed, 96 insertions(+), 2 deletions(-)
->>
->>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>index 81c4c02..99907d8 100644
->>--- a/net/switchdev/switchdev.c
->>+++ b/net/switchdev/switchdev.c
->>@@ -227,6 +227,65 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
->> }
->> EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
->>
->>+static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
->>+{
->>+      const struct net_device_ops *ops = dev->netdev_ops;
->>+      struct net_device *lower_dev;
->>+      struct net_device *port_dev;
->>+      struct list_head *iter;
->>+
->>+      /* Recusively search down until we find a sw port dev.
->>+       * (A sw port dev supports ndo_switch_parent_id_get).
->>+       */
->>+
->>+      if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
->>+          ops->ndo_switch_parent_id_get)
->>+              return dev;
->>+
->>+      netdev_for_each_lower_dev(dev, lower_dev, iter) {
->>+              port_dev = netdev_switch_get_lowest_dev(lower_dev);
->>+              if (port_dev)
->>+                      return port_dev;
->>+      }
->
->
-> I think we should proparate through stacked devices properly as we do in
-> case of netdev_switch_port_bridge_setlink and netdev_switch_port_bridge_dellink
-> (and also with roopa's new patchset in case of
-> netdev_switch_port_stp_update)
+> On Fri, 2015-03-06 at 06:04 +0000, Hiroshi Shimamoto wrote:
+> > > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> > >
+> > > Disable hardware VLAN filtering if netdev->features VLAN flag is
+> > dropped.
+> > >
+> > > In SR-IOV case, there is a use case which needs to disable VLAN
+> > filter.
+> > > For example, we need to make a network function with VF in
+> > virtualized
+> > > environment. That network function may be a software switch, a
+> > router
+> > > or etc. It means that that network function will be an end point
+> > which
+> > > terminates many VLANs.
+> > >
+> > > In the current implementation, VLAN filtering always be turned on
+> > and
+> > > VF can receive only 63 VLANs. It means that only 63 VLANs can be
+> > terminated
+> > > in one NIC.
+> > >
+> > > With this patch, if the user turns VLAN filtering off on the host,
+> > VF
+> > > can receive every VLAN packet.
+> > >
+> > > This VLAN filtering can be turned on or off when SR-IOV is disabled,
+> > if not
+> > > the operation is rejected.
+> >
+> > Hi,
+> >
+> > any comment about this?
+> > I added a warning message and prevent operation during SR-IOV is
+> > enabled.
+> 
+> Yes, the warning message you added says nothing of the huge security
+> hole this exposes.  We need a message the correctly expresses the
+> dangers in turning this off.
 
-I think it's actually ndo_switch_parent_id_get you want to Roopa-fy
-(new word, has a nice ring to it).  But yes, do-able.
+hm okay.
+Do you mean I should add a message like "this causes SECURITY issue", right?
 
-> Other than this I like this patchset. Great work! Thanks.
+> 
+> Also it does not appear that you addressed Ben Hutchings concerns, as I
+> asked.  Correct me if I am wrong and you did address Ben's concerns.
 
-Thanks for the early reviews.
+I think Ben's suggestion is to prevent turn VLAN filtering back on during
+VFs are used because that breaks guest's behavior.
+I added the code that make it impossible. We cannot turn on (or off) if
+the NIC has VFs.
+
+thanks,
+Hiroshi
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
