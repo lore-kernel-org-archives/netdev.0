@@ -1,36 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tg3: use napi_complete_done()
-Date: Fri, 06 Mar 2015 00:20:42 -0500 (EST)
-Message-ID: <20150306.002042.934374176574379322.davem@davemloft.net>
-References: <1425580894.5130.263.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, prashant@broadcom.com, mchan@broadcom.com
-To: eric.dumazet@gmail.com
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v4 6/8] ipv4: add net bool fib_offload_disabled
+Date: Thu,  5 Mar 2015 21:21:18 -0800
+Message-ID: <1425619280-27492-7-git-send-email-sfeldma@gmail.com>
+References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40030 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754116AbbCFFUp (ORCPT
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:35789 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754167AbbCFFUp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 00:20:45 -0500
-In-Reply-To: <1425580894.5130.263.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: by pdbfp1 with SMTP id fp1so21277489pdb.2
+        for <netdev@vger.kernel.org>; Thu, 05 Mar 2015 21:20:44 -0800 (PST)
+In-Reply-To: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Mar 2015 10:41:34 -0800
+From: Scott Feldman <sfeldma@gmail.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Using napi_complete_done() instead of napi_complete() allows
-> us to use /sys/class/net/ethX/gro_flush_timeout
-> 
-> GRO layer can aggregate more packets if the flush is delayed a bit,
-> without having to set too big coalescing parameters that impact
-> latencies.
-> 
-> Tested:
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+If something goes wrong with IPv4 FIB offload, mark entire net offload
+disabled.  This is brute force policy to basically shut down IPv4 FIB offload
+permanently if there is a problem offloading any route to an external device.
+We can refine the policy in the future, to handle failures on a per-device or
+per-route basis, but for now, this policy is per-net.
 
-Applied, thanks Eric.
+What we're trying to avoid is an inconsistent split between the kernel's FIB
+and the offload device's FIB.  We don't want the device to fwd a pkt
+inconsitent with what the kernel would do.  An example of a split is if device
+has 10.0.0.0/16 and kernel has 10.0.0.0/16 and 10.0.0.0/24, the device wouldn't
+see the longest prefix 10.0.0.0/24 and potentially forward pkts incorrectly.
+
+Limited capacity or limited capability are two ways a route may fail to install
+to the offload device.  We'll not differentiate between failures at this time,
+and treat any failure as fatal and mark the net as fib_offload_disabled.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ include/net/netns/ipv4.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index db1db15..1085e12f 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -47,6 +47,7 @@ struct netns_ipv4 {
+ 	int			fib_num_tclassid_users;
+ #endif
+ 	struct hlist_head	*fib_table_hash;
++	bool			fib_offload_disabled;
+ 	struct sock		*fibnl;
+ 
+ 	struct sock  * __percpu	*icmp_sk;
+-- 
+1.7.10.4
