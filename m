@@ -1,46 +1,32 @@
-From: <dinguyen@opensource.altera.com>
-Subject: [PATCH] net: stmmac: make reset control an optional requirement
-Date: Fri, 6 Mar 2015 15:32:55 -0600
-Message-ID: <1425677575-26181-1-git-send-email-dinguyen@opensource.altera.com>
+From: "Mr Nobuyuki Hirano" <delphine.le_guillou@upmc.fr>
+Subject: Please Accept My Proposal With Open Mind
+Date: Fri, 6 Mar 2015 22:50:26 +0100
+Message-ID: <20150306215014.446301B82F3@mh01c.univ-avignon.fr>
+Reply-To: <mr.nobuyukihirano@foxmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	Vince Bridgers <vbridger@opensource.altera.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mh01c.univ-avignon.fr ([195.83.163.162]:43927 "EHLO
+	mh01c.univ-avignon.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754732AbbCFWCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 17:02:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Dear friend,
 
-Not having a reset control line to the ethernet controller should not be a
-hard failure. Instead, add support for deferred probing and just print out
-a debug statement.
+I hope this proposal meets you in a good state of health.
 
-Signed-off-by: Dinh Nguyen <dinguyen@opensource.altera.com>
-Cc: Vince Bridgers <vbridger@opensource.altera.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index e97074c..ecb0b9b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -91,7 +91,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 						  STMMAC_RESOURCE_NAME);
- 	if (IS_ERR(dwmac->stmmac_rst)) {
- 		dev_info(dev, "Could not get reset control!\n");
--		return -EINVAL;
-+		if (PTR_ERR(dwmac->stmmac_rst) == -EPROBE_DEFER)
-+			ret = -EPROBE_DEFER;
-+		dwmac->stmmac_rst = NULL;
- 	}
+Please can you help me re-profile fund? I am Mr Nobuyuki Hirano, President and CEO of The Bank of Tokyo-Mitsubishi UFJ. You can read about my Biography here: http://www.4-traders.com/business-leaders/Nobuyuki-Hirano-0676SZ-E/biography/
  
- 	dwmac->interface = of_get_phy_mode(np);
--- 
-2.2.1
+A sum of $23,200,000.00 USD (Twenty three million, two Hundred Thousand dollars)  was deposited by my Late customer (Fadel Ahmed) who died without declaring any next of kin before his death in 2009.
+
+My suggestion to you is to stand as the next of kin to Fadel Ahmed. We shall share in the ratio of 50% for me, 50% for you. Contact me via this e- mail: mr.nobuyukihirano@foxmail.com
+
+Please let me know your interest on this subject matter
+
+Sincerely,
+Mr.Nobuyuki Hirano
