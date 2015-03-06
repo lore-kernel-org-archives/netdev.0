@@ -1,126 +1,124 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Fri, 6 Mar 2015 01:52:50 -0800
-Message-ID: <CAE4R7bAaLxCebc7cuYB9NQ_Duo8a6LvxWDwWOD9Wn8ROWjvDGw@mail.gmail.com>
-References: <1425428129-48365-1-git-send-email-roopa@cumulusnetworks.com>
-	<CAE4R7bArwsNUdtNM25Zm=ZccrmVqC8e45E6qsjMdO3s0FrOVog@mail.gmail.com>
-	<54F6C788.2010201@cumulusnetworks.com>
-	<20150305080218.GB2033@nanopsycho.orion>
-	<54F86E4B.9040403@cumulusnetworks.com>
-	<CAE4R7bCQHcR4Ne-ssCRRvw0czKxRJfykcBFY6c_9haRF3pRJYA@mail.gmail.com>
-	<54F8C00C.2010303@cumulusnetworks.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] ixgbe: make VLAN filter conditional
+Date: Fri, 06 Mar 2015 02:16:50 -0800
+Message-ID: <1425637010.2556.180.camel@jtkirshe-mobl>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E4EC48@BPXM14GP.gisp.nec.co.jp>
+	 <1425634456.2556.160.camel@jtkirshe-mobl>
+	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E4F392@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:35991 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158AbbCFJwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 04:52:51 -0500
-Received: by qgdz107 with SMTP id z107so11309948qgd.3
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 01:52:50 -0800 (PST)
-In-Reply-To: <54F8C00C.2010303@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-QxF4I8szT8MnAlaC4tOm"
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E4F392@BPXM14GP.gisp.nec.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 5, 2015 at 12:43 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 3/5/15, 12:06 PM, Scott Feldman wrote:
->>
->> On Thu, Mar 5, 2015 at 6:55 AM, roopa <roopa@cumulusnetworks.com> wrote:
->>>
->>> On 3/5/15, 12:02 AM, Jiri Pirko wrote:
->>>>
->>>> Wed, Mar 04, 2015 at 09:51:20AM CET, roopa@cumulusnetworks.com wrote:
->>>>>
->>>>> On 3/3/15, 11:02 PM, Scott Feldman wrote:
->>
->> [cut]
->>
->>>>>> Rocker setlink wasn't broken prior to the NETIF_F_HW_SWITCH_OFFLOAD
->>>>>> patches.
->>>>>>    Now it is,
->>>>>
->>>>> sure, I can submit a patch to remove the flag on rocker ports if thats
->>>>> what
->>>>> you prefer.
->>>>
->>>> I don't believe that Scott prefers that. The offload flag is there not
->>>> only for this case, but also for many future switch offloading cases.
->>>
->>> I very well understand that.
->>>>
->>>> Rocker port have to have that port set by default. I do not really
->>>> understand why you suggest removing it...
->>>>
->>> I was just making sure scott is on board with the use of the flag.
->>> I added it on rocker ports for l2 and learning might be broken because of
->>> that. Which i am trying to fix.
->>> also, scotts l3 patches dont seem to use the flag.
->>
->> That's an oversight due to work starting on L3 patches way before
->> NETIF_F_HW_SWITCH_OFFLOAD was introduced ; I'll add checks for that
->> flag to the L3 patches.
->
-> ok, i was not sure if you were planning to. I did post a comment on v2.
->>>
->>> So, if the patch in this thread is not the right way to fix it..,.i was
->>> just
->>> trying to give scott an option to remove the flag to keep l2 working and
->>> for
->>> him to bring back the flag when he is ready.
->>
->> When I'm ready for what?  I ready for it to work like it did before
->> NETIF_F_HW_SWITCH_OFFLOAD and your setlink changes went in.  ;-)
->
-> well, to be fair scott, my current patch in this thread is trying to get to
-> it, if you let me :)
->
->>
->> We want two sets of IFLA_PROTINFO attrs for a bridge port.   The first
->> set is the bridge side of the port, so these attrs like learning or
->> flooding control the how the bridge (software) manages the port.  The
->> second set is the device side of the port, so attrs here control how
->> the (offload) device manages the port.  The two sets are independent.
->> For example, you could have learning turned OFF on the bridge side and
->> learning turned ON on the device side.  The device side will
->> initialize its set.  The bridge will initialize its set.   The user
->> can see both sets with cmd
->>
->>      bridge -d link show.
->>
->> The user can set the bridge's attr with one of cmds:
->>
->>      bridge link set <attr> dev <port>
->>      bridge link set <attr> dev <port> master
->>
->> The user can set the device's attr with cmd:
->>
->>      bridge link set <attr> dev <port> self
->>
->> The driver setlink/getlink ops should only be called in the SELF
->> context because the driver is the SELF side of the port.  Somehow we
->> got away from that.
->
-> True, If all attributes that the bridge setlink sets need to go separately
-> to kernel and hardware and
->  we will never mirror them. That is not the case however. vlans is an
-> example and there will be more bridge port attributes in the future.
->
->>   We talked about IFLA_AF_SPEC being handled
->> differently for VLANs.  For IFLA_PROTINFO, what do we need to get back
->> to what I have above?
->
->
-> If I understand you correctly, you are saying that ndo_bridge_setlink when
-> it comes to offloads
-> should only be used for IFLA_PROTINFO ?
 
-I'm saying port driver's ndo_bridge_setlink shouldn't be called unless
-SELF is set.  The port driver shouldn't have to check if it's SELF,
-that's my main beef with this patch.  If the app (iproute2) wants to
-mirror an attribute, then it can set both MASTER and SELF.  This is
-consistent with ndo_fdb ops, where MASTER targets the bridge's FDB and
-SELF targets the device's FDB.
+--=-QxF4I8szT8MnAlaC4tOm
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2015-03-06 at 09:46 +0000, Hiroshi Shimamoto wrote:
+> > On Fri, 2015-03-06 at 06:04 +0000, Hiroshi Shimamoto wrote:
+> > > > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> > > >
+> > > > Disable hardware VLAN filtering if netdev->features VLAN flag is
+> > > dropped.
+> > > >
+> > > > In SR-IOV case, there is a use case which needs to disable VLAN
+> > > filter.
+> > > > For example, we need to make a network function with VF in
+> > > virtualized
+> > > > environment. That network function may be a software switch, a
+> > > router
+> > > > or etc. It means that that network function will be an end point
+> > > which
+> > > > terminates many VLANs.
+> > > >
+> > > > In the current implementation, VLAN filtering always be turned on
+> > > and
+> > > > VF can receive only 63 VLANs. It means that only 63 VLANs can be
+> > > terminated
+> > > > in one NIC.
+> > > >
+> > > > With this patch, if the user turns VLAN filtering off on the host,
+> > > VF
+> > > > can receive every VLAN packet.
+> > > >
+> > > > This VLAN filtering can be turned on or off when SR-IOV is disabled=
+,
+> > > if not
+> > > > the operation is rejected.
+> > >
+> > > Hi,
+> > >
+> > > any comment about this?
+> > > I added a warning message and prevent operation during SR-IOV is
+> > > enabled.
+> >=20
+> > Yes, the warning message you added says nothing of the huge security
+> > hole this exposes.  We need a message the correctly expresses the
+> > dangers in turning this off.
+>=20
+> hm okay.
+> Do you mean I should add a message like "this causes SECURITY issue", rig=
+ht?
+
+Correct, you will need to notify the user that by turning off VLAN
+filtering, this opens up serious security issues.  The message should
+well inform the user of the potential dangers, so that if someone gets
+hacked or information gets stolen because they turning off VLAN
+filtering, that is was due to their choice to turn off this feature and
+not a design flaw in the driver.
+
+> >=20
+> > Also it does not appear that you addressed Ben Hutchings concerns, as I
+> > asked.  Correct me if I am wrong and you did address Ben's concerns.
+>=20
+> I think Ben's suggestion is to prevent turn VLAN filtering back on during
+> VFs are used because that breaks guest's behavior.
+> I added the code that make it impossible. We cannot turn on (or off) if
+> the NIC has VFs.
+
+And notify them that one they turn it off, then cannot turn it back on
+if the NIC has VFs, so they will remain exposed and will continue to
+have serious security issues.
+
+>=20
+> thanks,
+> Hiroshi
+
+
+
+--=-QxF4I8szT8MnAlaC4tOm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU+X6SAAoJEOVv75VaS+3OxHIP/2rnAMXfmtTFnBgV949s/qhB
+Oxn7PZiTE0aGk/QEzqkFEy+xXwhKl5ueW3kQqY87+PPntAm4KvvVIZPO33NNuXJq
+TD9sUm9KtVeO0uuiElMLmnEtIefIhMUGY8nC5LIQDvynESYYGnjMeSPCWZqekCVn
+w2OmO6khoSA5ezWyBwhIVFyaLd5G+I4NfJ/CFSDGywkUX+QlRovLjthQTLgXQ3LL
+RTzTgBPuZarv88s0xJU/zXVyxf5/nz13O6TeIvGUEJK1oMBoIHFS4NlFkCPjVYBS
+w8GUkZHbwZf6iZjvIu9/EYYIsMZnYNNKpqW524CC+hBVJYe5o0b0X4S2WOwc7iDA
+IELaP3VcXWSXR2o/Vcgf9uSw80GYgnYHGPnDI5hPgZhd5+1w5zGu0eORQOKuiqu7
+e3eXRT3bPDn5dRPhBasNXL5FMz//Jq/Lvtt81nOehzRFWf6otHtRpf/JDJmFdFRG
+fUI9rRI06kyU1cvIMQmTudCqjbhi/lOSPfkkh2bQAL2LQ/8mDSZCg4/0XiYCA7ph
+bTAKjfmxrW6PZ7Oxa8XirFO7U7Ed8zeFmhDjqsoPkOYUK8VTwLc0W4RNU5Ck8Nj9
+/sWrr8W/8MtlW0P+N6UJqqJ25CEQ0a5iFFA39qHItqifTqwy4L4j0ZjHhJLeS3pA
+Bw9X0H+9bkGUYT3Wt//O
+=oVeZ
+-----END PGP SIGNATURE-----
+
+--=-QxF4I8szT8MnAlaC4tOm--
