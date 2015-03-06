@@ -1,93 +1,86 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2] ixgbe: make VLAN filter conditional
-Date: Fri, 06 Mar 2015 01:34:16 -0800
-Message-ID: <1425634456.2556.160.camel@jtkirshe-mobl>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E4EC48@BPXM14GP.gisp.nec.co.jp>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 5/8] switchdev: implement IPv4 fib ndo wrappers
+Date: Fri, 6 Mar 2015 01:38:43 -0800
+Message-ID: <CAE4R7bA=sh944g7S-+JTxechQca-7S3B0u9Z26B9fDZUTqk+1w@mail.gmail.com>
+References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>
+	<1425619280-27492-6-git-send-email-sfeldma@gmail.com>
+	<20150306072400.GB2011@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-sOFoaD3f3ERRMztg5r77"
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E4EC48@BPXM14GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:42492 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932760AbbCFJio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 04:38:44 -0500
+Received: by qgfi50 with SMTP id i50so11266675qgf.9
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 01:38:43 -0800 (PST)
+In-Reply-To: <20150306072400.GB2011@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Mar 5, 2015 at 11:24 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Mar 06, 2015 at 06:21:17AM CET, sfeldma@gmail.com wrote:
+>>From: Scott Feldman <sfeldma@gmail.com>
+>>
+>>Flesh out ndo wrappers to call into device driver.  To call into device driver,
+>>the wrapper must interate over route's nexthops to ensure all nexthop devs
+>>belong to the same switch device.  Currently, there is no support for route's
+>>nexthops spanning offloaded and non-offloaded devices, or spanning ports of
+>>multiple offload devices.
+>>
+>>Since switch device ports may be stacked under virtual interfaces (bonds and/or
+>>bridges), and the route's nexthop may be on the virtual interface, the wrapper
+>>will traverse the nexthop dev down to the base dev.  It's the base dev that's
+>>passed to the switchdev driver's ndo ops.
+>>
+>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>---
+>> net/switchdev/switchdev.c |   98 ++++++++++++++++++++++++++++++++++++++++++++-
+>> 1 file changed, 96 insertions(+), 2 deletions(-)
+>>
+>>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>>index 81c4c02..99907d8 100644
+>>--- a/net/switchdev/switchdev.c
+>>+++ b/net/switchdev/switchdev.c
+>>@@ -227,6 +227,65 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+>> }
+>> EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
+>>
+>>+static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+>>+{
+>>+      const struct net_device_ops *ops = dev->netdev_ops;
+>>+      struct net_device *lower_dev;
+>>+      struct net_device *port_dev;
+>>+      struct list_head *iter;
+>>+
+>>+      /* Recusively search down until we find a sw port dev.
+>>+       * (A sw port dev supports ndo_switch_parent_id_get).
+>>+       */
+>>+
+>>+      if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
+>>+          ops->ndo_switch_parent_id_get)
+>>+              return dev;
+>>+
+>>+      netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>>+              port_dev = netdev_switch_get_lowest_dev(lower_dev);
+>>+              if (port_dev)
+>>+                      return port_dev;
+>>+      }
+>
+>
+> I think we should proparate through stacked devices properly as we do in
+> case of netdev_switch_port_bridge_setlink and netdev_switch_port_bridge_dellink
+> (and also with roopa's new patchset in case of
+> netdev_switch_port_stp_update)
 
---=-sOFoaD3f3ERRMztg5r77
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I think it's actually ndo_switch_parent_id_get you want to Roopa-fy
+(new word, has a nice ring to it).  But yes, do-able.
 
-On Fri, 2015-03-06 at 06:04 +0000, Hiroshi Shimamoto wrote:
-> > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> >=20
-> > Disable hardware VLAN filtering if netdev->features VLAN flag is
-> dropped.
-> >=20
-> > In SR-IOV case, there is a use case which needs to disable VLAN
-> filter.
-> > For example, we need to make a network function with VF in
-> virtualized
-> > environment. That network function may be a software switch, a
-> router
-> > or etc. It means that that network function will be an end point
-> which
-> > terminates many VLANs.
-> >=20
-> > In the current implementation, VLAN filtering always be turned on
-> and
-> > VF can receive only 63 VLANs. It means that only 63 VLANs can be
-> terminated
-> > in one NIC.
-> >=20
-> > With this patch, if the user turns VLAN filtering off on the host,
-> VF
-> > can receive every VLAN packet.
-> >=20
-> > This VLAN filtering can be turned on or off when SR-IOV is disabled,
-> if not
-> > the operation is rejected.
->=20
-> Hi,
->=20
-> any comment about this?
-> I added a warning message and prevent operation during SR-IOV is
-> enabled.
+> Other than this I like this patchset. Great work! Thanks.
 
-Yes, the warning message you added says nothing of the huge security
-hole this exposes.  We need a message the correctly expresses the
-dangers in turning this off.
-
-Also it does not appear that you addressed Ben Hutchings concerns, as I
-asked.  Correct me if I am wrong and you did address Ben's concerns.
-
---=-sOFoaD3f3ERRMztg5r77
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU+XSYAAoJEOVv75VaS+3O2ukP/jal6mW5QuqKck/6NAU24MMA
-qkLXjaquWMJckNpK8AG3lMWUjuZlU0JGjvJup8cmldg7bGQJAsPvzty0OBxFbBoQ
-mbuwJEp/Fd0ERUZLq8J5XAIxVLPFmcGsZ8a5MA/2lz3YA+eFfOjoB8rivptfuY00
-f89m8bNQC8wyELhjl72dCfVI2sRyH5bE+r8cE7ftYTPaCXW0mr8ong3qzGpOfbav
-XOn701B+MODghAVpLu+yhdtIsariyfG6Ue5vtT6mhzHmIF4a7bsadCLI1BNLn9P4
-FfqxPWGUeFDZtMTG5JjrIYjfeiFzcAU1d7LXQViL4cz3OGi63VTHSeDfWi6dYl3v
-7vL5QwgacVQ9rXDohYTiA93gQvO62sgJaYUYV1RjLuu8yOnP4HiEo+M0+hmJ0Z7e
-TQ2z2I0VItlTuivpre1iQ8apBS6GjcPQmrAo4BjwaZSrRKjcBZRz6QVwEwr1bzap
-48RzvjQEKEDIjgAjlRANaJxqBxfummqwkodHOrv/M3L4N/nhzmwwCcqvBTCPHS/L
-F8giIWQPAMg2hxVUyRcW2RxhWfFQ9q7WAh+842aUrLjmBfz/SPIMIaHadHRZpJHo
-q/jaRDjgdcPsrRdyMAtLYOBzv47suXSPX++ucy3B+a4nfcZ0QQi/HJn4EQ+D1RCw
-dNIMq/Ykzz1DGwxaw1oq
-=+f2W
------END PGP SIGNATURE-----
-
---=-sOFoaD3f3ERRMztg5r77--
+Thanks for the early reviews.
