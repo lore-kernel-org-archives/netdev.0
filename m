@@ -1,63 +1,60 @@
-From: Mr Adams Paul <erjio08.2004v1@gmail.com>
-Subject: My Dearest Friend,
-Date: Fri, 6 Mar 2015 15:16:51 +0100
-Message-ID: <CAP_PqkV3UzosmTY44Bh4Q5-2rFFczLQbZOqJErH6F12wXBaqSg@mail.gmail.com>
-Reply-To: mr_adamspaul@outlook.fr
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to traverse
+ the bridge without hitting netfilter
+Date: Fri, 6 Mar 2015 15:29:32 +0100
+Message-ID: <20150306142932.GA15926@salvia>
+References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
+ <20150223160619.GF24297@breakpoint.cc>
+ <54EEF32D.2010202@amazon.de>
+ <20150226.113431.238255529591339000.davem@davemloft.net>
+ <54F982B5.90108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:33985 "EHLO
-	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750836AbbCFOQw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 09:16:52 -0500
-Received: by oifu20 with SMTP id u20so3225568oif.1
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 06:16:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, imrep@amazon.de, fw@strlen.de,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	aliguori@amazon.com, nbd@openwrt.org
+To: Imre Palik <imrep.amz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54F982B5.90108@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-My Dearest Friend,
+On Fri, Mar 06, 2015 at 11:34:29AM +0100, Imre Palik wrote:
+> On 02/26/15 17:34, David Miller wrote:
+> > From: Imre Palik <imrep@amazon.de>
+> > Date: Thu, 26 Feb 2015 11:19:25 +0100
+> > 
+> >> If you are looking for peculiarities in my setup then here they are:
+> >> I am on 4k pages, and perf is not working :-(
+> >> (I am trying to fix those too, but that is far from being a low hanging fruit.)
+> >> So my guess would be that the packet pipeline doesn't fit in the cache/tlb
+> > 
+> > Pure specualtion until you can actually use perf to measure these
+> > things.
+> > 
+> > And I don't want to apply patches which were designed based upon
+> > pure speculation.
+> > 
+> 
+> I did performance measurements in the following way:
+> 
+> Removed those pieces of the packet pipeline that I don't necessarily
+> need one-by-one.  Then measured their effect on small packet
+> performance.
+> 
+> This was the only part that produced considerable effect.
+> 
+> The pure speculation was about why the effect is more than 15%
+> increase in packet throughput, although the code path avoided
+> contains way less code than 15% of the packet pipeline.  It seems,
+> Felix Fietkau profiled similar changes, and found my guess well
+> founded.
+> 
+> Now could anybody explain me what else is wrong with my patch?
 
-I am Mr .Adams Paul, The chief auditor in bank of Africa (boa) Burkina
-=46aso West African, One of our customers, with his entire family was
-among the victims of plane crash and before his death, he has an
-account with us valued at $27.2million us dollars(twenty-seven million
-two hundred thousand us dollars) in our bank and according to the
-Burkina Faso law, at the expiration of Ten years if nobody applies to
-claim the funds a grace of one year also will be given before the
-money will revert to the ownership of the Burkina Faso government.
+We have to come up with a more generic solution for this.
 
-My proposals is that i will like you as a foreigner to stand in as the
-next of kin or distant cousin for us to claim this money, so that the
-fruits of this old man=E2=80=99s labour will not get into the hands of =
-some
-corrupt government officials who will later use the money to sponsor
-war in Africa and kill innocent citizens in the search for political
-power.
-
-As a foreign partner which this money will be transfer into your
-account, you are entitle to 40% of the total money while 55% will be
-for me as the moderator of this transaction and 5% will be mapped out
-for any expenditure that may be incur during the course of this
-transaction. Please note that there will be no problem as my bank has
-made all effort through to reach for any of his
-relation but all was fruitless.
-
-My position as the chief auditor in this bank guarantees the
-successful execution of this (deal) transaction.Please send the
-following: Reply To This E-mail Address...mr_adamspaul@outlook.fr
-
-1)your full name.....
-2) sex.....
-3) age.....
-4) country.....
-5)passport or photo.....
-6)occupation.....
-7) personal Mobile number.....
-8) Personal fax number.....
-9) Home &office address.....
-
-Thanks.
-
-Mr .Adams Paul
+These sysfs tweaks you're proposing look to me like an obscure way to
+tune this.
