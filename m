@@ -1,44 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ebpf: bpf_map_*: fix linker error on avr32
- and openrisc arch
-Date: Fri, 06 Mar 2015 01:05:53 -0500 (EST)
-Message-ID: <20150306.010553.1266565423558104748.davem@davemloft.net>
-References: <dc0fc4f224a95f2a9813079229cb9cc0ac069d52.1425594286.git.daniel@iogearbox.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv3 ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Fri, 6 Mar 2015 07:13:47 +0100
+Message-ID: <20150306061347.GA3311@secunet.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, ast@plumgrid.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <fengyuleidian0615@gmail.com>
+To: Fan Du <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40506 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755837AbbCFGFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 01:05:55 -0500
-In-Reply-To: <dc0fc4f224a95f2a9813079229cb9cc0ac069d52.1425594286.git.daniel@iogearbox.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:49498 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752759AbbCFGNy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Mar 2015 01:13:54 -0500
+Content-Disposition: inline
+In-Reply-To: <1422349230-17394-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu,  5 Mar 2015 23:27:51 +0100
+On Tue, Jan 27, 2015 at 05:00:29PM +0800, Fan Du wrote:
+> structure like xfrm_usersa_info or xfrm_userpolicy_info
+> has different sizeof when compiled as 32bits and 64bits
+> due to not appending pack attribute in their definition.
+> This will result in broken SA and SP information when user
+> trying to configure them through netlink interface.
+> 
+> Inform user land about this situation instead of keeping
+> silent, the upper test scripts would behave accordingly.
+> 
+> Quotes from: http://marc.info/?l=linux-netdev&m=142226348715503&w=2
+> >
+> > Before a clean solution show up, I think it's better to warn user in some way
+> > like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many people
+> > who stuck there will always spend time and try to fix this issue in whatever way.
+> 
+> Yes, this is the first thing we should do. I'm willing to accept a patch
+> 
+> Signed-off-by: Fan Du <fan.du@intel.com>
 
-> Fengguang reported, that on openrisc and avr32 architectures, we
-> get the following linker errors on *_defconfig builds that have
-> no bpf syscall support:
-> 
->   net/built-in.o:(.rodata+0x1cd0): undefined reference to `bpf_map_lookup_elem_proto'
->   net/built-in.o:(.rodata+0x1cd4): undefined reference to `bpf_map_update_elem_proto'
->   net/built-in.o:(.rodata+0x1cd8): undefined reference to `bpf_map_delete_elem_proto'
-> 
-> Fix it up by providing built-in weak definitions of the symbols,
-> so they can be overridden when the syscall is enabled. I think
-> the issue might be that gcc is not able to optimize all that away.
-> This patch fixes the linker errors for me, tested with Fengguang's
-> make.cross [1] script.
-> 
->   [1] https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Fixes: d4052c4aea0c ("ebpf: remove CONFIG_BPF_SYSCALL ifdefs in socket filter code")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-
-Applied, thanks.
+Now applied to ipsec-next, thanks a lot Fan!
