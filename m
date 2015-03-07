@@ -1,125 +1,57 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] ip netns: Fix rtnl error while print netns list
-Date: Sat,  7 Mar 2015 08:30:58 +0200
-Message-ID: <1425709858-25644-1-git-send-email-vadim4j@gmail.com>
-Cc: nicolas.dichtel@6wind.com, Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3] bond: add support for ndo_switch_port_stp_update
+ when bond is a bridge port
+Date: Fri, 06 Mar 2015 22:56:48 -0800
+Message-ID: <54FAA130.6050800@cumulusnetworks.com>
+References: <1425614658-43701-3-git-send-email-roopa@cumulusnetworks.com> <20150306065542.GB2004@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:37463 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923AbbCGGmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 01:42:35 -0500
-Received: by lbdu10 with SMTP id u10so14900173lbd.4
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 22:42:33 -0800 (PST)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:34968 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752909AbbCGG4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 01:56:50 -0500
+Received: by pdbfp1 with SMTP id fp1so29724456pdb.2
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 22:56:49 -0800 (PST)
+In-Reply-To: <20150306065542.GB2004@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
-
-Observed on the Linux 3.18:
-
-    # ip netns
-    RTNETLINK answers: Operation not supported
-    net0
-
-CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Fixes: d182ee1307c7 ("ipnetns: allow to get and set netns ids")
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
-v2:
-   Get rid of main func in configure script,
-   it is enough to test by assigning variable with RTM_GETNSID.
-
- configure    | 21 ++++++++++++++++++++-
- ip/Makefile  |  4 ++++
- ip/ipnetns.c |  7 +++++++
- 3 files changed, 31 insertions(+), 1 deletion(-)
-
-diff --git a/configure b/configure
-index c3dacdb..631938e 100755
---- a/configure
-+++ b/configure
-@@ -201,7 +201,7 @@ check_setns()
- {
-     cat >$TMPDIR/setnstest.c <<EOF
- #include <sched.h>
--int main(int argc, char **argv) 
-+int main(int argc, char **argv)
- {
- 	(void)setns(0,0);
- 	return 0;
-@@ -218,6 +218,23 @@ EOF
-     rm -f $TMPDIR/setnstest.c $TMPDIR/setnstest
- }
- 
-+check_netnsid()
-+{
-+    cat >$TMPDIR/netnsid.c <<EOF
-+#include <linux/rtnetlink.h>
-+int test_def = RTM_GETNSID;
-+EOF
-+    $CC -c $TMPDIR/netnsid.c >/dev/null 2>&1
-+    if [ $? -eq 0 ]
-+    then
-+	echo "IP_CONFIG_NETNSID:=y" >> Config
-+	echo "yes"
-+    else
-+	echo "no"
-+    fi
-+    rm -f $TMPDIR/netnsid.c $TMPDIR/netnsid.o
-+}
-+
- check_ipset()
- {
-     cat >$TMPDIR/ipsettest.c <<EOF
-@@ -283,6 +300,8 @@ check_ipt_lib_dir
- 
- echo -n "libc has setns: "
- check_setns
-+echo -n "netns has peer id suport: "
-+check_netnsid
- 
- echo -n "SELinux support: "
- check_selinux
-diff --git a/ip/Makefile b/ip/Makefile
-index 2c742f3..5637bcf 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -16,6 +16,10 @@ ifeq ($(IP_CONFIG_SETNS),y)
- 	CFLAGS += -DHAVE_SETNS
- endif
- 
-+ifeq ($(IP_CONFIG_NETNSID),y)
-+	CFLAGS += -DHAVE_NETNSID
-+endif
-+
- ALLOBJ=$(IPOBJ) $(RTMONOBJ)
- SCRIPTS=ifcfg rtpr routel routef
- TARGETS=ip rtmon
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 5a213dc..45e234a 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -34,6 +34,7 @@ static int usage(void)
- 	exit(-1);
- }
- 
-+#ifdef HAVE_NETNSID
- static int get_netnsid_from_name(const char *name)
- {
- 	struct {
-@@ -78,6 +79,12 @@ static int get_netnsid_from_name(const char *name)
- 
- 	return -1;
- }
-+#else
-+static int get_netnsid_from_name(const char *name)
-+{
-+	return -1;
-+}
-+#endif /* HAVE_NETNSID */
- 
- static int netns_list(int argc, char **argv)
- {
--- 
-2.3.1
+On 3/5/15, 10:55 PM, Jiri Pirko wrote:
+> Fri, Mar 06, 2015 at 05:04:17AM CET, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch adds support for stp state offload netdev op to support the case
+>> where bond is a bridge port and bond slaves are switch ports.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Maybe the indent should be fixed for the rest to align with
+> .ndo_switch_port_stp_update. Not sure if that is needed thought. The
+> same note goes for team.
+Thanks Jiri. I looked at it and you are right i am not sure i can do 
+anything more.
+>
+> Acked-by: Jiri Pirko <jiri@resnulli.us>
+>
+>> ---
+>> drivers/net/bonding/bond_main.c |    1 +
+>> 1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 675b082..bf60535 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -4005,6 +4005,7 @@ static const struct net_device_ops bond_netdev_ops = {
+>> 	.ndo_fix_features	= bond_fix_features,
+>> 	.ndo_bridge_setlink	= ndo_dflt_netdev_switch_port_bridge_setlink,
+>> 	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
+>> +	.ndo_switch_port_stp_update = ndo_dflt_netdev_switch_port_stp_update,
+>> };
+>>
+>> static const struct device_type bond_type = {
+>> -- 
+>> 1.7.10.4
+>>
