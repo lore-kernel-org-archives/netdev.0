@@ -1,45 +1,35 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: pull-request: wireless-drivers-next 2015-03-06
-Date: Sat, 07 Mar 2015 09:18:58 +0200
-Message-ID: <87vbid1di5.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH net-next 0/2] build fixes for iwlwifi
+Date: Sat, 07 Mar 2015 09:27:00 +0200
+Message-ID: <87r3t11d4r.fsf@kamboji.qca.qualcomm.com>
 References: <874mpy2gw5.fsf@kamboji.qca.qualcomm.com>
-	<20150306.154639.1922888192237476633.davem@davemloft.net>
+	<87fv9h7cwl.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: ebiederm@xmission.com (Eric W. Biederman),
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56912 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:57176 "EHLO
 	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755404AbbCGHTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 02:19:06 -0500
-In-Reply-To: <20150306.154639.1922888192237476633.davem@davemloft.net> (David
-	Miller's message of "Fri, 06 Mar 2015 15:46:39 -0500 (EST)")
+	with ESMTP id S1753524AbbCGH1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 02:27:06 -0500
+In-Reply-To: <87fv9h7cwl.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Fri, 06 Mar 2015 20:35:22 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+ebiederm@xmission.com (Eric W. Biederman) writes:
 
-> From: Kalle Valo <kvalo@codeaurora.org>
-> Date: Fri, 06 Mar 2015 19:08:10 +0200
+> drivers/net/wireles/iwlwifi/mvm fails to build for me on
+> net-next.
 >
->> here's a pull request for net-next. Lots of smaller fixes and cleanup,
->> major changes are documented in the signed tag and available below
->> 
->> Do note that I wasn't able compile net-next (commit 23375a0fd549) with
->> my config:
->> 
->> wireless-drivers-next/include/net/switchdev.h:133: multiple definition of `netdev_switch_fib_ipv4_abort'
->> net/bridge/br.o:wireless-drivers-next/include/net/switchdev.h:133: first defined here
->> net/bridge/br_netlink.o: In function `netdev_switch_fib_ipv4_abort':
->> wireless-drivers-next/include/net/switchdev.h:133: multiple definition of `netdev_switch_fib_ipv4_abort'
->> net/bridge/br.o:wireless-drivers-next/include/net/switchdev.h:133: first defined here
->> 
->> But this pull request should still merge to net-next without conflicts.
->
-> Yeah I just applied a fix for that.
+> Eric W. Biederman (2):
+>       iwlwifi: mvm: Fix the build of mvm/mac-ctxt.c with debugfs disabled
+>       iwlwifi: mvm: Fix the build of mvm/phy-ctxt.c with debugfs disabled
 
-Thanks, net-next compiles now for me.
+Emmanuel, are you ok with these? Can I apply them?
 
 -- 
 Kalle Valo
