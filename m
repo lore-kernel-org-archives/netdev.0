@@ -1,48 +1,67 @@
-From: <dinguyen@opensource.altera.com>
-Subject: [PATCHv2 net-next] net: stmmac: make reset control an optional requirement
-Date: Fri, 6 Mar 2015 17:48:28 -0600
-Message-ID: <1425685708-12600-1-git-send-email-dinguyen@opensource.altera.com>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/2] rocker: quiet sparce endianess warnings
+Date: Fri, 06 Mar 2015 19:21:38 -0500
+Message-ID: <54FA4492.4080809@cumulusnetworks.com>
+References: <1425686092-2836-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	Vince Bridgers <vbridger@opensource.altera.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us
+To: sfeldma@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:41114 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467AbbCGAVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 19:21:40 -0500
+Received: by qcvx3 with SMTP id x3so26579609qcv.8
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 16:21:40 -0800 (PST)
+In-Reply-To: <1425686092-2836-1-git-send-email-sfeldma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
+On 3/6/15 6:54 PM, sfeldma@gmail.com wrote:
+subject spelling s/sparce/sparse/
+> From: Scott Feldman <sfeldma@gmail.com>
+>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Not having a reset control line to the ethernet controller should not be a
-hard failure. Instead, add support for deferred probing and just print out
-a debug statement.
+Reviewed-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 
-Signed-off-by: Dinh Nguyen <dinguyen@opensource.altera.com>
-Cc: Vince Bridgers <vbridger@opensource.altera.com>
-CC: David S. Miller <davem@davemloft.net>
----
-v2: return EPROBE_DEFER directly as 'ret' is not used as return variable
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 3aad413..9987b34 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -89,7 +89,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 						  STMMAC_RESOURCE_NAME);
- 	if (IS_ERR(dwmac->stmmac_rst)) {
- 		dev_info(dev, "Could not get reset control!\n");
--		return -EINVAL;
-+		if (PTR_ERR(dwmac->stmmac_rst) == -EPROBE_DEFER)
-+			return -EPROBE_DEFER;
-+		dwmac->stmmac_rst = NULL;
- 	}
- 
- 	dwmac->interface = of_get_phy_mode(np);
--- 
-2.2.1
+> ---
+>   drivers/net/ethernet/rocker/rocker.c |    8 +++++---
+>   1 file changed, 5 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index cc1bbfd..9629352 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -2737,7 +2737,8 @@ static struct rocker_neigh_tbl_entry *
+>   {
+>   	struct rocker_neigh_tbl_entry *found;
+>
+> -	hash_for_each_possible(rocker->neigh_tbl, found, entry, (u32)ip_addr)
+> +	hash_for_each_possible(rocker->neigh_tbl, found,
+> +			       entry, be32_to_cpu(ip_addr))
+>   		if (found->ip_addr == ip_addr)
+>   			return found;
+>
+> @@ -2749,7 +2750,8 @@ static void _rocker_neigh_add(struct rocker *rocker,
+>   {
+>   	entry->index = rocker->neigh_tbl_next_index++;
+>   	entry->ref_count++;
+> -	hash_add(rocker->neigh_tbl, &entry->entry, (u32)entry->ip_addr);
+> +	hash_add(rocker->neigh_tbl, &entry->entry,
+> +		 be32_to_cpu(entry->ip_addr));
+>   }
+>
+>   static void _rocker_neigh_del(struct rocker *rocker,
+> @@ -2868,7 +2870,7 @@ static int rocker_port_ipv4_resolve(struct rocker_port *rocker_port,
+>   				    __be32 ip_addr)
+>   {
+>   	struct net_device *dev = rocker_port->dev;
+> -	struct neighbour *n = __ipv4_neigh_lookup(dev, (u32)ip_addr);
+> +	struct neighbour *n = __ipv4_neigh_lookup(dev, (__force u32)ip_addr);
+>   	int err = 0;
+>
+>   	if (!n)
+>
