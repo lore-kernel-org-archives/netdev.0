@@ -1,63 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40e: print port stats only on partition 1
-Date: Sat,  7 Mar 2015 07:03:16 -0800
-Message-ID: <1425740603-11280-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40e: Remove unneeded conversion
+Date: Sat,  7 Mar 2015 07:03:11 -0800
+Message-ID: <1425740603-11280-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:38815 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:31672 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750698AbbCGPD3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Mar 2015 10:03:29 -0500
+	id S1751163AbbCGPD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Mar 2015 10:03:28 -0500
 In-Reply-To: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-Only print the port and veb stats if this is the first partition
-of a multiplexed port.
+Remove LE16 to CPU endianes conversion from i40e_read_nvm_word_srctl
+function, as it's already done by register read function.
 
-Change-ID: I7ce0c323cdee5cfd2e54d8bea5b0b9102987e671
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I739f0f20a9b8e18223e54c0ca5443e63d75da878
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index e045de1..01c811c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1224,7 +1224,7 @@ static int i40e_get_sset_count(struct net_device *netdev, int sset)
- 	case ETH_SS_TEST:
- 		return I40E_TEST_LEN;
- 	case ETH_SS_STATS:
--		if (vsi == pf->vsi[pf->lan_vsi]) {
-+		if (vsi == pf->vsi[pf->lan_vsi] && pf->hw.partition_id == 1) {
- 			int len = I40E_PF_STATS_LEN(netdev);
- 
- 			if (pf->lan_veb != I40E_NO_VEB)
-@@ -1297,7 +1297,7 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 		i += 2;
- 	}
- 	rcu_read_unlock();
--	if (vsi != pf->vsi[pf->lan_vsi])
-+	if (vsi != pf->vsi[pf->lan_vsi] || pf->hw.partition_id != 1)
- 		return;
- 
- 	if (pf->lan_veb != I40E_NO_VEB) {
-@@ -1370,7 +1370,7 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_bytes", i);
- 			p += ETH_GSTRING_LEN;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 89bd5b4..e49acd2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -200,7 +200,6 @@ static i40e_status i40e_read_nvm_word_srctl(struct i40e_hw *hw, u16 offset,
+ 			*data = (u16)((sr_reg &
+ 				       I40E_GLNVM_SRDATA_RDDATA_MASK)
+ 				    >> I40E_GLNVM_SRDATA_RDDATA_SHIFT);
+-			*data = le16_to_cpu(*data);
  		}
--		if (vsi != pf->vsi[pf->lan_vsi])
-+		if (vsi != pf->vsi[pf->lan_vsi] || pf->hw.partition_id != 1)
- 			return;
- 
- 		if (pf->lan_veb != I40E_NO_VEB) {
+ 	}
+ 	if (ret_code)
 -- 
 1.9.3
