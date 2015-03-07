@@ -1,46 +1,59 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCHv5 net-next 3/4] ipv4: Create probe timer for tcp PMTU as
- per RFC4821
-Date: Sat, 07 Mar 2015 18:02:53 +0000
-Message-ID: <1425751373.4027.15.camel@decadent.org.uk>
-References: <1425611905-28503-1-git-send-email-fan.du@intel.com>
-	 <1425611905-28503-4-git-send-email-fan.du@intel.com>
+Subject: Re: [trivial PATCH net-next] ethernet: codespell comment spelling
+ fixes
+Date: Sat, 07 Mar 2015 18:12:03 +0000
+Message-ID: <1425751923.4027.17.camel@decadent.org.uk>
+References: <1425703752.12017.66.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-lmYBQeauK7kr08HflcRz"
-Cc: jheffner@psc.edu, davem@davemloft.net, edumazet@google.com,
-	netdev@vger.kernel.org, fengyuleidian0615@gmail.com
-To: Fan Du <fan.du@intel.com>
+	protocol="application/pgp-signature"; boundary="=-+x6kxjVokSRhI3xB/Cmt"
+Cc: netdev <netdev@vger.kernel.org>,
+	Masanari Iida <standby24x7@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53557 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53588 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751272AbbCGSDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 13:03:14 -0500
-In-Reply-To: <1425611905-28503-4-git-send-email-fan.du@intel.com>
+	by vger.kernel.org with ESMTP id S1750815AbbCGSMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 13:12:21 -0500
+In-Reply-To: <1425703752.12017.66.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-lmYBQeauK7kr08HflcRz
+--=-+x6kxjVokSRhI3xB/Cmt
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2015-03-06 at 11:18 +0800, Fan Du wrote:
+On Fri, 2015-03-06 at 20:49 -0800, Joe Perches wrote:
 [...]
-> +	/* When misfortune happens, we are reprobing actively,
-> +	 * and then reprobe timer has expired. We stick with current
-> +	 * probing process by not resetting search range to its orignal.
-> +	 */
->  	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high) ||
-> -	    interval < max(1, net->ipv4.sysctl_tcp_probe_threshold)) {
-> -		/* TODO: set timer for probe_converge_event */
-> +		interval < net->ipv4.sysctl_tcp_probe_threshold) {
+> --- a/drivers/net/ethernet/sfc/vfdi.h
+> +++ b/drivers/net/ethernet/sfc/vfdi.h
+> @@ -98,7 +98,7 @@ struct vfdi_endpoint {
+>   * @VFDI_OP_INIT_TXQ: Initialize SRAM entries and initialize a TXQ.
+>   * @VFDI_OP_FINI_ALL_QUEUES: Flush all queues, finalize all queues, then
+>   *	finalize the SRAM entries.
+> - * @VFDI_OP_INSERT_FILTER: Insert a MAC filter targetting the given RXQ.
+> + * @VFDI_OP_INSERT_FILTER: Insert a MAC filter targeting the given RXQ.
+>   * @VFDI_OP_REMOVE_ALL_FILTERS: Remove all filters.
+>   * @VFDI_OP_SET_STATUS_PAGE: Set the DMA page(s) used for status updates
+>   *	from PF and write the initial status.
+> @@ -148,7 +148,7 @@ enum vfdi_op {
+>   * @u.init_txq.flags: Checksum offload flags.
+>   * @u.init_txq.addr: Array of length %u.init_txq.buf_count containing DM=
+A
+>   *	address of each page backing the transmit queue.
+> - * @u.mac_filter.rxq: Insert MAC filter at VF local address/VLAN targett=
+ing
+> + * @u.mac_filter.rxq: Insert MAC filter at VF local address/VLAN targeti=
+ng
+>   *	all traffic at this receive queue.
+>   * @u.mac_filter.flags: MAC filter flags.
+>   * @u.set_status_page.dma_addr: Base address for the &struct vfdi_status=
+.
 [...]
 
-Did you mean to remove the max() there?
-
-It might be better to enforce a minimum value when the sysctl is set,
-anyway.
+I was going to claim this was the British spelling, but my dictionary
+says you're right. :-)
 
 Ben.
 
@@ -48,26 +61,26 @@ Ben.
 Ben Hutchings
 For every action, there is an equal and opposite criticism. - Harrison
 
---=-lmYBQeauK7kr08HflcRz
+--=-+x6kxjVokSRhI3xB/Cmt
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVPs9Uue/yOyVhhEJAQpWWxAAsOxhwTd5iowUlNNqMBmjid/YKvUAhGS4
-63PfR5ySAvLsbCntgpWbFL3tGidHteH4iYY3kH/nLXtinQyGo8hciZ2Qa5WXXE7v
-6bwtwJY/7PO/0ZgrkziTonq9cLsl1FynxAgLbzGuFmg3dDW+141rHKxHLOsFZjIx
-5t/qdylD6pSZ8GVAxNlzNkuHtV4GwJC+oz0QzJYFvN/CgHzAiWA/y1QhLFmhvSA2
-WdXDcCIjEkavM6O1DU9QNcwTAbco91s5pxaheUiH16DSAXh9e/TNBLsIs85ewchw
-/9pFXcy5FqjqdjyuJmMHFjJkpdXmkEBnOamOsbGFUJkOuyXvlD2rWYLEA7HQ5ocQ
-GwbCl04R/g0AZ6oBabJdjV+yivVRR3OQC26g7puTSbFJ+ZpBQV0wKsscKJtZmgLO
-C0RkwdVa6+8ufsga2BY1cKvG3WQIL1dZ3RX+hN2U275S39gV3qwNvsgn0DDiNc4H
-fkwWaG9ZqTKEhj9XieELyAp2L9zV2pRZ56ghPiWpF2B0fnEgr/JqAz+9hCTVXKZz
-QnAjsjWw5ZjpHs+M3QlJ2DpPl0pWF5cMXP3aEFbPR1nUff1KgRUlzo9CAcXnB1ZH
-kDCVcCnHP9PKUgMAe9cOdEpXAcX/9AMEowu3JQPz+v/N4dHq0jWxDJQ04d8J/so2
-msZhnO7lrkM=
-=3+H6
+iQIVAwUAVPs/fee/yOyVhhEJAQoJ5BAAmTERpEoQXnbypln7+lc8IuohFjokxO+G
+9ji7dcc+LjeHNTyWhEyIOzdFQkW8lVEpLKyyzITqJvNojAdLgesBy3X8SdLIW1ly
+mfzgAuVoZjA2chNf9YuZOY8ZPdgns94/I4jSKNgTSiylClJ8CuAKLEbylKNX9E3J
+8QARuZZXVeTE6GpK19nUzO2kTo8Q1ywzUS7Efo3OfWfC4eEw2KDxnXLtNdh52el1
+LNNVtpD//Uo5fewIR3D9AvqMpLRMfGNVyuCDQseRfKik92EOxD2DSieTGPqG6Wbp
+whMI5Be6jkuWGf0t3VVXK3DQSzJpFd8YitB4A1fepUVxWmL1oVUvzK9+zxrHF5FN
+fZH4x1nbclJR3HYKK82QRzFTgMUr7n8N4w0ls4mztpvfi5Vv3UtUCrxxuv4ZwK+O
+zIqTONUOXMpYVaGEtkwLVSIpGVCvryVk9kZsZavWbr+/Y3a8J7fd0pLCaBsITWJf
+7AkHnp2BM3HEvUxvJsnaWZDN4DkN5UhfxDdG1sBjLPMFOXJup+zBiHMTsDsVX+1R
+cNhdAYVbmuWw8N4gwDskbsrjbkVqJYDhRkd+pmUDG3QUf03jlsSEFJiPEqUPMSrH
+dSY5qdxkOiwfl9Kg48vbXxXFCpz6bM4SHDbcxq9XbDhuO2RIh2jcyTYgi+iFCy8R
+5eOy8liS4iw=
+=Hi2o
 -----END PGP SIGNATURE-----
 
---=-lmYBQeauK7kr08HflcRz--
+--=-+x6kxjVokSRhI3xB/Cmt--
