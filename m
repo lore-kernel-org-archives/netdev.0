@@ -1,136 +1,34 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: bcmgenet: rework Rx queue init
-Date: Fri, 06 Mar 2015 17:40:33 -0800
-Message-ID: <54FA5711.4060806@gmail.com>
-References: <20150306214500.B542F2214B2@puck.mtv.corp.google.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: [PATCH net-next 0/2] build fixes for iwlwifi
+Date: Fri, 06 Mar 2015 20:35:22 -0600
+Message-ID: <87fv9h7cwl.fsf@x220.int.ebiederm.org>
+References: <874mpy2gw5.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:46741 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746AbbCGBlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 20:41:05 -0500
-Received: by pdev10 with SMTP id v10so18902537pde.13
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 17:41:05 -0800 (PST)
-In-Reply-To: <20150306214500.B542F2214B2@puck.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 06/03/15 13:45, Petri Gynther wrote:
-> In preparation for supporting multiple Rx queues:
-> 1. Move the initialization of priv->num_rx_bds, priv->rx_bds, and
->    priv->rx_cbs from bcmgenet_init_rx_ring() to bcmgenet_init_dma()
->    since they are not specific to a single Rx queue. Mimics the Tx
->    init model where priv->num_tx_bds, priv->tx_bds, and priv->tx_cbs
->    are initialized in bcmgenet_init_dma().
-> 2. Program DMA_MBUF_DONE_THRESH = 1 so that future Rx queues Q0-Q15
->    will get per-packet Rx interrupt.
-> 3. Group DMA_START_ADDR, RDMA_READ_PTR, RDMA_WRITE_PTR, and DMA_END_ADDR
->    initialization together. Mimics the Tx init model.
-> 4. There is 1-to-1 mapping between RxCBs and RxBDs.
->    Precalculate RxCB->bd_addr so that it can be used in the future.
-> 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 43 ++++++++++++++++----------
->  1 file changed, 27 insertions(+), 16 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index d90785c..83c0cb3 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1783,37 +1783,33 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
->  	u32 words_per_bd = WORDS_PER_BD(priv);
->  	int ret;
->  
-> -	priv->num_rx_bds = TOTAL_DESC;
-> -	priv->rx_bds = priv->base + priv->hw_params->rdma_offset;
->  	priv->rx_bd_assign_ptr = priv->rx_bds;
->  	priv->rx_bd_assign_index = 0;
->  	priv->rx_c_index = 0;
->  	priv->rx_read_ptr = 0;
-> -	priv->rx_cbs = kcalloc(priv->num_rx_bds, sizeof(struct enet_cb),
-> -			       GFP_KERNEL);
-> -	if (!priv->rx_cbs)
-> -		return -ENOMEM;
->  
->  	ret = bcmgenet_alloc_rx_buffers(priv);
->  	if (ret) {
-> -		kfree(priv->rx_cbs);
->  		return ret;
->  	}
->  
-> -	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_WRITE_PTR);
->  	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_PROD_INDEX);
->  	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_CONS_INDEX);
-> +	bcmgenet_rdma_ring_writel(priv, index, 1, DMA_MBUF_DONE_THRESH);
->  	bcmgenet_rdma_ring_writel(priv, index,
->  				  ((size << DMA_RING_SIZE_SHIFT) |
->  				   RX_BUF_LENGTH), DMA_RING_BUF_SIZE);
-> -	bcmgenet_rdma_ring_writel(priv, index, 0, DMA_START_ADDR);
-> -	bcmgenet_rdma_ring_writel(priv, index,
-> -				  words_per_bd * size - 1, DMA_END_ADDR);
->  	bcmgenet_rdma_ring_writel(priv, index,
->  				  (DMA_FC_THRESH_LO <<
->  				   DMA_XOFF_THRESHOLD_SHIFT) |
->  				   DMA_FC_THRESH_HI, RDMA_XON_XOFF_THRESH);
-> +
-> +	/* Set start and end address, read and write pointers */
-> +	bcmgenet_rdma_ring_writel(priv, index, 0, DMA_START_ADDR);
->  	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_READ_PTR);
-> +	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_WRITE_PTR);
-> +	bcmgenet_rdma_ring_writel(priv, index, words_per_bd * size - 1,
-> +				  DMA_END_ADDR);
->  
->  	return ret;
->  }
-> @@ -1976,18 +1972,33 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
->  	unsigned int i;
->  	struct enet_cb *cb;
->  
-> -	netif_dbg(priv, hw, priv->dev, "bcmgenet: init_edma\n");
-> +	netif_dbg(priv, hw, priv->dev, "%s\n", __func__);
->  
-> -	/* by default, enable ring 16 (descriptor based) */
-> +	/* Init rDma */
-> +	bcmgenet_rdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
-> +
-> +	/* Initialize common Rx ring structures */
-> +	priv->rx_bds = priv->base + priv->hw_params->rdma_offset;
-> +	priv->num_rx_bds = TOTAL_DESC;
-> +	priv->rx_cbs = kcalloc(priv->num_rx_bds, sizeof(struct enet_cb),
-> +			       GFP_KERNEL);
-> +	if (!priv->rx_cbs)
-> +		return -ENOMEM;
-> +
-> +	for (i = 0; i < priv->num_rx_bds; i++) {
-> +		cb = priv->rx_cbs + i;
-> +		cb->bd_addr = priv->rx_bds + i * DMA_DESC_SIZE;
-> +	}
-> +
-> +	/* Initialize Rx default queue 16 */
->  	ret = bcmgenet_init_rx_ring(priv, DESC_INDEX, TOTAL_DESC);
->  	if (ret) {
->  		netdev_err(priv->dev, "failed to initialize RX ring\n");
-> +		bcmgenet_free_rx_buffers(priv);
-> +		kfree(priv->rx_cbs);
->  		return ret;
->  	}
->  
-> -	/* init rDma */
-> -	bcmgenet_rdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
-> -
->  	/* Init tDma */
->  	bcmgenet_tdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
->  
-> 
+Content-Type: text/plain
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <874mpy2gw5.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org> (Kalle Valo's message
+	of "Fri, 06 Mar 2015 19:08:10 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
-Florian
+drivers/net/wireles/iwlwifi/mvm fails to build for me on
+net-next.
+
+Eric W. Biederman (2):
+      iwlwifi: mvm: Fix the build of mvm/mac-ctxt.c with debugfs disabled
+      iwlwifi: mvm: Fix the build of mvm/phy-ctxt.c with debugfs disabled
+
+ drivers/net/wireless/iwlwifi/mvm/mac-ctxt.c | 7 ++++++-
+ drivers/net/wireless/iwlwifi/mvm/phy-ctxt.c | 2 ++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
