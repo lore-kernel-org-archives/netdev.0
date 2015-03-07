@@ -1,73 +1,103 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: Network Receive Problems on NetGearRn104 Armarda370
-Date: Sat, 7 Mar 2015 15:53:26 +0100
-Message-ID: <20150307145326.GA5190@1wt.eu>
-References: <20150307145154.7afcd4a4@michael> <20150307145630.0c56619e@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Langer <michael.brainbug.langer@t-online.de>,
-	netdev@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2015-03-07
+Date: Sat,  7 Mar 2015 07:03:08 -0800
+Message-ID: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:64814 "EHLO 1wt.eu"
+Received: from mga03.intel.com ([134.134.136.65]:31672 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751271AbbCGOxa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Mar 2015 09:53:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20150307145630.0c56619e@free-electrons.com>
+	id S1750698AbbCGPD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Mar 2015 10:03:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This series contains updates to i40e and i40evf only.
 
-On Sat, Mar 07, 2015 at 02:56:30PM +0100, Thomas Petazzoni wrote:
-> Dear Michael Langer,
-> 
-> On Sat, 7 Mar 2015 14:51:54 +0100, Michael Langer wrote:
-> 
-> > I have a Network problem on my Armarda370 based NetGear RN104. I use the RN104 as TV and NFS Server. The TV Service gets its data from a network attached receiver via ip6 multicast stream. In case of nfs traffic or video streams > 20MBit into the box the kernel log is filled with error messages [1]. While for the NFS Service only performance id affected. For the TV Service I get visible artifarcts due to missing packets.
-> > 
-> > The RN104 is connected to a managed switch (ProCurve 1810G-24) configured without jumbo frame support (MTU=1518). I could not trigger these messages by running 'iperf -s' on the server and 'iperf -c <ip-addr>' on the client side (~930MBit)?! The RN104 is a relplacement unit for a Kirwood based NAS which is still working. The old NAS is working without packet loss, so I think that I can rule out the network receiver as a source of the missing packets. 
-> > 
-> > Things I have checked with no success:
-> > - Ethernet hardware cable
-> > - change port on switch
-> > - chage port on RN104
-> > - Kernel 3.17.1.rn104 from natisbad.org did not report errors but gave also artifarcts on TV-Stream
-> > - Kernel Version 3.18,7, 3.19, 4.0-rc2
-> > - ethtool playing with coalesce rx-usecs/frames and rx ring buffer count
-> > - change nice level for TV-Service
-> > 
-> > At the moment I don't know how to proceed to solve the issue.
-> 
-> Thanks Michael for your detailed report. I'm adding Willy Tarreau in the
-> loop, who has done a lot of work on Armada 370 networking. He may have
-> some ideas of things to try to narrow down the problem.
+Most notably, Greg provides the patch to remove the dreaded configfs
+changes in the driver.
 
-For now I don't, as I have never experienced the rx overrun issues.
-It makes me think that some Rx IRQs would not be delivered, or
-something like this, which would be something completely new,
-given that the only issues we've had with the controller were
-on the Tx path.
+Shannon cleans up a sparse warning by simply straighting out the code
+so it is less convoluted.  Fixes an issue where the vector allocation
+was trying too hard to save vectors for VMDq, to the point of not giving
+the PF enough when in a tight situation, such as an NPAR partition.
+Changed the driver to make sure that the PF will get all the queues and
+vectors it wants to fill out its destiny.  Cleans up reporting to only
+print the port and VEB stats if it is the first partition of a
+multiplexed port.
 
-Michael, have you tried with a lower MTU ? I have not played with
-1518 on it yet, and if a problem was related to this, it could have
-remained unnoticed. I've seen that you've played with several settings,
-it might make sense to try to disable Rx csum in order to disable all
-Rx optimizations, just in case. Since you increased your MTU, I'm
-guessing that you're using VLANs, it might be possible that some
-Rx optims are not properly done with VLANs. That's just pure guess,
-of course.
+Catherine cleans up some duplicated code by simply removing the duplicate
+code.
 
-> Do you know if you could produce a test case that would allow us to
-> reproduce the problem?
+Kamil cleans up the driver by removing an un-needed endian conversion
+because it is already done by a register read function.
 
-Indeed, that would help a lot :-)
+Jesse fixes a variable width of a datatype, where a u16 should have been
+a u32.  Also cleans up debug_read_register() to resolve some sparse
+warnings.  Updates the driver to use prefetch() to get the next Tx
+descriptor, like in ixgbe, to improve performance.
 
-> I'm leaving the logs unchanged below so that Willy can have a look.
+Akeem moves around code to enable/disable loopback so that other non-SRIOV
+supported driver functions can take advantage of the changes.
 
-At least the log is quite detailed but all it tells me is that's a new
-issue.
+Anjali cleans up the logging for adding/deleting FD-SB filters, since
+ethtool shows all the filters on an interface.  Updates the driver to
+use l4_tunnel type generically to keep code flow simple.  Simplifies
+the RSS code since the driver initializes the rss_size_max in sw_init.
 
-Thanks,
-Willy
+The following are changes since commit 1b5ef07e3dd3972d9111650fb6e0f5a566c741d8:
+  rocker: sparse: fix dynamic allocation on stack warning
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (1):
+  i40e: Move code to enable/disable Loopback to the main file
+
+Anjali Singhai Jain (4):
+  i40e: Avoid logs while adding/deleting FD-SB filters
+  i40e: FD filters flush policy changes
+  i40e/i40evf: Simplify tunnel selection logic
+  i40e: Simplify code for rss_size_max config
+
+Catherine Sullivan (1):
+  i40e: Remove duplicate code
+
+Greg Rose (1):
+  i40e: Strip configfs code
+
+Jesse Brandeburg (3):
+  i40e: store msg_enable in the right size
+  i40e: clean up debug_read_register
+  i40e/i40evf: enable prefetch of Tx descriptors during cleanup
+
+Kamil Krawczyk (1):
+  i40e: Remove unneeded conversion
+
+Shannon Nelson (3):
+  i40e/i40evf: Refactor i40e_debug_aq and make some functions static
+  i40e: rework vector reservation
+  i40e: print port stats only on partition 1
+
+Sravanthi Tangeda (1):
+  i40e/i40evf: Bump version
+
+ drivers/net/ethernet/intel/Kconfig                 |   9 -
+ drivers/net/ethernet/intel/i40e/Makefile           |   1 -
+ drivers/net/ethernet/intel/i40e/i40e.h             |  14 +-
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  60 ++--
+ drivers/net/ethernet/intel/i40e/i40e_configfs.c    | 354 ---------------------
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 227 +++++++++----
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   9 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  42 ++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  68 ----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 -
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  44 +--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  16 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
+ 14 files changed, 284 insertions(+), 570 deletions(-)
+ delete mode 100644 drivers/net/ethernet/intel/i40e/i40e_configfs.c
+
+-- 
+1.9.3
