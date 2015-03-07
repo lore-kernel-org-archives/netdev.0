@@ -1,102 +1,109 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] team: add support to get speed via ethtool
-Date: Sat, 7 Mar 2015 14:57:29 +0100
-Message-ID: <20150307135729.GA2017@nanopsycho.orion>
-References: <1425592115-1750-1-git-send-email-sridhar.samudrala@intel.com>
- <20150306071617.GA2011@nanopsycho.orion>
- <54FA006D.3010604@intel.com>
+Subject: Re: [PATCH net-next 2/2] mv88e6131: bonding: implement single device
+ trunking
+Date: Sat, 7 Mar 2015 15:38:38 +0100
+Message-ID: <20150307143838.GD2017@nanopsycho.orion>
+References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
+ <1424429473-4601-3-git-send-email-jonasj76@gmail.com>
+ <20150220152644.GD13797@lunn.ch>
+ <54F9DEAA.50606@gmail.com>
+ <20150306192359.GA582@lunn.ch>
+ <54FA125E.6050605@gmail.com>
+ <20150306214723.GB582@lunn.ch>
+ <CAE4R7bBXbNNJ8VyCJ_01Ht4gWhCaYOGv3f_pUS_2grcU3i3OJw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jonas Johansson <jonasj76@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Jonas Johansson <jonas.johansson@westermo.se>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:39084 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752477AbbCGN5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 08:57:35 -0500
-Received: by wghn12 with SMTP id n12so11323577wgh.6
-        for <netdev@vger.kernel.org>; Sat, 07 Mar 2015 05:57:33 -0800 (PST)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:36563 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbbCGOim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 09:38:42 -0500
+Received: by wghk14 with SMTP id k14so14981630wgh.3
+        for <netdev@vger.kernel.org>; Sat, 07 Mar 2015 06:38:41 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <54FA006D.3010604@intel.com>
+In-Reply-To: <CAE4R7bBXbNNJ8VyCJ_01Ht4gWhCaYOGv3f_pUS_2grcU3i3OJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Mar 06, 2015 at 08:30:53PM CET, sridhar.samudrala@intel.com wrote:
->
->On 3/5/2015 11:16 PM, Jiri Pirko wrote:
->>Thu, Mar 05, 2015 at 10:48:35PM CET, sridhar.samudrala@intel.com wrote:
->>>With this patch ethtool <team> OR cat /sys/class/net/<team>/speed
->>>returns the speed of team based on member ports speed and state.
->>>
->>>Based on get speed support in bonding driver.
->>>
->>>Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
->>>---
->>>drivers/net/team/team.c | 25 +++++++++++++++++++++++++
->>>1 file changed, 25 insertions(+)
->>>
->>>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->>>index 9d3366f..e822803 100644
->>>--- a/drivers/net/team/team.c
->>>+++ b/drivers/net/team/team.c
->>>@@ -1954,6 +1954,30 @@ static int team_change_carrier(struct net_device *dev, bool new_carrier)
->>>	return 0;
->>>}
->>>
->>>+static int team_ethtool_get_settings(struct net_device *dev,
->>>+				     struct ethtool_cmd *ecmd)
->>>+{
->>>+	struct team *team = netdev_priv(dev);
->>>+	struct team_port *port;
->>>+	unsigned long speed = 0;
->>>+
->>>+	ecmd->duplex = DUPLEX_UNKNOWN;
->>>+	ecmd->port = PORT_OTHER;
->>>+
->>>+	mutex_lock(&team->lock);
->>>+	list_for_each_entry(port, &team->port_list, list) {
->>>+		if (port->linkup)
->>>+			speed += port->state.speed;
->>>+		if (ecmd->duplex == DUPLEX_UNKNOWN &&
->>>+		    port->state.duplex != 0)
->>>+			ecmd->duplex = port->state.duplex;
->>>+	}
->>>+	ethtool_cmd_speed_set(ecmd, speed);
->>>+	mutex_unlock(&team->lock);
->>>+
->>>+	return 0;
->>>+}
->>Sridar, what exactly you are trying to achieve? I agree with DaveM that
->>this make no sense for soft devices. The fact bonding has it is a
->>mistake.
+Fri, Mar 06, 2015 at 11:43:55PM CET, sfeldma@gmail.com wrote:
+>On Fri, Mar 6, 2015 at 1:47 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> Hi Florian
 >>
->We are currently looking into the possibility of using team as a way to
->offload link aggregation support to switch hardware.
->To support LAG, a team device is created and the switch ports are added
->as members of the team. We are considering if we should create a new team
->mode specifically to support offload or the existing modes can be extended
->to enable offloading. Will appreciate any thoughts you have on this?
+>>> Most Broadcom switches, either SF2 or roboswitch (b53) have a limit of 2
+>>> trunking groups, without limitations on the number of ports included in
+>>> any of these two groups.
+>>
+>> O.K, so maybe we want the basic resource management in the DSA layer,
+>> not the switch drivers.
+>>
+>>> The larger question is once we start advertising capabilities, where
+>>> does that stop, right? It would probably be simpler for now to e.g:
+>>> allow 2 trunking groups to be configured, and when trying to configure a
+>>> 3rd one, return -ENOSPC and act upon that to either take the software
+>>> slow path (which is probably not possible) or just return a hard error
+>>> condition.
+>>
+>> This is more than a DSA question. It applies to all the hardware
+>> acceleration being discussed at the moment. As you hinted to above, i
+>> suppose we have two different situations:
+>>
+>> 1) We can fall back to a software slow path.
+>>
+>> 2) There is no software fallback, we have to error out, and it would
+>>    be nice to have a well defined error code for out of hardware
+>>    resources.
+>>
+>> We also should think about how we tell user space we have fallen back
+>> to a slow path. I'm sure users want to know why it works, but works
+>> much slower.
+>
+>For the general hardware acceleration of bonds, my thoughts for switchdev are:
+>
+>(Assume 802.3ad LAG setup for discussion sake, other bonding modes are similar).
+>
+>1. The driver has access to port membership notification via netevent,
+>so driver knows which ports are in which bonds.  This notification is
+>passive; there is no way to signal to user that when port was put in a
+>bond if it was programmed into a device LAG group or not.  It's
+>totally up to the driver and device resources to make that decision.
 
-No, please no special modes. That is unacceptable. Just use what exists,
-extend it if needed, then offload it. That is the way to go.
+Exactly. The fact if another group can be added or not should be decided
+and handled by driver. The driver then notifies higher layers using
+switchdev notifier event.
+ 
+>
+>2. The driver can know port active status via netevent as well.  If
+>device has the port in a LAG group, then reflect the active status
+>down to device port.  Again, a passive notification.
+>
+>3. CPU-originating egress traffic would be LAGed by bonding (or team)
+>driver.  (This is true regardless if the device LAG group was setup or
+>not).
+>
+>4a. If device LAG group setup, forwarded traffic would be LAG egressed
+>by device (fast path).
+>
+>4b. If no device LAG group, ingress traffic is sent to CPU (slow path)
+>for bonding (or team) to LAG egress.
+>
+>So software fall-back (4b) is the default case if driver/device can't
+>setup LAG group for forwarding.
+>
+>So the question is: how does user know which bonds are accelerated?
+>So far, we've used the label "external" to mark L2 bridge FDB which
+>are offloaded to the device and "external" to mark L3 routes offloaded
+>to the device.  Do we mark bonds as "external" if the LAG path is
+>offloaded to the device?
+
+I believe that this is the way to go. Introduce this flag for bond and
+team to signal user if LAG is offloaded or not.
 
 
 >
->For the specific usecase of a team where all the member ports correspond
->to offloaded switch ports, does it make sense to support getting speed OR
->we should just leave it to the mgmt apps to figure out the speed based on
->the speed of the member ports?
-
-
-I do not see any reason for it. mgmt app can find out how devices are
-stacked and can query the port devices directly. No need to pretend
-something on team layer for it.
-
-
-Jiri
-
->
->Thanks
->Sridhar
->
->
+>-scott
