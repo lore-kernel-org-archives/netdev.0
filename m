@@ -1,37 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: gro: remove obsolete code from
- skb_gro_receive()
-Date: Fri, 06 Mar 2015 22:02:55 -0500 (EST)
-Message-ID: <20150306.220255.1236328838260522032.davem@davemloft.net>
-References: <1425674388.18614.0.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150306.155932.2228013423238139112.davem@davemloft.net>
-	<1425686210.18614.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH] team: add support to get speed via ethtool
+Date: Fri, 6 Mar 2015 22:10:13 -0500
+Message-ID: <20150307031013.GC502@gospo.home.greyhouse.net>
+References: <1425592115-1750-1-git-send-email-sridhar.samudrala@intel.com>
+ <20150306.002410.1359006818497057668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: sridhar.samudrala@intel.com, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60441 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220AbbCGDC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 22:02:57 -0500
-In-Reply-To: <1425686210.18614.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:45708 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753308AbbCGDKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Mar 2015 22:10:17 -0500
+Received: by qcwb13 with SMTP id b13so17592721qcw.12
+        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 19:10:16 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150306.002410.1359006818497057668.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 Mar 2015 15:56:50 -0800
-
-> On Fri, 2015-03-06 at 15:59 -0500, David Miller wrote:
+On Fri, Mar 06, 2015 at 12:24:10AM -0500, David Miller wrote:
+> From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> Date: Thu,  5 Mar 2015 13:48:35 -0800
 > 
->> I left changes on my workstation at home before going to the office today,
->> will fix things up tonight.
->> 
->> I suggested to Daniel, also effect by this brain-o, that I should setup
->> my workstations to deliver an electric shock to me if I leave unpushed
->> GIT changes around.
+> > +	list_for_each_entry(port, &team->port_list, list) {
+> > +		if (port->linkup)
+> > +			speed += port->state.speed;
+> > +		if (ecmd->duplex == DUPLEX_UNKNOWN &&
+> > +		    port->state.duplex != 0)
+> > +			ecmd->duplex = port->state.duplex;
 > 
-> Ah OK, thanks David, no worries ;)
+> This makes no freakin' sense at all.  Adding the speeds together and
+> returning that?  Are you kidding me?  Reporting only one of the
+> duplex settings?  Are you kidding me?
+> 
+> Repeat after me: Speed and duplex has no meaning on software devices
+> 
+> Especially for software devices which aggregate links.
+> 
+> If the user wants the speed in a format that is actually useful, he
+> has to actually know what the geography of the bond or team slaves,
+> and since he knows that he can probe the individual hardware devices
+> for speed and duplex information.
 
-Now pushed.
+IIRC the value of a patch like this (where the underlying device is
+backed by real hardware) is for remote monitoring tools.  I completely
+agree that local users have no problem determining link utilization or
+max bandwidth available by simply adding up all the members of the bond,
+but this was not possible for SNMP-based tools that are not aware of the
+aggregation of ports on the host.
+
+> I'm not applying anything like this.
+> 
+> There appears to be some mania afoot about trying to return ethtool
+> speed/duplex settings on software layering and tunneling device,
+> can someone please cure this illness before I see more patches like
+> this one?
+
+You have made it clear that despite the value others see in it, you are
+opposed to setting the speed and duplex on things like tuntap and I
+agree with you on this.  Doing that does nothing but continue to enable
+offload hardware to live in userspace and that is not the proper
+direction the kernel should take.
