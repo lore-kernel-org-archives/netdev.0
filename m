@@ -1,68 +1,45 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/3] switchdev: fix stp update API to work with
- layered netdevices
-Date: Fri, 06 Mar 2015 23:05:30 -0800
-Message-ID: <54FAA33A.2080106@cumulusnetworks.com>
-References: <1425614658-43701-2-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bAHABpfNU9LK7GtKNMZHfdAWwg5u8R7kRH4upKpy2fOsQ@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: pull-request: wireless-drivers-next 2015-03-06
+Date: Sat, 07 Mar 2015 09:18:58 +0200
+Message-ID: <87vbid1di5.fsf@kamboji.qca.qualcomm.com>
+References: <874mpy2gw5.fsf@kamboji.qca.qualcomm.com>
+	<20150306.154639.1922888192237476633.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:35854 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752993AbbCGHFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 02:05:32 -0500
-Received: by pdbnh10 with SMTP id nh10so57162429pdb.3
-        for <netdev@vger.kernel.org>; Fri, 06 Mar 2015 23:05:31 -0800 (PST)
-In-Reply-To: <CAE4R7bAHABpfNU9LK7GtKNMZHfdAWwg5u8R7kRH4upKpy2fOsQ@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:56912 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755404AbbCGHTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 02:19:06 -0500
+In-Reply-To: <20150306.154639.1922888192237476633.davem@davemloft.net> (David
+	Miller's message of "Fri, 06 Mar 2015 15:46:39 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/6/15, 1:30 AM, Scott Feldman wrote:
-> On Thu, Mar 5, 2015 at 8:04 PM,  <roopa@cumulusnetworks.com> wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> make it same as the netdev_switch_port_bridge_setlink/dellink
->> api (ie traverse lowerdevs to get to the switch port).
->>
->> removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because bridge ports
->> can be bonds and teams which might not implement this ndo.
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>   include/net/switchdev.h   |    7 +++++++
->>   net/switchdev/switchdev.c |   30 +++++++++++++++++++++++++++++-
->>   2 files changed, 36 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->> index cfcdac2..a93279b 100644
->> --- a/include/net/switchdev.h
->> +++ b/include/net/switchdev.h
->> @@ -51,6 +51,7 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
->>                                                 struct nlmsghdr *nlh, u16 flags);
->>   int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
->>                                                 struct nlmsghdr *nlh, u16 flags);
->> +int ndo_dflt_netdev_switch_port_stp_update(struct net_device *dev, u8 state);
->>   #else
->>
->>   static inline int netdev_switch_parent_id_get(struct net_device *dev,
->> @@ -109,6 +110,12 @@ static inline int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *
->>          return 0;
->>   }
->>
->> +static inline int ndo_dflt_netdev_switch_port_stp_update(struct net_device *dev,
->> +                                                        u8 state)
->> +{
->> +       return 0;
-> Shouldn't this be return -EOPNOTSUPP to be consistent with
-> netdev_switch_port_stp_update() when CONFIG_NET_SWITCHDEV is not
-> defined?
-good point. I have made all the dflt op functions return 0 so far. It 
-does not hurt.
-But, to be consistent...yes i will change it to -EOPNOTSUPP.
+David Miller <davem@davemloft.net> writes:
 
-Thanks scott.
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Fri, 06 Mar 2015 19:08:10 +0200
+>
+>> here's a pull request for net-next. Lots of smaller fixes and cleanup,
+>> major changes are documented in the signed tag and available below
+>> 
+>> Do note that I wasn't able compile net-next (commit 23375a0fd549) with
+>> my config:
+>> 
+>> wireless-drivers-next/include/net/switchdev.h:133: multiple definition of `netdev_switch_fib_ipv4_abort'
+>> net/bridge/br.o:wireless-drivers-next/include/net/switchdev.h:133: first defined here
+>> net/bridge/br_netlink.o: In function `netdev_switch_fib_ipv4_abort':
+>> wireless-drivers-next/include/net/switchdev.h:133: multiple definition of `netdev_switch_fib_ipv4_abort'
+>> net/bridge/br.o:wireless-drivers-next/include/net/switchdev.h:133: first defined here
+>> 
+>> But this pull request should still merge to net-next without conflicts.
+>
+> Yeah I just applied a fix for that.
+
+Thanks, net-next compiles now for me.
+
+-- 
+Kalle Valo
