@@ -1,86 +1,53 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [trivial PATCH net-next] ethernet: codespell comment spelling
- fixes
-Date: Sat, 07 Mar 2015 18:12:03 +0000
-Message-ID: <1425751923.4027.17.camel@decadent.org.uk>
-References: <1425703752.12017.66.camel@perches.com>
+From: =?UTF-8?q?Giedrius=20Statkevi=C4=8Dius?=
+	<giedrius.statkevicius@gmail.com>
+Subject: [PATCH] rt2x00: use rt2x00queue_flush_queues() instead of implementing the same action
+Date: Sat,  7 Mar 2015 20:45:50 +0200
+Message-ID: <1425753950-15624-1-git-send-email-giedrius.statkevicius@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-+x6kxjVokSRhI3xB/Cmt"
-Cc: netdev <netdev@vger.kernel.org>,
-	Masanari Iida <standby24x7@gmail.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53588 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750815AbbCGSMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 13:12:21 -0500
-In-Reply-To: <1425703752.12017.66.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: helmut.schaa@googlemail.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Giedrius=20Statkevi=C4=8Dius?=
+	<giedrius.statkevicius@gmail.com>
+To: sgruszka@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Use rt2x00queue_flush_queues() in rt2x00mac_flush() instead of
+reimplementing the same actions the second time. Also, now it flushes
+the rx queue aswell which it didn't before and that makes it completely
+do what it's supposed to do according to struct iee80211_ops: flush()
+must flush all queues.
 
---=-+x6kxjVokSRhI3xB/Cmt
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Giedrius Statkevi=C4=8Dius <giedrius.statkevicius@gmail.=
+com>
+---
+ drivers/net/wireless/rt2x00/rt2x00mac.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-On Fri, 2015-03-06 at 20:49 -0800, Joe Perches wrote:
-[...]
-> --- a/drivers/net/ethernet/sfc/vfdi.h
-> +++ b/drivers/net/ethernet/sfc/vfdi.h
-> @@ -98,7 +98,7 @@ struct vfdi_endpoint {
->   * @VFDI_OP_INIT_TXQ: Initialize SRAM entries and initialize a TXQ.
->   * @VFDI_OP_FINI_ALL_QUEUES: Flush all queues, finalize all queues, then
->   *	finalize the SRAM entries.
-> - * @VFDI_OP_INSERT_FILTER: Insert a MAC filter targetting the given RXQ.
-> + * @VFDI_OP_INSERT_FILTER: Insert a MAC filter targeting the given RXQ.
->   * @VFDI_OP_REMOVE_ALL_FILTERS: Remove all filters.
->   * @VFDI_OP_SET_STATUS_PAGE: Set the DMA page(s) used for status updates
->   *	from PF and write the initial status.
-> @@ -148,7 +148,7 @@ enum vfdi_op {
->   * @u.init_txq.flags: Checksum offload flags.
->   * @u.init_txq.addr: Array of length %u.init_txq.buf_count containing DM=
-A
->   *	address of each page backing the transmit queue.
-> - * @u.mac_filter.rxq: Insert MAC filter at VF local address/VLAN targett=
-ing
-> + * @u.mac_filter.rxq: Insert MAC filter at VF local address/VLAN targeti=
-ng
->   *	all traffic at this receive queue.
->   * @u.mac_filter.flags: MAC filter flags.
->   * @u.set_status_page.dma_addr: Base address for the &struct vfdi_status=
-.
-[...]
-
-I was going to claim this was the British spelling, but my dictionary
-says you're right. :-)
-
-Ben.
-
+diff --git a/drivers/net/wireless/rt2x00/rt2x00mac.c b/drivers/net/wire=
+less/rt2x00/rt2x00mac.c
+index 300876d..5bc48c3 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00mac.c
++++ b/drivers/net/wireless/rt2x00/rt2x00mac.c
+@@ -756,13 +756,11 @@ void rt2x00mac_flush(struct ieee80211_hw *hw, str=
+uct ieee80211_vif *vif,
+ 		     u32 queues, bool drop)
+ {
+ 	struct rt2x00_dev *rt2x00dev =3D hw->priv;
+-	struct data_queue *queue;
+=20
+ 	if (!test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
+ 		return;
+=20
+-	tx_queue_for_each(rt2x00dev, queue)
+-		rt2x00queue_flush_queue(queue, drop);
++	rt2x00queue_flush_queues(rt2x00dev, drop);
+ }
+ EXPORT_SYMBOL_GPL(rt2x00mac_flush);
+=20
 --=20
-Ben Hutchings
-For every action, there is an equal and opposite criticism. - Harrison
-
---=-+x6kxjVokSRhI3xB/Cmt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVPs/fee/yOyVhhEJAQoJ5BAAmTERpEoQXnbypln7+lc8IuohFjokxO+G
-9ji7dcc+LjeHNTyWhEyIOzdFQkW8lVEpLKyyzITqJvNojAdLgesBy3X8SdLIW1ly
-mfzgAuVoZjA2chNf9YuZOY8ZPdgns94/I4jSKNgTSiylClJ8CuAKLEbylKNX9E3J
-8QARuZZXVeTE6GpK19nUzO2kTo8Q1ywzUS7Efo3OfWfC4eEw2KDxnXLtNdh52el1
-LNNVtpD//Uo5fewIR3D9AvqMpLRMfGNVyuCDQseRfKik92EOxD2DSieTGPqG6Wbp
-whMI5Be6jkuWGf0t3VVXK3DQSzJpFd8YitB4A1fepUVxWmL1oVUvzK9+zxrHF5FN
-fZH4x1nbclJR3HYKK82QRzFTgMUr7n8N4w0ls4mztpvfi5Vv3UtUCrxxuv4ZwK+O
-zIqTONUOXMpYVaGEtkwLVSIpGVCvryVk9kZsZavWbr+/Y3a8J7fd0pLCaBsITWJf
-7AkHnp2BM3HEvUxvJsnaWZDN4DkN5UhfxDdG1sBjLPMFOXJup+zBiHMTsDsVX+1R
-cNhdAYVbmuWw8N4gwDskbsrjbkVqJYDhRkd+pmUDG3QUf03jlsSEFJiPEqUPMSrH
-dSY5qdxkOiwfl9Kg48vbXxXFCpz6bM4SHDbcxq9XbDhuO2RIh2jcyTYgi+iFCy8R
-5eOy8liS4iw=
-=Hi2o
------END PGP SIGNATURE-----
-
---=-+x6kxjVokSRhI3xB/Cmt--
+2.3.1
