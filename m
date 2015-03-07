@@ -1,45 +1,35 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] team: add support to get speed via ethtool
-Date: Sat, 7 Mar 2015 07:30:24 -0500
-Message-ID: <20150307123024.GF502@gospo.home.greyhouse.net>
-References: <1425592115-1750-1-git-send-email-sridhar.samudrala@intel.com>
- <20150306.002410.1359006818497057668.davem@davemloft.net>
- <20150307031013.GC502@gospo.home.greyhouse.net>
- <20150307.011249.990503044534249616.davem@davemloft.net>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/5] TTY: fix tty_wait_until_sent on 64-bit machines
+Date: Sat, 7 Mar 2015 03:43:50 +0100
+Message-ID: <20150307024350.GA7711@kroah.com>
+References: <1425461947-15888-1-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: sridhar.samudrala@intel.com, jiri@resnulli.us,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:46408 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbbCGMa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 07:30:29 -0500
-Received: by qcxr5 with SMTP id r5so56754172qcx.13
-        for <netdev@vger.kernel.org>; Sat, 07 Mar 2015 04:30:28 -0800 (PST)
+Cc: Jiri Slaby <jslaby@suse.cz>, Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Peter Hurley <peter@hurleysoftware.com>,
+	Alan Cox <alan@linux.intel.com>, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-serial@vger.kernel.org,
+	netdev@vger.kernel.org,
+	ZIV-Asier Llano Palacios <asier.llano@cgglobal.com>
+To: Johan Hovold <johan@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150307.011249.990503044534249616.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1425461947-15888-1-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 07, 2015 at 01:12:49AM -0500, David Miller wrote:
-> From: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Date: Fri, 6 Mar 2015 22:10:13 -0500
+On Wed, Mar 04, 2015 at 10:39:02AM +0100, Johan Hovold wrote:
+> This series fixes an overflow bug in tty_wait_until_sent, which is
+> currently broken on 64-bit machines for most TTY drivers (with
+> serial-core being the notable exception).
 > 
-> > but this was not possible for SNMP-based tools that are not aware of
-> > the aggregation of ports on the host.
+> The final patch makes the tty_wait_until_sent timeout a maximum one so
+> that we actually honour the closing-wait timeout.
 > 
-> The suggested value to report HAS NO MEANING.
+> All but the second (clean-up) and final patch are marked for stable.
 > 
-> If you just add the speeds up that's complete bullshit.
-> 
-> Nothing prevents the SNMP userland from doing the right thing
-> and figuring out the geography and perhaps even exporting
-> that geography to SNMP querying agents.
+> These patches are for v4.0 and I suggest Greg takes them all through the
+> TTY tree.
 
-I was actually pretty surprised that this patch stuck when I first
-posted it for that very reason.  I'm quite sure I posted this as a RHEL
-customer put in a request for the feature, but since I'm clearly less
-invested today in that subset of Linux users than I was when I posted
-that patch it doesn't bother me one bit if it is pulled!
+Nice fixes, all now queued up.
