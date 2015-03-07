@@ -1,44 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e: Remove unneeded conversion
-Date: Sat,  7 Mar 2015 07:03:11 -0800
-Message-ID: <1425740603-11280-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40e: clean up debug_read_register
+Date: Sat,  7 Mar 2015 07:03:13 -0800
+Message-ID: <1425740603-11280-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:31672 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:38815 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751163AbbCGPD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751212AbbCGPD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 7 Mar 2015 10:03:28 -0500
 In-Reply-To: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Remove LE16 to CPU endianes conversion from i40e_read_nvm_word_srctl
-function, as it's already done by register read function.
+There were some additional spaces and strange (double swapping) logic
+in this function that I started looking at because sparse was warning.
 
-Change-ID: I739f0f20a9b8e18223e54c0ca5443e63d75da878
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+This fixes the sparse warning and fixes up the other issues.
+
+Change-ID: I72a91a4197cd45921602649040e6bd25e5f17c0a
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 89bd5b4..e49acd2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -200,7 +200,6 @@ static i40e_status i40e_read_nvm_word_srctl(struct i40e_hw *hw, u16 offset,
- 			*data = (u16)((sr_reg &
- 				       I40E_GLNVM_SRDATA_RDDATA_MASK)
- 				    >> I40E_GLNVM_SRDATA_RDDATA_SHIFT);
--			*data = le16_to_cpu(*data);
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index fc4817a..fb78bdd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -2126,7 +2126,7 @@ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
+  * Read the register using the admin queue commands
+  **/
+ i40e_status i40e_aq_debug_read_register(struct i40e_hw *hw,
+-				u32  reg_addr, u64 *reg_val,
++				u32 reg_addr, u64 *reg_val,
+ 				struct i40e_asq_cmd_details *cmd_details)
+ {
+ 	struct i40e_aq_desc desc;
+@@ -2137,17 +2137,15 @@ i40e_status i40e_aq_debug_read_register(struct i40e_hw *hw,
+ 	if (reg_val == NULL)
+ 		return I40E_ERR_PARAM;
+ 
+-	i40e_fill_default_direct_cmd_desc(&desc,
+-					  i40e_aqc_opc_debug_read_reg);
++	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_debug_read_reg);
+ 
+ 	cmd_resp->address = cpu_to_le32(reg_addr);
+ 
+ 	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
+ 
+ 	if (!status) {
+-		*reg_val = ((u64)cmd_resp->value_high << 32) |
+-			    (u64)cmd_resp->value_low;
+-		*reg_val = le64_to_cpu(*reg_val);
++		*reg_val = ((u64)le32_to_cpu(cmd_resp->value_high) << 32) |
++			   (u64)le32_to_cpu(cmd_resp->value_low);
  	}
- 	if (ret_code)
+ 
+ 	return status;
 -- 
 1.9.3
