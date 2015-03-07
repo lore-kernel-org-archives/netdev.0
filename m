@@ -1,45 +1,160 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: store msg_enable in the right size
-Date: Sat,  7 Mar 2015 07:03:12 -0800
-Message-ID: <1425740603-11280-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40e: rework vector reservation
+Date: Sat,  7 Mar 2015 07:03:14 -0800
+Message-ID: <1425740603-11280-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:52869 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:31672 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750931AbbCGPD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751276AbbCGPD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 7 Mar 2015 10:03:28 -0500
 In-Reply-To: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-The kernel returns a u32 for netif_msg_init, and we were storing
-it in a u16.  Fix the width of the datatype.
+The initial problem solved here is that the vector allocation was trying
+too hard to save vectors for VMDq, to the point of not giving the PF enough
+when in a tight situation such as an NPAR partition.  This change makes
+sure that the PF will get all the queues and vectors it wants to fill
+out its destiny.  Essentially, nothing is specially reserved for VMDq,
+it simply gets whatever is left after the PF, FCoE, and FD sideband get
+what they want.
 
-Change-ID: I4b23326e5707c91cd59325c5a1ccb2ba7a3974fc
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Additionally, the calculations for the reservations were harder to follow
+than necessary, so I've made it more straight forward.
+
+Change-ID: I99b384f104535b686c690b8ef0a787559485c8d4
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 75 +++++++++++++++++++++--------
+ 1 file changed, 56 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index ce3fbb8..4fb258a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -276,7 +276,7 @@ struct i40e_pf {
- 	enum i40e_interrupt_policy int_policy;
- 	u16 rx_itr_default;
- 	u16 tx_itr_default;
--	u16 msg_enable;
-+	u32 msg_enable;
- 	char int_name[I40E_INT_NAME_STR_LEN];
- 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
- 	unsigned long service_timer_period;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 0e4312f..1ab5b5f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1541,7 +1541,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 			vsi->tc_config.tc_info[i].qoffset = offset;
+ 			vsi->tc_config.tc_info[i].qcount = qcount;
+ 
+-			/* find the power-of-2 of the number of queue pairs */
++			/* find the next higher power-of-2 of num queue pairs */
+ 			num_qps = qcount;
+ 			pow = 0;
+ 			while (num_qps && ((1 << pow) < qcount)) {
+@@ -6940,7 +6940,7 @@ static int i40e_reserve_msix_vectors(struct i40e_pf *pf, int vectors)
+ static int i40e_init_msix(struct i40e_pf *pf)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+-	int other_vecs = 0;
++	int vectors_left;
+ 	int v_budget, i;
+ 	int v_actual;
+ 
+@@ -6964,25 +6964,62 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 	 * If we can't get what we want, we'll simplify to nearly nothing
+ 	 * and try again.  If that still fails, we punt.
+ 	 */
+-	pf->num_lan_msix = min_t(int, num_online_cpus(),
+-				 hw->func_caps.num_msix_vectors);
+-	pf->num_vmdq_msix = pf->num_vmdq_qps;
+-	other_vecs = 1;
+-	other_vecs += (pf->num_vmdq_vsis * pf->num_vmdq_msix);
+-	if (pf->flags & I40E_FLAG_FD_SB_ENABLED)
+-		other_vecs++;
+-
+-	/* Scale down if necessary, and the rings will share vectors */
+-	pf->num_lan_msix = min_t(int, pf->num_lan_msix,
+-			(hw->func_caps.num_msix_vectors - other_vecs));
+-	v_budget = pf->num_lan_msix + other_vecs;
++	vectors_left = hw->func_caps.num_msix_vectors;
++	v_budget = 0;
++
++	/* reserve one vector for miscellaneous handler */
++	if (vectors_left) {
++		v_budget++;
++		vectors_left--;
++	}
++
++	/* reserve vectors for the main PF traffic queues */
++	pf->num_lan_msix = min_t(int, num_online_cpus(), vectors_left);
++	vectors_left -= pf->num_lan_msix;
++	v_budget += pf->num_lan_msix;
++
++	/* reserve one vector for sideband flow director */
++	if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
++		if (vectors_left) {
++			v_budget++;
++			vectors_left--;
++		} else {
++			pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
++		}
++	}
+ 
+ #ifdef I40E_FCOE
++	/* can we reserve enough for FCoE? */
+ 	if (pf->flags & I40E_FLAG_FCOE_ENABLED) {
+-		pf->num_fcoe_msix = pf->num_fcoe_qps;
++		if (!vectors_left)
++			pf->num_fcoe_msix = 0;
++		else if (vectors_left >= pf->num_fcoe_qps)
++			pf->num_fcoe_msix = pf->num_fcoe_qps;
++		else
++			pf->num_fcoe_msix = 1;
+ 		v_budget += pf->num_fcoe_msix;
++		vectors_left -= pf->num_fcoe_msix;
+ 	}
++
+ #endif
++	/* any vectors left over go for VMDq support */
++	if (pf->flags & I40E_FLAG_VMDQ_ENABLED) {
++		int vmdq_vecs_wanted = pf->num_vmdq_vsis * pf->num_vmdq_qps;
++		int vmdq_vecs = min_t(int, vectors_left, vmdq_vecs_wanted);
++
++		/* if we're short on vectors for what's desired, we limit
++		 * the queues per vmdq.  If this is still more than are
++		 * available, the user will need to change the number of
++		 * queues/vectors used by the PF later with the ethtool
++		 * channels command
++		 */
++		if (vmdq_vecs < vmdq_vecs_wanted)
++			pf->num_vmdq_qps = 1;
++		pf->num_vmdq_msix = pf->num_vmdq_qps;
++
++		v_budget += vmdq_vecs;
++		vectors_left -= vmdq_vecs;
++	}
+ 
+ 	pf->msix_entries = kcalloc(v_budget, sizeof(struct msix_entry),
+ 				   GFP_KERNEL);
+@@ -7028,6 +7065,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		/* Scale vector usage down */
+ 		pf->num_vmdq_msix = 1;    /* force VMDqs to only one vector */
+ 		pf->num_vmdq_vsis = 1;
++		pf->num_vmdq_qps = 1;
++		pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
+ 
+ 		/* partition out the remaining vectors */
+ 		switch (vec) {
+@@ -7053,10 +7092,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 				vec--;
+ 			}
+ #endif
+-			pf->num_lan_msix = min_t(int, (vec / 2),
+-						 pf->num_lan_qps);
+-			pf->num_vmdq_vsis = min_t(int, (vec - pf->num_lan_msix),
+-						  I40E_DEFAULT_NUM_VMDQ_VSI);
++			/* give the rest to the PF */
++			pf->num_lan_msix = min_t(int, vec, pf->num_lan_qps);
+ 			break;
+ 		}
+ 	}
 -- 
 1.9.3
