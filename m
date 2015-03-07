@@ -1,57 +1,50 @@
 From: Boris Brezillon <boris.brezillon@free-electrons.com>
-Subject: Re: [PATCH v3 0/2] net/macb: merge at91_ether driver into macb
- driver
-Date: Sat, 7 Mar 2015 07:32:34 +0100
-Message-ID: <20150307073234.14df134a@bbrezillon>
-References: <1425638921-9768-1-git-send-email-boris.brezillon@free-electrons.com>
-	<20150306.151830.2271015374667204230.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com,
-	plagnioj@jcrosoft.com, alexandre.belloni@free-electrons.com,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH] net/macb: Update DT bindings documentation
+Date: Sat,  7 Mar 2015 07:37:06 +0100
+Message-ID: <1425710226-5744-1-git-send-email-boris.brezillon@free-electrons.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Boris Brezillon <boris.brezillon@free-electrons.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150306.151830.2271015374667204230.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Dave,
+Add missing "cdns,at91sam9260-macb", "atmel,sama5d3-gem" and
+"atmel,sama5d4-gem" compatible strings.
 
-On Fri, 06 Mar 2015 15:18:30 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+Reviewed-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ Documentation/devicetree/bindings/net/macb.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> From: Boris Brezillon <boris.brezillon@free-electrons.com>
-> Date: Fri,  6 Mar 2015 11:48:39 +0100
-> 
-> > Changes since v2:
-> > - rebase after changed brought by [1]
-> 
-> Ugh, actually I'm tossing all of your changes.  Please do not make
-> complex dependencies like this.
-
-Okay, I'll remember that next time I submit patches to netdev.
-
-I've sent a new series integrating the patch this series depends on.
-
-Let me know if there's something wrong in this one.
-
-> 
-> And furthermore, don't reference other sets of changes via lkml
-> postings.  Reference them by where they are in patchwork which is
-> the definitive location for networking patch submissions.
-
-Noted.
-
-Best Regards,
-
-Boris
-
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index aaa6964..ba19d67 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -2,10 +2,13 @@
+ 
+ Required properties:
+ - compatible: Should be "cdns,[<chip>-]{macb|gem}"
+-  Use "cdns,at91sam9260-macb" Atmel at91sam9260 and at91sam9263 SoCs.
++  Use "cdns,at91sam9260-macb" for Atmel at91sam9 SoCs or the 10/100Mbit IP
++  available on sama5d3 SoCs.
+   Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb".
+   Use "cdns,pc302-gem" for Picochip picoXcell pc302 and later devices based on
+   the Cadence GEM, or the generic form: "cdns,gem".
++  Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
++  Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain macb interrupt
+ - phy-mode: See ethernet.txt file in the same directory.
 -- 
-Boris Brezillon, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+1.9.1
