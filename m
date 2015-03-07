@@ -1,103 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2015-03-07
-Date: Sat,  7 Mar 2015 07:03:08 -0800
-Message-ID: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 04/15] i40e: store msg_enable in the right size
+Date: Sat,  7 Mar 2015 07:03:12 -0800
+Message-ID: <1425740603-11280-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:31672 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:52869 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750698AbbCGPD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Mar 2015 10:03:26 -0500
+	id S1750931AbbCGPD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Mar 2015 10:03:28 -0500
+In-Reply-To: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Most notably, Greg provides the patch to remove the dreaded configfs
-changes in the driver.
+The kernel returns a u32 for netif_msg_init, and we were storing
+it in a u16.  Fix the width of the datatype.
 
-Shannon cleans up a sparse warning by simply straighting out the code
-so it is less convoluted.  Fixes an issue where the vector allocation
-was trying too hard to save vectors for VMDq, to the point of not giving
-the PF enough when in a tight situation, such as an NPAR partition.
-Changed the driver to make sure that the PF will get all the queues and
-vectors it wants to fill out its destiny.  Cleans up reporting to only
-print the port and VEB stats if it is the first partition of a
-multiplexed port.
+Change-ID: I4b23326e5707c91cd59325c5a1ccb2ba7a3974fc
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Catherine cleans up some duplicated code by simply removing the duplicate
-code.
-
-Kamil cleans up the driver by removing an un-needed endian conversion
-because it is already done by a register read function.
-
-Jesse fixes a variable width of a datatype, where a u16 should have been
-a u32.  Also cleans up debug_read_register() to resolve some sparse
-warnings.  Updates the driver to use prefetch() to get the next Tx
-descriptor, like in ixgbe, to improve performance.
-
-Akeem moves around code to enable/disable loopback so that other non-SRIOV
-supported driver functions can take advantage of the changes.
-
-Anjali cleans up the logging for adding/deleting FD-SB filters, since
-ethtool shows all the filters on an interface.  Updates the driver to
-use l4_tunnel type generically to keep code flow simple.  Simplifies
-the RSS code since the driver initializes the rss_size_max in sw_init.
-
-The following are changes since commit 1b5ef07e3dd3972d9111650fb6e0f5a566c741d8:
-  rocker: sparse: fix dynamic allocation on stack warning
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Akeem G Abodunrin (1):
-  i40e: Move code to enable/disable Loopback to the main file
-
-Anjali Singhai Jain (4):
-  i40e: Avoid logs while adding/deleting FD-SB filters
-  i40e: FD filters flush policy changes
-  i40e/i40evf: Simplify tunnel selection logic
-  i40e: Simplify code for rss_size_max config
-
-Catherine Sullivan (1):
-  i40e: Remove duplicate code
-
-Greg Rose (1):
-  i40e: Strip configfs code
-
-Jesse Brandeburg (3):
-  i40e: store msg_enable in the right size
-  i40e: clean up debug_read_register
-  i40e/i40evf: enable prefetch of Tx descriptors during cleanup
-
-Kamil Krawczyk (1):
-  i40e: Remove unneeded conversion
-
-Shannon Nelson (3):
-  i40e/i40evf: Refactor i40e_debug_aq and make some functions static
-  i40e: rework vector reservation
-  i40e: print port stats only on partition 1
-
-Sravanthi Tangeda (1):
-  i40e/i40evf: Bump version
-
- drivers/net/ethernet/intel/Kconfig                 |   9 -
- drivers/net/ethernet/intel/i40e/Makefile           |   1 -
- drivers/net/ethernet/intel/i40e/i40e.h             |  14 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  60 ++--
- drivers/net/ethernet/intel/i40e/i40e_configfs.c    | 354 ---------------------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   6 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 227 +++++++++----
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  42 ++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  68 ----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 -
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  44 +--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  16 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
- 14 files changed, 284 insertions(+), 570 deletions(-)
- delete mode 100644 drivers/net/ethernet/intel/i40e/i40e_configfs.c
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index ce3fbb8..4fb258a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -276,7 +276,7 @@ struct i40e_pf {
+ 	enum i40e_interrupt_policy int_policy;
+ 	u16 rx_itr_default;
+ 	u16 tx_itr_default;
+-	u16 msg_enable;
++	u32 msg_enable;
+ 	char int_name[I40E_INT_NAME_STR_LEN];
+ 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
+ 	unsigned long service_timer_period;
 -- 
 1.9.3
