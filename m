@@ -1,25 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: dsa: mv88e6352: Add support for EEE
-Date: Sat, 07 Mar 2015 22:34:27 -0500 (EST)
-Message-ID: <20150307.223427.602007119282704739.davem@davemloft.net>
-References: <1425709432-30419-1-git-send-email-linux@roeck-us.net>
-	<1425709432-30419-2-git-send-email-linux@roeck-us.net>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+ 2015-03-07
+Date: Sat, 07 Mar 2015 22:36:35 -0500 (EST)
+Message-ID: <20150307.223635.2049903048244405307.davem@davemloft.net>
+References: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: linux@roeck-us.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425709432-30419-2-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55730 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751325AbbCHDgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 22:36:37 -0500
+In-Reply-To: <1425740603-11280-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Fri,  6 Mar 2015 22:23:52 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat,  7 Mar 2015 07:03:08 -0800
 
-> Enable EEE support for MV88E6352.
-> 
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> This series contains updates to i40e and i40evf only.
 
-Applied.
+Pulled, thanks Jeff.
