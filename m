@@ -1,45 +1,100 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: iptables problem upgrading kernel from 3.18.8 to 3.19.1
-Date: Sun, 8 Mar 2015 18:55:53 +0100
-Message-ID: <20150308175553.GA1528@breakpoint.cc>
-References: <54FC2089.6080809@unsolicited.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] vlan: allow changing VLAN id and protocol
+Date: Sun, 8 Mar 2015 11:06:24 -0700
+Message-ID: <20150308110624.5ab6f662@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pablo@netfilter.org, stable@kernel.org
-To: David R <david@unsolicited.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41216 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753055AbbCHRz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 13:55:57 -0400
-Content-Disposition: inline
-In-Reply-To: <54FC2089.6080809@unsolicited.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:38021 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752998AbbCHSGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 14:06:33 -0400
+Received: by pabrd3 with SMTP id rd3so42776527pab.5
+        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 11:06:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David R <david@unsolicited.net> wrote:
 
-[ CC Pablo & stable@ ]
+The VLAN netlink interface allows changing the ID and protocol of an existing
+VLAN, but it was being ignored. Move the initialization of the proto and
+id into the change function to fix that.
 
-> I've just had an exception to my "uneventful kernel upgrade" monotony.
-> 
-> My boot scripts failed when setting up the firewall due to this :-
-> 
->     xt_recent: hitcount (1) is larger than packets to be remembered (1)
-> for table xxxx
-> 
-> This is a completely straightforward
-> 
->     iptables -A yyyy -j REJECT -p tcp --reject-with tcp-reset -m recent
-> --set --name xxxx --rsource
-> 
-> Looking at the history for xt_recent.c it looks like this was introduced
-> in abc86d0f99242b7f142b7cb8f90e30081dd3c256 but maybe corrected in
-> cef9ed86ed62eeffcd017882278bbece32001f86 ?
+Example of the problem:
+  # modprobe dummy
+  # ip li set dev dummy0 up
+  # ip li add link dummy0 name dummy0.10 type vlan id 100
+  # ip li set dummy0.10 type vlan id 111
+  # ip -d li show dev dummy0.10
+19: dummy0.10@dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+    link/ether be:d3:7c:7f:86:18 brd ff:ff:ff:ff:ff:ff
+    vlan id 100 <REORDER_HDR> 
+            ^^^ should be 111
 
-Right.  I would recommend to revert abc86d0f99242b7f142b7cb8f90e30081dd3c256
-in 3.19.y series rather than applying cef9ed86ed62, though.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Sorry,
-Florian
+--- a/net/8021q/vlan_netlink.c	2015-03-08 09:38:48.519551748 -0700
++++ b/net/8021q/vlan_netlink.c	2015-03-08 09:42:16.332512289 -0700
+@@ -89,10 +89,30 @@ static int vlan_validate(struct nlattr *
+ static int vlan_changelink(struct net_device *dev,
+ 			   struct nlattr *tb[], struct nlattr *data[])
+ {
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+ 	struct ifla_vlan_flags *flags;
+ 	struct ifla_vlan_qos_mapping *m;
+ 	struct nlattr *attr;
+-	int rem;
++	__be16 proto;
++	int err, rem;
++	u16 id;
++
++	if (data[IFLA_VLAN_PROTOCOL])
++		proto = nla_get_be16(data[IFLA_VLAN_PROTOCOL]);
++	else
++		proto = htons(ETH_P_8021Q);
++
++	if (data[IFLA_VLAN_ID])
++		id = nla_get_u16(data[IFLA_VLAN_ID]);
++	else
++		id = vlan->vlan_id;
++
++	err = vlan_check_real_dev(vlan->real_dev, proto, id);
++	if (err < 0)
++		return err;
++
++	vlan->vlan_id = id;
++	vlan->vlan_proto = proto;
+ 
+ 	if (data[IFLA_VLAN_FLAGS]) {
+ 		flags = nla_data(data[IFLA_VLAN_FLAGS]);
+@@ -118,7 +138,6 @@ static int vlan_newlink(struct net *src_
+ {
+ 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+ 	struct net_device *real_dev;
+-	__be16 proto;
+ 	int err;
+ 
+ 	if (!data[IFLA_VLAN_ID])
+@@ -130,20 +149,9 @@ static int vlan_newlink(struct net *src_
+ 	if (!real_dev)
+ 		return -ENODEV;
+ 
+-	if (data[IFLA_VLAN_PROTOCOL])
+-		proto = nla_get_be16(data[IFLA_VLAN_PROTOCOL]);
+-	else
+-		proto = htons(ETH_P_8021Q);
+-
+-	vlan->vlan_proto = proto;
+-	vlan->vlan_id	 = nla_get_u16(data[IFLA_VLAN_ID]);
+ 	vlan->real_dev	 = real_dev;
+ 	vlan->flags	 = VLAN_FLAG_REORDER_HDR;
+ 
+-	err = vlan_check_real_dev(real_dev, vlan->vlan_proto, vlan->vlan_id);
+-	if (err < 0)
+-		return err;
+-
+ 	if (!tb[IFLA_MTU])
+ 		dev->mtu = real_dev->mtu;
+ 	else if (dev->mtu > real_dev->mtu)
