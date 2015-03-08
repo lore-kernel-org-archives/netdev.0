@@ -1,40 +1,51 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
-Date: Sun, 8 Mar 2015 23:15:02 +0200
-Message-ID: <CAJ3xEMjNKJFps7C2jsuFfnSn8pDtkCTtEhuQz8s+f=euR5=BXA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] vlan: allow changing VLAN id and protocol
+Date: Sun, 8 Mar 2015 14:44:32 -0700
+Message-ID: <20150308144432.02f9c311@urahara>
+References: <20150308110624.5ab6f662@urahara>
+	<54FC9426.7040708@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@aculab.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Kirsher <tarbal@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:42541 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954AbbCHVog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 17:44:36 -0400
+Received: by padfa1 with SMTP id fa1so67460919pad.9
+        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 14:44:35 -0700 (PDT)
+In-Reply-To: <54FC9426.7040708@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23, 2015 at 11:14 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-[...]
-> We discussed this during NetConf last week, and Don is correct that a
-> custom sysfs interface is not the way we want to handle this.  We agreed
-> upon a generic interface so that any NIC is able to turn on or off VF
-> multicast promiscuous mode.
+On Sun, 08 Mar 2015 11:25:42 -0700
+Jeff Kirsher <tarbal@gmail.com> wrote:
 
-Jeff, please make sure to either respond to my comments on the V2
-thread (or better) address them for the V3 post.
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA512
+> 
+> On 03/08/2015 11:06 AM, Stephen Hemminger wrote:
+> > 
+> > The VLAN netlink interface allows changing the ID and protocol of an existing
+> > VLAN, but it was being ignored. Move the initialization of the proto and
+> > id into the change function to fix that.
+> > 
+> > Example of the problem:
+> >   # modprobe dummy
+> >   # ip li set dev dummy0 up
+> >   # ip li add link dummy0 name dummy0.10 type vlan id 100
+> >   # ip li set dummy0.10 type vlan id 111
+> >   # ip -d li show dev dummy0.10
+> > 19: dummy0.10@dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+> >     link/ether be:d3:7c:7f:86:18 brd ff:ff:ff:ff:ff:ff
+> >     vlan id 100 <REORDER_HDR> 
+> >             ^^^ should be 111
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
+Self-NAK
 
-http://marc.info/?l=linux-netdev&m=142441852518152&w=2
-http://marc.info/?l=linux-netdev&m=142441867218183&w=2
-
-Or.
+This needs more state work to handle the case of GARP and all the
+filtering stuff.  There be small dragons here.
