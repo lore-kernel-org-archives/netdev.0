@@ -1,47 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4 0/4] net/macb: merge at91_ether driver into macb
- driver
-Date: Sat, 07 Mar 2015 22:30:20 -0500 (EST)
-Message-ID: <20150307.223020.1400708446360935463.davem@davemloft.net>
-References: <1425709412-4935-1-git-send-email-boris.brezillon@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: bcmgenet: rework Rx queue init
+Date: Sat, 07 Mar 2015 22:33:03 -0500 (EST)
+Message-ID: <20150307.223303.2269656985860547081.davem@davemloft.net>
+References: <20150306214500.B542F2214B2@puck.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org,
-	plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org, alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1425709412-4935-1-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: pgynther@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55662 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111AbbCHDdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 22:33:05 -0500
+In-Reply-To: <20150306214500.B542F2214B2@puck.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Date: Sat,  7 Mar 2015 07:23:28 +0100
+From: Petri Gynther <pgynther@google.com>
+Date: Fri,  6 Mar 2015 13:45:00 -0800 (PST)
 
-> The rm9200 boards use the dedicated at91_ether driver instead of the
-> regular macb driver.
+> In preparation for supporting multiple Rx queues:
+> 1. Move the initialization of priv->num_rx_bds, priv->rx_bds, and
+>    priv->rx_cbs from bcmgenet_init_rx_ring() to bcmgenet_init_dma()
+>    since they are not specific to a single Rx queue. Mimics the Tx
+>    init model where priv->num_tx_bds, priv->tx_bds, and priv->tx_cbs
+>    are initialized in bcmgenet_init_dma().
+> 2. Program DMA_MBUF_DONE_THRESH = 1 so that future Rx queues Q0-Q15
+>    will get per-packet Rx interrupt.
+> 3. Group DMA_START_ADDR, RDMA_READ_PTR, RDMA_WRITE_PTR, and DMA_END_ADDR
+>    initialization together. Mimics the Tx init model.
+> 4. There is 1-to-1 mapping between RxCBs and RxBDs.
+>    Precalculate RxCB->bd_addr so that it can be used in the future.
 > 
-> Both the macb and at91_ether drivers can be compiled as separated
-> modules.
-> Since the at91_ether driver uses code from the macb driver, at91_ether.ko
-> depends on macb.ko.
-> 
-> However the macb.ko module always fails to load on rm9200 boards: the
-> macb_probe() function expects a hclk clock which doesn't exist on rm9200.
-> Then the at91_ether.ko can't be loaded in turn due to unresolved
-> dependencies.
-> 
-> This series of patches fix this issue by merging at91_ether into macb.
-> 
-> Patch 1 is fixing a problem that might happen when enabling ARM
-> multi-platform suppot.
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-Series applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
