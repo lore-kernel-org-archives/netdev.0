@@ -1,46 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] neterion:  remove reference to ifconfig
-Date: Sun, 8 Mar 2015 11:48:49 -0700
-Message-ID: <20150308114849.6423e5b7@urahara>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
+Date: Sun, 8 Mar 2015 23:15:02 +0200
+Message-ID: <CAJ3xEMjNKJFps7C2jsuFfnSn8pDtkCTtEhuQz8s+f=euR5=BXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jon Mason <jdmason@kudzu.us>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:42254 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932080AbbCHSsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 14:48:52 -0400
-Received: by padfa1 with SMTP id fa1so66815253pad.9
-        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 11:48:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@aculab.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove reference to obsolete ifconfig command.
-MTU can be changed with ip command instead.
+On Mon, Feb 23, 2015 at 11:14 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+[...]
+> We discussed this during NetConf last week, and Don is correct that a
+> custom sysfs interface is not the way we want to handle this.  We agreed
+> upon a generic interface so that any NIC is able to turn on or off VF
+> multicast promiscuous mode.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Jeff, please make sure to either respond to my comments on the V2
+thread (or better) address them for the V3 post.
 
---- a/Documentation/networking/s2io.txt	2014-02-12 08:21:53.307906588 -0800
-+++ b/Documentation/networking/s2io.txt	2015-03-08 11:45:41.782207739 -0700
-@@ -38,7 +38,7 @@ The corresponding adapter's LED will bli
- 
- 3.	Features supported:
- a. Jumbo frames. Xframe I/II supports MTU up to 9600 bytes,
--modifiable using ifconfig command.
-+modifiable using ip command.
- 
- b. Offloads. Supports checksum offload(TCP/UDP/IP) on transmit
- and receive, TSO.
---- a/Documentation/networking/vxge.txt	2014-02-12 08:21:53.309906559 -0800
-+++ b/Documentation/networking/vxge.txt	2015-03-08 11:46:01.494299026 -0700
-@@ -39,7 +39,7 @@ iii) PCI-SIG's I/O Virtualization
- 
- iv)  Jumbo frames
-        X3100 Series supports MTU up to 9600 bytes, modifiable using
--       ifconfig command.
-+       ip command.
- 
- v)   Offloads supported: (Enabled by default)
-        Checksum offload (TCP/UDP/IP) on transmit and receive paths
+
+http://marc.info/?l=linux-netdev&m=142441852518152&w=2
+http://marc.info/?l=linux-netdev&m=142441867218183&w=2
+
+Or.
