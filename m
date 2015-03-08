@@ -1,53 +1,45 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFT/RFC PATCH 0/8] net: dsa: mv88e6xxx: Add support for HW bridging
-Date: Sun, 08 Mar 2015 09:40:05 -0700
-Message-ID: <54FC7B65.2030203@roeck-us.net>
-References: <1424720150-27564-1-git-send-email-linux@roeck-us.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: iptables problem upgrading kernel from 3.18.8 to 3.19.1
+Date: Sun, 8 Mar 2015 18:55:53 +0100
+Message-ID: <20150308175553.GA1528@breakpoint.cc>
+References: <54FC2089.6080809@unsolicited.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424720150-27564-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pablo@netfilter.org, stable@kernel.org
+To: David R <david@unsolicited.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41216 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753055AbbCHRz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 13:55:57 -0400
+Content-Disposition: inline
+In-Reply-To: <54FC2089.6080809@unsolicited.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/23/2015 11:35 AM, Guenter Roeck wrote:
-> This patch series applies on top of net-next, plus Florian's patches
-> integrating dsa with SWITCHDEV for HW bridging. It also requires the patch
-> 'net: dsa: Ensure that port array elements are initialized before being used'.
->
-> HW bridging support is currently only enabled for MV8865352, but it should be
-> straightforward to enable support for other Marvell chips by adding three lines
-> of initialization code to the respective source; see patch 8/8 for details.
-> mv886e3131.c would also have to use mv88e6xxx_setup_port_common().
->
-> Patches 1-3 prepare the mv88e6xxx code for adding HW bridging support.
-> Patch 4 adds core HW bridging support to the mv88e6xxx code. Patch 5-7
-> prepare the drivers for mv88e6352, mv88e6123_61_65, and mv88e6171 for
-> HW bridging support, without actually enabling it. Patch 8 enables
-> HW bridging support in the mv88e6352 driver.
->
-> Patches 5 and 8 could possibly be merged, but I thought it was better
-> to keep them separate because they logically serve a different purpose.
->
-> Testing has been minimal, and only with MV88E6352. Ports can be added to
-> and removed from a bridge, and I have been able to pass data through a port
-> configured as bridge port.
->
-An updated version of this patch set is available in branch dsa-next
-of my repository at kernel.org.
-	git://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging.git
+David R <david@unsolicited.net> wrote:
 
-Some bug fixes, added support to display fdb contents, and experimental
-(untested) changes adding support for more chip types to the mv88e6131 driver.
+[ CC Pablo & stable@ ]
 
-Someone suggested that submitting series of RFC/RFT patches to the netdev
-mailing list might be considered noise, so I'll refrain from doing that until
-I believe that the patch set is ready for integration.
+> I've just had an exception to my "uneventful kernel upgrade" monotony.
+> 
+> My boot scripts failed when setting up the firewall due to this :-
+> 
+>     xt_recent: hitcount (1) is larger than packets to be remembered (1)
+> for table xxxx
+> 
+> This is a completely straightforward
+> 
+>     iptables -A yyyy -j REJECT -p tcp --reject-with tcp-reset -m recent
+> --set --name xxxx --rsource
+> 
+> Looking at the history for xt_recent.c it looks like this was introduced
+> in abc86d0f99242b7f142b7cb8f90e30081dd3c256 but maybe corrected in
+> cef9ed86ed62eeffcd017882278bbece32001f86 ?
 
-Guenter
+Right.  I would recommend to revert abc86d0f99242b7f142b7cb8f90e30081dd3c256
+in 3.19.y series rather than applying cef9ed86ed62, though.
+
+Sorry,
+Florian
