@@ -1,225 +1,76 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net v2] ip: fix error queue empty skb handling
-Date: Sat,  7 Mar 2015 20:33:22 -0500
-Message-ID: <1425778402-10720-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, jan@gondor.com, richardcochran@gmail.com,
-	Willem de Bruijn <willemb@google.com>
+From: Wilco Baan Hofman <wilco@baanhofman.nl>
+Subject: [PATCH] Fix multipoint GRE per-packet lookup in neighbour table
+Date: Sun, 08 Mar 2015 02:54:56 +0100
+Message-ID: <54FBABF0.1090706@baanhofman.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:39547 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbbCHBd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 20:33:27 -0500
-Received: by ykp131 with SMTP id 131so9338533ykp.6
-        for <netdev@vger.kernel.org>; Sat, 07 Mar 2015 17:33:27 -0800 (PST)
+Received: from vps.baanhofman.nl ([92.222.219.102]:59233 "EHLO
+	vps.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbbCHBzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Mar 2015 20:55:19 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by vps.baanhofman.nl (Postfix) with ESMTP id E57DF1040C2F
+	for <netdev@vger.kernel.org>; Sun,  8 Mar 2015 02:55:18 +0100 (CET)
+Received: from vps.baanhofman.nl ([127.0.0.1])
+	by localhost (vps.baanhofman.nl [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id aBc1lTJ2UQeS for <netdev@vger.kernel.org>;
+	Sun,  8 Mar 2015 02:54:56 +0100 (CET)
+Received: from [IPv6:2001:470:7b66:0:b037:a91d:56f5:3620] (unknown [IPv6:2001:470:7b66:0:b037:a91d:56f5:3620])
+	(Authenticated sender: wilco)
+	by vps.baanhofman.nl (Postfix) with ESMTPSA id 87ABA1040D32
+	for <netdev@vger.kernel.org>; Sun,  8 Mar 2015 02:54:56 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+Hi all,
 
-When reading from the error queue, msg_name and msg_control are only
-populated for some errors. A new exception for empty timestamp skbs
-added a false positive on icmp errors without payload.
+For multipoint GRE, there is no CAP_XMIT, because it is determined
+per-packet if the destination can be reached.
 
-`traceroute -M udpconn` only displayed gateways that return payload
-with the icmp error: the embedded network headers are pulled before
-sock_queue_err_skb, leaving an skb with skb->len == 0 otherwise.
+In the transmit function though, it still only checks against CAP_XMIT.
 
-Fix this regression by refining when msg_name and msg_control
-branches are taken. The solutions for the two fields are independent.
+This patch fixes that, and allows forwarding via GRE through the
+neighbour table.
 
-msg_name only makes sense for errors that configure serr->port and
-serr->addr_offset. Test the first instead of skb->len. This also fixes
-another issue. saddr could hold the wrong data, as serr->addr_offset
-is not initialized  in some code paths, pointing to the start of the
-network header. It is only valid when serr->port is set (non-zero).
+After patch, this works:
 
-msg_control support differs between IPv4 and IPv6. IPv4 only honors
-requests for ICMP and timestamps with SOF_TIMESTAMPING_OPT_CMSG. The
-skb->len test can simply be removed, because skb->dev is also tested
-and never true for empty skbs. IPv6 honors requests for all errors
-aside from local errors and timestamps on empty skbs.
+$ ip -6 neigh list|grep fe80::3
+fe80::3 dev gre1 lladdr fc:00:00:00:00:00:00:00:00:00:00:00:00:00:00:03
+STALE
 
-In both cases, make the policy more explicit by moving this logic to
-a new function that decides whether to process msg_control and that
-optionally prepares the necessary fields in skb->cb[]. After this
-change, the IPv4 and IPv6 paths are more similar.
+$ ping6 fe80::3%gre1
+PING fe80::3%gre1(fe80::3) 56 data bytes
+64 bytes from fe80::3: icmp_seq=1 ttl=64 time=0.750 ms
 
-The last case is rxrpc. Here, simply refine to only match timestamps.
+-- Wilco Baan Hofman
 
-Fixes: 49ca0d8bfaf3 ("net-timestamp: no-payload option")
 
-Reported-by: Jan Niehusmann <jan@gondor.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+>From 2092aa4525ebc29301564fd3836485781ca6b205 Mon Sep 17 00:00:00 2001
+From: Wilco Baan Hofman <wilco@baanhofman.nl>
+Date: Sun, 8 Mar 2015 02:47:22 +0100
+Subject: [PATCH] Fix multipoint GRE (per packet transmit)
 
-----
-
-Changes
-  v1->v2
-  - fix local origin test inversion in ip6_datagram_support_cmsg
-  - make v4 and v6 code paths more similar by introducing analogous
-    ipv4_datagram_support_cmsg
-  - fix compile bug in rxrpc
 ---
- net/ipv4/ip_sockglue.c | 33 +++++++++++++++++++++++----------
- net/ipv6/datagram.c    | 39 ++++++++++++++++++++++++++++-----------
- net/rxrpc/ar-error.c   |  4 ++--
- 3 files changed, 53 insertions(+), 23 deletions(-)
+ net/ipv6/ip6_gre.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 31d8c71..5cd9927 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -432,17 +432,32 @@ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 port, u32 inf
- 		kfree_skb(skb);
- }
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index c9aee7d..0fdc55a 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -902,7 +902,7 @@ static netdev_tx_t ip6gre_tunnel_xmit(struct sk_buff
+*skb,
+     struct net_device_stats *stats = &t->dev->stats;
+     int ret;
  
--static bool ipv4_pktinfo_prepare_errqueue(const struct sock *sk,
--					  const struct sk_buff *skb,
--					  int ee_origin)
-+/* IPv4 supports cmsg on all imcp errors and some timestamps
-+ *
-+ * Timestamp code paths do not initialize the fields expected by cmsg:
-+ * the PKTINFO fields in skb->cb[]. Fill those in here.
-+ */
-+static bool ipv4_datagram_support_cmsg(const struct sock *sk,
-+				       struct sk_buff *skb,
-+				       int ee_origin)
- {
--	struct in_pktinfo *info = PKTINFO_SKB_CB(skb);
-+	struct in_pktinfo *info;
-+
-+	if (ee_origin == SO_EE_ORIGIN_ICMP)
-+		return true;
+-    if (!ip6_tnl_xmit_ctl(t, &t->parms.laddr, &t->parms.raddr))
++    if (!ip6_tnl_xmit_ctl(t, &t->parms.laddr, &t->parms.raddr) &&
+!(t->parms.flags & IP6_TNL_F_CAP_PER_PACKET))
+         goto tx_err;
  
--	if ((ee_origin != SO_EE_ORIGIN_TIMESTAMPING) ||
--	    (!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG)) ||
-+	if (ee_origin == SO_EE_ORIGIN_LOCAL)
-+		return false;
-+
-+	/* Support IP_PKTINFO on tstamp packets if requested, to correlate
-+	 * timestamp with egress dev. Not possible for packets without dev
-+	 * or without payload (SOF_TIMESTAMPING_OPT_TSONLY).
-+	 */
-+	if ((!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG)) ||
- 	    (!skb->dev))
- 		return false;
- 
-+	info = PKTINFO_SKB_CB(skb);
- 	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
- 	info->ipi_ifindex = skb->dev->ifindex;
- 	return true;
-@@ -483,7 +498,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 
- 	serr = SKB_EXT_ERR(skb);
- 
--	if (sin && skb->len) {
-+	if (sin && serr->port) {
- 		sin->sin_family = AF_INET;
- 		sin->sin_addr.s_addr = *(__be32 *)(skb_network_header(skb) +
- 						   serr->addr_offset);
-@@ -496,9 +511,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 	sin = &errhdr.offender;
- 	memset(sin, 0, sizeof(*sin));
- 
--	if (skb->len &&
--	    (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
--	     ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin))) {
-+	if (ipv4_datagram_support_cmsg(sk, skb, serr->ee.ee_origin)) {
- 		sin->sin_family = AF_INET;
- 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
- 		if (inet_sk(sk)->cmsg_flags)
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index c215be7..ace8dac 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -325,14 +325,34 @@ void ipv6_local_rxpmtu(struct sock *sk, struct flowi6 *fl6, u32 mtu)
- 	kfree_skb(skb);
- }
- 
--static void ip6_datagram_prepare_pktinfo_errqueue(struct sk_buff *skb)
-+/* IPv6 supports cmsg on all origins aside from SO_EE_ORIGIN_LOCAL.
-+ *
-+ * At one point, excluding local errors was a quick test to identify icmp/icmp6
-+ * errors. This is no longer true, but the test remained, so the v6 stack,
-+ * unlike v4, also honors cmsg requests on all wifi and timestamp errors.
-+ *
-+ * Timestamp code paths do not initialize the fields expected by cmsg:
-+ * the PKTINFO fields in skb->cb[]. Fill those in here.
-+ */
-+static bool ip6_datagram_support_cmsg(struct sk_buff *skb,
-+				      struct sock_exterr_skb *serr)
- {
--	int ifindex = skb->dev ? skb->dev->ifindex : -1;
-+	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
-+	    serr->ee.ee_origin == SO_EE_ORIGIN_ICMP6)
-+		return true;
-+
-+	if (serr->ee.ee_origin == SO_EE_ORIGIN_LOCAL)
-+		return false;
-+
-+	if (!skb->dev)
-+		return false;
- 
- 	if (skb->protocol == htons(ETH_P_IPV6))
--		IP6CB(skb)->iif = ifindex;
-+		IP6CB(skb)->iif = skb->dev->ifindex;
- 	else
--		PKTINFO_SKB_CB(skb)->ipi_ifindex = ifindex;
-+		PKTINFO_SKB_CB(skb)->ipi_ifindex = skb->dev->ifindex;
-+
-+	return true;
- }
- 
- /*
-@@ -369,7 +389,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 
- 	serr = SKB_EXT_ERR(skb);
- 
--	if (sin && skb->len) {
-+	if (sin && serr->port) {
- 		const unsigned char *nh = skb_network_header(skb);
- 		sin->sin6_family = AF_INET6;
- 		sin->sin6_flowinfo = 0;
-@@ -394,14 +414,11 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
- 	sin = &errhdr.offender;
- 	memset(sin, 0, sizeof(*sin));
--	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL && skb->len) {
-+
-+	if (ip6_datagram_support_cmsg(skb, serr)) {
- 		sin->sin6_family = AF_INET6;
--		if (np->rxopt.all) {
--			if (serr->ee.ee_origin != SO_EE_ORIGIN_ICMP &&
--			    serr->ee.ee_origin != SO_EE_ORIGIN_ICMP6)
--				ip6_datagram_prepare_pktinfo_errqueue(skb);
-+		if (np->rxopt.all)
- 			ip6_datagram_recv_common_ctl(sk, msg, skb);
--		}
- 		if (skb->protocol == htons(ETH_P_IPV6)) {
- 			sin->sin6_addr = ipv6_hdr(skb)->saddr;
- 			if (np->rxopt.all)
-diff --git a/net/rxrpc/ar-error.c b/net/rxrpc/ar-error.c
-index 5394b6b..0610efa 100644
---- a/net/rxrpc/ar-error.c
-+++ b/net/rxrpc/ar-error.c
-@@ -42,7 +42,8 @@ void rxrpc_UDP_error_report(struct sock *sk)
- 		_leave("UDP socket errqueue empty");
- 		return;
- 	}
--	if (!skb->len) {
-+	serr = SKB_EXT_ERR(skb);
-+	if (!skb->len && serr->ee.ee_origin == SO_EE_ORIGIN_TIMESTAMPING) {
- 		_leave("UDP empty message");
- 		kfree_skb(skb);
- 		return;
-@@ -50,7 +51,6 @@ void rxrpc_UDP_error_report(struct sock *sk)
- 
- 	rxrpc_new_skb(skb);
- 
--	serr = SKB_EXT_ERR(skb);
- 	addr = *(__be32 *)(skb_network_header(skb) + serr->addr_offset);
- 	port = serr->port;
- 
+     switch (skb->protocol) {
 -- 
-2.2.0.rc0.207.ga3a616c
+2.1.4
