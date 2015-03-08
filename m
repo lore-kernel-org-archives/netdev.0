@@ -1,34 +1,33 @@
-From: David R <david@unsolicited.net>
-Subject: iptables problem upgrading kernel from 3.18.8 to 3.19.1
-Date: Sun, 08 Mar 2015 10:12:25 +0000
-Message-ID: <54FC2089.6080809@unsolicited.net>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH] rt2x00: use rt2x00queue_flush_queues() instead of
+ implementing the same action
+Date: Sun, 8 Mar 2015 11:37:14 +0100
+Message-ID: <20150308103713.GA1890@redhat.com>
+References: <1425753950-15624-1-git-send-email-giedrius.statkevicius@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: helmut.schaa@googlemail.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Giedrius =?utf-8?Q?Statkevi=C4=8Dius?=
+	<giedrius.statkevicius@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1425753950-15624-1-git-send-email-giedrius.statkevicius@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've just had an exception to my "uneventful kernel upgrade" monotony.
+On Sat, Mar 07, 2015 at 08:45:50PM +02iee80211_ops00, Giedrius Statkevi=
+=C4=8Dius wrote:
+> Use rt2x00queue_flush_queues() in rt2x00mac_flush() instead of
+> reimplementing the same actions the second time. Also, now it flushes
+> the rx queue aswell which it didn't before and that makes it complete=
+ly
+> do what it's supposed to do according to struct iee80211_ops: flush()
+> must flush all queues.
 
-My boot scripts failed when setting up the firewall due to this :-
+NACK, RX queue should not be flushed, mac80211 flush is about TX queues
+only.
 
-    xt_recent: hitcount (1) is larger than packets to be remembered (1)
-for table xxxx
-
-This is a completely straightforward
-
-    iptables -A yyyy -j REJECT -p tcp --reject-with tcp-reset -m recent
---set --name xxxx --rsource
-
-Looking at the history for xt_recent.c it looks like this was introduced
-in abc86d0f99242b7f142b7cb8f90e30081dd3c256 but maybe corrected in
-cef9ed86ed62eeffcd017882278bbece32001f86 ?
-
-Whatever, 3.19.1 is still affected, it can be worked around by setting
-ip_pkt_list_tot in the module parameters.
-
-Cheers
-David
+Stanislaw
