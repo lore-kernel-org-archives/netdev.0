@@ -1,51 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] vlan: allow changing VLAN id and protocol
-Date: Sun, 8 Mar 2015 14:44:32 -0700
-Message-ID: <20150308144432.02f9c311@urahara>
-References: <20150308110624.5ab6f662@urahara>
-	<54FC9426.7040708@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH iproute2] route: label externally offloaded routes
+Date: Sun, 8 Mar 2015 15:10:48 -0700
+Message-ID: <CAE4R7bBKeWoDEv5SJfpm96d330Dc9ZpZpWVG-Dd45uH1mF64aA@mail.gmail.com>
+References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
+	<20150308065744.GB1986@nanopsycho.orion>
+	<CAJieiUgz9O7LFhzONx5JKRv0o4+6hSHNtRgKaaKAn2ph4jdC2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeff Kirsher <tarbal@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:42541 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954AbbCHVog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 17:44:36 -0400
-Received: by padfa1 with SMTP id fa1so67460919pad.9
-        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 14:44:35 -0700 (PDT)
-In-Reply-To: <54FC9426.7040708@gmail.com>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:45480 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751959AbbCHWKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 18:10:49 -0400
+Received: by qgaj5 with SMTP id j5so24538436qga.12
+        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 15:10:49 -0700 (PDT)
+In-Reply-To: <CAJieiUgz9O7LFhzONx5JKRv0o4+6hSHNtRgKaaKAn2ph4jdC2g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 08 Mar 2015 11:25:42 -0700
-Jeff Kirsher <tarbal@gmail.com> wrote:
+On Sun, Mar 8, 2015 at 6:35 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>
+>
+> On Sat, Mar 7, 2015 at 10:57 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>
+>> Sun, Mar 08, 2015 at 07:15:35AM CET, sfeldma@gmail.com wrote:
+>> >From: Scott Feldman <sfeldma@gmail.com>
+>> >
+>> >On ip route print dump, label externally offloaded routes with
+>> > "external".
+>> >Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
+>> >net-next.  For example:
+>> >
+>> >$ ip route
+>> >default via 192.168.0.2 dev eth0
+>> >11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
+>> >11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
+>> >11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
+>> >11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
+>> >12.0.0.2  proto zebra  metric 30 external
+>> >        nexthop via 11.0.0.1  dev swp1 weight 1
+>> >        nexthop via 11.0.0.9  dev swp2 weight 1
+>> >12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
+>> >12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
+>> >192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
+>> >
+>> >Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>
+> No objections to the patch.
+>
+> since this is now getting exposed to userspace and there were suggestions in
+> the past to use words like 'hw' or 'offload' in place of 'external' here,
+> checking to see if you are taking suggestions. If yes, would 'hw' or
+> 'offloaded' be a better name for the flag ?.
 
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA512
-> 
-> On 03/08/2015 11:06 AM, Stephen Hemminger wrote:
-> > 
-> > The VLAN netlink interface allows changing the ID and protocol of an existing
-> > VLAN, but it was being ignored. Move the initialization of the proto and
-> > id into the change function to fix that.
-> > 
-> > Example of the problem:
-> >   # modprobe dummy
-> >   # ip li set dev dummy0 up
-> >   # ip li add link dummy0 name dummy0.10 type vlan id 100
-> >   # ip li set dummy0.10 type vlan id 111
-> >   # ip -d li show dev dummy0.10
-> > 19: dummy0.10@dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT 
-> >     link/ether be:d3:7c:7f:86:18 brd ff:ff:ff:ff:ff:ff
-> >     vlan id 100 <REORDER_HDR> 
-> >             ^^^ should be 111
-> > 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+We used "external" because that's what was used for marking FDB
+entries.  I personally have no preference other than we be consistent
+for each object offloaded externally.  There will be other objects
+we'll need to tag, such as bonds, so if there is enough objection to
+"external", we should make the change now for FIB abd FDB objects, and
+be consistent with future objects.
 
-Self-NAK
-
-This needs more state work to handle the case of GARP and all the
-filtering stuff.  There be small dragons here.
+-scott
