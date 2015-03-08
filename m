@@ -1,44 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2] route: label externally offloaded routes
-Date: Sun, 8 Mar 2015 07:57:44 +0100
-Message-ID: <20150308065744.GB1986@nanopsycho.orion>
-References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next 5/6] mpls: Fix the openvswitch select of
+ NET_MPLS_GSO
+Date: Sun, 8 Mar 2015 18:09:51 +0900
+Message-ID: <20150308090951.GA17311@verge.net.au>
+References: <874mpw5u3x.fsf@x220.int.ebiederm.org>
+ <871tl04fag.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: sfeldma@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:40324 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbbCHG5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 01:57:48 -0500
-Received: by wevk48 with SMTP id k48so24212565wev.7
-        for <netdev@vger.kernel.org>; Sat, 07 Mar 2015 22:57:47 -0800 (PST)
+Received: from kirsty.vergenet.net ([202.4.237.240]:38067 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750728AbbCHJJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Mar 2015 05:09:55 -0400
 Content-Disposition: inline
-In-Reply-To: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
+In-Reply-To: <871tl04fag.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Mar 08, 2015 at 07:15:35AM CET, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->On ip route print dump, label externally offloaded routes with "external".
->Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
->net-next.  For example:
->
->$ ip route
->default via 192.168.0.2 dev eth0
->11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
->11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
->11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
->11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
->12.0.0.2  proto zebra  metric 30 external
->        nexthop via 11.0.0.1  dev swp1 weight 1
->        nexthop via 11.0.0.9  dev swp2 weight 1
->12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
->12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
->192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+On Sat, Mar 07, 2015 at 04:24:23PM -0600, Eric W. Biederman wrote:
+> 
+> Fix the OPENVSWITCH Kconfig option and old Kconfigs by having
+> OPENVSWITCH select both NET_MPLS_GSO and MPLSO.
+> 
+> A Kbuild test robot reported that when NET_MPLS_GSO is selected by
+> OPENVSWITCH the generated .config is broken because MPLS is not
+> selected.
+> 
+> Cc: Simon Horman <horms@verge.net.au>
+> Fixes: cec9166ca4e mpls: Refactor how the mpls module is built
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+Reviewed-by: Simon Horman <horms@verge.net.au>
+
+> ---
+>  net/openvswitch/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+> index b7d818c59423..ed6b0f8dd1bb 100644
+> --- a/net/openvswitch/Kconfig
+> +++ b/net/openvswitch/Kconfig
+> @@ -6,6 +6,7 @@ config OPENVSWITCH
+>  	tristate "Open vSwitch"
+>  	depends on INET
+>  	select LIBCRC32C
+> +	select MPLS
+>  	select NET_MPLS_GSO
+>  	---help---
+>  	  Open vSwitch is a multilayer Ethernet switch targeted at virtualized
+> -- 
+> 2.2.1
+> 
