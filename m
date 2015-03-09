@@ -1,70 +1,58 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next] tipc: sparse: fix htons conversion warnings
-Date: Mon, 9 Mar 2015 10:19:31 +0100
-Message-ID: <1425892771-15120-1-git-send-email-erik.hugne@ericsson.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [patch net-next 3/4] net: refactor IPv4 and IPv6 fragmentation
+ APIs
+Date: Mon, 9 Mar 2015 18:25:59 +0900
+Message-ID: <20150309092557.GB13498@vergenet.net>
+References: <1425888098-21875-1-git-send-email-azhou@nicira.com>
+ <1425888098-21875-4-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<ying.xue@windriver.com>, <richard.alpe@ericsson.com>,
-	<laszlo.benedek@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:56623 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753777AbbCIJX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:23:58 -0400
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:42994 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753322AbbCIJ0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:26:09 -0400
+Received: by pdbfl12 with SMTP id fl12so62446401pdb.9
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 02:26:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1425888098-21875-4-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On Mon, Mar 09, 2015 at 01:01:37AM -0700, Andy Zhou wrote:
+> Both ip_fragment() and ip6_fragment() APIs assume skb has an
+> attached netdev device, from which the MTU size can be derived.
+> However, skbs incoming from OVS vports do not have an attached
+> netdev device.
+> 
+> This patch splits the original function into two parts: The core
+> fragmentation logic is now provided by
+> ip_fragment_mtu()/ip6_fragment_mut().
+> 
+> The original APIs are kept as is. Their implementation now calls
+> the new APIs. Any information derived from the attached netdev
+> device is first derived in the original APIs and passed into the
+> new APIs.
+> 
+> In addition, The call back output function into the new APIs now
+> accepts two arguments: a skb and an application specific pointer,
+> which specifies additional information not directly associated
+> with skb, such as OVS flow, to the output function.
 
-Commit d0f91938bede ("tipc: add ip/udp media type") introduced
-some new sparse warnings. Clean them up.
+I suggest handling that portion of the change separately.
+It doesn't seem nearly as well defined as the rest of the change.
+And cast below seems somewhat undesirable to me.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/udp_media.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+[snip]
 
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 0d10001..fc2fb11 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -162,7 +162,7 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
- 		err = -ENODEV;
- 		goto tx_error;
- 	}
--	if (htons(dst->proto) == ETH_P_IP) {
-+	if (dst->proto == htons(ETH_P_IP)) {
- 		struct flowi4 fl = {
- 			.daddr = dst->ipv4.s_addr,
- 			.saddr = src->ipv4.s_addr,
-@@ -334,7 +334,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	struct udp_media_addr *remote;
- 	struct udp_media_addr local = {0};
- 	struct udp_port_cfg udp_conf = {0};
--	struct udp_tunnel_sock_cfg tuncfg = {0};
-+	struct udp_tunnel_sock_cfg tuncfg = {NULL};
- 
- 	ub = kzalloc(sizeof(*ub), GFP_ATOMIC);
- 	if (!ub)
-@@ -351,7 +351,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	rcu_assign_pointer(b->media_ptr, ub);
- 	rcu_assign_pointer(ub->bearer, b);
- 	tipc_udp_media_addr_set(&b->addr, &local);
--	if (htons(local.proto) == ETH_P_IP) {
-+	if (local.proto == htons(ETH_P_IP)) {
- 		struct net_device *dev;
- 
- 		dev = __ip_dev_find(net, local.ipv4.s_addr, false);
-@@ -366,7 +366,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 		b->mtu = dev->mtu - sizeof(struct iphdr)
- 			- sizeof(struct udphdr);
- #if IS_ENABLED(CONFIG_IPV6)
--	} else if (htons(local.proto) == ETH_P_IPV6) {
-+	} else if (local.proto == htons(ETH_P_IPV6)) {
- 		udp_conf.family = AF_INET6;
- 		udp_conf.use_udp6_tx_checksums = true;
- 		udp_conf.use_udp6_rx_checksums = true;
--- 
-2.1.4
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index a7aea20..b85fd34 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+
+> +	return ip_fragment_mtu(skb, mtu, ll_rs, NULL, dev,
+> +			(int (*)(struct sk_buff *, void *output_arg))output);
+> +}
+>  EXPORT_SYMBOL(ip_fragment);
