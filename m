@@ -1,67 +1,79 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2015-03-09
-Date: Mon,  9 Mar 2015 10:36:15 +0100
-Message-ID: <1425893781-10867-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/6] can: add missing initialisations in CAN related skbuffs
+Date: Mon,  9 Mar 2015 10:36:16 +0100
+Message-ID: <1425893781-10867-2-git-send-email-mkl@pengutronix.de>
+References: <1425893781-10867-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50303 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50309 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736AbbCIJg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:36:28 -0400
+	with ESMTP id S1753736AbbCIJgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:36:32 -0400
+In-Reply-To: <1425893781-10867-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-this is a pull request for net/master for the 4.0 release cycle, it consists of
-6 patches:
+When accessing CAN network interfaces with AF_PACKET sockets e.g. by dhclient
+this can lead to a skb_under_panic due to missing skb initialisations.
 
-A patch by Oliver Hartkopp fixes a long outstanding bug in the infrastructure,
-which leads to skb_under_panics when CAN interfaces are used by AF_PACKET
-sockets e.g. by dhclient. Stephane Grosjean contributes a patch for the
-peak_usb driver which adds a missing initialization. Two patches by Ahmed S.
-Darwish fix problems in the kvaser_usb driver. Followed by two patches by
-myself, updating the MAINTAINERS file.
+Add the missing initialisations at the CAN skbuff creation times on driver
+level (rx path) and in the network layer (tx path).
 
-regards,
-Marc
+Reported-by: Austin Schuh <austin@peloton-tech.com>
+Reported-by: Daniel Steer <daniel.steer@mclaren.com>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ drivers/net/can/dev.c | 8 ++++++++
+ net/can/af_can.c      | 3 +++
+ 2 files changed, 11 insertions(+)
 
-The following changes since commit c247f0534cc5a5a547a343903f42295a471844e2:
-
-  ip: fix error queue empty skb handling (2015-03-08 23:01:54 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.0-20150309
-
-for you to fetch changes up to ee2daa00fbe62a491446d3385542d43be233d81c:
-
-  MAINTAINERS: add Marc Kleine-Budde as co maintinaer for CAN networking layer (2015-03-09 10:22:45 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.0-20150309
-
-----------------------------------------------------------------
-Ahmed S. Darwish (2):
-      can: kvaser_usb: Avoid double free on URB submission failures
-      can: kvaser_usb: Read all messages in a bulk-in URB buffer
-
-Marc Kleine-Budde (2):
-      MAINTAINERS: linux-can moved to github
-      MAINTAINERS: add Marc Kleine-Budde as co maintinaer for CAN networking layer
-
-Oliver Hartkopp (1):
-      can: add missing initialisations in CAN related skbuffs
-
-Stephane Grosjean (1):
-      can: peak_usb: fix missing ctrlmode_ init for every dev
-
- MAINTAINERS                                |  5 ++--
- drivers/net/can/dev.c                      |  8 +++++
- drivers/net/can/usb/kvaser_usb.c           | 48 +++++++++++++++++++-----------
- drivers/net/can/usb/peak_usb/pcan_usb_fd.c |  4 +++
- net/can/af_can.c                           |  3 ++
- 5 files changed, 49 insertions(+), 19 deletions(-)
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 3c82e02e3dae..b0f69248cb71 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -579,6 +579,10 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
+ 	skb->pkt_type = PACKET_BROADCAST;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
++	skb_reset_mac_header(skb);
++	skb_reset_network_header(skb);
++	skb_reset_transport_header(skb);
++
+ 	can_skb_reserve(skb);
+ 	can_skb_prv(skb)->ifindex = dev->ifindex;
+ 
+@@ -603,6 +607,10 @@ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
+ 	skb->pkt_type = PACKET_BROADCAST;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
++	skb_reset_mac_header(skb);
++	skb_reset_network_header(skb);
++	skb_reset_transport_header(skb);
++
+ 	can_skb_reserve(skb);
+ 	can_skb_prv(skb)->ifindex = dev->ifindex;
+ 
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 66e08040ced7..32d710eaf1fc 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -259,6 +259,9 @@ int can_send(struct sk_buff *skb, int loop)
+ 		goto inval_skb;
+ 	}
+ 
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++	skb_reset_mac_header(skb);
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+ 
+-- 
+2.1.4
