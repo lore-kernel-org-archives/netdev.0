@@ -1,78 +1,92 @@
-From: clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org
-Subject: [PATCH v2 0/3] NFC: nxp-nci: Add support for NXP-NCI NFC controllers
-Date: Mon,  9 Mar 2015 11:12:02 +0100
-Message-ID: <1425895925-20593-1-git-send-email-clement.perrochaud@effinnov.com>
+From: clement.perrochaud@effinnov.com
+Subject: [PATCH v2 1/3] NFC: nci: Add firmware download support
+Date: Mon,  9 Mar 2015 11:12:03 +0100
+Message-ID: <1425895925-20593-2-git-send-email-clement.perrochaud@effinnov.com>
+References: <1425895925-20593-1-git-send-email-clement.perrochaud@effinnov.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Cl=C3=A9ment=20Perrochaud?=
-	<clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org>, sunil.jogi-3arQi8VN3Tc@public.gmane.org,
-	jerome.pele-3arQi8VN3Tc@public.gmane.org, Charles.Gorand-Effinnov-3arQi8VN3Tc@public.gmane.org,
-	lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	clement.perrochaud-3arQi8VN3Tc@public.gmane.org, lefrique-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cuissard-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, hirent-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	anda-maria.nicolae-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: =?UTF-8?q?Cl=C3=A9ment=20Perrochaud?= <clement.perrochaud@nxp.com>,
+	sunil.jogi@nxp.com, jerome.pele@nxp.com,
+	Charles.Gorand-Effinnov@nxp.com, lauro.venancio@openbossa.org,
+	aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	davem@davemloft.net, grant.likely@linaro.org, lefrique@marvell.com,
+	christophe.ricard@gmail.com, cuissard@marvell.com,
+	bzhao@marvell.com, hirent@marvell.com, akarwar@marvell.com,
+	linux-wireless@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	anda-maria.nicolae@intel.com,
+	=?UTF-8?q?Cl=C3=A9ment=20Perrochaud?=
+	<clement.perrochaud@effinnov.com>
+To: linux-nfc@lists.01.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425895925-20593-1-git-send-email-clement.perrochaud@effinnov.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Cl=C3=A9ment Perrochaud <clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org>
+=46rom: Cl=C3=A9ment Perrochaud <clement.perrochaud@nxp.com>
 
-This patch brings support for the NXP-NCI NFC controllers family.
+A simple forward for firmware download (i.e. sending a new firmware
+to the NFC adapter) from the NFC subsystem to the drivers.
 
-It has been successfully tested on the following SoC boards:
- - BeagleBone
- - BeagleBone Black
- - Raspberry Pi B
- - Raspberry Pi B+
+This feature is required to update the firmware of NXP-NCI NFC
+controllers but can be used by any NCI driver.
 
-The submission is broken into three patches:
- - The first one adds firmware download support to NCI ;
- - The second one adds the NXP-NCI driver's core ;
- - The third one adds I2C support to the driver.
+This feature has been present in the HCI subsystem since 9a695d.
 
-It is based on fa00e8fed457841cb24219dbe3cfba7d56de6317 (NFC: nci: Move=
- NFCEE
-discovery logic) from the nfc-next master branch.
+Signed-off-by: Cl=C3=A9ment Perrochaud <clement.perrochaud@effinnov.com=
+>
+---
+ include/net/nfc/nci_core.h |  1 +
+ net/nfc/nci/core.c         | 11 +++++++++++
+ 2 files changed, 12 insertions(+)
 
-Cl=C3=A9ment Perrochaud (3):
-  NFC: nci: Add firmware download support
-  NFC: nxp-nci: Add support for NXP NCI chips
-  NFC: nxp-nci_i2c: Add I2C support to NXP NCI driver
-
- .../devicetree/bindings/net/nfc/nxp-nci.txt        |  35 ++
- MAINTAINERS                                        |   7 +
- drivers/nfc/Kconfig                                |   1 +
- drivers/nfc/Makefile                               |   1 +
- drivers/nfc/nxp-nci/Kconfig                        |  25 ++
- drivers/nfc/nxp-nci/Makefile                       |  11 +
- drivers/nfc/nxp-nci/core.c                         | 186 +++++++++
- drivers/nfc/nxp-nci/firmware.c                     | 324 +++++++++++++=
-+++
- drivers/nfc/nxp-nci/i2c.c                          | 415 +++++++++++++=
-++++++++
- drivers/nfc/nxp-nci/nxp-nci.h                      |  89 +++++
- include/linux/platform_data/nxp-nci.h              |  27 ++
- include/net/nfc/nci_core.h                         |   1 +
- net/nfc/nci/core.c                                 |  11 +
- 13 files changed, 1133 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/nfc/nxp-nci.t=
-xt
- create mode 100644 drivers/nfc/nxp-nci/Kconfig
- create mode 100644 drivers/nfc/nxp-nci/Makefile
- create mode 100644 drivers/nfc/nxp-nci/core.c
- create mode 100644 drivers/nfc/nxp-nci/firmware.c
- create mode 100644 drivers/nfc/nxp-nci/i2c.c
- create mode 100644 drivers/nfc/nxp-nci/nxp-nci.h
- create mode 100644 include/linux/platform_data/nxp-nci.h
-
+diff --git a/include/net/nfc/nci_core.h b/include/net/nfc/nci_core.h
+index ff87f86..34a6e09 100644
+--- a/include/net/nfc/nci_core.h
++++ b/include/net/nfc/nci_core.h
+@@ -71,6 +71,7 @@ struct nci_ops {
+ 	int   (*close)(struct nci_dev *ndev);
+ 	int   (*send)(struct nci_dev *ndev, struct sk_buff *skb);
+ 	int   (*setup)(struct nci_dev *ndev);
++	int   (*fw_download)(struct nci_dev *ndev, const char *firmware_name)=
+;
+ 	__u32 (*get_rfprotocol)(struct nci_dev *ndev, __u8 rf_protocol);
+ 	int   (*discover_se)(struct nci_dev *ndev);
+ 	int   (*disable_se)(struct nci_dev *ndev, u32 se_idx);
+diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+index 9575a18..49ff321 100644
+--- a/net/nfc/nci/core.c
++++ b/net/nfc/nci/core.c
+@@ -907,6 +907,16 @@ static int nci_se_io(struct nfc_dev *nfc_dev, u32 =
+se_idx,
+ 	return 0;
+ }
+=20
++static int nci_fw_download(struct nfc_dev *nfc_dev, const char *firmwa=
+re_name)
++{
++	struct nci_dev *ndev =3D nfc_get_drvdata(nfc_dev);
++
++	if (!ndev->ops->fw_download)
++		return -ENOTSUPP;
++
++	return ndev->ops->fw_download(ndev, firmware_name);
++}
++
+ static struct nfc_ops nci_nfc_ops =3D {
+ 	.dev_up =3D nci_dev_up,
+ 	.dev_down =3D nci_dev_down,
+@@ -922,6 +932,7 @@ static struct nfc_ops nci_nfc_ops =3D {
+ 	.disable_se =3D nci_disable_se,
+ 	.discover_se =3D nci_discover_se,
+ 	.se_io =3D nci_se_io,
++	.fw_download =3D nci_fw_download,
+ };
+=20
+ /* ---- Interface to NCI drivers ---- */
 --=20
 Cl=C3=A9ment Perrochaud
 
@@ -85,9 +99,3 @@ Campus EffiScience
 14460 Colombelles, FRANCE
 
 http://www.effinnov.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
