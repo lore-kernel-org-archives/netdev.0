@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH 5/8] fs/file: __alloc_fd takes extra argument: newfile
-Date: Mon,  9 Mar 2015 14:20:00 -0700
-Message-ID: <1425936003-24544-5-git-send-email-zenczykowski@gmail.com>
+Subject: [PATCH 4/8] net/socket: sys_accept4 - reverse allocation order
+Date: Mon,  9 Mar 2015 14:19:59 -0700
+Message-ID: <1425936003-24544-4-git-send-email-zenczykowski@gmail.com>
 References: <CAHo-OozBxw=h--dSjhobVfepC_10=H5_9DvXEvrhtnrFvc5tdw@mail.gmail.com>
  <1425936003-24544-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
@@ -12,12 +12,12 @@ To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:34489 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753585AbbCIVU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 17:20:26 -0400
-Received: by igal13 with SMTP id l13so23267793iga.1
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 14:20:25 -0700 (PDT)
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:38589 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753761AbbCIVUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 17:20:24 -0400
+Received: by igbhl2 with SMTP id hl2so24956008igb.3
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 14:20:24 -0700 (PDT)
 In-Reply-To: <1425936003-24544-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,82 +26,74 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
 ---
- drivers/android/binder.c |  2 +-
- fs/file.c                | 10 ++++++----
- include/linux/fdtable.h  |  3 ++-
- 3 files changed, 9 insertions(+), 6 deletions(-)
+ net/socket.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/android/binder.c b/drivers/android/binder.c
-index 33b09b6568a4..75ad6b604f2a 100644
---- a/drivers/android/binder.c
-+++ b/drivers/android/binder.c
-@@ -389,7 +389,7 @@ static int task_get_unused_fd_flags(struct binder_p=
-roc *proc, int flags)
- 	rlim_cur =3D task_rlimit(proc->tsk, RLIMIT_NOFILE);
- 	unlock_task_sighand(proc->tsk, &irqs);
+diff --git a/net/socket.c b/net/socket.c
+index a62c5cda5720..87fd36939778 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1473,38 +1473,37 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockad=
+dr __user *, upeer_sockaddr,
+ 	 */
+ 	__module_get(newsock->ops->owner);
 =20
--	return __alloc_fd(files, 0, rlim_cur, flags);
-+	return __alloc_fd(files, 0, rlim_cur, flags, NULL);
- }
-=20
- /*
-diff --git a/fs/file.c b/fs/file.c
-index ee738ea028fa..01b1e171ce0a 100644
---- a/fs/file.c
-+++ b/fs/file.c
-@@ -443,7 +443,8 @@ struct files_struct init_files =3D {
-  * allocate a file descriptor, mark it busy.
-  */
- int __alloc_fd(struct files_struct *files,
--	       unsigned start, unsigned end, unsigned flags)
-+	       unsigned start, unsigned end, unsigned flags,
-+	       struct file *newfile)
- {
- 	unsigned int fd;
- 	int error;
-@@ -491,9 +492,9 @@ repeat:
- 	/* Sanity check */
- 	if (rcu_access_pointer(fdt->fd[fd]) !=3D NULL) {
- 		printk(KERN_WARNING "alloc_fd: slot %d not NULL!\n", fd);
--		rcu_assign_pointer(fdt->fd[fd], NULL);
+-	newfd =3D get_unused_fd_flags(flags);
+-	if (unlikely(newfd < 0)) {
+-		err =3D newfd;
+-		sock_release(newsock);
+-		goto out_put;
+-	}
+ 	newfile =3D sock_alloc_file(newsock, flags, sock->sk->sk_prot_creator=
+->name);
+ 	if (unlikely(IS_ERR(newfile))) {
+ 		err =3D PTR_ERR(newfile);
+-		put_unused_fd(newfd);
+ 		sock_release(newsock);
+ 		goto out_put;
  	}
- #endif
-+	rcu_assign_pointer(fdt->fd[fd], newfile);
 =20
+ 	err =3D security_socket_accept(sock, newsock);
+ 	if (err)
+-		goto out_fd;
++		goto out_fput;
+=20
+ 	err =3D sock->ops->accept(sock, newsock, sock->file->f_flags);
+ 	if (err < 0)
+-		goto out_fd;
++		goto out_fput;
+=20
+ 	if (upeer_sockaddr) {
+ 		if (newsock->ops->getname(newsock, (struct sockaddr *)&address,
+ 					  &len, 2) < 0) {
+ 			err =3D -ECONNABORTED;
+-			goto out_fd;
++			goto out_fput;
+ 		}
+ 		err =3D move_addr_to_user(&address,
+ 					len, upeer_sockaddr, upeer_addrlen);
+ 		if (err < 0)
+-			goto out_fd;
++			goto out_fput;
++	}
++
++	newfd =3D get_unused_fd_flags(flags);
++	if (unlikely(newfd < 0)) {
++		err =3D newfd;
++		goto out_fput;
+ 	}
+=20
+ 	/* File flags are not inherited via accept() unlike another OSes. */
+@@ -1516,9 +1515,8 @@ out_put:
+ 	fput_light(sock->file, fput_needed);
  out:
- 	spin_unlock(&files->file_lock);
-@@ -502,12 +503,13 @@ out:
-=20
- static int alloc_fd(unsigned start, unsigned flags)
- {
--	return __alloc_fd(current->files, start, rlimit(RLIMIT_NOFILE), flags=
-);
-+	return __alloc_fd(current->files, start, rlimit(RLIMIT_NOFILE), flags=
-,
-+			  NULL);
+ 	return err;
+-out_fd:
++out_fput:
+ 	fput(newfile);
+-	put_unused_fd(newfd);
+ 	goto out_put;
  }
 =20
- int get_unused_fd_flags(unsigned flags)
- {
--	return __alloc_fd(current->files, 0, rlimit(RLIMIT_NOFILE), flags);
-+	return __alloc_fd(current->files, 0, rlimit(RLIMIT_NOFILE), flags, NU=
-LL);
- }
- EXPORT_SYMBOL(get_unused_fd_flags);
-=20
-diff --git a/include/linux/fdtable.h b/include/linux/fdtable.h
-index 230f87bdf5ad..a4e0a98750c3 100644
---- a/include/linux/fdtable.h
-+++ b/include/linux/fdtable.h
-@@ -107,7 +107,8 @@ int iterate_fd(struct files_struct *, unsigned,
- 		const void *);
-=20
- extern int __alloc_fd(struct files_struct *files,
--		      unsigned start, unsigned end, unsigned flags);
-+		      unsigned start, unsigned end, unsigned flags,
-+		      struct file *newfile);
- extern void __fd_install(struct files_struct *files,
- 		      unsigned int fd, struct file *file);
- extern int __close_fd(struct files_struct *files,
 --=20
 2.2.0.rc0.207.ga3a616c
