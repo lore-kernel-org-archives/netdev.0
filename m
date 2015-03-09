@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/2] net: core: add of_find_net_device_by_node()
-Date: Mon,  9 Mar 2015 14:31:20 -0700
-Message-ID: <1425936681-31910-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/2] net: dsa: utilize of_find_net_device_by_node
+Date: Mon,  9 Mar 2015 14:31:21 -0700
+Message-ID: <1425936681-31910-3-git-send-email-f.fainelli@gmail.com>
 References: <1425936681-31910-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
@@ -11,105 +11,101 @@ Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Chris.Packham@alliedtelesis.co.nz
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:39685 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753761AbbCIVb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 17:31:56 -0400
-Received: by pdbft15 with SMTP id ft15so37342222pdb.6
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 14:31:55 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33751 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608AbbCIVb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 17:31:58 -0400
+Received: by padet14 with SMTP id et14so79102877pad.0
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 14:31:57 -0700 (PDT)
 In-Reply-To: <1425936681-31910-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a helper function which allows getting the struct net_device pointer
-associated with a given struct device_node pointer. This is useful for
-instance for DSA Ethernet devices not backed by a platform_device, but a PCI
-device.
+Using of_find_device_by_node() restricts the search to platform_device that
+match the specified device_node pointer. This is not even remotely true for
+network devices backed by a pci_device for instance.
 
-Since we need to access net_class which is not accessible outside of
-net/core/net-sysfs.c, this helper function is also added here and gated
-with CONFIG_OF_NET.
+of_find_net_device_by_node() allows us to do a more thorough lookup to find the
+struct net_device corresponding to a particular device_node pointer.
 
-Network devices initialized with SET_NETDEV_DEV() are also taken into
-account by checking for dev->parent first and then falling back to
-checking the device pointer within struct net_device.
+For symetry with the non-OF code path, we hold the net_device pointer in
+dsa_probe() just like what dev_to_net_dev() does when we call this
+function.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/linux/of_net.h |  8 ++++++++
- net/core/net-sysfs.c   | 25 +++++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ include/net/dsa.h |  1 +
+ net/dsa/dsa.c     | 16 +++++++++++-----
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/of_net.h b/include/linux/of_net.h
-index 34597c8c1a4c..9cd72aab76fe 100644
---- a/include/linux/of_net.h
-+++ b/include/linux/of_net.h
-@@ -9,8 +9,11 @@
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b525ac516559..47917e5e1e12 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -72,6 +72,7 @@ struct dsa_platform_data {
+ 	 * to the root switch chip of the tree.
+ 	 */
+ 	struct device	*netdev;
++	struct net_device *of_netdev;
  
- #ifdef CONFIG_OF_NET
+ 	/*
+ 	 * Info structs describing each of the switch chips
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index b40f11bb419c..899772108ee3 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -20,6 +20,7 @@
  #include <linux/of.h>
-+
-+struct net_device;
- extern int of_get_phy_mode(struct device_node *np);
- extern const void *of_get_mac_address(struct device_node *np);
-+extern struct net_device *of_find_net_device_by_node(struct device_node *np);
- #else
- static inline int of_get_phy_mode(struct device_node *np)
- {
-@@ -21,6 +24,11 @@ static inline const void *of_get_mac_address(struct device_node *np)
- {
- 	return NULL;
- }
-+
-+static inline struct net_device *of_find_net_device_by_node(struct device_node *np)
-+{
-+	return NULL;
-+}
- #endif
+ #include <linux/of_mdio.h>
+ #include <linux/of_platform.h>
++#include <linux/of_net.h>
+ #include <linux/sysfs.h>
+ #include "dsa_priv.h"
  
- #endif /* __LINUX_OF_NET_H */
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index f2aa73bfb0e4..cf30620a88e1 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -23,6 +23,7 @@
- #include <linux/export.h>
- #include <linux/jiffies.h>
- #include <linux/pm_runtime.h>
-+#include <linux/of.h>
+@@ -583,7 +584,7 @@ static int dsa_of_probe(struct device *dev)
+ 	struct device_node *np = dev->of_node;
+ 	struct device_node *child, *mdio, *ethernet, *port, *link;
+ 	struct mii_bus *mdio_bus;
+-	struct platform_device *ethernet_dev;
++	struct net_device *ethernet_dev;
+ 	struct dsa_platform_data *pd;
+ 	struct dsa_chip_data *cd;
+ 	const char *port_name;
+@@ -604,7 +605,7 @@ static int dsa_of_probe(struct device *dev)
+ 	if (!ethernet)
+ 		return -EINVAL;
  
- #include "net-sysfs.h"
+-	ethernet_dev = of_find_device_by_node(ethernet);
++	ethernet_dev = of_find_net_device_by_node(ethernet);
+ 	if (!ethernet_dev)
+ 		return -EPROBE_DEFER;
  
-@@ -1374,6 +1375,30 @@ static struct class net_class = {
- 	.namespace = net_namespace,
- };
+@@ -613,7 +614,7 @@ static int dsa_of_probe(struct device *dev)
+ 		return -ENOMEM;
  
-+#ifdef CONFIG_OF_NET
-+static int of_dev_node_match(struct device *dev, const void *data)
-+{
-+	int ret = 0;
-+
-+	if (dev->parent)
-+		ret = dev->parent->of_node == data;
-+
-+	return ret == 0 ? dev->of_node == data : ret;
-+}
-+
-+struct net_device *of_find_net_device_by_node(struct device_node *np)
-+{
-+	struct device *dev;
-+
-+	dev = class_find_device(&net_class, NULL, np, of_dev_node_match);
-+	if (!dev)
-+		return NULL;
-+
-+	return to_net_dev(dev);
-+}
-+EXPORT_SYMBOL(of_find_net_device_by_node);
-+#endif
-+
- /* Delete sysfs entries but hold kobject reference until after all
-  * netdev references are gone.
-  */
+ 	dev->platform_data = pd;
+-	pd->netdev = &ethernet_dev->dev;
++	pd->of_netdev = ethernet_dev;
+ 	pd->nr_chips = of_get_available_child_count(np);
+ 	if (pd->nr_chips > DSA_MAX_SWITCHES)
+ 		pd->nr_chips = DSA_MAX_SWITCHES;
+@@ -771,10 +772,15 @@ static int dsa_probe(struct platform_device *pdev)
+ 		pd = pdev->dev.platform_data;
+ 	}
+ 
+-	if (pd == NULL || pd->netdev == NULL)
++	if (pd == NULL || (pd->netdev == NULL && pd->of_netdev == NULL))
+ 		return -EINVAL;
+ 
+-	dev = dev_to_net_device(pd->netdev);
++	if (pd->of_netdev) {
++		dev = pd->of_netdev;
++		dev_hold(dev);
++	} else {
++		dev = dev_to_net_device(pd->netdev);
++	}
+ 	if (dev == NULL) {
+ 		ret = -EPROBE_DEFER;
+ 		goto out;
 -- 
 2.1.0
