@@ -1,57 +1,108 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: netns refcount leak
-Date: Mon, 9 Mar 2015 17:50:28 +0800
-Message-ID: <54FD6CE4.5040708@windriver.com>
-References: <CAHA+R7PyGGjx_L_fMnBbTf8tgttqrH1d4LvLKR=CFB82CERoEw@mail.gmail.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [PATCH] net: can: Enable xilinx driver for all ARCHs
+Date: Mon, 9 Mar 2015 10:52:28 +0100
+Message-ID: <BY2FFO11FD0060B11FE9C9305D5DFD12BE21B0@BY2FFO11FD006.protection.gbl>
+References: <4096fa4ceae72817d8e64d9a1da738038a5c864a.1425890926.git.michal.simek@xilinx.com>
+ <54FD5EE1.6050402@pengutronix.de>
+ <BY2FFO11FD001BD9CFD92C94214501BB8E21B0@BY2FFO11FD001.protection.gbl>
+ <54FD641C.7090607@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:54089 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753387AbbCIJul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:50:41 -0400
-In-Reply-To: <CAHA+R7PyGGjx_L_fMnBbTf8tgttqrH1d4LvLKR=CFB82CERoEw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature";
+	boundary="HBOjkljDiGF3K1I4MPWPaH7dVkIfWg9kO"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Jean Delvare <jdelvare@suse.de>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Michal Simek <michal.simek@xilinx.com>,
+	<linux-kernel@vger.kernel.org>, <monstr@monstr.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54FD641C.7090607@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/07/2015 07:29 AM, Cong Wang wrote:
-> Hi, Ying
-> 
-> 
-> The following commit from you causes a netns refcount leak:
-> 
-> a62fbccecd62bacb4416fc427239f5b43b25d05e is the first bad commit
-> commit a62fbccecd62bacb4416fc427239f5b43b25d05e
-> Author: Ying Xue <ying.xue@windriver.com>
-> Date:   Fri Jan 9 15:27:11 2015 +0800
-> 
->     tipc: make subscriber server support net namespace
-> 
->     TIPC establishes one subscriber server which allows users to subscribe
->     their interesting name service status. After tipc supports namespace,
->     one dedicated tipc stack instance is created for each namespace, and
->     each instance can be deemed as one independent TIPC node. As a result,
->     subscriber server must be built for each namespace.
-> 
->     Signed-off-by: Ying Xue <ying.xue@windriver.com>
->     Tested-by: Tero Aho <Tero.Aho@coriant.com>
->     Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> 
-> which prevents a netns being removed if I enable TIPC.
-> 
-> I am not familiar with TIPC code, please take a look.
-> 
+--HBOjkljDiGF3K1I4MPWPaH7dVkIfWg9kO
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Thank you for the report! I will investigate it, so please wait a moment.
+On 03/09/2015 10:13 AM, Marc Kleine-Budde wrote:
+> On 03/09/2015 09:58 AM, Michal Simek wrote:
+>> On 03/09/2015 09:50 AM, Marc Kleine-Budde wrote:
+>>> On 03/09/2015 09:48 AM, Michal Simek wrote:
+>>>> Remove Kconfig dependency and enable driver for
+>>>> all ARCHs.
+>>>>
+>>>> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+>>>> Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+>>>> ---
+>>>>
+>>>> Test for all archs done by Kbuild test robot without any problem.
+>>>> ---
+>>>>  drivers/net/can/Kconfig | 1 -
+>>>>  1 file changed, 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+>>>> index 98d73aab52fe..f690c3fb3088 100644
+>>>> --- a/drivers/net/can/Kconfig
+>>>> +++ b/drivers/net/can/Kconfig
+>>>> @@ -131,7 +131,6 @@ config CAN_RCAR
+>>>> =20
+>>>>  config CAN_XILINXCAN
+>>>>  	tristate "Xilinx CAN"
+>>>> -	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
+>>>
+>>> I think that's what COMPILE_TEST ist for?
+>>
+>> For compilation yes but not for enabling. Currently this driver
+>> can be also used on ARM64 that's why people suggesting directly
+>> to remove dependency on arch and then COMPILE_TEST can be removed
+>> too.
+>=20
+> In the past (May 2014) I had people complaining that certain ARM SoC
+> specific drivers are enabled on ARM in general, not just on that SoC. A=
+s
+> I'm not following arm64 in detail, has the notion of using depends on
+> ARCH changes since then?
+>=20
+>> Or do you want me to change description to mention that this is for
+>> ARM64 enabling?
+>=20
+> Given this is consensus, a remark to ARM64 would be appreciated. :)
 
-Regards,
-Ying
+David has applied this patch which is in general just the same as this on=
+e.
 
-> Thanks!
-> 
-> 
+(linux-next) Remove architecture dependency
+28811a8c00fe0d899b8a544421f3b4947425d5e8
+
+Mark Brown has suggested to do so for spi and don't check architecture at=
+
+all.
+I have also sent similar patch for watchdog driver too.
+
+I think it is up to you if you want to add ARM64 to Kconfig or just remov=
+e
+that arch dependencies.
+To be honest my goal is to enable this driver for ARM64.
+Please tell me what way you prefer.
+
+Thanks,
+Michal
+
+
+
+
+--HBOjkljDiGF3K1I4MPWPaH7dVkIfWg9kO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAlT9bVwACgkQykllyylKDCEiHQCfSvEhTJDREAPQQ/nf4Pv9Hp5Z
+H0YAn1jOGsKXi4xZgO02SGaqR9SlhuTx
+=rvKo
+-----END PGP SIGNATURE-----
+
+--HBOjkljDiGF3K1I4MPWPaH7dVkIfWg9kO--
