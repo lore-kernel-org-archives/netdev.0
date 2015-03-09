@@ -1,30 +1,39 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 00/12] Netfilter updates for net-next
-Date: Mon, 09 Mar 2015 15:59:06 -0400 (EDT)
-Message-ID: <20150309.155906.1244628137691919415.davem@redhat.com>
-References: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
+From: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>
+Subject: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken. In 4.0.0-rc3
+Date: Mon, 09 Mar 2015 22:50:28 +0300
+Message-ID: <390621425930628@web28o.yandex.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Nimrod Andy <b38611@freescale.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward2o.mail.yandex.net ([37.140.190.31]:60914 "EHLO
+	forward2o.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbbCIUAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 16:00:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon,  9 Mar 2015 18:14:23 +0100
+Hello!
 
-> The following patchset contains Netfilter updates for your net-next
-> tree. Basically, improvements for the packet rejection infrastructure,
-> deprecation of CLUSTERIP, cleanups for nf_tables and some untangling for
-> br_netfilter. More specifically they are:
+Commit 2b995f63987013bacde99168218f9c7b252bdcf1 in 4.0.0-rc3 introduces=
+ a nasty bug in transmit, corrupting packets.
 
-Pulled, thanks.
+To reproduce:
 
-> And I'd appreciate if you can pull net into net-next, Patrick has some
-> pending changes that require patches already your net tree.
+$ dd if=3D/dev/zero of=3Dzeros bs=3D1M count=3D20
+$ md5sum -b zeros
+8f4e33f3dc3e414ff94e5fb6905cba8c *zeros
 
-I anticipate this happening after takes a 'net' pull request from me
-this evening.
+This checksum is correct.
+
+Copy file "zeros" to another host with NFS, and it gets corrupted, chec=
+ksum is changed.
+=46ile should be big, small amounts of transmit isn't affected.
+
+I use an i.MX6 Quad board.
+
+If this commit is reverted, all works fine.
+
+--
+ =E1=CE=C4=D2=C5=CA
