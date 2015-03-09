@@ -1,56 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/9] i40e: future proof some sizeof calls
-Date: Mon,  9 Mar 2015 10:55:35 -0700
-Message-ID: <1425923742-4488-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/9] i40vf: don't stop me now
+Date: Mon,  9 Mar 2015 10:55:36 -0700
+Message-ID: <1425923742-4488-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:5904 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:49812 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753398AbbCIRzp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753402AbbCIRzp (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 Mar 2015 13:55:45 -0400
 In-Reply-To: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Make sure the sizeof() calls are taking the size of the actual struct
-that we care about.  By using the pointer variable, we'll always get
-the right struct size, even if the variable type changes sometime in
-the future.
+If a reset occurs when the netdev is closed, the reset task will hang in
+napi_disable, causing deadlocks and general grumpiness.
 
-Change-ID: Id5858f883cf42447365ea3733080d7714f975bce
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Check to make sure the device is actually running before stopping
+everything. This allows the reset task to complete and have a real good
+time.
+
+Change-ID: Iaaea84acbcb9b3810c216b14c3326e4287b75b58
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index fb78bdd..2ca3d09 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2017,7 +2017,7 @@ i40e_status i40e_aq_add_macvlan(struct i40e_hw *hw, u16 seid,
- 	if (count == 0 || !mv_list || !hw)
- 		return I40E_ERR_PARAM;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index f44911d..32d0a99 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1578,13 +1578,14 @@ continue_reset:
+ 	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
  
--	buf_size = count * sizeof(struct i40e_aqc_add_macvlan_element_data);
-+	buf_size = count * sizeof(*mv_list);
+ 	i40evf_irq_disable(adapter);
+-	i40evf_napi_disable_all(adapter);
+-
+-	netif_tx_disable(netdev);
  
- 	/* prep the rest of the request */
- 	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_macvlan);
-@@ -2059,7 +2059,7 @@ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 seid,
- 	if (count == 0 || !mv_list || !hw)
- 		return I40E_ERR_PARAM;
+-	netif_tx_stop_all_queues(netdev);
++	if (netif_running(adapter->netdev)) {
++		i40evf_napi_disable_all(adapter);
++		netif_tx_disable(netdev);
++		netif_tx_stop_all_queues(netdev);
++		netif_carrier_off(netdev);
++	}
  
--	buf_size = count * sizeof(struct i40e_aqc_remove_macvlan_element_data);
-+	buf_size = count * sizeof(*mv_list);
+-	netif_carrier_off(netdev);
+ 	adapter->state = __I40EVF_RESETTING;
  
- 	/* prep the rest of the request */
- 	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_remove_macvlan);
+ 	/* kill and reinit the admin queue */
 -- 
 1.9.3
