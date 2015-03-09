@@ -1,148 +1,65 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH] rds: avoid potential stack overflow
-Date: Mon, 09 Mar 2015 10:19:41 -0400
-Message-ID: <54FDABFD.2020502@oracle.com>
-References: <17806664.ym3oszzFIH@wuerfel>
-Reply-To: sowmini.varadhan@oracle.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2] net: can: Enable xilinx driver for ARM64
+Date: Mon, 09 Mar 2015 15:28:33 +0100
+Message-ID: <54FDAE11.2020203@pengutronix.de>
+References: <2dd8c07857416d5253296e7254dabc565d0060ef.1425909806.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <roland@purestorage.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>, Chien Yen <chien.yen@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:24718 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753891AbbCIOUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 10:20:24 -0400
-In-Reply-To: <17806664.ym3oszzFIH@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="8hlVPppo1OQlS8EoUPbL3JOVTAWFlgKh6"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>,
+	linux-kernel@vger.kernel.org, monstr@monstr.eu
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <2dd8c07857416d5253296e7254dabc565d0060ef.1425909806.git.michal.simek@xilinx.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/09/2015 08:06 AM, Arnd Bergmann wrote:
-> The rds_iw_add_conn function stores a large 'struct rds_sock'
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--8hlVPppo1OQlS8EoUPbL3JOVTAWFlgKh6
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-I think you might have a typo here- did you mean
-rds_iw_update_cm_id above (which is the function that has
-a 'struct rds_sock rs' on the stack)?
+On 03/09/2015 03:03 PM, Michal Simek wrote:
+> Enable the xilinx driver for ARM64.
+>=20
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+> Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
 
-The rest of the change looks fine to me.
+Added to can-next.
 
---Sowmini
+Thanks,
+Marc
 
-> object on the stack in order to pass a pair of addresses. This
-> happens to just fit withint the 1024 byte stack size warning
-> limit on x86, but just exceed that limit on ARM, which gives
-> us this warning:
->
-> net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
->
-> The warning is correct in principle, though unlikely to be
-> related to a serious problem.
->
-> As the use of this large variable is basically bogus, we can
-> rearrange the code to not do that. Instead of passing an
-> rds socket into rds_iw_get_device, we now just pass the two
-> addresses that we have available in rds_iw_update_cm_id, and
-> we change rds_iw_get_mr accordingly, to create two address
-> structures on the stack there.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->
-> diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
-> index a817705ce2d0..dba8d0864f18 100644
-> --- a/net/rds/iw_rdma.c
-> +++ b/net/rds/iw_rdma.c
-> @@ -88,7 +88,9 @@ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
->   			int *unpinned);
->   static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
->
-> -static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwdev, struct rdma_cm_id **cm_id)
-> +static int rds_iw_get_device(struct sockaddr_in *src, struct sockaddr_in *dst,
-> +			     struct rds_iw_device **rds_iwdev,
-> +			     struct rdma_cm_id **cm_id)
->   {
->   	struct rds_iw_device *iwdev;
->   	struct rds_iw_cm_id *i_cm_id;
-> @@ -112,15 +114,15 @@ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwd
->   				src_addr->sin_port,
->   				dst_addr->sin_addr.s_addr,
->   				dst_addr->sin_port,
-> -				rs->rs_bound_addr,
-> -				rs->rs_bound_port,
-> -				rs->rs_conn_addr,
-> -				rs->rs_conn_port);
-> +				src->sin_addr.s_addr,
-> +				src->sin_port,
-> +				dst->sin_addr.s_addr,
-> +				dst->sin_port);
->   #ifdef WORKING_TUPLE_DETECTION
-> -			if (src_addr->sin_addr.s_addr == rs->rs_bound_addr &&
-> -			    src_addr->sin_port == rs->rs_bound_port &&
-> -			    dst_addr->sin_addr.s_addr == rs->rs_conn_addr &&
-> -			    dst_addr->sin_port == rs->rs_conn_port) {
-> +			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr &&
-> +			    src_addr->sin_port == src->sin_port &&
-> +			    dst_addr->sin_addr.s_addr == dst->sin_addr.s_addr &&
-> +			    dst_addr->sin_port == dst->sin_port) {
->   #else
->   			/* FIXME - needs to compare the local and remote
->   			 * ipaddr/port tuple, but the ipaddr is the only
-> @@ -128,7 +130,7 @@ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwd
->   			 * zero'ed.  It doesn't appear to be properly populated
->   			 * during connection setup...
->   			 */
-> -			if (src_addr->sin_addr.s_addr == rs->rs_bound_addr) {
-> +			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr) {
->   #endif
->   				spin_unlock_irq(&iwdev->spinlock);
->   				*rds_iwdev = iwdev;
-> @@ -180,19 +182,13 @@ int rds_iw_update_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_i
->   {
->   	struct sockaddr_in *src_addr, *dst_addr;
->   	struct rds_iw_device *rds_iwdev_old;
-> -	struct rds_sock rs;
->   	struct rdma_cm_id *pcm_id;
->   	int rc;
->
->   	src_addr = (struct sockaddr_in *)&cm_id->route.addr.src_addr;
->   	dst_addr = (struct sockaddr_in *)&cm_id->route.addr.dst_addr;
->
-> -	rs.rs_bound_addr = src_addr->sin_addr.s_addr;
-> -	rs.rs_bound_port = src_addr->sin_port;
-> -	rs.rs_conn_addr = dst_addr->sin_addr.s_addr;
-> -	rs.rs_conn_port = dst_addr->sin_port;
-> -
-> -	rc = rds_iw_get_device(&rs, &rds_iwdev_old, &pcm_id);
-> +	rc = rds_iw_get_device(src_addr, dst_addr, &rds_iwdev_old, &pcm_id);
->   	if (rc)
->   		rds_iw_remove_cm_id(rds_iwdev, cm_id);
->
-> @@ -598,9 +594,17 @@ void *rds_iw_get_mr(struct scatterlist *sg, unsigned long nents,
->   	struct rds_iw_device *rds_iwdev;
->   	struct rds_iw_mr *ibmr = NULL;
->   	struct rdma_cm_id *cm_id;
-> +	struct sockaddr_in src = {
-> +		.sin_addr.s_addr = rs->rs_bound_addr,
-> +		.sin_port = rs->rs_bound_port,
-> +	};
-> +	struct sockaddr_in dst = {
-> +		.sin_addr.s_addr = rs->rs_conn_addr,
-> +		.sin_port = rs->rs_conn_port,
-> +	};
->   	int ret;
->
-> -	ret = rds_iw_get_device(rs, &rds_iwdev, &cm_id);
-> +	ret = rds_iw_get_device(&src, &dst, &rds_iwdev, &cm_id);
->   	if (ret || !cm_id) {
->   		ret = -ENODEV;
->   		goto out;
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--8hlVPppo1OQlS8EoUPbL3JOVTAWFlgKh6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJU/a4WAAoJECte4hHFiupUQ2QP/3JKABGOetMwFwEZXH5tEV5z
+rWozacfEz49+6b4Ke+Yn9Fz0dY/Qfda22C5gq/xcl/jLx0vsMydKwnhio0mdItM7
+q1lONHAeDGGV7Kl5svQUMfiI/oP3blJpFZe+bq5ZZaquBPTdmCOvtsuAuym9QEBc
+iI2nFWv9QTMqixEdIYJR4QN/RdL/hS2aon8XVqi5dFW3kVTMCSCKRxkxRIfwqYav
+fL4bwygZr0BG+4ZAeVGixhCt3EucmTjUOhpnLgrZjiMiur4JtL0mWVvGmG9NLkK5
+F2rGfU8f5QWxZCXWBBE3+jbdgp/ZxBL76H/Rm+Eppp1VAAVX9quMKF99ZDytadKq
+pWCJIKPZg/2yI1ZhleIY/haiIlK2R4H2J0zNrvjdEu4c9S5u26Tc/NxPwbZtFLgy
+VHpkaQm/7oyQwfgA2st3Cvhu8+KX7eLM1ReCVIRVM+XxmrHiMyhsqDUMpJAckLd7
+GMHul8jMfQdqt6ncbbfV3o/xEWr0bSuiUB/7XBqViSwOD7amVSB+5su5EMBw8RE4
+bt4eZgD5qsOg8uCy+kvXy3Io4iNlQthf1LAc64TrEUi1kN2/RUeXnV7Dge/Q+toe
+ibX5WcLxBVgxmtaINjLRlImjHcWKiLrcadXPSS4JCQkgxzFtK6dW/B3Er9jwhBI1
+Yz10BhlvENJr1SjbjI/O
+=l9km
+-----END PGP SIGNATURE-----
+
+--8hlVPppo1OQlS8EoUPbL3JOVTAWFlgKh6--
