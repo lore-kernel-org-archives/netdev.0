@@ -1,86 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates 2015-03-09
-Date: Mon,  9 Mar 2015 10:55:33 -0700
-Message-ID: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 8/9] i40e/i40evf: Bump i40e/i40evf version
+Date: Mon,  9 Mar 2015 10:55:41 -0700
+Message-ID: <1425923742-4488-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:5904 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:49812 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192AbbCIRzo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2015 13:55:44 -0400
+	id S1753453AbbCIRzr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2015 13:55:47 -0400
+In-Reply-To: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Greg cleans up some "hello world" strings which were left around from
-early development.
+Bump PF version to 1.2.37 and VF version to 1.2.25
 
-Shannon modifies the drive to make sure the sizeof() calls are taking
-the size of the actual struct that we care about.  Also updates the
-NVMUpdate read/write so that it is less noisy when logging.  This was
-because the NVMUpdate tool does not necessarily know the ReadOnly map of
-the current NVM image, and must try reading and writing words that may be
-protected.  This generates an error out of the Firmware request that the
-driver logs.  Unfortunately, this ended up spitting out hundreds of
-bogus read/write error messages.  If a user wants the noisy logging,
-the change can be overridden by enabling the NVM update debugging.
+Change-ID: I0287a750408250dc055c03e1f744fd5f0caefd68
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Mitch fixes a possible deadlock issue where if a reset occurred when the
-netdev is closed, the reset task will hang in napi_disable.  Added
-ethtool RSS support as suggested by Ben Hutchings.
-
-Jesse fixes a bug introduced in the force writeback code, where the
-interrupt rate was set to 0 (maximum) by accident.  The driver must
-correctly set the NOITR fields to avoid IT update as a side effect
-of triggering the software interrupt.
-
-I provided a simple cleanup to make the use of PF/VF consistent, which
-was reported by Joe Perches.
-
-The following are changes since commit fc6c6c2b8a2e1fbaa9e864af62c873dae15420ea:
-  net/macb: Update DT bindings documentation
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump i40e/i40evf version
-
-Greg Rose (1):
-  i40e: Remove "hello world" strings from i40e driver
-
-Jeff Kirsher (1):
-  i40e: Fix inconsistent use of PF/VF vs pf/vf
-
-Jesse Brandeburg (1):
-  i40e/i40evf: fix accidental write to ITR registers
-
-Mitch A Williams (1):
-  i40e: add ethtool RSS support
-
-Mitch Williams (1):
-  i40vf: don't stop me now
-
-Shannon Nelson (3):
-  i40e: future proof some sizeof calls
-  i40e: tame the nvmupdate read and write complaints
-  i40e: add MAC printing to debugfs dump VSI
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  16 +-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  10 +-
- drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c      |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  29 +--
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 117 ++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |  10 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  60 +++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 222 ++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  12 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  16 +-
- 12 files changed, 313 insertions(+), 187 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 54a2d7b..c1eaab5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 2
+-#define DRV_VERSION_BUILD 12
++#define DRV_VERSION_BUILD 37
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 5ac777b..812b120 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "1.2.6"
++#define DRV_VERSION "1.2.25"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
