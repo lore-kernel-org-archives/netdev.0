@@ -1,82 +1,174 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2] route: label externally offloaded routes
-Date: Mon, 9 Mar 2015 07:25:03 +0100
-Message-ID: <20150309062503.GA2053@nanopsycho.orion>
-References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
- <20150308065744.GB1986@nanopsycho.orion>
- <CAJieiUgz9O7LFhzONx5JKRv0o4+6hSHNtRgKaaKAn2ph4jdC2g@mail.gmail.com>
- <CAE4R7bBKeWoDEv5SJfpm96d330Dc9ZpZpWVG-Dd45uH1mF64aA@mail.gmail.com>
- <54FCE8DD.5010005@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Mon, 9 Mar 2015 07:40:43 +0100
+Message-ID: <20150309064043.GB2053@nanopsycho.orion>
+References: <CAE4R7bArwsNUdtNM25Zm=ZccrmVqC8e45E6qsjMdO3s0FrOVog@mail.gmail.com>
+ <54F6C788.2010201@cumulusnetworks.com>
+ <20150305080218.GB2033@nanopsycho.orion>
+ <54F86E4B.9040403@cumulusnetworks.com>
+ <CAE4R7bCQHcR4Ne-ssCRRvw0czKxRJfykcBFY6c_9haRF3pRJYA@mail.gmail.com>
+ <54F8C00C.2010303@cumulusnetworks.com>
+ <CAE4R7bAaLxCebc7cuYB9NQ_Duo8a6LvxWDwWOD9Wn8ROWjvDGw@mail.gmail.com>
+ <54FC5A60.7000800@cumulusnetworks.com>
+ <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com>
+ <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:43564 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbbCIGZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 02:25:06 -0400
-Received: by wggx12 with SMTP id x12so14983445wgg.10
-        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 23:25:05 -0700 (PDT)
+Received: from mail-we0-f181.google.com ([74.125.82.181]:41256 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbbCIGkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 02:40:49 -0400
+Received: by wesw62 with SMTP id w62so1399836wes.8
+        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 23:40:47 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <54FCE8DD.5010005@cumulusnetworks.com>
+In-Reply-To: <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 09, 2015 at 01:27:09AM CET, roopa@cumulusnetworks.com wrote:
->On 3/8/15, 3:10 PM, Scott Feldman wrote:
->>On Sun, Mar 8, 2015 at 6:35 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->>>
->>>On Sat, Mar 7, 2015 at 10:57 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>>Sun, Mar 08, 2015 at 07:15:35AM CET, sfeldma@gmail.com wrote:
->>>>>From: Scott Feldman <sfeldma@gmail.com>
->>>>>
->>>>>On ip route print dump, label externally offloaded routes with
->>>>>"external".
->>>>>Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
->>>>>net-next.  For example:
->>>>>
->>>>>$ ip route
->>>>>default via 192.168.0.2 dev eth0
->>>>>11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
->>>>>11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
->>>>>11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
->>>>>11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
->>>>>12.0.0.2  proto zebra  metric 30 external
->>>>>        nexthop via 11.0.0.1  dev swp1 weight 1
->>>>>        nexthop via 11.0.0.9  dev swp2 weight 1
->>>>>12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
->>>>>12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
->>>>>192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
->>>>>
->>>>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>>No objections to the patch.
->>>
->>>since this is now getting exposed to userspace and there were suggestions in
->>>the past to use words like 'hw' or 'offload' in place of 'external' here,
->>>checking to see if you are taking suggestions. If yes, would 'hw' or
->>>'offloaded' be a better name for the flag ?.
->>We used "external" because that's what was used for marking FDB
->>entries.  I personally have no preference other than we be consistent
->>for each object offloaded externally.  There will be other objects
->>we'll need to tag, such as bonds, so if there is enough objection to
->>"external", we should make the change now for FIB abd FDB objects, and
->>be consistent with future objects.
->agree, we should make the change now if needed to suite all types of object
->offloads.
->I would vote for 'hw' or 'offload' or 'hwoffload'.
+Mon, Mar 09, 2015 at 01:12:47AM CET, roopa@cumulusnetworks.com wrote:
+>On Sun, Mar 8, 2015 at 4:17 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+>
+>> On Sun, Mar 8, 2015 at 7:19 AM, roopa <roopa@cumulusnetworks.com> wrote:
+>> > On 3/6/15, 1:52 AM, Scott Feldman wrote:
+>>
+>> [cut]
+>>
+>> >> I'm saying port driver's ndo_bridge_setlink shouldn't be called unless
+>> >> SELF is set.  The port driver shouldn't have to check if it's SELF,
+>> >> that's my main beef with this patch.  If the app (iproute2) wants to
+>> >> mirror an attribute, then it can set both MASTER and SELF.  This is
+>> >> consistent with ndo_fdb ops, where MASTER targets the bridge's FDB and
+>> >> SELF targets the device's FDB.
+>> >
+>> >
+>> > bridge setlink/dellink ndo sets/clears bridge port flags, vlans.
+>> >
+>> > 4 ways to the ndo op gets called (value in brackets is the bridge flags):
+>> >
+>> > 1. ndo_bridge_setlink ()
+>> > 2. ndo_bridge_setlink (master)
+>> > 3. ndo_bridge_setlink (self)
+>> > 4. ndo_bridge_setlink (master | self)
+>> >
+>> >
+>> > in case of 1) and 2) today, bridge driver also calls into the port driver
+>> > (as part of NETIF_F_HW_SWITCH_OFFLOAD) because vlans and other port flags
+>> > need to be offloaded if they are set on master (I understand that rocker
+>> > does not use bridge setlink ndo op for vlans. But it is completely valid
+>> for
+>> > a switch driver to use the ndo setlink op for offloading vlan config)
+>> >
+>> > One thing i can do is the NETIF_F_HW_SWITCH_OFFLOAD case only applies in
+>> > case 1 above. ie when bridge flags is zero.
+>> >
+>> > which leads to the following commands to disable learning in the bridge
+>> > driver and enable it in hw,
+>> >
+>> > 1. bridge link learning on - enable learning in both rocker and bridge
+>> > driver due to the NETIF_F_HW_SWITCH_OFFLOAD flag
+>> > 2. bridge link learning off master - learning disable only in the bridge
+>> > driver
+>> >
+>> > With this i think we hit a compromise, rocker setlink can be called when
+>> > flags is zero, but we still get a valid sequence of commands to
+>> > enable/disable certain port flags only in the bridge driver or port
+>> driver
+>> > without having an explicit self check in rocker.
+>> >
+>> > (my work laptop is broken..., I will re-post the patch tomorrow if you
+>> are
+>> > ok with the plan)
+>>
+>> I'm not OK with the plan; it doesn't address the issue.  I'm saying
+>> port driver's ndo_bridge_setlink shouldn't be called unless SELF is
+>> set.
+>>
+>
+>but, why scott ?. With l2, l3 and all other offloads, we try not to change
+>user commands.
+>Before switchdev 'self' was always used to go to nic drivers directly to
+>program fdb.
+>l2 never used the bridge driver.
 
-I think that exnernal sounds much better then offload. You can see
-rightaway that the entry has been handled externaly. What "offload" or
-"hw" would mean is not clear to me. I think it's too generic. And since we
-use "external" already for fdbs, I would stick with it.
+
+I also think that is is fine that in case either master or self are not set,
+driver ndo setlink is called as well (in case the offload bit is on). It
+makes it transparent for user in case he does not care what in under. In
+case he cares, he can specify master or self to achieve exactly what he
+needs. I like it that way.
+
+
 
 >
->Thanks,
->Roopa
+>with switchdev l2 offloads, we are using the bridge driver.
+>But there is a need to turn off/on some attributes in hw independently of
+>attributes in the kernel bridge driver. To that i had suggested we continue
+>to use 'self'
+>for those attributes without introducing a new hw mode.
 >
 >
+>>
+>> We have this currently, looking from the user's cmd:
+>>
+>> bridge link set                               calls into bridge and port
+>> driver
+>> bridge link set master                    calls into bridge and port driver
+>> bridge link set self                         calls into port driver
+>> bridge link set self master              calls into bridge and port driver
+>>
+>> Your proposal above changes it to:
+>>
+>> bridge link set                               calls into bridge and port
+>> driver
+>> bridge link set master                    calls into bridge
+>> bridge link set self                         calls into port driver
+>> bridge link set self master              calls into bridge and port driver
+>>
+>> Which is still no good because the default case (neither self or
+>> master explicitly set) calls into the port driver.  Before all of
+>> these changes, we had:
+>>
+>> bridge link set                               calls into bridge
+>> bridge link set master                    calls into bridge
+>> bridge link set hwmode veb|vepa     calls into port driver
+>>
+>> hwmode was a way to set SELF.  We wanted to add "self" flag to command
+>> to be more like bridge fdb cmd.  I assumed the default case (bridge
+>> set link) would continue to work as before.  So we'd have:
+>>
+>> bridge link set                               calls into bridge
+>> bridge link set master                    calls into bridge
+>> bridge link set self                         calls into port driver
+>> bridge link set self master              calls into bridge and port driver
+>>
+>> But that's not what we got.  Your changes changed the default case
+>> (and the bridge link set master case) to call into both bridge and
+>> port driver even though user didn't specify self.
+>>
+>
+>I have made sure that no default case has changed. It works this way only
+>when
+>the driver advertises offload using NETIF_F_HW_SWITCH_OFFLOAD.
+>Which means the driver is interested in involving the bridge driver in all
+>l2 offloads
+>(And this includes all bridge ndo ops setlink/dellink/stp/fdb).
+>
+>http://www.spinics.net/lists/netdev/msg314407.html
+>
+>
+>
+>
+>>
+>> How hard would it be to get back to original default behavior?
+>>
+>
+>Am not sure which default behavior you are talking about. If you are
+>talking about default behavior before switchdev,
+>that has not changed. For switch devices which want the bridge driver
+>involved and who advertise the NETIF_F_HW_SWITCH_OFFLOAD flag, this is new
+>behavior. And rocker does advertise this flag today.
