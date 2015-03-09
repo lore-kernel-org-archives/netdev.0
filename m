@@ -1,104 +1,60 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next 1/2] net: bcmgenet: update ring producer index
- and buffer count in xmit
-Date: Mon, 9 Mar 2015 15:49:16 -0700
-Message-ID: <CAGXr9JG8QQAr4MT=snqMzr=5NTUY8tzT9ubSH7e7dqmo7dX5QA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: bcmgenet: add support for xmit_more
+Date: Mon, 9 Mar 2015 15:49:14 -0700
+Message-ID: <CAGVrzcba9BEgcxAk3rbAzW137HyEGpoo_wn+8mibAq7yOc=kYA@mail.gmail.com>
 References: <1425937937-26955-1-git-send-email-f.fainelli@gmail.com>
-	<1425937937-26955-2-git-send-email-f.fainelli@gmail.com>
+ <1425937937-26955-3-git-send-email-f.fainelli@gmail.com> <1425939020.8261.17.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAGVrzcYKYGtGWdUGK8OW_DeWba2OG78t+SObwsQPMARtz_aHvA@mail.gmail.com> <1425940574.8261.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Petri Gynther <pgynther@google.com>,
 	Jaedon Shin <jaedon.shin@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:36461 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbbCIWtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:49:17 -0400
-Received: by qgdz107 with SMTP id z107so32467167qgd.3
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:49:16 -0700 (PDT)
-In-Reply-To: <1425937937-26955-2-git-send-email-f.fainelli@gmail.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:42646 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753363AbbCIWtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:49:55 -0400
+Received: by iecvy18 with SMTP id vy18so43658680iec.9
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:49:55 -0700 (PDT)
+In-Reply-To: <1425940574.8261.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 9, 2015 at 2:52 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> There is no need to have both bcmgenet_xmit_single() and
-> bcmgenet_xmit_frag() perform a free_bds decrement and a prod_index
-> increment by one. In case one of these functions fails to map a SKB or
-> fragment for transmit, we will return and exit bcmgenet_xmit() with an
-> error.
+2015-03-09 15:36 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Mon, 2015-03-09 at 15:13 -0700, Florian Fainelli wrote:
 >
-> We can therefore safely use our local copy of nr_frags to know by how
-> much we should decrement the number of free buffers available, and by
-> how much the producer count must be incremented and do this in the tail
-> of bcmgenet_xmit().
+>> bcmgenet_xmit() and bcmgenet_tx_reclaim() are the only two functions
+>> that can stop a queue, and they are using a spinlock to avoid that.
 >
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> Acked-by: Petri Gynther <pgynther@google.com>
+> It does not matter.
+>
+> If you hit the condition :
+>
+> if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+>      netif_tx_stop_queue(txq);
+>
+> Then maybe you filled the ring buffer with skb having xmit_more set, and
+> you never did a bcmgenet_tdma_ring_writel()
 
-Reviewed-by: Petri Gynther <pgynther@google.com>
+Right, thanks for pointing that out.
 
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 18 +++++-------------
->  1 file changed, 5 insertions(+), 13 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 83c0cb323e0c..9b3b8a3db59b 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1130,11 +1130,6 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+> Look at other drivers using xmit_more, because you have to reverse
+> things.
 >
->         dmadesc_set(priv, tx_cb_ptr->bd_addr, mapping, length_status);
+> The skeleton is :
 >
-> -       /* Decrement total BD count and advance our write pointer */
-> -       ring->free_bds -= 1;
-> -       ring->prod_index += 1;
-> -       ring->prod_index &= DMA_P_INDEX_MASK;
-> -
->         return 0;
->  }
+> maybe_stop_tx();
 >
-> @@ -1173,11 +1168,6 @@ static int bcmgenet_xmit_frag(struct net_device *dev,
->                     (frag->size << DMA_BUFLENGTH_SHIFT) | dma_desc_flags |
->                     (priv->hw_params->qtag_mask << DMA_TX_QTAG_SHIFT));
->
-> -
-> -       ring->free_bds -= 1;
-> -       ring->prod_index += 1;
-> -       ring->prod_index &= DMA_P_INDEX_MASK;
-> -
->         return 0;
->  }
->
-> @@ -1321,9 +1311,11 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
->
->         skb_tx_timestamp(skb);
->
-> -       /* we kept a software copy of how much we should advance the TDMA
-> -        * producer index, now write it down to the hardware
-> -        */
-> +       /* Decrement total BD count and advance our write pointer */
-> +       ring->free_bds -= nr_frags + 1;
-> +       ring->prod_index += nr_frags + 1;
-> +       ring->prod_index &= DMA_P_INDEX_MASK;
-> +
->         bcmgenet_tdma_ring_writel(priv, ring->index,
->                                   ring->prod_index, TDMA_PROD_INDEX);
->
-> --
-> 2.1.0
+> if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+>     mmiiowb();
+>     ...
+> }
 >
 
-This change looks good.
-
-However, I just noticed another issue in bcmgenet_xmit_single() and
-bcmgenet_xmit_frag(). If the DMA mapping fails, we return early from
-those functions, but bcmgenet_get_txcb() had already advanced
-ring->write_ptr. That needs to be fixed.
-
-Similarly, in bcmgenet_xmit(), imagine that a call to
-bcmgenet_xmit_single() is OK, but then a subsequent call to
-bcmgenet_xmit_frag() fails. The driver should restore the Tx ring
-pointers back to the values before bcmgenet_xmit_single() was called.
-
--- Petri
+Will fix that, thanks
+-- 
+Florian
