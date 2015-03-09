@@ -1,213 +1,82 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 2/8] netdevice: add IPv4 fib add/del ops
-Date: Sun, 08 Mar 2015 23:22:27 -0700
-Message-ID: <54FD3C23.2010002@cumulusnetworks.com>
-References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com> <1425619280-27492-3-git-send-email-sfeldma@gmail.com> <54F9BFCB.5030100@mojatatu.com> <CAE4R7bAcfJ8M0eQMdZdS3aDgPVWSQznABZymGq+PU34vJx1suA@mail.gmail.com> <54FC5D56.3090702@cumulusnetworks.com> <CAE4R7bCzV5zG5XPpgDAhO41Ym19W7Jd+97CMcJzOwwxLNOhTzA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH iproute2] route: label externally offloaded routes
+Date: Mon, 9 Mar 2015 07:25:03 +0100
+Message-ID: <20150309062503.GA2053@nanopsycho.orion>
+References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
+ <20150308065744.GB1986@nanopsycho.orion>
+ <CAJieiUgz9O7LFhzONx5JKRv0o4+6hSHNtRgKaaKAn2ph4jdC2g@mail.gmail.com>
+ <CAE4R7bBKeWoDEv5SJfpm96d330Dc9ZpZpWVG-Dd45uH1mF64aA@mail.gmail.com>
+ <54FCE8DD.5010005@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:35849 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbbCIGW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 02:22:29 -0400
-Received: by pdbnh10 with SMTP id nh10so68977089pdb.3
-        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 23:22:28 -0700 (PDT)
-In-Reply-To: <CAE4R7bCzV5zG5XPpgDAhO41Ym19W7Jd+97CMcJzOwwxLNOhTzA@mail.gmail.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:43564 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930AbbCIGZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 02:25:06 -0400
+Received: by wggx12 with SMTP id x12so14983445wgg.10
+        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 23:25:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <54FCE8DD.5010005@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/8/15, 3:16 PM, Scott Feldman wrote:
-> On Sun, Mar 8, 2015 at 7:31 AM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 3/6/15, 11:59 AM, Scott Feldman wrote:
+Mon, Mar 09, 2015 at 01:27:09AM CET, roopa@cumulusnetworks.com wrote:
+>On 3/8/15, 3:10 PM, Scott Feldman wrote:
+>>On Sun, Mar 8, 2015 at 6:35 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 >>>
->>> I considered passing netlink flags in to driver, but the kernel logic
->>> in fib_table_insert() already takes care of the checks required by the
->>> flags, and from the driver's perspective, only three ops are needed:
->>> add, del, and mod.  And I've combined add and mod into the same op,
->>> with the assumption the driver can know if an entry exists or not.
+>>>On Sat, Mar 7, 2015 at 10:57 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>Sun, Mar 08, 2015 at 07:15:35AM CET, sfeldma@gmail.com wrote:
+>>>>>From: Scott Feldman <sfeldma@gmail.com>
+>>>>>
+>>>>>On ip route print dump, label externally offloaded routes with
+>>>>>"external".
+>>>>>Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
+>>>>>net-next.  For example:
+>>>>>
+>>>>>$ ip route
+>>>>>default via 192.168.0.2 dev eth0
+>>>>>11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
+>>>>>11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
+>>>>>11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
+>>>>>11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
+>>>>>12.0.0.2  proto zebra  metric 30 external
+>>>>>        nexthop via 11.0.0.1  dev swp1 weight 1
+>>>>>        nexthop via 11.0.0.9  dev swp2 weight 1
+>>>>>12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
+>>>>>12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
+>>>>>192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
+>>>>>
+>>>>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>>No objections to the patch.
 >>>
->>> Can it work?
->>>
->>> Let's try the various user cmds and see what happens:
->>>
->>> ip route add ...             CREATE|EXCL
->>>
->>>       if kernel FIB entry exists
->>>           return -EEXIST to user
->>>       else
->>>           call driver add op
->>>           add kernel FIB entry
->>>
->>> ip route change ...        REPLACE
->>>
->>>       if kernel FIB entry exists
->>>           call driver add op             // driver treats this as a mod
->>>           modify kernel FIB entry
->>>       else
->>>           return -ENOENT
->>>
->>> ip route replace ...         CREATE|REPLACE
->>>
->>>       if kernel FIB entry exists
->>>            call driver add op             // driver treats this as a mod
->>>            modify kernel FIB entry
->>>       else
->>>           call driver add op
->>>           add kernel FIB entry
->>>
->>> ip route prepend ...        CREATE
->>>
->>>       if kernel FIB entry exists
->>>            call driver add op             // driver treats this as a mod
->>>            prepend kernel FIB entry
->>>       else
->>>           call driver add op
->>>           add kernel FIB entry
->>>
->>> ip route append ...          CREATE|APPEND
->>>
->>>       if kernel FIB entry exists
->>>            call driver add op             // driver treats this as a mod
->>>            append kernel FIB entry
->>>       else
->>>           call driver add op
->>>           add kernel FIB entry
->>>
->>>
->>> I'm not 100% on the prepend/append cases.  Maybe don't try to offload
->>> prepend/append cases?
->> We will have to offload prepend/append cases as well (I had also raised this
->> earlier in v2).
-> Can you show an working example of prepend/append case where
-> programming hardware would be different than the replace case?
+>>>since this is now getting exposed to userspace and there were suggestions in
+>>>the past to use words like 'hw' or 'offload' in place of 'external' here,
+>>>checking to see if you are taking suggestions. If yes, would 'hw' or
+>>>'offloaded' be a better name for the flag ?.
+>>We used "external" because that's what was used for marking FDB
+>>entries.  I personally have no preference other than we be consistent
+>>for each object offloaded externally.  There will be other objects
+>>we'll need to tag, such as bonds, so if there is enough objection to
+>>"external", we should make the change now for FIB abd FDB objects, and
+>>be consistent with future objects.
+>agree, we should make the change now if needed to suite all types of object
+>offloads.
+>I would vote for 'hw' or 'offload' or 'hwoffload'.
+
+I think that exnernal sounds much better then offload. You can see
+rightaway that the entry has been handled externaly. What "offload" or
+"hw" would mean is not clear to me. I think it's too generic. And since we
+use "external" already for fdbs, I would stick with it.
+
+>
+>Thanks,
+>Roopa
 >
 >
-scott, I don't have an example of kernel vs hw right now. But, since we 
-only want to know if the switch driver can figure out
-the kernel route ordering in case of append vs replace, below kernel 
-append and replace examples
-might help (just pasting it from my notes and may contain unneeded 
-information).
-
-Thanks,
-Roopa
-
-append:
-
-=====
-
-#ipv4
-
-ip route show
-
-10.0.12.2
-
-     nexthop via 10.0.13.2  dev dummy0 weight 1
-
-     nexthop via 10.0.14.2  dev dummy1 weight 1
-
-
-ip route append 10.0.12.2 nexthop via 10.0.15.2 dev dummy2
-
-
-ip monitor route
-
-10.0.12.2 via 10.0.15.2 dev dummy2
-
-
-# A new route was appended
-
-ip route show
-
-10.0.12.2
-
-     nexthop via 10.0.13.2  dev dummy0 weight 1
-
-     nexthop via 10.0.14.2  dev dummy1 weight 1
-
-10.0.12.2 via 10.0.15.2 dev dummy2
-
-
-#ipv6
-
-
-ip -6 route show
-
-3ffe:304:124:2306::/64 via fe80::b077:f0ff:fe23:5cc7 dev dummy0 metric 1024
-
-3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
-
-
-ip monitor route
-
-3ffe:304:124:2306::/64 via fe80::c26:cdff:feca:18f2 dev dummy2 metric 1024
-
-
-ip -6 route append 3ffe:304:124:2306::/64 nexthop via 
-fe80::c26:cdff:feca:18f2 dev dummy2
-
-
-# A new nexthop was appended to the existing multipath route
-
-ip -6 route show
-
-3ffe:304:124:2306::/64 via fe80::b077:f0ff:fe23:5cc7 dev dummy0 metric 1024
-
-3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
-
-3ffe:304:124:2306::/64 nexthop via fe80::c26:cdff:feca:18f2 dev dummy2
-
-
-replace:
-
-=====
-
-# ip route show
-
-10.0.12.2
-
-     nexthop via 10.0.13.2  dev dummy0 weight 1
-
-     nexthop via 10.0.14.2  dev dummy1 weight 1
-
-#ip route replace 10.0.12.2 nexthop via 10.0.15.2 dev dummy2
-
-#ip monitor route
-
-10.0.12.2 via 10.0.15.2 dev dummy2
-
-# ipv4 route was replaced
-
-ip route show
-
-10.0.12.2 via 10.0.15.2 dev dummy2
-
-#ipv6
-
-ip -6 route show
-
-3ffe:304:124:2306::/64 via fe80::b077:f0ff:fe23:5cc7 dev dummy0 metric 1024
-
-3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
-
-ip -6 route replace 3ffe:304:124:2306::/64 nexthop via 
-fe80::c26:cdff:feca:18f2 dev dummy2
-
-ip monitor route
-
-3ffe:304:124:2306::/64 via fe80::c26:cdff:feca:18f2 dev dummy2 metric 1024
-
-# ipv6 nexthop was replaced
-
-ip -6 route show
-
-3ffe:304:124:2306::/64 via fe80::c26:cdff:feca:18f2 dev dummy2 metric 1024
-
-3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
