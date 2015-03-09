@@ -1,69 +1,151 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH iproute2] route: label externally offloaded routes
-Date: Mon, 9 Mar 2015 09:16:58 -0700
-Message-ID: <CAE4R7bBwtGbB6FjJbEBXieYNRrqGknsC2FRQ2s270ySeEYNerQ@mail.gmail.com>
-References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
-	<20150309140241.GI502@gospo.home.greyhouse.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: rhashtable: Move hash_rnd into bucket_table
+Date: Mon, 09 Mar 2015 17:26:52 +0100
+Message-ID: <54FDC9CC.6080709@iogearbox.net>
+References: <20150131102150.GA29498@gondor.apana.org.au> <20150202.191956.404010205495035337.davem@davemloft.net> <20150202.192634.1792206005008667377.davem@davemloft.net> <20150203201750.GA22474@gondor.apana.org.au> <20150309095833.GA4028@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:33745 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932680AbbCIQQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 12:16:59 -0400
-Received: by qcvx3 with SMTP id x3so3891153qcv.0
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 09:16:58 -0700 (PDT)
-In-Reply-To: <20150309140241.GI502@gospo.home.greyhouse.net>
+Received: from www62.your-server.de ([213.133.104.62]:46828 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932416AbbCIQ1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 12:27:02 -0400
+In-Reply-To: <20150309095833.GA4028@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 9, 2015 at 7:02 AM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> On Sat, Mar 07, 2015 at 10:15:35PM -0800, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> On ip route print dump, label externally offloaded routes with "external".
->> Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
->> net-next.  For example:
->>
->> $ ip route
->> default via 192.168.0.2 dev eth0
->> 11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
->> 11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
->> 11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
->> 11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
->> 12.0.0.2  proto zebra  metric 30 external
->>         nexthop via 11.0.0.1  dev swp1 weight 1
->>         nexthop via 11.0.0.9  dev swp2 weight 1
->> 12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
->> 12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
->> 192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->
-> You know we cannot have a thread about nomenclature without a comment
-> from me.  ;)
->
-> My only concern about 'external' is whether or not people will gloss
-> over it since many of the routes listed will be to networks that
-> actually are external to the system.  That namespace collision could
-> seem awkward if you are not a traditional follower of this list.
-> Listing an FDB entry as 'external' does not have the same issue since
-> all FDB entries are local to the system, so I didn't even
-> think about the potential when that set was posted.
->
-> I would like to just call this 'hardware' since that is what we appear
-> to be using for offload and would make it clear to the user that this
-> route was in hardware as well as in the kernel.  I'd say the same for
-> FDB entries, too.
->
-> Scott, you have lots of experience in both traditional and Linux worlds,
-> do you think my concern about confusion is unnecessary?
+On 03/09/2015 10:58 AM, Herbert Xu wrote:
+> Currently hash_rnd is a parameter that users can set.  However,
+> no existing users set this parameter.  It is also something that
+> people are unlikely to want to set directly since it's just a
+> random number.
 
-Votes so far: 1 for "external", 1 for "hardware", 1 for "offload" or "hw".
+I believe the original purpose was to have reproduceability, but
+yeah, there are no users of it currently.
 
-Good point about confusion wrt routes to non-local networks.
+> In preparation for allowing the reseeding/rehashing of rhashtable,
+> this patch moves hash_rnd into bucket_table so that it's now an
+> internal state rather than a parameter.
+>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+> index d438eeb..5ef8ea5 100644
+> --- a/include/linux/rhashtable.h
+> +++ b/include/linux/rhashtable.h
+> @@ -49,12 +49,14 @@ struct rhash_head {
+>   /**
+>    * struct bucket_table - Table of hash buckets
+>    * @size: Number of hash buckets
+> + * @hash_rnd: Random seed to fold into hash
+>    * @locks_mask: Mask to apply before accessing locks[]
+>    * @locks: Array of spinlocks protecting individual buckets
+>    * @buckets: size * hash buckets
+>    */
+>   struct bucket_table {
+>   	size_t			size;
+> +	u32			hash_rnd;
+>   	unsigned int		locks_mask;
+>   	spinlock_t		*locks;
+>
+> @@ -72,7 +74,6 @@ struct rhashtable;
+>    * @key_len: Length of key
+>    * @key_offset: Offset of key in struct to be hashed
+>    * @head_offset: Offset of rhash_head in struct to be hashed
+> - * @hash_rnd: Seed to use while hashing
+>    * @max_shift: Maximum number of shifts while expanding
+>    * @min_shift: Minimum number of shifts while shrinking
+>    * @nulls_base: Base value to generate nulls marker
+> @@ -85,7 +86,6 @@ struct rhashtable_params {
+>   	size_t			key_len;
+>   	size_t			key_offset;
+>   	size_t			head_offset;
+> -	u32			hash_rnd;
+>   	size_t			max_shift;
+>   	size_t			min_shift;
+>   	u32			nulls_base;
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index b5344ef..4ce267f 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -66,25 +66,28 @@ static u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
+>   	return hash & (tbl->size - 1);
+>   }
+>
+> -static u32 obj_raw_hashfn(const struct rhashtable *ht, const void *ptr)
+> +static u32 obj_raw_hashfn(struct rhashtable *ht, const void *ptr)
+>   {
+> +	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+
+const
+
+>   	u32 hash;
+>
+>   	if (unlikely(!ht->p.key_len))
+> -		hash = ht->p.obj_hashfn(ptr, ht->p.hash_rnd);
+> +		hash = ht->p.obj_hashfn(ptr, tbl->hash_rnd);
+>   	else
+>   		hash = ht->p.hashfn(ptr + ht->p.key_offset, ht->p.key_len,
+> -				    ht->p.hash_rnd);
+> +				    tbl->hash_rnd);
+>
+>   	return hash >> HASH_RESERVED_SPACE;
+>   }
+>
+>   static u32 key_hashfn(struct rhashtable *ht, const void *key, u32 len)
+>   {
+> -	return ht->p.hashfn(key, len, ht->p.hash_rnd) >> HASH_RESERVED_SPACE;
+> +	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+> +
+
+const
+
+> +	return ht->p.hashfn(key, len, tbl->hash_rnd) >> HASH_RESERVED_SPACE;
+>   }
+>
+> -static u32 head_hashfn(const struct rhashtable *ht,
+> +static u32 head_hashfn(struct rhashtable *ht,
+>   		       const struct bucket_table *tbl,
+>   		       const struct rhash_head *he)
+>   {
+> @@ -92,7 +95,7 @@ static u32 head_hashfn(const struct rhashtable *ht,
+>   }
+>
+>   #ifdef CONFIG_PROVE_LOCKING
+> -static void debug_dump_buckets(const struct rhashtable *ht,
+> +static void debug_dump_buckets(struct rhashtable *ht,
+>   			       const struct bucket_table *tbl)
+>   {
+>   	struct rhash_head *he;
+> @@ -1099,14 +1102,13 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+>   	if (tbl == NULL)
+>   		return -ENOMEM;
+>
+> +	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
+> +
+
+Have you tested this patch? ;-)
+
+If I see this correctly, the first time you shrink or expand, your hash_rnd
+from then onwards will constantly be 0.
+
+You need to copy over the above old hash_rnd to the new one from the newly
+allocated tbl. So, bucket_table_alloc() needs a change as well. Of course,
+with rehashing, the get_random_bytes() would directly move there.
+
+>   	atomic_set(&ht->nelems, 0);
+>   	atomic_set(&ht->shift, ilog2(tbl->size));
+>   	RCU_INIT_POINTER(ht->tbl, tbl);
+>   	RCU_INIT_POINTER(ht->future_tbl, tbl);
+>
+> -	if (!ht->p.hash_rnd)
+> -		get_random_bytes(&ht->p.hash_rnd, sizeof(ht->p.hash_rnd));
+> -
+>   	INIT_WORK(&ht->run_work, rht_deferred_worker);
+>
+>   	return 0;
+>
