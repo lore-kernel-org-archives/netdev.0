@@ -1,174 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Mon, 9 Mar 2015 07:40:43 +0100
-Message-ID: <20150309064043.GB2053@nanopsycho.orion>
-References: <CAE4R7bArwsNUdtNM25Zm=ZccrmVqC8e45E6qsjMdO3s0FrOVog@mail.gmail.com>
- <54F6C788.2010201@cumulusnetworks.com>
- <20150305080218.GB2033@nanopsycho.orion>
- <54F86E4B.9040403@cumulusnetworks.com>
- <CAE4R7bCQHcR4Ne-ssCRRvw0czKxRJfykcBFY6c_9haRF3pRJYA@mail.gmail.com>
- <54F8C00C.2010303@cumulusnetworks.com>
- <CAE4R7bAaLxCebc7cuYB9NQ_Duo8a6LvxWDwWOD9Wn8ROWjvDGw@mail.gmail.com>
- <54FC5A60.7000800@cumulusnetworks.com>
- <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com>
- <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
+From: Jeff Kirsher <tarbal@gmail.com>
+Subject: Re: [E1000-devel] [PATCH v2 2/3] if_link: Add VF multicast promiscuous
+ control
+Date: Mon, 09 Mar 2015 00:27:14 -0700
+Message-ID: <54FD4B52.6010100@gmail.com>
+References: <CAJ3xEMjNKJFps7C2jsuFfnSn8pDtkCTtEhuQz8s+f=euR5=BXA@mail.gmail.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:41256 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451AbbCIGkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 02:40:49 -0400
-Received: by wesw62 with SMTP id w62so1399836wes.8
-        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 23:40:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@aculab.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Edward Cree <ecree@solarflare.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3xEMjNKJFps7C2jsuFfnSn8pDtkCTtEhuQz8s+f=euR5=BXA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Mar 09, 2015 at 01:12:47AM CET, roopa@cumulusnetworks.com wrote:
->On Sun, Mar 8, 2015 at 4:17 PM, Scott Feldman <sfeldma@gmail.com> wrote:
->
->> On Sun, Mar 8, 2015 at 7:19 AM, roopa <roopa@cumulusnetworks.com> wrote:
->> > On 3/6/15, 1:52 AM, Scott Feldman wrote:
->>
->> [cut]
->>
->> >> I'm saying port driver's ndo_bridge_setlink shouldn't be called unless
->> >> SELF is set.  The port driver shouldn't have to check if it's SELF,
->> >> that's my main beef with this patch.  If the app (iproute2) wants to
->> >> mirror an attribute, then it can set both MASTER and SELF.  This is
->> >> consistent with ndo_fdb ops, where MASTER targets the bridge's FDB and
->> >> SELF targets the device's FDB.
->> >
->> >
->> > bridge setlink/dellink ndo sets/clears bridge port flags, vlans.
->> >
->> > 4 ways to the ndo op gets called (value in brackets is the bridge flags):
->> >
->> > 1. ndo_bridge_setlink ()
->> > 2. ndo_bridge_setlink (master)
->> > 3. ndo_bridge_setlink (self)
->> > 4. ndo_bridge_setlink (master | self)
->> >
->> >
->> > in case of 1) and 2) today, bridge driver also calls into the port driver
->> > (as part of NETIF_F_HW_SWITCH_OFFLOAD) because vlans and other port flags
->> > need to be offloaded if they are set on master (I understand that rocker
->> > does not use bridge setlink ndo op for vlans. But it is completely valid
->> for
->> > a switch driver to use the ndo setlink op for offloading vlan config)
->> >
->> > One thing i can do is the NETIF_F_HW_SWITCH_OFFLOAD case only applies in
->> > case 1 above. ie when bridge flags is zero.
->> >
->> > which leads to the following commands to disable learning in the bridge
->> > driver and enable it in hw,
->> >
->> > 1. bridge link learning on - enable learning in both rocker and bridge
->> > driver due to the NETIF_F_HW_SWITCH_OFFLOAD flag
->> > 2. bridge link learning off master - learning disable only in the bridge
->> > driver
->> >
->> > With this i think we hit a compromise, rocker setlink can be called when
->> > flags is zero, but we still get a valid sequence of commands to
->> > enable/disable certain port flags only in the bridge driver or port
->> driver
->> > without having an explicit self check in rocker.
->> >
->> > (my work laptop is broken..., I will re-post the patch tomorrow if you
->> are
->> > ok with the plan)
->>
->> I'm not OK with the plan; it doesn't address the issue.  I'm saying
->> port driver's ndo_bridge_setlink shouldn't be called unless SELF is
->> set.
->>
->
->but, why scott ?. With l2, l3 and all other offloads, we try not to change
->user commands.
->Before switchdev 'self' was always used to go to nic drivers directly to
->program fdb.
->l2 never used the bridge driver.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
 
+On 03/08/2015 02:15 PM, Or Gerlitz wrote:
+> On Mon, Feb 23, 2015 at 11:14 PM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> [...]
+>> We discussed this during NetConf last week, and Don is correct that a
+>> custom sysfs interface is not the way we want to handle this.  We agreed
+>> upon a generic interface so that any NIC is able to turn on or off VF
+>> multicast promiscuous mode.
+> 
+> Jeff, please make sure to either respond to my comments on the V2
+> thread (or better) address them for the V3 post.
+> 
+> 
+> http://marc.info/?l=linux-netdev&m=142441852518152&w=2
+> http://marc.info/?l=linux-netdev&m=142441867218183&w=2
 
-I also think that is is fine that in case either master or self are not set,
-driver ndo setlink is called as well (in case the offload bit is on). It
-makes it transparent for user in case he does not care what in under. In
-case he cares, he can specify master or self to achieve exactly what he
-needs. I like it that way.
+I agree with you that the patch descriptions should be cleaned up and
+"beefed" up for that matter.
 
+If/when I look to push his series of patches, I will make sure that your
+concerns are addressed so that we can get a accurate changelog.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-
->
->with switchdev l2 offloads, we are using the bridge driver.
->But there is a need to turn off/on some attributes in hw independently of
->attributes in the kernel bridge driver. To that i had suggested we continue
->to use 'self'
->for those attributes without introducing a new hw mode.
->
->
->>
->> We have this currently, looking from the user's cmd:
->>
->> bridge link set                               calls into bridge and port
->> driver
->> bridge link set master                    calls into bridge and port driver
->> bridge link set self                         calls into port driver
->> bridge link set self master              calls into bridge and port driver
->>
->> Your proposal above changes it to:
->>
->> bridge link set                               calls into bridge and port
->> driver
->> bridge link set master                    calls into bridge
->> bridge link set self                         calls into port driver
->> bridge link set self master              calls into bridge and port driver
->>
->> Which is still no good because the default case (neither self or
->> master explicitly set) calls into the port driver.  Before all of
->> these changes, we had:
->>
->> bridge link set                               calls into bridge
->> bridge link set master                    calls into bridge
->> bridge link set hwmode veb|vepa     calls into port driver
->>
->> hwmode was a way to set SELF.  We wanted to add "self" flag to command
->> to be more like bridge fdb cmd.  I assumed the default case (bridge
->> set link) would continue to work as before.  So we'd have:
->>
->> bridge link set                               calls into bridge
->> bridge link set master                    calls into bridge
->> bridge link set self                         calls into port driver
->> bridge link set self master              calls into bridge and port driver
->>
->> But that's not what we got.  Your changes changed the default case
->> (and the bridge link set master case) to call into both bridge and
->> port driver even though user didn't specify self.
->>
->
->I have made sure that no default case has changed. It works this way only
->when
->the driver advertises offload using NETIF_F_HW_SWITCH_OFFLOAD.
->Which means the driver is interested in involving the bridge driver in all
->l2 offloads
->(And this includes all bridge ndo ops setlink/dellink/stp/fdb).
->
->http://www.spinics.net/lists/netdev/msg314407.html
->
->
->
->
->>
->> How hard would it be to get back to original default behavior?
->>
->
->Am not sure which default behavior you are talking about. If you are
->talking about default behavior before switchdev,
->that has not changed. For switch devices which want the bridge driver
->involved and who advertise the NETIF_F_HW_SWITCH_OFFLOAD flag, this is new
->behavior. And rocker does advertise this flag today.
+iQIcBAEBCgAGBQJU/UtSAAoJEOVv75VaS+3On0kP/3P+DkiCmset60z9Ms6MpqHZ
+/J06eJpplGXz/TnKF1wTrOxgV+LV750q4J0IXkd/kbj23sC5SOnsxHlMWdb4SFWk
+OW2vcB1HEqug7xCi9FukJzaORSfH1hWeSNtEuvKtjOREVLTCSZWkEyYE0SMJTU7N
+ISaQtFlkOXomtZbri//M6XBVxW+DFyrEhjZgPl7HY+x2nZIXWh8NwI5kp7zYst2S
+mWbNUIi8lJEHWbhF0MBG+QGSoND6zeKGJ5JWjp3ml40a4DNmAs4cVftsV7wvir8/
++QITHejBkIboZe8C7YrTNGN2qfzQfMsRRzdAaQW4Q4pr5MQcwAKEN/iHoG/jBik2
+y00xJ6pf7v8ogNs72oJ24tFnp93H1nusIXG1oWVo+cwLwkDbGS0oLYs/5r6bMk+7
+Z4JVieh0gcbeIFF7i3ZVOSKFcUVSFf5Kvw0isY7nnefyrhSJ1jQbP3i8ABVrH2fN
+zO06JSARwu797r78292eXyGe74bE4LGmIHbwGKDP/Mz/1DP+Qafk+mEllQIxSFel
+ODQSAjOQZTnP9KZ+t2XUdLnImlaKPnfjtMjdEny678/fmcZh1zjAHLTn4gmrA9vq
+otKjWCS3cA6UVCyn+ph8+2sHtRLW6w7pQ7BcIXLTlaPp/gC97f3eHxvRN4nV1vA5
+c+gQPJx98sCiBd3gFKX0
+=9V5M
+-----END PGP SIGNATURE-----
