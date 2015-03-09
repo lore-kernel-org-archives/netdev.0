@@ -1,90 +1,81 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [Linux-kernel] [net-next, 2/5] sh_eth: WARN on access to a register
- not implemented in a particular chip
-Date: Mon, 09 Mar 2015 08:50:24 +0000
-Message-ID: <54FD5ED0.6070208@codethink.co.uk>
-References: <1424982854.4444.73.camel@xylophone.i.decadent.org.uk> <alpine.DEB.2.10.1503050958520.8385@ayla.of.borg> <1425561532.4288.34.camel@xylophone.i.decadent.org.uk>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: Enable xilinx driver for all ARCHs
+Date: Mon, 09 Mar 2015 09:50:41 +0100
+Message-ID: <54FD5EE1.6050402@pengutronix.de>
+References: <4096fa4ceae72817d8e64d9a1da738038a5c864a.1425890926.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@lists.codethink.co.uk,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	netdev@vger.kernel.org,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:51017 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752881AbbCIIuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 04:50:40 -0400
-In-Reply-To: <1425561532.4288.34.camel@xylophone.i.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="uufltjp90vvaD8JXtke7snIARLsTNueoA"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>,
+	linux-kernel@vger.kernel.org, monstr@monstr.eu
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4096fa4ceae72817d8e64d9a1da738038a5c864a.1425890926.git.michal.simek@xilinx.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/03/15 13:18, Ben Hutchings wrote:
-> On Thu, 2015-03-05 at 10:02 +0100, Geert Uytterhoeven wrote:
->> Replying to a patchwork mbox, as I noticed this is in net-next.
->>
->> On Thu, 26 Feb 2015, Ben Hutchings wrote:
->>> Currently we may silently read/write a register at offset 0.  Change
->>> this to WARN and then ignore the write or read-back all-ones.
->>>
->>> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
->>> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> While this may be a good idea for debugging...
->>
->>> --- a/drivers/net/ethernet/renesas/sh_eth.h
->>> +++ b/drivers/net/ethernet/renesas/sh_eth.h
->>> @@ -543,19 +543,29 @@ static inline void sh_eth_soft_swap(char *src, int len)
->>>  #endif
->>>  }
->>>  
->>> +#define SH_ETH_OFFSET_INVALID	((u16) ~0)
->>> +
->>>  static inline void sh_eth_write(struct net_device *ndev, u32 data,
->>>  				int enum_index)
->>>  {
->>>  	struct sh_eth_private *mdp = netdev_priv(ndev);
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--uufltjp90vvaD8JXtke7snIARLsTNueoA
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-does de-referencing this each time make a difference? Looks like
-it would have been easier to pass an "struct sh_eth_private" instead
-of the "struct net_device *ndev"
+On 03/09/2015 09:48 AM, Michal Simek wrote:
+> Remove Kconfig dependency and enable driver for
+> all ARCHs.
+>=20
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+> Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+> ---
+>=20
+> Test for all archs done by Kbuild test robot without any problem.
+> ---
+>  drivers/net/can/Kconfig | 1 -
+>  1 file changed, 1 deletion(-)
+>=20
+> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+> index 98d73aab52fe..f690c3fb3088 100644
+> --- a/drivers/net/can/Kconfig
+> +++ b/drivers/net/can/Kconfig
+> @@ -131,7 +131,6 @@ config CAN_RCAR
+> =20
+>  config CAN_XILINXCAN
+>  	tristate "Xilinx CAN"
+> -	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
 
->>> +	u16 offset = mdp->reg_offset[enum_index];
->>> +
->>> +	if (WARN_ON(offset == SH_ETH_OFFSET_INVALID))
->>> +		return;
+I think that's what COMPILE_TEST ist for?
 
-You could cange the mdp->reg_offset to an mdp->reg_pointer and make
-any invalid registers a NULL. This would at-least make it fail on an
-invalid access.
+Marc
 
->> ... adding WARN_ON() to static inline functions increases code size a lot:
->>
->> $ size drivers/net/ethernet/renesas/sh_eth.o{.orig,}
->>    text	   data	    bss	    dec	    hex	filename
->>   23352	   1136	      0	  24488	   5fa8	drivers/net/ethernet/renesas/sh_eth.o.orig
->>   27225	   1136	      0	  28361	   6ec9	drivers/net/ethernet/renesas/sh_eth.o
->> $
-> 
-> Time to un-inline it, maybe?
-> 
-> Ben.
-> 
-> 
-> _______________________________________________
-> linux-kernel mailing list
-> linux-kernel@lists.codethink.co.uk
-> https://ducie-dc1.codethink.co.uk/cgi-bin/mailman/listinfo/linux-kernel
-> 
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
--- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+--uufltjp90vvaD8JXtke7snIARLsTNueoA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJU/V7oAAoJECte4hHFiupUnccP/it6vhaAYcICApkRYtss7PDa
+BhUQ8/HybX0hpvQfnPsPDwgZae6ldcaAI172GTyeoolXF9eC8+dInqxq1VxtIs5z
+fVUfTy92833XY77/Te6lorEJ9uCzMh1uwerF29QZvt1EIR0RgPWqq0d1VMxSsXCs
+a7htcjwVHxD+3CBWGxVR5NfqDlOuWYq46KVoXNwlb6ebplIUu7j2IEpgDZ/vafkt
+kJXyNd4OWhJ+2j6KzY0e5Kddc1jdCONnWvY12nRG5PwKrYGBdRhGYDtuRl2wH3Vl
+MW1IaxkqWKcFXBZwoxm1r9sVMfpHfemiapOTN+q5COV6MnvACOJja69kEjTcLmgL
+AavVc8bL5Hyt4GJxJKev5wSXebl3gxxouxaPD1Pc8sLrpdgy2nRjWGo+LFIwXBv8
+sigCYkFqsf8MeR9GPI7oYz9WHq/OESBctgZLYWpfXQEWqbOiO9E55GGlELGSWuE9
+XElzVL12WW5LprUVznXgn9QeoDFGYp9WS6VM3tGJTiS4Knc+OwjxFvxM6fD0rj/6
+rZfkxEThaTAi4f/LJAOg4wZx9tCfl/XMtf4xZPWbKvD5qvGkglhxNMlRz2fZ4wnt
+eaA4ZeATPee2gRJuWKJR7oyVd2t5t05vrxZJitThXTGCgoQ9ZcTaAWPnUj7B+7no
+yHNrNdXmlQfHCq/ZpX/d
+=q/bN
+-----END PGP SIGNATURE-----
+
+--uufltjp90vvaD8JXtke7snIARLsTNueoA--
