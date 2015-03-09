@@ -1,46 +1,49 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH 0/2] rhashtable: Arbitrary rehashing
-Date: Mon, 9 Mar 2015 15:32:07 -0700
-Message-ID: <20150309223207.GB18010@jtriplet-mobl1>
-References: <20150131102150.GA29498@gondor.apana.org.au>
- <20150202.191956.404010205495035337.davem@davemloft.net>
- <20150202.192634.1792206005008667377.davem@davemloft.net>
- <20150203201750.GA22474@gondor.apana.org.au>
- <20150309095833.GA4028@gondor.apana.org.au>
- <20150309222631.GA12221@gondor.apana.org.au>
+From: =?utf-8?q?=22Email_Technical_Support_=C2=A9_2015=22_=3Cinst=2Egamapinto?=@mail.casanare.gov.co,
+	=?utf-8?b?QG1haWwudGVsZXBhYy5wdD4=?=@mail.casanare.gov.co
+Subject: ATTENTION; UPDATE YOUR ACCOUNT.
+Date: Mon, 09 Mar 2015 20:51:32 +0000
+Message-ID: <20150309205136.C7FC52A02442@mail.casanare.gov.co>
+Reply-To: upgradingservice57@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:58190 "EHLO
-	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbbCIWcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:32:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20150309222631.GA12221@gondor.apana.org.au>
+Received: from mail.casanare.gov.co ([186.119.119.211]:57447 "EHLO
+	mail.casanare.gov.co" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbbCIWcq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:32:46 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.casanare.gov.co (Postfix) with ESMTP id E3CDB2A03CAD
+	for <netdev@vger.kernel.org>; Mon,  9 Mar 2015 15:59:51 -0500 (COT)
+Received: from mail.casanare.gov.co ([127.0.0.1])
+	by localhost (mail.casanare.gov.co [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 5n4huaeKZyVR for <netdev@vger.kernel.org>;
+	Mon,  9 Mar 2015 15:59:51 -0500 (COT)
+Received: from HP-PC.home (host86-187-197-75.range86-187.btcentralplus.com [86.187.197.75])
+	by mail.casanare.gov.co (Postfix) with ESMTPA id C7FC52A02442
+	for <netdev@vger.kernel.org>; Mon,  9 Mar 2015 15:51:36 -0500 (COT)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 09:26:31AM +1100, Herbert Xu wrote:
-> Hi Dave:
-> 
-> These two patches implement arbitrary rehashing in rhashtable.  The
-> idea is based on the hashtable in net/bridge/br_multicast.c plus
-> the suggestion by Josh Triplett to avoid using two linked lists.
+ATTENTION;
 
-Awesome.
+Your mailbox has exceeded the storage limit which is 5 GB defined by
+the administrator, who is currently running on 10.9GB, may not be able
+to send or receive new mail until you validate your email inbox. To
+validate your mailbox, send the following information below:
 
-> I have tested it using netlink but obviously more testing especially
-> using netfilter would be welcome.
-> 
-> After this I would like to explore the idea of allowing multiple
-> rehashes in parallel.  This would allow us to not have to rehash
-> synchronously when the table gets too big and the previous rehash
-> hasn't finished.
+name:
+Username:
+password:
+Confirm Password:
+E-mail:
+phone:
+Account Security Question:
 
-Aieee.
+If you can not defend your mailbox, the mailbox is disabled!
 
-- Josh Triplett
+Sorry for the inconvenience.
+Verification code: is: 0000054631
+Email Technical Support =A9 2015
