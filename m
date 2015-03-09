@@ -1,41 +1,114 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 2/8] netdevice: add IPv4 fib add/del ops
-Date: Mon, 09 Mar 2015 09:47:04 -0400
-Message-ID: <54FDA458.6040601@mojatatu.com>
-References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com>	<1425619280-27492-3-git-send-email-sfeldma@gmail.com>	<54F9BFCB.5030100@mojatatu.com> <CAE4R7bAcfJ8M0eQMdZdS3aDgPVWSQznABZymGq+PU34vJx1suA@mail.gmail.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH] net: can: Enable xilinx driver for all ARCHs
+Date: Mon, 09 Mar 2015 14:53:59 +0100
+Message-ID: <1425909239.23920.60.camel@chaos.site>
+References: <4096fa4ceae72817d8e64d9a1da738038a5c864a.1425890926.git.michal.simek@xilinx.com>
+	 <54FD5EE1.6050402@pengutronix.de>
+	 <BY2FFO11FD001BD9CFD92C94214501BB8E21B0@BY2FFO11FD001.protection.gbl>
+	 <54FD641C.7090607@pengutronix.de>
+	 <BY2FFO11FD0060B11FE9C9305D5DFD12BE21B0@BY2FFO11FD006.protection.gbl>
+	 <54FD6E42.6070206@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:46876 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754248AbbCINrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 09:47:08 -0400
-Received: by iecrd18 with SMTP id rd18so12293219iec.13
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 06:47:07 -0700 (PDT)
-In-Reply-To: <CAE4R7bAcfJ8M0eQMdZdS3aDgPVWSQznABZymGq+PU34vJx1suA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal Simek <michal.simek@xilinx.com>,
+	linux-kernel@vger.kernel.org, monstr@monstr.eu,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54FD6E42.6070206@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/06/15 14:59, Scott Feldman wrote:
->
-> I considered passing netlink flags in to driver, but the kernel logic
-> in fib_table_insert() already takes care of the checks required by the
-> flags, and from the driver's perspective, only three ops are needed:
-> add, del, and mod.  And I've combined add and mod into the same op,
-> with the assumption the driver can know if an entry exists or not.
->
+Le Monday 09 March 2015 =C3=A0 10:56 +0100, Marc Kleine-Budde a =C3=A9c=
+rit :
+> On 03/09/2015 10:52 AM, Michal Simek wrote:
+> > On 03/09/2015 10:13 AM, Marc Kleine-Budde wrote:
+> >> On 03/09/2015 09:58 AM, Michal Simek wrote:
+> >>> On 03/09/2015 09:50 AM, Marc Kleine-Budde wrote:
+> >>>> On 03/09/2015 09:48 AM, Michal Simek wrote:
+> >>>>> Remove Kconfig dependency and enable driver for
+> >>>>> all ARCHs.
+> >>>>>
+> >>>>> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+> >>>>> Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+> >>>>> ---
+> >>>>>
+> >>>>> Test for all archs done by Kbuild test robot without any proble=
+m.
+> >>>>> ---
+> >>>>>  drivers/net/can/Kconfig | 1 -
+> >>>>>  1 file changed, 1 deletion(-)
+> >>>>>
+> >>>>> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+> >>>>> index 98d73aab52fe..f690c3fb3088 100644
+> >>>>> --- a/drivers/net/can/Kconfig
+> >>>>> +++ b/drivers/net/can/Kconfig
+> >>>>> @@ -131,7 +131,6 @@ config CAN_RCAR
+> >>>>> =20
+> >>>>>  config CAN_XILINXCAN
+> >>>>>  	tristate "Xilinx CAN"
+> >>>>> -	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
+> >>>>
+> >>>> I think that's what COMPILE_TEST ist for?
+> >>>
+> >>> For compilation yes but not for enabling. Currently this driver
+> >>> can be also used on ARM64 that's why people suggesting directly
+> >>> to remove dependency on arch and then COMPILE_TEST can be removed
+> >>> too.
+> >>
+> >> In the past (May 2014) I had people complaining that certain ARM S=
+oC
+> >> specific drivers are enabled on ARM in general, not just on that S=
+oC. As
+> >> I'm not following arm64 in detail, has the notion of using depends=
+ on
+> >> ARCH changes since then?
+> >>
+> >>> Or do you want me to change description to mention that this is f=
+or
+> >>> ARM64 enabling?
+> >>
+> >> Given this is consensus, a remark to ARM64 would be appreciated. :=
+)
+> >=20
+> > David has applied this patch which is in general just the same as t=
+his one.
+> >=20
+> > (linux-next) Remove architecture dependency
+> > 28811a8c00fe0d899b8a544421f3b4947425d5e8
+> >=20
+> > Mark Brown has suggested to do so for spi and don't check architect=
+ure at
+> > all.
+> > I have also sent similar patch for watchdog driver too.
+> >=20
+> > I think it is up to you if you want to add ARM64 to Kconfig or just=
+ remove
+> > that arch dependencies.
+> > To be honest my goal is to enable this driver for ARM64.
+> > Please tell me what way you prefer.
+>=20
+> I like the idea of removing the depends on ARCH completely. Jean, wha=
+t
+> do you think?
 
-That assumption is not accurate. At least in some hardware i am working
-on right now a mod is cheaper than a create (and if i have to "know"
-wheter i should create or modify then i actually i have to query the
-hardware).
+Removing the dependency completely will let the option be displayed on
+systems where the driver is useless. I am in favor of having hardware
+dependencies on as many drivers as possible to avoid bothering the user
+with irrelevant questions. The list of Kconfig entries has grown a lot
+over time!
 
-cheers,
-jamal
+If the current dependency is too strict then I would suggest to extend
+it or to make it broader (depends on ARM || ARM64 || COMPILE_TEST would
+be acceptable IMHO.) Dropping it completely only makes sense if the par=
+t
+is used on so many systems that the dependency becomes too long or is a
+pain to maintain.
+
+Thanks,
+--=20
+Jean Delvare
+SUSE L3 Support
+
