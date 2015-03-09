@@ -1,100 +1,47 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] route: label externally offloaded routes
-Date: Mon, 9 Mar 2015 10:02:41 -0400
-Message-ID: <20150309140241.GI502@gospo.home.greyhouse.net>
-References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH v2] net: can: Enable xilinx driver for ARM64
+Date: Mon,  9 Mar 2015 15:03:32 +0100
+Message-ID: <2dd8c07857416d5253296e7254dabc565d0060ef.1425909806.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	jiri@resnulli.us
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:35853 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753874AbbCIOCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 10:02:47 -0400
-Received: by qcxm20 with SMTP id m20so2213328qcx.3
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 07:02:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 07, 2015 at 10:15:35PM -0800, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> 
-> On ip route print dump, label externally offloaded routes with "external".
-> Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
-> net-next.  For example:
-> 
-> $ ip route
-> default via 192.168.0.2 dev eth0
-> 11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
-> 11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
-> 11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
-> 11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
-> 12.0.0.2  proto zebra  metric 30 external
->         nexthop via 11.0.0.1  dev swp1 weight 1
->         nexthop via 11.0.0.9  dev swp2 weight 1
-> 12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
-> 12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
-> 192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Enable the xilinx driver for ARM64.
 
-You know we cannot have a thread about nomenclature without a comment
-from me.  ;)
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+---
 
-My only concern about 'external' is whether or not people will gloss
-over it since many of the routes listed will be to networks that
-actually are external to the system.  That namespace collision could
-seem awkward if you are not a traditional follower of this list.
-Listing an FDB entry as 'external' does not have the same issue since
-all FDB entries are local to the system, so I didn't even
-think about the potential when that set was posted.
+Changes in v2:
+- Based on discussion with Marc and Jean enable this driver just for
+  ARM64.
 
-I would like to just call this 'hardware' since that is what we appear
-to be using for offload and would make it clear to the user that this
-route was in hardware as well as in the kernel.  I'd say the same for
-FDB entries, too.
+BTW: Jean suggested to enable it for all ARM platforms but it is
+just not needed that's why I am just adding ARM64 and not changing
+ARCH_ZYNQ to ARM.
+---
+ drivers/net/can/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Scott, you have lots of experience in both traditional and Linux worlds,
-do you think my concern about confusion is unnecessary?
-
-> ---
->  include/linux/rtnetlink.h |    1 +
->  ip/iproute.c              |    2 ++
->  2 files changed, 3 insertions(+)
-> 
-> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-> index 3eb7810..c74773c 100644
-> --- a/include/linux/rtnetlink.h
-> +++ b/include/linux/rtnetlink.h
-> @@ -332,6 +332,7 @@ struct rtnexthop {
->  #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
->  #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
->  #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
-> +#define RTNH_F_EXTERNAL		8	/* Route installed externally   */
->  
->  /* Macros to handle hexthops */
->  
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index 76d8e36..fdb0a98 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -426,6 +426,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->  		fprintf(fp, "onlink ");
->  	if (r->rtm_flags & RTNH_F_PERVASIVE)
->  		fprintf(fp, "pervasive ");
-> +	if (r->rtm_flags & RTNH_F_EXTERNAL)
-> +		fprintf(fp, "external ");
->  	if (r->rtm_flags & RTM_F_NOTIFY)
->  		fprintf(fp, "notify ");
->  	if (tb[RTA_MARK]) {
-> -- 
-> 1.7.10.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+index 98d73aab52fe..58808f651452 100644
+--- a/drivers/net/can/Kconfig
++++ b/drivers/net/can/Kconfig
+@@ -131,7 +131,7 @@ config CAN_RCAR
+=20
+ config CAN_XILINXCAN
+ 	tristate "Xilinx CAN"
+-	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
++	depends on ARCH_ZYNQ || ARM64 || MICROBLAZE || COMPILE_TEST
+ 	depends on COMMON_CLK && HAS_IOMEM
+ 	---help---
+ 	  Xilinx CAN driver. This driver supports both soft AXI CAN IP and
+--=20
+1.8.2.3
