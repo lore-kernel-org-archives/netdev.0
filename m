@@ -1,73 +1,213 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Linux Networking ToDo List
-Date: Sun, 08 Mar 2015 22:53:58 -0700
-Message-ID: <1425880438.1349.38.camel@jtkirshe-mobl>
-References: <1425720460.1349.15.camel@jtkirshe-mobl>
-	 <20150308.225731.820402155809535648.davem@davemloft.net>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v4 2/8] netdevice: add IPv4 fib add/del ops
+Date: Sun, 08 Mar 2015 23:22:27 -0700
+Message-ID: <54FD3C23.2010002@cumulusnetworks.com>
+References: <1425619280-27492-1-git-send-email-sfeldma@gmail.com> <1425619280-27492-3-git-send-email-sfeldma@gmail.com> <54F9BFCB.5030100@mojatatu.com> <CAE4R7bAcfJ8M0eQMdZdS3aDgPVWSQznABZymGq+PU34vJx1suA@mail.gmail.com> <54FC5D56.3090702@cumulusnetworks.com> <CAE4R7bCzV5zG5XPpgDAhO41Ym19W7Jd+97CMcJzOwwxLNOhTzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-hd2ZpxVQKKwedpIWlAu5"
-Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com,
-	alexander.h.duyck@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55060 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750999AbbCIFyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2015 01:54:00 -0400
-In-Reply-To: <20150308.225731.820402155809535648.davem@davemloft.net>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:35849 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751274AbbCIGW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 02:22:29 -0400
+Received: by pdbnh10 with SMTP id nh10so68977089pdb.3
+        for <netdev@vger.kernel.org>; Sun, 08 Mar 2015 23:22:28 -0700 (PDT)
+In-Reply-To: <CAE4R7bCzV5zG5XPpgDAhO41Ym19W7Jd+97CMcJzOwwxLNOhTzA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 3/8/15, 3:16 PM, Scott Feldman wrote:
+> On Sun, Mar 8, 2015 at 7:31 AM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 3/6/15, 11:59 AM, Scott Feldman wrote:
+>>>
+>>> I considered passing netlink flags in to driver, but the kernel logic
+>>> in fib_table_insert() already takes care of the checks required by the
+>>> flags, and from the driver's perspective, only three ops are needed:
+>>> add, del, and mod.  And I've combined add and mod into the same op,
+>>> with the assumption the driver can know if an entry exists or not.
+>>>
+>>> Can it work?
+>>>
+>>> Let's try the various user cmds and see what happens:
+>>>
+>>> ip route add ...             CREATE|EXCL
+>>>
+>>>       if kernel FIB entry exists
+>>>           return -EEXIST to user
+>>>       else
+>>>           call driver add op
+>>>           add kernel FIB entry
+>>>
+>>> ip route change ...        REPLACE
+>>>
+>>>       if kernel FIB entry exists
+>>>           call driver add op             // driver treats this as a mod
+>>>           modify kernel FIB entry
+>>>       else
+>>>           return -ENOENT
+>>>
+>>> ip route replace ...         CREATE|REPLACE
+>>>
+>>>       if kernel FIB entry exists
+>>>            call driver add op             // driver treats this as a mod
+>>>            modify kernel FIB entry
+>>>       else
+>>>           call driver add op
+>>>           add kernel FIB entry
+>>>
+>>> ip route prepend ...        CREATE
+>>>
+>>>       if kernel FIB entry exists
+>>>            call driver add op             // driver treats this as a mod
+>>>            prepend kernel FIB entry
+>>>       else
+>>>           call driver add op
+>>>           add kernel FIB entry
+>>>
+>>> ip route append ...          CREATE|APPEND
+>>>
+>>>       if kernel FIB entry exists
+>>>            call driver add op             // driver treats this as a mod
+>>>            append kernel FIB entry
+>>>       else
+>>>           call driver add op
+>>>           add kernel FIB entry
+>>>
+>>>
+>>> I'm not 100% on the prepend/append cases.  Maybe don't try to offload
+>>> prepend/append cases?
+>> We will have to offload prepend/append cases as well (I had also raised this
+>> earlier in v2).
+> Can you show an working example of prepend/append case where
+> programming hardware would be different than the replace case?
+>
+>
+scott, I don't have an example of kernel vs hw right now. But, since we 
+only want to know if the switch driver can figure out
+the kernel route ordering in case of append vs replace, below kernel 
+append and replace examples
+might help (just pasting it from my notes and may contain unneeded 
+information).
 
---=-hd2ZpxVQKKwedpIWlAu5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Thanks,
+Roopa
 
-On Sun, 2015-03-08 at 22:57 -0400, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sat, 07 Mar 2015 01:27:40 -0800
->=20
-> > I am pretty sure Dave's todo list for Linux networking is here:
-> > http://vger.kernel.org/~davem/net_todo.html
-> >=20
-> > But I also found:
-> > http://www.linuxfoundation.org/collaborate/workgroups/networking/todo#M=
-isc_Optimizations
-> >=20
-> > Either way, both seem to be a little (or alot) out of date, especially
-> > with the recent work from Alex.
->=20
-> Yes, I obviously don't maintain that TODO list any more.
+append:
 
-I was wondering if we need a TODO list any more or if there is a better
-way to capturea TODO/wish list.  From a maintenance perspective, I do
-not think we need a list anymore, unless we decide to capture/write-up a
-TODO list after our Netdev get-together.
+=====
 
-Just a thought...
+#ipv4
 
---=-hd2ZpxVQKKwedpIWlAu5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+ip route show
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+10.0.12.2
 
-iQIcBAABCgAGBQJU/TV2AAoJEOVv75VaS+3OHOIQAIae5pI9nLvitivC1WDs5F4H
-vo2uLIUKMBaPLv9Fwt2zsIL4ZhcdbeDczJwRrbhKa8Gl12qoVRIQjRZa+GKhwYEI
-F2aPQd057xw+6EHuk8bK38OA3QAEWHGdUlgFzsXzCJiPC9WtdXABsgQgUkBgPa4Y
-zlytWz6I7/9/b/lxcPpgqhUExQzDsRcXpXhxkkwo7HY/7a8bSqk/SGWcTmNwOlac
-T4KggOFZIpJBYrx0W8CoBWAFqoKE+YXStBiPGhSj8BMcLzHkCyZCz2LuRc2j5Dzr
-jW6qFhNrztt56sfyI/hgzdh/nzf3G9l9pk/BAfJKrOeLHNTaMheQmtVs8MEdfTOa
-tsHrMl4LVb8uLClK5az/+gqgq+jkhbQsltM5uoFjtF5BUD6Ec8WLFTvQWN+KpEuq
-BxKUm90+07cXmOua++6nV9XzyUQjSfQ5FVMYAmYrUrKjD3O8KshLiBDfwM0u5ZjD
-CVP9gEAxszvHy3aJBHyBidy1ncwjk+3/k+LOTp/Xxj6YJn391GwdF4ITDqxFadMQ
-tTEL2P8bZKA40nQEYi0Hhvbo9zKKIEV2KgL11yidrxnQSGM7frb+5qtqq6JpJ7IC
-+xboPMu1Xu0ZSNWQgk1Tp6ziwcFMDaCJUvMH5+Xm7w4sXa94ca+0CecQxrQ2KVJ1
-BCatYHMN+3ZuxLRp0zoH
-=9sYg
------END PGP SIGNATURE-----
+     nexthop via 10.0.13.2  dev dummy0 weight 1
 
---=-hd2ZpxVQKKwedpIWlAu5--
+     nexthop via 10.0.14.2  dev dummy1 weight 1
+
+
+ip route append 10.0.12.2 nexthop via 10.0.15.2 dev dummy2
+
+
+ip monitor route
+
+10.0.12.2 via 10.0.15.2 dev dummy2
+
+
+# A new route was appended
+
+ip route show
+
+10.0.12.2
+
+     nexthop via 10.0.13.2  dev dummy0 weight 1
+
+     nexthop via 10.0.14.2  dev dummy1 weight 1
+
+10.0.12.2 via 10.0.15.2 dev dummy2
+
+
+#ipv6
+
+
+ip -6 route show
+
+3ffe:304:124:2306::/64 via fe80::b077:f0ff:fe23:5cc7 dev dummy0 metric 1024
+
+3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
+
+
+ip monitor route
+
+3ffe:304:124:2306::/64 via fe80::c26:cdff:feca:18f2 dev dummy2 metric 1024
+
+
+ip -6 route append 3ffe:304:124:2306::/64 nexthop via 
+fe80::c26:cdff:feca:18f2 dev dummy2
+
+
+# A new nexthop was appended to the existing multipath route
+
+ip -6 route show
+
+3ffe:304:124:2306::/64 via fe80::b077:f0ff:fe23:5cc7 dev dummy0 metric 1024
+
+3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
+
+3ffe:304:124:2306::/64 nexthop via fe80::c26:cdff:feca:18f2 dev dummy2
+
+
+replace:
+
+=====
+
+# ip route show
+
+10.0.12.2
+
+     nexthop via 10.0.13.2  dev dummy0 weight 1
+
+     nexthop via 10.0.14.2  dev dummy1 weight 1
+
+#ip route replace 10.0.12.2 nexthop via 10.0.15.2 dev dummy2
+
+#ip monitor route
+
+10.0.12.2 via 10.0.15.2 dev dummy2
+
+# ipv4 route was replaced
+
+ip route show
+
+10.0.12.2 via 10.0.15.2 dev dummy2
+
+#ipv6
+
+ip -6 route show
+
+3ffe:304:124:2306::/64 via fe80::b077:f0ff:fe23:5cc7 dev dummy0 metric 1024
+
+3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
+
+ip -6 route replace 3ffe:304:124:2306::/64 nexthop via 
+fe80::c26:cdff:feca:18f2 dev dummy2
+
+ip monitor route
+
+3ffe:304:124:2306::/64 via fe80::c26:cdff:feca:18f2 dev dummy2 metric 1024
+
+# ipv6 nexthop was replaced
+
+ip -6 route show
+
+3ffe:304:124:2306::/64 via fe80::c26:cdff:feca:18f2 dev dummy2 metric 1024
+
+3ffe:304:124:2306::/64 via fe80::d850:e7ff:fe87:cf6a dev dummy1 metric 1024
