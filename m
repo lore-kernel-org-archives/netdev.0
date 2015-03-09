@@ -1,41 +1,31 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH nf-next 0/8] netfilter: untangle bridge and bridge
- netfilter
-Date: Mon, 09 Mar 2015 15:20:24 -0400 (EDT)
-Message-ID: <20150309.152024.1504931799646487883.davem@redhat.com>
-References: <20150309131356.GB28039@breakpoint.cc>
-	<20150309.131613.2015932954920552655.davem@redhat.com>
-	<20150309173515.GB30297@breakpoint.cc>
+Subject: Re: [PATCH net-next] vlan: avoid a synchronize_net when parent
+ device goes down
+Date: Mon, 09 Mar 2015 15:22:11 -0400 (EDT)
+Message-ID: <20150309.152211.2300226482423280727.davem@redhat.com>
+References: <1425598621-18083-1-git-send-email-noureddine@arista.com>
+	<20150308.222134.544504915277666481.davem@davemloft.net>
+	<CAO7SqHB=1+bQyU4Tt-RTkDYAU5GH_536hVfW1HU3jJz8iTySJQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, azhou@nicira.com
-To: fw@strlen.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150309173515.GB30297@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: noureddine@arista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53389 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752110AbbCITWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2015 15:22:21 -0400
+In-Reply-To: <CAO7SqHB=1+bQyU4Tt-RTkDYAU5GH_536hVfW1HU3jJz8iTySJQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon, 9 Mar 2015 18:35:15 +0100
+From: Salam Noureddine <noureddine@arista.com>
+Date: Mon, 9 Mar 2015 12:00:31 -0700
 
-> David Miller <davem@redhat.com> wrote:
->> > The 2nd (and last half) of the set folds nf_bridge_info into skbuff,
->> > at the end (where its not initialized at allocation time).
->> > 
->> > The struct is a lot smaller by then (16 bytes on 64bit, 12 on 32bit)
->> > so we'd increase skbuff size only by 8.
->> 
->> Sorry, increases in size of any kind of sk_buff are strongly discouraged.
-> 
-> No need to be sorry, its not a show-stopper.
-> Its the last patch in the series and nothing depends on this change.
-> 
->> Especially for something like nfbridge.
-> 
-> Its not initialized, ever, if bridge is not used, so it shouldn't be a big
-> deal.
+> Thanks for pointing to the right direction. Is there a reason the vlan
+> driver was calling
+> dev_change_flags instead of dev_close to close the vlan device?
 
-It's about the overall size of the structure, not whether the member is
-ever used or not.
+Perhaps dev_close() was not exported at the time the code was written,
+I honestly have no idea.
