@@ -1,39 +1,52 @@
-From: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>
-Subject: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken. In 4.0.0-rc3
-Date: Mon, 09 Mar 2015 22:50:28 +0300
-Message-ID: <390621425930628@web28o.yandex.ru>
+From: David Miller <davem@redhat.com>
+Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+ 2015-03-09
+Date: Mon, 09 Mar 2015 16:05:10 -0400 (EDT)
+Message-ID: <20150309.160510.1331119766701559402.davem@redhat.com>
+References: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Nimrod Andy <b38611@freescale.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward2o.mail.yandex.net ([37.140.190.31]:60914 "EHLO
-	forward2o.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbbCIUAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 16:00:42 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:50157 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751490AbbCIUFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2015 16:05:14 -0400
+In-Reply-To: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon,  9 Mar 2015 10:55:33 -0700
 
-Commit 2b995f63987013bacde99168218f9c7b252bdcf1 in 4.0.0-rc3 introduces=
- a nasty bug in transmit, corrupting packets.
+> This series contains updates to i40e and i40evf.
+> 
+> Greg cleans up some "hello world" strings which were left around from
+> early development.
+> 
+> Shannon modifies the drive to make sure the sizeof() calls are taking
+> the size of the actual struct that we care about.  Also updates the
+> NVMUpdate read/write so that it is less noisy when logging.  This was
+> because the NVMUpdate tool does not necessarily know the ReadOnly map of
+> the current NVM image, and must try reading and writing words that may be
+> protected.  This generates an error out of the Firmware request that the
+> driver logs.  Unfortunately, this ended up spitting out hundreds of
+> bogus read/write error messages.  If a user wants the noisy logging,
+> the change can be overridden by enabling the NVM update debugging.
+> 
+> Mitch fixes a possible deadlock issue where if a reset occurred when the
+> netdev is closed, the reset task will hang in napi_disable.  Added
+> ethtool RSS support as suggested by Ben Hutchings.
+> 
+> Jesse fixes a bug introduced in the force writeback code, where the
+> interrupt rate was set to 0 (maximum) by accident.  The driver must
+> correctly set the NOITR fields to avoid IT update as a side effect
+> of triggering the software interrupt.
+> 
+> I provided a simple cleanup to make the use of PF/VF consistent, which
+> was reported by Joe Perches.
 
-To reproduce:
-
-$ dd if=3D/dev/zero of=3Dzeros bs=3D1M count=3D20
-$ md5sum -b zeros
-8f4e33f3dc3e414ff94e5fb6905cba8c *zeros
-
-This checksum is correct.
-
-Copy file "zeros" to another host with NFS, and it gets corrupted, chec=
-ksum is changed.
-=46ile should be big, small amounts of transmit isn't affected.
-
-I use an i.MX6 Quad board.
-
-If this commit is reverted, all works fine.
-
---
- =E1=CE=C4=D2=C5=CA
+Pulled, thanks Jeff.
