@@ -1,7 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/2] net: dsa: remove restriction on platform_device
-Date: Mon,  9 Mar 2015 12:02:28 -0700
-Message-ID: <1425927750-23901-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/2] net: dsa: utilize of_find_net_device_by_node
+Date: Mon,  9 Mar 2015 12:02:30 -0700
+Message-ID: <1425927750-23901-3-git-send-email-f.fainelli@gmail.com>
+References: <1425927750-23901-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
 	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
@@ -10,38 +11,101 @@ Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Chris.Packham@alliedtelesis.co.nz
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:36995 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110AbbCITDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 15:03:17 -0400
-Received: by pdbnh10 with SMTP id nh10so71070976pdb.4
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 12:03:16 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:44434 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752803AbbCITDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 15:03:19 -0400
+Received: by padet14 with SMTP id et14so50826136pad.11
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 12:03:19 -0700 (PDT)
+In-Reply-To: <1425927750-23901-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Using of_find_device_by_node() restricts the search to platform_device that
+match the specified device_node pointer. This is not even remotely true for
+network devices backed by a pci_device for instance.
 
-This patch series removes the restriction in DSA to operate exclusively with
-platform_device Ethernet MAC drivers when using Device Tree. This basically
-allows arbitrary Ethernet MAC drivers to be used now in conjunction with
-Device Tree.
+of_find_net_device_by_node() allows us to do a more thorough lookup to find the
+struct net_device corresponding to a particular device_node pointer.
 
-The reason was that DSA was using a of_find_device_by_node() which limits
-the device_node to device pointer search exclusively to platform_device,
-in our case, we are interested in doing a "class" research and lookup the
-net_device.
+For symetry with the non-OF code path, we hold the net_device pointer in
+dsa_probe() just like what dev_to_net_dev() does when we call this
+function.
 
-Thanks to Chris Packham for testing this on his platform.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/net/dsa.h |  1 +
+ net/dsa/dsa.c     | 16 +++++++++++-----
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-Florian Fainelli (2):
-  net: core: add of_find_net_device_by_node()
-  net: dsa: utilize of_find_net_device_by_node
-
- include/linux/of_net.h |  8 ++++++++
- include/net/dsa.h      |  1 +
- net/core/net-sysfs.c   | 25 +++++++++++++++++++++++++
- net/dsa/dsa.c          | 16 +++++++++++-----
- 4 files changed, 45 insertions(+), 5 deletions(-)
-
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b525ac516559..47917e5e1e12 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -72,6 +72,7 @@ struct dsa_platform_data {
+ 	 * to the root switch chip of the tree.
+ 	 */
+ 	struct device	*netdev;
++	struct net_device *of_netdev;
+ 
+ 	/*
+ 	 * Info structs describing each of the switch chips
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index b40f11bb419c..899772108ee3 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -20,6 +20,7 @@
+ #include <linux/of.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_platform.h>
++#include <linux/of_net.h>
+ #include <linux/sysfs.h>
+ #include "dsa_priv.h"
+ 
+@@ -583,7 +584,7 @@ static int dsa_of_probe(struct device *dev)
+ 	struct device_node *np = dev->of_node;
+ 	struct device_node *child, *mdio, *ethernet, *port, *link;
+ 	struct mii_bus *mdio_bus;
+-	struct platform_device *ethernet_dev;
++	struct net_device *ethernet_dev;
+ 	struct dsa_platform_data *pd;
+ 	struct dsa_chip_data *cd;
+ 	const char *port_name;
+@@ -604,7 +605,7 @@ static int dsa_of_probe(struct device *dev)
+ 	if (!ethernet)
+ 		return -EINVAL;
+ 
+-	ethernet_dev = of_find_device_by_node(ethernet);
++	ethernet_dev = of_find_net_device_by_node(ethernet);
+ 	if (!ethernet_dev)
+ 		return -EPROBE_DEFER;
+ 
+@@ -613,7 +614,7 @@ static int dsa_of_probe(struct device *dev)
+ 		return -ENOMEM;
+ 
+ 	dev->platform_data = pd;
+-	pd->netdev = &ethernet_dev->dev;
++	pd->of_netdev = ethernet_dev;
+ 	pd->nr_chips = of_get_available_child_count(np);
+ 	if (pd->nr_chips > DSA_MAX_SWITCHES)
+ 		pd->nr_chips = DSA_MAX_SWITCHES;
+@@ -771,10 +772,15 @@ static int dsa_probe(struct platform_device *pdev)
+ 		pd = pdev->dev.platform_data;
+ 	}
+ 
+-	if (pd == NULL || pd->netdev == NULL)
++	if (pd == NULL || (pd->netdev == NULL && pd->of_netdev == NULL))
+ 		return -EINVAL;
+ 
+-	dev = dev_to_net_device(pd->netdev);
++	if (pd->of_netdev) {
++		dev = pd->of_netdev;
++		dev_hold(dev);
++	} else {
++		dev = dev_to_net_device(pd->netdev);
++	}
+ 	if (dev == NULL) {
+ 		ret = -EPROBE_DEFER;
+ 		goto out;
 -- 
 2.1.0
