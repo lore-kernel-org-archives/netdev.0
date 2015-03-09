@@ -1,218 +1,337 @@
-From: David Miller <davem@redhat.com>
-Subject: [GIT] Networking
-Date: Mon, 09 Mar 2015 16:30:36 -0400 (EDT)
-Message-ID: <20150309.163036.1533634633370431754.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next] net: bcmgenet: core changes for supporting multiple Rx queues
+Date: Mon,  9 Mar 2015 13:40:00 -0700 (PDT)
+Message-ID: <20150309204001.215FB2214B7@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:33530 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407AbbCIUkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 16:40:03 -0400
+Received: by iecrp18 with SMTP id rp18so7243147iec.0
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 13:40:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+1. Add struct bcmgenet_rx_ring to hold all necessary information
+   for a single Rx queue.
+2. Add bcmgenet_init_rx_queues() to initialize all Rx queues.
+3. Modify bcmgenet_init_rx_ring() to initialize a single Rx queue.
+4. Modify Rx interrupt path code to use per-queue data.
+5. Modify bcmgenet_rx_refill() to use RxCB->bd_addr.
 
-1) nft_compat accidently truncates ethernet protocol to 8-bits, from
-   Arturo Borrero.
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 156 +++++++++++++++++--------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  16 ++-
+ 2 files changed, 119 insertions(+), 53 deletions(-)
 
-2) Memory leak in ip_vs_proc_conn(), from Julian Anastasov.
-
-3) Don't allow the space required for nftables rules to exceed the
-   maximum value representable in the dlen field.  From Patrick
-   McHardy.
-
-4) bcm63xx_enet can accidently leave interrupts permanently disabled
-   due to errors in the NAPI polling exit logic.  Fix from
-   Nicolas Schichan.
-
-5) Fix OOPSes triggerable by the ping protocol module, due to missing
-   address family validations etc.  From Lorenzo Colitti.
-
-6) Don't use RCU locking in sleepable context in team driver, from
-   Jiri Pirko.
-
-7) xen-netback miscalculates statistic offset pointers when reporting
-   the stats to userspace.  From David Vrabel.
-
-8) Fix a leak of up to 256 pages per VIF destroy in xen-netaback,
-   also from David Vrabel.
-
-9) ip_check_defrag() cannot assume that skb_network_offset(),
-   particularly when it is used by the AF_PACKET fanout defrag code.
-   From Alexander Drozdov.
-
-10) gianfar driver doesn't query OF node names properly when trying to
-    determine the number of hw queues available.  Fix it to explicitly
-    check for OF nodes named queue-group.  From Tobias Waldekranz.
-
-11) MID field in macb driver should be 12 bits, not 16.  From Punnaiah
-    Choudary Kalluri.
-
-12) Fix unintentional regression in traceroute due to timestamp socket
-    option changes.  Empty ICMP payloads should be allowed in
-    non-timestamp cases.  From Willem de Bruijn.
-
-13) When devices are unregistered, we have to get rid of AF_PACKET
-    multicast list entries that point to it via ifindex.  Fix from
-    Francesco Ruggeri.
-
-Please pull, thanks a lot!
-
-The following changes since commit 6587457b4b3d663b237a0f95ddf6e67d1828c8ea:
-
-  Merge tag 'dma-buf-for-4.0-rc3' of git://git.kernel.org/pub/scm/linux/kernel/git/sumits/dma-buf (2015-03-04 09:59:51 -0800)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to e6441bae326271090755e1707196ad05aa1dc703:
-
-  tipc: fix bug in link failover handling (2015-03-09 16:20:41 -0400)
-
-----------------------------------------------------------------
-Ahmed S. Darwish (2):
-      can: kvaser_usb: Avoid double free on URB submission failures
-      can: kvaser_usb: Read all messages in a bulk-in URB buffer
-
-Alexander Drozdov (1):
-      ipv4: ip_check_defrag should not assume that skb_network_offset is zero
-
-Alexey Brodkin (1):
-      stmmac: check IRQ availability early on probe
-
-Arnd Bergmann (1):
-      ARM: fix typos in smc91x platform data
-
-Arturo Borrero (1):
-      netfilter: nft_compat: don't truncate ethernet protocol type to u8
-
-Brian King (1):
-      bnx2x: Force fundamental reset for EEH recovery
-
-David S. Miller (4):
-      Merge branch 'xgene'
-      Merge branch 'xen-netback'
-      Merge git://git.kernel.org/.../pablo/nf
-      Merge tag 'linux-can-fixes-for-4.0-20150309' of git://git.kernel.org/.../mkl/linux-can
-
-David Vrabel (3):
-      xen-netback: return correct ethtool stats
-      xen-netback: unref frags when handling a from-guest skb with a frag list
-      xen-netback: refactor xenvif_handle_frag_list()
-
-Eric Dumazet (1):
-      tcp: align tcp_xmit_size_goal() on tcp_tso_autosize()
-
-Florian Fainelli (1):
-      net: bcmgenet: properly disable password matching
-
-Francesco Ruggeri (1):
-      net: delete stale packet_mclist entries
-
-Fugang Duan (1):
-      net: fec: fix rcv is not last issue when do suspend/resume test
-
-Iyappan Subramanian (3):
-      Documentation: dts: Update compatible field description for APM X-Gene
-      dtb: change binding name to match with newer firmware DT
-      drivers: net: xgene: fix new firmware backward compatibility with older driver
-
-Jiri Pirko (1):
-      team: don't traverse port list using rcu in team_set_mac_address
-
-Jon Paul Maloy (1):
-      tipc: fix bug in link failover handling
-
-Josh Cartwright (1):
-      net: macb: constify macb configuration data
-
-Julian Anastasov (1):
-      ipvs: add missing ip_vs_pe_put in sync code
-
-Lorenzo Colitti (1):
-      net: ping: Return EAFNOSUPPORT when appropriate.
-
-Marc Kleine-Budde (2):
-      MAINTAINERS: linux-can moved to github
-      MAINTAINERS: add Marc Kleine-Budde as co maintainer for CAN networking layer
-
-Mark Salter (1):
-      net: eth: xgene: fix booting with devicetree
-
-Nicolas Schichan (1):
-      bcm63xx_enet: fix poll callback.
-
-Oliver Hartkopp (1):
-      can: add missing initialisations in CAN related skbuffs
-
-Pablo Neira Ayuso (3):
-      netfilter: nf_tables: fix addition/deletion of elements from commit/abort
-      Merge https://git.kernel.org/.../horms/ipvs
-      netfilter: nf_tables: fix error handling of rule replacement
-
-Patrick McHardy (3):
-      netfilter: nf_tables: fix transaction race condition
-      netfilter: nf_tables: check for overflow of rule dlen field
-      netfilter: nf_tables: fix userdata length overflow
-
-Peter Senna Tschudin (1):
-      bgmac: Clean warning messages
-
-Punnaiah Choudary Kalluri (1):
-      net: macb: Correct the MID field length value
-
-Stefan Agner (1):
-      net: fec: fix unbalanced clk disable on driver unbind
-
-Stephane Grosjean (1):
-      can: peak_usb: fix missing ctrlmode_ init for every dev
-
-Tobias Waldekranz (1):
-      net: gianfar: correctly determine the number of queue groups
-
-Willem de Bruijn (1):
-      ip: fix error queue empty skb handling
-
- Documentation/devicetree/bindings/net/apm-xgene-enet.txt |  5 ++++-
- MAINTAINERS                                              |  5 +++--
- arch/arm/mach-pxa/idp.c                                  |  1 +
- arch/arm/mach-pxa/lpd270.c                               |  2 +-
- arch/arm/mach-sa1100/neponset.c                          |  4 ++--
- arch/arm/mach-sa1100/pleb.c                              |  2 +-
- arch/arm64/boot/dts/apm/apm-storm.dtsi                   |  4 ++--
- drivers/net/can/dev.c                                    |  8 ++++++++
- drivers/net/can/usb/kvaser_usb.c                         | 48 +++++++++++++++++++++++++++++++-----------------
- drivers/net/can/usb/peak_usb/pcan_usb_fd.c               |  4 ++++
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c           |  2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c         |  4 ++++
- drivers/net/ethernet/broadcom/bcm63xx_enet.c             |  8 ++++----
- drivers/net/ethernet/broadcom/bgmac.c                    |  7 -------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c         |  3 +++
- drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c       |  6 ++++--
- drivers/net/ethernet/cadence/macb.c                      |  8 ++++----
- drivers/net/ethernet/cadence/macb.h                      |  2 +-
- drivers/net/ethernet/freescale/fec_main.c                |  3 +--
- drivers/net/ethernet/freescale/gianfar.c                 | 19 +++++++++++++++++--
- drivers/net/ethernet/smsc/smc91x.c                       |  1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c    | 65 ++++++++++++++++++++++++++++++++++++-----------------------------
- drivers/net/team/team.c                                  |  6 +++---
- drivers/net/xen-netback/interface.c                      |  3 +--
- drivers/net/xen-netback/netback.c                        | 22 ++++++++++++----------
- include/net/netfilter/nf_tables.h                        | 22 +++++++++++++++++++---
- net/can/af_can.c                                         |  3 +++
- net/ipv4/ip_fragment.c                                   | 11 +++++++----
- net/ipv4/ip_sockglue.c                                   | 33 +++++++++++++++++++++++----------
- net/ipv4/ping.c                                          | 12 ++++++++++--
- net/ipv4/tcp.c                                           | 10 +++-------
- net/ipv6/datagram.c                                      | 39 ++++++++++++++++++++++++++++-----------
- net/ipv6/ping.c                                          |  5 +++--
- net/netfilter/ipvs/ip_vs_sync.c                          |  3 +++
- net/netfilter/nf_tables_api.c                            | 61 ++++++++++++++++++++++++++++++++++++-------------------------
- net/netfilter/nft_compat.c                               | 14 +++++++-------
- net/packet/af_packet.c                                   | 22 ++++++++++++++--------
- net/rxrpc/ar-error.c                                     |  4 ++--
- net/tipc/link.c                                          |  7 ++++---
- 39 files changed, 311 insertions(+), 177 deletions(-)
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 83c0cb3..275be56 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1363,16 +1363,7 @@ static int bcmgenet_rx_refill(struct bcmgenet_priv *priv, struct enet_cb *cb)
+ 	}
+ 
+ 	dma_unmap_addr_set(cb, dma_addr, mapping);
+-	/* assign packet, prepare descriptor, and advance pointer */
+-
+-	dmadesc_set_addr(priv, priv->rx_bd_assign_ptr, mapping);
+-
+-	/* turn on the newly assigned BD for DMA to use */
+-	priv->rx_bd_assign_index++;
+-	priv->rx_bd_assign_index &= (priv->num_rx_bds - 1);
+-
+-	priv->rx_bd_assign_ptr = priv->rx_bds +
+-		(priv->rx_bd_assign_index * DMA_DESC_SIZE);
++	dmadesc_set_addr(priv, cb->bd_addr, mapping);
+ 
+ 	return 0;
+ }
+@@ -1381,8 +1372,10 @@ static int bcmgenet_rx_refill(struct bcmgenet_priv *priv, struct enet_cb *cb)
+  * this could be called from bottom half, or from NAPI polling method.
+  */
+ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
++				     unsigned int index,
+ 				     unsigned int budget)
+ {
++	struct bcmgenet_rx_ring *ring = &priv->rx_rings[index];
+ 	struct net_device *dev = priv->dev;
+ 	struct enet_cb *cb;
+ 	struct sk_buff *skb;
+@@ -1393,21 +1386,21 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+ 	unsigned int p_index;
+ 	unsigned int chksum_ok = 0;
+ 
+-	p_index = bcmgenet_rdma_ring_readl(priv, DESC_INDEX, RDMA_PROD_INDEX);
++	p_index = bcmgenet_rdma_ring_readl(priv, index, RDMA_PROD_INDEX);
+ 	p_index &= DMA_P_INDEX_MASK;
+ 
+-	if (p_index < priv->rx_c_index)
+-		rxpkttoprocess = (DMA_C_INDEX_MASK + 1) -
+-			priv->rx_c_index + p_index;
++	if (likely(p_index >= ring->c_index))
++		rxpkttoprocess = p_index - ring->c_index;
+ 	else
+-		rxpkttoprocess = p_index - priv->rx_c_index;
++		rxpkttoprocess = (DMA_C_INDEX_MASK + 1) - ring->c_index +
++				 p_index;
+ 
+ 	netif_dbg(priv, rx_status, dev,
+ 		  "RDMA: rxpkttoprocess=%d\n", rxpkttoprocess);
+ 
+ 	while ((rxpktprocessed < rxpkttoprocess) &&
+ 	       (rxpktprocessed < budget)) {
+-		cb = &priv->rx_cbs[priv->rx_read_ptr];
++		cb = &priv->rx_cbs[ring->read_ptr];
+ 		skb = cb->skb;
+ 
+ 		/* We do not have a backing SKB, so we do not have a
+@@ -1430,10 +1423,7 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+ 
+ 		if (!priv->desc_64b_en) {
+ 			dma_length_status =
+-				dmadesc_get_length_status(priv,
+-							  priv->rx_bds +
+-							  (priv->rx_read_ptr *
+-							   DMA_DESC_SIZE));
++				dmadesc_get_length_status(priv, cb->bd_addr);
+ 		} else {
+ 			struct status_64 *status;
+ 
+@@ -1449,8 +1439,8 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+ 
+ 		netif_dbg(priv, rx_status, dev,
+ 			  "%s:p_ind=%d c_ind=%d read_ptr=%d len_stat=0x%08x\n",
+-			  __func__, p_index, priv->rx_c_index,
+-			  priv->rx_read_ptr, dma_length_status);
++			  __func__, p_index, ring->c_index,
++			  ring->read_ptr, dma_length_status);
+ 
+ 		if (unlikely(!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP))) {
+ 			netif_err(priv, rx_status, dev,
+@@ -1528,25 +1518,31 @@ refill:
+ 		}
+ 
+ 		rxpktprocessed++;
+-		priv->rx_read_ptr++;
+-		priv->rx_read_ptr &= (priv->num_rx_bds - 1);
++		if (likely(ring->read_ptr < ring->end_ptr))
++			ring->read_ptr++;
++		else
++			ring->read_ptr = ring->cb_ptr;
++
++		ring->c_index = (ring->c_index + 1) & DMA_C_INDEX_MASK;
++		bcmgenet_rdma_ring_writel(priv, index, ring->c_index, RDMA_CONS_INDEX);
+ 	}
+ 
+ 	return rxpktprocessed;
+ }
+ 
+ /* Assign skb to RX DMA descriptor. */
+-static int bcmgenet_alloc_rx_buffers(struct bcmgenet_priv *priv)
++static int bcmgenet_alloc_rx_buffers(struct bcmgenet_priv *priv,
++				     struct bcmgenet_rx_ring *ring)
+ {
+ 	struct enet_cb *cb;
+ 	int ret = 0;
+ 	int i;
+ 
+-	netif_dbg(priv, hw, priv->dev, "%s:\n", __func__);
++	netif_dbg(priv, hw, priv->dev, "%s\n", __func__);
+ 
+ 	/* loop here for each buffer needing assign */
+-	for (i = 0; i < priv->num_rx_bds; i++) {
+-		cb = &priv->rx_cbs[priv->rx_bd_assign_index];
++	for (i = 0; i < ring->size; i++) {
++		cb = ring->cbs + i;
+ 		if (cb->skb)
+ 			continue;
+ 
+@@ -1778,20 +1774,24 @@ static void bcmgenet_fini_tx_ring(struct bcmgenet_priv *priv,
+ 
+ /* Initialize a RDMA ring */
+ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
+-				 unsigned int index, unsigned int size)
++				 unsigned int index, unsigned int size,
++				 unsigned int start_ptr, unsigned int end_ptr)
+ {
++	struct bcmgenet_rx_ring *ring = &priv->rx_rings[index];
+ 	u32 words_per_bd = WORDS_PER_BD(priv);
+ 	int ret;
+ 
+-	priv->rx_bd_assign_ptr = priv->rx_bds;
+-	priv->rx_bd_assign_index = 0;
+-	priv->rx_c_index = 0;
+-	priv->rx_read_ptr = 0;
++	ring->index = index;
++	ring->cbs = priv->rx_cbs + start_ptr;
++	ring->size = size;
++	ring->c_index = 0;
++	ring->read_ptr = start_ptr;
++	ring->cb_ptr = start_ptr;
++	ring->end_ptr = end_ptr - 1;
+ 
+-	ret = bcmgenet_alloc_rx_buffers(priv);
+-	if (ret) {
++	ret = bcmgenet_alloc_rx_buffers(priv, ring);
++	if (ret)
+ 		return ret;
+-	}
+ 
+ 	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_PROD_INDEX);
+ 	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_CONS_INDEX);
+@@ -1805,10 +1805,13 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
+ 				   DMA_FC_THRESH_HI, RDMA_XON_XOFF_THRESH);
+ 
+ 	/* Set start and end address, read and write pointers */
+-	bcmgenet_rdma_ring_writel(priv, index, 0, DMA_START_ADDR);
+-	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_READ_PTR);
+-	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_WRITE_PTR);
+-	bcmgenet_rdma_ring_writel(priv, index, words_per_bd * size - 1,
++	bcmgenet_rdma_ring_writel(priv, index, start_ptr * words_per_bd,
++				  DMA_START_ADDR);
++	bcmgenet_rdma_ring_writel(priv, index, start_ptr * words_per_bd,
++				  RDMA_READ_PTR);
++	bcmgenet_rdma_ring_writel(priv, index, start_ptr * words_per_bd,
++				  RDMA_WRITE_PTR);
++	bcmgenet_rdma_ring_writel(priv, index, end_ptr * words_per_bd - 1,
+ 				  DMA_END_ADDR);
+ 
+ 	return ret;
+@@ -1883,6 +1886,66 @@ static void bcmgenet_init_tx_queues(struct net_device *dev)
+ 	bcmgenet_tdma_writel(priv, dma_ctrl, DMA_CTRL);
+ }
+ 
++/* Initialize Rx queues
++ *
++ * Queues 0-15 are priority queues. Hardware Filtering Block (HFB) can be
++ * used to direct traffic to these queues.
++ *
++ * Queue 16 is the default Rx queue with GENET_Q16_RX_BD_CNT descriptors.
++ */
++static int bcmgenet_init_rx_queues(struct net_device *dev)
++{
++	struct bcmgenet_priv *priv = netdev_priv(dev);
++	u32 i;
++	u32 dma_enable;
++	u32 dma_ctrl;
++	u32 ring_cfg;
++	int ret;
++
++	dma_ctrl = bcmgenet_rdma_readl(priv, DMA_CTRL);
++	dma_enable = dma_ctrl & DMA_EN;
++	dma_ctrl &= ~DMA_EN;
++	bcmgenet_rdma_writel(priv, dma_ctrl, DMA_CTRL);
++
++	dma_ctrl = 0;
++	ring_cfg = 0;
++
++	/* Initialize Rx priority queues */
++	for (i = 0; i < priv->hw_params->rx_queues; i++) {
++		ret = bcmgenet_init_rx_ring(priv, i,
++					    priv->hw_params->rx_bds_per_q,
++					    i * priv->hw_params->rx_bds_per_q,
++					    (i + 1) *
++					    priv->hw_params->rx_bds_per_q);
++		if (ret)
++			return ret;
++
++		ring_cfg |= (1 << i);
++		dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
++	}
++
++	/* Initialize Rx default queue 16 */
++	ret = bcmgenet_init_rx_ring(priv, DESC_INDEX, GENET_Q16_RX_BD_CNT,
++				    priv->hw_params->rx_queues *
++				    priv->hw_params->rx_bds_per_q,
++				    TOTAL_DESC);
++	if (ret)
++		return ret;
++
++	ring_cfg |= (1 << DESC_INDEX);
++	dma_ctrl |= (1 << (DESC_INDEX + DMA_RING_BUF_EN_SHIFT));
++
++	/* Enable rings */
++	bcmgenet_rdma_writel(priv, ring_cfg, DMA_RING_CFG);
++
++	/* Configure ring as descriptor ring and re-enable DMA if enabled */
++	if (dma_enable)
++		dma_ctrl |= DMA_EN;
++	bcmgenet_rdma_writel(priv, dma_ctrl, DMA_CTRL);
++
++	return 0;
++}
++
+ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
+ {
+ 	int ret = 0;
+@@ -1990,10 +2053,10 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
+ 		cb->bd_addr = priv->rx_bds + i * DMA_DESC_SIZE;
+ 	}
+ 
+-	/* Initialize Rx default queue 16 */
+-	ret = bcmgenet_init_rx_ring(priv, DESC_INDEX, TOTAL_DESC);
++	/* Initialize Rx queues */
++	ret = bcmgenet_init_rx_queues(priv->dev);
+ 	if (ret) {
+-		netdev_err(priv->dev, "failed to initialize RX ring\n");
++		netdev_err(priv->dev, "failed to initialize Rx queues\n");
+ 		bcmgenet_free_rx_buffers(priv);
+ 		kfree(priv->rx_cbs);
+ 		return ret;
+@@ -2030,13 +2093,8 @@ static int bcmgenet_poll(struct napi_struct *napi, int budget)
+ 			struct bcmgenet_priv, napi);
+ 	unsigned int work_done;
+ 
+-	work_done = bcmgenet_desc_rx(priv, budget);
++	work_done = bcmgenet_desc_rx(priv, DESC_INDEX, budget);
+ 
+-	/* Advancing our consumer index*/
+-	priv->rx_c_index += work_done;
+-	priv->rx_c_index &= DMA_C_INDEX_MASK;
+-	bcmgenet_rdma_ring_writel(priv, DESC_INDEX,
+-				  priv->rx_c_index, RDMA_CONS_INDEX);
+ 	if (work_done < budget) {
+ 		napi_complete(napi);
+ 		bcmgenet_intrl2_0_writel(priv, UMAC_IRQ_RXDMA_BDONE,
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 5684e85..17443db 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -540,6 +540,16 @@ struct bcmgenet_tx_ring {
+ 	struct bcmgenet_priv *priv;
+ };
+ 
++struct bcmgenet_rx_ring {
++	unsigned int	index;		/* Rx ring index */
++	struct enet_cb	*cbs;		/* Rx ring buffer control block */
++	unsigned int	size;		/* Rx ring size */
++	unsigned int	c_index;	/* Rx last consumer index */
++	unsigned int	read_ptr;	/* Rx ring read pointer */
++	unsigned int	cb_ptr;		/* Rx ring initial CB ptr */
++	unsigned int	end_ptr;	/* Rx ring end CB ptr */
++};
++
+ /* device context */
+ struct bcmgenet_priv {
+ 	void __iomem *base;
+@@ -560,13 +570,11 @@ struct bcmgenet_priv {
+ 
+ 	/* receive variables */
+ 	void __iomem *rx_bds;
+-	void __iomem *rx_bd_assign_ptr;
+-	int rx_bd_assign_index;
+ 	struct enet_cb *rx_cbs;
+ 	unsigned int num_rx_bds;
+ 	unsigned int rx_buf_len;
+-	unsigned int rx_read_ptr;
+-	unsigned int rx_c_index;
++
++	struct bcmgenet_rx_ring rx_rings[DESC_INDEX + 1];
+ 
+ 	/* other misc variables */
+ 	struct bcmgenet_hw_params *hw_params;
+-- 
+2.2.0.rc0.207.ga3a616c
