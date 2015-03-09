@@ -1,79 +1,48 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/6] can: add missing initialisations in CAN related skbuffs
-Date: Mon,  9 Mar 2015 10:36:16 +0100
-Message-ID: <1425893781-10867-2-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/6] can: peak_usb: fix missing ctrlmode_ init for every dev
+Date: Mon,  9 Mar 2015 10:36:17 +0100
+Message-ID: <1425893781-10867-3-git-send-email-mkl@pengutronix.de>
 References: <1425893781-10867-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
-	linux-stable <stable@vger.kernel.org>,
+	kernel@pengutronix.de,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50309 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50322 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736AbbCIJgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:36:32 -0400
+	with ESMTP id S1754074AbbCIJgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:36:40 -0400
 In-Reply-To: <1425893781-10867-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Stephane Grosjean <s.grosjean@peak-system.com>
 
-When accessing CAN network interfaces with AF_PACKET sockets e.g. by dhclient
-this can lead to a skb_under_panic due to missing skb initialisations.
+Fixes a missing initialization of ctrlmode and ctrlmode_supported fields,
+for all other CAN devices than the first one. This fix only concerns
+the PCAN-USB Pro FD dual-channels CAN-FD device made by PEAK-System.
 
-Add the missing initialisations at the CAN skbuff creation times on driver
-level (rx path) and in the network layer (tx path).
-
-Reported-by: Austin Schuh <austin@peloton-tech.com>
-Reported-by: Daniel Steer <daniel.steer@mclaren.com>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/dev.c | 8 ++++++++
- net/can/af_can.c      | 3 +++
- 2 files changed, 11 insertions(+)
+ drivers/net/can/usb/peak_usb/pcan_usb_fd.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 3c82e02e3dae..b0f69248cb71 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -579,6 +579,10 @@ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf)
- 	skb->pkt_type = PACKET_BROADCAST;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_fd.c b/drivers/net/can/usb/peak_usb/pcan_usb_fd.c
+index 962c3f027383..0bac0f14edc3 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_fd.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_fd.c
+@@ -879,6 +879,10 @@ static int pcan_usb_fd_init(struct peak_usb_device *dev)
  
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
+ 		pdev->usb_if = ppdev->usb_if;
+ 		pdev->cmd_buffer_addr = ppdev->cmd_buffer_addr;
 +
- 	can_skb_reserve(skb);
- 	can_skb_prv(skb)->ifindex = dev->ifindex;
- 
-@@ -603,6 +607,10 @@ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
- 	skb->pkt_type = PACKET_BROADCAST;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+
- 	can_skb_reserve(skb);
- 	can_skb_prv(skb)->ifindex = dev->ifindex;
- 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 66e08040ced7..32d710eaf1fc 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -259,6 +259,9 @@ int can_send(struct sk_buff *skb, int loop)
- 		goto inval_skb;
++		/* do a copy of the ctrlmode[_supported] too */
++		dev->can.ctrlmode = ppdev->dev.can.ctrlmode;
++		dev->can.ctrlmode_supported = ppdev->dev.can.ctrlmode_supported;
  	}
  
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	skb_reset_mac_header(skb);
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
- 
+ 	pdev->usb_if->dev[dev->ctrl_idx] = dev;
 -- 
 2.1.4
