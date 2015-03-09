@@ -1,45 +1,65 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: Add Ying Xue to TIPC maintainers list
-Date: Mon,  9 Mar 2015 14:44:13 -0400
-Message-ID: <1425926653-29372-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 6/6] tcp_metrics: Use a single hash table for
+ all network namespaces.
+Date: Mon, 09 Mar 2015 11:47:08 -0700
+Message-ID: <1425926828.8261.7.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	 <CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	 <87d25hrv9m.fsf@x220.int.ebiederm.org>
+	 <20150219.144929.1003473344851168804.davem@davemloft.net>
+	 <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
+	 <8761aayqdd.fsf_-_@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	netdev@vger.kernel.org, stephen@networkplumber.org,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
+	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
+	dsahern@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:26481 "EHLO
-	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753582AbbCISoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:44:18 -0400
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:43370 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbbCISrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:47:11 -0400
+Received: by iecrp18 with SMTP id rp18so37987216iec.10
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 11:47:10 -0700 (PDT)
+In-Reply-To: <8761aayqdd.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We remove Allan Stephens, who has moved on to other tasks, from
-the TIPC maintainers list. He is replaced by Ying Xue, who has
-been doing the maintenance on behalf of WindRiver since almost
-three years.
+On Mon, 2015-03-09 at 13:31 -0500, Eric W. Biederman wrote:
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> @@ -1167,17 +1173,22 @@ static void __net_exit tcp_net_metrics_exit(struct net *net)
+>  {
+>  	unsigned int i;
+>  
+> -	for (i = 0; i < (1U << net->ipv4.tcp_metrics_hash_log) ; i++) {
+> +	if (net != &init_net) {
+> +		tcp_metrics_flush_all(net);
+> +		return;
+> +	}
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index a6ae6eb..8942536 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -9800,7 +9800,7 @@ F:	include/linux/wl12xx.h
- 
- TIPC NETWORK LAYER
- M:	Jon Maloy <jon.maloy@ericsson.com>
--M:	Allan Stephens <allan.stephens@windriver.com>
-+M:	Ying Xue <ying.xue@windriver.com>
- L:	netdev@vger.kernel.org (core kernel code)
- L:	tipc-discussion@lists.sourceforge.net (user apps, general discussion)
- W:	http://tipc.sourceforge.net/
--- 
-1.9.1
+Note this _very_ unlikely (read: not possible) that
+tcp_net_metrics_exit() will ever be called on init_net
+
+So I would remove all this code.
+
+> +
+> +	for (i = 0; i < (1U << tcp_metrics_hash_log) ; i++) {
+>  		struct tcp_metrics_block *tm, *next;
+>  
+> -		tm = rcu_dereference_protected(net->ipv4.tcp_metrics_hash[i].chain, 1);
+> +		tm = rcu_dereference_protected(tcp_metrics_hash[i].chain, 1);
+>  		while (tm) {
+>  			next = rcu_dereference_protected(tm->tcpm_next, 1);
+>  			kfree(tm);
+>  			tm = next;
+>  		}
+>  	}
+> -	kvfree(net->ipv4.tcp_metrics_hash);
+> +	kvfree(tcp_metrics_hash);
+>  }
+>  
