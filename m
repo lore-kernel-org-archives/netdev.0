@@ -1,49 +1,53 @@
-From: =?utf-8?q?=22Email_Technical_Support_=C2=A9_2015=22_=3Cinst=2Egamapinto?=@mail.casanare.gov.co,
-	=?utf-8?b?QG1haWwudGVsZXBhYy5wdD4=?=@mail.casanare.gov.co
-Subject: ATTENTION; UPDATE YOUR ACCOUNT.
-Date: Mon, 09 Mar 2015 20:51:32 +0000
-Message-ID: <20150309205136.C7FC52A02442@mail.casanare.gov.co>
-Reply-To: upgradingservice57@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: bcmgenet: add support for xmit_more
+Date: Mon, 09 Mar 2015 15:36:14 -0700
+Message-ID: <1425940574.8261.21.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1425937937-26955-1-git-send-email-f.fainelli@gmail.com>
+	 <1425937937-26955-3-git-send-email-f.fainelli@gmail.com>
+	 <1425939020.8261.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAGVrzcYKYGtGWdUGK8OW_DeWba2OG78t+SObwsQPMARtz_aHvA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Petri Gynther <pgynther@google.com>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.casanare.gov.co ([186.119.119.211]:57447 "EHLO
-	mail.casanare.gov.co" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbbCIWcq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:32:46 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.casanare.gov.co (Postfix) with ESMTP id E3CDB2A03CAD
-	for <netdev@vger.kernel.org>; Mon,  9 Mar 2015 15:59:51 -0500 (COT)
-Received: from mail.casanare.gov.co ([127.0.0.1])
-	by localhost (mail.casanare.gov.co [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 5n4huaeKZyVR for <netdev@vger.kernel.org>;
-	Mon,  9 Mar 2015 15:59:51 -0500 (COT)
-Received: from HP-PC.home (host86-187-197-75.range86-187.btcentralplus.com [86.187.197.75])
-	by mail.casanare.gov.co (Postfix) with ESMTPA id C7FC52A02442
-	for <netdev@vger.kernel.org>; Mon,  9 Mar 2015 15:51:36 -0500 (COT)
-Content-Description: Mail message body
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:44180 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035AbbCIWgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:36:16 -0400
+Received: by igdh15 with SMTP id h15so25796498igd.3
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:36:16 -0700 (PDT)
+In-Reply-To: <CAGVrzcYKYGtGWdUGK8OW_DeWba2OG78t+SObwsQPMARtz_aHvA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATTENTION;
+On Mon, 2015-03-09 at 15:13 -0700, Florian Fainelli wrote:
 
-Your mailbox has exceeded the storage limit which is 5 GB defined by
-the administrator, who is currently running on 10.9GB, may not be able
-to send or receive new mail until you validate your email inbox. To
-validate your mailbox, send the following information below:
+> bcmgenet_xmit() and bcmgenet_tx_reclaim() are the only two functions
+> that can stop a queue, and they are using a spinlock to avoid that.
 
-name:
-Username:
-password:
-Confirm Password:
-E-mail:
-phone:
-Account Security Question:
+It does not matter.
 
-If you can not defend your mailbox, the mailbox is disabled!
+If you hit the condition :
 
-Sorry for the inconvenience.
-Verification code: is: 0000054631
-Email Technical Support =A9 2015
+if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+     netif_tx_stop_queue(txq);
+
+Then maybe you filled the ring buffer with skb having xmit_more set, and
+you never did a bcmgenet_tdma_ring_writel()
+
+Look at other drivers using xmit_more, because you have to reverse
+things.
+
+The skeleton is :
+
+maybe_stop_tx();
+
+if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+    mmiiowb();
+    ...
+}
