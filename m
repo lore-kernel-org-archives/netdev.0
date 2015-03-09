@@ -1,132 +1,90 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] switchdev: use gpl variant of symbol export
-Date: Mon,  9 Mar 2015 10:26:24 +0100
-Message-ID: <1425893184-1738-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, sfeldma@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:43454 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147AbbCIJ03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:26:29 -0400
-Received: by wggx12 with SMTP id x12so15862780wgg.10
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 02:26:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] tipc: sparse: fix htons
+	conversion warnings
+Date: Mon, 9 Mar 2015 17:31:27 +0800
+Message-ID: <54FD686F.9050604@windriver.com>
+References: <1425892771-15120-1-git-send-email-erik.hugne@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, laszlo.benedek@ericsson.com,
+	tipc-discussion@lists.sourceforge.net
+To: <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1425892771-15120-1-git-send-email-erik.hugne@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/switchdev/switchdev.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+On 03/09/2015 05:19 PM, erik.hugne@ericsson.com wrote:
+> From: Erik Hugne <erik.hugne@ericsson.com>
+> 
+> Commit d0f91938bede ("tipc: add ip/udp media type") introduced
+> some new sparse warnings. Clean them up.
+> 
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 19e4e72..aba6aa2 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -33,7 +33,7 @@ int netdev_switch_parent_id_get(struct net_device *dev,
- 		return -EOPNOTSUPP;
- 	return ops->ndo_switch_parent_id_get(dev, psid);
- }
--EXPORT_SYMBOL(netdev_switch_parent_id_get);
-+EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
- 
- /**
-  *	netdev_switch_port_stp_update - Notify switch device port of STP
-@@ -52,7 +52,7 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
- 	WARN_ON(!ops->ndo_switch_parent_id_get);
- 	return ops->ndo_switch_port_stp_update(dev, state);
- }
--EXPORT_SYMBOL(netdev_switch_port_stp_update);
-+EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
- 
- static DEFINE_MUTEX(netdev_switch_mutex);
- static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
-@@ -74,7 +74,7 @@ int register_netdev_switch_notifier(struct notifier_block *nb)
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
- }
--EXPORT_SYMBOL(register_netdev_switch_notifier);
-+EXPORT_SYMBOL_GPL(register_netdev_switch_notifier);
- 
- /**
-  *	unregister_netdev_switch_notifier - Unregister nofifier
-@@ -92,7 +92,7 @@ int unregister_netdev_switch_notifier(struct notifier_block *nb)
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
- }
--EXPORT_SYMBOL(unregister_netdev_switch_notifier);
-+EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
- 
- /**
-  *	call_netdev_switch_notifiers - Call nofifiers
-@@ -115,7 +115,7 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
- }
--EXPORT_SYMBOL(call_netdev_switch_notifiers);
-+EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
- 
- /**
-  *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
-@@ -140,7 +140,7 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
- 
- 	return ops->ndo_bridge_setlink(dev, nlh, flags);
- }
--EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
-+EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
- 
- /**
-  *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
-@@ -165,7 +165,7 @@ int netdev_switch_port_bridge_dellink(struct net_device *dev,
- 
- 	return ops->ndo_bridge_dellink(dev, nlh, flags);
- }
--EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
-+EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
- 
- /**
-  *	ndo_dflt_netdev_switch_port_bridge_setlink - default ndo bridge setlink
-@@ -195,7 +195,7 @@ int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
- 
- 	return ret;
- }
--EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_setlink);
-+EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_setlink);
- 
- /**
-  *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
-@@ -225,7 +225,7 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
- 
- 	return ret;
- }
--EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
-+EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
- 
- static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
- {
-@@ -331,7 +331,7 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 
- 	return err;
- }
--EXPORT_SYMBOL(netdev_switch_fib_ipv4_add);
-+EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
- 
- /**
-  *	netdev_switch_fib_ipv4_del - Delete IPv4 route entry from switch
-@@ -369,7 +369,7 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 
- 	return err;
- }
--EXPORT_SYMBOL(netdev_switch_fib_ipv4_del);
-+EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_del);
- 
- /**
-  *	netdev_switch_fib_ipv4_abort - Abort an IPv4 FIB operation
-@@ -389,4 +389,4 @@ void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
- 	fib_flush_external(fi->fib_net);
- 	fi->fib_net->ipv4.fib_offload_disabled = true;
- }
--EXPORT_SYMBOL(netdev_switch_fib_ipv4_abort);
-+EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_abort);
--- 
-1.9.3
+It's better to add original sparse warning messages in commit header.
+
+Regards,
+Ying
+
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+> ---
+>  net/tipc/udp_media.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+> index 0d10001..fc2fb11 100644
+> --- a/net/tipc/udp_media.c
+> +++ b/net/tipc/udp_media.c
+> @@ -162,7 +162,7 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
+>  		err = -ENODEV;
+>  		goto tx_error;
+>  	}
+> -	if (htons(dst->proto) == ETH_P_IP) {
+> +	if (dst->proto == htons(ETH_P_IP)) {
+>  		struct flowi4 fl = {
+>  			.daddr = dst->ipv4.s_addr,
+>  			.saddr = src->ipv4.s_addr,
+> @@ -334,7 +334,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
+>  	struct udp_media_addr *remote;
+>  	struct udp_media_addr local = {0};
+>  	struct udp_port_cfg udp_conf = {0};
+> -	struct udp_tunnel_sock_cfg tuncfg = {0};
+> +	struct udp_tunnel_sock_cfg tuncfg = {NULL};
+>  
+>  	ub = kzalloc(sizeof(*ub), GFP_ATOMIC);
+>  	if (!ub)
+> @@ -351,7 +351,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
+>  	rcu_assign_pointer(b->media_ptr, ub);
+>  	rcu_assign_pointer(ub->bearer, b);
+>  	tipc_udp_media_addr_set(&b->addr, &local);
+> -	if (htons(local.proto) == ETH_P_IP) {
+> +	if (local.proto == htons(ETH_P_IP)) {
+>  		struct net_device *dev;
+>  
+>  		dev = __ip_dev_find(net, local.ipv4.s_addr, false);
+> @@ -366,7 +366,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
+>  		b->mtu = dev->mtu - sizeof(struct iphdr)
+>  			- sizeof(struct udphdr);
+>  #if IS_ENABLED(CONFIG_IPV6)
+> -	} else if (htons(local.proto) == ETH_P_IPV6) {
+> +	} else if (local.proto == htons(ETH_P_IPV6)) {
+>  		udp_conf.family = AF_INET6;
+>  		udp_conf.use_udp6_tx_checksums = true;
+>  		udp_conf.use_udp6_rx_checksums = true;
+> 
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
