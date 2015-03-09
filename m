@@ -1,226 +1,133 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/12] netfilter: bridge: rework reject handling
-Date: Mon,  9 Mar 2015 18:14:25 +0100
-Message-ID: <1425921275-9171-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/12] netfilter: bridge: move DNAT helper to br_netfilter
+Date: Mon,  9 Mar 2015 18:14:35 +0100
+Message-ID: <1425921275-9171-13-git-send-email-pablo@netfilter.org>
 References: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47186 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753545AbbCIRLB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2015 13:11:01 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+Only one caller, there is no need to keep this in a header.
+Move it to br_netfilter.c where this belongs to.
 
-bridge reject handling is not straightforward, there are many subtle
-differences depending on configuration.
+Based on patch from Florian Westphal.
 
-skb->dev is either the bridge port (PRE_ROUTING) or the bridge
-itself (INPUT), so we need to use indev instead.
-
-Also, checksum validation will only work reliably if we trim skb
-according to the l3 header size.
-
-While at it, add csum validation for ipv6 and skip existing tests
-if skb was already checked e.g. by GRO.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/nft_reject_bridge.c |   84 +++++++++++++++++++++++-------
- 1 file changed, 66 insertions(+), 18 deletions(-)
+ include/linux/netfilter_bridge.h |   12 ------------
+ net/bridge/br_device.c           |    5 +----
+ net/bridge/br_netfilter.c        |   32 ++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h          |    5 +++++
+ 4 files changed, 38 insertions(+), 16 deletions(-)
 
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index 3244aea..5c6c965 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -21,6 +21,7 @@
- #include <net/ip.h>
- #include <net/ip6_checksum.h>
- #include <linux/netfilter_bridge.h>
-+#include <linux/netfilter_ipv6.h>
- #include "../br_private.h"
- 
- static void nft_reject_br_push_etherhdr(struct sk_buff *oldskb,
-@@ -36,7 +37,12 @@ static void nft_reject_br_push_etherhdr(struct sk_buff *oldskb,
- 	skb_pull(nskb, ETH_HLEN);
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index dd580a9..bb39113 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -44,18 +44,6 @@ static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
  }
  
--static void nft_reject_br_send_v4_tcp_reset(struct sk_buff *oldskb, int hook)
-+/* We cannot use oldskb->dev, it can be either bridge device (NF_BRIDGE INPUT)
-+ * or the bridge port (NF_BRIDGE PREROUTING).
+ int br_handle_frame_finish(struct sk_buff *skb);
+-/* Only used in br_device.c */
+-static inline int br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
+-{
+-	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+-
+-	skb_pull(skb, ETH_HLEN);
+-	nf_bridge->mask ^= BRNF_BRIDGED_DNAT;
+-	skb_copy_to_linear_data_offset(skb, -(ETH_HLEN-ETH_ALEN),
+-				       skb->nf_bridge->data, ETH_HLEN-ETH_ALEN);
+-	skb->dev = nf_bridge->physindev;
+-	return br_handle_frame_finish(skb);
+-}
+ 
+ /* This is called by the IP fragmenting code and it ensures there is
+  * enough room for the encapsulating header (if there is one). */
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index ffd379d..294cbcc 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -36,13 +36,10 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u16 vid = 0;
+ 
+ 	rcu_read_lock();
+-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+-	if (skb->nf_bridge && (skb->nf_bridge->mask & BRNF_BRIDGED_DNAT)) {
+-		br_nf_pre_routing_finish_bridge_slow(skb);
++	if (br_nf_prerouting_finish_bridge(skb)) {
+ 		rcu_read_unlock();
+ 		return NETDEV_TX_OK;
+ 	}
+-#endif
+ 
+ 	u64_stats_update_begin(&brstats->syncp);
+ 	brstats->tx_packets++;
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index ef1fe28..a8361c7 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -892,6 +892,38 @@ static unsigned int ip_sabotage_in(const struct nf_hook_ops *ops,
+ 	return NF_ACCEPT;
+ }
+ 
++/* This is called when br_netfilter has called into iptables/netfilter,
++ * and DNAT has taken place on a bridge-forwarded packet.
++ *
++ * neigh->output has created a new MAC header, with local br0 MAC
++ * as saddr.
++ *
++ * This restores the original MAC saddr of the bridged packet
++ * before invoking bridge forward logic to transmit the packet.
 + */
-+static void nft_reject_br_send_v4_tcp_reset(struct sk_buff *oldskb,
-+					    const struct net_device *dev,
-+					    int hook)
- {
- 	struct sk_buff *nskb;
- 	struct iphdr *niph;
-@@ -65,11 +71,12 @@ static void nft_reject_br_send_v4_tcp_reset(struct sk_buff *oldskb, int hook)
- 
- 	nft_reject_br_push_etherhdr(oldskb, nskb);
- 
--	br_deliver(br_port_get_rcu(oldskb->dev), nskb);
-+	br_deliver(br_port_get_rcu(dev), nskb);
- }
- 
--static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb, int hook,
--					  u8 code)
-+static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb,
-+					  const struct net_device *dev,
-+					  int hook, u8 code)
- {
- 	struct sk_buff *nskb;
- 	struct iphdr *niph;
-@@ -77,8 +84,9 @@ static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb, int hook,
- 	unsigned int len;
- 	void *payload;
- 	__wsum csum;
-+	u8 proto;
- 
--	if (!nft_bridge_iphdr_validate(oldskb))
-+	if (oldskb->csum_bad || !nft_bridge_iphdr_validate(oldskb))
- 		return;
- 
- 	/* IP header checks: fragment. */
-@@ -91,7 +99,17 @@ static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb, int hook,
- 	if (!pskb_may_pull(oldskb, len))
- 		return;
- 
--	if (nf_ip_checksum(oldskb, hook, ip_hdrlen(oldskb), 0))
-+	if (pskb_trim_rcsum(oldskb, htons(ip_hdr(oldskb)->tot_len)))
-+		return;
++static void br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
++{
++	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
 +
-+	if (ip_hdr(oldskb)->protocol == IPPROTO_TCP ||
-+	    ip_hdr(oldskb)->protocol == IPPROTO_UDP)
-+		proto = ip_hdr(oldskb)->protocol;
-+	else
-+		proto = 0;
++	skb_pull(skb, ETH_HLEN);
++	nf_bridge->mask &= ~BRNF_BRIDGED_DNAT;
 +
-+	if (!skb_csum_unnecessary(oldskb) &&
-+	    nf_ip_checksum(oldskb, hook, ip_hdrlen(oldskb), proto))
- 		return;
- 
- 	nskb = alloc_skb(sizeof(struct iphdr) + sizeof(struct icmphdr) +
-@@ -120,11 +138,13 @@ static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb, int hook,
- 
- 	nft_reject_br_push_etherhdr(oldskb, nskb);
- 
--	br_deliver(br_port_get_rcu(oldskb->dev), nskb);
-+	br_deliver(br_port_get_rcu(dev), nskb);
- }
- 
- static void nft_reject_br_send_v6_tcp_reset(struct net *net,
--					    struct sk_buff *oldskb, int hook)
-+					    struct sk_buff *oldskb,
-+					    const struct net_device *dev,
-+					    int hook)
- {
- 	struct sk_buff *nskb;
- 	const struct tcphdr *oth;
-@@ -152,12 +172,37 @@ static void nft_reject_br_send_v6_tcp_reset(struct net *net,
- 
- 	nft_reject_br_push_etherhdr(oldskb, nskb);
- 
--	br_deliver(br_port_get_rcu(oldskb->dev), nskb);
-+	br_deliver(br_port_get_rcu(dev), nskb);
++	skb_copy_to_linear_data_offset(skb, -(ETH_HLEN-ETH_ALEN),
++				       skb->nf_bridge->data, ETH_HLEN-ETH_ALEN);
++	skb->dev = nf_bridge->physindev;
++	br_handle_frame_finish(skb);
 +}
 +
-+static bool reject6_br_csum_ok(struct sk_buff *skb, int hook)
++int br_nf_prerouting_finish_bridge(struct sk_buff *skb)
 +{
-+	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	int thoff;
-+	__be16 fo;
-+	u8 proto = ip6h->nexthdr;
++	if (skb->nf_bridge && (skb->nf_bridge->mask & BRNF_BRIDGED_DNAT)) {
++		br_nf_pre_routing_finish_bridge_slow(skb);
++		return 1;
++	}
++	return 0;
++}
++EXPORT_SYMBOL_GPL(br_nf_prerouting_finish_bridge);
 +
-+	if (skb->csum_bad)
-+		return false;
-+
-+	if (skb_csum_unnecessary(skb))
-+		return true;
-+
-+	if (ip6h->payload_len &&
-+	    pskb_trim_rcsum(skb, ntohs(ip6h->payload_len) + sizeof(*ip6h)))
-+		return false;
-+
-+	thoff = ipv6_skip_exthdr(skb, ((u8*)(ip6h+1) - skb->data), &proto, &fo);
-+	if (thoff < 0 || thoff >= skb->len || (fo & htons(~0x7)) != 0)
-+		return false;
-+
-+	return nf_ip6_checksum(skb, hook, thoff, proto) == 0;
- }
- 
- static void nft_reject_br_send_v6_unreach(struct net *net,
--					  struct sk_buff *oldskb, int hook,
--					  u8 code)
-+					  struct sk_buff *oldskb,
-+					  const struct net_device *dev,
-+					  int hook, u8 code)
+ void br_netfilter_enable(void)
  {
- 	struct sk_buff *nskb;
- 	struct ipv6hdr *nip6h;
-@@ -176,6 +221,9 @@ static void nft_reject_br_send_v6_unreach(struct net *net,
- 	if (!pskb_may_pull(oldskb, len))
- 		return;
- 
-+	if (!reject6_br_csum_ok(oldskb, hook))
-+		return;
-+
- 	nskb = alloc_skb(sizeof(struct iphdr) + sizeof(struct icmp6hdr) +
- 			 LL_MAX_HEADER + len, GFP_ATOMIC);
- 	if (!nskb)
-@@ -205,7 +253,7 @@ static void nft_reject_br_send_v6_unreach(struct net *net,
- 
- 	nft_reject_br_push_etherhdr(oldskb, nskb);
- 
--	br_deliver(br_port_get_rcu(oldskb->dev), nskb);
-+	br_deliver(br_port_get_rcu(dev), nskb);
  }
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index de09199..d63fc17 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -764,10 +764,15 @@ static inline int br_vlan_enabled(struct net_bridge *br)
  
- static void nft_reject_bridge_eval(const struct nft_expr *expr,
-@@ -224,16 +272,16 @@ static void nft_reject_bridge_eval(const struct nft_expr *expr,
- 	case htons(ETH_P_IP):
- 		switch (priv->type) {
- 		case NFT_REJECT_ICMP_UNREACH:
--			nft_reject_br_send_v4_unreach(pkt->skb,
-+			nft_reject_br_send_v4_unreach(pkt->skb, pkt->in,
- 						      pkt->ops->hooknum,
- 						      priv->icmp_code);
- 			break;
- 		case NFT_REJECT_TCP_RST:
--			nft_reject_br_send_v4_tcp_reset(pkt->skb,
-+			nft_reject_br_send_v4_tcp_reset(pkt->skb, pkt->in,
- 							pkt->ops->hooknum);
- 			break;
- 		case NFT_REJECT_ICMPX_UNREACH:
--			nft_reject_br_send_v4_unreach(pkt->skb,
-+			nft_reject_br_send_v4_unreach(pkt->skb, pkt->in,
- 						      pkt->ops->hooknum,
- 						      nft_reject_icmp_code(priv->icmp_code));
- 			break;
-@@ -242,16 +290,16 @@ static void nft_reject_bridge_eval(const struct nft_expr *expr,
- 	case htons(ETH_P_IPV6):
- 		switch (priv->type) {
- 		case NFT_REJECT_ICMP_UNREACH:
--			nft_reject_br_send_v6_unreach(net, pkt->skb,
-+			nft_reject_br_send_v6_unreach(net, pkt->skb, pkt->in,
- 						      pkt->ops->hooknum,
- 						      priv->icmp_code);
- 			break;
- 		case NFT_REJECT_TCP_RST:
--			nft_reject_br_send_v6_tcp_reset(net, pkt->skb,
-+			nft_reject_br_send_v6_tcp_reset(net, pkt->skb, pkt->in,
- 							pkt->ops->hooknum);
- 			break;
- 		case NFT_REJECT_ICMPX_UNREACH:
--			nft_reject_br_send_v6_unreach(net, pkt->skb,
-+			nft_reject_br_send_v6_unreach(net, pkt->skb, pkt->in,
- 						      pkt->ops->hooknum,
- 						      nft_reject_icmpv6_code(priv->icmp_code));
- 			break;
+ /* br_netfilter.c */
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
++int br_nf_prerouting_finish_bridge(struct sk_buff *skb);
+ int br_nf_core_init(void);
+ void br_nf_core_fini(void);
+ void br_netfilter_rtable_init(struct net_bridge *);
+ #else
++static inline int br_nf_prerouting_finish_bridge(struct sk_buff *skb)
++{
++        return 0;
++}
+ static inline int br_nf_core_init(void) { return 0; }
+ static inline void br_nf_core_fini(void) {}
+ #define br_netfilter_rtable_init(x)
 -- 
 1.7.10.4
+
