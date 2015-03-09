@@ -1,65 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 6/6] tcp_metrics: Use a single hash table for
- all network namespaces.
-Date: Mon, 09 Mar 2015 11:47:08 -0700
-Message-ID: <1425926828.8261.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
-	 <CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
-	 <87d25hrv9m.fsf@x220.int.ebiederm.org>
-	 <20150219.144929.1003473344851168804.davem@davemloft.net>
-	 <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
-	 <8761aayqdd.fsf_-_@x220.int.ebiederm.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/6] tcp_metrics: panic when tcp_metrics can
+ not be allocated
+Date: Mon, 09 Mar 2015 21:50:09 +0300
+Message-ID: <54FDEB61.6020501@cogentembedded.com>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>	<87d25hrv9m.fsf@x220.int.ebiederm.org>	<20150219.144929.1003473344851168804.davem@davemloft.net>	<87h9tu114z.fsf_-_@x220.int.ebiederm.org> <874mpu10xt.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
-	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
-	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
-	dsahern@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
+	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
+	shmulik.ladkani@gmail.com, dsahern@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:43370 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbbCISrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:47:11 -0400
-Received: by iecrp18 with SMTP id rp18so37987216iec.10
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 11:47:10 -0700 (PDT)
-In-Reply-To: <8761aayqdd.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:37807 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359AbbCISuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:50:11 -0400
+Received: by lbdu10 with SMTP id u10so26290958lbd.4
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 11:50:09 -0700 (PDT)
+In-Reply-To: <874mpu10xt.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-09 at 13:31 -0500, Eric W. Biederman wrote:
+Hello.
 
-> @@ -1167,17 +1173,22 @@ static void __net_exit tcp_net_metrics_exit(struct net *net)
->  {
->  	unsigned int i;
->  
-> -	for (i = 0; i < (1U << net->ipv4.tcp_metrics_hash_log) ; i++) {
-> +	if (net != &init_net) {
-> +		tcp_metrics_flush_all(net);
-> +		return;
-> +	}
+On 3/9/2015 9:27 PM, Eric W. Biederman wrote:
 
-Note this _very_ unlikely (read: not possible) that
-tcp_net_metrics_exit() will ever be called on init_net
+> Panic so that in the unlikely event we have problems we will have a
+> clear place to start debugging instead of a mysterious NULL pointer
+> deference later on.
 
-So I would remove all this code.
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>   net/ipv4/tcp_metrics.c | 1 +
+>   1 file changed, 1 insertion(+)
 
-> +
-> +	for (i = 0; i < (1U << tcp_metrics_hash_log) ; i++) {
->  		struct tcp_metrics_block *tm, *next;
->  
-> -		tm = rcu_dereference_protected(net->ipv4.tcp_metrics_hash[i].chain, 1);
-> +		tm = rcu_dereference_protected(tcp_metrics_hash[i].chain, 1);
->  		while (tm) {
->  			next = rcu_dereference_protected(tm->tcpm_next, 1);
->  			kfree(tm);
->  			tm = next;
->  		}
->  	}
-> -	kvfree(net->ipv4.tcp_metrics_hash);
-> +	kvfree(tcp_metrics_hash);
->  }
->  
+> diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+> index e5f41bd5ec1b..fdf4bdda971f 100644
+> --- a/net/ipv4/tcp_metrics.c
+> +++ b/net/ipv4/tcp_metrics.c
+> @@ -1186,5 +1186,6 @@ cleanup_subsys:
+>   	unregister_pernet_subsys(&tcp_net_metrics_ops);
+>
+>   cleanup:
+> +	panic("Could not allocate the tcp_metrics hash table\n");
+>   	return;
+
+    You can drop this *return* as well, it serves not purpose.
+
+>   }
+
+WBR, Sergei
