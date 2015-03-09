@@ -1,148 +1,61 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next] switchdev: use gpl variant of symbol export
-Date: Mon, 09 Mar 2015 10:11:46 -0700
-Message-ID: <54FDD452.1020008@gmail.com>
-References: <1425893184-1738-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sfeldma@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:43745 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932278AbbCIRMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 13:12:24 -0400
-Received: by pdjp10 with SMTP id p10so59131170pdj.10
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 10:12:24 -0700 (PDT)
-In-Reply-To: <1425893184-1738-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 03/12] netfilter: ipt_CLUSTERIP: deprecate it in favour of xt_cluster
+Date: Mon,  9 Mar 2015 18:14:26 +0100
+Message-ID: <1425921275-9171-4-git-send-email-pablo@netfilter.org>
+References: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/03/15 02:26, Jiri Pirko wrote:
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+xt_cluster supersedes ipt_CLUSTERIP since it can be also used in
+gateway configurations (not only from the backend side).
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+ipt_CLUSTER is also known to leak the netdev that it uses on
+device removal, which requires a rather large fix to workaround
+the problem: http://patchwork.ozlabs.org/patch/358629/
 
-Note: this still won't prevent vendors from doing trampoline drivers,
-but at least they will have to make their shim be appropriately marked
-as GPL or compatible when doing this as a module.
+So let's deprecate this so we can probably kill code this in the
+future.
 
-> ---
->  net/switchdev/switchdev.c | 24 ++++++++++++------------
->  1 file changed, 12 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 19e4e72..aba6aa2 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -33,7 +33,7 @@ int netdev_switch_parent_id_get(struct net_device *dev,
->  		return -EOPNOTSUPP;
->  	return ops->ndo_switch_parent_id_get(dev, psid);
->  }
-> -EXPORT_SYMBOL(netdev_switch_parent_id_get);
-> +EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
->  
->  /**
->   *	netdev_switch_port_stp_update - Notify switch device port of STP
-> @@ -52,7 +52,7 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
->  	WARN_ON(!ops->ndo_switch_parent_id_get);
->  	return ops->ndo_switch_port_stp_update(dev, state);
->  }
-> -EXPORT_SYMBOL(netdev_switch_port_stp_update);
-> +EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
->  
->  static DEFINE_MUTEX(netdev_switch_mutex);
->  static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
-> @@ -74,7 +74,7 @@ int register_netdev_switch_notifier(struct notifier_block *nb)
->  	mutex_unlock(&netdev_switch_mutex);
->  	return err;
->  }
-> -EXPORT_SYMBOL(register_netdev_switch_notifier);
-> +EXPORT_SYMBOL_GPL(register_netdev_switch_notifier);
->  
->  /**
->   *	unregister_netdev_switch_notifier - Unregister nofifier
-> @@ -92,7 +92,7 @@ int unregister_netdev_switch_notifier(struct notifier_block *nb)
->  	mutex_unlock(&netdev_switch_mutex);
->  	return err;
->  }
-> -EXPORT_SYMBOL(unregister_netdev_switch_notifier);
-> +EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
->  
->  /**
->   *	call_netdev_switch_notifiers - Call nofifiers
-> @@ -115,7 +115,7 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
->  	mutex_unlock(&netdev_switch_mutex);
->  	return err;
->  }
-> -EXPORT_SYMBOL(call_netdev_switch_notifiers);
-> +EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
->  
->  /**
->   *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
-> @@ -140,7 +140,7 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
->  
->  	return ops->ndo_bridge_setlink(dev, nlh, flags);
->  }
-> -EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
-> +EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
->  
->  /**
->   *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
-> @@ -165,7 +165,7 @@ int netdev_switch_port_bridge_dellink(struct net_device *dev,
->  
->  	return ops->ndo_bridge_dellink(dev, nlh, flags);
->  }
-> -EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
-> +EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
->  
->  /**
->   *	ndo_dflt_netdev_switch_port_bridge_setlink - default ndo bridge setlink
-> @@ -195,7 +195,7 @@ int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
->  
->  	return ret;
->  }
-> -EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_setlink);
-> +EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_setlink);
->  
->  /**
->   *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
-> @@ -225,7 +225,7 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
->  
->  	return ret;
->  }
-> -EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
-> +EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
->  
->  static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
->  {
-> @@ -331,7 +331,7 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
->  
->  	return err;
->  }
-> -EXPORT_SYMBOL(netdev_switch_fib_ipv4_add);
-> +EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
->  
->  /**
->   *	netdev_switch_fib_ipv4_del - Delete IPv4 route entry from switch
-> @@ -369,7 +369,7 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
->  
->  	return err;
->  }
-> -EXPORT_SYMBOL(netdev_switch_fib_ipv4_del);
-> +EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_del);
->  
->  /**
->   *	netdev_switch_fib_ipv4_abort - Abort an IPv4 FIB operation
-> @@ -389,4 +389,4 @@ void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
->  	fib_flush_external(fi->fib_net);
->  	fi->fib_net->ipv4.fib_offload_disabled = true;
->  }
-> -EXPORT_SYMBOL(netdev_switch_fib_ipv4_abort);
-> +EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_abort);
-> 
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/netns/x_tables.h       |    1 +
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    7 +++++++
+ 2 files changed, 8 insertions(+)
 
-
+diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
+index c24060e..4d6597a 100644
+--- a/include/net/netns/x_tables.h
++++ b/include/net/netns/x_tables.h
+@@ -9,6 +9,7 @@ struct ebt_table;
+ struct netns_xt {
+ 	struct list_head tables[NFPROTO_NUMPROTO];
+ 	bool notrack_deprecated_warning;
++	bool clusterip_deprecated_warning;
+ #if defined(CONFIG_BRIDGE_NF_EBTABLES) || \
+     defined(CONFIG_BRIDGE_NF_EBTABLES_MODULE)
+ 	struct ebt_table *broute_table;
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index e90f83a..f75e9df 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -418,6 +418,13 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
+ 	if (ret < 0)
+ 		pr_info("cannot load conntrack support for proto=%u\n",
+ 			par->family);
++
++	if (!par->net->xt.clusterip_deprecated_warning) {
++		pr_info("ipt_CLUSTERIP is deprecated and it will removed soon, "
++			"use xt_cluster instead\n");
++		par->net->xt.clusterip_deprecated_warning = true;
++	}
++
+ 	return ret;
+ }
+ 
 -- 
-Florian
+1.7.10.4
+
