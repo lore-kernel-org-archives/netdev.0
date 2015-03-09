@@ -1,38 +1,60 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Re: [PATCH net-next] vlan: avoid a synchronize_net when parent device
- goes down
-Date: Mon, 9 Mar 2015 13:54:22 -0700
-Message-ID: <CAO7SqHBbCgkhnXHf_=je_kir59uHBk5KKG0=AETPHRZN6hNfOA@mail.gmail.com>
-References: <1425598621-18083-1-git-send-email-noureddine@arista.com>
-	<20150308.222134.544504915277666481.davem@davemloft.net>
-	<CAO7SqHB=1+bQyU4Tt-RTkDYAU5GH_536hVfW1HU3jJz8iTySJQ@mail.gmail.com>
-	<20150309.152211.2300226482423280727.davem@redhat.com>
+From: Daniel =?iso-8859-1?Q?Gl=F6ckner?= <daniel-gl-hi6Y0CQ0nG0@public.gmane.org>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Mon, 9 Mar 2015 21:54:51 +0100
+Message-ID: <20150309205451.GA13884@minime.bse>
+References: <53FDACD1.8090805@msgid.tls.msk.ru>
+ <9234001.YBqfvtcJFx@fuchs>
+ <5496E135.1@broadcom.com>
+ <9062978.Vq0rTjKd5z@fuchs>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Patrick McHardy <kaber@trash.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:38917 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046AbbCIUyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 16:54:23 -0400
-Received: by pabrd3 with SMTP id rd3so41872200pab.6
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 13:54:22 -0700 (PDT)
-In-Reply-To: <20150309.152211.2300226482423280727.davem@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Tokarev <mjt-XAri/EZa3C4vJsYlp49lxw@public.gmane.org>,
+	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	brcm80211 development <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maximilian Engelhardt <maxi-OwNUvPV92VfddJNmlsFzeA@public.gmane.org>
+To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <9062978.Vq0rTjKd5z@fuchs>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I will run your patch on one of our systems for a day or two and get
-back to you.
+Hi Arend,
 
-On Mon, Mar 9, 2015 at 12:22 PM, David Miller <davem@redhat.com> wrote:
-> From: Salam Noureddine <noureddine@arista.com>
-> Date: Mon, 9 Mar 2015 12:00:31 -0700
->
->> Thanks for pointing to the right direction. Is there a reason the vlan
->> driver was calling
->> dev_change_flags instead of dev_close to close the vlan device?
->
-> Perhaps dev_close() was not exported at the time the code was written,
-> I honestly have no idea.
+On Sun, Dec 21, 2014 at 06:34:24PM +0100, Maximilian Engelhardt wrote:
+> On Sunday 21 December 2014 16:03:17 Arend van Spriel wrote:
+> > On 12/21/14 15:24, Maximilian Engelhardt wrote:
+> > > On Sunday 21 December 2014 15:13:50 Arend van Spriel wrote:
+> > >> Thanks. It shows you have have the same bt-coex version as Michael. I am
+> > >> not familiar with bluetooth side of things. Are you both using bluetooth
+> > >> on 4313?
+> > >> 
+> > >> Regards,
+> > >> Arend
+> > > 
+> > > I don't know. I think I have Bluetooth somehow enabled but I'm not really
+> > > using it. I definitely don't have any Bluetooth devices connected. I could
+> > > try to unload/disable Bluetooth it to see if it makes any difference.
+> > 
+> > That would be useful to know.
+> > 
+> 
+> I did a test with all Bluetooth modules unloaded that I could find but 
+> throughput was still very low (about 4 Mbit/s with brcmsmac, my atheros USB 
+> stick archived about 110 Mbit/s).
+
+any update on this issue?
+One of my relatives would like to get rid of that Ralink wifi stick she
+has been carrying around for 1.5 years now since the internal wifi in her
+Thinkpad E130 suffers from this problem.
+
+Best regards,
+
+  Daniel
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
