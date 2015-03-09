@@ -1,59 +1,99 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: bcmgenet: add support for xmit_more
-Date: Mon, 9 Mar 2015 15:13:12 -0700
-Message-ID: <CAGVrzcYKYGtGWdUGK8OW_DeWba2OG78t+SObwsQPMARtz_aHvA@mail.gmail.com>
-References: <1425937937-26955-1-git-send-email-f.fainelli@gmail.com>
- <1425937937-26955-3-git-send-email-f.fainelli@gmail.com> <1425939020.8261.17.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] Fix IXP4xx Ethernet RX with both IFF_ALLMULTI and IFF_PROMISC.
+Date: Mon, 09 Mar 2015 23:07:28 +0100
+Message-ID: <m3pp8hvn8f.fsf@pm.waw.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Petri Gynther <pgynther@google.com>,
-	Jaedon Shin <jaedon.shin@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:46416 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343AbbCIWNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:13:53 -0400
-Received: by iecrd18 with SMTP id rd18so16758962iec.13
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:13:52 -0700 (PDT)
-In-Reply-To: <1425939020.8261.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from inx.pm.waw.pl ([195.116.170.130]:40850 "EHLO inx.pm.waw.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752377AbbCIWOS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:14:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-03-09 15:10 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Mon, 2015-03-09 at 14:52 -0700, Florian Fainelli wrote:
->> Delay the update of the TDMA producer index unless this is the last SKB in a
->> batch, or the queue is already stopped.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 ++++--
->>  1 file changed, 4 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> index 9b3b8a3db59b..8419826da6a7 100644
->> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> @@ -1316,8 +1316,10 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
->>       ring->prod_index += nr_frags + 1;
->>       ring->prod_index &= DMA_P_INDEX_MASK;
->>
->> -     bcmgenet_tdma_ring_writel(priv, ring->index,
->> -                               ring->prod_index, TDMA_PROD_INDEX);
->> +     if (!skb->xmit_more || netif_xmit_stopped(txq))
->> +             /* Packets are ready, update producer index */
->> +             bcmgenet_tdma_ring_writel(priv, ring->index,
->> +                                       ring->prod_index, TDMA_PROD_INDEX);
->>
->>       if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
->>               netif_tx_stop_queue(txq);
->
-> It seems you have a race here, if you stop the queue right now, while
-> this skb had skb->xmit_more set.
+This long standing bug caused IFF_PROMISC to be ignored when
+IFF_ALLMULTI was requested.
 
-bcmgenet_xmit() and bcmgenet_tx_reclaim() are the only two functions
-that can stop a queue, and they are using a spinlock to avoid that.
---
-Florian
+Also, without any multicast address configured, the driver will use
+device MAC address for the multicast filter, instead of accepting all
+inbound traffic.
+
+Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
+
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -933,40 +933,42 @@ static int eth_xmit(struct sk_buff *skb, struct n=
+et_device *dev)
+ static void eth_set_mcast_list(struct net_device *dev)
+ {
+ 	struct port *port =3D netdev_priv(dev);
+-	struct netdev_hw_addr *ha;
+-	u8 diffs[ETH_ALEN], *addr;
+ 	int i;
+ 	static const u8 allmulti[] =3D { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 }=
+;
+=20
+-	if (dev->flags & IFF_ALLMULTI) {
+-		for (i =3D 0; i < ETH_ALEN; i++) {
+-			__raw_writel(allmulti[i], &port->regs->mcast_addr[i]);
+-			__raw_writel(allmulti[i], &port->regs->mcast_mask[i]);
+-		}
+-		__raw_writel(DEFAULT_RX_CNTRL0 | RX_CNTRL0_ADDR_FLTR_EN,
+-			&port->regs->rx_control[0]);
+-		return;
+-	}
+-
+-	if ((dev->flags & IFF_PROMISC) || netdev_mc_empty(dev)) {
++	if (dev->flags & IFF_PROMISC) {
+ 		__raw_writel(DEFAULT_RX_CNTRL0 & ~RX_CNTRL0_ADDR_FLTR_EN,
+ 			     &port->regs->rx_control[0]);
+ 		return;
+ 	}
+=20
+-	memset(diffs, 0, ETH_ALEN);
++	if (dev->flags & IFF_ALLMULTI) {
++		for (i =3D 0; i < ETH_ALEN; i++) {
++			__raw_writel(allmulti[i], &port->regs->mcast_addr[i]);
++			__raw_writel(allmulti[i], &port->regs->mcast_mask[i]);
++		}
++	} else {
++		struct netdev_hw_addr *ha;
++		u8 diffs[ETH_ALEN], *addr =3D NULL;
++
++		memset(diffs, 0, ETH_ALEN);
++
++		/* calculate bits which differ between multicast addresses */
++		netdev_for_each_mc_addr(ha, dev) {
++			if (!addr)
++				addr =3D ha->addr; /* first multicast address */
++			else
++				for (i =3D 0; i < ETH_ALEN; i++)
++					diffs[i] |=3D addr[i] ^ ha->addr[i];
++		}
+=20
+-	addr =3D NULL;
+-	netdev_for_each_mc_addr(ha, dev) {
+-		if (!addr)
+-			addr =3D ha->addr; /* first MAC address */
+-		for (i =3D 0; i < ETH_ALEN; i++)
+-			diffs[i] |=3D addr[i] ^ ha->addr[i];
+-	}
++		if (!addr) /* use device MAC address instead */
++			addr =3D dev->dev_addr;
+=20
+-	for (i =3D 0; i < ETH_ALEN; i++) {
+-		__raw_writel(addr[i], &port->regs->mcast_addr[i]);
+-		__raw_writel(~diffs[i], &port->regs->mcast_mask[i]);
++		for (i =3D 0; i < ETH_ALEN; i++) {
++			__raw_writel(addr[i], &port->regs->mcast_addr[i]);
++			__raw_writel(~diffs[i], &port->regs->mcast_mask[i]);
++		}
+ 	}
+=20
+ 	__raw_writel(DEFAULT_RX_CNTRL0 | RX_CNTRL0_ADDR_FLTR_EN,
+
+--=20
+Krzysztof Halasa
