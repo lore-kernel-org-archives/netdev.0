@@ -1,53 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: bcmgenet: add support for xmit_more
-Date: Mon, 09 Mar 2015 15:36:14 -0700
-Message-ID: <1425940574.8261.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1425937937-26955-1-git-send-email-f.fainelli@gmail.com>
-	 <1425937937-26955-3-git-send-email-f.fainelli@gmail.com>
-	 <1425939020.8261.17.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAGVrzcYKYGtGWdUGK8OW_DeWba2OG78t+SObwsQPMARtz_aHvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Petri Gynther <pgynther@google.com>,
-	Jaedon Shin <jaedon.shin@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: phy: bcm7xxx: add alternate id for 7439
+Date: Mon,  9 Mar 2015 15:44:13 -0700
+Message-ID: <1425941053-13222-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:44180 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035AbbCIWgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:36:16 -0400
-Received: by igdh15 with SMTP id h15so25796498igd.3
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:36:16 -0700 (PDT)
-In-Reply-To: <CAGVrzcYKYGtGWdUGK8OW_DeWba2OG78t+SObwsQPMARtz_aHvA@mail.gmail.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:35437 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbbCIWot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:44:49 -0400
+Received: by pdbfp1 with SMTP id fp1so47128727pdb.2
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:44:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-09 at 15:13 -0700, Florian Fainelli wrote:
+BCM7439 has an alternate PHY OUI: 0xae025080 which is to be found in
+some variants of this chip.
 
-> bcmgenet_xmit() and bcmgenet_tx_reclaim() are the only two functions
-> that can stop a queue, and they are using a spinlock to avoid that.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/bcm7xxx.c | 1 +
+ include/linux/brcmphy.h   | 1 +
+ 2 files changed, 2 insertions(+)
 
-It does not matter.
-
-If you hit the condition :
-
-if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
-     netif_tx_stop_queue(txq);
-
-Then maybe you filled the ring buffer with skb having xmit_more set, and
-you never did a bcmgenet_tdma_ring_writel()
-
-Look at other drivers using xmit_more, because you have to reverse
-things.
-
-The skeleton is :
-
-maybe_stop_tx();
-
-if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
-    mmiiowb();
-    ...
-}
+diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+index 974ec4515269..64c74c6a4828 100644
+--- a/drivers/net/phy/bcm7xxx.c
++++ b/drivers/net/phy/bcm7xxx.c
+@@ -396,6 +396,7 @@ static struct phy_driver bcm7xxx_driver[] = {
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7364, "Broadcom BCM7364"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7366, "Broadcom BCM7366"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439, "Broadcom BCM7439"),
++	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439_2, "Broadcom BCM7439 (2)"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7445, "Broadcom BCM7445"),
+ {
+ 	.phy_id         = PHY_ID_BCM7425,
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 7ccd928cc1f2..cab606617522 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -19,6 +19,7 @@
+ #define PHY_ID_BCM7425			0x03625e60
+ #define PHY_ID_BCM7429			0x600d8730
+ #define PHY_ID_BCM7439			0x600d8480
++#define PHY_ID_BCM7439_2		0xae025080
+ #define PHY_ID_BCM7445			0x600d8510
+ 
+ #define PHY_BCM_OUI_MASK		0xfffffc00
+-- 
+2.1.0
