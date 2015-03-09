@@ -1,53 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] rhashtable: rhashtable_rehash
-Date: Mon, 9 Mar 2015 21:13:16 +1100
-Message-ID: <20150309101316.GA4661@gondor.apana.org.au>
-References: <20150131102150.GA29498@gondor.apana.org.au>
- <20150131102329.GA29520@gondor.apana.org.au>
- <20150202111647.GA25964@casper.infradead.org>
+From: =?windows-1252?Q?Cl=E9ment_Perrochaud?=
+	<clement.perrochaud@effinnov.com>
+Subject: Re: [PATCH 1/4] NFC: nci: Add FWDL support
+Date: Mon, 09 Mar 2015 11:26:34 +0100
+Message-ID: <54FD755A.3010300@effinnov.com>
+References: <1421940460-14049-1-git-send-email-clement.perrochaud@effinnov.com> <1421940460-14049-2-git-send-email-clement.perrochaud@effinnov.com> <20150129232859.GA20998@ribalta.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:54692 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753348AbbCIKNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 06:13:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20150202111647.GA25964@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-nfc@lists.01.org,
+	=?windows-1252?Q?Cl=E9ment_Perrochaud?=
+	<clement.perrochaud@nxp.com>, sunil.jogi@nxp.com,
+	jerome.pele@nxp.com, Charles.Gorand-Effinnov@nxp.com,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	davem@davemloft.net, grant.likely@linaro.org, lefrique@marvell.com,
+	christophe.ricard@gmail.com, cuissard@marvell.com,
+	bzhao@marvell.com, hirent@marvell.com, akarwar@marvell.com,
+	linux-wireless@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150129232859.GA20998@ribalta.ger.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just going through old emails so this may no longer be relevant.
+On 01/30/2015 12:28 AM, Samuel Ortiz wrote:
+> - It really is not obvious that FWDL actually means firmware download
+> - A small commit message explaining why you need this (Mostly for the
+>   NXP chipset for now) would be nice.
 
-On Mon, Feb 02, 2015 at 11:16:47AM +0000, Thomas Graf wrote:
-> On 01/31/15 at 09:23pm, Herbert Xu wrote:
-> > +	new_hash = head_hashfn(ht, new_tbl, entry);
-> > +
-> > +	new_bucket_lock = bucket_lock(new_tbl, new_hash);
-> > +
-> > +	spin_lock(new_bucket_lock);
-> 
-> I realize this is WIP and not fully worked out yet, therefore just a
-> thought:
-> 
-> Unless you change this fundamentally then locking just the new bucket
-> lock based on the new hash is not sufficient when you rehash while growing
-> as the old bucket will contain entries which will get distributed across
-> 2 buckets in the new table and if we change the seed it will map to
-> even more buckets. I assume you have an idea how to handle that.
+Hi Samuel,
 
-This doesn't matter because we're doing the resize one entry at
-a time.  IOW we're moving one entry from the old table to the
-new table.  The lock is only needed to avoid parallel additions
-to the same bucket in the new table.
+Thank you for all your comments, I just sent an improved version of the
+patches taking them into account.
 
-Removals will need to scan the old table followed by the new table
-just like lookups so they don't care.
+Regards,
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--=20
+Cl=E9ment Perrochaud
+
+Eff'Innov Technologies
+Caen, Aix-En-Provence, Grenoble
+
+Eff'Innov Technologies
+Campus EffiScience
+2, Esplanade Anton Philips
+14460 Colombelles, FRANCE
+
+http://www.effinnov.com
