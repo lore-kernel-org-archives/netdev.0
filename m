@@ -1,90 +1,67 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next] tipc: sparse: fix htons
-	conversion warnings
-Date: Mon, 9 Mar 2015 17:31:27 +0800
-Message-ID: <54FD686F.9050604@windriver.com>
-References: <1425892771-15120-1-git-send-email-erik.hugne@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, laszlo.benedek@ericsson.com,
-	tipc-discussion@lists.sourceforge.net
-To: <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1425892771-15120-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2015-03-09
+Date: Mon,  9 Mar 2015 10:36:15 +0100
+Message-ID: <1425893781-10867-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50303 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753736AbbCIJg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:36:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2015 05:19 PM, erik.hugne@ericsson.com wrote:
-> From: Erik Hugne <erik.hugne@ericsson.com>
-> 
-> Commit d0f91938bede ("tipc: add ip/udp media type") introduced
-> some new sparse warnings. Clean them up.
-> 
+Hello David,
 
-It's better to add original sparse warning messages in commit header.
+this is a pull request for net/master for the 4.0 release cycle, it consists of
+6 patches:
 
-Regards,
-Ying
+A patch by Oliver Hartkopp fixes a long outstanding bug in the infrastructure,
+which leads to skb_under_panics when CAN interfaces are used by AF_PACKET
+sockets e.g. by dhclient. Stephane Grosjean contributes a patch for the
+peak_usb driver which adds a missing initialization. Two patches by Ahmed S.
+Darwish fix problems in the kvaser_usb driver. Followed by two patches by
+myself, updating the MAINTAINERS file.
 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> ---
->  net/tipc/udp_media.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-> index 0d10001..fc2fb11 100644
-> --- a/net/tipc/udp_media.c
-> +++ b/net/tipc/udp_media.c
-> @@ -162,7 +162,7 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
->  		err = -ENODEV;
->  		goto tx_error;
->  	}
-> -	if (htons(dst->proto) == ETH_P_IP) {
-> +	if (dst->proto == htons(ETH_P_IP)) {
->  		struct flowi4 fl = {
->  			.daddr = dst->ipv4.s_addr,
->  			.saddr = src->ipv4.s_addr,
-> @@ -334,7 +334,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
->  	struct udp_media_addr *remote;
->  	struct udp_media_addr local = {0};
->  	struct udp_port_cfg udp_conf = {0};
-> -	struct udp_tunnel_sock_cfg tuncfg = {0};
-> +	struct udp_tunnel_sock_cfg tuncfg = {NULL};
->  
->  	ub = kzalloc(sizeof(*ub), GFP_ATOMIC);
->  	if (!ub)
-> @@ -351,7 +351,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
->  	rcu_assign_pointer(b->media_ptr, ub);
->  	rcu_assign_pointer(ub->bearer, b);
->  	tipc_udp_media_addr_set(&b->addr, &local);
-> -	if (htons(local.proto) == ETH_P_IP) {
-> +	if (local.proto == htons(ETH_P_IP)) {
->  		struct net_device *dev;
->  
->  		dev = __ip_dev_find(net, local.ipv4.s_addr, false);
-> @@ -366,7 +366,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
->  		b->mtu = dev->mtu - sizeof(struct iphdr)
->  			- sizeof(struct udphdr);
->  #if IS_ENABLED(CONFIG_IPV6)
-> -	} else if (htons(local.proto) == ETH_P_IPV6) {
-> +	} else if (local.proto == htons(ETH_P_IPV6)) {
->  		udp_conf.family = AF_INET6;
->  		udp_conf.use_udp6_tx_checksums = true;
->  		udp_conf.use_udp6_rx_checksums = true;
-> 
+regards,
+Marc
+---
 
+The following changes since commit c247f0534cc5a5a547a343903f42295a471844e2:
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+  ip: fix error queue empty skb handling (2015-03-08 23:01:54 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.0-20150309
+
+for you to fetch changes up to ee2daa00fbe62a491446d3385542d43be233d81c:
+
+  MAINTAINERS: add Marc Kleine-Budde as co maintinaer for CAN networking layer (2015-03-09 10:22:45 +0100)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.0-20150309
+
+----------------------------------------------------------------
+Ahmed S. Darwish (2):
+      can: kvaser_usb: Avoid double free on URB submission failures
+      can: kvaser_usb: Read all messages in a bulk-in URB buffer
+
+Marc Kleine-Budde (2):
+      MAINTAINERS: linux-can moved to github
+      MAINTAINERS: add Marc Kleine-Budde as co maintinaer for CAN networking layer
+
+Oliver Hartkopp (1):
+      can: add missing initialisations in CAN related skbuffs
+
+Stephane Grosjean (1):
+      can: peak_usb: fix missing ctrlmode_ init for every dev
+
+ MAINTAINERS                                |  5 ++--
+ drivers/net/can/dev.c                      |  8 +++++
+ drivers/net/can/usb/kvaser_usb.c           | 48 +++++++++++++++++++-----------
+ drivers/net/can/usb/peak_usb/pcan_usb_fd.c |  4 +++
+ net/can/af_can.c                           |  3 ++
+ 5 files changed, 49 insertions(+), 19 deletions(-)
