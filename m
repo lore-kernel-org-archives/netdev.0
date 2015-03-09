@@ -1,59 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 8/9] i40e/i40evf: Bump i40e/i40evf version
-Date: Mon,  9 Mar 2015 10:55:41 -0700
-Message-ID: <1425923742-4488-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] i40e: tame the nvmupdate read and write complaints
+Date: Mon,  9 Mar 2015 10:55:38 -0700
+Message-ID: <1425923742-4488-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:49812 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753453AbbCIRzr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2015 13:55:47 -0400
+	id S1752192AbbCIRzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2015 13:55:46 -0400
 In-Reply-To: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Bump PF version to 1.2.37 and VF version to 1.2.25
+The NVMUpdate tool doesn't necessarily know the ReadOnly map of the current
+NVM image, and must try reading and writing words that may be protected.
+This generates an error out of the Firmware request that the driver logs.
+Unfortunately, this ends up spitting out hundreds of bogus read and write
+error message that looks rather messy.
 
-Change-ID: I0287a750408250dc055c03e1f744fd5f0caefd68
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
+This patch checks the error type and under normal conditions will not print
+the typical read and write errors during NVMUpdate.  This can be overridden
+by enabling the NVM update debugging.  This results in a much less messy log
+file, and likely many fewer customer support questions.
+
+Change-ID: Id4ff2e9048c523b0ff503aa5ab181b025ec948ea
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 54a2d7b..c1eaab5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 01c811c..9ff3dc1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -917,7 +917,9 @@ static int i40e_get_eeprom(struct net_device *netdev,
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 2
--#define DRV_VERSION_BUILD 12
-+#define DRV_VERSION_BUILD 37
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 5ac777b..812b120 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ 		cmd = (struct i40e_nvm_access *)eeprom;
+ 		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
+-		if (ret_val)
++		if (ret_val &&
++		    ((hw->aq.asq_last_status != I40E_AQ_RC_EACCES) ||
++		     (hw->debug_mask & I40E_DEBUG_NVM)))
+ 			dev_info(&pf->pdev->dev,
+ 				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
+ 				 ret_val, hw->aq.asq_last_status, errno,
+@@ -1021,7 +1023,10 @@ static int i40e_set_eeprom(struct net_device *netdev,
  
--#define DRV_VERSION "1.2.6"
-+#define DRV_VERSION "1.2.25"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
+ 	cmd = (struct i40e_nvm_access *)eeprom;
+ 	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
+-	if (ret_val && hw->aq.asq_last_status != I40E_AQ_RC_EBUSY)
++	if (ret_val &&
++	    ((hw->aq.asq_last_status != I40E_AQ_RC_EPERM &&
++	      hw->aq.asq_last_status != I40E_AQ_RC_EBUSY) ||
++	     (hw->debug_mask & I40E_DEBUG_NVM)))
+ 		dev_info(&pf->pdev->dev,
+ 			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
+ 			 ret_val, hw->aq.asq_last_status, errno,
 -- 
 1.9.3
