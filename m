@@ -1,58 +1,132 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [patch net-next 3/4] net: refactor IPv4 and IPv6 fragmentation
- APIs
-Date: Mon, 9 Mar 2015 18:25:59 +0900
-Message-ID: <20150309092557.GB13498@vergenet.net>
-References: <1425888098-21875-1-git-send-email-azhou@nicira.com>
- <1425888098-21875-4-git-send-email-azhou@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Andy Zhou <azhou@nicira.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] switchdev: use gpl variant of symbol export
+Date: Mon,  9 Mar 2015 10:26:24 +0100
+Message-ID: <1425893184-1738-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, sfeldma@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:42994 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322AbbCIJ0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:26:09 -0400
-Received: by pdbfl12 with SMTP id fl12so62446401pdb.9
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 02:26:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1425888098-21875-4-git-send-email-azhou@nicira.com>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:43454 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147AbbCIJ03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 05:26:29 -0400
+Received: by wggx12 with SMTP id x12so15862780wgg.10
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 02:26:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 09, 2015 at 01:01:37AM -0700, Andy Zhou wrote:
-> Both ip_fragment() and ip6_fragment() APIs assume skb has an
-> attached netdev device, from which the MTU size can be derived.
-> However, skbs incoming from OVS vports do not have an attached
-> netdev device.
-> 
-> This patch splits the original function into two parts: The core
-> fragmentation logic is now provided by
-> ip_fragment_mtu()/ip6_fragment_mut().
-> 
-> The original APIs are kept as is. Their implementation now calls
-> the new APIs. Any information derived from the attached netdev
-> device is first derived in the original APIs and passed into the
-> new APIs.
-> 
-> In addition, The call back output function into the new APIs now
-> accepts two arguments: a skb and an application specific pointer,
-> which specifies additional information not directly associated
-> with skb, such as OVS flow, to the output function.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/switchdev/switchdev.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-I suggest handling that portion of the change separately.
-It doesn't seem nearly as well defined as the rest of the change.
-And cast below seems somewhat undesirable to me.
-
-[snip]
-
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index a7aea20..b85fd34 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-
-> +	return ip_fragment_mtu(skb, mtu, ll_rs, NULL, dev,
-> +			(int (*)(struct sk_buff *, void *output_arg))output);
-> +}
->  EXPORT_SYMBOL(ip_fragment);
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 19e4e72..aba6aa2 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -33,7 +33,7 @@ int netdev_switch_parent_id_get(struct net_device *dev,
+ 		return -EOPNOTSUPP;
+ 	return ops->ndo_switch_parent_id_get(dev, psid);
+ }
+-EXPORT_SYMBOL(netdev_switch_parent_id_get);
++EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+ 
+ /**
+  *	netdev_switch_port_stp_update - Notify switch device port of STP
+@@ -52,7 +52,7 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+ 	WARN_ON(!ops->ndo_switch_parent_id_get);
+ 	return ops->ndo_switch_port_stp_update(dev, state);
+ }
+-EXPORT_SYMBOL(netdev_switch_port_stp_update);
++EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
+ 
+ static DEFINE_MUTEX(netdev_switch_mutex);
+ static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
+@@ -74,7 +74,7 @@ int register_netdev_switch_notifier(struct notifier_block *nb)
+ 	mutex_unlock(&netdev_switch_mutex);
+ 	return err;
+ }
+-EXPORT_SYMBOL(register_netdev_switch_notifier);
++EXPORT_SYMBOL_GPL(register_netdev_switch_notifier);
+ 
+ /**
+  *	unregister_netdev_switch_notifier - Unregister nofifier
+@@ -92,7 +92,7 @@ int unregister_netdev_switch_notifier(struct notifier_block *nb)
+ 	mutex_unlock(&netdev_switch_mutex);
+ 	return err;
+ }
+-EXPORT_SYMBOL(unregister_netdev_switch_notifier);
++EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
+ 
+ /**
+  *	call_netdev_switch_notifiers - Call nofifiers
+@@ -115,7 +115,7 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
+ 	mutex_unlock(&netdev_switch_mutex);
+ 	return err;
+ }
+-EXPORT_SYMBOL(call_netdev_switch_notifiers);
++EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
+ 
+ /**
+  *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
+@@ -140,7 +140,7 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
+ 
+ 	return ops->ndo_bridge_setlink(dev, nlh, flags);
+ }
+-EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
++EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
+ 
+ /**
+  *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
+@@ -165,7 +165,7 @@ int netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 
+ 	return ops->ndo_bridge_dellink(dev, nlh, flags);
+ }
+-EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
++EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
+ 
+ /**
+  *	ndo_dflt_netdev_switch_port_bridge_setlink - default ndo bridge setlink
+@@ -195,7 +195,7 @@ int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_setlink);
++EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_setlink);
+ 
+ /**
+  *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
+@@ -225,7 +225,7 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(ndo_dflt_netdev_switch_port_bridge_dellink);
++EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
+ 
+ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ {
+@@ -331,7 +331,7 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL(netdev_switch_fib_ipv4_add);
++EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
+ 
+ /**
+  *	netdev_switch_fib_ipv4_del - Delete IPv4 route entry from switch
+@@ -369,7 +369,7 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL(netdev_switch_fib_ipv4_del);
++EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_del);
+ 
+ /**
+  *	netdev_switch_fib_ipv4_abort - Abort an IPv4 FIB operation
+@@ -389,4 +389,4 @@ void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
+ 	fib_flush_external(fi->fib_net);
+ 	fi->fib_net->ipv4.fib_offload_disabled = true;
+ }
+-EXPORT_SYMBOL(netdev_switch_fib_ipv4_abort);
++EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_abort);
+-- 
+1.9.3
