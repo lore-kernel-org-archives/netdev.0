@@ -1,81 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/2] net: bcmgenet: update ring producer index and buffer count in xmit
-Date: Mon,  9 Mar 2015 14:52:16 -0700
-Message-ID: <1425937937-26955-2-git-send-email-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: bcmgenet: add support for xmit_more
+Date: Mon, 09 Mar 2015 15:10:20 -0700
+Message-ID: <1425939020.8261.17.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1425937937-26955-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, pgynther@google.com, jaedon.shin@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+	 <1425937937-26955-3-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pgynther@google.com,
+	jaedon.shin@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:44142 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751390AbbCIVwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 17:52:50 -0400
-Received: by padet14 with SMTP id et14so51810773pad.11
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 14:52:50 -0700 (PDT)
-In-Reply-To: <1425937937-26955-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:40039 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753174AbbCIWKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 18:10:23 -0400
+Received: by igal13 with SMTP id l13so25269185iga.5
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 15:10:21 -0700 (PDT)
+In-Reply-To: <1425937937-26955-3-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to have both bcmgenet_xmit_single() and
-bcmgenet_xmit_frag() perform a free_bds decrement and a prod_index
-increment by one. In case one of these functions fails to map a SKB or
-fragment for transmit, we will return and exit bcmgenet_xmit() with an
-error.
+On Mon, 2015-03-09 at 14:52 -0700, Florian Fainelli wrote:
+> Delay the update of the TDMA producer index unless this is the last SKB in a
+> batch, or the queue is already stopped.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 9b3b8a3db59b..8419826da6a7 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -1316,8 +1316,10 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	ring->prod_index += nr_frags + 1;
+>  	ring->prod_index &= DMA_P_INDEX_MASK;
+>  
+> -	bcmgenet_tdma_ring_writel(priv, ring->index,
+> -				  ring->prod_index, TDMA_PROD_INDEX);
+> +	if (!skb->xmit_more || netif_xmit_stopped(txq))
+> +		/* Packets are ready, update producer index */
+> +		bcmgenet_tdma_ring_writel(priv, ring->index,
+> +					  ring->prod_index, TDMA_PROD_INDEX);
+>  
+>  	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+>  		netif_tx_stop_queue(txq);
 
-We can therefore safely use our local copy of nr_frags to know by how
-much we should decrement the number of free buffers available, and by
-how much the producer count must be incremented and do this in the tail
-of bcmgenet_xmit().
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-Acked-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 83c0cb323e0c..9b3b8a3db59b 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1130,11 +1130,6 @@ static int bcmgenet_xmit_single(struct net_device *dev,
- 
- 	dmadesc_set(priv, tx_cb_ptr->bd_addr, mapping, length_status);
- 
--	/* Decrement total BD count and advance our write pointer */
--	ring->free_bds -= 1;
--	ring->prod_index += 1;
--	ring->prod_index &= DMA_P_INDEX_MASK;
--
- 	return 0;
- }
- 
-@@ -1173,11 +1168,6 @@ static int bcmgenet_xmit_frag(struct net_device *dev,
- 		    (frag->size << DMA_BUFLENGTH_SHIFT) | dma_desc_flags |
- 		    (priv->hw_params->qtag_mask << DMA_TX_QTAG_SHIFT));
- 
--
--	ring->free_bds -= 1;
--	ring->prod_index += 1;
--	ring->prod_index &= DMA_P_INDEX_MASK;
--
- 	return 0;
- }
- 
-@@ -1321,9 +1311,11 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	skb_tx_timestamp(skb);
- 
--	/* we kept a software copy of how much we should advance the TDMA
--	 * producer index, now write it down to the hardware
--	 */
-+	/* Decrement total BD count and advance our write pointer */
-+	ring->free_bds -= nr_frags + 1;
-+	ring->prod_index += nr_frags + 1;
-+	ring->prod_index &= DMA_P_INDEX_MASK;
-+
- 	bcmgenet_tdma_ring_writel(priv, ring->index,
- 				  ring->prod_index, TDMA_PROD_INDEX);
- 
--- 
-2.1.0
+It seems you have a race here, if you stop the queue right now, while
+this skb had skb->xmit_more set.
