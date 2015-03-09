@@ -1,44 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 6/6] tcp_metrics: Use a single hash table for
- all network namespaces.
-Date: Mon, 09 Mar 2015 11:43:17 -0700
-Message-ID: <1425926597.8261.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
-	 <CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
-	 <87d25hrv9m.fsf@x220.int.ebiederm.org>
-	 <20150219.144929.1003473344851168804.davem@davemloft.net>
-	 <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
-	 <8761aayqdd.fsf_-_@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
-	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
-	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
-	dsahern@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: Add Ying Xue to TIPC maintainers list
+Date: Mon,  9 Mar 2015 14:44:13 -0400
+Message-ID: <1425926653-29372-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:42489 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449AbbCISnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:43:19 -0400
-Received: by iecvy18 with SMTP id vy18so41809009iec.9
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 11:43:19 -0700 (PDT)
-In-Reply-To: <8761aayqdd.fsf_-_@x220.int.ebiederm.org>
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:26481 "EHLO
+	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753582AbbCISoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:44:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-09 at 13:31 -0500, Eric W. Biederman wrote:
+We remove Allan Stephens, who has moved on to other tasks, from
+the TIPC maintainers list. He is replaced by Ying Xue, who has
+been doing the maintenance on behalf of WindRiver since almost
+three years.
 
->  
-> +static struct tcpm_hash_bucket	*tcp_metrics_hash;
-> +static unsigned int		tcp_metrics_hash_log;
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Acked-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ MAINTAINERS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-static struct tcpm_hash_bucket *tcp_metrics_hash __read_mostly;
-static unsigned int            tcp_metrics_hash_log __read_mostly;
-
-
-> +
->  static DEFINE_SPINLOCK(tcp_metrics_lock);
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a6ae6eb..8942536 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9800,7 +9800,7 @@ F:	include/linux/wl12xx.h
+ 
+ TIPC NETWORK LAYER
+ M:	Jon Maloy <jon.maloy@ericsson.com>
+-M:	Allan Stephens <allan.stephens@windriver.com>
++M:	Ying Xue <ying.xue@windriver.com>
+ L:	netdev@vger.kernel.org (core kernel code)
+ L:	tipc-discussion@lists.sourceforge.net (user apps, general discussion)
+ W:	http://tipc.sourceforge.net/
+-- 
+1.9.1
