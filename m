@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and verify it matches on lookup
-Date: Mon, 09 Mar 2015 13:29:14 -0500
-Message-ID: <87oao2yqh1.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH net-next 4/6] tcp_metrics: Remove the unused return code from tcp_metrics_flush_all
+Date: Mon, 09 Mar 2015 13:30:02 -0500
+Message-ID: <87ioeayqfp.fsf_-_@x220.int.ebiederm.org>
 References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
 	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
 	<87d25hrv9m.fsf@x220.int.ebiederm.org>
@@ -16,103 +16,56 @@ Cc: edumazet@google.com, netdev@vger.kernel.org,
 	shmulik.ladkani@gmail.com, dsahern@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:37595 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449AbbCIScy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:32:54 -0400
+Received: from out03.mta.xmission.com ([166.70.13.233]:49211 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753613AbbCISdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:33:41 -0400
 In-Reply-To: <87h9tu114z.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Mon, 09 Mar 2015 13:22:52 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-In preparation for using one tcp metrics hash table for all network
-namespaces add a field tcpm_net to struct tcp_metrics_block, and verify
-that field on all hash table lookups.
+tcp_metrics_flush_all always returns 0.  Remove the unnecessary return code.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/tcp_metrics.c | 19 ++++++++++++++-----
- 1 file changed, 14 insertions(+), 5 deletions(-)
+ net/ipv4/tcp_metrics.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 70196c3c16a1..4ec02d6cab5b 100644
+index 4ec02d6cab5b..e98c6e9770c1 100644
 --- a/net/ipv4/tcp_metrics.c
 +++ b/net/ipv4/tcp_metrics.c
-@@ -40,6 +40,7 @@ struct tcp_fastopen_metrics {
+@@ -1038,7 +1038,7 @@ out_free:
  
- struct tcp_metrics_block {
- 	struct tcp_metrics_block __rcu	*tcpm_next;
-+	struct net			*tcpm_net;
- 	struct inetpeer_addr		tcpm_saddr;
- 	struct inetpeer_addr		tcpm_daddr;
- 	unsigned long			tcpm_stamp;
-@@ -183,6 +184,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 		if (!tm)
- 			goto out_unlock;
+ #define deref_genl(p)	rcu_dereference_protected(p, lockdep_genl_is_held())
+ 
+-static int tcp_metrics_flush_all(struct net *net)
++static void tcp_metrics_flush_all(struct net *net)
+ {
+ 	unsigned int max_rows = 1U << net->ipv4.tcp_metrics_hash_log;
+ 	struct tcpm_hash_bucket *hb = net->ipv4.tcp_metrics_hash;
+@@ -1059,7 +1059,6 @@ static int tcp_metrics_flush_all(struct net *net)
+ 			tm = next;
+ 		}
  	}
-+	tm->tcpm_net = net;
- 	tm->tcpm_saddr = *saddr;
- 	tm->tcpm_daddr = *daddr;
+-	return 0;
+ }
  
-@@ -216,7 +218,8 @@ static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *s
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_saddr, saddr) &&
-+		if ((tm->tcpm_net == net) &&
-+		    addr_same(&tm->tcpm_saddr, saddr) &&
- 		    addr_same(&tm->tcpm_daddr, daddr))
- 			break;
- 		depth++;
-@@ -257,7 +260,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_saddr, &saddr) &&
-+		if ((tm->tcpm_net == net) &&
-+		    addr_same(&tm->tcpm_saddr, &saddr) &&
- 		    addr_same(&tm->tcpm_daddr, &daddr))
- 			break;
- 	}
-@@ -305,7 +309,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_saddr, &saddr) &&
-+		if ((tm->tcpm_net == net) &&
-+		    addr_same(&tm->tcpm_saddr, &saddr) &&
- 		    addr_same(&tm->tcpm_daddr, &daddr))
- 			break;
- 	}
-@@ -912,6 +917,8 @@ static int tcp_metrics_nl_dump(struct sk_buff *skb,
- 		rcu_read_lock();
- 		for (col = 0, tm = rcu_dereference(hb->chain); tm;
- 		     tm = rcu_dereference(tm->tcpm_next), col++) {
-+			if (tm->tcpm_net != net)
-+				continue;
- 			if (col < s_col)
- 				continue;
- 			if (tcp_metrics_dump_info(skb, cb, tm) < 0) {
-@@ -1003,7 +1010,8 @@ static int tcp_metrics_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	rcu_read_lock();
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
--		if (addr_same(&tm->tcpm_daddr, &daddr) &&
-+		if ((tm->tcpm_net == net) &&
-+		    addr_same(&tm->tcpm_daddr, &daddr) &&
- 		    (!src || addr_same(&tm->tcpm_saddr, &saddr))) {
- 			ret = tcp_metrics_fill_info(msg, tm);
- 			break;
-@@ -1080,7 +1088,8 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	pp = &hb->chain;
- 	spin_lock_bh(&tcp_metrics_lock);
- 	for (tm = deref_locked_genl(*pp); tm; tm = deref_locked_genl(*pp)) {
--		if (addr_same(&tm->tcpm_daddr, &daddr) &&
-+		if ((tm->tcpm_net == net) &&
-+		    addr_same(&tm->tcpm_daddr, &daddr) &&
- 		    (!src || addr_same(&tm->tcpm_saddr, &saddr))) {
- 			*pp = tm->tcpm_next;
- 			kfree_rcu(tm, rcu_head);
+ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+@@ -1076,8 +1075,10 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	ret = parse_nl_addr(info, &daddr, &hash, 1);
+ 	if (ret < 0)
+ 		return ret;
+-	if (ret > 0)
+-		return tcp_metrics_flush_all(net);
++	if (ret > 0) {
++		tcp_metrics_flush_all(net);
++		return 0;
++	}
+ 	ret = parse_nl_saddr(info, &saddr);
+ 	if (ret < 0)
+ 		src = false;
 -- 
 2.2.1
