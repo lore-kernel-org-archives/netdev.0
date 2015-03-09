@@ -1,150 +1,148 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH] net: can: Enable xilinx driver for all ARCHs
-Date: Mon, 9 Mar 2015 15:04:28 +0100
-Message-ID: <BY2FFO11FD023D29C02DAF9CCBDC40386E21B0@BY2FFO11FD023.protection.gbl>
-References: <4096fa4ceae72817d8e64d9a1da738038a5c864a.1425890926.git.michal.simek@xilinx.com>
-	 <54FD5EE1.6050402@pengutronix.de>
-	 <BY2FFO11FD001BD9CFD92C94214501BB8E21B0@BY2FFO11FD001.protection.gbl>
-	 <54FD641C.7090607@pengutronix.de>
-	 <BY2FFO11FD0060B11FE9C9305D5DFD12BE21B0@BY2FFO11FD006.protection.gbl>
-	 <54FD6E42.6070206@pengutronix.de> <1425909239.23920.60.camel@chaos.site>
- <54FDA662.8020801@pengutronix.de>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH] rds: avoid potential stack overflow
+Date: Mon, 09 Mar 2015 10:19:41 -0400
+Message-ID: <54FDABFD.2020502@oracle.com>
+References: <17806664.ym3oszzFIH@wuerfel>
+Reply-To: sowmini.varadhan@oracle.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature";
-	boundary="ml7amHhGtKRbcvpTtE4tHBhepfULFVHF4"
-Cc: Michal Simek <michal.simek@xilinx.com>,
-	<linux-kernel@vger.kernel.org>, <monstr@monstr.eu>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Jean Delvare <jdelvare@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54FDA662.8020801@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Roland Dreier <roland@purestorage.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>, Chien Yen <chien.yen@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:24718 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753891AbbCIOUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 10:20:24 -0400
+In-Reply-To: <17806664.ym3oszzFIH@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---ml7amHhGtKRbcvpTtE4tHBhepfULFVHF4
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On 03/09/2015 08:06 AM, Arnd Bergmann wrote:
+> The rds_iw_add_conn function stores a large 'struct rds_sock'
 
-On 03/09/2015 02:55 PM, Marc Kleine-Budde wrote:
-> On 03/09/2015 02:53 PM, Jean Delvare wrote:
->> Le Monday 09 March 2015 =C3=A0 10:56 +0100, Marc Kleine-Budde a =C3=A9=
-crit :
->>> On 03/09/2015 10:52 AM, Michal Simek wrote:
->>>> On 03/09/2015 10:13 AM, Marc Kleine-Budde wrote:
->>>>> On 03/09/2015 09:58 AM, Michal Simek wrote:
->>>>>> On 03/09/2015 09:50 AM, Marc Kleine-Budde wrote:
->>>>>>> On 03/09/2015 09:48 AM, Michal Simek wrote:
->>>>>>>> Remove Kconfig dependency and enable driver for
->>>>>>>> all ARCHs.
->>>>>>>>
->>>>>>>> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
->>>>>>>> Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
->>>>>>>> ---
->>>>>>>>
->>>>>>>> Test for all archs done by Kbuild test robot without any problem=
-=2E
->>>>>>>> ---
->>>>>>>>  drivers/net/can/Kconfig | 1 -
->>>>>>>>  1 file changed, 1 deletion(-)
->>>>>>>>
->>>>>>>> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
->>>>>>>> index 98d73aab52fe..f690c3fb3088 100644
->>>>>>>> --- a/drivers/net/can/Kconfig
->>>>>>>> +++ b/drivers/net/can/Kconfig
->>>>>>>> @@ -131,7 +131,6 @@ config CAN_RCAR
->>>>>>>> =20
->>>>>>>>  config CAN_XILINXCAN
->>>>>>>>  	tristate "Xilinx CAN"
->>>>>>>> -	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
->>>>>>>
->>>>>>> I think that's what COMPILE_TEST ist for?
->>>>>>
->>>>>> For compilation yes but not for enabling. Currently this driver
->>>>>> can be also used on ARM64 that's why people suggesting directly
->>>>>> to remove dependency on arch and then COMPILE_TEST can be removed
->>>>>> too.
->>>>>
->>>>> In the past (May 2014) I had people complaining that certain ARM So=
-C
->>>>> specific drivers are enabled on ARM in general, not just on that So=
-C. As
->>>>> I'm not following arm64 in detail, has the notion of using depends =
-on
->>>>> ARCH changes since then?
->>>>>
->>>>>> Or do you want me to change description to mention that this is fo=
-r
->>>>>> ARM64 enabling?
->>>>>
->>>>> Given this is consensus, a remark to ARM64 would be appreciated. :)=
+I think you might have a typo here- did you mean
+rds_iw_update_cm_id above (which is the function that has
+a 'struct rds_sock rs' on the stack)?
 
->>>>
->>>> David has applied this patch which is in general just the same as th=
-is one.
->>>>
->>>> (linux-next) Remove architecture dependency
->>>> 28811a8c00fe0d899b8a544421f3b4947425d5e8
->>>>
->>>> Mark Brown has suggested to do so for spi and don't check architectu=
-re at
->>>> all.
->>>> I have also sent similar patch for watchdog driver too.
->>>>
->>>> I think it is up to you if you want to add ARM64 to Kconfig or just =
-remove
->>>> that arch dependencies.
->>>> To be honest my goal is to enable this driver for ARM64.
->>>> Please tell me what way you prefer.
->>>
->>> I like the idea of removing the depends on ARCH completely. Jean, wha=
-t
->>> do you think?
->>
->> Removing the dependency completely will let the option be displayed on=
+The rest of the change looks fine to me.
 
->> systems where the driver is useless. I am in favor of having hardware
->> dependencies on as many drivers as possible to avoid bothering the use=
-r
->> with irrelevant questions. The list of Kconfig entries has grown a lot=
+--Sowmini
 
->> over time!
->>
->> If the current dependency is too strict then I would suggest to extend=
-
->> it or to make it broader (depends on ARM || ARM64 || COMPILE_TEST woul=
-d
->> be acceptable IMHO.) Dropping it completely only makes sense if the pa=
-rt
->> is used on so many systems that the dependency becomes too long or is =
-a
->> pain to maintain.
->=20
-> Sounds reasonable. Michael, make it so.
-
-I have sent v2 which add arm64 to Kconfig and I am keeping just dependenc=
-y on
-ARCH_ZYNQ not all ARM platforms.
-
-Thanks,
-Michal
-
-
-
-
---ml7amHhGtKRbcvpTtE4tHBhepfULFVHF4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAlT9qGwACgkQykllyylKDCEECgCeNi3FnTyCXT7pxbIdbgp6lP4P
-UbYAnjVdMJ9DP0jYF3mjhsaFph4UaVgT
-=ydb1
------END PGP SIGNATURE-----
-
---ml7amHhGtKRbcvpTtE4tHBhepfULFVHF4--
+> object on the stack in order to pass a pair of addresses. This
+> happens to just fit withint the 1024 byte stack size warning
+> limit on x86, but just exceed that limit on ARM, which gives
+> us this warning:
+>
+> net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+>
+> The warning is correct in principle, though unlikely to be
+> related to a serious problem.
+>
+> As the use of this large variable is basically bogus, we can
+> rearrange the code to not do that. Instead of passing an
+> rds socket into rds_iw_get_device, we now just pass the two
+> addresses that we have available in rds_iw_update_cm_id, and
+> we change rds_iw_get_mr accordingly, to create two address
+> structures on the stack there.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>
+> diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+> index a817705ce2d0..dba8d0864f18 100644
+> --- a/net/rds/iw_rdma.c
+> +++ b/net/rds/iw_rdma.c
+> @@ -88,7 +88,9 @@ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+>   			int *unpinned);
+>   static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+>
+> -static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwdev, struct rdma_cm_id **cm_id)
+> +static int rds_iw_get_device(struct sockaddr_in *src, struct sockaddr_in *dst,
+> +			     struct rds_iw_device **rds_iwdev,
+> +			     struct rdma_cm_id **cm_id)
+>   {
+>   	struct rds_iw_device *iwdev;
+>   	struct rds_iw_cm_id *i_cm_id;
+> @@ -112,15 +114,15 @@ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwd
+>   				src_addr->sin_port,
+>   				dst_addr->sin_addr.s_addr,
+>   				dst_addr->sin_port,
+> -				rs->rs_bound_addr,
+> -				rs->rs_bound_port,
+> -				rs->rs_conn_addr,
+> -				rs->rs_conn_port);
+> +				src->sin_addr.s_addr,
+> +				src->sin_port,
+> +				dst->sin_addr.s_addr,
+> +				dst->sin_port);
+>   #ifdef WORKING_TUPLE_DETECTION
+> -			if (src_addr->sin_addr.s_addr == rs->rs_bound_addr &&
+> -			    src_addr->sin_port == rs->rs_bound_port &&
+> -			    dst_addr->sin_addr.s_addr == rs->rs_conn_addr &&
+> -			    dst_addr->sin_port == rs->rs_conn_port) {
+> +			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr &&
+> +			    src_addr->sin_port == src->sin_port &&
+> +			    dst_addr->sin_addr.s_addr == dst->sin_addr.s_addr &&
+> +			    dst_addr->sin_port == dst->sin_port) {
+>   #else
+>   			/* FIXME - needs to compare the local and remote
+>   			 * ipaddr/port tuple, but the ipaddr is the only
+> @@ -128,7 +130,7 @@ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwd
+>   			 * zero'ed.  It doesn't appear to be properly populated
+>   			 * during connection setup...
+>   			 */
+> -			if (src_addr->sin_addr.s_addr == rs->rs_bound_addr) {
+> +			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr) {
+>   #endif
+>   				spin_unlock_irq(&iwdev->spinlock);
+>   				*rds_iwdev = iwdev;
+> @@ -180,19 +182,13 @@ int rds_iw_update_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_i
+>   {
+>   	struct sockaddr_in *src_addr, *dst_addr;
+>   	struct rds_iw_device *rds_iwdev_old;
+> -	struct rds_sock rs;
+>   	struct rdma_cm_id *pcm_id;
+>   	int rc;
+>
+>   	src_addr = (struct sockaddr_in *)&cm_id->route.addr.src_addr;
+>   	dst_addr = (struct sockaddr_in *)&cm_id->route.addr.dst_addr;
+>
+> -	rs.rs_bound_addr = src_addr->sin_addr.s_addr;
+> -	rs.rs_bound_port = src_addr->sin_port;
+> -	rs.rs_conn_addr = dst_addr->sin_addr.s_addr;
+> -	rs.rs_conn_port = dst_addr->sin_port;
+> -
+> -	rc = rds_iw_get_device(&rs, &rds_iwdev_old, &pcm_id);
+> +	rc = rds_iw_get_device(src_addr, dst_addr, &rds_iwdev_old, &pcm_id);
+>   	if (rc)
+>   		rds_iw_remove_cm_id(rds_iwdev, cm_id);
+>
+> @@ -598,9 +594,17 @@ void *rds_iw_get_mr(struct scatterlist *sg, unsigned long nents,
+>   	struct rds_iw_device *rds_iwdev;
+>   	struct rds_iw_mr *ibmr = NULL;
+>   	struct rdma_cm_id *cm_id;
+> +	struct sockaddr_in src = {
+> +		.sin_addr.s_addr = rs->rs_bound_addr,
+> +		.sin_port = rs->rs_bound_port,
+> +	};
+> +	struct sockaddr_in dst = {
+> +		.sin_addr.s_addr = rs->rs_conn_addr,
+> +		.sin_port = rs->rs_conn_port,
+> +	};
+>   	int ret;
+>
+> -	ret = rds_iw_get_device(rs, &rds_iwdev, &cm_id);
+> +	ret = rds_iw_get_device(&src, &dst, &rds_iwdev, &cm_id);
+>   	if (ret || !cm_id) {
+>   		ret = -ENODEV;
+>   		goto out;
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
