@@ -1,80 +1,54 @@
-From: Michael Grzeschik <mgr@pengutronix.de>
-Subject: Re: [PATCH] net: fec: fix rxvlan feature
-Date: Mon, 9 Mar 2015 19:21:07 +0100
-Message-ID: <20150309182107.GA24703@pengutronix.de>
-References: <1425920153-13319-1-git-send-email-m.grzeschik@pengutronix.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next 0/6] tcp_metrics: Network namespace bloat reduction
+Date: Mon, 09 Mar 2015 13:22:52 -0500
+Message-ID: <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	<87d25hrv9m.fsf@x220.int.ebiederm.org>
+	<20150219.144929.1003473344851168804.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Frank.Li@freescale.com,
-	davem@davemloft.net, kernel@pengutronix.de
-To: B38611@freescale.com
+Content-Type: text/plain
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
+	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
+	shmulik.ladkani@gmail.com, dsahern@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42787 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753019AbbCISVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:21:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1425920153-13319-1-git-send-email-m.grzeschik@pengutronix.de>
+Received: from out02.mta.xmission.com ([166.70.13.232]:35628 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbbCIS0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 14:26:33 -0400
+In-Reply-To: <20150219.144929.1003473344851168804.davem@davemloft.net> (David
+	Miller's message of "Thu, 19 Feb 2015 14:49:29 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 09, 2015 at 05:55:53PM +0100, Michael Grzeschik wrote:
-> The patch 1b7bde6d659d30f171259cc2dfba8e5dab34e735
-> "net: fec: implement rx_copybreak to improve rx performance"
-> changed the code path for the vlan check in fec_enet_rx_queue:
-> 
->  @@ -1417,62 +1486,48 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
->  		/* If this is a VLAN packet remove the VLAN Tag */
->  		vlan_packet_rcvd = false;
->  		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
->  			fep->bufdesc_ex && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
->  			/* Push and remove the vlan tag */
->                          struct vlan_hdr *vlan_header =
->                                          (struct vlan_hdr *) (data + ETH_HLEN);
->                          vlan_tag = ntohs(vlan_header->h_vlan_TCI);
->  -                       pkt_len -= VLAN_HLEN;
-> 
->                          vlan_packet_rcvd = true;
->  +
->  +                       skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
->  +                                                      data, (2 * ETH_ALEN));
->  +                       skb_pull(skb, VLAN_HLEN);
->                  }
-> 
-> With the call of skb_copy_to_linear_data_offset the code here is doing more
-> than previously and is breaking the rxvlan feature. This patch removes this
-> call to fix it.
-> 
-> Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 9bb6220..77dd539 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1479,8 +1479,6 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
->  
->  			vlan_packet_rcvd = true;
->  
-> -			skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
-> -						       data, (2 * ETH_ALEN));
 
-I was reviewing the surrounding code of the mentioned code. AFAIK I am
-pretty sure that this had ment to be another call: (to vs. from)
+This is a small pile of patches that convert tcp_metrics from using a
+hash table per network namespace to using a single hash table for all
+network namespaces.
 
-+			skb_copy_from_linear_data_offset(skb, VLAN_HLEN,
-+						       data, (2 * ETH_ALEN));
+This is broken up into several patches so that each small step along
+the way could be carefully scrutinized as I wrote it, and equally so
+that each small step can be reviewed.
 
-I will test it tomorrow morning, as I currently have no hardware for
-today.
+There are two minor cleanups included.  The addition of a missing panic
+when the tcp_metrics hash table can not be allocated during boot and the
+removal of the return code from tcp_metrics_flush_all
 
-Regards,
-Michael
+The motivation for this change is that the tcp_metrics hash table at
+128KiB is the single largest component of a freshly allocated network
+namespace.
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Eric W. Biederman (6):
+      tcp_metrics: panic when tcp_metrics can not be allocated
+      tcp_metrics: Mix the network namespace into the hash function.
+      tcp_metrics: Add a field tcpm_net and verify it matches on lookup
+      tcp_metrics: Remove the unused return code from tcp_metrics_flush_all
+      tcp_metrics: Rewrite tcp_metrics_flush_all
+      tcp_metrics: Use a single hash table for all network namespaces.
+
+ include/net/netns/ipv4.h |   2 -
+ net/ipv4/tcp_metrics.c   | 118 +++++++++++++++++++++++++++++------------------
+ 2 files changed, 73 insertions(+), 47 deletions(-)
