@@ -1,55 +1,60 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] net: smc91x: improve neponset hack
-Date: Mon, 09 Mar 2015 13:14:04 -0400 (EDT)
-Message-ID: <20150309.131404.2077303491934820826.davem@redhat.com>
-References: <5754481.gFE9BvLjh0@wuerfel>
-	<20150309122012.GJ8656@n2100.arm.linux.org.uk>
-	<20150309123447.GL8656@n2100.arm.linux.org.uk>
+Subject: Re: [PATCH nf-next 0/8] netfilter: untangle bridge and bridge
+ netfilter
+Date: Mon, 09 Mar 2015 13:16:13 -0400 (EDT)
+Message-ID: <20150309.131613.2015932954920552655.davem@redhat.com>
+References: <1425513160-496-1-git-send-email-fw@strlen.de>
+	<20150309130253.GA6677@salvia>
+	<20150309131356.GB28039@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, dbaryshkov@gmail.com, netdev@vger.kernel.org,
-	linus.walleij@linaro.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: linux@arm.linux.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150309123447.GL8656@n2100.arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, azhou@nicira.com
+To: fw@strlen.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150309131356.GB28039@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Mon, 9 Mar 2015 12:34:47 +0000
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 9 Mar 2015 14:13:56 +0100
 
-> On Mon, Mar 09, 2015 at 12:20:12PM +0000, Russell King - ARM Linux wrote:
->> On Fri, Feb 20, 2015 at 04:47:06PM +0100, Arnd Bergmann wrote:
->> > On Thursday 19 February 2015 00:35:49 Russell King - ARM Linux wrote:
->> > > On Wed, Feb 18, 2015 at 08:47:30PM +0100, Arnd Bergmann wrote:
->> > > > The smc91x driver tries to support multiple platforms at compile
->> > > > time, but they are mutually exclusive at runtime, and not clearly
->> > > > defined.
->> > > 
->> > > I'd prefer to rework this to fix that properly.  From what I remember,
->> > > the whole SA11x0 stuff in this driver was a mess.
->> > 
->> > I guess that's reasonable. I've looked through the driver and it seems we
->> > did most of the multiplatform work but left a few things alone that should
->> > have been converted a long time ago.
->> > 
->> > Can you check if the approach below makes sense to you?
->> 
->> I don't know who's carrying what patches, but this is still broken.
->> 
->> arch/arm/mach-sa1100/neponset.c: In function 'neponset_probe':
->> arch/arm/mach-sa1100/neponset.c:271:12: error: 'smc91c_platdata' undeclared (first use in this function)
->> drivers/net/ethernet/smsc/smc91x.c: In function 'smc_drv_probe':
->> drivers/net/ethernet/smsc/smc91x.c:2363:2: error: implicit declaration of function 'machine_has_neponset' [-Werror=implicit-function-declaration]
->> 
->> This is from building Linus' tree as of Saturday plus arm-soc.
->> 
->> Let's revert all this crap and start again, this time testing it better?
+> Pablo Neira Ayuso <pablo@netfilter.org> wrote:
 > 
-> I'm also getting:
+> [ CC Andy, see below for ip_fragment api discussion ]
+> 
+>> > Lets start untangling bridge, bridge netfilter, and the
+>> > rest of the ip stack (esp. ip_fragment).
+>> > 
+>> > This changes ip_fragment() so that bridge netfilter
+>> > can pass in the required information as arguments instead
+>> > of using skb->nf_bridge to pass some extra information to it.
+>> > 
+>> > Another problem with br_netfilter and the way its plumbed to
+>> > ip/ip6-tables (physdev match) is skb->nf_bridge.
+>> > 
+>> > nf_bridge is kmalloced blob with some extra information, including
+>> > the bridge in and outports (mainly for iptables' physdev match).
+>> > It also has various state bits so we know what manipulations
+>> > have been performed by bridge netfilter on the skb (e.g.
+>> > ppp header stripping).
+>> >
+>> > nf_bridge also provides scratch space where br_netfilter saves
+>> > (and later restores) various things, e.g. ipv4 address for
+>> > dnat detection, mac address to fix up ip fragmented skbs, etc.
+>> > 
+>> > But in almost all cases we can avoid using ->data completely.
+>> 
+>> I think one of the goals of this patchset is to prepare the removal of
+>> that nf_bridge pointer from sk_buff which sounds as a good idea to me.
+> 
+> The 2nd (and last half) of the set folds nf_bridge_info into skbuff,
+> at the end (where its not initialized at allocation time).
+> 
+> The struct is a lot smaller by then (16 bytes on 64bit, 12 on 32bit)
+> so we'd increase skbuff size only by 8.
 
-I have the fix in my tree still and is pending to be sent to Linus.
+Sorry, increases in size of any kind of sk_buff are strongly discouraged.
 
-Please be patient.
+Especially for something like nfbridge.
