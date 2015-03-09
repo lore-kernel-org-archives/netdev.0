@@ -1,67 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/9] i40e: tame the nvmupdate read and write complaints
-Date: Mon,  9 Mar 2015 10:55:38 -0700
-Message-ID: <1425923742-4488-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 9/9] i40e: add ethtool RSS support
+Date: Mon,  9 Mar 2015 10:55:42 -0700
+Message-ID: <1425923742-4488-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:49812 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:56922 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192AbbCIRzq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Mar 2015 13:55:46 -0400
+	id S1753458AbbCIRzr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2015 13:55:47 -0400
 In-Reply-To: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Mitch A Williams <mitch.a.williams@intel.com>
 
-The NVMUpdate tool doesn't necessarily know the ReadOnly map of the current
-NVM image, and must try reading and writing words that may be protected.
-This generates an error out of the Firmware request that the driver logs.
-Unfortunately, this ends up spitting out hundreds of bogus read and write
-error message that looks rather messy.
+Add support for setting the RSS hash table and hash key through ethtool.
+This patch incorporates suggestions from Ben Hutchings
+<ben.hutchings@codethink.co.uk>.
 
-This patch checks the error type and under normal conditions will not print
-the typical read and write errors during NVMUpdate.  This can be overridden
-by enabling the NVM update debugging.  This results in a much less messy log
-file, and likely many fewer customer support questions.
-
-Change-ID: Id4ff2e9048c523b0ff503aa5ab181b025ec948ea
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Reported-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         |   2 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 108 +++++++++++++++++++++++++
+ 2 files changed, 110 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index cc3f236..1c8bd7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -177,6 +177,8 @@ struct i40e_lump_tracking {
+ #define I40E_FDIR_BUFFER_HEAD_ROOM	32
+ #define I40E_FDIR_BUFFER_HEAD_ROOM_FOR_ATR (I40E_FDIR_BUFFER_HEAD_ROOM * 4)
+ 
++#define I40E_HKEY_ARRAY_SIZE ((I40E_PFQF_HKEY_MAX_INDEX + 1) * 4)
++
+ enum i40e_fd_stat_idx {
+ 	I40E_FD_STAT_ATR,
+ 	I40E_FD_STAT_SB,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 01c811c..9ff3dc1 100644
+index 9ff3dc1..b7d0aaa 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -917,7 +917,9 @@ static int i40e_get_eeprom(struct net_device *netdev,
+@@ -2375,6 +2375,110 @@ static int i40e_set_channels(struct net_device *dev,
+ 		return -EINVAL;
+ }
  
- 		cmd = (struct i40e_nvm_access *)eeprom;
- 		ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
--		if (ret_val)
-+		if (ret_val &&
-+		    ((hw->aq.asq_last_status != I40E_AQ_RC_EACCES) ||
-+		     (hw->debug_mask & I40E_DEBUG_NVM)))
- 			dev_info(&pf->pdev->dev,
- 				 "NVMUpdate read failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
- 				 ret_val, hw->aq.asq_last_status, errno,
-@@ -1021,7 +1023,10 @@ static int i40e_set_eeprom(struct net_device *netdev,
- 
- 	cmd = (struct i40e_nvm_access *)eeprom;
- 	ret_val = i40e_nvmupd_command(hw, cmd, bytes, &errno);
--	if (ret_val && hw->aq.asq_last_status != I40E_AQ_RC_EBUSY)
-+	if (ret_val &&
-+	    ((hw->aq.asq_last_status != I40E_AQ_RC_EPERM &&
-+	      hw->aq.asq_last_status != I40E_AQ_RC_EBUSY) ||
-+	     (hw->debug_mask & I40E_DEBUG_NVM)))
- 		dev_info(&pf->pdev->dev,
- 			 "NVMUpdate write failed err=%d status=0x%x errno=%d module=%d offset=0x%x size=%d\n",
- 			 ret_val, hw->aq.asq_last_status, errno,
++#define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
++/**
++ * i40e_get_rxfh_key_size - get the RSS hash key size
++ * @netdev: network interface device structure
++ *
++ * Returns the table size.
++ **/
++static u32 i40e_get_rxfh_key_size(struct net_device *netdev)
++{
++	return I40E_HKEY_ARRAY_SIZE;
++}
++
++/**
++ * i40e_get_rxfh_indir_size - get the rx flow hash indirection table size
++ * @netdev: network interface device structure
++ *
++ * Returns the table size.
++ **/
++static u32 i40e_get_rxfh_indir_size(struct net_device *netdev)
++{
++	return I40E_HLUT_ARRAY_SIZE;
++}
++
++static int i40e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
++			 u8 *hfunc)
++{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++	u32 reg_val;
++	int i, j;
++
++	if (hfunc)
++		*hfunc = ETH_RSS_HASH_TOP;
++
++	if (!indir)
++		return 0;
++
++	for (i = 0, j = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++) {
++		reg_val = rd32(hw, I40E_PFQF_HLUT(i));
++		indir[j++] = reg_val & 0xff;
++		indir[j++] = (reg_val >> 8) & 0xff;
++		indir[j++] = (reg_val >> 16) & 0xff;
++		indir[j++] = (reg_val >> 24) & 0xff;
++	}
++
++	if (key) {
++		for (i = 0, j = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++) {
++			reg_val = rd32(hw, I40E_PFQF_HKEY(i));
++			key[j++] = (u8)(reg_val & 0xff);
++			key[j++] = (u8)((reg_val >> 8) & 0xff);
++			key[j++] = (u8)((reg_val >> 16) & 0xff);
++			key[j++] = (u8)((reg_val >> 24) & 0xff);
++		}
++	}
++	return 0;
++}
++
++/**
++ * i40e_set_rxfh - set the rx flow hash indirection table
++ * @netdev: network interface device structure
++ * @indir: indirection table
++ * @key: hash key
++ *
++ * Returns -EINVAL if the table specifies an inavlid queue id, otherwise
++ * returns 0 after programming the table.
++ **/
++static int i40e_set_rxfh(struct net_device *netdev, const u32 *indir,
++			 const u8 *key, const u8 hfunc)
++{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++	u32 reg_val;
++	int i, j;
++
++	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
++		return -EOPNOTSUPP;
++
++	if (!indir)
++		return 0;
++
++	for (i = 0, j = 0; i <= I40E_PFQF_HLUT_MAX_INDEX; i++) {
++		reg_val = indir[j++];
++		reg_val |= indir[j++] << 8;
++		reg_val |= indir[j++] << 16;
++		reg_val |= indir[j++] << 24;
++		wr32(hw, I40E_PFQF_HLUT(i), reg_val);
++	}
++
++	if (key) {
++		for (i = 0, j = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++) {
++			reg_val = key[j++];
++			reg_val |= key[j++] << 8;
++			reg_val |= key[j++] << 16;
++			reg_val |= key[j++] << 24;
++			wr32(hw, I40E_PFQF_HKEY(i), reg_val);
++		}
++	}
++	return 0;
++}
++
+ /**
+  * i40e_get_priv_flags - report device private flags
+  * @dev: network interface device structure
+@@ -2426,6 +2530,10 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_ethtool_stats	= i40e_get_ethtool_stats,
+ 	.get_coalesce		= i40e_get_coalesce,
+ 	.set_coalesce		= i40e_set_coalesce,
++	.get_rxfh_key_size	= i40e_get_rxfh_key_size,
++	.get_rxfh_indir_size	= i40e_get_rxfh_indir_size,
++	.get_rxfh		= i40e_get_rxfh,
++	.set_rxfh		= i40e_set_rxfh,
+ 	.get_channels		= i40e_get_channels,
+ 	.set_channels		= i40e_set_channels,
+ 	.get_ts_info		= i40e_get_ts_info,
 -- 
 1.9.3
