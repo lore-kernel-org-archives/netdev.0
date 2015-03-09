@@ -1,47 +1,54 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 0/8] netfilter: untangle bridge and bridge
- netfilter
-Date: Mon, 9 Mar 2015 18:35:15 +0100
-Message-ID: <20150309173515.GB30297@breakpoint.cc>
-References: <1425513160-496-1-git-send-email-fw@strlen.de>
- <20150309130253.GA6677@salvia>
- <20150309131356.GB28039@breakpoint.cc>
- <20150309.131613.2015932954920552655.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, azhou@nicira.com
-To: David Miller <davem@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150309.131613.2015932954920552655.davem@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/9] i40e: Remove "hello world" strings from i40e driver
+Date: Mon,  9 Mar 2015 10:55:34 -0700
+Message-ID: <1425923742-4488-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:5904 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753384AbbCIRzp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Mar 2015 13:55:45 -0400
+In-Reply-To: <1425923742-4488-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@redhat.com> wrote:
-> > The 2nd (and last half) of the set folds nf_bridge_info into skbuff,
-> > at the end (where its not initialized at allocation time).
-> > 
-> > The struct is a lot smaller by then (16 bytes on 64bit, 12 on 32bit)
-> > so we'd increase skbuff size only by 8.
-> 
-> Sorry, increases in size of any kind of sk_buff are strongly discouraged.
+From: Greg Rose <gregory.v.rose@intel.com>
 
-No need to be sorry, its not a show-stopper.
-Its the last patch in the series and nothing depends on this change.
+While using the Linux "strings" command I found these two strings in the
+driver.  There's no need for them and they're kinda silly.
 
-> Especially for something like nfbridge.
+Change-ID: I4e19b02983d48b631e9a9979f49790492845f221
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Its not initialized, ever, if bridge is not used, so it shouldn't be a big
-deal.  The goal of the entire exercise is to remove the need to zero
-nf_bridge pointer at skb allocation time, so one of the patches in that
-series moves it to the end of the skb.
-
-The only reason why I added the 'fold it' patch on top is that after the
-refactoring nf_bridge_info struct is just 16 bytes so it seemed
-preferrable to me to add cost of 8 more bytes and get rid of the
-nf_bridge refcounting at same time.
-
-I'd just send it along with the series so everyone can look at it,
-and, if you (or others) still prefer to keep the pointer then Pablo can
-just drop it.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index e802b6b..3056955 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -318,7 +318,7 @@ static const struct file_operations i40e_dbg_dump_fops = {
+  * setup, adding or removing filters, or other things.  Many of
+  * these will be useful for some forms of unit testing.
+  **************************************************************/
+-static char i40e_dbg_command_buf[256] = "hello world";
++static char i40e_dbg_command_buf[256] = "";
+ 
+ /**
+  * i40e_dbg_command_read - read for command datum
+@@ -1940,7 +1940,7 @@ static const struct file_operations i40e_dbg_command_fops = {
+  * The netdev_ops entry in debugfs is for giving the driver commands
+  * to be executed from the netdev operations.
+  **************************************************************/
+-static char i40e_dbg_netdev_ops_buf[256] = "hello world";
++static char i40e_dbg_netdev_ops_buf[256] = "";
+ 
+ /**
+  * i40e_dbg_netdev_ops - read for netdev_ops datum
+-- 
+1.9.3
