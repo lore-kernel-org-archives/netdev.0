@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/1] net: fec: fix receive VLAN CTAG HW
- acceleration issue
-Date: Tue, 10 Mar 2015 12:42:40 -0400 (EDT)
-Message-ID: <20150310.124240.1163492906111984968.davem@davemloft.net>
-References: <1425985781-25736-1-git-send-email-b38611@freescale.com>
-	<20150310114102.GB22614@pengutronix.de>
+Subject: Re: [PATCH net-next v2] tipc: fix undefined __ipv6_sock_mc_join
+ compile error
+Date: Tue, 10 Mar 2015 12:47:42 -0400 (EDT)
+Message-ID: <20150310.124742.2005589544373604240.davem@davemloft.net>
+References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
+	<CA+FuTSdxmae0DnNnQdCgCdaThVtZ1raqEg9z6XpHE5N9u5MCfw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b38611@freescale.com, netdev@vger.kernel.org, kernel@pengutronix.de
-To: mgr@pengutronix.de
+Cc: ying.xue@windriver.com, jon.maloy@ericsson.com,
+	Paul.Gortmaker@windriver.com, erik.hugne@ericsson.com,
+	fengguang.wu@intel.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, kbuild-all@01.org
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56637 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430AbbCJQmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 12:42:42 -0400
-In-Reply-To: <20150310114102.GB22614@pengutronix.de>
+	with ESMTP id S1752472AbbCJQrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 12:47:45 -0400
+In-Reply-To: <CA+FuTSdxmae0DnNnQdCgCdaThVtZ1raqEg9z6XpHE5N9u5MCfw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Grzeschik <mgr@pengutronix.de>
-Date: Tue, 10 Mar 2015 12:41:02 +0100
+From: Willem de Bruijn <willemb@google.com>
+Date: Tue, 10 Mar 2015 11:41:03 -0400
 
-> On Tue, Mar 10, 2015 at 07:09:41PM +0800, Fugang Duan wrote:
->> The current driver support receive VLAN CTAG HW acceleration feature
->> (NETIF_F_HW_VLAN_CTAG_RX) through software simulation. There calls the
->> api .skb_copy_to_linear_data_offset() to skip the VLAN tag, but there
->> have overlap between the two memory data point range. The patch just fix
->> the issue.
->> 
->> V2:
->> Michael Grzeschik suggest to use memmove() instead of skb_copy_to_linear_data_offset().
+> On Tue, Mar 10, 2015 at 4:41 AM, Ying Xue <ying.xue@windriver.com> wrote:
+>> @@ -5,6 +5,7 @@
+>>  menuconfig TIPC
+>>         tristate "The TIPC Protocol"
+>>         depends on INET
+>> +       depends on (IPV6 || IPV6=n)
 > 
-> This probably is not welcome in the patch description.
+> Should this be limited to TIPC_MEDIA_UDP?
 
-Why not?  Changelogs aid in understanding how a final commit got to
-be the way it was, and it gives credit to people who suggest changes.
-
-> How about?
-> 
-> Cc: <stable@vger.kernel.org> # back to commit 1b7bde6d6
-
-Nope.
-
-If indeed it is valid for -stable, I handle all networking -stable
-submissions by hand rather than via the stable CC: mechanism.
-Therefore the patch submitter simply has to ask me to queue the change
-up for -stable.
+I think it should.
