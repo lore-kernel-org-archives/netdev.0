@@ -1,54 +1,48 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next v2 0/2] net: Remove iocb argument from sendmsg
- and recvmsg
-Date: Tue, 10 Mar 2015 16:58:43 +1100
-Message-ID: <20150310055843.GA15054@gondor.apana.org.au>
-References: <20150302.130656.1723071239422371932.davem@davemloft.net>
+Subject: Re: linux-next: build warnings after merge of the crypto tree
+Date: Tue, 10 Mar 2015 17:03:28 +1100
+Message-ID: <20150310060328.GA14997@gondor.apana.org.au>
+References: <20150310164417.540c18a4@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ying.xue@windriver.com, viro@zeniv.linux.org.uk, hch@lst.de,
-	netdev@vger.kernel.org, erik.hugne@ericsson.com,
-	jon.maloy@ericsson.com, Tadeusz Struk <tadeusz.struk@intel.com>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stephan Mueller <smueller@chronox.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150302.130656.1723071239422371932.davem@davemloft.net>
+In-Reply-To: <20150310164417.540c18a4@canb.auug.org.au>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> From: Ying Xue <ying.xue@windriver.com>
-> Date: Mon, 2 Mar 2015 15:37:46 +0800
+On Tue, Mar 10, 2015 at 04:44:17PM +1100, Stephen Rothwell wrote:
+> Hi Herbert,
 > 
->> Currently there is only one user - TIPC whose sendmsg() instances
->> using iocb argument. Meanwhile, there is no user using iocb argument
->> in its recvmsg() instance. Therefore, if we eliminate the werid usage
->> of iobc argument from TIPC, the iocb argument can be removed from
->> all sendmsg() and recvmsg() instances of the whole networking stack.
->> 
->> Reference:
->> https://patchwork.ozlabs.org/patch/433960/
->> 
->> Changes:
->> 
->> v2:
->>  * Fix compile errors of DCCP module pointed by David
+> After merging the crypto tree, today's (and the past few days)
+> linux-next build (powerpc allyesconfig) produced these warnings:
 > 
-> Series applied, thanks.
+> crypto/algif_aead.c:561:2: warning: initialization from incompatible pointer type
+>   .sendmsg = aead_sendmsg,
+>   ^
+> crypto/algif_aead.c:561:2: warning: (near initialization for 'algif_aead_ops.sendmsg')
+> crypto/algif_aead.c:563:2: warning: initialization from incompatible pointer type
+>   .recvmsg = aead_recvmsg,
+>   ^
+> crypto/algif_aead.c:563:2: warning: (near initialization for 'algif_aead_ops.recvmsg')
+> 
+> Introduced by commit 400c40cf78da ("crypto: algif - add AEAD support").
 
-This totally breaks Tadeusz Struk's attempt at making an AIO
-interface for algif_skcipher:
+This is a bit of a bummer.  What happened is that net-next has
+killed the kiocb argument to sendmsg/recvmsg.  However, this
+change is obviously not part of the crypto tree and algif_aead
+only exists in the crypto tree.
 
-	https://patchwork.kernel.org/patch/5971491/
+So Stephen could you fix this by hand until one of them is merged
+upstream (just kill the first argument in aead_sendmsg/aead_recvmsg)?
 
-Now granted nothing in the network stack ever supported AIO so
-maybe this is a bad idea anyway.  But I guess it's a good time
-and place to discuss what alternatives are available for Tadeus
-to export his crypto hardware using an asynchronous interface
-to user-space?
-
-Cheers,
+Thanks!
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
