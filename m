@@ -1,62 +1,110 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] Netfilter fixes for net-next
-Date: Tue, 10 Mar 2015 16:46:19 +0100
-Message-ID: <1426002381-20302-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/2] netfilter: fix sparse warnings in reject handling
+Date: Tue, 10 Mar 2015 16:46:20 +0100
+Message-ID: <1426002381-20302-2-git-send-email-pablo@netfilter.org>
+References: <1426002381-20302-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37536 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:37543 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753776AbbCJPmh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753836AbbCJPmh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 10 Mar 2015 11:42:37 -0400
+In-Reply-To: <1426002381-20302-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Florian Westphal <fw@strlen.de>
 
-The following batch contains a couple of fixes to address some fallout
-from the previous pull request, they are:
+make C=1 CF=-D__CHECK_ENDIAN__ shows following:
 
-1) Address link problems in the bridge code after e5de75b. Fix it by
-   using rcu hook to address to avoid ifdef pollution and hard
-   dependency between bridge and br_netfilter.
+net/bridge/netfilter/nft_reject_bridge.c:65:50: warning: incorrect type in argument 3 (different base types)
+net/bridge/netfilter/nft_reject_bridge.c:65:50:    expected restricted __be16 [usertype] protocol [..]
+net/bridge/netfilter/nft_reject_bridge.c:102:37: warning: cast from restricted __be16
+net/bridge/netfilter/nft_reject_bridge.c:102:37: warning: incorrect type in argument 1 (different base types) [..]
+net/bridge/netfilter/nft_reject_bridge.c:121:50: warning: incorrect type in argument 3 (different base types) [..]
+net/bridge/netfilter/nft_reject_bridge.c:168:52: warning: incorrect type in argument 3 (different base types) [..]
+net/bridge/netfilter/nft_reject_bridge.c:233:52: warning: incorrect type in argument 3 (different base types) [..]
 
-2) Address sparse warnings in the netfilter reject code, patch from
-   Florian Westphal.
+Caused by two (harmless) errors:
+1. htons() instead of ntohs()
+2. __be16 for protocol in nf_reject_ipXhdr_put API, use u8 instead.
 
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 8ac467e837a24eb024177b4b01013d8e6764913a:
-
-  net: bcmgenet: core changes for supporting multiple Rx queues (2015-03-09 22:51:56 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
-
-for you to fetch changes up to 1a4ba64d16a42c1b31d52b671accd7f9103e2626:
-
-  netfilter: bridge: use rcu hook to resolve br_netfilter dependency (2015-03-10 15:03:02 +0100)
-
-----------------------------------------------------------------
-Florian Westphal (1):
-      netfilter: fix sparse warnings in reject handling
-
-Pablo Neira Ayuso (1):
-      netfilter: bridge: use rcu hook to resolve br_netfilter dependency
-
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  include/net/netfilter/ipv4/nf_reject.h   |    2 +-
  include/net/netfilter/ipv6/nf_reject.h   |    2 +-
- net/bridge/br_device.c                   |    7 ++++++-
- net/bridge/br_netfilter.c                |    9 +++++++--
- net/bridge/br_private.h                  |   10 +++++-----
  net/bridge/netfilter/nft_reject_bridge.c |    2 +-
  net/ipv4/netfilter/nf_reject_ipv4.c      |    2 +-
  net/ipv6/netfilter/nf_reject_ipv6.c      |    2 +-
- 8 files changed, 23 insertions(+), 13 deletions(-)
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/netfilter/ipv4/nf_reject.h b/include/net/netfilter/ipv4/nf_reject.h
+index 8641275..77862c3 100644
+--- a/include/net/netfilter/ipv4/nf_reject.h
++++ b/include/net/netfilter/ipv4/nf_reject.h
+@@ -12,7 +12,7 @@ const struct tcphdr *nf_reject_ip_tcphdr_get(struct sk_buff *oldskb,
+ 					     struct tcphdr *_oth, int hook);
+ struct iphdr *nf_reject_iphdr_put(struct sk_buff *nskb,
+ 				  const struct sk_buff *oldskb,
+-				  __be16 protocol, int ttl);
++				  __u8 protocol, int ttl);
+ void nf_reject_ip_tcphdr_put(struct sk_buff *nskb, const struct sk_buff *oldskb,
+ 			     const struct tcphdr *oth);
+ 
+diff --git a/include/net/netfilter/ipv6/nf_reject.h b/include/net/netfilter/ipv6/nf_reject.h
+index 0ae445d..0ea4fa3 100644
+--- a/include/net/netfilter/ipv6/nf_reject.h
++++ b/include/net/netfilter/ipv6/nf_reject.h
+@@ -13,7 +13,7 @@ const struct tcphdr *nf_reject_ip6_tcphdr_get(struct sk_buff *oldskb,
+ 					      unsigned int *otcplen, int hook);
+ struct ipv6hdr *nf_reject_ip6hdr_put(struct sk_buff *nskb,
+ 				     const struct sk_buff *oldskb,
+-				     __be16 protocol, int hoplimit);
++				     __u8 protocol, int hoplimit);
+ void nf_reject_ip6_tcphdr_put(struct sk_buff *nskb,
+ 			      const struct sk_buff *oldskb,
+ 			      const struct tcphdr *oth, unsigned int otcplen);
+diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
+index 5c6c965..54a2fdf 100644
+--- a/net/bridge/netfilter/nft_reject_bridge.c
++++ b/net/bridge/netfilter/nft_reject_bridge.c
+@@ -99,7 +99,7 @@ static void nft_reject_br_send_v4_unreach(struct sk_buff *oldskb,
+ 	if (!pskb_may_pull(oldskb, len))
+ 		return;
+ 
+-	if (pskb_trim_rcsum(oldskb, htons(ip_hdr(oldskb)->tot_len)))
++	if (pskb_trim_rcsum(oldskb, ntohs(ip_hdr(oldskb)->tot_len)))
+ 		return;
+ 
+ 	if (ip_hdr(oldskb)->protocol == IPPROTO_TCP ||
+diff --git a/net/ipv4/netfilter/nf_reject_ipv4.c b/net/ipv4/netfilter/nf_reject_ipv4.c
+index b7405eb..c5b794d 100644
+--- a/net/ipv4/netfilter/nf_reject_ipv4.c
++++ b/net/ipv4/netfilter/nf_reject_ipv4.c
+@@ -43,7 +43,7 @@ EXPORT_SYMBOL_GPL(nf_reject_ip_tcphdr_get);
+ 
+ struct iphdr *nf_reject_iphdr_put(struct sk_buff *nskb,
+ 				  const struct sk_buff *oldskb,
+-				  __be16 protocol, int ttl)
++				  __u8 protocol, int ttl)
+ {
+ 	struct iphdr *niph, *oiph = ip_hdr(oldskb);
+ 
+diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
+index 68e0bb4..3afdce0 100644
+--- a/net/ipv6/netfilter/nf_reject_ipv6.c
++++ b/net/ipv6/netfilter/nf_reject_ipv6.c
+@@ -65,7 +65,7 @@ EXPORT_SYMBOL_GPL(nf_reject_ip6_tcphdr_get);
+ 
+ struct ipv6hdr *nf_reject_ip6hdr_put(struct sk_buff *nskb,
+ 				     const struct sk_buff *oldskb,
+-				     __be16 protocol, int hoplimit)
++				     __u8 protocol, int hoplimit)
+ {
+ 	struct ipv6hdr *ip6h;
+ 	const struct ipv6hdr *oip6h = ipv6_hdr(oldskb);
+-- 
+1.7.10.4
