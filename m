@@ -1,17 +1,17 @@
 From: Yongbae Park <yongbae2@gmail.com>
 Subject: [PATCH] ibmveth: enable interrupts after napi_complete()
-Date: Tue, 10 Mar 2015 11:15:19 +0900
-Message-ID: <1425953719-30110-1-git-send-email-yongbae2@gmail.com>
-Cc: ebiederm@xmission.com, davem@davemloft.net, netdev@vger.kernel.org
-To: anton@au.ibm.com, larson1@us.ibm.com, santil@linux.vnet.ibm.com,
-	brking@linux.vnet.ibm.com, rcj@linux.vnet.ibm.com
+Date: Tue, 10 Mar 2015 11:15:39 +0900
+Message-ID: <1425953739-30149-1-git-send-email-yongbae2@gmail.com>
+Cc: davem@davemloft.net, nicolas.ferre@atmel.com, tklauser@distanz.ch,
+	wsa@the-dreams.de, varkabhadram@gmail.com, netdev@vger.kernel.org
+To: msink@permonline.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:43702 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbbCJCOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:14:24 -0400
-Received: by pdjp10 with SMTP id p10so62149096pdj.10
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 19:14:24 -0700 (PDT)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:45910 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501AbbCJCOm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:14:42 -0400
+Received: by pdjy10 with SMTP id y10so29501215pdj.12
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 19:14:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
