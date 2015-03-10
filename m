@@ -1,89 +1,64 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2] tipc: fix undefined
-	__ipv6_sock_mc_join compile error
-Date: Tue, 10 Mar 2015 16:41:25 +0800
-Message-ID: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, kbuild-all@01.org,
-	fengguang.wu@intel.com
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCH net-next 3/4] ipv4: Use probe_size to check write queue data length
+Date: Tue, 10 Mar 2015 17:16:25 +0800
+Message-ID: <1425978986-8512-4-git-send-email-fan.du@intel.com>
+References: <1425978986-8512-1-git-send-email-fan.du@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: johnwheffner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:38648 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752647AbbCJJV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2015 05:21:28 -0400
+In-Reply-To: <1425978986-8512-1-git-send-email-fan.du@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_IPV6 option is disabled, below error will appear while
-building TIPC module:
+When building a probe segment, only 'probe_size' of bytes
+is needed, so check write queue data length with probe_size
+instead of size_needed.
 
-ERROR: "__ipv6_sock_mc_join" [net/tipc/tipc.ko] undefined!
-make[1]: *** [__modpost] Error 1
-make: *** [net/tipc/tipc.ko] Error 1
-
-This is because we don't check whether or not the CONFIG_IPV6 is
-enabled when calling __ipv6_sock_mc_join().
-
-In addition, especially when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m, TIPC
-module is also unable to be successfully built. Therefore, we add a
-dependency condition like (IPV6 || IPV6=n) to avoid the error.
-
-Fixes: d0f91938bede ("tipc: add ip/udp media type")
-Reported-by: Wu Fengguang <fengguang.wu@intel.com>
-Cc: Kbuild test robot <kbuild-all@01.org>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Fan Du <fan.du@intel.com>
 ---
-v2:
- Fix another compile error when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m
+ net/ipv4/tcp_output.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
- net/tipc/Kconfig     |    1 +
- net/tipc/udp_media.c |    2 ++
- 2 files changed, 3 insertions(+)
-
-diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
-index c25a3a1..6f217ba 100644
---- a/net/tipc/Kconfig
-+++ b/net/tipc/Kconfig
-@@ -5,6 +5,7 @@
- menuconfig TIPC
- 	tristate "The TIPC Protocol"
- 	depends on INET
-+	depends on (IPV6 || IPV6=n)
- 	---help---
- 	  The Transparent Inter Process Communication (TIPC) protocol is
- 	  specially designed for intra cluster communication. This protocol
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index fc2fb11..6763002 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -247,10 +247,12 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
- 		mreqn.imr_multiaddr = remote->ipv4;
- 		mreqn.imr_ifindex = ub->ifindex;
- 		err = __ip_mc_join_group(sk, &mreqn);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	} else {
- 		if (!ipv6_addr_is_multicast(&remote->ipv6))
- 			return 0;
- 		err = __ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
-+#endif
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 79977d1..89d3f84 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1872,7 +1872,6 @@ static int tcp_mtu_probe(struct sock *sk)
+ 	struct net *net = sock_net(sk);
+ 	int len;
+ 	int probe_size;
+-	int size_needed;
+ 	int copy;
+ 	int mss_now;
+ 	int interval;
+@@ -1895,7 +1894,6 @@ static int tcp_mtu_probe(struct sock *sk)
+ 	mss_now = tcp_current_mss(sk);
+ 	probe_size = tcp_mtu_to_mss(sk, (icsk->icsk_mtup.search_high +
+ 				    icsk->icsk_mtup.search_low) >> 1);
+-	size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
+ 	interval = icsk->icsk_mtup.search_high - icsk->icsk_mtup.search_low;
+ 	/* When misfortune happens, we are reprobing actively,
+ 	 * and then reprobe timer has expired. We stick with current
+@@ -1911,12 +1909,12 @@ static int tcp_mtu_probe(struct sock *sk)
  	}
- 	return err;
- }
+ 
+ 	/* Have enough data in the send queue to probe? */
+-	if (tp->write_seq - tp->snd_nxt < size_needed)
++	if (tp->write_seq - tp->snd_nxt < probe_size)
+ 		return -1;
+ 
+-	if (tp->snd_wnd < size_needed)
++	if (tp->snd_wnd < probe_size)
+ 		return -1;
+-	if (after(tp->snd_nxt + size_needed, tcp_wnd_end(tp)))
++	if (after(tp->snd_nxt + probe_size, tcp_wnd_end(tp)))
+ 		return 0;
+ 
+ 	/* Do we need to wait to drain cwnd? With none in flight, don't stall */
 -- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+1.7.1
