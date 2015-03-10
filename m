@@ -1,33 +1,34 @@
-From: Fan Du <fan.du@intel.com>
-Subject: [PATCH net-next 0/4] Fix for TCP PMTU
-Date: Tue, 10 Mar 2015 17:16:22 +0800
-Message-ID: <1425978986-8512-1-git-send-email-fan.du@intel.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	fengyuleidian0615@gmail.com
-To: johnwheffner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22781 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751257AbbCJJVY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2015 05:21:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 12/12] netfilter: bridge: move DNAT helper to br_netfilter
+Date: Tue, 10 Mar 2015 10:41:12 +0100
+Message-ID: <20150310094112.GB24179@salvia>
+References: <1425921275-9171-1-git-send-email-pablo@netfilter.org>
+ <1425921275-9171-13-git-send-email-pablo@netfilter.org>
+ <20150310052845.GA12887@vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150310052845.GA12887@vergenet.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Mar 10, 2015 at 02:28:48PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> On Mon, Mar 09, 2015 at 06:14:35PM +0100, Pablo Neira Ayuso wrote:
+> > Only one caller, there is no need to keep this in a header.
+> > Move it to br_netfilter.c where this belongs to.
+> > 
+> > Based on patch from Florian Westphal.
+> 
+> net-next seems fail to compile due to this patch if
+> CONFIG_BRIDGE_NETFILTER=m and CONFIG_BRIDGE=y which happened to be a
+> configuration I had for some reason.
+> 
+> net/bridge/br_device.c:39: undefined reference to `br_nf_prerouting_finish_bridge'
 
-This patchset performs some minor fixes for TCP PMTU,
-including correct length condition checking when building
-probe segment, then checking if there is enough data avaiable
-with probe_size, and finally a cosmetics patch to rename
-tcp_mtu_probing with tcp_blackhole_probe for clarity.
-In addition, clamp sysctl_tcp_probe_threshold.
-
-Fan Du (4):
-  ipv4: Rename tcp_mtu_probing to tcp_blackhole_probe
-  ipv4: Correct two conditions checking when buildig nskb
-  ipv4: Use probe_size to check write queue data length
-  ipv4: clamp sysctl_tcp_probe_threshold
-
- net/ipv4/tcp_output.c |   14 ++++++--------
- net/ipv4/tcp_timer.c  |    5 +++--
- 2 files changed, 9 insertions(+), 10 deletions(-)
+Preparing a patch to resolve this, sorry about that.
