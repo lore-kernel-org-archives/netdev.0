@@ -1,51 +1,34 @@
-From: Yongbae Park <yongbae2@gmail.com>
-Subject: [PATCH] ibmveth: enable interrupts after napi_complete()
-Date: Tue, 10 Mar 2015 11:15:39 +0900
-Message-ID: <1425953739-30149-1-git-send-email-yongbae2@gmail.com>
-Cc: davem@davemloft.net, nicolas.ferre@atmel.com, tklauser@distanz.ch,
-	wsa@the-dreams.de, varkabhadram@gmail.com, netdev@vger.kernel.org
-To: msink@permonline.ru
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next] switchdev: add netlink flags to IPv4 FIB add op
+Date: Tue, 10 Mar 2015 11:26:20 +0900
+Message-ID: <20150310022618.GC20856@vergenet.net>
+References: <1425934749-18567-1-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, jhs@mojatatu.com,
+	roopa@cumulusnetworks.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:45910 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501AbbCJCOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:14:42 -0400
-Received: by pdjy10 with SMTP id y10so29501215pdj.12
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 19:14:42 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:37525 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501AbbCJC0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:26:31 -0400
+Received: by paceu11 with SMTP id eu11so63424425pac.4
+        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 19:26:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1425934749-18567-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The interrupt is enabled before napi_complete(). A network timeout
-occurs if the interrupt handler is called before napi_complete().
+On Mon, Mar 09, 2015 at 01:59:09PM -0700, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> Pass in the netlink flags (NLM_F_*) into switchdev driver for IPv4 FIB add op
+> to allow driver to 1) optimize hardware updates, 2) handle ip route prepend
+> and append commands correctly.
+> 
+> Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Suggested-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Fix the bug by enabling the interrupt after napi_complete().
-
-Signed-off-by: Yongbae Park <yongbae2@gmail.com>
----
- drivers/net/ethernet/ibm/ibmveth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 21978cc..edcb4c7 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1136,6 +1136,8 @@ restart_poll:
- 	ibmveth_replenish_task(adapter);
- 
- 	if (frames_processed < budget) {
-+		napi_complete(napi);
-+
- 		/* We think we are done - reenable interrupts,
- 		 * then check once more to make sure we are done.
- 		 */
-@@ -1144,8 +1146,6 @@ restart_poll:
- 
- 		BUG_ON(lpar_rc != H_SUCCESS);
- 
--		napi_complete(napi);
--
- 		if (ibmveth_rxq_pending_buffer(adapter) &&
- 		    napi_reschedule(napi)) {
- 			lpar_rc = h_vio_signal(adapter->vdev->unit_address,
--- 
-1.9.1
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
