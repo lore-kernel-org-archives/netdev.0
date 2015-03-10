@@ -1,61 +1,66 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH net-next v2 1/1] net: fec: fix receive VLAN CTAG HW
- acceleration issue
-Date: Tue, 10 Mar 2015 13:30:45 +0100
-Message-ID: <20150310123045.GB952@pengutronix.de>
-References: <1425985781-25736-1-git-send-email-b38611@freescale.com>
- <20150310114102.GB22614@pengutronix.de>
+From: Emil Medve <Emilian.Medve@Freescale.com>
+Subject: Re: [linuxppc-release] [PATCH] net/fsl: remove dependency FSL_SOC
+ from MDIO
+Date: Tue, 10 Mar 2015 08:17:52 -0500
+Message-ID: <54FEEF00.3060201@Freescale.com>
+References: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fugang Duan <b38611@freescale.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, kernel@pengutronix.de
-To: Michael Grzeschik <mgr@pengutronix.de>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Shaohui Xie <Shaohui.Xie@Freescale.com>,
+	Scott Wood <scottwood@Freescale.com>
+To: <shh.xie@gmail.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59190 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955AbbCJMar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 08:30:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20150310114102.GB22614@pengutronix.de>
+Received: from mail-bn1bon0135.outbound.protection.outlook.com ([157.56.111.135]:12352
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751390AbbCJNOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2015 09:14:49 -0400
+In-Reply-To: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hello Shao-Hui,
 
-On Tue, Mar 10, 2015 at 12:41:02PM +0100, Michael Grzeschik wrote:
-> On Tue, Mar 10, 2015 at 07:09:41PM +0800, Fugang Duan wrote:
-> > The current driver support receive VLAN CTAG HW acceleration featur=
-e
-> > (NETIF_F_HW_VLAN_CTAG_RX) through software simulation. There calls =
-the
-> > api .skb_copy_to_linear_data_offset() to skip the VLAN tag, but the=
-re
-> > have overlap between the two memory data point range. The patch jus=
-t fix
-> > the issue.
-> >=20
-> > V2:
-> > Michael Grzeschik suggest to use memmove() instead of skb_copy_to_l=
-inear_data_offset().
->=20
-> This probably is not welcome in the patch description.
->=20
-> How about?
->=20
-> Cc: <stable@vger.kernel.org> # back to commit 1b7bde6d6
-I think the most modern way to do this today is:
 
-	Fixes: 1b7bde6d659d ("net: fec: implement rx_copybreak to improve rx p=
-erformance")
-	Cc: stable@vger.kernel.org
+On 03/10/2015 05:31 AM, shh.xie@gmail.com wrote:
+> From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> 
+> FSL_PQ_MDIO and FSL_XGMAC_MDIO are not really depend on FSL_SOC, they
+> can build on non-PPC platforms.
 
-Best regards
-Uwe
+FSL_SOC is already defined for some ARM-based SoC? Why don't you use/fix
+that. We have plenty of devices integrated on both SoC families...
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Or are you targeting other non-PPC/ARM SoC(s)?
+
+
+Cheers,
+
+
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/Kconfig | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+> index ba84c4a..25e3425 100644
+> --- a/drivers/net/ethernet/freescale/Kconfig
+> +++ b/drivers/net/ethernet/freescale/Kconfig
+> @@ -58,14 +58,12 @@ source "drivers/net/ethernet/freescale/fs_enet/Kconfig"
+>  
+>  config FSL_PQ_MDIO
+>  	tristate "Freescale PQ MDIO"
+> -	depends on FSL_SOC
+>  	select PHYLIB
+>  	---help---
+>  	  This driver supports the MDIO bus used by the gianfar and UCC drivers.
+>  
+>  config FSL_XGMAC_MDIO
+>  	tristate "Freescale XGMAC MDIO"
+> -	depends on FSL_SOC
+>  	select PHYLIB
+>  	select OF_MDIO
+>  	---help---
+> 
