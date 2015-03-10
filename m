@@ -1,90 +1,83 @@
-From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Tue, 10 Mar 2015 13:42:28 -0700
-Message-ID: <20150310204021.GA2740@codeaurora.org>
-References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: collect Rx discarded packet count
+Date: Tue, 10 Mar 2015 13:52:32 -0700
+Message-ID: <CAGXr9JEnP50ff+CzVVoBXa6iRKdbCKoaaZv0Zx-ndVN_gorKSw@mail.gmail.com>
+References: <20150310191800.C5812220365@puck.mtv.corp.google.com>
+	<54FF4973.30306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux@roeck-us.net, jogo@openwrt.org,
-	f.fainelli@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37046 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752461AbbCJUmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 16:42:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20150310193151.GE10838@lunn.ch>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:37398 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751368AbbCJUwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 16:52:33 -0400
+Received: by qcxr5 with SMTP id r5so5318231qcx.4
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 13:52:32 -0700 (PDT)
+In-Reply-To: <54FF4973.30306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 08:31:51PM +0100, Andrew Lunn wrote:
-> > The third point would allow to perform operations currently limited to switch
-> > ports. Typically, "ethtool -S eth0" could return the corresponding port's MIB
-> > statistics in addition to the eth0 statistics.
-> 
-> Hi Mathieu
-> 
-> This already works with DSA. I have a WRT1900AC which has a 7 port
-> switch. With DSA i have:
-> 
-> # ip link show
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default 
->     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 532
->     link/ether 94:10:3e:80:bc:f3 brd ff:ff:ff:ff:ff:ff
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 532
->     link/ether 52:33:3a:a7:c1:8a brd ff:ff:ff:ff:ff:ff
-> 4: lan4@eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default 
->     link/ether 94:10:3e:80:bc:f3 brd ff:ff:ff:ff:ff:ff
-> 5: lan3@eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default 
->     link/ether 94:10:3e:80:bc:f3 brd ff:ff:ff:ff:ff:ff
-> 6: lan2@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->     link/ether 94:10:3e:80:bc:f3 brd ff:ff:ff:ff:ff:ff
-> 7: lan1@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->     link/ether 94:10:3e:80:bc:f3 brd ff:ff:ff:ff:ff:ff
-> 8: internet@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default 
->     link/ether 94:10:3e:80:bc:f3 brd ff:ff:ff:ff:ff:ff
-> 
-> internet would be your WAN port in your diagram. I just named it the
-> same as the label on the case.
-> 
-> I can get MIB statistics in the normal way for the DSA ports, e.g:
-> 
-> root@wrt1900ac:~# ethtool -S lan1
-> NIC statistics:
->      tx_packets: 153009
->      tx_bytes: 13307317
->      rx_packets: 161136
->      rx_bytes: 21840683
-> ...
-> 
-> 	Andrew
-> 
-> 
+Hi Florian,
 
-I was thinking about the MIB counters, maintained by the switch, on the CPU
-port(s). 
+On Tue, Mar 10, 2015 at 12:43 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 10/03/15 12:18, Petri Gynther wrote:
+>> Bits 31:16 of RDMA_PROD_INDEX contain Rx discarded packet count, which
+>> are the Rx packets that had to be dropped by MAC hardware since there
+>> was no room on the Rx queue. Add code to collect this information into
+>> the netdev stats.
+>>
+>> Signed-off-by: Petri Gynther <pgynther@google.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++++++
+>>  1 file changed, 10 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> index 275be56..7aa1834 100644
+>> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> @@ -1384,9 +1384,19 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
+>>       int len, err;
+>>       unsigned int rxpktprocessed = 0, rxpkttoprocess;
+>>       unsigned int p_index;
+>> +     unsigned int discards;
+>>       unsigned int chksum_ok = 0;
+>>
+>>       p_index = bcmgenet_rdma_ring_readl(priv, index, RDMA_PROD_INDEX);
+>> +
+>> +     discards = (p_index >> DMA_P_INDEX_DISCARD_CNT_SHIFT) &
+>> +                DMA_P_INDEX_DISCARD_CNT_MASK;
+>> +     if (discards > 0) {
+>> +             bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_PROD_INDEX);
+>
+> This adds an expensive register write (~300ns on MIPS, ~200ns on ARM) in
+> the hot-path, and the counter saturation happens at 0xffff, which I
+> would prefer we deal with explicitly, even though that means missing a
+> bunch of discard events once we have already saturated, rather than
+> resetting this counter *and* the producer index for every NAPI round we
+> get called.
+>
+> You could also deal with this counter in the ethtool gstats functions
+> and perform the saturation handle there, since this is a slow path already.
+>
 
-On this picture:
+It is a rare event that discards > 0. Thus, the extra register write
+happens very infrequently.
 
-+-----------+       +--------------------+
-|           | RGMII |                    |
-|       eth0+-------+ P0              P1 +------ 1000baseT MDI ("WAN")
-|        wan|       |      7-port     P2 +------ 1000baseT MDI ("LAN1")
-|   CPU     |       |      ethernet   P3 +------ 1000baseT MDI ("LAN2")
-|           | RGMII |      switch     P4 +------ 1000baseT MDI ("LAN3")
-|       eth1+-------+ P6   w/5 PHYs   P5 +------ 1000baseT MDI ("LAN4")
-|        lan|       |                    |
-+-----------+       +--------------------+
-          |     MDIO   |
-          \------------/
+And, writing 0 to RDMA_PROD_INDEX does not reset the producer index
+bits 15:0 that are used in Rx processing.
 
-We can see MIB stats of P1/P2/P3/P4/P5 by using ethtool -S. But as CPU
-ports don't have a net_device, there isn't a way to access MIB stats of
-P0 & P6.
-
-If we have the eth0 <--> P0 and eth1 <--> P6 relationship information in dts,
-we could use it to lookup which switch port is connected to this net_dev and
-show the corresponding counters when running "ethtool -S ethN".
+>> +             dev->stats.rx_missed_errors += discards;
+>> +             dev->stats.rx_errors += discards;
+>> +     }
+>> +
+>>       p_index &= DMA_P_INDEX_MASK;
+>>
+>>       if (likely(p_index >= ring->c_index))
+>>
+>
+>
+> --
+> Florian
