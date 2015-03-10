@@ -1,41 +1,124 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 0/2 net-next] hyperv: Enable batched notification
-Date: Tue, 10 Mar 2015 11:49:43 -0700
-Message-ID: <1426013383-2853-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org, olaf@aepfle.de,
- apw@canonical.com, jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Subject: [PATCH 2/2 net-next] hyperv: Support batched notification
+Date: Tue, 10 Mar 2015 11:50:04 -0700
+Message-ID: <1426013404-2892-2-git-send-email-kys@microsoft.com>
+References: <1426013383-2853-1-git-send-email-kys@microsoft.com>
+ <1426013404-2892-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+	jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426013404-2892-1-git-send-email-kys@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Take into consideration the xmit_more flag in skb to decide if we should
-notify the host as we place packets in VMBUS.
+Optimize notifying the host by deferring notification until there
+are no more packets to be sent. This will help in batching the requests
+on the host.
 
-The VMBUS API that would give us this control is already in Greg's tree, in this
-patch-set, that API is exported so it can be used in the netvsc driver.
-
-K. Y. Srinivasan (2):
-  Drivers: hv: vmbus: Export the vmbus_sendpacket_pagebuffer_ctl()
-  hyperv: Support batched notification
-
- drivers/hv/channel.c              |    1 +
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
  drivers/net/hyperv/hyperv_net.h   |    2 +-
  drivers/net/hyperv/netvsc.c       |   14 +++++++++-----
  drivers/net/hyperv/netvsc_drv.c   |    3 ++-
  drivers/net/hyperv/rndis_filter.c |    2 +-
- 5 files changed, 14 insertions(+), 8 deletions(-)
+ 4 files changed, 13 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4815843..3fd9896 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -184,7 +184,7 @@ struct rndis_device {
+ int netvsc_device_add(struct hv_device *device, void *additional_info);
+ int netvsc_device_remove(struct hv_device *device);
+ int netvsc_send(struct hv_device *device,
+-		struct hv_netvsc_packet *packet);
++		struct hv_netvsc_packet *packet, bool kick_q);
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 				struct rndis_message *resp);
+ int netvsc_recv_callback(struct hv_device *device_obj,
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 208eb05..9003b94 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -707,7 +707,7 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ }
+ 
+ int netvsc_send(struct hv_device *device,
+-			struct hv_netvsc_packet *packet)
++			struct hv_netvsc_packet *packet, bool kick_q)
+ {
+ 	struct netvsc_device *net_device;
+ 	int ret = 0;
+@@ -719,6 +719,7 @@ int netvsc_send(struct hv_device *device,
+ 	u32 msg_size = 0;
+ 	struct sk_buff *skb = NULL;
+ 	u16 q_idx = packet->q_idx;
++	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
+ 
+ 
+ 	net_device = get_outbound_net_device(device);
+@@ -768,18 +769,21 @@ int netvsc_send(struct hv_device *device,
+ 		return -ENODEV;
+ 
+ 	if (packet->page_buf_cnt) {
+-		ret = vmbus_sendpacket_pagebuffer(out_channel,
++		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
+ 						  packet->page_buf,
+ 						  packet->page_buf_cnt,
+ 						  &sendMessage,
+ 						  sizeof(struct nvsp_message),
+-						  req_id);
++						  req_id,
++						  vmbus_flags,
++						  kick_q);
+ 	} else {
+-		ret = vmbus_sendpacket(out_channel, &sendMessage,
++		ret = vmbus_sendpacket_ctl(out_channel, &sendMessage,
+ 				sizeof(struct nvsp_message),
+ 				req_id,
+ 				VM_PKT_DATA_INBAND,
+-				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++				vmbus_flags,
++				kick_q);
+ 	}
+ 
+ 	if (ret == 0) {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a06bd66..80b4b29 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -384,6 +384,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 net_trans_info;
+ 	u32 hash;
+ 	u32 skb_length = skb->len;
++	bool kick_q = !skb->xmit_more;
+ 
+ 
+ 	/* We will atmost need two pages to describe the rndis
+@@ -556,7 +557,7 @@ do_send:
+ 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+ 					skb, &packet->page_buf[0]);
+ 
+-	ret = netvsc_send(net_device_ctx->device_ctx, packet);
++	ret = netvsc_send(net_device_ctx->device_ctx, packet, kick_q);
+ 
+ drop:
+ 	if (ret == 0) {
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index ca81de0..05f3792 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -238,7 +238,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 
+ 	packet->send_completion = NULL;
+ 
+-	ret = netvsc_send(dev->net_dev->dev, packet);
++	ret = netvsc_send(dev->net_dev->dev, packet, true);
+ 	return ret;
+ }
+ 
 -- 
 1.7.4.1
