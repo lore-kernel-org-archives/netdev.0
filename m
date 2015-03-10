@@ -1,44 +1,48 @@
-From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH next] ath9k: make ath_frame_info fit into reduced-size rate_driver_data
-Date: Tue, 10 Mar 2015 15:44:22 +0100
-Message-ID: <1425998662-28401-1-git-send-email-fw@strlen.de>
-Cc: ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: use sock_efree instead of own destructor
+Date: Tue, 10 Mar 2015 15:55:32 +0100
+Message-ID: <54FF05E4.6060002@hartkopp.net>
+References: <1425959300-27132-1-git-send-email-fw@strlen.de>	 <54FE8BB0.9050508@hartkopp.net>	 <1425990143.8261.28.camel@edumazet-glaptop2.roam.corp.google.com>	 <54FEF355.305@hartkopp.net> <1425998185.8261.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	mkl@pengutronix.de,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1425998185.8261.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pre-requisite to shrink size of ieee80211_tx_info which in turn is
-needed to shrink skb->cb to 40 bytes again.
+On 03/10/2015 03:36 PM, Eric Dumazet wrote:
+> On Tue, 2015-03-10 at 14:36 +0100, Oliver Hartkopp wrote:
 
-Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
----
- drivers/net/wireless/ath/ath9k/ath9k.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>> Maybe Alexander can send a patch which adds a comment, as I don't know if I
+>> would find the best words for it.
+> 
+> Please do not top post on netdev.
 
-diff --git a/drivers/net/wireless/ath/ath9k/ath9k.h b/drivers/net/wireless/ath/ath9k/ath9k.h
-index 7e89236..a7a81b3 100644
---- a/drivers/net/wireless/ath/ath9k/ath9k.h
-+++ b/drivers/net/wireless/ath/ath9k/ath9k.h
-@@ -184,12 +184,12 @@ struct ath_frame_info {
- 	struct ath_buf *bf;
- 	u16 framelen;
- 	s8 txq;
--	enum ath9k_key_type keytype;
- 	u8 keyix;
- 	u8 rtscts_rate;
- 	u8 retries : 7;
- 	u8 baw_tracked : 1;
- 	u8 tx_power;
-+	enum ath9k_key_type keytype:2;
- };
- 
- struct ath_rxbuf {
--- 
-2.0.5
+? I did not.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> If you cannot find best words for it, maybe a comment would not be
+> useful : Very often, best comments are added by people that had problems
+> to understand the code ;)
+
+Yes that's why I asked the original author to do so - he hopefully understood
+his code :-)
+
+> 
+> I do not trust comments, I prefer using "git grep" or tools like that to
+> check call sites.
+> 
+> In this particular case this becomes clear, while being concise.
+> 
+> # git grep -n sock_efree
+
+A good hint! Will use this first in the future.
+
+Thanks,
+Oliver
+
