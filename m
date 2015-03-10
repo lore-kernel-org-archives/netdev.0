@@ -1,33 +1,31 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: Linux XIA - merge proposal
-Date: Tue, 10 Mar 2015 17:01:48 -0500
-Message-ID: <CAErSpo7eHb8+vbK--MuwROL=Tc==JTbMco+n+RzRi5vhTvU+mQ@mail.gmail.com>
-References: <54F5EF6E.9090303@digirati.com.br> <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com>
- <1426007996.11398.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michel Machado <michel@digirati.com.br>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426007996.11398.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH 0/3] EEE support for mv88e6172
+Date: Tue, 10 Mar 2015 23:05:56 +0100
+Message-ID: <1426025160-13992-1-git-send-email-andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+To: davem@davemloft.net, linux@roeck-us.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:57213 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752311AbbCJWJc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2015 18:09:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 12:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-03-10 at 12:01 -0500, Bjorn Helgaas wrote:
->
->> From my point of view (far outside the networking world and completely
->> incompetent to judge the merits of XIA), this email seems like a
->> reasonable starting point for a discussion, and I'm disappointed that
->> it got shut down so fast.  It might not be in *exactly* the form
->> people are looking for, but hey, it's an introductory email, and
->> Michel seems open to constructive feedback.
->
-> I never got initial mail on netdev, only replies to it, including part
-> of initial message ?
->
-> This might explain some people never commented, maybe ?
+This patchset contains two cleanups and then adds EEE support
+to the mv88e6172, using the base provided by Guenter Roeck
 
-Here it is, in case it's useful: https://lkml.org/lkml/2015/3/3/602
+Tested on a WRT1900AC with mv88e6172 and DIR665 with mv88e6171.
+
+Andrew Lunn (3):
+  net: dsa: Centralise getting switch id
+  net: dsa: mv6171: Add defines for switch product IDs
+  net: dsa: mv88e6171: Add EEE support to the mv88e6172
+
+ drivers/net/dsa/mv88e6171.c | 32 ++++++++++++++++++++++++++++++--
+ drivers/net/dsa/mv88e6352.c |  2 --
+ drivers/net/dsa/mv88e6xxx.c |  2 ++
+ 3 files changed, 32 insertions(+), 4 deletions(-)
+
+-- 
+2.1.4
