@@ -1,92 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2] tipc: fix undefined __ipv6_sock_mc_join compile
- error
-Date: Tue, 10 Mar 2015 21:50:09 +0300
-Message-ID: <54FF3CE1.3080804@cogentembedded.com>
-References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [patch net-next 3/4] net: refactor IPv4 and IPv6 fragmentation APIs
+Date: Tue, 10 Mar 2015 11:53:18 -0700
+Message-ID: <CACzMAJL06gK4c5yHxaAA6TSZ6FwcKyoR1ziDAURWiVkhNDQoQg@mail.gmail.com>
+References: <1425888098-21875-1-git-send-email-azhou@nicira.com>
+	<1425888098-21875-4-git-send-email-azhou@nicira.com>
+	<20150309092557.GB13498@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, fengguang.wu@intel.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	kbuild-all@01.org
-To: Ying Xue <ying.xue@windriver.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:33278 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942AbbCJSuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 14:50:15 -0400
-Received: by labmn12 with SMTP id mn12so3891852lab.0
-        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 11:50:13 -0700 (PDT)
-In-Reply-To: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:47439 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751942AbbCJSxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 14:53:19 -0400
+Received: by mail-ob0-f180.google.com with SMTP id vb8so3675213obc.10
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 11:53:18 -0700 (PDT)
+In-Reply-To: <20150309092557.GB13498@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Simon and Eric, Thanks for the review.
 
-On 03/10/2015 11:41 AM, Ying Xue wrote:
+Eric, I will fix the style issues raised. Thanks for pointing them out.
 
-> When CONFIG_IPV6 option is disabled, below error will appear while
-> building TIPC module:
+Simon, I reworked the API to remove the cast in the call back.  I will
+post a V2 soon. Please take a look
+and let me know if it addresses your concerns.
 
-> ERROR: "__ipv6_sock_mc_join" [net/tipc/tipc.ko] undefined!
-> make[1]: *** [__modpost] Error 1
-> make: *** [net/tipc/tipc.ko] Error 1
-
-> This is because we don't check whether or not the CONFIG_IPV6 is
-> enabled when calling __ipv6_sock_mc_join().
-
-> In addition, especially when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m, TIPC
-> module is also unable to be successfully built. Therefore, we add a
-> dependency condition like (IPV6 || IPV6=n) to avoid the error.
-
-> Fixes: d0f91938bede ("tipc: add ip/udp media type")
-> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
-> Cc: Kbuild test robot <kbuild-all@01.org>
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> ---
-> v2:
->   Fix another compile error when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m
-
->   net/tipc/Kconfig     |    1 +
->   net/tipc/udp_media.c |    2 ++
->   2 files changed, 3 insertions(+)
-
-> diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
-> index c25a3a1..6f217ba 100644
-> --- a/net/tipc/Kconfig
-> +++ b/net/tipc/Kconfig
-> @@ -5,6 +5,7 @@
->   menuconfig TIPC
->   	tristate "The TIPC Protocol"
->   	depends on INET
-> +	depends on (IPV6 || IPV6=n)
-
-    Parens not needed.
-
-[...]
-> diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-> index fc2fb11..6763002 100644
-> --- a/net/tipc/udp_media.c
-> +++ b/net/tipc/udp_media.c
-> @@ -247,10 +247,12 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
->   		mreqn.imr_multiaddr = remote->ipv4;
->   		mreqn.imr_ifindex = ub->ifindex;
->   		err = __ip_mc_join_group(sk, &mreqn);
-> +#if IS_ENABLED(CONFIG_IPV6)
->   	} else {
-
-    How about:
-
-	} else if (IS_ENABLED(CONFIG_IPV6)) {
-
->   		if (!ipv6_addr_is_multicast(&remote->ipv6))
->   			return 0;
->   		err = __ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
-> +#endif
->   	}
->   	return err;
->   }
-
-WBR, Sergei
+On Mon, Mar 9, 2015 at 2:25 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> On Mon, Mar 09, 2015 at 01:01:37AM -0700, Andy Zhou wrote:
+>> Both ip_fragment() and ip6_fragment() APIs assume skb has an
+>> attached netdev device, from which the MTU size can be derived.
+>> However, skbs incoming from OVS vports do not have an attached
+>> netdev device.
+>>
+>> This patch splits the original function into two parts: The core
+>> fragmentation logic is now provided by
+>> ip_fragment_mtu()/ip6_fragment_mut().
+>>
+>> The original APIs are kept as is. Their implementation now calls
+>> the new APIs. Any information derived from the attached netdev
+>> device is first derived in the original APIs and passed into the
+>> new APIs.
+>>
+>> In addition, The call back output function into the new APIs now
+>> accepts two arguments: a skb and an application specific pointer,
+>> which specifies additional information not directly associated
+>> with skb, such as OVS flow, to the output function.
+>
+> I suggest handling that portion of the change separately.
+> It doesn't seem nearly as well defined as the rest of the change.
+> And cast below seems somewhat undesirable to me.
+>
+> [snip]
+>
+>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+>> index a7aea20..b85fd34 100644
+>> --- a/net/ipv4/ip_output.c
+>> +++ b/net/ipv4/ip_output.c
+>
+>> +     return ip_fragment_mtu(skb, mtu, ll_rs, NULL, dev,
+>> +                     (int (*)(struct sk_buff *, void *output_arg))output);
+>> +}
+>>  EXPORT_SYMBOL(ip_fragment);
