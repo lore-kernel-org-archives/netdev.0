@@ -1,37 +1,32 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/2] rhashtable: Move hash_rnd into bucket_table
-Date: Tue, 10 Mar 2015 17:20:02 +0000
-Message-ID: <20150310172002.GA13155@casper.infradead.org>
-References: <20150309222631.GA12221@gondor.apana.org.au>
- <E1YV69T-0003DX-CV@gondolin.me.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] mpls: Allow mpls_gso and mpls_router to be built as modules
+Date: Tue, 10 Mar 2015 12:17:42 -0500
+Message-ID: <87y4n4kc09.fsf@x220.int.ebiederm.org>
+References: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	josh@joshtriplett.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39387 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600AbbCJRUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 13:20:06 -0400
-Content-Disposition: inline
-In-Reply-To: <E1YV69T-0003DX-CV@gondolin.me.apana.org.au>
+Received: from out02.mta.xmission.com ([166.70.13.232]:42877 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106AbbCJRVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 13:21:42 -0400
+In-Reply-To: <1426005479-21806-1-git-send-email-rshearma@brocade.com> (Robert
+	Shearman's message of "Tue, 10 Mar 2015 16:37:59 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/10/15 at 09:27am, Herbert Xu wrote:
-> Currently hash_rnd is a parameter that users can set.  However,
-> no existing users set this parameter.  It is also something that
-> people are unlikely to want to set directly since it's just a
-> random number.
-> 
-> In preparation for allowing the reseeding/rehashing of rhashtable,
-> this patch moves hash_rnd into bucket_table so that it's now an
-> internal state rather than a parameter.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Robert Shearman <rshearma@brocade.com> writes:
 
-I assume you are targeting net-next?
+> CONFIG_MPLS=m doesn't result in a kernel module being built because it
+> applies to the net/mpls directory, rather than to .o files.
+>
+> So revert the MPLS menuitem to being a boolean and make MPLS_GSO and
+> MPLS_ROUTING tristates to allow mpls_gso and mpls_router modules to be
+> produced as desired.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Good catch.  But I am pretty certain this does not result in the mpls
+routing code in af_mpls being built as a module either.
+
+Eric
