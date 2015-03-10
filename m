@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ibmveth: enable interrupts after napi_complete()
-Date: Mon, 09 Mar 2015 22:38:07 -0400 (EDT)
-Message-ID: <20150309.223807.1531639361539445291.davem@davemloft.net>
-References: <1425953739-30149-1-git-send-email-yongbae2@gmail.com>
+Subject: Re: [PATCH] rds: avoid potential stack overflow
+Date: Mon, 09 Mar 2015 22:41:18 -0400 (EDT)
+Message-ID: <20150309.224118.1760532839925378471.davem@davemloft.net>
+References: <17806664.ym3oszzFIH@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: msink@permonline.ru, nicolas.ferre@atmel.com, tklauser@distanz.ch,
-	wsa@the-dreams.de, varkabhadram@gmail.com, netdev@vger.kernel.org
-To: yongbae2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43711 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbbCJCiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:38:09 -0400
-In-Reply-To: <1425953739-30149-1-git-send-email-yongbae2@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	roland@purestorage.com, sowmini.varadhan@oracle.com,
+	linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <17806664.ym3oszzFIH@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yongbae Park <yongbae2@gmail.com>
-Date: Tue, 10 Mar 2015 11:15:39 +0900
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 09 Mar 2015 13:06:52 +0100
 
-> The interrupt is enabled before napi_complete(). A network timeout
-> occurs if the interrupt handler is called before napi_complete().
-> 
-> Fix the bug by enabling the interrupt after napi_complete().
-> 
-> Signed-off-by: Yongbae Park <yongbae2@gmail.com>
+> The rds_iw_add_conn function stores a large 'struct rds_sock' object
+> on the stack in order to pass a pair of addresses.
 
-There is no need to post the patch multiple times, once is
-enough.
+As Sowmini pointed out, this function is not the top-level
+guilty one, it's rds_iw_update_cm_id.
+
+Please respin this with a corrected commit message, thanks.
