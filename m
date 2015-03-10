@@ -1,76 +1,92 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/3] of: mdio: export of_mdio_parse_addr
-Date: Tue, 10 Mar 2015 16:57:11 -0700
-Message-ID: <1426031833-5113-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 3/3] net: dsa: fully divert PHY reads/writes if requested
+Date: Tue, 10 Mar 2015 16:57:13 -0700
+Message-ID: <1426031833-5113-4-git-send-email-f.fainelli@gmail.com>
 References: <1426031833-5113-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, devicetree@vger.kernel.org,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:39445 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701AbbCKADF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 20:03:05 -0400
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:32826 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752299AbbCKADJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 20:03:09 -0400
 In-Reply-To: <1426031833-5113-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Export of_mdio_parse_addr() which allows parsing a given Ethernet PHY
-node MDIO address, verify it is within the allowed range, and return
-its value. This is going to be useful for the DSA code which needs to
-deal with multiple layers of MDIO buses.
+In case a PHY is found via Device Tree, and is also flagged by the
+switch driver as needing indirect reads/writes using the switch driver
+implemented MDIO bus, make sure that we bind this PHY to the slave MII
+bus in order for this to happen.
 
+Without this, we would succeed in having the PHY driver probe()'s
+function to use slave MII bus read/write functions, because this is done
+during dsa_slave_mii_init(), but past that point, the PHY driver would
+not go through these diverted reads and writes.
+
+Fixes: 0d8bcdd383b88 ("net: dsa: allow for more complex PHY setups")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/of/of_mdio.c    | 3 ++-
- include/linux/of_mdio.h | 7 +++++++
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ net/dsa/slave.c | 29 ++++++++++++++++++++++-------
+ 1 file changed, 22 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 1bd43053b8c7..0c064485d1c2 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -88,7 +88,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- 	return 0;
- }
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 19bc2b39c9d1..188b69773e70 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -618,11 +618,12 @@ static int dsa_slave_fixed_link_update(struct net_device *dev,
  
--static int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
-+int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
+ /* slave device setup *******************************************************/
+ static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
+-				 struct net_device *slave_dev)
++				 struct net_device *slave_dev,
++				 int addr)
  {
- 	u32 addr;
- 	int ret;
-@@ -108,6 +108,7 @@ static int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
+ 	struct dsa_switch *ds = p->parent;
  
- 	return addr;
- }
-+EXPORT_SYMBOL(of_mdio_parse_addr);
+-	p->phy = ds->slave_mii_bus->phy_map[p->port];
++	p->phy = ds->slave_mii_bus->phy_map[addr];
+ 	if (!p->phy)
+ 		return -ENODEV;
  
- /**
-  * of_mdiobus_register - Register mii_bus and create PHYs from the device tree
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index d449018d0726..8f2237eb3485 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -24,6 +24,7 @@ struct phy_device *of_phy_attach(struct net_device *dev,
- 				 phy_interface_t iface);
+@@ -667,10 +668,24 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	if (ds->drv->get_phy_flags)
+ 		phy_flags = ds->drv->get_phy_flags(ds, p->port);
  
- extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
-+extern int of_mdio_parse_addr(struct device *dev, const struct device_node *np);
+-	if (phy_dn)
+-		p->phy = of_phy_connect(slave_dev, phy_dn,
+-					dsa_slave_adjust_link, phy_flags,
+-					p->phy_interface);
++	if (phy_dn) {
++		ret = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
++		/* If this PHY address is part of phys_mii_mask, which means
++		 * that we need to divert reads and writes to/from it, then we
++		 * want to bind this device using the slave MII bus created by
++		 * DSA to make that happen.
++		 */
++		if (ret >= 0 && (ds->phys_mii_mask & (1 << ret))) {
++			ret = dsa_slave_phy_connect(p, slave_dev, ret);
++			if (ret)
++				return ret;
++		} else {
++			p->phy = of_phy_connect(slave_dev, phy_dn,
++						dsa_slave_adjust_link,
++						phy_flags,
++						p->phy_interface);
++		}
++	}
  
- #else /* CONFIG_OF */
- static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
-@@ -60,6 +61,12 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
- {
- 	return NULL;
- }
-+
-+static inline int of_mdio_parse_addr(struct device *dev,
-+				     const struct device_node *np)
-+{
-+	return -ENOSYS;
-+}
- #endif /* CONFIG_OF */
- 
- #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
+ 	if (p->phy && phy_is_fixed)
+ 		fixed_phy_set_link_update(p->phy, dsa_slave_fixed_link_update);
+@@ -679,7 +694,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	 * MDIO bus instead
+ 	 */
+ 	if (!p->phy) {
+-		ret = dsa_slave_phy_connect(p, slave_dev);
++		ret = dsa_slave_phy_connect(p, slave_dev, p->port);
+ 		if (ret)
+ 			return ret;
+ 	} else {
 -- 
 2.1.0
