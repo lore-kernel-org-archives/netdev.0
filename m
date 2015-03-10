@@ -1,74 +1,108 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH] fib_trie: Address possible NULL pointer
- dereference in resize
-Date: Tue, 10 Mar 2015 14:39:34 -0700
-Message-ID: <20150310213929.2235.18452.stgit@ahduyck-vm-fedora20>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 11 Mar 2015 08:48:30 +1100
+Message-ID: <20150311084830.0bc6dffd@canb.auug.org.au>
+References: <20150310120842.6dfa6c2b@canb.auug.org.au>
+	<20150309.234329.425011226766680524.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dan.carpenter@oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54659 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752129AbbCJVjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2015 17:39:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/sZKR5hR0S+47EvJiWxb8nCi"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, joshc@ni.com,
+	boris.brezillon@free-electrons.com, cyrille.pitchen@atmel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150309.234329.425011226766680524.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the inflate call failed it would return NULL.  As a result tp would be
-set to NULL and cause use to trigger a NULL pointer dereference in
-should_halve if the inflate failed on the first attempt.
+--Sig_/sZKR5hR0S+47EvJiWxb8nCi
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-In order to prevent this we should decrement max_work before we actually
-attempt to inflate as this will force us to exit before attempting to halve
-a node we should have inflated.  In order to keep things symmetric between
-inflate and halve I went ahead and also moved the decrement of max_work for
-the halve case as well so we take care of that before we actually attempt
-to halve the tnode.
+Hi Dave,
 
-Fixes: 88bae714 ("fib_trie: Add key vector to root, return parent key_vector in resize")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/ipv4/fib_trie.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+On Mon, 09 Mar 2015 23:43:29 -0400 (EDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 10 Mar 2015 12:08:42 +1100
+>=20
+> > Today's linux-next merge of the net-next tree got a conflict in
+> > drivers/net/ethernet/cadence/macb.c between commit 0b2eb3e9bc73 ("net:
+> > macb: constify macb configuration data") from the net tree and commits
+> > a848748959d5 ("net: macb: remove #if defined(CONFIG_ARCH_AT91)
+> > sections") and 421d9df0628b ("net/macb: merge at91_ether driver into
+> > macb driver") from the net-next tree.
+> >=20
+> > I fixed it up (I think - see below) and can carry the fix as necessary
+> > (no action is required).
+>=20
+> Thanks Stephen, I'm merging net into net-next right now and will resolve
+> this similarly.
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 44cab1d..83290be 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -830,7 +830,7 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
- 	/* Double as long as the resulting node has a number of
- 	 * nonempty nodes that are above the threshold.
- 	 */
--	while (should_inflate(tp, tn) && max_work) {
-+	while (should_inflate(tp, tn) && max_work--) {
- 		tp = inflate(t, tn);
- 		if (!tp) {
- #ifdef CONFIG_IP_FIB_TRIE_STATS
-@@ -839,7 +839,6 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
- 			break;
- 		}
- 
--		max_work--;
- 		tn = get_child(tp, cindex);
- 	}
- 
-@@ -850,7 +849,7 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
- 	/* Halve as long as the number of empty children in this
- 	 * node is above threshold.
- 	 */
--	while (should_halve(tp, tn) && max_work) {
-+	while (should_halve(tp, tn) && max_work--) {
- 		tp = halve(t, tn);
- 		if (!tp) {
- #ifdef CONFIG_IP_FIB_TRIE_STATS
-@@ -859,7 +858,6 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
- 			break;
- 		}
- 
--		max_work--;
- 		tn = get_child(tp, cindex);
- 	}
- 
+Just wondering if you got that merge right?  Here is the diff from what
+I did yesterday to what you have in net-next:
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cad=
+ence/macb.c
+index f032e2a245b0..f00be585f661 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2131,24 +2131,8 @@ static const struct net_device_ops macb_netdev_ops =
+=3D {
+  */
+ static void macb_configure_caps(struct macb *bp)
+ {
+-	const struct of_device_id *match;
+-	const struct macb_config *config;
+ 	u32 dcfg;
+=20
+-	if (bp->pdev->dev.of_node) {
+-		match =3D of_match_node(macb_dt_ids, bp->pdev->dev.of_node);
+-		if (match && match->data) {
+-			config =3D match->data;
+-
+-			bp->caps =3D config->caps;
+-			/*
+-			 * As we have access to the matching node, configure
+-			 * DMA burst length as well
+-			 */
+-			bp->dma_burst_length =3D config->dma_burst_length;
+-		}
+-	}
+-
+ 	if (MACB_BFEXT(IDNUM, macb_readl(bp, MID)) =3D=3D 0x2)
+ 		bp->caps |=3D MACB_CAPS_MACB_IS_GEM;
+=20
+That section was removed by commit 421d9df0628b ("net/macb: merge
+at91_ether driver into macb driver") and I presumed its effect was
+moved into macb_probe().
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/sZKR5hR0S+47EvJiWxb8nCi
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJU/2a2AAoJEMDTa8Ir7ZwVX+sP/AiwzNKD3rs5YpOvNF5I1cBL
+SH3NzInggrdCzelVcKdPWIshZUXvcvPFk/adbF6jYfmG0YuXagWNwOzhELYzHgiN
+CdwqmZlWUxnoC7NAPdxQH0QmSVpd5x8Kje5fI9C7UZSvVkWzaRyldLBDpaDgVrPf
+TswaVS31UkeZwTcRg748DVDq/7RSCH5VC7/1fTYfivcrZG2fhrl4aDVuvMwxhFo8
+bGlm9+QPyHMxfFoMN0P3VuaRiH64DqUVkMzTN/ioccGOmMgyf0pRbPM3rQHgVDiY
+jt7xUJA04vwDin2elDe9M7AQ8y/uuAqrI4nng7z3q6oA29eBsqaEl+q3rJEUvTEt
+tEiWM6wA8oI8sAvURrHFPY1aLwJq1qGWhq3guzZvuPQmNVGYRDkLiu+lQqKu/u5g
+TXEeq4OnMrWglXKcnMO+XfjDL2HjQrOpCVqgeAAHiu0BQ9C13TNwaLjNTQrmeeAM
+R6ykD8L/0JhDzGAfF4MiCnMV3HxW8+ajtvtf75U5gKknClJwPlRzLKiK43UBctpi
+986wqVgaiS/NZa4IiHIRC5mbOafuWPEJE23PPPFr0V2vEEYYscg7iVrr4rn9Whkl
+ZJX4lxAoSD+ebhClwee/gdCgyRdASL9Nz+pPwgtiEgPVxsQTdAbepORAeyBeS7qs
+AuLMr4ACJn5HwqxtvYIw
+=eVCj
+-----END PGP SIGNATURE-----
+
+--Sig_/sZKR5hR0S+47EvJiWxb8nCi--
