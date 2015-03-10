@@ -1,74 +1,89 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH] can: use sock_efree instead of own destructor
-Date: Tue, 10 Mar 2015 08:19:33 -0700
-Message-ID: <54FF0B85.7040601@redhat.com>
-References: <1425959300-27132-1-git-send-email-fw@strlen.de>	 <54FE8BB0.9050508@hartkopp.net>	 <1425990143.8261.28.camel@edumazet-glaptop2.roam.corp.google.com>	 <54FEF355.305@hartkopp.net> <1425998185.8261.51.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v2] tipc: fix undefined __ipv6_sock_mc_join
+ compile error
+Date: Tue, 10 Mar 2015 11:41:03 -0400
+Message-ID: <CA+FuTSdxmae0DnNnQdCgCdaThVtZ1raqEg9z6XpHE5N9u5MCfw@mail.gmail.com>
+References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	mkl@pengutronix.de,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, jon.maloy@ericsson.com,
+	Paul.Gortmaker@windriver.com, erik.hugne@ericsson.com,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Network Development <netdev@vger.kernel.org>,
+	tipc-discussion@lists.sourceforge.net, kbuild-all@01.org
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36305 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932065AbbCJPTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2015 11:19:51 -0400
-In-Reply-To: <1425998185.8261.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:38141 "EHLO
+	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbbCJPld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 11:41:33 -0400
+Received: by oiax69 with SMTP id x69so2260289oia.5
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 08:41:33 -0700 (PDT)
+In-Reply-To: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/10/2015 07:36 AM, Eric Dumazet wrote:
-> On Tue, 2015-03-10 at 14:36 +0100, Oliver Hartkopp wrote:
->> Yes - in connection with sock_rfree() for the read buffer destructur and
->> sock_wfree() for the write buffer it can make sense to name a function
->> sock_efree() as an unassigned destructor - which does not fiddle with rmem nor
->> wmen.
->>
->> But both sock_efree() and sock_edemux() lack some comment - especially when it
->> makes sense to use them from non-INET contexts which Florian suggested.
->>
->> Maybe Alexander can send a patch which adds a comment, as I don't know if I
->> would find the best words for it.
-> Please do not top post on netdev.
+On Tue, Mar 10, 2015 at 4:41 AM, Ying Xue <ying.xue@windriver.com> wrote:
+> When CONFIG_IPV6 option is disabled, below error will appear while
+> building TIPC module:
 >
-> If you cannot find best words for it, maybe a comment would not be
-> useful : Very often, best comments are added by people that had problems
-> to understand the code ;)
+> ERROR: "__ipv6_sock_mc_join" [net/tipc/tipc.ko] undefined!
+> make[1]: *** [__modpost] Error 1
+> make: *** [net/tipc/tipc.ko] Error 1
 >
-> I do not trust comments, I prefer using "git grep" or tools like that to
-> check call sites.
+> This is because we don't check whether or not the CONFIG_IPV6 is
+> enabled when calling __ipv6_sock_mc_join().
 >
-> In this particular case this becomes clear, while being concise.
+> In addition, especially when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m, TIPC
+> module is also unable to be successfully built. Therefore, we add a
+> dependency condition like (IPV6 || IPV6=n) to avoid the error.
 >
-> # git grep -n sock_efree
-> include/net/sock.h:1526:void sock_efree(struct sk_buff *skb);
-> include/net/sock.h:1530:#define sock_edemux(skb) sock_efree(skb)
-> net/core/skbuff.c:3625: clone->destructor = sock_efree;
-> net/core/sock.c:1658:void sock_efree(struct sk_buff *skb)
-> net/core/sock.c:1662:EXPORT_SYMBOL(sock_efree);
-> net/ipv4/udp.c:1992:    skb->destructor = sock_efree;
+> Fixes: d0f91938bede ("tipc: add ip/udp media type")
+> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
+> Cc: Kbuild test robot <kbuild-all@01.org>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> ---
+> v2:
+>  Fix another compile error when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m
+>
+>  net/tipc/Kconfig     |    1 +
+>  net/tipc/udp_media.c |    2 ++
+>  2 files changed, 3 insertions(+)
+>
+> diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
+> index c25a3a1..6f217ba 100644
+> --- a/net/tipc/Kconfig
+> +++ b/net/tipc/Kconfig
+> @@ -5,6 +5,7 @@
+>  menuconfig TIPC
+>         tristate "The TIPC Protocol"
+>         depends on INET
+> +       depends on (IPV6 || IPV6=n)
 
-As I recall one of the reasons for leaving it as sock_efree was because 
-sock_put just calls sk_free if it has decremented the reference count to 
-0.  Also as Eric pointed out the name is actually pretty close to the 
-existing destructors sock_edemux and sock_rfree.  The sock_efree name 
-was based on the fact that the main consumer is usually either the UDP 
-early receive path or the error handler/Timestamp path.
+Should this be limited to TIPC_MEDIA_UDP?
 
-As far as the comments about it not freeing anything take a look at 
-sock_rfree and tell me what it is actually freeing?  Last I knew it is 
-simply dropping references to memory so that the socket can go ahead and 
-either make use of them or close itself once all references have been 
-freed.  That is the same thing this does, but it is holding references 
-to a single byte of sk_wmem_alloc.
+>         ---help---
+>           The Transparent Inter Process Communication (TIPC) protocol is
+>           specially designed for intra cluster communication. This protocol
+> diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+> index fc2fb11..6763002 100644
+> --- a/net/tipc/udp_media.c
+> +++ b/net/tipc/udp_media.c
+> @@ -247,10 +247,12 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
 
-Patches are always welcome if you believe we need additional 
-documentation, I had assumed this was pretty straight forward since the 
-function was essentially just a wrapper for sock_put so I could use it 
-as a destructor.
 
-- Alex
+>                 mreqn.imr_multiaddr = remote->ipv4;
+>                 mreqn.imr_ifindex = ub->ifindex;
+>                 err = __ip_mc_join_group(sk, &mreqn);
+> +#if IS_ENABLED(CONFIG_IPV6)
+>         } else {
+>                 if (!ipv6_addr_is_multicast(&remote->ipv6))
+>                         return 0;
+>                 err = __ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
+> +#endif
+>         }
+>         return err;
+
+It may also be prudent to initialize err to -EAFNOSUPPORT instead of
+0. This function is currently only called when the protocol family has
+been checked, but relying on that is a bit fragile.
