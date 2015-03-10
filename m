@@ -1,32 +1,67 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] mpls: Allow mpls_gso and mpls_router to be built as modules
-Date: Tue, 10 Mar 2015 12:17:42 -0500
-Message-ID: <87y4n4kc09.fsf@x220.int.ebiederm.org>
-References: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and
+ verify it matches on lookup
+Date: Tue, 10 Mar 2015 13:29:01 -0400 (EDT)
+Message-ID: <20150310.132901.107747405992138134.davem@davemloft.net>
+References: <87pp8hnxqz.fsf@x220.int.ebiederm.org>
+	<20150310.123642.2054908032137423526.davem@davemloft.net>
+	<87fv9clr3b.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ja@ssi.bg, edumazet@google.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
+	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
+	shmulik.ladkani@gmail.com, dsahern@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:42877 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753106AbbCJRVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 13:21:42 -0400
-In-Reply-To: <1426005479-21806-1-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Tue, 10 Mar 2015 16:37:59 +0000")
+Received: from shards.monkeyblade.net ([149.20.54.216]:57365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752616AbbCJR3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 13:29:07 -0400
+In-Reply-To: <87fv9clr3b.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 10 Mar 2015 12:06:32 -0500
 
-> CONFIG_MPLS=m doesn't result in a kernel module being built because it
-> applies to the net/mpls directory, rather than to .o files.
->
-> So revert the MPLS menuitem to being a boolean and make MPLS_GSO and
-> MPLS_ROUTING tristates to allow mpls_gso and mpls_router modules to be
-> produced as desired.
+> David Miller <davem@davemloft.net> writes:
+> 
+>> From: ebiederm@xmission.com (Eric W. Biederman)
+>> Date: Tue, 10 Mar 2015 01:59:48 -0500
+>>
+>>> If we actually really care about struct net going away it would be
+>>> much better to globally replace struct net with a typedef that looks
+>>> something like:
+>>> 
+>>> #ifdef CONFIG_NET_NS
+>>> struct net_ref {
+>>>        struct net *net;
+>>> };
+>>> #else
+>>> struct net_ref {
+>>> };
+>>> #endif
+>>> typedef struct net_ref net_t;
+>>> 
+>>> That would remove the need for write_pnet and read_pnet, make it
+>>> impossible to forget net_eq and make network namespace arguments to
+>>> functions also boil away at compile time if the network namespace code
+>>> was not enabled.
+>>> 
+>>> That was the original design and I forget why we didn't do that with
+>>> struct net.  But we did not.
+>>
+>> This keeps the ifdefs out of foo.c code, so I like it.
+> 
+> Alright.  It does wind up requiring things like:
 
-Good catch.  But I am pretty certain this does not result in the mpls
-routing code in af_mpls being built as a module either.
+Another approach is to use a macro for the instantiation of a "struct
+net *" member.
 
-Eric
+It could evaluate to "struct { } x;" when NETNS is disabled.
+
+Then you don't need all the special accessors, read_pnet() and
+write_pnet() are sufficient.
