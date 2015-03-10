@@ -1,65 +1,110 @@
-From: Stephan Mueller <smueller@chronox.de>
-Subject: Re: linux-next: build warnings after merge of the crypto tree
-Date: Tue, 10 Mar 2015 08:02:35 +0100
-Message-ID: <1658340.bSp4ddJdxm@tauon>
-References: <20150310164417.540c18a4@canb.auug.org.au> <20150310060328.GA14997@gondor.apana.org.au> <20150310174454.7a92a3bd@canb.auug.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and verify it matches on lookup
+Date: Tue, 10 Mar 2015 01:59:48 -0500
+Message-ID: <87pp8hnxqz.fsf@x220.int.ebiederm.org>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	<87d25hrv9m.fsf@x220.int.ebiederm.org>
+	<20150219.144929.1003473344851168804.davem@davemloft.net>
+	<87h9tu114z.fsf_-_@x220.int.ebiederm.org>
+	<87oao2yqh1.fsf_-_@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1503092210150.1846@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150310174454.7a92a3bd@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	netdev@vger.kernel.org, stephen@networkplumber.org,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
+	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
+	dsahern@gmail.com
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:60599 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751927AbbCJHD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 03:03:29 -0400
+In-Reply-To: <alpine.LFD.2.11.1503092210150.1846@ja.home.ssi.bg> (Julian
+	Anastasov's message of "Mon, 9 Mar 2015 22:25:11 +0200 (EET)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag, 10. M=E4rz 2015, 17:44:54 schrieb Stephen Rothwell:
+Julian Anastasov <ja@ssi.bg> writes:
 
-Hi Stephen,
-
->Hi Herbert,
+> 	Hello,
 >
->On Tue, 10 Mar 2015 17:03:28 +1100 Herbert Xu=20
-<herbert@gondor.apana.org.au> wrote:
->> On Tue, Mar 10, 2015 at 04:44:17PM +1100, Stephen Rothwell wrote:
->> > After merging the crypto tree, today's (and the past few days)
->> > linux-next build (powerpc allyesconfig) produced these warnings:
->> >=20
->> > crypto/algif_aead.c:561:2: warning: initialization from
->> > incompatible pointer type> >=20
->> >   .sendmsg =3D aead_sendmsg,
->> >   ^
->> >=20
->> > crypto/algif_aead.c:561:2: warning: (near initialization for
->> > 'algif_aead_ops.sendmsg') crypto/algif_aead.c:563:2: warning:
->> > initialization from incompatible pointer type> >=20
->> >   .recvmsg =3D aead_recvmsg,
->> >   ^
->> >=20
->> > crypto/algif_aead.c:563:2: warning: (near initialization for
->> > 'algif_aead_ops.recvmsg')
->> >=20
->> > Introduced by commit 400c40cf78da ("crypto: algif - add AEAD
->> > support").>=20
->> This is a bit of a bummer.  What happened is that net-next has
->> killed the kiocb argument to sendmsg/recvmsg.  However, this
->> change is obviously not part of the crypto tree and algif_aead
->> only exists in the crypto tree.
->>=20
->> So Stephen could you fix this by hand until one of them is merged
->> upstream (just kill the first argument in aead_sendmsg/aead_recvmsg)=
-?
+> On Mon, 9 Mar 2015, Eric W. Biederman wrote:
 >
->No worries, I will put a merge fix patch in from tomorrow (and send yo=
-u
->a copy just in case).
+>> diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+>> index 70196c3c16a1..4ec02d6cab5b 100644
+>> --- a/net/ipv4/tcp_metrics.c
+>> +++ b/net/ipv4/tcp_metrics.c
+>> @@ -40,6 +40,7 @@ struct tcp_fastopen_metrics {
+>>  
+>>  struct tcp_metrics_block {
+>>  	struct tcp_metrics_block __rcu	*tcpm_next;
+>> +	struct net			*tcpm_net;
+>
+> 	Is it better if we have this field under
+> #ifef CONFIG_NET_NS ? read_pnet and write_pnet do not
+> care when first argument is not declared for the
+> !CONFIG_NET_NS case.
 
-Thank you. Let me know if I should help.
+I don't actually believe there are many people compiling out network
+namespaces but there is no point in making it unnecessarily bad for them.
 
+That said.  If we actually really care about struct net going away it
+would be much better to globally replace struct net with a typedef that
+looks something like:
 
-Ciao
-Stephan
+#ifdef CONFIG_NET_NS
+struct net_ref {
+       struct net *;
+};
+#else
+struct net_ref {
+};
+#endif
+typedef struct net_ref net_t;
+
+That would remove the need for write_pnet and read_pnet, make it
+impossible to forget net_eq and make network namespace arguments to
+functions also boil away at compile time if the network namespace code
+was not enabled.
+
+That was the original design and I forget why we didn't do that with
+struct net.  But we did not.
+
+In this specific case an extra member of tcp_metrics_block isn't going
+to hurt so I don't think write_pnet and read_pnet are particularly
+interesting.   net_eq definitely seems worthwhile.
+
+>>  	struct inetpeer_addr		tcpm_saddr;
+>>  	struct inetpeer_addr		tcpm_daddr;
+>>  	unsigned long			tcpm_stamp;
+>> @@ -183,6 +184,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+>>  		if (!tm)
+>>  			goto out_unlock;
+>>  	}
+>> +	tm->tcpm_net = net;
+>
+> 	write_pnet(&tm->tcpm_net, net);
+>
+>>  	tm->tcpm_saddr = *saddr;
+>>  	tm->tcpm_daddr = *daddr;
+>>  
+>> @@ -216,7 +218,8 @@ static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *s
+>>  
+>>  	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
+>>  	     tm = rcu_dereference(tm->tcpm_next)) {
+>> -		if (addr_same(&tm->tcpm_saddr, saddr) &&
+>> +		if ((tm->tcpm_net == net) &&
+>> +		    addr_same(&tm->tcpm_saddr, saddr) &&
+>>  		    addr_same(&tm->tcpm_daddr, daddr))
+>
+> 	net_eq(read_pnet(), net) can be checked last,
+> better to match the addresses first?
+
+Not hugely better but failing faster is always a good idea if you get
+stuck with a long hash chain.
+
+Eric
