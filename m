@@ -1,109 +1,88 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH v2 2/3] if_link: Add VF multicast
- promiscuous control
-Date: Mon, 09 Mar 2015 19:48:15 -0700
-Message-ID: <1425955695.2579.23.camel@jtkirshe-mobl>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E53671@BPXM14GP.gisp.nec.co.jp>
-	 <1425952344.2579.20.camel@jtkirshe-mobl>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: fix rxvlan feature
+Date: Tue, 10 Mar 2015 02:21:54 +0000
+Message-ID: <BY2PR03MB3774C563329487F2E2F5B26F5180@BY2PR03MB377.namprd03.prod.outlook.com>
+References: <1425920153-13319-1-git-send-email-m.grzeschik@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-bVqqnjWu+/AtVjRZvW3X"
-Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@aculab.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1425952344.2579.20.camel@jtkirshe-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0129.outbound.protection.outlook.com ([65.55.169.129]:2400
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752115AbbCJCy5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:54:57 -0400
+In-Reply-To: <1425920153-13319-1-git-send-email-m.grzeschik@pengutronix.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Michael Grzeschik <m.grzeschik@pengutronix.de> Sent: Tuesday, March 10, 2015 12:56 AM
+> To: Duan Fugang-B38611
+> Cc: davem@davemloft.net; Li Frank-B20596; netdev@vger.kernel.org;
+> kernel@pengutronix.de
+> Subject: [PATCH] net: fec: fix rxvlan feature
+> 
+> The patch 1b7bde6d659d30f171259cc2dfba8e5dab34e735
+> "net: fec: implement rx_copybreak to improve rx performance"
+> changed the code path for the vlan check in fec_enet_rx_queue:
+> 
+>  @@ -1417,62 +1486,48 @@ fec_enet_rx_queue(struct net_device *ndev, int
+> budget, u16 queue_id)
+>  		/* If this is a VLAN packet remove the VLAN Tag */
+>  		vlan_packet_rcvd = false;
+>  		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
+>  			fep->bufdesc_ex && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
+>  			/* Push and remove the vlan tag */
+>                          struct vlan_hdr *vlan_header =
+>                                          (struct vlan_hdr *) (data +
+> ETH_HLEN);
+>                          vlan_tag = ntohs(vlan_header->h_vlan_TCI);
+>  -                       pkt_len -= VLAN_HLEN;
+> 
+>                          vlan_packet_rcvd = true;  +
+>  +                       skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
+>  +                                                      data, (2 *
+> ETH_ALEN));
+>  +                       skb_pull(skb, VLAN_HLEN);
+>                  }
+> 
+> With the call of skb_copy_to_linear_data_offset the code here is doing
+> more than previously and is breaking the rxvlan feature. This patch
+> removes this call to fix it.
+> 
+> Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index 9bb6220..77dd539 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1479,8 +1479,6 @@ fec_enet_rx_queue(struct net_device *ndev, int
+> budget, u16 queue_id)
+> 
+>  			vlan_packet_rcvd = true;
+> 
+> -			skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
+> -						       data, (2 * ETH_ALEN));
+>  			skb_pull(skb, VLAN_HLEN);
+>  		}
+> 
+> --
+> 2.1.4
 
---=-bVqqnjWu+/AtVjRZvW3X
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The change doesn't work for enet VLAN.
 
-On Mon, 2015-03-09 at 18:52 -0700, Jeff Kirsher wrote:
-> On Tue, 2015-03-10 at 01:42 +0000, Hiroshi Shimamoto wrote:
-> > > On 03/08/2015 02:15 PM, Or Gerlitz wrote:
-> > > > On Mon, Feb 23, 2015 at 11:14 PM, Jeff Kirsher
-> > > > <jeffrey.t.kirsher@intel.com> wrote:
-> > > > [...]
-> > > >> We discussed this during NetConf last week, and Don is correct
-> > that a
-> > > >> custom sysfs interface is not the way we want to handle this.  We
-> > agreed
-> > > >> upon a generic interface so that any NIC is able to turn on or
-> > off VF
-> > > >> multicast promiscuous mode.
-> > > >
-> > > > Jeff, please make sure to either respond to my comments on the V2
-> > > > thread (or better) address them for the V3 post.
-> > > >
-> > > >
-> > > > http://marc.info/?l=3Dlinux-netdev&m=3D142441852518152&w=3D2
-> > > > http://marc.info/?l=3Dlinux-netdev&m=3D142441867218183&w=3D2
-> > >=20
-> > > I agree with you that the patch descriptions should be cleaned up
-> > and
-> > > "beefed" up for that matter.
-> > >=20
-> > > If/when I look to push his series of patches, I will make sure that
-> > your
-> > > concerns are addressed so that we can get a accurate changelog.
-> >=20
-> > I see that the patchset should have better explanation in changelog.
-> > I will rewrite it and submit again.
-> >=20
-> > Jeff, are you planning to drop the patchset from your tree?
-> > I just concerned which tree I should create patches against for.
->=20
-> Yes, I will drop the current patchset in my queue.  I am in the process
-> of updating my queue, go ahead and make your patches against the
-> following tree:
->=20
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
-> all-queue branch
->=20
-> If you give me an hour or so, I should have my tree updated with all the
-> patches in my queue currently.
+I remember the current enet VLAN can work for some cases like run PTP VALN case.
+I don't know why it cannot work for your test.
 
-Ok, correction on the branch name.  After doing some cleanup and future
-planning, the following tree:
-git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
-is what you want to use and the branch name is:
-unstable-queue
-
-The branch has all the patches currently in my queue.
-
---=-bVqqnjWu+/AtVjRZvW3X
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU/ltvAAoJEOVv75VaS+3OIaIP/3GOf6ekVjoE7DMs6xiliTjw
-7zk1DOclDSYxcHV4ZufzeUbSKt4KOIS5dsPTT/9octt0Iqj+aBY4r42ShucQM/43
-kHHIjylHuIRCHn8cN3Nxo1o0UugUF0wSvSlvUyzvrdAH2WeExBPkcaUh5KaSZ4/t
-/L1SaTRXqzeOp0KQ8oKTWHQaZ3lv3qoJHkFW0FnjLYirZlKHOB0cgV7rnsOnXiGy
-4GEXRNOd8RcvDSVA7nbmywEJLh0pcqLfXgkBXlekcUolzCDGH/r3BoPBecc09Gu8
-hpIO+DlLjyVTdAjL5L0KvJdS3ChISiitgeHWb/2Ncn0w4rEfE4sTPfDKiVRX3VDU
-C6LJPMc1VGVLpcSJSrnrfLdY4au1jlmTlajyiiI1baZTiIKbjtaDgFVhvuTf1bNW
-cS4p4DTKz+BSbhy3IcyJe8k5aCBMuzEf6o9AHNexZqTEvNhkrSQ6t/bWSoMtcHyT
-PQmZVz0TcDjH3NdbskhhYIoQXo2kaOvF4HUxi/y13b9D2vi9EBJVPQo2CDZVJ1sw
-LjdkjBB0Q4hK91V0DeiP1eX21Xv658rIRgf1583FA1lSMIUsWVscapxUH5+njR7d
-bIvvmlxTcXxhJtMAmvIjNp6IjTz1GJTAFdUsXL+DjHhahzFLk1noWYKSyj72tT0/
-c7YdJ8rAShPMjROV+9j9
-=xwQD
------END PGP SIGNATURE-----
-
---=-bVqqnjWu+/AtVjRZvW3X--
+Regards,
+Andy
