@@ -1,58 +1,75 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net 1/2] tcp: fix tcp_cong_avoid_ai() credit accumulation bug with decreases in w
-Date: Tue, 10 Mar 2015 17:17:03 -0400
-Message-ID: <1426022224-28793-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: BCM4313 & brcmsmac & 3.12: only semi-working?
+Date: Tue, 10 Mar 2015 22:27:18 +0100
+Message-ID: <54FF61B6.3050307@broadcom.com>
+References: <53FDACD1.8090805@msgid.tls.msk.ru> <9234001.YBqfvtcJFx@fuchs> <5496E135.1@broadcom.com> <9062978.Vq0rTjKd5z@fuchs> <20150309205451.GA13884@minime.bse>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Michael Tokarev <mjt@tls.msk.ru>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	"brcm80211 development" <brcm80211-dev-list@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Network Development" <netdev@vger.kernel.org>,
+	Maximilian Engelhardt <maxi@daemonizer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f179.google.com ([209.85.160.179]:40017 "EHLO
-	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280AbbCJVRK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 17:17:10 -0400
-Received: by ykq142 with SMTP id 142so2046002ykq.7
-        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 14:17:10 -0700 (PDT)
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:64748 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751390AbbCJV10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 17:27:26 -0400
+In-Reply-To: <20150309205451.GA13884@minime.bse>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recent change to tcp_cong_avoid_ai() to handle stretch ACKs
-introduced a bug where snd_cwnd_cnt could accumulate a very large
-value while w was large, and then if w was reduced snd_cwnd could be
-incremented by a large delta, leading to a large burst and high packet
-loss. This was tickled when CUBIC's bictcp_update() sets "ca->cnt =
-100 * cwnd".
+On 03/09/15 21:54, Daniel Gl=C3=B6ckner wrote:
+> Hi Arend,
+>
+> On Sun, Dec 21, 2014 at 06:34:24PM +0100, Maximilian Engelhardt wrote=
+:
+>> On Sunday 21 December 2014 16:03:17 Arend van Spriel wrote:
+>>> On 12/21/14 15:24, Maximilian Engelhardt wrote:
+>>>> On Sunday 21 December 2014 15:13:50 Arend van Spriel wrote:
+>>>>> Thanks. It shows you have have the same bt-coex version as Michae=
+l. I am
+>>>>> not familiar with bluetooth side of things. Are you both using bl=
+uetooth
+>>>>> on 4313?
+>>>>>
+>>>>> Regards,
+>>>>> Arend
+>>>>
+>>>> I don't know. I think I have Bluetooth somehow enabled but I'm not=
+ really
+>>>> using it. I definitely don't have any Bluetooth devices connected.=
+ I could
+>>>> try to unload/disable Bluetooth it to see if it makes any differen=
+ce.
+>>>
+>>> That would be useful to know.
+>>>
+>>
+>> I did a test with all Bluetooth modules unloaded that I could find b=
+ut
+>> throughput was still very low (about 4 Mbit/s with brcmsmac, my athe=
+ros USB
+>> stick archived about 110 Mbit/s).
+>
+> any update on this issue?
+> One of my relatives would like to get rid of that Ralink wifi stick s=
+he
+> has been carrying around for 1.5 years now since the internal wifi in=
+ her
+> Thinkpad E130 suffers from this problem.
 
-This bug crept in while preparing the upstream version of
-814d488c6126.
+I did get my hands on same device as Michael has/had and it now sits in=
+=20
+my developement laptop. Just need to find some time to give it a spin.
 
-Testing: This patch has been tested in datacenter netperf transfers
-and live youtube.com and google.com servers.
+Regards,
+Arend
 
-Fixes: 814d488c6126 ("tcp: fix the timid additive increase on stretch ACKs")
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_cong.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index d694088..62856e1 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -378,6 +378,12 @@ EXPORT_SYMBOL_GPL(tcp_slow_start);
-  */
- void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked)
- {
-+	/* If credits accumulated at a higher w, apply them gently now. */
-+	if (tp->snd_cwnd_cnt >= w) {
-+		tp->snd_cwnd_cnt = 0;
-+		tp->snd_cwnd++;
-+	}
-+
- 	tp->snd_cwnd_cnt += acked;
- 	if (tp->snd_cwnd_cnt >= w) {
- 		u32 delta = tp->snd_cwnd_cnt / w;
--- 
-2.2.0.rc0.207.ga3a616c
+> Best regards,
+>
+>    Daniel
