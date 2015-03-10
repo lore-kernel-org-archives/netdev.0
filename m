@@ -1,66 +1,63 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: Re: [linuxppc-release] [PATCH] net/fsl: remove dependency FSL_SOC
- from MDIO
-Date: Tue, 10 Mar 2015 08:17:52 -0500
-Message-ID: <54FEEF00.3060201@Freescale.com>
-References: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: Re: repository for switch hardware info
+Date: Tue, 10 Mar 2015 19:02:58 +0530
+Message-ID: <CA+CtxLQ=ByYDugho5XeOKEn2v2c67qtDd0Q=Cb=ocKn=_r4mdA@mail.gmail.com>
+References: <CANmuVZcYEyoqDhtY+5UWakYqYa6MqO4hj2MNwE1uWH=hcUKcrA@mail.gmail.com>
+	<00a201d0551b$d982f2a0$8c88d7e0$@codeaurora.org>
+	<20150302.154006.225049966274593660.davem@davemloft.net>
+	<20150302.155735.937483543338955659.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Shaohui Xie <Shaohui.Xie@Freescale.com>,
-	Scott Wood <scottwood@Freescale.com>
-To: <shh.xie@gmail.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0135.outbound.protection.outlook.com ([157.56.111.135]:12352
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751390AbbCJNOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2015 09:14:49 -0400
-In-Reply-To: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:43863 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545AbbCJNdA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 09:33:00 -0400
+Received: by widem10 with SMTP id em10so3015795wid.2
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 06:32:58 -0700 (PDT)
+In-Reply-To: <20150302.155735.937483543338955659.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Shao-Hui,
+Hi David,
+
+Broadcom's Open Network Switch Library is available at the below location.
+
+https://github.com/Broadcom-Switch/OpenNSL
+
+On Tue, Mar 3, 2015 at 2:27 AM, David Miller <davem@davemloft.net> wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 02 Mar 2015 15:40:06 -0500 (EST)
+>
+>> From: "Mathieu Olivari" <mathieu@codeaurora.org>
+>> Date: Mon, 2 Mar 2015 11:05:28 -0800
+>>
+>>> Here is what's available publically for QCA devices.
+>>>
+>>> AR8xxx/QCA8xxx (Ethernet xMII/MDIO based hardware switch widely deployed in home gateways):
+>>> - open source vendor SDK is available here: https://www.codeaurora.org/cgit/quic/qsdk/oss/lklm/qca-ssdk/ (configuration command can be found in https://www.codeaurora.org/cgit/quic/qsdk/oss/ssdk-shell/)
+>>> - same devices (AR8xxx/QCA8xxx) are also supported by OpenWrt using a swconfig based driver: http://git.openwrt.org/?p=openwrt.git;a=tree;f=target/linux/generic/files/drivers/net/phy;h=ceb9d8c46e7ffb936e3e56dcf77a0253fa5b3468;hb=HEAD (files ar8216.c & ar8327.c)
+>>>
+>>> IPQ806x (NPU we talked about during netdev01):
+>>> - code is available here: https://www.codeaurora.org/cgit/quic/qsdk/
+>>> Driver is split between oss/lklm/nss-drv, oss/lklm/nss-gmac and oss/lklm/qca-nss-ecm.
+>>>
+>>> Both hardware can easily be found in home routers on the market today.
+>>
+>> Please post this publicly on the mailing list rather than as a private
+>> email to just me.
+>
+> Sorry I'm an idiot, I didn't see netdev in the CC: :-)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-On 03/10/2015 05:31 AM, shh.xie@gmail.com wrote:
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
-> 
-> FSL_PQ_MDIO and FSL_XGMAC_MDIO are not really depend on FSL_SOC, they
-> can build on non-PPC platforms.
 
-FSL_SOC is already defined for some ARM-based SoC? Why don't you use/fix
-that. We have plenty of devices integrated on both SoC families...
-
-Or are you targeting other non-PPC/ARM SoC(s)?
-
-
-Cheers,
-
-
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/Kconfig | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-> index ba84c4a..25e3425 100644
-> --- a/drivers/net/ethernet/freescale/Kconfig
-> +++ b/drivers/net/ethernet/freescale/Kconfig
-> @@ -58,14 +58,12 @@ source "drivers/net/ethernet/freescale/fs_enet/Kconfig"
->  
->  config FSL_PQ_MDIO
->  	tristate "Freescale PQ MDIO"
-> -	depends on FSL_SOC
->  	select PHYLIB
->  	---help---
->  	  This driver supports the MDIO bus used by the gianfar and UCC drivers.
->  
->  config FSL_XGMAC_MDIO
->  	tristate "Freescale XGMAC MDIO"
-> -	depends on FSL_SOC
->  	select PHYLIB
->  	select OF_MDIO
->  	---help---
-> 
+-- 
+Regards,
+Siva Mannem.
