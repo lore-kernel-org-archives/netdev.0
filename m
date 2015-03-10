@@ -1,106 +1,90 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: ipv4 route dump broken with multiple subnets
-Date: Tue, 10 Mar 2015 18:07:46 +0100
-Message-ID: <20150310170746.GA1743@kria>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and verify it matches on lookup
+Date: Tue, 10 Mar 2015 12:06:32 -0500
+Message-ID: <87fv9clr3b.fsf@x220.int.ebiederm.org>
+References: <87oao2yqh1.fsf_-_@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1503092210150.1846@ja.home.ssi.bg>
+	<87pp8hnxqz.fsf@x220.int.ebiederm.org>
+	<20150310.123642.2054908032137423526.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain
+Cc: ja@ssi.bg, edumazet@google.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
+	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
+	shmulik.ladkani@gmail.com, dsahern@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:3411 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750976AbbCJRHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2015 13:07:49 -0400
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:46348 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752749AbbCJRKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 13:10:14 -0400
+In-Reply-To: <20150310.123642.2054908032137423526.davem@davemloft.net> (David
+	Miller's message of "Tue, 10 Mar 2015 12:36:42 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller <davem@davemloft.net> writes:
 
-With this setup (no other address assigned):
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 10 Mar 2015 01:59:48 -0500
+>
+>> If we actually really care about struct net going away it would be
+>> much better to globally replace struct net with a typedef that looks
+>> something like:
+>> 
+>> #ifdef CONFIG_NET_NS
+>> struct net_ref {
+>>        struct net *net;
+>> };
+>> #else
+>> struct net_ref {
+>> };
+>> #endif
+>> typedef struct net_ref net_t;
+>> 
+>> That would remove the need for write_pnet and read_pnet, make it
+>> impossible to forget net_eq and make network namespace arguments to
+>> functions also boil away at compile time if the network namespace code
+>> was not enabled.
+>> 
+>> That was the original design and I forget why we didn't do that with
+>> struct net.  But we did not.
+>
+> This keeps the ifdefs out of foo.c code, so I like it.
 
-ip link add type dummy
-ip link set dummy0 up
-ip a a 10.0.0.1/24 dev dummy0
+Alright.  It does wind up requiring things like:
 
-route dump works:
+static inline struct net *to_struct_net(net_t net)
+{
+#ifdef CONFIG_NET_NS
+        return net.net;
+#else
+        return &init_net;
+#endif        
+}
 
-# ip r
-10.0.0.0/24 dev dummy0 proto kernel scope link src 10.0.0.1
+static inline net_t to_net_t(struct net *net)
+{
+	net_t result;
+#ifdef CONFIG_NET_NS
+	result.net = net;
+#endif        
+	return result;
+}
 
+static inline struct struct net *ipv4_net(net_t net)
+{
+        return &to_struct_net(net)->ipv4;
+}
 
-If I add another address:
+But we are used to those from dealing with network devices,
+so it should be no big deal.
 
-ip a a 10.0.1.1/24 dev dummy0
+I will start playing with it to see how much work that is to implement.
 
-or a route:
+Any suggestions on a better name for to_struct_net()? Perhaps
+global_net()?  Although arguably anything that to_struct_net feels
+awkward for should it's own xxx_net type.
 
-ip r a 10.0.1.0/24 via 10.0.0.2
-
-# ip r
-<empty>
-
-It's the same with /proc/net/route instead of ip route.
-
-But with a default route the table appears again.
-
-
-This patch seems to fix the problem, but I'm not sure it is correct.
-
----
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 90955455884e..418043dc3a12 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1767,6 +1767,11 @@ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
- 	 */
- 	int count = cb->args[2];
- 	t_key key = cb->args[3];
-+	if (!key) {
-+		struct key_vector *n = get_child_rcu(tp, 0);
-+		if (n)
-+			key = n->key;
-+	}
- 
- 	while ((l = leaf_walk_rcu(&tp, key)) != NULL) {
- 		if (fn_trie_dump_leaf(l, tb, skb, cb) < 0) {
-@@ -2276,10 +2281,12 @@ static struct key_vector *fib_route_get_idx(struct fib_route_iter *iter,
- 		pos -= iter->pos;
- 		key = iter->key;
- 	} else {
-+		struct key_vector *n;
- 		t = (struct trie *)tb->tb_data;
- 		iter->tnode = t->kv;
- 		iter->pos = 0;
--		key = 0;
-+		n = rcu_dereference(t->kv->tnode[0]);
-+		key = n ? n->key : 0;
- 	}
- 
- 	while ((l = leaf_walk_rcu(tp, key)) != NULL) {
-@@ -2308,6 +2315,7 @@ static void *fib_route_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(RCU)
- {
- 	struct fib_route_iter *iter = seq->private;
-+	struct key_vector *n;
- 	struct fib_table *tb;
- 	struct trie *t;
- 
-@@ -2323,9 +2331,15 @@ static void *fib_route_seq_start(struct seq_file *seq, loff_t *pos)
- 		return fib_route_get_idx(iter, *pos);
- 
- 	t = (struct trie *)tb->tb_data;
--	iter->tnode = t->kv;
-+	n = rcu_dereference(t->kv->tnode[0]);
-+	if (IS_TNODE(n)) {
-+		iter->tnode = n;
-+		iter->key = n->key;
-+	} else {
-+		iter->tnode = t->kv;
-+		iter->key = 0;
-+	}
- 	iter->pos = 0;
--	iter->key = 0;
- 
- 	return SEQ_START_TOKEN;
- }
+Eric
