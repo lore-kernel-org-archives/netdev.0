@@ -1,35 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/2] rhashtable: Arbitrary rehashing
-Date: Tue, 10 Mar 2015 18:20:11 +0000
-Message-ID: <20150310182011.GC13155@casper.infradead.org>
-References: <20150131102150.GA29498@gondor.apana.org.au>
- <20150202.191956.404010205495035337.davem@davemloft.net>
- <20150202.192634.1792206005008667377.davem@davemloft.net>
- <20150203201750.GA22474@gondor.apana.org.au>
- <20150309095833.GA4028@gondor.apana.org.au>
- <20150309222631.GA12221@gondor.apana.org.au>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH] fib_trie: Correctly handle case of key == 0 in
+ leaf_walk_rcu
+Date: Tue, 10 Mar 2015 11:25:41 -0700
+Message-ID: <20150310182512.1320.1169.stgit@ahduyck-vm-fedora20>
+References: <20150310170746.GA1743@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	josh@joshtriplett.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, sd@queasysnail.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39691 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752964AbbCJSUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 14:20:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20150309222631.GA12221@gondor.apana.org.au>
+Received: from mx1.redhat.com ([209.132.183.28]:49795 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750967AbbCJSZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2015 14:25:48 -0400
+In-Reply-To: <20150310170746.GA1743@kria>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/10/15 at 09:26am, Herbert Xu wrote:
-> After this I would like to explore the idea of allowing multiple
-> rehashes in parallel.  This would allow us to not have to rehash
-> synchronously when the table gets too big and the previous rehash
-> hasn't finished.
+In the case of a trie that had no tnodes with a key of 0 the initial
+look-up would fail resulting in an out-of-bounds cindex on the first tnode.
+This resulted in an entire trie being skipped.
 
-Another interesting idea was to allow growing faster than 2x. It
-actually became easier with this generic rehashing code because
-the number of bucket locks can grow quicker than 2x again.
+In order resolve this I have updated the cindex logic in the initial
+look-up so that if the key is zero we will always traverse the child zero
+path.
+
+Fixes: 8be33e95 ("fib_trie: Fib walk rcu should take a tnode and key instead of a trie and a leaf")
+Reported-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/ipv4/fib_trie.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index fcfa982..44cab1d 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1530,7 +1530,7 @@ static struct key_vector *leaf_walk_rcu(struct key_vector **tn, t_key key)
+ 	do {
+ 		/* record parent and next child index */
+ 		pn = n;
+-		cindex = get_index(key, pn);
++		cindex = key ? get_index(key, pn) : 0;
+ 
+ 		if (cindex >> pn->bits)
+ 			break;
