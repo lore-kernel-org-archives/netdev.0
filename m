@@ -1,34 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 09 Mar 2015 23:43:29 -0400 (EDT)
-Message-ID: <20150309.234329.425011226766680524.davem@davemloft.net>
-References: <20150310120842.6dfa6c2b@canb.auug.org.au>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net: fec: fix rxvlan feature
+Date: Tue, 10 Mar 2015 03:29:35 +0000
+Message-ID: <BY2PR03MB377A83B758C88EBD3B689DEF5180@BY2PR03MB377.namprd03.prod.outlook.com>
+References: <1425920153-13319-1-git-send-email-m.grzeschik@pengutronix.de>
+ <20150309.224258.796431155596045482.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, joshc@ni.com,
-	boris.brezillon@free-electrons.com, cyrille.pitchen@atmel.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150310120842.6dfa6c2b@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: David Miller <davem@davemloft.net>,
+	"m.grzeschik@pengutronix.de" <m.grzeschik@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0126.outbound.protection.outlook.com ([65.55.169.126]:28852
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751562AbbCJDoA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 23:44:00 -0400
+In-Reply-To: <20150309.224258.796431155596045482.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 10 Mar 2015 12:08:42 +1100
-
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/cadence/macb.c between commit 0b2eb3e9bc73 ("net:
-> macb: constify macb configuration data") from the net tree and commits
-> a848748959d5 ("net: macb: remove #if defined(CONFIG_ARCH_AT91)
-> sections") and 421d9df0628b ("net/macb: merge at91_ether driver into
-> macb driver") from the net-next tree.
+From: David Miller <davem@davemloft.net> Sent: Tuesday, March 10, 2015 10:43 AM
+> To: m.grzeschik@pengutronix.de
+> Cc: Duan Fugang-B38611; Li Frank-B20596; netdev@vger.kernel.org;
+> kernel@pengutronix.de
+> Subject: Re: [PATCH] net: fec: fix rxvlan feature
 > 
-> I fixed it up (I think - see below) and can carry the fix as necessary
-> (no action is required).
+> From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> Date: Mon,  9 Mar 2015 17:55:53 +0100
+> 
+> > The patch 1b7bde6d659d30f171259cc2dfba8e5dab34e735
+> > "net: fec: implement rx_copybreak to improve rx performance"
+> > changed the code path for the vlan check in fec_enet_rx_queue:
+> >
+> >  @@ -1417,62 +1486,48 @@ fec_enet_rx_queue(struct net_device *ndev, int
+> budget, u16 queue_id)
+> >  		/* If this is a VLAN packet remove the VLAN Tag */
+> >  		vlan_packet_rcvd = false;
+> >  		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
+> >  			fep->bufdesc_ex && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
+> >  			/* Push and remove the vlan tag */
+> >                          struct vlan_hdr *vlan_header =
+> >                                          (struct vlan_hdr *) (data +
+> ETH_HLEN);
+> >                          vlan_tag = ntohs(vlan_header->h_vlan_TCI);
+> >  -                       pkt_len -= VLAN_HLEN;
+> >
+> >                          vlan_packet_rcvd = true;  +
+> >  +                       skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
+> >  +                                                      data, (2 *
+> ETH_ALEN));
+> >  +                       skb_pull(skb, VLAN_HLEN);
+> >                  }
+> >
+> > With the call of skb_copy_to_linear_data_offset the code here is doing
+> > more than previously and is breaking the rxvlan feature. This patch
+> > removes this call to fix it.
+> >
+> > Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+> 
+> But don't we want to copy the proper header there in the linear case?
+> 
+> I'd rather hear from the original author why they put that copy there
+> before it just gets blindly removed.
+> 
+> And you'll need to update your commit message with more explanation once
+> that discussion occurs.
 
-Thanks Stephen, I'm merging net into net-next right now and will resolve
-this similarly.
+There have no function change comparing with previous commit version.
+If enable hw VLAN support (sw simulate hw), software remove VLAN tag. 
 
-Thanks!
+Below code is previous code base, it also removes the VLAN tag.
+-                       /* Extract the frame data without the VLAN header. */
+-                       skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
+-                       if (vlan_packet_rcvd)
+-                               payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
+-                       skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
+-                                                      data + payload_offset,
+-                                                      pkt_len - 4 - (2 * ETH_ALEN));
+
+
+Does there have un-correct points ? I did run some VLAN test pass.
+
+Regards,
+Andy
