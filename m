@@ -1,78 +1,65 @@
-From: Mathieu Olivari <mathieu@codeaurora.org>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Tue, 10 Mar 2015 15:53:26 -0700
-Message-ID: <20150310225326.GA12693@codeaurora.org>
+Date: Tue, 10 Mar 2015 23:50:42 +0100
+Message-ID: <20150310225042.GA14112@lunn.ch>
 References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
- <20150310204021.GA2740@codeaurora.org>
- <20150310211315.GF10838@lunn.ch>
+ <20150310192101.GD10838@lunn.ch>
+ <20150310221340.GA6465@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux@roeck-us.net, jogo@openwrt.org,
 	f.fainelli@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+To: Mathieu Olivari <mathieu@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:49031 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273AbbCJWxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 18:53:31 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:57252 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752285AbbCJWyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Mar 2015 18:54:03 -0400
 Content-Disposition: inline
-In-Reply-To: <20150310211315.GF10838@lunn.ch>
+In-Reply-To: <20150310221340.GA6465@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 10:13:15PM +0100, Andrew Lunn wrote:
-> > I was thinking about the MIB counters, maintained by the switch, on the CPU
-> > port(s). 
+> > I had a different solution in mind for multiple CPU ports. I've no
+> > idea if it actually works though, i've not had time to investigate.
+> > It would actually put the host CPU ports into a switch trunk, and use
+> > team/bond driver on the host. You then get one logical 2Gbp link to
+> > the switch and run DSA over that.
 > > 
-> > On this picture:
-> > 
-> > +-----------+       +--------------------+
-> > |           | RGMII |                    |
-> > |       eth0+-------+ P0              P1 +------ 1000baseT MDI ("WAN")
-> > |        wan|       |      7-port     P2 +------ 1000baseT MDI ("LAN1")
-> > |   CPU     |       |      ethernet   P3 +------ 1000baseT MDI ("LAN2")
-> > |           | RGMII |      switch     P4 +------ 1000baseT MDI ("LAN3")
-> > |       eth1+-------+ P6   w/5 PHYs   P5 +------ 1000baseT MDI ("LAN4")
-> > |        lan|       |                    |
-> > +-----------+       +--------------------+
-> >           |     MDIO   |
-> >           \------------/
-> > 
-> > We can see MIB stats of P1/P2/P3/P4/P5 by using ethtool -S. But as CPU
-> > ports don't have a net_device, there isn't a way to access MIB stats of
-> > P0 & P6.
 > 
-> Ah, sorry, i misunderstood you. As you say, the current DSA does not
-> give you access to these counters. Apart from these counters, are
-> there any other needs to have access to these ports? The core idea of
-> hardware acceleration is that it should look like linux as normal.  P0
-> and P6 are an internal detail, and you cannot actually use them. You
-> cannot send packets, they are something special. So unless there is a
-> good reason, we should not expose them.
-> 
+> I could see it working on the Tx path - as the destination port is specified
+> in the header -, but on the Rx path, how would the switch figure out which
+> CPU port it should send the packet to?
+>
+> These switches doesn't have a concept of bonding, so this decision is generally
+> based on the internal ARL table, and is automatically learnt by looking at the
+> src MAC@ of the incoming packets.
 
-That is true, but the switch does have information to share about this
-port (stats). Having a standard way to retrieve this information would
-be nice.
+All Marvell switches, and according to Florian SF2 and B53 support
+trunk groups. I assume the switch does load balancing between ports in
+a trunk. On the CPU you can then use the header to determine which
+port the packet came from.
 
-> > If we have the eth0 <--> P0 and eth1 <--> P6 relationship information in dts,
-> > we could use it to lookup which switch port is connected to this net_dev and
-> > show the corresponding counters when running "ethtool -S ethN".
-> 
-> But that is not what the user expects. They expect the statistic
-> counters for ethN, not the switch port.
+> When using bonding, the switch would see both eth0 & eth1 MAC@ on both of
+> its CPU ports. The destination CPU port would be unexpected at best; I could
+> see some switches being able to support this, but most of them would not.
 
-The user would probably want to access both. It should not replace ethN
-counters obviously, but these are real switch port (just without any PHY),
-so the user would want to have the same level of information as it has on
-the other logical switch ports.
+At the moment, this is purely an idea. I do have two boards where i
+can test it out with Marvell devices, once i get some spare time.
+Florian might be able to comment about SF2 and B53, if we thinks
+trunking and broadcom tags can be combined.
 
-I was wondering whether it made sense to show counters for both ethN and
-P0 when running "ethtool -S ethN". Or maybe add a new argument to
-ethtool. Else, there is still debugfs but it means the same counters
-will be accessible through ethtool (for PHY ports) and debugfs (for MAC
-ports), which is not very consistent.
+> At the very least, we would need to treat "dsa,ethernet" as an array,
+> and specify the list of ethernet device node that connects to the switch.
 
-> 
-> 	 Andrew
+True.
+
+> I still think putting this information in the port section makes sense,
+> as it represents the board layout more accurately than having a global
+> node at a dsa level.
+
+Yes, it does make sense to have it in port. But to keep backwards
+compatibility, we need at keep dsa,ethernet, with at least one
+interface.
+
+	Andrew
