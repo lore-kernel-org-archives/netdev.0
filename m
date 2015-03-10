@@ -1,72 +1,76 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: bcmgenet: collect Rx discarded packet count
-Date: Tue, 10 Mar 2015 12:43:47 -0700
-Message-ID: <54FF4973.30306@gmail.com>
-References: <20150310191800.C5812220365@puck.mtv.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [Linux-kernel] [net-next, 2/5] sh_eth: WARN on access to a register
+ not implemented in a particular chip
+Date: Tue, 10 Mar 2015 23:03:43 +0300
+Message-ID: <54FF4E1F.7050508@cogentembedded.com>
+References: <1424982854.4444.73.camel@xylophone.i.decadent.org.uk> <alpine.DEB.2.10.1503050958520.8385@ayla.of.borg> <1425561532.4288.34.camel@xylophone.i.decadent.org.uk> <54FD5ED0.6070208@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jaedon.shin@gmail.com
-To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
+Cc: linux-kernel@lists.codethink.co.uk,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	netdev@vger.kernel.org,
+	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Dooks <ben.dooks@codethink.co.uk>,
+	Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:39254 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737AbbCJToS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 15:44:18 -0400
-Received: by pdbft15 with SMTP id ft15so4705532pdb.6
-        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 12:44:17 -0700 (PDT)
-In-Reply-To: <20150310191800.C5812220365@puck.mtv.corp.google.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:37449 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752959AbbCJUDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 16:03:49 -0400
+Received: by labgq15 with SMTP id gq15so4280383lab.4
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 13:03:47 -0700 (PDT)
+In-Reply-To: <54FD5ED0.6070208@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/15 12:18, Petri Gynther wrote:
-> Bits 31:16 of RDMA_PROD_INDEX contain Rx discarded packet count, which
-> are the Rx packets that had to be dropped by MAC hardware since there
-> was no room on the Rx queue. Add code to collect this information into
-> the netdev stats.
-> 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 275be56..7aa1834 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1384,9 +1384,19 @@ static unsigned int bcmgenet_desc_rx(struct bcmgenet_priv *priv,
->  	int len, err;
->  	unsigned int rxpktprocessed = 0, rxpkttoprocess;
->  	unsigned int p_index;
-> +	unsigned int discards;
->  	unsigned int chksum_ok = 0;
->  
->  	p_index = bcmgenet_rdma_ring_readl(priv, index, RDMA_PROD_INDEX);
-> +
-> +	discards = (p_index >> DMA_P_INDEX_DISCARD_CNT_SHIFT) &
-> +		   DMA_P_INDEX_DISCARD_CNT_MASK;
-> +	if (discards > 0) {
-> +		bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_PROD_INDEX);
+Hello.
 
-This adds an expensive register write (~300ns on MIPS, ~200ns on ARM) in
-the hot-path, and the counter saturation happens at 0xffff, which I
-would prefer we deal with explicitly, even though that means missing a
-bunch of discard events once we have already saturated, rather than
-resetting this counter *and* the producer index for every NAPI round we
-get called.
+On 03/09/2015 11:50 AM, Ben Dooks wrote:
 
-You could also deal with this counter in the ethtool gstats functions
-and perform the saturation handle there, since this is a slow path already.
+>>>> Currently we may silently read/write a register at offset 0.  Change
+>>>> this to WARN and then ignore the write or read-back all-ones.
 
-> +		dev->stats.rx_missed_errors += discards;
-> +		dev->stats.rx_errors += discards;
-> +	}
-> +
->  	p_index &= DMA_P_INDEX_MASK;
->  
->  	if (likely(p_index >= ring->c_index))
-> 
+>>>> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+>>>> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
+>>> While this may be a good idea for debugging...
 
--- 
-Florian
+>>>> --- a/drivers/net/ethernet/renesas/sh_eth.h
+>>>> +++ b/drivers/net/ethernet/renesas/sh_eth.h
+>>>> @@ -543,19 +543,29 @@ static inline void sh_eth_soft_swap(char *src, int len)
+>>>>   #endif
+>>>>   }
+>>>>
+>>>> +#define SH_ETH_OFFSET_INVALID	((u16) ~0)
+>>>> +
+>>>>   static inline void sh_eth_write(struct net_device *ndev, u32 data,
+>>>>   				int enum_index)
+>>>>   {
+>>>>   	struct sh_eth_private *mdp = netdev_priv(ndev);
+
+> does de-referencing this each time make a difference? Looks like
+
+   It's not a dereference, it's just a pointer addition.
+
+> it would have been easier to pass an "struct sh_eth_private" instead
+> of the "struct net_device *ndev"
+
+    Hm, maybe...
+
+>>>> +	u16 offset = mdp->reg_offset[enum_index];
+>>>> +
+>>>> +	if (WARN_ON(offset == SH_ETH_OFFSET_INVALID))
+>>>> +		return;
+
+> You could cange the mdp->reg_offset to an mdp->reg_pointer and make
+> any invalid registers a NULL. This would at-least make it fail on an
+> invalid access.
+
+    Interesting idea...
+
+WBR, Sergei
