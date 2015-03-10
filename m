@@ -1,54 +1,77 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] mpls: Allow mpls_gso and mpls_router to be built as modules
-Date: Tue, 10 Mar 2015 13:07:40 -0500
-Message-ID: <87y4n4iv4j.fsf@x220.int.ebiederm.org>
-References: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
-	<87y4n4kc09.fsf@x220.int.ebiederm.org> <54FF3283.7040702@brocade.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/2] rhashtable: Add arbitrary rehash function
+Date: Tue, 10 Mar 2015 18:17:20 +0000
+Message-ID: <20150310181720.GB13155@casper.infradead.org>
+References: <20150309222631.GA12221@gondor.apana.org.au>
+ <E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "davem\@davemloft.net" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	josh@joshtriplett.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:41785 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbbCJSLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 14:11:19 -0400
-In-Reply-To: <54FF3283.7040702@brocade.com> (Robert Shearman's message of
-	"Tue, 10 Mar 2015 18:05:55 +0000")
+Received: from casper.infradead.org ([85.118.1.10]:39676 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752858AbbCJSRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 14:17:22 -0400
+Content-Disposition: inline
+In-Reply-To: <E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+On 03/10/15 at 09:27am, Herbert Xu wrote:
+> This patch adds a rehash function that supports the use of any
+> hash function for the new table.  This is needed to support changing
+> the random seed value during the lifetime of the hash table.
+> 
+> However for now the random seed value is still constant and the
+> rehash function is simply used to replace the existing expand/shrink
+> functions.
+> 
+> Signed-off-by: Herbert Xu <herbert.xu@redhat.com>
 
-> On 10/03/15 17:17, Eric W. Biederman wrote:
->> Robert Shearman <rshearma@brocade.com> writes:
->>
->>> CONFIG_MPLS=m doesn't result in a kernel module being built because it
->>> applies to the net/mpls directory, rather than to .o files.
->>>
->>> So revert the MPLS menuitem to being a boolean and make MPLS_GSO and
->>> MPLS_ROUTING tristates to allow mpls_gso and mpls_router modules to be
->>> produced as desired.
->>
->> Good catch.  But I am pretty certain this does not result in the mpls
->> routing code in af_mpls being built as a module either.
->
-> I'm pretty sure it does ;-)
->
->   CC [M]  net/mpls/af_mpls.o
->   LD [M]  net/mpls/mpls_router.o
->   Building modules, stage 2.
->   MODPOST 3010 modules
->   LD [M]  net/mpls/mpls_router.ko
->
-> I deliberately split out the makefile rules so that the would be named
-> mpls_router, rather than af_mpls to avoid any potential confusion with
-> the mpls_gso module.
+> +static int rhashtable_rehash_one(struct rhashtable *ht, unsigned old_hash)
+> +	struct bucket_table *new_tbl = rht_dereference(ht->future_tbl, ht);
+> +	struct bucket_table *old_tbl = rht_dereference(ht->tbl, ht);
+> +	struct rhash_head __rcu **pprev = &old_tbl->buckets[old_hash];
 
-Where do the files that go into mpls_router.o come from.
+[...]
 
-Ah.  I missed the mpls_route := af_mpls.o line.
+I absolutely love the simplification this brings. Looks great. I now
+also understand what you meant with entry for entry rehashing.
 
+> +static void rhashtable_rehash(struct rhashtable *ht,
+> +			      struct bucket_table *new_tbl)
+>  {
+> -	ASSERT_BUCKET_LOCK(ht, new_tbl, new_hash);
+> +	struct bucket_table *old_tbl = rht_dereference(ht->tbl, ht);
+> +	unsigned old_hash;
+> +
+> +	get_random_bytes(&new_tbl->hash_rnd, sizeof(new_tbl->hash_rnd));
+> +
+> +	/* Make insertions go into the new, empty table right away. Deletions
+> +	 * and lookups will be attempted in both tables until we synchronize.
+> +	 * The synchronize_rcu() guarantees for the new table to be picked up
+> +	 * so no new additions go into the old table while we relink.
+> +	 */
+> +	rcu_assign_pointer(ht->future_tbl, new_tbl);
 
-Eric
+I think you need an rcu_synchronize() here. rhashtable_remove() must
+be guaranteed to either see tbl != old_tbl and thus consider both
+tables or the rehashing must be guaranteed to not start for an already
+started removal. 
+
+> -static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+> -				struct bucket_table *tbl,
+> -				const struct bucket_table *old_tbl, u32 hash)
+> +bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+> +			 bool (*compare)(void *, void *), void *arg)
+
+Why make this non-static? We already have rhashtable_lookup_compare_insert()
+exported.
+
+> +bool __rhashtable_remove(struct rhashtable *ht, struct bucket_table *tbl,
+> +			 struct rhash_head *obj)
+
+Same here.
