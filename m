@@ -1,52 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and
- verify it matches on lookup
-Date: Tue, 10 Mar 2015 12:36:42 -0400 (EDT)
-Message-ID: <20150310.123642.2054908032137423526.davem@davemloft.net>
-References: <87oao2yqh1.fsf_-_@x220.int.ebiederm.org>
-	<alpine.LFD.2.11.1503092210150.1846@ja.home.ssi.bg>
-	<87pp8hnxqz.fsf@x220.int.ebiederm.org>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next] mpls: Allow mpls_gso and mpls_router to be built as modules
+Date: Tue, 10 Mar 2015 16:37:59 +0000
+Message-ID: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, edumazet@google.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
-	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
-	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
-	shmulik.ladkani@gmail.com, dsahern@gmail.com
-To: ebiederm@xmission.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbbCJQgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 12:36:50 -0400
-In-Reply-To: <87pp8hnxqz.fsf@x220.int.ebiederm.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:48151 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753134AbbCJQiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 12:38:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 10 Mar 2015 01:59:48 -0500
+CONFIG_MPLS=m doesn't result in a kernel module being built because it
+applies to the net/mpls directory, rather than to .o files.
 
-> If we actually really care about struct net going away it would be
-> much better to globally replace struct net with a typedef that looks
-> something like:
-> 
-> #ifdef CONFIG_NET_NS
-> struct net_ref {
->        struct net *;
-> };
-> #else
-> struct net_ref {
-> };
-> #endif
-> typedef struct net_ref net_t;
-> 
-> That would remove the need for write_pnet and read_pnet, make it
-> impossible to forget net_eq and make network namespace arguments to
-> functions also boil away at compile time if the network namespace code
-> was not enabled.
-> 
-> That was the original design and I forget why we didn't do that with
-> struct net.  But we did not.
+So revert the MPLS menuitem to being a boolean and make MPLS_GSO and
+MPLS_ROUTING tristates to allow mpls_gso and mpls_router modules to be
+produced as desired.
 
-This keeps the ifdefs out of foo.c code, so I like it.
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/mpls/Kconfig  | 6 +++---
+ net/mpls/Makefile | 4 +++-
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+index f4286ee..060976d 100644
+--- a/net/mpls/Kconfig
++++ b/net/mpls/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ 
+ menuconfig MPLS
+-	tristate "MultiProtocol Label Switching"
++	bool "MultiProtocol Label Switching"
+ 	default n
+ 	---help---
+ 	  MultiProtocol Label Switching routes packets through logical
+@@ -16,14 +16,14 @@ menuconfig MPLS
+ if MPLS
+ 
+ config NET_MPLS_GSO
+-	bool "MPLS: GSO support"
++	tristate "MPLS: GSO support"
+ 	help
+ 	 This is helper module to allow segmentation of non-MPLS GSO packets
+ 	 that have had MPLS stack entries pushed onto them and thus
+ 	 become MPLS GSO packets.
+ 
+ config MPLS_ROUTING
+-	bool "MPLS: routing support"
++	tristate "MPLS: routing support"
+ 	help
+ 	 Add support for forwarding of mpls packets.
+ 
+diff --git a/net/mpls/Makefile b/net/mpls/Makefile
+index 60af15f1..65bbe68 100644
+--- a/net/mpls/Makefile
++++ b/net/mpls/Makefile
+@@ -2,4 +2,6 @@
+ # Makefile for MPLS.
+ #
+ obj-$(CONFIG_NET_MPLS_GSO) += mpls_gso.o
+-obj-$(CONFIG_MPLS_ROUTING) += af_mpls.o
++obj-$(CONFIG_MPLS_ROUTING) += mpls_router.o
++
++mpls_router-y := af_mpls.o
+-- 
+2.1.4
