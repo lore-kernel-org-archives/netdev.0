@@ -1,92 +1,76 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/3] net: dsa: fully divert PHY reads/writes if requested
-Date: Tue, 10 Mar 2015 16:57:13 -0700
-Message-ID: <1426031833-5113-4-git-send-email-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 2/3] net: dsa: move PHY setup on DSA MII bus to its own function
+Date: Tue, 10 Mar 2015 16:57:12 -0700
+Message-ID: <1426031833-5113-3-git-send-email-f.fainelli@gmail.com>
 References: <1426031833-5113-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, devicetree@vger.kernel.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:32826 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752299AbbCKADJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 20:03:09 -0400
-In-Reply-To: <1426031833-5113-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1426031833-5113-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In case a PHY is found via Device Tree, and is also flagged by the
-switch driver as needing indirect reads/writes using the switch driver
-implemented MDIO bus, make sure that we bind this PHY to the slave MII
-bus in order for this to happen.
+In preparation for dealing with indirect reads and writes towards
+certain PHY devices, move the code which deals with binding the PHY
+device to the slave MII bus created by DSA to its own function:
+dsa_slave_phy_connect().
 
-Without this, we would succeed in having the PHY driver probe()'s
-function to use slave MII bus read/write functions, because this is done
-during dsa_slave_mii_init(), but past that point, the PHY driver would
-not go through these diverted reads and writes.
-
-Fixes: 0d8bcdd383b88 ("net: dsa: allow for more complex PHY setups")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/dsa/slave.c | 29 ++++++++++++++++++++++-------
- 1 file changed, 22 insertions(+), 7 deletions(-)
+ net/dsa/slave.c | 28 ++++++++++++++++++++--------
+ 1 file changed, 20 insertions(+), 8 deletions(-)
 
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 19bc2b39c9d1..188b69773e70 100644
+index a47305c72fcc..19bc2b39c9d1 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -618,11 +618,12 @@ static int dsa_slave_fixed_link_update(struct net_device *dev,
+@@ -617,6 +617,23 @@ static int dsa_slave_fixed_link_update(struct net_device *dev,
+ }
  
  /* slave device setup *******************************************************/
- static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
--				 struct net_device *slave_dev)
-+				 struct net_device *slave_dev,
-+				 int addr)
++static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
++				 struct net_device *slave_dev)
++{
++	struct dsa_switch *ds = p->parent;
++
++	p->phy = ds->slave_mii_bus->phy_map[p->port];
++	if (!p->phy)
++		return -ENODEV;
++
++	/* Use already configured phy mode */
++	p->phy_interface = p->phy->interface;
++	phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
++			   p->phy_interface);
++
++	return 0;
++}
++
+ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 				struct net_device *slave_dev)
  {
- 	struct dsa_switch *ds = p->parent;
- 
--	p->phy = ds->slave_mii_bus->phy_map[p->port];
-+	p->phy = ds->slave_mii_bus->phy_map[addr];
- 	if (!p->phy)
- 		return -ENODEV;
- 
-@@ -667,10 +668,24 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 	if (ds->drv->get_phy_flags)
- 		phy_flags = ds->drv->get_phy_flags(ds, p->port);
- 
--	if (phy_dn)
--		p->phy = of_phy_connect(slave_dev, phy_dn,
--					dsa_slave_adjust_link, phy_flags,
--					p->phy_interface);
-+	if (phy_dn) {
-+		ret = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
-+		/* If this PHY address is part of phys_mii_mask, which means
-+		 * that we need to divert reads and writes to/from it, then we
-+		 * want to bind this device using the slave MII bus created by
-+		 * DSA to make that happen.
-+		 */
-+		if (ret >= 0 && (ds->phys_mii_mask & (1 << ret))) {
-+			ret = dsa_slave_phy_connect(p, slave_dev, ret);
-+			if (ret)
-+				return ret;
-+		} else {
-+			p->phy = of_phy_connect(slave_dev, phy_dn,
-+						dsa_slave_adjust_link,
-+						phy_flags,
-+						p->phy_interface);
-+		}
-+	}
- 
- 	if (p->phy && phy_is_fixed)
- 		fixed_phy_set_link_update(p->phy, dsa_slave_fixed_link_update);
-@@ -679,7 +694,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+@@ -662,14 +679,9 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
  	 * MDIO bus instead
  	 */
  	if (!p->phy) {
--		ret = dsa_slave_phy_connect(p, slave_dev);
-+		ret = dsa_slave_phy_connect(p, slave_dev, p->port);
- 		if (ret)
- 			return ret;
+-		p->phy = ds->slave_mii_bus->phy_map[p->port];
+-		if (!p->phy)
+-			return -ENODEV;
+-
+-		/* Use already configured phy mode */
+-		p->phy_interface = p->phy->interface;
+-		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+-				   p->phy_interface);
++		ret = dsa_slave_phy_connect(p, slave_dev);
++		if (ret)
++			return ret;
  	} else {
+ 		netdev_info(slave_dev, "attached PHY at address %d [%s]\n",
+ 			    p->phy->addr, p->phy->drv->name);
 -- 
 2.1.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
