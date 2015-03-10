@@ -1,658 +1,323 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH v2] rhashtable: Add arbitrary rehash function
-Date: Wed, 11 Mar 2015 09:43:48 +1100
-Message-ID: <20150310224348.GA29994@gondor.apana.org.au>
-References: <20150309222631.GA12221@gondor.apana.org.au>
- <E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: add real socket cookies
+Date: Tue, 10 Mar 2015 15:45:33 -0700
+Message-ID: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org, josh@joshtriplett.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Eric Salo <salo@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:37524 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753160AbbCJWny (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 18:43:54 -0400
-Content-Disposition: inline
-In-Reply-To: <E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:45089 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752691AbbCJWpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 18:45:35 -0400
+Received: by igjz20 with SMTP id z20so8193049igj.4
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 15:45:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a rehash function that supports the use of any
-hash function for the new table.  This is needed to support changing
-the random seed value during the lifetime of the hash table.
+From: Eric Dumazet <edumazet@google.com>
 
-However for now the random seed value is still constant and the
-rehash function is simply used to replace the existing expand/shrink
-functions.
+A long standing problem in netlink socket dumps is the use
+of kernel socket addresses as cookies.
 
-Signed-off-by: Herbert Xu <herbert.xu@redhat.com>
+1) It is a security concern.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ba15dce..9bc3fc4b 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -66,9 +66,9 @@ static u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
- 	return hash & (tbl->size - 1);
- }
+2) Sockets can be reused quite quickly, so there is
+   no guarantee a cookie is used once and identify
+   a flow.
+
+3) request sock, establish sock, and timewait socks
+   for a given flow have different cookies.
+
+
+Part of our effort to bring better TCP statistics requires
+to switch to a different allocator.
+
+In this patch, I chose to use a per network namespace 64bit generator,
+and to use it only in the case a socket needs to be dumped to netlink.
+
+Note that I tried to carry cookies from request sock, to establish sock,
+then timewait sockets.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Eric Salo <salo@google.com>
+---
+ include/linux/sock_diag.h        |    4 +--
+ include/net/inet_sock.h          |    2 +
+ include/net/inet_timewait_sock.h |    1 
+ include/net/net_namespace.h      |    2 +
+ include/net/sock.h               |    3 ++
+ net/core/sock.c                  |    1 
+ net/core/sock_diag.c             |   37 +++++++++++++++++++++--------
+ net/dccp/ipv4.c                  |    2 +
+ net/ipv4/inet_connection_sock.c  |    3 +-
+ net/ipv4/inet_diag.c             |   14 +++++++---
+ net/ipv4/inet_timewait_sock.c    |    1 
+ net/ipv4/syncookies.c            |    1 
+ net/ipv4/tcp_input.c             |    2 +
+ 13 files changed, 55 insertions(+), 18 deletions(-)
+
+diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+index b5ad7d35a636..083ac388098e 100644
+--- a/include/linux/sock_diag.h
++++ b/include/linux/sock_diag.h
+@@ -19,8 +19,8 @@ void sock_diag_unregister(const struct sock_diag_handler *h);
+ void sock_diag_register_inet_compat(int (*fn)(struct sk_buff *skb, struct nlmsghdr *nlh));
+ void sock_diag_unregister_inet_compat(int (*fn)(struct sk_buff *skb, struct nlmsghdr *nlh));
  
--static u32 obj_raw_hashfn(struct rhashtable *ht, const void *ptr)
-+static u32 obj_raw_hashfn(struct rhashtable *ht,
-+			  const struct bucket_table *tbl, const void *ptr)
- {
--	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
- 	u32 hash;
+-int sock_diag_check_cookie(void *sk, const __u32 *cookie);
+-void sock_diag_save_cookie(void *sk, __u32 *cookie);
++int sock_diag_check_cookie(struct sock *sk, const __u32 *cookie);
++void sock_diag_save_cookie(struct sock *sk, __u32 *cookie);
  
- 	if (unlikely(!ht->p.key_len))
-@@ -80,10 +80,9 @@ static u32 obj_raw_hashfn(struct rhashtable *ht, const void *ptr)
- 	return hash >> HASH_RESERVED_SPACE;
- }
+ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
+ int sock_diag_put_filterinfo(bool may_report_filterinfo, struct sock *sk,
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index eb16c7beed1e..e565afdc14ad 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -77,6 +77,8 @@ struct inet_request_sock {
+ #define ir_v6_rmt_addr		req.__req_common.skc_v6_daddr
+ #define ir_v6_loc_addr		req.__req_common.skc_v6_rcv_saddr
+ #define ir_iif			req.__req_common.skc_bound_dev_if
++#define ir_cookie		req.__req_common.skc_cookie
++#define ireq_net		req.__req_common.skc_net
  
--static u32 key_hashfn(struct rhashtable *ht, const void *key, u32 len)
-+static u32 key_hashfn(struct rhashtable *ht, const struct bucket_table *tbl,
-+		      const void *key, u32 len)
- {
--	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
--
- 	return ht->p.hashfn(key, len, tbl->hash_rnd) >> HASH_RESERVED_SPACE;
- }
+ 	kmemcheck_bitfield_begin(flags);
+ 	u16			snd_wscale : 4,
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index 6c566034e26d..b7ce1003c429 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -122,6 +122,7 @@ struct inet_timewait_sock {
+ #define tw_v6_rcv_saddr    	__tw_common.skc_v6_rcv_saddr
+ #define tw_dport		__tw_common.skc_dport
+ #define tw_num			__tw_common.skc_num
++#define tw_cookie		__tw_common.skc_cookie
  
-@@ -91,7 +90,7 @@ static u32 head_hashfn(struct rhashtable *ht,
- 		       const struct bucket_table *tbl,
- 		       const struct rhash_head *he)
- {
--	return rht_bucket_index(tbl, obj_raw_hashfn(ht, rht_obj(ht, he)));
-+	return rht_bucket_index(tbl, obj_raw_hashfn(ht, tbl, rht_obj(ht, he)));
- }
+ 	int			tw_timeout;
+ 	volatile unsigned char	tw_substate;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 2cb9acb618e9..e086f4030dd2 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -56,6 +56,8 @@ struct net {
+ #endif
+ 	spinlock_t		rules_mod_lock;
  
- #ifdef CONFIG_PROVE_LOCKING
-@@ -165,18 +164,6 @@ EXPORT_SYMBOL_GPL(lockdep_rht_bucket_is_held);
++	atomic64_t		cookie_gen;
++
+ 	struct list_head	list;		/* list of network namespaces */
+ 	struct list_head	cleanup_list;	/* namespaces on death row */
+ 	struct list_head	exit_list;	/* Use only net_mutex */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 250822cc1e02..d996c633bec2 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -199,6 +199,8 @@ struct sock_common {
+ 	struct in6_addr		skc_v6_rcv_saddr;
  #endif
  
- 
--static struct rhash_head __rcu **bucket_tail(struct bucket_table *tbl, u32 n)
--{
--	struct rhash_head __rcu **pprev;
--
--	for (pprev = &tbl->buckets[n];
--	     !rht_is_a_nulls(rht_dereference_bucket(*pprev, tbl, n));
--	     pprev = &rht_dereference_bucket(*pprev, tbl, n)->next)
--		;
--
--	return pprev;
--}
--
- static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl)
- {
- 	unsigned int i, size;
-@@ -270,101 +257,99 @@ static bool rht_shrink_below_30(const struct rhashtable *ht, size_t new_size)
- 	       (atomic_read(&ht->shift) > ht->p.min_shift);
- }
- 
--static void lock_buckets(struct bucket_table *new_tbl,
--			 struct bucket_table *old_tbl, unsigned int hash)
--	__acquires(old_bucket_lock)
-+static int rhashtable_rehash_one(struct rhashtable *ht, unsigned old_hash)
- {
--	spin_lock_bh(bucket_lock(old_tbl, hash));
--	if (new_tbl != old_tbl)
--		spin_lock_bh_nested(bucket_lock(new_tbl, hash),
--				    RHT_LOCK_NESTED);
--}
-+	struct bucket_table *new_tbl = rht_dereference(ht->future_tbl, ht);
-+	struct bucket_table *old_tbl = rht_dereference(ht->tbl, ht);
-+	struct rhash_head __rcu **pprev = &old_tbl->buckets[old_hash];
-+	int err = -ENOENT;
-+	struct rhash_head *head, *next, *entry;
-+	spinlock_t *new_bucket_lock;
-+	unsigned new_hash;
++	atomic64_t		skc_cookie;
 +
-+	rht_for_each(entry, old_tbl, old_hash) {
-+		err = 0;
-+		next = rht_dereference_bucket(entry->next, old_tbl, old_hash);
-+
-+		if (rht_is_a_nulls(next))
-+			break;
+ 	/*
+ 	 * fields between dontcopy_begin/dontcopy_end
+ 	 * are not copied in sock_copy()
+@@ -329,6 +331,7 @@ struct sock {
+ #define sk_net			__sk_common.skc_net
+ #define sk_v6_daddr		__sk_common.skc_v6_daddr
+ #define sk_v6_rcv_saddr	__sk_common.skc_v6_rcv_saddr
++#define sk_cookie		__sk_common.skc_cookie
  
--static void unlock_buckets(struct bucket_table *new_tbl,
--			   struct bucket_table *old_tbl, unsigned int hash)
--	__releases(old_bucket_lock)
--{
--	if (new_tbl != old_tbl)
--		spin_unlock_bh(bucket_lock(new_tbl, hash));
--	spin_unlock_bh(bucket_lock(old_tbl, hash));
--}
-+		pprev = &entry->next;
+ 	socket_lock_t		sk_lock;
+ 	struct sk_buff_head	sk_receive_queue;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 726e1f99aa8d..a9a9c2ff9260 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1538,6 +1538,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		newsk->sk_err	   = 0;
+ 		newsk->sk_priority = 0;
+ 		newsk->sk_incoming_cpu = raw_smp_processor_id();
++		atomic64_set(&newsk->sk_cookie, 0);
+ 		/*
+ 		 * Before updating sk_refcnt, we must commit prior changes to memory
+ 		 * (Documentation/RCU/rculist_nulls.txt for details)
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 96e70ee05a8d..74dddf84adcd 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -13,22 +13,39 @@ static const struct sock_diag_handler *sock_diag_handlers[AF_MAX];
+ static int (*inet_rcv_compat)(struct sk_buff *skb, struct nlmsghdr *nlh);
+ static DEFINE_MUTEX(sock_diag_table_mutex);
+ 
+-int sock_diag_check_cookie(void *sk, const __u32 *cookie)
++static u64 sock_gen_cookie(struct sock *sk)
+ {
+-	if ((cookie[0] != INET_DIAG_NOCOOKIE ||
+-	     cookie[1] != INET_DIAG_NOCOOKIE) &&
+-	    ((u32)(unsigned long)sk != cookie[0] ||
+-	     (u32)((((unsigned long)sk) >> 31) >> 1) != cookie[1]))
+-		return -ESTALE;
+-	else
++	while (1) {
++		u64 res = atomic64_read(&sk->sk_cookie);
++
++		if (res)
++			return res;
++		res = atomic64_inc_return(&sock_net(sk)->cookie_gen);
++		atomic64_cmpxchg(&sk->sk_cookie, 0, res);
 +	}
- 
--/**
-- * Unlink entries on bucket which hash to different bucket.
-- *
-- * Returns true if no more work needs to be performed on the bucket.
-- */
--static bool hashtable_chain_unzip(struct rhashtable *ht,
--				  const struct bucket_table *new_tbl,
--				  struct bucket_table *old_tbl,
--				  size_t old_hash)
--{
--	struct rhash_head *he, *p, *next;
--	unsigned int new_hash, new_hash2;
-+	if (err)
-+		goto out;
- 
--	ASSERT_BUCKET_LOCK(ht, old_tbl, old_hash);
-+	new_hash = head_hashfn(ht, new_tbl, entry);
- 
--	/* Old bucket empty, no work needed. */
--	p = rht_dereference_bucket(old_tbl->buckets[old_hash], old_tbl,
--				   old_hash);
--	if (rht_is_a_nulls(p))
--		return false;
-+	new_bucket_lock = bucket_lock(new_tbl, new_hash);
- 
--	new_hash = head_hashfn(ht, new_tbl, p);
--	ASSERT_BUCKET_LOCK(ht, new_tbl, new_hash);
-+	spin_lock(new_bucket_lock);
-+	head = rht_dereference_bucket(new_tbl->buckets[new_hash],
-+				      new_tbl, new_hash);
- 
--	/* Advance the old bucket pointer one or more times until it
--	 * reaches a node that doesn't hash to the same bucket as the
--	 * previous node p. Call the previous node p;
--	 */
--	rht_for_each_continue(he, p->next, old_tbl, old_hash) {
--		new_hash2 = head_hashfn(ht, new_tbl, he);
--		ASSERT_BUCKET_LOCK(ht, new_tbl, new_hash2);
-+	if (rht_is_a_nulls(head))
-+		INIT_RHT_NULLS_HEAD(entry->next, ht, new_hash);
-+	else
-+		RCU_INIT_POINTER(entry->next, head);
- 
--		if (new_hash != new_hash2)
--			break;
--		p = he;
--	}
--	rcu_assign_pointer(old_tbl->buckets[old_hash], p->next);
-+	rcu_assign_pointer(new_tbl->buckets[new_hash], entry);
-+	spin_unlock(new_bucket_lock);
- 
--	/* Find the subsequent node which does hash to the same
--	 * bucket as node P, or NULL if no such node exists.
--	 */
--	INIT_RHT_NULLS_HEAD(next, ht, old_hash);
--	if (!rht_is_a_nulls(he)) {
--		rht_for_each_continue(he, he->next, old_tbl, old_hash) {
--			if (head_hashfn(ht, new_tbl, he) == new_hash) {
--				next = he;
--				break;
--			}
--		}
--	}
-+	rcu_assign_pointer(*pprev, next);
- 
--	/* Set p's next pointer to that subsequent node pointer,
--	 * bypassing the nodes which do not hash to p's bucket
--	 */
--	rcu_assign_pointer(p->next, next);
-+out:
-+	return err;
 +}
 +
-+static void rhashtable_rehash_chain(struct rhashtable *ht, unsigned old_hash)
++int sock_diag_check_cookie(struct sock *sk, const __u32 *cookie)
 +{
-+	struct bucket_table *old_tbl = rht_dereference(ht->tbl, ht);
-+	spinlock_t *old_bucket_lock;
- 
--	p = rht_dereference_bucket(old_tbl->buckets[old_hash], old_tbl,
--				   old_hash);
-+	old_bucket_lock = bucket_lock(old_tbl, old_hash);
- 
--	return !rht_is_a_nulls(p);
-+	spin_lock_bh(old_bucket_lock);
-+	while (!rhashtable_rehash_one(ht, old_hash))
-+		;
-+	spin_unlock_bh(old_bucket_lock);
++	u64 res;
++
++	if (cookie[0] == INET_DIAG_NOCOOKIE && cookie[1] == INET_DIAG_NOCOOKIE)
+ 		return 0;
++
++	res = sock_gen_cookie(sk);
++	if ((u32)res != cookie[0] || (u32)(res >> 32) != cookie[1])
++		return -ESTALE;
++
++	return 0;
  }
+ EXPORT_SYMBOL_GPL(sock_diag_check_cookie);
  
--static void link_old_to_new(struct rhashtable *ht, struct bucket_table *new_tbl,
--			    unsigned int new_hash, struct rhash_head *entry)
-+static void rhashtable_rehash(struct rhashtable *ht,
-+			      struct bucket_table *new_tbl)
+-void sock_diag_save_cookie(void *sk, __u32 *cookie)
++void sock_diag_save_cookie(struct sock *sk, __u32 *cookie)
  {
--	ASSERT_BUCKET_LOCK(ht, new_tbl, new_hash);
-+	struct bucket_table *old_tbl = rht_dereference(ht->tbl, ht);
-+	unsigned old_hash;
+-	cookie[0] = (u32)(unsigned long)sk;
+-	cookie[1] = (u32)(((unsigned long)sk >> 31) >> 1);
++	u64 res = sock_gen_cookie(sk);
 +
-+	get_random_bytes(&new_tbl->hash_rnd, sizeof(new_tbl->hash_rnd));
++	cookie[0] = (u32)res;
++	cookie[1] = (u32)(res >> 32);
+ }
+ EXPORT_SYMBOL_GPL(sock_diag_save_cookie);
  
--	rcu_assign_pointer(*bucket_tail(new_tbl, new_hash), entry);
-+	/* Make insertions go into the new, empty table right away. Deletions
-+	 * and lookups will be attempted in both tables until we synchronize.
-+	 * The synchronize_rcu() guarantees for the new table to be picked up
-+	 * so no new additions go into the old table while we relink.
-+	 */
-+	rcu_assign_pointer(ht->future_tbl, new_tbl);
-+
-+	for (old_hash = 0; old_hash < old_tbl->size; old_hash++)
-+		rhashtable_rehash_chain(ht, old_hash);
-+
-+	/* Publish the new table pointer. */
-+	rcu_assign_pointer(ht->tbl, new_tbl);
-+
-+	/* Wait for readers. All new readers will see the new
-+	 * table, and thus no references to the old table will
-+	 * remain.
-+	 */
-+	synchronize_rcu();
-+
-+	bucket_table_free(old_tbl);
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index e45b968613a4..207281ae3536 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -641,6 +641,8 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq = inet_rsk(req);
+ 	ireq->ir_loc_addr = ip_hdr(skb)->daddr;
+ 	ireq->ir_rmt_addr = ip_hdr(skb)->saddr;
++	ireq->ireq_net = sock_net(sk);
++	atomic64_set(&ireq->ir_cookie, 0);
+ 
+ 	/*
+ 	 * Step 3: Process LISTEN state
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 14d02ea905b6..a097ae38b639 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -678,7 +678,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+ 		newsk->sk_write_space = sk_stream_write_space;
+ 
+ 		newsk->sk_mark = inet_rsk(req)->ir_mark;
+-
++		atomic64_cmpxchg(&newsk->sk_cookie, 0,
++				 atomic64_read(&inet_rsk(req)->ir_cookie));
+ 		newicsk->icsk_retransmits = 0;
+ 		newicsk->icsk_backoff	  = 0;
+ 		newicsk->icsk_probes_out  = 0;
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index ac3bfb458afd..29317ff4a007 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -221,12 +221,13 @@ static int inet_csk_diag_fill(struct sock *sk,
+ 				 user_ns, portid, seq, nlmsg_flags, unlh);
  }
  
- /**
-  * rhashtable_expand - Expand hash table while allowing concurrent lookups
-  * @ht:		the hash table to expand
-  *
-- * A secondary bucket array is allocated and the hash entries are migrated
-- * while keeping them on both lists until the end of the RCU grace period.
-+ * A secondary bucket array is allocated and the hash entries are migrated.
-  *
-  * This function may only be called in a context where it is safe to call
-  * synchronize_rcu(), e.g. not within a rcu_read_lock() section.
-@@ -378,9 +363,6 @@ static void link_old_to_new(struct rhashtable *ht, struct bucket_table *new_tbl,
- int rhashtable_expand(struct rhashtable *ht)
+-static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
++static int inet_twsk_diag_fill(struct sock *sk,
+ 			       struct sk_buff *skb,
+ 			       const struct inet_diag_req_v2 *req,
+ 			       u32 portid, u32 seq, u16 nlmsg_flags,
+ 			       const struct nlmsghdr *unlh)
  {
- 	struct bucket_table *new_tbl, *old_tbl = rht_dereference(ht->tbl, ht);
--	struct rhash_head *he;
--	unsigned int new_hash, old_hash;
--	bool complete = false;
++	struct inet_timewait_sock *tw = inet_twsk(sk);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr *nlh;
+ 	s32 tmo;
+@@ -247,7 +248,7 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
+ 	r->idiag_retrans      = 0;
  
- 	ASSERT_RHT_MUTEX(ht);
+ 	r->id.idiag_if	      = tw->tw_bound_dev_if;
+-	sock_diag_save_cookie(tw, r->id.idiag_cookie);
++	sock_diag_save_cookie(sk, r->id.idiag_cookie);
  
-@@ -392,64 +374,8 @@ int rhashtable_expand(struct rhashtable *ht)
- 
- 	atomic_inc(&ht->shift);
- 
--	/* Make insertions go into the new, empty table right away. Deletions
--	 * and lookups will be attempted in both tables until we synchronize.
--	 * The synchronize_rcu() guarantees for the new table to be picked up
--	 * so no new additions go into the old table while we relink.
--	 */
--	rcu_assign_pointer(ht->future_tbl, new_tbl);
--	synchronize_rcu();
-+	rhashtable_rehash(ht, new_tbl);
- 
--	/* For each new bucket, search the corresponding old bucket for the
--	 * first entry that hashes to the new bucket, and link the end of
--	 * newly formed bucket chain (containing entries added to future
--	 * table) to that entry. Since all the entries which will end up in
--	 * the new bucket appear in the same old bucket, this constructs an
--	 * entirely valid new hash table, but with multiple buckets
--	 * "zipped" together into a single imprecise chain.
--	 */
--	for (new_hash = 0; new_hash < new_tbl->size; new_hash++) {
--		old_hash = rht_bucket_index(old_tbl, new_hash);
--		lock_buckets(new_tbl, old_tbl, new_hash);
--		rht_for_each(he, old_tbl, old_hash) {
--			if (head_hashfn(ht, new_tbl, he) == new_hash) {
--				link_old_to_new(ht, new_tbl, new_hash, he);
--				break;
--			}
--		}
--		unlock_buckets(new_tbl, old_tbl, new_hash);
--		cond_resched();
--	}
--
--	/* Unzip interleaved hash chains */
--	while (!complete && !ht->being_destroyed) {
--		/* Wait for readers. All new readers will see the new
--		 * table, and thus no references to the old table will
--		 * remain.
--		 */
--		synchronize_rcu();
--
--		/* For each bucket in the old table (each of which
--		 * contains items from multiple buckets of the new
--		 * table): ...
--		 */
--		complete = true;
--		for (old_hash = 0; old_hash < old_tbl->size; old_hash++) {
--			lock_buckets(new_tbl, old_tbl, old_hash);
--
--			if (hashtable_chain_unzip(ht, new_tbl, old_tbl,
--						  old_hash))
--				complete = false;
--
--			unlock_buckets(new_tbl, old_tbl, old_hash);
--			cond_resched();
--		}
--	}
--
--	rcu_assign_pointer(ht->tbl, new_tbl);
--	synchronize_rcu();
--
--	bucket_table_free(old_tbl);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(rhashtable_expand);
-@@ -473,7 +399,6 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
- int rhashtable_shrink(struct rhashtable *ht)
+ 	r->id.idiag_sport     = tw->tw_sport;
+ 	r->id.idiag_dport     = tw->tw_dport;
+@@ -283,7 +284,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 			const struct nlmsghdr *unlh)
  {
- 	struct bucket_table *new_tbl, *tbl = rht_dereference(ht->tbl, ht);
--	unsigned int new_hash;
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+-		return inet_twsk_diag_fill(inet_twsk(sk), skb, r, portid, seq,
++		return inet_twsk_diag_fill(sk, skb, r, portid, seq,
+ 					   nlmsg_flags, unlh);
  
- 	ASSERT_RHT_MUTEX(ht);
+ 	return inet_csk_diag_fill(sk, skb, r, user_ns, portid, seq,
+@@ -675,7 +676,7 @@ static int inet_twsk_diag_dump(struct sock *sk,
+ 	if (!inet_diag_bc_sk(bc, sk))
+ 		return 0;
  
-@@ -483,39 +408,9 @@ int rhashtable_shrink(struct rhashtable *ht)
- 
- 	new_tbl->hash_rnd = tbl->hash_rnd;
- 
--	rcu_assign_pointer(ht->future_tbl, new_tbl);
--	synchronize_rcu();
--
--	/* Link the first entry in the old bucket to the end of the
--	 * bucket in the new table. As entries are concurrently being
--	 * added to the new table, lock down the new bucket. As we
--	 * always divide the size in half when shrinking, each bucket
--	 * in the new table maps to exactly two buckets in the old
--	 * table.
--	 */
--	for (new_hash = 0; new_hash < new_tbl->size; new_hash++) {
--		lock_buckets(new_tbl, tbl, new_hash);
--
--		rcu_assign_pointer(*bucket_tail(new_tbl, new_hash),
--				   tbl->buckets[new_hash]);
--		ASSERT_BUCKET_LOCK(ht, tbl, new_hash + new_tbl->size);
--		rcu_assign_pointer(*bucket_tail(new_tbl, new_hash),
--				   tbl->buckets[new_hash + new_tbl->size]);
--
--		unlock_buckets(new_tbl, tbl, new_hash);
--		cond_resched();
--	}
--
--	/* Publish the new, valid hash table */
--	rcu_assign_pointer(ht->tbl, new_tbl);
- 	atomic_dec(&ht->shift);
- 
--	/* Wait for readers. No new readers will have references to the
--	 * old hash table.
--	 */
--	synchronize_rcu();
--
--	bucket_table_free(tbl);
-+	rhashtable_rehash(ht, new_tbl);
- 
- 	return 0;
+-	return inet_twsk_diag_fill(inet_twsk(sk), skb, r,
++	return inet_twsk_diag_fill(sk, skb, r,
+ 				   NETLINK_CB(cb->skb).portid,
+ 				   cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
  }
-@@ -545,18 +440,46 @@ unlock:
- 	mutex_unlock(&ht->mutex);
- }
+@@ -734,7 +735,10 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 	r->idiag_retrans = req->num_retrans;
  
--static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
--				struct bucket_table *tbl,
--				const struct bucket_table *old_tbl, u32 hash)
-+static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
-+				bool (*compare)(void *, void *), void *arg)
- {
--	bool no_resize_running = tbl == old_tbl;
-+	struct bucket_table *tbl, *old_tbl;
- 	struct rhash_head *head;
-+	bool no_resize_running;
-+	unsigned hash;
-+	bool success = true;
+ 	r->id.idiag_if = sk->sk_bound_dev_if;
+-	sock_diag_save_cookie(req, r->id.idiag_cookie);
 +
-+	rcu_read_lock();
-+
-+	old_tbl = rht_dereference_rcu(ht->tbl, ht);
-+	hash = obj_raw_hashfn(ht, old_tbl, rht_obj(ht, obj));
-+
-+	spin_lock_bh(bucket_lock(old_tbl, hash));
-+
-+	/* Because we have already taken the bucket lock in old_tbl,
-+	 * if we find that future_tbl is not yet visible then that
-+	 * guarantees all other insertions of the same entry will
-+	 * also grab the bucket lock in old_tbl because until the
-+	 * rehash completes ht->tbl won't be changed.
-+	 */
-+	tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	if (tbl != old_tbl) {
-+		hash = obj_raw_hashfn(ht, tbl, rht_obj(ht, obj));
-+		spin_lock(bucket_lock(tbl, hash));
-+	}
-+
-+	if (compare &&
-+	    rhashtable_lookup_compare(ht, rht_obj(ht, obj) + ht->p.key_offset,
-+				      compare, arg)) {
-+		success = false;
-+		goto exit;
-+	}
-+
-+	no_resize_running = tbl == old_tbl;
++	BUILD_BUG_ON(offsetof(struct inet_request_sock, ir_cookie) !=
++		     offsetof(struct sock, sk_cookie));
++	sock_diag_save_cookie((struct sock *)ireq, r->id.idiag_cookie);
  
- 	hash = rht_bucket_index(tbl, hash);
- 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
+ 	tmo = req->expires - jiffies;
+ 	if (tmo < 0)
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 6d592f8555fb..2bd980526631 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -195,6 +195,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int stat
+ 		tw->tw_ipv6only	    = 0;
+ 		tw->tw_transparent  = inet->transparent;
+ 		tw->tw_prot	    = sk->sk_prot_creator;
++		atomic64_set(&tw->tw_cookie, atomic64_read(&sk->sk_cookie));
+ 		twsk_net_set(tw, hold_net(sock_net(sk)));
+ 		/*
+ 		 * Because we use RCU lookups, we should not set tw_refcnt
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 45fe60c5238e..ece31b426013 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -346,6 +346,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	req->ts_recent		= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsval : 0;
+ 	treq->snt_synack	= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsecr : 0;
+ 	treq->listener		= NULL;
++	ireq->ireq_net		= sock_net(sk);
  
--	ASSERT_BUCKET_LOCK(ht, tbl, hash);
--
- 	if (rht_is_a_nulls(head))
- 		INIT_RHT_NULLS_HEAD(obj->next, ht, hash);
- 	else
-@@ -567,6 +490,19 @@ static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 	atomic_inc(&ht->nelems);
- 	if (no_resize_running && rht_grow_above_75(ht, tbl->size))
- 		schedule_work(&ht->run_work);
-+
-+exit:
-+	if (tbl != old_tbl) {
-+		hash = obj_raw_hashfn(ht, tbl, rht_obj(ht, obj));
-+		spin_unlock(bucket_lock(tbl, hash));
-+	}
-+
-+	hash = obj_raw_hashfn(ht, old_tbl, rht_obj(ht, obj));
-+	spin_unlock_bh(bucket_lock(old_tbl, hash));
-+
-+	rcu_read_unlock();
-+
-+	return success;
- }
+ 	/* We throwed the options of the initial SYN away, so we hope
+ 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index fb4cf8b8e121..d7045f5f6ebf 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5965,6 +5965,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
  
- /**
-@@ -586,22 +522,42 @@ static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
-  */
- void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
- {
--	struct bucket_table *tbl, *old_tbl;
-+	__rhashtable_insert(ht, obj, NULL, NULL);
-+}
-+EXPORT_SYMBOL_GPL(rhashtable_insert);
-+
-+static bool __rhashtable_remove(struct rhashtable *ht,
-+				struct bucket_table *tbl,
-+				struct rhash_head *obj)
-+{
-+	struct rhash_head __rcu **pprev;
-+	struct rhash_head *he;
-+	spinlock_t * lock;
- 	unsigned hash;
-+	bool ret = false;
+ 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+ 	tcp_openreq_init(req, &tmp_opt, skb, sk);
++	inet_rsk(req)->ireq_net = sock_net(sk);
++	atomic64_set(&inet_rsk(req)->ir_cookie, 0);
  
--	rcu_read_lock();
-+	hash = obj_raw_hashfn(ht, tbl, rht_obj(ht, obj));
-+	lock = bucket_lock(tbl, hash);
-+	hash = rht_bucket_index(tbl, hash);
+ 	af_ops->init_req(req, sk, skb);
  
--	tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
-+	spin_lock_bh(lock);
- 
--	lock_buckets(tbl, old_tbl, hash);
--	__rhashtable_insert(ht, obj, tbl, old_tbl, hash);
--	unlock_buckets(tbl, old_tbl, hash);
-+	pprev = &tbl->buckets[hash];
-+	rht_for_each(he, tbl, hash) {
-+		if (he != obj) {
-+			pprev = &he->next;
-+			continue;
-+		}
- 
--	rcu_read_unlock();
-+		rcu_assign_pointer(*pprev, obj->next);
-+		ret = true;
-+		break;
-+	}
-+
-+	spin_unlock_bh(lock);
-+
-+	return ret;
- }
--EXPORT_SYMBOL_GPL(rhashtable_insert);
- 
- /**
-  * rhashtable_remove - remove object from hash table
-@@ -620,68 +576,28 @@ EXPORT_SYMBOL_GPL(rhashtable_insert);
-  */
- bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
- {
--	struct bucket_table *tbl, *new_tbl, *old_tbl;
--	struct rhash_head __rcu **pprev;
--	struct rhash_head *he, *he2;
--	unsigned int hash, new_hash;
--	bool ret = false;
-+	struct bucket_table *tbl, *old_tbl;
-+	bool ret;
- 
- 	rcu_read_lock();
--	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	tbl = new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
- 
--	lock_buckets(new_tbl, old_tbl, new_hash);
--restart:
--	hash = rht_bucket_index(tbl, new_hash);
--	pprev = &tbl->buckets[hash];
--	rht_for_each(he, tbl, hash) {
--		if (he != obj) {
--			pprev = &he->next;
--			continue;
--		}
--
--		ASSERT_BUCKET_LOCK(ht, tbl, hash);
--
--		if (old_tbl->size > new_tbl->size && tbl == old_tbl &&
--		    !rht_is_a_nulls(obj->next) &&
--		    head_hashfn(ht, tbl, obj->next) != hash) {
--			rcu_assign_pointer(*pprev, (struct rhash_head *) rht_marker(ht, hash));
--		} else if (unlikely(old_tbl->size < new_tbl->size && tbl == new_tbl)) {
--			rht_for_each_continue(he2, obj->next, tbl, hash) {
--				if (head_hashfn(ht, tbl, he2) == hash) {
--					rcu_assign_pointer(*pprev, he2);
--					goto found;
--				}
--			}
--
--			rcu_assign_pointer(*pprev, (struct rhash_head *) rht_marker(ht, hash));
--		} else {
--			rcu_assign_pointer(*pprev, obj->next);
--		}
--
--found:
--		ret = true;
--		break;
--	}
-+	old_tbl = rht_dereference_rcu(ht->tbl, ht);
-+	ret = __rhashtable_remove(ht, old_tbl, obj);
- 
--	/* The entry may be linked in either 'tbl', 'future_tbl', or both.
--	 * 'future_tbl' only exists for a short period of time during
--	 * resizing. Thus traversing both is fine and the added cost is
--	 * very rare.
-+	/* Because we have already taken (and released) the bucket
-+	 * lock in old_tbl, if we find that future_tbl is not yet
-+	 * visible then that guarantees the entry to still be in
-+	 * old_tbl if it exists.
- 	 */
--	if (tbl != old_tbl) {
--		tbl = old_tbl;
--		goto restart;
--	}
--
--	unlock_buckets(new_tbl, old_tbl, new_hash);
-+	tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	if (!ret && old_tbl != tbl)
-+		ret = __rhashtable_remove(ht, tbl, obj);
- 
- 	if (ret) {
--		bool no_resize_running = new_tbl == old_tbl;
-+		bool no_resize_running = tbl == old_tbl;
- 
- 		atomic_dec(&ht->nelems);
--		if (no_resize_running && rht_shrink_below_30(ht, new_tbl->size))
-+		if (no_resize_running && rht_shrink_below_30(ht, tbl->size))
- 			schedule_work(&ht->run_work);
- 	}
- 
-@@ -753,9 +669,8 @@ void *rhashtable_lookup_compare(struct rhashtable *ht, const void *key,
- 
- 	rcu_read_lock();
- 
--	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	hash = key_hashfn(ht, key, ht->p.key_len);
-+	tbl = rht_dereference_rcu(ht->tbl, ht);
-+	hash = key_hashfn(ht, tbl, key, ht->p.key_len);
- restart:
- 	rht_for_each_rcu(he, tbl, rht_bucket_index(tbl, hash)) {
- 		if (!compare(rht_obj(ht, he), arg))
-@@ -764,10 +679,10 @@ restart:
- 		return rht_obj(ht, he);
- 	}
- 
--	if (unlikely(tbl != old_tbl)) {
--		tbl = old_tbl;
-+	old_tbl = tbl;
-+	tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	if (unlikely(tbl != old_tbl))
- 		goto restart;
--	}
- 	rcu_read_unlock();
- 
- 	return NULL;
-@@ -833,32 +748,9 @@ bool rhashtable_lookup_compare_insert(struct rhashtable *ht,
- 				      bool (*compare)(void *, void *),
- 				      void *arg)
- {
--	struct bucket_table *new_tbl, *old_tbl;
--	u32 new_hash;
--	bool success = true;
--
- 	BUG_ON(!ht->p.key_len);
- 
--	rcu_read_lock();
--	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
--
--	lock_buckets(new_tbl, old_tbl, new_hash);
--
--	if (rhashtable_lookup_compare(ht, rht_obj(ht, obj) + ht->p.key_offset,
--				      compare, arg)) {
--		success = false;
--		goto exit;
--	}
--
--	__rhashtable_insert(ht, obj, new_tbl, old_tbl, new_hash);
--
--exit:
--	unlock_buckets(new_tbl, old_tbl, new_hash);
--	rcu_read_unlock();
--
--	return success;
-+	return __rhashtable_insert(ht, obj, compare, arg);
- }
- EXPORT_SYMBOL_GPL(rhashtable_lookup_compare_insert);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
