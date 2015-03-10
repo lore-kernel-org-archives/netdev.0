@@ -1,49 +1,78 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [patch net-next 4/4] net: refactor IPv4 and IPv6 defragmentation APIs
-Date: Tue, 10 Mar 2015 11:54:06 -0700
-Message-ID: <CACzMAJJzket7TddMdB1Oy20g64brRK1qYO=ORhQVOB=TMiGyhA@mail.gmail.com>
-References: <1425888098-21875-1-git-send-email-azhou@nicira.com>
-	<1425888098-21875-5-git-send-email-azhou@nicira.com>
-	<20150309091537.GA13498@vergenet.net>
+From: Mathieu Olivari <mathieu@codeaurora.org>
+Subject: RFC: dsa: add support for multiple CPU ports
+Date: Tue, 10 Mar 2015 12:01:29 -0700
+Message-ID: <20150310190129.GB5636@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux@roeck-us.net, andrew@lunn.ch, jogo@openwrt.org,
+	f.fainelli@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:50310 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751161AbbCJSyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 14:54:07 -0400
-Received: by mail-oi0-f53.google.com with SMTP id z81so3450944oif.2
-        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 11:54:06 -0700 (PDT)
-In-Reply-To: <20150309091537.GA13498@vergenet.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:56902 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752029AbbCJTBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 15:01:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 9, 2015 at 2:15 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> Hi Andy,
->
-> On Mon, Mar 09, 2015 at 01:01:38AM -0700, Andy Zhou wrote:
->> Both ip_defrag() and nf_ct_frag6_gather() derive the name space
->> information from the netdev device attached to the skb. However,
->> packets processed by  openvswitch may not have a netdev device.
->>
->> This patch adds new ip_defrag_net() and  nf_ct_frag6_gather_net()
->> API that accepts net as an argument.
->>
->> Signed-off-by: Andy Zhou <azhou@nicira.com>
->
-> [snip]
->
->> @@ -645,6 +652,7 @@ void nf_ct_frag6_consume_orig(struct sk_buff *skb)
->>               s = s2;
->>       }
->>  }
->> +EXPORT_SYMBOL(nf_ct_frag6_consume_orig);
->>
->>  static int nf_ct_net_init(struct net *net)
->>  {
->
-> This hunk seems unrelated to the changelog and the rest of the patch.
-Will do.
+Hi all,
+
+I=E2=80=99m writing a DSA driver for some QCA network switches already =
+supported in
+OpenWrt using swconfig. They connect to the CPU using MDIO for configur=
+ation,
+and xMII ports for data. The main difference with what is supported com=
+es from
+the fact that most of these switches actually have multiple xMII connec=
+tions to
+the same CPU. Something like this:
+(extending the picture from http://lwn.net/Articles/302333/)
+
+	+-----------+       +-----------+
+	|           | RGMII |           |
+	|       eth0+-------+           +------ 1000baseT MDI ("WAN")
+	|        wan|       |  7-port   +------ 1000baseT MDI ("LAN1")
+	|   CPU     |       |  ethernet +------ 1000baseT MDI ("LAN2")
+	|           | RGMII |  switch   +------ 1000baseT MDI ("LAN3")
+	|       eth1+-------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+	|        lan|       |           |
+	+-----------+       +-----------+
+	          |   MDIO     |
+	          \------------/
+
+In a typical configuration, we configure the switch to isolate WAN & LA=
+N from
+each other.
+
+The current DSA implementation is based on the assumption that there ca=
+n be only
+one xMII connection between the switch and the CPU (this switch port is=
+ known as
+the CPU port), which obviously doesn't work anymore in that case. So I'=
+m trying
+to figure out the best way to extend DSA to support these hardware.
+
+Here is my proposal. I was hoping to get feedback before i get too much=
+ down the
+implementation path:
+*add an optional phandle (cpu_dev) to the existing port device node, wh=
+ich would
+ reference the ethernet device node this port is connected to
+*save the corresponding net_device in the "ports" field of "struct dsa_=
+switch"
+*instrument the network layer to be able to look-up which switch port i=
+s
+ connected to a particular net_device.
+
+The third point would allow to perform operations currently limited to =
+switch
+ports. Typically, "ethtool -S eth0" could return the corresponding port=
+'s MIB
+statistics in addition to the eth0 statistics.
+
+Thoughts?
+
+Thanks,
+Mathieu
