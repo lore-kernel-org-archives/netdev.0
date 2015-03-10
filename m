@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: ensure that idle links are deleted
- when a bearer is disabled
-Date: Tue, 10 Mar 2015 18:38:01 -0400 (EDT)
-Message-ID: <20150310.183801.1545885202549602206.davem@davemloft.net>
-References: <1426004614-18168-1-git-send-email-jon.maloy@ericsson.com>
+Subject: rtnl_newlink() cleanup on namespace change
+Date: Tue, 10 Mar 2015 18:43:47 -0400 (EDT)
+Message-ID: <20150310.184347.1581730121744725414.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: xiyou.wangcong@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33551 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33664 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752461AbbCJWiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 18:38:03 -0400
-In-Reply-To: <1426004614-18168-1-git-send-email-jon.maloy@ericsson.com>
+	with ESMTP id S1751762AbbCJWnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 18:43:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Tue, 10 Mar 2015 12:23:34 -0400
 
-> commit afaa3f65f65fda2e7b190aac7e2a75d9a2a77cb6
-> (tipc: purge links when bearer is disabled) was an attempt to resolve
-> a problem that turned out to have a more profound reason.
-> 
-> When we disable a bearer, we delete all its pertaining links if
-> there is no other bearer to perform failover to, or if the module
-> is shutting down. In case there are dual bearers, we wait with
-> deleting links until the failover procedure is finished.
-> 
-> However, this misses the case when a link on the removed bearer
-> was already down, so that there will be no failover procedure to
-> finish the link delete. This causes confusion if a new bearer is
-> added to replace the removed one, and also entails a small memory
-> leak.
-> 
-> This commit takes the current state of the link into account when
-> deciding when to delete it, and also reverses the above-mentioned
-> commit.
-> 
-> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Cong, I was reviewing commit 7afb8886a05be68e376655539a064ec672de8a8e
+("rtnetlink: call ->dellink on failure when ->newlink exists") during
+a stable backport and I noticed that the function, after the change
+you made, subsequently goes:
 
-Applied, thank you.
+		if (link_net) {
+			err = dev_change_net_namespace(dev, dest_net, ifname);
+			if (err < 0)
+				unregister_netdevice(dev);
+		}
+
+Isn't the potential ->dellink() unwinding necessary in this path too?
+
+If not, why not?
+
+Thanks.
