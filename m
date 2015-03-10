@@ -1,49 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: linux-next: build warnings after merge of the crypto tree
-Date: Tue, 10 Mar 2015 17:03:28 +1100
-Message-ID: <20150310060328.GA14997@gondor.apana.org.au>
-References: <20150310164417.540c18a4@canb.auug.org.au>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Tue, 10 Mar 2015 14:07:30 +0800
+Message-ID: <54FE8A22.4020608@windriver.com>
+References: <54DDCA99.4040401@windriver.com> <20150213133056.3944c13e@uryu.home.lan> <54E17853.8070106@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stephan Mueller <smueller@chronox.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150310164417.540c18a4@canb.auug.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>,
+	"dsahern@gmail.com >> David Ahern" <dsahern@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:58535 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751343AbbCJGIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 02:08:40 -0400
+In-Reply-To: <54E17853.8070106@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 04:44:17PM +1100, Stephen Rothwell wrote:
-> Hi Herbert,
-> 
-> After merging the crypto tree, today's (and the past few days)
-> linux-next build (powerpc allyesconfig) produced these warnings:
-> 
-> crypto/algif_aead.c:561:2: warning: initialization from incompatible pointer type
->   .sendmsg = aead_sendmsg,
->   ^
-> crypto/algif_aead.c:561:2: warning: (near initialization for 'algif_aead_ops.sendmsg')
-> crypto/algif_aead.c:563:2: warning: initialization from incompatible pointer type
->   .recvmsg = aead_recvmsg,
->   ^
-> crypto/algif_aead.c:563:2: warning: (near initialization for 'algif_aead_ops.recvmsg')
-> 
-> Introduced by commit 400c40cf78da ("crypto: algif - add AEAD support").
+Hi, Stephen && David
 
-This is a bit of a bummer.  What happened is that net-next has
-killed the kiocb argument to sendmsg/recvmsg.  However, this
-change is obviously not part of the crypto tree and algif_aead
-only exists in the crypto tree.
+Any update ?
 
-So Stephen could you fix this by hand until one of them is merged
-upstream (just kill the first argument in aead_sendmsg/aead_recvmsg)?
-
-Thanks!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Best Regards!
+Zhu Yanjun
+On 02/16/2015 12:55 PM, yzhu1 wrote:
+> Hi, Stephen
+>
+> Follow your advice, I made a new patch. This patch will turn off
+> carrier when a new bridge interface is created. Please comment on it.
+>
+> Thanks a lot.
+> Zhu Yanjun
+> On 02/14/2015 02:30 AM, Stephen Hemminger wrote:
+>> On Fri, 13 Feb 2015 17:57:45 +0800
+>> yzhu1 <Yanjun.Zhu@windriver.com> wrote:
+>>
+>>> Hi, all
+>>>
+>>> I made this test on ubuntu 14.04 with kernel 3,19-rc7:
+>>>
+>>> 1. brctl addbr br0
+>>>
+>>> 2. ifconfig br0 up
+>>>
+>>> 3. ifconfig br0 (br0's status is with 'RUNNING')
+>>>
+>>> 4. brctl addif br0 eth0
+>>>
+>>> 5. brctl delif br0 eth0
+>>>
+>>> 6. ifconfig br0 (br0's status is without 'RUNNING')
+>>>
+>>> When there is no sub-interface, the flag "RUNNING" is missing after the
+>>> last sub-interface is removed.
+>>>
+>>> As such, should we keep "RUNNING" flag after the last sub-interface is
+>>> removed?
+>> This is intentional. If there are no active ports in bridge, then
+>> we want to tell applications that packets will go nowhere.
+>>
+>>
+>
