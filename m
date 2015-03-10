@@ -1,59 +1,66 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Tue, 10 Mar 2015 22:13:15 +0100
-Message-ID: <20150310211315.GF10838@lunn.ch>
-References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
- <20150310204021.GA2740@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux@roeck-us.net, jogo@openwrt.org,
-	f.fainelli@gmail.com
-To: Mathieu Olivari <mathieu@codeaurora.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net 2/2] tcp: restore 1.5x per RTT limit to CUBIC cwnd growth in congestion avoidance
+Date: Tue, 10 Mar 2015 17:17:04 -0400
+Message-ID: <1426022224-28793-2-git-send-email-ncardwell@google.com>
+References: <1426022224-28793-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57141 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752280AbbCJVQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Mar 2015 17:16:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20150310204021.GA2740@codeaurora.org>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:42679 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752280AbbCJVRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 17:17:12 -0400
+Received: by ykbq9 with SMTP id q9so2036435ykb.9
+        for <netdev@vger.kernel.org>; Tue, 10 Mar 2015 14:17:12 -0700 (PDT)
+In-Reply-To: <1426022224-28793-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I was thinking about the MIB counters, maintained by the switch, on the CPU
-> port(s). 
-> 
-> On this picture:
-> 
-> +-----------+       +--------------------+
-> |           | RGMII |                    |
-> |       eth0+-------+ P0              P1 +------ 1000baseT MDI ("WAN")
-> |        wan|       |      7-port     P2 +------ 1000baseT MDI ("LAN1")
-> |   CPU     |       |      ethernet   P3 +------ 1000baseT MDI ("LAN2")
-> |           | RGMII |      switch     P4 +------ 1000baseT MDI ("LAN3")
-> |       eth1+-------+ P6   w/5 PHYs   P5 +------ 1000baseT MDI ("LAN4")
-> |        lan|       |                    |
-> +-----------+       +--------------------+
->           |     MDIO   |
->           \------------/
-> 
-> We can see MIB stats of P1/P2/P3/P4/P5 by using ethtool -S. But as CPU
-> ports don't have a net_device, there isn't a way to access MIB stats of
-> P0 & P6.
+Commit 814d488c6126 ("tcp: fix the timid additive increase on stretch
+ACKs") fixed a bug where tcp_cong_avoid_ai() would either credit a
+connection with an increase of snd_cwnd_cnt, or increase snd_cwnd, but
+not both, resulting in cwnd increasing by 1 packet on at most every
+alternate invocation of tcp_cong_avoid_ai().
 
-Ah, sorry, i misunderstood you. As you say, the current DSA does not
-give you access to these counters. Apart from these counters, are
-there any other needs to have access to these ports? The core idea of
-hardware acceleration is that it should look like linux as normal.  P0
-and P6 are an internal detail, and you cannot actually use them. You
-cannot send packets, they are something special. So unless there is a
-good reason, we should not expose them.
+Although the commit correctly implemented the CUBIC algorithm, which
+can increase cwnd by as much as 1 packet per 1 packet ACKed (2x per
+RTT), in practice that could be too aggressive: in tests on network
+paths with small buffers, YouTube server retransmission rates nearly
+doubled.
 
-> If we have the eth0 <--> P0 and eth1 <--> P6 relationship information in dts,
-> we could use it to lookup which switch port is connected to this net_dev and
-> show the corresponding counters when running "ethtool -S ethN".
+This commit restores CUBIC to a maximum cwnd growth rate of 1 packet
+per 2 packets ACKed (1.5x per RTT). In YouTube tests this restored
+retransmit rates to low levels.
 
-But that is not what the user expects. They expect the statistic
-counters for ethN, not the switch port.
+Testing: This patch has been tested in datacenter netperf transfers
+and live youtube.com and google.com servers.
 
-	 Andrew
+Fixes: 9cd981dcf174 ("tcp: fix stretch ACK bugs in CUBIC")
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_cubic.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 4b276d1..06d3d66 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -306,8 +306,10 @@ tcp_friendliness:
+ 		}
+ 	}
+ 
+-	if (ca->cnt == 0)			/* cannot be zero */
+-		ca->cnt = 1;
++	/* The maximum rate of cwnd increase CUBIC allows is 1 packet per
++	 * 2 packets ACKed, meaning cwnd grows at 1.5x per RTT.
++	 */
++	ca->cnt = max(ca->cnt, 2U);
+ }
+ 
+ static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+-- 
+2.2.0.rc0.207.ga3a616c
