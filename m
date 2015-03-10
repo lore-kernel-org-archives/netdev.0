@@ -1,31 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux XIA - merge proposal
-Date: Tue, 10 Mar 2015 10:19:56 -0700
-Message-ID: <1426007996.11398.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54F5EF6E.9090303@digirati.com.br>
-	 <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/2] rhashtable: Move hash_rnd into bucket_table
+Date: Tue, 10 Mar 2015 17:20:02 +0000
+Message-ID: <20150310172002.GA13155@casper.infradead.org>
+References: <20150309222631.GA12221@gondor.apana.org.au>
+ <E1YV69T-0003DX-CV@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michel Machado <michel@digirati.com.br>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	josh@joshtriplett.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:39387 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753600AbbCJRUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 13:20:06 -0400
+Content-Disposition: inline
+In-Reply-To: <E1YV69T-0003DX-CV@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-03-10 at 12:01 -0500, Bjorn Helgaas wrote:
+On 03/10/15 at 09:27am, Herbert Xu wrote:
+> Currently hash_rnd is a parameter that users can set.  However,
+> no existing users set this parameter.  It is also something that
+> people are unlikely to want to set directly since it's just a
+> random number.
+> 
+> In preparation for allowing the reseeding/rehashing of rhashtable,
+> this patch moves hash_rnd into bucket_table so that it's now an
+> internal state rather than a parameter.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> From my point of view (far outside the networking world and completely
-> incompetent to judge the merits of XIA), this email seems like a
-> reasonable starting point for a discussion, and I'm disappointed that
-> it got shut down so fast.  It might not be in *exactly* the form
-> people are looking for, but hey, it's an introductory email, and
-> Michel seems open to constructive feedback.
+I assume you are targeting net-next?
 
-I never got initial mail on netdev, only replies to it, including part
-of initial message ?
-
-This might explain some people never commented, maybe ?
+Acked-by: Thomas Graf <tgraf@suug.ch>
