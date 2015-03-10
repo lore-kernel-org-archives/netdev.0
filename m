@@ -1,89 +1,35 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: fix rxvlan feature
-Date: Tue, 10 Mar 2015 03:29:35 +0000
-Message-ID: <BY2PR03MB377A83B758C88EBD3B689DEF5180@BY2PR03MB377.namprd03.prod.outlook.com>
-References: <1425920153-13319-1-git-send-email-m.grzeschik@pengutronix.de>
- <20150309.224258.796431155596045482.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] net_sched: fix struct tc_u_hnode layout in u32
+Date: Mon, 09 Mar 2015 23:45:20 -0400 (EDT)
+Message-ID: <20150309.234520.322134640639140174.davem@davemloft.net>
+References: <1425945820-9582-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: David Miller <davem@davemloft.net>,
-	"m.grzeschik@pengutronix.de" <m.grzeschik@pengutronix.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, john.fastabend@gmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0126.outbound.protection.outlook.com ([65.55.169.126]:28852
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751562AbbCJDoA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 23:44:00 -0400
-In-Reply-To: <20150309.224258.796431155596045482.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:44923 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560AbbCJDpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 23:45:22 -0400
+In-Reply-To: <1425945820-9582-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net> Sent: Tuesday, March 10, 2015 10:43 AM
-> To: m.grzeschik@pengutronix.de
-> Cc: Duan Fugang-B38611; Li Frank-B20596; netdev@vger.kernel.org;
-> kernel@pengutronix.de
-> Subject: Re: [PATCH] net: fec: fix rxvlan feature
-> 
-> From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-> Date: Mon,  9 Mar 2015 17:55:53 +0100
-> 
-> > The patch 1b7bde6d659d30f171259cc2dfba8e5dab34e735
-> > "net: fec: implement rx_copybreak to improve rx performance"
-> > changed the code path for the vlan check in fec_enet_rx_queue:
-> >
-> >  @@ -1417,62 +1486,48 @@ fec_enet_rx_queue(struct net_device *ndev, int
-> budget, u16 queue_id)
-> >  		/* If this is a VLAN packet remove the VLAN Tag */
-> >  		vlan_packet_rcvd = false;
-> >  		if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-> >  			fep->bufdesc_ex && (ebdp->cbd_esc & BD_ENET_RX_VLAN)) {
-> >  			/* Push and remove the vlan tag */
-> >                          struct vlan_hdr *vlan_header =
-> >                                          (struct vlan_hdr *) (data +
-> ETH_HLEN);
-> >                          vlan_tag = ntohs(vlan_header->h_vlan_TCI);
-> >  -                       pkt_len -= VLAN_HLEN;
-> >
-> >                          vlan_packet_rcvd = true;  +
-> >  +                       skb_copy_to_linear_data_offset(skb, VLAN_HLEN,
-> >  +                                                      data, (2 *
-> ETH_ALEN));
-> >  +                       skb_pull(skb, VLAN_HLEN);
-> >                  }
-> >
-> > With the call of skb_copy_to_linear_data_offset the code here is doing
-> > more than previously and is breaking the rxvlan feature. This patch
-> > removes this call to fix it.
-> >
-> > Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
-> 
-> But don't we want to copy the proper header there in the linear case?
-> 
-> I'd rather hear from the original author why they put that copy there
-> before it just gets blindly removed.
-> 
-> And you'll need to update your commit message with more explanation once
-> that discussion occurs.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon,  9 Mar 2015 17:03:40 -0700
 
-There have no function change comparing with previous commit version.
-If enable hw VLAN support (sw simulate hw), software remove VLAN tag. 
+> We dynamically allocate divisor+1 entries for ->ht[] in tc_u_hnode:
+> 
+>   ht = kzalloc(sizeof(*ht) + divisor*sizeof(void *), GFP_KERNEL);
+> 
+> So ->ht is supposed to be the last field of this struct, however
+> this is broken, since an rcu head is appended after it.
+> 
+> Fixes: 1ce87720d456 ("net: sched: make cls_u32 lockless")
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Below code is previous code base, it also removes the VLAN tag.
--                       /* Extract the frame data without the VLAN header. */
--                       skb_copy_to_linear_data(skb, data, (2 * ETH_ALEN));
--                       if (vlan_packet_rcvd)
--                               payload_offset = (2 * ETH_ALEN) + VLAN_HLEN;
--                       skb_copy_to_linear_data_offset(skb, (2 * ETH_ALEN),
--                                                      data + payload_offset,
--                                                      pkt_len - 4 - (2 * ETH_ALEN));
-
-
-Does there have un-correct points ? I did run some VLAN test pass.
-
-Regards,
-Andy
+Applied and queued up for -stable, thanks.
