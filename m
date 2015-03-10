@@ -1,61 +1,48 @@
-From: Yongbae Park <yongbae2@gmail.com>
-Subject: [PATCH] net: WIZnet drivers: enable interrupts after napi_complete()
-Date: Tue, 10 Mar 2015 11:35:07 +0900
-Message-ID: <1425954907-30417-1-git-send-email-yongbae2@gmail.com>
-Cc: davem@davemloft.net, nicolas.ferre@atmel.com, tklauser@distanz.ch,
-	wsa@the-dreams.de, varkabhadram@gmail.com, netdev@vger.kernel.org
-To: msink@permonline.ru
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tipc: fix undefined __ipv6_sock_mc_join
+ compile error
+Date: Mon, 09 Mar 2015 22:37:28 -0400 (EDT)
+Message-ID: <20150309.223728.1949540375176208819.davem@davemloft.net>
+References: <1425953333-31403-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	erik.hugne@ericsson.com, fengguang.wu@intel.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	kbuild-all@01.org
+To: ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34451 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbbCJCeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:34:11 -0400
-Received: by paceu11 with SMTP id eu11so63475892pac.1
-        for <netdev@vger.kernel.org>; Mon, 09 Mar 2015 19:34:11 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:43701 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752122AbbCJChc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Mar 2015 22:37:32 -0400
+In-Reply-To: <1425953333-31403-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The interrupt is enabled before napi_complete(). A network timeout
-occurs if the interrupt handler is called before napi_complete().
+From: Ying Xue <ying.xue@windriver.com>
+Date: Tue, 10 Mar 2015 10:08:52 +0800
 
-Fix the bug by enabling the interrupt after napi_complete().
+> When CONFIG_IPV6 option is disabled, below compile error appears while
+> building TIPC module:
+> 
+> ERROR: "__ipv6_sock_mc_join" [net/tipc/tipc.ko] undefined!
+> make[1]: *** [__modpost] Error 1
+> make: *** [net/tipc/tipc.ko] Error 1
+> 
+> This is because we don't check whether or not the CONFIG_IPV6 is
+> enabled when calling __ipv6_sock_mc_join().
+> 
+> Fixes: d0f91938bede ("tipc: add ip/udp media type")
+> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
+> Cc: Kbuild test robot <kbuild-all@01.org>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
-Signed-off-by: Yongbae Park <yongbae2@gmail.com>
----
- drivers/net/ethernet/wiznet/w5100.c | 4 ++--
- drivers/net/ethernet/wiznet/w5300.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Unfortunately, that's not sufficient.
 
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index a495931..43daa6a 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -498,9 +498,9 @@ static int w5100_napi_poll(struct napi_struct *napi, int budget)
- 	}
- 
- 	if (rx_count < budget) {
--		w5100_write(priv, W5100_IMR, IR_S0);
--		mmiowb();
- 		napi_complete(napi);
-+		w5100_write(priv, W5100_IMR, IR_S0);
-+		mmiowb();		
- 	}
- 
- 	return rx_count;
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
-index 09322d9..4b31000 100644
---- a/drivers/net/ethernet/wiznet/w5300.c
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -418,9 +418,9 @@ static int w5300_napi_poll(struct napi_struct *napi, int budget)
- 	}
- 
- 	if (rx_count < budget) {
-+		napi_complete(napi);
- 		w5300_write(priv, W5300_IMR, IR_S0);
- 		mmiowb();
--		napi_complete(napi);
- 	}
- 
- 	return rx_count;
--- 
-1.9.1
+You also need Kconfig guards to prevent building TIPC=y,
+TIPC_MEDIA_UDP=y, and IPV6=m which will not work.
+
+Look at other users of ipv6_*() interface, such as L2TP.
+You need a dependency like (IPV6 || IPV6=n).
