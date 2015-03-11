@@ -1,45 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Wed, 11 Mar 2015 13:20:52 -0400 (EDT)
-Message-ID: <20150311.132052.205877953171712952.davem@davemloft.net>
-References: <55003666.3020100@oracle.com>
-	<20150311084034.04ce6801@grimm.local.home>
-	<55004595.7020304@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <55004595.7020304@oracle.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH 1/2 RFC] ath10k: move code out of the parameter list
+Date: Wed, 11 Mar 2015 13:19:29 -0400
+Message-ID: <1426094369-10213-1-git-send-email-hofrat@osadl.org>
+Cc: Valdis.Kletnieks@vt.edu, Bj??rn Mork <bjorn@mork.no>,
+	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.osadl.org ([62.245.132.105]:58035 "EHLO www.osadl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750820AbbCKRYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 13:24:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Wed, 11 Mar 2015 09:39:33 -0400
+Putting code into the parameter list of wait_event_timeout() might be 
+legal C-code but not really readable - the "inline" code is simply
+moved into a function and that passed to wait_event_timeout() as the
+condition.
 
-> On 03/11/2015 08:40 AM, Steven Rostedt wrote:
->> On Wed, 11 Mar 2015 08:34:46 -0400
->> Sasha Levin <sasha.levin@oracle.com> wrote:
->> 
->>> > Fair enough. We knew there are existing kmemcheck users, but KASan should be
->>> > superior both in performance and the scope of bugs it finds. It also shouldn't
->>> > impose new limitations beyond requiring gcc 4.9.2+.
->>> >
->> Ouch! OK, then I can't use it. I'm currently compiling with gcc 4.6.3.
->> 
->> It will be a while before I upgrade my build farm to something newer.
-> 
-> Are you actually compiling new kernels with 4.6.3, or are you using older
-> kernels as well?
-> 
-> There's no real hurry to kill kmemcheck right now, but we do want to stop
-> supporting that in favour of KASan.
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-Is the spectrum of CPU's supported by this GCC feature equal to all of the
-CPU's supported by the kernel right now?
+Thanks to Bjorn Mork <bjorn@mork.no> for clarifying my initial confusion !
 
-If not, removing kmemcheck will always be a regression for someone.
+Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+CONFIG_ATH10K=m
+
+Patch is against 4.0-rc3 (localversion-next is -next-20150311)
+
+ drivers/net/wireless/ath/ath10k/mac.c |   32 ++++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
+index e8cc19f..7b27d99 100644
+--- a/drivers/net/wireless/ath/ath10k/mac.c
++++ b/drivers/net/wireless/ath/ath10k/mac.c
+@@ -4463,11 +4463,25 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
+ 	return ret;
+ }
+ 
++static bool check_htt_state(struct ath10k *ar, bool skip)
++{
++	bool empty;
++
++	spin_lock_bh(&ar->htt.tx_lock);
++	empty = (ar->htt.num_pending_tx == 0);
++	spin_unlock_bh(&ar->htt.tx_lock);
++
++	skip = (ar->state == ATH10K_STATE_WEDGED) ||
++		test_bit(ATH10K_FLAG_CRASH_FLUSH,
++			 &ar->dev_flags);
++	return (empty || skip);
++}
++
+ static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 			 u32 queues, bool drop)
+ {
+ 	struct ath10k *ar = hw->priv;
+-	bool skip;
++	bool skip = false;
+ 	int ret;
+ 
+ 	/* mac80211 doesn't care if we really xmit queued frames or not
+@@ -4480,19 +4494,9 @@ static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 	if (ar->state == ATH10K_STATE_WEDGED)
+ 		goto skip;
+ 
+-	ret = wait_event_timeout(ar->htt.empty_tx_wq, ({
+-			bool empty;
+-
+-			spin_lock_bh(&ar->htt.tx_lock);
+-			empty = (ar->htt.num_pending_tx == 0);
+-			spin_unlock_bh(&ar->htt.tx_lock);
+-
+-			skip = (ar->state == ATH10K_STATE_WEDGED) ||
+-			       test_bit(ATH10K_FLAG_CRASH_FLUSH,
+-					&ar->dev_flags);
+-
+-			(empty || skip);
+-		}), ATH10K_FLUSH_TIMEOUT_HZ);
++	ret = wait_event_timeout(ar->htt.empty_tx_wq,
++				 check_htt_state(ar, skip),
++				 ATH10K_FLUSH_TIMEOUT_HZ);
+ 
+ 	if (ret <= 0 || skip)
+ 		ath10k_warn(ar, "failed to flush transmit queue (skip %i ar-state %i): %i\n",
+-- 
+1.7.10.4
