@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next v3 1/2] net: implement dma cache skb allocator
-Date: Wed, 11 Mar 2015 06:55:58 -0700
-Message-ID: <5500496E.1060701@gmail.com>
-References: <1426009384-11544-1-git-send-email-_govind@gmx.com> <1426009384-11544-2-git-send-email-_govind@gmx.com> <54FF5521.5000007@redhat.com> <alpine.LNX.2.03.1503111359280.3394@ws.cisco>
+Subject: Re: [PATCH net-next v3 2/2] enic: use netdev_dma_alloc
+Date: Wed, 11 Mar 2015 07:00:19 -0700
+Message-ID: <55004A73.3040904@gmail.com>
+References: <1426009384-11544-1-git-send-email-_govind@gmx.com> <1426009384-11544-3-git-send-email-_govind@gmx.com> <54FF50B0.3080900@redhat.com> <alpine.LNX.2.03.1503111428210.3394@ws.cisco>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -11,65 +11,79 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
 To: Govindarajulu Varadarajan <_govind@gmx.com>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:41394 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbbCKN4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 09:56:01 -0400
-Received: by pdjy10 with SMTP id y10so11402544pdj.8
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 06:56:00 -0700 (PDT)
-In-Reply-To: <alpine.LNX.2.03.1503111359280.3394@ws.cisco>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:32883 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856AbbCKOAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 10:00:22 -0400
+Received: by igbhl2 with SMTP id hl2so36942590igb.0
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 07:00:21 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.03.1503111428210.3394@ws.cisco>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2015 01:57 AM, Govindarajulu Varadarajan wrote:
+On 03/11/2015 02:27 AM, Govindarajulu Varadarajan wrote:
+>
 > On Tue, 10 Mar 2015, Alexander Duyck wrote:
 >
 >>
 >> On 03/10/2015 10:43 AM, Govindarajulu Varadarajan wrote:
->>> This patch implements dma cache skb allocator. This is based on
->>> __alloc_page_frag & __page_frag_refill implementation in
->>> net/core/skbuff.c
+>>> This patches uses dma cache skb allocator fot rx buffers.
 >>>
->>> In addition to frag allocation from order(3) page in __alloc_page_frag,
->>> we also maintain dma address of the page. While allocating a frag
->>> for skb
->>> we use va + offset for virtual address of the frag, and pa + offset for
->>> dma address of the frag. This reduces the number of calls to
->>> dma_map() by 1/3
->>> for 9000 bytes and by 1/20 for 1500 bytes.
+>>> netdev_dma_head is initialized per rq. All calls to
+>>> netdev_dma_alloc_skb() and
+>>> netdev_dma_frag_unmap() happens in napi_poll and they are serialized.
 >>>
->>> __alloc_page_frag is limited to max buffer size of PAGE_SIZE, i.e
->>> 4096 in most
->>> of the cases. So 9k buffer allocation goes through kmalloc which return
->>> page of order 2, 16k. We waste 7k bytes for every 9k buffer.
+>>> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 >>
->> The question I would have is do you actually need to have the 9k
->> buffer? Does the hardware support any sort of scatter-gather
->> receive?  If so that would be preferable as the 9k allocation per skb
->> will have significant overhead when you start receiving small packets.
->>
->
-> enic hw has limited desc per rq (4096), and we can have only one dma
-> block per
-> desc. Having sg/header-split will reduce the effective rq ring size for
-> large packets.
-
-Yes, so?  In the case of the Intel driver they default to only 512
-descriptors per ring with a size of 2K per descriptor.  Are you saying
-the latency for your interrupt processing is so high that you need to
-buffer 9k per descriptor in order to achieve line rate?
-
->
->> A classic example is a TCP flow where you are only receiving a few
->> hundred bytes per frame.  You will take a huge truesize penalty for
->> allocating a 9k skb for a frame of only a few hundred bytes, though
->> it sounds like you are taking that hit already.
+>> This isn't going to work. The problem is the way you are using your
+>> fragments you can end up with a memory corruption as the frame
+>> headers that were updated by the stack may be reverted for any frames
+>> received before the last frame was unmapped.  I ran into that issue
+>> when I was doing page reuse with build_skb on the Intel drivers and I
+>> suspect you will see the same issue.
 >>
 >
-> For this we have rx copybreak for pkts < 256 bytes.
+> Is this behaviour platform dependent? I tested this patch for more
+> than a month
+> and I did not face any issue. I ran normal traffic like ssh, nfs and
+> iperf/netperf.
+> Is there a special scenario when this could occur?
 
-That definitely helps but still leaves you open since a 257 byte packet
-would be consuming 9K in that case.  Also standard flows with frames of
-1514 still take a hard hit with a receive buffer size of 9K.
+Yes it depends on the platform and IOMMU used.  For an example take a
+loot at the SWIOTLB implementation.  I always assumed if I can work with
+that when it is doing bounce buffers I can work with any IOMMU or platform.
+
+>
+> Will using DMA_BIDIRECTIONAL and sync_to_cpu & sync_to_device solve this?
+> Each desc should have different dma address to write to. Can you
+> explain me how
+> this can happen?
+
+No that won't help.  The issue is that when the page is mapped you
+should not be updating any fields in the page until it is unmapped. 
+Since you have multiple buffers mapped to a single page you should be
+waiting until the entire page is unmapped.
+
+>
+>> The way to work around it is to receive the data in to the fragments,
+>> and then pull the headers out and store them in a separate skb via
+>> something similar to copy-break.  You can then track the fragments in
+>> frags.
+>>
+>
+> If I split the pkt header into another frame, is it guaranteed that
+> stack will
+> not modify the pkt data?
+
+Paged fragments in the frags list use the page count to determine if
+they can update it.  The problem is you cannot use a shared page as
+skb->head if you plan to do any DMA mapping with it as it can cause
+issues if you change any of the fields before it is unmapped.
+
+>
+> Thanks a lot for reviewing this patch.
+
+No problem.  Just glad I saw this before you had to go though reverting
+your stuff like I did.
 
 - Alex
