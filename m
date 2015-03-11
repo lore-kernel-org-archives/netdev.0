@@ -1,57 +1,75 @@
-From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Subject: Re: [PATCH net-next v4 0/3] Linn Ethernet Packet Sniffer driver
-Date: Wed, 11 Mar 2015 11:20:59 +0000
-Message-ID: <5500251B.8010900@linn.co.uk>
-References: <cover.1424796018.git.stathis.voukelatos@linn.co.uk> <20150225151945.GB7703@localhost.localdomain> <20150225170127.GD7703@localhost.localdomain> <54EE0268.2040201@linn.co.uk> <20150225173053.GE7703@localhost.localdomain> <54F0A4C4.3020407@linn.co.uk> <20150227181447.GA11594@localhost.localdomain> <54F98660.5070805@linn.co.uk> <20150306152239.GC26349@localhost.localdomain>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH v2 3/3] NFC: nxp-nci_i2c: Add I2C support to NXP NCI
+ driver
+Date: Wed, 11 Mar 2015 12:22:43 +0100
+Message-ID: <1426072963.4244.100.camel@x220>
+References: <1425895925-20593-1-git-send-email-clement.perrochaud@effinnov.com>
+	 <1425895925-20593-4-git-send-email-clement.perrochaud@effinnov.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150306152239.GC26349@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Dave Jones <davej@codemonkey.org.uk>, linux-nfc@lists.01.org,
+	=?ISO-8859-1?Q?Cl=E9ment?= Perrochaud
+	<clement.perrochaud@nxp.com>, sunil.jogi@nxp.com,
+	jerome.pele@nxp.com, Charles.Gorand-Effinnov@nxp.com,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, davem@davemloft.net, grant.likely@linaro.org,
+	lefrique@marvell.com, christophe.ricard@gmail.com,
+	cuissard@marvell.com, bzhao@marvell.com, hirent@marvell.com,
+	akarwar@marvell.com, linux-wireless@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, anda-maria.nicolae@intel.com
+To: clement.perrochaud@effinnov.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cpsmtpb-ews03.kpnxchange.com ([213.75.39.6]:51731 "EHLO
+	cpsmtpb-ews03.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751378AbbCKLWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 07:22:47 -0400
+In-Reply-To: <1425895925-20593-4-git-send-email-clement.perrochaud@effinnov.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+On Mon, 2015-03-09 at 11:12 +0100, clement.perrochaud@effinnov.com
+wrote:
+> --- /dev/null
+> +++ b/drivers/nfc/nxp-nci/i2c.c
+> @@ -0,0 +1,415 @@
+> +/*
+> + * I2C link layer for the NXP NCI driver
+> + *
+> + * Copyright (C) 2014  NXP Semiconductors  All rights reserved.
+> + *
+> + * Authors: Cl=C3=A9ment Perrochaud <clement.perrochaud@nxp.com>
+> + *
+> + * Derived from PN544 device driver:
+> + * Copyright (C) 2012  Intel Corporation. All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or mod=
+ify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, see <http://www.gnu.org/licenses=
+/>.
+> + */
 
-On 06/03/15 15:22, Richard Cochran wrote:
-> I don't really know what the problem here is.  Yes, there is some
-> networking configuration that you need to do when administering a
-> network using PTP protocols.  But these protocols (1588 aka PTP, and
-> 802.1AS aka gPTP) do offer means for dealing with this.  In
-> particular, there is no danger mixing 1588 devices with audio devices,
-> because the gPTP protocol uses a different transport flag.
->
-> In any case, this has nothing at all to do with the kernel interface.
+This states the license is GPL v2.
 
-Our feeling is that we will have to test and verify that a move to gPTP
-will fit with the use cases that we have to support and that will
-require a fair amount of effort and rewrite of application software.
-If the driver is not acceptable with the current interface we may need
-to maintain it as a private patch until we are ready to move to gPTP
-as you recommend.
+> +MODULE_LICENSE("GPL");
 
->
-> If you want to try and integrate your custom protocols into the
-> networking stack, by all means please post them.  I would certainly
-> support expanding the time stamping interface to include your
-> protocol's packet types (like adding them to hwtstamp_rx_filters).
-> Maybe that would be enough for you?
+So you probably want
+    MODULE_LICENSE("GPL v2");
 
-I was referring to the Songcast protocol we are using which is part
-of the OpenHome suite (www.openhome.org) and runs on top of UDP.
-It could be filtered by testing the first 5 bytes of the payload.
-In our implementation we also add the destination IP and port to
-the filter to make it more reliable, but hwtstamp_rx_filters cannot
-accept parameters. However, I will test that and maybe come back with
-a patch to expand the hwtstamp_rx_filter enum initially?
+here.
 
->
-> Thanks,
-> Richard
->
 
-Thank you,
-Stathis
+Paul Bolle
