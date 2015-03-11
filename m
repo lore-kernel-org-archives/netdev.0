@@ -1,185 +1,44 @@
-From: Priit Laes <plaes@plaes.org>
-Subject: [PATCH 1/6] rtlwifi: Use common rtl_query_rxpwrpercentage function
-Date: Wed, 11 Mar 2015 22:03:24 +0200
-Message-ID: <1426104209-6913-2-git-send-email-plaes@plaes.org>
-References: <1426104209-6913-1-git-send-email-plaes@plaes.org>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Priit Laes <plaes@plaes.org>
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why do we prefer skb->priority to tc filters?
+Date: Wed, 11 Mar 2015 13:09:42 -0700
+Message-ID: <1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
+	 <CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
+	 <1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plaes.org ([188.166.43.21]:51902 "EHLO plaes.org"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752297AbbCKUDr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 16:03:47 -0400
-In-Reply-To: <1426104209-6913-1-git-send-email-plaes@plaes.org>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:35855 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbbCKUJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:09:44 -0400
+Received: by igkb16 with SMTP id b16so43591606igk.1
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 13:09:44 -0700 (PDT)
+In-Reply-To: <CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Priit Laes <plaes@plaes.org>
----
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.c | 14 ++------------
- drivers/net/wireless/rtlwifi/rtl8192cu/mac.c | 16 +++-------------
- drivers/net/wireless/rtlwifi/rtl8192de/trx.c | 16 +++-------------
- drivers/net/wireless/rtlwifi/stats.c         |  4 ++--
- 4 files changed, 10 insertions(+), 40 deletions(-)
+On Wed, 2015-03-11 at 12:18 -0700, Cong Wang wrote:
+> This is exactly why I am asking, kernel respects user's choice so much
+> that it could override even both cgroup prio and tc filters, I don't know
+> what is the reason behind, but this means our tc filters can not work
+> with an application which sets skb->priority. For example, our tc filters
+> classify the packets from this socket into flow 1:1, but application
+> sets 1:2 by itself...
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-index 84ddd4d..4eedf39 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-@@ -49,16 +49,6 @@ static u8 _rtl92ce_map_hwqueue_to_fwqueue(struct sk_buff *skb, u8 hw_queue)
- 	return skb->priority;
- }
- 
--static u8 _rtl92c_query_rxpwrpercentage(char antpower)
--{
--	if ((antpower <= -100) || (antpower >= 20))
--		return 0;
--	else if (antpower >= 0)
--		return 100;
--	else
--		return 100 + antpower;
--}
--
- static u8 _rtl92c_evm_db_to_percentage(char value)
- {
- 	char ret_val;
-@@ -236,7 +226,7 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 			rx_pwr[i] =
- 			    ((p_drvinfo->gain_trsw[i] & 0x3f) * 2) - 110;
- 			/* Translate DBM to percentage. */
--			rssi = _rtl92c_query_rxpwrpercentage(rx_pwr[i]);
-+			rssi = rtl_query_rxpwrpercentage(rx_pwr[i]);
- 			total_rssi += rssi;
- 			/* Get Rx snr value in DB */
- 			rtlpriv->stats.rx_snr_db[i] =
-@@ -251,7 +241,7 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 		 * hardware (for rate adaptive)
- 		 */
- 		rx_pwr_all = ((p_drvinfo->pwdb_all >> 1) & 0x7f) - 110;
--		pwdb_all = _rtl92c_query_rxpwrpercentage(rx_pwr_all);
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
- 		pstats->rx_pwdb_all = pwdb_all;
- 		pstats->rxpower = rx_pwr_all;
- 		pstats->recvsignalpower = rx_pwr_all;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c b/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
-index 133e395..f55b35c 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
-@@ -714,16 +714,6 @@ void rtl92c_set_data_filter(struct ieee80211_hw *hw, u16 filter)
- }
- /*==============================================================*/
- 
--static u8 _rtl92c_query_rxpwrpercentage(char antpower)
--{
--	if ((antpower <= -100) || (antpower >= 20))
--		return 0;
--	else if (antpower >= 0)
--		return 100;
--	else
--		return 100 + antpower;
--}
--
- static u8 _rtl92c_evm_db_to_percentage(char value)
- {
- 	char ret_val;
-@@ -838,7 +828,7 @@ static void _rtl92c_query_rxphystatus(struct ieee80211_hw *hw,
- 				break;
- 			}
- 		}
--		pwdb_all = _rtl92c_query_rxpwrpercentage(rx_pwr_all);
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
- 		pstats->rx_pwdb_all = pwdb_all;
- 		pstats->recvsignalpower = rx_pwr_all;
- 		if (packet_match_bssid) {
-@@ -866,7 +856,7 @@ static void _rtl92c_query_rxphystatus(struct ieee80211_hw *hw,
- 				rf_rx_num++;
- 			rx_pwr[i] =
- 			    ((p_drvinfo->gain_trsw[i] & 0x3f) * 2) - 110;
--			rssi = _rtl92c_query_rxpwrpercentage(rx_pwr[i]);
-+			rssi = rtl_query_rxpwrpercentage(rx_pwr[i]);
- 			total_rssi += rssi;
- 			rtlpriv->stats.rx_snr_db[i] =
- 			    (long)(p_drvinfo->rxsnr[i] / 2);
-@@ -875,7 +865,7 @@ static void _rtl92c_query_rxphystatus(struct ieee80211_hw *hw,
- 				pstats->rx_mimo_signalstrength[i] = (u8) rssi;
- 		}
- 		rx_pwr_all = ((p_drvinfo->pwdb_all >> 1) & 0x7f) - 110;
--		pwdb_all = _rtl92c_query_rxpwrpercentage(rx_pwr_all);
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
- 		pstats->rx_pwdb_all = pwdb_all;
- 		pstats->rxpower = rx_pwr_all;
- 		pstats->recvsignalpower = rx_pwr_all;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/trx.c b/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-index 1feaa62..54736dd 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-@@ -48,16 +48,6 @@ static u8 _rtl92de_map_hwqueue_to_fwqueue(struct sk_buff *skb, u8 hw_queue)
- 	return skb->priority;
- }
- 
--static u8 _rtl92d_query_rxpwrpercentage(char antpower)
--{
--	if ((antpower <= -100) || (antpower >= 20))
--		return 0;
--	else if (antpower >= 0)
--		return 100;
--	else
--		return 100 + antpower;
--}
--
- static u8 _rtl92d_evm_db_to_percentage(char value)
- {
- 	char ret_val = value;
-@@ -181,7 +171,7 @@ static void _rtl92de_query_rxphystatus(struct ieee80211_hw *hw,
- 				break;
- 			}
- 		}
--		pwdb_all = _rtl92d_query_rxpwrpercentage(rx_pwr_all);
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
- 		/* CCK gain is smaller than OFDM/MCS gain,  */
- 		/* so we add gain diff by experiences, the val is 6 */
- 		pwdb_all += 6;
-@@ -223,7 +213,7 @@ static void _rtl92de_query_rxphystatus(struct ieee80211_hw *hw,
- 				rf_rx_num++;
- 			rx_pwr[i] = ((p_drvinfo->gain_trsw[i] & 0x3f) * 2)
- 				    - 110;
--			rssi = _rtl92d_query_rxpwrpercentage(rx_pwr[i]);
-+			rssi = rtl_query_rxpwrpercentage(rx_pwr[i]);
- 			total_rssi += rssi;
- 			rtlpriv->stats.rx_snr_db[i] =
- 					 (long)(p_drvinfo->rxsnr[i] / 2);
-@@ -231,7 +221,7 @@ static void _rtl92de_query_rxphystatus(struct ieee80211_hw *hw,
- 				pstats->rx_mimo_signalstrength[i] = (u8) rssi;
- 		}
- 		rx_pwr_all = ((p_drvinfo->pwdb_all >> 1) & 0x7f) - 106;
--		pwdb_all = _rtl92d_query_rxpwrpercentage(rx_pwr_all);
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
- 		pstats->rx_pwdb_all = pwdb_all;
- 		pstats->rxpower = rx_pwr_all;
- 		pstats->recvsignalpower = rx_pwr_all;
-diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
-index 2d0736a..874e7d1 100644
---- a/drivers/net/wireless/rtlwifi/stats.c
-+++ b/drivers/net/wireless/rtlwifi/stats.c
-@@ -26,14 +26,14 @@
- #include "stats.h"
- #include <linux/export.h>
- 
-+/* TODO: Figure out a better name */
- u8 rtl_query_rxpwrpercentage(char antpower)
- {
- 	if ((antpower <= -100) || (antpower >= 20))
- 		return 0;
- 	else if (antpower >= 0)
- 		return 100;
--	else
--		return 100 + antpower;
-+	return 100 + antpower;
- }
- EXPORT_SYMBOL(rtl_query_rxpwrpercentage);
- 
--- 
-2.3.1
+Application cannot set whatever skb->priority, unless it really knows
+better than kernel.
+
+        case SO_PRIORITY:
+                if ((val >= 0 && val <= 6) ||
+                    ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+                        sk->sk_priority = val;
+                else
+                        ret = -EPERM;
+                break;
