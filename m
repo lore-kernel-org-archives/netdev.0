@@ -1,44 +1,45 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 2/2 net-next] hyperv: Support batched notification
-Date: Wed, 11 Mar 2015 17:45:02 +0000
-Message-ID: <BY2PR0301MB07115FFD6E62E07CBAB0AED0A0190@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1426013383-2853-1-git-send-email-kys@microsoft.com>
- <1426013404-2892-1-git-send-email-kys@microsoft.com>
- <1426013404-2892-2-git-send-email-kys@microsoft.com>
- <20150311092354.GA13144@aepfle.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150311092354.GA13144@aepfle.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V2 0/3 net-next] hyperv: Enable batched notification
+Date: Wed, 11 Mar 2015 12:03:55 -0700
+Message-ID: <1426100635-9508-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
+	gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:45808
+	"EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750949AbbCKRr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 13:47:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
-aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogV2VkbmVzZGF5LCBNYXJjaCAxMSwgMjAxNSAy
-OjI0IEFNDQo+IFRvOiBLWSBTcmluaXZhc2FuDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBncmVna2hAbGludXhmb3VuZGF0aW9uLm9yZzsgbGlu
-dXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9y
-ZzsgYXB3QGNhbm9uaWNhbC5jb207IGphc293YW5nQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6
-IFtQQVRDSCAyLzIgbmV0LW5leHRdIGh5cGVydjogU3VwcG9ydCBiYXRjaGVkIG5vdGlmaWNhdGlv
-bg0KPiANCj4gT24gVHVlLCBNYXIgMTAsIEsuIFkuIFNyaW5pdmFzYW4gd3JvdGU6DQo+IA0KPiA+
-IE9wdGltaXplIG5vdGlmeWluZyB0aGUgaG9zdCBieSBkZWZlcnJpbmcgbm90aWZpY2F0aW9uIHVu
-dGlsIHRoZXJlIGFyZQ0KPiA+IG5vIG1vcmUgcGFja2V0cyB0byBiZSBzZW50LiBUaGlzIHdpbGwg
-aGVscCBpbiBiYXRjaGluZyB0aGUgcmVxdWVzdHMgb24NCj4gPiB0aGUgaG9zdC4NCj4gDQo+IFRo
-ZSBzdWJqZWN0cyBmb3IgdGhlIG5ldHdvcmsgZHJpdmVyIHNheSAiaHlwZXJ2OiIuIEJ1dCBhbGwg
-c3VjaCBjaGFuZ2VzDQo+IHNob3VsZCBnZXQgIm5ldHZzYzoiIGFzIHByZWZpeCB0byBtYWtlIGl0
-IGNsZWFyIHdoYXQgZWFjaCBzaW5nbGUgcGF0Y2ggaXMgYWxsDQo+IGFib3V0Lg0KPiANCj4gVGhp
-cyBzaG91bGQgYmUgY2hhbmdlZCBmb3IgdXBjb21pbmcgc3VibWlzc2lvbnMuDQoNCk9sYWYsDQpU
-aGlzIGlzIHRoZSBjb252ZW50aW9uIHRoYXQgd2UgaGF2ZSB1c2VkIGZvciBwYXRjaGVzIHN1Ym1p
-dHRlZCB0byBEYXZpZCdzIHRyZWUuIFlvdSB3aWxsIHNlZQ0KbmV0LW5leHQgaW4gdGhlIHN1Ympl
-Y3QgbGluZSBhbmQgeW91IGNhbiBrZXkgb2ZmIG9mIHRoYXQuDQoNCksuIFkNCj4gDQo+IFRoYW5r
-cyENCj4gDQo+IE9sYWYNCg==
+Take into consideration the xmit_more flag in skb to decide if we should
+notify the host as we place packets in VMBUS.
+
+The VMBUS API that would give us this control is already in Greg's tree, in this
+patch-set, that API is exported so it can be used in the netvsc driver.
+
+Also included here is a siganlling related fix in the vmbus driver that is
+exposed by the netvsc driver. I would like to thank
+Jason Wang <jasowang@redhat.com> for pointing out this issue.
+
+This version of the patch-set, adds an additional patch to fix the
+signalling issue.
+
+K. Y. Srinivasan (3):
+  Drivers: hv: vmbus: Export the vmbus_sendpacket_pagebuffer_ctl()
+  Drivers: hv: vmbus: Fix a bug in the signalling logic with kick_q
+  hyperv: Support batched notification
+
+ drivers/hv/channel.c              |   33 +++++++++++++++++++++++++++++++++
+ drivers/net/hyperv/hyperv_net.h   |    2 +-
+ drivers/net/hyperv/netvsc.c       |   14 +++++++++-----
+ drivers/net/hyperv/netvsc_drv.c   |    3 ++-
+ drivers/net/hyperv/rndis_filter.c |    2 +-
+ 5 files changed, 46 insertions(+), 8 deletions(-)
+
+-- 
+1.7.4.1
