@@ -1,143 +1,61 @@
-From: Ulf Samuelsson <netdev@emagii.com>
-Subject: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Wed, 11 Mar 2015 21:28:47 +0100
-Message-ID: <1426105727-64654-1-git-send-email-netdev@emagii.com>
-Cc: Ulf Samuelsson <ulf@emagii.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxf3.bahnhof.se ([213.80.101.27]:51504 "EHLO mxf3.bahnhof.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751662AbbCKVBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 17:01:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ian Wilson <iwilson@brocade.com>
+Subject: [PATCH] netfilter: Zero the tuple in nfnl_cthelper_parse_tuple()
+Date: Wed, 11 Mar 2015 21:01:55 +0000
+Message-ID: <5500AD43.3070402@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: <pablo@netfilter.org>, <netfilter-devel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ulf Samuelsson <ulf@emagii.com>
+ From 0d63c5b06276d7946ba2f1f4aace4f0486ec74cf Mon Sep 17 00:00:00 2001
+From: Ian Wilson <iwilson@brocade.com>
+Date: Wed, 11 Mar 2015 20:34:21 +0000
+Subject: [PATCH] netfilter: Zero the tuple in nfnl_cthelper_parse_tuple()
 
-The neighbour state is changed in the ARP timer handler.
-If the state is changed to NUD_STALE, then the neighbour
-entry becomes a candidate for garbage collection.
+nfnl_cthelper_parse_tuple() is called from nfnl_cthelper_new(),
+nfnl_cthelper_get() and nfnl_cthelper_del().  In each case they pass
+a pointer to an nf_conntrack_tuple data structure local variable:
 
-The garbage collection is handled by a "periodic work" routine.
+     struct nf_conntrack_tuple tuple;
+     ...
+     ret = nfnl_cthelper_parse_tuple(&tuple, tb[NFCTH_TUPLE]);
 
-When :
+The problem is that this local variable is not initialized, and
+nfnl_cthelper_parse_tuple() only initializes two fields: src.l3num and
+dst.protonum.  This leaves all other fields with undefined values
+based on whatever is on the stack:
 
-	* noone refers to the entry
-	* the state is no longer valid (I.E: NUD_STALE).
-	* the timeout value has  been reached or state is FAILED
+     tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
+     tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
 
-the "periodic work" routine will notify
-the stack that the entry should be deleted.
+The symptom observed was that when the rpc and tns helpers were added
+then traffic to port 1536 was being sent to user-space.
 
-A user application monitoring and controlling the neighbour table
-using NETLINK may fail, if the "period work" routine is run
-directly after the state has been changed to NUD_STALE,
-but before the user application has had a chance to change
-the state to something valid.
-
-The "period work" routine will detect the NUD_STALE state
-and if the timeout value has been reached, it will notify the stack
-that the entry should be deleted.
-
-The patch adds a check in the periodic work routine
-which will skip test for garbage collection
-unless a number of ticks has passed since the last time
-the neighbour entry state was changed.
-
-The feature is controlled through Kconfig
-
-The featuree is enabled by setting ARP_GC_APPLY_GUARDBAND
-The guardband time (in ticks) is set in ARP_GC_GUARDBAND
-Default time is 100 ms if HZ_### is set.
-
-Signed-off-by: Ulf Samuelsson <ulf@emagii.com>
 ---
- net/Kconfig          |   32 ++++++++++++++++++++++++++++++++
- net/core/neighbour.c |   15 ++++++++++++---
- 2 files changed, 44 insertions(+), 3 deletions(-)
+  net/netfilter/nfnetlink_cthelper.c | 3 +++
+  1 file changed, 3 insertions(+)
 
-diff --git a/net/Kconfig b/net/Kconfig
-index 44dd578..099a5dd 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -77,6 +77,38 @@ config INET
- 	  Short answer: say Y.
- 
- if INET
+diff --git a/net/netfilter/nfnetlink_cthelper.c 
+b/net/netfilter/nfnetlink_cthelper.c
+index a5599fc..01f4c45 100644
+--- a/net/netfilter/nfnetlink_cthelper.c
++++ b/net/netfilter/nfnetlink_cthelper.c
+@@ -77,6 +77,9 @@ nfnl_cthelper_parse_tuple(struct nf_conntrack_tuple 
+*tuple,
+      if (!tb[NFCTH_TUPLE_L3PROTONUM] || !tb[NFCTH_TUPLE_L4PROTONUM])
+          return -EINVAL;
+
++     /* Not all fields are initialized so first zero the tuple */
++    memset(tuple, 0, sizeof(struct nf_conntrack_tuple));
 +
-+#
-+# Core Network configuration
-+#
-+
-+config ARP_GC_APPLY_GUARDBAND
-+	bool "IP: ARP: Avoid garbage collection directly after state change"
-+	default n
-+	---help---
-+	  With this item selected, an entry in the neighbour table
-+	  will not be garbage collected directly after the ARP state
-+	  has changed to STALE of FAILED
-+	  This allows an application program change the state to something valid
-+	  before garbage colllection occurs.
-+
-+	  If unsure, say N.
-+
-+config ARP_GC_GUARDBAND
-+	int "Guardband time on garbage collection"
-+	depends on ARP_GC_APPLY_GUARDBAND
-+	default 10 if HZ_100
-+	default 25 if HZ_250
-+	default 30 if HZ_300
-+	default 100 if HZ_1000
-+	default 100
-+
-+	---help---
-+	  The number of ticks to delay garbage collection
-+	  after the neighbour entry has been updated
-+	  A delay of 100 ms is reasonable.
-+	  With CONFIG_HZ = 250, this value should be 25
-+
- source "net/ipv4/Kconfig"
- source "net/ipv6/Kconfig"
- source "net/netlabel/Kconfig"
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 70fe9e1..194195d 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -786,13 +786,23 @@ static void neigh_periodic_work(struct work_struct *work)
- 
- 			state = n->nud_state;
- 			if (state & (NUD_PERMANENT | NUD_IN_TIMER)) {
--				write_unlock(&n->lock);
- 				goto next_elt;
- 			}
- 
- 			if (time_before(n->used, n->confirmed))
- 				n->used = n->confirmed;
- 
-+#if defined(CONFIG_ARP_GC_APPLY_GUARDBAND)
-+			/* Do not garbage collect directly after we
-+			 * updated n->state to allow applications to
-+			 * react to the event
-+			 */
-+			if (time_before(jiffies,
-+					n->updated + CONFIG_ARP_GC_GUARDBAND)) {
-+				goto next_elt;
-+			}
-+#endif
-+
- 			if (atomic_read(&n->refcnt) == 1 &&
- 			    (state == NUD_FAILED ||
- 			     time_after(jiffies, n->used + NEIGH_VAR(n->parms, GC_STALETIME)))) {
-@@ -802,9 +812,8 @@ static void neigh_periodic_work(struct work_struct *work)
- 				neigh_cleanup_and_release(n);
- 				continue;
- 			}
--			write_unlock(&n->lock);
--
- next_elt:
-+			write_unlock(&n->lock);
- 			np = &n->next;
- 		}
- 		/*
+      tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
+      tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
+
 -- 
-1.7.9.5
+1.9.1
+
+
