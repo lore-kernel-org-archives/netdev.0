@@ -1,347 +1,347 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: [PATCH RFC 4/4] crypto: algif - change algif_skcipher to be
- asynchronous
-Date: Wed, 11 Mar 2015 15:46:29 -0700
-Message-ID: <20150311224629.23777.96523.stgit@tstruk-mobl1>
-References: <20150311224607.23777.2181.stgit@tstruk-mobl1>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] net: add real socket cookies
+Date: Wed, 11 Mar 2015 15:56:48 -0700
+Message-ID: <1426114608.11398.94.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.175345.836846566788322568.davem@davemloft.net>
+	 <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-aio@kvack.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
-	viro@ZenIV.linux.org.uk, linux-fsdevel@vger.kernel.org, hch@lst.de,
-	linux-crypto@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20150311224607.23777.2181.stgit@tstruk-mobl1>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, salo@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:34492 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751375AbbCKW4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 18:56:50 -0400
+Received: by iecsl2 with SMTP id sl2so544851iec.1
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 15:56:49 -0700 (PDT)
+In-Reply-To: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tadeusz Struk <tadeusz.struk@intel.com>
+From: Eric Dumazet <edumazet@google.com>
 
-The way the algif_skcipher works currently is that on sendmsg/sendpage it
-builds an sgl for the input data and then on read/recvmsg it sends the job
-for encryption putting the user to sleep till the data is processed.
-This way it can only handle one job at a given time.
-This patch changes it to be asynchronous by adding AIO support.
+A long standing problem in netlink socket dumps is the use
+of kernel socket addresses as cookies.
 
-Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
+1) It is a security concern.
+
+2) Sockets can be reused quite quickly, so there is
+   no guarantee a cookie is used once and identify
+   a flow.
+
+3) request sock, establish sock, and timewait socks
+   for a given flow have different cookies.
+
+
+Part of our effort to bring better TCP statistics requires
+to switch to a different allocator.
+
+In this patch, I chose to use a per network namespace 64bit generator,
+and to use it only in the case a socket needs to be dumped to netlink.
+(This might be refined later if needed)
+
+Note that I tried to carry cookies from request sock, to establish sock,
+then timewait sockets.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Eric Salo <salo@google.com>
 ---
- crypto/algif_skcipher.c |  224 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 218 insertions(+), 6 deletions(-)
+v2: added a comment in inet_csk_clone_lock() and try to avoid
+atomic64_cmpxchg() after David feedback.
 
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index b9743dc..b259cbd 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -39,6 +39,7 @@ struct skcipher_ctx {
- 
- 	struct af_alg_completion completion;
- 
-+	atomic_t inflight;
- 	unsigned used;
- 
- 	unsigned int len;
-@@ -49,9 +50,65 @@ struct skcipher_ctx {
- 	struct ablkcipher_request req;
- };
- 
-+struct skcipher_async_rsgl {
-+	struct af_alg_sgl sgl;
-+	struct list_head list;
-+};
-+
-+struct skcipher_async_req {
-+	struct kiocb *iocb;
-+	struct skcipher_async_rsgl first_sgl;
-+	struct list_head list;
-+	struct scatterlist *tsg;
-+	char iv[];
-+};
-+
-+#define GET_SREQ(areq, ctx) (struct skcipher_async_req *)((char *)areq + \
-+	crypto_ablkcipher_reqsize(crypto_ablkcipher_reqtfm(&ctx->req)))
-+
-+#define GET_REQ_SIZE(ctx) \
-+	crypto_ablkcipher_reqsize(crypto_ablkcipher_reqtfm(&ctx->req))
-+
-+#define GET_IV_SIZE(ctx) \
-+	crypto_ablkcipher_ivsize(crypto_ablkcipher_reqtfm(&ctx->req))
-+
- #define MAX_SGL_ENTS ((4096 - sizeof(struct skcipher_sg_list)) / \
- 		      sizeof(struct scatterlist) - 1)
- 
-+static void skcipher_free_async_sgls(struct skcipher_async_req *sreq)
-+{
-+	struct skcipher_async_rsgl *rsgl, *tmp;
-+	struct scatterlist *sgl;
-+	struct scatterlist *sg;
-+	int i, n;
-+
-+	list_for_each_entry_safe(rsgl, tmp, &sreq->list, list) {
-+		af_alg_free_sg(&rsgl->sgl);
-+		if (rsgl != &sreq->first_sgl)
-+			kfree(rsgl);
-+	}
-+	sgl = sreq->tsg;
-+	n = sg_nents(sgl);
-+	for_each_sg(sgl, sg, n, i)
-+		put_page(sg_page(sg));
-+
-+	kfree(sreq->tsg);
-+}
-+
-+static void skcipher_async_cb(struct crypto_async_request *req, int err)
-+{
-+	struct sock *sk = req->data;
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct skcipher_ctx *ctx = ask->private;
-+	struct skcipher_async_req *sreq = GET_SREQ(req, ctx);
-+	struct kiocb *iocb = sreq->iocb;
-+
-+	atomic_dec(&ctx->inflight);
-+	skcipher_free_async_sgls(sreq);
-+	kfree(req);
-+	aio_complete(iocb, err, err);
-+}
-+
- static inline int skcipher_sndbuf(struct sock *sk)
- {
- 	struct alg_sock *ask = alg_sk(sk);
-@@ -96,7 +153,7 @@ static int skcipher_alloc_sgl(struct sock *sk)
- 	return 0;
- }
- 
--static void skcipher_pull_sgl(struct sock *sk, int used)
-+static void skcipher_pull_sgl(struct sock *sk, int used, int put)
- {
- 	struct alg_sock *ask = alg_sk(sk);
- 	struct skcipher_ctx *ctx = ask->private;
-@@ -123,8 +180,8 @@ static void skcipher_pull_sgl(struct sock *sk, int used)
- 
- 			if (sg[i].length)
- 				return;
--
--			put_page(sg_page(sg + i));
-+			if (put)
-+				put_page(sg_page(sg + i));
- 			sg_assign_page(sg + i, NULL);
- 		}
- 
-@@ -143,7 +200,7 @@ static void skcipher_free_sgl(struct sock *sk)
- 	struct alg_sock *ask = alg_sk(sk);
- 	struct skcipher_ctx *ctx = ask->private;
- 
--	skcipher_pull_sgl(sk, ctx->used);
-+	skcipher_pull_sgl(sk, ctx->used, 1);
- }
- 
- static int skcipher_wait_for_wmem(struct sock *sk, unsigned flags)
-@@ -424,6 +481,147 @@ unlock:
- 	return err ?: size;
- }
- 
-+static int skcipher_all_sg_nents(struct skcipher_ctx *ctx)
-+{
-+	struct skcipher_sg_list *sgl;
-+	struct scatterlist *sg;
-+	int nents = 0;
-+
-+	list_for_each_entry(sgl, &ctx->tsgl, list) {
-+		sg = sgl->sg;
-+
-+		while (!sg->length)
-+			sg++;
-+
-+		nents += sg_nents(sg);
-+	}
-+	return nents;
-+}
-+
-+static int skcipher_recvmsg_async(struct kiocb *iocb, struct socket *sock,
-+				  struct msghdr *msg, size_t ignored, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct skcipher_ctx *ctx = ask->private;
-+	struct skcipher_sg_list *sgl;
-+	struct scatterlist *sg;
-+	struct skcipher_async_req *sreq;
-+	struct ablkcipher_request *req;
-+	struct skcipher_async_rsgl *last_rsgl = NULL;
-+	unsigned int len = 0, tx_nents = skcipher_all_sg_nents(ctx);
-+	unsigned int reqlen = sizeof(struct skcipher_async_req) +
-+				GET_REQ_SIZE(ctx) + GET_IV_SIZE(ctx);
-+	int i = 0;
-+	int err = -ENOMEM;
-+
-+	lock_sock(sk);
-+	req = kmalloc(reqlen, GFP_KERNEL);
-+	if (unlikely(!req))
-+		goto unlock;
-+
-+	sreq = GET_SREQ(req, ctx);
-+	sreq->iocb = iocb;
-+	memset(&sreq->first_sgl, '\0', sizeof(struct skcipher_async_rsgl));
-+	INIT_LIST_HEAD(&sreq->list);
-+	sreq->tsg = kcalloc(tx_nents, sizeof(*sg), GFP_KERNEL);
-+	if (unlikely(!sreq->tsg)) {
-+		kfree(req);
-+		goto unlock;
-+	}
-+	sg_init_table(sreq->tsg, tx_nents);
-+	memcpy(sreq->iv, ctx->iv, GET_IV_SIZE(ctx));
-+	ablkcipher_request_set_tfm(req, crypto_ablkcipher_reqtfm(&ctx->req));
-+	ablkcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
-+					skcipher_async_cb, sk);
-+
-+	while (iov_iter_count(&msg->msg_iter)) {
-+		struct skcipher_async_rsgl *rsgl;
-+		unsigned long used;
-+
-+		if (!ctx->used) {
-+			err = skcipher_wait_for_data(sk, flags);
-+			if (err)
-+				goto free;
-+		}
-+		sgl = list_first_entry(&ctx->tsgl,
-+				       struct skcipher_sg_list, list);
-+		sg = sgl->sg;
-+
-+		while (!sg->length)
-+			sg++;
-+
-+		used = min_t(unsigned long, ctx->used,
-+			     iov_iter_count(&msg->msg_iter));
-+		used = min_t(unsigned long, used, sg->length);
-+
-+		if (i == tx_nents) {
-+			struct scatterlist *tmp;
-+			int x;
-+			/* Ran out of tx slots in async request
-+			 * need to expand */
-+			tmp = kcalloc(tx_nents * 2, sizeof(*tmp),
-+				      GFP_KERNEL);
-+			if (!tmp)
-+				goto free;
-+
-+			sg_init_table(tmp, tx_nents * 2);
-+			for (x = 0; x < tx_nents; x++)
-+				sg_set_page(&tmp[x], sg_page(&sreq->tsg[x]),
-+					    sreq->tsg[x].length,
-+					    sreq->tsg[x].offset);
-+			kfree(sreq->tsg);
-+			sreq->tsg = tmp;
-+			tx_nents *= 2;
-+		}
-+		/* Need to take over the tx sgl from ctx
-+		 * to the asynch req - these sgls will be freed later */
-+		sg_set_page(sreq->tsg + i++, sg_page(sg), sg->length,
-+			    sg->offset);
-+
-+		if (list_empty(&sreq->list)) {
-+			rsgl = &sreq->first_sgl;
-+			list_add_tail(&rsgl->list, &sreq->list);
-+		} else {
-+			rsgl = kzalloc(sizeof(*rsgl), GFP_KERNEL);
-+			if (!rsgl) {
-+				err = -ENOMEM;
-+				goto free;
-+			}
-+			list_add_tail(&rsgl->list, &sreq->list);
-+		}
-+
-+		used = af_alg_make_sg(&rsgl->sgl, &msg->msg_iter, used);
-+		err = used;
-+		if (used < 0)
-+			goto free;
-+		if (last_rsgl)
-+			af_alg_link_sg(&last_rsgl->sgl, &rsgl->sgl);
-+
-+		last_rsgl = rsgl;
-+		len += used;
-+		skcipher_pull_sgl(sk, used, 0);
-+		iov_iter_advance(&msg->msg_iter, used);
-+	}
-+
-+	ablkcipher_request_set_crypt(req, sreq->tsg, sreq->first_sgl.sgl.sg,
-+				     len, sreq->iv);
-+	err = ctx->enc ? crypto_ablkcipher_encrypt(req) :
-+			 crypto_ablkcipher_decrypt(req);
-+	if (err == -EINPROGRESS) {
-+		atomic_inc(&ctx->inflight);
-+		err = -EIOCBQUEUED;
-+		goto unlock;
-+	}
-+free:
-+	skcipher_free_async_sgls(sreq);
-+	kfree(req);
-+unlock:
-+	skcipher_wmem_wakeup(sk);
-+	release_sock(sk);
-+	return err;
-+}
-+
- static int skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
- 			    size_t ignored, int flags)
- {
-@@ -484,7 +682,7 @@ free:
- 			goto unlock;
- 
- 		copied += used;
--		skcipher_pull_sgl(sk, used);
-+		skcipher_pull_sgl(sk, used, 1);
- 		iov_iter_advance(&msg->msg_iter, used);
- 	}
- 
-@@ -497,7 +695,6 @@ unlock:
- 	return copied ?: err;
- }
- 
--
- static unsigned int skcipher_poll(struct file *file, struct socket *sock,
- 				  poll_table *wait)
- {
-@@ -537,6 +734,7 @@ static struct proto_ops algif_skcipher_ops = {
- 	.sendmsg	=	skcipher_sendmsg,
- 	.sendpage	=	skcipher_sendpage,
- 	.recvmsg	=	skcipher_recvmsg,
-+	.aio_recvmsg	=	skcipher_recvmsg_async,
- 	.poll		=	skcipher_poll,
- };
- 
-@@ -555,12 +753,25 @@ static int skcipher_setkey(void *private, const u8 *key, unsigned int keylen)
- 	return crypto_ablkcipher_setkey(private, key, keylen);
- }
- 
-+static void skcipher_wait(struct sock *sk)
-+{
-+	struct alg_sock *ask = alg_sk(sk);
-+	struct skcipher_ctx *ctx = ask->private;
-+	int ctr = 0;
-+
-+	while (atomic_read(&ctx->inflight) && ctr++ < 100)
-+		msleep(100);
-+}
-+
- static void skcipher_sock_destruct(struct sock *sk)
- {
- 	struct alg_sock *ask = alg_sk(sk);
- 	struct skcipher_ctx *ctx = ask->private;
- 	struct crypto_ablkcipher *tfm = crypto_ablkcipher_reqtfm(&ctx->req);
- 
-+	if (atomic_read(&ctx->inflight))
-+		skcipher_wait(sk);
-+
- 	skcipher_free_sgl(sk);
- 	sock_kzfree_s(sk, ctx->iv, crypto_ablkcipher_ivsize(tfm));
- 	sock_kfree_s(sk, ctx, ctx->len);
-@@ -592,6 +803,7 @@ static int skcipher_accept_parent(void *private, struct sock *sk)
- 	ctx->more = 0;
- 	ctx->merge = 0;
- 	ctx->enc = 0;
-+	atomic_set(&ctx->inflight, 0);
- 	af_alg_init_completion(&ctx->completion);
- 
- 	ask->private = ctx;
+ include/linux/sock_diag.h        |    4 +--
+ include/net/inet_sock.h          |    2 +
+ include/net/inet_timewait_sock.h |    1 
+ include/net/net_namespace.h      |    2 +
+ include/net/sock.h               |    3 ++
+ net/core/sock.c                  |    1 
+ net/core/sock_diag.c             |   37 +++++++++++++++++++++--------
+ net/dccp/ipv4.c                  |    2 +
+ net/ipv4/inet_connection_sock.c  |   11 +++++++-
+ net/ipv4/inet_diag.c             |   14 +++++++---
+ net/ipv4/inet_timewait_sock.c    |    1 
+ net/ipv4/syncookies.c            |    1 
+ net/ipv4/tcp_input.c             |    2 +
+ 13 files changed, 63 insertions(+), 18 deletions(-)
 
+diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+index b5ad7d35a636..083ac388098e 100644
+--- a/include/linux/sock_diag.h
++++ b/include/linux/sock_diag.h
+@@ -19,8 +19,8 @@ void sock_diag_unregister(const struct sock_diag_handler *h);
+ void sock_diag_register_inet_compat(int (*fn)(struct sk_buff *skb, struct nlmsghdr *nlh));
+ void sock_diag_unregister_inet_compat(int (*fn)(struct sk_buff *skb, struct nlmsghdr *nlh));
+ 
+-int sock_diag_check_cookie(void *sk, const __u32 *cookie);
+-void sock_diag_save_cookie(void *sk, __u32 *cookie);
++int sock_diag_check_cookie(struct sock *sk, const __u32 *cookie);
++void sock_diag_save_cookie(struct sock *sk, __u32 *cookie);
+ 
+ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
+ int sock_diag_put_filterinfo(bool may_report_filterinfo, struct sock *sk,
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index eb16c7beed1e..e565afdc14ad 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -77,6 +77,8 @@ struct inet_request_sock {
+ #define ir_v6_rmt_addr		req.__req_common.skc_v6_daddr
+ #define ir_v6_loc_addr		req.__req_common.skc_v6_rcv_saddr
+ #define ir_iif			req.__req_common.skc_bound_dev_if
++#define ir_cookie		req.__req_common.skc_cookie
++#define ireq_net		req.__req_common.skc_net
+ 
+ 	kmemcheck_bitfield_begin(flags);
+ 	u16			snd_wscale : 4,
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index 6c566034e26d..b7ce1003c429 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -122,6 +122,7 @@ struct inet_timewait_sock {
+ #define tw_v6_rcv_saddr    	__tw_common.skc_v6_rcv_saddr
+ #define tw_dport		__tw_common.skc_dport
+ #define tw_num			__tw_common.skc_num
++#define tw_cookie		__tw_common.skc_cookie
+ 
+ 	int			tw_timeout;
+ 	volatile unsigned char	tw_substate;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 2cb9acb618e9..e086f4030dd2 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -56,6 +56,8 @@ struct net {
+ #endif
+ 	spinlock_t		rules_mod_lock;
+ 
++	atomic64_t		cookie_gen;
++
+ 	struct list_head	list;		/* list of network namespaces */
+ 	struct list_head	cleanup_list;	/* namespaces on death row */
+ 	struct list_head	exit_list;	/* Use only net_mutex */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 250822cc1e02..d996c633bec2 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -199,6 +199,8 @@ struct sock_common {
+ 	struct in6_addr		skc_v6_rcv_saddr;
+ #endif
+ 
++	atomic64_t		skc_cookie;
++
+ 	/*
+ 	 * fields between dontcopy_begin/dontcopy_end
+ 	 * are not copied in sock_copy()
+@@ -329,6 +331,7 @@ struct sock {
+ #define sk_net			__sk_common.skc_net
+ #define sk_v6_daddr		__sk_common.skc_v6_daddr
+ #define sk_v6_rcv_saddr	__sk_common.skc_v6_rcv_saddr
++#define sk_cookie		__sk_common.skc_cookie
+ 
+ 	socket_lock_t		sk_lock;
+ 	struct sk_buff_head	sk_receive_queue;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 726e1f99aa8d..a9a9c2ff9260 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1538,6 +1538,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		newsk->sk_err	   = 0;
+ 		newsk->sk_priority = 0;
+ 		newsk->sk_incoming_cpu = raw_smp_processor_id();
++		atomic64_set(&newsk->sk_cookie, 0);
+ 		/*
+ 		 * Before updating sk_refcnt, we must commit prior changes to memory
+ 		 * (Documentation/RCU/rculist_nulls.txt for details)
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 96e70ee05a8d..74dddf84adcd 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -13,22 +13,39 @@ static const struct sock_diag_handler *sock_diag_handlers[AF_MAX];
+ static int (*inet_rcv_compat)(struct sk_buff *skb, struct nlmsghdr *nlh);
+ static DEFINE_MUTEX(sock_diag_table_mutex);
+ 
+-int sock_diag_check_cookie(void *sk, const __u32 *cookie)
++static u64 sock_gen_cookie(struct sock *sk)
+ {
+-	if ((cookie[0] != INET_DIAG_NOCOOKIE ||
+-	     cookie[1] != INET_DIAG_NOCOOKIE) &&
+-	    ((u32)(unsigned long)sk != cookie[0] ||
+-	     (u32)((((unsigned long)sk) >> 31) >> 1) != cookie[1]))
+-		return -ESTALE;
+-	else
++	while (1) {
++		u64 res = atomic64_read(&sk->sk_cookie);
++
++		if (res)
++			return res;
++		res = atomic64_inc_return(&sock_net(sk)->cookie_gen);
++		atomic64_cmpxchg(&sk->sk_cookie, 0, res);
++	}
++}
++
++int sock_diag_check_cookie(struct sock *sk, const __u32 *cookie)
++{
++	u64 res;
++
++	if (cookie[0] == INET_DIAG_NOCOOKIE && cookie[1] == INET_DIAG_NOCOOKIE)
+ 		return 0;
++
++	res = sock_gen_cookie(sk);
++	if ((u32)res != cookie[0] || (u32)(res >> 32) != cookie[1])
++		return -ESTALE;
++
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(sock_diag_check_cookie);
+ 
+-void sock_diag_save_cookie(void *sk, __u32 *cookie)
++void sock_diag_save_cookie(struct sock *sk, __u32 *cookie)
+ {
+-	cookie[0] = (u32)(unsigned long)sk;
+-	cookie[1] = (u32)(((unsigned long)sk >> 31) >> 1);
++	u64 res = sock_gen_cookie(sk);
++
++	cookie[0] = (u32)res;
++	cookie[1] = (u32)(res >> 32);
+ }
+ EXPORT_SYMBOL_GPL(sock_diag_save_cookie);
+ 
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index e45b968613a4..207281ae3536 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -641,6 +641,8 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq = inet_rsk(req);
+ 	ireq->ir_loc_addr = ip_hdr(skb)->daddr;
+ 	ireq->ir_rmt_addr = ip_hdr(skb)->saddr;
++	ireq->ireq_net = sock_net(sk);
++	atomic64_set(&ireq->ir_cookie, 0);
+ 
+ 	/*
+ 	 * Step 3: Process LISTEN state
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 14d02ea905b6..0873885ca43b 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -666,8 +666,9 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+ {
+ 	struct sock *newsk = sk_clone_lock(sk, priority);
+ 
+-	if (newsk != NULL) {
++	if (newsk) {
+ 		struct inet_connection_sock *newicsk = inet_csk(newsk);
++		u64 cookie;
+ 
+ 		newsk->sk_state = TCP_SYN_RECV;
+ 		newicsk->icsk_bind_hash = NULL;
+@@ -679,6 +680,14 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+ 
+ 		newsk->sk_mark = inet_rsk(req)->ir_mark;
+ 
++		/* sk_clone_lock() cleared newsk->sk_cookie, but maybe we
++		 * had a cookie on the request sock. Avoid the expensive
++		 * atomic operation if possible.
++		 */
++		cookie = atomic64_read(&inet_rsk(req)->ir_cookie);
++		if (unlikely(cookie))
++			atomic64_cmpxchg(&newsk->sk_cookie, 0, cookie);
++
+ 		newicsk->icsk_retransmits = 0;
+ 		newicsk->icsk_backoff	  = 0;
+ 		newicsk->icsk_probes_out  = 0;
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index ac3bfb458afd..29317ff4a007 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -221,12 +221,13 @@ static int inet_csk_diag_fill(struct sock *sk,
+ 				 user_ns, portid, seq, nlmsg_flags, unlh);
+ }
+ 
+-static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
++static int inet_twsk_diag_fill(struct sock *sk,
+ 			       struct sk_buff *skb,
+ 			       const struct inet_diag_req_v2 *req,
+ 			       u32 portid, u32 seq, u16 nlmsg_flags,
+ 			       const struct nlmsghdr *unlh)
+ {
++	struct inet_timewait_sock *tw = inet_twsk(sk);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr *nlh;
+ 	s32 tmo;
+@@ -247,7 +248,7 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
+ 	r->idiag_retrans      = 0;
+ 
+ 	r->id.idiag_if	      = tw->tw_bound_dev_if;
+-	sock_diag_save_cookie(tw, r->id.idiag_cookie);
++	sock_diag_save_cookie(sk, r->id.idiag_cookie);
+ 
+ 	r->id.idiag_sport     = tw->tw_sport;
+ 	r->id.idiag_dport     = tw->tw_dport;
+@@ -283,7 +284,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 			const struct nlmsghdr *unlh)
+ {
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+-		return inet_twsk_diag_fill(inet_twsk(sk), skb, r, portid, seq,
++		return inet_twsk_diag_fill(sk, skb, r, portid, seq,
+ 					   nlmsg_flags, unlh);
+ 
+ 	return inet_csk_diag_fill(sk, skb, r, user_ns, portid, seq,
+@@ -675,7 +676,7 @@ static int inet_twsk_diag_dump(struct sock *sk,
+ 	if (!inet_diag_bc_sk(bc, sk))
+ 		return 0;
+ 
+-	return inet_twsk_diag_fill(inet_twsk(sk), skb, r,
++	return inet_twsk_diag_fill(sk, skb, r,
+ 				   NETLINK_CB(cb->skb).portid,
+ 				   cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
+ }
+@@ -734,7 +735,10 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 	r->idiag_retrans = req->num_retrans;
+ 
+ 	r->id.idiag_if = sk->sk_bound_dev_if;
+-	sock_diag_save_cookie(req, r->id.idiag_cookie);
++
++	BUILD_BUG_ON(offsetof(struct inet_request_sock, ir_cookie) !=
++		     offsetof(struct sock, sk_cookie));
++	sock_diag_save_cookie((struct sock *)ireq, r->id.idiag_cookie);
+ 
+ 	tmo = req->expires - jiffies;
+ 	if (tmo < 0)
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 6d592f8555fb..2bd980526631 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -195,6 +195,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int stat
+ 		tw->tw_ipv6only	    = 0;
+ 		tw->tw_transparent  = inet->transparent;
+ 		tw->tw_prot	    = sk->sk_prot_creator;
++		atomic64_set(&tw->tw_cookie, atomic64_read(&sk->sk_cookie));
+ 		twsk_net_set(tw, hold_net(sock_net(sk)));
+ 		/*
+ 		 * Because we use RCU lookups, we should not set tw_refcnt
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 45fe60c5238e..ece31b426013 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -346,6 +346,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	req->ts_recent		= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsval : 0;
+ 	treq->snt_synack	= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsecr : 0;
+ 	treq->listener		= NULL;
++	ireq->ireq_net		= sock_net(sk);
+ 
+ 	/* We throwed the options of the initial SYN away, so we hope
+ 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index fb4cf8b8e121..d7045f5f6ebf 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5965,6 +5965,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 
+ 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+ 	tcp_openreq_init(req, &tmp_opt, skb, sk);
++	inet_rsk(req)->ireq_net = sock_net(sk);
++	atomic64_set(&inet_rsk(req)->ir_cookie, 0);
+ 
+ 	af_ops->init_req(req, sk, skb);
+ 
