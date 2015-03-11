@@ -1,68 +1,130 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Add tx queue maxrate support
-Date: Wed, 11 Mar 2015 18:47:38 +0300
-Message-ID: <5500639A.4080606@cogentembedded.com>
-References: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com> <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [net-next PATCH] ipv4: FIB Local/MAIN table collapse
+Date: Wed, 11 Mar 2015 09:03:07 -0700
+Message-ID: <CAA93jw5GR_Mgx8rmrMmOLXsmeW2xsCy=5xYyzOiEFHAtY=mFeA@mail.gmail.com>
+References: <20150306213830.1139.16932.stgit@ahduyck-vm-fedora20>
+	<55005829.5050406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:44004 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbbCKPrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 11:47:43 -0400
-Received: by lbvp9 with SMTP id p9so9779863lbv.10
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 08:47:42 -0700 (PDT)
-In-Reply-To: <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:46047 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523AbbCKQDI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:03:08 -0400
+Received: by obbnt9 with SMTP id nt9so9785724obb.12
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 09:03:07 -0700 (PDT)
+In-Reply-To: <55005829.5050406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/11/2015 4:14 PM, Or Gerlitz wrote:
-
-> Add ndo_set_tx_maxrate support.
-
-> To support per tx queue maxrate limit, we use the update-qp firmware
-> command to do run-time rate setting for the qp that serves this tx ring.
-
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Signed-off-by: Ido Shamay <idos@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   33 ++++++++++++++++++++++++
->   1 files changed, 33 insertions(+), 0 deletions(-)
-
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index c59ed92..2a58d2a 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2379,6 +2379,37 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
->   }
->   #endif
+On Wed, Mar 11, 2015 at 7:58 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 03/06/2015 01:47 PM, Alexander Duyck wrote:
+>> This patch is meant to collapse local and main into one by convertin=
+g
+>> tb_data from an array to a pointer.  Doing this allows us to point t=
+he
+>> local table into the main while maintaining the same variables in th=
+e
+>> table.
+>>
+>> As such the tb_data was converted from an array to a pointer, and a =
+new
+>> array called data is added in order to still provide an object for t=
+b_data
+>> to point to.
+>>
+>> In order to track the origin of the fib aliases a tb_id value was ad=
+ded in
+>> a hole that existed on 64b systems.  Using this we can also reverse =
+the
+>> merge in the event that custom FIB rules are enabled.
+>>
+>> With this patch I am seeing an improvement of 20ns to 30ns for routi=
+ng
+>> lookups as long as custom rules are not enabled, with custom rules e=
+nabled
+>> we fall back to split tables and the original behavior.
+>>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+>> ---
+>>
+>> Changes since the RFC:
+>>   Added tb_id value so I could split main and local for custom rules
+>>   Added functionality to split tables if custom rules were enabled
+>>   Added table replacement and unmerge functions
+>>
+>> I have done some testing on this to verify performance gains and tha=
+t I can
+>> split the tables correctly when I enable custom rules, but this patc=
+h is
+>> what I would consider to be high risk since I am certain there are t=
+hings I
+>> have not considered.
+>>
+>> If this gets pulled into someone's switchdev tree instead of into ne=
+t-next I
+>> would be perfectly fine with that as I am sure this can use some add=
+itional
+>> testing.
 >
-> +int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
-> +{
-> +	struct mlx4_en_priv *priv = netdev_priv(dev);
-> +	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[queue_index];
-> +	struct mlx4_update_qp_params params;
-> +	int err;
-> +
-> +	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT)) {
-> +		err = -EOPNOTSUPP;
-> +		goto out;
-> +	}
-> +
-> +	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
-> +	if ((maxrate >> 12)) {
-> +		params.rate_unit = MLX4_QP_RATE_LIMIT_GBS;
-> +		params.rate_val  = maxrate >> 10;
+> Has anyone out there had a chance to review this patch?  I had sugges=
+ted
+> holding off on applying it to net-next for additional testing, but I
+> haven't found anything, and the only related issue is the one issue
+> Sabrina reported for the RTNL locking which was already in net-next a=
+nyway.
 
-    And shouldn't that be 'maxrate  / 1000' as we seem to be dealing with Mbps?
 
-[...]
+My environment consists largely of 32 bit routing platforms (openwrt)
+running the current homenet routing protocol (babel), using, in
+particular, the babeld source specific routing extensions ( see
+http://arxiv.org/pdf/1403.0445v3.pdf  ) which do use multiple routing
+tables, and other uncommon things like p2p routes and odd netmasks
+like /27 and /30.
 
-WBR, Sergei
+But: I simply can't keep up with you and this entire patchset changes
+so dramatically how routing works that you make me nervous. I would
+like to see quagga (and babeld) improved to use atomic updates in
+particular (They do a delete + add for no good reason), and for
+protocols like ospf, bgp, etc, to be actively tested on real traffic
+loads on live data against this entire patchset.
+
+Your 64 bit x86 benchmarks are very exciting and I do look forward to
+one day soon attempting to evaluate and benchmark these changes on
+teeny 32 bit platforms both in the general case and in this
+environment, and am mostly just hoping that others that are doing
+higher end real world routing with big tables (such as BGP) are paying
+more attention than I can.
+
+What test procedures are you using at present (and what is everyone els=
+e using)?
+
+> If nobody has any objections then maybe we should apply this after
+> Sabrina's patch and see what other bugs if any can be found when this
+> goes into linux-next?  I figure that since the performance gains from
+> this patch are fairly significant the risk is likely worth the reward=
+=2E
+>
+> - Alex
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+--=20
+Dave T=C3=A4ht
+Let's make wifi fast, less jittery and reliable again!
+
+https://plus.google.com/u/0/107942175615993706558/posts/TVX3o84jjmb
