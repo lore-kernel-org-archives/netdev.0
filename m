@@ -1,44 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 0/5] Refactor IP defragmentation and
- fragmenation APIs for OVS conntrack support
-Date: Wed, 11 Mar 2015 16:45:50 -0400 (EDT)
-Message-ID: <20150311.164550.2247000676434784013.davem@davemloft.net>
-References: <1426014438-9317-1-git-send-email-azhou@nicira.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Why do we prefer skb->priority to tc filters?
+Date: Wed, 11 Mar 2015 13:46:12 -0700
+Message-ID: <CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
+References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
+	<CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
+	<1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
+	<1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: azhou@nicira.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51607 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252AbbCKUpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:45:52 -0400
-In-Reply-To: <1426014438-9317-1-git-send-email-azhou@nicira.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:35595 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751207AbbCKUqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:46:13 -0400
+Received: by ieclw3 with SMTP id lw3so5494936iec.2
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 13:46:13 -0700 (PDT)
+In-Reply-To: <1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
-Date: Tue, 10 Mar 2015 12:07:13 -0700
+On Wed, Mar 11, 2015 at 1:09 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-03-11 at 12:18 -0700, Cong Wang wrote:
+>> This is exactly why I am asking, kernel respects user's choice so much
+>> that it could override even both cgroup prio and tc filters, I don't know
+>> what is the reason behind, but this means our tc filters can not work
+>> with an application which sets skb->priority. For example, our tc filters
+>> classify the packets from this socket into flow 1:1, but application
+>> sets 1:2 by itself...
+>
+> Application cannot set whatever skb->priority, unless it really knows
+> better than kernel.
+>
+>         case SO_PRIORITY:
+>                 if ((val >= 0 && val <= 6) ||
+>                     ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+>                         sk->sk_priority = val;
+>                 else
+>                         ret = -EPERM;
+>                 break;
+>
 
-> These are the patches refactors the core APIs for both IPv4 and IPv6.
-> 
-> The intended use for openvswitch has been posted in the eariler RFC:
-> 
-> http://lists.openwall.net/netdev/2015/03/02/220
-
-Yet another hack for openvswitch.
-
-I'm tired of this frankenstein subsystem deciding what the invariants
-actually are for our core APIs.
-
-It is completely natural to expect that there is some device to
-interrogate regarding link layer capabilities, such as MTU.
-
-And it is openvswitch's problem that they decided to break this
-invariant.
-
-I'm not accepting hacks in ipv4/ipv6 to workaround a mistake that
-the OVS folks decided to make, sorry.
-
-Stop making OVS such a damn mess, please.
+That is just a permission check when val > 6, given the fact most
+daemons have root permission, I doubt your argument makes a difference
+for discussion. At least with userns having root permission is more common.
