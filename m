@@ -1,60 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Wed, 11 Mar 2015 14:30:57 +0100
-Message-ID: <20150311133057.GA9601@lunn.ch>
-References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
- <20150310204021.GA2740@codeaurora.org>
- <CAGVrzcZcLgMWuNJ9R_izuBRyyY21=ZJw+2Dk8RfxijGd2fMXNQ@mail.gmail.com>
- <20150311011802.GA10875@codeaurora.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: [PATCH] mm: kill kmemcheck
+Date: Wed, 11 Mar 2015 09:39:33 -0400
+Message-ID: <55004595.7020304@oracle.com>
+References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>	<20150311081909.552e2052@grimm.local.home>	<55003666.3020100@oracle.com> <20150311084034.04ce6801@grimm.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Jonas Gorski <jogo@openwrt.org>
-To: Mathieu Olivari <mathieu@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57646 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750770AbbCKNeW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 09:34:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20150311011802.GA10875@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20150311084034.04ce6801@grimm.local.home>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> We already have existing interface for eth0/eth1. Maybe we should
-> consider allowing them to be bridge. User configuration would look like
-> this:
+On 03/11/2015 08:40 AM, Steven Rostedt wrote:
+> On Wed, 11 Mar 2015 08:34:46 -0400
+> Sasha Levin <sasha.levin@oracle.com> wrote:
 > 
-> brctl addbr br-lan
-> brctl addif br-lan eth1
-> brctl addif br-lan lan1
-> brctl addif br-lan lan2
-> brctl addif br-lan lan3
-> brctl addif br-lan lan4
+>> > Fair enough. We knew there are existing kmemcheck users, but KASan should be
+>> > superior both in performance and the scope of bugs it finds. It also shouldn't
+>> > impose new limitations beyond requiring gcc 4.9.2+.
+>> >
+> Ouch! OK, then I can't use it. I'm currently compiling with gcc 4.6.3.
+> 
+> It will be a while before I upgrade my build farm to something newer.
 
-Think about this from the perspective of somebody how does not know
-there is a switch.  When i look at this, to me it means packets from
-lan1, lan2, lan3, lan4 and eth1 are bridged together. So we are going
-to get packets sent out eth1 without a tag on it, and the switch is
-very likely to drop it, since the port is in a mode which expects a
-tag. You are not using the brctl command with its normal meaning,
-which is bad.
+Are you actually compiling new kernels with 4.6.3, or are you using older
+kernels as well?
 
-Configuring this at the bridge layer is also wrong. What conduit a DSA
-slave interfaces uses is a DSA layer issue.
+There's no real hurry to kill kmemcheck right now, but we do want to stop
+supporting that in favour of KASan.
 
-Before we can come up with a nice solution, i think we first need to
-understand what the switches are capable off. If trunking does work,
-it is a relatively nice system for the user to configure, in that
-there is nothing for the user to configure! Assuming the switch can do
-reasonable load balancing, we also get near optimal usage of the two
-conduits.
 
-I don't know when i will have time to play with this, and if somebody
-comes along with a better idea, i'm very open to adopting that idea
-over mine.
-
-      Andrew
+Thanks,
+Sasha
