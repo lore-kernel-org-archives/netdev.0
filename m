@@ -1,55 +1,115 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 1/8] net: Kill hold_net release_net
-Date: Wed, 11 Mar 2015 12:36:48 -0500
-Message-ID: <87zj7j8mhb.fsf@x220.int.ebiederm.org>
-References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
-	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
-	<87d25hrv9m.fsf@x220.int.ebiederm.org>
-	<20150219.144929.1003473344851168804.davem@davemloft.net>
-	<87h9tu114z.fsf_-_@x220.int.ebiederm.org>
-	<87vbi7fq92.fsf_-_@x220.int.ebiederm.org>
-	<87pp8ffq63.fsf_-_@x220.int.ebiederm.org>
-	<1426093813.11398.52.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pat Erley <pat-lkml@erley.org>
+Subject: Re: [PATCH 1/2 RFC] ath10k: move code out of the parameter list
+Date: Wed, 11 Mar 2015 12:41:09 -0500
+Message-ID: <55007E35.4010804@erley.org>
+References: <1426094369-10213-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
-	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
-	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
-	dsahern@gmail.com, Julian Anastasov <ja@ssi.bg>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:42715 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349AbbCKRk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:40:29 -0400
-In-Reply-To: <1426093813.11398.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Wed, 11 Mar 2015 10:10:13 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Valdis.Kletnieks@vt.edu, Bj??rn Mork <bjorn@mork.no>,
+	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <hofrat@osadl.org>,
+	Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426094369-10213-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-
-> On Wed, 2015-03-11 at 11:35 -0500, Eric W. Biederman wrote:
+On 03/11/2015 12:19 PM, Nicholas Mc Guire wrote:
+> Putting code into the parameter list of wait_event_timeout() might be
+> legal C-code but not really readable - the "inline" code is simply
+> moved into a function and that passed to wait_event_timeout() as the
+> condition.
 >
->> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
->> index 6d592f8555fb..e0d5c8327159 100644
->> --- a/net/ipv4/inet_timewait_sock.c
->> +++ b/net/ipv4/inet_timewait_sock.c
->> @@ -98,7 +98,7 @@ void inet_twsk_free(struct inet_timewait_sock *tw)
->>  #ifdef SOCK_REFCNT_DEBUG
->>  	pr_debug("%s timewait_sock %p released\n", tw->tw_prot->name, tw);
->>  #endif
->> -	release_net(twsk_net(tw));
->> +	twsk_net(tw);
->>  	kmem_cache_free(tw->tw_prot->twsk_prot->twsk_slab, tw);
->>  	module_put(owner);
->>  }
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> ---
 >
+> Thanks to Bjorn Mork <bjorn@mork.no> for clarifying my initial confusion !
 >
-> Not clear why you left this line ?
+> Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+> CONFIG_ATH10K=m
+>
+> Patch is against 4.0-rc3 (localversion-next is -next-20150311)
+>
+>   drivers/net/wireless/ath/ath10k/mac.c |   32 ++++++++++++++++++--------------
+>   1 file changed, 18 insertions(+), 14 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
+> index e8cc19f..7b27d99 100644
+> --- a/drivers/net/wireless/ath/ath10k/mac.c
+> +++ b/drivers/net/wireless/ath/ath10k/mac.c
+> @@ -4463,11 +4463,25 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
+>   	return ret;
+>   }
+>
+> +static bool check_htt_state(struct ath10k *ar, bool skip)
+> +{
+> +	bool empty;
+> +
+> +	spin_lock_bh(&ar->htt.tx_lock);
+> +	empty = (ar->htt.num_pending_tx == 0);
+> +	spin_unlock_bh(&ar->htt.tx_lock);
+> +
+> +	skip = (ar->state == ATH10K_STATE_WEDGED) ||
+> +		test_bit(ATH10K_FLAG_CRASH_FLUSH,
+> +			 &ar->dev_flags);
+> +	return (empty || skip);
+> +}
+> +
+>   static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+>   			 u32 queues, bool drop)
+>   {
+>   	struct ath10k *ar = hw->priv;
+> -	bool skip;
+> +	bool skip = false;
+>   	int ret;
+>
+>   	/* mac80211 doesn't care if we really xmit queued frames or not
+> @@ -4480,19 +4494,9 @@ static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+>   	if (ar->state == ATH10K_STATE_WEDGED)
+>   		goto skip;
+>
+> -	ret = wait_event_timeout(ar->htt.empty_tx_wq, ({
+> -			bool empty;
+> -
+> -			spin_lock_bh(&ar->htt.tx_lock);
+> -			empty = (ar->htt.num_pending_tx == 0);
+> -			spin_unlock_bh(&ar->htt.tx_lock);
+> -
+> -			skip = (ar->state == ATH10K_STATE_WEDGED) ||
+> -			       test_bit(ATH10K_FLAG_CRASH_FLUSH,
+> -					&ar->dev_flags);
+> -
+> -			(empty || skip);
+> -		}), ATH10K_FLUSH_TIMEOUT_HZ);
+> +	ret = wait_event_timeout(ar->htt.empty_tx_wq,
+> +				 check_htt_state(ar, skip),
+> +				 ATH10K_FLUSH_TIMEOUT_HZ);
+>
+>   	if (ret <= 0 || skip)
+>   		ath10k_warn(ar, "failed to flush transmit queue (skip %i ar-state %i): %i\n",
+>
 
-I goofed and then I overlooked the goof.
+Doesn't this change not assign to 'skip' in the calling function?  So 
+you'd want to make it:
 
-Eric
+static bool check_htt_state(struct ath10k *ar, bool *skip)
+{
+	bool empty;
+
+	spin_lock_bh(&ar->htt.tx_lock);
+	empty = (ar->htt.num_pending_tx == 0);
+	spin_unlock_bh(&ar->htt.tx_lock);
+
+	*skip = (ar->state == ATH10K_STATE_WEDGED) ||
+		test_bit(ATH10K_FLAG_CRASH_FLUSH,
+			 &ar->dev_flags);
+	return (empty || *skip);
+}
+
+ret = wait_event_timeout(ar->htt.empty_tx_wq,
+				 check_htt_state(ar, &skip),
+				 ATH10K_FLUSH_TIMEOUT_HZ);
+
+To preserve the previous behavior?
