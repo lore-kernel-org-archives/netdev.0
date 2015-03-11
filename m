@@ -1,62 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Question] net/mlx4_en: Memory consumption issue with mlx4_en
- driver
-Date: Wed, 11 Mar 2015 13:23:14 -0700
-Message-ID: <1426105394.11398.67.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150311185146.GA1032293@devbig242.prn2.facebook.com>
-	 <1426105262.11398.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] ipv4: FIB Local/MAIN table collapse
+Date: Wed, 11 Mar 2015 16:28:50 -0400 (EDT)
+Message-ID: <20150311.162850.1722797143871993349.davem@davemloft.net>
+References: <20150306213830.1139.16932.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org,
-	kernel-team@fb.com
-To: Martin Lau <kafai@fb.com>
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	jiri@resnulli.us, sfeldma@gmail.com
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:39696 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbbCKUXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:23:16 -0400
-Received: by igdh15 with SMTP id h15so43643840igd.4
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 13:23:15 -0700 (PDT)
-In-Reply-To: <1426105262.11398.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51403 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752553AbbCKU2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:28:54 -0400
+In-Reply-To: <20150306213830.1139.16932.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-11 at 13:21 -0700, Eric Dumazet wrote:
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Fri, 06 Mar 2015 13:47:00 -0800
 
-> You know, even the order-3 allocations done for regular skb allocations
-> will hurt you : a single copybreaked skb stored a long time in a tcp
-> receive queue will hold 32KB of memory.
+> This patch is meant to collapse local and main into one by converting
+> tb_data from an array to a pointer.  Doing this allows us to point the
+> local table into the main while maintaining the same variables in the
+> table.
 > 
-> Even 4KB can lead to disasters.
+> As such the tb_data was converted from an array to a pointer, and a new
+> array called data is added in order to still provide an object for tb_data
+> to point to.
 > 
-> You could lower tcp_rmem so that collapsing happens sooner.
+> In order to track the origin of the fib aliases a tb_id value was added in
+> a hole that existed on 64b systems.  Using this we can also reverse the
+> merge in the event that custom FIB rules are enabled.
+> 
+> With this patch I am seeing an improvement of 20ns to 30ns for routing
+> lookups as long as custom rules are not enabled, with custom rules enabled
+> we fall back to split tables and the original behavior.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-I also played with following :
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6af09a597d4f..118568267a2a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -458,10 +458,17 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
-                                   unsigned int length, gfp_t gfp_mask)
- {
-        struct sk_buff *skb = NULL;
--       unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
--                             SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+       unsigned int fragsz;
- 
--       if (fragsz <= PAGE_SIZE && !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
-+       length = SKB_DATA_ALIGN(length + NET_SKB_PAD);
-+       fragsz = length + SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+       /* if fragment is smaller than struct skb_shared_info overhead,
-+        * do not bother use a page fragment, because malicious traffic
-+        * could hold a full page (order-0 or order-3)
-+        */
-+       if (fragsz <= PAGE_SIZE &&
-+           length > SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) &&
-+           !(gfp_mask & (__GFP_WAIT | GFP_DMA))) {
-                void *data;
- 
-                if (sk_memalloc_socks())
+I've applied this, let's see what happens.
