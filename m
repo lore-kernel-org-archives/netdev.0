@@ -1,4345 +1,7677 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Wed, 11 Mar 2015 08:19:09 -0400
-Message-ID: <20150311081909.552e2052@grimm.local.home>
-References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [net-next:master 472/475]
+ drivers/net/ethernet/cadence/macb.c:2139:25: error: 'macb_dt_ids' undeclared
+Date: Wed, 11 Mar 2015 20:21:06 +0800
+Message-ID: <20150311122106.GA3388@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="azLHFNyN32YCQGCU"
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:24453 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750886AbbCKMVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 08:21:19 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-I removed the Cc list as it was so large, I'm sure that it exceeded the
-LKML Cc size limit, and your email probably didn't make it to the list
-(or any of them).
+--azLHFNyN32YCQGCU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On Wed, 11 Mar 2015 07:43:59 -0400
-Sasha Levin <sasha.levin@oracle.com> wrote:
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   59e33c2b021322db92ca27c4d9958e57630443b6
+commit: 3cef5c5b0b56f3f90b0e9ff8d3f8dc57f464cc14 [472/475] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+config: microblaze-allyesconfig (attached as .config)
+reproduce:
+  wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+  chmod +x ~/bin/make.cross
+  git checkout 3cef5c5b0b56f3f90b0e9ff8d3f8dc57f464cc14
+  # save the attached .config to linux build tree
+  make.cross ARCH=microblaze 
 
-> As discussed on LSF/MM, kill kmemcheck.
-> 
-> KASan is a replacement that is able to work without the limitation of
-> kmemcheck (single CPU, slow). KASan is already upstream.
-> 
-> We are also not aware of any users of kmemcheck (or users who don't consider
-> KASan as a suitable replacement).
+All error/warnings:
 
-I use kmemcheck and I am unaware of KASan. I'll try to play with KASan
-and see if it suites my needs.
+   drivers/net/ethernet/cadence/macb.c: In function 'macb_configure_caps':
+>> drivers/net/ethernet/cadence/macb.c:2139:25: error: 'macb_dt_ids' undeclared (first use in this function)
+      match = of_match_node(macb_dt_ids, bp->pdev->dev.of_node);
+                            ^
+   drivers/net/ethernet/cadence/macb.c:2139:25: note: each undeclared identifier is reported only once for each function it appears in
 
-Thanks!
+vim +/macb_dt_ids +2139 drivers/net/ethernet/cadence/macb.c
 
--- Steve
+e175587f Nicolas Ferre   2014-07-24  2133  {
+e175587f Nicolas Ferre   2014-07-24  2134  	const struct of_device_id *match;
+e175587f Nicolas Ferre   2014-07-24  2135  	const struct macb_config *config;
+e175587f Nicolas Ferre   2014-07-24  2136  	u32 dcfg;
+e175587f Nicolas Ferre   2014-07-24  2137  
+e175587f Nicolas Ferre   2014-07-24  2138  	if (bp->pdev->dev.of_node) {
+e175587f Nicolas Ferre   2014-07-24 @2139  		match = of_match_node(macb_dt_ids, bp->pdev->dev.of_node);
+e175587f Nicolas Ferre   2014-07-24  2140  		if (match && match->data) {
+0b2eb3e9 Josh Cartwright 2015-03-09  2141  			config = match->data;
+e175587f Nicolas Ferre   2014-07-24  2142  
 
 
-> 
-> I've build tested it using all[yes,no,mod]config and fuzzed a bit with this
-> patch applied, didn't notice any bad behaviour.
-> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-> ---
->  Documentation/00-INDEX                       |    2 -
->  Documentation/kasan.txt                      |    7 +-
->  Documentation/kernel-parameters.txt          |    7 -
->  Documentation/kmemcheck.txt                  |  754 --------------------------
->  MAINTAINERS                                  |   10 -
->  arch/arm/include/asm/dma-iommu.h             |    1 -
->  arch/arm/include/asm/pgalloc.h               |    2 +-
->  arch/arm64/include/asm/pgalloc.h             |    2 +-
->  arch/openrisc/include/asm/dma-mapping.h      |    1 -
->  arch/powerpc/mm/pgtable_64.c                 |    3 +-
->  arch/sh/kernel/dwarf.c                       |    4 +-
->  arch/sh/kernel/process.c                     |    2 +-
->  arch/sparc/mm/init_64.c                      |    6 +-
->  arch/unicore32/include/asm/pgalloc.h         |    2 +-
->  arch/x86/Kconfig                             |    3 +-
->  arch/x86/Makefile                            |    5 -
->  arch/x86/include/asm/dma-mapping.h           |    1 -
->  arch/x86/include/asm/kmemcheck.h             |   42 --
->  arch/x86/include/asm/pgtable.h               |    5 -
->  arch/x86/include/asm/pgtable_types.h         |   13 -
->  arch/x86/include/asm/string_32.h             |    9 -
->  arch/x86/include/asm/string_64.h             |    8 -
->  arch/x86/include/asm/xor.h                   |    5 +-
->  arch/x86/kernel/cpu/intel.c                  |   15 -
->  arch/x86/kernel/espfix_64.c                  |    2 +-
->  arch/x86/kernel/process.c                    |    2 +-
->  arch/x86/kernel/traps.c                      |    5 -
->  arch/x86/mm/Makefile                         |    2 -
->  arch/x86/mm/fault.c                          |   10 -
->  arch/x86/mm/init.c                           |    4 +-
->  arch/x86/mm/init_64.c                        |    2 +-
->  arch/x86/mm/kmemcheck/Makefile               |    1 -
->  arch/x86/mm/kmemcheck/error.c                |  227 --------
->  arch/x86/mm/kmemcheck/error.h                |   15 -
->  arch/x86/mm/kmemcheck/kmemcheck.c            |  659 ----------------------
->  arch/x86/mm/kmemcheck/opcode.c               |  106 ----
->  arch/x86/mm/kmemcheck/opcode.h               |    9 -
->  arch/x86/mm/kmemcheck/pte.c                  |   22 -
->  arch/x86/mm/kmemcheck/pte.h                  |   10 -
->  arch/x86/mm/kmemcheck/selftest.c             |   70 ---
->  arch/x86/mm/kmemcheck/selftest.h             |    6 -
->  arch/x86/mm/kmemcheck/shadow.c               |  173 ------
->  arch/x86/mm/kmemcheck/shadow.h               |   18 -
->  arch/x86/mm/pageattr.c                       |    8 +-
->  arch/x86/mm/pgtable.c                        |    2 +-
->  crypto/xor.c                                 |    7 +-
->  drivers/char/random.c                        |    1 -
->  drivers/misc/c2port/core.c                   |    2 -
->  fs/dcache.c                                  |    2 -
->  include/asm-generic/dma-mapping-common.h     |    8 +-
->  include/linux/c2port.h                       |    4 -
->  include/linux/gfp.h                          |    8 -
->  include/linux/interrupt.h                    |    2 +
->  include/linux/kmemcheck.h                    |  171 ------
->  include/linux/mm_types.h                     |    8 -
->  include/linux/net.h                          |    3 -
->  include/linux/ring_buffer.h                  |    3 -
->  include/linux/skbuff.h                       |    3 -
->  include/linux/slab.h                         |    6 -
->  include/linux/thread_info.h                  |    4 +-
->  include/net/inet_sock.h                      |    7 +-
->  include/net/inet_timewait_sock.h             |    3 -
->  include/net/sock.h                           |    2 -
->  include/trace/events/gfpflags.h              |    1 -
->  init/do_mounts.c                             |    3 +-
->  init/main.c                                  |    1 -
->  kernel/fork.c                                |   14 +-
->  kernel/locking/lockdep.c                     |    3 -
->  kernel/signal.c                              |    3 +-
->  kernel/sysctl.c                              |   10 -
->  kernel/trace/ring_buffer.c                   |    3 -
->  lib/Kconfig.debug                            |    6 +-
->  lib/Kconfig.kmemcheck                        |   94 ----
->  mm/Kconfig.debug                             |    1 -
->  mm/Makefile                                  |    1 -
->  mm/kmemcheck.c                               |  123 -----
->  mm/kmemleak.c                                |    9 -
->  mm/page_alloc.c                              |   14 -
->  mm/slab.c                                    |   30 +-
->  mm/slab.h                                    |    4 +-
->  mm/slab_common.c                             |    2 +-
->  mm/slub.c                                    |   29 +-
->  net/core/skbuff.c                            |    5 -
->  net/core/sock.c                              |    2 -
->  net/ipv4/inet_timewait_sock.c                |    3 -
->  net/socket.c                                 |    1 -
->  scripts/kernel-doc                           |    2 -
->  tools/lib/lockdep/uinclude/linux/kmemcheck.h |    8 -
->  88 files changed, 52 insertions(+), 2826 deletions(-)
->  delete mode 100644 Documentation/kmemcheck.txt
->  delete mode 100644 arch/x86/include/asm/kmemcheck.h
->  delete mode 100644 arch/x86/mm/kmemcheck/Makefile
->  delete mode 100644 arch/x86/mm/kmemcheck/error.c
->  delete mode 100644 arch/x86/mm/kmemcheck/error.h
->  delete mode 100644 arch/x86/mm/kmemcheck/kmemcheck.c
->  delete mode 100644 arch/x86/mm/kmemcheck/opcode.c
->  delete mode 100644 arch/x86/mm/kmemcheck/opcode.h
->  delete mode 100644 arch/x86/mm/kmemcheck/pte.c
->  delete mode 100644 arch/x86/mm/kmemcheck/pte.h
->  delete mode 100644 arch/x86/mm/kmemcheck/selftest.c
->  delete mode 100644 arch/x86/mm/kmemcheck/selftest.h
->  delete mode 100644 arch/x86/mm/kmemcheck/shadow.c
->  delete mode 100644 arch/x86/mm/kmemcheck/shadow.h
->  delete mode 100644 include/linux/kmemcheck.h
->  delete mode 100644 lib/Kconfig.kmemcheck
->  delete mode 100644 mm/kmemcheck.c
->  delete mode 100644 tools/lib/lockdep/uinclude/linux/kmemcheck.h
-> 
-> diff --git a/Documentation/00-INDEX b/Documentation/00-INDEX
-> index cd077ca..fb79009 100644
-> --- a/Documentation/00-INDEX
-> +++ b/Documentation/00-INDEX
-> @@ -263,8 +263,6 @@ kernel-parameters.txt
->  	- summary listing of command line / boot prompt args for the kernel.
->  kernel-per-CPU-kthreads.txt
->  	- List of all per-CPU kthreads and how they introduce jitter.
-> -kmemcheck.txt
-> -	- info on dynamic checker that detects uses of uninitialized memory.
->  kmemleak.txt
->  	- info on how to make use of the kernel memory leak detection system
->  ko_KR/
-> diff --git a/Documentation/kasan.txt b/Documentation/kasan.txt
-> index 092fc10..a64d606 100644
-> --- a/Documentation/kasan.txt
-> +++ b/Documentation/kasan.txt
-> @@ -139,10 +139,9 @@ the accessed address is partially accessible.
->  2. Implementation details
->  ========================
->  
-> -From a high level, our approach to memory error detection is similar to that
-> -of kmemcheck: use shadow memory to record whether each byte of memory is safe
-> -to access, and use compile-time instrumentation to check shadow memory on each
-> -memory access.
-> +From a high level, our approach to memory error detection is: use shadow memory
-> +to record whether each byte of memory is safe to access, and use compile-time
-> +instrumentation to check shadow memory on each memory access.
->  
->  AddressSanitizer dedicates 1/8 of kernel memory to its shadow memory
->  (e.g. 16TB to cover 128TB on x86_64) and uses direct mapping with a scale and
-> diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
-> index 8d5963f..0a68e3d 100644
-> --- a/Documentation/kernel-parameters.txt
-> +++ b/Documentation/kernel-parameters.txt
-> @@ -1643,13 +1643,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
->  			Built with CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF=y,
->  			the default is off.
->  
-> -	kmemcheck=	[X86] Boot-time kmemcheck enable/disable/one-shot mode
-> -			Valid arguments: 0, 1, 2
-> -			kmemcheck=0 (disabled)
-> -			kmemcheck=1 (enabled)
-> -			kmemcheck=2 (one-shot mode)
-> -			Default: 2 (one-shot mode)
-> -
->  	kstack=N	[X86] Print N words from the kernel stack
->  			in oops dumps.
->  
-> diff --git a/Documentation/kmemcheck.txt b/Documentation/kmemcheck.txt
-> deleted file mode 100644
-> index a41bdeb..0000000
-> --- a/Documentation/kmemcheck.txt
-> +++ /dev/null
-> @@ -1,754 +0,0 @@
-> -GETTING STARTED WITH KMEMCHECK
-> -==============================
-> -
-> -Vegard Nossum <vegardno@ifi.uio.no>
-> -
-> -
-> -Contents
-> -========
-> -0. Introduction
-> -1. Downloading
-> -2. Configuring and compiling
-> -3. How to use
-> -3.1. Booting
-> -3.2. Run-time enable/disable
-> -3.3. Debugging
-> -3.4. Annotating false positives
-> -4. Reporting errors
-> -5. Technical description
-> -
-> -
-> -0. Introduction
-> -===============
-> -
-> -kmemcheck is a debugging feature for the Linux Kernel. More specifically, it
-> -is a dynamic checker that detects and warns about some uses of uninitialized
-> -memory.
-> -
-> -Userspace programmers might be familiar with Valgrind's memcheck. The main
-> -difference between memcheck and kmemcheck is that memcheck works for userspace
-> -programs only, and kmemcheck works for the kernel only. The implementations
-> -are of course vastly different. Because of this, kmemcheck is not as accurate
-> -as memcheck, but it turns out to be good enough in practice to discover real
-> -programmer errors that the compiler is not able to find through static
-> -analysis.
-> -
-> -Enabling kmemcheck on a kernel will probably slow it down to the extent that
-> -the machine will not be usable for normal workloads such as e.g. an
-> -interactive desktop. kmemcheck will also cause the kernel to use about twice
-> -as much memory as normal. For this reason, kmemcheck is strictly a debugging
-> -feature.
-> -
-> -
-> -1. Downloading
-> -==============
-> -
-> -As of version 2.6.31-rc1, kmemcheck is included in the mainline kernel.
-> -
-> -
-> -2. Configuring and compiling
-> -============================
-> -
-> -kmemcheck only works for the x86 (both 32- and 64-bit) platform. A number of
-> -configuration variables must have specific settings in order for the kmemcheck
-> -menu to even appear in "menuconfig". These are:
-> -
-> -  o CONFIG_CC_OPTIMIZE_FOR_SIZE=n
-> -
-> -	This option is located under "General setup" / "Optimize for size".
-> -
-> -	Without this, gcc will use certain optimizations that usually lead to
-> -	false positive warnings from kmemcheck. An example of this is a 16-bit
-> -	field in a struct, where gcc may load 32 bits, then discard the upper
-> -	16 bits. kmemcheck sees only the 32-bit load, and may trigger a
-> -	warning for the upper 16 bits (if they're uninitialized).
-> -
-> -  o CONFIG_SLAB=y or CONFIG_SLUB=y
-> -
-> -	This option is located under "General setup" / "Choose SLAB
-> -	allocator".
-> -
-> -  o CONFIG_FUNCTION_TRACER=n
-> -
-> -	This option is located under "Kernel hacking" / "Tracers" / "Kernel
-> -	Function Tracer"
-> -
-> -	When function tracing is compiled in, gcc emits a call to another
-> -	function at the beginning of every function. This means that when the
-> -	page fault handler is called, the ftrace framework will be called
-> -	before kmemcheck has had a chance to handle the fault. If ftrace then
-> -	modifies memory that was tracked by kmemcheck, the result is an
-> -	endless recursive page fault.
-> -
-> -  o CONFIG_DEBUG_PAGEALLOC=n
-> -
-> -	This option is located under "Kernel hacking" / "Debug page memory
-> -	allocations".
-> -
-> -In addition, I highly recommend turning on CONFIG_DEBUG_INFO=y. This is also
-> -located under "Kernel hacking". With this, you will be able to get line number
-> -information from the kmemcheck warnings, which is extremely valuable in
-> -debugging a problem. This option is not mandatory, however, because it slows
-> -down the compilation process and produces a much bigger kernel image.
-> -
-> -Now the kmemcheck menu should be visible (under "Kernel hacking" / "Memory
-> -Debugging" / "kmemcheck: trap use of uninitialized memory"). Here follows
-> -a description of the kmemcheck configuration variables:
-> -
-> -  o CONFIG_KMEMCHECK
-> -
-> -	This must be enabled in order to use kmemcheck at all...
-> -
-> -  o CONFIG_KMEMCHECK_[DISABLED | ENABLED | ONESHOT]_BY_DEFAULT
-> -
-> -	This option controls the status of kmemcheck at boot-time. "Enabled"
-> -	will enable kmemcheck right from the start, "disabled" will boot the
-> -	kernel as normal (but with the kmemcheck code compiled in, so it can
-> -	be enabled at run-time after the kernel has booted), and "one-shot" is
-> -	a special mode which will turn kmemcheck off automatically after
-> -	detecting the first use of uninitialized memory.
-> -
-> -	If you are using kmemcheck to actively debug a problem, then you
-> -	probably want to choose "enabled" here.
-> -
-> -	The one-shot mode is mostly useful in automated test setups because it
-> -	can prevent floods of warnings and increase the chances of the machine
-> -	surviving in case something is really wrong. In other cases, the one-
-> -	shot mode could actually be counter-productive because it would turn
-> -	itself off at the very first error -- in the case of a false positive
-> -	too -- and this would come in the way of debugging the specific
-> -	problem you were interested in.
-> -
-> -	If you would like to use your kernel as normal, but with a chance to
-> -	enable kmemcheck in case of some problem, it might be a good idea to
-> -	choose "disabled" here. When kmemcheck is disabled, most of the run-
-> -	time overhead is not incurred, and the kernel will be almost as fast
-> -	as normal.
-> -
-> -  o CONFIG_KMEMCHECK_QUEUE_SIZE
-> -
-> -	Select the maximum number of error reports to store in an internal
-> -	(fixed-size) buffer. Since errors can occur virtually anywhere and in
-> -	any context, we need a temporary storage area which is guaranteed not
-> -	to generate any other page faults when accessed. The queue will be
-> -	emptied as soon as a tasklet may be scheduled. If the queue is full,
-> -	new error reports will be lost.
-> -
-> -	The default value of 64 is probably fine. If some code produces more
-> -	than 64 errors within an irqs-off section, then the code is likely to
-> -	produce many, many more, too, and these additional reports seldom give
-> -	any more information (the first report is usually the most valuable
-> -	anyway).
-> -
-> -	This number might have to be adjusted if you are not using serial
-> -	console or similar to capture the kernel log. If you are using the
-> -	"dmesg" command to save the log, then getting a lot of kmemcheck
-> -	warnings might overflow the kernel log itself, and the earlier reports
-> -	will get lost in that way instead. Try setting this to 10 or so on
-> -	such a setup.
-> -
-> -  o CONFIG_KMEMCHECK_SHADOW_COPY_SHIFT
-> -
-> -	Select the number of shadow bytes to save along with each entry of the
-> -	error-report queue. These bytes indicate what parts of an allocation
-> -	are initialized, uninitialized, etc. and will be displayed when an
-> -	error is detected to help the debugging of a particular problem.
-> -
-> -	The number entered here is actually the logarithm of the number of
-> -	bytes that will be saved. So if you pick for example 5 here, kmemcheck
-> -	will save 2^5 = 32 bytes.
-> -
-> -	The default value should be fine for debugging most problems. It also
-> -	fits nicely within 80 columns.
-> -
-> -  o CONFIG_KMEMCHECK_PARTIAL_OK
-> -
-> -	This option (when enabled) works around certain GCC optimizations that
-> -	produce 32-bit reads from 16-bit variables where the upper 16 bits are
-> -	thrown away afterwards.
-> -
-> -	The default value (enabled) is recommended. This may of course hide
-> -	some real errors, but disabling it would probably produce a lot of
-> -	false positives.
-> -
-> -  o CONFIG_KMEMCHECK_BITOPS_OK
-> -
-> -	This option silences warnings that would be generated for bit-field
-> -	accesses where not all the bits are initialized at the same time. This
-> -	may also hide some real bugs.
-> -
-> -	This option is probably obsolete, or it should be replaced with
-> -	the kmemcheck-/bitfield-annotations for the code in question. The
-> -	default value is therefore fine.
-> -
-> -Now compile the kernel as usual.
-> -
-> -
-> -3. How to use
-> -=============
-> -
-> -3.1. Booting
-> -============
-> -
-> -First some information about the command-line options. There is only one
-> -option specific to kmemcheck, and this is called "kmemcheck". It can be used
-> -to override the default mode as chosen by the CONFIG_KMEMCHECK_*_BY_DEFAULT
-> -option. Its possible settings are:
-> -
-> -  o kmemcheck=0 (disabled)
-> -  o kmemcheck=1 (enabled)
-> -  o kmemcheck=2 (one-shot mode)
-> -
-> -If SLUB debugging has been enabled in the kernel, it may take precedence over
-> -kmemcheck in such a way that the slab caches which are under SLUB debugging
-> -will not be tracked by kmemcheck. In order to ensure that this doesn't happen
-> -(even though it shouldn't by default), use SLUB's boot option "slub_debug",
-> -like this: slub_debug=-
-> -
-> -In fact, this option may also be used for fine-grained control over SLUB vs.
-> -kmemcheck. For example, if the command line includes "kmemcheck=1
-> -slub_debug=,dentry", then SLUB debugging will be used only for the "dentry"
-> -slab cache, and with kmemcheck tracking all the other caches. This is advanced
-> -usage, however, and is not generally recommended.
-> -
-> -
-> -3.2. Run-time enable/disable
-> -============================
-> -
-> -When the kernel has booted, it is possible to enable or disable kmemcheck at
-> -run-time. WARNING: This feature is still experimental and may cause false
-> -positive warnings to appear. Therefore, try not to use this. If you find that
-> -it doesn't work properly (e.g. you see an unreasonable amount of warnings), I
-> -will be happy to take bug reports.
-> -
-> -Use the file /proc/sys/kernel/kmemcheck for this purpose, e.g.:
-> -
-> -	$ echo 0 > /proc/sys/kernel/kmemcheck # disables kmemcheck
-> -
-> -The numbers are the same as for the kmemcheck= command-line option.
-> -
-> -
-> -3.3. Debugging
-> -==============
-> -
-> -A typical report will look something like this:
-> -
-> -WARNING: kmemcheck: Caught 32-bit read from uninitialized memory (ffff88003e4a2024)
-> -80000000000000000000000000000000000000000088ffff0000000000000000
-> - i i i i u u u u i i i i i i i i u u u u u u u u u u u u u u u u
-> -         ^
-> -
-> -Pid: 1856, comm: ntpdate Not tainted 2.6.29-rc5 #264 945P-A
-> -RIP: 0010:[<ffffffff8104ede8>]  [<ffffffff8104ede8>] __dequeue_signal+0xc8/0x190
-> -RSP: 0018:ffff88003cdf7d98  EFLAGS: 00210002
-> -RAX: 0000000000000030 RBX: ffff88003d4ea968 RCX: 0000000000000009
-> -RDX: ffff88003e5d6018 RSI: ffff88003e5d6024 RDI: ffff88003cdf7e84
-> -RBP: ffff88003cdf7db8 R08: ffff88003e5d6000 R09: 0000000000000000
-> -R10: 0000000000000080 R11: 0000000000000000 R12: 000000000000000e
-> -R13: ffff88003cdf7e78 R14: ffff88003d530710 R15: ffff88003d5a98c8
-> -FS:  0000000000000000(0000) GS:ffff880001982000(0063) knlGS:00000
-> -CS:  0010 DS: 002b ES: 002b CR0: 0000000080050033
-> -CR2: ffff88003f806ea0 CR3: 000000003c036000 CR4: 00000000000006a0
-> -DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> -DR3: 0000000000000000 DR6: 00000000ffff4ff0 DR7: 0000000000000400
-> - [<ffffffff8104f04e>] dequeue_signal+0x8e/0x170
-> - [<ffffffff81050bd8>] get_signal_to_deliver+0x98/0x390
-> - [<ffffffff8100b87d>] do_notify_resume+0xad/0x7d0
-> - [<ffffffff8100c7b5>] int_signal+0x12/0x17
-> - [<ffffffffffffffff>] 0xffffffffffffffff
-> -
-> -The single most valuable information in this report is the RIP (or EIP on 32-
-> -bit) value. This will help us pinpoint exactly which instruction that caused
-> -the warning.
-> -
-> -If your kernel was compiled with CONFIG_DEBUG_INFO=y, then all we have to do
-> -is give this address to the addr2line program, like this:
-> -
-> -	$ addr2line -e vmlinux -i ffffffff8104ede8
-> -	arch/x86/include/asm/string_64.h:12
-> -	include/asm-generic/siginfo.h:287
-> -	kernel/signal.c:380
-> -	kernel/signal.c:410
-> -
-> -The "-e vmlinux" tells addr2line which file to look in. IMPORTANT: This must
-> -be the vmlinux of the kernel that produced the warning in the first place! If
-> -not, the line number information will almost certainly be wrong.
-> -
-> -The "-i" tells addr2line to also print the line numbers of inlined functions.
-> -In this case, the flag was very important, because otherwise, it would only
-> -have printed the first line, which is just a call to memcpy(), which could be
-> -called from a thousand places in the kernel, and is therefore not very useful.
-> -These inlined functions would not show up in the stack trace above, simply
-> -because the kernel doesn't load the extra debugging information. This
-> -technique can of course be used with ordinary kernel oopses as well.
-> -
-> -In this case, it's the caller of memcpy() that is interesting, and it can be
-> -found in include/asm-generic/siginfo.h, line 287:
-> -
-> -281 static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
-> -282 {
-> -283         if (from->si_code < 0)
-> -284                 memcpy(to, from, sizeof(*to));
-> -285         else
-> -286                 /* _sigchld is currently the largest know union member */
-> -287                 memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
-> -288 }
-> -
-> -Since this was a read (kmemcheck usually warns about reads only, though it can
-> -warn about writes to unallocated or freed memory as well), it was probably the
-> -"from" argument which contained some uninitialized bytes. Following the chain
-> -of calls, we move upwards to see where "from" was allocated or initialized,
-> -kernel/signal.c, line 380:
-> -
-> -359 static void collect_signal(int sig, struct sigpending *list, siginfo_t *info)
-> -360 {
-> -...
-> -367         list_for_each_entry(q, &list->list, list) {
-> -368                 if (q->info.si_signo == sig) {
-> -369                         if (first)
-> -370                                 goto still_pending;
-> -371                         first = q;
-> -...
-> -377         if (first) {
-> -378 still_pending:
-> -379                 list_del_init(&first->list);
-> -380                 copy_siginfo(info, &first->info);
-> -381                 __sigqueue_free(first);
-> -...
-> -392         }
-> -393 }
-> -
-> -Here, it is &first->info that is being passed on to copy_siginfo(). The
-> -variable "first" was found on a list -- passed in as the second argument to
-> -collect_signal(). We  continue our journey through the stack, to figure out
-> -where the item on "list" was allocated or initialized. We move to line 410:
-> -
-> -395 static int __dequeue_signal(struct sigpending *pending, sigset_t *mask,
-> -396                         siginfo_t *info)
-> -397 {
-> -...
-> -410                 collect_signal(sig, pending, info);
-> -...
-> -414 }
-> -
-> -Now we need to follow the "pending" pointer, since that is being passed on to
-> -collect_signal() as "list". At this point, we've run out of lines from the
-> -"addr2line" output. Not to worry, we just paste the next addresses from the
-> -kmemcheck stack dump, i.e.:
-> -
-> - [<ffffffff8104f04e>] dequeue_signal+0x8e/0x170
-> - [<ffffffff81050bd8>] get_signal_to_deliver+0x98/0x390
-> - [<ffffffff8100b87d>] do_notify_resume+0xad/0x7d0
-> - [<ffffffff8100c7b5>] int_signal+0x12/0x17
-> -
-> -	$ addr2line -e vmlinux -i ffffffff8104f04e ffffffff81050bd8 \
-> -		ffffffff8100b87d ffffffff8100c7b5
-> -	kernel/signal.c:446
-> -	kernel/signal.c:1806
-> -	arch/x86/kernel/signal.c:805
-> -	arch/x86/kernel/signal.c:871
-> -	arch/x86/kernel/entry_64.S:694
-> -
-> -Remember that since these addresses were found on the stack and not as the
-> -RIP value, they actually point to the _next_ instruction (they are return
-> -addresses). This becomes obvious when we look at the code for line 446:
-> -
-> -422 int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
-> -423 {
-> -...
-> -431                 signr = __dequeue_signal(&tsk->signal->shared_pending,
-> -432                                          mask, info);
-> -433                 /*
-> -434                  * itimer signal ?
-> -435                  *
-> -436                  * itimers are process shared and we restart periodic
-> -437                  * itimers in the signal delivery path to prevent DoS
-> -438                  * attacks in the high resolution timer case. This is
-> -439                  * compliant with the old way of self restarting
-> -440                  * itimers, as the SIGALRM is a legacy signal and only
-> -441                  * queued once. Changing the restart behaviour to
-> -442                  * restart the timer in the signal dequeue path is
-> -443                  * reducing the timer noise on heavy loaded !highres
-> -444                  * systems too.
-> -445                  */
-> -446                 if (unlikely(signr == SIGALRM)) {
-> -...
-> -489 }
-> -
-> -So instead of looking at 446, we should be looking at 431, which is the line
-> -that executes just before 446. Here we see that what we are looking for is
-> -&tsk->signal->shared_pending.
-> -
-> -Our next task is now to figure out which function that puts items on this
-> -"shared_pending" list. A crude, but efficient tool, is git grep:
-> -
-> -	$ git grep -n 'shared_pending' kernel/
-> -	...
-> -	kernel/signal.c:828:    pending = group ? &t->signal->shared_pending : &t->pending;
-> -	kernel/signal.c:1339:   pending = group ? &t->signal->shared_pending : &t->pending;
-> -	...
-> -
-> -There were more results, but none of them were related to list operations,
-> -and these were the only assignments. We inspect the line numbers more closely
-> -and find that this is indeed where items are being added to the list:
-> -
-> -816 static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
-> -817                         int group)
-> -818 {
-> -...
-> -828         pending = group ? &t->signal->shared_pending : &t->pending;
-> -...
-> -851         q = __sigqueue_alloc(t, GFP_ATOMIC, (sig < SIGRTMIN &&
-> -852                                              (is_si_special(info) ||
-> -853                                               info->si_code >= 0)));
-> -854         if (q) {
-> -855                 list_add_tail(&q->list, &pending->list);
-> -...
-> -890 }
-> -
-> -and:
-> -
-> -1309 int send_sigqueue(struct sigqueue *q, struct task_struct *t, int group)
-> -1310 {
-> -....
-> -1339         pending = group ? &t->signal->shared_pending : &t->pending;
-> -1340         list_add_tail(&q->list, &pending->list);
-> -....
-> -1347 }
-> -
-> -In the first case, the list element we are looking for, "q", is being returned
-> -from the function __sigqueue_alloc(), which looks like an allocation function.
-> -Let's take a look at it:
-> -
-> -187 static struct sigqueue *__sigqueue_alloc(struct task_struct *t, gfp_t flags,
-> -188                                          int override_rlimit)
-> -189 {
-> -190         struct sigqueue *q = NULL;
-> -191         struct user_struct *user;
-> -192 
-> -193         /*
-> -194          * We won't get problems with the target's UID changing under us
-> -195          * because changing it requires RCU be used, and if t != current, the
-> -196          * caller must be holding the RCU readlock (by way of a spinlock) and
-> -197          * we use RCU protection here
-> -198          */
-> -199         user = get_uid(__task_cred(t)->user);
-> -200         atomic_inc(&user->sigpending);
-> -201         if (override_rlimit ||
-> -202             atomic_read(&user->sigpending) <=
-> -203                         t->signal->rlim[RLIMIT_SIGPENDING].rlim_cur)
-> -204                 q = kmem_cache_alloc(sigqueue_cachep, flags);
-> -205         if (unlikely(q == NULL)) {
-> -206                 atomic_dec(&user->sigpending);
-> -207                 free_uid(user);
-> -208         } else {
-> -209                 INIT_LIST_HEAD(&q->list);
-> -210                 q->flags = 0;
-> -211                 q->user = user;
-> -212         }
-> -213 
-> -214         return q;
-> -215 }
-> -
-> -We see that this function initializes q->list, q->flags, and q->user. It seems
-> -that now is the time to look at the definition of "struct sigqueue", e.g.:
-> -
-> -14 struct sigqueue {
-> -15         struct list_head list;
-> -16         int flags;
-> -17         siginfo_t info;
-> -18         struct user_struct *user;
-> -19 };
-> -
-> -And, you might remember, it was a memcpy() on &first->info that caused the
-> -warning, so this makes perfect sense. It also seems reasonable to assume that
-> -it is the caller of __sigqueue_alloc() that has the responsibility of filling
-> -out (initializing) this member.
-> -
-> -But just which fields of the struct were uninitialized? Let's look at
-> -kmemcheck's report again:
-> -
-> -WARNING: kmemcheck: Caught 32-bit read from uninitialized memory (ffff88003e4a2024)
-> -80000000000000000000000000000000000000000088ffff0000000000000000
-> - i i i i u u u u i i i i i i i i u u u u u u u u u u u u u u u u
-> -         ^
-> -
-> -These first two lines are the memory dump of the memory object itself, and the
-> -shadow bytemap, respectively. The memory object itself is in this case
-> -&first->info. Just beware that the start of this dump is NOT the start of the
-> -object itself! The position of the caret (^) corresponds with the address of
-> -the read (ffff88003e4a2024).
-> -
-> -The shadow bytemap dump legend is as follows:
-> -
-> -  i - initialized
-> -  u - uninitialized
-> -  a - unallocated (memory has been allocated by the slab layer, but has not
-> -      yet been handed off to anybody)
-> -  f - freed (memory has been allocated by the slab layer, but has been freed
-> -      by the previous owner)
-> -
-> -In order to figure out where (relative to the start of the object) the
-> -uninitialized memory was located, we have to look at the disassembly. For
-> -that, we'll need the RIP address again:
-> -
-> -RIP: 0010:[<ffffffff8104ede8>]  [<ffffffff8104ede8>] __dequeue_signal+0xc8/0x190
-> -
-> -	$ objdump -d --no-show-raw-insn vmlinux | grep -C 8 ffffffff8104ede8:
-> -	ffffffff8104edc8:       mov    %r8,0x8(%r8)
-> -	ffffffff8104edcc:       test   %r10d,%r10d
-> -	ffffffff8104edcf:       js     ffffffff8104ee88 <__dequeue_signal+0x168>
-> -	ffffffff8104edd5:       mov    %rax,%rdx
-> -	ffffffff8104edd8:       mov    $0xc,%ecx
-> -	ffffffff8104eddd:       mov    %r13,%rdi
-> -	ffffffff8104ede0:       mov    $0x30,%eax
-> -	ffffffff8104ede5:       mov    %rdx,%rsi
-> -	ffffffff8104ede8:       rep movsl %ds:(%rsi),%es:(%rdi)
-> -	ffffffff8104edea:       test   $0x2,%al
-> -	ffffffff8104edec:       je     ffffffff8104edf0 <__dequeue_signal+0xd0>
-> -	ffffffff8104edee:       movsw  %ds:(%rsi),%es:(%rdi)
-> -	ffffffff8104edf0:       test   $0x1,%al
-> -	ffffffff8104edf2:       je     ffffffff8104edf5 <__dequeue_signal+0xd5>
-> -	ffffffff8104edf4:       movsb  %ds:(%rsi),%es:(%rdi)
-> -	ffffffff8104edf5:       mov    %r8,%rdi
-> -	ffffffff8104edf8:       callq  ffffffff8104de60 <__sigqueue_free>
-> -
-> -As expected, it's the "rep movsl" instruction from the memcpy() that causes
-> -the warning. We know about REP MOVSL that it uses the register RCX to count
-> -the number of remaining iterations. By taking a look at the register dump
-> -again (from the kmemcheck report), we can figure out how many bytes were left
-> -to copy:
-> -
-> -RAX: 0000000000000030 RBX: ffff88003d4ea968 RCX: 0000000000000009
-> -
-> -By looking at the disassembly, we also see that %ecx is being loaded with the
-> -value $0xc just before (ffffffff8104edd8), so we are very lucky. Keep in mind
-> -that this is the number of iterations, not bytes. And since this is a "long"
-> -operation, we need to multiply by 4 to get the number of bytes. So this means
-> -that the uninitialized value was encountered at 4 * (0xc - 0x9) = 12 bytes
-> -from the start of the object.
-> -
-> -We can now try to figure out which field of the "struct siginfo" that was not
-> -initialized. This is the beginning of the struct:
-> -
-> -40 typedef struct siginfo {
-> -41         int si_signo;
-> -42         int si_errno;
-> -43         int si_code;
-> -44                 
-> -45         union {
-> -..
-> -92         } _sifields;
-> -93 } siginfo_t;
-> -
-> -On 64-bit, the int is 4 bytes long, so it must the union member that has
-> -not been initialized. We can verify this using gdb:
-> -
-> -	$ gdb vmlinux
-> -	...
-> -	(gdb) p &((struct siginfo *) 0)->_sifields
-> -	$1 = (union {...} *) 0x10
-> -
-> -Actually, it seems that the union member is located at offset 0x10 -- which
-> -means that gcc has inserted 4 bytes of padding between the members si_code
-> -and _sifields. We can now get a fuller picture of the memory dump:
-> -
-> -         _----------------------------=> si_code
-> -        /        _--------------------=> (padding)
-> -       |        /        _------------=> _sifields(._kill._pid)
-> -       |       |        /        _----=> _sifields(._kill._uid)
-> -       |       |       |        / 
-> --------|-------|-------|-------|
-> -80000000000000000000000000000000000000000088ffff0000000000000000
-> - i i i i u u u u i i i i i i i i u u u u u u u u u u u u u u u u
-> -
-> -This allows us to realize another important fact: si_code contains the value
-> -0x80. Remember that x86 is little endian, so the first 4 bytes "80000000" are
-> -really the number 0x00000080. With a bit of research, we find that this is
-> -actually the constant SI_KERNEL defined in include/asm-generic/siginfo.h:
-> -
-> -144 #define SI_KERNEL       0x80            /* sent by the kernel from somewhere     */
-> -
-> -This macro is used in exactly one place in the x86 kernel: In send_signal()
-> -in kernel/signal.c:
-> -
-> -816 static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
-> -817                         int group)
-> -818 {
-> -...
-> -828         pending = group ? &t->signal->shared_pending : &t->pending;
-> -...
-> -851         q = __sigqueue_alloc(t, GFP_ATOMIC, (sig < SIGRTMIN &&
-> -852                                              (is_si_special(info) ||
-> -853                                               info->si_code >= 0)));
-> -854         if (q) {
-> -855                 list_add_tail(&q->list, &pending->list);
-> -856                 switch ((unsigned long) info) {
-> -...
-> -865                 case (unsigned long) SEND_SIG_PRIV:
-> -866                         q->info.si_signo = sig;
-> -867                         q->info.si_errno = 0;
-> -868                         q->info.si_code = SI_KERNEL;
-> -869                         q->info.si_pid = 0;
-> -870                         q->info.si_uid = 0;
-> -871                         break;
-> -...
-> -890 }
-> -
-> -Not only does this match with the .si_code member, it also matches the place
-> -we found earlier when looking for where siginfo_t objects are enqueued on the
-> -"shared_pending" list.
-> -
-> -So to sum up: It seems that it is the padding introduced by the compiler
-> -between two struct fields that is uninitialized, and this gets reported when
-> -we do a memcpy() on the struct. This means that we have identified a false
-> -positive warning.
-> -
-> -Normally, kmemcheck will not report uninitialized accesses in memcpy() calls
-> -when both the source and destination addresses are tracked. (Instead, we copy
-> -the shadow bytemap as well). In this case, the destination address clearly
-> -was not tracked. We can dig a little deeper into the stack trace from above:
-> -
-> -	arch/x86/kernel/signal.c:805
-> -	arch/x86/kernel/signal.c:871
-> -	arch/x86/kernel/entry_64.S:694
-> -
-> -And we clearly see that the destination siginfo object is located on the
-> -stack:
-> -
-> -782 static void do_signal(struct pt_regs *regs)
-> -783 {
-> -784         struct k_sigaction ka;
-> -785         siginfo_t info;
-> -...
-> -804         signr = get_signal_to_deliver(&info, &ka, regs, NULL);
-> -...
-> -854 }
-> -
-> -And this &info is what eventually gets passed to copy_siginfo() as the
-> -destination argument.
-> -
-> -Now, even though we didn't find an actual error here, the example is still a
-> -good one, because it shows how one would go about to find out what the report
-> -was all about.
-> -
-> -
-> -3.4. Annotating false positives
-> -===============================
-> -
-> -There are a few different ways to make annotations in the source code that
-> -will keep kmemcheck from checking and reporting certain allocations. Here
-> -they are:
-> -
-> -  o __GFP_NOTRACK_FALSE_POSITIVE
-> -
-> -	This flag can be passed to kmalloc() or kmem_cache_alloc() (therefore
-> -	also to other functions that end up calling one of these) to indicate
-> -	that the allocation should not be tracked because it would lead to
-> -	a false positive report. This is a "big hammer" way of silencing
-> -	kmemcheck; after all, even if the false positive pertains to 
-> -	particular field in a struct, for example, we will now lose the
-> -	ability to find (real) errors in other parts of the same struct.
-> -
-> -	Example:
-> -
-> -	    /* No warnings will ever trigger on accessing any part of x */
-> -	    x = kmalloc(sizeof *x, GFP_KERNEL | __GFP_NOTRACK_FALSE_POSITIVE);
-> -
-> -  o kmemcheck_bitfield_begin(name)/kmemcheck_bitfield_end(name) and
-> -	kmemcheck_annotate_bitfield(ptr, name)
-> -
-> -	The first two of these three macros can be used inside struct
-> -	definitions to signal, respectively, the beginning and end of a
-> -	bitfield. Additionally, this will assign the bitfield a name, which
-> -	is given as an argument to the macros.
-> -
-> -	Having used these markers, one can later use
-> -	kmemcheck_annotate_bitfield() at the point of allocation, to indicate
-> -	which parts of the allocation is part of a bitfield.
-> -
-> -	Example:
-> -
-> -	    struct foo {
-> -		int x;
-> -
-> -		kmemcheck_bitfield_begin(flags);
-> -		int flag_a:1;
-> -		int flag_b:1;
-> -		kmemcheck_bitfield_end(flags);
-> -
-> -		int y;
-> -	    };
-> -
-> -	    struct foo *x = kmalloc(sizeof *x);
-> -
-> -	    /* No warnings will trigger on accessing the bitfield of x */
-> -	    kmemcheck_annotate_bitfield(x, flags);
-> -
-> -	Note that kmemcheck_annotate_bitfield() can be used even before the
-> -	return value of kmalloc() is checked -- in other words, passing NULL
-> -	as the first argument is legal (and will do nothing).
-> -
-> -
-> -4. Reporting errors
-> -===================
-> -
-> -As we have seen, kmemcheck will produce false positive reports. Therefore, it
-> -is not very wise to blindly post kmemcheck warnings to mailing lists and
-> -maintainers. Instead, I encourage maintainers and developers to find errors
-> -in their own code. If you get a warning, you can try to work around it, try
-> -to figure out if it's a real error or not, or simply ignore it. Most
-> -developers know their own code and will quickly and efficiently determine the
-> -root cause of a kmemcheck report. This is therefore also the most efficient
-> -way to work with kmemcheck.
-> -
-> -That said, we (the kmemcheck maintainers) will always be on the lookout for
-> -false positives that we can annotate and silence. So whatever you find,
-> -please drop us a note privately! Kernel configs and steps to reproduce (if
-> -available) are of course a great help too.
-> -
-> -Happy hacking!
-> -
-> -
-> -5. Technical description
-> -========================
-> -
-> -kmemcheck works by marking memory pages non-present. This means that whenever
-> -somebody attempts to access the page, a page fault is generated. The page
-> -fault handler notices that the page was in fact only hidden, and so it calls
-> -on the kmemcheck code to make further investigations.
-> -
-> -When the investigations are completed, kmemcheck "shows" the page by marking
-> -it present (as it would be under normal circumstances). This way, the
-> -interrupted code can continue as usual.
-> -
-> -But after the instruction has been executed, we should hide the page again, so
-> -that we can catch the next access too! Now kmemcheck makes use of a debugging
-> -feature of the processor, namely single-stepping. When the processor has
-> -finished the one instruction that generated the memory access, a debug
-> -exception is raised. From here, we simply hide the page again and continue
-> -execution, this time with the single-stepping feature turned off.
-> -
-> -kmemcheck requires some assistance from the memory allocator in order to work.
-> -The memory allocator needs to
-> -
-> -  1. Tell kmemcheck about newly allocated pages and pages that are about to
-> -     be freed. This allows kmemcheck to set up and tear down the shadow memory
-> -     for the pages in question. The shadow memory stores the status of each
-> -     byte in the allocation proper, e.g. whether it is initialized or
-> -     uninitialized.
-> -
-> -  2. Tell kmemcheck which parts of memory should be marked uninitialized.
-> -     There are actually a few more states, such as "not yet allocated" and
-> -     "recently freed".
-> -
-> -If a slab cache is set up using the SLAB_NOTRACK flag, it will never return
-> -memory that can take page faults because of kmemcheck.
-> -
-> -If a slab cache is NOT set up using the SLAB_NOTRACK flag, callers can still
-> -request memory with the __GFP_NOTRACK or __GFP_NOTRACK_FALSE_POSITIVE flags.
-> -This does not prevent the page faults from occurring, however, but marks the
-> -object in question as being initialized so that no warnings will ever be
-> -produced for this object.
-> -
-> -Currently, the SLAB and SLUB allocators are supported by kmemcheck.
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 1939f73..36e3ddb 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -5706,16 +5706,6 @@ F:	include/linux/kdb.h
->  F:	include/linux/kgdb.h
->  F:	kernel/debug/
->  
-> -KMEMCHECK
-> -M:	Vegard Nossum <vegardno@ifi.uio.no>
-> -M:	Pekka Enberg <penberg@kernel.org>
-> -S:	Maintained
-> -F:	Documentation/kmemcheck.txt
-> -F:	arch/x86/include/asm/kmemcheck.h
-> -F:	arch/x86/mm/kmemcheck/
-> -F:	include/linux/kmemcheck.h
-> -F:	mm/kmemcheck.c
-> -
->  KMEMLEAK
->  M:	Catalin Marinas <catalin.marinas@arm.com>
->  S:	Maintained
-> diff --git a/arch/arm/include/asm/dma-iommu.h b/arch/arm/include/asm/dma-iommu.h
-> index 8e3fcb9..0e1c1f6 100644
-> --- a/arch/arm/include/asm/dma-iommu.h
-> +++ b/arch/arm/include/asm/dma-iommu.h
-> @@ -6,7 +6,6 @@
->  #include <linux/mm_types.h>
->  #include <linux/scatterlist.h>
->  #include <linux/dma-debug.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/kref.h>
->  
->  struct dma_iommu_mapping {
-> diff --git a/arch/arm/include/asm/pgalloc.h b/arch/arm/include/asm/pgalloc.h
-> index 19cfab5..019414e 100644
-> --- a/arch/arm/include/asm/pgalloc.h
-> +++ b/arch/arm/include/asm/pgalloc.h
-> @@ -57,7 +57,7 @@ static inline void pud_populate(struct mm_struct *mm, pud_t *pud, pmd_t *pmd)
->  extern pgd_t *pgd_alloc(struct mm_struct *mm);
->  extern void pgd_free(struct mm_struct *mm, pgd_t *pgd);
->  
-> -#define PGALLOC_GFP	(GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
-> +#define PGALLOC_GFP	(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO)
->  
->  static inline void clean_pte_table(pte_t *pte)
->  {
-> diff --git a/arch/arm64/include/asm/pgalloc.h b/arch/arm64/include/asm/pgalloc.h
-> index 7642056..1d57e4b 100644
-> --- a/arch/arm64/include/asm/pgalloc.h
-> +++ b/arch/arm64/include/asm/pgalloc.h
-> @@ -26,7 +26,7 @@
->  
->  #define check_pgt_cache()		do { } while (0)
->  
-> -#define PGALLOC_GFP	(GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
-> +#define PGALLOC_GFP	(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO)
->  
->  #if CONFIG_PGTABLE_LEVELS > 2
->  
-> diff --git a/arch/openrisc/include/asm/dma-mapping.h b/arch/openrisc/include/asm/dma-mapping.h
-> index fab8628..8226691 100644
-> --- a/arch/openrisc/include/asm/dma-mapping.h
-> +++ b/arch/openrisc/include/asm/dma-mapping.h
-> @@ -24,7 +24,6 @@
->  
->  #include <linux/dma-debug.h>
->  #include <asm-generic/dma-coherent.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/dma-mapping.h>
->  
->  #define DMA_ERROR_CODE		(~(dma_addr_t)0x0)
-> diff --git a/arch/powerpc/mm/pgtable_64.c b/arch/powerpc/mm/pgtable_64.c
-> index 6957cc1..041f129 100644
-> --- a/arch/powerpc/mm/pgtable_64.c
-> +++ b/arch/powerpc/mm/pgtable_64.c
-> @@ -396,8 +396,7 @@ static pte_t *get_from_cache(struct mm_struct *mm)
->  static pte_t *__alloc_for_cache(struct mm_struct *mm, int kernel)
->  {
->  	void *ret = NULL;
-> -	struct page *page = alloc_page(GFP_KERNEL | __GFP_NOTRACK |
-> -				       __GFP_REPEAT | __GFP_ZERO);
-> +	struct page *page = alloc_page(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO);
->  	if (!page)
->  		return NULL;
->  	if (!kernel && !pgtable_page_ctor(page)) {
-> diff --git a/arch/sh/kernel/dwarf.c b/arch/sh/kernel/dwarf.c
-> index 67a049e..eddc96a 100644
-> --- a/arch/sh/kernel/dwarf.c
-> +++ b/arch/sh/kernel/dwarf.c
-> @@ -1170,11 +1170,11 @@ static int __init dwarf_unwinder_init(void)
->  
->  	dwarf_frame_cachep = kmem_cache_create("dwarf_frames",
->  			sizeof(struct dwarf_frame), 0,
-> -			SLAB_PANIC | SLAB_HWCACHE_ALIGN | SLAB_NOTRACK, NULL);
-> +			SLAB_PANIC | SLAB_HWCACHE_ALIGN, NULL);
->  
->  	dwarf_reg_cachep = kmem_cache_create("dwarf_regs",
->  			sizeof(struct dwarf_reg), 0,
-> -			SLAB_PANIC | SLAB_HWCACHE_ALIGN | SLAB_NOTRACK, NULL);
-> +			SLAB_PANIC | SLAB_HWCACHE_ALIGN, NULL);
->  
->  	dwarf_frame_pool = mempool_create(DWARF_FRAME_MIN_REQ,
->  					  mempool_alloc_slab,
-> diff --git a/arch/sh/kernel/process.c b/arch/sh/kernel/process.c
-> index 53bc6c4..20e0d4f 100644
-> --- a/arch/sh/kernel/process.c
-> +++ b/arch/sh/kernel/process.c
-> @@ -56,7 +56,7 @@ void arch_task_cache_init(void)
->  
->  	task_xstate_cachep = kmem_cache_create("task_xstate", xstate_size,
->  					       __alignof__(union thread_xstate),
-> -					       SLAB_PANIC | SLAB_NOTRACK, NULL);
-> +					       SLAB_PANIC, NULL);
->  }
->  
->  #ifdef CONFIG_SH_FPU_EMU
-> diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
-> index 3ea267c..dc3edc4 100644
-> --- a/arch/sparc/mm/init_64.c
-> +++ b/arch/sparc/mm/init_64.c
-> @@ -2610,8 +2610,7 @@ void __flush_tlb_all(void)
->  pte_t *pte_alloc_one_kernel(struct mm_struct *mm,
->  			    unsigned long address)
->  {
-> -	struct page *page = alloc_page(GFP_KERNEL | __GFP_NOTRACK |
-> -				       __GFP_REPEAT | __GFP_ZERO);
-> +	struct page *page = alloc_page(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO);
->  	pte_t *pte = NULL;
->  
->  	if (page)
-> @@ -2623,8 +2622,7 @@ pte_t *pte_alloc_one_kernel(struct mm_struct *mm,
->  pgtable_t pte_alloc_one(struct mm_struct *mm,
->  			unsigned long address)
->  {
-> -	struct page *page = alloc_page(GFP_KERNEL | __GFP_NOTRACK |
-> -				       __GFP_REPEAT | __GFP_ZERO);
-> +	struct page *page = alloc_page(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO);
->  	if (!page)
->  		return NULL;
->  	if (!pgtable_page_ctor(page)) {
-> diff --git a/arch/unicore32/include/asm/pgalloc.h b/arch/unicore32/include/asm/pgalloc.h
-> index 2e02d13..408ba3c 100644
-> --- a/arch/unicore32/include/asm/pgalloc.h
-> +++ b/arch/unicore32/include/asm/pgalloc.h
-> @@ -28,7 +28,7 @@ extern void free_pgd_slow(struct mm_struct *mm, pgd_t *pgd);
->  #define pgd_alloc(mm)			get_pgd_slow(mm)
->  #define pgd_free(mm, pgd)		free_pgd_slow(mm, pgd)
->  
-> -#define PGALLOC_GFP	(GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
-> +#define PGALLOC_GFP	(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO)
->  
->  /*
->   * Allocate one PTE table.
-> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-> index 110f6ae..3ab3339 100644
-> --- a/arch/x86/Kconfig
-> +++ b/arch/x86/Kconfig
-> @@ -84,7 +84,6 @@ config X86
->  	select HAVE_ALIGNED_STRUCT_PAGE if SLUB
->  	select HAVE_CMPXCHG_LOCAL
->  	select HAVE_CMPXCHG_DOUBLE
-> -	select HAVE_ARCH_KMEMCHECK
->  	select HAVE_ARCH_KASAN if X86_64 && SPARSEMEM_VMEMMAP
->  	select HAVE_USER_RETURN_NOTIFIER
->  	select ARCH_HAS_ELF_RANDOMIZE
-> @@ -1304,7 +1303,7 @@ config ARCH_DMA_ADDR_T_64BIT
->  
->  config X86_DIRECT_GBPAGES
->  	def_bool y
-> -	depends on X86_64 && !DEBUG_PAGEALLOC && !KMEMCHECK
-> +	depends on X86_64 && !DEBUG_PAGEALLOC
->  	---help---
->  	  Certain kernel features effectively disable kernel
->  	  linear 1 GB mappings (even if the CPU otherwise
-> diff --git a/arch/x86/Makefile b/arch/x86/Makefile
-> index 5ba2d9c..fa827bf 100644
-> --- a/arch/x86/Makefile
-> +++ b/arch/x86/Makefile
-> @@ -131,11 +131,6 @@ ifdef CONFIG_X86_X32
->  endif
->  export CONFIG_X86_X32_ABI
->  
-> -# Don't unroll struct assignments with kmemcheck enabled
-> -ifeq ($(CONFIG_KMEMCHECK),y)
-> -	KBUILD_CFLAGS += $(call cc-option,-fno-builtin-memcpy)
-> -endif
-> -
->  # Stackpointer is addressed different for 32 bit and 64 bit x86
->  sp-$(CONFIG_X86_32) := esp
->  sp-$(CONFIG_X86_64) := rsp
-> diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-> index 808dae6..51f0267 100644
-> --- a/arch/x86/include/asm/dma-mapping.h
-> +++ b/arch/x86/include/asm/dma-mapping.h
-> @@ -6,7 +6,6 @@
->   * Documentation/DMA-API.txt for documentation.
->   */
->  
-> -#include <linux/kmemcheck.h>
->  #include <linux/scatterlist.h>
->  #include <linux/dma-debug.h>
->  #include <linux/dma-attrs.h>
-> diff --git a/arch/x86/include/asm/kmemcheck.h b/arch/x86/include/asm/kmemcheck.h
-> deleted file mode 100644
-> index ed01518..0000000
-> --- a/arch/x86/include/asm/kmemcheck.h
-> +++ /dev/null
-> @@ -1,42 +0,0 @@
-> -#ifndef ASM_X86_KMEMCHECK_H
-> -#define ASM_X86_KMEMCHECK_H
-> -
-> -#include <linux/types.h>
-> -#include <asm/ptrace.h>
-> -
-> -#ifdef CONFIG_KMEMCHECK
-> -bool kmemcheck_active(struct pt_regs *regs);
-> -
-> -void kmemcheck_show(struct pt_regs *regs);
-> -void kmemcheck_hide(struct pt_regs *regs);
-> -
-> -bool kmemcheck_fault(struct pt_regs *regs,
-> -	unsigned long address, unsigned long error_code);
-> -bool kmemcheck_trap(struct pt_regs *regs);
-> -#else
-> -static inline bool kmemcheck_active(struct pt_regs *regs)
-> -{
-> -	return false;
-> -}
-> -
-> -static inline void kmemcheck_show(struct pt_regs *regs)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_hide(struct pt_regs *regs)
-> -{
-> -}
-> -
-> -static inline bool kmemcheck_fault(struct pt_regs *regs,
-> -	unsigned long address, unsigned long error_code)
-> -{
-> -	return false;
-> -}
-> -
-> -static inline bool kmemcheck_trap(struct pt_regs *regs)
-> -{
-> -	return false;
-> -}
-> -#endif /* CONFIG_KMEMCHECK */
-> -
-> -#endif
-> diff --git a/arch/x86/include/asm/pgtable.h b/arch/x86/include/asm/pgtable.h
-> index affcb34..85088d1 100644
-> --- a/arch/x86/include/asm/pgtable.h
-> +++ b/arch/x86/include/asm/pgtable.h
-> @@ -458,11 +458,6 @@ static inline bool pte_accessible(struct mm_struct *mm, pte_t a)
->  	return false;
->  }
->  
-> -static inline int pte_hidden(pte_t pte)
-> -{
-> -	return pte_flags(pte) & _PAGE_HIDDEN;
-> -}
-> -
->  static inline int pmd_present(pmd_t pmd)
->  {
->  	/*
-> diff --git a/arch/x86/include/asm/pgtable_types.h b/arch/x86/include/asm/pgtable_types.h
-> index 78f0c8c..2d49d75 100644
-> --- a/arch/x86/include/asm/pgtable_types.h
-> +++ b/arch/x86/include/asm/pgtable_types.h
-> @@ -23,7 +23,6 @@
->  #define _PAGE_BIT_SPECIAL	_PAGE_BIT_SOFTW1
->  #define _PAGE_BIT_CPA_TEST	_PAGE_BIT_SOFTW1
->  #define _PAGE_BIT_SPLITTING	_PAGE_BIT_SOFTW2 /* only valid on a PSE pmd */
-> -#define _PAGE_BIT_HIDDEN	_PAGE_BIT_SOFTW3 /* hidden by kmemcheck */
->  #define _PAGE_BIT_SOFT_DIRTY	_PAGE_BIT_SOFTW3 /* software dirty tracking */
->  #define _PAGE_BIT_NX           63       /* No execute: only valid after cpuid check */
->  
-> @@ -49,18 +48,6 @@
->  #define _PAGE_SPLITTING	(_AT(pteval_t, 1) << _PAGE_BIT_SPLITTING)
->  #define __HAVE_ARCH_PTE_SPECIAL
->  
-> -#ifdef CONFIG_KMEMCHECK
-> -#define _PAGE_HIDDEN	(_AT(pteval_t, 1) << _PAGE_BIT_HIDDEN)
-> -#else
-> -#define _PAGE_HIDDEN	(_AT(pteval_t, 0))
-> -#endif
-> -
-> -/*
-> - * The same hidden bit is used by kmemcheck, but since kmemcheck
-> - * works on kernel pages while soft-dirty engine on user space,
-> - * they do not conflict with each other.
-> - */
-> -
->  #ifdef CONFIG_MEM_SOFT_DIRTY
->  #define _PAGE_SOFT_DIRTY	(_AT(pteval_t, 1) << _PAGE_BIT_SOFT_DIRTY)
->  #else
-> diff --git a/arch/x86/include/asm/string_32.h b/arch/x86/include/asm/string_32.h
-> index 3d3e835..8a4f6fa 100644
-> --- a/arch/x86/include/asm/string_32.h
-> +++ b/arch/x86/include/asm/string_32.h
-> @@ -176,8 +176,6 @@ static inline void *__memcpy3d(void *to, const void *from, size_t len)
->   *	No 3D Now!
->   */
->  
-> -#ifndef CONFIG_KMEMCHECK
-> -
->  #if (__GNUC__ >= 4)
->  #define memcpy(t, f, n) __builtin_memcpy(t, f, n)
->  #else
-> @@ -186,13 +184,6 @@ static inline void *__memcpy3d(void *to, const void *from, size_t len)
->  	 ? __constant_memcpy((t), (f), (n))	\
->  	 : __memcpy((t), (f), (n)))
->  #endif
-> -#else
-> -/*
-> - * kmemcheck becomes very happy if we use the REP instructions unconditionally,
-> - * because it means that we know both memory operands in advance.
-> - */
-> -#define memcpy(t, f, n) __memcpy((t), (f), (n))
-> -#endif
->  
->  #endif
->  
-> diff --git a/arch/x86/include/asm/string_64.h b/arch/x86/include/asm/string_64.h
-> index e466119..19da531 100644
-> --- a/arch/x86/include/asm/string_64.h
-> +++ b/arch/x86/include/asm/string_64.h
-> @@ -29,7 +29,6 @@ static __always_inline void *__inline_memcpy(void *to, const void *from, size_t
->  #define __HAVE_ARCH_MEMCPY 1
->  extern void *__memcpy(void *to, const void *from, size_t len);
->  
-> -#ifndef CONFIG_KMEMCHECK
->  #if (__GNUC__ == 4 && __GNUC_MINOR__ >= 3) || __GNUC__ > 4
->  extern void *memcpy(void *to, const void *from, size_t len);
->  #else
-> @@ -44,13 +43,6 @@ extern void *memcpy(void *to, const void *from, size_t len);
->  	__ret;							\
->  })
->  #endif
-> -#else
-> -/*
-> - * kmemcheck becomes very happy if we use the REP instructions unconditionally,
-> - * because it means that we know both memory operands in advance.
-> - */
-> -#define memcpy(dst, src, len) __inline_memcpy((dst), (src), (len))
-> -#endif
->  
->  #define __HAVE_ARCH_MEMSET
->  void *memset(void *s, int c, size_t n);
-> diff --git a/arch/x86/include/asm/xor.h b/arch/x86/include/asm/xor.h
-> index d882975..d484838 100644
-> --- a/arch/x86/include/asm/xor.h
-> +++ b/arch/x86/include/asm/xor.h
-> @@ -1,7 +1,4 @@
-> -#ifdef CONFIG_KMEMCHECK
-> -/* kmemcheck doesn't handle MMX/SSE/SSE2 instructions */
-> -# include <asm-generic/xor.h>
-> -#elif !defined(_ASM_X86_XOR_H)
-> +#ifndef _ASM_X86_XOR_H
->  #define _ASM_X86_XOR_H
->  
->  /*
-> diff --git a/arch/x86/kernel/cpu/intel.c b/arch/x86/kernel/cpu/intel.c
-> index 50163fa..422fceb 100644
-> --- a/arch/x86/kernel/cpu/intel.c
-> +++ b/arch/x86/kernel/cpu/intel.c
-> @@ -117,21 +117,6 @@ static void early_init_intel(struct cpuinfo_x86 *c)
->  	if (c->x86 == 6 && c->x86_model < 15)
->  		clear_cpu_cap(c, X86_FEATURE_PAT);
->  
-> -#ifdef CONFIG_KMEMCHECK
-> -	/*
-> -	 * P4s have a "fast strings" feature which causes single-
-> -	 * stepping REP instructions to only generate a #DB on
-> -	 * cache-line boundaries.
-> -	 *
-> -	 * Ingo Molnar reported a Pentium D (model 6) and a Xeon
-> -	 * (model 2) with the same problem.
-> -	 */
-> -	if (c->x86 == 15)
-> -		if (msr_clear_bit(MSR_IA32_MISC_ENABLE,
-> -				  MSR_IA32_MISC_ENABLE_FAST_STRING_BIT) > 0)
-> -			pr_info("kmemcheck: Disabling fast string operations\n");
-> -#endif
-> -
->  	/*
->  	 * If fast string is not enabled in IA32_MISC_ENABLE for any reason,
->  	 * clear the fast string and enhanced fast string CPU capabilities.
-> diff --git a/arch/x86/kernel/espfix_64.c b/arch/x86/kernel/espfix_64.c
-> index f5d0730..57870b2 100644
-> --- a/arch/x86/kernel/espfix_64.c
-> +++ b/arch/x86/kernel/espfix_64.c
-> @@ -57,7 +57,7 @@
->  # error "Need more than one PGD for the ESPFIX hack"
->  #endif
->  
-> -#define PGALLOC_GFP (GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
-> +#define PGALLOC_GFP (GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO)
->  
->  /* This contains the *bottom* address of the espfix stack */
->  DEFINE_PER_CPU_READ_MOSTLY(unsigned long, espfix_stack);
-> diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
-> index 2f3a4e4..c7908d3 100644
-> --- a/arch/x86/kernel/process.c
-> +++ b/arch/x86/kernel/process.c
-> @@ -114,7 +114,7 @@ void arch_task_cache_init(void)
->          task_xstate_cachep =
->          	kmem_cache_create("task_xstate", xstate_size,
->  				  __alignof__(union thread_xstate),
-> -				  SLAB_PANIC | SLAB_NOTRACK, NULL);
-> +				  SLAB_PANIC, NULL);
->  	setup_xstate_comp();
->  }
->  
-> diff --git a/arch/x86/kernel/traps.c b/arch/x86/kernel/traps.c
-> index 986fb20..8623044 100644
-> --- a/arch/x86/kernel/traps.c
-> +++ b/arch/x86/kernel/traps.c
-> @@ -46,7 +46,6 @@
->  #include <linux/edac.h>
->  #endif
->  
-> -#include <asm/kmemcheck.h>
->  #include <asm/stacktrace.h>
->  #include <asm/processor.h>
->  #include <asm/debugreg.h>
-> @@ -640,10 +639,6 @@ dotraplinkage void do_debug(struct pt_regs *regs, long error_code)
->  	if (!dr6 && user_mode(regs))
->  		user_icebp = 1;
->  
-> -	/* Catch kmemcheck conditions first of all! */
-> -	if ((dr6 & DR_STEP) && kmemcheck_trap(regs))
-> -		goto exit;
-> -
->  	/* DR6 may or may not be cleared by the CPU */
->  	set_debugreg(0, 6);
->  
-> diff --git a/arch/x86/mm/Makefile b/arch/x86/mm/Makefile
-> index c4cc740..afa8c79 100644
-> --- a/arch/x86/mm/Makefile
-> +++ b/arch/x86/mm/Makefile
-> @@ -18,8 +18,6 @@ obj-$(CONFIG_X86_PTDUMP)	+= dump_pagetables.o
->  
->  obj-$(CONFIG_HIGHMEM)		+= highmem_32.o
->  
-> -obj-$(CONFIG_KMEMCHECK)		+= kmemcheck/
-> -
->  KASAN_SANITIZE_kasan_init_$(BITS).o := n
->  obj-$(CONFIG_KASAN)		+= kasan_init_$(BITS).o
->  
-> diff --git a/arch/x86/mm/fault.c b/arch/x86/mm/fault.c
-> index ede025f..cd10e83 100644
-> --- a/arch/x86/mm/fault.c
-> +++ b/arch/x86/mm/fault.c
-> @@ -16,7 +16,6 @@
->  
->  #include <asm/traps.h>			/* dotraplinkage, ...		*/
->  #include <asm/pgalloc.h>		/* pgd_*(), ...			*/
-> -#include <asm/kmemcheck.h>		/* kmemcheck_*(), ...		*/
->  #include <asm/fixmap.h>			/* VSYSCALL_ADDR		*/
->  #include <asm/vsyscall.h>		/* emulate_vsyscall		*/
->  
-> @@ -1063,12 +1062,6 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
->  	tsk = current;
->  	mm = tsk->mm;
->  
-> -	/*
-> -	 * Detect and handle instructions that would cause a page fault for
-> -	 * both a tracked kernel page and a userspace page.
-> -	 */
-> -	if (kmemcheck_active(regs))
-> -		kmemcheck_hide(regs);
->  	prefetchw(&mm->mmap_sem);
->  
->  	if (unlikely(kmmio_fault(regs, address)))
-> @@ -1091,9 +1084,6 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
->  		if (!(error_code & (PF_RSVD | PF_USER | PF_PROT))) {
->  			if (vmalloc_fault(address) >= 0)
->  				return;
-> -
-> -			if (kmemcheck_fault(regs, address, error_code))
-> -				return;
->  		}
->  
->  		/* Can handle a stale RO->RW TLB: */
-> diff --git a/arch/x86/mm/init.c b/arch/x86/mm/init.c
-> index 1d55318..ab3ef36 100644
-> --- a/arch/x86/mm/init.c
-> +++ b/arch/x86/mm/init.c
-> @@ -86,7 +86,7 @@ __ref void *alloc_low_pages(unsigned int num)
->  		unsigned int order;
->  
->  		order = get_order((unsigned long)num << PAGE_SHIFT);
-> -		return (void *)__get_free_pages(GFP_ATOMIC | __GFP_NOTRACK |
-> +		return (void *)__get_free_pages(GFP_ATOMIC |
->  						__GFP_ZERO, order);
->  	}
->  
-> @@ -147,7 +147,7 @@ static int page_size_mask;
->  
->  static void __init probe_page_size_mask(void)
->  {
-> -#if !defined(CONFIG_DEBUG_PAGEALLOC) && !defined(CONFIG_KMEMCHECK)
-> +#if !defined(CONFIG_DEBUG_PAGEALLOC)
->  	/*
->  	 * For CONFIG_DEBUG_PAGEALLOC, identity mapping will use small pages.
->  	 * This will simplify cpa(), which otherwise needs to support splitting
-> diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-> index 3fba623..6b82ba4 100644
-> --- a/arch/x86/mm/init_64.c
-> +++ b/arch/x86/mm/init_64.c
-> @@ -216,7 +216,7 @@ static __ref void *spp_getpage(void)
->  	void *ptr;
->  
->  	if (after_bootmem)
-> -		ptr = (void *) get_zeroed_page(GFP_ATOMIC | __GFP_NOTRACK);
-> +		ptr = (void *) get_zeroed_page(GFP_ATOMIC);
->  	else
->  		ptr = alloc_bootmem_pages(PAGE_SIZE);
->  
-> diff --git a/arch/x86/mm/kmemcheck/Makefile b/arch/x86/mm/kmemcheck/Makefile
-> deleted file mode 100644
-> index 520b3bc..0000000
-> --- a/arch/x86/mm/kmemcheck/Makefile
-> +++ /dev/null
-> @@ -1 +0,0 @@
-> -obj-y := error.o kmemcheck.o opcode.o pte.o selftest.o shadow.o
-> diff --git a/arch/x86/mm/kmemcheck/error.c b/arch/x86/mm/kmemcheck/error.c
-> deleted file mode 100644
-> index dab4187..0000000
-> --- a/arch/x86/mm/kmemcheck/error.c
-> +++ /dev/null
-> @@ -1,227 +0,0 @@
-> -#include <linux/interrupt.h>
-> -#include <linux/kdebug.h>
-> -#include <linux/kmemcheck.h>
-> -#include <linux/kernel.h>
-> -#include <linux/types.h>
-> -#include <linux/ptrace.h>
-> -#include <linux/stacktrace.h>
-> -#include <linux/string.h>
-> -
-> -#include "error.h"
-> -#include "shadow.h"
-> -
-> -enum kmemcheck_error_type {
-> -	KMEMCHECK_ERROR_INVALID_ACCESS,
-> -	KMEMCHECK_ERROR_BUG,
-> -};
-> -
-> -#define SHADOW_COPY_SIZE (1 << CONFIG_KMEMCHECK_SHADOW_COPY_SHIFT)
-> -
-> -struct kmemcheck_error {
-> -	enum kmemcheck_error_type type;
-> -
-> -	union {
-> -		/* KMEMCHECK_ERROR_INVALID_ACCESS */
-> -		struct {
-> -			/* Kind of access that caused the error */
-> -			enum kmemcheck_shadow state;
-> -			/* Address and size of the erroneous read */
-> -			unsigned long	address;
-> -			unsigned int	size;
-> -		};
-> -	};
-> -
-> -	struct pt_regs		regs;
-> -	struct stack_trace	trace;
-> -	unsigned long		trace_entries[32];
-> -
-> -	/* We compress it to a char. */
-> -	unsigned char		shadow_copy[SHADOW_COPY_SIZE];
-> -	unsigned char		memory_copy[SHADOW_COPY_SIZE];
-> -};
-> -
-> -/*
-> - * Create a ring queue of errors to output. We can't call printk() directly
-> - * from the kmemcheck traps, since this may call the console drivers and
-> - * result in a recursive fault.
-> - */
-> -static struct kmemcheck_error error_fifo[CONFIG_KMEMCHECK_QUEUE_SIZE];
-> -static unsigned int error_count;
-> -static unsigned int error_rd;
-> -static unsigned int error_wr;
-> -static unsigned int error_missed_count;
-> -
-> -static struct kmemcheck_error *error_next_wr(void)
-> -{
-> -	struct kmemcheck_error *e;
-> -
-> -	if (error_count == ARRAY_SIZE(error_fifo)) {
-> -		++error_missed_count;
-> -		return NULL;
-> -	}
-> -
-> -	e = &error_fifo[error_wr];
-> -	if (++error_wr == ARRAY_SIZE(error_fifo))
-> -		error_wr = 0;
-> -	++error_count;
-> -	return e;
-> -}
-> -
-> -static struct kmemcheck_error *error_next_rd(void)
-> -{
-> -	struct kmemcheck_error *e;
-> -
-> -	if (error_count == 0)
-> -		return NULL;
-> -
-> -	e = &error_fifo[error_rd];
-> -	if (++error_rd == ARRAY_SIZE(error_fifo))
-> -		error_rd = 0;
-> -	--error_count;
-> -	return e;
-> -}
-> -
-> -void kmemcheck_error_recall(void)
-> -{
-> -	static const char *desc[] = {
-> -		[KMEMCHECK_SHADOW_UNALLOCATED]		= "unallocated",
-> -		[KMEMCHECK_SHADOW_UNINITIALIZED]	= "uninitialized",
-> -		[KMEMCHECK_SHADOW_INITIALIZED]		= "initialized",
-> -		[KMEMCHECK_SHADOW_FREED]		= "freed",
-> -	};
-> -
-> -	static const char short_desc[] = {
-> -		[KMEMCHECK_SHADOW_UNALLOCATED]		= 'a',
-> -		[KMEMCHECK_SHADOW_UNINITIALIZED]	= 'u',
-> -		[KMEMCHECK_SHADOW_INITIALIZED]		= 'i',
-> -		[KMEMCHECK_SHADOW_FREED]		= 'f',
-> -	};
-> -
-> -	struct kmemcheck_error *e;
-> -	unsigned int i;
-> -
-> -	e = error_next_rd();
-> -	if (!e)
-> -		return;
-> -
-> -	switch (e->type) {
-> -	case KMEMCHECK_ERROR_INVALID_ACCESS:
-> -		printk(KERN_WARNING "WARNING: kmemcheck: Caught %d-bit read from %s memory (%p)\n",
-> -			8 * e->size, e->state < ARRAY_SIZE(desc) ?
-> -				desc[e->state] : "(invalid shadow state)",
-> -			(void *) e->address);
-> -
-> -		printk(KERN_WARNING);
-> -		for (i = 0; i < SHADOW_COPY_SIZE; ++i)
-> -			printk(KERN_CONT "%02x", e->memory_copy[i]);
-> -		printk(KERN_CONT "\n");
-> -
-> -		printk(KERN_WARNING);
-> -		for (i = 0; i < SHADOW_COPY_SIZE; ++i) {
-> -			if (e->shadow_copy[i] < ARRAY_SIZE(short_desc))
-> -				printk(KERN_CONT " %c", short_desc[e->shadow_copy[i]]);
-> -			else
-> -				printk(KERN_CONT " ?");
-> -		}
-> -		printk(KERN_CONT "\n");
-> -		printk(KERN_WARNING "%*c\n", 2 + 2
-> -			* (int) (e->address & (SHADOW_COPY_SIZE - 1)), '^');
-> -		break;
-> -	case KMEMCHECK_ERROR_BUG:
-> -		printk(KERN_EMERG "ERROR: kmemcheck: Fatal error\n");
-> -		break;
-> -	}
-> -
-> -	__show_regs(&e->regs, 1);
-> -	print_stack_trace(&e->trace, 0);
-> -}
-> -
-> -static void do_wakeup(unsigned long data)
-> -{
-> -	while (error_count > 0)
-> -		kmemcheck_error_recall();
-> -
-> -	if (error_missed_count > 0) {
-> -		printk(KERN_WARNING "kmemcheck: Lost %d error reports because "
-> -			"the queue was too small\n", error_missed_count);
-> -		error_missed_count = 0;
-> -	}
-> -}
-> -
-> -static DECLARE_TASKLET(kmemcheck_tasklet, &do_wakeup, 0);
-> -
-> -/*
-> - * Save the context of an error report.
-> - */
-> -void kmemcheck_error_save(enum kmemcheck_shadow state,
-> -	unsigned long address, unsigned int size, struct pt_regs *regs)
-> -{
-> -	static unsigned long prev_ip;
-> -
-> -	struct kmemcheck_error *e;
-> -	void *shadow_copy;
-> -	void *memory_copy;
-> -
-> -	/* Don't report several adjacent errors from the same EIP. */
-> -	if (regs->ip == prev_ip)
-> -		return;
-> -	prev_ip = regs->ip;
-> -
-> -	e = error_next_wr();
-> -	if (!e)
-> -		return;
-> -
-> -	e->type = KMEMCHECK_ERROR_INVALID_ACCESS;
-> -
-> -	e->state = state;
-> -	e->address = address;
-> -	e->size = size;
-> -
-> -	/* Save regs */
-> -	memcpy(&e->regs, regs, sizeof(*regs));
-> -
-> -	/* Save stack trace */
-> -	e->trace.nr_entries = 0;
-> -	e->trace.entries = e->trace_entries;
-> -	e->trace.max_entries = ARRAY_SIZE(e->trace_entries);
-> -	e->trace.skip = 0;
-> -	save_stack_trace_regs(regs, &e->trace);
-> -
-> -	/* Round address down to nearest 16 bytes */
-> -	shadow_copy = kmemcheck_shadow_lookup(address
-> -		& ~(SHADOW_COPY_SIZE - 1));
-> -	BUG_ON(!shadow_copy);
-> -
-> -	memcpy(e->shadow_copy, shadow_copy, SHADOW_COPY_SIZE);
-> -
-> -	kmemcheck_show_addr(address);
-> -	memory_copy = (void *) (address & ~(SHADOW_COPY_SIZE - 1));
-> -	memcpy(e->memory_copy, memory_copy, SHADOW_COPY_SIZE);
-> -	kmemcheck_hide_addr(address);
-> -
-> -	tasklet_hi_schedule_first(&kmemcheck_tasklet);
-> -}
-> -
-> -/*
-> - * Save the context of a kmemcheck bug.
-> - */
-> -void kmemcheck_error_save_bug(struct pt_regs *regs)
-> -{
-> -	struct kmemcheck_error *e;
-> -
-> -	e = error_next_wr();
-> -	if (!e)
-> -		return;
-> -
-> -	e->type = KMEMCHECK_ERROR_BUG;
-> -
-> -	memcpy(&e->regs, regs, sizeof(*regs));
-> -
-> -	e->trace.nr_entries = 0;
-> -	e->trace.entries = e->trace_entries;
-> -	e->trace.max_entries = ARRAY_SIZE(e->trace_entries);
-> -	e->trace.skip = 1;
-> -	save_stack_trace(&e->trace);
-> -
-> -	tasklet_hi_schedule_first(&kmemcheck_tasklet);
-> -}
-> diff --git a/arch/x86/mm/kmemcheck/error.h b/arch/x86/mm/kmemcheck/error.h
-> deleted file mode 100644
-> index 0efc2e8..0000000
-> --- a/arch/x86/mm/kmemcheck/error.h
-> +++ /dev/null
-> @@ -1,15 +0,0 @@
-> -#ifndef ARCH__X86__MM__KMEMCHECK__ERROR_H
-> -#define ARCH__X86__MM__KMEMCHECK__ERROR_H
-> -
-> -#include <linux/ptrace.h>
-> -
-> -#include "shadow.h"
-> -
-> -void kmemcheck_error_save(enum kmemcheck_shadow state,
-> -	unsigned long address, unsigned int size, struct pt_regs *regs);
-> -
-> -void kmemcheck_error_save_bug(struct pt_regs *regs);
-> -
-> -void kmemcheck_error_recall(void);
-> -
-> -#endif
-> diff --git a/arch/x86/mm/kmemcheck/kmemcheck.c b/arch/x86/mm/kmemcheck/kmemcheck.c
-> deleted file mode 100644
-> index b4f2e7e..0000000
-> --- a/arch/x86/mm/kmemcheck/kmemcheck.c
-> +++ /dev/null
-> @@ -1,659 +0,0 @@
-> -/**
-> - * kmemcheck - a heavyweight memory checker for the linux kernel
-> - * Copyright (C) 2007, 2008  Vegard Nossum <vegardno@ifi.uio.no>
-> - * (With a lot of help from Ingo Molnar and Pekka Enberg.)
-> - *
-> - * This program is free software; you can redistribute it and/or modify
-> - * it under the terms of the GNU General Public License (version 2) as
-> - * published by the Free Software Foundation.
-> - */
-> -
-> -#include <linux/init.h>
-> -#include <linux/interrupt.h>
-> -#include <linux/kallsyms.h>
-> -#include <linux/kernel.h>
-> -#include <linux/kmemcheck.h>
-> -#include <linux/mm.h>
-> -#include <linux/module.h>
-> -#include <linux/page-flags.h>
-> -#include <linux/percpu.h>
-> -#include <linux/ptrace.h>
-> -#include <linux/string.h>
-> -#include <linux/types.h>
-> -
-> -#include <asm/cacheflush.h>
-> -#include <asm/kmemcheck.h>
-> -#include <asm/pgtable.h>
-> -#include <asm/tlbflush.h>
-> -
-> -#include "error.h"
-> -#include "opcode.h"
-> -#include "pte.h"
-> -#include "selftest.h"
-> -#include "shadow.h"
-> -
-> -
-> -#ifdef CONFIG_KMEMCHECK_DISABLED_BY_DEFAULT
-> -#  define KMEMCHECK_ENABLED 0
-> -#endif
-> -
-> -#ifdef CONFIG_KMEMCHECK_ENABLED_BY_DEFAULT
-> -#  define KMEMCHECK_ENABLED 1
-> -#endif
-> -
-> -#ifdef CONFIG_KMEMCHECK_ONESHOT_BY_DEFAULT
-> -#  define KMEMCHECK_ENABLED 2
-> -#endif
-> -
-> -int kmemcheck_enabled = KMEMCHECK_ENABLED;
-> -
-> -int __init kmemcheck_init(void)
-> -{
-> -#ifdef CONFIG_SMP
-> -	/*
-> -	 * Limit SMP to use a single CPU. We rely on the fact that this code
-> -	 * runs before SMP is set up.
-> -	 */
-> -	if (setup_max_cpus > 1) {
-> -		printk(KERN_INFO
-> -			"kmemcheck: Limiting number of CPUs to 1.\n");
-> -		setup_max_cpus = 1;
-> -	}
-> -#endif
-> -
-> -	if (!kmemcheck_selftest()) {
-> -		printk(KERN_INFO "kmemcheck: self-tests failed; disabling\n");
-> -		kmemcheck_enabled = 0;
-> -		return -EINVAL;
-> -	}
-> -
-> -	printk(KERN_INFO "kmemcheck: Initialized\n");
-> -	return 0;
-> -}
-> -
-> -early_initcall(kmemcheck_init);
-> -
-> -/*
-> - * We need to parse the kmemcheck= option before any memory is allocated.
-> - */
-> -static int __init param_kmemcheck(char *str)
-> -{
-> -	int val;
-> -	int ret;
-> -
-> -	if (!str)
-> -		return -EINVAL;
-> -
-> -	ret = kstrtoint(str, 0, &val);
-> -	if (ret)
-> -		return ret;
-> -	kmemcheck_enabled = val;
-> -	return 0;
-> -}
-> -
-> -early_param("kmemcheck", param_kmemcheck);
-> -
-> -int kmemcheck_show_addr(unsigned long address)
-> -{
-> -	pte_t *pte;
-> -
-> -	pte = kmemcheck_pte_lookup(address);
-> -	if (!pte)
-> -		return 0;
-> -
-> -	set_pte(pte, __pte(pte_val(*pte) | _PAGE_PRESENT));
-> -	__flush_tlb_one(address);
-> -	return 1;
-> -}
-> -
-> -int kmemcheck_hide_addr(unsigned long address)
-> -{
-> -	pte_t *pte;
-> -
-> -	pte = kmemcheck_pte_lookup(address);
-> -	if (!pte)
-> -		return 0;
-> -
-> -	set_pte(pte, __pte(pte_val(*pte) & ~_PAGE_PRESENT));
-> -	__flush_tlb_one(address);
-> -	return 1;
-> -}
-> -
-> -struct kmemcheck_context {
-> -	bool busy;
-> -	int balance;
-> -
-> -	/*
-> -	 * There can be at most two memory operands to an instruction, but
-> -	 * each address can cross a page boundary -- so we may need up to
-> -	 * four addresses that must be hidden/revealed for each fault.
-> -	 */
-> -	unsigned long addr[4];
-> -	unsigned long n_addrs;
-> -	unsigned long flags;
-> -
-> -	/* Data size of the instruction that caused a fault. */
-> -	unsigned int size;
-> -};
-> -
-> -static DEFINE_PER_CPU(struct kmemcheck_context, kmemcheck_context);
-> -
-> -bool kmemcheck_active(struct pt_regs *regs)
-> -{
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -
-> -	return data->balance > 0;
-> -}
-> -
-> -/* Save an address that needs to be shown/hidden */
-> -static void kmemcheck_save_addr(unsigned long addr)
-> -{
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -
-> -	BUG_ON(data->n_addrs >= ARRAY_SIZE(data->addr));
-> -	data->addr[data->n_addrs++] = addr;
-> -}
-> -
-> -static unsigned int kmemcheck_show_all(void)
-> -{
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -	unsigned int i;
-> -	unsigned int n;
-> -
-> -	n = 0;
-> -	for (i = 0; i < data->n_addrs; ++i)
-> -		n += kmemcheck_show_addr(data->addr[i]);
-> -
-> -	return n;
-> -}
-> -
-> -static unsigned int kmemcheck_hide_all(void)
-> -{
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -	unsigned int i;
-> -	unsigned int n;
-> -
-> -	n = 0;
-> -	for (i = 0; i < data->n_addrs; ++i)
-> -		n += kmemcheck_hide_addr(data->addr[i]);
-> -
-> -	return n;
-> -}
-> -
-> -/*
-> - * Called from the #PF handler.
-> - */
-> -void kmemcheck_show(struct pt_regs *regs)
-> -{
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -
-> -	BUG_ON(!irqs_disabled());
-> -
-> -	if (unlikely(data->balance != 0)) {
-> -		kmemcheck_show_all();
-> -		kmemcheck_error_save_bug(regs);
-> -		data->balance = 0;
-> -		return;
-> -	}
-> -
-> -	/*
-> -	 * None of the addresses actually belonged to kmemcheck. Note that
-> -	 * this is not an error.
-> -	 */
-> -	if (kmemcheck_show_all() == 0)
-> -		return;
-> -
-> -	++data->balance;
-> -
-> -	/*
-> -	 * The IF needs to be cleared as well, so that the faulting
-> -	 * instruction can run "uninterrupted". Otherwise, we might take
-> -	 * an interrupt and start executing that before we've had a chance
-> -	 * to hide the page again.
-> -	 *
-> -	 * NOTE: In the rare case of multiple faults, we must not override
-> -	 * the original flags:
-> -	 */
-> -	if (!(regs->flags & X86_EFLAGS_TF))
-> -		data->flags = regs->flags;
-> -
-> -	regs->flags |= X86_EFLAGS_TF;
-> -	regs->flags &= ~X86_EFLAGS_IF;
-> -}
-> -
-> -/*
-> - * Called from the #DB handler.
-> - */
-> -void kmemcheck_hide(struct pt_regs *regs)
-> -{
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -	int n;
-> -
-> -	BUG_ON(!irqs_disabled());
-> -
-> -	if (unlikely(data->balance != 1)) {
-> -		kmemcheck_show_all();
-> -		kmemcheck_error_save_bug(regs);
-> -		data->n_addrs = 0;
-> -		data->balance = 0;
-> -
-> -		if (!(data->flags & X86_EFLAGS_TF))
-> -			regs->flags &= ~X86_EFLAGS_TF;
-> -		if (data->flags & X86_EFLAGS_IF)
-> -			regs->flags |= X86_EFLAGS_IF;
-> -		return;
-> -	}
-> -
-> -	if (kmemcheck_enabled)
-> -		n = kmemcheck_hide_all();
-> -	else
-> -		n = kmemcheck_show_all();
-> -
-> -	if (n == 0)
-> -		return;
-> -
-> -	--data->balance;
-> -
-> -	data->n_addrs = 0;
-> -
-> -	if (!(data->flags & X86_EFLAGS_TF))
-> -		regs->flags &= ~X86_EFLAGS_TF;
-> -	if (data->flags & X86_EFLAGS_IF)
-> -		regs->flags |= X86_EFLAGS_IF;
-> -}
-> -
-> -void kmemcheck_show_pages(struct page *p, unsigned int n)
-> -{
-> -	unsigned int i;
-> -
-> -	for (i = 0; i < n; ++i) {
-> -		unsigned long address;
-> -		pte_t *pte;
-> -		unsigned int level;
-> -
-> -		address = (unsigned long) page_address(&p[i]);
-> -		pte = lookup_address(address, &level);
-> -		BUG_ON(!pte);
-> -		BUG_ON(level != PG_LEVEL_4K);
-> -
-> -		set_pte(pte, __pte(pte_val(*pte) | _PAGE_PRESENT));
-> -		set_pte(pte, __pte(pte_val(*pte) & ~_PAGE_HIDDEN));
-> -		__flush_tlb_one(address);
-> -	}
-> -}
-> -
-> -bool kmemcheck_page_is_tracked(struct page *p)
-> -{
-> -	/* This will also check the "hidden" flag of the PTE. */
-> -	return kmemcheck_pte_lookup((unsigned long) page_address(p));
-> -}
-> -
-> -void kmemcheck_hide_pages(struct page *p, unsigned int n)
-> -{
-> -	unsigned int i;
-> -
-> -	for (i = 0; i < n; ++i) {
-> -		unsigned long address;
-> -		pte_t *pte;
-> -		unsigned int level;
-> -
-> -		address = (unsigned long) page_address(&p[i]);
-> -		pte = lookup_address(address, &level);
-> -		BUG_ON(!pte);
-> -		BUG_ON(level != PG_LEVEL_4K);
-> -
-> -		set_pte(pte, __pte(pte_val(*pte) & ~_PAGE_PRESENT));
-> -		set_pte(pte, __pte(pte_val(*pte) | _PAGE_HIDDEN));
-> -		__flush_tlb_one(address);
-> -	}
-> -}
-> -
-> -/* Access may NOT cross page boundary */
-> -static void kmemcheck_read_strict(struct pt_regs *regs,
-> -	unsigned long addr, unsigned int size)
-> -{
-> -	void *shadow;
-> -	enum kmemcheck_shadow status;
-> -
-> -	shadow = kmemcheck_shadow_lookup(addr);
-> -	if (!shadow)
-> -		return;
-> -
-> -	kmemcheck_save_addr(addr);
-> -	status = kmemcheck_shadow_test(shadow, size);
-> -	if (status == KMEMCHECK_SHADOW_INITIALIZED)
-> -		return;
-> -
-> -	if (kmemcheck_enabled)
-> -		kmemcheck_error_save(status, addr, size, regs);
-> -
-> -	if (kmemcheck_enabled == 2)
-> -		kmemcheck_enabled = 0;
-> -
-> -	/* Don't warn about it again. */
-> -	kmemcheck_shadow_set(shadow, size);
-> -}
-> -
-> -bool kmemcheck_is_obj_initialized(unsigned long addr, size_t size)
-> -{
-> -	enum kmemcheck_shadow status;
-> -	void *shadow;
-> -
-> -	shadow = kmemcheck_shadow_lookup(addr);
-> -	if (!shadow)
-> -		return true;
-> -
-> -	status = kmemcheck_shadow_test_all(shadow, size);
-> -
-> -	return status == KMEMCHECK_SHADOW_INITIALIZED;
-> -}
-> -
-> -/* Access may cross page boundary */
-> -static void kmemcheck_read(struct pt_regs *regs,
-> -	unsigned long addr, unsigned int size)
-> -{
-> -	unsigned long page = addr & PAGE_MASK;
-> -	unsigned long next_addr = addr + size - 1;
-> -	unsigned long next_page = next_addr & PAGE_MASK;
-> -
-> -	if (likely(page == next_page)) {
-> -		kmemcheck_read_strict(regs, addr, size);
-> -		return;
-> -	}
-> -
-> -	/*
-> -	 * What we do is basically to split the access across the
-> -	 * two pages and handle each part separately. Yes, this means
-> -	 * that we may now see reads that are 3 + 5 bytes, for
-> -	 * example (and if both are uninitialized, there will be two
-> -	 * reports), but it makes the code a lot simpler.
-> -	 */
-> -	kmemcheck_read_strict(regs, addr, next_page - addr);
-> -	kmemcheck_read_strict(regs, next_page, next_addr - next_page);
-> -}
-> -
-> -static void kmemcheck_write_strict(struct pt_regs *regs,
-> -	unsigned long addr, unsigned int size)
-> -{
-> -	void *shadow;
-> -
-> -	shadow = kmemcheck_shadow_lookup(addr);
-> -	if (!shadow)
-> -		return;
-> -
-> -	kmemcheck_save_addr(addr);
-> -	kmemcheck_shadow_set(shadow, size);
-> -}
-> -
-> -static void kmemcheck_write(struct pt_regs *regs,
-> -	unsigned long addr, unsigned int size)
-> -{
-> -	unsigned long page = addr & PAGE_MASK;
-> -	unsigned long next_addr = addr + size - 1;
-> -	unsigned long next_page = next_addr & PAGE_MASK;
-> -
-> -	if (likely(page == next_page)) {
-> -		kmemcheck_write_strict(regs, addr, size);
-> -		return;
-> -	}
-> -
-> -	/* See comment in kmemcheck_read(). */
-> -	kmemcheck_write_strict(regs, addr, next_page - addr);
-> -	kmemcheck_write_strict(regs, next_page, next_addr - next_page);
-> -}
-> -
-> -/*
-> - * Copying is hard. We have two addresses, each of which may be split across
-> - * a page (and each page will have different shadow addresses).
-> - */
-> -static void kmemcheck_copy(struct pt_regs *regs,
-> -	unsigned long src_addr, unsigned long dst_addr, unsigned int size)
-> -{
-> -	uint8_t shadow[8];
-> -	enum kmemcheck_shadow status;
-> -
-> -	unsigned long page;
-> -	unsigned long next_addr;
-> -	unsigned long next_page;
-> -
-> -	uint8_t *x;
-> -	unsigned int i;
-> -	unsigned int n;
-> -
-> -	BUG_ON(size > sizeof(shadow));
-> -
-> -	page = src_addr & PAGE_MASK;
-> -	next_addr = src_addr + size - 1;
-> -	next_page = next_addr & PAGE_MASK;
-> -
-> -	if (likely(page == next_page)) {
-> -		/* Same page */
-> -		x = kmemcheck_shadow_lookup(src_addr);
-> -		if (x) {
-> -			kmemcheck_save_addr(src_addr);
-> -			for (i = 0; i < size; ++i)
-> -				shadow[i] = x[i];
-> -		} else {
-> -			for (i = 0; i < size; ++i)
-> -				shadow[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -		}
-> -	} else {
-> -		n = next_page - src_addr;
-> -		BUG_ON(n > sizeof(shadow));
-> -
-> -		/* First page */
-> -		x = kmemcheck_shadow_lookup(src_addr);
-> -		if (x) {
-> -			kmemcheck_save_addr(src_addr);
-> -			for (i = 0; i < n; ++i)
-> -				shadow[i] = x[i];
-> -		} else {
-> -			/* Not tracked */
-> -			for (i = 0; i < n; ++i)
-> -				shadow[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -		}
-> -
-> -		/* Second page */
-> -		x = kmemcheck_shadow_lookup(next_page);
-> -		if (x) {
-> -			kmemcheck_save_addr(next_page);
-> -			for (i = n; i < size; ++i)
-> -				shadow[i] = x[i - n];
-> -		} else {
-> -			/* Not tracked */
-> -			for (i = n; i < size; ++i)
-> -				shadow[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -		}
-> -	}
-> -
-> -	page = dst_addr & PAGE_MASK;
-> -	next_addr = dst_addr + size - 1;
-> -	next_page = next_addr & PAGE_MASK;
-> -
-> -	if (likely(page == next_page)) {
-> -		/* Same page */
-> -		x = kmemcheck_shadow_lookup(dst_addr);
-> -		if (x) {
-> -			kmemcheck_save_addr(dst_addr);
-> -			for (i = 0; i < size; ++i) {
-> -				x[i] = shadow[i];
-> -				shadow[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -			}
-> -		}
-> -	} else {
-> -		n = next_page - dst_addr;
-> -		BUG_ON(n > sizeof(shadow));
-> -
-> -		/* First page */
-> -		x = kmemcheck_shadow_lookup(dst_addr);
-> -		if (x) {
-> -			kmemcheck_save_addr(dst_addr);
-> -			for (i = 0; i < n; ++i) {
-> -				x[i] = shadow[i];
-> -				shadow[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -			}
-> -		}
-> -
-> -		/* Second page */
-> -		x = kmemcheck_shadow_lookup(next_page);
-> -		if (x) {
-> -			kmemcheck_save_addr(next_page);
-> -			for (i = n; i < size; ++i) {
-> -				x[i - n] = shadow[i];
-> -				shadow[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -			}
-> -		}
-> -	}
-> -
-> -	status = kmemcheck_shadow_test(shadow, size);
-> -	if (status == KMEMCHECK_SHADOW_INITIALIZED)
-> -		return;
-> -
-> -	if (kmemcheck_enabled)
-> -		kmemcheck_error_save(status, src_addr, size, regs);
-> -
-> -	if (kmemcheck_enabled == 2)
-> -		kmemcheck_enabled = 0;
-> -}
-> -
-> -enum kmemcheck_method {
-> -	KMEMCHECK_READ,
-> -	KMEMCHECK_WRITE,
-> -};
-> -
-> -static void kmemcheck_access(struct pt_regs *regs,
-> -	unsigned long fallback_address, enum kmemcheck_method fallback_method)
-> -{
-> -	const uint8_t *insn;
-> -	const uint8_t *insn_primary;
-> -	unsigned int size;
-> -
-> -	struct kmemcheck_context *data = this_cpu_ptr(&kmemcheck_context);
-> -
-> -	/* Recursive fault -- ouch. */
-> -	if (data->busy) {
-> -		kmemcheck_show_addr(fallback_address);
-> -		kmemcheck_error_save_bug(regs);
-> -		return;
-> -	}
-> -
-> -	data->busy = true;
-> -
-> -	insn = (const uint8_t *) regs->ip;
-> -	insn_primary = kmemcheck_opcode_get_primary(insn);
-> -
-> -	kmemcheck_opcode_decode(insn, &size);
-> -
-> -	switch (insn_primary[0]) {
-> -#ifdef CONFIG_KMEMCHECK_BITOPS_OK
-> -		/* AND, OR, XOR */
-> -		/*
-> -		 * Unfortunately, these instructions have to be excluded from
-> -		 * our regular checking since they access only some (and not
-> -		 * all) bits. This clears out "bogus" bitfield-access warnings.
-> -		 */
-> -	case 0x80:
-> -	case 0x81:
-> -	case 0x82:
-> -	case 0x83:
-> -		switch ((insn_primary[1] >> 3) & 7) {
-> -			/* OR */
-> -		case 1:
-> -			/* AND */
-> -		case 4:
-> -			/* XOR */
-> -		case 6:
-> -			kmemcheck_write(regs, fallback_address, size);
-> -			goto out;
-> -
-> -			/* ADD */
-> -		case 0:
-> -			/* ADC */
-> -		case 2:
-> -			/* SBB */
-> -		case 3:
-> -			/* SUB */
-> -		case 5:
-> -			/* CMP */
-> -		case 7:
-> -			break;
-> -		}
-> -		break;
-> -#endif
-> -
-> -		/* MOVS, MOVSB, MOVSW, MOVSD */
-> -	case 0xa4:
-> -	case 0xa5:
-> -		/*
-> -		 * These instructions are special because they take two
-> -		 * addresses, but we only get one page fault.
-> -		 */
-> -		kmemcheck_copy(regs, regs->si, regs->di, size);
-> -		goto out;
-> -
-> -		/* CMPS, CMPSB, CMPSW, CMPSD */
-> -	case 0xa6:
-> -	case 0xa7:
-> -		kmemcheck_read(regs, regs->si, size);
-> -		kmemcheck_read(regs, regs->di, size);
-> -		goto out;
-> -	}
-> -
-> -	/*
-> -	 * If the opcode isn't special in any way, we use the data from the
-> -	 * page fault handler to determine the address and type of memory
-> -	 * access.
-> -	 */
-> -	switch (fallback_method) {
-> -	case KMEMCHECK_READ:
-> -		kmemcheck_read(regs, fallback_address, size);
-> -		goto out;
-> -	case KMEMCHECK_WRITE:
-> -		kmemcheck_write(regs, fallback_address, size);
-> -		goto out;
-> -	}
-> -
-> -out:
-> -	data->busy = false;
-> -}
-> -
-> -bool kmemcheck_fault(struct pt_regs *regs, unsigned long address,
-> -	unsigned long error_code)
-> -{
-> -	pte_t *pte;
-> -
-> -	/*
-> -	 * XXX: Is it safe to assume that memory accesses from virtual 86
-> -	 * mode or non-kernel code segments will _never_ access kernel
-> -	 * memory (e.g. tracked pages)? For now, we need this to avoid
-> -	 * invoking kmemcheck for PnP BIOS calls.
-> -	 */
-> -	if (regs->flags & X86_VM_MASK)
-> -		return false;
-> -	if (regs->cs != __KERNEL_CS)
-> -		return false;
-> -
-> -	pte = kmemcheck_pte_lookup(address);
-> -	if (!pte)
-> -		return false;
-> -
-> -	WARN_ON_ONCE(in_nmi());
-> -
-> -	if (error_code & 2)
-> -		kmemcheck_access(regs, address, KMEMCHECK_WRITE);
-> -	else
-> -		kmemcheck_access(regs, address, KMEMCHECK_READ);
-> -
-> -	kmemcheck_show(regs);
-> -	return true;
-> -}
-> -
-> -bool kmemcheck_trap(struct pt_regs *regs)
-> -{
-> -	if (!kmemcheck_active(regs))
-> -		return false;
-> -
-> -	/* We're done. */
-> -	kmemcheck_hide(regs);
-> -	return true;
-> -}
-> diff --git a/arch/x86/mm/kmemcheck/opcode.c b/arch/x86/mm/kmemcheck/opcode.c
-> deleted file mode 100644
-> index 324aa3f..0000000
-> --- a/arch/x86/mm/kmemcheck/opcode.c
-> +++ /dev/null
-> @@ -1,106 +0,0 @@
-> -#include <linux/types.h>
-> -
-> -#include "opcode.h"
-> -
-> -static bool opcode_is_prefix(uint8_t b)
-> -{
-> -	return
-> -		/* Group 1 */
-> -		b == 0xf0 || b == 0xf2 || b == 0xf3
-> -		/* Group 2 */
-> -		|| b == 0x2e || b == 0x36 || b == 0x3e || b == 0x26
-> -		|| b == 0x64 || b == 0x65
-> -		/* Group 3 */
-> -		|| b == 0x66
-> -		/* Group 4 */
-> -		|| b == 0x67;
-> -}
-> -
-> -#ifdef CONFIG_X86_64
-> -static bool opcode_is_rex_prefix(uint8_t b)
-> -{
-> -	return (b & 0xf0) == 0x40;
-> -}
-> -#else
-> -static bool opcode_is_rex_prefix(uint8_t b)
-> -{
-> -	return false;
-> -}
-> -#endif
-> -
-> -#define REX_W (1 << 3)
-> -
-> -/*
-> - * This is a VERY crude opcode decoder. We only need to find the size of the
-> - * load/store that caused our #PF and this should work for all the opcodes
-> - * that we care about. Moreover, the ones who invented this instruction set
-> - * should be shot.
-> - */
-> -void kmemcheck_opcode_decode(const uint8_t *op, unsigned int *size)
-> -{
-> -	/* Default operand size */
-> -	int operand_size_override = 4;
-> -
-> -	/* prefixes */
-> -	for (; opcode_is_prefix(*op); ++op) {
-> -		if (*op == 0x66)
-> -			operand_size_override = 2;
-> -	}
-> -
-> -	/* REX prefix */
-> -	if (opcode_is_rex_prefix(*op)) {
-> -		uint8_t rex = *op;
-> -
-> -		++op;
-> -		if (rex & REX_W) {
-> -			switch (*op) {
-> -			case 0x63:
-> -				*size = 4;
-> -				return;
-> -			case 0x0f:
-> -				++op;
-> -
-> -				switch (*op) {
-> -				case 0xb6:
-> -				case 0xbe:
-> -					*size = 1;
-> -					return;
-> -				case 0xb7:
-> -				case 0xbf:
-> -					*size = 2;
-> -					return;
-> -				}
-> -
-> -				break;
-> -			}
-> -
-> -			*size = 8;
-> -			return;
-> -		}
-> -	}
-> -
-> -	/* escape opcode */
-> -	if (*op == 0x0f) {
-> -		++op;
-> -
-> -		/*
-> -		 * This is move with zero-extend and sign-extend, respectively;
-> -		 * we don't have to think about 0xb6/0xbe, because this is
-> -		 * already handled in the conditional below.
-> -		 */
-> -		if (*op == 0xb7 || *op == 0xbf)
-> -			operand_size_override = 2;
-> -	}
-> -
-> -	*size = (*op & 1) ? operand_size_override : 1;
-> -}
-> -
-> -const uint8_t *kmemcheck_opcode_get_primary(const uint8_t *op)
-> -{
-> -	/* skip prefixes */
-> -	while (opcode_is_prefix(*op))
-> -		++op;
-> -	if (opcode_is_rex_prefix(*op))
-> -		++op;
-> -	return op;
-> -}
-> diff --git a/arch/x86/mm/kmemcheck/opcode.h b/arch/x86/mm/kmemcheck/opcode.h
-> deleted file mode 100644
-> index 6956aad..0000000
-> --- a/arch/x86/mm/kmemcheck/opcode.h
-> +++ /dev/null
-> @@ -1,9 +0,0 @@
-> -#ifndef ARCH__X86__MM__KMEMCHECK__OPCODE_H
-> -#define ARCH__X86__MM__KMEMCHECK__OPCODE_H
-> -
-> -#include <linux/types.h>
-> -
-> -void kmemcheck_opcode_decode(const uint8_t *op, unsigned int *size);
-> -const uint8_t *kmemcheck_opcode_get_primary(const uint8_t *op);
-> -
-> -#endif
-> diff --git a/arch/x86/mm/kmemcheck/pte.c b/arch/x86/mm/kmemcheck/pte.c
-> deleted file mode 100644
-> index 4ead26e..0000000
-> --- a/arch/x86/mm/kmemcheck/pte.c
-> +++ /dev/null
-> @@ -1,22 +0,0 @@
-> -#include <linux/mm.h>
-> -
-> -#include <asm/pgtable.h>
-> -
-> -#include "pte.h"
-> -
-> -pte_t *kmemcheck_pte_lookup(unsigned long address)
-> -{
-> -	pte_t *pte;
-> -	unsigned int level;
-> -
-> -	pte = lookup_address(address, &level);
-> -	if (!pte)
-> -		return NULL;
-> -	if (level != PG_LEVEL_4K)
-> -		return NULL;
-> -	if (!pte_hidden(*pte))
-> -		return NULL;
-> -
-> -	return pte;
-> -}
-> -
-> diff --git a/arch/x86/mm/kmemcheck/pte.h b/arch/x86/mm/kmemcheck/pte.h
-> deleted file mode 100644
-> index 9f59664..0000000
-> --- a/arch/x86/mm/kmemcheck/pte.h
-> +++ /dev/null
-> @@ -1,10 +0,0 @@
-> -#ifndef ARCH__X86__MM__KMEMCHECK__PTE_H
-> -#define ARCH__X86__MM__KMEMCHECK__PTE_H
-> -
-> -#include <linux/mm.h>
-> -
-> -#include <asm/pgtable.h>
-> -
-> -pte_t *kmemcheck_pte_lookup(unsigned long address);
-> -
-> -#endif
-> diff --git a/arch/x86/mm/kmemcheck/selftest.c b/arch/x86/mm/kmemcheck/selftest.c
-> deleted file mode 100644
-> index aef7140..0000000
-> --- a/arch/x86/mm/kmemcheck/selftest.c
-> +++ /dev/null
-> @@ -1,70 +0,0 @@
-> -#include <linux/bug.h>
-> -#include <linux/kernel.h>
-> -
-> -#include "opcode.h"
-> -#include "selftest.h"
-> -
-> -struct selftest_opcode {
-> -	unsigned int expected_size;
-> -	const uint8_t *insn;
-> -	const char *desc;
-> -};
-> -
-> -static const struct selftest_opcode selftest_opcodes[] = {
-> -	/* REP MOVS */
-> -	{1, "\xf3\xa4", 		"rep movsb <mem8>, <mem8>"},
-> -	{4, "\xf3\xa5",			"rep movsl <mem32>, <mem32>"},
-> -
-> -	/* MOVZX / MOVZXD */
-> -	{1, "\x66\x0f\xb6\x51\xf8",	"movzwq <mem8>, <reg16>"},
-> -	{1, "\x0f\xb6\x51\xf8",		"movzwq <mem8>, <reg32>"},
-> -
-> -	/* MOVSX / MOVSXD */
-> -	{1, "\x66\x0f\xbe\x51\xf8",	"movswq <mem8>, <reg16>"},
-> -	{1, "\x0f\xbe\x51\xf8",		"movswq <mem8>, <reg32>"},
-> -
-> -#ifdef CONFIG_X86_64
-> -	/* MOVZX / MOVZXD */
-> -	{1, "\x49\x0f\xb6\x51\xf8",	"movzbq <mem8>, <reg64>"},
-> -	{2, "\x49\x0f\xb7\x51\xf8",	"movzbq <mem16>, <reg64>"},
-> -
-> -	/* MOVSX / MOVSXD */
-> -	{1, "\x49\x0f\xbe\x51\xf8",	"movsbq <mem8>, <reg64>"},
-> -	{2, "\x49\x0f\xbf\x51\xf8",	"movsbq <mem16>, <reg64>"},
-> -	{4, "\x49\x63\x51\xf8",		"movslq <mem32>, <reg64>"},
-> -#endif
-> -};
-> -
-> -static bool selftest_opcode_one(const struct selftest_opcode *op)
-> -{
-> -	unsigned size;
-> -
-> -	kmemcheck_opcode_decode(op->insn, &size);
-> -
-> -	if (size == op->expected_size)
-> -		return true;
-> -
-> -	printk(KERN_WARNING "kmemcheck: opcode %s: expected size %d, got %d\n",
-> -		op->desc, op->expected_size, size);
-> -	return false;
-> -}
-> -
-> -static bool selftest_opcodes_all(void)
-> -{
-> -	bool pass = true;
-> -	unsigned int i;
-> -
-> -	for (i = 0; i < ARRAY_SIZE(selftest_opcodes); ++i)
-> -		pass = pass && selftest_opcode_one(&selftest_opcodes[i]);
-> -
-> -	return pass;
-> -}
-> -
-> -bool kmemcheck_selftest(void)
-> -{
-> -	bool pass = true;
-> -
-> -	pass = pass && selftest_opcodes_all();
-> -
-> -	return pass;
-> -}
-> diff --git a/arch/x86/mm/kmemcheck/selftest.h b/arch/x86/mm/kmemcheck/selftest.h
-> deleted file mode 100644
-> index 8fed4fe..0000000
-> --- a/arch/x86/mm/kmemcheck/selftest.h
-> +++ /dev/null
-> @@ -1,6 +0,0 @@
-> -#ifndef ARCH_X86_MM_KMEMCHECK_SELFTEST_H
-> -#define ARCH_X86_MM_KMEMCHECK_SELFTEST_H
-> -
-> -bool kmemcheck_selftest(void);
-> -
-> -#endif
-> diff --git a/arch/x86/mm/kmemcheck/shadow.c b/arch/x86/mm/kmemcheck/shadow.c
-> deleted file mode 100644
-> index aec1242..0000000
-> --- a/arch/x86/mm/kmemcheck/shadow.c
-> +++ /dev/null
-> @@ -1,173 +0,0 @@
-> -#include <linux/kmemcheck.h>
-> -#include <linux/module.h>
-> -#include <linux/mm.h>
-> -
-> -#include <asm/page.h>
-> -#include <asm/pgtable.h>
-> -
-> -#include "pte.h"
-> -#include "shadow.h"
-> -
-> -/*
-> - * Return the shadow address for the given address. Returns NULL if the
-> - * address is not tracked.
-> - *
-> - * We need to be extremely careful not to follow any invalid pointers,
-> - * because this function can be called for *any* possible address.
-> - */
-> -void *kmemcheck_shadow_lookup(unsigned long address)
-> -{
-> -	pte_t *pte;
-> -	struct page *page;
-> -
-> -	if (!virt_addr_valid(address))
-> -		return NULL;
-> -
-> -	pte = kmemcheck_pte_lookup(address);
-> -	if (!pte)
-> -		return NULL;
-> -
-> -	page = virt_to_page(address);
-> -	if (!page->shadow)
-> -		return NULL;
-> -	return page->shadow + (address & (PAGE_SIZE - 1));
-> -}
-> -
-> -static void mark_shadow(void *address, unsigned int n,
-> -	enum kmemcheck_shadow status)
-> -{
-> -	unsigned long addr = (unsigned long) address;
-> -	unsigned long last_addr = addr + n - 1;
-> -	unsigned long page = addr & PAGE_MASK;
-> -	unsigned long last_page = last_addr & PAGE_MASK;
-> -	unsigned int first_n;
-> -	void *shadow;
-> -
-> -	/* If the memory range crosses a page boundary, stop there. */
-> -	if (page == last_page)
-> -		first_n = n;
-> -	else
-> -		first_n = page + PAGE_SIZE - addr;
-> -
-> -	shadow = kmemcheck_shadow_lookup(addr);
-> -	if (shadow)
-> -		memset(shadow, status, first_n);
-> -
-> -	addr += first_n;
-> -	n -= first_n;
-> -
-> -	/* Do full-page memset()s. */
-> -	while (n >= PAGE_SIZE) {
-> -		shadow = kmemcheck_shadow_lookup(addr);
-> -		if (shadow)
-> -			memset(shadow, status, PAGE_SIZE);
-> -
-> -		addr += PAGE_SIZE;
-> -		n -= PAGE_SIZE;
-> -	}
-> -
-> -	/* Do the remaining page, if any. */
-> -	if (n > 0) {
-> -		shadow = kmemcheck_shadow_lookup(addr);
-> -		if (shadow)
-> -			memset(shadow, status, n);
-> -	}
-> -}
-> -
-> -void kmemcheck_mark_unallocated(void *address, unsigned int n)
-> -{
-> -	mark_shadow(address, n, KMEMCHECK_SHADOW_UNALLOCATED);
-> -}
-> -
-> -void kmemcheck_mark_uninitialized(void *address, unsigned int n)
-> -{
-> -	mark_shadow(address, n, KMEMCHECK_SHADOW_UNINITIALIZED);
-> -}
-> -
-> -/*
-> - * Fill the shadow memory of the given address such that the memory at that
-> - * address is marked as being initialized.
-> - */
-> -void kmemcheck_mark_initialized(void *address, unsigned int n)
-> -{
-> -	mark_shadow(address, n, KMEMCHECK_SHADOW_INITIALIZED);
-> -}
-> -EXPORT_SYMBOL_GPL(kmemcheck_mark_initialized);
-> -
-> -void kmemcheck_mark_freed(void *address, unsigned int n)
-> -{
-> -	mark_shadow(address, n, KMEMCHECK_SHADOW_FREED);
-> -}
-> -
-> -void kmemcheck_mark_unallocated_pages(struct page *p, unsigned int n)
-> -{
-> -	unsigned int i;
-> -
-> -	for (i = 0; i < n; ++i)
-> -		kmemcheck_mark_unallocated(page_address(&p[i]), PAGE_SIZE);
-> -}
-> -
-> -void kmemcheck_mark_uninitialized_pages(struct page *p, unsigned int n)
-> -{
-> -	unsigned int i;
-> -
-> -	for (i = 0; i < n; ++i)
-> -		kmemcheck_mark_uninitialized(page_address(&p[i]), PAGE_SIZE);
-> -}
-> -
-> -void kmemcheck_mark_initialized_pages(struct page *p, unsigned int n)
-> -{
-> -	unsigned int i;
-> -
-> -	for (i = 0; i < n; ++i)
-> -		kmemcheck_mark_initialized(page_address(&p[i]), PAGE_SIZE);
-> -}
-> -
-> -enum kmemcheck_shadow kmemcheck_shadow_test(void *shadow, unsigned int size)
-> -{
-> -#ifdef CONFIG_KMEMCHECK_PARTIAL_OK
-> -	uint8_t *x;
-> -	unsigned int i;
-> -
-> -	x = shadow;
-> -
-> -	/*
-> -	 * Make sure _some_ bytes are initialized. Gcc frequently generates
-> -	 * code to access neighboring bytes.
-> -	 */
-> -	for (i = 0; i < size; ++i) {
-> -		if (x[i] == KMEMCHECK_SHADOW_INITIALIZED)
-> -			return x[i];
-> -	}
-> -
-> -	return x[0];
-> -#else
-> -	return kmemcheck_shadow_test_all(shadow, size);
-> -#endif
-> -}
-> -
-> -enum kmemcheck_shadow kmemcheck_shadow_test_all(void *shadow, unsigned int size)
-> -{
-> -	uint8_t *x;
-> -	unsigned int i;
-> -
-> -	x = shadow;
-> -
-> -	/* All bytes must be initialized. */
-> -	for (i = 0; i < size; ++i) {
-> -		if (x[i] != KMEMCHECK_SHADOW_INITIALIZED)
-> -			return x[i];
-> -	}
-> -
-> -	return x[0];
-> -}
-> -
-> -void kmemcheck_shadow_set(void *shadow, unsigned int size)
-> -{
-> -	uint8_t *x;
-> -	unsigned int i;
-> -
-> -	x = shadow;
-> -	for (i = 0; i < size; ++i)
-> -		x[i] = KMEMCHECK_SHADOW_INITIALIZED;
-> -}
-> diff --git a/arch/x86/mm/kmemcheck/shadow.h b/arch/x86/mm/kmemcheck/shadow.h
-> deleted file mode 100644
-> index ff0b2f7..0000000
-> --- a/arch/x86/mm/kmemcheck/shadow.h
-> +++ /dev/null
-> @@ -1,18 +0,0 @@
-> -#ifndef ARCH__X86__MM__KMEMCHECK__SHADOW_H
-> -#define ARCH__X86__MM__KMEMCHECK__SHADOW_H
-> -
-> -enum kmemcheck_shadow {
-> -	KMEMCHECK_SHADOW_UNALLOCATED,
-> -	KMEMCHECK_SHADOW_UNINITIALIZED,
-> -	KMEMCHECK_SHADOW_INITIALIZED,
-> -	KMEMCHECK_SHADOW_FREED,
-> -};
-> -
-> -void *kmemcheck_shadow_lookup(unsigned long address);
-> -
-> -enum kmemcheck_shadow kmemcheck_shadow_test(void *shadow, unsigned int size);
-> -enum kmemcheck_shadow kmemcheck_shadow_test_all(void *shadow,
-> -						unsigned int size);
-> -void kmemcheck_shadow_set(void *shadow, unsigned int size);
-> -
-> -#endif
-> diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
-> index 89af288..e3165c2 100644
-> --- a/arch/x86/mm/pageattr.c
-> +++ b/arch/x86/mm/pageattr.c
-> @@ -684,7 +684,7 @@ static int split_large_page(struct cpa_data *cpa, pte_t *kpte,
->  
->  	if (!debug_pagealloc)
->  		spin_unlock(&cpa_lock);
-> -	base = alloc_pages(GFP_KERNEL | __GFP_NOTRACK, 0);
-> +	base = alloc_pages(GFP_KERNEL, 0);
->  	if (!debug_pagealloc)
->  		spin_lock(&cpa_lock);
->  	if (!base)
-> @@ -857,7 +857,7 @@ static void unmap_pgd_range(pgd_t *root, unsigned long addr, unsigned long end)
->  
->  static int alloc_pte_page(pmd_t *pmd)
->  {
-> -	pte_t *pte = (pte_t *)get_zeroed_page(GFP_KERNEL | __GFP_NOTRACK);
-> +	pte_t *pte = (pte_t *)get_zeroed_page(GFP_KERNEL);
->  	if (!pte)
->  		return -1;
->  
-> @@ -867,7 +867,7 @@ static int alloc_pte_page(pmd_t *pmd)
->  
->  static int alloc_pmd_page(pud_t *pud)
->  {
-> -	pmd_t *pmd = (pmd_t *)get_zeroed_page(GFP_KERNEL | __GFP_NOTRACK);
-> +	pmd_t *pmd = (pmd_t *)get_zeroed_page(GFP_KERNEL);
->  	if (!pmd)
->  		return -1;
->  
-> @@ -1066,7 +1066,7 @@ static int populate_pgd(struct cpa_data *cpa, unsigned long addr)
->  	 * Allocate a PUD page and hand it down for mapping.
->  	 */
->  	if (pgd_none(*pgd_entry)) {
-> -		pud = (pud_t *)get_zeroed_page(GFP_KERNEL | __GFP_NOTRACK);
-> +		pud = (pud_t *)get_zeroed_page(GFP_KERNEL);
->  		if (!pud)
->  			return -1;
->  
-> diff --git a/arch/x86/mm/pgtable.c b/arch/x86/mm/pgtable.c
-> index 0b97d2c..fbe5c6c 100644
-> --- a/arch/x86/mm/pgtable.c
-> +++ b/arch/x86/mm/pgtable.c
-> @@ -6,7 +6,7 @@
->  #include <asm/fixmap.h>
->  #include <asm/mtrr.h>
->  
-> -#define PGALLOC_GFP GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO
-> +#define PGALLOC_GFP GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO
->  
->  #ifdef CONFIG_HIGHPTE
->  #define PGALLOC_USER_GFP __GFP_HIGHMEM
-> diff --git a/crypto/xor.c b/crypto/xor.c
-> index 35d6b3a..bdbf21c 100644
-> --- a/crypto/xor.c
-> +++ b/crypto/xor.c
-> @@ -109,12 +109,7 @@ calibrate_xor_blocks(void)
->  	void *b1, *b2;
->  	struct xor_block_template *f, *fastest;
->  
-> -	/*
-> -	 * Note: Since the memory is not actually used for _anything_ but to
-> -	 * test the XOR speed, we don't really want kmemcheck to warn about
-> -	 * reading uninitialized bytes here.
-> -	 */
-> -	b1 = (void *) __get_free_pages(GFP_KERNEL | __GFP_NOTRACK, 2);
-> +	b1 = (void *) __get_free_pages(GFP_KERNEL, 2);
->  	if (!b1) {
->  		printk(KERN_WARNING "xor: Yikes!  No memory available.\n");
->  		return -ENOMEM;
-> diff --git a/drivers/char/random.c b/drivers/char/random.c
-> index 9cd6968..a750398 100644
-> --- a/drivers/char/random.c
-> +++ b/drivers/char/random.c
-> @@ -255,7 +255,6 @@
->  #include <linux/cryptohash.h>
->  #include <linux/fips.h>
->  #include <linux/ptrace.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/workqueue.h>
->  #include <linux/irq.h>
->  #include <linux/syscalls.h>
-> diff --git a/drivers/misc/c2port/core.c b/drivers/misc/c2port/core.c
-> index 464419b..8b37f11 100644
-> --- a/drivers/misc/c2port/core.c
-> +++ b/drivers/misc/c2port/core.c
-> @@ -15,7 +15,6 @@
->  #include <linux/errno.h>
->  #include <linux/err.h>
->  #include <linux/kernel.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/ctype.h>
->  #include <linux/delay.h>
->  #include <linux/idr.h>
-> @@ -908,7 +907,6 @@ struct c2port_device *c2port_device_register(char *name,
->  		return ERR_PTR(-EINVAL);
->  
->  	c2dev = kmalloc(sizeof(struct c2port_device), GFP_KERNEL);
-> -	kmemcheck_annotate_bitfield(c2dev, flags);
->  	if (unlikely(!c2dev))
->  		return ERR_PTR(-ENOMEM);
->  
-> diff --git a/fs/dcache.c b/fs/dcache.c
-> index c71e373..adb4c6e 100644
-> --- a/fs/dcache.c
-> +++ b/fs/dcache.c
-> @@ -2469,8 +2469,6 @@ static void swap_names(struct dentry *dentry, struct dentry *target)
->  			 */
->  			unsigned int i;
->  			BUILD_BUG_ON(!IS_ALIGNED(DNAME_INLINE_LEN, sizeof(long)));
-> -			kmemcheck_mark_initialized(dentry->d_iname, DNAME_INLINE_LEN);
-> -			kmemcheck_mark_initialized(target->d_iname, DNAME_INLINE_LEN);
->  			for (i = 0; i < DNAME_INLINE_LEN / sizeof(long); i++) {
->  				swap(((long *) &dentry->d_iname)[i],
->  				     ((long *) &target->d_iname)[i]);
-> diff --git a/include/asm-generic/dma-mapping-common.h b/include/asm-generic/dma-mapping-common.h
-> index 940d5ec..0d9e5b7 100644
-> --- a/include/asm-generic/dma-mapping-common.h
-> +++ b/include/asm-generic/dma-mapping-common.h
-> @@ -1,7 +1,6 @@
->  #ifndef _ASM_GENERIC_DMA_MAPPING_H
->  #define _ASM_GENERIC_DMA_MAPPING_H
->  
-> -#include <linux/kmemcheck.h>
->  #include <linux/bug.h>
->  #include <linux/scatterlist.h>
->  #include <linux/dma-debug.h>
-> @@ -15,7 +14,6 @@ static inline dma_addr_t dma_map_single_attrs(struct device *dev, void *ptr,
->  	struct dma_map_ops *ops = get_dma_ops(dev);
->  	dma_addr_t addr;
->  
-> -	kmemcheck_mark_initialized(ptr, size);
->  	BUG_ON(!valid_dma_direction(dir));
->  	addr = ops->map_page(dev, virt_to_page(ptr),
->  			     (unsigned long)ptr & ~PAGE_MASK, size,
-> @@ -48,11 +46,8 @@ static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
->  				   struct dma_attrs *attrs)
->  {
->  	struct dma_map_ops *ops = get_dma_ops(dev);
-> -	int i, ents;
-> -	struct scatterlist *s;
-> +	int ents;
->  
-> -	for_each_sg(sg, s, nents, i)
-> -		kmemcheck_mark_initialized(sg_virt(s), s->length);
->  	BUG_ON(!valid_dma_direction(dir));
->  	ents = ops->map_sg(dev, sg, nents, dir, attrs);
->  	BUG_ON(ents < 0);
-> @@ -80,7 +75,6 @@ static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
->  	struct dma_map_ops *ops = get_dma_ops(dev);
->  	dma_addr_t addr;
->  
-> -	kmemcheck_mark_initialized(page_address(page) + offset, size);
->  	BUG_ON(!valid_dma_direction(dir));
->  	addr = ops->map_page(dev, page, offset, size, dir, NULL);
->  	debug_dma_map_page(dev, page, offset, size, dir, addr, false);
-> diff --git a/include/linux/c2port.h b/include/linux/c2port.h
-> index 4efabcb..f273634 100644
-> --- a/include/linux/c2port.h
-> +++ b/include/linux/c2port.h
-> @@ -9,8 +9,6 @@
->   * the Free Software Foundation
->   */
->  
-> -#include <linux/kmemcheck.h>
-> -
->  #define C2PORT_NAME_LEN			32
->  
->  struct device;
-> @@ -22,10 +20,8 @@ struct device;
->  /* Main struct */
->  struct c2port_ops;
->  struct c2port_device {
-> -	kmemcheck_bitfield_begin(flags);
->  	unsigned int access:1;
->  	unsigned int flash_access:1;
-> -	kmemcheck_bitfield_end(flags);
->  
->  	int id;
->  	char name[C2PORT_NAME_LEN];
-> diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-> index 97a9373..3289a61 100644
-> --- a/include/linux/gfp.h
-> +++ b/include/linux/gfp.h
-> @@ -30,7 +30,6 @@ struct vm_area_struct;
->  #define ___GFP_HARDWALL		0x20000u
->  #define ___GFP_THISNODE		0x40000u
->  #define ___GFP_RECLAIMABLE	0x80000u
-> -#define ___GFP_NOTRACK		0x200000u
->  #define ___GFP_NO_KSWAPD	0x400000u
->  #define ___GFP_OTHER_NODE	0x800000u
->  #define ___GFP_WRITE		0x1000000u
-> @@ -87,18 +86,11 @@ struct vm_area_struct;
->  #define __GFP_HARDWALL   ((__force gfp_t)___GFP_HARDWALL) /* Enforce hardwall cpuset memory allocs */
->  #define __GFP_THISNODE	((__force gfp_t)___GFP_THISNODE)/* No fallback, no policies */
->  #define __GFP_RECLAIMABLE ((__force gfp_t)___GFP_RECLAIMABLE) /* Page is reclaimable */
-> -#define __GFP_NOTRACK	((__force gfp_t)___GFP_NOTRACK)  /* Don't track with kmemcheck */
->  
->  #define __GFP_NO_KSWAPD	((__force gfp_t)___GFP_NO_KSWAPD)
->  #define __GFP_OTHER_NODE ((__force gfp_t)___GFP_OTHER_NODE) /* On behalf of other node */
->  #define __GFP_WRITE	((__force gfp_t)___GFP_WRITE)	/* Allocator intends to dirty page */
->  
-> -/*
-> - * This may seem redundant, but it's a way of annotating false positives vs.
-> - * allocations that simply cannot be supported (e.g. page tables).
-> - */
-> -#define __GFP_NOTRACK_FALSE_POSITIVE (__GFP_NOTRACK)
-> -
->  #define __GFP_BITS_SHIFT 25	/* Room for N __GFP_FOO bits */
->  #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
->  
-> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-> index 150dde0..1e08e71 100644
-> --- a/include/linux/interrupt.h
-> +++ b/include/linux/interrupt.h
-> @@ -530,6 +530,8 @@ static inline void tasklet_hi_schedule(struct tasklet_struct *t)
->  extern void __tasklet_hi_schedule_first(struct tasklet_struct *t);
->  
->  /*
-> + * TODO: kmemcheck is gone, fix this.
-> + *
->   * This version avoids touching any other tasklets. Needed for kmemcheck
->   * in order not to take any page faults while enqueueing this tasklet;
->   * consider VERY carefully whether you really need this or
-> diff --git a/include/linux/kmemcheck.h b/include/linux/kmemcheck.h
-> deleted file mode 100644
-> index 39f8453..0000000
-> --- a/include/linux/kmemcheck.h
-> +++ /dev/null
-> @@ -1,171 +0,0 @@
-> -#ifndef LINUX_KMEMCHECK_H
-> -#define LINUX_KMEMCHECK_H
-> -
-> -#include <linux/mm_types.h>
-> -#include <linux/types.h>
-> -
-> -#ifdef CONFIG_KMEMCHECK
-> -extern int kmemcheck_enabled;
-> -
-> -/* The slab-related functions. */
-> -void kmemcheck_alloc_shadow(struct page *page, int order, gfp_t flags, int node);
-> -void kmemcheck_free_shadow(struct page *page, int order);
-> -void kmemcheck_slab_alloc(struct kmem_cache *s, gfp_t gfpflags, void *object,
-> -			  size_t size);
-> -void kmemcheck_slab_free(struct kmem_cache *s, void *object, size_t size);
-> -
-> -void kmemcheck_pagealloc_alloc(struct page *p, unsigned int order,
-> -			       gfp_t gfpflags);
-> -
-> -void kmemcheck_show_pages(struct page *p, unsigned int n);
-> -void kmemcheck_hide_pages(struct page *p, unsigned int n);
-> -
-> -bool kmemcheck_page_is_tracked(struct page *p);
-> -
-> -void kmemcheck_mark_unallocated(void *address, unsigned int n);
-> -void kmemcheck_mark_uninitialized(void *address, unsigned int n);
-> -void kmemcheck_mark_initialized(void *address, unsigned int n);
-> -void kmemcheck_mark_freed(void *address, unsigned int n);
-> -
-> -void kmemcheck_mark_unallocated_pages(struct page *p, unsigned int n);
-> -void kmemcheck_mark_uninitialized_pages(struct page *p, unsigned int n);
-> -void kmemcheck_mark_initialized_pages(struct page *p, unsigned int n);
-> -
-> -int kmemcheck_show_addr(unsigned long address);
-> -int kmemcheck_hide_addr(unsigned long address);
-> -
-> -bool kmemcheck_is_obj_initialized(unsigned long addr, size_t size);
-> -
-> -/*
-> - * Bitfield annotations
-> - *
-> - * How to use: If you have a struct using bitfields, for example
-> - *
-> - *     struct a {
-> - *             int x:8, y:8;
-> - *     };
-> - *
-> - * then this should be rewritten as
-> - *
-> - *     struct a {
-> - *             kmemcheck_bitfield_begin(flags);
-> - *             int x:8, y:8;
-> - *             kmemcheck_bitfield_end(flags);
-> - *     };
-> - *
-> - * Now the "flags_begin" and "flags_end" members may be used to refer to the
-> - * beginning and end, respectively, of the bitfield (and things like
-> - * &x.flags_begin is allowed). As soon as the struct is allocated, the bit-
-> - * fields should be annotated:
-> - *
-> - *     struct a *a = kmalloc(sizeof(struct a), GFP_KERNEL);
-> - *     kmemcheck_annotate_bitfield(a, flags);
-> - */
-> -#define kmemcheck_bitfield_begin(name)	\
-> -	int name##_begin[0];
-> -
-> -#define kmemcheck_bitfield_end(name)	\
-> -	int name##_end[0];
-> -
-> -#define kmemcheck_annotate_bitfield(ptr, name)				\
-> -	do {								\
-> -		int _n;							\
-> -									\
-> -		if (!ptr)						\
-> -			break;						\
-> -									\
-> -		_n = (long) &((ptr)->name##_end)			\
-> -			- (long) &((ptr)->name##_begin);		\
-> -		BUILD_BUG_ON(_n < 0);					\
-> -									\
-> -		kmemcheck_mark_initialized(&((ptr)->name##_begin), _n);	\
-> -	} while (0)
-> -
-> -#define kmemcheck_annotate_variable(var)				\
-> -	do {								\
-> -		kmemcheck_mark_initialized(&(var), sizeof(var));	\
-> -	} while (0)							\
-> -
-> -#else
-> -#define kmemcheck_enabled 0
-> -
-> -static inline void
-> -kmemcheck_alloc_shadow(struct page *page, int order, gfp_t flags, int node)
-> -{
-> -}
-> -
-> -static inline void
-> -kmemcheck_free_shadow(struct page *page, int order)
-> -{
-> -}
-> -
-> -static inline void
-> -kmemcheck_slab_alloc(struct kmem_cache *s, gfp_t gfpflags, void *object,
-> -		     size_t size)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_slab_free(struct kmem_cache *s, void *object,
-> -				       size_t size)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_pagealloc_alloc(struct page *p,
-> -	unsigned int order, gfp_t gfpflags)
-> -{
-> -}
-> -
-> -static inline bool kmemcheck_page_is_tracked(struct page *p)
-> -{
-> -	return false;
-> -}
-> -
-> -static inline void kmemcheck_mark_unallocated(void *address, unsigned int n)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_mark_uninitialized(void *address, unsigned int n)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_mark_initialized(void *address, unsigned int n)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_mark_freed(void *address, unsigned int n)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_mark_unallocated_pages(struct page *p,
-> -						    unsigned int n)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_mark_uninitialized_pages(struct page *p,
-> -						      unsigned int n)
-> -{
-> -}
-> -
-> -static inline void kmemcheck_mark_initialized_pages(struct page *p,
-> -						    unsigned int n)
-> -{
-> -}
-> -
-> -static inline bool kmemcheck_is_obj_initialized(unsigned long addr, size_t size)
-> -{
-> -	return true;
-> -}
-> -
-> -#define kmemcheck_bitfield_begin(name)
-> -#define kmemcheck_bitfield_end(name)
-> -#define kmemcheck_annotate_bitfield(ptr, name)	\
-> -	do {					\
-> -	} while (0)
-> -
-> -#define kmemcheck_annotate_variable(var)	\
-> -	do {					\
-> -	} while (0)
-> -
-> -#endif /* CONFIG_KMEMCHECK */
-> -
-> -#endif /* LINUX_KMEMCHECK_H */
-> diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-> index 590630e..839fd36 100644
-> --- a/include/linux/mm_types.h
-> +++ b/include/linux/mm_types.h
-> @@ -194,14 +194,6 @@ struct page {
->  					   not kmapped, ie. highmem) */
->  #endif /* WANT_PAGE_VIRTUAL */
->  
-> -#ifdef CONFIG_KMEMCHECK
-> -	/*
-> -	 * kmemcheck wants to track the status of each byte in a page; this
-> -	 * is a pointer to such a status block. NULL if not tracked.
-> -	 */
-> -	void *shadow;
-> -#endif
-> -
->  #ifdef LAST_CPUPID_NOT_IN_PAGE_FLAGS
->  	int _last_cpupid;
->  #endif
-> diff --git a/include/linux/net.h b/include/linux/net.h
-> index e74114b..aeab094 100644
-> --- a/include/linux/net.h
-> +++ b/include/linux/net.h
-> @@ -22,7 +22,6 @@
->  #include <linux/random.h>
->  #include <linux/wait.h>
->  #include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
-> -#include <linux/kmemcheck.h>
->  #include <linux/rcupdate.h>
->  #include <linux/jump_label.h>
->  #include <uapi/linux/net.h>
-> @@ -105,9 +104,7 @@ struct socket_wq {
->  struct socket {
->  	socket_state		state;
->  
-> -	kmemcheck_bitfield_begin(type);
->  	short			type;
-> -	kmemcheck_bitfield_end(type);
->  
->  	unsigned long		flags;
->  
-> diff --git a/include/linux/ring_buffer.h b/include/linux/ring_buffer.h
-> index e2c13cd..b92b3ee 100644
-> --- a/include/linux/ring_buffer.h
-> +++ b/include/linux/ring_buffer.h
-> @@ -1,7 +1,6 @@
->  #ifndef _LINUX_RING_BUFFER_H
->  #define _LINUX_RING_BUFFER_H
->  
-> -#include <linux/kmemcheck.h>
->  #include <linux/mm.h>
->  #include <linux/seq_file.h>
->  #include <linux/poll.h>
-> @@ -13,9 +12,7 @@ struct ring_buffer_iter;
->   * Don't refer to this struct directly, use functions below.
->   */
->  struct ring_buffer_event {
-> -	kmemcheck_bitfield_begin(bitfield);
->  	u32		type_len:5, time_delta:27;
-> -	kmemcheck_bitfield_end(bitfield);
->  
->  	u32		array[];
->  };
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index bba1330..a174f1d 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -15,7 +15,6 @@
->  #define _LINUX_SKBUFF_H
->  
->  #include <linux/kernel.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/compiler.h>
->  #include <linux/time.h>
->  #include <linux/bug.h>
-> @@ -553,7 +552,6 @@ struct sk_buff {
->  	/* Following fields are _not_ copied in __copy_skb_header()
->  	 * Note that queue_mapping is here mostly to fill a hole.
->  	 */
-> -	kmemcheck_bitfield_begin(flags1);
->  	__u16			queue_mapping;
->  	__u8			cloned:1,
->  				nohdr:1,
-> @@ -562,7 +560,6 @@ struct sk_buff {
->  				head_frag:1,
->  				xmit_more:1;
->  	/* one bit hole */
-> -	kmemcheck_bitfield_end(flags1);
->  
->  	/* fields enclosed in headers_start/headers_end are copied
->  	 * using a single memcpy() in __copy_skb_header()
-> diff --git a/include/linux/slab.h b/include/linux/slab.h
-> index 76f1fee..7dc2d9c 100644
-> --- a/include/linux/slab.h
-> +++ b/include/linux/slab.h
-> @@ -75,12 +75,6 @@
->  
->  #define SLAB_NOLEAKTRACE	0x00800000UL	/* Avoid kmemleak tracing */
->  
-> -/* Don't track use of uninitialized memory */
-> -#ifdef CONFIG_KMEMCHECK
-> -# define SLAB_NOTRACK		0x01000000UL
-> -#else
-> -# define SLAB_NOTRACK		0x00000000UL
-> -#endif
->  #ifdef CONFIG_FAILSLAB
->  # define SLAB_FAILSLAB		0x02000000UL	/* Fault injection mark */
->  #else
-> diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
-> index ff307b5..1ce28a5 100644
-> --- a/include/linux/thread_info.h
-> +++ b/include/linux/thread_info.h
-> @@ -56,9 +56,9 @@ extern long do_no_restart_syscall(struct restart_block *parm);
->  #ifdef __KERNEL__
->  
->  #ifdef CONFIG_DEBUG_STACK_USAGE
-> -# define THREADINFO_GFP		(GFP_KERNEL | __GFP_NOTRACK | __GFP_ZERO)
-> +# define THREADINFO_GFP		(GFP_KERNEL | __GFP_ZERO)
->  #else
-> -# define THREADINFO_GFP		(GFP_KERNEL | __GFP_NOTRACK)
-> +# define THREADINFO_GFP		(GFP_KERNEL)
->  #endif
->  
->  /*
-> diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-> index eb16c7b..3b9dee7 100644
-> --- a/include/net/inet_sock.h
-> +++ b/include/net/inet_sock.h
-> @@ -17,7 +17,6 @@
->  #define _INET_SOCK_H
->  
->  #include <linux/bitops.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/string.h>
->  #include <linux/types.h>
->  #include <linux/jhash.h>
-> @@ -78,7 +77,6 @@ struct inet_request_sock {
->  #define ir_v6_loc_addr		req.__req_common.skc_v6_rcv_saddr
->  #define ir_iif			req.__req_common.skc_bound_dev_if
->  
-> -	kmemcheck_bitfield_begin(flags);
->  	u16			snd_wscale : 4,
->  				rcv_wscale : 4,
->  				tstamp_ok  : 1,
-> @@ -87,7 +85,6 @@ struct inet_request_sock {
->  				ecn_ok	   : 1,
->  				acked	   : 1,
->  				no_srccheck: 1;
-> -	kmemcheck_bitfield_end(flags);
->  	union {
->  		struct ip_options_rcu	*opt;
->  		struct sk_buff		*pktopts;
-> @@ -244,10 +241,8 @@ static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops
->  	struct request_sock *req = reqsk_alloc(ops);
->  	struct inet_request_sock *ireq = inet_rsk(req);
->  
-> -	if (req != NULL) {
-> -		kmemcheck_annotate_bitfield(ireq, flags);
-> +	if (req != NULL)
->  		ireq->opt = NULL;
-> -	}
->  
->  	return req;
->  }
-> diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-> index 6c56603..449b9c8 100644
-> --- a/include/net/inet_timewait_sock.h
-> +++ b/include/net/inet_timewait_sock.h
-> @@ -16,7 +16,6 @@
->  #define _INET_TIMEWAIT_SOCK_
->  
->  
-> -#include <linux/kmemcheck.h>
->  #include <linux/list.h>
->  #include <linux/timer.h>
->  #include <linux/types.h>
-> @@ -130,14 +129,12 @@ struct inet_timewait_sock {
->  	/* Socket demultiplex comparisons on incoming packets. */
->  	/* these three are in inet_sock */
->  	__be16			tw_sport;
-> -	kmemcheck_bitfield_begin(flags);
->  	/* And these are ours. */
->  	unsigned int		tw_pad0		: 1,	/* 1 bit hole */
->  				tw_transparent  : 1,
->  				tw_flowlabel	: 20,
->  				tw_pad		: 2,	/* 2 bits hole */
->  				tw_tos		: 8;
-> -	kmemcheck_bitfield_end(flags);
->  	u32			tw_ttd;
->  	struct inet_bind_bucket	*tw_tb;
->  	struct hlist_node	tw_death_node;
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 250822c..eeaad3a 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -379,14 +379,12 @@ struct sock {
->  	atomic_t		sk_omem_alloc;
->  	int			sk_sndbuf;
->  	struct sk_buff_head	sk_write_queue;
-> -	kmemcheck_bitfield_begin(flags);
->  	unsigned int		sk_shutdown  : 2,
->  				sk_no_check_tx : 1,
->  				sk_no_check_rx : 1,
->  				sk_userlocks : 4,
->  				sk_protocol  : 8,
->  				sk_type      : 16;
-> -	kmemcheck_bitfield_end(flags);
->  	int			sk_wmem_queued;
->  	gfp_t			sk_allocation;
->  	u32			sk_pacing_rate; /* bytes per second */
-> diff --git a/include/trace/events/gfpflags.h b/include/trace/events/gfpflags.h
-> index d6fd8e5..42bde43 100644
-> --- a/include/trace/events/gfpflags.h
-> +++ b/include/trace/events/gfpflags.h
-> @@ -35,7 +35,6 @@
->  	{(unsigned long)__GFP_THISNODE,		"GFP_THISNODE"},	\
->  	{(unsigned long)__GFP_RECLAIMABLE,	"GFP_RECLAIMABLE"},	\
->  	{(unsigned long)__GFP_MOVABLE,		"GFP_MOVABLE"},		\
-> -	{(unsigned long)__GFP_NOTRACK,		"GFP_NOTRACK"},		\
->  	{(unsigned long)__GFP_NO_KSWAPD,	"GFP_NO_KSWAPD"},	\
->  	{(unsigned long)__GFP_OTHER_NODE,	"GFP_OTHER_NODE"}	\
->  	) : "GFP_NOWAIT"
-> diff --git a/init/do_mounts.c b/init/do_mounts.c
-> index eb41008..2ba082b 100644
-> --- a/init/do_mounts.c
-> +++ b/init/do_mounts.c
-> @@ -377,8 +377,7 @@ static int __init do_mount_root(char *name, char *fs, int flags, void *data)
->  
->  void __init mount_block_root(char *name, int flags)
->  {
-> -	struct page *page = alloc_page(GFP_KERNEL |
-> -					__GFP_NOTRACK_FALSE_POSITIVE);
-> +	struct page *page = alloc_page(GFP_KERNEL);
->  	char *fs_names = page_address(page);
->  	char *p;
->  #ifdef CONFIG_BLOCK
-> diff --git a/init/main.c b/init/main.c
-> index 739a677..ba6194b 100644
-> --- a/init/main.c
-> +++ b/init/main.c
-> @@ -65,7 +65,6 @@
->  #include <linux/kgdb.h>
->  #include <linux/ftrace.h>
->  #include <linux/async.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/sfi.h>
->  #include <linux/shmem_fs.h>
->  #include <linux/slab.h>
-> diff --git a/kernel/fork.c b/kernel/fork.c
-> index ab1a008..a2797b8 100644
-> --- a/kernel/fork.c
-> +++ b/kernel/fork.c
-> @@ -262,7 +262,7 @@ void __init fork_init(unsigned long mempages)
->  	/* create a slab on which task_structs can be allocated */
->  	task_struct_cachep =
->  		kmem_cache_create("task_struct", sizeof(struct task_struct),
-> -			ARCH_MIN_TASKALIGN, SLAB_PANIC | SLAB_NOTRACK, NULL);
-> +			ARCH_MIN_TASKALIGN, SLAB_PANIC, NULL);
->  #endif
->  
->  	/* do the arch specific task caches init */
-> @@ -1773,17 +1773,17 @@ void __init proc_caches_init(void)
->  {
->  	sighand_cachep = kmem_cache_create("sighand_cache",
->  			sizeof(struct sighand_struct), 0,
-> -			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_DESTROY_BY_RCU|
-> -			SLAB_NOTRACK, sighand_ctor);
-> +			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_DESTROY_BY_RCU,
-> +			sighand_ctor);
->  	signal_cachep = kmem_cache_create("signal_cache",
->  			sizeof(struct signal_struct), 0,
-> -			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK, NULL);
-> +			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
->  	files_cachep = kmem_cache_create("files_cache",
->  			sizeof(struct files_struct), 0,
-> -			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK, NULL);
-> +			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
->  	fs_cachep = kmem_cache_create("fs_cache",
->  			sizeof(struct fs_struct), 0,
-> -			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK, NULL);
-> +			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
->  	/*
->  	 * FIXME! The "sizeof(struct mm_struct)" currently includes the
->  	 * whole struct cpumask for the OFFSTACK case. We could change
-> @@ -1793,7 +1793,7 @@ void __init proc_caches_init(void)
->  	 */
->  	mm_cachep = kmem_cache_create("mm_struct",
->  			sizeof(struct mm_struct), ARCH_MIN_MMSTRUCT_ALIGN,
-> -			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK, NULL);
-> +			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
->  	vm_area_cachep = KMEM_CACHE(vm_area_struct, SLAB_PANIC);
->  	mmap_init();
->  	nsproxy_cache_init();
-> diff --git a/kernel/locking/lockdep.c b/kernel/locking/lockdep.c
-> index 88d0d44..a2870fb 100644
-> --- a/kernel/locking/lockdep.c
-> +++ b/kernel/locking/lockdep.c
-> @@ -44,7 +44,6 @@
->  #include <linux/stringify.h>
->  #include <linux/bitops.h>
->  #include <linux/gfp.h>
-> -#include <linux/kmemcheck.h>
->  
->  #include <asm/sections.h>
->  
-> @@ -2956,8 +2955,6 @@ void lockdep_init_map(struct lockdep_map *lock, const char *name,
->  {
->  	int i;
->  
-> -	kmemcheck_mark_initialized(lock, sizeof(*lock));
-> -
->  	for (i = 0; i < NR_LOCKDEP_CACHING_CLASSES; i++)
->  		lock->class_cache[i] = NULL;
->  
-> diff --git a/kernel/signal.c b/kernel/signal.c
-> index a390499..778c636 100644
-> --- a/kernel/signal.c
-> +++ b/kernel/signal.c
-> @@ -1067,8 +1067,7 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
->  	else
->  		override_rlimit = 0;
->  
-> -	q = __sigqueue_alloc(sig, t, GFP_ATOMIC | __GFP_NOTRACK_FALSE_POSITIVE,
-> -		override_rlimit);
-> +	q = __sigqueue_alloc(sig, t, GFP_ATOMIC, override_rlimit);
->  	if (q) {
->  		list_add_tail(&q->list, &pending->list);
->  		switch ((unsigned long) info) {
-> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> index c155263..c62ee41 100644
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -29,7 +29,6 @@
->  #include <linux/proc_fs.h>
->  #include <linux/security.h>
->  #include <linux/ctype.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/kmemleak.h>
->  #include <linux/fs.h>
->  #include <linux/init.h>
-> @@ -1115,15 +1114,6 @@ static struct ctl_table kern_table[] = {
->  		.extra2		= &one_hundred,
->  	},
->  #endif
-> -#ifdef CONFIG_KMEMCHECK
-> -	{
-> -		.procname	= "kmemcheck",
-> -		.data		= &kmemcheck_enabled,
-> -		.maxlen		= sizeof(int),
-> -		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec,
-> -	},
-> -#endif
->  	{
->  		.procname	= "panic_on_warn",
->  		.data		= &panic_on_warn,
-> diff --git a/kernel/trace/ring_buffer.c b/kernel/trace/ring_buffer.c
-> index 5040d44..d670d73 100644
-> --- a/kernel/trace/ring_buffer.c
-> +++ b/kernel/trace/ring_buffer.c
-> @@ -12,7 +12,6 @@
->  #include <linux/uaccess.h>
->  #include <linux/hardirq.h>
->  #include <linux/kthread.h>	/* for self test */
-> -#include <linux/kmemcheck.h>
->  #include <linux/module.h>
->  #include <linux/percpu.h>
->  #include <linux/mutex.h>
-> @@ -2260,7 +2259,6 @@ rb_reset_tail(struct ring_buffer_per_cpu *cpu_buffer,
->  	}
->  
->  	event = __rb_page_index(tail_page, tail);
-> -	kmemcheck_annotate_bitfield(event, bitfield);
->  
->  	/* account for padding bytes */
->  	local_add(BUF_PAGE_SIZE - tail, &cpu_buffer->entries_bytes);
-> @@ -2453,7 +2451,6 @@ __rb_reserve_next(struct ring_buffer_per_cpu *cpu_buffer,
->  	/* We reserved something on the buffer */
->  
->  	event = __rb_page_index(tail_page, tail);
-> -	kmemcheck_annotate_bitfield(event, bitfield);
->  	rb_update_event(cpu_buffer, event, length, add_timestamp, delta);
->  
->  	local_inc(&tail_page->entries);
-> diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-> index cc805d4..6861cc2 100644
-> --- a/lib/Kconfig.debug
-> +++ b/lib/Kconfig.debug
-> @@ -445,7 +445,7 @@ config DEBUG_OBJECTS_ENABLE_DEFAULT
->  
->  config DEBUG_SLAB
->  	bool "Debug slab memory allocations"
-> -	depends on DEBUG_KERNEL && SLAB && !KMEMCHECK
-> +	depends on DEBUG_KERNEL && SLAB
->  	help
->  	  Say Y here to have the kernel do limited verification on memory
->  	  allocation as well as poisoning memory on free to catch use of freed
-> @@ -457,7 +457,7 @@ config DEBUG_SLAB_LEAK
->  
->  config SLUB_DEBUG_ON
->  	bool "SLUB debugging on by default"
-> -	depends on SLUB && SLUB_DEBUG && !KMEMCHECK
-> +	depends on SLUB && SLUB_DEBUG
->  	default n
->  	help
->  	  Boot with debugging on by default. SLUB boots by default with
-> @@ -660,8 +660,6 @@ config DEBUG_STACKOVERFLOW
->  
->  	  If in doubt, say "N".
->  
-> -source "lib/Kconfig.kmemcheck"
-> -
->  source "lib/Kconfig.kasan"
->  
->  endmenu # "Memory Debugging"
-> diff --git a/lib/Kconfig.kmemcheck b/lib/Kconfig.kmemcheck
-> deleted file mode 100644
-> index 846e039..0000000
-> --- a/lib/Kconfig.kmemcheck
-> +++ /dev/null
-> @@ -1,94 +0,0 @@
-> -config HAVE_ARCH_KMEMCHECK
-> -	bool
-> -
-> -if HAVE_ARCH_KMEMCHECK
-> -
-> -menuconfig KMEMCHECK
-> -	bool "kmemcheck: trap use of uninitialized memory"
-> -	depends on DEBUG_KERNEL
-> -	depends on !X86_USE_3DNOW
-> -	depends on SLUB || SLAB
-> -	depends on !CC_OPTIMIZE_FOR_SIZE
-> -	depends on !FUNCTION_TRACER
-> -	select FRAME_POINTER
-> -	select STACKTRACE
-> -	default n
-> -	help
-> -	  This option enables tracing of dynamically allocated kernel memory
-> -	  to see if memory is used before it has been given an initial value.
-> -	  Be aware that this requires half of your memory for bookkeeping and
-> -	  will insert extra code at *every* read and write to tracked memory
-> -	  thus slow down the kernel code (but user code is unaffected).
-> -
-> -	  The kernel may be started with kmemcheck=0 or kmemcheck=1 to disable
-> -	  or enable kmemcheck at boot-time. If the kernel is started with
-> -	  kmemcheck=0, the large memory and CPU overhead is not incurred.
-> -
-> -choice
-> -	prompt "kmemcheck: default mode at boot"
-> -	depends on KMEMCHECK
-> -	default KMEMCHECK_ONESHOT_BY_DEFAULT
-> -	help
-> -	  This option controls the default behaviour of kmemcheck when the
-> -	  kernel boots and no kmemcheck= parameter is given.
-> -
-> -config KMEMCHECK_DISABLED_BY_DEFAULT
-> -	bool "disabled"
-> -	depends on KMEMCHECK
-> -
-> -config KMEMCHECK_ENABLED_BY_DEFAULT
-> -	bool "enabled"
-> -	depends on KMEMCHECK
-> -
-> -config KMEMCHECK_ONESHOT_BY_DEFAULT
-> -	bool "one-shot"
-> -	depends on KMEMCHECK
-> -	help
-> -	  In one-shot mode, only the first error detected is reported before
-> -	  kmemcheck is disabled.
-> -
-> -endchoice
-> -
-> -config KMEMCHECK_QUEUE_SIZE
-> -	int "kmemcheck: error queue size"
-> -	depends on KMEMCHECK
-> -	default 64
-> -	help
-> -	  Select the maximum number of errors to store in the queue. Since
-> -	  errors can occur virtually anywhere and in any context, we need a
-> -	  temporary storage area which is guarantueed not to generate any
-> -	  other faults. The queue will be emptied as soon as a tasklet may
-> -	  be scheduled. If the queue is full, new error reports will be
-> -	  lost.
-> -
-> -config KMEMCHECK_SHADOW_COPY_SHIFT
-> -	int "kmemcheck: shadow copy size (5 => 32 bytes, 6 => 64 bytes)"
-> -	depends on KMEMCHECK
-> -	range 2 8
-> -	default 5
-> -	help
-> -	  Select the number of shadow bytes to save along with each entry of
-> -	  the queue. These bytes indicate what parts of an allocation are
-> -	  initialized, uninitialized, etc. and will be displayed when an
-> -	  error is detected to help the debugging of a particular problem.
-> -
-> -config KMEMCHECK_PARTIAL_OK
-> -	bool "kmemcheck: allow partially uninitialized memory"
-> -	depends on KMEMCHECK
-> -	default y
-> -	help
-> -	  This option works around certain GCC optimizations that produce
-> -	  32-bit reads from 16-bit variables where the upper 16 bits are
-> -	  thrown away afterwards. This may of course also hide some real
-> -	  bugs.
-> -
-> -config KMEMCHECK_BITOPS_OK
-> -	bool "kmemcheck: allow bit-field manipulation"
-> -	depends on KMEMCHECK
-> -	default n
-> -	help
-> -	  This option silences warnings that would be generated for bit-field
-> -	  accesses where not all the bits are initialized at the same time.
-> -	  This may also hide some real bugs.
-> -
-> -endif
-> diff --git a/mm/Kconfig.debug b/mm/Kconfig.debug
-> index 957d3da..513ff4f 100644
-> --- a/mm/Kconfig.debug
-> +++ b/mm/Kconfig.debug
-> @@ -11,7 +11,6 @@ config DEBUG_PAGEALLOC
->  	bool "Debug page memory allocations"
->  	depends on DEBUG_KERNEL
->  	depends on !HIBERNATION || ARCH_SUPPORTS_DEBUG_PAGEALLOC && !PPC && !SPARC
-> -	depends on !KMEMCHECK
->  	select PAGE_EXTENSION
->  	select PAGE_POISONING if !ARCH_SUPPORTS_DEBUG_PAGEALLOC
->  	---help---
-> diff --git a/mm/Makefile b/mm/Makefile
-> index 51052ba..fa388b1 100644
-> --- a/mm/Makefile
-> +++ b/mm/Makefile
-> @@ -51,7 +51,6 @@ obj-$(CONFIG_KSM) += ksm.o
->  obj-$(CONFIG_PAGE_POISONING) += debug-pagealloc.o
->  obj-$(CONFIG_SLAB) += slab.o
->  obj-$(CONFIG_SLUB) += slub.o
-> -obj-$(CONFIG_KMEMCHECK) += kmemcheck.o
->  obj-$(CONFIG_KASAN)	+= kasan/
->  obj-$(CONFIG_FAILSLAB) += failslab.o
->  obj-$(CONFIG_MEMORY_HOTPLUG) += memory_hotplug.o
-> diff --git a/mm/kmemcheck.c b/mm/kmemcheck.c
-> deleted file mode 100644
-> index cab58bb..0000000
-> --- a/mm/kmemcheck.c
-> +++ /dev/null
-> @@ -1,123 +0,0 @@
-> -#include <linux/gfp.h>
-> -#include <linux/mm_types.h>
-> -#include <linux/mm.h>
-> -#include <linux/slab.h>
-> -#include "slab.h"
-> -#include <linux/kmemcheck.h>
-> -
-> -void kmemcheck_alloc_shadow(struct page *page, int order, gfp_t flags, int node)
-> -{
-> -	struct page *shadow;
-> -	int pages;
-> -	int i;
-> -
-> -	pages = 1 << order;
-> -
-> -	/*
-> -	 * With kmemcheck enabled, we need to allocate a memory area for the
-> -	 * shadow bits as well.
-> -	 */
-> -	shadow = alloc_pages_node(node, flags | __GFP_NOTRACK, order);
-> -	if (!shadow) {
-> -		if (printk_ratelimit())
-> -			printk(KERN_ERR "kmemcheck: failed to allocate "
-> -				"shadow bitmap\n");
-> -		return;
-> -	}
-> -
-> -	for(i = 0; i < pages; ++i)
-> -		page[i].shadow = page_address(&shadow[i]);
-> -
-> -	/*
-> -	 * Mark it as non-present for the MMU so that our accesses to
-> -	 * this memory will trigger a page fault and let us analyze
-> -	 * the memory accesses.
-> -	 */
-> -	kmemcheck_hide_pages(page, pages);
-> -}
-> -
-> -void kmemcheck_free_shadow(struct page *page, int order)
-> -{
-> -	struct page *shadow;
-> -	int pages;
-> -	int i;
-> -
-> -	if (!kmemcheck_page_is_tracked(page))
-> -		return;
-> -
-> -	pages = 1 << order;
-> -
-> -	kmemcheck_show_pages(page, pages);
-> -
-> -	shadow = virt_to_page(page[0].shadow);
-> -
-> -	for(i = 0; i < pages; ++i)
-> -		page[i].shadow = NULL;
-> -
-> -	__free_pages(shadow, order);
-> -}
-> -
-> -void kmemcheck_slab_alloc(struct kmem_cache *s, gfp_t gfpflags, void *object,
-> -			  size_t size)
-> -{
-> -	/*
-> -	 * Has already been memset(), which initializes the shadow for us
-> -	 * as well.
-> -	 */
-> -	if (gfpflags & __GFP_ZERO)
-> -		return;
-> -
-> -	/* No need to initialize the shadow of a non-tracked slab. */
-> -	if (s->flags & SLAB_NOTRACK)
-> -		return;
-> -
-> -	if (!kmemcheck_enabled || gfpflags & __GFP_NOTRACK) {
-> -		/*
-> -		 * Allow notracked objects to be allocated from
-> -		 * tracked caches. Note however that these objects
-> -		 * will still get page faults on access, they just
-> -		 * won't ever be flagged as uninitialized. If page
-> -		 * faults are not acceptable, the slab cache itself
-> -		 * should be marked NOTRACK.
-> -		 */
-> -		kmemcheck_mark_initialized(object, size);
-> -	} else if (!s->ctor) {
-> -		/*
-> -		 * New objects should be marked uninitialized before
-> -		 * they're returned to the called.
-> -		 */
-> -		kmemcheck_mark_uninitialized(object, size);
-> -	}
-> -}
-> -
-> -void kmemcheck_slab_free(struct kmem_cache *s, void *object, size_t size)
-> -{
-> -	/* TODO: RCU freeing is unsupported for now; hide false positives. */
-> -	if (!s->ctor && !(s->flags & SLAB_DESTROY_BY_RCU))
-> -		kmemcheck_mark_freed(object, size);
-> -}
-> -
-> -void kmemcheck_pagealloc_alloc(struct page *page, unsigned int order,
-> -			       gfp_t gfpflags)
-> -{
-> -	int pages;
-> -
-> -	if (gfpflags & (__GFP_HIGHMEM | __GFP_NOTRACK))
-> -		return;
-> -
-> -	pages = 1 << order;
-> -
-> -	/*
-> -	 * NOTE: We choose to track GFP_ZERO pages too; in fact, they
-> -	 * can become uninitialized by copying uninitialized memory
-> -	 * into them.
-> -	 */
-> -
-> -	/* XXX: Can use zone->node for node? */
-> -	kmemcheck_alloc_shadow(page, order, gfpflags, -1);
-> -
-> -	if (gfpflags & __GFP_ZERO)
-> -		kmemcheck_mark_initialized_pages(page, pages);
-> -	else
-> -		kmemcheck_mark_uninitialized_pages(page, pages);
-> -}
-> diff --git a/mm/kmemleak.c b/mm/kmemleak.c
-> index 5405aff..09d9ecd 100644
-> --- a/mm/kmemleak.c
-> +++ b/mm/kmemleak.c
-> @@ -99,7 +99,6 @@
->  #include <linux/atomic.h>
->  
->  #include <linux/kasan.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/kmemleak.h>
->  #include <linux/memory_hotplug.h>
->  
-> @@ -1111,9 +1110,6 @@ static bool update_checksum(struct kmemleak_object *object)
->  {
->  	u32 old_csum = object->checksum;
->  
-> -	if (!kmemcheck_is_obj_initialized(object->pointer, object->size))
-> -		return false;
-> -
->  	kasan_disable_current();
->  	object->checksum = crc32(0, (void *)object->pointer, object->size);
->  	kasan_enable_current();
-> @@ -1163,11 +1159,6 @@ static void scan_block(void *_start, void *_end,
->  		if (scan_should_stop())
->  			break;
->  
-> -		/* don't scan uninitialized memory */
-> -		if (!kmemcheck_is_obj_initialized((unsigned long)ptr,
-> -						  BYTES_PER_POINTER))
-> -			continue;
-> -
->  		kasan_disable_current();
->  		pointer = *ptr;
->  		kasan_enable_current();
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 1b84950..5f0b012 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -24,7 +24,6 @@
->  #include <linux/memblock.h>
->  #include <linux/compiler.h>
->  #include <linux/kernel.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/kasan.h>
->  #include <linux/module.h>
->  #include <linux/suspend.h>
-> @@ -787,7 +786,6 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
->  	VM_BUG_ON_PAGE(compound && compound_order(page) != order, page);
->  
->  	trace_mm_page_free(page, order);
-> -	kmemcheck_free_shadow(page, order);
->  	kasan_free_pages(page, order);
->  
->  	if (PageAnon(page))
-> @@ -1607,15 +1605,6 @@ void split_page(struct page *page, unsigned int order)
->  	VM_BUG_ON_PAGE(PageCompound(page), page);
->  	VM_BUG_ON_PAGE(!page_count(page), page);
->  
-> -#ifdef CONFIG_KMEMCHECK
-> -	/*
-> -	 * Split shadow pages too, because free(page[0]) would
-> -	 * otherwise free the whole shadow.
-> -	 */
-> -	if (kmemcheck_page_is_tracked(page))
-> -		split_page(virt_to_page(page[0].shadow), order);
-> -#endif
-> -
->  	set_page_owner(page, 0, 0);
->  	for (i = 1; i < (1 << order); i++) {
->  		set_page_refcounted(page + i);
-> @@ -2899,9 +2888,6 @@ retry_cpuset:
->  		page = __alloc_pages_slowpath(alloc_mask, order, &ac);
->  	}
->  
-> -	if (kmemcheck_enabled && page)
-> -		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
-> -
->  	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
->  
->  out:
-> diff --git a/mm/slab.c b/mm/slab.c
-> index 7eb38dd..763a615 100644
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -113,7 +113,6 @@
->  #include	<linux/rtmutex.h>
->  #include	<linux/reciprocal_div.h>
->  #include	<linux/debugobjects.h>
-> -#include	<linux/kmemcheck.h>
->  #include	<linux/memory.h>
->  #include	<linux/prefetch.h>
->  
-> @@ -1594,7 +1593,7 @@ static struct page *kmem_getpages(struct kmem_cache *cachep, gfp_t flags,
->  	if (memcg_charge_slab(cachep, flags, cachep->gfporder))
->  		return NULL;
->  
-> -	page = alloc_pages_exact_node(nodeid, flags | __GFP_NOTRACK, cachep->gfporder);
-> +	page = alloc_pages_exact_node(nodeid, flags, cachep->gfporder);
->  	if (!page) {
->  		memcg_uncharge_slab(cachep, cachep->gfporder);
->  		slab_out_of_memory(cachep, flags, nodeid);
-> @@ -1616,15 +1615,6 @@ static struct page *kmem_getpages(struct kmem_cache *cachep, gfp_t flags,
->  	if (page->pfmemalloc)
->  		SetPageSlabPfmemalloc(page);
->  
-> -	if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
-> -		kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
-> -
-> -		if (cachep->ctor)
-> -			kmemcheck_mark_uninitialized_pages(page, nr_pages);
-> -		else
-> -			kmemcheck_mark_unallocated_pages(page, nr_pages);
-> -	}
-> -
->  	return page;
->  }
->  
-> @@ -1635,8 +1625,6 @@ static void kmem_freepages(struct kmem_cache *cachep, struct page *page)
->  {
->  	const unsigned long nr_freed = (1 << cachep->gfporder);
->  
-> -	kmemcheck_free_shadow(page, cachep->gfporder);
-> -
->  	if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
->  		sub_zone_page_state(page_zone(page),
->  				NR_SLAB_RECLAIMABLE, nr_freed);
-> @@ -3190,11 +3178,8 @@ slab_alloc_node(struct kmem_cache *cachep, gfp_t flags, int nodeid,
->  	kmemleak_alloc_recursive(ptr, cachep->object_size, 1, cachep->flags,
->  				 flags);
->  
-> -	if (likely(ptr)) {
-> -		kmemcheck_slab_alloc(cachep, flags, ptr, cachep->object_size);
-> -		if (unlikely(flags & __GFP_ZERO))
-> -			memset(ptr, 0, cachep->object_size);
-> -	}
-> +	if (unlikely(ptr && (flags & __GFP_ZERO)))
-> +		memset(ptr, 0, cachep->object_size);
->  
->  	memcg_kmem_put_cache(cachep);
->  	return ptr;
-> @@ -3256,11 +3241,8 @@ slab_alloc(struct kmem_cache *cachep, gfp_t flags, unsigned long caller)
->  				 flags);
->  	prefetchw(objp);
->  
-> -	if (likely(objp)) {
-> -		kmemcheck_slab_alloc(cachep, flags, objp, cachep->object_size);
-> -		if (unlikely(flags & __GFP_ZERO))
-> -			memset(objp, 0, cachep->object_size);
-> -	}
-> +	if (unlikely(objp && (flags & __GFP_ZERO)))
-> +		memset(objp, 0, cachep->object_size);
->  
->  	memcg_kmem_put_cache(cachep);
->  	return objp;
-> @@ -3374,8 +3356,6 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
->  	kmemleak_free_recursive(objp, cachep->flags);
->  	objp = cache_free_debugcheck(cachep, objp, caller);
->  
-> -	kmemcheck_slab_free(cachep, objp, cachep->object_size);
-> -
->  	/*
->  	 * Skip calling cache_free_alien() when the platform is not numa.
->  	 * This will avoid cache misses that happen while accessing slabp (which
-> diff --git a/mm/slab.h b/mm/slab.h
-> index 4c3ac12..c61db47 100644
-> --- a/mm/slab.h
-> +++ b/mm/slab.h
-> @@ -127,10 +127,10 @@ static inline unsigned long kmem_cache_flags(unsigned long object_size,
->  
->  #if defined(CONFIG_SLAB)
->  #define SLAB_CACHE_FLAGS (SLAB_MEM_SPREAD | SLAB_NOLEAKTRACE | \
-> -			  SLAB_RECLAIM_ACCOUNT | SLAB_TEMPORARY | SLAB_NOTRACK)
-> +			  SLAB_RECLAIM_ACCOUNT | SLAB_TEMPORARY)
->  #elif defined(CONFIG_SLUB)
->  #define SLAB_CACHE_FLAGS (SLAB_NOLEAKTRACE | SLAB_RECLAIM_ACCOUNT | \
-> -			  SLAB_TEMPORARY | SLAB_NOTRACK)
-> +			  SLAB_TEMPORARY)
->  #else
->  #define SLAB_CACHE_FLAGS (0)
->  #endif
-> diff --git a/mm/slab_common.c b/mm/slab_common.c
-> index 999bb34..75f0a5f 100644
-> --- a/mm/slab_common.c
-> +++ b/mm/slab_common.c
-> @@ -38,7 +38,7 @@ struct kmem_cache *kmem_cache;
->  		SLAB_FAILSLAB)
->  
->  #define SLAB_MERGE_SAME (SLAB_DEBUG_FREE | SLAB_RECLAIM_ACCOUNT | \
-> -		SLAB_CACHE_DMA | SLAB_NOTRACK)
-> +		SLAB_CACHE_DMA)
->  
->  /*
->   * Merge control. If this is set then no merging of slab caches will occur.
-> diff --git a/mm/slub.c b/mm/slub.c
-> index 2584d4f..ed4aeb1 100644
-> --- a/mm/slub.c
-> +++ b/mm/slub.c
-> @@ -21,7 +21,6 @@
->  #include <linux/notifier.h>
->  #include <linux/seq_file.h>
->  #include <linux/kasan.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/cpu.h>
->  #include <linux/cpuset.h>
->  #include <linux/mempolicy.h>
-> @@ -1275,7 +1274,6 @@ static inline void slab_post_alloc_hook(struct kmem_cache *s,
->  					gfp_t flags, void *object)
->  {
->  	flags &= gfp_allowed_mask;
-> -	kmemcheck_slab_alloc(s, flags, object, slab_ksize(s));
->  	kmemleak_alloc_recursive(object, s->object_size, 1, s->flags, flags);
->  	memcg_kmem_put_cache(s);
->  	kasan_slab_alloc(s, object);
-> @@ -1290,12 +1288,11 @@ static inline void slab_free_hook(struct kmem_cache *s, void *x)
->  	 * So in order to make the debug calls that expect irqs to be
->  	 * disabled we need to disable interrupts temporarily.
->  	 */
-> -#if defined(CONFIG_KMEMCHECK) || defined(CONFIG_LOCKDEP)
-> +#if defined(CONFIG_LOCKDEP)
->  	{
->  		unsigned long flags;
->  
->  		local_irq_save(flags);
-> -		kmemcheck_slab_free(s, x, s->object_size);
->  		debug_check_no_locks_freed(x, s->object_size);
->  		local_irq_restore(flags);
->  	}
-> @@ -1315,8 +1312,6 @@ static inline struct page *alloc_slab_page(struct kmem_cache *s,
->  	struct page *page;
->  	int order = oo_order(oo);
->  
-> -	flags |= __GFP_NOTRACK;
-> -
->  	if (memcg_charge_slab(s, flags, order))
->  		return NULL;
->  
-> @@ -1364,22 +1359,6 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
->  			stat(s, ORDER_FALLBACK);
->  	}
->  
-> -	if (kmemcheck_enabled && page
-> -		&& !(s->flags & (SLAB_NOTRACK | DEBUG_DEFAULT_FLAGS))) {
-> -		int pages = 1 << oo_order(oo);
-> -
-> -		kmemcheck_alloc_shadow(page, oo_order(oo), alloc_gfp, node);
-> -
-> -		/*
-> -		 * Objects from caches that have a constructor don't get
-> -		 * cleared when they're allocated, so we need to do it here.
-> -		 */
-> -		if (s->ctor)
-> -			kmemcheck_mark_uninitialized_pages(page, pages);
-> -		else
-> -			kmemcheck_mark_unallocated_pages(page, pages);
-> -	}
-> -
->  	if (flags & __GFP_WAIT)
->  		local_irq_disable();
->  	if (!page)
-> @@ -1466,8 +1445,6 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
->  			check_object(s, page, p, SLUB_RED_INACTIVE);
->  	}
->  
-> -	kmemcheck_free_shadow(page, compound_order(page));
-> -
->  	mod_zone_page_state(page_zone(page),
->  		(s->flags & SLAB_RECLAIM_ACCOUNT) ?
->  		NR_SLAB_RECLAIMABLE : NR_SLAB_UNRECLAIMABLE,
-> @@ -3329,7 +3306,7 @@ static void *kmalloc_large_node(size_t size, gfp_t flags, int node)
->  	struct page *page;
->  	void *ptr = NULL;
->  
-> -	flags |= __GFP_COMP | __GFP_NOTRACK;
-> +	flags |= __GFP_COMP;
->  	page = alloc_kmem_pages_node(node, flags, get_order(size));
->  	if (page)
->  		ptr = page_address(page);
-> @@ -5143,8 +5120,6 @@ static char *create_unique_id(struct kmem_cache *s)
->  		*p++ = 'a';
->  	if (s->flags & SLAB_DEBUG_FREE)
->  		*p++ = 'F';
-> -	if (!(s->flags & SLAB_NOTRACK))
-> -		*p++ = 't';
->  	if (p != name + 1)
->  		*p++ = '-';
->  	p += sprintf(p, "%07d", s->size);
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 47c3241..6d27645 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -41,7 +41,6 @@
->  #include <linux/module.h>
->  #include <linux/types.h>
->  #include <linux/kernel.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/mm.h>
->  #include <linux/interrupt.h>
->  #include <linux/in.h>
-> @@ -256,14 +255,12 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
->  	shinfo = skb_shinfo(skb);
->  	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
->  	atomic_set(&shinfo->dataref, 1);
-> -	kmemcheck_annotate_variable(shinfo->destructor_arg);
->  
->  	if (flags & SKB_ALLOC_FCLONE) {
->  		struct sk_buff_fclones *fclones;
->  
->  		fclones = container_of(skb, struct sk_buff_fclones, skb1);
->  
-> -		kmemcheck_annotate_bitfield(&fclones->skb2, flags1);
->  		skb->fclone = SKB_FCLONE_ORIG;
->  		atomic_set(&fclones->fclone_ref, 1);
->  
-> @@ -324,7 +321,6 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
->  	shinfo = skb_shinfo(skb);
->  	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
->  	atomic_set(&shinfo->dataref, 1);
-> -	kmemcheck_annotate_variable(shinfo->destructor_arg);
->  
->  	return skb;
->  }
-> @@ -985,7 +981,6 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
->  		if (!n)
->  			return NULL;
->  
-> -		kmemcheck_annotate_bitfield(n, flags1);
->  		n->fclone = SKB_FCLONE_UNAVAILABLE;
->  	}
->  
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 726e1f9..8c9b0df 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1321,8 +1321,6 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
->  		sk = kmalloc(prot->obj_size, priority);
->  
->  	if (sk != NULL) {
-> -		kmemcheck_annotate_bitfield(sk, flags);
-> -
->  		if (security_sk_alloc(sk, family, priority))
->  			goto out_free;
->  
-> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-> index 6d592f8..afcfaf0 100644
-> --- a/net/ipv4/inet_timewait_sock.c
-> +++ b/net/ipv4/inet_timewait_sock.c
-> @@ -9,7 +9,6 @@
->   */
->  
->  #include <linux/kernel.h>
-> -#include <linux/kmemcheck.h>
->  #include <linux/slab.h>
->  #include <linux/module.h>
->  #include <net/inet_hashtables.h>
-> @@ -177,8 +176,6 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int stat
->  	if (tw != NULL) {
->  		const struct inet_sock *inet = inet_sk(sk);
->  
-> -		kmemcheck_annotate_bitfield(tw, flags);
-> -
->  		/* Give us an identity. */
->  		tw->tw_daddr	    = inet->inet_daddr;
->  		tw->tw_rcv_saddr    = inet->inet_rcv_saddr;
-> diff --git a/net/socket.c b/net/socket.c
-> index 95d3085..0b9d922 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -545,7 +545,6 @@ static struct socket *sock_alloc(void)
->  
->  	sock = SOCKET_I(inode);
->  
-> -	kmemcheck_annotate_bitfield(sock, type);
->  	inode->i_ino = get_next_ino();
->  	inode->i_mode = S_IFSOCK | S_IRWXUGO;
->  	inode->i_uid = current_fsuid();
-> diff --git a/scripts/kernel-doc b/scripts/kernel-doc
-> index 9922e66..c69ca9e 100755
-> --- a/scripts/kernel-doc
-> +++ b/scripts/kernel-doc
-> @@ -1750,8 +1750,6 @@ sub dump_struct($$) {
->  	# strip comments:
->  	$members =~ s/\/\*.*?\*\///gos;
->  	$nested =~ s/\/\*.*?\*\///gos;
-> -	# strip kmemcheck_bitfield_{begin,end}.*;
-> -	$members =~ s/kmemcheck_bitfield_.*?;//gos;
->  	# strip attributes
->  	$members =~ s/__aligned\s*\([^;]*\)//gos;
->  
-> diff --git a/tools/lib/lockdep/uinclude/linux/kmemcheck.h b/tools/lib/lockdep/uinclude/linux/kmemcheck.h
-> deleted file mode 100644
-> index 94d598b..0000000
-> --- a/tools/lib/lockdep/uinclude/linux/kmemcheck.h
-> +++ /dev/null
-> @@ -1,8 +0,0 @@
-> -#ifndef _LIBLOCKDEP_LINUX_KMEMCHECK_H_
-> -#define _LIBLOCKDEP_LINUX_KMEMCHECK_H_
-> -
-> -static inline void kmemcheck_mark_initialized(void *address, unsigned int n)
-> -{
-> -}
-> -
-> -#endif
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+http://lists.01.org/mailman/listinfo/kbuild                 Intel Corporation
+
+--azLHFNyN32YCQGCU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=".config"
+
+#
+# Automatically generated file; DO NOT EDIT.
+# Linux/microblaze 4.0.0-rc3 Kernel Configuration
+#
+CONFIG_MICROBLAZE=y
+CONFIG_SWAP=y
+CONFIG_RWSEM_GENERIC_SPINLOCK=y
+CONFIG_ZONE_DMA=y
+# CONFIG_ARCH_HAS_ILOG2_U32 is not set
+# CONFIG_ARCH_HAS_ILOG2_U64 is not set
+CONFIG_GENERIC_HWEIGHT=y
+CONFIG_GENERIC_CALIBRATE_DELAY=y
+CONFIG_GENERIC_CSUM=y
+CONFIG_STACKTRACE_SUPPORT=y
+CONFIG_LOCKDEP_SUPPORT=y
+CONFIG_HAVE_LATENCYTOP_SUPPORT=y
+CONFIG_DEFCONFIG_LIST="/lib/modules/$UNAME_RELEASE/.config"
+CONFIG_CONSTRUCTORS=y
+CONFIG_IRQ_WORK=y
+CONFIG_BUILDTIME_EXTABLE_SORT=y
+
+#
+# General setup
+#
+CONFIG_BROKEN_ON_SMP=y
+CONFIG_INIT_ENV_ARG_LIMIT=32
+CONFIG_CROSS_COMPILE=""
+CONFIG_COMPILE_TEST=y
+CONFIG_LOCALVERSION=""
+CONFIG_LOCALVERSION_AUTO=y
+CONFIG_DEFAULT_HOSTNAME="(none)"
+CONFIG_SYSVIPC=y
+CONFIG_SYSVIPC_SYSCTL=y
+CONFIG_POSIX_MQUEUE=y
+CONFIG_POSIX_MQUEUE_SYSCTL=y
+CONFIG_CROSS_MEMORY_ATTACH=y
+CONFIG_FHANDLE=y
+CONFIG_USELIB=y
+CONFIG_AUDIT=y
+
+#
+# IRQ subsystem
+#
+CONFIG_GENERIC_IRQ_PROBE=y
+CONFIG_GENERIC_IRQ_SHOW=y
+CONFIG_GENERIC_IRQ_CHIP=y
+CONFIG_IRQ_DOMAIN=y
+CONFIG_GENERIC_MSI_IRQ=y
+CONFIG_IRQ_DOMAIN_DEBUG=y
+CONFIG_GENERIC_CLOCKEVENTS=y
+CONFIG_GENERIC_CLOCKEVENTS_BUILD=y
+
+#
+# Timers subsystem
+#
+CONFIG_TICK_ONESHOT=y
+CONFIG_NO_HZ_COMMON=y
+# CONFIG_HZ_PERIODIC is not set
+CONFIG_NO_HZ_IDLE=y
+CONFIG_NO_HZ=y
+CONFIG_HIGH_RES_TIMERS=y
+
+#
+# CPU/Task time and stats accounting
+#
+CONFIG_TICK_CPU_ACCOUNTING=y
+CONFIG_BSD_PROCESS_ACCT=y
+CONFIG_BSD_PROCESS_ACCT_V3=y
+CONFIG_TASKSTATS=y
+CONFIG_TASK_DELAY_ACCT=y
+CONFIG_TASK_XACCT=y
+CONFIG_TASK_IO_ACCOUNTING=y
+
+#
+# RCU Subsystem
+#
+CONFIG_TINY_RCU=y
+CONFIG_SRCU=y
+CONFIG_TASKS_RCU=y
+CONFIG_RCU_STALL_COMMON=y
+# CONFIG_TREE_RCU_TRACE is not set
+CONFIG_RCU_KTHREAD_PRIO=0
+CONFIG_BUILD_BIN2C=y
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_LOG_BUF_SHIFT=17
+CONFIG_GENERIC_SCHED_CLOCK=y
+CONFIG_CGROUPS=y
+CONFIG_CGROUP_DEBUG=y
+CONFIG_CGROUP_FREEZER=y
+CONFIG_CGROUP_DEVICE=y
+CONFIG_CPUSETS=y
+CONFIG_PROC_PID_CPUSET=y
+# CONFIG_CGROUP_CPUACCT is not set
+CONFIG_PAGE_COUNTER=y
+CONFIG_MEMCG=y
+CONFIG_MEMCG_SWAP=y
+CONFIG_MEMCG_SWAP_ENABLED=y
+CONFIG_MEMCG_KMEM=y
+CONFIG_CGROUP_SCHED=y
+CONFIG_FAIR_GROUP_SCHED=y
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_RT_GROUP_SCHED=y
+CONFIG_BLK_CGROUP=y
+CONFIG_DEBUG_BLK_CGROUP=y
+CONFIG_CHECKPOINT_RESTORE=y
+CONFIG_NAMESPACES=y
+CONFIG_UTS_NS=y
+CONFIG_IPC_NS=y
+CONFIG_USER_NS=y
+CONFIG_PID_NS=y
+CONFIG_NET_NS=y
+CONFIG_SCHED_AUTOGROUP=y
+CONFIG_SYSFS_DEPRECATED=y
+CONFIG_SYSFS_DEPRECATED_V2=y
+CONFIG_RELAY=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_INITRAMFS_SOURCE=""
+CONFIG_RD_GZIP=y
+CONFIG_RD_BZIP2=y
+CONFIG_RD_LZMA=y
+CONFIG_RD_XZ=y
+CONFIG_RD_LZO=y
+CONFIG_RD_LZ4=y
+CONFIG_CC_OPTIMIZE_FOR_SIZE=y
+CONFIG_SYSCTL=y
+CONFIG_ANON_INODES=y
+CONFIG_BPF=y
+CONFIG_EXPERT=y
+CONFIG_SGETMASK_SYSCALL=y
+CONFIG_SYSFS_SYSCALL=y
+CONFIG_SYSCTL_SYSCALL=y
+CONFIG_KALLSYMS=y
+CONFIG_KALLSYMS_ALL=y
+CONFIG_PRINTK=y
+CONFIG_BUG=y
+CONFIG_ELF_CORE=y
+CONFIG_BASE_FULL=y
+CONFIG_FUTEX=y
+CONFIG_EPOLL=y
+CONFIG_SIGNALFD=y
+CONFIG_TIMERFD=y
+CONFIG_EVENTFD=y
+CONFIG_BPF_SYSCALL=y
+CONFIG_SHMEM=y
+CONFIG_AIO=y
+CONFIG_ADVISE_SYSCALLS=y
+CONFIG_PCI_QUIRKS=y
+CONFIG_EMBEDDED=y
+
+#
+# Kernel Performance Events And Counters
+#
+CONFIG_VM_EVENT_COUNTERS=y
+CONFIG_SLUB_DEBUG=y
+CONFIG_COMPAT_BRK=y
+# CONFIG_SLAB is not set
+CONFIG_SLUB=y
+# CONFIG_SLOB is not set
+CONFIG_SYSTEM_TRUSTED_KEYRING=y
+CONFIG_PROFILING=y
+CONFIG_TRACEPOINTS=y
+CONFIG_OPROFILE=y
+CONFIG_HAVE_OPROFILE=y
+# CONFIG_UPROBES is not set
+# CONFIG_HAVE_64BIT_ALIGNED_ACCESS is not set
+CONFIG_HAVE_DMA_ATTRS=y
+CONFIG_GENERIC_IDLE_POLL_SETUP=y
+CONFIG_HAVE_CLK=y
+CONFIG_HAVE_DMA_API_DEBUG=y
+CONFIG_ARCH_WANT_IPC_PARSE_VERSION=y
+# CONFIG_CC_STACKPROTECTOR is not set
+CONFIG_MODULES_USE_ELF_RELA=y
+CONFIG_CLONE_BACKWARDS3=y
+
+#
+# GCOV-based kernel profiling
+#
+CONFIG_GCOV_KERNEL=y
+CONFIG_ARCH_HAS_GCOV_PROFILE_ALL=y
+CONFIG_GCOV_PROFILE_ALL=y
+CONFIG_GCOV_FORMAT_AUTODETECT=y
+# CONFIG_GCOV_FORMAT_3_4 is not set
+# CONFIG_GCOV_FORMAT_4_7 is not set
+# CONFIG_HAVE_GENERIC_DMA_COHERENT is not set
+CONFIG_SLABINFO=y
+CONFIG_RT_MUTEXES=y
+CONFIG_BASE_SMALL=0
+CONFIG_MODULES=y
+CONFIG_MODULE_FORCE_LOAD=y
+CONFIG_MODULE_UNLOAD=y
+CONFIG_MODULE_FORCE_UNLOAD=y
+CONFIG_MODVERSIONS=y
+CONFIG_MODULE_SRCVERSION_ALL=y
+CONFIG_MODULE_SIG=y
+CONFIG_MODULE_SIG_FORCE=y
+CONFIG_MODULE_SIG_ALL=y
+CONFIG_MODULE_SIG_SHA1=y
+# CONFIG_MODULE_SIG_SHA224 is not set
+# CONFIG_MODULE_SIG_SHA256 is not set
+# CONFIG_MODULE_SIG_SHA384 is not set
+# CONFIG_MODULE_SIG_SHA512 is not set
+CONFIG_MODULE_SIG_HASH="sha1"
+CONFIG_MODULE_COMPRESS=y
+CONFIG_MODULE_COMPRESS_GZIP=y
+# CONFIG_MODULE_COMPRESS_XZ is not set
+CONFIG_BLOCK=y
+CONFIG_LBDAF=y
+CONFIG_BLK_DEV_BSG=y
+CONFIG_BLK_DEV_BSGLIB=y
+CONFIG_BLK_DEV_INTEGRITY=y
+CONFIG_BLK_DEV_THROTTLING=y
+CONFIG_BLK_CMDLINE_PARSER=y
+
+#
+# Partition Types
+#
+CONFIG_PARTITION_ADVANCED=y
+CONFIG_ACORN_PARTITION=y
+CONFIG_ACORN_PARTITION_CUMANA=y
+CONFIG_ACORN_PARTITION_EESOX=y
+CONFIG_ACORN_PARTITION_ICS=y
+CONFIG_ACORN_PARTITION_ADFS=y
+CONFIG_ACORN_PARTITION_POWERTEC=y
+CONFIG_ACORN_PARTITION_RISCIX=y
+CONFIG_AIX_PARTITION=y
+CONFIG_OSF_PARTITION=y
+CONFIG_AMIGA_PARTITION=y
+CONFIG_ATARI_PARTITION=y
+CONFIG_MAC_PARTITION=y
+CONFIG_MSDOS_PARTITION=y
+CONFIG_BSD_DISKLABEL=y
+CONFIG_MINIX_SUBPARTITION=y
+CONFIG_SOLARIS_X86_PARTITION=y
+CONFIG_UNIXWARE_DISKLABEL=y
+CONFIG_LDM_PARTITION=y
+CONFIG_LDM_DEBUG=y
+CONFIG_SGI_PARTITION=y
+CONFIG_ULTRIX_PARTITION=y
+CONFIG_SUN_PARTITION=y
+CONFIG_KARMA_PARTITION=y
+CONFIG_EFI_PARTITION=y
+CONFIG_SYSV68_PARTITION=y
+CONFIG_CMDLINE_PARTITION=y
+
+#
+# IO Schedulers
+#
+CONFIG_IOSCHED_NOOP=y
+CONFIG_IOSCHED_DEADLINE=y
+CONFIG_IOSCHED_CFQ=y
+CONFIG_CFQ_GROUP_IOSCHED=y
+# CONFIG_DEFAULT_DEADLINE is not set
+CONFIG_DEFAULT_CFQ=y
+# CONFIG_DEFAULT_NOOP is not set
+CONFIG_DEFAULT_IOSCHED="cfq"
+CONFIG_ASN1=y
+CONFIG_UNINLINE_SPIN_UNLOCK=y
+CONFIG_FREEZER=y
+
+#
+# Platform options
+#
+CONFIG_OPT_LIB_FUNCTION=y
+
+#
+# Definitions for MICROBLAZE0
+#
+CONFIG_KERNEL_BASE_ADDR=0x90000000
+CONFIG_XILINX_MICROBLAZE0_FAMILY="virtex5"
+CONFIG_XILINX_MICROBLAZE0_USE_MSR_INSTR=0
+CONFIG_XILINX_MICROBLAZE0_USE_PCMP_INSTR=0
+CONFIG_XILINX_MICROBLAZE0_USE_BARREL=0
+CONFIG_XILINX_MICROBLAZE0_USE_DIV=0
+CONFIG_XILINX_MICROBLAZE0_USE_HW_MUL=0
+CONFIG_XILINX_MICROBLAZE0_USE_FPU=0
+CONFIG_XILINX_MICROBLAZE0_HW_VER="7.10.d"
+
+#
+# Processor type and features
+#
+CONFIG_PREEMPT_NONE=y
+# CONFIG_PREEMPT_VOLUNTARY is not set
+# CONFIG_PREEMPT is not set
+CONFIG_PREEMPT_COUNT=y
+# CONFIG_HZ_100 is not set
+CONFIG_HZ_250=y
+# CONFIG_HZ_300 is not set
+# CONFIG_HZ_1000 is not set
+CONFIG_HZ=250
+CONFIG_SCHED_HRTICK=y
+CONFIG_MMU=y
+
+#
+# Boot options
+#
+CONFIG_CMDLINE_BOOL=y
+CONFIG_CMDLINE="console=ttyUL0,115200"
+CONFIG_CMDLINE_FORCE=y
+CONFIG_SECCOMP=y
+
+#
+# Kernel features
+#
+CONFIG_NR_CPUS=1
+CONFIG_ADVANCED_OPTIONS=y
+CONFIG_HIGHMEM=y
+CONFIG_LOWMEM_SIZE_BOOL=y
+CONFIG_LOWMEM_SIZE=0x30000000
+CONFIG_MANUAL_RESET_VECTOR=0x0
+CONFIG_KERNEL_START_BOOL=y
+CONFIG_KERNEL_START=0xc0000000
+CONFIG_TASK_SIZE_BOOL=y
+CONFIG_TASK_SIZE=0x80000000
+CONFIG_FLATMEM=y
+CONFIG_FLAT_NODE_MEM_MAP=y
+CONFIG_HAVE_MEMBLOCK=y
+CONFIG_HAVE_MEMBLOCK_NODE_MAP=y
+CONFIG_MEMORY_ISOLATION=y
+# CONFIG_HAVE_BOOTMEM_INFO_NODE is not set
+CONFIG_PAGEFLAGS_EXTENDED=y
+CONFIG_SPLIT_PTLOCK_CPUS=4
+CONFIG_MEMORY_BALLOON=y
+CONFIG_BALLOON_COMPACTION=y
+CONFIG_COMPACTION=y
+CONFIG_MIGRATION=y
+# CONFIG_PHYS_ADDR_T_64BIT is not set
+CONFIG_ZONE_DMA_FLAG=1
+CONFIG_BOUNCE=y
+CONFIG_NEED_BOUNCE_POOL=y
+CONFIG_VIRT_TO_BUS=y
+CONFIG_MMU_NOTIFIER=y
+CONFIG_KSM=y
+CONFIG_DEFAULT_MMAP_MIN_ADDR=4096
+CONFIG_NEED_PER_CPU_KM=y
+CONFIG_CLEANCACHE=y
+CONFIG_FRONTSWAP=y
+CONFIG_CMA=y
+CONFIG_CMA_DEBUG=y
+CONFIG_CMA_AREAS=7
+CONFIG_ZSWAP=y
+CONFIG_ZPOOL=y
+CONFIG_ZBUD=y
+CONFIG_ZSMALLOC=y
+CONFIG_PGTABLE_MAPPING=y
+CONFIG_ZSMALLOC_STAT=y
+
+#
+# Executable file formats
+#
+CONFIG_BINFMT_ELF=y
+CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS=y
+CONFIG_BINFMT_SCRIPT=y
+# CONFIG_HAVE_AOUT is not set
+CONFIG_BINFMT_MISC=y
+CONFIG_COREDUMP=y
+
+#
+# Bus Options
+#
+CONFIG_PCI=y
+CONFIG_PCI_DOMAINS=y
+CONFIG_PCI_SYSCALL=y
+CONFIG_PCI_XILINX=y
+CONFIG_PCI_MSI=y
+CONFIG_PCI_DEBUG=y
+CONFIG_PCI_REALLOC_ENABLE_AUTO=y
+CONFIG_PCI_STUB=y
+CONFIG_PCI_ATS=y
+CONFIG_PCI_IOV=y
+CONFIG_PCI_PRI=y
+CONFIG_PCI_PASID=y
+
+#
+# PCI host controller drivers
+#
+CONFIG_NET=y
+
+#
+# Networking options
+#
+CONFIG_PACKET=y
+CONFIG_PACKET_DIAG=y
+CONFIG_UNIX=y
+CONFIG_UNIX_DIAG=y
+CONFIG_XFRM=y
+CONFIG_XFRM_ALGO=y
+CONFIG_XFRM_USER=y
+CONFIG_XFRM_SUB_POLICY=y
+CONFIG_XFRM_MIGRATE=y
+CONFIG_XFRM_STATISTICS=y
+CONFIG_XFRM_IPCOMP=y
+CONFIG_NET_KEY=y
+CONFIG_NET_KEY_MIGRATE=y
+CONFIG_INET=y
+CONFIG_IP_MULTICAST=y
+CONFIG_IP_ADVANCED_ROUTER=y
+CONFIG_IP_FIB_TRIE_STATS=y
+CONFIG_IP_MULTIPLE_TABLES=y
+CONFIG_IP_ROUTE_MULTIPATH=y
+CONFIG_IP_ROUTE_VERBOSE=y
+CONFIG_IP_ROUTE_CLASSID=y
+CONFIG_IP_PNP=y
+CONFIG_IP_PNP_DHCP=y
+CONFIG_IP_PNP_BOOTP=y
+CONFIG_IP_PNP_RARP=y
+CONFIG_NET_IPIP=y
+CONFIG_NET_IPGRE_DEMUX=y
+CONFIG_NET_IP_TUNNEL=y
+CONFIG_NET_IPGRE=y
+CONFIG_NET_IPGRE_BROADCAST=y
+CONFIG_IP_MROUTE=y
+CONFIG_IP_MROUTE_MULTIPLE_TABLES=y
+CONFIG_IP_PIMSM_V1=y
+CONFIG_IP_PIMSM_V2=y
+CONFIG_SYN_COOKIES=y
+CONFIG_NET_IPVTI=y
+CONFIG_NET_UDP_TUNNEL=y
+CONFIG_NET_FOU=y
+CONFIG_NET_FOU_IP_TUNNELS=y
+CONFIG_GENEVE=y
+CONFIG_INET_AH=y
+CONFIG_INET_ESP=y
+CONFIG_INET_IPCOMP=y
+CONFIG_INET_XFRM_TUNNEL=y
+CONFIG_INET_TUNNEL=y
+CONFIG_INET_XFRM_MODE_TRANSPORT=y
+CONFIG_INET_XFRM_MODE_TUNNEL=y
+CONFIG_INET_XFRM_MODE_BEET=y
+CONFIG_INET_LRO=y
+CONFIG_INET_DIAG=y
+CONFIG_INET_TCP_DIAG=y
+CONFIG_INET_UDP_DIAG=y
+CONFIG_TCP_CONG_ADVANCED=y
+CONFIG_TCP_CONG_BIC=y
+CONFIG_TCP_CONG_CUBIC=y
+CONFIG_TCP_CONG_WESTWOOD=y
+CONFIG_TCP_CONG_HTCP=y
+CONFIG_TCP_CONG_HSTCP=y
+CONFIG_TCP_CONG_HYBLA=y
+CONFIG_TCP_CONG_VEGAS=y
+CONFIG_TCP_CONG_SCALABLE=y
+CONFIG_TCP_CONG_LP=y
+CONFIG_TCP_CONG_VENO=y
+CONFIG_TCP_CONG_YEAH=y
+CONFIG_TCP_CONG_ILLINOIS=y
+CONFIG_TCP_CONG_DCTCP=y
+# CONFIG_DEFAULT_BIC is not set
+CONFIG_DEFAULT_CUBIC=y
+# CONFIG_DEFAULT_HTCP is not set
+# CONFIG_DEFAULT_HYBLA is not set
+# CONFIG_DEFAULT_VEGAS is not set
+# CONFIG_DEFAULT_VENO is not set
+# CONFIG_DEFAULT_WESTWOOD is not set
+# CONFIG_DEFAULT_DCTCP is not set
+# CONFIG_DEFAULT_RENO is not set
+CONFIG_DEFAULT_TCP_CONG="cubic"
+CONFIG_TCP_MD5SIG=y
+CONFIG_IPV6=y
+CONFIG_IPV6_ROUTER_PREF=y
+CONFIG_IPV6_ROUTE_INFO=y
+CONFIG_IPV6_OPTIMISTIC_DAD=y
+CONFIG_INET6_AH=y
+CONFIG_INET6_ESP=y
+CONFIG_INET6_IPCOMP=y
+CONFIG_IPV6_MIP6=y
+CONFIG_INET6_XFRM_TUNNEL=y
+CONFIG_INET6_TUNNEL=y
+CONFIG_INET6_XFRM_MODE_TRANSPORT=y
+CONFIG_INET6_XFRM_MODE_TUNNEL=y
+CONFIG_INET6_XFRM_MODE_BEET=y
+CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION=y
+CONFIG_IPV6_VTI=y
+CONFIG_IPV6_SIT=y
+CONFIG_IPV6_SIT_6RD=y
+CONFIG_IPV6_NDISC_NODETYPE=y
+CONFIG_IPV6_TUNNEL=y
+CONFIG_IPV6_GRE=y
+CONFIG_IPV6_MULTIPLE_TABLES=y
+CONFIG_IPV6_SUBTREES=y
+CONFIG_IPV6_MROUTE=y
+CONFIG_IPV6_MROUTE_MULTIPLE_TABLES=y
+CONFIG_IPV6_PIMSM_V2=y
+CONFIG_NETLABEL=y
+CONFIG_NETWORK_SECMARK=y
+CONFIG_NET_PTP_CLASSIFY=y
+CONFIG_NETWORK_PHY_TIMESTAMPING=y
+CONFIG_NETFILTER=y
+CONFIG_NETFILTER_DEBUG=y
+CONFIG_NETFILTER_ADVANCED=y
+CONFIG_BRIDGE_NETFILTER=y
+
+#
+# Core Netfilter Configuration
+#
+CONFIG_NETFILTER_NETLINK=y
+CONFIG_NETFILTER_NETLINK_ACCT=y
+CONFIG_NETFILTER_NETLINK_QUEUE=y
+CONFIG_NETFILTER_NETLINK_LOG=y
+CONFIG_NF_CONNTRACK=y
+CONFIG_NF_LOG_COMMON=y
+CONFIG_NF_CONNTRACK_MARK=y
+CONFIG_NF_CONNTRACK_SECMARK=y
+CONFIG_NF_CONNTRACK_ZONES=y
+CONFIG_NF_CONNTRACK_PROCFS=y
+CONFIG_NF_CONNTRACK_EVENTS=y
+CONFIG_NF_CONNTRACK_TIMEOUT=y
+CONFIG_NF_CONNTRACK_TIMESTAMP=y
+CONFIG_NF_CONNTRACK_LABELS=y
+CONFIG_NF_CT_PROTO_DCCP=y
+CONFIG_NF_CT_PROTO_GRE=y
+CONFIG_NF_CT_PROTO_SCTP=y
+CONFIG_NF_CT_PROTO_UDPLITE=y
+CONFIG_NF_CONNTRACK_AMANDA=y
+CONFIG_NF_CONNTRACK_FTP=y
+CONFIG_NF_CONNTRACK_H323=y
+CONFIG_NF_CONNTRACK_IRC=y
+CONFIG_NF_CONNTRACK_BROADCAST=y
+CONFIG_NF_CONNTRACK_NETBIOS_NS=y
+CONFIG_NF_CONNTRACK_SNMP=y
+CONFIG_NF_CONNTRACK_PPTP=y
+CONFIG_NF_CONNTRACK_SANE=y
+CONFIG_NF_CONNTRACK_SIP=y
+CONFIG_NF_CONNTRACK_TFTP=y
+CONFIG_NF_CT_NETLINK=y
+CONFIG_NF_CT_NETLINK_TIMEOUT=y
+CONFIG_NF_CT_NETLINK_HELPER=y
+CONFIG_NETFILTER_NETLINK_QUEUE_CT=y
+CONFIG_NF_NAT=y
+CONFIG_NF_NAT_NEEDED=y
+CONFIG_NF_NAT_PROTO_DCCP=y
+CONFIG_NF_NAT_PROTO_UDPLITE=y
+CONFIG_NF_NAT_PROTO_SCTP=y
+CONFIG_NF_NAT_AMANDA=y
+CONFIG_NF_NAT_FTP=y
+CONFIG_NF_NAT_IRC=y
+CONFIG_NF_NAT_SIP=y
+CONFIG_NF_NAT_TFTP=y
+CONFIG_NF_NAT_REDIRECT=y
+CONFIG_NETFILTER_SYNPROXY=y
+CONFIG_NF_TABLES=y
+CONFIG_NF_TABLES_INET=y
+CONFIG_NFT_EXTHDR=y
+CONFIG_NFT_META=y
+CONFIG_NFT_CT=y
+CONFIG_NFT_RBTREE=y
+CONFIG_NFT_HASH=y
+CONFIG_NFT_COUNTER=y
+CONFIG_NFT_LOG=y
+CONFIG_NFT_LIMIT=y
+CONFIG_NFT_MASQ=y
+CONFIG_NFT_REDIR=y
+CONFIG_NFT_NAT=y
+CONFIG_NFT_QUEUE=y
+CONFIG_NFT_REJECT=y
+CONFIG_NFT_REJECT_INET=y
+CONFIG_NFT_COMPAT=y
+CONFIG_NETFILTER_XTABLES=y
+
+#
+# Xtables combined modules
+#
+CONFIG_NETFILTER_XT_MARK=y
+CONFIG_NETFILTER_XT_CONNMARK=y
+CONFIG_NETFILTER_XT_SET=y
+
+#
+# Xtables targets
+#
+CONFIG_NETFILTER_XT_TARGET_AUDIT=y
+CONFIG_NETFILTER_XT_TARGET_CHECKSUM=y
+CONFIG_NETFILTER_XT_TARGET_CLASSIFY=y
+CONFIG_NETFILTER_XT_TARGET_CONNMARK=y
+CONFIG_NETFILTER_XT_TARGET_CONNSECMARK=y
+CONFIG_NETFILTER_XT_TARGET_CT=y
+CONFIG_NETFILTER_XT_TARGET_DSCP=y
+CONFIG_NETFILTER_XT_TARGET_HL=y
+CONFIG_NETFILTER_XT_TARGET_HMARK=y
+CONFIG_NETFILTER_XT_TARGET_IDLETIMER=y
+CONFIG_NETFILTER_XT_TARGET_LED=y
+CONFIG_NETFILTER_XT_TARGET_LOG=y
+CONFIG_NETFILTER_XT_TARGET_MARK=y
+CONFIG_NETFILTER_XT_NAT=y
+CONFIG_NETFILTER_XT_TARGET_NETMAP=y
+CONFIG_NETFILTER_XT_TARGET_NFLOG=y
+CONFIG_NETFILTER_XT_TARGET_NFQUEUE=y
+CONFIG_NETFILTER_XT_TARGET_NOTRACK=y
+CONFIG_NETFILTER_XT_TARGET_RATEEST=y
+CONFIG_NETFILTER_XT_TARGET_REDIRECT=y
+CONFIG_NETFILTER_XT_TARGET_TEE=y
+CONFIG_NETFILTER_XT_TARGET_TPROXY=y
+CONFIG_NETFILTER_XT_TARGET_TRACE=y
+CONFIG_NETFILTER_XT_TARGET_SECMARK=y
+CONFIG_NETFILTER_XT_TARGET_TCPMSS=y
+CONFIG_NETFILTER_XT_TARGET_TCPOPTSTRIP=y
+
+#
+# Xtables matches
+#
+CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
+CONFIG_NETFILTER_XT_MATCH_BPF=y
+CONFIG_NETFILTER_XT_MATCH_CGROUP=y
+CONFIG_NETFILTER_XT_MATCH_CLUSTER=y
+CONFIG_NETFILTER_XT_MATCH_COMMENT=y
+CONFIG_NETFILTER_XT_MATCH_CONNBYTES=y
+CONFIG_NETFILTER_XT_MATCH_CONNLABEL=y
+CONFIG_NETFILTER_XT_MATCH_CONNLIMIT=y
+CONFIG_NETFILTER_XT_MATCH_CONNMARK=y
+CONFIG_NETFILTER_XT_MATCH_CONNTRACK=y
+CONFIG_NETFILTER_XT_MATCH_CPU=y
+CONFIG_NETFILTER_XT_MATCH_DCCP=y
+CONFIG_NETFILTER_XT_MATCH_DEVGROUP=y
+CONFIG_NETFILTER_XT_MATCH_DSCP=y
+CONFIG_NETFILTER_XT_MATCH_ECN=y
+CONFIG_NETFILTER_XT_MATCH_ESP=y
+CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=y
+CONFIG_NETFILTER_XT_MATCH_HELPER=y
+CONFIG_NETFILTER_XT_MATCH_HL=y
+CONFIG_NETFILTER_XT_MATCH_IPCOMP=y
+CONFIG_NETFILTER_XT_MATCH_IPRANGE=y
+CONFIG_NETFILTER_XT_MATCH_IPVS=y
+CONFIG_NETFILTER_XT_MATCH_L2TP=y
+CONFIG_NETFILTER_XT_MATCH_LENGTH=y
+CONFIG_NETFILTER_XT_MATCH_LIMIT=y
+CONFIG_NETFILTER_XT_MATCH_MAC=y
+CONFIG_NETFILTER_XT_MATCH_MARK=y
+CONFIG_NETFILTER_XT_MATCH_MULTIPORT=y
+CONFIG_NETFILTER_XT_MATCH_NFACCT=y
+CONFIG_NETFILTER_XT_MATCH_OSF=y
+CONFIG_NETFILTER_XT_MATCH_OWNER=y
+CONFIG_NETFILTER_XT_MATCH_POLICY=y
+CONFIG_NETFILTER_XT_MATCH_PHYSDEV=y
+CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y
+CONFIG_NETFILTER_XT_MATCH_QUOTA=y
+CONFIG_NETFILTER_XT_MATCH_RATEEST=y
+CONFIG_NETFILTER_XT_MATCH_REALM=y
+CONFIG_NETFILTER_XT_MATCH_RECENT=y
+CONFIG_NETFILTER_XT_MATCH_SCTP=y
+CONFIG_NETFILTER_XT_MATCH_SOCKET=y
+CONFIG_NETFILTER_XT_MATCH_STATE=y
+CONFIG_NETFILTER_XT_MATCH_STATISTIC=y
+CONFIG_NETFILTER_XT_MATCH_STRING=y
+CONFIG_NETFILTER_XT_MATCH_TCPMSS=y
+CONFIG_NETFILTER_XT_MATCH_TIME=y
+CONFIG_NETFILTER_XT_MATCH_U32=y
+CONFIG_IP_SET=y
+CONFIG_IP_SET_MAX=256
+CONFIG_IP_SET_BITMAP_IP=y
+CONFIG_IP_SET_BITMAP_IPMAC=y
+CONFIG_IP_SET_BITMAP_PORT=y
+CONFIG_IP_SET_HASH_IP=y
+CONFIG_IP_SET_HASH_IPMARK=y
+CONFIG_IP_SET_HASH_IPPORT=y
+CONFIG_IP_SET_HASH_IPPORTIP=y
+CONFIG_IP_SET_HASH_IPPORTNET=y
+CONFIG_IP_SET_HASH_MAC=y
+CONFIG_IP_SET_HASH_NETPORTNET=y
+CONFIG_IP_SET_HASH_NET=y
+CONFIG_IP_SET_HASH_NETNET=y
+CONFIG_IP_SET_HASH_NETPORT=y
+CONFIG_IP_SET_HASH_NETIFACE=y
+CONFIG_IP_SET_LIST_SET=y
+CONFIG_IP_VS=y
+CONFIG_IP_VS_IPV6=y
+CONFIG_IP_VS_DEBUG=y
+CONFIG_IP_VS_TAB_BITS=12
+
+#
+# IPVS transport protocol load balancing support
+#
+CONFIG_IP_VS_PROTO_TCP=y
+CONFIG_IP_VS_PROTO_UDP=y
+CONFIG_IP_VS_PROTO_AH_ESP=y
+CONFIG_IP_VS_PROTO_ESP=y
+CONFIG_IP_VS_PROTO_AH=y
+CONFIG_IP_VS_PROTO_SCTP=y
+
+#
+# IPVS scheduler
+#
+CONFIG_IP_VS_RR=y
+CONFIG_IP_VS_WRR=y
+CONFIG_IP_VS_LC=y
+CONFIG_IP_VS_WLC=y
+CONFIG_IP_VS_FO=y
+CONFIG_IP_VS_LBLC=y
+CONFIG_IP_VS_LBLCR=y
+CONFIG_IP_VS_DH=y
+CONFIG_IP_VS_SH=y
+CONFIG_IP_VS_SED=y
+CONFIG_IP_VS_NQ=y
+
+#
+# IPVS SH scheduler
+#
+CONFIG_IP_VS_SH_TAB_BITS=8
+
+#
+# IPVS application helper
+#
+CONFIG_IP_VS_FTP=y
+CONFIG_IP_VS_NFCT=y
+CONFIG_IP_VS_PE_SIP=y
+
+#
+# IP: Netfilter Configuration
+#
+CONFIG_NF_DEFRAG_IPV4=y
+CONFIG_NF_CONNTRACK_IPV4=y
+CONFIG_NF_CONNTRACK_PROC_COMPAT=y
+CONFIG_NF_TABLES_IPV4=y
+CONFIG_NFT_CHAIN_ROUTE_IPV4=y
+CONFIG_NFT_REJECT_IPV4=y
+CONFIG_NF_TABLES_ARP=y
+CONFIG_NF_LOG_ARP=y
+CONFIG_NF_LOG_IPV4=y
+CONFIG_NF_REJECT_IPV4=y
+CONFIG_NF_NAT_IPV4=y
+CONFIG_NFT_CHAIN_NAT_IPV4=y
+CONFIG_NF_NAT_MASQUERADE_IPV4=y
+CONFIG_NFT_MASQ_IPV4=y
+CONFIG_NFT_REDIR_IPV4=y
+CONFIG_NF_NAT_SNMP_BASIC=y
+CONFIG_NF_NAT_PROTO_GRE=y
+CONFIG_NF_NAT_PPTP=y
+CONFIG_NF_NAT_H323=y
+CONFIG_IP_NF_IPTABLES=y
+CONFIG_IP_NF_MATCH_AH=y
+CONFIG_IP_NF_MATCH_ECN=y
+CONFIG_IP_NF_MATCH_RPFILTER=y
+CONFIG_IP_NF_MATCH_TTL=y
+CONFIG_IP_NF_FILTER=y
+CONFIG_IP_NF_TARGET_REJECT=y
+CONFIG_IP_NF_TARGET_SYNPROXY=y
+CONFIG_IP_NF_NAT=y
+CONFIG_IP_NF_TARGET_MASQUERADE=y
+CONFIG_IP_NF_TARGET_NETMAP=y
+CONFIG_IP_NF_TARGET_REDIRECT=y
+CONFIG_IP_NF_MANGLE=y
+CONFIG_IP_NF_TARGET_CLUSTERIP=y
+CONFIG_IP_NF_TARGET_ECN=y
+CONFIG_IP_NF_TARGET_TTL=y
+CONFIG_IP_NF_RAW=y
+CONFIG_IP_NF_SECURITY=y
+CONFIG_IP_NF_ARPTABLES=y
+CONFIG_IP_NF_ARPFILTER=y
+CONFIG_IP_NF_ARP_MANGLE=y
+
+#
+# IPv6: Netfilter Configuration
+#
+CONFIG_NF_DEFRAG_IPV6=y
+CONFIG_NF_CONNTRACK_IPV6=y
+CONFIG_NF_TABLES_IPV6=y
+CONFIG_NFT_CHAIN_ROUTE_IPV6=y
+CONFIG_NFT_REJECT_IPV6=y
+CONFIG_NF_REJECT_IPV6=y
+CONFIG_NF_LOG_IPV6=y
+CONFIG_NF_NAT_IPV6=y
+CONFIG_NFT_CHAIN_NAT_IPV6=y
+CONFIG_NF_NAT_MASQUERADE_IPV6=y
+CONFIG_NFT_MASQ_IPV6=y
+CONFIG_NFT_REDIR_IPV6=y
+CONFIG_IP6_NF_IPTABLES=y
+CONFIG_IP6_NF_MATCH_AH=y
+CONFIG_IP6_NF_MATCH_EUI64=y
+CONFIG_IP6_NF_MATCH_FRAG=y
+CONFIG_IP6_NF_MATCH_OPTS=y
+CONFIG_IP6_NF_MATCH_HL=y
+CONFIG_IP6_NF_MATCH_IPV6HEADER=y
+CONFIG_IP6_NF_MATCH_MH=y
+CONFIG_IP6_NF_MATCH_RPFILTER=y
+CONFIG_IP6_NF_MATCH_RT=y
+CONFIG_IP6_NF_TARGET_HL=y
+CONFIG_IP6_NF_FILTER=y
+CONFIG_IP6_NF_TARGET_REJECT=y
+CONFIG_IP6_NF_TARGET_SYNPROXY=y
+CONFIG_IP6_NF_MANGLE=y
+CONFIG_IP6_NF_RAW=y
+CONFIG_IP6_NF_SECURITY=y
+CONFIG_IP6_NF_NAT=y
+CONFIG_IP6_NF_TARGET_MASQUERADE=y
+CONFIG_IP6_NF_TARGET_NPT=y
+
+#
+# DECnet: Netfilter Configuration
+#
+CONFIG_DECNET_NF_GRABULATOR=y
+CONFIG_NF_TABLES_BRIDGE=y
+CONFIG_NFT_BRIDGE_META=y
+CONFIG_NFT_BRIDGE_REJECT=y
+CONFIG_NF_LOG_BRIDGE=y
+CONFIG_BRIDGE_NF_EBTABLES=y
+CONFIG_BRIDGE_EBT_BROUTE=y
+CONFIG_BRIDGE_EBT_T_FILTER=y
+CONFIG_BRIDGE_EBT_T_NAT=y
+CONFIG_BRIDGE_EBT_802_3=y
+CONFIG_BRIDGE_EBT_AMONG=y
+CONFIG_BRIDGE_EBT_ARP=y
+CONFIG_BRIDGE_EBT_IP=y
+CONFIG_BRIDGE_EBT_IP6=y
+CONFIG_BRIDGE_EBT_LIMIT=y
+CONFIG_BRIDGE_EBT_MARK=y
+CONFIG_BRIDGE_EBT_PKTTYPE=y
+CONFIG_BRIDGE_EBT_STP=y
+CONFIG_BRIDGE_EBT_VLAN=y
+CONFIG_BRIDGE_EBT_ARPREPLY=y
+CONFIG_BRIDGE_EBT_DNAT=y
+CONFIG_BRIDGE_EBT_MARK_T=y
+CONFIG_BRIDGE_EBT_REDIRECT=y
+CONFIG_BRIDGE_EBT_SNAT=y
+CONFIG_BRIDGE_EBT_LOG=y
+CONFIG_BRIDGE_EBT_NFLOG=y
+CONFIG_IP_DCCP=y
+CONFIG_INET_DCCP_DIAG=y
+
+#
+# DCCP CCIDs Configuration
+#
+CONFIG_IP_DCCP_CCID2_DEBUG=y
+CONFIG_IP_DCCP_CCID3=y
+CONFIG_IP_DCCP_CCID3_DEBUG=y
+CONFIG_IP_DCCP_TFRC_LIB=y
+CONFIG_IP_DCCP_TFRC_DEBUG=y
+
+#
+# DCCP Kernel Hacking
+#
+CONFIG_IP_DCCP_DEBUG=y
+CONFIG_IP_SCTP=y
+CONFIG_SCTP_DBG_OBJCNT=y
+CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5=y
+# CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1 is not set
+# CONFIG_SCTP_DEFAULT_COOKIE_HMAC_NONE is not set
+CONFIG_SCTP_COOKIE_HMAC_MD5=y
+CONFIG_SCTP_COOKIE_HMAC_SHA1=y
+CONFIG_RDS=y
+CONFIG_RDS_RDMA=y
+CONFIG_RDS_TCP=y
+CONFIG_RDS_DEBUG=y
+CONFIG_TIPC=y
+CONFIG_TIPC_MEDIA_IB=y
+CONFIG_TIPC_MEDIA_UDP=y
+CONFIG_ATM=y
+CONFIG_ATM_CLIP=y
+CONFIG_ATM_CLIP_NO_ICMP=y
+CONFIG_ATM_LANE=y
+CONFIG_ATM_MPOA=y
+CONFIG_ATM_BR2684=y
+CONFIG_ATM_BR2684_IPFILTER=y
+CONFIG_L2TP=y
+CONFIG_L2TP_DEBUGFS=y
+CONFIG_L2TP_V3=y
+CONFIG_L2TP_IP=y
+CONFIG_L2TP_ETH=y
+CONFIG_STP=y
+CONFIG_GARP=y
+CONFIG_MRP=y
+CONFIG_BRIDGE=y
+CONFIG_BRIDGE_IGMP_SNOOPING=y
+CONFIG_BRIDGE_VLAN_FILTERING=y
+CONFIG_HAVE_NET_DSA=y
+CONFIG_NET_DSA=y
+CONFIG_NET_DSA_HWMON=y
+CONFIG_NET_DSA_TAG_BRCM=y
+CONFIG_NET_DSA_TAG_DSA=y
+CONFIG_NET_DSA_TAG_EDSA=y
+CONFIG_NET_DSA_TAG_TRAILER=y
+CONFIG_VLAN_8021Q=y
+CONFIG_VLAN_8021Q_GVRP=y
+CONFIG_VLAN_8021Q_MVRP=y
+CONFIG_DECNET=y
+CONFIG_DECNET_ROUTER=y
+CONFIG_LLC=y
+CONFIG_LLC2=y
+CONFIG_IPX=y
+CONFIG_IPX_INTERN=y
+CONFIG_ATALK=y
+CONFIG_DEV_APPLETALK=y
+CONFIG_IPDDP=y
+CONFIG_IPDDP_ENCAP=y
+CONFIG_X25=y
+CONFIG_LAPB=y
+CONFIG_PHONET=y
+CONFIG_6LOWPAN=y
+CONFIG_6LOWPAN_NHC=y
+CONFIG_6LOWPAN_NHC_DEST=y
+CONFIG_6LOWPAN_NHC_FRAGMENT=y
+CONFIG_6LOWPAN_NHC_HOP=y
+CONFIG_6LOWPAN_NHC_IPV6=y
+CONFIG_6LOWPAN_NHC_MOBILITY=y
+CONFIG_6LOWPAN_NHC_ROUTING=y
+CONFIG_6LOWPAN_NHC_UDP=y
+CONFIG_IEEE802154=y
+CONFIG_IEEE802154_SOCKET=y
+CONFIG_IEEE802154_6LOWPAN=y
+CONFIG_MAC802154=y
+CONFIG_NET_SCHED=y
+
+#
+# Queueing/Scheduling
+#
+CONFIG_NET_SCH_CBQ=y
+CONFIG_NET_SCH_HTB=y
+CONFIG_NET_SCH_HFSC=y
+CONFIG_NET_SCH_ATM=y
+CONFIG_NET_SCH_PRIO=y
+CONFIG_NET_SCH_MULTIQ=y
+CONFIG_NET_SCH_RED=y
+CONFIG_NET_SCH_SFB=y
+CONFIG_NET_SCH_SFQ=y
+CONFIG_NET_SCH_TEQL=y
+CONFIG_NET_SCH_TBF=y
+CONFIG_NET_SCH_GRED=y
+CONFIG_NET_SCH_DSMARK=y
+CONFIG_NET_SCH_NETEM=y
+CONFIG_NET_SCH_DRR=y
+CONFIG_NET_SCH_MQPRIO=y
+CONFIG_NET_SCH_CHOKE=y
+CONFIG_NET_SCH_QFQ=y
+CONFIG_NET_SCH_CODEL=y
+CONFIG_NET_SCH_FQ_CODEL=y
+CONFIG_NET_SCH_FQ=y
+CONFIG_NET_SCH_HHF=y
+CONFIG_NET_SCH_PIE=y
+CONFIG_NET_SCH_INGRESS=y
+CONFIG_NET_SCH_PLUG=y
+
+#
+# Classification
+#
+CONFIG_NET_CLS=y
+CONFIG_NET_CLS_BASIC=y
+CONFIG_NET_CLS_TCINDEX=y
+CONFIG_NET_CLS_ROUTE4=y
+CONFIG_NET_CLS_FW=y
+CONFIG_NET_CLS_U32=y
+CONFIG_CLS_U32_PERF=y
+CONFIG_CLS_U32_MARK=y
+CONFIG_NET_CLS_RSVP=y
+CONFIG_NET_CLS_RSVP6=y
+CONFIG_NET_CLS_FLOW=y
+CONFIG_NET_CLS_CGROUP=y
+CONFIG_NET_CLS_BPF=y
+CONFIG_NET_EMATCH=y
+CONFIG_NET_EMATCH_STACK=32
+CONFIG_NET_EMATCH_CMP=y
+CONFIG_NET_EMATCH_NBYTE=y
+CONFIG_NET_EMATCH_U32=y
+CONFIG_NET_EMATCH_META=y
+CONFIG_NET_EMATCH_TEXT=y
+CONFIG_NET_EMATCH_CANID=y
+CONFIG_NET_EMATCH_IPSET=y
+CONFIG_NET_CLS_ACT=y
+CONFIG_NET_ACT_POLICE=y
+CONFIG_NET_ACT_GACT=y
+CONFIG_GACT_PROB=y
+CONFIG_NET_ACT_MIRRED=y
+CONFIG_NET_ACT_IPT=y
+CONFIG_NET_ACT_NAT=y
+CONFIG_NET_ACT_PEDIT=y
+CONFIG_NET_ACT_SIMP=y
+CONFIG_NET_ACT_SKBEDIT=y
+CONFIG_NET_ACT_CSUM=y
+CONFIG_NET_ACT_VLAN=y
+CONFIG_NET_ACT_BPF=y
+CONFIG_NET_ACT_CONNMARK=y
+CONFIG_NET_CLS_IND=y
+CONFIG_NET_SCH_FIFO=y
+CONFIG_DCB=y
+CONFIG_DNS_RESOLVER=y
+CONFIG_BATMAN_ADV=y
+CONFIG_BATMAN_ADV_BLA=y
+CONFIG_BATMAN_ADV_DAT=y
+CONFIG_BATMAN_ADV_NC=y
+CONFIG_BATMAN_ADV_MCAST=y
+CONFIG_BATMAN_ADV_DEBUG=y
+CONFIG_OPENVSWITCH=y
+CONFIG_OPENVSWITCH_GRE=y
+CONFIG_OPENVSWITCH_VXLAN=y
+CONFIG_OPENVSWITCH_GENEVE=y
+CONFIG_VSOCKETS=y
+CONFIG_NETLINK_MMAP=y
+CONFIG_NETLINK_DIAG=y
+CONFIG_MPLS=y
+CONFIG_NET_MPLS_GSO=y
+CONFIG_MPLS_ROUTING=y
+CONFIG_HSR=y
+CONFIG_NET_SWITCHDEV=y
+CONFIG_CGROUP_NET_PRIO=y
+CONFIG_CGROUP_NET_CLASSID=y
+CONFIG_NET_RX_BUSY_POLL=y
+CONFIG_BQL=y
+
+#
+# Network testing
+#
+CONFIG_NET_PKTGEN=y
+CONFIG_NET_DROP_MONITOR=y
+CONFIG_HAMRADIO=y
+
+#
+# Packet Radio protocols
+#
+CONFIG_AX25=y
+CONFIG_AX25_DAMA_SLAVE=y
+CONFIG_NETROM=y
+CONFIG_ROSE=y
+
+#
+# AX.25 network device drivers
+#
+CONFIG_MKISS=y
+CONFIG_6PACK=y
+CONFIG_BPQETHER=y
+CONFIG_BAYCOM_SER_FDX=y
+CONFIG_BAYCOM_SER_HDX=y
+CONFIG_BAYCOM_PAR=y
+CONFIG_BAYCOM_EPP=y
+CONFIG_YAM=y
+CONFIG_CAN=y
+CONFIG_CAN_RAW=y
+CONFIG_CAN_BCM=y
+CONFIG_CAN_GW=y
+
+#
+# CAN Device Drivers
+#
+CONFIG_CAN_VCAN=y
+CONFIG_CAN_SLCAN=y
+CONFIG_CAN_DEV=y
+CONFIG_CAN_CALC_BITTIMING=y
+CONFIG_CAN_LEDS=y
+CONFIG_CAN_AT91=y
+CONFIG_CAN_JANZ_ICAN3=y
+CONFIG_PCH_CAN=y
+CONFIG_CAN_GRCAN=y
+CONFIG_CAN_XILINXCAN=y
+CONFIG_CAN_SJA1000=y
+CONFIG_CAN_SJA1000_ISA=y
+CONFIG_CAN_SJA1000_PLATFORM=y
+CONFIG_CAN_EMS_PCI=y
+CONFIG_CAN_PEAK_PCI=y
+CONFIG_CAN_PEAK_PCIEC=y
+CONFIG_CAN_KVASER_PCI=y
+CONFIG_CAN_PLX_PCI=y
+CONFIG_CAN_C_CAN=y
+CONFIG_CAN_C_CAN_PLATFORM=y
+CONFIG_CAN_C_CAN_PCI=y
+CONFIG_CAN_M_CAN=y
+CONFIG_CAN_CC770=y
+CONFIG_CAN_CC770_ISA=y
+CONFIG_CAN_CC770_PLATFORM=y
+
+#
+# CAN SPI interfaces
+#
+CONFIG_CAN_MCP251X=y
+
+#
+# CAN USB interfaces
+#
+CONFIG_CAN_EMS_USB=y
+CONFIG_CAN_ESD_USB2=y
+CONFIG_CAN_GS_USB=y
+CONFIG_CAN_KVASER_USB=y
+CONFIG_CAN_PEAK_USB=y
+CONFIG_CAN_8DEV_USB=y
+CONFIG_CAN_SOFTING=y
+CONFIG_CAN_DEBUG_DEVICES=y
+CONFIG_IRDA=y
+
+#
+# IrDA protocols
+#
+CONFIG_IRLAN=y
+CONFIG_IRNET=y
+CONFIG_IRCOMM=y
+CONFIG_IRDA_ULTRA=y
+
+#
+# IrDA options
+#
+CONFIG_IRDA_CACHE_LAST_LSAP=y
+CONFIG_IRDA_FAST_RR=y
+CONFIG_IRDA_DEBUG=y
+
+#
+# Infrared-port device drivers
+#
+
+#
+# SIR device drivers
+#
+CONFIG_IRTTY_SIR=y
+
+#
+# Dongle support
+#
+CONFIG_DONGLE=y
+CONFIG_ESI_DONGLE=y
+CONFIG_ACTISYS_DONGLE=y
+CONFIG_TEKRAM_DONGLE=y
+CONFIG_TOIM3232_DONGLE=y
+CONFIG_LITELINK_DONGLE=y
+CONFIG_MA600_DONGLE=y
+CONFIG_GIRBIL_DONGLE=y
+CONFIG_MCP2120_DONGLE=y
+CONFIG_OLD_BELKIN_DONGLE=y
+CONFIG_ACT200L_DONGLE=y
+CONFIG_KINGSUN_DONGLE=y
+CONFIG_KSDAZZLE_DONGLE=y
+CONFIG_KS959_DONGLE=y
+
+#
+# FIR device drivers
+#
+CONFIG_USB_IRDA=y
+CONFIG_SIGMATEL_FIR=y
+CONFIG_TOSHIBA_FIR=y
+CONFIG_VLSI_FIR=y
+CONFIG_MCS_FIR=y
+CONFIG_SH_IRDA=y
+CONFIG_BT=y
+CONFIG_BT_BREDR=y
+CONFIG_BT_RFCOMM=y
+CONFIG_BT_RFCOMM_TTY=y
+CONFIG_BT_BNEP=y
+CONFIG_BT_BNEP_MC_FILTER=y
+CONFIG_BT_BNEP_PROTO_FILTER=y
+CONFIG_BT_CMTP=y
+CONFIG_BT_HIDP=y
+CONFIG_BT_LE=y
+CONFIG_BT_6LOWPAN=y
+CONFIG_BT_SELFTEST=y
+CONFIG_BT_SELFTEST_ECDH=y
+CONFIG_BT_SELFTEST_SMP=y
+CONFIG_BT_DEBUGFS=y
+
+#
+# Bluetooth device drivers
+#
+CONFIG_BT_HCIBTUSB=y
+CONFIG_BT_HCIBTSDIO=y
+CONFIG_BT_HCIUART=y
+CONFIG_BT_HCIUART_H4=y
+CONFIG_BT_HCIUART_BCSP=y
+CONFIG_BT_HCIUART_ATH3K=y
+CONFIG_BT_HCIUART_LL=y
+CONFIG_BT_HCIUART_3WIRE=y
+CONFIG_BT_HCIBCM203X=y
+CONFIG_BT_HCIBPA10X=y
+CONFIG_BT_HCIBFUSB=y
+CONFIG_BT_HCIVHCI=y
+CONFIG_BT_MRVL=y
+CONFIG_BT_MRVL_SDIO=y
+CONFIG_BT_ATH3K=y
+CONFIG_BT_WILINK=y
+CONFIG_AF_RXRPC=y
+CONFIG_AF_RXRPC_DEBUG=y
+CONFIG_RXKAD=y
+CONFIG_FIB_RULES=y
+CONFIG_WIRELESS=y
+CONFIG_WIRELESS_EXT=y
+CONFIG_WEXT_CORE=y
+CONFIG_WEXT_PROC=y
+CONFIG_WEXT_SPY=y
+CONFIG_WEXT_PRIV=y
+CONFIG_CFG80211=y
+CONFIG_NL80211_TESTMODE=y
+CONFIG_CFG80211_DEVELOPER_WARNINGS=y
+CONFIG_CFG80211_REG_DEBUG=y
+CONFIG_CFG80211_CERTIFICATION_ONUS=y
+CONFIG_CFG80211_REG_CELLULAR_HINTS=y
+CONFIG_CFG80211_REG_RELAX_NO_IR=y
+CONFIG_CFG80211_DEFAULT_PS=y
+CONFIG_CFG80211_DEBUGFS=y
+CONFIG_CFG80211_INTERNAL_REGDB=y
+CONFIG_CFG80211_WEXT=y
+CONFIG_LIB80211=y
+CONFIG_LIB80211_CRYPT_WEP=y
+CONFIG_LIB80211_CRYPT_CCMP=y
+CONFIG_LIB80211_CRYPT_TKIP=y
+CONFIG_LIB80211_DEBUG=y
+CONFIG_MAC80211=y
+CONFIG_MAC80211_HAS_RC=y
+CONFIG_MAC80211_RC_MINSTREL=y
+CONFIG_MAC80211_RC_MINSTREL_HT=y
+CONFIG_MAC80211_RC_MINSTREL_VHT=y
+CONFIG_MAC80211_RC_DEFAULT_MINSTREL=y
+CONFIG_MAC80211_RC_DEFAULT="minstrel_ht"
+CONFIG_MAC80211_MESH=y
+CONFIG_MAC80211_LEDS=y
+CONFIG_MAC80211_DEBUGFS=y
+CONFIG_MAC80211_MESSAGE_TRACING=y
+CONFIG_MAC80211_DEBUG_MENU=y
+CONFIG_MAC80211_NOINLINE=y
+CONFIG_MAC80211_VERBOSE_DEBUG=y
+CONFIG_MAC80211_MLME_DEBUG=y
+CONFIG_MAC80211_STA_DEBUG=y
+CONFIG_MAC80211_HT_DEBUG=y
+CONFIG_MAC80211_OCB_DEBUG=y
+CONFIG_MAC80211_IBSS_DEBUG=y
+CONFIG_MAC80211_PS_DEBUG=y
+CONFIG_MAC80211_MPL_DEBUG=y
+CONFIG_MAC80211_MPATH_DEBUG=y
+CONFIG_MAC80211_MHWMP_DEBUG=y
+CONFIG_MAC80211_MESH_SYNC_DEBUG=y
+CONFIG_MAC80211_MESH_CSA_DEBUG=y
+CONFIG_MAC80211_MESH_PS_DEBUG=y
+CONFIG_MAC80211_TDLS_DEBUG=y
+CONFIG_MAC80211_DEBUG_COUNTERS=y
+CONFIG_WIMAX=y
+CONFIG_WIMAX_DEBUG_LEVEL=8
+CONFIG_RFKILL=y
+CONFIG_RFKILL_LEDS=y
+CONFIG_RFKILL_INPUT=y
+CONFIG_RFKILL_REGULATOR=y
+CONFIG_RFKILL_GPIO=y
+CONFIG_NET_9P=y
+CONFIG_NET_9P_VIRTIO=y
+CONFIG_NET_9P_RDMA=y
+CONFIG_NET_9P_DEBUG=y
+CONFIG_CAIF=y
+CONFIG_CAIF_DEBUG=y
+CONFIG_CAIF_NETDEV=y
+CONFIG_CAIF_USB=y
+CONFIG_CEPH_LIB=y
+CONFIG_CEPH_LIB_PRETTYDEBUG=y
+CONFIG_CEPH_LIB_USE_DNS_RESOLVER=y
+CONFIG_NFC=y
+CONFIG_NFC_DIGITAL=y
+CONFIG_NFC_NCI=y
+CONFIG_NFC_NCI_SPI=y
+CONFIG_NFC_HCI=y
+CONFIG_NFC_SHDLC=y
+
+#
+# Near Field Communication (NFC) devices
+#
+CONFIG_NFC_PN533=y
+CONFIG_NFC_WILINK=y
+CONFIG_NFC_TRF7970A=y
+CONFIG_NFC_SIM=y
+CONFIG_NFC_PORT100=y
+CONFIG_NFC_PN544=y
+CONFIG_NFC_PN544_I2C=y
+CONFIG_NFC_MICROREAD=y
+CONFIG_NFC_MICROREAD_I2C=y
+CONFIG_NFC_MRVL=y
+CONFIG_NFC_MRVL_USB=y
+CONFIG_NFC_ST21NFCA=y
+CONFIG_NFC_ST21NFCA_I2C=y
+CONFIG_NFC_ST21NFCB=y
+CONFIG_NFC_ST21NFCB_I2C=y
+
+#
+# Device Drivers
+#
+
+#
+# Generic Driver Options
+#
+CONFIG_UEVENT_HELPER=y
+CONFIG_UEVENT_HELPER_PATH=""
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_STANDALONE=y
+CONFIG_PREVENT_FIRMWARE_BUILD=y
+CONFIG_FW_LOADER=y
+CONFIG_FIRMWARE_IN_KERNEL=y
+CONFIG_EXTRA_FIRMWARE=""
+CONFIG_FW_LOADER_USER_HELPER=y
+CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+CONFIG_WANT_DEV_COREDUMP=y
+CONFIG_ALLOW_DEV_COREDUMP=y
+CONFIG_DEV_COREDUMP=y
+CONFIG_DEBUG_DRIVER=y
+CONFIG_DEBUG_DEVRES=y
+# CONFIG_SYS_HYPERVISOR is not set
+CONFIG_GENERIC_CPU_DEVICES=y
+CONFIG_REGMAP=y
+CONFIG_REGMAP_I2C=y
+CONFIG_REGMAP_SPI=y
+CONFIG_REGMAP_SPMI=y
+CONFIG_REGMAP_MMIO=y
+CONFIG_REGMAP_IRQ=y
+CONFIG_DMA_SHARED_BUFFER=y
+CONFIG_FENCE_TRACE=y
+
+#
+# Bus devices
+#
+CONFIG_CONNECTOR=y
+CONFIG_PROC_EVENTS=y
+CONFIG_MTD=y
+CONFIG_MTD_TESTS=m
+CONFIG_MTD_REDBOOT_PARTS=y
+CONFIG_MTD_REDBOOT_DIRECTORY_BLOCK=-1
+CONFIG_MTD_REDBOOT_PARTS_UNALLOCATED=y
+CONFIG_MTD_REDBOOT_PARTS_READONLY=y
+CONFIG_MTD_CMDLINE_PARTS=y
+CONFIG_MTD_OF_PARTS=y
+CONFIG_MTD_AR7_PARTS=y
+
+#
+# User Modules And Translation Layers
+#
+CONFIG_MTD_BLKDEVS=y
+CONFIG_MTD_BLOCK=y
+CONFIG_FTL=y
+CONFIG_NFTL=y
+CONFIG_NFTL_RW=y
+CONFIG_INFTL=y
+CONFIG_RFD_FTL=y
+CONFIG_SSFDC=y
+CONFIG_SM_FTL=y
+CONFIG_MTD_OOPS=y
+CONFIG_MTD_SWAP=y
+
+#
+# RAM/ROM/Flash chip drivers
+#
+CONFIG_MTD_CFI=y
+CONFIG_MTD_JEDECPROBE=y
+CONFIG_MTD_GEN_PROBE=y
+CONFIG_MTD_CFI_ADV_OPTIONS=y
+CONFIG_MTD_CFI_NOSWAP=y
+# CONFIG_MTD_CFI_BE_BYTE_SWAP is not set
+# CONFIG_MTD_CFI_LE_BYTE_SWAP is not set
+CONFIG_MTD_CFI_GEOMETRY=y
+CONFIG_MTD_MAP_BANK_WIDTH_1=y
+CONFIG_MTD_MAP_BANK_WIDTH_2=y
+CONFIG_MTD_MAP_BANK_WIDTH_4=y
+CONFIG_MTD_MAP_BANK_WIDTH_8=y
+CONFIG_MTD_MAP_BANK_WIDTH_16=y
+CONFIG_MTD_MAP_BANK_WIDTH_32=y
+CONFIG_MTD_CFI_I1=y
+CONFIG_MTD_CFI_I2=y
+CONFIG_MTD_CFI_I4=y
+CONFIG_MTD_CFI_I8=y
+CONFIG_MTD_OTP=y
+CONFIG_MTD_CFI_INTELEXT=y
+CONFIG_MTD_CFI_AMDSTD=y
+CONFIG_MTD_CFI_STAA=y
+CONFIG_MTD_CFI_UTIL=y
+CONFIG_MTD_RAM=y
+CONFIG_MTD_ROM=y
+CONFIG_MTD_ABSENT=y
+
+#
+# Mapping drivers for chip access
+#
+CONFIG_MTD_COMPLEX_MAPPINGS=y
+CONFIG_MTD_PHYSMAP=y
+CONFIG_MTD_PHYSMAP_COMPAT=y
+CONFIG_MTD_PHYSMAP_START=0x8000000
+CONFIG_MTD_PHYSMAP_LEN=0
+CONFIG_MTD_PHYSMAP_BANKWIDTH=2
+CONFIG_MTD_PHYSMAP_OF=y
+CONFIG_MTD_SC520CDP=y
+CONFIG_MTD_NETSC520=y
+CONFIG_MTD_TS5500=y
+CONFIG_MTD_PCI=y
+CONFIG_MTD_GPIO_ADDR=y
+CONFIG_MTD_INTEL_VR_NOR=y
+CONFIG_MTD_PLATRAM=y
+CONFIG_MTD_LATCH_ADDR=y
+
+#
+# Self-contained MTD device drivers
+#
+CONFIG_MTD_PMC551=y
+CONFIG_MTD_PMC551_BUGFIX=y
+CONFIG_MTD_PMC551_DEBUG=y
+CONFIG_MTD_DATAFLASH=y
+CONFIG_MTD_DATAFLASH_WRITE_VERIFY=y
+CONFIG_MTD_DATAFLASH_OTP=y
+CONFIG_MTD_M25P80=y
+CONFIG_MTD_SST25L=y
+CONFIG_MTD_SLRAM=y
+CONFIG_MTD_PHRAM=y
+CONFIG_MTD_MTDRAM=y
+CONFIG_MTDRAM_TOTAL_SIZE=4096
+CONFIG_MTDRAM_ERASE_SIZE=128
+CONFIG_MTDRAM_ABS_POS=0
+CONFIG_MTD_BLOCK2MTD=y
+
+#
+# Disk-On-Chip Device Drivers
+#
+CONFIG_MTD_DOCG3=y
+CONFIG_BCH_CONST_M=14
+CONFIG_BCH_CONST_T=4
+CONFIG_MTD_NAND_ECC=y
+CONFIG_MTD_NAND_ECC_SMC=y
+CONFIG_MTD_NAND=y
+CONFIG_MTD_NAND_BCH=y
+CONFIG_MTD_NAND_ECC_BCH=y
+CONFIG_MTD_SM_COMMON=y
+CONFIG_MTD_NAND_DENALI=y
+CONFIG_MTD_NAND_DENALI_PCI=y
+CONFIG_MTD_NAND_DENALI_DT=y
+CONFIG_MTD_NAND_DENALI_SCRATCH_REG_ADDR=0xFF108018
+CONFIG_MTD_NAND_GPIO=y
+# CONFIG_MTD_NAND_OMAP_BCH_BUILD is not set
+CONFIG_MTD_NAND_IDS=y
+CONFIG_MTD_NAND_RICOH=y
+CONFIG_MTD_NAND_DISKONCHIP=y
+CONFIG_MTD_NAND_DISKONCHIP_PROBE_ADVANCED=y
+CONFIG_MTD_NAND_DISKONCHIP_PROBE_ADDRESS=0
+CONFIG_MTD_NAND_DISKONCHIP_PROBE_HIGH=y
+CONFIG_MTD_NAND_DISKONCHIP_BBTWRITE=y
+CONFIG_MTD_NAND_DOCG4=y
+CONFIG_MTD_NAND_CAFE=y
+CONFIG_MTD_NAND_NANDSIM=y
+CONFIG_MTD_NAND_PLATFORM=y
+CONFIG_MTD_NAND_SH_FLCTL=y
+CONFIG_MTD_NAND_HISI504=y
+CONFIG_MTD_ONENAND=y
+CONFIG_MTD_ONENAND_VERIFY_WRITE=y
+CONFIG_MTD_ONENAND_GENERIC=y
+CONFIG_MTD_ONENAND_OTP=y
+CONFIG_MTD_ONENAND_2X_PROGRAM=y
+
+#
+# LPDDR & LPDDR2 PCM memory drivers
+#
+CONFIG_MTD_LPDDR=y
+CONFIG_MTD_QINFO_PROBE=y
+CONFIG_MTD_SPI_NOR=y
+CONFIG_MTD_SPI_NOR_USE_4K_SECTORS=y
+CONFIG_MTD_UBI=y
+CONFIG_MTD_UBI_WL_THRESHOLD=4096
+CONFIG_MTD_UBI_BEB_LIMIT=20
+CONFIG_MTD_UBI_FASTMAP=y
+CONFIG_MTD_UBI_GLUEBI=y
+CONFIG_MTD_UBI_BLOCK=y
+CONFIG_DTC=y
+CONFIG_OF=y
+
+#
+# Device Tree and Open Firmware support
+#
+CONFIG_OF_UNITTEST=y
+CONFIG_OF_FLATTREE=y
+CONFIG_OF_EARLY_FLATTREE=y
+CONFIG_OF_ADDRESS=y
+CONFIG_OF_ADDRESS_PCI=y
+CONFIG_OF_IRQ=y
+CONFIG_OF_NET=y
+CONFIG_OF_MDIO=y
+CONFIG_OF_PCI=y
+CONFIG_OF_PCI_IRQ=y
+CONFIG_OF_MTD=y
+CONFIG_OF_RESOLVE=y
+CONFIG_ARCH_MIGHT_HAVE_PC_PARPORT=y
+CONFIG_PARPORT=y
+CONFIG_PARPORT_PC=y
+CONFIG_PARPORT_SERIAL=y
+CONFIG_PARPORT_PC_FIFO=y
+CONFIG_PARPORT_PC_SUPERIO=y
+# CONFIG_PARPORT_GSC is not set
+CONFIG_PARPORT_AX88796=y
+CONFIG_PARPORT_1284=y
+CONFIG_PARPORT_NOT_PC=y
+CONFIG_BLK_DEV=y
+CONFIG_BLK_DEV_NULL_BLK=y
+CONFIG_PARIDE=y
+
+#
+# Parallel IDE high-level drivers
+#
+CONFIG_PARIDE_PD=y
+CONFIG_PARIDE_PCD=y
+CONFIG_PARIDE_PF=y
+CONFIG_PARIDE_PT=y
+CONFIG_PARIDE_PG=y
+
+#
+# Parallel IDE protocol modules
+#
+CONFIG_PARIDE_ATEN=y
+CONFIG_PARIDE_BPCK=y
+CONFIG_PARIDE_BPCK6=y
+CONFIG_PARIDE_COMM=y
+CONFIG_PARIDE_DSTR=y
+CONFIG_PARIDE_FIT2=y
+CONFIG_PARIDE_FIT3=y
+CONFIG_PARIDE_EPAT=y
+CONFIG_PARIDE_EPATC8=y
+CONFIG_PARIDE_EPIA=y
+CONFIG_PARIDE_FRIQ=y
+CONFIG_PARIDE_FRPW=y
+CONFIG_PARIDE_KBIC=y
+CONFIG_PARIDE_KTTI=y
+CONFIG_PARIDE_ON20=y
+CONFIG_PARIDE_ON26=y
+CONFIG_BLK_DEV_PCIESSD_MTIP32XX=y
+# CONFIG_ZRAM is not set
+CONFIG_BLK_CPQ_CISS_DA=y
+CONFIG_CISS_SCSI_TAPE=y
+CONFIG_BLK_DEV_DAC960=y
+CONFIG_BLK_DEV_UMEM=y
+# CONFIG_BLK_DEV_COW_COMMON is not set
+CONFIG_BLK_DEV_LOOP=y
+CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
+CONFIG_BLK_DEV_CRYPTOLOOP=y
+CONFIG_BLK_DEV_DRBD=y
+CONFIG_DRBD_FAULT_INJECTION=y
+CONFIG_BLK_DEV_NBD=y
+CONFIG_BLK_DEV_NVME=y
+CONFIG_BLK_DEV_OSD=y
+CONFIG_BLK_DEV_SX8=y
+CONFIG_BLK_DEV_RAM=y
+CONFIG_BLK_DEV_RAM_COUNT=16
+CONFIG_BLK_DEV_RAM_SIZE=4096
+CONFIG_BLK_DEV_RAM_DAX=y
+CONFIG_CDROM_PKTCDVD=y
+CONFIG_CDROM_PKTCDVD_BUFFERS=8
+CONFIG_CDROM_PKTCDVD_WCACHE=y
+CONFIG_ATA_OVER_ETH=y
+CONFIG_XILINX_SYSACE=y
+CONFIG_VIRTIO_BLK=y
+CONFIG_BLK_DEV_RBD=y
+CONFIG_BLK_DEV_RSXX=y
+
+#
+# Misc devices
+#
+CONFIG_SENSORS_LIS3LV02D=y
+CONFIG_AD525X_DPOT=y
+CONFIG_AD525X_DPOT_I2C=y
+CONFIG_AD525X_DPOT_SPI=y
+CONFIG_DUMMY_IRQ=y
+CONFIG_PHANTOM=y
+CONFIG_INTEL_MID_PTI=y
+CONFIG_SGI_IOC4=y
+CONFIG_TIFM_CORE=y
+CONFIG_TIFM_7XX1=y
+CONFIG_ICS932S401=y
+CONFIG_ATMEL_SSC=y
+CONFIG_ENCLOSURE_SERVICES=y
+CONFIG_HP_ILO=y
+CONFIG_APDS9802ALS=y
+CONFIG_ISL29003=y
+CONFIG_ISL29020=y
+CONFIG_SENSORS_TSL2550=y
+CONFIG_SENSORS_BH1780=y
+CONFIG_SENSORS_BH1770=y
+CONFIG_SENSORS_APDS990X=y
+CONFIG_HMC6352=y
+CONFIG_DS1682=y
+CONFIG_TI_DAC7512=y
+CONFIG_BMP085=y
+CONFIG_BMP085_I2C=y
+CONFIG_BMP085_SPI=y
+CONFIG_PCH_PHUB=y
+CONFIG_USB_SWITCH_FSA9480=y
+CONFIG_LATTICE_ECP3_CONFIG=y
+CONFIG_SRAM=y
+CONFIG_C2PORT=y
+
+#
+# EEPROM support
+#
+CONFIG_EEPROM_AT24=y
+CONFIG_EEPROM_AT25=y
+CONFIG_EEPROM_LEGACY=y
+CONFIG_EEPROM_MAX6875=y
+CONFIG_EEPROM_93CX6=y
+CONFIG_EEPROM_93XX46=y
+CONFIG_CB710_CORE=y
+CONFIG_CB710_DEBUG=y
+CONFIG_CB710_DEBUG_ASSUMPTIONS=y
+
+#
+# Texas Instruments shared transport line discipline
+#
+CONFIG_TI_ST=y
+CONFIG_SENSORS_LIS3_SPI=y
+CONFIG_SENSORS_LIS3_I2C=y
+
+#
+# Altera FPGA firmware download module
+#
+CONFIG_ALTERA_STAPL=y
+
+#
+# Intel MIC Bus Driver
+#
+
+#
+# Intel MIC Host Driver
+#
+
+#
+# Intel MIC Card Driver
+#
+CONFIG_ECHO=y
+# CONFIG_CXL_BASE is not set
+
+#
+# SCSI device support
+#
+CONFIG_SCSI_MOD=y
+CONFIG_RAID_ATTRS=y
+CONFIG_SCSI=y
+CONFIG_SCSI_DMA=y
+CONFIG_SCSI_NETLINK=y
+CONFIG_SCSI_MQ_DEFAULT=y
+CONFIG_SCSI_PROC_FS=y
+
+#
+# SCSI support type (disk, tape, CD-ROM)
+#
+CONFIG_BLK_DEV_SD=y
+CONFIG_CHR_DEV_ST=y
+CONFIG_CHR_DEV_OSST=y
+CONFIG_BLK_DEV_SR=y
+CONFIG_BLK_DEV_SR_VENDOR=y
+CONFIG_CHR_DEV_SG=y
+CONFIG_CHR_DEV_SCH=y
+CONFIG_SCSI_ENCLOSURE=y
+CONFIG_SCSI_CONSTANTS=y
+CONFIG_SCSI_LOGGING=y
+CONFIG_SCSI_SCAN_ASYNC=y
+
+#
+# SCSI Transports
+#
+CONFIG_SCSI_SPI_ATTRS=y
+CONFIG_SCSI_FC_ATTRS=y
+CONFIG_SCSI_ISCSI_ATTRS=y
+CONFIG_SCSI_SAS_ATTRS=y
+CONFIG_SCSI_SAS_LIBSAS=y
+CONFIG_SCSI_SAS_ATA=y
+CONFIG_SCSI_SAS_HOST_SMP=y
+CONFIG_SCSI_SRP_ATTRS=y
+CONFIG_SCSI_LOWLEVEL=y
+CONFIG_ISCSI_TCP=y
+CONFIG_ISCSI_BOOT_SYSFS=y
+CONFIG_SCSI_CXGB3_ISCSI=y
+CONFIG_SCSI_CXGB4_ISCSI=y
+CONFIG_SCSI_BNX2_ISCSI=y
+CONFIG_SCSI_BNX2X_FCOE=y
+CONFIG_BE2ISCSI=y
+CONFIG_BLK_DEV_3W_XXXX_RAID=y
+CONFIG_SCSI_HPSA=y
+CONFIG_SCSI_3W_9XXX=y
+CONFIG_SCSI_3W_SAS=y
+CONFIG_SCSI_ACARD=y
+CONFIG_SCSI_AACRAID=y
+CONFIG_SCSI_AIC7XXX=y
+CONFIG_AIC7XXX_CMDS_PER_DEVICE=32
+CONFIG_AIC7XXX_RESET_DELAY_MS=5000
+CONFIG_AIC7XXX_DEBUG_ENABLE=y
+CONFIG_AIC7XXX_DEBUG_MASK=0
+CONFIG_AIC7XXX_REG_PRETTY_PRINT=y
+CONFIG_SCSI_AIC79XX=y
+CONFIG_AIC79XX_CMDS_PER_DEVICE=32
+CONFIG_AIC79XX_RESET_DELAY_MS=5000
+CONFIG_AIC79XX_DEBUG_ENABLE=y
+CONFIG_AIC79XX_DEBUG_MASK=0
+CONFIG_AIC79XX_REG_PRETTY_PRINT=y
+CONFIG_SCSI_AIC94XX=y
+CONFIG_AIC94XX_DEBUG=y
+CONFIG_SCSI_MVSAS=y
+CONFIG_SCSI_MVSAS_DEBUG=y
+CONFIG_SCSI_MVSAS_TASKLET=y
+CONFIG_SCSI_MVUMI=y
+CONFIG_SCSI_DPT_I2O=y
+CONFIG_SCSI_ADVANSYS=y
+CONFIG_SCSI_ARCMSR=y
+CONFIG_SCSI_ESAS2R=y
+CONFIG_MEGARAID_NEWGEN=y
+CONFIG_MEGARAID_MM=y
+CONFIG_MEGARAID_MAILBOX=y
+CONFIG_MEGARAID_LEGACY=y
+CONFIG_MEGARAID_SAS=y
+CONFIG_SCSI_MPT2SAS=y
+CONFIG_SCSI_MPT2SAS_MAX_SGE=128
+CONFIG_SCSI_MPT2SAS_LOGGING=y
+CONFIG_SCSI_MPT3SAS=y
+CONFIG_SCSI_MPT3SAS_MAX_SGE=128
+CONFIG_SCSI_MPT3SAS_LOGGING=y
+CONFIG_SCSI_UFSHCD=y
+CONFIG_SCSI_UFSHCD_PCI=y
+CONFIG_SCSI_UFSHCD_PLATFORM=y
+CONFIG_SCSI_HPTIOP=y
+CONFIG_LIBFC=y
+CONFIG_LIBFCOE=y
+CONFIG_FCOE=y
+CONFIG_SCSI_DMX3191D=y
+CONFIG_SCSI_FUTURE_DOMAIN=y
+CONFIG_SCSI_IPS=y
+CONFIG_SCSI_INITIO=y
+CONFIG_SCSI_INIA100=y
+CONFIG_SCSI_PPA=y
+CONFIG_SCSI_IMM=y
+CONFIG_SCSI_IZIP_EPP16=y
+CONFIG_SCSI_IZIP_SLOW_CTR=y
+CONFIG_SCSI_STEX=y
+CONFIG_SCSI_SYM53C8XX_2=y
+CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=1
+CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS=16
+CONFIG_SCSI_SYM53C8XX_MAX_TAGS=64
+CONFIG_SCSI_SYM53C8XX_MMIO=y
+CONFIG_SCSI_IPR=y
+CONFIG_SCSI_IPR_TRACE=y
+CONFIG_SCSI_IPR_DUMP=y
+CONFIG_SCSI_QLOGIC_1280=y
+CONFIG_SCSI_QLA_FC=y
+CONFIG_TCM_QLA2XXX=y
+CONFIG_SCSI_QLA_ISCSI=y
+# CONFIG_SCSI_LPFC is not set
+CONFIG_SCSI_DC395x=y
+CONFIG_SCSI_AM53C974=y
+CONFIG_SCSI_NSP32=y
+CONFIG_SCSI_WD719X=y
+CONFIG_SCSI_DEBUG=y
+CONFIG_SCSI_PMCRAID=y
+CONFIG_SCSI_PM8001=y
+CONFIG_SCSI_BFA_FC=y
+CONFIG_SCSI_VIRTIO=y
+CONFIG_SCSI_CHELSIO_FCOE=y
+CONFIG_SCSI_LOWLEVEL_PCMCIA=y
+CONFIG_SCSI_DH=y
+CONFIG_SCSI_DH_RDAC=y
+CONFIG_SCSI_DH_HP_SW=y
+CONFIG_SCSI_DH_EMC=y
+CONFIG_SCSI_DH_ALUA=y
+CONFIG_SCSI_OSD_INITIATOR=y
+CONFIG_SCSI_OSD_ULD=y
+CONFIG_SCSI_OSD_DPRINT_SENSE=1
+CONFIG_SCSI_OSD_DEBUG=y
+CONFIG_ATA=y
+# CONFIG_ATA_NONSTANDARD is not set
+CONFIG_ATA_VERBOSE_ERROR=y
+CONFIG_SATA_PMP=y
+
+#
+# Controllers with non-SFF native interface
+#
+CONFIG_SATA_AHCI=y
+CONFIG_SATA_AHCI_PLATFORM=y
+CONFIG_AHCI_IMX=y
+CONFIG_AHCI_XGENE=y
+CONFIG_SATA_INIC162X=y
+CONFIG_SATA_ACARD_AHCI=y
+CONFIG_SATA_SIL24=y
+CONFIG_ATA_SFF=y
+
+#
+# SFF controllers with custom DMA interface
+#
+CONFIG_PDC_ADMA=y
+CONFIG_SATA_QSTOR=y
+CONFIG_SATA_SX4=y
+CONFIG_ATA_BMDMA=y
+
+#
+# SATA SFF controllers with BMDMA
+#
+CONFIG_ATA_PIIX=y
+CONFIG_SATA_HIGHBANK=y
+CONFIG_SATA_MV=y
+CONFIG_SATA_NV=y
+CONFIG_SATA_PROMISE=y
+CONFIG_SATA_RCAR=y
+CONFIG_SATA_SIL=y
+CONFIG_SATA_SIS=y
+CONFIG_SATA_SVW=y
+CONFIG_SATA_ULI=y
+CONFIG_SATA_VIA=y
+CONFIG_SATA_VITESSE=y
+
+#
+# PATA SFF controllers with BMDMA
+#
+CONFIG_PATA_ALI=y
+CONFIG_PATA_AMD=y
+CONFIG_PATA_ARASAN_CF=y
+CONFIG_PATA_ARTOP=y
+CONFIG_PATA_ATIIXP=y
+CONFIG_PATA_ATP867X=y
+CONFIG_PATA_CMD64X=y
+CONFIG_PATA_CS5520=y
+CONFIG_PATA_CS5530=y
+CONFIG_PATA_CS5536=y
+CONFIG_PATA_CYPRESS=y
+CONFIG_PATA_EFAR=y
+CONFIG_PATA_HPT366=y
+CONFIG_PATA_HPT37X=y
+CONFIG_PATA_HPT3X2N=y
+CONFIG_PATA_HPT3X3=y
+CONFIG_PATA_HPT3X3_DMA=y
+CONFIG_PATA_IT8213=y
+CONFIG_PATA_IT821X=y
+CONFIG_PATA_JMICRON=y
+CONFIG_PATA_MARVELL=y
+CONFIG_PATA_NETCELL=y
+CONFIG_PATA_NINJA32=y
+CONFIG_PATA_NS87415=y
+CONFIG_PATA_OLDPIIX=y
+CONFIG_PATA_OPTIDMA=y
+CONFIG_PATA_PDC2027X=y
+CONFIG_PATA_PDC_OLD=y
+CONFIG_PATA_RADISYS=y
+CONFIG_PATA_RDC=y
+CONFIG_PATA_SC1200=y
+CONFIG_PATA_SCH=y
+CONFIG_PATA_SERVERWORKS=y
+CONFIG_PATA_SIL680=y
+CONFIG_PATA_SIS=y
+CONFIG_PATA_TOSHIBA=y
+CONFIG_PATA_TRIFLEX=y
+CONFIG_PATA_VIA=y
+CONFIG_PATA_WINBOND=y
+
+#
+# PIO-only SFF controllers
+#
+CONFIG_PATA_CMD640_PCI=y
+CONFIG_PATA_MPIIX=y
+CONFIG_PATA_NS87410=y
+CONFIG_PATA_OPTI=y
+CONFIG_PATA_PLATFORM=y
+CONFIG_PATA_OF_PLATFORM=y
+CONFIG_PATA_RZ1000=y
+
+#
+# Generic fallback / legacy drivers
+#
+CONFIG_ATA_GENERIC=y
+CONFIG_PATA_LEGACY=y
+CONFIG_MD=y
+CONFIG_BLK_DEV_MD=y
+CONFIG_MD_AUTODETECT=y
+CONFIG_MD_LINEAR=y
+CONFIG_MD_RAID0=y
+CONFIG_MD_RAID1=y
+CONFIG_MD_RAID10=y
+CONFIG_MD_RAID456=y
+CONFIG_MD_MULTIPATH=y
+CONFIG_MD_FAULTY=y
+CONFIG_BCACHE=y
+CONFIG_BCACHE_DEBUG=y
+CONFIG_BCACHE_CLOSURES_DEBUG=y
+CONFIG_BLK_DEV_DM_BUILTIN=y
+CONFIG_BLK_DEV_DM=y
+CONFIG_DM_DEBUG=y
+CONFIG_DM_BUFIO=y
+CONFIG_DM_BIO_PRISON=y
+CONFIG_DM_PERSISTENT_DATA=y
+CONFIG_DM_DEBUG_BLOCK_STACK_TRACING=y
+CONFIG_DM_CRYPT=y
+CONFIG_DM_SNAPSHOT=y
+CONFIG_DM_THIN_PROVISIONING=y
+CONFIG_DM_CACHE=y
+CONFIG_DM_CACHE_MQ=y
+CONFIG_DM_CACHE_CLEANER=y
+CONFIG_DM_ERA=y
+CONFIG_DM_MIRROR=y
+CONFIG_DM_LOG_USERSPACE=y
+CONFIG_DM_RAID=y
+CONFIG_DM_ZERO=y
+CONFIG_DM_MULTIPATH=y
+CONFIG_DM_MULTIPATH_QL=y
+CONFIG_DM_MULTIPATH_ST=y
+CONFIG_DM_DELAY=y
+CONFIG_DM_UEVENT=y
+CONFIG_DM_FLAKEY=y
+CONFIG_DM_VERITY=y
+CONFIG_DM_SWITCH=y
+CONFIG_TARGET_CORE=y
+CONFIG_TCM_IBLOCK=y
+CONFIG_TCM_FILEIO=y
+CONFIG_TCM_PSCSI=y
+CONFIG_TCM_USER=y
+CONFIG_LOOPBACK_TARGET=y
+CONFIG_TCM_FC=y
+CONFIG_ISCSI_TARGET=y
+CONFIG_SBP_TARGET=y
+CONFIG_FUSION=y
+CONFIG_FUSION_SPI=y
+CONFIG_FUSION_FC=y
+CONFIG_FUSION_SAS=y
+CONFIG_FUSION_MAX_SGE=128
+CONFIG_FUSION_CTL=y
+CONFIG_FUSION_LAN=y
+CONFIG_FUSION_LOGGING=y
+
+#
+# IEEE 1394 (FireWire) support
+#
+CONFIG_FIREWIRE=y
+CONFIG_FIREWIRE_OHCI=y
+CONFIG_FIREWIRE_SBP2=y
+CONFIG_FIREWIRE_NET=y
+CONFIG_FIREWIRE_NOSY=y
+CONFIG_NETDEVICES=y
+CONFIG_MII=y
+CONFIG_NET_CORE=y
+CONFIG_BONDING=y
+CONFIG_DUMMY=y
+CONFIG_EQUALIZER=y
+CONFIG_NET_FC=y
+CONFIG_IFB=y
+CONFIG_NET_TEAM=y
+CONFIG_NET_TEAM_MODE_BROADCAST=y
+CONFIG_NET_TEAM_MODE_ROUNDROBIN=y
+CONFIG_NET_TEAM_MODE_RANDOM=y
+CONFIG_NET_TEAM_MODE_ACTIVEBACKUP=y
+CONFIG_NET_TEAM_MODE_LOADBALANCE=y
+CONFIG_MACVLAN=y
+CONFIG_MACVTAP=y
+CONFIG_IPVLAN=y
+CONFIG_VXLAN=y
+CONFIG_NETCONSOLE=y
+CONFIG_NETCONSOLE_DYNAMIC=y
+CONFIG_NETPOLL=y
+CONFIG_NET_POLL_CONTROLLER=y
+CONFIG_TUN=y
+CONFIG_VETH=y
+CONFIG_VIRTIO_NET=y
+CONFIG_NLMON=y
+CONFIG_SUNGEM_PHY=y
+CONFIG_ARCNET=y
+CONFIG_ARCNET_1201=y
+CONFIG_ARCNET_1051=y
+CONFIG_ARCNET_RAW=y
+CONFIG_ARCNET_CAP=y
+CONFIG_ARCNET_COM90xx=y
+CONFIG_ARCNET_COM90xxIO=y
+CONFIG_ARCNET_RIM_I=y
+CONFIG_ARCNET_COM20020=y
+CONFIG_ARCNET_COM20020_PCI=y
+CONFIG_ATM_DRIVERS=y
+CONFIG_ATM_DUMMY=y
+CONFIG_ATM_TCP=y
+CONFIG_ATM_LANAI=y
+CONFIG_ATM_ENI=y
+CONFIG_ATM_ENI_DEBUG=y
+CONFIG_ATM_ENI_TUNE_BURST=y
+CONFIG_ATM_ENI_BURST_TX_16W=y
+CONFIG_ATM_ENI_BURST_TX_8W=y
+CONFIG_ATM_ENI_BURST_TX_4W=y
+CONFIG_ATM_ENI_BURST_TX_2W=y
+CONFIG_ATM_ENI_BURST_RX_16W=y
+CONFIG_ATM_ENI_BURST_RX_8W=y
+CONFIG_ATM_ENI_BURST_RX_4W=y
+CONFIG_ATM_ENI_BURST_RX_2W=y
+CONFIG_ATM_FIRESTREAM=y
+CONFIG_ATM_ZATM=y
+CONFIG_ATM_ZATM_DEBUG=y
+CONFIG_ATM_NICSTAR=y
+CONFIG_ATM_NICSTAR_USE_SUNI=y
+CONFIG_ATM_NICSTAR_USE_IDT77105=y
+CONFIG_ATM_IDT77252=y
+CONFIG_ATM_IDT77252_DEBUG=y
+CONFIG_ATM_IDT77252_RCV_ALL=y
+CONFIG_ATM_IDT77252_USE_SUNI=y
+CONFIG_ATM_AMBASSADOR=y
+CONFIG_ATM_AMBASSADOR_DEBUG=y
+CONFIG_ATM_HORIZON=y
+CONFIG_ATM_HORIZON_DEBUG=y
+CONFIG_ATM_IA=y
+CONFIG_ATM_IA_DEBUG=y
+CONFIG_ATM_FORE200E=y
+CONFIG_ATM_FORE200E_USE_TASKLET=y
+CONFIG_ATM_FORE200E_TX_RETRY=16
+CONFIG_ATM_FORE200E_DEBUG=0
+CONFIG_ATM_HE=y
+CONFIG_ATM_HE_USE_SUNI=y
+CONFIG_ATM_SOLOS=y
+
+#
+# CAIF transport drivers
+#
+CONFIG_CAIF_TTY=y
+CONFIG_CAIF_SPI_SLAVE=y
+CONFIG_CAIF_SPI_SYNC=y
+CONFIG_CAIF_HSI=y
+CONFIG_CAIF_VIRTIO=y
+CONFIG_VHOST_NET=y
+CONFIG_VHOST_SCSI=m
+CONFIG_VHOST_RING=y
+CONFIG_VHOST=y
+
+#
+# Distributed Switch Architecture drivers
+#
+CONFIG_NET_DSA_MV88E6XXX=y
+CONFIG_NET_DSA_MV88E6060=y
+CONFIG_NET_DSA_MV88E6XXX_NEED_PPU=y
+CONFIG_NET_DSA_MV88E6131=y
+CONFIG_NET_DSA_MV88E6123_61_65=y
+CONFIG_NET_DSA_MV88E6171=y
+CONFIG_NET_DSA_MV88E6352=y
+CONFIG_NET_DSA_BCM_SF2=y
+CONFIG_ETHERNET=y
+CONFIG_MDIO=y
+CONFIG_NET_VENDOR_3COM=y
+CONFIG_VORTEX=y
+CONFIG_TYPHOON=y
+CONFIG_NET_VENDOR_ADAPTEC=y
+CONFIG_ADAPTEC_STARFIRE=y
+CONFIG_NET_VENDOR_AGERE=y
+CONFIG_ET131X=y
+CONFIG_NET_VENDOR_ALTEON=y
+CONFIG_ACENIC=y
+CONFIG_ACENIC_OMIT_TIGON_I=y
+CONFIG_ALTERA_TSE=y
+CONFIG_NET_VENDOR_AMD=y
+CONFIG_AMD8111_ETH=y
+CONFIG_PCNET32=y
+CONFIG_AMD_XGBE=y
+CONFIG_AMD_XGBE_DCB=y
+CONFIG_NET_XGENE=y
+CONFIG_NET_VENDOR_ARC=y
+CONFIG_ARC_EMAC_CORE=y
+CONFIG_ARC_EMAC=y
+CONFIG_EMAC_ROCKCHIP=y
+CONFIG_NET_VENDOR_ATHEROS=y
+CONFIG_ATL2=y
+CONFIG_ATL1=y
+CONFIG_ATL1E=y
+CONFIG_ATL1C=y
+CONFIG_ALX=y
+CONFIG_NET_CADENCE=y
+CONFIG_MACB=y
+CONFIG_NET_VENDOR_BROADCOM=y
+CONFIG_B44=y
+CONFIG_B44_PCI_AUTOSELECT=y
+CONFIG_B44_PCICORE_AUTOSELECT=y
+CONFIG_B44_PCI=y
+CONFIG_BCMGENET=y
+CONFIG_BNX2=y
+CONFIG_CNIC=y
+CONFIG_TIGON3=y
+CONFIG_BNX2X=y
+CONFIG_BNX2X_SRIOV=y
+CONFIG_SYSTEMPORT=y
+CONFIG_NET_VENDOR_BROCADE=y
+CONFIG_BNA=y
+CONFIG_NET_CALXEDA_XGMAC=y
+CONFIG_NET_VENDOR_CHELSIO=y
+CONFIG_CHELSIO_T1=y
+CONFIG_CHELSIO_T1_1G=y
+CONFIG_CHELSIO_T3=y
+CONFIG_CHELSIO_T4=y
+CONFIG_CHELSIO_T4_DCB=y
+CONFIG_CHELSIO_T4VF=y
+CONFIG_NET_VENDOR_CISCO=y
+CONFIG_ENIC=y
+CONFIG_CX_ECAT=y
+CONFIG_DNET=y
+CONFIG_NET_VENDOR_DEC=y
+CONFIG_NET_TULIP=y
+CONFIG_DE2104X=y
+CONFIG_DE2104X_DSL=0
+CONFIG_TULIP=y
+CONFIG_TULIP_MWI=y
+CONFIG_TULIP_MMIO=y
+CONFIG_TULIP_NAPI=y
+CONFIG_TULIP_NAPI_HW_MITIGATION=y
+CONFIG_DE4X5=y
+CONFIG_WINBOND_840=y
+CONFIG_DM9102=y
+CONFIG_ULI526X=y
+CONFIG_NET_VENDOR_DLINK=y
+CONFIG_DL2K=y
+CONFIG_SUNDANCE=y
+CONFIG_SUNDANCE_MMIO=y
+CONFIG_NET_VENDOR_EMULEX=y
+CONFIG_BE2NET=y
+CONFIG_BE2NET_VXLAN=y
+CONFIG_NET_VENDOR_EXAR=y
+CONFIG_S2IO=y
+CONFIG_VXGE=y
+CONFIG_VXGE_DEBUG_TRACE_ALL=y
+CONFIG_NET_VENDOR_HP=y
+CONFIG_HP100=y
+CONFIG_NET_VENDOR_INTEL=y
+CONFIG_E100=y
+CONFIG_E1000=y
+CONFIG_E1000E=y
+CONFIG_IGB=y
+CONFIG_IGB_HWMON=y
+CONFIG_IGBVF=y
+CONFIG_IXGB=y
+CONFIG_IXGBE=y
+CONFIG_IXGBE_VXLAN=y
+CONFIG_IXGBE_HWMON=y
+CONFIG_IXGBE_DCB=y
+CONFIG_IXGBEVF=y
+CONFIG_I40E=y
+CONFIG_I40E_VXLAN=y
+CONFIG_I40E_DCB=y
+CONFIG_I40E_FCOE=y
+CONFIG_I40EVF=y
+CONFIG_FM10K=y
+CONFIG_FM10K_VXLAN=y
+CONFIG_NET_VENDOR_I825XX=y
+CONFIG_IP1000=y
+CONFIG_JME=y
+CONFIG_NET_VENDOR_MARVELL=y
+CONFIG_MVMDIO=y
+CONFIG_PXA168_ETH=y
+CONFIG_SKGE=y
+CONFIG_SKGE_DEBUG=y
+CONFIG_SKGE_GENESIS=y
+CONFIG_SKY2=y
+CONFIG_SKY2_DEBUG=y
+CONFIG_NET_VENDOR_MELLANOX=y
+CONFIG_MLX4_EN=y
+CONFIG_MLX4_EN_DCB=y
+CONFIG_MLX4_EN_VXLAN=y
+CONFIG_MLX4_CORE=y
+CONFIG_MLX4_DEBUG=y
+CONFIG_MLX5_CORE=y
+CONFIG_NET_VENDOR_MICREL=y
+CONFIG_KS8842=y
+CONFIG_KS8851=y
+CONFIG_KS8851_MLL=y
+CONFIG_KSZ884X_PCI=y
+CONFIG_NET_VENDOR_MICROCHIP=y
+CONFIG_ENC28J60=y
+CONFIG_ENC28J60_WRITEVERIFY=y
+CONFIG_NET_VENDOR_MYRI=y
+CONFIG_MYRI10GE=y
+CONFIG_FEALNX=y
+CONFIG_NET_VENDOR_NATSEMI=y
+CONFIG_NATSEMI=y
+CONFIG_NS83820=y
+CONFIG_NET_VENDOR_8390=y
+CONFIG_NE2K_PCI=y
+CONFIG_NET_VENDOR_NVIDIA=y
+CONFIG_FORCEDETH=y
+CONFIG_NET_VENDOR_OKI=y
+CONFIG_PCH_GBE=y
+CONFIG_ETHOC=y
+CONFIG_NET_PACKET_ENGINE=y
+CONFIG_HAMACHI=y
+CONFIG_YELLOWFIN=y
+CONFIG_NET_VENDOR_QLOGIC=y
+CONFIG_QLA3XXX=y
+CONFIG_QLCNIC=y
+CONFIG_QLCNIC_SRIOV=y
+CONFIG_QLCNIC_DCB=y
+CONFIG_QLCNIC_VXLAN=y
+CONFIG_QLCNIC_HWMON=y
+CONFIG_QLGE=y
+CONFIG_NETXEN_NIC=y
+CONFIG_NET_VENDOR_QUALCOMM=y
+CONFIG_QCA7000=y
+CONFIG_NET_VENDOR_REALTEK=y
+CONFIG_8139CP=y
+CONFIG_8139TOO=y
+CONFIG_8139TOO_PIO=y
+CONFIG_8139TOO_TUNE_TWISTER=y
+CONFIG_8139TOO_8129=y
+CONFIG_8139_OLD_RX_RESET=y
+CONFIG_R8169=y
+CONFIG_SH_ETH=y
+CONFIG_NET_VENDOR_RDC=y
+CONFIG_R6040=y
+CONFIG_NET_VENDOR_ROCKER=y
+CONFIG_ROCKER=y
+CONFIG_NET_VENDOR_SAMSUNG=y
+CONFIG_SXGBE_ETH=y
+CONFIG_NET_VENDOR_SEEQ=y
+CONFIG_NET_VENDOR_SILAN=y
+CONFIG_SC92031=y
+CONFIG_NET_VENDOR_SIS=y
+CONFIG_SIS900=y
+CONFIG_SIS190=y
+CONFIG_SFC=y
+CONFIG_SFC_MTD=y
+CONFIG_SFC_MCDI_MON=y
+CONFIG_SFC_SRIOV=y
+CONFIG_NET_VENDOR_SMSC=y
+CONFIG_EPIC100=y
+CONFIG_SMSC911X=y
+# CONFIG_SMSC911X_ARCH_HOOKS is not set
+CONFIG_SMSC9420=y
+CONFIG_NET_VENDOR_STMICRO=y
+CONFIG_STMMAC_ETH=y
+CONFIG_STMMAC_PLATFORM=y
+CONFIG_STMMAC_PCI=y
+CONFIG_NET_VENDOR_SUN=y
+CONFIG_HAPPYMEAL=y
+CONFIG_SUNGEM=y
+CONFIG_CASSINI=y
+CONFIG_NIU=y
+CONFIG_NET_VENDOR_TEHUTI=y
+CONFIG_TEHUTI=y
+CONFIG_NET_VENDOR_TI=y
+CONFIG_TI_CPSW_ALE=y
+CONFIG_TLAN=y
+CONFIG_NET_VENDOR_VIA=y
+CONFIG_VIA_RHINE=y
+CONFIG_VIA_RHINE_MMIO=y
+CONFIG_VIA_VELOCITY=y
+CONFIG_NET_VENDOR_WIZNET=y
+CONFIG_WIZNET_W5100=y
+CONFIG_WIZNET_W5300=y
+# CONFIG_WIZNET_BUS_DIRECT is not set
+# CONFIG_WIZNET_BUS_INDIRECT is not set
+CONFIG_WIZNET_BUS_ANY=y
+CONFIG_NET_VENDOR_XILINX=y
+CONFIG_XILINX_EMACLITE=y
+CONFIG_XILINX_AXI_EMAC=y
+CONFIG_XILINX_LL_TEMAC=y
+CONFIG_FDDI=y
+CONFIG_DEFXX=y
+CONFIG_DEFXX_MMIO=y
+CONFIG_SKFP=y
+CONFIG_HIPPI=y
+CONFIG_ROADRUNNER=y
+CONFIG_ROADRUNNER_LARGE_RINGS=y
+CONFIG_PHYLIB=y
+
+#
+# MII PHY device drivers
+#
+CONFIG_AT803X_PHY=y
+CONFIG_AMD_PHY=y
+CONFIG_AMD_XGBE_PHY=y
+CONFIG_MARVELL_PHY=y
+CONFIG_DAVICOM_PHY=y
+CONFIG_QSEMI_PHY=y
+CONFIG_LXT_PHY=y
+CONFIG_CICADA_PHY=y
+CONFIG_VITESSE_PHY=y
+CONFIG_SMSC_PHY=y
+CONFIG_BROADCOM_PHY=y
+CONFIG_BCM7XXX_PHY=y
+CONFIG_BCM87XX_PHY=y
+CONFIG_ICPLUS_PHY=y
+CONFIG_REALTEK_PHY=y
+CONFIG_NATIONAL_PHY=y
+CONFIG_STE10XP=y
+CONFIG_LSI_ET1011C_PHY=y
+CONFIG_MICREL_PHY=y
+CONFIG_FIXED_PHY=y
+CONFIG_MDIO_BITBANG=y
+CONFIG_MDIO_GPIO=y
+CONFIG_MDIO_BUS_MUX=y
+CONFIG_MDIO_BUS_MUX_GPIO=y
+CONFIG_MDIO_BUS_MUX_MMIOREG=y
+CONFIG_MDIO_BCM_UNIMAC=y
+CONFIG_MICREL_KS8995MA=y
+CONFIG_PLIP=y
+CONFIG_PPP=y
+CONFIG_PPP_BSDCOMP=y
+CONFIG_PPP_DEFLATE=y
+CONFIG_PPP_FILTER=y
+CONFIG_PPP_MPPE=y
+CONFIG_PPP_MULTILINK=y
+CONFIG_PPPOATM=y
+CONFIG_PPPOE=y
+CONFIG_PPTP=y
+CONFIG_PPPOL2TP=y
+CONFIG_PPP_ASYNC=y
+CONFIG_PPP_SYNC_TTY=y
+CONFIG_SLIP=y
+CONFIG_SLHC=y
+CONFIG_SLIP_COMPRESSED=y
+CONFIG_SLIP_SMART=y
+CONFIG_SLIP_MODE_SLIP6=y
+CONFIG_USB_NET_DRIVERS=y
+CONFIG_USB_CATC=y
+CONFIG_USB_KAWETH=y
+CONFIG_USB_PEGASUS=y
+CONFIG_USB_RTL8150=y
+CONFIG_USB_RTL8152=y
+CONFIG_USB_USBNET=y
+CONFIG_USB_NET_AX8817X=y
+CONFIG_USB_NET_AX88179_178A=y
+CONFIG_USB_NET_CDCETHER=y
+CONFIG_USB_NET_CDC_EEM=y
+CONFIG_USB_NET_CDC_NCM=y
+CONFIG_USB_NET_HUAWEI_CDC_NCM=y
+CONFIG_USB_NET_CDC_MBIM=y
+CONFIG_USB_NET_DM9601=y
+CONFIG_USB_NET_SR9700=y
+CONFIG_USB_NET_SR9800=y
+CONFIG_USB_NET_SMSC75XX=y
+CONFIG_USB_NET_SMSC95XX=y
+CONFIG_USB_NET_GL620A=y
+CONFIG_USB_NET_NET1080=y
+CONFIG_USB_NET_PLUSB=y
+CONFIG_USB_NET_MCS7830=y
+CONFIG_USB_NET_RNDIS_HOST=y
+CONFIG_USB_NET_CDC_SUBSET=y
+CONFIG_USB_ALI_M5632=y
+CONFIG_USB_AN2720=y
+CONFIG_USB_BELKIN=y
+CONFIG_USB_ARMLINUX=y
+CONFIG_USB_EPSON2888=y
+CONFIG_USB_KC2190=y
+CONFIG_USB_NET_ZAURUS=y
+CONFIG_USB_NET_CX82310_ETH=y
+CONFIG_USB_NET_KALMIA=y
+CONFIG_USB_NET_QMI_WWAN=y
+CONFIG_USB_HSO=y
+CONFIG_USB_NET_INT51X1=y
+CONFIG_USB_CDC_PHONET=y
+CONFIG_USB_IPHETH=y
+CONFIG_USB_SIERRA_NET=y
+CONFIG_USB_VL600=y
+CONFIG_WLAN=y
+CONFIG_LIBERTAS_THINFIRM=y
+CONFIG_LIBERTAS_THINFIRM_DEBUG=y
+CONFIG_LIBERTAS_THINFIRM_USB=y
+CONFIG_ATMEL=y
+CONFIG_PCI_ATMEL=y
+CONFIG_AT76C50X_USB=y
+CONFIG_PRISM54=y
+CONFIG_USB_ZD1201=y
+CONFIG_USB_NET_RNDIS_WLAN=y
+CONFIG_RTL8180=y
+CONFIG_RTL8187=y
+CONFIG_RTL8187_LEDS=y
+CONFIG_ADM8211=y
+CONFIG_MAC80211_HWSIM=y
+CONFIG_MWL8K=y
+CONFIG_ATH_COMMON=y
+CONFIG_ATH_CARDS=y
+CONFIG_ATH_DEBUG=y
+CONFIG_ATH_TRACEPOINTS=y
+CONFIG_ATH_REG_DYNAMIC_USER_REG_HINTS=y
+CONFIG_ATH_REG_DYNAMIC_USER_CERT_TESTING=y
+CONFIG_ATH5K=y
+CONFIG_ATH5K_DEBUG=y
+CONFIG_ATH5K_TRACER=y
+CONFIG_ATH5K_PCI=y
+CONFIG_ATH5K_TEST_CHANNELS=y
+CONFIG_ATH9K_HW=y
+CONFIG_ATH9K_COMMON=y
+CONFIG_ATH9K_DFS_DEBUGFS=y
+CONFIG_ATH9K_BTCOEX_SUPPORT=y
+CONFIG_ATH9K=y
+CONFIG_ATH9K_PCI=y
+CONFIG_ATH9K_AHB=y
+CONFIG_ATH9K_DEBUGFS=y
+CONFIG_ATH9K_STATION_STATISTICS=y
+CONFIG_ATH9K_DFS_CERTIFIED=y
+CONFIG_ATH9K_DYNACK=y
+CONFIG_ATH9K_TX99=y
+CONFIG_ATH9K_RFKILL=y
+CONFIG_ATH9K_CHANNEL_CONTEXT=y
+CONFIG_ATH9K_PCOEM=y
+CONFIG_ATH9K_HTC=y
+CONFIG_ATH9K_HTC_DEBUGFS=y
+CONFIG_CARL9170=y
+CONFIG_CARL9170_LEDS=y
+CONFIG_CARL9170_DEBUGFS=y
+CONFIG_CARL9170_WPC=y
+CONFIG_CARL9170_HWRNG=y
+CONFIG_ATH6KL=y
+CONFIG_ATH6KL_SDIO=y
+CONFIG_ATH6KL_USB=y
+CONFIG_ATH6KL_DEBUG=y
+CONFIG_ATH6KL_TRACING=y
+CONFIG_ATH6KL_REGDOMAIN=y
+CONFIG_AR5523=y
+CONFIG_WIL6210=y
+CONFIG_WIL6210_ISR_COR=y
+CONFIG_WIL6210_TRACING=y
+CONFIG_ATH10K=y
+CONFIG_ATH10K_PCI=y
+CONFIG_ATH10K_DEBUG=y
+CONFIG_ATH10K_DEBUGFS=y
+CONFIG_ATH10K_TRACING=y
+CONFIG_ATH10K_DFS_CERTIFIED=y
+CONFIG_WCN36XX=y
+CONFIG_WCN36XX_DEBUGFS=y
+CONFIG_B43=y
+CONFIG_B43_BCMA=y
+CONFIG_B43_SSB=y
+CONFIG_B43_BUSES_BCMA_AND_SSB=y
+# CONFIG_B43_BUSES_BCMA is not set
+# CONFIG_B43_BUSES_SSB is not set
+CONFIG_B43_PCI_AUTOSELECT=y
+CONFIG_B43_PCICORE_AUTOSELECT=y
+CONFIG_B43_SDIO=y
+CONFIG_B43_BCMA_PIO=y
+CONFIG_B43_PIO=y
+CONFIG_B43_PHY_G=y
+CONFIG_B43_PHY_N=y
+CONFIG_B43_PHY_LP=y
+CONFIG_B43_PHY_HT=y
+CONFIG_B43_LEDS=y
+CONFIG_B43_HWRNG=y
+CONFIG_B43_DEBUG=y
+CONFIG_B43LEGACY=y
+CONFIG_B43LEGACY_PCI_AUTOSELECT=y
+CONFIG_B43LEGACY_PCICORE_AUTOSELECT=y
+CONFIG_B43LEGACY_LEDS=y
+CONFIG_B43LEGACY_HWRNG=y
+CONFIG_B43LEGACY_DEBUG=y
+CONFIG_B43LEGACY_DMA=y
+CONFIG_B43LEGACY_PIO=y
+CONFIG_B43LEGACY_DMA_AND_PIO_MODE=y
+# CONFIG_B43LEGACY_DMA_MODE is not set
+# CONFIG_B43LEGACY_PIO_MODE is not set
+CONFIG_BRCMUTIL=y
+CONFIG_BRCMSMAC=y
+CONFIG_BRCMFMAC=y
+CONFIG_BRCMFMAC_PROTO_BCDC=y
+CONFIG_BRCMFMAC_PROTO_MSGBUF=y
+CONFIG_BRCMFMAC_SDIO=y
+CONFIG_BRCMFMAC_USB=y
+CONFIG_BRCMFMAC_PCIE=y
+CONFIG_BRCM_TRACING=y
+CONFIG_BRCMDBG=y
+CONFIG_HOSTAP=y
+CONFIG_HOSTAP_FIRMWARE=y
+CONFIG_HOSTAP_FIRMWARE_NVRAM=y
+CONFIG_HOSTAP_PLX=y
+CONFIG_HOSTAP_PCI=y
+CONFIG_IPW2100=y
+CONFIG_IPW2100_MONITOR=y
+CONFIG_IPW2100_DEBUG=y
+CONFIG_IPW2200=y
+CONFIG_IPW2200_MONITOR=y
+CONFIG_IPW2200_RADIOTAP=y
+CONFIG_IPW2200_PROMISCUOUS=y
+CONFIG_IPW2200_QOS=y
+CONFIG_IPW2200_DEBUG=y
+CONFIG_LIBIPW=y
+CONFIG_LIBIPW_DEBUG=y
+CONFIG_IWLWIFI=y
+CONFIG_IWLWIFI_LEDS=y
+CONFIG_IWLDVM=y
+CONFIG_IWLMVM=y
+CONFIG_IWLWIFI_BCAST_FILTERING=y
+CONFIG_IWLWIFI_UAPSD=y
+
+#
+# Debugging Options
+#
+CONFIG_IWLWIFI_DEBUG=y
+CONFIG_IWLWIFI_DEBUGFS=y
+CONFIG_IWLWIFI_DEBUG_EXPERIMENTAL_UCODE=y
+CONFIG_IWLWIFI_DEVICE_TRACING=y
+CONFIG_IWLEGACY=y
+CONFIG_IWL4965=y
+CONFIG_IWL3945=y
+
+#
+# iwl3945 / iwl4965 Debugging Options
+#
+CONFIG_IWLEGACY_DEBUG=y
+CONFIG_IWLEGACY_DEBUGFS=y
+CONFIG_LIBERTAS=y
+CONFIG_LIBERTAS_USB=y
+CONFIG_LIBERTAS_SDIO=y
+CONFIG_LIBERTAS_SPI=y
+CONFIG_LIBERTAS_DEBUG=y
+CONFIG_LIBERTAS_MESH=y
+CONFIG_HERMES=y
+CONFIG_HERMES_PRISM=y
+CONFIG_HERMES_CACHE_FW_ON_INIT=y
+CONFIG_PLX_HERMES=y
+CONFIG_TMD_HERMES=y
+CONFIG_NORTEL_HERMES=y
+CONFIG_PCI_HERMES=y
+CONFIG_ORINOCO_USB=y
+CONFIG_P54_COMMON=y
+CONFIG_P54_USB=y
+CONFIG_P54_PCI=y
+CONFIG_P54_SPI=y
+CONFIG_P54_SPI_DEFAULT_EEPROM=y
+CONFIG_P54_LEDS=y
+CONFIG_RT2X00=y
+CONFIG_RT2400PCI=y
+CONFIG_RT2500PCI=y
+CONFIG_RT61PCI=y
+CONFIG_RT2800PCI=y
+CONFIG_RT2800PCI_RT33XX=y
+CONFIG_RT2800PCI_RT35XX=y
+CONFIG_RT2800PCI_RT53XX=y
+CONFIG_RT2800PCI_RT3290=y
+CONFIG_RT2500USB=y
+CONFIG_RT73USB=y
+CONFIG_RT2800USB=y
+CONFIG_RT2800USB_RT33XX=y
+CONFIG_RT2800USB_RT35XX=y
+CONFIG_RT2800USB_RT3573=y
+CONFIG_RT2800USB_RT53XX=y
+CONFIG_RT2800USB_RT55XX=y
+CONFIG_RT2800USB_UNKNOWN=y
+CONFIG_RT2800_LIB=y
+CONFIG_RT2800_LIB_MMIO=y
+CONFIG_RT2X00_LIB_MMIO=y
+CONFIG_RT2X00_LIB_PCI=y
+CONFIG_RT2X00_LIB_USB=y
+CONFIG_RT2X00_LIB=y
+CONFIG_RT2X00_LIB_FIRMWARE=y
+CONFIG_RT2X00_LIB_CRYPTO=y
+CONFIG_RT2X00_LIB_LEDS=y
+CONFIG_RT2X00_LIB_DEBUGFS=y
+CONFIG_RT2X00_DEBUG=y
+CONFIG_RTL_CARDS=y
+CONFIG_RTL8192CE=y
+CONFIG_RTL8192SE=y
+CONFIG_RTL8192DE=y
+CONFIG_RTL8723AE=y
+CONFIG_RTL8723BE=y
+CONFIG_RTL8188EE=y
+CONFIG_RTL8192EE=y
+CONFIG_RTL8821AE=y
+CONFIG_RTL8192CU=y
+CONFIG_RTLWIFI=y
+CONFIG_RTLWIFI_PCI=y
+CONFIG_RTLWIFI_USB=y
+CONFIG_RTLWIFI_DEBUG=y
+CONFIG_RTL8192C_COMMON=y
+CONFIG_RTL8723_COMMON=y
+CONFIG_RTLBTCOEXIST=y
+CONFIG_WL_TI=y
+CONFIG_WL1251=y
+CONFIG_WL1251_SPI=y
+CONFIG_WL1251_SDIO=y
+CONFIG_WL12XX=y
+CONFIG_WL18XX=y
+CONFIG_WLCORE=y
+CONFIG_WLCORE_SPI=y
+CONFIG_WLCORE_SDIO=y
+CONFIG_WILINK_PLATFORM_DATA=y
+CONFIG_ZD1211RW=y
+CONFIG_ZD1211RW_DEBUG=y
+CONFIG_MWIFIEX=y
+CONFIG_MWIFIEX_SDIO=y
+CONFIG_MWIFIEX_PCIE=y
+CONFIG_MWIFIEX_USB=y
+CONFIG_CW1200=y
+CONFIG_CW1200_WLAN_SDIO=y
+CONFIG_CW1200_WLAN_SPI=y
+CONFIG_RSI_91X=y
+CONFIG_RSI_DEBUGFS=y
+CONFIG_RSI_SDIO=y
+CONFIG_RSI_USB=y
+
+#
+# WiMAX Wireless Broadband devices
+#
+CONFIG_WIMAX_I2400M=y
+CONFIG_WIMAX_I2400M_USB=y
+CONFIG_WIMAX_I2400M_DEBUG_LEVEL=8
+CONFIG_WAN=y
+CONFIG_LANMEDIA=y
+CONFIG_HDLC=y
+CONFIG_HDLC_RAW=y
+CONFIG_HDLC_RAW_ETH=y
+CONFIG_HDLC_CISCO=y
+CONFIG_HDLC_FR=y
+CONFIG_HDLC_PPP=y
+CONFIG_HDLC_X25=y
+CONFIG_PCI200SYN=y
+CONFIG_WANXL=y
+CONFIG_PC300TOO=y
+CONFIG_FARSYNC=y
+CONFIG_DSCC4=m
+CONFIG_DSCC4_PCISYNC=y
+CONFIG_DSCC4_PCI_RST=y
+CONFIG_DLCI=y
+CONFIG_DLCI_MAX=8
+CONFIG_LAPBETHER=y
+CONFIG_X25_ASY=y
+CONFIG_IEEE802154_DRIVERS=y
+CONFIG_IEEE802154_FAKELB=y
+CONFIG_IEEE802154_AT86RF230=y
+CONFIG_IEEE802154_MRF24J40=y
+CONFIG_IEEE802154_CC2520=y
+CONFIG_VMXNET3=y
+CONFIG_ISDN=y
+CONFIG_ISDN_I4L=y
+CONFIG_ISDN_PPP=y
+CONFIG_ISDN_PPP_VJ=y
+CONFIG_ISDN_MPP=y
+CONFIG_IPPP_FILTER=y
+CONFIG_ISDN_PPP_BSDCOMP=y
+CONFIG_ISDN_AUDIO=y
+CONFIG_ISDN_TTY_FAX=y
+CONFIG_ISDN_X25=y
+
+#
+# ISDN feature submodules
+#
+CONFIG_ISDN_DRV_LOOP=y
+CONFIG_ISDN_DIVERSION=y
+
+#
+# ISDN4Linux hardware drivers
+#
+
+#
+# Passive cards
+#
+CONFIG_ISDN_DRV_HISAX=y
+
+#
+# D-channel protocol features
+#
+CONFIG_HISAX_EURO=y
+CONFIG_DE_AOC=y
+CONFIG_HISAX_NO_SENDCOMPLETE=y
+CONFIG_HISAX_NO_LLC=y
+CONFIG_HISAX_NO_KEYPAD=y
+CONFIG_HISAX_1TR6=y
+CONFIG_HISAX_NI1=y
+CONFIG_HISAX_MAX_CARDS=8
+
+#
+# HiSax supported cards
+#
+CONFIG_HISAX_16_3=y
+CONFIG_HISAX_TELESPCI=y
+CONFIG_HISAX_S0BOX=y
+CONFIG_HISAX_FRITZPCI=y
+CONFIG_HISAX_AVM_A1_PCMCIA=y
+CONFIG_HISAX_ELSA=y
+CONFIG_HISAX_DIEHLDIVA=y
+CONFIG_HISAX_SEDLBAUER=y
+CONFIG_HISAX_NETJET=y
+CONFIG_HISAX_NETJET_U=y
+CONFIG_HISAX_NICCY=y
+CONFIG_HISAX_BKM_A4T=y
+CONFIG_HISAX_SCT_QUADRO=y
+CONFIG_HISAX_GAZEL=y
+CONFIG_HISAX_HFC_PCI=y
+CONFIG_HISAX_W6692=y
+CONFIG_HISAX_HFC_SX=y
+CONFIG_HISAX_ENTERNOW_PCI=y
+CONFIG_HISAX_DEBUG=y
+
+#
+# HiSax PCMCIA card service modules
+#
+
+#
+# HiSax sub driver modules
+#
+CONFIG_HISAX_ST5481=y
+CONFIG_HISAX_HFCUSB=y
+CONFIG_HISAX_HFC4S8S=y
+CONFIG_HISAX_FRITZ_PCIPNP=y
+
+#
+# Active cards
+#
+CONFIG_ISDN_CAPI=y
+CONFIG_CAPI_TRACE=y
+CONFIG_ISDN_CAPI_CAPI20=y
+CONFIG_ISDN_CAPI_MIDDLEWARE=y
+CONFIG_ISDN_CAPI_CAPIDRV=y
+CONFIG_ISDN_CAPI_CAPIDRV_VERBOSE=y
+
+#
+# CAPI hardware drivers
+#
+CONFIG_CAPI_AVM=y
+CONFIG_ISDN_DRV_AVMB1_B1PCI=y
+CONFIG_ISDN_DRV_AVMB1_B1PCIV4=y
+CONFIG_ISDN_DRV_AVMB1_T1PCI=y
+CONFIG_ISDN_DRV_AVMB1_C4=y
+CONFIG_CAPI_EICON=y
+CONFIG_ISDN_DIVAS=y
+CONFIG_ISDN_DIVAS_BRIPCI=y
+CONFIG_ISDN_DIVAS_PRIPCI=y
+CONFIG_ISDN_DIVAS_DIVACAPI=y
+CONFIG_ISDN_DIVAS_USERIDI=y
+CONFIG_ISDN_DIVAS_MAINT=m
+CONFIG_ISDN_DRV_GIGASET=y
+CONFIG_GIGASET_CAPI=y
+# CONFIG_GIGASET_I4L is not set
+# CONFIG_GIGASET_DUMMYLL is not set
+CONFIG_GIGASET_BASE=y
+CONFIG_GIGASET_M105=y
+CONFIG_GIGASET_M101=y
+CONFIG_GIGASET_DEBUG=y
+CONFIG_HYSDN=m
+CONFIG_HYSDN_CAPI=y
+CONFIG_MISDN=y
+CONFIG_MISDN_DSP=y
+CONFIG_MISDN_L1OIP=y
+
+#
+# mISDN hardware drivers
+#
+CONFIG_MISDN_HFCPCI=y
+CONFIG_MISDN_HFCMULTI=y
+CONFIG_MISDN_HFCUSB=y
+CONFIG_MISDN_AVMFRITZ=y
+CONFIG_MISDN_SPEEDFAX=y
+CONFIG_MISDN_INFINEON=y
+CONFIG_MISDN_W6692=y
+CONFIG_MISDN_NETJET=y
+CONFIG_MISDN_IPAC=y
+CONFIG_MISDN_ISAR=y
+CONFIG_ISDN_HDLC=y
+
+#
+# Input device support
+#
+CONFIG_INPUT=y
+CONFIG_INPUT_FF_MEMLESS=y
+CONFIG_INPUT_POLLDEV=y
+CONFIG_INPUT_SPARSEKMAP=y
+CONFIG_INPUT_MATRIXKMAP=y
+
+#
+# Userland interfaces
+#
+CONFIG_INPUT_MOUSEDEV=y
+CONFIG_INPUT_MOUSEDEV_PSAUX=y
+CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
+CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
+CONFIG_INPUT_JOYDEV=y
+CONFIG_INPUT_EVDEV=y
+CONFIG_INPUT_EVBUG=y
+
+#
+# Input Device Drivers
+#
+CONFIG_INPUT_KEYBOARD=y
+CONFIG_KEYBOARD_ADP5520=y
+CONFIG_KEYBOARD_ADP5588=y
+CONFIG_KEYBOARD_ADP5589=y
+CONFIG_KEYBOARD_ATKBD=y
+CONFIG_KEYBOARD_QT1070=y
+CONFIG_KEYBOARD_QT2160=y
+CONFIG_KEYBOARD_CLPS711X=y
+CONFIG_KEYBOARD_LKKBD=y
+CONFIG_KEYBOARD_GPIO=y
+CONFIG_KEYBOARD_GPIO_POLLED=y
+CONFIG_KEYBOARD_TCA6416=y
+CONFIG_KEYBOARD_TCA8418=y
+CONFIG_KEYBOARD_MATRIX=y
+CONFIG_KEYBOARD_LM8323=y
+CONFIG_KEYBOARD_LM8333=y
+CONFIG_KEYBOARD_MAX7359=y
+CONFIG_KEYBOARD_MCS=y
+CONFIG_KEYBOARD_MPR121=y
+CONFIG_KEYBOARD_NEWTON=y
+CONFIG_KEYBOARD_OPENCORES=y
+CONFIG_KEYBOARD_SAMSUNG=y
+CONFIG_KEYBOARD_STOWAWAY=y
+CONFIG_KEYBOARD_ST_KEYSCAN=y
+CONFIG_KEYBOARD_SUNKBD=y
+CONFIG_KEYBOARD_SH_KEYSC=y
+CONFIG_KEYBOARD_STMPE=y
+CONFIG_KEYBOARD_OMAP4=y
+CONFIG_KEYBOARD_TC3589X=y
+CONFIG_KEYBOARD_TWL4030=y
+CONFIG_KEYBOARD_XTKBD=y
+CONFIG_KEYBOARD_CROS_EC=y
+CONFIG_KEYBOARD_CAP11XX=y
+CONFIG_INPUT_MOUSE=y
+CONFIG_MOUSE_PS2=y
+CONFIG_MOUSE_PS2_ALPS=y
+CONFIG_MOUSE_PS2_LOGIPS2PP=y
+CONFIG_MOUSE_PS2_SYNAPTICS=y
+CONFIG_MOUSE_PS2_CYPRESS=y
+CONFIG_MOUSE_PS2_TRACKPOINT=y
+CONFIG_MOUSE_PS2_ELANTECH=y
+CONFIG_MOUSE_PS2_SENTELIC=y
+CONFIG_MOUSE_PS2_TOUCHKIT=y
+CONFIG_MOUSE_PS2_FOCALTECH=y
+CONFIG_MOUSE_SERIAL=y
+CONFIG_MOUSE_APPLETOUCH=y
+CONFIG_MOUSE_BCM5974=y
+CONFIG_MOUSE_CYAPA=y
+CONFIG_MOUSE_ELAN_I2C=y
+CONFIG_MOUSE_ELAN_I2C_I2C=y
+CONFIG_MOUSE_ELAN_I2C_SMBUS=y
+CONFIG_MOUSE_VSXXXAA=y
+CONFIG_MOUSE_GPIO=y
+CONFIG_MOUSE_SYNAPTICS_I2C=y
+CONFIG_MOUSE_SYNAPTICS_USB=y
+CONFIG_INPUT_JOYSTICK=y
+CONFIG_JOYSTICK_ANALOG=y
+CONFIG_JOYSTICK_A3D=y
+CONFIG_JOYSTICK_ADI=y
+CONFIG_JOYSTICK_COBRA=y
+CONFIG_JOYSTICK_GF2K=y
+CONFIG_JOYSTICK_GRIP=y
+CONFIG_JOYSTICK_GRIP_MP=y
+CONFIG_JOYSTICK_GUILLEMOT=y
+CONFIG_JOYSTICK_INTERACT=y
+CONFIG_JOYSTICK_SIDEWINDER=y
+CONFIG_JOYSTICK_TMDC=y
+CONFIG_JOYSTICK_IFORCE=y
+CONFIG_JOYSTICK_IFORCE_USB=y
+CONFIG_JOYSTICK_IFORCE_232=y
+CONFIG_JOYSTICK_WARRIOR=y
+CONFIG_JOYSTICK_MAGELLAN=y
+CONFIG_JOYSTICK_SPACEORB=y
+CONFIG_JOYSTICK_SPACEBALL=y
+CONFIG_JOYSTICK_STINGER=y
+CONFIG_JOYSTICK_TWIDJOY=y
+CONFIG_JOYSTICK_ZHENHUA=y
+CONFIG_JOYSTICK_DB9=y
+CONFIG_JOYSTICK_GAMECON=y
+CONFIG_JOYSTICK_TURBOGRAFX=y
+CONFIG_JOYSTICK_AS5011=y
+CONFIG_JOYSTICK_JOYDUMP=y
+CONFIG_JOYSTICK_XPAD=y
+CONFIG_JOYSTICK_XPAD_FF=y
+CONFIG_JOYSTICK_XPAD_LEDS=y
+CONFIG_JOYSTICK_WALKERA0701=y
+CONFIG_INPUT_TABLET=y
+CONFIG_TABLET_USB_ACECAD=y
+CONFIG_TABLET_USB_AIPTEK=y
+CONFIG_TABLET_USB_GTCO=y
+CONFIG_TABLET_USB_HANWANG=y
+CONFIG_TABLET_USB_KBTAB=y
+CONFIG_TABLET_SERIAL_WACOM4=y
+CONFIG_INPUT_TOUCHSCREEN=y
+CONFIG_OF_TOUCHSCREEN=y
+CONFIG_TOUCHSCREEN_88PM860X=y
+CONFIG_TOUCHSCREEN_ADS7846=y
+CONFIG_TOUCHSCREEN_AD7877=y
+CONFIG_TOUCHSCREEN_AD7879=y
+CONFIG_TOUCHSCREEN_AD7879_I2C=y
+CONFIG_TOUCHSCREEN_AD7879_SPI=y
+CONFIG_TOUCHSCREEN_AR1021_I2C=y
+CONFIG_TOUCHSCREEN_ATMEL_MXT=y
+CONFIG_TOUCHSCREEN_AUO_PIXCIR=y
+CONFIG_TOUCHSCREEN_BU21013=y
+CONFIG_TOUCHSCREEN_CY8CTMG110=y
+CONFIG_TOUCHSCREEN_CYTTSP_CORE=y
+CONFIG_TOUCHSCREEN_CYTTSP_I2C=y
+CONFIG_TOUCHSCREEN_CYTTSP_SPI=y
+CONFIG_TOUCHSCREEN_CYTTSP4_CORE=y
+CONFIG_TOUCHSCREEN_CYTTSP4_I2C=y
+CONFIG_TOUCHSCREEN_CYTTSP4_SPI=y
+CONFIG_TOUCHSCREEN_DA9034=y
+CONFIG_TOUCHSCREEN_DA9052=y
+CONFIG_TOUCHSCREEN_DYNAPRO=y
+CONFIG_TOUCHSCREEN_HAMPSHIRE=y
+CONFIG_TOUCHSCREEN_EETI=y
+CONFIG_TOUCHSCREEN_EGALAX=y
+CONFIG_TOUCHSCREEN_FUJITSU=y
+CONFIG_TOUCHSCREEN_ILI210X=y
+CONFIG_TOUCHSCREEN_GUNZE=y
+CONFIG_TOUCHSCREEN_ELAN=y
+CONFIG_TOUCHSCREEN_ELO=y
+CONFIG_TOUCHSCREEN_WACOM_W8001=y
+CONFIG_TOUCHSCREEN_WACOM_I2C=y
+CONFIG_TOUCHSCREEN_MAX11801=y
+CONFIG_TOUCHSCREEN_MCS5000=y
+CONFIG_TOUCHSCREEN_MMS114=y
+CONFIG_TOUCHSCREEN_MTOUCH=y
+CONFIG_TOUCHSCREEN_INEXIO=y
+CONFIG_TOUCHSCREEN_MK712=y
+CONFIG_TOUCHSCREEN_PENMOUNT=y
+CONFIG_TOUCHSCREEN_EDT_FT5X06=y
+CONFIG_TOUCHSCREEN_TOUCHRIGHT=y
+CONFIG_TOUCHSCREEN_TOUCHWIN=y
+CONFIG_TOUCHSCREEN_TI_AM335X_TSC=y
+CONFIG_TOUCHSCREEN_UCB1400=y
+CONFIG_TOUCHSCREEN_PIXCIR=y
+CONFIG_TOUCHSCREEN_WM831X=y
+CONFIG_TOUCHSCREEN_WM97XX=y
+CONFIG_TOUCHSCREEN_WM9705=y
+CONFIG_TOUCHSCREEN_WM9712=y
+CONFIG_TOUCHSCREEN_WM9713=y
+CONFIG_TOUCHSCREEN_USB_COMPOSITE=y
+CONFIG_TOUCHSCREEN_MC13783=y
+CONFIG_TOUCHSCREEN_USB_EGALAX=y
+CONFIG_TOUCHSCREEN_USB_PANJIT=y
+CONFIG_TOUCHSCREEN_USB_3M=y
+CONFIG_TOUCHSCREEN_USB_ITM=y
+CONFIG_TOUCHSCREEN_USB_ETURBO=y
+CONFIG_TOUCHSCREEN_USB_GUNZE=y
+CONFIG_TOUCHSCREEN_USB_DMC_TSC10=y
+CONFIG_TOUCHSCREEN_USB_IRTOUCH=y
+CONFIG_TOUCHSCREEN_USB_IDEALTEK=y
+CONFIG_TOUCHSCREEN_USB_GENERAL_TOUCH=y
+CONFIG_TOUCHSCREEN_USB_GOTOP=y
+CONFIG_TOUCHSCREEN_USB_JASTEC=y
+CONFIG_TOUCHSCREEN_USB_ELO=y
+CONFIG_TOUCHSCREEN_USB_E2I=y
+CONFIG_TOUCHSCREEN_USB_ZYTRONIC=y
+CONFIG_TOUCHSCREEN_USB_ETT_TC45USB=y
+CONFIG_TOUCHSCREEN_USB_NEXIO=y
+CONFIG_TOUCHSCREEN_USB_EASYTOUCH=y
+CONFIG_TOUCHSCREEN_TOUCHIT213=y
+CONFIG_TOUCHSCREEN_TSC_SERIO=y
+CONFIG_TOUCHSCREEN_TSC2005=y
+CONFIG_TOUCHSCREEN_TSC2007=y
+CONFIG_TOUCHSCREEN_PCAP=y
+CONFIG_TOUCHSCREEN_ST1232=y
+CONFIG_TOUCHSCREEN_STMPE=y
+CONFIG_TOUCHSCREEN_SUN4I=y
+CONFIG_TOUCHSCREEN_SUR40=y
+CONFIG_TOUCHSCREEN_TPS6507X=y
+CONFIG_TOUCHSCREEN_ZFORCE=y
+CONFIG_INPUT_MISC=y
+CONFIG_INPUT_88PM860X_ONKEY=y
+CONFIG_INPUT_88PM80X_ONKEY=y
+CONFIG_INPUT_AD714X=y
+CONFIG_INPUT_AD714X_I2C=y
+CONFIG_INPUT_AD714X_SPI=y
+CONFIG_INPUT_ARIZONA_HAPTICS=y
+CONFIG_INPUT_BMA150=y
+CONFIG_INPUT_E3X0_BUTTON=y
+CONFIG_INPUT_MAX77693_HAPTIC=y
+CONFIG_INPUT_MAX8925_ONKEY=y
+CONFIG_INPUT_MAX8997_HAPTIC=y
+CONFIG_INPUT_MC13783_PWRBUTTON=y
+CONFIG_INPUT_MMA8450=y
+CONFIG_INPUT_MPU3050=y
+CONFIG_INPUT_GP2A=y
+CONFIG_INPUT_GPIO_BEEPER=y
+CONFIG_INPUT_GPIO_TILT_POLLED=y
+CONFIG_INPUT_ATI_REMOTE2=y
+CONFIG_INPUT_KEYSPAN_REMOTE=y
+CONFIG_INPUT_KXTJ9=y
+CONFIG_INPUT_KXTJ9_POLLED_MODE=y
+CONFIG_INPUT_POWERMATE=y
+CONFIG_INPUT_YEALINK=y
+CONFIG_INPUT_CM109=y
+CONFIG_INPUT_REGULATOR_HAPTIC=y
+CONFIG_INPUT_RETU_PWRBUTTON=y
+CONFIG_INPUT_TPS65218_PWRBUTTON=y
+CONFIG_INPUT_AXP20X_PEK=y
+CONFIG_INPUT_TWL4030_PWRBUTTON=y
+CONFIG_INPUT_TWL4030_VIBRA=y
+CONFIG_INPUT_TWL6040_VIBRA=y
+CONFIG_INPUT_UINPUT=y
+CONFIG_INPUT_PALMAS_PWRBUTTON=y
+CONFIG_INPUT_PCF50633_PMU=y
+CONFIG_INPUT_PCF8574=y
+CONFIG_INPUT_PWM_BEEPER=y
+CONFIG_INPUT_GPIO_ROTARY_ENCODER=y
+CONFIG_INPUT_DA9052_ONKEY=y
+CONFIG_INPUT_DA9055_ONKEY=y
+CONFIG_INPUT_WM831X_ON=y
+CONFIG_INPUT_PCAP=y
+CONFIG_INPUT_ADXL34X=y
+CONFIG_INPUT_ADXL34X_I2C=y
+CONFIG_INPUT_ADXL34X_SPI=y
+CONFIG_INPUT_IMS_PCU=y
+CONFIG_INPUT_CMA3000=y
+CONFIG_INPUT_CMA3000_I2C=y
+CONFIG_INPUT_SOC_BUTTON_ARRAY=y
+CONFIG_INPUT_DRV260X_HAPTICS=y
+CONFIG_INPUT_DRV2667_HAPTICS=y
+
+#
+# Hardware I/O ports
+#
+CONFIG_SERIO=y
+CONFIG_SERIO_SERPORT=y
+CONFIG_SERIO_PARKBD=y
+CONFIG_SERIO_PCIPS2=y
+CONFIG_SERIO_LIBPS2=y
+CONFIG_SERIO_RAW=y
+CONFIG_SERIO_XILINX_XPS_PS2=y
+CONFIG_SERIO_ALTERA_PS2=y
+CONFIG_SERIO_PS2MULT=y
+CONFIG_SERIO_ARC_PS2=y
+CONFIG_SERIO_APBPS2=y
+CONFIG_SERIO_OLPC_APSP=y
+CONFIG_SERIO_SUN4I_PS2=y
+CONFIG_GAMEPORT=y
+CONFIG_GAMEPORT_NS558=y
+CONFIG_GAMEPORT_L4=y
+CONFIG_GAMEPORT_EMU10K1=y
+CONFIG_GAMEPORT_FM801=y
+
+#
+# Character devices
+#
+CONFIG_TTY=y
+CONFIG_VT=y
+CONFIG_CONSOLE_TRANSLATIONS=y
+CONFIG_VT_CONSOLE=y
+CONFIG_HW_CONSOLE=y
+CONFIG_VT_HW_CONSOLE_BINDING=y
+CONFIG_UNIX98_PTYS=y
+CONFIG_DEVPTS_MULTIPLE_INSTANCES=y
+CONFIG_LEGACY_PTYS=y
+CONFIG_LEGACY_PTY_COUNT=256
+CONFIG_SERIAL_NONSTANDARD=y
+CONFIG_ROCKETPORT=y
+CONFIG_CYCLADES=y
+CONFIG_CYZ_INTR=y
+CONFIG_MOXA_INTELLIO=y
+CONFIG_MOXA_SMARTIO=y
+CONFIG_SYNCLINKMP=y
+CONFIG_SYNCLINK_GT=y
+CONFIG_NOZOMI=y
+CONFIG_ISI=y
+CONFIG_N_HDLC=y
+CONFIG_N_GSM=y
+CONFIG_TRACE_ROUTER=y
+CONFIG_TRACE_SINK=y
+CONFIG_DEVMEM=y
+CONFIG_DEVKMEM=y
+
+#
+# Serial drivers
+#
+CONFIG_SERIAL_EARLYCON=y
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_DEPRECATED_OPTIONS=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_DMA=y
+CONFIG_SERIAL_8250_PCI=y
+CONFIG_SERIAL_8250_NR_UARTS=4
+CONFIG_SERIAL_8250_RUNTIME_UARTS=4
+CONFIG_SERIAL_8250_EXTENDED=y
+CONFIG_SERIAL_8250_MANY_PORTS=y
+CONFIG_SERIAL_8250_SHARE_IRQ=y
+CONFIG_SERIAL_8250_DETECT_IRQ=y
+CONFIG_SERIAL_8250_RSA=y
+CONFIG_SERIAL_8250_DW=y
+
+#
+# Non-8250 serial port support
+#
+CONFIG_SERIAL_KGDB_NMI=y
+CONFIG_SERIAL_CLPS711X=y
+CONFIG_SERIAL_CLPS711X_CONSOLE=y
+CONFIG_SERIAL_MAX3100=y
+CONFIG_SERIAL_MAX310X=y
+CONFIG_SERIAL_MFD_HSU=y
+CONFIG_SERIAL_MFD_HSU_CONSOLE=y
+CONFIG_SERIAL_UARTLITE=y
+CONFIG_SERIAL_UARTLITE_CONSOLE=y
+CONFIG_SERIAL_SH_SCI=y
+CONFIG_SERIAL_SH_SCI_NR_UARTS=2
+CONFIG_SERIAL_SH_SCI_CONSOLE=y
+CONFIG_SERIAL_SH_SCI_DMA=y
+CONFIG_SERIAL_CORE=y
+CONFIG_SERIAL_CORE_CONSOLE=y
+CONFIG_CONSOLE_POLL=y
+CONFIG_SERIAL_JSM=y
+CONFIG_SERIAL_OF_PLATFORM=y
+CONFIG_SERIAL_SCCNXP=y
+CONFIG_SERIAL_SCCNXP_CONSOLE=y
+CONFIG_SERIAL_SC16IS7XX=y
+CONFIG_SERIAL_TIMBERDALE=y
+CONFIG_SERIAL_BCM63XX=y
+CONFIG_SERIAL_BCM63XX_CONSOLE=y
+CONFIG_SERIAL_ALTERA_JTAGUART=y
+CONFIG_SERIAL_ALTERA_JTAGUART_CONSOLE=y
+CONFIG_SERIAL_ALTERA_JTAGUART_CONSOLE_BYPASS=y
+CONFIG_SERIAL_ALTERA_UART=y
+CONFIG_SERIAL_ALTERA_UART_MAXPORTS=4
+CONFIG_SERIAL_ALTERA_UART_BAUDRATE=115200
+CONFIG_SERIAL_ALTERA_UART_CONSOLE=y
+CONFIG_SERIAL_IFX6X60=y
+CONFIG_SERIAL_PCH_UART=y
+CONFIG_SERIAL_PCH_UART_CONSOLE=y
+CONFIG_SERIAL_XILINX_PS_UART=y
+CONFIG_SERIAL_XILINX_PS_UART_CONSOLE=y
+CONFIG_SERIAL_ARC=y
+CONFIG_SERIAL_ARC_CONSOLE=y
+CONFIG_SERIAL_ARC_NR_PORTS=1
+CONFIG_SERIAL_RP2=y
+CONFIG_SERIAL_RP2_NR_UARTS=32
+CONFIG_SERIAL_FSL_LPUART=y
+CONFIG_SERIAL_FSL_LPUART_CONSOLE=y
+CONFIG_SERIAL_CONEXANT_DIGICOLOR=y
+CONFIG_SERIAL_CONEXANT_DIGICOLOR_CONSOLE=y
+CONFIG_SERIAL_ST_ASC=y
+CONFIG_SERIAL_ST_ASC_CONSOLE=y
+CONFIG_SERIAL_MEN_Z135=y
+CONFIG_SERIAL_MCTRL_GPIO=y
+CONFIG_TTY_PRINTK=y
+CONFIG_PRINTER=y
+CONFIG_LP_CONSOLE=y
+CONFIG_PPDEV=y
+CONFIG_HVC_DRIVER=y
+CONFIG_VIRTIO_CONSOLE=y
+CONFIG_IPMI_HANDLER=y
+CONFIG_IPMI_PANIC_EVENT=y
+CONFIG_IPMI_PANIC_STRING=y
+CONFIG_IPMI_DEVICE_INTERFACE=y
+CONFIG_IPMI_SI=y
+CONFIG_IPMI_SI_PROBE_DEFAULTS=y
+CONFIG_IPMI_SSIF=y
+CONFIG_IPMI_WATCHDOG=y
+CONFIG_IPMI_POWEROFF=y
+CONFIG_HW_RANDOM=y
+CONFIG_HW_RANDOM_TIMERIOMEM=y
+CONFIG_HW_RANDOM_VIRTIO=y
+CONFIG_HW_RANDOM_TPM=y
+CONFIG_XILINX_HWICAP=y
+CONFIG_R3964=y
+CONFIG_APPLICOM=y
+
+#
+# PCMCIA character devices
+#
+CONFIG_RAW_DRIVER=y
+CONFIG_MAX_RAW_DEVS=256
+CONFIG_TCG_TPM=y
+CONFIG_TCG_TIS_I2C_ATMEL=y
+CONFIG_TCG_TIS_I2C_INFINEON=y
+CONFIG_TCG_TIS_I2C_NUVOTON=y
+CONFIG_TCG_ATMEL=y
+CONFIG_TCG_TIS_I2C_ST33=y
+CONFIG_DEVPORT=y
+CONFIG_XILLYBUS=y
+CONFIG_XILLYBUS_PCIE=y
+CONFIG_XILLYBUS_OF=y
+
+#
+# I2C support
+#
+CONFIG_I2C=y
+CONFIG_I2C_BOARDINFO=y
+CONFIG_I2C_COMPAT=y
+CONFIG_I2C_CHARDEV=y
+CONFIG_I2C_MUX=y
+
+#
+# Multiplexer I2C Chip support
+#
+CONFIG_I2C_ARB_GPIO_CHALLENGE=y
+CONFIG_I2C_MUX_GPIO=y
+CONFIG_I2C_MUX_PCA9541=y
+CONFIG_I2C_MUX_PCA954x=y
+CONFIG_I2C_HELPER_AUTO=y
+CONFIG_I2C_SMBUS=y
+CONFIG_I2C_ALGOBIT=y
+CONFIG_I2C_ALGOPCA=y
+
+#
+# I2C Hardware Bus support
+#
+
+#
+# PC SMBus host controller drivers
+#
+CONFIG_I2C_ALI1535=y
+CONFIG_I2C_ALI1563=y
+CONFIG_I2C_ALI15X3=y
+CONFIG_I2C_AMD756=y
+CONFIG_I2C_AMD8111=y
+CONFIG_I2C_HIX5HD2=y
+CONFIG_I2C_I801=y
+CONFIG_I2C_ISCH=y
+CONFIG_I2C_PIIX4=y
+CONFIG_I2C_NFORCE2=y
+CONFIG_I2C_SIS5595=y
+CONFIG_I2C_SIS630=y
+CONFIG_I2C_SIS96X=y
+CONFIG_I2C_VIA=y
+CONFIG_I2C_VIAPRO=y
+
+#
+# I2C system bus drivers (mostly embedded / system-on-chip)
+#
+CONFIG_I2C_AXXIA=y
+CONFIG_I2C_BCM_IPROC=y
+CONFIG_I2C_CBUS_GPIO=y
+CONFIG_I2C_DESIGNWARE_CORE=y
+CONFIG_I2C_DESIGNWARE_PLATFORM=y
+CONFIG_I2C_DESIGNWARE_PCI=y
+CONFIG_I2C_EFM32=y
+CONFIG_I2C_EG20T=y
+CONFIG_I2C_GPIO=y
+CONFIG_I2C_IMG=y
+CONFIG_I2C_KEMPLD=y
+CONFIG_I2C_OCORES=y
+CONFIG_I2C_PCA_PLATFORM=y
+# CONFIG_I2C_PXA_PCI is not set
+CONFIG_I2C_RIIC=y
+CONFIG_I2C_RK3X=y
+CONFIG_I2C_SH_MOBILE=y
+CONFIG_I2C_SIMTEC=y
+CONFIG_I2C_SUN6I_P2WI=y
+CONFIG_I2C_XILINX=y
+CONFIG_I2C_RCAR=y
+
+#
+# External I2C/SMBus adapter drivers
+#
+CONFIG_I2C_DIOLAN_U2C=y
+CONFIG_I2C_DLN2=y
+CONFIG_I2C_PARPORT=y
+CONFIG_I2C_PARPORT_LIGHT=y
+CONFIG_I2C_ROBOTFUZZ_OSIF=y
+CONFIG_I2C_TAOS_EVM=y
+CONFIG_I2C_TINY_USB=y
+CONFIG_I2C_VIPERBOARD=y
+
+#
+# Other I2C/SMBus bus drivers
+#
+CONFIG_I2C_CROS_EC_TUNNEL=y
+CONFIG_I2C_STUB=m
+CONFIG_I2C_SLAVE=y
+CONFIG_I2C_SLAVE_EEPROM=y
+CONFIG_I2C_DEBUG_CORE=y
+CONFIG_I2C_DEBUG_ALGO=y
+CONFIG_I2C_DEBUG_BUS=y
+CONFIG_SPI=y
+CONFIG_SPI_DEBUG=y
+CONFIG_SPI_MASTER=y
+
+#
+# SPI Master Controller Drivers
+#
+CONFIG_SPI_ALTERA=y
+CONFIG_SPI_ATMEL=y
+CONFIG_SPI_BCM2835=y
+CONFIG_SPI_BCM63XX_HSSPI=y
+CONFIG_SPI_BITBANG=y
+CONFIG_SPI_BUTTERFLY=y
+CONFIG_SPI_CLPS711X=y
+CONFIG_SPI_DLN2=y
+CONFIG_SPI_EP93XX=y
+CONFIG_SPI_GPIO=y
+CONFIG_SPI_IMG_SPFI=y
+CONFIG_SPI_IMX=y
+CONFIG_SPI_LM70_LLP=y
+CONFIG_SPI_FSL_LIB=y
+CONFIG_SPI_FSL_SPI=y
+CONFIG_SPI_FSL_DSPI=y
+CONFIG_SPI_MESON_SPIFC=y
+CONFIG_SPI_OC_TINY=y
+CONFIG_SPI_TI_QSPI=y
+CONFIG_SPI_OMAP_100K=y
+CONFIG_SPI_ORION=y
+CONFIG_SPI_PXA2XX_DMA=y
+CONFIG_SPI_PXA2XX=y
+CONFIG_SPI_PXA2XX_PCI=y
+CONFIG_SPI_RSPI=y
+CONFIG_SPI_SC18IS602=y
+CONFIG_SPI_SH_MSIOF=y
+CONFIG_SPI_SH=y
+CONFIG_SPI_SH_HSPI=y
+CONFIG_SPI_SUN4I=y
+CONFIG_SPI_SUN6I=y
+CONFIG_SPI_TEGRA114=y
+CONFIG_SPI_TEGRA20_SFLASH=y
+CONFIG_SPI_TEGRA20_SLINK=y
+CONFIG_SPI_TOPCLIFF_PCH=y
+CONFIG_SPI_TXX9=y
+CONFIG_SPI_XCOMM=y
+CONFIG_SPI_XILINX=y
+CONFIG_SPI_XTENSA_XTFPGA=y
+CONFIG_SPI_DESIGNWARE=y
+CONFIG_SPI_DW_PCI=y
+CONFIG_SPI_DW_MMIO=y
+
+#
+# SPI Protocol Masters
+#
+CONFIG_SPI_SPIDEV=y
+CONFIG_SPI_TLE62X0=y
+CONFIG_SPMI=y
+CONFIG_HSI=y
+CONFIG_HSI_BOARDINFO=y
+
+#
+# HSI controllers
+#
+
+#
+# HSI clients
+#
+CONFIG_HSI_CHAR=y
+
+#
+# PPS support
+#
+CONFIG_PPS=y
+CONFIG_PPS_DEBUG=y
+
+#
+# PPS clients support
+#
+CONFIG_PPS_CLIENT_KTIMER=y
+CONFIG_PPS_CLIENT_LDISC=y
+CONFIG_PPS_CLIENT_PARPORT=y
+CONFIG_PPS_CLIENT_GPIO=y
+
+#
+# PPS generators support
+#
+
+#
+# PTP clock support
+#
+CONFIG_PTP_1588_CLOCK=y
+CONFIG_DP83640_PHY=y
+CONFIG_PTP_1588_CLOCK_PCH=y
+CONFIG_ARCH_WANT_OPTIONAL_GPIOLIB=y
+CONFIG_GPIOLIB=y
+CONFIG_GPIO_DEVRES=y
+CONFIG_OF_GPIO=y
+CONFIG_GPIOLIB_IRQCHIP=y
+CONFIG_DEBUG_GPIO=y
+CONFIG_GPIO_SYSFS=y
+CONFIG_GPIO_GENERIC=y
+CONFIG_GPIO_DA9052=y
+CONFIG_GPIO_DA9055=y
+CONFIG_GPIO_MAX730X=y
+
+#
+# Memory mapped GPIO drivers:
+#
+CONFIG_GPIO_74XX_MMIO=y
+CONFIG_GPIO_CLPS711X=y
+CONFIG_GPIO_GENERIC_PLATFORM=y
+CONFIG_GPIO_SCH311X=y
+CONFIG_GPIO_SYSCON=y
+CONFIG_GPIO_TS5500=y
+CONFIG_GPIO_XILINX=y
+CONFIG_GPIO_VX855=y
+CONFIG_GPIO_GRGPIO=y
+
+#
+# I2C GPIO expanders:
+#
+CONFIG_GPIO_ARIZONA=y
+CONFIG_GPIO_CRYSTAL_COVE=y
+CONFIG_GPIO_LP3943=y
+CONFIG_GPIO_MAX7300=y
+CONFIG_GPIO_MAX732X=y
+CONFIG_GPIO_MAX732X_IRQ=y
+CONFIG_GPIO_PCA953X=y
+CONFIG_GPIO_PCA953X_IRQ=y
+CONFIG_GPIO_PCF857X=y
+CONFIG_GPIO_RC5T583=y
+CONFIG_GPIO_SX150X=y
+CONFIG_GPIO_STMPE=y
+CONFIG_GPIO_TC3589X=y
+CONFIG_GPIO_TPS65912=y
+CONFIG_GPIO_TWL4030=y
+CONFIG_GPIO_TWL6040=y
+CONFIG_GPIO_WM831X=y
+CONFIG_GPIO_WM8350=y
+CONFIG_GPIO_WM8994=y
+CONFIG_GPIO_ADP5520=y
+CONFIG_GPIO_ADP5588=y
+CONFIG_GPIO_ADP5588_IRQ=y
+CONFIG_GPIO_ADNP=y
+
+#
+# PCI GPIO expanders:
+#
+CONFIG_GPIO_AMD8111=y
+CONFIG_GPIO_PCH=y
+CONFIG_GPIO_ML_IOH=y
+CONFIG_GPIO_TIMBERDALE=y
+CONFIG_GPIO_RDC321X=y
+
+#
+# SPI GPIO expanders:
+#
+CONFIG_GPIO_MAX7301=y
+CONFIG_GPIO_MCP23S08=y
+CONFIG_GPIO_MC33880=y
+CONFIG_GPIO_74X164=y
+
+#
+# AC97 GPIO expanders:
+#
+CONFIG_GPIO_UCB1400=y
+
+#
+# LPC GPIO expanders:
+#
+CONFIG_GPIO_KEMPLD=y
+
+#
+# MODULbus GPIO expanders:
+#
+CONFIG_GPIO_JANZ_TTL=y
+CONFIG_GPIO_PALMAS=y
+CONFIG_GPIO_TPS6586X=y
+CONFIG_GPIO_TPS65910=y
+CONFIG_GPIO_BCM_KONA=y
+
+#
+# USB GPIO expanders:
+#
+CONFIG_GPIO_VIPERBOARD=y
+CONFIG_GPIO_DLN2=y
+CONFIG_W1=y
+CONFIG_W1_CON=y
+
+#
+# 1-wire Bus Masters
+#
+CONFIG_W1_MASTER_MATROX=y
+CONFIG_W1_MASTER_DS2490=y
+CONFIG_W1_MASTER_DS2482=y
+CONFIG_W1_MASTER_MXC=y
+CONFIG_W1_MASTER_DS1WM=y
+CONFIG_W1_MASTER_GPIO=y
+
+#
+# 1-wire Slaves
+#
+CONFIG_W1_SLAVE_THERM=y
+CONFIG_W1_SLAVE_SMEM=y
+CONFIG_W1_SLAVE_DS2408=y
+CONFIG_W1_SLAVE_DS2408_READBACK=y
+CONFIG_W1_SLAVE_DS2413=y
+CONFIG_W1_SLAVE_DS2406=y
+CONFIG_W1_SLAVE_DS2423=y
+CONFIG_W1_SLAVE_DS2431=y
+CONFIG_W1_SLAVE_DS2433=y
+CONFIG_W1_SLAVE_DS2433_CRC=y
+CONFIG_W1_SLAVE_DS2760=y
+CONFIG_W1_SLAVE_DS2780=y
+CONFIG_W1_SLAVE_DS2781=y
+CONFIG_W1_SLAVE_DS28E04=y
+CONFIG_W1_SLAVE_BQ27000=y
+CONFIG_POWER_SUPPLY=y
+CONFIG_POWER_SUPPLY_DEBUG=y
+CONFIG_PDA_POWER=y
+CONFIG_GENERIC_ADC_BATTERY=y
+CONFIG_MAX8925_POWER=y
+CONFIG_WM831X_BACKUP=y
+CONFIG_WM831X_POWER=y
+CONFIG_WM8350_POWER=y
+CONFIG_TEST_POWER=y
+CONFIG_BATTERY_88PM860X=y
+CONFIG_BATTERY_DS2760=y
+CONFIG_BATTERY_DS2780=y
+CONFIG_BATTERY_DS2781=y
+CONFIG_BATTERY_DS2782=y
+CONFIG_BATTERY_WM97XX=y
+CONFIG_BATTERY_SBS=y
+CONFIG_BATTERY_BQ27x00=y
+CONFIG_BATTERY_BQ27X00_I2C=y
+CONFIG_BATTERY_BQ27X00_PLATFORM=y
+CONFIG_BATTERY_DA9030=y
+CONFIG_BATTERY_DA9052=y
+CONFIG_BATTERY_MAX17040=y
+CONFIG_BATTERY_MAX17042=y
+CONFIG_BATTERY_TWL4030_MADC=y
+CONFIG_CHARGER_88PM860X=y
+CONFIG_CHARGER_PCF50633=y
+CONFIG_BATTERY_RX51=y
+CONFIG_CHARGER_ISP1704=y
+CONFIG_CHARGER_MAX8903=y
+CONFIG_CHARGER_TWL4030=y
+CONFIG_CHARGER_LP8727=y
+CONFIG_CHARGER_LP8788=y
+CONFIG_CHARGER_GPIO=y
+CONFIG_CHARGER_MANAGER=y
+CONFIG_CHARGER_MAX14577=y
+CONFIG_CHARGER_MAX77693=y
+CONFIG_CHARGER_MAX8997=y
+CONFIG_CHARGER_MAX8998=y
+CONFIG_CHARGER_BQ2415X=y
+CONFIG_CHARGER_BQ24190=y
+CONFIG_CHARGER_BQ24735=y
+CONFIG_CHARGER_SMB347=y
+CONFIG_CHARGER_TPS65090=y
+CONFIG_BATTERY_GAUGE_LTC2941=y
+CONFIG_BATTERY_GOLDFISH=y
+CONFIG_BATTERY_RT5033=y
+CONFIG_POWER_RESET=y
+CONFIG_POWER_RESET_AS3722=y
+CONFIG_POWER_RESET_BRCMSTB=y
+CONFIG_POWER_RESET_GPIO=y
+CONFIG_POWER_RESET_GPIO_RESTART=y
+CONFIG_POWER_RESET_LTC2952=y
+CONFIG_POWER_RESET_RESTART=y
+CONFIG_POWER_RESET_SYSCON=y
+CONFIG_POWER_RESET_RMOBILE=y
+CONFIG_POWER_AVS=y
+CONFIG_HWMON=y
+CONFIG_HWMON_VID=y
+CONFIG_HWMON_DEBUG_CHIP=y
+
+#
+# Native drivers
+#
+CONFIG_SENSORS_AD7314=y
+CONFIG_SENSORS_AD7414=y
+CONFIG_SENSORS_AD7418=y
+CONFIG_SENSORS_ADM1021=y
+CONFIG_SENSORS_ADM1025=y
+CONFIG_SENSORS_ADM1026=y
+CONFIG_SENSORS_ADM1029=y
+CONFIG_SENSORS_ADM1031=y
+CONFIG_SENSORS_ADM9240=y
+CONFIG_SENSORS_ADT7X10=y
+CONFIG_SENSORS_ADT7310=y
+CONFIG_SENSORS_ADT7410=y
+CONFIG_SENSORS_ADT7411=y
+CONFIG_SENSORS_ADT7462=y
+CONFIG_SENSORS_ADT7470=y
+CONFIG_SENSORS_ADT7475=y
+CONFIG_SENSORS_ASC7621=y
+CONFIG_SENSORS_ATXP1=y
+CONFIG_SENSORS_DS620=y
+CONFIG_SENSORS_DS1621=y
+CONFIG_SENSORS_DA9052_ADC=y
+CONFIG_SENSORS_DA9055=y
+CONFIG_SENSORS_I5K_AMB=y
+CONFIG_SENSORS_F71805F=y
+CONFIG_SENSORS_F71882FG=y
+CONFIG_SENSORS_F75375S=y
+CONFIG_SENSORS_MC13783_ADC=y
+CONFIG_SENSORS_GL518SM=y
+CONFIG_SENSORS_GL520SM=y
+CONFIG_SENSORS_G760A=y
+CONFIG_SENSORS_G762=y
+CONFIG_SENSORS_GPIO_FAN=y
+CONFIG_SENSORS_HIH6130=y
+CONFIG_SENSORS_IBMAEM=y
+CONFIG_SENSORS_IBMPEX=y
+CONFIG_SENSORS_IIO_HWMON=y
+CONFIG_SENSORS_IT87=y
+CONFIG_SENSORS_JC42=y
+CONFIG_SENSORS_POWR1220=y
+CONFIG_SENSORS_LINEAGE=y
+CONFIG_SENSORS_LTC2945=y
+CONFIG_SENSORS_LTC4151=y
+CONFIG_SENSORS_LTC4215=y
+CONFIG_SENSORS_LTC4222=y
+CONFIG_SENSORS_LTC4245=y
+CONFIG_SENSORS_LTC4260=y
+CONFIG_SENSORS_LTC4261=y
+CONFIG_SENSORS_MAX1111=y
+CONFIG_SENSORS_MAX16065=y
+CONFIG_SENSORS_MAX1619=y
+CONFIG_SENSORS_MAX1668=y
+CONFIG_SENSORS_MAX197=y
+CONFIG_SENSORS_MAX6639=y
+CONFIG_SENSORS_MAX6642=y
+CONFIG_SENSORS_MAX6650=y
+CONFIG_SENSORS_MAX6697=y
+CONFIG_SENSORS_HTU21=y
+CONFIG_SENSORS_MCP3021=y
+CONFIG_SENSORS_MENF21BMC_HWMON=y
+CONFIG_SENSORS_ADCXX=y
+CONFIG_SENSORS_LM63=y
+CONFIG_SENSORS_LM70=y
+CONFIG_SENSORS_LM73=y
+CONFIG_SENSORS_LM75=y
+CONFIG_SENSORS_LM77=y
+CONFIG_SENSORS_LM78=y
+CONFIG_SENSORS_LM80=y
+CONFIG_SENSORS_LM83=y
+CONFIG_SENSORS_LM85=y
+CONFIG_SENSORS_LM87=y
+CONFIG_SENSORS_LM90=y
+CONFIG_SENSORS_LM92=y
+CONFIG_SENSORS_LM93=y
+CONFIG_SENSORS_LM95234=y
+CONFIG_SENSORS_LM95241=y
+CONFIG_SENSORS_LM95245=y
+CONFIG_SENSORS_PC87360=y
+CONFIG_SENSORS_PC87427=y
+CONFIG_SENSORS_NTC_THERMISTOR=y
+CONFIG_SENSORS_NCT6683=y
+CONFIG_SENSORS_NCT6775=y
+CONFIG_SENSORS_NCT7802=y
+CONFIG_SENSORS_PCF8591=y
+CONFIG_PMBUS=y
+CONFIG_SENSORS_PMBUS=y
+CONFIG_SENSORS_ADM1275=y
+CONFIG_SENSORS_LM25066=y
+CONFIG_SENSORS_LTC2978=y
+CONFIG_SENSORS_LTC2978_REGULATOR=y
+CONFIG_SENSORS_MAX16064=y
+CONFIG_SENSORS_MAX34440=y
+CONFIG_SENSORS_MAX8688=y
+CONFIG_SENSORS_TPS40422=y
+CONFIG_SENSORS_UCD9000=y
+CONFIG_SENSORS_UCD9200=y
+CONFIG_SENSORS_ZL6100=y
+CONFIG_SENSORS_PWM_FAN=y
+CONFIG_SENSORS_SHT15=y
+CONFIG_SENSORS_SHT21=y
+CONFIG_SENSORS_SHTC1=y
+CONFIG_SENSORS_SIS5595=y
+CONFIG_SENSORS_DME1737=y
+CONFIG_SENSORS_EMC1403=y
+CONFIG_SENSORS_EMC2103=y
+CONFIG_SENSORS_EMC6W201=y
+CONFIG_SENSORS_SMSC47M1=y
+CONFIG_SENSORS_SMSC47M192=y
+CONFIG_SENSORS_SMSC47B397=y
+CONFIG_SENSORS_SCH56XX_COMMON=y
+CONFIG_SENSORS_SCH5627=y
+CONFIG_SENSORS_SCH5636=y
+CONFIG_SENSORS_SMM665=y
+CONFIG_SENSORS_ADC128D818=y
+CONFIG_SENSORS_ADS1015=y
+CONFIG_SENSORS_ADS7828=y
+CONFIG_SENSORS_ADS7871=y
+CONFIG_SENSORS_AMC6821=y
+CONFIG_SENSORS_INA209=y
+CONFIG_SENSORS_INA2XX=y
+CONFIG_SENSORS_THMC50=y
+CONFIG_SENSORS_TMP102=y
+CONFIG_SENSORS_TMP103=y
+CONFIG_SENSORS_TMP401=y
+CONFIG_SENSORS_TMP421=y
+CONFIG_SENSORS_TWL4030_MADC=y
+CONFIG_SENSORS_VIA686A=y
+CONFIG_SENSORS_VT1211=y
+CONFIG_SENSORS_VT8231=y
+CONFIG_SENSORS_W83781D=y
+CONFIG_SENSORS_W83791D=y
+CONFIG_SENSORS_W83792D=y
+CONFIG_SENSORS_W83793=y
+CONFIG_SENSORS_W83795=y
+CONFIG_SENSORS_W83795_FANCTRL=y
+CONFIG_SENSORS_W83L785TS=y
+CONFIG_SENSORS_W83L786NG=y
+CONFIG_SENSORS_W83627HF=y
+CONFIG_SENSORS_W83627EHF=y
+CONFIG_SENSORS_WM831X=y
+CONFIG_SENSORS_WM8350=y
+CONFIG_THERMAL=y
+CONFIG_THERMAL_HWMON=y
+CONFIG_THERMAL_OF=y
+CONFIG_THERMAL_DEFAULT_GOV_STEP_WISE=y
+# CONFIG_THERMAL_DEFAULT_GOV_FAIR_SHARE is not set
+# CONFIG_THERMAL_DEFAULT_GOV_USER_SPACE is not set
+CONFIG_THERMAL_GOV_FAIR_SHARE=y
+CONFIG_THERMAL_GOV_STEP_WISE=y
+CONFIG_THERMAL_GOV_BANG_BANG=y
+CONFIG_THERMAL_GOV_USER_SPACE=y
+CONFIG_THERMAL_EMULATION=y
+CONFIG_RCAR_THERMAL=y
+
+#
+# Texas Instruments thermal drivers
+#
+CONFIG_WATCHDOG=y
+CONFIG_WATCHDOG_CORE=y
+CONFIG_WATCHDOG_NOWAYOUT=y
+
+#
+# Watchdog Device Drivers
+#
+CONFIG_SOFT_WATCHDOG=y
+CONFIG_DA9052_WATCHDOG=y
+CONFIG_DA9055_WATCHDOG=y
+CONFIG_DA9063_WATCHDOG=y
+CONFIG_GPIO_WATCHDOG=y
+CONFIG_MENF21BMC_WATCHDOG=y
+CONFIG_WM831X_WATCHDOG=y
+CONFIG_WM8350_WATCHDOG=y
+CONFIG_XILINX_WATCHDOG=y
+CONFIG_DW_WATCHDOG=y
+CONFIG_RN5T618_WATCHDOG=y
+CONFIG_TWL4030_WATCHDOG=y
+CONFIG_RETU_WATCHDOG=y
+CONFIG_TEGRA_WATCHDOG=y
+CONFIG_ALIM7101_WDT=y
+CONFIG_I6300ESB_WDT=y
+CONFIG_KEMPLD_WDT=y
+CONFIG_IMGPDC_WDT=y
+CONFIG_MEN_A21_WDT=y
+
+#
+# PCI-based Watchdog Cards
+#
+CONFIG_PCIPCWATCHDOG=y
+CONFIG_WDTPCI=y
+
+#
+# USB-based Watchdog Cards
+#
+CONFIG_USBPCWATCHDOG=y
+CONFIG_SSB_POSSIBLE=y
+
+#
+# Sonics Silicon Backplane
+#
+CONFIG_SSB=y
+CONFIG_SSB_SPROM=y
+CONFIG_SSB_BLOCKIO=y
+CONFIG_SSB_PCIHOST_POSSIBLE=y
+CONFIG_SSB_PCIHOST=y
+CONFIG_SSB_B43_PCI_BRIDGE=y
+CONFIG_SSB_SDIOHOST_POSSIBLE=y
+CONFIG_SSB_SDIOHOST=y
+CONFIG_SSB_SILENT=y
+CONFIG_SSB_DRIVER_PCICORE_POSSIBLE=y
+CONFIG_SSB_DRIVER_PCICORE=y
+CONFIG_SSB_DRIVER_GPIO=y
+CONFIG_BCMA_POSSIBLE=y
+
+#
+# Broadcom specific AMBA
+#
+CONFIG_BCMA=y
+CONFIG_BCMA_BLOCKIO=y
+CONFIG_BCMA_HOST_PCI_POSSIBLE=y
+CONFIG_BCMA_HOST_PCI=y
+CONFIG_BCMA_HOST_SOC=y
+CONFIG_BCMA_DRIVER_PCI=y
+CONFIG_BCMA_DRIVER_GMAC_CMN=y
+CONFIG_BCMA_DRIVER_GPIO=y
+CONFIG_BCMA_DEBUG=y
+
+#
+# Multifunction device drivers
+#
+CONFIG_MFD_CORE=y
+CONFIG_MFD_AS3711=y
+CONFIG_MFD_AS3722=y
+CONFIG_PMIC_ADP5520=y
+CONFIG_MFD_AAT2870_CORE=y
+CONFIG_MFD_ATMEL_HLCDC=y
+CONFIG_MFD_BCM590XX=y
+CONFIG_MFD_AXP20X=y
+CONFIG_MFD_CROS_EC=y
+CONFIG_MFD_CROS_EC_I2C=y
+CONFIG_MFD_CROS_EC_SPI=y
+CONFIG_PMIC_DA903X=y
+CONFIG_PMIC_DA9052=y
+CONFIG_MFD_DA9052_SPI=y
+CONFIG_MFD_DA9052_I2C=y
+CONFIG_MFD_DA9055=y
+CONFIG_MFD_DA9063=y
+CONFIG_MFD_DA9150=y
+CONFIG_MFD_DLN2=y
+CONFIG_MFD_MC13XXX=y
+CONFIG_MFD_MC13XXX_SPI=y
+CONFIG_MFD_MC13XXX_I2C=y
+CONFIG_MFD_HI6421_PMIC=y
+CONFIG_HTC_PASIC3=y
+CONFIG_HTC_I2CPLD=y
+CONFIG_LPC_ICH=y
+CONFIG_LPC_SCH=y
+CONFIG_INTEL_SOC_PMIC=y
+CONFIG_MFD_JANZ_CMODIO=y
+CONFIG_MFD_KEMPLD=y
+CONFIG_MFD_88PM800=y
+CONFIG_MFD_88PM805=y
+CONFIG_MFD_88PM860X=y
+CONFIG_MFD_MAX14577=y
+CONFIG_MFD_MAX77686=y
+CONFIG_MFD_MAX77693=y
+CONFIG_MFD_MAX8907=y
+CONFIG_MFD_MAX8925=y
+CONFIG_MFD_MAX8997=y
+CONFIG_MFD_MAX8998=y
+CONFIG_MFD_MENF21BMC=y
+CONFIG_EZX_PCAP=y
+CONFIG_MFD_VIPERBOARD=y
+CONFIG_MFD_RETU=y
+CONFIG_MFD_PCF50633=y
+CONFIG_PCF50633_ADC=y
+CONFIG_PCF50633_GPIO=y
+CONFIG_UCB1400_CORE=y
+CONFIG_MFD_SPMI_PMIC=y
+CONFIG_MFD_RDC321X=y
+CONFIG_MFD_RTSX_PCI=y
+CONFIG_MFD_RT5033=y
+CONFIG_MFD_RTSX_USB=y
+CONFIG_MFD_RC5T583=y
+CONFIG_MFD_RK808=y
+CONFIG_MFD_RN5T618=y
+CONFIG_MFD_SEC_CORE=y
+CONFIG_MFD_SI476X_CORE=y
+CONFIG_MFD_SM501=y
+CONFIG_MFD_SM501_GPIO=y
+CONFIG_MFD_SMSC=y
+CONFIG_ABX500_CORE=y
+CONFIG_AB3100_CORE=y
+CONFIG_AB3100_OTP=y
+CONFIG_MFD_STMPE=y
+
+#
+# STMicroelectronics STMPE Interface Drivers
+#
+CONFIG_STMPE_I2C=y
+CONFIG_STMPE_SPI=y
+CONFIG_MFD_SYSCON=y
+CONFIG_MFD_TI_AM335X_TSCADC=y
+CONFIG_MFD_LP3943=y
+CONFIG_MFD_LP8788=y
+CONFIG_MFD_PALMAS=y
+CONFIG_TPS6105X=y
+CONFIG_TPS65010=y
+CONFIG_TPS6507X=y
+CONFIG_MFD_TPS65090=y
+CONFIG_MFD_TPS65217=y
+CONFIG_MFD_TPS65218=y
+CONFIG_MFD_TPS6586X=y
+CONFIG_MFD_TPS65910=y
+CONFIG_MFD_TPS65912=y
+CONFIG_MFD_TPS65912_I2C=y
+CONFIG_MFD_TPS65912_SPI=y
+CONFIG_MFD_TPS80031=y
+CONFIG_TWL4030_CORE=y
+CONFIG_MFD_TWL4030_AUDIO=y
+CONFIG_TWL6040_CORE=y
+CONFIG_MFD_WL1273_CORE=y
+CONFIG_MFD_LM3533=y
+CONFIG_MFD_TIMBERDALE=y
+CONFIG_MFD_TC3589X=y
+# CONFIG_MFD_TMIO is not set
+CONFIG_MFD_VX855=y
+CONFIG_MFD_ARIZONA=y
+CONFIG_MFD_ARIZONA_I2C=y
+CONFIG_MFD_ARIZONA_SPI=y
+CONFIG_MFD_WM5102=y
+CONFIG_MFD_WM5110=y
+CONFIG_MFD_WM8997=y
+CONFIG_MFD_WM8400=y
+CONFIG_MFD_WM831X=y
+CONFIG_MFD_WM831X_I2C=y
+CONFIG_MFD_WM831X_SPI=y
+CONFIG_MFD_WM8350=y
+CONFIG_MFD_WM8350_I2C=y
+CONFIG_MFD_WM8994=y
+CONFIG_REGULATOR=y
+CONFIG_REGULATOR_DEBUG=y
+CONFIG_REGULATOR_FIXED_VOLTAGE=y
+CONFIG_REGULATOR_VIRTUAL_CONSUMER=y
+CONFIG_REGULATOR_USERSPACE_CONSUMER=y
+CONFIG_REGULATOR_88PM800=y
+CONFIG_REGULATOR_88PM8607=y
+CONFIG_REGULATOR_ACT8865=y
+CONFIG_REGULATOR_AD5398=y
+CONFIG_REGULATOR_ANATOP=y
+CONFIG_REGULATOR_AAT2870=y
+CONFIG_REGULATOR_AB3100=y
+CONFIG_REGULATOR_ARIZONA=y
+CONFIG_REGULATOR_AS3711=y
+CONFIG_REGULATOR_AS3722=y
+CONFIG_REGULATOR_AXP20X=y
+CONFIG_REGULATOR_BCM590XX=y
+CONFIG_REGULATOR_DA903X=y
+CONFIG_REGULATOR_DA9052=y
+CONFIG_REGULATOR_DA9055=y
+CONFIG_REGULATOR_DA9063=y
+CONFIG_REGULATOR_DA9210=y
+CONFIG_REGULATOR_DA9211=y
+CONFIG_REGULATOR_FAN53555=y
+CONFIG_REGULATOR_GPIO=y
+CONFIG_REGULATOR_HI6421=y
+CONFIG_REGULATOR_ISL9305=y
+CONFIG_REGULATOR_ISL6271A=y
+CONFIG_REGULATOR_LP3971=y
+CONFIG_REGULATOR_LP3972=y
+CONFIG_REGULATOR_LP872X=y
+CONFIG_REGULATOR_LP8755=y
+CONFIG_REGULATOR_LP8788=y
+CONFIG_REGULATOR_LTC3589=y
+CONFIG_REGULATOR_MAX14577=y
+CONFIG_REGULATOR_MAX1586=y
+CONFIG_REGULATOR_MAX8649=y
+CONFIG_REGULATOR_MAX8660=y
+CONFIG_REGULATOR_MAX8907=y
+CONFIG_REGULATOR_MAX8925=y
+CONFIG_REGULATOR_MAX8952=y
+CONFIG_REGULATOR_MAX8973=y
+CONFIG_REGULATOR_MAX8997=y
+CONFIG_REGULATOR_MAX8998=y
+CONFIG_REGULATOR_MAX77686=y
+CONFIG_REGULATOR_MAX77693=y
+CONFIG_REGULATOR_MAX77802=y
+CONFIG_REGULATOR_MC13XXX_CORE=y
+CONFIG_REGULATOR_MC13783=y
+CONFIG_REGULATOR_MC13892=y
+CONFIG_REGULATOR_PALMAS=y
+CONFIG_REGULATOR_PBIAS=y
+CONFIG_REGULATOR_PCAP=y
+CONFIG_REGULATOR_PCF50633=y
+CONFIG_REGULATOR_PFUZE100=y
+CONFIG_REGULATOR_PWM=y
+CONFIG_REGULATOR_RC5T583=y
+CONFIG_REGULATOR_RK808=y
+CONFIG_REGULATOR_RN5T618=y
+CONFIG_REGULATOR_RT5033=y
+CONFIG_REGULATOR_S2MPA01=y
+CONFIG_REGULATOR_S2MPS11=y
+CONFIG_REGULATOR_S5M8767=y
+CONFIG_REGULATOR_TPS51632=y
+CONFIG_REGULATOR_TPS6105X=y
+CONFIG_REGULATOR_TPS62360=y
+CONFIG_REGULATOR_TPS65023=y
+CONFIG_REGULATOR_TPS6507X=y
+CONFIG_REGULATOR_TPS65090=y
+CONFIG_REGULATOR_TPS65217=y
+CONFIG_REGULATOR_TPS65218=y
+CONFIG_REGULATOR_TPS6524X=y
+CONFIG_REGULATOR_TPS6586X=y
+CONFIG_REGULATOR_TPS65910=y
+CONFIG_REGULATOR_TPS65912=y
+CONFIG_REGULATOR_TPS80031=y
+CONFIG_REGULATOR_TWL4030=y
+CONFIG_REGULATOR_WM831X=y
+CONFIG_REGULATOR_WM8350=y
+CONFIG_REGULATOR_WM8400=y
+CONFIG_REGULATOR_WM8994=y
+CONFIG_MEDIA_SUPPORT=y
+
+#
+# Multimedia core support
+#
+CONFIG_MEDIA_CAMERA_SUPPORT=y
+CONFIG_MEDIA_ANALOG_TV_SUPPORT=y
+CONFIG_MEDIA_DIGITAL_TV_SUPPORT=y
+CONFIG_MEDIA_RADIO_SUPPORT=y
+CONFIG_MEDIA_SDR_SUPPORT=y
+CONFIG_MEDIA_RC_SUPPORT=y
+CONFIG_MEDIA_CONTROLLER=y
+CONFIG_VIDEO_DEV=y
+CONFIG_VIDEO_V4L2_SUBDEV_API=y
+CONFIG_VIDEO_V4L2=y
+CONFIG_VIDEO_ADV_DEBUG=y
+CONFIG_VIDEO_FIXED_MINOR_RANGES=y
+CONFIG_VIDEO_PCI_SKELETON=y
+CONFIG_VIDEO_TUNER=y
+CONFIG_V4L2_MEM2MEM_DEV=y
+CONFIG_VIDEOBUF_GEN=y
+CONFIG_VIDEOBUF_DMA_SG=y
+CONFIG_VIDEOBUF_VMALLOC=y
+CONFIG_VIDEOBUF_DMA_CONTIG=y
+CONFIG_VIDEOBUF_DVB=y
+CONFIG_VIDEOBUF2_CORE=y
+CONFIG_VIDEOBUF2_MEMOPS=y
+CONFIG_VIDEOBUF2_DMA_CONTIG=y
+CONFIG_VIDEOBUF2_VMALLOC=y
+CONFIG_VIDEOBUF2_DMA_SG=y
+CONFIG_VIDEOBUF2_DVB=y
+CONFIG_DVB_CORE=y
+CONFIG_DVB_NET=y
+CONFIG_TTPCI_EEPROM=y
+CONFIG_DVB_MAX_ADAPTERS=8
+CONFIG_DVB_DYNAMIC_MINORS=y
+
+#
+# Media drivers
+#
+CONFIG_RC_CORE=y
+CONFIG_RC_MAP=y
+CONFIG_RC_DECODERS=y
+CONFIG_LIRC=y
+CONFIG_IR_LIRC_CODEC=y
+CONFIG_IR_NEC_DECODER=y
+CONFIG_IR_RC5_DECODER=y
+CONFIG_IR_RC6_DECODER=y
+CONFIG_IR_JVC_DECODER=y
+CONFIG_IR_SONY_DECODER=y
+CONFIG_IR_SANYO_DECODER=y
+CONFIG_IR_SHARP_DECODER=y
+CONFIG_IR_MCE_KBD_DECODER=y
+CONFIG_IR_XMP_DECODER=y
+CONFIG_RC_DEVICES=y
+CONFIG_RC_ATI_REMOTE=y
+CONFIG_IR_HIX5HD2=y
+CONFIG_IR_IMON=y
+CONFIG_IR_MCEUSB=y
+CONFIG_IR_MESON=y
+CONFIG_IR_REDRAT3=y
+CONFIG_IR_STREAMZAP=y
+CONFIG_IR_IGORPLUGUSB=y
+CONFIG_IR_IGUANA=y
+CONFIG_IR_TTUSBIR=y
+CONFIG_IR_IMG=y
+CONFIG_IR_IMG_RAW=y
+CONFIG_IR_IMG_HW=y
+CONFIG_IR_IMG_NEC=y
+CONFIG_IR_IMG_JVC=y
+CONFIG_IR_IMG_SONY=y
+CONFIG_IR_IMG_SHARP=y
+CONFIG_IR_IMG_SANYO=y
+CONFIG_IR_IMG_RC5=y
+CONFIG_IR_IMG_RC6=y
+CONFIG_RC_LOOPBACK=y
+CONFIG_IR_GPIO_CIR=y
+CONFIG_RC_ST=y
+CONFIG_IR_SUNXI=y
+CONFIG_MEDIA_USB_SUPPORT=y
+
+#
+# Webcam devices
+#
+CONFIG_USB_VIDEO_CLASS=y
+CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=y
+CONFIG_USB_GSPCA=y
+CONFIG_USB_M5602=y
+CONFIG_USB_STV06XX=y
+CONFIG_USB_GL860=y
+CONFIG_USB_GSPCA_BENQ=y
+CONFIG_USB_GSPCA_CONEX=y
+CONFIG_USB_GSPCA_CPIA1=y
+CONFIG_USB_GSPCA_DTCS033=y
+CONFIG_USB_GSPCA_ETOMS=y
+CONFIG_USB_GSPCA_FINEPIX=y
+CONFIG_USB_GSPCA_JEILINJ=y
+CONFIG_USB_GSPCA_JL2005BCD=y
+CONFIG_USB_GSPCA_KINECT=y
+CONFIG_USB_GSPCA_KONICA=y
+CONFIG_USB_GSPCA_MARS=y
+CONFIG_USB_GSPCA_MR97310A=y
+CONFIG_USB_GSPCA_NW80X=y
+CONFIG_USB_GSPCA_OV519=y
+CONFIG_USB_GSPCA_OV534=y
+CONFIG_USB_GSPCA_OV534_9=y
+CONFIG_USB_GSPCA_PAC207=y
+CONFIG_USB_GSPCA_PAC7302=y
+CONFIG_USB_GSPCA_PAC7311=y
+CONFIG_USB_GSPCA_SE401=y
+CONFIG_USB_GSPCA_SN9C2028=y
+CONFIG_USB_GSPCA_SN9C20X=y
+CONFIG_USB_GSPCA_SONIXB=y
+CONFIG_USB_GSPCA_SONIXJ=y
+CONFIG_USB_GSPCA_SPCA500=y
+CONFIG_USB_GSPCA_SPCA501=y
+CONFIG_USB_GSPCA_SPCA505=y
+CONFIG_USB_GSPCA_SPCA506=y
+CONFIG_USB_GSPCA_SPCA508=y
+CONFIG_USB_GSPCA_SPCA561=y
+CONFIG_USB_GSPCA_SPCA1528=y
+CONFIG_USB_GSPCA_SQ905=y
+CONFIG_USB_GSPCA_SQ905C=y
+CONFIG_USB_GSPCA_SQ930X=y
+CONFIG_USB_GSPCA_STK014=y
+CONFIG_USB_GSPCA_STK1135=y
+CONFIG_USB_GSPCA_STV0680=y
+CONFIG_USB_GSPCA_SUNPLUS=y
+CONFIG_USB_GSPCA_T613=y
+CONFIG_USB_GSPCA_TOPRO=y
+CONFIG_USB_GSPCA_TOUPTEK=y
+CONFIG_USB_GSPCA_TV8532=y
+CONFIG_USB_GSPCA_VC032X=y
+CONFIG_USB_GSPCA_VICAM=y
+CONFIG_USB_GSPCA_XIRLINK_CIT=y
+CONFIG_USB_GSPCA_ZC3XX=y
+CONFIG_USB_PWC=y
+CONFIG_USB_PWC_DEBUG=y
+CONFIG_USB_PWC_INPUT_EVDEV=y
+CONFIG_VIDEO_CPIA2=y
+CONFIG_USB_ZR364XX=y
+CONFIG_USB_STKWEBCAM=y
+CONFIG_USB_S2255=y
+CONFIG_VIDEO_USBTV=y
+
+#
+# Analog TV USB devices
+#
+CONFIG_VIDEO_PVRUSB2=y
+CONFIG_VIDEO_PVRUSB2_SYSFS=y
+CONFIG_VIDEO_PVRUSB2_DVB=y
+CONFIG_VIDEO_PVRUSB2_DEBUGIFC=y
+CONFIG_VIDEO_HDPVR=y
+CONFIG_VIDEO_USBVISION=y
+CONFIG_VIDEO_STK1160_COMMON=y
+CONFIG_VIDEO_STK1160_AC97=y
+CONFIG_VIDEO_STK1160=y
+CONFIG_VIDEO_GO7007=y
+CONFIG_VIDEO_GO7007_USB=y
+CONFIG_VIDEO_GO7007_LOADER=y
+CONFIG_VIDEO_GO7007_USB_S2250_BOARD=y
+
+#
+# Analog/digital TV USB devices
+#
+CONFIG_VIDEO_AU0828=y
+CONFIG_VIDEO_AU0828_V4L2=y
+CONFIG_VIDEO_AU0828_RC=y
+CONFIG_VIDEO_CX231XX=y
+CONFIG_VIDEO_CX231XX_RC=y
+CONFIG_VIDEO_CX231XX_ALSA=y
+CONFIG_VIDEO_CX231XX_DVB=y
+CONFIG_VIDEO_TM6000=y
+CONFIG_VIDEO_TM6000_ALSA=y
+CONFIG_VIDEO_TM6000_DVB=y
+
+#
+# Digital TV USB devices
+#
+CONFIG_DVB_USB=y
+CONFIG_DVB_USB_DEBUG=y
+CONFIG_DVB_USB_A800=y
+CONFIG_DVB_USB_DIBUSB_MB=y
+CONFIG_DVB_USB_DIBUSB_MB_FAULTY=y
+CONFIG_DVB_USB_DIBUSB_MC=y
+CONFIG_DVB_USB_DIB0700=y
+CONFIG_DVB_USB_UMT_010=y
+CONFIG_DVB_USB_CXUSB=y
+CONFIG_DVB_USB_M920X=y
+CONFIG_DVB_USB_DIGITV=y
+CONFIG_DVB_USB_VP7045=y
+CONFIG_DVB_USB_VP702X=y
+CONFIG_DVB_USB_GP8PSK=y
+CONFIG_DVB_USB_NOVA_T_USB2=y
+CONFIG_DVB_USB_TTUSB2=y
+CONFIG_DVB_USB_DTT200U=y
+CONFIG_DVB_USB_OPERA1=y
+CONFIG_DVB_USB_AF9005=y
+CONFIG_DVB_USB_AF9005_REMOTE=y
+CONFIG_DVB_USB_PCTV452E=y
+CONFIG_DVB_USB_DW2102=y
+CONFIG_DVB_USB_CINERGY_T2=y
+CONFIG_DVB_USB_DTV5100=y
+CONFIG_DVB_USB_FRIIO=y
+CONFIG_DVB_USB_AZ6027=y
+CONFIG_DVB_USB_TECHNISAT_USB2=y
+CONFIG_DVB_USB_V2=y
+CONFIG_DVB_USB_AF9015=y
+CONFIG_DVB_USB_AF9035=y
+CONFIG_DVB_USB_ANYSEE=y
+CONFIG_DVB_USB_AU6610=y
+CONFIG_DVB_USB_AZ6007=y
+CONFIG_DVB_USB_CE6230=y
+CONFIG_DVB_USB_EC168=y
+CONFIG_DVB_USB_GL861=y
+CONFIG_DVB_USB_LME2510=y
+CONFIG_DVB_USB_MXL111SF=y
+CONFIG_DVB_USB_RTL28XXU=y
+CONFIG_DVB_USB_DVBSKY=y
+CONFIG_DVB_TTUSB_BUDGET=y
+CONFIG_DVB_TTUSB_DEC=y
+CONFIG_SMS_USB_DRV=y
+CONFIG_DVB_B2C2_FLEXCOP_USB=y
+CONFIG_DVB_B2C2_FLEXCOP_USB_DEBUG=y
+CONFIG_DVB_AS102=y
+
+#
+# Webcam, TV (analog/digital) USB devices
+#
+CONFIG_VIDEO_EM28XX=y
+CONFIG_VIDEO_EM28XX_V4L2=y
+CONFIG_VIDEO_EM28XX_ALSA=y
+CONFIG_VIDEO_EM28XX_DVB=y
+CONFIG_VIDEO_EM28XX_RC=y
+
+#
+# Software defined radio USB devices
+#
+CONFIG_USB_AIRSPY=y
+CONFIG_USB_HACKRF=y
+CONFIG_USB_MSI2500=y
+CONFIG_MEDIA_PCI_SUPPORT=y
+
+#
+# Media capture support
+#
+
+#
+# Media capture/analog TV support
+#
+CONFIG_VIDEO_IVTV=y
+CONFIG_VIDEO_IVTV_ALSA=y
+CONFIG_VIDEO_FB_IVTV=y
+CONFIG_VIDEO_ZORAN=y
+CONFIG_VIDEO_ZORAN_DC30=y
+CONFIG_VIDEO_ZORAN_ZR36060=y
+CONFIG_VIDEO_ZORAN_BUZ=y
+CONFIG_VIDEO_ZORAN_DC10=y
+CONFIG_VIDEO_ZORAN_LML33=y
+CONFIG_VIDEO_ZORAN_LML33R10=y
+CONFIG_VIDEO_ZORAN_AVS6EYES=y
+CONFIG_VIDEO_HEXIUM_GEMINI=y
+CONFIG_VIDEO_HEXIUM_ORION=y
+CONFIG_VIDEO_MXB=y
+CONFIG_VIDEO_SOLO6X10=y
+CONFIG_VIDEO_TW68=y
+
+#
+# Media capture/analog/hybrid TV support
+#
+CONFIG_VIDEO_CX18=y
+CONFIG_VIDEO_CX18_ALSA=y
+CONFIG_VIDEO_CX23885=y
+CONFIG_MEDIA_ALTERA_CI=y
+CONFIG_VIDEO_CX25821=y
+CONFIG_VIDEO_CX25821_ALSA=y
+CONFIG_VIDEO_CX88=y
+CONFIG_VIDEO_CX88_ALSA=y
+CONFIG_VIDEO_CX88_BLACKBIRD=y
+CONFIG_VIDEO_CX88_DVB=y
+CONFIG_VIDEO_CX88_ENABLE_VP3054=y
+CONFIG_VIDEO_CX88_VP3054=y
+CONFIG_VIDEO_CX88_MPEG=y
+CONFIG_VIDEO_BT848=y
+CONFIG_DVB_BT8XX=y
+CONFIG_VIDEO_SAA7134=y
+CONFIG_VIDEO_SAA7134_ALSA=y
+CONFIG_VIDEO_SAA7134_RC=y
+CONFIG_VIDEO_SAA7134_DVB=y
+CONFIG_VIDEO_SAA7134_GO7007=y
+CONFIG_VIDEO_SAA7164=y
+
+#
+# Media digital TV PCI Adapters
+#
+CONFIG_DVB_AV7110_IR=y
+CONFIG_DVB_AV7110=y
+CONFIG_DVB_AV7110_OSD=y
+CONFIG_DVB_BUDGET_CORE=y
+CONFIG_DVB_BUDGET=y
+CONFIG_DVB_BUDGET_CI=y
+CONFIG_DVB_BUDGET_AV=y
+CONFIG_DVB_BUDGET_PATCH=y
+CONFIG_DVB_B2C2_FLEXCOP_PCI=y
+CONFIG_DVB_B2C2_FLEXCOP_PCI_DEBUG=y
+CONFIG_DVB_PLUTO2=y
+CONFIG_DVB_DM1105=y
+CONFIG_DVB_PT1=y
+CONFIG_DVB_PT3=y
+CONFIG_MANTIS_CORE=y
+CONFIG_DVB_MANTIS=y
+CONFIG_DVB_HOPPER=y
+CONFIG_DVB_NGENE=y
+CONFIG_DVB_DDBRIDGE=y
+CONFIG_DVB_SMIPCIE=y
+CONFIG_V4L_PLATFORM_DRIVERS=y
+CONFIG_VIDEO_CAFE_CCIC=y
+CONFIG_VIDEO_DAVINCI_VPIF_DISPLAY=y
+CONFIG_VIDEO_DAVINCI_VPIF_CAPTURE=y
+CONFIG_VIDEO_DM6446_CCDC=y
+CONFIG_VIDEO_DM355_CCDC=y
+CONFIG_VIDEO_SH_VOU=y
+CONFIG_VIDEO_TIMBERDALE=y
+CONFIG_VIDEO_M32R_AR=y
+CONFIG_SOC_CAMERA=y
+CONFIG_SOC_CAMERA_SCALE_CROP=y
+CONFIG_SOC_CAMERA_PLATFORM=y
+CONFIG_VIDEO_RCAR_VIN=y
+CONFIG_VIDEO_SH_MOBILE_CSI2=y
+CONFIG_VIDEO_SH_MOBILE_CEU=y
+CONFIG_VIDEO_MX2=y
+CONFIG_VIDEO_ATMEL_ISI=y
+CONFIG_VIDEO_SAMSUNG_EXYNOS4_IS=y
+CONFIG_VIDEO_EXYNOS4_IS_COMMON=y
+CONFIG_VIDEO_S5P_FIMC=y
+CONFIG_VIDEO_S5P_MIPI_CSIS=y
+CONFIG_VIDEO_EXYNOS4_FIMC_IS=y
+CONFIG_VIDEO_EXYNOS4_ISP_DMA_CAPTURE=y
+CONFIG_VIDEO_AM437X_VPFE=y
+CONFIG_V4L_MEM2MEM_DRIVERS=y
+CONFIG_VIDEO_MEM2MEM_DEINTERLACE=y
+CONFIG_VIDEO_SAMSUNG_S5P_G2D=y
+CONFIG_VIDEO_SAMSUNG_S5P_JPEG=y
+CONFIG_VIDEO_SAMSUNG_S5P_MFC=y
+CONFIG_VIDEO_MX2_EMMAPRP=y
+CONFIG_VIDEO_SAMSUNG_EXYNOS_GSC=y
+CONFIG_VIDEO_SH_VEU=y
+CONFIG_VIDEO_RENESAS_VSP1=y
+CONFIG_VIDEO_TI_VPE=y
+CONFIG_VIDEO_TI_VPE_DEBUG=y
+CONFIG_V4L_TEST_DRIVERS=y
+CONFIG_VIDEO_VIVID=y
+CONFIG_VIDEO_VIM2M=y
+
+#
+# Supported MMC/SDIO adapters
+#
+CONFIG_SMS_SDIO_DRV=y
+CONFIG_RADIO_ADAPTERS=y
+CONFIG_RADIO_TEA575X=y
+CONFIG_RADIO_SI470X=y
+CONFIG_USB_SI470X=y
+CONFIG_RADIO_SI4713=y
+CONFIG_USB_SI4713=y
+CONFIG_PLATFORM_SI4713=y
+CONFIG_I2C_SI4713=y
+CONFIG_RADIO_SI476X=y
+CONFIG_USB_MR800=y
+CONFIG_USB_DSBR=y
+CONFIG_RADIO_MAXIRADIO=y
+CONFIG_RADIO_SHARK=y
+CONFIG_RADIO_SHARK2=y
+CONFIG_USB_KEENE=y
+CONFIG_USB_RAREMONO=y
+CONFIG_USB_MA901=y
+CONFIG_RADIO_TEA5764=y
+CONFIG_RADIO_TEA5764_XTAL=y
+CONFIG_RADIO_SAA7706H=y
+CONFIG_RADIO_TEF6862=y
+CONFIG_RADIO_TIMBERDALE=y
+CONFIG_RADIO_WL1273=y
+
+#
+# Texas Instruments WL128x FM driver (ST based)
+#
+CONFIG_RADIO_WL128X=y
+
+#
+# Supported FireWire (IEEE 1394) Adapters
+#
+CONFIG_DVB_FIREDTV=y
+CONFIG_DVB_FIREDTV_INPUT=y
+CONFIG_MEDIA_COMMON_OPTIONS=y
+
+#
+# common driver options
+#
+CONFIG_VIDEO_CX2341X=y
+CONFIG_VIDEO_TVEEPROM=y
+CONFIG_CYPRESS_FIRMWARE=y
+CONFIG_DVB_B2C2_FLEXCOP=y
+CONFIG_DVB_B2C2_FLEXCOP_DEBUG=y
+CONFIG_VIDEO_SAA7146=y
+CONFIG_VIDEO_SAA7146_VV=y
+CONFIG_SMS_SIANO_MDTV=y
+CONFIG_SMS_SIANO_RC=y
+CONFIG_SMS_SIANO_DEBUGFS=y
+
+#
+# Media ancillary drivers (tuners, sensors, i2c, frontends)
+#
+CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
+CONFIG_MEDIA_ATTACH=y
+CONFIG_VIDEO_IR_I2C=y
+
+#
+# Audio decoders, processors and mixers
+#
+CONFIG_VIDEO_TVAUDIO=y
+CONFIG_VIDEO_TDA7432=y
+CONFIG_VIDEO_TDA9840=y
+CONFIG_VIDEO_TEA6415C=y
+CONFIG_VIDEO_TEA6420=y
+CONFIG_VIDEO_MSP3400=y
+CONFIG_VIDEO_CS5345=y
+CONFIG_VIDEO_CS53L32A=y
+CONFIG_VIDEO_UDA1342=y
+CONFIG_VIDEO_WM8775=y
+CONFIG_VIDEO_WM8739=y
+CONFIG_VIDEO_VP27SMPX=y
+CONFIG_VIDEO_SONY_BTF_MPX=y
+
+#
+# RDS decoders
+#
+CONFIG_VIDEO_SAA6588=y
+
+#
+# Video decoders
+#
+CONFIG_VIDEO_ADV7180=y
+CONFIG_VIDEO_BT819=y
+CONFIG_VIDEO_BT856=y
+CONFIG_VIDEO_BT866=y
+CONFIG_VIDEO_KS0127=y
+CONFIG_VIDEO_SAA7110=y
+CONFIG_VIDEO_SAA711X=y
+CONFIG_VIDEO_TVP5150=y
+CONFIG_VIDEO_TW2804=y
+CONFIG_VIDEO_TW9903=y
+CONFIG_VIDEO_TW9906=y
+CONFIG_VIDEO_VPX3220=y
+
+#
+# Video and audio decoders
+#
+CONFIG_VIDEO_SAA717X=y
+CONFIG_VIDEO_CX25840=y
+
+#
+# Video encoders
+#
+CONFIG_VIDEO_SAA7127=y
+CONFIG_VIDEO_SAA7185=y
+CONFIG_VIDEO_ADV7170=y
+CONFIG_VIDEO_ADV7175=y
+CONFIG_VIDEO_ADV7343=y
+
+#
+# Camera sensor devices
+#
+CONFIG_VIDEO_OV7640=y
+CONFIG_VIDEO_OV7670=y
+CONFIG_VIDEO_MT9V011=y
+
+#
+# Flash devices
+#
+
+#
+# Video improvement chips
+#
+CONFIG_VIDEO_UPD64031A=y
+CONFIG_VIDEO_UPD64083=y
+
+#
+# Audio/Video compression chips
+#
+CONFIG_VIDEO_SAA6752HS=y
+
+#
+# Miscellaneous helper chips
+#
+CONFIG_VIDEO_THS7303=y
+CONFIG_VIDEO_M52790=y
+
+#
+# Sensors used on soc_camera driver
+#
+
+#
+# soc_camera sensor drivers
+#
+CONFIG_SOC_CAMERA_IMX074=y
+CONFIG_SOC_CAMERA_MT9M001=y
+CONFIG_SOC_CAMERA_MT9M111=y
+CONFIG_SOC_CAMERA_MT9T031=y
+CONFIG_SOC_CAMERA_MT9T112=y
+CONFIG_SOC_CAMERA_MT9V022=y
+CONFIG_SOC_CAMERA_OV2640=y
+CONFIG_SOC_CAMERA_OV5642=y
+CONFIG_SOC_CAMERA_OV6650=y
+CONFIG_SOC_CAMERA_OV772X=y
+CONFIG_SOC_CAMERA_OV9640=y
+CONFIG_SOC_CAMERA_OV9740=y
+CONFIG_SOC_CAMERA_RJ54N1=y
+CONFIG_SOC_CAMERA_TW9910=y
+CONFIG_MEDIA_TUNER=y
+CONFIG_MEDIA_TUNER_SIMPLE=y
+CONFIG_MEDIA_TUNER_TDA8290=y
+CONFIG_MEDIA_TUNER_TDA827X=y
+CONFIG_MEDIA_TUNER_TDA18271=y
+CONFIG_MEDIA_TUNER_TDA9887=y
+CONFIG_MEDIA_TUNER_TEA5761=y
+CONFIG_MEDIA_TUNER_TEA5767=y
+CONFIG_MEDIA_TUNER_MSI001=y
+CONFIG_MEDIA_TUNER_MT20XX=y
+CONFIG_MEDIA_TUNER_MT2060=y
+CONFIG_MEDIA_TUNER_MT2063=y
+CONFIG_MEDIA_TUNER_MT2266=y
+CONFIG_MEDIA_TUNER_MT2131=y
+CONFIG_MEDIA_TUNER_QT1010=y
+CONFIG_MEDIA_TUNER_XC2028=y
+CONFIG_MEDIA_TUNER_XC5000=y
+CONFIG_MEDIA_TUNER_XC4000=y
+CONFIG_MEDIA_TUNER_MXL5005S=y
+CONFIG_MEDIA_TUNER_MXL5007T=y
+CONFIG_MEDIA_TUNER_MC44S803=y
+CONFIG_MEDIA_TUNER_MAX2165=y
+CONFIG_MEDIA_TUNER_TDA18218=y
+CONFIG_MEDIA_TUNER_FC0011=y
+CONFIG_MEDIA_TUNER_FC0012=y
+CONFIG_MEDIA_TUNER_FC0013=y
+CONFIG_MEDIA_TUNER_TDA18212=y
+CONFIG_MEDIA_TUNER_E4000=y
+CONFIG_MEDIA_TUNER_FC2580=y
+CONFIG_MEDIA_TUNER_M88TS2022=y
+CONFIG_MEDIA_TUNER_M88RS6000T=y
+CONFIG_MEDIA_TUNER_TUA9001=y
+CONFIG_MEDIA_TUNER_SI2157=y
+CONFIG_MEDIA_TUNER_IT913X=y
+CONFIG_MEDIA_TUNER_R820T=y
+CONFIG_MEDIA_TUNER_MXL301RF=y
+CONFIG_MEDIA_TUNER_QM1D1C0042=y
+
+#
+# Multistandard (satellite) frontends
+#
+CONFIG_DVB_STB0899=y
+CONFIG_DVB_STB6100=y
+CONFIG_DVB_STV090x=y
+CONFIG_DVB_STV6110x=y
+CONFIG_DVB_M88DS3103=y
+
+#
+# Multistandard (cable + terrestrial) frontends
+#
+CONFIG_DVB_DRXK=y
+CONFIG_DVB_TDA18271C2DD=y
+CONFIG_DVB_SI2165=y
+
+#
+# DVB-S (satellite) frontends
+#
+CONFIG_DVB_CX24110=y
+CONFIG_DVB_CX24123=y
+CONFIG_DVB_MT312=y
+CONFIG_DVB_ZL10036=y
+CONFIG_DVB_ZL10039=y
+CONFIG_DVB_S5H1420=y
+CONFIG_DVB_STV0288=y
+CONFIG_DVB_STB6000=y
+CONFIG_DVB_STV0299=y
+CONFIG_DVB_STV6110=y
+CONFIG_DVB_STV0900=y
+CONFIG_DVB_TDA8083=y
+CONFIG_DVB_TDA10086=y
+CONFIG_DVB_TDA8261=y
+CONFIG_DVB_VES1X93=y
+CONFIG_DVB_TUNER_ITD1000=y
+CONFIG_DVB_TUNER_CX24113=y
+CONFIG_DVB_TDA826X=y
+CONFIG_DVB_TUA6100=y
+CONFIG_DVB_CX24116=y
+CONFIG_DVB_CX24117=y
+CONFIG_DVB_SI21XX=y
+CONFIG_DVB_TS2020=y
+CONFIG_DVB_DS3000=y
+CONFIG_DVB_MB86A16=y
+CONFIG_DVB_TDA10071=y
+
+#
+# DVB-T (terrestrial) frontends
+#
+CONFIG_DVB_SP8870=y
+CONFIG_DVB_SP887X=y
+CONFIG_DVB_CX22700=y
+CONFIG_DVB_CX22702=y
+CONFIG_DVB_DRXD=y
+CONFIG_DVB_L64781=y
+CONFIG_DVB_TDA1004X=y
+CONFIG_DVB_NXT6000=y
+CONFIG_DVB_MT352=y
+CONFIG_DVB_ZL10353=y
+CONFIG_DVB_DIB3000MB=y
+CONFIG_DVB_DIB3000MC=y
+CONFIG_DVB_DIB7000M=y
+CONFIG_DVB_DIB7000P=y
+CONFIG_DVB_TDA10048=y
+CONFIG_DVB_AF9013=y
+CONFIG_DVB_EC100=y
+CONFIG_DVB_STV0367=y
+CONFIG_DVB_CXD2820R=y
+CONFIG_DVB_RTL2830=y
+CONFIG_DVB_RTL2832=y
+CONFIG_DVB_RTL2832_SDR=y
+CONFIG_DVB_SI2168=y
+CONFIG_DVB_AS102_FE=y
+
+#
+# DVB-C (cable) frontends
+#
+CONFIG_DVB_VES1820=y
+CONFIG_DVB_TDA10021=y
+CONFIG_DVB_TDA10023=y
+CONFIG_DVB_STV0297=y
+
+#
+# ATSC (North American/Korean Terrestrial/Cable DTV) frontends
+#
+CONFIG_DVB_NXT200X=y
+CONFIG_DVB_OR51211=y
+CONFIG_DVB_OR51132=y
+CONFIG_DVB_BCM3510=y
+CONFIG_DVB_LGDT330X=y
+CONFIG_DVB_LGDT3305=y
+CONFIG_DVB_LG2160=y
+CONFIG_DVB_S5H1409=y
+CONFIG_DVB_AU8522=y
+CONFIG_DVB_AU8522_DTV=y
+CONFIG_DVB_AU8522_V4L=y
+CONFIG_DVB_S5H1411=y
+
+#
+# ISDB-T (terrestrial) frontends
+#
+CONFIG_DVB_S921=y
+CONFIG_DVB_DIB8000=y
+CONFIG_DVB_MB86A20S=y
+
+#
+# ISDB-S (satellite) & ISDB-T (terrestrial) frontends
+#
+CONFIG_DVB_TC90522=y
+
+#
+# Digital terrestrial only tuners/PLL
+#
+CONFIG_DVB_PLL=y
+CONFIG_DVB_TUNER_DIB0070=y
+CONFIG_DVB_TUNER_DIB0090=y
+
+#
+# SEC control devices for DVB-S
+#
+CONFIG_DVB_DRX39XYJ=y
+CONFIG_DVB_LNBP21=y
+CONFIG_DVB_LNBP22=y
+CONFIG_DVB_ISL6405=y
+CONFIG_DVB_ISL6421=y
+CONFIG_DVB_ISL6423=y
+CONFIG_DVB_A8293=y
+CONFIG_DVB_SP2=y
+CONFIG_DVB_LGS8GXX=y
+CONFIG_DVB_ATBM8830=y
+CONFIG_DVB_TDA665x=y
+CONFIG_DVB_IX2505V=y
+CONFIG_DVB_M88RS2000=y
+CONFIG_DVB_AF9033=y
+
+#
+# Tools to develop new frontends
+#
+# CONFIG_DVB_DUMMY_FE is not set
+
+#
+# Graphics support
+#
+CONFIG_VGA_ARB=y
+CONFIG_VGA_ARB_MAX_GPUS=16
+
+#
+# Direct Rendering Manager
+#
+CONFIG_DRM=y
+CONFIG_DRM_MIPI_DSI=y
+CONFIG_DRM_KMS_HELPER=y
+CONFIG_DRM_KMS_FB_HELPER=y
+CONFIG_DRM_LOAD_EDID_FIRMWARE=y
+CONFIG_DRM_TTM=y
+
+#
+# I2C encoder or helper chips
+#
+CONFIG_DRM_I2C_ADV7511=y
+CONFIG_DRM_I2C_CH7006=y
+CONFIG_DRM_I2C_SIL164=y
+CONFIG_DRM_I2C_NXP_TDA998X=y
+CONFIG_DRM_PTN3460=y
+CONFIG_DRM_TDFX=y
+CONFIG_DRM_R128=y
+CONFIG_DRM_RADEON=y
+CONFIG_DRM_RADEON_UMS=y
+CONFIG_DRM_NOUVEAU=y
+CONFIG_NOUVEAU_DEBUG=5
+CONFIG_NOUVEAU_DEBUG_DEFAULT=3
+CONFIG_DRM_NOUVEAU_BACKLIGHT=y
+CONFIG_DRM_MGA=y
+CONFIG_DRM_VIA=y
+CONFIG_DRM_SAVAGE=y
+CONFIG_DRM_VMWGFX=y
+CONFIG_DRM_VMWGFX_FBCON=y
+CONFIG_DRM_UDL=y
+CONFIG_DRM_AST=y
+CONFIG_DRM_MGAG200=y
+CONFIG_DRM_CIRRUS_QEMU=y
+CONFIG_DRM_QXL=y
+CONFIG_DRM_BOCHS=y
+CONFIG_DRM_PANEL=y
+
+#
+# Display Panels
+#
+CONFIG_DRM_PANEL_SIMPLE=y
+CONFIG_DRM_PANEL_LD9040=y
+CONFIG_DRM_PANEL_S6E8AA0=y
+CONFIG_DRM_PANEL_SHARP_LQ101R1SX01=y
+
+#
+# Frame buffer Devices
+#
+CONFIG_FB=y
+CONFIG_FIRMWARE_EDID=y
+CONFIG_FB_CMDLINE=y
+CONFIG_FB_DDC=y
+CONFIG_FB_BOOT_VESA_SUPPORT=y
+CONFIG_FB_CFB_FILLRECT=y
+CONFIG_FB_CFB_COPYAREA=y
+CONFIG_FB_CFB_IMAGEBLIT=y
+# CONFIG_FB_CFB_REV_PIXELS_IN_BYTE is not set
+CONFIG_FB_SYS_FILLRECT=y
+CONFIG_FB_SYS_COPYAREA=y
+CONFIG_FB_SYS_IMAGEBLIT=y
+CONFIG_FB_FOREIGN_ENDIAN=y
+CONFIG_FB_BOTH_ENDIAN=y
+# CONFIG_FB_BIG_ENDIAN is not set
+# CONFIG_FB_LITTLE_ENDIAN is not set
+CONFIG_FB_SYS_FOPS=y
+CONFIG_FB_DEFERRED_IO=y
+CONFIG_FB_SVGALIB=y
+# CONFIG_FB_MACMODES is not set
+CONFIG_FB_BACKLIGHT=y
+CONFIG_FB_MODE_HELPERS=y
+CONFIG_FB_TILEBLITTING=y
+
+#
+# Frame buffer hardware drivers
+#
+CONFIG_FB_CIRRUS=y
+CONFIG_FB_PM2=y
+CONFIG_FB_PM2_FIFO_DISCONNECT=y
+CONFIG_FB_CLPS711X=y
+CONFIG_FB_CYBER2000=y
+CONFIG_FB_CYBER2000_DDC=y
+CONFIG_FB_ASILIANT=y
+CONFIG_FB_IMSTT=y
+CONFIG_FB_UVESA=y
+CONFIG_FB_OPENCORES=y
+CONFIG_FB_S1D13XXX=y
+CONFIG_FB_NVIDIA=y
+CONFIG_FB_NVIDIA_I2C=y
+CONFIG_FB_NVIDIA_DEBUG=y
+CONFIG_FB_NVIDIA_BACKLIGHT=y
+CONFIG_FB_RIVA=y
+CONFIG_FB_RIVA_I2C=y
+CONFIG_FB_RIVA_DEBUG=y
+CONFIG_FB_RIVA_BACKLIGHT=y
+CONFIG_FB_I740=y
+CONFIG_FB_MATROX=y
+CONFIG_FB_MATROX_MILLENIUM=y
+CONFIG_FB_MATROX_MYSTIQUE=y
+CONFIG_FB_MATROX_G=y
+CONFIG_FB_MATROX_I2C=y
+CONFIG_FB_MATROX_MAVEN=y
+CONFIG_FB_RADEON=y
+CONFIG_FB_RADEON_I2C=y
+CONFIG_FB_RADEON_BACKLIGHT=y
+CONFIG_FB_RADEON_DEBUG=y
+CONFIG_FB_ATY128=y
+CONFIG_FB_ATY128_BACKLIGHT=y
+CONFIG_FB_ATY=y
+CONFIG_FB_ATY_CT=y
+CONFIG_FB_ATY_GENERIC_LCD=y
+CONFIG_FB_ATY_GX=y
+CONFIG_FB_ATY_BACKLIGHT=y
+CONFIG_FB_S3=y
+CONFIG_FB_S3_DDC=y
+CONFIG_FB_SAVAGE=y
+CONFIG_FB_SAVAGE_I2C=y
+CONFIG_FB_SAVAGE_ACCEL=y
+CONFIG_FB_SIS=y
+CONFIG_FB_SIS_300=y
+CONFIG_FB_SIS_315=y
+CONFIG_FB_NEOMAGIC=y
+CONFIG_FB_KYRO=y
+CONFIG_FB_3DFX=y
+CONFIG_FB_3DFX_ACCEL=y
+CONFIG_FB_3DFX_I2C=y
+CONFIG_FB_VOODOO1=y
+CONFIG_FB_VT8623=y
+CONFIG_FB_TRIDENT=y
+CONFIG_FB_ARK=y
+CONFIG_FB_PM3=y
+CONFIG_FB_CARMINE=y
+CONFIG_FB_CARMINE_DRAM_EVAL=y
+# CONFIG_CARMINE_DRAM_CUSTOM is not set
+CONFIG_FB_TMIO=y
+CONFIG_FB_TMIO_ACCELL=y
+CONFIG_FB_SM501=y
+CONFIG_FB_SMSCUFX=y
+CONFIG_FB_UDL=y
+CONFIG_FB_XILINX=y
+CONFIG_FB_GOLDFISH=y
+CONFIG_FB_VIRTUAL=y
+CONFIG_FB_METRONOME=y
+CONFIG_FB_MB862XX=y
+CONFIG_FB_MB862XX_PCI_GDC=y
+CONFIG_FB_MB862XX_I2C=y
+CONFIG_FB_BROADSHEET=y
+CONFIG_FB_AUO_K190X=y
+CONFIG_FB_AUO_K1900=y
+CONFIG_FB_AUO_K1901=y
+CONFIG_FB_SIMPLE=y
+CONFIG_FB_SSD1307=y
+CONFIG_BACKLIGHT_LCD_SUPPORT=y
+CONFIG_LCD_CLASS_DEVICE=y
+CONFIG_LCD_L4F00242T03=y
+CONFIG_LCD_LMS283GF05=y
+CONFIG_LCD_LTV350QV=y
+CONFIG_LCD_ILI922X=y
+CONFIG_LCD_ILI9320=y
+CONFIG_LCD_TDO24M=y
+CONFIG_LCD_VGG2432A4=y
+CONFIG_LCD_PLATFORM=y
+CONFIG_LCD_S6E63M0=y
+CONFIG_LCD_LD9040=y
+CONFIG_LCD_AMS369FG06=y
+CONFIG_LCD_LMS501KF03=y
+CONFIG_LCD_HX8357=y
+CONFIG_BACKLIGHT_CLASS_DEVICE=y
+CONFIG_BACKLIGHT_GENERIC=y
+CONFIG_BACKLIGHT_LM3533=y
+CONFIG_BACKLIGHT_PWM=y
+CONFIG_BACKLIGHT_DA903X=y
+CONFIG_BACKLIGHT_DA9052=y
+CONFIG_BACKLIGHT_MAX8925=y
+CONFIG_BACKLIGHT_WM831X=y
+CONFIG_BACKLIGHT_ADP5520=y
+CONFIG_BACKLIGHT_ADP8860=y
+CONFIG_BACKLIGHT_ADP8870=y
+CONFIG_BACKLIGHT_88PM860X=y
+CONFIG_BACKLIGHT_PCF50633=y
+CONFIG_BACKLIGHT_AAT2870=y
+CONFIG_BACKLIGHT_LM3630A=y
+CONFIG_BACKLIGHT_LM3639=y
+CONFIG_BACKLIGHT_LP855X=y
+CONFIG_BACKLIGHT_LP8788=y
+CONFIG_BACKLIGHT_PANDORA=y
+CONFIG_BACKLIGHT_TPS65217=y
+CONFIG_BACKLIGHT_AS3711=y
+CONFIG_BACKLIGHT_GPIO=y
+CONFIG_BACKLIGHT_LV5207LP=y
+CONFIG_BACKLIGHT_BD6107=y
+CONFIG_VGASTATE=y
+CONFIG_VIDEOMODE_HELPERS=y
+CONFIG_HDMI=y
+
+#
+# Console display driver support
+#
+CONFIG_VGA_CONSOLE=y
+CONFIG_VGACON_SOFT_SCROLLBACK=y
+CONFIG_VGACON_SOFT_SCROLLBACK_SIZE=64
+CONFIG_DUMMY_CONSOLE=y
+CONFIG_DUMMY_CONSOLE_COLUMNS=80
+CONFIG_DUMMY_CONSOLE_ROWS=25
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
+CONFIG_FRAMEBUFFER_CONSOLE_ROTATION=y
+CONFIG_LOGO=y
+CONFIG_LOGO_LINUX_MONO=y
+CONFIG_LOGO_LINUX_VGA16=y
+CONFIG_LOGO_LINUX_CLUT224=y
+CONFIG_SOUND=y
+CONFIG_SOUND_OSS_CORE=y
+CONFIG_SOUND_OSS_CORE_PRECLAIM=y
+CONFIG_SND=y
+CONFIG_SND_TIMER=y
+CONFIG_SND_PCM=y
+CONFIG_SND_DMAENGINE_PCM=y
+CONFIG_SND_HWDEP=y
+CONFIG_SND_RAWMIDI=y
+CONFIG_SND_COMPRESS_OFFLOAD=y
+CONFIG_SND_JACK=y
+CONFIG_SND_SEQUENCER=y
+CONFIG_SND_SEQ_DUMMY=y
+CONFIG_SND_OSSEMUL=y
+CONFIG_SND_MIXER_OSS=y
+CONFIG_SND_PCM_OSS=y
+CONFIG_SND_PCM_OSS_PLUGINS=y
+CONFIG_SND_SEQUENCER_OSS=y
+CONFIG_SND_HRTIMER=y
+CONFIG_SND_SEQ_HRTIMER_DEFAULT=y
+CONFIG_SND_DYNAMIC_MINORS=y
+CONFIG_SND_MAX_CARDS=32
+CONFIG_SND_SUPPORT_OLD_API=y
+CONFIG_SND_VERBOSE_PROCFS=y
+CONFIG_SND_VERBOSE_PRINTK=y
+CONFIG_SND_DEBUG=y
+CONFIG_SND_DEBUG_VERBOSE=y
+CONFIG_SND_PCM_XRUN_DEBUG=y
+CONFIG_SND_VMASTER=y
+CONFIG_SND_KCTL_JACK=y
+CONFIG_SND_RAWMIDI_SEQ=y
+CONFIG_SND_OPL3_LIB_SEQ=y
+# CONFIG_SND_OPL4_LIB_SEQ is not set
+# CONFIG_SND_SBAWE_SEQ is not set
+CONFIG_SND_EMU10K1_SEQ=y
+CONFIG_SND_MPU401_UART=y
+CONFIG_SND_OPL3_LIB=y
+CONFIG_SND_VX_LIB=y
+CONFIG_SND_AC97_CODEC=y
+CONFIG_SND_DRIVERS=y
+CONFIG_SND_DUMMY=y
+CONFIG_SND_ALOOP=y
+CONFIG_SND_VIRMIDI=y
+CONFIG_SND_MTPAV=y
+CONFIG_SND_MTS64=y
+CONFIG_SND_SERIAL_U16550=y
+CONFIG_SND_MPU401=y
+CONFIG_SND_PORTMAN2X4=y
+CONFIG_SND_AC97_POWER_SAVE=y
+CONFIG_SND_AC97_POWER_SAVE_DEFAULT=0
+CONFIG_SND_PCI=y
+CONFIG_SND_AD1889=y
+CONFIG_SND_ALS300=y
+CONFIG_SND_ALI5451=y
+CONFIG_SND_ATIIXP=y
+CONFIG_SND_ATIIXP_MODEM=y
+CONFIG_SND_AU8810=y
+CONFIG_SND_AU8820=y
+CONFIG_SND_AU8830=y
+CONFIG_SND_AW2=y
+CONFIG_SND_AZT3328=y
+CONFIG_SND_BT87X=y
+CONFIG_SND_BT87X_OVERCLOCK=y
+CONFIG_SND_CA0106=y
+CONFIG_SND_CMIPCI=y
+CONFIG_SND_OXYGEN_LIB=y
+CONFIG_SND_OXYGEN=y
+CONFIG_SND_CS4281=y
+CONFIG_SND_CS46XX=y
+CONFIG_SND_CS46XX_NEW_DSP=y
+CONFIG_SND_CS5535AUDIO=y
+CONFIG_SND_CTXFI=y
+CONFIG_SND_DARLA20=y
+CONFIG_SND_GINA20=y
+CONFIG_SND_LAYLA20=y
+CONFIG_SND_DARLA24=y
+CONFIG_SND_GINA24=y
+CONFIG_SND_LAYLA24=y
+CONFIG_SND_MONA=y
+CONFIG_SND_MIA=y
+CONFIG_SND_ECHO3G=y
+CONFIG_SND_INDIGO=y
+CONFIG_SND_INDIGOIO=y
+CONFIG_SND_INDIGODJ=y
+CONFIG_SND_INDIGOIOX=y
+CONFIG_SND_INDIGODJX=y
+CONFIG_SND_EMU10K1=y
+CONFIG_SND_EMU10K1X=y
+CONFIG_SND_ENS1370=y
+CONFIG_SND_ENS1371=y
+CONFIG_SND_ES1938=y
+CONFIG_SND_ES1968=y
+CONFIG_SND_ES1968_INPUT=y
+CONFIG_SND_ES1968_RADIO=y
+CONFIG_SND_FM801=y
+CONFIG_SND_FM801_TEA575X_BOOL=y
+CONFIG_SND_HDSP=y
+
+#
+# Don't forget to add built-in firmwares for HDSP driver
+#
+CONFIG_SND_HDSPM=y
+CONFIG_SND_ICE1712=y
+CONFIG_SND_ICE1724=y
+CONFIG_SND_INTEL8X0=y
+CONFIG_SND_INTEL8X0M=y
+CONFIG_SND_KORG1212=y
+CONFIG_SND_LOLA=y
+CONFIG_SND_LX6464ES=y
+CONFIG_SND_MAESTRO3=y
+CONFIG_SND_MAESTRO3_INPUT=y
+CONFIG_SND_MIXART=y
+CONFIG_SND_NM256=y
+CONFIG_SND_PCXHR=y
+CONFIG_SND_RIPTIDE=y
+CONFIG_SND_RME32=y
+CONFIG_SND_RME96=y
+CONFIG_SND_RME9652=y
+CONFIG_SND_SONICVIBES=y
+CONFIG_SND_TRIDENT=y
+CONFIG_SND_VIA82XX=y
+CONFIG_SND_VIA82XX_MODEM=y
+CONFIG_SND_VIRTUOSO=y
+CONFIG_SND_VX222=y
+CONFIG_SND_YMFPCI=y
+
+#
+# HD-Audio
+#
+CONFIG_SND_HDA=y
+CONFIG_SND_HDA_INTEL=y
+CONFIG_SND_HDA_DSP_LOADER=y
+CONFIG_SND_HDA_PREALLOC_SIZE=64
+CONFIG_SND_HDA_HWDEP=y
+CONFIG_SND_HDA_RECONFIG=y
+CONFIG_SND_HDA_INPUT_BEEP=y
+CONFIG_SND_HDA_INPUT_BEEP_MODE=1
+CONFIG_SND_HDA_INPUT_JACK=y
+CONFIG_SND_HDA_PATCH_LOADER=y
+CONFIG_SND_HDA_CODEC_REALTEK=y
+CONFIG_SND_HDA_CODEC_ANALOG=y
+CONFIG_SND_HDA_CODEC_SIGMATEL=y
+CONFIG_SND_HDA_CODEC_VIA=y
+CONFIG_SND_HDA_CODEC_HDMI=y
+CONFIG_SND_HDA_CODEC_CIRRUS=y
+CONFIG_SND_HDA_CODEC_CONEXANT=y
+CONFIG_SND_HDA_CODEC_CA0110=y
+CONFIG_SND_HDA_CODEC_CA0132=y
+CONFIG_SND_HDA_CODEC_CA0132_DSP=y
+CONFIG_SND_HDA_CODEC_CMEDIA=y
+CONFIG_SND_HDA_CODEC_SI3054=y
+CONFIG_SND_HDA_GENERIC=y
+CONFIG_SND_SPI=y
+CONFIG_SND_AT73C213=y
+CONFIG_SND_AT73C213_TARGET_BITRATE=48000
+CONFIG_SND_USB=y
+CONFIG_SND_USB_AUDIO=y
+CONFIG_SND_USB_UA101=y
+CONFIG_SND_USB_CAIAQ=y
+CONFIG_SND_USB_CAIAQ_INPUT=y
+CONFIG_SND_USB_6FIRE=y
+CONFIG_SND_USB_HIFACE=y
+CONFIG_SND_BCD2000=y
+CONFIG_SND_USB_LINE6=y
+CONFIG_SND_USB_POD=y
+CONFIG_SND_USB_PODHD=y
+CONFIG_SND_USB_TONEPORT=y
+CONFIG_SND_USB_VARIAX=y
+CONFIG_SND_FIREWIRE=y
+CONFIG_SND_FIREWIRE_LIB=y
+CONFIG_SND_DICE=y
+CONFIG_SND_OXFW=y
+CONFIG_SND_ISIGHT=y
+CONFIG_SND_SCS1X=y
+CONFIG_SND_FIREWORKS=y
+CONFIG_SND_BEBOB=y
+CONFIG_SND_SOC=y
+CONFIG_SND_SOC_GENERIC_DMAENGINE_PCM=y
+CONFIG_SND_SOC_ADI=y
+CONFIG_SND_SOC_ADI_AXI_I2S=y
+CONFIG_SND_SOC_ADI_AXI_SPDIF=y
+CONFIG_SND_ATMEL_SOC=y
+CONFIG_SND_BCM2835_SOC_I2S=y
+CONFIG_SND_EP93XX_SOC=y
+CONFIG_SND_DESIGNWARE_I2S=y
+
+#
+# SoC Audio for Freescale CPUs
+#
+
+#
+# Common SoC Audio options for Freescale CPUs:
+#
+CONFIG_SND_SOC_FSL_ASRC=y
+CONFIG_SND_SOC_FSL_SAI=y
+CONFIG_SND_SOC_FSL_SSI=y
+CONFIG_SND_SOC_FSL_SPDIF=y
+CONFIG_SND_SOC_FSL_ESAI=y
+CONFIG_SND_SOC_IMX_PCM_DMA=y
+CONFIG_SND_SOC_IMX_AUDMUX=y
+CONFIG_SND_IMX_SOC=y
+
+#
+# SoC Audio support for Freescale i.MX boards:
+#
+CONFIG_SND_SOC_IMX_WM8962=y
+CONFIG_SND_SOC_IMX_ES8328=y
+CONFIG_SND_SOC_IMX_SGTL5000=y
+CONFIG_SND_SOC_IMX_SPDIF=y
+CONFIG_SND_SOC_FSL_ASOC_CARD=y
+CONFIG_SND_JZ4740_SOC=y
+CONFIG_SND_JZ4740_SOC_I2S=y
+CONFIG_SND_JZ4740_SOC_QI_LB60=y
+CONFIG_SND_KIRKWOOD_SOC=y
+CONFIG_SND_KIRKWOOD_SOC_ARMADA370_DB=y
+CONFIG_SND_SOC_INTEL_SST=y
+CONFIG_SND_MXS_SOC=y
+CONFIG_SND_SOC_MXS_SGTL5000=y
+CONFIG_SND_SOC_ROCKCHIP=y
+CONFIG_SND_SOC_ROCKCHIP_I2S=y
+CONFIG_SND_SOC_SIRF=y
+CONFIG_SND_SOC_SIRF_AUDIO=y
+CONFIG_SND_SOC_SIRF_AUDIO_PORT=y
+CONFIG_SND_SOC_SIRF_USP=y
+CONFIG_SND_SOC_TEGRA=y
+CONFIG_SND_SOC_TEGRA_RT5640=y
+CONFIG_SND_SOC_TEGRA_WM8753=y
+CONFIG_SND_SOC_TEGRA_WM8903=y
+CONFIG_SND_SOC_TEGRA_TRIMSLICE=y
+CONFIG_SND_SOC_TEGRA_ALC5632=y
+CONFIG_SND_SOC_TEGRA_MAX98090=y
+CONFIG_SND_SOC_TEGRA_RT5677=y
+CONFIG_SND_SOC_XTFPGA_I2S=y
+CONFIG_SND_SOC_I2C_AND_SPI=y
+
+#
+# CODEC drivers
+#
+CONFIG_SND_SOC_ALL_CODECS=y
+CONFIG_SND_SOC_88PM860X=y
+CONFIG_SND_SOC_ARIZONA=y
+CONFIG_SND_SOC_WM_HUBS=y
+CONFIG_SND_SOC_WM_ADSP=y
+CONFIG_SND_SOC_AB8500_CODEC=y
+CONFIG_SND_SOC_AD1836=y
+CONFIG_SND_SOC_AD193X=y
+CONFIG_SND_SOC_AD193X_SPI=y
+CONFIG_SND_SOC_AD193X_I2C=y
+CONFIG_SND_SOC_AD73311=y
+CONFIG_SND_SOC_ADAU1373=y
+CONFIG_SND_SOC_ADAU1701=y
+CONFIG_SND_SOC_ADAU17X1=y
+CONFIG_SND_SOC_ADAU1761=y
+CONFIG_SND_SOC_ADAU1761_I2C=y
+CONFIG_SND_SOC_ADAU1761_SPI=y
+CONFIG_SND_SOC_ADAU1781=y
+CONFIG_SND_SOC_ADAU1781_I2C=y
+CONFIG_SND_SOC_ADAU1781_SPI=y
+CONFIG_SND_SOC_ADAU1977=y
+CONFIG_SND_SOC_ADAU1977_SPI=y
+CONFIG_SND_SOC_ADAU1977_I2C=y
+CONFIG_SND_SOC_ADAV80X=y
+CONFIG_SND_SOC_ADAV801=y
+CONFIG_SND_SOC_ADAV803=y
+CONFIG_SND_SOC_ADS117X=y
+CONFIG_SND_SOC_AK4104=y
+CONFIG_SND_SOC_AK4535=y
+CONFIG_SND_SOC_AK4554=y
+CONFIG_SND_SOC_AK4641=y
+CONFIG_SND_SOC_AK4642=y
+CONFIG_SND_SOC_AK4671=y
+CONFIG_SND_SOC_AK5386=y
+CONFIG_SND_SOC_ALC5623=y
+CONFIG_SND_SOC_ALC5632=y
+CONFIG_SND_SOC_CS35L32=y
+CONFIG_SND_SOC_CS42L51=y
+CONFIG_SND_SOC_CS42L51_I2C=y
+CONFIG_SND_SOC_CS42L52=y
+CONFIG_SND_SOC_CS42L56=y
+CONFIG_SND_SOC_CS42L73=y
+CONFIG_SND_SOC_CS4265=y
+CONFIG_SND_SOC_CS4270=y
+CONFIG_SND_SOC_CS4271=y
+CONFIG_SND_SOC_CS4271_I2C=y
+CONFIG_SND_SOC_CS4271_SPI=y
+CONFIG_SND_SOC_CS42XX8=y
+CONFIG_SND_SOC_CS42XX8_I2C=y
+CONFIG_SND_SOC_CX20442=y
+CONFIG_SND_SOC_JZ4740_CODEC=y
+CONFIG_SND_SOC_L3=y
+CONFIG_SND_SOC_DA7210=y
+CONFIG_SND_SOC_DA7213=y
+CONFIG_SND_SOC_DA732X=y
+CONFIG_SND_SOC_DA9055=y
+CONFIG_SND_SOC_BT_SCO=y
+CONFIG_SND_SOC_DMIC=y
+CONFIG_SND_SOC_HDMI_CODEC=y
+CONFIG_SND_SOC_ES8328=y
+CONFIG_SND_SOC_ES8328_I2C=y
+CONFIG_SND_SOC_ES8328_SPI=y
+CONFIG_SND_SOC_ISABELLE=y
+CONFIG_SND_SOC_LM49453=y
+CONFIG_SND_SOC_MAX98088=y
+CONFIG_SND_SOC_MAX98090=y
+CONFIG_SND_SOC_MAX98095=y
+CONFIG_SND_SOC_MAX98357A=y
+CONFIG_SND_SOC_MAX9850=y
+CONFIG_SND_SOC_PCM1681=y
+CONFIG_SND_SOC_PCM1792A=y
+CONFIG_SND_SOC_PCM3008=y
+CONFIG_SND_SOC_PCM512x=y
+CONFIG_SND_SOC_PCM512x_I2C=y
+CONFIG_SND_SOC_PCM512x_SPI=y
+CONFIG_SND_SOC_RL6231=y
+CONFIG_SND_SOC_RT286=y
+CONFIG_SND_SOC_RT5631=y
+CONFIG_SND_SOC_RT5640=y
+CONFIG_SND_SOC_RT5645=y
+CONFIG_SND_SOC_RT5651=y
+CONFIG_SND_SOC_RT5670=y
+CONFIG_SND_SOC_RT5677=y
+CONFIG_SND_SOC_RT5677_SPI=y
+CONFIG_SND_SOC_SGTL5000=y
+CONFIG_SND_SOC_SI476X=y
+CONFIG_SND_SOC_SIGMADSP=y
+CONFIG_SND_SOC_SIGMADSP_I2C=y
+CONFIG_SND_SOC_SIGMADSP_REGMAP=y
+CONFIG_SND_SOC_SIRF_AUDIO_CODEC=y
+CONFIG_SND_SOC_SPDIF=y
+CONFIG_SND_SOC_SSM2518=y
+CONFIG_SND_SOC_SSM2602=y
+CONFIG_SND_SOC_SSM2602_SPI=y
+CONFIG_SND_SOC_SSM2602_I2C=y
+CONFIG_SND_SOC_SSM4567=y
+CONFIG_SND_SOC_STA32X=y
+CONFIG_SND_SOC_STA350=y
+CONFIG_SND_SOC_STA529=y
+CONFIG_SND_SOC_TAS2552=y
+CONFIG_SND_SOC_TAS5086=y
+CONFIG_SND_SOC_TFA9879=y
+CONFIG_SND_SOC_TLV320AIC23=y
+CONFIG_SND_SOC_TLV320AIC23_I2C=y
+CONFIG_SND_SOC_TLV320AIC23_SPI=y
+CONFIG_SND_SOC_TLV320AIC26=y
+CONFIG_SND_SOC_TLV320AIC31XX=y
+CONFIG_SND_SOC_TLV320AIC32X4=y
+CONFIG_SND_SOC_TLV320AIC3X=y
+CONFIG_SND_SOC_TLV320DAC33=y
+CONFIG_SND_SOC_TS3A227E=y
+CONFIG_SND_SOC_TWL4030=y
+CONFIG_SND_SOC_TWL6040=y
+CONFIG_SND_SOC_UDA134X=y
+CONFIG_SND_SOC_UDA1380=y
+CONFIG_SND_SOC_WL1273=y
+CONFIG_SND_SOC_WM0010=y
+CONFIG_SND_SOC_WM1250_EV1=y
+CONFIG_SND_SOC_WM2000=y
+CONFIG_SND_SOC_WM2200=y
+CONFIG_SND_SOC_WM5100=y
+CONFIG_SND_SOC_WM5102=y
+CONFIG_SND_SOC_WM5110=y
+CONFIG_SND_SOC_WM8350=y
+CONFIG_SND_SOC_WM8400=y
+CONFIG_SND_SOC_WM8510=y
+CONFIG_SND_SOC_WM8523=y
+CONFIG_SND_SOC_WM8580=y
+CONFIG_SND_SOC_WM8711=y
+CONFIG_SND_SOC_WM8727=y
+CONFIG_SND_SOC_WM8728=y
+CONFIG_SND_SOC_WM8731=y
+CONFIG_SND_SOC_WM8737=y
+CONFIG_SND_SOC_WM8741=y
+CONFIG_SND_SOC_WM8750=y
+CONFIG_SND_SOC_WM8753=y
+CONFIG_SND_SOC_WM8770=y
+CONFIG_SND_SOC_WM8776=y
+CONFIG_SND_SOC_WM8782=y
+CONFIG_SND_SOC_WM8804=y
+CONFIG_SND_SOC_WM8900=y
+CONFIG_SND_SOC_WM8903=y
+CONFIG_SND_SOC_WM8904=y
+CONFIG_SND_SOC_WM8940=y
+CONFIG_SND_SOC_WM8955=y
+CONFIG_SND_SOC_WM8960=y
+CONFIG_SND_SOC_WM8961=y
+CONFIG_SND_SOC_WM8962=y
+CONFIG_SND_SOC_WM8971=y
+CONFIG_SND_SOC_WM8974=y
+CONFIG_SND_SOC_WM8978=y
+CONFIG_SND_SOC_WM8983=y
+CONFIG_SND_SOC_WM8985=y
+CONFIG_SND_SOC_WM8988=y
+CONFIG_SND_SOC_WM8990=y
+CONFIG_SND_SOC_WM8991=y
+CONFIG_SND_SOC_WM8993=y
+CONFIG_SND_SOC_WM8994=y
+CONFIG_SND_SOC_WM8995=y
+CONFIG_SND_SOC_WM8996=y
+CONFIG_SND_SOC_WM8997=y
+CONFIG_SND_SOC_WM9081=y
+CONFIG_SND_SOC_WM9090=y
+CONFIG_SND_SOC_LM4857=y
+CONFIG_SND_SOC_MAX9768=y
+CONFIG_SND_SOC_MAX9877=y
+CONFIG_SND_SOC_MC13783=y
+CONFIG_SND_SOC_ML26124=y
+CONFIG_SND_SOC_TPA6130A2=y
+CONFIG_SND_SIMPLE_CARD=y
+CONFIG_SOUND_PRIME=y
+CONFIG_AC97_BUS=y
+
+#
+# HID support
+#
+CONFIG_HID=y
+CONFIG_HID_BATTERY_STRENGTH=y
+CONFIG_HIDRAW=y
+CONFIG_UHID=y
+CONFIG_HID_GENERIC=y
+
+#
+# Special HID drivers
+#
+CONFIG_HID_A4TECH=y
+CONFIG_HID_ACRUX=y
+CONFIG_HID_ACRUX_FF=y
+CONFIG_HID_APPLE=y
+CONFIG_HID_APPLEIR=y
+CONFIG_HID_AUREAL=y
+CONFIG_HID_BELKIN=y
+CONFIG_HID_BETOP_FF=y
+CONFIG_HID_CHERRY=y
+CONFIG_HID_CHICONY=y
+CONFIG_HID_PRODIKEYS=y
+CONFIG_HID_CP2112=y
+CONFIG_HID_CYPRESS=y
+CONFIG_HID_DRAGONRISE=y
+CONFIG_DRAGONRISE_FF=y
+CONFIG_HID_EMS_FF=y
+CONFIG_HID_ELECOM=y
+CONFIG_HID_ELO=y
+CONFIG_HID_EZKEY=y
+CONFIG_HID_HOLTEK=y
+CONFIG_HOLTEK_FF=y
+CONFIG_HID_GT683R=y
+CONFIG_HID_HUION=y
+CONFIG_HID_KEYTOUCH=y
+CONFIG_HID_KYE=y
+CONFIG_HID_UCLOGIC=y
+CONFIG_HID_WALTOP=y
+CONFIG_HID_GYRATION=y
+CONFIG_HID_ICADE=y
+CONFIG_HID_TWINHAN=y
+CONFIG_HID_KENSINGTON=y
+CONFIG_HID_LCPOWER=y
+CONFIG_HID_LENOVO=y
+CONFIG_HID_LOGITECH=y
+CONFIG_HID_LOGITECH_DJ=y
+CONFIG_HID_LOGITECH_HIDPP=y
+CONFIG_LOGITECH_FF=y
+CONFIG_LOGIRUMBLEPAD2_FF=y
+CONFIG_LOGIG940_FF=y
+CONFIG_LOGIWHEELS_FF=y
+CONFIG_HID_MAGICMOUSE=y
+CONFIG_HID_MICROSOFT=y
+CONFIG_HID_MONTEREY=y
+CONFIG_HID_MULTITOUCH=y
+CONFIG_HID_NTRIG=y
+CONFIG_HID_ORTEK=y
+CONFIG_HID_PANTHERLORD=y
+CONFIG_PANTHERLORD_FF=y
+CONFIG_HID_PENMOUNT=y
+CONFIG_HID_PETALYNX=y
+CONFIG_HID_PICOLCD=y
+CONFIG_HID_PICOLCD_FB=y
+CONFIG_HID_PICOLCD_BACKLIGHT=y
+CONFIG_HID_PICOLCD_LCD=y
+CONFIG_HID_PICOLCD_LEDS=y
+CONFIG_HID_PICOLCD_CIR=y
+CONFIG_HID_PLANTRONICS=y
+CONFIG_HID_PRIMAX=y
+CONFIG_HID_ROCCAT=y
+CONFIG_HID_SAITEK=y
+CONFIG_HID_SAMSUNG=y
+CONFIG_HID_SONY=y
+CONFIG_SONY_FF=y
+CONFIG_HID_SPEEDLINK=y
+CONFIG_HID_STEELSERIES=y
+CONFIG_HID_SUNPLUS=y
+CONFIG_HID_RMI=y
+CONFIG_HID_GREENASIA=y
+CONFIG_GREENASIA_FF=y
+CONFIG_HID_SMARTJOYPLUS=y
+CONFIG_SMARTJOYPLUS_FF=y
+CONFIG_HID_TIVO=y
+CONFIG_HID_TOPSEED=y
+CONFIG_HID_THINGM=y
+CONFIG_HID_THRUSTMASTER=y
+CONFIG_THRUSTMASTER_FF=y
+CONFIG_HID_WACOM=y
+CONFIG_HID_WIIMOTE=y
+CONFIG_HID_XINMO=y
+CONFIG_HID_ZEROPLUS=y
+CONFIG_ZEROPLUS_FF=y
+CONFIG_HID_ZYDACRON=y
+CONFIG_HID_SENSOR_HUB=y
+
+#
+# USB HID support
+#
+CONFIG_USB_HID=y
+CONFIG_HID_PID=y
+CONFIG_USB_HIDDEV=y
+
+#
+# I2C HID support
+#
+CONFIG_I2C_HID=y
+CONFIG_USB_OHCI_LITTLE_ENDIAN=y
+CONFIG_USB_EHCI_BIG_ENDIAN_MMIO=y
+CONFIG_USB_EHCI_BIG_ENDIAN_DESC=y
+CONFIG_USB_SUPPORT=y
+CONFIG_USB_COMMON=y
+CONFIG_USB_ARCH_HAS_HCD=y
+CONFIG_USB=y
+CONFIG_USB_ANNOUNCE_NEW_DEVICES=y
+
+#
+# Miscellaneous USB options
+#
+CONFIG_USB_DEFAULT_PERSIST=y
+CONFIG_USB_DYNAMIC_MINORS=y
+CONFIG_USB_OTG=y
+CONFIG_USB_OTG_WHITELIST=y
+CONFIG_USB_OTG_BLACKLIST_HUB=y
+CONFIG_USB_OTG_FSM=y
+CONFIG_USB_MON=y
+CONFIG_USB_WUSB=y
+CONFIG_USB_WUSB_CBAF=y
+CONFIG_USB_WUSB_CBAF_DEBUG=y
+
+#
+# USB Host Controller Drivers
+#
+CONFIG_USB_C67X00_HCD=y
+CONFIG_USB_XHCI_HCD=y
+CONFIG_USB_XHCI_PCI=y
+CONFIG_USB_XHCI_PLATFORM=y
+CONFIG_USB_XHCI_MVEBU=y
+CONFIG_USB_XHCI_RCAR=y
+CONFIG_USB_EHCI_HCD=y
+CONFIG_USB_EHCI_ROOT_HUB_TT=y
+CONFIG_USB_EHCI_TT_NEWSCHED=y
+CONFIG_USB_EHCI_PCI=y
+CONFIG_XPS_USB_HCD_XILINX=y
+CONFIG_USB_EHCI_HCD_PLATFORM=y
+CONFIG_USB_OXU210HP_HCD=y
+CONFIG_USB_ISP116X_HCD=y
+CONFIG_USB_ISP1362_HCD=y
+CONFIG_USB_FUSBH200_HCD=y
+CONFIG_USB_FOTG210_HCD=y
+CONFIG_USB_MAX3421_HCD=y
+CONFIG_USB_OHCI_HCD=y
+CONFIG_USB_OHCI_HCD_PCI=y
+CONFIG_USB_OHCI_HCD_SSB=y
+CONFIG_USB_OHCI_HCD_PLATFORM=y
+CONFIG_USB_UHCI_HCD=y
+CONFIG_USB_U132_HCD=y
+CONFIG_USB_SL811_HCD=y
+CONFIG_USB_SL811_HCD_ISO=y
+CONFIG_USB_R8A66597_HCD=y
+CONFIG_USB_RENESAS_USBHS_HCD=y
+CONFIG_USB_WHCI_HCD=y
+CONFIG_USB_HWA_HCD=y
+CONFIG_USB_HCD_BCMA=y
+CONFIG_USB_HCD_SSB=y
+CONFIG_USB_HCD_TEST_MODE=y
+CONFIG_USB_RENESAS_USBHS=y
+
+#
+# USB Device Class drivers
+#
+CONFIG_USB_ACM=y
+CONFIG_USB_PRINTER=y
+CONFIG_USB_WDM=y
+CONFIG_USB_TMC=y
+
+#
+# NOTE: USB_STORAGE depends on SCSI but BLK_DEV_SD may
+#
+
+#
+# also be needed; see USB_STORAGE Help for more info
+#
+CONFIG_USB_STORAGE=y
+CONFIG_USB_STORAGE_DEBUG=y
+CONFIG_USB_STORAGE_REALTEK=y
+CONFIG_USB_STORAGE_DATAFAB=y
+CONFIG_USB_STORAGE_FREECOM=y
+CONFIG_USB_STORAGE_ISD200=y
+CONFIG_USB_STORAGE_USBAT=y
+CONFIG_USB_STORAGE_SDDR09=y
+CONFIG_USB_STORAGE_SDDR55=y
+CONFIG_USB_STORAGE_JUMPSHOT=y
+CONFIG_USB_STORAGE_ALAUDA=y
+CONFIG_USB_STORAGE_ONETOUCH=y
+CONFIG_USB_STORAGE_KARMA=y
+CONFIG_USB_STORAGE_CYPRESS_ATACB=y
+CONFIG_USB_STORAGE_ENE_UB6250=y
+CONFIG_USB_UAS=y
+
+#
+# USB Imaging devices
+#
+CONFIG_USB_MDC800=y
+CONFIG_USB_MICROTEK=y
+CONFIG_USBIP_CORE=y
+CONFIG_USBIP_VHCI_HCD=y
+CONFIG_USBIP_HOST=y
+CONFIG_USBIP_DEBUG=y
+CONFIG_USB_MUSB_HDRC=y
+# CONFIG_USB_MUSB_HOST is not set
+# CONFIG_USB_MUSB_GADGET is not set
+CONFIG_USB_MUSB_DUAL_ROLE=y
+
+#
+# Platform Glue Layer
+#
+CONFIG_USB_MUSB_TUSB6010=y
+CONFIG_USB_MUSB_DSPS=y
+CONFIG_USB_MUSB_UX500=y
+CONFIG_USB_MUSB_AM335X_CHILD=y
+CONFIG_USB_UX500_DMA=y
+# CONFIG_MUSB_PIO_ONLY is not set
+CONFIG_USB_DWC3=y
+# CONFIG_USB_DWC3_HOST is not set
+# CONFIG_USB_DWC3_GADGET is not set
+CONFIG_USB_DWC3_DUAL_ROLE=y
+
+#
+# Platform Glue Driver Support
+#
+CONFIG_USB_DWC3_OMAP=y
+CONFIG_USB_DWC3_EXYNOS=y
+CONFIG_USB_DWC3_PCI=y
+CONFIG_USB_DWC3_KEYSTONE=y
+CONFIG_USB_DWC3_QCOM=y
+
+#
+# Debugging features
+#
+CONFIG_USB_DWC3_DEBUG=y
+CONFIG_DWC3_HOST_USB3_LPM_ENABLE=y
+CONFIG_USB_DWC2=y
+# CONFIG_USB_DWC2_HOST is not set
+
+#
+# Gadget/Dual-role mode requires USB Gadget support to be enabled
+#
+# CONFIG_USB_DWC2_PERIPHERAL is not set
+CONFIG_USB_DWC2_DUAL_ROLE=y
+CONFIG_USB_DWC2_PLATFORM=y
+CONFIG_USB_DWC2_DEBUG=y
+CONFIG_USB_DWC2_VERBOSE=y
+CONFIG_USB_DWC2_TRACK_MISSED_SOFS=y
+CONFIG_USB_DWC2_DEBUG_PERIODIC=y
+CONFIG_USB_CHIPIDEA=y
+CONFIG_USB_CHIPIDEA_UDC=y
+CONFIG_USB_CHIPIDEA_HOST=y
+CONFIG_USB_CHIPIDEA_DEBUG=y
+CONFIG_USB_ISP1760=y
+CONFIG_USB_ISP1760_HCD=y
+CONFIG_USB_ISP1761_UDC=y
+# CONFIG_USB_ISP1760_HOST_ROLE is not set
+# CONFIG_USB_ISP1760_GADGET_ROLE is not set
+CONFIG_USB_ISP1760_DUAL_ROLE=y
+
+#
+# USB port drivers
+#
+CONFIG_USB_USS720=y
+CONFIG_USB_SERIAL=y
+CONFIG_USB_SERIAL_CONSOLE=y
+CONFIG_USB_SERIAL_GENERIC=y
+CONFIG_USB_SERIAL_SIMPLE=y
+CONFIG_USB_SERIAL_AIRCABLE=y
+CONFIG_USB_SERIAL_ARK3116=y
+CONFIG_USB_SERIAL_BELKIN=y
+CONFIG_USB_SERIAL_CH341=y
+CONFIG_USB_SERIAL_WHITEHEAT=y
+CONFIG_USB_SERIAL_DIGI_ACCELEPORT=y
+CONFIG_USB_SERIAL_CP210X=y
+CONFIG_USB_SERIAL_CYPRESS_M8=y
+CONFIG_USB_SERIAL_EMPEG=y
+CONFIG_USB_SERIAL_FTDI_SIO=y
+CONFIG_USB_SERIAL_VISOR=y
+CONFIG_USB_SERIAL_IPAQ=y
+CONFIG_USB_SERIAL_IR=y
+CONFIG_USB_SERIAL_EDGEPORT=y
+CONFIG_USB_SERIAL_EDGEPORT_TI=y
+CONFIG_USB_SERIAL_F81232=y
+CONFIG_USB_SERIAL_GARMIN=y
+CONFIG_USB_SERIAL_IPW=y
+CONFIG_USB_SERIAL_IUU=y
+CONFIG_USB_SERIAL_KEYSPAN_PDA=y
+CONFIG_USB_SERIAL_KEYSPAN=y
+CONFIG_USB_SERIAL_KEYSPAN_MPR=y
+CONFIG_USB_SERIAL_KEYSPAN_USA28=y
+CONFIG_USB_SERIAL_KEYSPAN_USA28X=y
+CONFIG_USB_SERIAL_KEYSPAN_USA28XA=y
+CONFIG_USB_SERIAL_KEYSPAN_USA28XB=y
+CONFIG_USB_SERIAL_KEYSPAN_USA19=y
+CONFIG_USB_SERIAL_KEYSPAN_USA18X=y
+CONFIG_USB_SERIAL_KEYSPAN_USA19W=y
+CONFIG_USB_SERIAL_KEYSPAN_USA19QW=y
+CONFIG_USB_SERIAL_KEYSPAN_USA19QI=y
+CONFIG_USB_SERIAL_KEYSPAN_USA49W=y
+CONFIG_USB_SERIAL_KEYSPAN_USA49WLC=y
+CONFIG_USB_SERIAL_KLSI=y
+CONFIG_USB_SERIAL_KOBIL_SCT=y
+CONFIG_USB_SERIAL_MCT_U232=y
+CONFIG_USB_SERIAL_METRO=y
+CONFIG_USB_SERIAL_MOS7720=y
+CONFIG_USB_SERIAL_MOS7715_PARPORT=y
+CONFIG_USB_SERIAL_MOS7840=y
+CONFIG_USB_SERIAL_MXUPORT=y
+CONFIG_USB_SERIAL_NAVMAN=y
+CONFIG_USB_SERIAL_PL2303=y
+CONFIG_USB_SERIAL_OTI6858=y
+CONFIG_USB_SERIAL_QCAUX=y
+CONFIG_USB_SERIAL_QUALCOMM=y
+CONFIG_USB_SERIAL_SPCP8X5=y
+CONFIG_USB_SERIAL_SAFE=y
+CONFIG_USB_SERIAL_SAFE_PADDED=y
+CONFIG_USB_SERIAL_SIERRAWIRELESS=y
+CONFIG_USB_SERIAL_SYMBOL=y
+CONFIG_USB_SERIAL_TI=y
+CONFIG_USB_SERIAL_CYBERJACK=y
+CONFIG_USB_SERIAL_XIRCOM=y
+CONFIG_USB_SERIAL_WWAN=y
+CONFIG_USB_SERIAL_OPTION=y
+CONFIG_USB_SERIAL_OMNINET=y
+CONFIG_USB_SERIAL_OPTICON=y
+CONFIG_USB_SERIAL_XSENS_MT=y
+CONFIG_USB_SERIAL_WISHBONE=y
+CONFIG_USB_SERIAL_SSU100=y
+CONFIG_USB_SERIAL_QT2=y
+CONFIG_USB_SERIAL_DEBUG=y
+
+#
+# USB Miscellaneous drivers
+#
+CONFIG_USB_EMI62=y
+CONFIG_USB_EMI26=y
+CONFIG_USB_ADUTUX=y
+CONFIG_USB_SEVSEG=y
+CONFIG_USB_RIO500=y
+CONFIG_USB_LEGOTOWER=y
+CONFIG_USB_LCD=y
+CONFIG_USB_LED=y
+CONFIG_USB_CYPRESS_CY7C63=y
+CONFIG_USB_CYTHERM=y
+CONFIG_USB_IDMOUSE=y
+CONFIG_USB_FTDI_ELAN=y
+CONFIG_USB_APPLEDISPLAY=y
+CONFIG_USB_SISUSBVGA=y
+CONFIG_USB_SISUSBVGA_CON=y
+CONFIG_USB_LD=y
+CONFIG_USB_TRANCEVIBRATOR=y
+CONFIG_USB_IOWARRIOR=y
+CONFIG_USB_TEST=y
+CONFIG_USB_EHSET_TEST_FIXTURE=y
+CONFIG_USB_ISIGHTFW=y
+CONFIG_USB_YUREX=y
+CONFIG_USB_EZUSB_FX2=y
+CONFIG_USB_HSIC_USB3503=y
+CONFIG_USB_LINK_LAYER_TEST=y
+CONFIG_USB_ATM=y
+CONFIG_USB_SPEEDTOUCH=y
+CONFIG_USB_CXACRU=y
+CONFIG_USB_UEAGLEATM=y
+CONFIG_USB_XUSBATM=y
+
+#
+# USB Physical Layer drivers
+#
+CONFIG_USB_PHY=y
+CONFIG_KEYSTONE_USB_PHY=y
+CONFIG_NOP_USB_XCEIV=y
+CONFIG_AM335X_CONTROL_USB=y
+CONFIG_AM335X_PHY_USB=y
+CONFIG_USB_GPIO_VBUS=y
+CONFIG_TAHVO_USB=y
+CONFIG_TAHVO_USB_HOST_BY_DEFAULT=y
+CONFIG_USB_ISP1301=y
+CONFIG_USB_MSM_OTG=y
+CONFIG_USB_RCAR_PHY=y
+CONFIG_USB_RCAR_GEN2_PHY=y
+CONFIG_USB_GADGET=y
+CONFIG_USB_GADGET_DEBUG=y
+CONFIG_USB_GADGET_VERBOSE=y
+CONFIG_USB_GADGET_DEBUG_FILES=y
+CONFIG_USB_GADGET_DEBUG_FS=y
+CONFIG_USB_GADGET_VBUS_DRAW=2
+CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS=2
+
+#
+# USB Peripheral Controller
+#
+CONFIG_USB_FUSB300=y
+CONFIG_USB_FOTG210_UDC=y
+CONFIG_USB_GR_UDC=y
+CONFIG_USB_R8A66597=y
+CONFIG_USB_RENESAS_USBHS_UDC=y
+CONFIG_USB_PXA27X=y
+CONFIG_USB_MV_UDC=y
+CONFIG_USB_MV_U3D=y
+CONFIG_USB_M66592=y
+CONFIG_USB_BDC_UDC=y
+
+#
+# Platform Support
+#
+CONFIG_USB_BDC_PCI=y
+CONFIG_USB_AMD5536UDC=y
+CONFIG_USB_NET2272=y
+CONFIG_USB_NET2272_DMA=y
+CONFIG_USB_NET2280=y
+CONFIG_USB_GOKU=y
+CONFIG_USB_EG20T=y
+CONFIG_USB_GADGET_XILINX=y
+CONFIG_USB_DUMMY_HCD=y
+CONFIG_USB_LIBCOMPOSITE=y
+CONFIG_USB_U_ETHER=y
+CONFIG_USB_F_ECM=y
+CONFIG_USB_F_EEM=y
+CONFIG_USB_F_SUBSET=y
+CONFIG_USB_F_RNDIS=y
+# CONFIG_USB_CONFIGFS is not set
+# CONFIG_USB_ZERO is not set
+# CONFIG_USB_AUDIO is not set
+CONFIG_USB_ETH=y
+CONFIG_USB_ETH_RNDIS=y
+CONFIG_USB_ETH_EEM=y
+# CONFIG_USB_G_NCM is not set
+# CONFIG_USB_GADGETFS is not set
+# CONFIG_USB_FUNCTIONFS is not set
+# CONFIG_USB_MASS_STORAGE is not set
+# CONFIG_USB_GADGET_TARGET is not set
+# CONFIG_USB_G_SERIAL is not set
+# CONFIG_USB_MIDI_GADGET is not set
+# CONFIG_USB_G_PRINTER is not set
+# CONFIG_USB_CDC_COMPOSITE is not set
+# CONFIG_USB_G_NOKIA is not set
+# CONFIG_USB_G_ACM_MS is not set
+# CONFIG_USB_G_MULTI is not set
+# CONFIG_USB_G_HID is not set
+# CONFIG_USB_G_DBGP is not set
+# CONFIG_USB_G_WEBCAM is not set
+CONFIG_USB_LED_TRIG=y
+CONFIG_UWB=y
+CONFIG_UWB_HWA=y
+CONFIG_UWB_WHCI=y
+CONFIG_UWB_I1480U=y
+CONFIG_MMC=y
+CONFIG_MMC_DEBUG=y
+CONFIG_MMC_CLKGATE=y
+
+#
+# MMC/SD/SDIO Card Drivers
+#
+CONFIG_MMC_BLOCK=y
+CONFIG_MMC_BLOCK_MINORS=8
+CONFIG_MMC_BLOCK_BOUNCE=y
+CONFIG_SDIO_UART=y
+CONFIG_MMC_TEST=y
+
+#
+# MMC/SD/SDIO Host Controller Drivers
+#
+CONFIG_MMC_SDHCI=y
+CONFIG_MMC_SDHCI_PCI=y
+CONFIG_MMC_RICOH_MMC=y
+CONFIG_MMC_SDHCI_PLTFM=y
+CONFIG_MMC_SDHCI_OF_ARASAN=y
+CONFIG_MMC_SDHCI_PXAV3=y
+CONFIG_MMC_SDHCI_PXAV2=y
+CONFIG_MMC_SDHCI_F_SDH30=y
+CONFIG_MMC_OMAP_HS=y
+CONFIG_MMC_TIFM_SD=y
+CONFIG_MMC_CB710=y
+CONFIG_MMC_VIA_SDMMC=y
+CONFIG_MMC_DW=y
+CONFIG_MMC_DW_IDMAC=y
+CONFIG_MMC_DW_PLTFM=y
+CONFIG_MMC_DW_EXYNOS=y
+CONFIG_MMC_DW_K3=y
+CONFIG_MMC_DW_PCI=y
+CONFIG_MMC_SH_MMCIF=y
+CONFIG_MMC_VUB300=y
+CONFIG_MMC_USHC=y
+CONFIG_MMC_USDHI6ROL0=y
+CONFIG_MMC_REALTEK_PCI=y
+CONFIG_MMC_REALTEK_USB=y
+CONFIG_MMC_TOSHIBA_PCI=y
+CONFIG_MEMSTICK=y
+CONFIG_MEMSTICK_DEBUG=y
+
+#
+# MemoryStick drivers
+#
+CONFIG_MEMSTICK_UNSAFE_RESUME=y
+CONFIG_MSPRO_BLOCK=y
+CONFIG_MS_BLOCK=y
+
+#
+# MemoryStick Host Controller Drivers
+#
+CONFIG_MEMSTICK_TIFM_MS=y
+CONFIG_MEMSTICK_JMICRON_38X=y
+CONFIG_MEMSTICK_R592=y
+CONFIG_MEMSTICK_REALTEK_PCI=y
+CONFIG_MEMSTICK_REALTEK_USB=y
+CONFIG_NEW_LEDS=y
+CONFIG_LEDS_CLASS=y
+CONFIG_LEDS_CLASS_FLASH=y
+
+#
+# LED drivers
+#
+CONFIG_LEDS_88PM860X=y
+CONFIG_LEDS_LM3530=y
+CONFIG_LEDS_LM3533=y
+CONFIG_LEDS_LM3642=y
+CONFIG_LEDS_PCA9532=y
+CONFIG_LEDS_PCA9532_GPIO=y
+CONFIG_LEDS_GPIO=y
+CONFIG_LEDS_LP3944=y
+CONFIG_LEDS_LP55XX_COMMON=y
+CONFIG_LEDS_LP5521=y
+CONFIG_LEDS_LP5523=y
+CONFIG_LEDS_LP5562=y
+CONFIG_LEDS_LP8501=y
+CONFIG_LEDS_LP8788=y
+CONFIG_LEDS_LP8860=y
+CONFIG_LEDS_PCA955X=y
+CONFIG_LEDS_PCA963X=y
+CONFIG_LEDS_WM831X_STATUS=y
+CONFIG_LEDS_WM8350=y
+CONFIG_LEDS_DA903X=y
+CONFIG_LEDS_DA9052=y
+CONFIG_LEDS_DAC124S085=y
+CONFIG_LEDS_PWM=y
+CONFIG_LEDS_REGULATOR=y
+CONFIG_LEDS_BD2802=y
+CONFIG_LEDS_LT3593=y
+CONFIG_LEDS_ADP5520=y
+CONFIG_LEDS_MC13783=y
+CONFIG_LEDS_TCA6507=y
+CONFIG_LEDS_MAX8997=y
+CONFIG_LEDS_LM355x=y
+CONFIG_LEDS_OT200=y
+CONFIG_LEDS_MENF21BMC=y
+
+#
+# LED driver for blink(1) USB RGB LED is under Special HID drivers (HID_THINGM)
+#
+CONFIG_LEDS_BLINKM=y
+CONFIG_LEDS_SYSCON=y
+
+#
+# LED Triggers
+#
+CONFIG_LEDS_TRIGGERS=y
+CONFIG_LEDS_TRIGGER_TIMER=y
+CONFIG_LEDS_TRIGGER_ONESHOT=y
+CONFIG_LEDS_TRIGGER_HEARTBEAT=y
+CONFIG_LEDS_TRIGGER_BACKLIGHT=y
+CONFIG_LEDS_TRIGGER_CPU=y
+CONFIG_LEDS_TRIGGER_GPIO=y
+CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
+
+#
+# iptables trigger is under Netfilter config (LED target)
+#
+CONFIG_LEDS_TRIGGER_TRANSIENT=y
+CONFIG_LEDS_TRIGGER_CAMERA=y
+CONFIG_ACCESSIBILITY=y
+CONFIG_A11Y_BRAILLE_CONSOLE=y
+CONFIG_INFINIBAND=y
+CONFIG_INFINIBAND_USER_MAD=y
+CONFIG_INFINIBAND_USER_ACCESS=y
+CONFIG_INFINIBAND_USER_MEM=y
+CONFIG_INFINIBAND_ON_DEMAND_PAGING=y
+CONFIG_INFINIBAND_ADDR_TRANS=y
+CONFIG_INFINIBAND_MTHCA=y
+CONFIG_INFINIBAND_MTHCA_DEBUG=y
+CONFIG_INFINIBAND_AMSO1100=y
+CONFIG_INFINIBAND_AMSO1100_DEBUG=y
+CONFIG_INFINIBAND_CXGB3=y
+CONFIG_INFINIBAND_CXGB3_DEBUG=y
+CONFIG_INFINIBAND_CXGB4=y
+CONFIG_MLX4_INFINIBAND=y
+CONFIG_MLX5_INFINIBAND=y
+CONFIG_INFINIBAND_NES=y
+CONFIG_INFINIBAND_NES_DEBUG=y
+CONFIG_INFINIBAND_OCRDMA=y
+CONFIG_INFINIBAND_IPOIB=y
+CONFIG_INFINIBAND_IPOIB_CM=y
+CONFIG_INFINIBAND_IPOIB_DEBUG=y
+CONFIG_INFINIBAND_IPOIB_DEBUG_DATA=y
+CONFIG_INFINIBAND_SRP=y
+CONFIG_INFINIBAND_SRPT=y
+CONFIG_INFINIBAND_ISER=y
+CONFIG_INFINIBAND_ISERT=y
+CONFIG_RTC_LIB=y
+CONFIG_RTC_CLASS=y
+CONFIG_RTC_HCTOSYS=y
+CONFIG_RTC_SYSTOHC=y
+CONFIG_RTC_HCTOSYS_DEVICE="rtc0"
+CONFIG_RTC_DEBUG=y
+
+#
+# RTC interfaces
+#
+CONFIG_RTC_INTF_SYSFS=y
+CONFIG_RTC_INTF_PROC=y
+CONFIG_RTC_INTF_DEV=y
+CONFIG_RTC_INTF_DEV_UIE_EMUL=y
+CONFIG_RTC_DRV_TEST=y
+
+#
+# I2C RTC drivers
+#
+CONFIG_RTC_DRV_88PM860X=y
+CONFIG_RTC_DRV_88PM80X=y
+CONFIG_RTC_DRV_ABB5ZES3=y
+CONFIG_RTC_DRV_AS3722=y
+CONFIG_RTC_DRV_DS1307=y
+CONFIG_RTC_DRV_DS1374=y
+CONFIG_RTC_DRV_DS1374_WDT=y
+CONFIG_RTC_DRV_DS1672=y
+CONFIG_RTC_DRV_DS3232=y
+CONFIG_RTC_DRV_HYM8563=y
+CONFIG_RTC_DRV_LP8788=y
+CONFIG_RTC_DRV_MAX6900=y
+CONFIG_RTC_DRV_MAX8907=y
+CONFIG_RTC_DRV_MAX8925=y
+CONFIG_RTC_DRV_MAX8998=y
+CONFIG_RTC_DRV_MAX8997=y
+CONFIG_RTC_DRV_MAX77686=y
+CONFIG_RTC_DRV_RK808=y
+CONFIG_RTC_DRV_MAX77802=y
+CONFIG_RTC_DRV_RS5C372=y
+CONFIG_RTC_DRV_ISL1208=y
+CONFIG_RTC_DRV_ISL12022=y
+CONFIG_RTC_DRV_ISL12057=y
+CONFIG_RTC_DRV_X1205=y
+CONFIG_RTC_DRV_PALMAS=y
+CONFIG_RTC_DRV_PCF2127=y
+CONFIG_RTC_DRV_PCF8523=y
+CONFIG_RTC_DRV_PCF8563=y
+CONFIG_RTC_DRV_PCF85063=y
+CONFIG_RTC_DRV_PCF8583=y
+CONFIG_RTC_DRV_M41T80=y
+CONFIG_RTC_DRV_M41T80_WDT=y
+CONFIG_RTC_DRV_BQ32K=y
+CONFIG_RTC_DRV_TWL4030=y
+CONFIG_RTC_DRV_TPS6586X=y
+CONFIG_RTC_DRV_TPS65910=y
+CONFIG_RTC_DRV_TPS80031=y
+CONFIG_RTC_DRV_RC5T583=y
+CONFIG_RTC_DRV_S35390A=y
+CONFIG_RTC_DRV_FM3130=y
+CONFIG_RTC_DRV_RX8581=y
+CONFIG_RTC_DRV_RX8025=y
+CONFIG_RTC_DRV_EM3027=y
+CONFIG_RTC_DRV_RV3029C2=y
+CONFIG_RTC_DRV_S5M=y
+
+#
+# SPI RTC drivers
+#
+CONFIG_RTC_DRV_M41T93=y
+CONFIG_RTC_DRV_M41T94=y
+CONFIG_RTC_DRV_DS1305=y
+CONFIG_RTC_DRV_DS1343=y
+CONFIG_RTC_DRV_DS1347=y
+CONFIG_RTC_DRV_DS1390=y
+CONFIG_RTC_DRV_MAX6902=y
+CONFIG_RTC_DRV_R9701=y
+CONFIG_RTC_DRV_RS5C348=y
+CONFIG_RTC_DRV_DS3234=y
+CONFIG_RTC_DRV_PCF2123=y
+CONFIG_RTC_DRV_RX4581=y
+CONFIG_RTC_DRV_MCP795=y
+
+#
+# Platform RTC drivers
+#
+CONFIG_RTC_DRV_DS1286=y
+CONFIG_RTC_DRV_DS1511=y
+CONFIG_RTC_DRV_DS1553=y
+CONFIG_RTC_DRV_DS1685_FAMILY=y
+CONFIG_RTC_DRV_DS1685=y
+# CONFIG_RTC_DRV_DS1689 is not set
+# CONFIG_RTC_DRV_DS17285 is not set
+# CONFIG_RTC_DRV_DS17485 is not set
+# CONFIG_RTC_DRV_DS17885 is not set
+CONFIG_RTC_DS1685_PROC_REGS=y
+CONFIG_RTC_DS1685_SYSFS_REGS=y
+CONFIG_RTC_DRV_DS1742=y
+CONFIG_RTC_DRV_DS2404=y
+CONFIG_RTC_DRV_DA9052=y
+CONFIG_RTC_DRV_DA9055=y
+CONFIG_RTC_DRV_DA9063=y
+CONFIG_RTC_DRV_STK17TA8=y
+CONFIG_RTC_DRV_M48T86=y
+CONFIG_RTC_DRV_M48T35=y
+CONFIG_RTC_DRV_M48T59=y
+CONFIG_RTC_DRV_MSM6242=y
+CONFIG_RTC_DRV_BQ4802=y
+CONFIG_RTC_DRV_RP5C01=y
+CONFIG_RTC_DRV_V3020=y
+CONFIG_RTC_DRV_WM831X=y
+CONFIG_RTC_DRV_WM8350=y
+CONFIG_RTC_DRV_PCF50633=y
+CONFIG_RTC_DRV_AB3100=y
+
+#
+# on-CPU RTC drivers
+#
+CONFIG_RTC_DRV_PCAP=y
+CONFIG_RTC_DRV_MC13XXX=y
+CONFIG_RTC_DRV_PM8XXX=y
+CONFIG_RTC_DRV_SNVS=y
+CONFIG_RTC_DRV_MOXART=y
+CONFIG_RTC_DRV_XGENE=y
+
+#
+# HID Sensor RTC drivers
+#
+CONFIG_RTC_DRV_HID_SENSOR_TIME=y
+CONFIG_DMADEVICES=y
+CONFIG_DMADEVICES_DEBUG=y
+CONFIG_DMADEVICES_VDEBUG=y
+
+#
+# DMA Devices
+#
+CONFIG_DW_DMAC_CORE=y
+CONFIG_DW_DMAC=y
+CONFIG_DW_DMAC_PCI=y
+CONFIG_RENESAS_DMA=y
+CONFIG_SH_DMAE_BASE=y
+CONFIG_SH_DMAE=y
+CONFIG_SUDMAC=y
+CONFIG_RCAR_HPB_DMAE=y
+CONFIG_RCAR_AUDMAC_PP=y
+CONFIG_RCAR_DMAC=y
+CONFIG_TIMB_DMA=y
+CONFIG_PCH_DMA=y
+CONFIG_FSL_EDMA=y
+CONFIG_XILINX_VDMA=y
+CONFIG_DMA_SUN6I=y
+CONFIG_NBPFAXI_DMA=y
+CONFIG_IMG_MDC_DMA=y
+CONFIG_DMA_ENGINE=y
+CONFIG_DMA_VIRTUAL_CHANNELS=y
+CONFIG_DMA_OF=y
+
+#
+# DMA Clients
+#
+CONFIG_ASYNC_TX_DMA=y
+CONFIG_DMATEST=y
+CONFIG_AUXDISPLAY=y
+CONFIG_KS0108=y
+CONFIG_KS0108_PORT=0x378
+CONFIG_KS0108_DELAY=2
+CONFIG_UIO=y
+CONFIG_UIO_CIF=y
+CONFIG_UIO_PDRV_GENIRQ=y
+CONFIG_UIO_DMEM_GENIRQ=y
+CONFIG_UIO_AEC=y
+CONFIG_UIO_SERCOS3=y
+CONFIG_UIO_PCI_GENERIC=y
+CONFIG_UIO_NETX=y
+CONFIG_UIO_MF624=y
+CONFIG_VIRT_DRIVERS=y
+CONFIG_VIRTIO=y
+
+#
+# Virtio drivers
+#
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_PCI_LEGACY=y
+CONFIG_VIRTIO_BALLOON=y
+CONFIG_VIRTIO_MMIO=y
+CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+
+#
+# Microsoft Hyper-V guest support
+#
+CONFIG_STAGING=y
+CONFIG_PRISM2_USB=y
+CONFIG_COMEDI=m
+CONFIG_COMEDI_DEBUG=y
+CONFIG_COMEDI_DEFAULT_BUF_SIZE_KB=2048
+CONFIG_COMEDI_DEFAULT_BUF_MAXSIZE_KB=20480
+CONFIG_COMEDI_MISC_DRIVERS=y
+CONFIG_COMEDI_BOND=m
+CONFIG_COMEDI_TEST=m
+CONFIG_COMEDI_PARPORT=m
+CONFIG_COMEDI_SERIAL2002=m
+CONFIG_COMEDI_SSV_DNP=m
+CONFIG_COMEDI_ISA_DRIVERS=y
+CONFIG_COMEDI_PCL711=m
+CONFIG_COMEDI_PCL724=m
+CONFIG_COMEDI_PCL726=m
+CONFIG_COMEDI_PCL730=m
+CONFIG_COMEDI_PCL812=m
+CONFIG_COMEDI_PCL816=m
+CONFIG_COMEDI_PCL818=m
+CONFIG_COMEDI_PCM3724=m
+CONFIG_COMEDI_AMPLC_DIO200_ISA=m
+CONFIG_COMEDI_AMPLC_PC236_ISA=m
+CONFIG_COMEDI_AMPLC_PC263_ISA=m
+CONFIG_COMEDI_RTI800=m
+CONFIG_COMEDI_RTI802=m
+CONFIG_COMEDI_DAC02=m
+CONFIG_COMEDI_DAS16M1=m
+CONFIG_COMEDI_DAS08_ISA=m
+CONFIG_COMEDI_DAS16=m
+CONFIG_COMEDI_DAS800=m
+CONFIG_COMEDI_DAS1800=m
+CONFIG_COMEDI_DAS6402=m
+CONFIG_COMEDI_DT2801=m
+CONFIG_COMEDI_DT2811=m
+CONFIG_COMEDI_DT2814=m
+CONFIG_COMEDI_DT2815=m
+CONFIG_COMEDI_DT2817=m
+CONFIG_COMEDI_DT282X=m
+CONFIG_COMEDI_DMM32AT=m
+CONFIG_COMEDI_UNIOXX5=m
+CONFIG_COMEDI_FL512=m
+CONFIG_COMEDI_AIO_AIO12_8=m
+CONFIG_COMEDI_AIO_IIRO_16=m
+CONFIG_COMEDI_II_PCI20KC=m
+CONFIG_COMEDI_C6XDIGIO=m
+CONFIG_COMEDI_MPC624=m
+CONFIG_COMEDI_ADQ12B=m
+CONFIG_COMEDI_NI_AT_A2150=m
+CONFIG_COMEDI_NI_AT_AO=m
+CONFIG_COMEDI_NI_ATMIO=m
+CONFIG_COMEDI_NI_ATMIO16D=m
+CONFIG_COMEDI_NI_LABPC_ISA=m
+CONFIG_COMEDI_PCMAD=m
+CONFIG_COMEDI_PCMDA12=m
+CONFIG_COMEDI_PCMMIO=m
+CONFIG_COMEDI_PCMUIO=m
+CONFIG_COMEDI_MULTIQ3=m
+CONFIG_COMEDI_S526=m
+CONFIG_COMEDI_PCI_DRIVERS=m
+CONFIG_COMEDI_8255_PCI=m
+CONFIG_COMEDI_ADDI_WATCHDOG=m
+CONFIG_COMEDI_ADDI_APCI_1032=m
+CONFIG_COMEDI_ADDI_APCI_1500=m
+CONFIG_COMEDI_ADDI_APCI_1516=m
+CONFIG_COMEDI_ADDI_APCI_1564=m
+CONFIG_COMEDI_ADDI_APCI_16XX=m
+CONFIG_COMEDI_ADDI_APCI_2032=m
+CONFIG_COMEDI_ADDI_APCI_2200=m
+CONFIG_COMEDI_ADDI_APCI_3120=m
+CONFIG_COMEDI_ADDI_APCI_3501=m
+CONFIG_COMEDI_ADDI_APCI_3XXX=m
+CONFIG_COMEDI_ADL_PCI6208=m
+CONFIG_COMEDI_ADL_PCI7X3X=m
+CONFIG_COMEDI_ADL_PCI8164=m
+CONFIG_COMEDI_ADL_PCI9111=m
+CONFIG_COMEDI_ADL_PCI9118=m
+CONFIG_COMEDI_ADV_PCI1710=m
+CONFIG_COMEDI_ADV_PCI1723=m
+CONFIG_COMEDI_ADV_PCI1724=m
+CONFIG_COMEDI_ADV_PCI_DIO=m
+CONFIG_COMEDI_AMPLC_DIO200_PCI=m
+CONFIG_COMEDI_AMPLC_PC236_PCI=m
+CONFIG_COMEDI_AMPLC_PC263_PCI=m
+CONFIG_COMEDI_AMPLC_PCI224=m
+CONFIG_COMEDI_AMPLC_PCI230=m
+CONFIG_COMEDI_CONTEC_PCI_DIO=m
+CONFIG_COMEDI_DAS08_PCI=m
+CONFIG_COMEDI_DT3000=m
+CONFIG_COMEDI_DYNA_PCI10XX=m
+CONFIG_COMEDI_GSC_HPDI=m
+CONFIG_COMEDI_MF6X4=m
+CONFIG_COMEDI_ICP_MULTI=m
+CONFIG_COMEDI_DAQBOARD2000=m
+CONFIG_COMEDI_JR3_PCI=m
+CONFIG_COMEDI_KE_COUNTER=m
+CONFIG_COMEDI_CB_PCIDAS64=m
+CONFIG_COMEDI_CB_PCIDAS=m
+CONFIG_COMEDI_CB_PCIDDA=m
+CONFIG_COMEDI_CB_PCIMDAS=m
+CONFIG_COMEDI_CB_PCIMDDA=m
+CONFIG_COMEDI_ME4000=m
+CONFIG_COMEDI_ME_DAQ=m
+CONFIG_COMEDI_NI_6527=m
+CONFIG_COMEDI_NI_65XX=m
+CONFIG_COMEDI_NI_660X=m
+CONFIG_COMEDI_NI_670X=m
+CONFIG_COMEDI_NI_LABPC_PCI=m
+CONFIG_COMEDI_NI_PCIDIO=m
+CONFIG_COMEDI_NI_PCIMIO=m
+CONFIG_COMEDI_RTD520=m
+CONFIG_COMEDI_S626=m
+CONFIG_COMEDI_MITE=m
+CONFIG_COMEDI_NI_TIOCMD=m
+CONFIG_COMEDI_USB_DRIVERS=m
+CONFIG_COMEDI_DT9812=m
+CONFIG_COMEDI_NI_USB6501=m
+CONFIG_COMEDI_USBDUX=m
+CONFIG_COMEDI_USBDUXFAST=m
+CONFIG_COMEDI_USBDUXSIGMA=m
+CONFIG_COMEDI_VMK80XX=m
+CONFIG_COMEDI_8255=m
+CONFIG_COMEDI_KCOMEDILIB=m
+CONFIG_COMEDI_AMPLC_DIO200=m
+CONFIG_COMEDI_AMPLC_PC236=m
+CONFIG_COMEDI_DAS08=m
+CONFIG_COMEDI_NI_LABPC=m
+CONFIG_COMEDI_NI_TIO=m
+CONFIG_PANEL=y
+CONFIG_PANEL_PARPORT=0
+CONFIG_PANEL_PROFILE=5
+CONFIG_PANEL_CHANGE_MESSAGE=y
+CONFIG_PANEL_BOOT_MESSAGE=""
+CONFIG_RTL8192U=m
+CONFIG_RTLLIB=m
+CONFIG_RTLLIB_CRYPTO_CCMP=m
+CONFIG_RTLLIB_CRYPTO_TKIP=m
+CONFIG_RTLLIB_CRYPTO_WEP=m
+CONFIG_RTL8192E=m
+CONFIG_R8712U=y
+CONFIG_R8188EU=y
+CONFIG_88EU_AP_MODE=y
+CONFIG_R8723AU=y
+CONFIG_8723AU_AP_MODE=y
+CONFIG_8723AU_BT_COEXIST=y
+CONFIG_RTS5208=y
+CONFIG_VT6655=m
+CONFIG_VT6656=m
+
+#
+# IIO staging drivers
+#
+
+#
+# Accelerometers
+#
+CONFIG_ADIS16201=y
+CONFIG_ADIS16203=y
+CONFIG_ADIS16204=y
+CONFIG_ADIS16209=y
+CONFIG_ADIS16220=y
+CONFIG_ADIS16240=y
+CONFIG_LIS3L02DQ=y
+CONFIG_SCA3000=y
+
+#
+# Analog to digital converters
+#
+CONFIG_AD7606=y
+CONFIG_AD7606_IFACE_PARALLEL=y
+CONFIG_AD7606_IFACE_SPI=y
+CONFIG_AD7780=y
+CONFIG_AD7816=y
+CONFIG_AD7192=y
+CONFIG_AD7280=y
+CONFIG_LPC32XX_ADC=y
+CONFIG_MXS_LRADC=y
+CONFIG_SPEAR_ADC=y
+
+#
+# Analog digital bi-direction converters
+#
+CONFIG_ADT7316=y
+CONFIG_ADT7316_SPI=y
+CONFIG_ADT7316_I2C=y
+
+#
+# Capacitance to digital converters
+#
+CONFIG_AD7150=y
+CONFIG_AD7152=y
+CONFIG_AD7746=y
+
+#
+# Direct Digital Synthesis
+#
+CONFIG_AD9832=y
+CONFIG_AD9834=y
+
+#
+# Digital gyroscope sensors
+#
+CONFIG_ADIS16060=y
+
+#
+# Network Analyzer, Impedance Converters
+#
+CONFIG_AD5933=y
+
+#
+# Light sensors
+#
+CONFIG_SENSORS_ISL29018=y
+CONFIG_SENSORS_ISL29028=y
+CONFIG_TSL2583=y
+CONFIG_TSL2x7x=y
+
+#
+# Magnetometer sensors
+#
+CONFIG_SENSORS_HMC5843=y
+CONFIG_SENSORS_HMC5843_I2C=y
+CONFIG_SENSORS_HMC5843_SPI=y
+
+#
+# Active energy metering IC
+#
+CONFIG_ADE7753=y
+CONFIG_ADE7754=y
+CONFIG_ADE7758=y
+CONFIG_ADE7759=y
+CONFIG_ADE7854=y
+CONFIG_ADE7854_I2C=y
+CONFIG_ADE7854_SPI=y
+
+#
+# Resolver to digital converters
+#
+CONFIG_AD2S90=y
+CONFIG_AD2S1200=y
+CONFIG_AD2S1210=y
+
+#
+# Triggers - standalone
+#
+CONFIG_IIO_PERIODIC_RTC_TRIGGER=y
+CONFIG_IIO_DUMMY_EVGEN=y
+CONFIG_IIO_SIMPLE_DUMMY=y
+CONFIG_IIO_SIMPLE_DUMMY_EVENTS=y
+CONFIG_IIO_SIMPLE_DUMMY_BUFFER=y
+CONFIG_FB_SM7XX=y
+CONFIG_FB_XGI=y
+CONFIG_FT1000=y
+CONFIG_FT1000_USB=y
+
+#
+# Speakup console speech
+#
+CONFIG_SPEAKUP=y
+CONFIG_SPEAKUP_SYNTH_ACNTSA=y
+CONFIG_SPEAKUP_SYNTH_ACNTPC=y
+CONFIG_SPEAKUP_SYNTH_APOLLO=y
+CONFIG_SPEAKUP_SYNTH_AUDPTR=y
+CONFIG_SPEAKUP_SYNTH_BNS=y
+CONFIG_SPEAKUP_SYNTH_DECTLK=y
+CONFIG_SPEAKUP_SYNTH_DECEXT=y
+CONFIG_SPEAKUP_SYNTH_DECPC=m
+CONFIG_SPEAKUP_SYNTH_DTLK=y
+CONFIG_SPEAKUP_SYNTH_KEYPC=y
+CONFIG_SPEAKUP_SYNTH_LTLK=y
+CONFIG_SPEAKUP_SYNTH_SOFT=y
+CONFIG_SPEAKUP_SYNTH_SPKOUT=y
+CONFIG_SPEAKUP_SYNTH_TXPRT=y
+CONFIG_SPEAKUP_SYNTH_DUMMY=y
+CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4=y
+CONFIG_STAGING_MEDIA=y
+CONFIG_I2C_BCM2048=y
+CONFIG_DVB_CXD2099=y
+CONFIG_VIDEO_DT3155=y
+CONFIG_DT3155_CCIR=y
+CONFIG_DT3155_STREAMING=y
+CONFIG_DVB_MN88472=y
+CONFIG_DVB_MN88473=y
+CONFIG_LIRC_STAGING=y
+CONFIG_LIRC_BT829=y
+CONFIG_LIRC_IMON=y
+CONFIG_LIRC_PARALLEL=y
+CONFIG_LIRC_SASEM=y
+CONFIG_LIRC_SERIAL=y
+CONFIG_LIRC_SERIAL_TRANSMITTER=y
+CONFIG_LIRC_SIR=y
+CONFIG_LIRC_ZILOG=y
+
+#
+# Android
+#
+CONFIG_ASHMEM=y
+CONFIG_ANDROID_TIMED_OUTPUT=y
+CONFIG_ANDROID_TIMED_GPIO=y
+CONFIG_ANDROID_LOW_MEMORY_KILLER=y
+CONFIG_SYNC=y
+CONFIG_SW_SYNC=y
+CONFIG_SW_SYNC_USER=y
+CONFIG_ION=y
+CONFIG_ION_TEST=y
+CONFIG_ION_DUMMY=y
+CONFIG_USB_WPAN_HCD=y
+CONFIG_WIMAX_GDM72XX=y
+CONFIG_WIMAX_GDM72XX_QOS=y
+CONFIG_WIMAX_GDM72XX_K_MODE=y
+CONFIG_WIMAX_GDM72XX_WIMAX2=y
+CONFIG_WIMAX_GDM72XX_USB=y
+# CONFIG_WIMAX_GDM72XX_SDIO is not set
+CONFIG_LTE_GDM724X=m
+CONFIG_FIREWIRE_SERIAL=y
+CONFIG_FWTTY_MAX_TOTAL_PORTS=64
+CONFIG_FWTTY_MAX_CARD_PORTS=32
+CONFIG_MTD_SPINAND_MT29F=y
+CONFIG_MTD_SPINAND_ONDIEECC=y
+CONFIG_LUSTRE_FS=m
+CONFIG_LUSTRE_OBD_MAX_IOCTL_BUFFER=8192
+CONFIG_LUSTRE_DEBUG_EXPENSIVE_CHECK=y
+CONFIG_LUSTRE_TRANSLATE_ERRNOS=y
+CONFIG_LUSTRE_LLITE_LLOOP=m
+CONFIG_LNET=m
+CONFIG_LNET_MAX_PAYLOAD=1048576
+CONFIG_LNET_SELFTEST=m
+CONFIG_LNET_XPRT_IB=m
+CONFIG_DGNC=y
+CONFIG_DGAP=y
+CONFIG_GS_FPGABOOT=y
+CONFIG_COMMON_CLK_XLNX_CLKWZRD=y
+CONFIG_FB_TFT=y
+CONFIG_FB_TFT_AGM1264K_FL=y
+CONFIG_FB_TFT_BD663474=y
+CONFIG_FB_TFT_HX8340BN=y
+CONFIG_FB_TFT_HX8347D=y
+CONFIG_FB_TFT_HX8353D=y
+CONFIG_FB_TFT_ILI9320=y
+CONFIG_FB_TFT_ILI9325=y
+CONFIG_FB_TFT_ILI9340=y
+CONFIG_FB_TFT_ILI9341=y
+CONFIG_FB_TFT_ILI9481=y
+CONFIG_FB_TFT_ILI9486=y
+CONFIG_FB_TFT_PCD8544=y
+CONFIG_FB_TFT_RA8875=y
+CONFIG_FB_TFT_S6D02A1=y
+CONFIG_FB_TFT_S6D1121=y
+CONFIG_FB_TFT_SSD1289=y
+CONFIG_FB_TFT_SSD1306=y
+CONFIG_FB_TFT_SSD1331=y
+CONFIG_FB_TFT_SSD1351=y
+CONFIG_FB_TFT_ST7735R=y
+CONFIG_FB_TFT_TINYLCD=y
+CONFIG_FB_TFT_TLS8204=y
+CONFIG_FB_TFT_UC1701=y
+CONFIG_FB_TFT_UPD161704=y
+CONFIG_FB_TFT_WATTEROTT=y
+CONFIG_FB_FLEX=y
+CONFIG_FB_TFT_FBTFT_DEVICE=y
+CONFIG_I2O=y
+CONFIG_I2O_LCT_NOTIFY_ON_CHANGES=y
+CONFIG_I2O_EXT_ADAPTEC=y
+CONFIG_I2O_CONFIG=y
+CONFIG_I2O_CONFIG_OLD_IOCTL=y
+CONFIG_I2O_BUS=y
+CONFIG_I2O_BLOCK=y
+CONFIG_I2O_SCSI=y
+CONFIG_I2O_PROC=y
+CONFIG_CLKDEV_LOOKUP=y
+CONFIG_HAVE_CLK_PREPARE=y
+CONFIG_COMMON_CLK=y
+
+#
+# Common Clock Framework
+#
+CONFIG_COMMON_CLK_WM831X=y
+CONFIG_COMMON_CLK_MAX_GEN=y
+CONFIG_COMMON_CLK_MAX77686=y
+CONFIG_COMMON_CLK_MAX77802=y
+CONFIG_COMMON_CLK_RK808=y
+CONFIG_COMMON_CLK_SI5351=y
+CONFIG_COMMON_CLK_SI570=y
+CONFIG_COMMON_CLK_S2MPS11=y
+CONFIG_CLK_TWL6040=y
+CONFIG_COMMON_CLK_AXI_CLKGEN=y
+CONFIG_COMMON_CLK_PALMAS=y
+# CONFIG_COMMON_CLK_PXA is not set
+CONFIG_COMMON_CLK_CDCE706=y
+CONFIG_COMMON_CLK_QCOM=y
+CONFIG_APQ_GCC_8084=y
+CONFIG_APQ_MMCC_8084=y
+CONFIG_IPQ_GCC_806X=y
+CONFIG_IPQ_LCC_806X=y
+CONFIG_MSM_GCC_8660=y
+CONFIG_MSM_GCC_8960=y
+CONFIG_MSM_LCC_8960=y
+CONFIG_MSM_MMCC_8960=y
+CONFIG_MSM_GCC_8974=y
+CONFIG_MSM_MMCC_8974=y
+
+#
+# Hardware Spinlock drivers
+#
+
+#
+# Clock Source drivers
+#
+CONFIG_CLKSRC_OF=y
+# CONFIG_ATMEL_PIT is not set
+CONFIG_SH_TIMER_CMT=y
+CONFIG_SH_TIMER_MTU2=y
+CONFIG_SH_TIMER_TMU=y
+CONFIG_EM_TIMER_STI=y
+CONFIG_CLKSRC_VERSATILE=y
+CONFIG_MAILBOX=y
+CONFIG_ALTERA_MBOX=y
+CONFIG_IOMMU_SUPPORT=y
+
+#
+# Generic IOMMU Pagetable Support
+#
+CONFIG_IOMMU_IO_PGTABLE=y
+CONFIG_IOMMU_IO_PGTABLE_LPAE=y
+CONFIG_IOMMU_IO_PGTABLE_LPAE_SELFTEST=y
+
+#
+# Remoteproc drivers
+#
+CONFIG_REMOTEPROC=y
+CONFIG_STE_MODEM_RPROC=y
+
+#
+# Rpmsg drivers
+#
+
+#
+# SOC (System On Chip) specific Drivers
+#
+CONFIG_SOC_TI=y
+CONFIG_PM_DEVFREQ=y
+
+#
+# DEVFREQ Governors
+#
+CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND=y
+CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+CONFIG_DEVFREQ_GOV_POWERSAVE=y
+CONFIG_DEVFREQ_GOV_USERSPACE=y
+
+#
+# DEVFREQ Drivers
+#
+CONFIG_PM_DEVFREQ_EVENT=y
+CONFIG_EXTCON=y
+
+#
+# Extcon Device Drivers
+#
+CONFIG_EXTCON_ADC_JACK=y
+CONFIG_EXTCON_ARIZONA=y
+CONFIG_EXTCON_GPIO=y
+CONFIG_EXTCON_MAX14577=y
+CONFIG_EXTCON_MAX77693=y
+CONFIG_EXTCON_MAX8997=y
+CONFIG_EXTCON_PALMAS=y
+CONFIG_EXTCON_RT8973A=y
+CONFIG_EXTCON_SM5502=y
+CONFIG_MEMORY=y
+CONFIG_IIO=y
+CONFIG_IIO_BUFFER=y
+CONFIG_IIO_BUFFER_CB=y
+CONFIG_IIO_KFIFO_BUF=y
+CONFIG_IIO_TRIGGERED_BUFFER=y
+CONFIG_IIO_TRIGGER=y
+CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
+
+#
+# Accelerometers
+#
+CONFIG_BMA180=y
+CONFIG_BMC150_ACCEL=y
+CONFIG_HID_SENSOR_ACCEL_3D=y
+CONFIG_IIO_ST_ACCEL_3AXIS=y
+CONFIG_IIO_ST_ACCEL_I2C_3AXIS=y
+CONFIG_IIO_ST_ACCEL_SPI_3AXIS=y
+CONFIG_KXSD9=y
+CONFIG_MMA8452=y
+CONFIG_KXCJK1013=y
+CONFIG_MMA9551_CORE=y
+CONFIG_MMA9551=y
+CONFIG_MMA9553=y
+
+#
+# Analog to digital converters
+#
+CONFIG_AD_SIGMA_DELTA=y
+CONFIG_AD7266=y
+CONFIG_AD7291=y
+CONFIG_AD7298=y
+CONFIG_AD7476=y
+CONFIG_AD7791=y
+CONFIG_AD7793=y
+CONFIG_AD7887=y
+CONFIG_AD7923=y
+CONFIG_AD799X=y
+CONFIG_AXP288_ADC=y
+CONFIG_CC10001_ADC=y
+CONFIG_EXYNOS_ADC=y
+CONFIG_LP8788_ADC=y
+CONFIG_MAX1027=y
+CONFIG_MAX1363=y
+CONFIG_MCP320X=y
+CONFIG_MCP3422=y
+CONFIG_MEN_Z188_ADC=y
+CONFIG_NAU7802=y
+CONFIG_QCOM_SPMI_IADC=y
+CONFIG_QCOM_SPMI_VADC=y
+CONFIG_TI_ADC081C=y
+CONFIG_TI_ADC128S052=y
+CONFIG_TI_AM335X_ADC=y
+CONFIG_TWL4030_MADC=y
+CONFIG_TWL6030_GPADC=y
+CONFIG_VF610_ADC=y
+CONFIG_VIPERBOARD_ADC=y
+CONFIG_XILINX_XADC=y
+
+#
+# Amplifiers
+#
+CONFIG_AD8366=y
+
+#
+# Hid Sensor IIO Common
+#
+CONFIG_HID_SENSOR_IIO_COMMON=y
+CONFIG_HID_SENSOR_IIO_TRIGGER=y
+
+#
+# SSP Sensor Common
+#
+CONFIG_IIO_SSP_SENSORS_COMMONS=y
+CONFIG_IIO_SSP_SENSORHUB=y
+CONFIG_IIO_ST_SENSORS_I2C=y
+CONFIG_IIO_ST_SENSORS_SPI=y
+CONFIG_IIO_ST_SENSORS_CORE=y
+
+#
+# Digital to analog converters
+#
+CONFIG_AD5064=y
+CONFIG_AD5360=y
+CONFIG_AD5380=y
+CONFIG_AD5421=y
+CONFIG_AD5446=y
+CONFIG_AD5449=y
+CONFIG_AD5504=y
+CONFIG_AD5624R_SPI=y
+CONFIG_AD5686=y
+CONFIG_AD5755=y
+CONFIG_AD5764=y
+CONFIG_AD5791=y
+CONFIG_AD7303=y
+CONFIG_MAX517=y
+CONFIG_MAX5821=y
+CONFIG_MCP4725=y
+CONFIG_MCP4922=y
+
+#
+# Frequency Synthesizers DDS/PLL
+#
+
+#
+# Clock Generator/Distribution
+#
+CONFIG_AD9523=y
+
+#
+# Phase-Locked Loop (PLL) frequency synthesizers
+#
+CONFIG_ADF4350=y
+
+#
+# Digital gyroscope sensors
+#
+CONFIG_ADIS16080=y
+CONFIG_ADIS16130=y
+CONFIG_ADIS16136=y
+CONFIG_ADIS16260=y
+CONFIG_ADXRS450=y
+CONFIG_BMG160=y
+CONFIG_HID_SENSOR_GYRO_3D=y
+CONFIG_IIO_ST_GYRO_3AXIS=y
+CONFIG_IIO_ST_GYRO_I2C_3AXIS=y
+CONFIG_IIO_ST_GYRO_SPI_3AXIS=y
+CONFIG_ITG3200=y
+
+#
+# Humidity sensors
+#
+CONFIG_DHT11=y
+CONFIG_SI7005=y
+CONFIG_SI7020=y
+
+#
+# Inertial measurement units
+#
+CONFIG_ADIS16400=y
+CONFIG_ADIS16480=y
+CONFIG_KMX61=y
+CONFIG_INV_MPU6050_IIO=y
+CONFIG_IIO_ADIS_LIB=y
+CONFIG_IIO_ADIS_LIB_BUFFER=y
+
+#
+# Light sensors
+#
+CONFIG_ADJD_S311=y
+CONFIG_AL3320A=y
+CONFIG_APDS9300=y
+CONFIG_CM32181=y
+CONFIG_CM3232=y
+CONFIG_CM36651=y
+CONFIG_GP2AP020A00F=y
+CONFIG_ISL29125=y
+CONFIG_HID_SENSOR_ALS=y
+CONFIG_HID_SENSOR_PROX=y
+CONFIG_JSA1212=y
+CONFIG_SENSORS_LM3533=y
+CONFIG_LTR501=y
+CONFIG_TCS3414=y
+CONFIG_TCS3472=y
+CONFIG_SENSORS_TSL2563=y
+CONFIG_TSL4531=y
+CONFIG_VCNL4000=y
+
+#
+# Magnetometer sensors
+#
+CONFIG_AK8975=y
+CONFIG_AK09911=y
+CONFIG_MAG3110=y
+CONFIG_HID_SENSOR_MAGNETOMETER_3D=y
+CONFIG_IIO_ST_MAGN_3AXIS=y
+CONFIG_IIO_ST_MAGN_I2C_3AXIS=y
+CONFIG_IIO_ST_MAGN_SPI_3AXIS=y
+
+#
+# Inclinometer sensors
+#
+CONFIG_HID_SENSOR_INCLINOMETER_3D=y
+CONFIG_HID_SENSOR_DEVICE_ROTATION=y
+
+#
+# Triggers - standalone
+#
+CONFIG_IIO_INTERRUPT_TRIGGER=y
+CONFIG_IIO_SYSFS_TRIGGER=y
+
+#
+# Pressure sensors
+#
+CONFIG_BMP280=y
+CONFIG_HID_SENSOR_PRESS=y
+CONFIG_MPL115=y
+CONFIG_MPL3115=y
+CONFIG_IIO_ST_PRESS=y
+CONFIG_IIO_ST_PRESS_I2C=y
+CONFIG_IIO_ST_PRESS_SPI=y
+CONFIG_T5403=y
+
+#
+# Lightning sensors
+#
+CONFIG_AS3935=y
+
+#
+# Proximity sensors
+#
+CONFIG_SX9500=y
+
+#
+# Temperature sensors
+#
+CONFIG_MLX90614=y
+CONFIG_TMP006=y
+CONFIG_VME_BUS=y
+
+#
+# VME Bridge Drivers
+#
+CONFIG_VME_CA91CX42=y
+CONFIG_VME_TSI148=y
+
+#
+# VME Board Drivers
+#
+CONFIG_VMIVME_7805=y
+
+#
+# VME Device Drivers
+#
+CONFIG_VME_USER=y
+CONFIG_VME_PIO2=y
+CONFIG_PWM=y
+CONFIG_PWM_SYSFS=y
+CONFIG_PWM_ATMEL_HLCDC_PWM=y
+CONFIG_PWM_CLPS711X=y
+CONFIG_PWM_FSL_FTM=y
+CONFIG_PWM_IMG=y
+CONFIG_PWM_LP3943=y
+CONFIG_PWM_PCA9685=y
+CONFIG_PWM_RENESAS_TPU=y
+CONFIG_PWM_SUN4I=y
+CONFIG_PWM_TWL=y
+CONFIG_PWM_TWL_LED=y
+CONFIG_IRQCHIP=y
+CONFIG_IPACK_BUS=y
+CONFIG_BOARD_TPCI200=y
+CONFIG_SERIAL_IPOCTAL=y
+CONFIG_RESET_CONTROLLER=y
+CONFIG_FMC=y
+CONFIG_FMC_FAKEDEV=y
+CONFIG_FMC_TRIVIAL=y
+CONFIG_FMC_WRITE_EEPROM=y
+CONFIG_FMC_CHARDEV=y
+
+#
+# PHY Subsystem
+#
+CONFIG_GENERIC_PHY=y
+CONFIG_ARMADA375_USBCLUSTER_PHY=y
+CONFIG_PHY_EXYNOS_MIPI_VIDEO=y
+CONFIG_OMAP_CONTROL_PHY=y
+CONFIG_PHY_EXYNOS_DP_VIDEO=y
+CONFIG_BCM_KONA_USB2_PHY=y
+CONFIG_PHY_SAMSUNG_USB2=y
+# CONFIG_PHY_EXYNOS4210_USB2 is not set
+# CONFIG_PHY_EXYNOS4X12_USB2 is not set
+# CONFIG_PHY_EXYNOS5250_USB2 is not set
+CONFIG_PHY_ST_SPEAR1310_MIPHY=y
+CONFIG_PHY_ST_SPEAR1340_MIPHY=y
+CONFIG_PHY_XGENE=y
+CONFIG_PHY_STIH407_USB=y
+CONFIG_POWERCAP=y
+CONFIG_MCB=y
+CONFIG_MCB_PCI=y
+CONFIG_THUNDERBOLT=y
+
+#
+# Android
+#
+CONFIG_ANDROID=y
+CONFIG_ANDROID_BINDER_IPC=y
+CONFIG_ANDROID_BINDER_IPC_32BIT=y
+
+#
+# File systems
+#
+CONFIG_EXT2_FS=y
+CONFIG_EXT2_FS_XATTR=y
+CONFIG_EXT2_FS_POSIX_ACL=y
+CONFIG_EXT2_FS_SECURITY=y
+CONFIG_EXT3_FS=y
+CONFIG_EXT3_DEFAULTS_TO_ORDERED=y
+CONFIG_EXT3_FS_XATTR=y
+CONFIG_EXT3_FS_POSIX_ACL=y
+CONFIG_EXT3_FS_SECURITY=y
+CONFIG_EXT4_FS=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_EXT4_FS_SECURITY=y
+CONFIG_EXT4_DEBUG=y
+CONFIG_JBD=y
+CONFIG_JBD_DEBUG=y
+CONFIG_JBD2=y
+CONFIG_JBD2_DEBUG=y
+CONFIG_FS_MBCACHE=y
+CONFIG_REISERFS_FS=y
+CONFIG_REISERFS_CHECK=y
+CONFIG_REISERFS_PROC_INFO=y
+CONFIG_REISERFS_FS_XATTR=y
+CONFIG_REISERFS_FS_POSIX_ACL=y
+CONFIG_REISERFS_FS_SECURITY=y
+CONFIG_JFS_FS=y
+CONFIG_JFS_POSIX_ACL=y
+CONFIG_JFS_SECURITY=y
+CONFIG_JFS_DEBUG=y
+CONFIG_JFS_STATISTICS=y
+CONFIG_XFS_FS=y
+CONFIG_XFS_QUOTA=y
+CONFIG_XFS_POSIX_ACL=y
+CONFIG_XFS_RT=y
+CONFIG_XFS_DEBUG=y
+CONFIG_GFS2_FS=y
+CONFIG_GFS2_FS_LOCKING_DLM=y
+CONFIG_OCFS2_FS=y
+CONFIG_OCFS2_FS_O2CB=y
+CONFIG_OCFS2_FS_USERSPACE_CLUSTER=y
+CONFIG_OCFS2_FS_STATS=y
+CONFIG_OCFS2_DEBUG_MASKLOG=y
+CONFIG_OCFS2_DEBUG_FS=y
+CONFIG_BTRFS_FS=y
+CONFIG_BTRFS_FS_POSIX_ACL=y
+CONFIG_BTRFS_FS_CHECK_INTEGRITY=y
+CONFIG_BTRFS_FS_RUN_SANITY_TESTS=y
+CONFIG_BTRFS_DEBUG=y
+CONFIG_BTRFS_ASSERT=y
+CONFIG_NILFS2_FS=y
+CONFIG_FS_DAX=y
+CONFIG_FS_POSIX_ACL=y
+CONFIG_EXPORTFS=y
+CONFIG_FILE_LOCKING=y
+CONFIG_FSNOTIFY=y
+CONFIG_DNOTIFY=y
+CONFIG_INOTIFY_USER=y
+CONFIG_FANOTIFY=y
+CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y
+CONFIG_QUOTA=y
+CONFIG_QUOTA_NETLINK_INTERFACE=y
+CONFIG_PRINT_QUOTA_WARNING=y
+CONFIG_QUOTA_DEBUG=y
+CONFIG_QUOTA_TREE=y
+CONFIG_QFMT_V1=y
+CONFIG_QFMT_V2=y
+CONFIG_QUOTACTL=y
+CONFIG_AUTOFS4_FS=y
+CONFIG_FUSE_FS=y
+CONFIG_CUSE=y
+CONFIG_OVERLAY_FS=y
+
+#
+# Caches
+#
+CONFIG_FSCACHE=y
+CONFIG_FSCACHE_STATS=y
+CONFIG_FSCACHE_HISTOGRAM=y
+CONFIG_FSCACHE_DEBUG=y
+CONFIG_FSCACHE_OBJECT_LIST=y
+CONFIG_CACHEFILES=y
+CONFIG_CACHEFILES_DEBUG=y
+CONFIG_CACHEFILES_HISTOGRAM=y
+
+#
+# CD-ROM/DVD Filesystems
+#
+CONFIG_ISO9660_FS=y
+CONFIG_JOLIET=y
+CONFIG_ZISOFS=y
+CONFIG_UDF_FS=y
+CONFIG_UDF_NLS=y
+
+#
+# DOS/FAT/NT Filesystems
+#
+CONFIG_FAT_FS=y
+CONFIG_MSDOS_FS=y
+CONFIG_VFAT_FS=y
+CONFIG_FAT_DEFAULT_CODEPAGE=437
+CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
+CONFIG_NTFS_FS=y
+CONFIG_NTFS_DEBUG=y
+CONFIG_NTFS_RW=y
+
+#
+# Pseudo filesystems
+#
+CONFIG_PROC_FS=y
+CONFIG_PROC_KCORE=y
+CONFIG_PROC_SYSCTL=y
+CONFIG_PROC_PAGE_MONITOR=y
+CONFIG_KERNFS=y
+CONFIG_SYSFS=y
+CONFIG_TMPFS=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_TMPFS_XATTR=y
+# CONFIG_HUGETLB_PAGE is not set
+CONFIG_CONFIGFS_FS=y
+CONFIG_MISC_FILESYSTEMS=y
+CONFIG_ADFS_FS=y
+CONFIG_ADFS_FS_RW=y
+CONFIG_AFFS_FS=y
+CONFIG_ECRYPT_FS=y
+CONFIG_ECRYPT_FS_MESSAGING=y
+CONFIG_HFS_FS=y
+CONFIG_HFSPLUS_FS=y
+CONFIG_HFSPLUS_FS_POSIX_ACL=y
+CONFIG_BEFS_FS=y
+CONFIG_BEFS_DEBUG=y
+CONFIG_BFS_FS=y
+CONFIG_EFS_FS=y
+CONFIG_JFFS2_FS=y
+CONFIG_JFFS2_FS_DEBUG=0
+CONFIG_JFFS2_FS_WRITEBUFFER=y
+CONFIG_JFFS2_FS_WBUF_VERIFY=y
+CONFIG_JFFS2_SUMMARY=y
+CONFIG_JFFS2_FS_XATTR=y
+CONFIG_JFFS2_FS_POSIX_ACL=y
+CONFIG_JFFS2_FS_SECURITY=y
+CONFIG_JFFS2_COMPRESSION_OPTIONS=y
+CONFIG_JFFS2_ZLIB=y
+CONFIG_JFFS2_LZO=y
+CONFIG_JFFS2_RTIME=y
+CONFIG_JFFS2_RUBIN=y
+# CONFIG_JFFS2_CMODE_NONE is not set
+CONFIG_JFFS2_CMODE_PRIORITY=y
+# CONFIG_JFFS2_CMODE_SIZE is not set
+# CONFIG_JFFS2_CMODE_FAVOURLZO is not set
+CONFIG_UBIFS_FS=y
+CONFIG_UBIFS_FS_ADVANCED_COMPR=y
+CONFIG_UBIFS_FS_LZO=y
+CONFIG_UBIFS_FS_ZLIB=y
+# CONFIG_LOGFS is not set
+CONFIG_CRAMFS=y
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_FILE_CACHE=y
+# CONFIG_SQUASHFS_FILE_DIRECT is not set
+CONFIG_SQUASHFS_DECOMP_SINGLE=y
+# CONFIG_SQUASHFS_DECOMP_MULTI is not set
+# CONFIG_SQUASHFS_DECOMP_MULTI_PERCPU is not set
+CONFIG_SQUASHFS_XATTR=y
+CONFIG_SQUASHFS_ZLIB=y
+CONFIG_SQUASHFS_LZ4=y
+CONFIG_SQUASHFS_LZO=y
+CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_4K_DEVBLK_SIZE=y
+CONFIG_SQUASHFS_EMBEDDED=y
+CONFIG_SQUASHFS_FRAGMENT_CACHE_SIZE=3
+CONFIG_VXFS_FS=y
+CONFIG_MINIX_FS=y
+CONFIG_MINIX_FS_NATIVE_ENDIAN=y
+CONFIG_OMFS_FS=y
+CONFIG_HPFS_FS=y
+CONFIG_QNX4FS_FS=y
+CONFIG_QNX6FS_FS=y
+CONFIG_QNX6FS_DEBUG=y
+CONFIG_ROMFS_FS=y
+CONFIG_ROMFS_BACKED_BY_BLOCK=y
+# CONFIG_ROMFS_BACKED_BY_MTD is not set
+# CONFIG_ROMFS_BACKED_BY_BOTH is not set
+CONFIG_ROMFS_ON_BLOCK=y
+CONFIG_PSTORE=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_PMSG=y
+CONFIG_PSTORE_FTRACE=y
+CONFIG_PSTORE_RAM=y
+CONFIG_SYSV_FS=y
+CONFIG_UFS_FS=y
+CONFIG_UFS_FS_WRITE=y
+CONFIG_UFS_DEBUG=y
+CONFIG_EXOFS_FS=y
+CONFIG_EXOFS_DEBUG=y
+CONFIG_F2FS_FS=y
+CONFIG_F2FS_STAT_FS=y
+CONFIG_F2FS_FS_XATTR=y
+CONFIG_F2FS_FS_POSIX_ACL=y
+CONFIG_F2FS_FS_SECURITY=y
+CONFIG_F2FS_CHECK_FS=y
+CONFIG_F2FS_IO_TRACE=y
+CONFIG_ORE=y
+CONFIG_NETWORK_FILESYSTEMS=y
+CONFIG_NFS_FS=y
+CONFIG_NFS_V2=y
+CONFIG_NFS_V3=y
+CONFIG_NFS_V3_ACL=y
+CONFIG_NFS_V4=y
+CONFIG_NFS_SWAP=y
+CONFIG_NFS_V4_1=y
+CONFIG_NFS_V4_2=y
+CONFIG_PNFS_FILE_LAYOUT=y
+CONFIG_PNFS_BLOCK=y
+CONFIG_PNFS_OBJLAYOUT=y
+CONFIG_PNFS_FLEXFILE_LAYOUT=m
+CONFIG_NFS_V4_1_IMPLEMENTATION_ID_DOMAIN="kernel.org"
+CONFIG_NFS_V4_1_MIGRATION=y
+CONFIG_NFS_V4_SECURITY_LABEL=y
+CONFIG_ROOT_NFS=y
+CONFIG_NFS_FSCACHE=y
+CONFIG_NFS_USE_LEGACY_DNS=y
+CONFIG_NFS_DEBUG=y
+CONFIG_NFSD=y
+CONFIG_NFSD_V2_ACL=y
+CONFIG_NFSD_V3=y
+CONFIG_NFSD_V3_ACL=y
+CONFIG_NFSD_V4=y
+CONFIG_NFSD_PNFS=y
+CONFIG_NFSD_V4_SECURITY_LABEL=y
+CONFIG_NFSD_FAULT_INJECTION=y
+CONFIG_GRACE_PERIOD=y
+CONFIG_LOCKD=y
+CONFIG_LOCKD_V4=y
+CONFIG_NFS_ACL_SUPPORT=y
+CONFIG_NFS_COMMON=y
+CONFIG_SUNRPC=y
+CONFIG_SUNRPC_GSS=y
+CONFIG_SUNRPC_BACKCHANNEL=y
+CONFIG_SUNRPC_SWAP=y
+CONFIG_RPCSEC_GSS_KRB5=y
+CONFIG_SUNRPC_DEBUG=y
+CONFIG_SUNRPC_XPRT_RDMA_CLIENT=y
+CONFIG_SUNRPC_XPRT_RDMA_SERVER=y
+CONFIG_CEPH_FS=y
+CONFIG_CEPH_FSCACHE=y
+CONFIG_CEPH_FS_POSIX_ACL=y
+CONFIG_CIFS=y
+CONFIG_CIFS_STATS=y
+CONFIG_CIFS_STATS2=y
+CONFIG_CIFS_WEAK_PW_HASH=y
+CONFIG_CIFS_UPCALL=y
+CONFIG_CIFS_XATTR=y
+CONFIG_CIFS_POSIX=y
+CONFIG_CIFS_ACL=y
+CONFIG_CIFS_DEBUG=y
+CONFIG_CIFS_DEBUG2=y
+CONFIG_CIFS_DFS_UPCALL=y
+CONFIG_CIFS_SMB2=y
+CONFIG_CIFS_FSCACHE=y
+CONFIG_NCP_FS=y
+CONFIG_NCPFS_PACKET_SIGNING=y
+CONFIG_NCPFS_IOCTL_LOCKING=y
+CONFIG_NCPFS_STRONG=y
+CONFIG_NCPFS_NFS_NS=y
+CONFIG_NCPFS_OS2_NS=y
+CONFIG_NCPFS_SMALLDOS=y
+CONFIG_NCPFS_NLS=y
+CONFIG_NCPFS_EXTRAS=y
+CONFIG_CODA_FS=y
+CONFIG_AFS_FS=y
+CONFIG_AFS_DEBUG=y
+CONFIG_AFS_FSCACHE=y
+CONFIG_9P_FS=y
+CONFIG_9P_FSCACHE=y
+CONFIG_9P_FS_POSIX_ACL=y
+CONFIG_9P_FS_SECURITY=y
+CONFIG_NLS=y
+CONFIG_NLS_DEFAULT="iso8859-1"
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_CODEPAGE_737=y
+CONFIG_NLS_CODEPAGE_775=y
+CONFIG_NLS_CODEPAGE_850=y
+CONFIG_NLS_CODEPAGE_852=y
+CONFIG_NLS_CODEPAGE_855=y
+CONFIG_NLS_CODEPAGE_857=y
+CONFIG_NLS_CODEPAGE_860=y
+CONFIG_NLS_CODEPAGE_861=y
+CONFIG_NLS_CODEPAGE_862=y
+CONFIG_NLS_CODEPAGE_863=y
+CONFIG_NLS_CODEPAGE_864=y
+CONFIG_NLS_CODEPAGE_865=y
+CONFIG_NLS_CODEPAGE_866=y
+CONFIG_NLS_CODEPAGE_869=y
+CONFIG_NLS_CODEPAGE_936=y
+CONFIG_NLS_CODEPAGE_950=y
+CONFIG_NLS_CODEPAGE_932=y
+CONFIG_NLS_CODEPAGE_949=y
+CONFIG_NLS_CODEPAGE_874=y
+CONFIG_NLS_ISO8859_8=y
+CONFIG_NLS_CODEPAGE_1250=y
+CONFIG_NLS_CODEPAGE_1251=y
+CONFIG_NLS_ASCII=y
+CONFIG_NLS_ISO8859_1=y
+CONFIG_NLS_ISO8859_2=y
+CONFIG_NLS_ISO8859_3=y
+CONFIG_NLS_ISO8859_4=y
+CONFIG_NLS_ISO8859_5=y
+CONFIG_NLS_ISO8859_6=y
+CONFIG_NLS_ISO8859_7=y
+CONFIG_NLS_ISO8859_9=y
+CONFIG_NLS_ISO8859_13=y
+CONFIG_NLS_ISO8859_14=y
+CONFIG_NLS_ISO8859_15=y
+CONFIG_NLS_KOI8_R=y
+CONFIG_NLS_KOI8_U=y
+CONFIG_NLS_MAC_ROMAN=y
+CONFIG_NLS_MAC_CELTIC=y
+CONFIG_NLS_MAC_CENTEURO=y
+CONFIG_NLS_MAC_CROATIAN=y
+CONFIG_NLS_MAC_CYRILLIC=y
+CONFIG_NLS_MAC_GAELIC=y
+CONFIG_NLS_MAC_GREEK=y
+CONFIG_NLS_MAC_ICELAND=y
+CONFIG_NLS_MAC_INUIT=y
+CONFIG_NLS_MAC_ROMANIAN=y
+CONFIG_NLS_MAC_TURKISH=y
+CONFIG_NLS_UTF8=y
+CONFIG_DLM=y
+CONFIG_DLM_DEBUG=y
+
+#
+# Kernel hacking
+#
+CONFIG_TRACE_IRQFLAGS_SUPPORT=y
+
+#
+# printk and dmesg options
+#
+CONFIG_PRINTK_TIME=y
+CONFIG_MESSAGE_LOGLEVEL_DEFAULT=4
+CONFIG_BOOT_PRINTK_DELAY=y
+CONFIG_DYNAMIC_DEBUG=y
+
+#
+# Compile-time checks and compiler options
+#
+CONFIG_ENABLE_WARN_DEPRECATED=y
+CONFIG_ENABLE_MUST_CHECK=y
+CONFIG_FRAME_WARN=1024
+CONFIG_STRIP_ASM_SYMS=y
+CONFIG_READABLE_ASM=y
+CONFIG_UNUSED_SYMBOLS=y
+CONFIG_PAGE_OWNER=y
+CONFIG_DEBUG_FS=y
+CONFIG_HEADERS_CHECK=y
+CONFIG_DEBUG_SECTION_MISMATCH=y
+CONFIG_DEBUG_FORCE_WEAK_PER_CPU=y
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE=0x1
+CONFIG_DEBUG_KERNEL=y
+
+#
+# Memory Debugging
+#
+CONFIG_PAGE_EXTENSION=y
+CONFIG_DEBUG_PAGEALLOC=y
+CONFIG_PAGE_POISONING=y
+CONFIG_DEBUG_OBJECTS=y
+CONFIG_DEBUG_OBJECTS_SELFTEST=y
+CONFIG_DEBUG_OBJECTS_FREE=y
+CONFIG_DEBUG_OBJECTS_TIMERS=y
+CONFIG_DEBUG_OBJECTS_WORK=y
+CONFIG_DEBUG_OBJECTS_RCU_HEAD=y
+CONFIG_DEBUG_OBJECTS_PERCPU_COUNTER=y
+CONFIG_DEBUG_OBJECTS_ENABLE_DEFAULT=1
+CONFIG_SLUB_DEBUG_ON=y
+CONFIG_SLUB_STATS=y
+CONFIG_HAVE_DEBUG_KMEMLEAK=y
+CONFIG_DEBUG_KMEMLEAK=y
+CONFIG_DEBUG_KMEMLEAK_EARLY_LOG_SIZE=400
+CONFIG_DEBUG_KMEMLEAK_TEST=m
+CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF=y
+CONFIG_DEBUG_STACK_USAGE=y
+CONFIG_DEBUG_VM=y
+CONFIG_DEBUG_VM_VMACACHE=y
+CONFIG_DEBUG_VM_RB=y
+CONFIG_DEBUG_MEMORY_INIT=y
+CONFIG_DEBUG_HIGHMEM=y
+CONFIG_DEBUG_SHIRQ=y
+
+#
+# Debug Lockups and Hangs
+#
+CONFIG_LOCKUP_DETECTOR=y
+CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y
+CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC_VALUE=1
+CONFIG_DETECT_HUNG_TASK=y
+CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=120
+CONFIG_BOOTPARAM_HUNG_TASK_PANIC=y
+CONFIG_BOOTPARAM_HUNG_TASK_PANIC_VALUE=1
+CONFIG_PANIC_ON_OOPS=y
+CONFIG_PANIC_ON_OOPS_VALUE=1
+CONFIG_PANIC_TIMEOUT=0
+CONFIG_SCHED_DEBUG=y
+CONFIG_SCHEDSTATS=y
+CONFIG_SCHED_STACK_END_CHECK=y
+CONFIG_TIMER_STATS=y
+
+#
+# Lock Debugging (spinlocks, mutexes, etc...)
+#
+CONFIG_DEBUG_RT_MUTEXES=y
+CONFIG_DEBUG_SPINLOCK=y
+CONFIG_DEBUG_MUTEXES=y
+CONFIG_DEBUG_WW_MUTEX_SLOWPATH=y
+CONFIG_DEBUG_LOCK_ALLOC=y
+CONFIG_PROVE_LOCKING=y
+CONFIG_LOCKDEP=y
+CONFIG_LOCK_STAT=y
+CONFIG_DEBUG_LOCKDEP=y
+CONFIG_DEBUG_ATOMIC_SLEEP=y
+CONFIG_DEBUG_LOCKING_API_SELFTESTS=y
+CONFIG_LOCK_TORTURE_TEST=y
+CONFIG_TRACE_IRQFLAGS=y
+CONFIG_STACKTRACE=y
+CONFIG_DEBUG_KOBJECT=y
+CONFIG_DEBUG_KOBJECT_RELEASE=y
+CONFIG_DEBUG_LIST=y
+CONFIG_DEBUG_PI_LIST=y
+CONFIG_DEBUG_SG=y
+CONFIG_DEBUG_NOTIFIERS=y
+CONFIG_DEBUG_CREDENTIALS=y
+
+#
+# RCU Debugging
+#
+CONFIG_PROVE_RCU=y
+CONFIG_PROVE_RCU_REPEATEDLY=y
+CONFIG_SPARSE_RCU_POINTER=y
+CONFIG_TORTURE_TEST=y
+CONFIG_RCU_TORTURE_TEST=y
+CONFIG_RCU_TORTURE_TEST_RUNNABLE=y
+CONFIG_RCU_CPU_STALL_TIMEOUT=21
+CONFIG_RCU_TRACE=y
+CONFIG_DEBUG_BLOCK_EXT_DEVT=y
+CONFIG_NOTIFIER_ERROR_INJECTION=y
+CONFIG_FAULT_INJECTION=y
+CONFIG_FAILSLAB=y
+CONFIG_FAIL_PAGE_ALLOC=y
+CONFIG_FAIL_MAKE_REQUEST=y
+CONFIG_FAIL_IO_TIMEOUT=y
+CONFIG_FAIL_MMC_REQUEST=y
+CONFIG_FAULT_INJECTION_DEBUG_FS=y
+CONFIG_FAULT_INJECTION_STACKTRACE_FILTER=y
+CONFIG_LATENCYTOP=y
+CONFIG_NOP_TRACER=y
+CONFIG_HAVE_FUNCTION_TRACER=y
+CONFIG_HAVE_FUNCTION_GRAPH_TRACER=y
+CONFIG_HAVE_DYNAMIC_FTRACE=y
+CONFIG_HAVE_FTRACE_MCOUNT_RECORD=y
+CONFIG_TRACER_MAX_TRACE=y
+CONFIG_TRACE_CLOCK=y
+CONFIG_RING_BUFFER=y
+CONFIG_EVENT_TRACING=y
+CONFIG_CONTEXT_SWITCH_TRACER=y
+CONFIG_RING_BUFFER_ALLOW_SWAP=y
+CONFIG_TRACING=y
+CONFIG_GENERIC_TRACER=y
+CONFIG_TRACING_SUPPORT=y
+CONFIG_FTRACE=y
+CONFIG_FUNCTION_TRACER=y
+CONFIG_FUNCTION_GRAPH_TRACER=y
+CONFIG_IRQSOFF_TRACER=y
+CONFIG_SCHED_TRACER=y
+CONFIG_TRACER_SNAPSHOT=y
+CONFIG_TRACER_SNAPSHOT_PER_CPU_SWAP=y
+CONFIG_BRANCH_PROFILE_NONE=y
+# CONFIG_PROFILE_ANNOTATED_BRANCHES is not set
+# CONFIG_PROFILE_ALL_BRANCHES is not set
+CONFIG_STACK_TRACER=y
+CONFIG_BLK_DEV_IO_TRACE=y
+# CONFIG_PROBE_EVENTS is not set
+CONFIG_DYNAMIC_FTRACE=y
+CONFIG_FUNCTION_PROFILER=y
+CONFIG_FTRACE_MCOUNT_RECORD=y
+CONFIG_FTRACE_SELFTEST=y
+CONFIG_FTRACE_STARTUP_TEST=y
+CONFIG_EVENT_TRACE_TEST_SYSCALLS=y
+CONFIG_TRACEPOINT_BENCHMARK=y
+CONFIG_RING_BUFFER_BENCHMARK=y
+CONFIG_RING_BUFFER_STARTUP_TEST=y
+
+#
+# Runtime Testing
+#
+CONFIG_LKDTM=y
+CONFIG_TEST_LIST_SORT=y
+CONFIG_BACKTRACE_SELF_TEST=y
+CONFIG_RBTREE_TEST=y
+CONFIG_INTERVAL_TREE_TEST=m
+CONFIG_PERCPU_TEST=m
+CONFIG_ATOMIC64_SELFTEST=y
+CONFIG_ASYNC_RAID6_TEST=y
+CONFIG_TEST_HEXDUMP=y
+CONFIG_TEST_STRING_HELPERS=y
+CONFIG_TEST_KSTRTOX=y
+CONFIG_TEST_RHASHTABLE=y
+CONFIG_BUILD_DOCSRC=y
+CONFIG_DMA_API_DEBUG=y
+CONFIG_TEST_LKM=m
+CONFIG_TEST_USER_COPY=m
+CONFIG_TEST_BPF=m
+CONFIG_TEST_FIRMWARE=y
+CONFIG_TEST_UDELAY=y
+# CONFIG_SAMPLES is not set
+CONFIG_HAVE_ARCH_KGDB=y
+CONFIG_KGDB=y
+CONFIG_KGDB_SERIAL_CONSOLE=y
+CONFIG_KGDB_TESTS=y
+CONFIG_KGDB_TESTS_ON_BOOT=y
+CONFIG_KGDB_TESTS_BOOT_STRING="V1F100"
+CONFIG_KGDB_KDB=y
+CONFIG_KDB_DEFAULT_ENABLE=0x1
+CONFIG_KDB_KEYBOARD=y
+CONFIG_KDB_CONTINUE_CATASTROPHIC=0
+CONFIG_EARLY_PRINTK=y
+CONFIG_HEART_BEAT=y
+
+#
+# Security options
+#
+CONFIG_KEYS=y
+CONFIG_PERSISTENT_KEYRINGS=y
+CONFIG_BIG_KEYS=y
+CONFIG_TRUSTED_KEYS=y
+CONFIG_ENCRYPTED_KEYS=y
+CONFIG_SECURITY_DMESG_RESTRICT=y
+CONFIG_SECURITY=y
+CONFIG_SECURITYFS=y
+CONFIG_SECURITY_NETWORK=y
+CONFIG_SECURITY_NETWORK_XFRM=y
+CONFIG_SECURITY_PATH=y
+CONFIG_LSM_MMAP_MIN_ADDR=65536
+CONFIG_SECURITY_SELINUX=y
+CONFIG_SECURITY_SELINUX_BOOTPARAM=y
+CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=1
+CONFIG_SECURITY_SELINUX_DISABLE=y
+CONFIG_SECURITY_SELINUX_DEVELOP=y
+CONFIG_SECURITY_SELINUX_AVC_STATS=y
+CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE=1
+CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX=y
+CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX_VALUE=19
+CONFIG_SECURITY_SMACK=y
+CONFIG_SECURITY_SMACK_BRINGUP=y
+CONFIG_SECURITY_SMACK_NETFILTER=y
+CONFIG_SECURITY_TOMOYO=y
+CONFIG_SECURITY_TOMOYO_MAX_ACCEPT_ENTRY=2048
+CONFIG_SECURITY_TOMOYO_MAX_AUDIT_LOG=1024
+CONFIG_SECURITY_TOMOYO_OMIT_USERSPACE_LOADER=y
+CONFIG_SECURITY_APPARMOR=y
+CONFIG_SECURITY_APPARMOR_BOOTPARAM_VALUE=1
+CONFIG_SECURITY_APPARMOR_HASH=y
+CONFIG_SECURITY_YAMA=y
+CONFIG_SECURITY_YAMA_STACKED=y
+CONFIG_INTEGRITY=y
+CONFIG_INTEGRITY_SIGNATURE=y
+CONFIG_INTEGRITY_ASYMMETRIC_KEYS=y
+CONFIG_INTEGRITY_AUDIT=y
+CONFIG_IMA=y
+CONFIG_IMA_MEASURE_PCR_IDX=10
+CONFIG_IMA_LSM_RULES=y
+# CONFIG_IMA_TEMPLATE is not set
+CONFIG_IMA_NG_TEMPLATE=y
+# CONFIG_IMA_SIG_TEMPLATE is not set
+CONFIG_IMA_DEFAULT_TEMPLATE="ima-ng"
+CONFIG_IMA_DEFAULT_HASH_SHA1=y
+# CONFIG_IMA_DEFAULT_HASH_SHA256 is not set
+# CONFIG_IMA_DEFAULT_HASH_SHA512 is not set
+# CONFIG_IMA_DEFAULT_HASH_WP512 is not set
+CONFIG_IMA_DEFAULT_HASH="sha1"
+CONFIG_IMA_APPRAISE=y
+CONFIG_IMA_TRUSTED_KEYRING=y
+CONFIG_IMA_LOAD_X509=y
+CONFIG_IMA_X509_PATH="/etc/keys/x509_ima.der"
+CONFIG_IMA_APPRAISE_SIGNED_INIT=y
+CONFIG_EVM=y
+CONFIG_EVM_ATTR_FSUUID=y
+CONFIG_EVM_EXTRA_SMACK_XATTRS=y
+CONFIG_DEFAULT_SECURITY_SELINUX=y
+# CONFIG_DEFAULT_SECURITY_SMACK is not set
+# CONFIG_DEFAULT_SECURITY_TOMOYO is not set
+# CONFIG_DEFAULT_SECURITY_APPARMOR is not set
+# CONFIG_DEFAULT_SECURITY_YAMA is not set
+# CONFIG_DEFAULT_SECURITY_DAC is not set
+CONFIG_DEFAULT_SECURITY="selinux"
+CONFIG_XOR_BLOCKS=y
+CONFIG_ASYNC_CORE=y
+CONFIG_ASYNC_MEMCPY=y
+CONFIG_ASYNC_XOR=y
+CONFIG_ASYNC_PQ=y
+CONFIG_ASYNC_RAID6_RECOV=y
+CONFIG_CRYPTO=y
+
+#
+# Crypto core or helper
+#
+CONFIG_CRYPTO_ALGAPI=y
+CONFIG_CRYPTO_ALGAPI2=y
+CONFIG_CRYPTO_AEAD=y
+CONFIG_CRYPTO_AEAD2=y
+CONFIG_CRYPTO_BLKCIPHER=y
+CONFIG_CRYPTO_BLKCIPHER2=y
+CONFIG_CRYPTO_HASH=y
+CONFIG_CRYPTO_HASH2=y
+CONFIG_CRYPTO_RNG=y
+CONFIG_CRYPTO_RNG2=y
+CONFIG_CRYPTO_PCOMP=y
+CONFIG_CRYPTO_PCOMP2=y
+CONFIG_CRYPTO_MANAGER=y
+CONFIG_CRYPTO_MANAGER2=y
+CONFIG_CRYPTO_USER=y
+CONFIG_CRYPTO_MANAGER_DISABLE_TESTS=y
+CONFIG_CRYPTO_GF128MUL=y
+CONFIG_CRYPTO_NULL=y
+CONFIG_CRYPTO_WORKQUEUE=y
+CONFIG_CRYPTO_CRYPTD=y
+CONFIG_CRYPTO_MCRYPTD=y
+CONFIG_CRYPTO_AUTHENC=y
+CONFIG_CRYPTO_TEST=m
+
+#
+# Authenticated Encryption with Associated Data
+#
+CONFIG_CRYPTO_CCM=y
+CONFIG_CRYPTO_GCM=y
+CONFIG_CRYPTO_SEQIV=y
+
+#
+# Block modes
+#
+CONFIG_CRYPTO_CBC=y
+CONFIG_CRYPTO_CTR=y
+CONFIG_CRYPTO_CTS=y
+CONFIG_CRYPTO_ECB=y
+CONFIG_CRYPTO_LRW=y
+CONFIG_CRYPTO_PCBC=y
+CONFIG_CRYPTO_XTS=y
+
+#
+# Hash modes
+#
+CONFIG_CRYPTO_CMAC=y
+CONFIG_CRYPTO_HMAC=y
+CONFIG_CRYPTO_XCBC=y
+CONFIG_CRYPTO_VMAC=y
+
+#
+# Digest
+#
+CONFIG_CRYPTO_CRC32C=y
+CONFIG_CRYPTO_CRC32=y
+CONFIG_CRYPTO_CRCT10DIF=y
+CONFIG_CRYPTO_GHASH=y
+CONFIG_CRYPTO_MD4=y
+CONFIG_CRYPTO_MD5=y
+CONFIG_CRYPTO_MICHAEL_MIC=y
+CONFIG_CRYPTO_RMD128=y
+CONFIG_CRYPTO_RMD160=y
+CONFIG_CRYPTO_RMD256=y
+CONFIG_CRYPTO_RMD320=y
+CONFIG_CRYPTO_SHA1=y
+CONFIG_CRYPTO_SHA256=y
+CONFIG_CRYPTO_SHA512=y
+CONFIG_CRYPTO_TGR192=y
+CONFIG_CRYPTO_WP512=y
+
+#
+# Ciphers
+#
+CONFIG_CRYPTO_AES=y
+CONFIG_CRYPTO_ANUBIS=y
+CONFIG_CRYPTO_ARC4=y
+CONFIG_CRYPTO_BLOWFISH=y
+CONFIG_CRYPTO_BLOWFISH_COMMON=y
+CONFIG_CRYPTO_CAMELLIA=y
+CONFIG_CRYPTO_CAST_COMMON=y
+CONFIG_CRYPTO_CAST5=y
+CONFIG_CRYPTO_CAST6=y
+CONFIG_CRYPTO_DES=y
+CONFIG_CRYPTO_FCRYPT=y
+CONFIG_CRYPTO_KHAZAD=y
+CONFIG_CRYPTO_SALSA20=y
+CONFIG_CRYPTO_SEED=y
+CONFIG_CRYPTO_SERPENT=y
+CONFIG_CRYPTO_TEA=y
+CONFIG_CRYPTO_TWOFISH=y
+CONFIG_CRYPTO_TWOFISH_COMMON=y
+
+#
+# Compression
+#
+CONFIG_CRYPTO_DEFLATE=y
+CONFIG_CRYPTO_ZLIB=y
+CONFIG_CRYPTO_LZO=y
+CONFIG_CRYPTO_LZ4=y
+CONFIG_CRYPTO_LZ4HC=y
+
+#
+# Random Number Generation
+#
+CONFIG_CRYPTO_ANSI_CPRNG=y
+CONFIG_CRYPTO_DRBG_MENU=y
+CONFIG_CRYPTO_DRBG_HMAC=y
+CONFIG_CRYPTO_DRBG_HASH=y
+CONFIG_CRYPTO_DRBG_CTR=y
+CONFIG_CRYPTO_DRBG=y
+CONFIG_CRYPTO_USER_API=y
+CONFIG_CRYPTO_USER_API_HASH=y
+CONFIG_CRYPTO_USER_API_SKCIPHER=y
+CONFIG_CRYPTO_USER_API_RNG=y
+CONFIG_CRYPTO_HASH_INFO=y
+CONFIG_CRYPTO_HW=y
+CONFIG_CRYPTO_DEV_HIFN_795X=y
+CONFIG_CRYPTO_DEV_HIFN_795X_RNG=y
+CONFIG_CRYPTO_DEV_QCE=y
+CONFIG_ASYMMETRIC_KEY_TYPE=y
+CONFIG_ASYMMETRIC_PUBLIC_KEY_SUBTYPE=y
+CONFIG_PUBLIC_KEY_ALGO_RSA=y
+CONFIG_X509_CERTIFICATE_PARSER=y
+CONFIG_PKCS7_MESSAGE_PARSER=y
+CONFIG_PKCS7_TEST_KEY=y
+CONFIG_SIGNED_PE_FILE_VERIFICATION=y
+CONFIG_BINARY_PRINTF=y
+
+#
+# Library routines
+#
+CONFIG_RAID6_PQ=y
+CONFIG_BITREVERSE=y
+# CONFIG_HAVE_ARCH_BITREVERSE is not set
+CONFIG_RATIONAL=y
+CONFIG_GENERIC_NET_UTILS=y
+CONFIG_GENERIC_PCI_IOMAP=y
+CONFIG_GENERIC_IO=y
+CONFIG_STMP_DEVICE=y
+CONFIG_CRC_CCITT=y
+CONFIG_CRC16=y
+CONFIG_CRC_T10DIF=y
+CONFIG_CRC_ITU_T=y
+CONFIG_CRC32=y
+CONFIG_CRC32_SELFTEST=y
+CONFIG_CRC32_SLICEBY8=y
+# CONFIG_CRC32_SLICEBY4 is not set
+# CONFIG_CRC32_SARWATE is not set
+# CONFIG_CRC32_BIT is not set
+CONFIG_CRC7=y
+CONFIG_LIBCRC32C=y
+CONFIG_CRC8=y
+CONFIG_AUDIT_GENERIC=y
+# CONFIG_AUDIT_ARCH_COMPAT_GENERIC is not set
+CONFIG_RANDOM32_SELFTEST=y
+CONFIG_ZLIB_INFLATE=y
+CONFIG_ZLIB_DEFLATE=y
+CONFIG_LZO_COMPRESS=y
+CONFIG_LZO_DECOMPRESS=y
+CONFIG_LZ4_COMPRESS=y
+CONFIG_LZ4HC_COMPRESS=y
+CONFIG_LZ4_DECOMPRESS=y
+CONFIG_XZ_DEC=y
+CONFIG_XZ_DEC_X86=y
+CONFIG_XZ_DEC_POWERPC=y
+CONFIG_XZ_DEC_IA64=y
+CONFIG_XZ_DEC_ARM=y
+CONFIG_XZ_DEC_ARMTHUMB=y
+CONFIG_XZ_DEC_SPARC=y
+CONFIG_XZ_DEC_BCJ=y
+CONFIG_XZ_DEC_TEST=y
+CONFIG_DECOMPRESS_GZIP=y
+CONFIG_DECOMPRESS_BZIP2=y
+CONFIG_DECOMPRESS_LZMA=y
+CONFIG_DECOMPRESS_XZ=y
+CONFIG_DECOMPRESS_LZO=y
+CONFIG_DECOMPRESS_LZ4=y
+CONFIG_GENERIC_ALLOCATOR=y
+CONFIG_REED_SOLOMON=y
+CONFIG_REED_SOLOMON_ENC8=y
+CONFIG_REED_SOLOMON_DEC8=y
+CONFIG_REED_SOLOMON_DEC16=y
+CONFIG_BCH=y
+CONFIG_BCH_CONST_PARAMS=y
+CONFIG_TEXTSEARCH=y
+CONFIG_TEXTSEARCH_KMP=y
+CONFIG_TEXTSEARCH_BM=y
+CONFIG_TEXTSEARCH_FSM=y
+CONFIG_BTREE=y
+CONFIG_INTERVAL_TREE=y
+CONFIG_ASSOCIATIVE_ARRAY=y
+CONFIG_HAS_IOMEM=y
+CONFIG_HAS_IOPORT_MAP=y
+CONFIG_HAS_DMA=y
+CONFIG_CHECK_SIGNATURE=y
+CONFIG_DQL=y
+CONFIG_GLOB=y
+CONFIG_GLOB_SELFTEST=y
+CONFIG_NLATTR=y
+CONFIG_GENERIC_ATOMIC64=y
+CONFIG_ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE=y
+CONFIG_LRU_CACHE=y
+CONFIG_AVERAGE=y
+CONFIG_CLZ_TAB=y
+CONFIG_CORDIC=y
+CONFIG_DDR=y
+CONFIG_MPILIB=y
+CONFIG_SIGNATURE=y
+CONFIG_LIBFDT=y
+CONFIG_OID_REGISTRY=y
+CONFIG_FONT_SUPPORT=y
+CONFIG_FONTS=y
+CONFIG_FONT_8x8=y
+CONFIG_FONT_8x16=y
+CONFIG_FONT_6x11=y
+CONFIG_FONT_7x14=y
+CONFIG_FONT_PEARL_8x8=y
+CONFIG_FONT_ACORN_8x8=y
+CONFIG_FONT_MINI_4x6=y
+CONFIG_FONT_6x10=y
+CONFIG_FONT_SUN8x16=y
+CONFIG_FONT_SUN12x22=y
+CONFIG_FONT_10x18=y
+# CONFIG_ARCH_HAS_SG_CHAIN is not set
+
+--azLHFNyN32YCQGCU--
