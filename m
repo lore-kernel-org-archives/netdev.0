@@ -1,59 +1,27 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC v2] ath10k: move code from parameter list into a function
-Date: Wed, 11 Mar 2015 23:29:03 +0300
-Message-ID: <5500A58F.3040904@cogentembedded.com>
-References: <1426100519-20636-1-git-send-email-hofrat@osadl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: repository for switch hardware info
+Date: Wed, 11 Mar 2015 16:30:48 -0400 (EDT)
+Message-ID: <20150311.163048.527361067224524073.davem@davemloft.net>
+References: <20150302.154006.225049966274593660.davem@davemloft.net>
+	<20150302.155735.937483543338955659.davem@davemloft.net>
+	<CA+CtxLQ=ByYDugho5XeOKEn2v2c67qtDd0Q=Cb=ocKn=_r4mdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, Bj??rn Mork <bjorn@mork.no>,
-	Jeff Haran <Jeff.Haran@citrix.com>,
-	Pat Erley <pat-lkml@erley.org>, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Mc Guire <hofrat@osadl.org>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426100519-20636-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: siva.mannem.lnx@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51428 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751423AbbCKUau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:30:50 -0400
+In-Reply-To: <CA+CtxLQ=ByYDugho5XeOKEn2v2c67qtDd0Q=Cb=ocKn=_r4mdA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Date: Tue, 10 Mar 2015 19:02:58 +0530
 
-On 03/11/2015 10:01 PM, Nicholas Mc Guire wrote:
+> https://github.com/Broadcom-Switch/OpenNSL
 
-> Putting code into the parameter list of wait_event_timeout() might be
-> legal C-code but not really readable - the "inline" code is simply
-> moved into a function and that passed to wait_event_timeout() as the
-> condition. As wait_event_timeout will always return >= 0 the following
-> timeout check is fixed up to  ret == 0 .
-
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-[...]
-
-> diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-> index e8cc19f..a7a12cc 100644
-> --- a/drivers/net/wireless/ath/ath10k/mac.c
-> +++ b/drivers/net/wireless/ath/ath10k/mac.c
-> @@ -4463,11 +4463,25 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
->   	return ret;
->   }
->
-> +static bool check_htt_state(struct ath10k *ar, bool *skip)
-> +{
-> +	bool empty;
-> +
-> +	spin_lock_bh(&ar->htt.tx_lock);
-> +	empty = (ar->htt.num_pending_tx == 0);
-> +	spin_unlock_bh(&ar->htt.tx_lock);
-> +
-> +	*skip = (ar->state == ATH10K_STATE_WEDGED) ||
-> +		test_bit(ATH10K_FLAG_CRASH_FLUSH,
-> +			 &ar->dev_flags);
-> +	return (empty || *skip);
-
-    Parens not needed here.
-
-[...]
-
-WBR, Sergei
+Added, thanks.
