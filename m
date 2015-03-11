@@ -1,103 +1,70 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH RFC v2] ath10k: move code from parameter list into a function
-Date: Wed, 11 Mar 2015 15:01:59 -0400
-Message-ID: <1426100519-20636-1-git-send-email-hofrat@osadl.org>
-Cc: Valdis.Kletnieks@vt.edu, Bj??rn Mork <bjorn@mork.no>,
-	Jeff Haran <Jeff.Haran@citrix.com>,
-	Pat Erley <pat-lkml@erley.org>, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH] netfilter: ipset: make ip_set_get_ip*_port to use
+ skb_network_offset
+Date: Wed, 11 Mar 2015 20:10:12 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1503112009530.12147@blackhole.kfki.hu>
+References: <1425638646-5906-1-git-send-email-al.drozdov@gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Drozdov <al.drozdov@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1425638646-5906-1-git-send-email-al.drozdov@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Putting code into the parameter list of wait_event_timeout() might be
-legal C-code but not really readable - the "inline" code is simply
-moved into a function and that passed to wait_event_timeout() as the
-condition. As wait_event_timeout will always return >= 0 the following
-timeout check is fixed up to  ret == 0 .
+On Fri, 6 Mar 2015, Alexander Drozdov wrote:
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
+> All the ipset functions respect skb->network_header value,
+> except for ip_set_get_ip4_port() & ip_set_get_ip6_port(). The
+> functions should use skb_network_offset() to get the transport
+> header offset.
+> 
+> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
 
-Thanks to Bjorn Mork <bjorn@mork.no> for clarifying my initial confusion !
+Patch is applied, thanks.
 
-v2: Thanks to Pat Erley <pat-lkml@erley.org> for catching the botched skip
-    parameter - should have been call by reference not value - fixed here.
+Best regards,
+Jozsef
 
-As Bjorn Mork <bjorn@mork.no> pointed out, a patch like this is hard to
-verify by testing - but I do think that the code readability is much
-better (if the patch is correct with respect to code behavior) and helps
-simplify/automate API usage checking so its worth the effort.
+> ---
+>  net/netfilter/ipset/ip_set_getport.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/netfilter/ipset/ip_set_getport.c b/net/netfilter/ipset/ip_set_getport.c
+> index 29fb01d..1981f02 100644
+> --- a/net/netfilter/ipset/ip_set_getport.c
+> +++ b/net/netfilter/ipset/ip_set_getport.c
+> @@ -98,7 +98,7 @@ ip_set_get_ip4_port(const struct sk_buff *skb, bool src,
+>  		    __be16 *port, u8 *proto)
+>  {
+>  	const struct iphdr *iph = ip_hdr(skb);
+> -	unsigned int protooff = ip_hdrlen(skb);
+> +	unsigned int protooff = skb_network_offset(skb) + ip_hdrlen(skb);
+>  	int protocol = iph->protocol;
+>  
+>  	/* See comments at tcp_match in ip_tables.c */
+> @@ -135,7 +135,9 @@ ip_set_get_ip6_port(const struct sk_buff *skb, bool src,
+>  	__be16 frag_off = 0;
+>  
+>  	nexthdr = ipv6_hdr(skb)->nexthdr;
+> -	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
+> +	protoff = ipv6_skip_exthdr(skb,
+> +				   skb_network_offset(skb) +
+> +					sizeof(struct ipv6hdr), &nexthdr,
+>  				   &frag_off);
+>  	if (protoff < 0 || (frag_off & htons(~0x7)) != 0)
+>  		return false;
+> -- 
+> 1.9.1
+> 
 
-Comments on if this is functionally equivalent to the original code as well
-as if the helper func name is suitable would be appreciated.
-
-Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-CONFIG_ATH10K=m and the generated mac.i file code reviewed.
-
-Patch is against 4.0-rc3 (localversion-next is -next-20150311)
-
- drivers/net/wireless/ath/ath10k/mac.c |   34 ++++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-index e8cc19f..a7a12cc 100644
---- a/drivers/net/wireless/ath/ath10k/mac.c
-+++ b/drivers/net/wireless/ath/ath10k/mac.c
-@@ -4463,11 +4463,25 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
- 	return ret;
- }
- 
-+static bool check_htt_state(struct ath10k *ar, bool *skip)
-+{
-+	bool empty;
-+
-+	spin_lock_bh(&ar->htt.tx_lock);
-+	empty = (ar->htt.num_pending_tx == 0);
-+	spin_unlock_bh(&ar->htt.tx_lock);
-+
-+	*skip = (ar->state == ATH10K_STATE_WEDGED) ||
-+		test_bit(ATH10K_FLAG_CRASH_FLUSH,
-+			 &ar->dev_flags);
-+	return (empty || *skip);
-+}
-+
- static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 			 u32 queues, bool drop)
- {
- 	struct ath10k *ar = hw->priv;
--	bool skip;
-+	bool skip = false;
- 	int ret;
- 
- 	/* mac80211 doesn't care if we really xmit queued frames or not
-@@ -4480,21 +4494,11 @@ static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 	if (ar->state == ATH10K_STATE_WEDGED)
- 		goto skip;
- 
--	ret = wait_event_timeout(ar->htt.empty_tx_wq, ({
--			bool empty;
 -
--			spin_lock_bh(&ar->htt.tx_lock);
--			empty = (ar->htt.num_pending_tx == 0);
--			spin_unlock_bh(&ar->htt.tx_lock);
--
--			skip = (ar->state == ATH10K_STATE_WEDGED) ||
--			       test_bit(ATH10K_FLAG_CRASH_FLUSH,
--					&ar->dev_flags);
--
--			(empty || skip);
--		}), ATH10K_FLUSH_TIMEOUT_HZ);
-+	ret = wait_event_timeout(ar->htt.empty_tx_wq,
-+				 check_htt_state(ar, &skip),
-+				 ATH10K_FLUSH_TIMEOUT_HZ);
- 
--	if (ret <= 0 || skip)
-+	if (ret == 0 || skip)
- 		ath10k_warn(ar, "failed to flush transmit queue (skip %i ar-state %i): %i\n",
- 			    skip, ar->state, ret);
- 
--- 
-1.7.10.4
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
