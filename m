@@ -1,42 +1,43 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: Re: [PATCH net-next] vlan: avoid a synchronize_net when parent device
- goes down
-Date: Wed, 11 Mar 2015 15:02:44 -0700
-Message-ID: <CAO7SqHA19qRPVO5knye3NE7WJXt7kSY-bvNaosaD40ZBCzaJFA@mail.gmail.com>
-References: <1425598621-18083-1-git-send-email-noureddine@arista.com>
-	<20150308.222134.544504915277666481.davem@davemloft.net>
-	<CAO7SqHB=1+bQyU4Tt-RTkDYAU5GH_536hVfW1HU3jJz8iTySJQ@mail.gmail.com>
-	<20150309.152211.2300226482423280727.davem@redhat.com>
-	<CAO7SqHBbCgkhnXHf_=je_kir59uHBk5KKG0=AETPHRZN6hNfOA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] dsa: change "select" to "depends on" for
+ switchdev in Kconfig
+Date: Wed, 11 Mar 2015 18:04:59 -0400 (EDT)
+Message-ID: <20150311.180459.1988980831203507955.davem@davemloft.net>
+References: <1426092268-1713-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Patrick McHardy <kaber@trash.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, sfeldma@gmail.com,
+	rdunlap@infradead.org, alexei.starovoitov@gmail.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:36252 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751647AbbCKWCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 18:02:45 -0400
-Received: by pdbnh10 with SMTP id nh10so14480202pdb.3
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 15:02:45 -0700 (PDT)
-In-Reply-To: <CAO7SqHBbCgkhnXHf_=je_kir59uHBk5KKG0=AETPHRZN6hNfOA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52549 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752614AbbCKWFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 18:05:01 -0400
+In-Reply-To: <1426092268-1713-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I tested your proposed patch and it seems to work as expected. Thanks!
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 11 Mar 2015 17:44:28 +0100
 
-On Mon, Mar 9, 2015 at 1:54 PM, Salam Noureddine <noureddine@arista.com> wrote:
-> I will run your patch on one of our systems for a day or two and get
-> back to you.
->
-> On Mon, Mar 9, 2015 at 12:22 PM, David Miller <davem@redhat.com> wrote:
->> From: Salam Noureddine <noureddine@arista.com>
->> Date: Mon, 9 Mar 2015 12:00:31 -0700
->>
->>> Thanks for pointing to the right direction. Is there a reason the vlan
->>> driver was calling
->>> dev_change_flags instead of dev_close to close the vlan device?
->>
->> Perhaps dev_close() was not exported at the time the code was written,
->> I honestly have no idea.
+> This would fix randconfig compile error:
+> net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
+> (.text+0xf7811): undefined reference to `fib_flush_external'
+> 
+> Also it fixes following warning:
+> warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+> 
+> Suggested-by: Randy Dunlap <rdunlap@infradead.org>
+> Suggested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+
+This is a huge mess.
+
+As Randy stated, lots of stuff does select DSA still.
+
+I think all references to switchdev and dsa need to be converted
+to depends, in order to really fix this problem properly.
+
+Thanks.
