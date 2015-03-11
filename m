@@ -1,68 +1,83 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next] switchdev: select INET in Kconfig
-Date: Wed, 11 Mar 2015 09:34:23 -0700
-Message-ID: <CAGVrzcZ-jWY3qCuXSWQaW4NiuEiji7BMxs5GmcJC3KTc7cTSqA@mail.gmail.com>
-References: <CAADnVQJd2=TLTmzczSUOzwzqQ9Lanir-J5ektivqKABq-K7Fpw@mail.gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next 1/2] net: davinci_mdio: don't request io address
+ range
+Date: Wed, 11 Mar 2015 12:35:48 -0400
+Message-ID: <55006EE4.3070600@ti.com>
+References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com> <20150227165100.GY11056@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Randy Dunlap <rdunlap@infradead.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:33086 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751259AbbCKQfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:35:10 -0400
-Received: by iecvj10 with SMTP id vj10so3217696iec.0
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 09:35:09 -0700 (PDT)
-In-Reply-To: <CAADnVQJd2=TLTmzczSUOzwzqQ9Lanir-J5ektivqKABq-K7Fpw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <mugunthanvnm@ti.com>,
+	<prabhakar.csengg@gmail.com>, <varkabhadram@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<grygorii.strashko@ti.com>, <lokeshvutla@ti.com>,
+	<mpa@pengutronix.de>, <w-kwok2@ti.com>
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150227165100.GY11056@atomide.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2015-03-11 9:26 GMT-07:00 Alexei Starovoitov <alexei.starovoitov@gmail.com>:
-> On Wed, Mar 11, 2015 at 9:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Wed, Mar 11, 2015 at 04:36:16PM CET, alexei.starovoitov@gmail.com wrote:
->>>On Wed, Mar 11, 2015 at 2:49 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> This would fix randconfig compile error:
->>>> net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
->>>> (.text+0xf7811): undefined reference to `fib_flush_external'
->>>>
->>>> Also it fixes following warning:
->>>> warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
->>>>
->>>> Suggested-by: Randy Dunlap <rdunlap@infradead.org>
->>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>> ---
->>>>  net/switchdev/Kconfig | 2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
->>>> index 86a47e1..3487940 100644
->>>> --- a/net/switchdev/Kconfig
->>>> +++ b/net/switchdev/Kconfig
->>>> @@ -4,7 +4,7 @@
->>>>
->>>>  config NET_SWITCHDEV
->>>>         bool "Switch (and switch-ish) device support (EXPERIMENTAL)"
->>>> -       depends on INET
->>>> +       select INET
->>>
->>>I believe Dave mentioned few times that 'select' is highly
->>>discouraged, since it doesn't work recursively.
->>>In this case only crazy config KVMTOOL_TEST_ENABLE
->>>is doing 'select INET' everything else in a tree is using
->>>'depends on INET'.
->>>Doing 'select NET_SWITCHDEV' was wrong in the first place.
+Tony,
+
+On 02/27/2015 11:51 AM, Tony Lindgren wrote:
+> * Murali Karicheri<m-karicheri2@ti.com>  [150224 13:32]:
+>> From: Grygorii Strashko<grygorii.strashko@ti.com>
 >>
->> Ok, so you suggest just to change this to "depends on NET_SWITCHDEV" in
->> DSA and we are good?
+>> Historically Davinci MDIO driver was  created with assumption that
+>> MDIO is standalone device, but for Keystone 2 it's a part
+>> of NETCP module and now NETCP driver requests IO range which
+>> includes MDIO IO range too. This causes Keystone 2 networking stack
+>> failure during the boot.
+>>
+>> "netcp-1.0 2620110.netcp: Probe of module(netcp-gbe) failed with -16"
+>>
+>> Hence, don't request io address range from Davinci MDIO driver and
+>> just remap it.
 >
-> yes. that should work.
-> Probably combining that line with 'depends on HAVE_NET_DSA' line
+> Best to fix this up properly so you don't have overlapping resources.
+> You probably want to have the whole hardware driver block defined
+> in the dts file as a single entry, and then have the modules within
+> that hardware block use the dt ranges property. This allows you to
+> do standard Linux drivers without any extra hacks.
+>
+> Sounds like this following untested imaginary example should do
+> the trick:
+>
+> mac: ethernet@deadbeef {
+> 	compatible = "ti,cpsw", "simple-bus";
+> 	reg =<0xdeadbeef 0x1000>;
+> 	ranges =<0 0xdeadbeef 0x2000>;
+> 	...
+>
+> 	davinci_mdio: mdio@1000 {
+> 		reg =<0x1000 0x100>;
+> 		...
+> 	};
+> };
+>
+> That allows you to get rid of all the existing code for dealing
+> with the chilren with for_each_child_of_node(node, slave_node)
+> in cpsw_probe_dt() as that all happens automatically for you and
+> does not cause problems with modules being moved around.
 
-Works for me as well, thanks Jiri for looking into that.
+This is not for CPSW driver. I am working to add the support for NetCP.
+NetCP driver depends on DaVinci MDIO driver to talk to the Phy. So this
+can be outside the NetCP device node. I will rework the NetCP driver to 
+map only it's register space and let MDIO manage the mapping of its 
+register region. I plan to use ranges to define the NetCP address space 
+and use reg to refer to individual module reg spaces (Packet 
+Accelerator, Ethenet sub system and security accelerator). This way MDIO 
+can have its own register space and will not collide with the address 
+NetCP driver maps. My v1 will implement this.
+
+Murali
+>
+> Regards,
+>
+> Tony
+
+
 -- 
-Florian
+Murali Karicheri
+Linux Kernel, Texas Instruments
