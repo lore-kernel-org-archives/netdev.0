@@ -1,55 +1,125 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next v3 1/2] net: implement dma cache skb allocator
-Date: Wed, 11 Mar 2015 14:27:56 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1503111359280.3394@ws.cisco>
-References: <1426009384-11544-1-git-send-email-_govind@gmx.com> <1426009384-11544-2-git-send-email-_govind@gmx.com> <54FF5521.5000007@redhat.com>
+From: Igal.Liberman <igal.liberman@freescale.com>
+Subject: [v2,00/11] Freescale DPAA FMan FLIB(s)
+Date: Wed, 11 Mar 2015 07:03:52 +0200
+Message-ID: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:57430 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751279AbbCKI6P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 04:58:15 -0400
-In-Reply-To: <54FF5521.5000007@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: scottwood@freescale.com, Igal Liberman <Igal.Liberman@freescale.com>
+To: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+ <linux-kernel@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Mar 2015, Alexander Duyck wrote:
-
->
-> On 03/10/2015 10:43 AM, Govindarajulu Varadarajan wrote:
->> This patch implements dma cache skb allocator. This is based on
->> __alloc_page_frag & __page_frag_refill implementation in net/core/skbuff.c
->> 
->> In addition to frag allocation from order(3) page in __alloc_page_frag,
->> we also maintain dma address of the page. While allocating a frag for skb
->> we use va + offset for virtual address of the frag, and pa + offset for
->> dma address of the frag. This reduces the number of calls to dma_map() by 
->> 1/3
->> for 9000 bytes and by 1/20 for 1500 bytes.
->> 
->> __alloc_page_frag is limited to max buffer size of PAGE_SIZE, i.e 4096 in 
->> most
->> of the cases. So 9k buffer allocation goes through kmalloc which return
->> page of order 2, 16k. We waste 7k bytes for every 9k buffer.
->
-> The question I would have is do you actually need to have the 9k buffer? 
-> Does the hardware support any sort of scatter-gather receive?  If so that 
-> would be preferable as the 9k allocation per skb will have significant 
-> overhead when you start receiving small packets.
->
-
-enic hw has limited desc per rq (4096), and we can have only one dma block per
-desc. Having sg/header-split will reduce the effective rq ring size for
-large packets.
-
-> A classic example is a TCP flow where you are only receiving a few hundred 
-> bytes per frame.  You will take a huge truesize penalty for allocating a 9k 
-> skb for a frame of only a few hundred bytes, though it sounds like you are 
-> taking that hit already.
->
-
-For this we have rx copybreak for pkts < 256 bytes.
+RnJvbTogSWdhbCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIEZy
+ZWVzY2FsZSBEYXRhIFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSAoRFBBQSkgaXMgYSBz
+ZXQgb2YKaGFyZHdhcmUgY29tcG9uZW50cyBvbiBzcGVjaWZpYyBRb3JJUSBtdWx0aWNvcmUgcHJv
+Y2Vzc29ycy4gVGhpcwphcmNoaXRlY3R1cmUgcHJvdmlkZXMgdGhlIGluZnJhc3RydWN0dXJlIHRv
+IHN1cHBvcnQgc2ltcGxpZmllZApzaGFyaW5nIG9mIG5ldHdvcmtpbmcgaW50ZXJmYWNlcyBhbmQg
+YWNjZWxlcmF0b3JzIGJ5IG11bHRpcGxlIENQVQpjb3JlcyBhbmQgdGhlIGFjY2VsZXJhdG9ycy4K
+Ck9uZSBvZiB0aGUgRFBBQSBhY2NlbGVyYXRvcnMgaXMgdGhlIEZyYW1lIE1hbmFnZXIgKEZNYW4p
+IHdoaWNoCmVuYWJsZXMgdGhlIEV0aGVybmV0IG5ldHdvcmsgaW50ZXJmYWNlcy4KClRoaXMgcGF0
+Y2ggcHJlc2VudHMgdGhlIEZNYW4gRm91bmRhdGlvbiBMaWJyYXJpZXMgKEZMSUIpIGhlYWRlcnMu
+ClRoZSBGTWFuIEZMSUIgYWRkcyBiYXNpYyBzdXBwb3J0IGZvciB0aGUgRFBBQSBGTWFuIGhhcmR3
+YXJlIHJlZ2lzdGVyCmFjY2Vzcy4KCklnYWwgTGliZXJtYW4gKDcpOgogIHNvYy9mbWFuOiBBZGQg
+dGhlIEZNYW4gRkxJQiBoZWFkZXJzCiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBGTElCCiAgc29j
+L2ZtYW46IEFkZCB0aGUgRk1hbiBwb3J0IEZMSUIKICBzb2MvZm1hbjogQWRkIHRoZSBGTWFuIE1B
+QyBGTElCCiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBwYXJzZXIgYW5kIEtleUdlbiBGTElCKHMp
+CiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBSVEMgRkxJQgogIHNvYy9mbWFuOiBBZGQgdGhlIEZN
+YW4gU1AgRkxJQgoKTWFkYWxpbiBCdWN1ciAoNCk6CiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBw
+b3J0IEZMSUIgaGVhZGVycwogIHNvYy9mbWFuOiBBZGQgdGhlIEZNYW4gTUFDIEZMSUIgaGVhZGVy
+cwogIHNvYy9mbWFuOiBBZGQgdGhlIEZNYW4gcGFyc2VyIGFuZCBLZXlHZW4gRkxJQiBoZWFkZXJz
+CiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBSVEMgRkxJQiBoZWFkZXIKCiBkcml2ZXJzL3NvYy9L
+Y29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEgKwogZHJpdmVycy9z
+b2MvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAxICsKIGRyaXZl
+cnMvc29jL2ZzbC9LY29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMSArCiBk
+cml2ZXJzL3NvYy9mc2wvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEg
+KwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgfCAg
+IDM1ICsKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICAg
+IHwgICAxMSArCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2NvbW1vbi9nZW5lcmFsLmggICAg
+ICAgICB8ICAgNDEgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mbWFuX2NvbW1vbi5oICAg
+ICAgICAgICAgfCAgIDczICsKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2VuZXQuaCAg
+ICAgICAgICAgICAgIHwgIDI3NSArKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9m
+bWFuLmggICAgICAgICAgICAgICB8ICA4MDIgKysrKysrKysrKwogZHJpdmVycy9zb2MvZnNsL2Zt
+YW4vZmxpYi9mc2xfZm1hbl9kdHNlYy5oICAgICAgICAgfCAxMDE2ICsrKysrKysrKysrKysKIGRy
+aXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fZHRzZWNfbWlpX2FjYy5oIHwgIDEwMyAr
+KwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl9rZy5oICAgICAgICAgICAgfCAg
+NTA1ICsrKysrKysKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fbWVtYWMuaCAg
+ICAgICAgIHwgIDQ5NCArKysrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFu
+X21lbWFjX21paV9hY2MuaCB8ICAgNzYgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xf
+Zm1hbl9wb3J0LmggICAgICAgICAgfCAgNjAxICsrKysrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1h
+bi9mbGliL2ZzbF9mbWFuX3Bycy5oICAgICAgICAgICB8ICAxMDYgKysKIGRyaXZlcnMvc29jL2Zz
+bC9mbWFuL2ZsaWIvZnNsX2ZtYW5fcnRjLmggICAgICAgICAgIHwgIDQxNCArKysrKysKIGRyaXZl
+cnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fc3AuaCAgICAgICAgICAgIHwgIDEzMiArKwog
+ZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl90Z2VjLmggICAgICAgICAgfCAgNDgz
+ICsrKysrKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZm1hbi5jICAgICAgICAgICAgICAgICAgICAg
+ICAgfCAxMzU1ICsrKysrKysrKysrKysrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvTWFr
+ZWZpbGUgICAgICAgICAgICAgICAgICB8ICAgIDUgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFj
+L2ZtYW5fY3JjMzIuYyAgICAgICAgICAgICAgfCAgMTE2ICsrCiBkcml2ZXJzL3NvYy9mc2wvZm1h
+bi9tYWMvZm1hbl9jcmMzMi5oICAgICAgICAgICAgICB8ICAgMzkgKwogZHJpdmVycy9zb2MvZnNs
+L2ZtYW4vbWFjL2ZtYW5fZHRzZWMuYyAgICAgICAgICAgICAgfCAgODM4ICsrKysrKysrKysrCiBk
+cml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvZm1hbl9kdHNlY19taWlfYWNjLmMgICAgICB8ICAxNjgg
+KysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvZm1hbl9tZW1hYy5jICAgICAgICAgICAgICB8
+ICA1MTAgKysrKysrKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fbWVtYWNfbWlpX2Fj
+Yy5jICAgICAgfCAgMjE3ICsrKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fdGdlYy5j
+ICAgICAgICAgICAgICAgfCAgMzcxICsrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9wY2QvTWFr
+ZWZpbGUgICAgICAgICAgICAgICAgICB8ICAgIDMgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vcGNk
+L2ZtYW5fa2cuYyAgICAgICAgICAgICAgICAgfCAgODQ5ICsrKysrKysrKysrCiBkcml2ZXJzL3Nv
+Yy9mc2wvZm1hbi9wY2QvZm1hbl9wcnMuYyAgICAgICAgICAgICAgICB8ICAxMjYgKysKIGRyaXZl
+cnMvc29jL2ZzbC9mbWFuL3BvcnQvTWFrZWZpbGUgICAgICAgICAgICAgICAgIHwgICAgMyArCiBk
+cml2ZXJzL3NvYy9mc2wvZm1hbi9wb3J0L2ZtYW5fcG9ydC5jICAgICAgICAgICAgICB8IDE1MzUg
+KysrKysrKysrKysrKysrKysrKysKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL3J0Yy9NYWtlZmlsZSAg
+ICAgICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9ydGMvZm1hbl9y
+dGMuYyAgICAgICAgICAgICAgICB8ICAzNTMgKysrKysKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL3Nw
+L01ha2VmaWxlICAgICAgICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL3NvYy9mc2wvZm1h
+bi9zcC9mbWFuX3NwLmMgICAgICAgICAgICAgICAgICB8ICAyMDMgKysrCiAzOCBmaWxlcyBjaGFu
+Z2VkLCAxMTg2OCBpbnNlcnRpb25zKCspCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2Mv
+ZnNsL0tjb25maWcKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvTWFrZWZpbGUK
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9LY29uZmlnCiBjcmVhdGUg
+bW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vTWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEw
+MDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2NvbW1vbi9nZW5lcmFsLmgKIGNyZWF0ZSBt
+b2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZtYW5fY29tbW9uLmgKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9lbmV0LmgKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuLmgKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuX2R0c2VjLmgK
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuX2R0
+c2VjX21paV9hY2MuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL2Zs
+aWIvZnNsX2ZtYW5fa2cuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFu
+L2ZsaWIvZnNsX2ZtYW5fbWVtYWMuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2Zz
+bC9mbWFuL2ZsaWIvZnNsX2ZtYW5fbWVtYWNfbWlpX2FjYy5oCiBjcmVhdGUgbW9kZSAxMDA2NDQg
+ZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl9wb3J0LmgKIGNyZWF0ZSBtb2RlIDEw
+MDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuX3Bycy5oCiBjcmVhdGUgbW9k
+ZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl9ydGMuaAogY3JlYXRl
+IG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fc3AuaAogY3Jl
+YXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fdGdlYy5o
+CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vZm1hbi5jCiBjcmVhdGUg
+bW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL01ha2VmaWxlCiBjcmVhdGUgbW9k
+ZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fY3JjMzIuYwogY3JlYXRlIG1v
+ZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL21hYy9mbWFuX2NyYzMyLmgKIGNyZWF0ZSBt
+b2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvZm1hbl9kdHNlYy5jCiBjcmVhdGUg
+bW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fZHRzZWNfbWlpX2FjYy5j
+CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fbWVtYWMu
+YwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL21hYy9mbWFuX21lbWFj
+X21paV9hY2MuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL21hYy9m
+bWFuX3RnZWMuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3BjZC9N
+YWtlZmlsZQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3BjZC9mbWFu
+X2tnLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9wY2QvZm1hbl9w
+cnMuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3BvcnQvTWFrZWZp
+bGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9wb3J0L2ZtYW5fcG9y
+dC5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vcnRjL01ha2VmaWxl
+CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vcnRjL2ZtYW5fcnRjLmMK
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9zcC9NYWtlZmlsZQogY3Jl
+YXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3NwL2ZtYW5fc3AuYwoKLS0gCjEu
+Ny45LjUKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxp
+bnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0
+cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
