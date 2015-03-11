@@ -1,54 +1,78 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next v2] tipc: fix undefined __ipv6_sock_mc_join compile
- error
-Date: Wed, 11 Mar 2015 11:11:37 +0800
-Message-ID: <54FFB269.10009@windriver.com>
-References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>	<CA+FuTSdxmae0DnNnQdCgCdaThVtZ1raqEg9z6XpHE5N9u5MCfw@mail.gmail.com> <20150310.124742.2005589544373604240.davem@davemloft.net>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [linuxppc-release] [PATCH] net/fsl: remove dependency FSL_SOC
+ from MDIO
+Date: Wed, 11 Mar 2015 02:39:39 +0000
+Message-ID: <BLUPR03MB14757C141DF1D6EA26F7484DE2190@BLUPR03MB1475.namprd03.prod.outlook.com>
+References: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
+ <54FEEF00.3060201@Freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <fengguang.wu@intel.com>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<kbuild-all@01.org>
-To: David Miller <davem@davemloft.net>, <willemb@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Scott Wood <scottwood@freescale.com>
+To: Emilian Medve <Emilian.Medve@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:59929 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbbCKDMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 23:12:05 -0400
-In-Reply-To: <20150310.124742.2005589544373604240.davem@davemloft.net>
+Received: from mail-bn1bbn0101.outbound.protection.outlook.com ([157.56.111.101]:22032
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751024AbbCKDMi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 23:12:38 -0400
+In-Reply-To: <54FEEF00.3060201@Freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2015 12:47 AM, David Miller wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> Date: Tue, 10 Mar 2015 11:41:03 -0400
+Hello Emil,
+
+> On 03/10/2015 05:31 AM, shh.xie@gmail.com wrote:
+> > From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> >
+> > FSL_PQ_MDIO and FSL_XGMAC_MDIO are not really depend on FSL_SOC, they
+> > can build on non-PPC platforms.
 > 
->> On Tue, Mar 10, 2015 at 4:41 AM, Ying Xue <ying.xue@windriver.com> wrote:
->>> @@ -5,6 +5,7 @@
->>>  menuconfig TIPC
->>>         tristate "The TIPC Protocol"
->>>         depends on INET
->>> +       depends on (IPV6 || IPV6=n)
->>
->> Should this be limited to TIPC_MEDIA_UDP?
+> FSL_SOC is already defined for some ARM-based SoC? Why don't you use/fix
+> that.
+[S.H] I grep on top of the net-next tree, only found the FSL_SOC defined in arch/powerpc/Kconfig.
+
+ We have plenty of devices integrated on both SoC families...
 > 
-> I think it should.
+> Or are you targeting other non-PPC/ARM SoC(s)?
+[S.H] the point is to remove the unnecessary dependency to make the driver can build ARCH independently, no matter what the SoC is.
+
+Thanks!
+Shaohui
+
 > 
 > 
-
-My first thought is also same as you. But when the dependency like (IPV6 ||
-IPV6=n) is enforced to TIPC_MEDIA_UDP, it doesn't work in the below case:
-
-IPV6=m and TIPC=Y.
-
-In above condition, TIPC_MEDIA_UDP is still set to "Y".
-
-However, if I change the dependency to IPV6=y and IPV6=n, and allow it to limit
-TIPC_MEDIA_UDP, TIPC modules can be built successfully in kinds of cases.
-
-Thank for your review! Please wait a moment, and I will fix it in next version.
-
-Regards,
-Ying
+> Cheers,
+> 
+> 
+> > Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> > ---
+> >  drivers/net/ethernet/freescale/Kconfig | 2 --
+> >  1 file changed, 2 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/freescale/Kconfig
+> > b/drivers/net/ethernet/freescale/Kconfig
+> > index ba84c4a..25e3425 100644
+> > --- a/drivers/net/ethernet/freescale/Kconfig
+> > +++ b/drivers/net/ethernet/freescale/Kconfig
+> > @@ -58,14 +58,12 @@ source
+> "drivers/net/ethernet/freescale/fs_enet/Kconfig"
+> >
+> >  config FSL_PQ_MDIO
+> >  	tristate "Freescale PQ MDIO"
+> > -	depends on FSL_SOC
+> >  	select PHYLIB
+> >  	---help---
+> >  	  This driver supports the MDIO bus used by the gianfar and UCC
+> drivers.
+> >
+> >  config FSL_XGMAC_MDIO
+> >  	tristate "Freescale XGMAC MDIO"
+> > -	depends on FSL_SOC
+> >  	select PHYLIB
+> >  	select OF_MDIO
+> >  	---help---
+> >
