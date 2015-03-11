@@ -1,60 +1,56 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 8/15] libertas_tf: if_usb.c: don't export static symbol
-Date: Wed, 11 Mar 2015 17:56:30 +0100
-Message-ID: <1426092997-30605-9-git-send-email-Julia.Lawall@lip6.fr>
-References: <1426092997-30605-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	daniel@iogearbox.net
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426092997-30605-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/8] net: Kill hold_net release_net
+Date: Wed, 11 Mar 2015 10:08:42 -0700
+Message-ID: <1426093722.11398.51.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	 <CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	 <87d25hrv9m.fsf@x220.int.ebiederm.org>
+	 <20150219.144929.1003473344851168804.davem@davemloft.net>
+	 <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
+	 <87vbi7fq92.fsf_-_@x220.int.ebiederm.org>
+	 <87pp8ffq63.fsf_-_@x220.int.ebiederm.org>
+	 <1426093647.11398.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	netdev@vger.kernel.org, stephen@networkplumber.org,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
+	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
+	dsahern@gmail.com, Julian Anastasov <ja@ssi.bg>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:45577 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750AbbCKRIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:08:45 -0400
+Received: by igjz20 with SMTP id z20so13998335igj.4
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 10:08:44 -0700 (PDT)
+In-Reply-To: <1426093647.11398.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Wed, 2015-03-11 at 10:07 -0700, Eric Dumazet wrote:
+> On Wed, 2015-03-11 at 11:35 -0500, Eric W. Biederman wrote:
+> 
+> > @@ -163,9 +162,7 @@ static void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+> >  static void fib_rules_put_rcu(struct rcu_head *head)
+> >  {
+> >  	struct fib_rules_ops *ops = container_of(head, struct fib_rules_ops, rcu);
+> > -	struct net *net = ops->fro_net;
+> >  
+> > -	release_net(net);
+> >  	kfree(ops);
+> >  }
+> 
+> 
+> Looks like this function is no longer needed, can caller can instead do
+> 
+> -	call_rcu(&rule->rcu, fib_rule_put_rcu);
+> +	kfree_rcu(rule, rcu);
+> 
+> 
 
-The semantic patch that fixes this problem is as follows:
-(http://coccinelle.lip6.fr/)
 
-// <smpl>
-@r@
-type T;
-identifier f;
-@@
-
-static T f (...) { ... }
-
-@@
-identifier r.f;
-declarer name EXPORT_SYMBOL_GPL;
-@@
-
--EXPORT_SYMBOL_GPL(f);
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/wireless/libertas_tf/if_usb.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff -u -p a/drivers/net/wireless/libertas_tf/if_usb.c b/drivers/net/wireless/libertas_tf/if_usb.c
---- a/drivers/net/wireless/libertas_tf/if_usb.c
-+++ b/drivers/net/wireless/libertas_tf/if_usb.c
-@@ -365,7 +365,6 @@ static int if_usb_reset_device(struct if
- 
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(if_usb_reset_device);
- 
- /**
-  *  usb_tx_block - transfer data to the device
-@@ -907,7 +906,6 @@ restart:
- 	lbtf_deb_leave_args(LBTF_DEB_USB, "ret %d", ret);
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(if_usb_prog_firmware);
- 
- 
- #define if_usb_suspend NULL
+Same remark for fib_rule_put_rcu()
