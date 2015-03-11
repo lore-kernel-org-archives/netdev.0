@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Wed, 11 Mar 2015 14:44:43 -0400 (EDT)
-Message-ID: <20150311.144443.1290707334236248572.davem@davemloft.net>
-References: <55004595.7020304@oracle.com>
-	<20150311.132052.205877953171712952.davem@davemloft.net>
-	<55007A9B.4010608@oracle.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 1/3] net: Add max rate tx queue attribute
+Date: Wed, 11 Mar 2015 11:50:32 -0700
+Message-ID: <55008E78.8020607@intel.com>
+References: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com> <1426079690-28271-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <55007A9B.4010608@oracle.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:56917 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750820AbbCKSug (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 14:50:36 -0400
+In-Reply-To: <1426079690-28271-2-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Wed, 11 Mar 2015 13:25:47 -0400
+On 03/11/2015 06:14 AM, Or Gerlitz wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+> 
+> This adds a tx_maxrate attribute to the tx queue sysfs entry allowing
+> for max-rate limiting. Along with DCB-ETS and BQL this provides another
+> knob to tune queue performance. The limit units are Mbps.
+> 
+> By default it is disabled. To disable the rate limitation after it
+> has been set for a queue, it should be set to zero.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+>  include/linux/netdevice.h |    9 ++++++
+>  net/core/net-sysfs.c      |   70 +++++++++++++++++++++++++++++++++++++--------
+>  2 files changed, 67 insertions(+), 12 deletions(-)
 
-> You're probably wondering why there are changes to SPARC in that patchset? :)
+hmm I'm not sure sysfs is entirely the correct interface although it is
+convenient. Did you consider porting to netlink? To be honest I can't
+remember why I didn't do it netlink to start with. I think at the time
+I was more interested in the controller, feedback loop aspect. Basically
+I was dynamically managing the rate limiters across NICs from an agent to
+try and manage some types of congestion.
 
-Libsanitizer doesn't even build have the time on sparc, the release
-manager has to hand patch it into building again every major release
-because of the way ASAN development is done out of tree and local
-commits to the gcc tree are basically written over during the
-next merge.
-
-So I'm a little bit bitter about this, as you can see. :)
+.John
