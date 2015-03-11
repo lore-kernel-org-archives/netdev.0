@@ -1,55 +1,81 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Wed, 11 Mar 2015 13:25:47 -0400
-Message-ID: <55007A9B.4010608@oracle.com>
-References: <55003666.3020100@oracle.com>	<20150311084034.04ce6801@grimm.local.home>	<55004595.7020304@oracle.com> <20150311.132052.205877953171712952.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] mpls: Infer payload of packet from via address family.
+Date: Wed, 11 Mar 2015 12:29:17 -0500
+Message-ID: <87sidba1ea.fsf@x220.int.ebiederm.org>
+References: <1426078702-23246-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150311.132052.205877953171712952.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:52865 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751488AbbCKRdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:33:00 -0400
+In-Reply-To: <1426078702-23246-1-git-send-email-rshearma@brocade.com> (Robert
+	Shearman's message of "Wed, 11 Mar 2015 12:58:22 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2015 01:20 PM, David Miller wrote:
-> From: Sasha Levin <sasha.levin@oracle.com>
-> Date: Wed, 11 Mar 2015 09:39:33 -0400
-> 
->> > On 03/11/2015 08:40 AM, Steven Rostedt wrote:
->>> >> On Wed, 11 Mar 2015 08:34:46 -0400
->>> >> Sasha Levin <sasha.levin@oracle.com> wrote:
->>> >> 
->>>>> >>> > Fair enough. We knew there are existing kmemcheck users, but KASan should be
->>>>> >>> > superior both in performance and the scope of bugs it finds. It also shouldn't
->>>>> >>> > impose new limitations beyond requiring gcc 4.9.2+.
->>>>> >>> >
->>> >> Ouch! OK, then I can't use it. I'm currently compiling with gcc 4.6.3.
->>> >> 
->>> >> It will be a while before I upgrade my build farm to something newer.
->> > 
->> > Are you actually compiling new kernels with 4.6.3, or are you using older
->> > kernels as well?
->> > 
->> > There's no real hurry to kill kmemcheck right now, but we do want to stop
->> > supporting that in favour of KASan.
-> Is the spectrum of CPU's supported by this GCC feature equal to all of the
-> CPU's supported by the kernel right now?
-> 
-> If not, removing kmemcheck will always be a regression for someone.
+Robert Shearman <rshearma@brocade.com> writes:
 
-You're probably wondering why there are changes to SPARC in that patchset? :)
+> This ensures that if a routing protocol incorrectly advertises a label
+> for a prefix whose address-family is inconsistent with that of the
+> nexthop, then the traffic will be dropped, rather than the issue being
+> silently worked around.
 
-I don't really know. Both kmemcheck and KASan run only on x86. I've also asked
-Vegard, who didn't know either... I guess it got copy-pasted from a different
-code.
+The address family of the next hop need have no particular relationship
+to the address families you can send to the next hop.  As such I
+consider the behavior your are proposing here actively wrong.  It
+appears to block valid use cases such as using a single mpls label
+to carry both ipv4 and ipv6 traffic simply because we use an ipv4 next
+hop.
 
-As far as I know the only regression is requiring newer GCC.
+I am not opposed to adding configurability to force the issue,
+especially as unexpected traffic may be a problem but I don't think that
+should be the default.  I think the default for a tunnel egress should
+be assume everyone sticking packets in that tunnel are playing nice so
+we should decode as much as possible.
 
+> The accessible skb length should also be validated prior to the IPv4
+> or IPv6 headers being accessed, since only the label header will have
+> previously been validated.
 
-Thanks,
-Sasha
+I agree I goofed by not including the appropriate pskb_may_pull checks.
+And that needs to be fixed.
+
+> Rename mpls_egress to mpls_egress_to_ip to make it more obvious that
+> the function is used for traffic going out as IP, not for labeled
+> traffic (or for the not-yet-implemented pseudo-wires).
+
+I disagree.
+
+The name of the function needs to be mpls_egress, and it should be
+eventually expanded to handle as many cases are reasonable.  With the
+default being to start the decode of packets by looking at the first
+nibble.
+
+Without explicit configuration it seems entirely reasonable to assume
+that if the first nibble is 4 it is an ipv4 packet.  If the first nibble
+is 6 it is an ipv6 packet.  If the first nibble is 1 it is a generic
+association channel.  If the first nibble is 0 it has a control word and
+it is a pseudo wire where the output tunnel type matches the output
+device.
+
+A handful of pseudo wires do things differently.  SONET sets bits in the
+first nibble, Ethernet has cases where it does not include the control
+word and as such the first nible might not be zero.   And then we have
+oddball cases that need configuration such as should the ethernet
+control words sequence number be honored.
+
+I admit that supporting ethernet and similiar pseudo wires will require
+the arguments to mpls_egress to be changed a little so that we can skip
+taking the next hop address link layer address from the mpls_route, but
+that does not mean we should just through it under a bus.
+
+Fundamentally mpls_egress is the function that we call when the bottom
+of stack indicator is reached.  It should either figure out that the
+packet can be forwarded or it should indicate that the packet should be
+dropped.
+
+Eric
