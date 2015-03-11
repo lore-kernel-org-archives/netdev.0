@@ -1,65 +1,101 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v4 0/3] Linn Ethernet Packet Sniffer driver
-Date: Wed, 11 Mar 2015 16:03:48 +0100
-Message-ID: <20150311150348.GA11272@localhost.localdomain>
-References: <cover.1424796018.git.stathis.voukelatos@linn.co.uk>
- <20150225151945.GB7703@localhost.localdomain>
- <20150225170127.GD7703@localhost.localdomain>
- <54EE0268.2040201@linn.co.uk>
- <20150225173053.GE7703@localhost.localdomain>
- <54F0A4C4.3020407@linn.co.uk>
- <20150227181447.GA11594@localhost.localdomain>
- <54F98660.5070805@linn.co.uk>
- <20150306152239.GC26349@localhost.localdomain>
- <5500251B.8010900@linn.co.uk>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net] xen-netback: notify immediately after pushing Tx response.
+Date: Wed, 11 Mar 2015 15:27:59 +0000
+Message-ID: <1426087679-13927-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5500251B.8010900@linn.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:16224 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753602AbbCKP2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 11:28:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 11:20:59AM +0000, Stathis Voukelatos wrote:
-> Our feeling is that we will have to test and verify that a move to gPTP
-> will fit with the use cases that we have to support and that will
-> require a fair amount of effort and rewrite of application software.
-> If the driver is not acceptable with the current interface we may need
-> to maintain it as a private patch until we are ready to move to gPTP
-> as you recommend.
+This fixes a performance regression introduced by
+7fbb9d8415d4a51cf542e87cf3a717a9f7e6aedc (xen-netback: release pending
+index before pushing Tx responses)
 
-Sure, there is nothing wrong with that.  For the kernel, we want to
-build good interfaces for future applications.  Sometimes reworking
-the applications that use the old, private interfaces is just too much
-work, so you have to maintain those interfaces in your products.
+Moving the notify outside of the spin locks means it can be delayed a
+long time (if the dealloc thread is descheduled or there is an
+interrupt or softirq).
 
-> I was referring to the Songcast protocol we are using which is part
-> of the OpenHome suite (www.openhome.org) and runs on top of UDP.
-> It could be filtered by testing the first 5 bytes of the payload.
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   23 ++++++++++++-----------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
 
-Sounds promising.
-
-> In our implementation we also add the destination IP and port to
-> the filter to make it more reliable, but hwtstamp_rx_filters cannot
-> accept parameters.
-
-If the IP is a defined multicast group address, and if the port is
-well a known port, then you should of course include them in the
-driver level filter.
-
-Adding a unicast destination IP doesn't make it more reliable, because
-frames addressed to other hosts are switched away from the host (or
-dropped by the MAC).
-
-> However, I will test that and maybe come back with
-> a patch to expand the hwtstamp_rx_filter enum initially?
-
-It probably makes more sense to present the expanded filter list in
-the same patch series with the new driver that uses it, in order to
-see the context.  So I would hold off posting until both are ready.
-
-Thanks,
-Richard
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index c4d68d7..7f8a466 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -96,6 +96,7 @@ static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+ static void make_tx_response(struct xenvif_queue *queue,
+ 			     struct xen_netif_tx_request *txp,
+ 			     s8       st);
++static void push_tx_responses(struct xenvif_queue *queue);
+ 
+ static inline int tx_work_todo(struct xenvif_queue *queue);
+ 
+@@ -655,15 +656,10 @@ static void xenvif_tx_err(struct xenvif_queue *queue,
+ 	unsigned long flags;
+ 
+ 	do {
+-		int notify;
+-
+ 		spin_lock_irqsave(&queue->response_lock, flags);
+ 		make_tx_response(queue, txp, XEN_NETIF_RSP_ERROR);
+-		RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->tx, notify);
++		push_tx_responses(queue);
+ 		spin_unlock_irqrestore(&queue->response_lock, flags);
+-		if (notify)
+-			notify_remote_via_irq(queue->tx_irq);
+-
+ 		if (cons == end)
+ 			break;
+ 		txp = RING_GET_REQUEST(&queue->tx, cons++);
+@@ -1655,7 +1651,6 @@ static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+ {
+ 	struct pending_tx_info *pending_tx_info;
+ 	pending_ring_idx_t index;
+-	int notify;
+ 	unsigned long flags;
+ 
+ 	pending_tx_info = &queue->pending_tx_info[pending_idx];
+@@ -1671,12 +1666,9 @@ static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+ 	index = pending_index(queue->pending_prod++);
+ 	queue->pending_ring[index] = pending_idx;
+ 
+-	RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->tx, notify);
++	push_tx_responses(queue);
+ 
+ 	spin_unlock_irqrestore(&queue->response_lock, flags);
+-
+-	if (notify)
+-		notify_remote_via_irq(queue->tx_irq);
+ }
+ 
+ 
+@@ -1697,6 +1689,15 @@ static void make_tx_response(struct xenvif_queue *queue,
+ 	queue->tx.rsp_prod_pvt = ++i;
+ }
+ 
++static void push_tx_responses(struct xenvif_queue *queue)
++{
++	int notify;
++
++	RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->tx, notify);
++	if (notify)
++		notify_remote_via_irq(queue->tx_irq);
++}
++
+ static struct xen_netif_rx_response *make_rx_response(struct xenvif_queue *queue,
+ 					     u16      id,
+ 					     s8       st,
+-- 
+1.7.10.4
