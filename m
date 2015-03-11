@@ -1,50 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/8] net: Kill hold_net release_net
-Date: Wed, 11 Mar 2015 10:10:13 -0700
-Message-ID: <1426093813.11398.52.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
-	 <CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
-	 <87d25hrv9m.fsf@x220.int.ebiederm.org>
-	 <20150219.144929.1003473344851168804.davem@davemloft.net>
-	 <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
-	 <87vbi7fq92.fsf_-_@x220.int.ebiederm.org>
-	 <87pp8ffq63.fsf_-_@x220.int.ebiederm.org>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH 1/1] net: fec: fix oops after transmit queue timeout
+Date: Wed, 11 Mar 2015 14:12:42 -0300
+Message-ID: <CAOMZO5DJPi+cZEQnO1qkWNXMc+=pboFz-z_rzxwxESD3G_1FcA@mail.gmail.com>
+References: <1426093216-18370-1-git-send-email-george.joseph@fairview5.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
-	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
-	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
-	dsahern@gmail.com, Julian Anastasov <ja@ssi.bg>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:33449 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826AbbCKRKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:10:17 -0400
-Received: by iecvj10 with SMTP id vj10so366119iec.0
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 10:10:17 -0700 (PDT)
-In-Reply-To: <87pp8ffq63.fsf_-_@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nimrod Andy <B38611@freescale.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: George Joseph <george.joseph@fairview5.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426093216-18370-1-git-send-email-george.joseph@fairview5.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-03-11 at 11:35 -0500, Eric W. Biederman wrote:
+On Wed, Mar 11, 2015 at 2:00 PM, George Joseph
+<george.joseph@fairview5.com> wrote:
+> When a transmit queue timeout happens, dev_watchdog calls fec_timeout
+> which in turns schedules fec_enet_timeout_work.  fec_enet_timeout_work
+> uses container_of to get the private data structure (fep) then tries to
+> use fep->netdev.  Unfortunately, nobody ever set fep->netdev so the result
+> is a NULL pointer oops.
+>
+> With fep->netdev set right after fep is allocated in fep_probe, the
+> drivers recovers nicely after the tx queue timeout.
+>
+> Signed-off-by: George Joseph <george.joseph@fairview5.com>
+> Tested-by: George Joseph <george.joseph@fairview5.com>
 
-> diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-> index 6d592f8555fb..e0d5c8327159 100644
-> --- a/net/ipv4/inet_timewait_sock.c
-> +++ b/net/ipv4/inet_timewait_sock.c
-> @@ -98,7 +98,7 @@ void inet_twsk_free(struct inet_timewait_sock *tw)
->  #ifdef SOCK_REFCNT_DEBUG
->  	pr_debug("%s timewait_sock %p released\n", tw->tw_prot->name, tw);
->  #endif
-> -	release_net(twsk_net(tw));
-> +	twsk_net(tw);
->  	kmem_cache_free(tw->tw_prot->twsk_prot->twsk_slab, tw);
->  	module_put(owner);
->  }
+Thanks for the patch, but this has already been fixed by:
 
+commit 0c8185944a125621a1766615585238a3563ccac3
+Author: Hubert Feurstein <h.feurstein@gmail.com>
+Date:   Wed Jan 7 14:48:17 2015 +0100
 
-Not clear why you left this line ?
+    net: fec: fix NULL pointer dereference in fec_enet_timeout_work
+
+    This patch initialises the fep->netdev pointer. This pointer was not
+    initialised at all, but is used in fec_enet_timeout_work and in some
+    error paths.
+
+    Signed-off-by: Hubert Feurstein <h.feurstein@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
