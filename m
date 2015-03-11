@@ -1,51 +1,49 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH 13/15] ieee802154: don't export static symbol
-Date: Wed, 11 Mar 2015 19:17:04 +0100
-Message-ID: <20150311181700.GA23342@omega>
-References: <1426092997-30605-1-git-send-email-Julia.Lawall@lip6.fr>
- <1426092997-30605-14-git-send-email-Julia.Lawall@lip6.fr>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2] net: bcmgenet: collect Rx discarded packet count
+Date: Wed, 11 Mar 2015 11:17:44 -0700
+Message-ID: <CAGVrzcZwGcs1DTTzUXTz3ydX=mmpAoJvEDB_5R9juLUucrzMNQ@mail.gmail.com>
+References: <20150310225500.8FA34220365@puck.mtv.corp.google.com>
+ <CAGVrzcYNMsCKGdouLULKBb6dtMYviAJR26vO4XTJrh3aYSZC4A@mail.gmail.com> <CAGXr9JHSGtySCs80PfSPBGbWyTXiE3pA0esi=fyCMPKRxmhboA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, daniel@iogearbox.net,
-	marcel@holtmann.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1426092997-30605-14-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: Petri Gynther <pgynther@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:32909 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbbCKSSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 14:18:25 -0400
+Received: by igbhl2 with SMTP id hl2so39298319igb.0
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 11:18:24 -0700 (PDT)
+In-Reply-To: <CAGXr9JHSGtySCs80PfSPBGbWyTXiE3pA0esi=fyCMPKRxmhboA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 05:56:35PM +0100, Julia Lawall wrote:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> The semantic patch that fixes this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r@
-> type T;
-> identifier f;
-> @@
-> 
-> static T f (...) { ... }
-> 
-> @@
-> identifier r.f;
-> declarer name EXPORT_SYMBOL;
-> @@
-> 
-> -EXPORT_SYMBOL(f);
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+2015-03-11 10:59 GMT-07:00 Petri Gynther <pgynther@google.com>:
+> I find the Rx discard counter very useful, as it indicates HW dropped
+> packets, which directly affects media playback quality.
 
-Acked-by: Alexander Aring <alex.aring@gmail.com>
+I do not question the usefulness of that counter, I am wondering about
+whether we could make sure we deal with this counter in a slow/error
+path, I guess the answer to my previous question is no, because having
+interrupts off for too long does not mean the CPU ran out of memory
+for incoming packets.
 
-Marcel can you please queue this into bluetooth-next, or even bluetooth?
+In  that case, this patch is fine as-is.
 
-Thanks.
+>
+> In our unit tests, we actually discovered a major interrupts-off
+> offender with this. Even with a moderate Rx traffic, we were seeing Rx
+> discards. It turned out that using a large dmesg log buffer and
+> dumping it with "cat /proc/kmsg" held interrupts off for long enough
+> that bcmgenet experienced discards. It was very useful to have the
+> discard data available when debugging this.
 
-- Alex
+That is completely fair, it is just that I did a lot of performance
+optimization before, and any expensive register in the hot-path is a
+big no-no because that impacts your small packet performance (and thus
+larger packet performance as well).
+-- 
+Florian
