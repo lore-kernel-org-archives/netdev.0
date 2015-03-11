@@ -1,38 +1,63 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: [PATCH] MAINTAINERS: Update my email address
-Date: Wed, 11 Mar 2015 16:18:01 -0400
-Message-ID: <201503112018.t2BKI1Q6005349@thirdoffive.cmf.nrl.navy.mil>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH 1/6] rtlwifi: Use common rtl_query_rxpwrpercentage
+ function
+Date: Wed, 11 Mar 2015 13:19:42 -0700
+Message-ID: <1426105182.32696.57.camel@perches.com>
+References: <1426104209-6913-1-git-send-email-plaes@plaes.org>
+	 <1426104209-6913-2-git-send-email-plaes@plaes.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:42702 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730AbbCKUSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:18:10 -0400
-Content-ID: <5347.1426105081.1@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+To: Priit Laes <plaes-q/aMd4JkU83YtjvyW6yDsg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1426104209-6913-2-git-send-email-plaes-q/aMd4JkU83YtjvyW6yDsg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Changed to my private email address.
+On Wed, 2015-03-11 at 22:03 +0200, Priit Laes wrote:
+> diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
+[]
+> @@ -26,14 +26,14 @@
+>  #include "stats.h"
+>  #include <linux/export.h>
+>  
+> +/* TODO: Figure out a better name */
+>  u8 rtl_query_rxpwrpercentage(char antpower)
+>  {
+>  	if ((antpower <= -100) || (antpower >= 20))
+>  		return 0;
+>  	else if (antpower >= 0)
+>  		return 100;
+> -	else
+> -		return 100 + antpower;
+> +	return 100 + antpower;
+> }
 
-Signed-off-by: Chas Williams -- CONTRACTOR <chas@cmf.nrl.navy.mil>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This is a superfluous change.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 42e221c..9144d37 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1730,7 +1730,7 @@ S:	Maintained
- F:	drivers/net/ethernet/atheros/
- 
- ATM
--M:	Chas Williams <chas@cmf.nrl.navy.mil>
-+M:	Chas Williams <3chas3@gmail.com>
- L:	linux-atm-general@lists.sourceforge.net (moderated for non-subscribers)
- L:	netdev@vger.kernel.org
- W:	http://linux-atm.sourceforge.net
--- 
-1.8.3.1
+If it was changed because checkpatch emitted a warning,
+there's a newer version of checkpatch that doesn't emit
+a warning for this line.
+
+If any change was to be made, I suggest reordering so
+that the return values are written low to high like:
+
+u8 rtl_query_rxpwrpercentage(char antpower)
+{
+	if ((antpower <= -100) || (antpower >= 20))
+		return 0;
+	else if (antpower < 0)
+		return antpower + 100;
+	else
+		return 100;
+}
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
