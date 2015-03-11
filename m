@@ -1,48 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add real socket cookies
-Date: Wed, 11 Mar 2015 17:53:45 -0400 (EDT)
-Message-ID: <20150311.175345.836846566788322568.davem@davemloft.net>
-References: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [patch net-next] dsa: change "select" to "depends on" for switchdev
+ in Kconfig
+Date: Wed, 11 Mar 2015 14:53:44 -0700
+Message-ID: <5500B968.10603@infradead.org>
+References: <1426092268-1713-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, salo@google.com
-To: eric.dumazet@gmail.com
+Cc: davem@davemloft.net, f.fainelli@gmail.com, sfeldma@gmail.com,
+	alexei.starovoitov@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565AbbCKVxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 17:53:47 -0400
-In-Reply-To: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:37411 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751565AbbCKVyC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 17:54:02 -0400
+In-Reply-To: <1426092268-1713-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 Mar 2015 15:45:33 -0700
+On 03/11/15 09:44, Jiri Pirko wrote:
+> This would fix randconfig compile error:
+> net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
+> (.text+0xf7811): undefined reference to `fib_flush_external'
+> 
+> Also it fixes following warning:
+> warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+> 
+> Suggested-by: Randy Dunlap <rdunlap@infradead.org>
 
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> index 14d02ea905b6..a097ae38b639 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -678,7 +678,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
->  		newsk->sk_write_space = sk_stream_write_space;
+I think that should be Reported-by: /me.
+
+This is probably a good patch but drivers/net/dsa/Kconfig still does several
+selects on NET_DSA when NET_SWITCHDEV is not enabled, so there is still a
+(different) build error:
+
+warning: (NET_DSA_MV88E6060 && NET_DSA_MV88E6131 && NET_DSA_MV88E6123_61_65 && NET_DSA_MV88E6171 && NET_DSA_MV88E6352 && NET_DSA_BCM_SF2) selects NET_DSA which has unmet direct dependencies (NET && HAVE_NET_DSA && NET_SWITCHDEV)
+
+../net/dsa/slave.c:575:2: error: unknown field 'ndo_switch_parent_id_get' specified in initializer
+  .ndo_switch_parent_id_get = dsa_slave_parent_id_get,
+  ^
+../net/dsa/slave.c:575:2: warning: initialization from incompatible pointer type [enabled by default]
+../net/dsa/slave.c:575:2: warning: (near initialization for 'dsa_slave_netdev_ops.ndo_set_config') [enabled by default]
+../net/dsa/slave.c:576:2: error: unknown field 'ndo_switch_port_stp_update' specified in initializer
+  .ndo_switch_port_stp_update = dsa_slave_stp_update,
+  ^
+../net/dsa/slave.c:576:2: warning: initialization from incompatible pointer type [enabled by default]
+../net/dsa/slave.c:576:2: warning: (near initialization for 'dsa_slave_netdev_ops.ndo_change_mtu') [enabled by default]
+
+> Suggested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  net/dsa/Kconfig | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+> index b45206e..9379a9c 100644
+> --- a/net/dsa/Kconfig
+> +++ b/net/dsa/Kconfig
+> @@ -6,9 +6,8 @@ config HAVE_NET_DSA
 >  
->  		newsk->sk_mark = inet_rsk(req)->ir_mark;
-> -
-> +		atomic64_cmpxchg(&newsk->sk_cookie, 0,
-> +				 atomic64_read(&inet_rsk(req)->ir_cookie));
->  		newicsk->icsk_retransmits = 0;
->  		newicsk->icsk_backoff	  = 0;
->  		newicsk->icsk_probes_out  = 0;
+>  config NET_DSA
+>  	tristate
+> -	depends on HAVE_NET_DSA
+> +	depends on HAVE_NET_DSA && NET_SWITCHDEV
+>  	select PHYLIB
+> -	select NET_SWITCHDEV
+>  
+>  if NET_DSA
+>  
+> 
 
-I think you have to be more careful here.
 
-sk_clone_lock() is not going to zero out sk_cookie for you, it only
-does so if the priority has __GFP_ZERO in it and some callsites use
-just plain GFP_ATOMIC.
-
-Therefore, you can't just assume sk_cookie is zero.
-
-Just use atomic64_set() here, you have exclusive access to this piece
-of memory at this point in time, and you'll save an unnecessary atomic
-operation as well.
+-- 
+~Randy
