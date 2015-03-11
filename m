@@ -1,36 +1,61 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: Re: net: Remove iocb argument from sendmsg and recvmsg
-Date: Wed, 11 Mar 2015 09:25:40 -0700
-Message-ID: <55006C84.6040406@intel.com>
-References: <54FFAA5B.3080608@intel.com>	<54FFB3E9.50905@windriver.com> <20150311.000607.609650379851507833.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: rtnl_newlink() cleanup on namespace change
+Date: Wed, 11 Mar 2015 09:35:00 -0700
+Message-ID: <CAM_iQpU95fLZN6+DqAnA7BSf1JRKamaOfehYsORj8m+LTkM2SQ@mail.gmail.com>
+References: <20150310.184347.1581730121744725414.davem@davemloft.net>
+	<CAM_iQpXNp4+1D454yrwJyER50gKC3N1CtDffEExDYiGCENTiFQ@mail.gmail.com>
+	<20150310.220011.1982964437618102167.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, hch@lst.de, viro@ZenIV.linux.org.uk,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: David Miller <davem@davemloft.net>, ying.xue@windriver.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20150311.000607.609650379851507833.davem@davemloft.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35987 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903AbbCKQfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:35:01 -0400
+Received: by padfa1 with SMTP id fa1so12716313pad.3
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 09:35:00 -0700 (PDT)
+In-Reply-To: <20150310.220011.1982964437618102167.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/10/2015 09:06 PM, David Miller wrote:
-> From: Ying Xue <ying.xue@windriver.com>
-> Date: Wed, 11 Mar 2015 11:18:01 +0800
-> 
->> Sorry, I did not realize the case when I created the commit. However, although I
->> don't understand its scenario, in my opinion, adding one redundant argument for
->> all sockets to satisfy the special case seems unreasonable for us.
-> 
-> And the AIO socket mechanism was buggy and references freed up stack
-> objects.
-> 
-> That whole set of problems would need to be addressed fully before
-> we could even think of adding AIO support back to the socket layer.
-> 
+On Tue, Mar 10, 2015 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue, 10 Mar 2015 16:44:06 -0700
+>
+>> On Tue, Mar 10, 2015 at 3:43 PM, David Miller <davem@davemloft.net> wrote:
+>>>
+>>> Cong, I was reviewing commit 7afb8886a05be68e376655539a064ec672de8a8e
+>>> ("rtnetlink: call ->dellink on failure when ->newlink exists") during
+>>> a stable backport and I noticed that the function, after the change
+>>> you made, subsequently goes:
+>>>
+>>>                 if (link_net) {
+>>>                         err = dev_change_net_namespace(dev, dest_net, ifname);
+>>>                         if (err < 0)
+>>>                                 unregister_netdevice(dev);
+>>>                 }
+>>>
+>>> Isn't the potential ->dellink() unwinding necessary in this path too?
+>>>
+>>
+>> Right, I wasn't aware of the link_net change.
+>> Do you want me to send a fix?
+>
+> I took care of it, as follows:
 
-Maybe we can add new sock_aio_read_iter() and sock_aio_write_iter() functions in socket.c, and set the 
-aio_read() and aio_write() ptrs to these in the socket_file_ops struct.
-Then we can add new async_sendmsg() and async_recvmsg() to struct proto_ops that will still take the struct kiocb.
-These new async_sendmsg() and async_recvmsg() functions will be called from the sock_aio_read_iter() and sock_aio_write_iter()?
-Do you want me to put a patch together?
+Thanks, it looks good.
+
+>
+> ====================
+> [PATCH] net: Handle unregister properly when netdev namespace change fails.
+>
+> If rtnl_newlink() fails on it's call to dev_change_net_namespace(), we
+> have to make use of the ->dellink() method, if present, just like we
+> do when rtnl_configure_link() fails.
+>
+> Fixes: 317f4810e45e ("rtnl: allow to create device with IFLA_LINK_NETNSID set")
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
