@@ -1,67 +1,54 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH] ixgbe: Remove NETIF_F_HW_VLAN_CTAG_FILTER
-	from hw_features
-Date: Tue, 10 Mar 2015 20:03:38 -0700
-Message-ID: <20150311030305.1337.10832.stgit@ahduyck-vm-fedora20>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next v2] tipc: fix undefined __ipv6_sock_mc_join compile
+ error
+Date: Wed, 11 Mar 2015 11:11:37 +0800
+Message-ID: <54FFB269.10009@windriver.com>
+References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>	<CA+FuTSdxmae0DnNnQdCgCdaThVtZ1raqEg9z6XpHE5N9u5MCfw@mail.gmail.com> <20150310.124742.2005589544373604240.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: h-shimamoto@ct.jp.nec.com
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
+	<erik.hugne@ericsson.com>, <fengguang.wu@intel.com>,
+	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<kbuild-all@01.org>
+To: David Miller <davem@davemloft.net>, <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:59929 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbbCKDMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 23:12:05 -0400
+In-Reply-To: <20150310.124742.2005589544373604240.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that the HW_VLAN_STAG_FILTER bit is not falsely
-advertised as being a feature that can be toggled on ixgbe parts.  The
-driver was setting the bit in features and letting it be inherited by
-hw_features, however the driver was actually ignoring the value of the bit
-and just assuming it was always set.  As a result VLAN filtering was always
-enabled which is a requirement for SR-IOV, VMDq, DCB, FCoE, and possibly
-other features within the adapters.
+On 03/11/2015 12:47 AM, David Miller wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> Date: Tue, 10 Mar 2015 11:41:03 -0400
+> 
+>> On Tue, Mar 10, 2015 at 4:41 AM, Ying Xue <ying.xue@windriver.com> wrote:
+>>> @@ -5,6 +5,7 @@
+>>>  menuconfig TIPC
+>>>         tristate "The TIPC Protocol"
+>>>         depends on INET
+>>> +       depends on (IPV6 || IPV6=n)
+>>
+>> Should this be limited to TIPC_MEDIA_UDP?
+> 
+> I think it should.
+> 
+> 
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+My first thought is also same as you. But when the dependency like (IPV6 ||
+IPV6=n) is enforced to TIPC_MEDIA_UDP, it doesn't work in the below case:
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 21aea7e..08c27ed 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8406,7 +8406,6 @@ skip_sriov:
- 			   NETIF_F_IPV6_CSUM |
- 			   NETIF_F_HW_VLAN_CTAG_TX |
- 			   NETIF_F_HW_VLAN_CTAG_RX |
--			   NETIF_F_HW_VLAN_CTAG_FILTER |
- 			   NETIF_F_TSO |
- 			   NETIF_F_TSO6 |
- 			   NETIF_F_RXHASH |
-@@ -8428,6 +8427,7 @@ skip_sriov:
- 	}
- 
- 	netdev->hw_features |= NETIF_F_RXALL;
-+	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
+IPV6=m and TIPC=Y.
 
+In above condition, TIPC_MEDIA_UDP is still set to "Y".
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+However, if I change the dependency to IPV6=y and IPV6=n, and allow it to limit
+TIPC_MEDIA_UDP, TIPC modules can be built successfully in kinds of cases.
+
+Thank for your review! Please wait a moment, and I will fix it in next version.
+
+Regards,
+Ying
