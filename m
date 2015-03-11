@@ -1,61 +1,68 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: rtnl_newlink() cleanup on namespace change
-Date: Wed, 11 Mar 2015 09:35:00 -0700
-Message-ID: <CAM_iQpU95fLZN6+DqAnA7BSf1JRKamaOfehYsORj8m+LTkM2SQ@mail.gmail.com>
-References: <20150310.184347.1581730121744725414.davem@davemloft.net>
-	<CAM_iQpXNp4+1D454yrwJyER50gKC3N1CtDffEExDYiGCENTiFQ@mail.gmail.com>
-	<20150310.220011.1982964437618102167.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next] switchdev: select INET in Kconfig
+Date: Wed, 11 Mar 2015 09:34:23 -0700
+Message-ID: <CAGVrzcZ-jWY3qCuXSWQaW4NiuEiji7BMxs5GmcJC3KTc7cTSqA@mail.gmail.com>
+References: <CAADnVQJd2=TLTmzczSUOzwzqQ9Lanir-J5ektivqKABq-K7Fpw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Randy Dunlap <rdunlap@infradead.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35987 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903AbbCKQfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:35:01 -0400
-Received: by padfa1 with SMTP id fa1so12716313pad.3
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 09:35:00 -0700 (PDT)
-In-Reply-To: <20150310.220011.1982964437618102167.davem@davemloft.net>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:33086 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751259AbbCKQfK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:35:10 -0400
+Received: by iecvj10 with SMTP id vj10so3217696iec.0
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 09:35:09 -0700 (PDT)
+In-Reply-To: <CAADnVQJd2=TLTmzczSUOzwzqQ9Lanir-J5ektivqKABq-K7Fpw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue, 10 Mar 2015 16:44:06 -0700
->
->> On Tue, Mar 10, 2015 at 3:43 PM, David Miller <davem@davemloft.net> wrote:
+2015-03-11 9:26 GMT-07:00 Alexei Starovoitov <alexei.starovoitov@gmail.com>:
+> On Wed, Mar 11, 2015 at 9:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Wed, Mar 11, 2015 at 04:36:16PM CET, alexei.starovoitov@gmail.com wrote:
+>>>On Wed, Mar 11, 2015 at 2:49 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> This would fix randconfig compile error:
+>>>> net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
+>>>> (.text+0xf7811): undefined reference to `fib_flush_external'
+>>>>
+>>>> Also it fixes following warning:
+>>>> warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+>>>>
+>>>> Suggested-by: Randy Dunlap <rdunlap@infradead.org>
+>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>>> ---
+>>>>  net/switchdev/Kconfig | 2 +-
+>>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
+>>>> index 86a47e1..3487940 100644
+>>>> --- a/net/switchdev/Kconfig
+>>>> +++ b/net/switchdev/Kconfig
+>>>> @@ -4,7 +4,7 @@
+>>>>
+>>>>  config NET_SWITCHDEV
+>>>>         bool "Switch (and switch-ish) device support (EXPERIMENTAL)"
+>>>> -       depends on INET
+>>>> +       select INET
 >>>
->>> Cong, I was reviewing commit 7afb8886a05be68e376655539a064ec672de8a8e
->>> ("rtnetlink: call ->dellink on failure when ->newlink exists") during
->>> a stable backport and I noticed that the function, after the change
->>> you made, subsequently goes:
->>>
->>>                 if (link_net) {
->>>                         err = dev_change_net_namespace(dev, dest_net, ifname);
->>>                         if (err < 0)
->>>                                 unregister_netdevice(dev);
->>>                 }
->>>
->>> Isn't the potential ->dellink() unwinding necessary in this path too?
->>>
+>>>I believe Dave mentioned few times that 'select' is highly
+>>>discouraged, since it doesn't work recursively.
+>>>In this case only crazy config KVMTOOL_TEST_ENABLE
+>>>is doing 'select INET' everything else in a tree is using
+>>>'depends on INET'.
+>>>Doing 'select NET_SWITCHDEV' was wrong in the first place.
 >>
->> Right, I wasn't aware of the link_net change.
->> Do you want me to send a fix?
+>> Ok, so you suggest just to change this to "depends on NET_SWITCHDEV" in
+>> DSA and we are good?
 >
-> I took care of it, as follows:
+> yes. that should work.
+> Probably combining that line with 'depends on HAVE_NET_DSA' line
 
-Thanks, it looks good.
-
->
-> ====================
-> [PATCH] net: Handle unregister properly when netdev namespace change fails.
->
-> If rtnl_newlink() fails on it's call to dev_change_net_namespace(), we
-> have to make use of the ->dellink() method, if present, just like we
-> do when rtnl_configure_link() fails.
->
-> Fixes: 317f4810e45e ("rtnl: allow to create device with IFLA_LINK_NETNSID set")
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Works for me as well, thanks Jiri for looking into that.
+-- 
+Florian
