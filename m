@@ -1,69 +1,56 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Why do we prefer skb->priority to tc filters?
-Date: Wed, 11 Mar 2015 10:34:00 -0700
-Message-ID: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v3 2/2] enic: use netdev_dma_alloc
+Date: Wed, 11 Mar 2015 17:34:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAFB899@AcuExch.aculab.com>
+References: <1426009384-11544-1-git-send-email-_govind@gmx.com>
+ <1426009384-11544-3-git-send-email-_govind@gmx.com>
+ <54FF50B0.3080900@redhat.com> <alpine.LNX.2.03.1503111428210.3394@ws.cisco>
+ <55004A73.3040904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ssujith@cisco.com" <ssujith@cisco.com>,
+	"benve@cisco.com" <benve@cisco.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:40676 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbbCKReA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:34:00 -0400
-Received: by igal13 with SMTP id l13so42063159iga.5
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 10:34:00 -0700 (PDT)
+Received: from smtp-out4.electric.net ([192.162.216.184]:55771 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751561AbbCKRfT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:35:19 -0400
+In-Reply-To: <55004A73.3040904@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Alexander Duyck
+...
+> > Is this behaviour platform dependent? I tested this patch for more
+> > than a month
+> > and I did not face any issue. I ran normal traffic like ssh, nfs and
+> > iperf/netperf.
+> > Is there a special scenario when this could occur?
+> 
+> Yes it depends on the platform and IOMMU used.  For an example take a
+> loot at the SWIOTLB implementation.  I always assumed if I can work with
+> that when it is doing bounce buffers I can work with any IOMMU or platform.
+> 
+> >
+> > Will using DMA_BIDIRECTIONAL and sync_to_cpu & sync_to_device solve this?
+> > Each desc should have different dma address to write to. Can you
+> > explain me how
+> > this can happen?
+> 
+> No that won't help.  The issue is that when the page is mapped you
+> should not be updating any fields in the page until it is unmapped.
+> Since you have multiple buffers mapped to a single page you should be
+> waiting until the entire page is unmapped.
 
+Isn't the 'unit of memory for dma sync' a cache line, not a page?
 
-Not sure about classful Qdisc's, for classless ones like fq_codel, we
-also prefer skb->priority value over tc filters:
+You certainly need to test on systems without cache coherent io.
 
-        if (TC_H_MAJ(skb->priority) == sch->handle &&
-            TC_H_MIN(skb->priority) > 0 &&
-            TC_H_MIN(skb->priority) <= q->flows_cnt)
-                return TC_H_MIN(skb->priority);
-
-        filter = rcu_dereference_bh(q->filter_list);
-        if (!filter)
-                return fq_codel_hash(q, skb) + 1;
-
-        *qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-        result = tc_classify(skb, filter, &res);
-
-Given that skb->priority can be specified in user-space, doesn't this
-mean some application can always override our rules specified by tc
-filters? I think we should always respect tc filters over any
-application setting.
-
-For discussion, I mean something like below makes more sense for me:
-
-        struct tcf_result res;
-        int result;
-
--       if (TC_H_MAJ(skb->priority) == sch->handle &&
--           TC_H_MIN(skb->priority) > 0 &&
--           TC_H_MIN(skb->priority) <= q->flows_cnt)
--               return TC_H_MIN(skb->priority);
--
-        filter = rcu_dereference_bh(q->filter_list);
--       if (!filter)
-+       if (!filter) {
-+               if (TC_H_MAJ(skb->priority) == sch->handle &&
-+                   TC_H_MIN(skb->priority) > 0 &&
-+                   TC_H_MIN(skb->priority) <= q->flows_cnt)
-+                       return TC_H_MIN(skb->priority);
-+
-                return fq_codel_hash(q, skb) + 1;
-+       }
-
-        *qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-        result = tc_classify(skb, filter, &res);
-
-What do you think?
-
-Thanks.
+	David
