@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v6 tip 1/8] bpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
-Date: Tue, 10 Mar 2015 21:18:47 -0700
-Message-ID: <1426047534-8148-2-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v6 tip 3/8] tracing: allow BPF programs to call bpf_ktime_get_ns()
+Date: Tue, 10 Mar 2015 21:18:49 -0700
+Message-ID: <1426047534-8148-4-git-send-email-ast@plumgrid.com>
 References: <1426047534-8148-1-git-send-email-ast@plumgrid.com>
 Cc: Steven Rostedt <rostedt@goodmis.org>,
 	Namhyung Kim <namhyung@kernel.org>,
@@ -19,65 +19,55 @@ In-Reply-To: <1426047534-8148-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
+bpf_ktime_get_ns() is used by programs to compue time delta between events
+or as a timestamp
 
-Socket filter code and other subsystems with upcoming eBPF support should
-not need to deal with the fact that we have CONFIG_BPF_SYSCALL defined or
-not.
-
-Having the bpf syscall as a config option is a nice thing and I'd expect
-it to stay that way for expert users (I presume one day the default setting
-of it might change, though), but code making use of it should not care if
-it's actually enabled or not.
-
-Instead, hide this via header files and let the rest deal with it.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/bpf.h |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ include/uapi/linux/bpf.h |    1 +
+ kernel/trace/bpf_trace.c |   11 +++++++++++
+ 2 files changed, 12 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index bbfceb756452..c2e21113ecc0 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -113,8 +113,6 @@ struct bpf_prog_type_list {
- 	enum bpf_prog_type type;
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 4486d36d2e9e..101e509d1001 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -165,6 +165,7 @@ enum bpf_func_id {
+ 	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
+ 	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
+ 	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
++	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
+ 	__BPF_FUNC_MAX_ID,
  };
  
--void bpf_register_prog_type(struct bpf_prog_type_list *tl);
--
- struct bpf_prog;
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 450ea93ac4ab..ee7c2c629e75 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -56,6 +56,12 @@ static u64 bpf_probe_read(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	return probe_kernel_read(dst, unsafe_ptr, size);
+ }
  
- struct bpf_prog_aux {
-@@ -129,11 +127,25 @@ struct bpf_prog_aux {
++static u64 bpf_ktime_get_ns(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	/* NMI safe access to clock monotonic */
++	return ktime_get_mono_fast_ns();
++}
++
+ static struct bpf_func_proto kprobe_prog_funcs[] = {
+ 	[BPF_FUNC_probe_read] = {
+ 		.func = bpf_probe_read,
+@@ -65,6 +71,11 @@ static struct bpf_func_proto kprobe_prog_funcs[] = {
+ 		.arg2_type = ARG_CONST_STACK_SIZE,
+ 		.arg3_type = ARG_ANYTHING,
+ 	},
++	[BPF_FUNC_ktime_get_ns] = {
++		.func = bpf_ktime_get_ns,
++		.gpl_only = true,
++		.ret_type = RET_INTEGER,
++	},
  };
  
- #ifdef CONFIG_BPF_SYSCALL
-+void bpf_register_prog_type(struct bpf_prog_type_list *tl);
-+
- void bpf_prog_put(struct bpf_prog *prog);
-+struct bpf_prog *bpf_prog_get(u32 ufd);
- #else
--static inline void bpf_prog_put(struct bpf_prog *prog) {}
-+static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
-+{
-+}
-+
-+static inline struct bpf_prog *bpf_prog_get(u32 ufd)
-+{
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
-+
-+static inline void bpf_prog_put(struct bpf_prog *prog)
-+{
-+}
- #endif
--struct bpf_prog *bpf_prog_get(u32 ufd);
-+
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
- 
+ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
 -- 
 1.7.9.5
