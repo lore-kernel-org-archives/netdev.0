@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mpls: Allow mpls_gso and mpls_router to be
- built as modules
-Date: Wed, 11 Mar 2015 16:39:11 -0400 (EDT)
-Message-ID: <20150311.163911.2302289395111906495.davem@davemloft.net>
-References: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
+Subject: Re: [patch net-next v2 0/5] Refactor IP defragmentation and
+ fragmenation APIs for OVS conntrack support
+Date: Wed, 11 Mar 2015 16:45:50 -0400 (EDT)
+Message-ID: <20150311.164550.2247000676434784013.davem@davemloft.net>
+References: <1426014438-9317-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: rshearma@brocade.com
+Cc: netdev@vger.kernel.org
+To: azhou@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51546 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51607 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467AbbCKUjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:39:13 -0400
-In-Reply-To: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
+	with ESMTP id S1751252AbbCKUpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:45:52 -0400
+In-Reply-To: <1426014438-9317-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Shearman <rshearma@brocade.com>
-Date: Tue, 10 Mar 2015 16:37:59 +0000
+From: Andy Zhou <azhou@nicira.com>
+Date: Tue, 10 Mar 2015 12:07:13 -0700
 
-> CONFIG_MPLS=m doesn't result in a kernel module being built because it
-> applies to the net/mpls directory, rather than to .o files.
+> These are the patches refactors the core APIs for both IPv4 and IPv6.
 > 
-> So revert the MPLS menuitem to being a boolean and make MPLS_GSO and
-> MPLS_ROUTING tristates to allow mpls_gso and mpls_router modules to be
-> produced as desired.
+> The intended use for openvswitch has been posted in the eariler RFC:
 > 
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> http://lists.openwall.net/netdev/2015/03/02/220
 
-Applied.
+Yet another hack for openvswitch.
+
+I'm tired of this frankenstein subsystem deciding what the invariants
+actually are for our core APIs.
+
+It is completely natural to expect that there is some device to
+interrogate regarding link layer capabilities, such as MTU.
+
+And it is openvswitch's problem that they decided to break this
+invariant.
+
+I'm not accepting hacks in ipv4/ipv6 to workaround a mistake that
+the OVS folks decided to make, sorry.
+
+Stop making OVS such a damn mess, please.
