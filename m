@@ -1,45 +1,54 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH RFC v2] ath10k: move code from parameter list into a
-	function
-Date: Wed, 11 Mar 2015 20:15:26 +0100
-Message-ID: <20150311191526.GA24455@opentech.at>
-References: <1426100519-20636-1-git-send-email-hofrat@osadl.org> <1426101010.1904.9.camel@sipsolutions.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Why do we prefer skb->priority to tc filters?
+Date: Wed, 11 Mar 2015 12:18:16 -0700
+Message-ID: <CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
+References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
+	<CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
+	<1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	Kalle Valo <kvalo@qca.qualcomm.com>, Valdis.Kletnieks@vt.edu,
-	Bj??rn Mork <bjorn@mork.no>,
-	Jeff Haran <Jeff.Haran@citrix.com>,
-	Pat Erley <pat-lkml@erley.org>, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1426101010.1904.9.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:42968 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820AbbCKTSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 15:18:17 -0400
+Received: by igkb16 with SMTP id b16so15234654igk.1
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 12:18:17 -0700 (PDT)
+In-Reply-To: <1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Mar 2015, Johannes Berg wrote:
-
-> On Wed, 2015-03-11 at 15:01 -0400, Nicholas Mc Guire wrote:
-> > Putting code into the parameter list of wait_event_timeout() might be
-> > legal C-code but not really readable - the "inline" code is simply
-> > moved into a function and that passed to wait_event_timeout() as the
-> > condition.
-> 
-> Arguably, that's even more unreadable since if you don't know this macro
-> well you might assume the function is called only once, which is clearly
-> not true...
-> 
-> Don't get me wrong, I'm not opposed to this change, but if you ask me
-> it's not completely clear that this makes it more readable.
+On Wed, Mar 11, 2015 at 11:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-03-11 at 11:08 -0700, Cong Wang wrote:
+>> On Wed, Mar 11, 2015 at 10:34 AM, Cong Wang <cwang@twopensource.com> wrote:
+>> >
+>> > Given that skb->priority can be specified in user-space, doesn't this
+>> > mean some application can always override our rules specified by tc
+>> > filters? I think we should always respect tc filters over any
+>> > application setting.
+>> >
+>>
+>> Hmm, on the other hand, skb->priority can be changed in cgroup
+>> too, in this case the current behavior seems correct. :-/ Interesting.
 >
-I'm not into this long enough to say what is better and if the consensus
-is that this patch is no more readable than the original code
-and no more maintainable either, then it is not worth the effort.
+> Note that even HTB has the following code :
+>
 
-so thanks for your comments!
+I am not surprised.
 
-thx!
-hofrat 
+[...]
+
+>
+> So if skb->priority happens to match sch->handle or any class handle,
+> we queue packet into a queue, without calling tc_classify()
+
+This is exactly why I am asking, kernel respects user's choice so much
+that it could override even both cgroup prio and tc filters, I don't know
+what is the reason behind, but this means our tc filters can not work
+with an application which sets skb->priority. For example, our tc filters
+classify the packets from this socket into flow 1:1, but application
+sets 1:2 by itself...
