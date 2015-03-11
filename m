@@ -1,49 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/8] net: Kill hold_net release_net
-Date: Wed, 11 Mar 2015 10:07:27 -0700
-Message-ID: <1426093647.11398.50.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
-	 <CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
-	 <87d25hrv9m.fsf@x220.int.ebiederm.org>
-	 <20150219.144929.1003473344851168804.davem@davemloft.net>
-	 <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
-	 <87vbi7fq92.fsf_-_@x220.int.ebiederm.org>
-	 <87pp8ffq63.fsf_-_@x220.int.ebiederm.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v3 1/2] net: implement dma cache skb allocator
+Date: Wed, 11 Mar 2015 17:06:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAFB82F@AcuExch.aculab.com>
+References: <1426009384-11544-1-git-send-email-_govind@gmx.com>
+ <1426009384-11544-2-git-send-email-_govind@gmx.com>
+ <54FF5521.5000007@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org,
-	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
-	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
-	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
-	dsahern@gmail.com, Julian Anastasov <ja@ssi.bg>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "ssujith@cisco.com" <ssujith@cisco.com>,
+	"benve@cisco.com" <benve@cisco.com>
+To: 'Alexander Duyck' <alexander.h.duyck@redhat.com>,
+	"Govindarajulu Varadarajan" <_govind@gmx.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:44180 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbbCKRHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:07:30 -0400
-Received: by igdh15 with SMTP id h15so14013730igd.3
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 10:07:29 -0700 (PDT)
-In-Reply-To: <87pp8ffq63.fsf_-_@x220.int.ebiederm.org>
+Received: from smtp-out4.electric.net ([192.162.216.183]:64363 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752096AbbCKRHu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:07:50 -0400
+In-Reply-To: <54FF5521.5000007@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-11 at 11:35 -0500, Eric W. Biederman wrote:
+From: Alexander Duyck
+...
+> The question I would have is do you actually need to have the 9k
+> buffer?  Does the hardware support any sort of scatter-gather receive?
+> If so that would be preferable as the 9k allocation per skb will have
+> significant overhead when you start receiving small packets.
+...
 
-> @@ -163,9 +162,7 @@ static void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
->  static void fib_rules_put_rcu(struct rcu_head *head)
->  {
->  	struct fib_rules_ops *ops = container_of(head, struct fib_rules_ops, rcu);
-> -	struct net *net = ops->fro_net;
->  
-> -	release_net(net);
->  	kfree(ops);
->  }
+You don't necessarily need true scatter gather.
 
+A lot of ethernet MAC continue long frames into the buffer
+associated with the next ring entry.
+So if you fill the ring with (say) 2k buffers you 'just' have
+to piece the fragments together when a long frame is received.
 
-Looks like this function is no longer needed, can caller can instead do
+I used to use a single 64k buffer split into 128 buffers of 512
+bytes each (last was actually smaller for alignment).
+All receive frames were copied into (the equivalent of) an skb
+that was allocated after the receive completed.
+The aligned copy (including the leading and trailing padding)
+didn't actually cost enough to worry about.
+(Without TCP checksum offload the data was heading for the cache.)
 
--	call_rcu(&rule->rcu, fib_rule_put_rcu);
-+	kfree_rcu(rule, rcu);
+	David
