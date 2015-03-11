@@ -1,72 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Wed, 11 Mar 2015 14:07:23 +0100
-Message-ID: <20150311130723.GD2057@nanopsycho.orion>
-References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
- <20150310204021.GA2740@codeaurora.org>
- <20150310211315.GF10838@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sysctl_net_core: check SNDBUF and RCVBUF for min
+ length
+Date: Wed, 11 Mar 2015 06:25:08 -0700
+Message-ID: <1426080308.11398.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426073357-6211-1-git-send-email-alexey.kodanev@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathieu Olivari <mathieu@codeaurora.org>, netdev@vger.kernel.org,
-	linux@roeck-us.net, jogo@openwrt.org, f.fainelli@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vasily.isaenko@oracle.com
+To: Alexey Kodanev <alexey.kodanev@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:34761 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbbCKNH0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 09:07:26 -0400
-Received: by wiwl15 with SMTP id l15so36659322wiw.1
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 06:07:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150310211315.GF10838@lunn.ch>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:45004 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752738AbbCKNZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 09:25:11 -0400
+In-Reply-To: <1426073357-6211-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Mar 10, 2015 at 10:13:15PM CET, andrew@lunn.ch wrote:
->> I was thinking about the MIB counters, maintained by the switch, on the CPU
->> port(s). 
->> 
->> On this picture:
->> 
->> +-----------+       +--------------------+
->> |           | RGMII |                    |
->> |       eth0+-------+ P0              P1 +------ 1000baseT MDI ("WAN")
->> |        wan|       |      7-port     P2 +------ 1000baseT MDI ("LAN1")
->> |   CPU     |       |      ethernet   P3 +------ 1000baseT MDI ("LAN2")
->> |           | RGMII |      switch     P4 +------ 1000baseT MDI ("LAN3")
->> |       eth1+-------+ P6   w/5 PHYs   P5 +------ 1000baseT MDI ("LAN4")
->> |        lan|       |                    |
->> +-----------+       +--------------------+
->>           |     MDIO   |
->>           \------------/
->> 
->> We can see MIB stats of P1/P2/P3/P4/P5 by using ethtool -S. But as CPU
->> ports don't have a net_device, there isn't a way to access MIB stats of
->> P0 & P6.
->
->Ah, sorry, i misunderstood you. As you say, the current DSA does not
->give you access to these counters. Apart from these counters, are
->there any other needs to have access to these ports? The core idea of
->hardware acceleration is that it should look like linux as normal.  P0
->and P6 are an internal detail, and you cannot actually use them. You
->cannot send packets, they are something special. So unless there is a
->good reason, we should not expose them.
+On Wed, 2015-03-11 at 14:29 +0300, Alexey Kodanev wrote:
+> sysctl has sysctl.net.core.rmem_*/wmem_* parameters which can be
+> set to incorrect values. Given that 'struct sk_buff' allocates from
+> rcvbuf, incorrectly set buffer length could result to memory
+> allocation failures. For example, set them as follows:
+> 
+>     # sysctl net.core.rmem_default=64
+>       net.core.wmem_default = 64
+>     # sysctl net.core.wmem_default=64
+>       net.core.wmem_default = 64
+>     # ping localhost -s 1024 -i 0 > /dev/null
+> 
 
-I completely agree. Let's keep this internal ports scop within the
-driver/dsa code.
+Yeah, root users seem to act like monkeys these days ;)
 
+Note the real bug is in unix_stream_sendmsg(), as it assumes
+ sk_sndbuf > 130 :
 
->
->> If we have the eth0 <--> P0 and eth1 <--> P6 relationship information in dts,
->> we could use it to lookup which switch port is connected to this net_dev and
->> show the corresponding counters when running "ethtool -S ethN".
->
->But that is not what the user expects. They expect the statistic
->counters for ethN, not the switch port.
->
->	 Andrew
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	/* Keep two messages in the pipe so it schedules better */
+	size = min_t(int, size, (sk->sk_sndbuf >> 1) - 64);
+
+The 64 here seems to assume skb overhead of linux 0.1 on a hypothetical
+16bit host ;)
+
+I guess your fix is fine, but might break applications that were
+expecting that sysctl net.core.wmem_default=512  would effectively limit
+queue occupancy to one skb (without crashing unix_stream_sendmsg())
+
+As commit eea86af6b1e18d6fa did not trigger bug reports, I think we
+should get your patch, and eventually adjust SOCK_MIN_SNDBUF if required
+later.
+
+Note that we should also limit max value, because of possible arithmetic
+overflows for sk->sk_wmem_alloc.
+
+A max of (1U << 31) might be reasonable ?
