@@ -1,45 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] switchdev: select INET in Kconfig
-Date: Wed, 11 Mar 2015 10:49:12 +0100
-Message-ID: <1426067352-9327-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, sfeldma@gmail.com,
-	rdunlap@infradead.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:43326 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751376AbbCKJtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 05:49:18 -0400
-Received: by wevl61 with SMTP id l61so7808458wev.10
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 02:49:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Subject: Re: [PATCH net-next v4 0/3] Linn Ethernet Packet Sniffer driver
+Date: Wed, 11 Mar 2015 11:20:59 +0000
+Message-ID: <5500251B.8010900@linn.co.uk>
+References: <cover.1424796018.git.stathis.voukelatos@linn.co.uk> <20150225151945.GB7703@localhost.localdomain> <20150225170127.GD7703@localhost.localdomain> <54EE0268.2040201@linn.co.uk> <20150225173053.GE7703@localhost.localdomain> <54F0A4C4.3020407@linn.co.uk> <20150227181447.GA11594@localhost.localdomain> <54F98660.5070805@linn.co.uk> <20150306152239.GC26349@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150306152239.GC26349@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This would fix randconfig compile error:
-net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
-(.text+0xf7811): undefined reference to `fib_flush_external'
+Hi Richard,
 
-Also it fixes following warning:
-warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+On 06/03/15 15:22, Richard Cochran wrote:
+> I don't really know what the problem here is.  Yes, there is some
+> networking configuration that you need to do when administering a
+> network using PTP protocols.  But these protocols (1588 aka PTP, and
+> 802.1AS aka gPTP) do offer means for dealing with this.  In
+> particular, there is no danger mixing 1588 devices with audio devices,
+> because the gPTP protocol uses a different transport flag.
+>
+> In any case, this has nothing at all to do with the kernel interface.
 
-Suggested-by: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/switchdev/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Our feeling is that we will have to test and verify that a move to gPTP
+will fit with the use cases that we have to support and that will
+require a fair amount of effort and rewrite of application software.
+If the driver is not acceptable with the current interface we may need
+to maintain it as a private patch until we are ready to move to gPTP
+as you recommend.
 
-diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
-index 86a47e1..3487940 100644
---- a/net/switchdev/Kconfig
-+++ b/net/switchdev/Kconfig
-@@ -4,7 +4,7 @@
- 
- config NET_SWITCHDEV
- 	bool "Switch (and switch-ish) device support (EXPERIMENTAL)"
--	depends on INET
-+	select INET
- 	---help---
- 	  This module provides glue between core networking code and device
- 	  drivers in order to support hardware switch chips in very generic
--- 
-1.9.3
+>
+> If you want to try and integrate your custom protocols into the
+> networking stack, by all means please post them.  I would certainly
+> support expanding the time stamping interface to include your
+> protocol's packet types (like adding them to hwtstamp_rx_filters).
+> Maybe that would be enough for you?
+
+I was referring to the Songcast protocol we are using which is part
+of the OpenHome suite (www.openhome.org) and runs on top of UDP.
+It could be filtered by testing the first 5 bytes of the payload.
+In our implementation we also add the destination IP and port to
+the filter to make it more reliable, but hwtstamp_rx_filters cannot
+accept parameters. However, I will test that and maybe come back with
+a patch to expand the hwtstamp_rx_filter enum initially?
+
+>
+> Thanks,
+> Richard
+>
+
+Thank you,
+Stathis
