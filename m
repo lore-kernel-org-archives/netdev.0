@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fsl: remove dependency FSL_SOC from MDIO
-Date: Wed, 11 Mar 2015 16:38:22 -0400 (EDT)
-Message-ID: <20150311.163822.1016494609136830384.davem@davemloft.net>
-References: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
+Subject: Re: [PATCH net-next] mpls: Allow mpls_gso and mpls_router to be
+ built as modules
+Date: Wed, 11 Mar 2015 16:39:11 -0400 (EDT)
+Message-ID: <20150311.163911.2302289395111906495.davem@davemloft.net>
+References: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shaohui.Xie@freescale.com
-To: shh.xie@gmail.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51512 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51546 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751279AbbCKUiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:38:23 -0400
-In-Reply-To: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
+	with ESMTP id S1751467AbbCKUjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:39:13 -0400
+In-Reply-To: <1426005479-21806-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <shh.xie@gmail.com>
-Date: Tue, 10 Mar 2015 18:31:12 +0800
+From: Robert Shearman <rshearma@brocade.com>
+Date: Tue, 10 Mar 2015 16:37:59 +0000
 
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> CONFIG_MPLS=m doesn't result in a kernel module being built because it
+> applies to the net/mpls directory, rather than to .o files.
 > 
-> FSL_PQ_MDIO and FSL_XGMAC_MDIO are not really depend on FSL_SOC, they
-> can build on non-PPC platforms.
+> So revert the MPLS menuitem to being a boolean and make MPLS_GSO and
+> MPLS_ROUTING tristates to allow mpls_gso and mpls_router modules to be
+> produced as desired.
 > 
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+> Signed-off-by: Robert Shearman <rshearma@brocade.com>
 
-Applied to net-next, thanks.
+Applied.
