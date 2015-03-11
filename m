@@ -1,37 +1,85 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: linux-next: build warnings after merge of the crypto tree
-Date: Wed, 11 Mar 2015 11:57:53 +1100
-Message-ID: <20150311005753.GA32180@gondor.apana.org.au>
-References: <20150310164417.540c18a4@canb.auug.org.au>
- <20150310060328.GA14997@gondor.apana.org.au>
- <20150310174454.7a92a3bd@canb.auug.org.au>
- <20150311115637.46f12569@canb.auug.org.au>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: [PATCH v3] ixgbe: make VLAN filter conditional
+Date: Wed, 11 Mar 2015 00:59:50 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E555F3@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stephan Mueller <smueller@chronox.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150311115637.46f12569@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: ja-JP
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 11, 2015 at 11:56:37AM +1100, Stephen Rothwell wrote:
-> 
-> This is what I applied:
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 11 Mar 2015 11:51:30 +1100
-> Subject: [PATCH] crypto: fix for sendmsg/recvmsg API change
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-
-Looks good to me.  Thanks Stephen!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCkRp
+c2FibGUgaGFyZHdhcmUgVkxBTiBmaWx0ZXJpbmcgaWYgbmV0ZGV2LT5mZWF0dXJlcyBWTEFOIGZs
+YWcgaXMgZHJvcHBlZC4NCg0KSW4gU1ItSU9WIGNhc2UsIHRoZXJlIGlzIGEgdXNlIGNhc2Ugd2hp
+Y2ggbmVlZHMgdG8gZGlzYWJsZSBWTEFOIGZpbHRlci4NCkZvciBleGFtcGxlLCB3ZSBuZWVkIHRv
+IG1ha2UgYSBuZXR3b3JrIGZ1bmN0aW9uIHdpdGggVkYgaW4gdmlydHVhbGl6ZWQNCmVudmlyb25t
+ZW50LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5IGJlIGEgc29mdHdhcmUgc3dpdGNoLCBhIHJv
+dXRlcg0Kb3IgZXRjLiBJdCBtZWFucyB0aGF0IHRoYXQgbmV0d29yayBmdW5jdGlvbiB3aWxsIGJl
+IGFuIGVuZCBwb2ludCB3aGljaA0KdGVybWluYXRlcyBtYW55IFZMQU5zLg0KDQpJbiB0aGUgY3Vy
+cmVudCBpbXBsZW1lbnRhdGlvbiwgVkxBTiBmaWx0ZXJpbmcgYWx3YXlzIGJlIHR1cm5lZCBvbiBh
+bmQNClZGIGNhbiByZWNlaXZlIG9ubHkgNjMgVkxBTnMuIEl0IG1lYW5zIHRoYXQgb25seSA2MyBW
+TEFOcyBjYW4gYmUgdGVybWluYXRlZA0KaW4gb25lIE5JQy4NCg0KT24gdGhlIG90aGVyIGhhbmQg
+ZGlzYWJsaW5nIEhXIFZMQU4gZmlsdGVyaW5nIGNhdXNlcyBhIFNFQ1VSSVRZIGlzc3VlDQp0aGF0
+IGVhY2ggVkYgY2FuIHJlY2VpdmUgYWxsIFZMQU4gcGFja2V0cy4gVGhhdCBtZWFucyB0aGF0IGEg
+VkYgY2FuIHNlZQ0KYW55IHBhY2tldCB3aGljaCBpcyBzZW50IHRvIG90aGVyIFZGLg0KDQpUaGlz
+IFZMQU4gZmlsdGVyaW5nIGNhbiBiZSB0dXJuZWQgb2ZmIHdoZW4gU1ItSU9WIGlzIGRpc2FibGVk
+LCBpZiBub3QNCnRoZSBvcGVyYXRpb24gaXMgcmVqZWN0ZWQsIHRvIHByZXZlbnQgdW5leHBlY3Rl
+ZCBiZWhhdmlvci4NCg0KU2lnbmVkLW9mZi1ieTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFt
+b3RvQGN0LmpwLm5lYy5jb20+DQpSZXZpZXdlZC1ieTogSGF5YXRvIE1vbW1hIDxoLW1vbW1hQGNl
+LmpwLm5lYy5jb20+DQpDQzogQ2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT4N
+Ci0tLQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyAgfCAy
+NiArKysrKysrKysrKysrKysrKysrKysrKysrKw0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2l4Z2JlL2l4Z2JlX3NyaW92LmMgfCAgNCArKysrDQogMiBmaWxlcyBjaGFuZ2VkLCAzMCBpbnNl
+cnRpb25zKCspDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdi
+ZS9peGdiZV9tYWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9t
+YWluLmMNCmluZGV4IGNkNWEyYzUuLjJmN2JiYjIgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMNCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KQEAgLTQwNzksNiArNDA3OSwxMCBAQCB2b2lk
+IGl4Z2JlX3NldF9yeF9tb2RlKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQogCQlody0+YWRk
+cl9jdHJsLnVzZXJfc2V0X3Byb21pc2MgPSBmYWxzZTsNCiAJfQ0KIA0KKwkvKiBEaXNhYmxlIGhh
+cmR3YXJlIFZMQU4gZmlsdGVyIGlmIHRoZSBmZWF0dXJlIGZsYWcgaXMgZHJvcHBlZCAqLw0KKwlp
+ZiAoIShuZXRkZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9IV19WTEFOX0NUQUdfRklMVEVSKSkNCisJ
+CXZsbmN0cmwgJj0gfihJWEdCRV9WTE5DVFJMX1ZGRSB8IElYR0JFX1ZMTkNUUkxfQ0ZJRU4pOw0K
+Kw0KIAkvKg0KIAkgKiBXcml0ZSBhZGRyZXNzZXMgdG8gYXZhaWxhYmxlIFJBUiByZWdpc3RlcnMs
+IGlmIHRoZXJlIGlzIG5vdA0KIAkgKiBzdWZmaWNpZW50IHNwYWNlIHRvIHN0b3JlIGFsbCB0aGUg
+YWRkcmVzc2VzIHRoZW4gZW5hYmxlDQpAQCAtNzczNiw2ICs3NzQwLDI4IEBAIHN0YXRpYyBpbnQg
+aXhnYmVfc2V0X2ZlYXR1cmVzKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsDQogCW5ldGRldl9m
+ZWF0dXJlc190IGNoYW5nZWQgPSBuZXRkZXYtPmZlYXR1cmVzIF4gZmVhdHVyZXM7DQogCWJvb2wg
+bmVlZF9yZXNldCA9IGZhbHNlOw0KIA0KKwlpZiAoY2hhbmdlZCAmIE5FVElGX0ZfSFdfVkxBTl9D
+VEFHX0ZJTFRFUikgew0KKwkJaW50IHZsYW5fZmlsdGVyID0gZmVhdHVyZXMgJiBORVRJRl9GX0hX
+X1ZMQU5fQ1RBR19GSUxURVI7DQorDQorCQkvKiBQcmV2ZW50IGNvbnRyb2xsaW5nIFZMQU4gZmls
+dGVyIGlmIFZGcyBleGlzdCAqLw0KKwkJaWYgKGFkYXB0ZXItPm51bV92ZnMgPiAwKSB7DQorCQkJ
+ZV9kZXZfaW5mbygiJXMgSFcgVkxBTiBmaWx0ZXIgaXMgbm90IGFsbG93ZWQgd2hlbiAiDQorCQkJ
+CSAgICJTUi1JT1YgZW5hYmxlZC5cbiIsDQorCQkJCSAgIHZsYW5fZmlsdGVyID8gIkVuYWJsaW5n
+IiA6ICJEaXNhYmxpbmciKTsNCisJCQlyZXR1cm4gLUVJTlZBTDsNCisJCX0NCisJCWlmICghdmxh
+bl9maWx0ZXIpIHsNCisJCQllX2Rldl93YXJuKCJEaXNhYmxpbmcgSFcgVkxBTiBmaWx0ZXIuIFRo
+aXMgY2F1c2UgIg0KKwkJCQkgICAiU0VSSU9VUyBTRUNVUklUWSBpc3N1ZXMuXG4iKTsNCisJCQll
+X2Rldl93YXJuKCJFdmVyeSBWRiB1c2VycyBjYW4gcmVjZWl2ZSBhIHBhY2tldCB0byAiDQorCQkJ
+CSAgICJvdGhlciBWRnMuXG4iKTsNCisJCQllX2Rldl93YXJuKCJZb3UgY2Fubm90IHR1cm4gaXQg
+b24gYWdhaW4gaWYgeW91IGFyZSAiDQorCQkJCSAgICJ1c2luZyBTUi1JT1YuXG4iKTsNCisJCX0N
+CisJCS8qIHJlc2V0IGlmIEhXIFZMQU4gZmlsdGVyIGlzIGNoYW5nZWQgKi8NCisJCW5lZWRfcmVz
+ZXQgPSB0cnVlOw0KKwl9DQorDQogCS8qIE1ha2Ugc3VyZSBSU0MgbWF0Y2hlcyBMUk8sIHJlc2V0
+IGlmIGNoYW5nZSAqLw0KIAlpZiAoIShmZWF0dXJlcyAmIE5FVElGX0ZfTFJPKSkgew0KIAkJaWYg
+KGFkYXB0ZXItPmZsYWdzMiAmIElYR0JFX0ZMQUcyX1JTQ19FTkFCTEVEKQ0KZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQppbmRleCAyZDk4ZWNkLi5m
+M2EzMTVjIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
+YmVfc3Jpb3YuYw0KKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVf
+c3Jpb3YuYw0KQEAgLTc4Nyw2ICs3ODcsMTAgQEAgc3RhdGljIGludCBpeGdiZV9zZXRfdmZfdmxh
+bl9tc2coc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogCXUzMiBiaXRzOw0KIAl1OCB0
+Y3MgPSBuZXRkZXZfZ2V0X251bV90YyhhZGFwdGVyLT5uZXRkZXYpOw0KIA0KKwkvKiBJZ25vcmUg
+aWYgVkxBTiBmaWx0ZXIgaXMgZGlzYWJsZWQgKi8NCisJaWYgKCEoYWRhcHRlci0+bmV0ZGV2LT5m
+ZWF0dXJlcyAmIE5FVElGX0ZfSFdfVkxBTl9DVEFHX0ZJTFRFUikpDQorCQlyZXR1cm4gMDsNCisN
+CiAJaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ucGZfdmxhbiB8fCB0Y3MpIHsNCiAJCWVfd2Fybihk
+cnYsDQogCQkgICAgICAgIlZGICVkIGF0dGVtcHRlZCB0byBvdmVycmlkZSBhZG1pbmlzdHJhdGl2
+ZWx5IHNldCBWTEFOIGNvbmZpZ3VyYXRpb25cbiINCi0tIA0KMi4xLjANCg0K
