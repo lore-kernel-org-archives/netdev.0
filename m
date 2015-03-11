@@ -1,58 +1,85 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Wed, 11 Mar 2015 10:26:36 -0400
-Message-ID: <20150311102636.6b4110a8@gandalf.local.home>
-References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
-	<20150311081909.552e2052@grimm.local.home>
-	<55003666.3020100@oracle.com>
-	<20150311084034.04ce6801@grimm.local.home>
-	<55004595.7020304@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2] tipc: fix undefined __ipv6_sock_mc_join compile
+ error
+Date: Wed, 11 Mar 2015 17:34:58 +0300
+Message-ID: <55005292.8050607@cogentembedded.com>
+References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com> <54FF3CE1.3080804@cogentembedded.com> <54FFB7A9.5080602@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, linux-mm@kvack.org,
- netdev@vger.kernel.org, linux-arch@vger.kernel.org,
- linux-fsdevel@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <55004595.7020304@oracle.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	erik.hugne@ericsson.com, fengguang.wu@intel.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	kbuild-all@01.org
+To: Ying Xue <ying.xue@windriver.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:35457 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752277AbbCKOfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 10:35:03 -0400
+Received: by lams18 with SMTP id s18so9255101lam.2
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 07:35:01 -0700 (PDT)
+In-Reply-To: <54FFB7A9.5080602@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Mar 2015 09:39:33 -0400
-Sasha Levin <sasha.levin@oracle.com> wrote:
+Hello.
 
-> On 03/11/2015 08:40 AM, Steven Rostedt wrote:
-> > On Wed, 11 Mar 2015 08:34:46 -0400
-> > Sasha Levin <sasha.levin@oracle.com> wrote:
-> > 
-> >> > Fair enough. We knew there are existing kmemcheck users, but KASan should be
-> >> > superior both in performance and the scope of bugs it finds. It also shouldn't
-> >> > impose new limitations beyond requiring gcc 4.9.2+.
-> >> >
-> > Ouch! OK, then I can't use it. I'm currently compiling with gcc 4.6.3.
-> > 
-> > It will be a while before I upgrade my build farm to something newer.
-> 
-> Are you actually compiling new kernels with 4.6.3, or are you using older
-> kernels as well?
+On 3/11/2015 6:34 AM, Ying Xue wrote:
 
-Yes for both :-)
+>>> When CONFIG_IPV6 option is disabled, below error will appear while
+>>> building TIPC module:
 
-> 
-> There's no real hurry to kill kmemcheck right now, but we do want to stop
-> supporting that in favour of KASan.
+>>> ERROR: "__ipv6_sock_mc_join" [net/tipc/tipc.ko] undefined!
+>>> make[1]: *** [__modpost] Error 1
+>>> make: *** [net/tipc/tipc.ko] Error 1
 
-Understood, but the kernel is suppose to support older compilers.
-Perhaps we can keep kmemcheck for now and say it's obsoleted if you
-have a newer compiler. Because it will be a while before I upgrade my
-compilers. I don't upgrade unless I have a good reason to do so. Not
-sure KASan fulfills that requirement.
+>>> This is because we don't check whether or not the CONFIG_IPV6 is
+>>> enabled when calling __ipv6_sock_mc_join().
 
--- Steve
+>>> In addition, especially when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m, TIPC
+>>> module is also unable to be successfully built. Therefore, we add a
+>>> dependency condition like (IPV6 || IPV6=n) to avoid the error.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>>> Fixes: d0f91938bede ("tipc: add ip/udp media type")
+>>> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
+>>> Cc: Kbuild test robot <kbuild-all@01.org>
+>>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+>>> ---
+>>> v2:
+>>>    Fix another compile error when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m
+
+[...]
+
+>>> diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+>>> index fc2fb11..6763002 100644
+>>> --- a/net/tipc/udp_media.c
+>>> +++ b/net/tipc/udp_media.c
+>>> @@ -247,10 +247,12 @@ static int enable_mcast(struct udp_bearer *ub, struct
+>>> udp_media_addr *remote)
+>>>            mreqn.imr_multiaddr = remote->ipv4;
+>>>            mreqn.imr_ifindex = ub->ifindex;
+>>>            err = __ip_mc_join_group(sk, &mreqn);
+>>> +#if IS_ENABLED(CONFIG_IPV6)
+>>>        } else {
+
+>>     How about:
+
+>>      } else if (IS_ENABLED(CONFIG_IPV6)) {
+
+> Sorry, I try to the suggestion, but it doesn't work.
+
+    You mean that the linking error you reported doesn't go away?
+
+> Thanks,
+> Ying
+
+>>>            if (!ipv6_addr_is_multicast(&remote->ipv6))
+>>>                return 0;
+>>>            err = __ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
+>>> +#endif
+>>>        }
+>>>        return err;
+>>>    }
+
+WBR, Sergei
