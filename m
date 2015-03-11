@@ -1,85 +1,120 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v3] ixgbe: make VLAN filter conditional
-Date: Wed, 11 Mar 2015 00:59:50 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E555F3@BPXM14GP.gisp.nec.co.jp>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and verify it matches on lookup
+Date: Tue, 10 Mar 2015 19:58:14 -0500
+Message-ID: <87twxsgxjt.fsf@x220.int.ebiederm.org>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	<87d25hrv9m.fsf@x220.int.ebiederm.org>
+	<20150219.144929.1003473344851168804.davem@davemloft.net>
+	<87h9tu114z.fsf_-_@x220.int.ebiederm.org>
+	<87oao2yqh1.fsf_-_@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1503092210150.1846@ja.home.ssi.bg>
+	<87pp8hnxqz.fsf@x220.int.ebiederm.org>
+	<alpine.LFD.2.11.1503100945270.1682@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
+	netdev@vger.kernel.org, stephen@networkplumber.org,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	hannes@stressinduktion.org, ddutt@cumulusnetworks.com,
+	vipin@cumulusnetworks.com, shmulik.ladkani@gmail.com,
+	dsahern@gmail.com
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:33178 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356AbbCKBB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Mar 2015 21:01:56 -0400
+In-Reply-To: <alpine.LFD.2.11.1503100945270.1682@ja.home.ssi.bg> (Julian
+	Anastasov's message of "Tue, 10 Mar 2015 10:23:12 +0200 (EET)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCkRp
-c2FibGUgaGFyZHdhcmUgVkxBTiBmaWx0ZXJpbmcgaWYgbmV0ZGV2LT5mZWF0dXJlcyBWTEFOIGZs
-YWcgaXMgZHJvcHBlZC4NCg0KSW4gU1ItSU9WIGNhc2UsIHRoZXJlIGlzIGEgdXNlIGNhc2Ugd2hp
-Y2ggbmVlZHMgdG8gZGlzYWJsZSBWTEFOIGZpbHRlci4NCkZvciBleGFtcGxlLCB3ZSBuZWVkIHRv
-IG1ha2UgYSBuZXR3b3JrIGZ1bmN0aW9uIHdpdGggVkYgaW4gdmlydHVhbGl6ZWQNCmVudmlyb25t
-ZW50LiBUaGF0IG5ldHdvcmsgZnVuY3Rpb24gbWF5IGJlIGEgc29mdHdhcmUgc3dpdGNoLCBhIHJv
-dXRlcg0Kb3IgZXRjLiBJdCBtZWFucyB0aGF0IHRoYXQgbmV0d29yayBmdW5jdGlvbiB3aWxsIGJl
-IGFuIGVuZCBwb2ludCB3aGljaA0KdGVybWluYXRlcyBtYW55IFZMQU5zLg0KDQpJbiB0aGUgY3Vy
-cmVudCBpbXBsZW1lbnRhdGlvbiwgVkxBTiBmaWx0ZXJpbmcgYWx3YXlzIGJlIHR1cm5lZCBvbiBh
-bmQNClZGIGNhbiByZWNlaXZlIG9ubHkgNjMgVkxBTnMuIEl0IG1lYW5zIHRoYXQgb25seSA2MyBW
-TEFOcyBjYW4gYmUgdGVybWluYXRlZA0KaW4gb25lIE5JQy4NCg0KT24gdGhlIG90aGVyIGhhbmQg
-ZGlzYWJsaW5nIEhXIFZMQU4gZmlsdGVyaW5nIGNhdXNlcyBhIFNFQ1VSSVRZIGlzc3VlDQp0aGF0
-IGVhY2ggVkYgY2FuIHJlY2VpdmUgYWxsIFZMQU4gcGFja2V0cy4gVGhhdCBtZWFucyB0aGF0IGEg
-VkYgY2FuIHNlZQ0KYW55IHBhY2tldCB3aGljaCBpcyBzZW50IHRvIG90aGVyIFZGLg0KDQpUaGlz
-IFZMQU4gZmlsdGVyaW5nIGNhbiBiZSB0dXJuZWQgb2ZmIHdoZW4gU1ItSU9WIGlzIGRpc2FibGVk
-LCBpZiBub3QNCnRoZSBvcGVyYXRpb24gaXMgcmVqZWN0ZWQsIHRvIHByZXZlbnQgdW5leHBlY3Rl
-ZCBiZWhhdmlvci4NCg0KU2lnbmVkLW9mZi1ieTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFt
-b3RvQGN0LmpwLm5lYy5jb20+DQpSZXZpZXdlZC1ieTogSGF5YXRvIE1vbW1hIDxoLW1vbW1hQGNl
-LmpwLm5lYy5jb20+DQpDQzogQ2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT4N
-Ci0tLQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyAgfCAy
-NiArKysrKysrKysrKysrKysrKysrKysrKysrKw0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2l4Z2JlL2l4Z2JlX3NyaW92LmMgfCAgNCArKysrDQogMiBmaWxlcyBjaGFuZ2VkLCAzMCBpbnNl
-cnRpb25zKCspDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdi
-ZS9peGdiZV9tYWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9t
-YWluLmMNCmluZGV4IGNkNWEyYzUuLjJmN2JiYjIgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMNCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KQEAgLTQwNzksNiArNDA3OSwxMCBAQCB2b2lk
-IGl4Z2JlX3NldF9yeF9tb2RlKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQogCQlody0+YWRk
-cl9jdHJsLnVzZXJfc2V0X3Byb21pc2MgPSBmYWxzZTsNCiAJfQ0KIA0KKwkvKiBEaXNhYmxlIGhh
-cmR3YXJlIFZMQU4gZmlsdGVyIGlmIHRoZSBmZWF0dXJlIGZsYWcgaXMgZHJvcHBlZCAqLw0KKwlp
-ZiAoIShuZXRkZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9IV19WTEFOX0NUQUdfRklMVEVSKSkNCisJ
-CXZsbmN0cmwgJj0gfihJWEdCRV9WTE5DVFJMX1ZGRSB8IElYR0JFX1ZMTkNUUkxfQ0ZJRU4pOw0K
-Kw0KIAkvKg0KIAkgKiBXcml0ZSBhZGRyZXNzZXMgdG8gYXZhaWxhYmxlIFJBUiByZWdpc3RlcnMs
-IGlmIHRoZXJlIGlzIG5vdA0KIAkgKiBzdWZmaWNpZW50IHNwYWNlIHRvIHN0b3JlIGFsbCB0aGUg
-YWRkcmVzc2VzIHRoZW4gZW5hYmxlDQpAQCAtNzczNiw2ICs3NzQwLDI4IEBAIHN0YXRpYyBpbnQg
-aXhnYmVfc2V0X2ZlYXR1cmVzKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsDQogCW5ldGRldl9m
-ZWF0dXJlc190IGNoYW5nZWQgPSBuZXRkZXYtPmZlYXR1cmVzIF4gZmVhdHVyZXM7DQogCWJvb2wg
-bmVlZF9yZXNldCA9IGZhbHNlOw0KIA0KKwlpZiAoY2hhbmdlZCAmIE5FVElGX0ZfSFdfVkxBTl9D
-VEFHX0ZJTFRFUikgew0KKwkJaW50IHZsYW5fZmlsdGVyID0gZmVhdHVyZXMgJiBORVRJRl9GX0hX
-X1ZMQU5fQ1RBR19GSUxURVI7DQorDQorCQkvKiBQcmV2ZW50IGNvbnRyb2xsaW5nIFZMQU4gZmls
-dGVyIGlmIFZGcyBleGlzdCAqLw0KKwkJaWYgKGFkYXB0ZXItPm51bV92ZnMgPiAwKSB7DQorCQkJ
-ZV9kZXZfaW5mbygiJXMgSFcgVkxBTiBmaWx0ZXIgaXMgbm90IGFsbG93ZWQgd2hlbiAiDQorCQkJ
-CSAgICJTUi1JT1YgZW5hYmxlZC5cbiIsDQorCQkJCSAgIHZsYW5fZmlsdGVyID8gIkVuYWJsaW5n
-IiA6ICJEaXNhYmxpbmciKTsNCisJCQlyZXR1cm4gLUVJTlZBTDsNCisJCX0NCisJCWlmICghdmxh
-bl9maWx0ZXIpIHsNCisJCQllX2Rldl93YXJuKCJEaXNhYmxpbmcgSFcgVkxBTiBmaWx0ZXIuIFRo
-aXMgY2F1c2UgIg0KKwkJCQkgICAiU0VSSU9VUyBTRUNVUklUWSBpc3N1ZXMuXG4iKTsNCisJCQll
-X2Rldl93YXJuKCJFdmVyeSBWRiB1c2VycyBjYW4gcmVjZWl2ZSBhIHBhY2tldCB0byAiDQorCQkJ
-CSAgICJvdGhlciBWRnMuXG4iKTsNCisJCQllX2Rldl93YXJuKCJZb3UgY2Fubm90IHR1cm4gaXQg
-b24gYWdhaW4gaWYgeW91IGFyZSAiDQorCQkJCSAgICJ1c2luZyBTUi1JT1YuXG4iKTsNCisJCX0N
-CisJCS8qIHJlc2V0IGlmIEhXIFZMQU4gZmlsdGVyIGlzIGNoYW5nZWQgKi8NCisJCW5lZWRfcmVz
-ZXQgPSB0cnVlOw0KKwl9DQorDQogCS8qIE1ha2Ugc3VyZSBSU0MgbWF0Y2hlcyBMUk8sIHJlc2V0
-IGlmIGNoYW5nZSAqLw0KIAlpZiAoIShmZWF0dXJlcyAmIE5FVElGX0ZfTFJPKSkgew0KIAkJaWYg
-KGFkYXB0ZXItPmZsYWdzMiAmIElYR0JFX0ZMQUcyX1JTQ19FTkFCTEVEKQ0KZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQppbmRleCAyZDk4ZWNkLi5m
-M2EzMTVjIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
-YmVfc3Jpb3YuYw0KKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVf
-c3Jpb3YuYw0KQEAgLTc4Nyw2ICs3ODcsMTAgQEAgc3RhdGljIGludCBpeGdiZV9zZXRfdmZfdmxh
-bl9tc2coc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogCXUzMiBiaXRzOw0KIAl1OCB0
-Y3MgPSBuZXRkZXZfZ2V0X251bV90YyhhZGFwdGVyLT5uZXRkZXYpOw0KIA0KKwkvKiBJZ25vcmUg
-aWYgVkxBTiBmaWx0ZXIgaXMgZGlzYWJsZWQgKi8NCisJaWYgKCEoYWRhcHRlci0+bmV0ZGV2LT5m
-ZWF0dXJlcyAmIE5FVElGX0ZfSFdfVkxBTl9DVEFHX0ZJTFRFUikpDQorCQlyZXR1cm4gMDsNCisN
-CiAJaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ucGZfdmxhbiB8fCB0Y3MpIHsNCiAJCWVfd2Fybihk
-cnYsDQogCQkgICAgICAgIlZGICVkIGF0dGVtcHRlZCB0byBvdmVycmlkZSBhZG1pbmlzdHJhdGl2
-ZWx5IHNldCBWTEFOIGNvbmZpZ3VyYXRpb25cbiINCi0tIA0KMi4xLjANCg0K
+Julian Anastasov <ja@ssi.bg> writes:
+
+> 	Hello,
+>
+> On Tue, 10 Mar 2015, Eric W. Biederman wrote:
+>
+>> Julian Anastasov <ja@ssi.bg> writes:
+>> 
+>> >>  struct tcp_metrics_block {
+>> >>  	struct tcp_metrics_block __rcu	*tcpm_next;
+>> >> +	struct net			*tcpm_net;
+>> >
+>> > 	Is it better if we have this field under
+>> > #ifef CONFIG_NET_NS ? read_pnet and write_pnet do not
+>> > care when first argument is not declared for the
+>> > !CONFIG_NET_NS case.
+>> 
+>> I don't actually believe there are many people compiling out network
+>> namespaces but there is no point in making it unnecessarily bad for them.
+>
+> 	Small routers. Also, we can move tcpm_net after
+> tcpm_daddr to help machines with 32-byte cache line.
+> It would be good if fields and access is in this order:
+> tcpm_next, tcpm_daddr, tcpm_saddr and finally tcpm_net.
+> tcpm_daddr is the leading key, it was tcpm_addr originally.
+> If such change is not suitable for this patchset I can try it
+> later after your changes.
+
+I think optimizing the order of the fields and their alignment for
+machines with a 32-byte cache line is beyond the scope of my patchset.
+
+My gut says if you are a small router you might want to just turn this
+off, because you would not be using many tcp sockets.
+
+For a small machine doing tcp and benefitting from this cache I think
+figuring out rhashtables for this data structure has merit.   I don't
+know if rhashtables are ready for general use yet.
+
+For machines with 64-byte cache lines placing saddr, daddr, net and next
+all in the first 4 fields should be sufficient.
+
+For machines with 32-byte cache lines you are in trouble because even
+without struct net in their you need two cache lines as saddr and daddr
+are both 20 bytes long.  It is just a mess.
+
+>> That said.  If we actually really care about struct net going away it
+>> would be much better to globally replace struct net with a typedef that
+>> looks something like:
+>> 
+>> #ifdef CONFIG_NET_NS
+>> struct net_ref {
+>>        struct net *;
+>> };
+>> #else
+>> struct net_ref {
+>> };
+>> #endif
+>> typedef struct net_ref net_t;
+>> 
+>> That would remove the need for write_pnet and read_pnet, make it
+>> impossible to forget net_eq and make network namespace arguments to
+>> functions also boil away at compile time if the network namespace code
+>> was not enabled.
+>> 
+>> That was the original design and I forget why we didn't do that with
+>> struct net.  But we did not.
+>
+> 	Not sure. Only macros help to avoid ifdefs here
+> and there in the code...
+>
+>> In this specific case an extra member of tcp_metrics_block isn't going
+>> to hurt so I don't think write_pnet and read_pnet are particularly
+>> interesting.   net_eq definitely seems worthwhile.
+>
+> 	Lets use them, even neighbour.c uses them.
+> Your patchset shows the direction we go, net field to be
+> part of the structures and using common tables.
+> Macros like write_pnet and read_pnet look the only
+> way to save memory on small systems. And net_eq should
+> be optimized by compilers too.
+
+net_eq definitely will.  And I have figured out how to have
+write_pnet and read_pnet be palatiable to me.
+
+I wish I could force the use of net_eq when the network namespace
+field might be compiled out but that seems one step too far for now.
+
+Eric
