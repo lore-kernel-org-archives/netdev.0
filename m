@@ -1,32 +1,31 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next v2] net: bcmgenet: collect Rx discarded packet count
-Date: Wed, 11 Mar 2015 10:59:32 -0700
-Message-ID: <CAGXr9JHSGtySCs80PfSPBGbWyTXiE3pA0esi=fyCMPKRxmhboA@mail.gmail.com>
-References: <20150310225500.8FA34220365@puck.mtv.corp.google.com>
-	<CAGVrzcYNMsCKGdouLULKBb6dtMYviAJR26vO4XTJrh3aYSZC4A@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Why do we prefer skb->priority to tc filters?
+Date: Wed, 11 Mar 2015 11:08:44 -0700
+Message-ID: <CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
+References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jaedon Shin <jaedon.shin@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:35019 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbbCKR7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:59:33 -0400
-Received: by qcwr17 with SMTP id r17so12345578qcw.2
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 10:59:32 -0700 (PDT)
-In-Reply-To: <CAGVrzcYNMsCKGdouLULKBb6dtMYviAJR26vO4XTJrh3aYSZC4A@mail.gmail.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:36683 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515AbbCKSIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 14:08:45 -0400
+Received: by igkb16 with SMTP id b16so42484589igk.1
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 11:08:44 -0700 (PDT)
+In-Reply-To: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I find the Rx discard counter very useful, as it indicates HW dropped
-packets, which directly affects media playback quality.
+On Wed, Mar 11, 2015 at 10:34 AM, Cong Wang <cwang@twopensource.com> wrote:
+>
+> Given that skb->priority can be specified in user-space, doesn't this
+> mean some application can always override our rules specified by tc
+> filters? I think we should always respect tc filters over any
+> application setting.
+>
 
-In our unit tests, we actually discovered a major interrupts-off
-offender with this. Even with a moderate Rx traffic, we were seeing Rx
-discards. It turned out that using a large dmesg log buffer and
-dumping it with "cat /proc/kmsg" held interrupts off for long enough
-that bcmgenet experienced discards. It was very useful to have the
-discard data available when debugging this.
+Hmm, on the other hand, skb->priority can be changed in cgroup
+too, in this case the current behavior seems correct. :-/ Interesting.
