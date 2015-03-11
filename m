@@ -1,34 +1,60 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: iproute2: ip netns: Do not delete netns if there any process use it
-Date: Wed, 11 Mar 2015 10:07:50 -0700
-Message-ID: <CAHA+R7PsYQLVXse5Yjk6K9V==Yw2WUM=rYGi1KPRf+bwZAwDxQ@mail.gmail.com>
-References: <20150311074020.GA26477@angus-think.wlc.globallogic.com>
-	<CAHA+R7Pwfjg4642i1FMG1mKJN58K+nYhqvN_NnrbQ+uiPXibGQ@mail.gmail.com>
-	<20150311165011.GA917@angus-think.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Vadim Kochan <vadim4j@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:40473 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752637AbbCKRHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:07:51 -0400
-Received: by igal13 with SMTP id l13so41839186iga.5
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 10:07:50 -0700 (PDT)
-In-Reply-To: <20150311165011.GA917@angus-think.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 8/15] libertas_tf: if_usb.c: don't export static symbol
+Date: Wed, 11 Mar 2015 17:56:30 +0100
+Message-ID: <1426092997-30605-9-git-send-email-Julia.Lawall@lip6.fr>
+References: <1426092997-30605-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	daniel@iogearbox.net
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426092997-30605-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 11, 2015 at 9:50 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
->
-> Sure kernel does and after net0 file was deleted the devices will be
-> still alive within net0 till all processes within net0 will exit or will
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-This is exactly how reference counting works.
+The semantic patch that fixes this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-> be killed. And there might be case that after deleting net0 it might be
-> hard to find these processes and kill them to bring back devices from
-> net0 to the initial netns.
+// <smpl>
+@r@
+type T;
+identifier f;
+@@
 
-It is your responsibility to track the processes you put into the netns.
+static T f (...) { ... }
+
+@@
+identifier r.f;
+declarer name EXPORT_SYMBOL_GPL;
+@@
+
+-EXPORT_SYMBOL_GPL(f);
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ drivers/net/wireless/libertas_tf/if_usb.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+diff -u -p a/drivers/net/wireless/libertas_tf/if_usb.c b/drivers/net/wireless/libertas_tf/if_usb.c
+--- a/drivers/net/wireless/libertas_tf/if_usb.c
++++ b/drivers/net/wireless/libertas_tf/if_usb.c
+@@ -365,7 +365,6 @@ static int if_usb_reset_device(struct if
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL_GPL(if_usb_reset_device);
+ 
+ /**
+  *  usb_tx_block - transfer data to the device
+@@ -907,7 +906,6 @@ restart:
+ 	lbtf_deb_leave_args(LBTF_DEB_USB, "ret %d", ret);
+ 	return ret;
+ }
+-EXPORT_SYMBOL_GPL(if_usb_prog_firmware);
+ 
+ 
+ #define if_usb_suspend NULL
