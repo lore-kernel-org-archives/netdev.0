@@ -1,42 +1,121 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Why do we prefer skb->priority to tc filters?
-Date: Wed, 11 Mar 2015 14:47:30 -0700
-Message-ID: <1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
-	 <CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
-	 <1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
-	 <1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH v2] rds: avoid potential stack overflow
+Date: Wed, 11 Mar 2015 22:46:59 +0100
+Message-ID: <4321699.nNdBmxDHpu@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: roland@purestorage.com, rds-devel@oss.oracle.com,
+	linux-kernel@vger.kernel.org, chien.yen@oracle.com,
+	sowmini.varadhan@oracle.com, linux-arm-kernel@lists.infradead.org,
 	David Miller <davem@davemloft.net>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:33915 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752717AbbCKVre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 17:47:34 -0400
-Received: by iecsl2 with SMTP id sl2so1055768iec.1
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 14:47:33 -0700 (PDT)
-In-Reply-To: <CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-03-11 at 13:46 -0700, Cong Wang wrote:
+The rds_iw_update_cm_id function stores a large 'struct rds_sock' object
+on the stack in order to pass a pair of addresses. This happens to just
+fit withint the 1024 byte stack size warning limit on x86, but just
+exceed that limit on ARM, which gives us this warning:
 
-> That is just a permission check when val > 6, given the fact most
-> daemons have root permission, I doubt your argument makes a difference
-> for discussion. At least with userns having root permission is more common.
+net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
 
-Some setups use ip[6]tables rules to mangle skb->priority to select a
-HTB class.
+As the use of this large variable is basically bogus, we can rearrange
+the code to not do that. Instead of passing an rds socket into
+rds_iw_get_device, we now just pass the two addresses that we have
+available in rds_iw_update_cm_id, and we change rds_iw_get_mr accordingly,
+to create two address structures on the stack there.
 
-Google definitely uses this model, as netfilter code runs on multiple
-cpus, while HTB classifier runs under qdisc spinlock, so far.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+v2: fix incorrect commit message
 
-If you believe root user should not set skb->priority to arbitrary
-values, this is a very different concern.
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+index a817705ce2d0..dba8d0864f18 100644
+--- a/net/rds/iw_rdma.c
++++ b/net/rds/iw_rdma.c
+@@ -88,7 +88,9 @@ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+ 			int *unpinned);
+ static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+ 
+-static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwdev, struct rdma_cm_id **cm_id)
++static int rds_iw_get_device(struct sockaddr_in *src, struct sockaddr_in *dst,
++			     struct rds_iw_device **rds_iwdev,
++			     struct rdma_cm_id **cm_id)
+ {
+ 	struct rds_iw_device *iwdev;
+ 	struct rds_iw_cm_id *i_cm_id;
+@@ -112,15 +114,15 @@ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwd
+ 				src_addr->sin_port,
+ 				dst_addr->sin_addr.s_addr,
+ 				dst_addr->sin_port,
+-				rs->rs_bound_addr,
+-				rs->rs_bound_port,
+-				rs->rs_conn_addr,
+-				rs->rs_conn_port);
++				src->sin_addr.s_addr,
++				src->sin_port,
++				dst->sin_addr.s_addr,
++				dst->sin_port);
+ #ifdef WORKING_TUPLE_DETECTION
+-			if (src_addr->sin_addr.s_addr == rs->rs_bound_addr &&
+-			    src_addr->sin_port == rs->rs_bound_port &&
+-			    dst_addr->sin_addr.s_addr == rs->rs_conn_addr &&
+-			    dst_addr->sin_port == rs->rs_conn_port) {
++			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr &&
++			    src_addr->sin_port == src->sin_port &&
++			    dst_addr->sin_addr.s_addr == dst->sin_addr.s_addr &&
++			    dst_addr->sin_port == dst->sin_port) {
+ #else
+ 			/* FIXME - needs to compare the local and remote
+ 			 * ipaddr/port tuple, but the ipaddr is the only
+@@ -128,7 +130,7 @@ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwd
+ 			 * zero'ed.  It doesn't appear to be properly populated
+ 			 * during connection setup...
+ 			 */
+-			if (src_addr->sin_addr.s_addr == rs->rs_bound_addr) {
++			if (src_addr->sin_addr.s_addr == src->sin_addr.s_addr) {
+ #endif
+ 				spin_unlock_irq(&iwdev->spinlock);
+ 				*rds_iwdev = iwdev;
+@@ -180,19 +182,13 @@ int rds_iw_update_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_i
+ {
+ 	struct sockaddr_in *src_addr, *dst_addr;
+ 	struct rds_iw_device *rds_iwdev_old;
+-	struct rds_sock rs;
+ 	struct rdma_cm_id *pcm_id;
+ 	int rc;
+ 
+ 	src_addr = (struct sockaddr_in *)&cm_id->route.addr.src_addr;
+ 	dst_addr = (struct sockaddr_in *)&cm_id->route.addr.dst_addr;
+ 
+-	rs.rs_bound_addr = src_addr->sin_addr.s_addr;
+-	rs.rs_bound_port = src_addr->sin_port;
+-	rs.rs_conn_addr = dst_addr->sin_addr.s_addr;
+-	rs.rs_conn_port = dst_addr->sin_port;
+-
+-	rc = rds_iw_get_device(&rs, &rds_iwdev_old, &pcm_id);
++	rc = rds_iw_get_device(src_addr, dst_addr, &rds_iwdev_old, &pcm_id);
+ 	if (rc)
+ 		rds_iw_remove_cm_id(rds_iwdev, cm_id);
+ 
+@@ -598,9 +594,17 @@ void *rds_iw_get_mr(struct scatterlist *sg, unsigned long nents,
+ 	struct rds_iw_device *rds_iwdev;
+ 	struct rds_iw_mr *ibmr = NULL;
+ 	struct rdma_cm_id *cm_id;
++	struct sockaddr_in src = {
++		.sin_addr.s_addr = rs->rs_bound_addr,
++		.sin_port = rs->rs_bound_port,
++	};
++	struct sockaddr_in dst = {
++		.sin_addr.s_addr = rs->rs_conn_addr,
++		.sin_port = rs->rs_conn_port,
++	};
+ 	int ret;
+ 
+-	ret = rds_iw_get_device(rs, &rds_iwdev, &cm_id);
++	ret = rds_iw_get_device(&src, &dst, &rds_iwdev, &cm_id);
+ 	if (ret || !cm_id) {
+ 		ret = -ENODEV;
+ 		goto out;
