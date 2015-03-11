@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/3] net: Add max rate tx queue attribute
-Date: Wed, 11 Mar 2015 15:14:48 +0200
-Message-ID: <1426079690-28271-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/3] net/mlx4_en: Add tx queue maxrate support
+Date: Wed, 11 Mar 2015 15:14:50 +0200
+Message-ID: <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
 References: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>,
@@ -10,158 +10,82 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48317 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:48328 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751667AbbCKNZx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 09:25:53 -0400
+	id S1753202AbbCKN0D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 09:26:03 -0400
 In-Reply-To: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+Add ndo_set_tx_maxrate support.
 
-This adds a tx_maxrate attribute to the tx queue sysfs entry allowing
-for max-rate limiting. Along with DCB-ETS and BQL this provides another
-knob to tune queue performance. The limit units are Mbps.
+To support per tx queue maxrate limit, we use the update-qp firmware
+command to do run-time rate setting for the qp that serves this tx ring.
 
-By default it is disabled. To disable the rate limitation after it
-has been set for a queue, it should be set to zero.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Ido Shamay <idos@mellanox.com>
 ---
- include/linux/netdevice.h |    9 ++++++
- net/core/net-sysfs.c      |   70 +++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 67 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   33 ++++++++++++++++++++++++
+ 1 files changed, 33 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1354ae8..e727677 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -587,6 +587,7 @@ struct netdev_queue {
- #ifdef CONFIG_BQL
- 	struct dql		dql;
- #endif
-+	unsigned long		tx_maxrate;
- } ____cacheline_aligned_in_smp;
- 
- static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
-@@ -1025,6 +1026,11 @@ struct fib_info;
-  *	the set of features that the stack has calculated and it returns
-  *	those the driver believes to be appropriate.
-  *
-+ *	int (*ndo_set_tx_maxrate)(struct net_device *dev,
-+				  int queue_index,
-+				  u32 maxrate);
-+ *	Called when a user wants to set a max-rate limitation of specific
-+ *	TX queue.
-  * int (*ndo_switch_parent_id_get)(struct net_device *dev,
-  *				   struct netdev_phys_item_id *psid);
-  *	Called to get an ID of the switch chip this port is part of.
-@@ -1197,6 +1203,9 @@ struct net_device_ops {
- 	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
- 						       struct net_device *dev,
- 						       netdev_features_t features);
-+	int			(*ndo_set_tx_maxrate)(struct net_device *dev,
-+						      int queue_index,
-+						      u32 maxrate);
- #ifdef CONFIG_NET_SWITCHDEV
- 	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
- 							    struct netdev_phys_item_id *psid);
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index cf30620..7822dda 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -951,6 +951,63 @@ static ssize_t show_trans_timeout(struct netdev_queue *queue,
- 	return sprintf(buf, "%lu", trans_timeout);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index c59ed92..2a58d2a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2379,6 +2379,37 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
  }
+ #endif
  
-+#ifdef CONFIG_XPS
-+static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
++int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
 +{
-+	struct net_device *dev = queue->dev;
-+	int i;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[queue_index];
++	struct mlx4_update_qp_params params;
++	int err;
 +
-+	for (i = 0; i < dev->num_tx_queues; i++)
-+		if (queue == &dev->_tx[i])
-+			break;
-+
-+	BUG_ON(i >= dev->num_tx_queues);
-+
-+	return i;
-+}
-+
-+static ssize_t show_tx_maxrate(struct netdev_queue *queue,
-+			       struct netdev_queue_attribute *attribute,
-+			       char *buf)
-+{
-+	return sprintf(buf, "%lu\n", queue->tx_maxrate);
-+}
-+
-+static ssize_t set_tx_maxrate(struct netdev_queue *queue,
-+			      struct netdev_queue_attribute *attribute,
-+			      const char *buf, size_t len)
-+{
-+	struct net_device *dev = queue->dev;
-+	int err, index = get_netdev_queue_index(queue);
-+	u32 rate = 0;
-+
-+	err = kstrtou32(buf, 10, &rate);
-+	if (err < 0)
-+		return err;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (dev->netdev_ops->ndo_set_tx_maxrate) {
-+		err = dev->netdev_ops->ndo_set_tx_maxrate(dev, index, rate);
-+	} else {
-+		rtnl_unlock();
-+		return -EOPNOTSUPP;
++	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT)) {
++		err = -EOPNOTSUPP;
++		goto out;
 +	}
 +
-+	rtnl_unlock();
-+	if (!err) {
-+		queue->tx_maxrate = rate;
-+		return len;
++	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
++	if ((maxrate >> 12)) {
++		params.rate_unit = MLX4_QP_RATE_LIMIT_GBS;
++		params.rate_val  = maxrate >> 10;
++	} else if (maxrate) {
++		params.rate_unit = MLX4_QP_RATE_LIMIT_MBS;
++		params.rate_val  = maxrate;
++	} else { /* zero serves to revoke the QP rate-limitation */
++		params.rate_unit = 0;
++		params.rate_val  = 0;
 +	}
++
++	err = mlx4_update_qp(priv->mdev->dev, tx_ring->qpn, MLX4_UPDATE_QP_RATE_LIMIT,
++			     &params);
++
++out:
 +	return err;
 +}
 +
-+static struct netdev_queue_attribute queue_tx_maxrate =
-+	__ATTR(tx_maxrate, S_IRUGO | S_IWUSR,
-+	       show_tx_maxrate, set_tx_maxrate);
-+#endif
-+
- static struct netdev_queue_attribute queue_trans_timeout =
- 	__ATTR(tx_timeout, S_IRUGO, show_trans_timeout, NULL);
- 
-@@ -1065,18 +1122,6 @@ static struct attribute_group dql_group = {
- #endif /* CONFIG_BQL */
- 
- #ifdef CONFIG_XPS
--static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
--{
--	struct net_device *dev = queue->dev;
--	unsigned int i;
--
--	i = queue - dev->_tx;
--	BUG_ON(i >= dev->num_tx_queues);
--
--	return i;
--}
--
--
- static ssize_t show_xps_map(struct netdev_queue *queue,
- 			    struct netdev_queue_attribute *attribute, char *buf)
- {
-@@ -1153,6 +1198,7 @@ static struct attribute *netdev_queue_default_attrs[] = {
- 	&queue_trans_timeout.attr,
- #ifdef CONFIG_XPS
- 	&xps_cpus_attribute.attr,
-+	&queue_tx_maxrate.attr,
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -2410,6 +2441,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
  #endif
- 	NULL
++	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
  };
+ 
+ static const struct net_device_ops mlx4_netdev_ops_master = {
+@@ -2444,6 +2476,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+ #endif
++	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
+ };
+ 
+ struct mlx4_en_bond {
 -- 
 1.7.1
