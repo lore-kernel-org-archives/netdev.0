@@ -1,120 +1,70 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH] net: sysctl_net_core: check SNDBUF and RCVBUF for min length
-Date: Wed, 11 Mar 2015 14:29:17 +0300
-Message-ID: <1426073357-6211-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: linux-kernel@vger.kernel.org, vasily.isaenko@oracle.com,
-	Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH v2 2/3] NFC: nxp-nci: Add support for NXP NCI chips
+Date: Wed, 11 Mar 2015 12:27:59 +0100
+Message-ID: <1426073279.4244.104.camel@x220>
+References: <1425895925-20593-1-git-send-email-clement.perrochaud@effinnov.com>
+	 <1425895925-20593-3-git-send-email-clement.perrochaud@effinnov.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Dave Jones <davej@codemonkey.org.uk>, linux-nfc@lists.01.org,
+	=?ISO-8859-1?Q?Cl=E9ment?= Perrochaud
+	<clement.perrochaud@nxp.com>, sunil.jogi@nxp.com,
+	jerome.pele@nxp.com, Charles.Gorand-Effinnov@nxp.com,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, davem@davemloft.net, grant.likely@linaro.org,
+	lefrique@marvell.com, christophe.ricard@gmail.com,
+	cuissard@marvell.com, bzhao@marvell.com, hirent@marvell.com,
+	akarwar@marvell.com, linux-wireless@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, anda-maria.nicolae@intel.com
+To: clement.perrochaud@effinnov.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1425895925-20593-3-git-send-email-clement.perrochaud@effinnov.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sysctl has sysctl.net.core.rmem_*/wmem_* parameters which can be
-set to incorrect values. Given that 'struct sk_buff' allocates from
-rcvbuf, incorrectly set buffer length could result to memory
-allocation failures. For example, set them as follows:
+On Mon, 2015-03-09 at 11:12 +0100, clement.perrochaud@effinnov.com
+wrote:
+> --- /dev/null
+> +++ b/drivers/nfc/nxp-nci/core.c
+> @@ -0,0 +1,186 @@
+> +/*
+> + * Generic driver for NXP NCI NFC chips
+> + *
+> + * Copyright (C) 2014  NXP Semiconductors  All rights reserved.
+> + *
+> + * Authors: Cl=C3=A9ment Perrochaud <clement.perrochaud@nxp.com>
+> + *
+> + * Derived from PN544 device driver:
+> + * Copyright (C) 2012  Intel Corporation. All rights reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or mod=
+ify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, see <http://www.gnu.org/licenses=
+/>.
+> + */
 
-    # sysctl net.core.rmem_default=64
-      net.core.wmem_default = 64
-    # sysctl net.core.wmem_default=64
-      net.core.wmem_default = 64
-    # ping localhost -s 1024 -i 0 > /dev/null
+This states the license is GPL v2.
 
-This could result to the following failure:
+> +MODULE_LICENSE("GPL");
 
-skbuff: skb_over_panic: text:ffffffff81628db4 len:-32 put:-32
-head:ffff88003a1cc200 data:ffff88003a1cc200 tail:0xffffffe0 end:0xc0 dev:<NULL>
-kernel BUG at net/core/skbuff.c:102!
-invalid opcode: 0000 [#1] SMP
-...
-task: ffff88003b7f5550 ti: ffff88003ae88000 task.ti: ffff88003ae88000
-RIP: 0010:[<ffffffff8155fbd1>]  [<ffffffff8155fbd1>] skb_put+0xa1/0xb0
-RSP: 0018:ffff88003ae8bc68  EFLAGS: 00010296
-RAX: 000000000000008d RBX: 00000000ffffffe0 RCX: 0000000000000000
-RDX: ffff88003fdcf598 RSI: ffff88003fdcd9c8 RDI: ffff88003fdcd9c8
-RBP: ffff88003ae8bc88 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000001 R11: 00000000000002b2 R12: 0000000000000000
-R13: 0000000000000000 R14: ffff88003d3f7300 R15: ffff88000012a900
-FS:  00007fa0e2b4a840(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000000d0f7e0 CR3: 000000003b8fb000 CR4: 00000000000006f0
-Stack:
- ffff88003a1cc200 00000000ffffffe0 00000000000000c0 ffffffff818cab1d
- ffff88003ae8bd68 ffffffff81628db4 ffff88003ae8bd48 ffff88003b7f5550
- ffff880031a09408 ffff88003b7f5550 ffff88000012aa48 ffff88000012ab00
-Call Trace:
- [<ffffffff81628db4>] unix_stream_sendmsg+0x2c4/0x470
- [<ffffffff81556f56>] sock_write_iter+0x146/0x160
- [<ffffffff811d9612>] new_sync_write+0x92/0xd0
- [<ffffffff811d9cd6>] vfs_write+0xd6/0x180
- [<ffffffff811da499>] SyS_write+0x59/0xd0
- [<ffffffff81651532>] system_call_fastpath+0x12/0x17
-Code: 00 00 48 89 44 24 10 8b 87 c8 00 00 00 48 89 44 24 08 48 8b 87 d8 00
-      00 00 48 c7 c7 30 db 91 81 48 89 04 24 31 c0 e8 4f a8 0e 00 <0f> 0b
-      eb fe 66 66 2e 0f 1f 84 00 00 00 00 00 55 48 89 e5 48 83
-RIP  [<ffffffff8155fbd1>] skb_put+0xa1/0xb0
-RSP <ffff88003ae8bc68>
-Kernel panic - not syncing: Fatal exception
+So you probably want=20
+    MODULE_LICENSE("GPL v2");
 
-Moreover, the possible minimum is 1, so we can get another kernel panic:
-...
-BUG: unable to handle kernel paging request at ffff88013caee5c0
-IP: [<ffffffff815604cf>] __alloc_skb+0x12f/0x1f0
-...
+here.
 
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- net/core/sysctl_net_core.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 4334248..8ce351f 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -25,6 +25,8 @@
- static int zero = 0;
- static int one = 1;
- static int ushort_max = USHRT_MAX;
-+static int min_sndbuf = SOCK_MIN_SNDBUF;
-+static int min_rcvbuf = SOCK_MIN_RCVBUF;
- 
- static int net_msg_warn;	/* Unused, but still a sysctl */
- 
-@@ -237,7 +239,7 @@ static struct ctl_table net_core_table[] = {
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one,
-+		.extra1		= &min_sndbuf,
- 	},
- 	{
- 		.procname	= "rmem_max",
-@@ -245,7 +247,7 @@ static struct ctl_table net_core_table[] = {
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one,
-+		.extra1		= &min_rcvbuf,
- 	},
- 	{
- 		.procname	= "wmem_default",
-@@ -253,7 +255,7 @@ static struct ctl_table net_core_table[] = {
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one,
-+		.extra1		= &min_sndbuf,
- 	},
- 	{
- 		.procname	= "rmem_default",
-@@ -261,7 +263,7 @@ static struct ctl_table net_core_table[] = {
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &one,
-+		.extra1		= &min_rcvbuf,
- 	},
- 	{
- 		.procname	= "dev_weight",
--- 
-1.7.1
+Paul Bolle
