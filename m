@@ -1,90 +1,84 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 2/2 net-next] hyperv: Support batched notification
-Date: Wed, 11 Mar 2015 16:41:59 +0000
-Message-ID: <BY2PR0301MB0711FCC428583B528CD0B191A0190@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1426013383-2853-1-git-send-email-kys@microsoft.com>
-	<1426013404-2892-1-git-send-email-kys@microsoft.com>
-	<1426013404-2892-2-git-send-email-kys@microsoft.com>
- <1426044867.1341.3@smtp.corp.redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next 4/8] tcp_metrics: Mix the network namespace into the hash function.
+Date: Wed, 11 Mar 2015 11:38:44 -0500
+Message-ID: <878uf3fq0b.fsf_-_@x220.int.ebiederm.org>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	<87d25hrv9m.fsf@x220.int.ebiederm.org>
+	<20150219.144929.1003473344851168804.davem@davemloft.net>
+	<87h9tu114z.fsf_-_@x220.int.ebiederm.org>
+	<87vbi7fq92.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426044867.1341.3@smtp.corp.redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
+	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
+	shmulik.ladkani@gmail.com, dsahern@gmail.com,
+	Julian Anastasov <ja@ssi.bg>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:56356 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbbCKQmY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:42:24 -0400
+In-Reply-To: <87vbi7fq92.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Wed, 11 Mar 2015 11:33:29 -0500")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmFzb24gV2FuZyBbbWFp
-bHRvOmphc293YW5nQHJlZGhhdC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE1hcmNoIDEwLCAyMDE1
-IDg6MzQgUE0NCj4gVG86IEtZIFNyaW5pdmFzYW4NCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdyZWdraEBsaW51eGZvdW5kYXRpb24ub3JnOyBs
-aW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qu
-b3JnOyBvbGFmQGFlcGZsZS5kZTsgYXB3QGNhbm9uaWNhbC5jb207IEtZDQo+IFNyaW5pdmFzYW4N
-Cj4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzIgbmV0LW5leHRdIGh5cGVydjogU3VwcG9ydCBiYXRj
-aGVkIG5vdGlmaWNhdGlvbg0KPiANCj4gDQo+IA0KPiBPbiBXZWQsIE1hciAxMSwgMjAxNSBhdCAy
-OjUwIEFNLCBLLiBZLiBTcmluaXZhc2FuIDxreXNAbWljcm9zb2Z0LmNvbT4NCj4gd3JvdGU6DQo+
-ID4gT3B0aW1pemUgbm90aWZ5aW5nIHRoZSBob3N0IGJ5IGRlZmVycmluZyBub3RpZmljYXRpb24g
-dW50aWwgdGhlcmUgYXJlDQo+ID4gbm8gbW9yZSBwYWNrZXRzIHRvIGJlIHNlbnQuIFRoaXMgd2ls
-bCBoZWxwIGluIGJhdGNoaW5nIHRoZSByZXF1ZXN0cyBvbg0KPiA+IHRoZSBob3N0Lg0KPiA+DQo+
-ID4gU2lnbmVkLW9mZi1ieTogSy4gWS4gU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5jb20+DQo+
-ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmggICB8ICAgIDIgKy0N
-Cj4gPiAgZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jICAgICAgIHwgICAxNCArKysrKysrKyst
-LS0tLQ0KPiA+ICBkcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jICAgfCAgICAzICsrLQ0K
-PiA+ICBkcml2ZXJzL25ldC9oeXBlcnYvcm5kaXNfZmlsdGVyLmMgfCAgICAyICstDQo+ID4gIDQg
-ZmlsZXMgY2hhbmdlZCwgMTMgaW5zZXJ0aW9ucygrKSwgOCBkZWxldGlvbnMoLSkNCj4gPg0KPiA+
-IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9oeXBlcnYvaHlwZXJ2X25ldC5oDQo+ID4gYi9kcml2
-ZXJzL25ldC9oeXBlcnYvaHlwZXJ2X25ldC5oIGluZGV4IDQ4MTU4NDMuLjNmZDk4OTYgMTAwNjQ0
-DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L2h5cGVydl9uZXQuaA0KPiA+ICsrKyBiL2Ry
-aXZlcnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmgNCj4gPiBAQCAtMTg0LDcgKzE4NCw3IEBAIHN0
-cnVjdCBybmRpc19kZXZpY2UgeyAgaW50DQo+ID4gbmV0dnNjX2RldmljZV9hZGQoc3RydWN0IGh2
-X2RldmljZSAqZGV2aWNlLCB2b2lkICphZGRpdGlvbmFsX2luZm8pOw0KPiA+IGludCBuZXR2c2Nf
-ZGV2aWNlX3JlbW92ZShzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2UpOyAgaW50DQo+ID4gbmV0dnNj
-X3NlbmQoc3RydWN0IGh2X2RldmljZSAqZGV2aWNlLA0KPiA+IC0JCXN0cnVjdCBodl9uZXR2c2Nf
-cGFja2V0ICpwYWNrZXQpOw0KPiA+ICsJCXN0cnVjdCBodl9uZXR2c2NfcGFja2V0ICpwYWNrZXQs
-IGJvb2wga2lja19xKTsNCj4gPiAgdm9pZCBuZXR2c2NfbGlua3N0YXR1c19jYWxsYmFjayhzdHJ1
-Y3QgaHZfZGV2aWNlICpkZXZpY2Vfb2JqLA0KPiA+ICAJCQkJc3RydWN0IHJuZGlzX21lc3NhZ2Ug
-KnJlc3ApOw0KPiA+ICBpbnQgbmV0dnNjX3JlY3ZfY2FsbGJhY2soc3RydWN0IGh2X2RldmljZSAq
-ZGV2aWNlX29iaiwgZGlmZiAtLWdpdA0KPiA+IGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5j
-IGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jIGluZGV4DQo+ID4gMjA4ZWIwNS4uOTAwM2I5
-NCAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjLmMNCj4gPiArKysg
-Yi9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjLmMNCj4gPiBAQCAtNzA3LDcgKzcwNyw3IEBAIHN0
-YXRpYyB1MzIgbmV0dnNjX2NvcHlfdG9fc2VuZF9idWYoc3RydWN0DQo+ID4gbmV0dnNjX2Rldmlj
-ZSAqbmV0X2RldmljZSwgIH0NCj4gPg0KPiA+ICBpbnQgbmV0dnNjX3NlbmQoc3RydWN0IGh2X2Rl
-dmljZSAqZGV2aWNlLA0KPiA+IC0JCQlzdHJ1Y3QgaHZfbmV0dnNjX3BhY2tldCAqcGFja2V0KQ0K
-PiA+ICsJCQlzdHJ1Y3QgaHZfbmV0dnNjX3BhY2tldCAqcGFja2V0LCBib29sIGtpY2tfcSkNCj4g
-PiAgew0KPiA+ICAJc3RydWN0IG5ldHZzY19kZXZpY2UgKm5ldF9kZXZpY2U7DQo+ID4gIAlpbnQg
-cmV0ID0gMDsNCj4gPiBAQCAtNzE5LDYgKzcxOSw3IEBAIGludCBuZXR2c2Nfc2VuZChzdHJ1Y3Qg
-aHZfZGV2aWNlICpkZXZpY2UsDQo+ID4gIAl1MzIgbXNnX3NpemUgPSAwOw0KPiA+ICAJc3RydWN0
-IHNrX2J1ZmYgKnNrYiA9IE5VTEw7DQo+ID4gIAl1MTYgcV9pZHggPSBwYWNrZXQtPnFfaWR4Ow0K
-PiA+ICsJdTMyIHZtYnVzX2ZsYWdzID0NCj4gVk1CVVNfREFUQV9QQUNLRVRfRkxBR19DT01QTEVU
-SU9OX1JFUVVFU1RFRDsNCj4gPg0KPiA+DQo+ID4gIAluZXRfZGV2aWNlID0gZ2V0X291dGJvdW5k
-X25ldF9kZXZpY2UoZGV2aWNlKTsgQEAgLTc2OCwxOA0KPiArNzY5LDIxIEBADQo+ID4gaW50IG5l
-dHZzY19zZW5kKHN0cnVjdCBodl9kZXZpY2UgKmRldmljZSwNCj4gPiAgCQlyZXR1cm4gLUVOT0RF
-VjsNCj4gPg0KPiA+ICAJaWYgKHBhY2tldC0+cGFnZV9idWZfY250KSB7DQo+ID4gLQkJcmV0ID0g
-dm1idXNfc2VuZHBhY2tldF9wYWdlYnVmZmVyKG91dF9jaGFubmVsLA0KPiA+ICsJCXJldCA9IHZt
-YnVzX3NlbmRwYWNrZXRfcGFnZWJ1ZmZlcl9jdGwob3V0X2NoYW5uZWwsDQo+ID4gIAkJCQkJCSAg
-cGFja2V0LT5wYWdlX2J1ZiwNCj4gPiAgCQkJCQkJICBwYWNrZXQtPnBhZ2VfYnVmX2NudCwNCj4g
-PiAgCQkJCQkJICAmc2VuZE1lc3NhZ2UsDQo+ID4gIAkJCQkJCSAgc2l6ZW9mKHN0cnVjdA0KPiBu
-dnNwX21lc3NhZ2UpLA0KPiA+IC0JCQkJCQkgIHJlcV9pZCk7DQo+ID4gKwkJCQkJCSAgcmVxX2lk
-LA0KPiA+ICsJCQkJCQkgIHZtYnVzX2ZsYWdzLA0KPiA+ICsJCQkJCQkgIGtpY2tfcSk7DQo+IA0K
-PiBXaGF0IGlmIGtpY2tfcSBpcyBmYWxzZSBidXQgcmV0IGlzIC1FQUdBSU4gaGVyZT8gTG9va3Mg
-bGlrZSBpbiB0aGlzIGNhc2UgaG9zdA0KPiB3b24ndCBnZXQgbm90aWZpZWQgYXQgYWxsLiBIb3cg
-YWJvdXQgY2hlY2tpbmcgd2hldGhlciB0eHEgYW5kIGtpY2tpbmcgaWYgaXQgaGFzDQo+IGJlZW4g
-c3RvcHBlZCBsaWtlIHdoYXQgb3RoZXIgbmV0d29yayBkcml2ZXIgZGlkPw0KDQpHb29kIHBvaW50
-LiBJIGFtIGdvaW5nIHRvIGZpeCB0aGlzIGlzc3VlIGluIHRoZSBWTUJVUyBsYXllci4gVGhlIGtp
-Y2tfcSBhcmd1bWVudA0KaXMgc2ltcGx5IGEgaGludCB0byB0aGUgdm1idXMgbGV2ZWwgLSB0aGUg
-bG93ZXIgbGV2ZWwgY2FuIGNob29zZSBub3QgdG8gbm90aWZ5IHRoZQ0KaG9zdCAoZXZlbiBpZiBr
-aWNrX3EgaXMgdHJ1ZSkgYmFzZWQgb24gb3RoZXIgY29uc2lkZXJhdGlvbnMuDQoNCkkgd2lsbCBy
-ZXNlbmQgdGhpcyBzZXJpZXMgd2l0aCB0aGUgbG9naWMgaW4gdGhlIHZtYnVzIGRyaXZlci4gSSB3
-aWxsIHNlbmQgdGhlIHBhdGNoIG91dA0KYW5kIEdyZWcgY2FuIGRlY2lkZSBpZiB0aGUgdm1idXMg
-Y2hhbmdlIHNob3VsZCBnbyB0aHJvdWdoIEdyZWcncyB0cmVlIG9yIERhdmlkJ3MgdHJlZS4NCg0K
-UmVnYXJkcywNCg0KSy4gWQ0K
+
+In preparation for using one hash table for all network namespaces
+mix the network namespace into the hash value.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/ipv4/tcp_metrics.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 4206b14d956d..fbb42f44501e 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -252,6 +252,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 	}
+ 
+ 	net = dev_net(dst->dev);
++	hash ^= net_hash_mix(net);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 
+ 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
+@@ -299,6 +300,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ 		return NULL;
+ 
+ 	net = twsk_net(tw);
++	hash ^= net_hash_mix(net);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 
+ 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
+@@ -347,6 +349,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 		return NULL;
+ 
+ 	net = dev_net(dst->dev);
++	hash ^= net_hash_mix(net);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 
+ 	tm = __tcp_get_metrics(&saddr, &daddr, net, hash);
+@@ -994,6 +997,7 @@ static int tcp_metrics_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 	if (!reply)
+ 		goto nla_put_failure;
+ 
++	hash ^= net_hash_mix(net);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 	ret = -ESRCH;
+ 	rcu_read_lock();
+@@ -1070,6 +1074,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	if (ret < 0)
+ 		src = false;
+ 
++	hash ^= net_hash_mix(net);
+ 	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
+ 	hb = net->ipv4.tcp_metrics_hash + hash;
+ 	pp = &hb->chain;
+-- 
+2.2.1
