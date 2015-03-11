@@ -1,113 +1,145 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next v2] tipc: fix undefined
- __ipv6_sock_mc_join compile error
-Date: Wed, 11 Mar 2015 11:34:01 +0800
-Message-ID: <54FFB7A9.5080602@windriver.com>
-References: <1425976885-18258-1-git-send-email-ying.xue@windriver.com>
-	<54FF3CE1.3080804@cogentembedded.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 2/2 net-next] hyperv: Support batched notification
+Date: Wed, 11 Mar 2015 11:34:27 +0800
+Message-ID: <1426044867.1341.3@smtp.corp.redhat.com>
+References: <1426013383-2853-1-git-send-email-kys@microsoft.com>
+	<1426013404-2892-1-git-send-email-kys@microsoft.com>
+	<1426013404-2892-2-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, kbuild-all@01.org,
-	fengguang.wu@intel.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <54FF3CE1.3080804@cogentembedded.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=utf-8; format=flowed
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+	"K. Y. Srinivasan" <kys@microsoft.com>
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426013404-2892-2-git-send-email-kys@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/11/2015 02:50 AM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 03/10/2015 11:41 AM, Ying Xue wrote:
-> 
->> When CONFIG_IPV6 option is disabled, below error will appear while
->> building TIPC module:
-> 
->> ERROR: "__ipv6_sock_mc_join" [net/tipc/tipc.ko] undefined!
->> make[1]: *** [__modpost] Error 1
->> make: *** [net/tipc/tipc.ko] Error 1
-> 
->> This is because we don't check whether or not the CONFIG_IPV6 is
->> enabled when calling __ipv6_sock_mc_join().
-> 
->> In addition, especially when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m, TIPC
->> module is also unable to be successfully built. Therefore, we add a
->> dependency condition like (IPV6 || IPV6=n) to avoid the error.
-> 
->> Fixes: d0f91938bede ("tipc: add ip/udp media type")
->> Reported-by: Wu Fengguang <fengguang.wu@intel.com>
->> Cc: Kbuild test robot <kbuild-all@01.org>
->> Signed-off-by: Ying Xue <ying.xue@windriver.com>
->> ---
->> v2:
->>   Fix another compile error when TIPC=y, TIPC_MEDIA_UDP=y, and IPV6=m
-> 
->>   net/tipc/Kconfig     |    1 +
->>   net/tipc/udp_media.c |    2 ++
->>   2 files changed, 3 insertions(+)
-> 
->> diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
->> index c25a3a1..6f217ba 100644
->> --- a/net/tipc/Kconfig
->> +++ b/net/tipc/Kconfig
->> @@ -5,6 +5,7 @@
->>   menuconfig TIPC
->>       tristate "The TIPC Protocol"
->>       depends on INET
->> +    depends on (IPV6 || IPV6=n)
-> 
->    Parens not needed.
-> 
-> [...]
->> diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
->> index fc2fb11..6763002 100644
->> --- a/net/tipc/udp_media.c
->> +++ b/net/tipc/udp_media.c
->> @@ -247,10 +247,12 @@ static int enable_mcast(struct udp_bearer *ub, struct
->> udp_media_addr *remote)
->>           mreqn.imr_multiaddr = remote->ipv4;
->>           mreqn.imr_ifindex = ub->ifindex;
->>           err = __ip_mc_join_group(sk, &mreqn);
->> +#if IS_ENABLED(CONFIG_IPV6)
->>       } else {
-> 
->    How about:
-> 
->     } else if (IS_ENABLED(CONFIG_IPV6)) {
-> 
-
-Sorry, I try to the suggestion, but it doesn't work.
-
-Thanks,
-Ying
-
->>           if (!ipv6_addr_is_multicast(&remote->ipv6))
->>               return 0;
->>           err = __ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
->> +#endif
->>       }
->>       return err;
->>   }
-> 
-> WBR, Sergei
-> 
-> 
-> 
 
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+On Wed, Mar 11, 2015 at 2:50 AM, K. Y. Srinivasan <kys@microsoft.com> 
+wrote:
+> Optimize notifying the host by deferring notification until there
+> are no more packets to be sent. This will help in batching the 
+> requests
+> on the host.
+> 
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/hyperv_net.h   |    2 +-
+>  drivers/net/hyperv/netvsc.c       |   14 +++++++++-----
+>  drivers/net/hyperv/netvsc_drv.c   |    3 ++-
+>  drivers/net/hyperv/rndis_filter.c |    2 +-
+>  4 files changed, 13 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/hyperv_net.h 
+> b/drivers/net/hyperv/hyperv_net.h
+> index 4815843..3fd9896 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -184,7 +184,7 @@ struct rndis_device {
+>  int netvsc_device_add(struct hv_device *device, void 
+> *additional_info);
+>  int netvsc_device_remove(struct hv_device *device);
+>  int netvsc_send(struct hv_device *device,
+> -		struct hv_netvsc_packet *packet);
+> +		struct hv_netvsc_packet *packet, bool kick_q);
+>  void netvsc_linkstatus_callback(struct hv_device *device_obj,
+>  				struct rndis_message *resp);
+>  int netvsc_recv_callback(struct hv_device *device_obj,
+> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+> index 208eb05..9003b94 100644
+> --- a/drivers/net/hyperv/netvsc.c
+> +++ b/drivers/net/hyperv/netvsc.c
+> @@ -707,7 +707,7 @@ static u32 netvsc_copy_to_send_buf(struct 
+> netvsc_device *net_device,
+>  }
+>  
+>  int netvsc_send(struct hv_device *device,
+> -			struct hv_netvsc_packet *packet)
+> +			struct hv_netvsc_packet *packet, bool kick_q)
+>  {
+>  	struct netvsc_device *net_device;
+>  	int ret = 0;
+> @@ -719,6 +719,7 @@ int netvsc_send(struct hv_device *device,
+>  	u32 msg_size = 0;
+>  	struct sk_buff *skb = NULL;
+>  	u16 q_idx = packet->q_idx;
+> +	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
+>  
+>  
+>  	net_device = get_outbound_net_device(device);
+> @@ -768,18 +769,21 @@ int netvsc_send(struct hv_device *device,
+>  		return -ENODEV;
+>  
+>  	if (packet->page_buf_cnt) {
+> -		ret = vmbus_sendpacket_pagebuffer(out_channel,
+> +		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
+>  						  packet->page_buf,
+>  						  packet->page_buf_cnt,
+>  						  &sendMessage,
+>  						  sizeof(struct nvsp_message),
+> -						  req_id);
+> +						  req_id,
+> +						  vmbus_flags,
+> +						  kick_q);
+
+What if kick_q is false but ret is -EAGAIN here? Looks like in this 
+case host won't get notified at all. How about checking whether txq and 
+kicking if it has been stopped like what other network driver did?
+> 
+>  	} else {
+> -		ret = vmbus_sendpacket(out_channel, &sendMessage,
+> +		ret = vmbus_sendpacket_ctl(out_channel, &sendMessage,
+>  				sizeof(struct nvsp_message),
+>  				req_id,
+>  				VM_PKT_DATA_INBAND,
+> -				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+> +				vmbus_flags,
+> +				kick_q);
+>  	}
+>  
+>  	if (ret == 0) {
+> diff --git a/drivers/net/hyperv/netvsc_drv.c 
+> b/drivers/net/hyperv/netvsc_drv.c
+> index a06bd66..80b4b29 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -384,6 +384,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, 
+> struct net_device *net)
+>  	u32 net_trans_info;
+>  	u32 hash;
+>  	u32 skb_length = skb->len;
+> +	bool kick_q = !skb->xmit_more;
+>  
+>  
+>  	/* We will atmost need two pages to describe the rndis
+> @@ -556,7 +557,7 @@ do_send:
+>  	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+>  					skb, &packet->page_buf[0]);
+>  
+> -	ret = netvsc_send(net_device_ctx->device_ctx, packet);
+> +	ret = netvsc_send(net_device_ctx->device_ctx, packet, kick_q);
+>  
+>  drop:
+>  	if (ret == 0) {
+> diff --git a/drivers/net/hyperv/rndis_filter.c 
+> b/drivers/net/hyperv/rndis_filter.c
+> index ca81de0..05f3792 100644
+> --- a/drivers/net/hyperv/rndis_filter.c
+> +++ b/drivers/net/hyperv/rndis_filter.c
+> @@ -238,7 +238,7 @@ static int rndis_filter_send_request(struct 
+> rndis_device *dev,
+>  
+>  	packet->send_completion = NULL;
+>  
+> -	ret = netvsc_send(dev->net_dev->dev, packet);
+> +	ret = netvsc_send(dev->net_dev->dev, packet, true);
+>  	return ret;
+>  }
+>  
+> -- 
+> 1.7.4.1
+> 
