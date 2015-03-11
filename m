@@ -1,75 +1,62 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next 2/2] net: netcp: select davinci_mdio driver by
- default
-Date: Wed, 11 Mar 2015 12:18:57 -0400
-Message-ID: <55006AF1.80200@ti.com>
-References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com> <1424813251-31610-2-git-send-email-m-karicheri2@ti.com> <20150227162921.GX11056@atomide.com> <54F0D9E9.1020705@ti.com> <20150302161155.GB3665@atomide.com> <54F4DA06.9070505@ti.com> <20150303000444.GC3756@atomide.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] switchdev: select INET in Kconfig
+Date: Wed, 11 Mar 2015 17:20:16 +0100
+Message-ID: <20150311162016.GF2057@nanopsycho.orion>
+References: <CAADnVQ+vnKJ=KHvMdy2f_82r=d7dS9HuNXKJt6=vMgjY0OE+Ag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <mugunthanvnm@ti.com>,
-	<prabhakar.csengg@gmail.com>, <varkabhadram@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<grygorii.strashko@ti.com>, <lokeshvutla@ti.com>,
-	<mpa@pengutronix.de>, <w-kwok2@ti.com>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150303000444.GC3756@atomide.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Randy Dunlap <rdunlap@infradead.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:45010 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbbCKQUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 12:20:21 -0400
+Received: by wghl18 with SMTP id l18so10377615wgh.11
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 09:20:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAADnVQ+vnKJ=KHvMdy2f_82r=d7dS9HuNXKJt6=vMgjY0OE+Ag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2015 07:04 PM, Tony Lindgren wrote:
-> * Murali Karicheri<m-karicheri2@ti.com>  [150302 13:49]:
->> On 03/02/2015 11:11 AM, Tony Lindgren wrote:
->>>
->>> Because we are now force selecting items that may have other
->>> dependencies later on that will not be satisfied. That causes
->>> all kinds of make randconfig build errors.
->>>
->> My mistake.  I didn't ask you what is your definition of a silent option? An
->> option not selected by any other option? Or an option for which default
->> value not defined? Can you clarify this so that I can make sense of your
->> comment? I checked Documentation/kbuild/kconfig.txt as well as
->> Documentation/kbuild/kconfig-language.txt for defintion, but can't find it.
+Wed, Mar 11, 2015 at 04:36:16PM CET, alexei.starovoitov@gmail.com wrote:
+>On Wed, Mar 11, 2015 at 2:49 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> This would fix randconfig compile error:
+>> net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
+>> (.text+0xf7811): undefined reference to `fib_flush_external'
 >>
->> Howeve, I read the warning about using "select" in the above document since
->> it blindly select the option without checking dependencies. So AFAIK, select
->> becomes an issue if the config option is not the leaf option of the config
->> tree as the dependency checking is not in place and can cause issues. In
->> this case it is safe as DAVINCI_MDIO is a leaf option and only selects
->> PHYLIB which dependents on NETDEVICES and we know this is true for NETCP
->> devices. So select is just fine here.
+>> Also it fixes following warning:
+>> warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+>>
+>> Suggested-by: Randy Dunlap <rdunlap@infradead.org>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  net/switchdev/Kconfig | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/switchdev/Kconfig b/net/switchdev/Kconfig
+>> index 86a47e1..3487940 100644
+>> --- a/net/switchdev/Kconfig
+>> +++ b/net/switchdev/Kconfig
+>> @@ -4,7 +4,7 @@
+>>
+>>  config NET_SWITCHDEV
+>>         bool "Switch (and switch-ish) device support (EXPERIMENTAL)"
+>> -       depends on INET
+>> +       select INET
 >
-> OK I think you're right that in this case it won't cause issues.
->
-> But if these cpsw components are never selectable by the user for
-> any real use case, then you may want to make them silent Kconfig
-> options:
->
-> config TI_DAVINCI_MDIO
-> 	bool
-> 	select PHYLIB
->
-> config TI_DAVINCI_CPDMA
-> 	bool
->
-> config TI_CPSW_PHY_SEL
-> 	bool
->
-> config TI_CPSW_ALE
-> 	bool
-> ...
-This clean up can be a separate patch in the future and I can post 
-something. But would require help from the affacted platform owners to 
-test the patch. For now, I will keep the patch for my next revision.
+>I believe Dave mentioned few times that 'select' is highly
+>discouraged, since it doesn't work recursively.
+>In this case only crazy config KVMTOOL_TEST_ENABLE
+>is doing 'select INET' everything else in a tree is using
+>'depends on INET'.
+>Doing 'select NET_SWITCHDEV' was wrong in the first place.
 
-Murali
->
-> Regards,
->
-> Tony
+Ok, so you suggest just to change this to "depends on NET_SWITCHDEV" in
+DSA and we are good?
 
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+Thanks.
