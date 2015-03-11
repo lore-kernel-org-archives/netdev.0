@@ -1,88 +1,155 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH net-next 1/3] of: mdio: export of_mdio_parse_addr
-Date: Wed, 11 Mar 2015 07:48:01 -0500
-Message-ID: <CAL_JsqKfT2W=Gc4zpFXm269RoApbD8QKe2_gUDWns9U+BE=XuA@mail.gmail.com>
-References: <1426031833-5113-1-git-send-email-f.fainelli@gmail.com> <1426031833-5113-2-git-send-email-f.fainelli@gmail.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next] mpls: Infer payload of packet from via address family.
+Date: Wed, 11 Mar 2015 12:58:22 +0000
+Message-ID: <1426078702-23246-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:38648 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753834AbbCKMsX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 08:48:23 -0400
-In-Reply-To: <1426031833-5113-2-git-send-email-f.fainelli@gmail.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:3165 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752301AbbCKM6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 08:58:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 6:57 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> Export of_mdio_parse_addr() which allows parsing a given Ethernet PHY
-> node MDIO address, verify it is within the allowed range, and return
-> its value. This is going to be useful for the DSA code which needs to
-> deal with multiple layers of MDIO buses.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+This ensures that if a routing protocol incorrectly advertises a label
+for a prefix whose address-family is inconsistent with that of the
+nexthop, then the traffic will be dropped, rather than the issue being
+silently worked around.
 
-Acked-by: Rob Herring <robh@kernel.org>
+The accessible skb length should also be validated prior to the IPv4
+or IPv6 headers being accessed, since only the label header will have
+previously been validated.
 
-> ---
->  drivers/of/of_mdio.c    | 3 ++-
->  include/linux/of_mdio.h | 7 +++++++
->  2 files changed, 9 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 1bd43053b8c7..0c064485d1c2 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -88,7 +88,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
->         return 0;
->  }
->
-> -static int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
-> +int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
->  {
->         u32 addr;
->         int ret;
-> @@ -108,6 +108,7 @@ static int of_mdio_parse_addr(struct device *dev, const struct device_node *np)
->
->         return addr;
->  }
-> +EXPORT_SYMBOL(of_mdio_parse_addr);
->
->  /**
->   * of_mdiobus_register - Register mii_bus and create PHYs from the device tree
-> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-> index d449018d0726..8f2237eb3485 100644
-> --- a/include/linux/of_mdio.h
-> +++ b/include/linux/of_mdio.h
-> @@ -24,6 +24,7 @@ struct phy_device *of_phy_attach(struct net_device *dev,
->                                  phy_interface_t iface);
->
->  extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
-> +extern int of_mdio_parse_addr(struct device *dev, const struct device_node *np);
->
->  #else /* CONFIG_OF */
->  static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
-> @@ -60,6 +61,12 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
->  {
->         return NULL;
->  }
-> +
-> +static inline int of_mdio_parse_addr(struct device *dev,
-> +                                    const struct device_node *np)
-> +{
-> +       return -ENOSYS;
-> +}
->  #endif /* CONFIG_OF */
->
->  #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
-> --
-> 2.1.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Rename mpls_egress to mpls_egress_to_ip to make it more obvious that
+the function is used for traffic going out as IP, not for labeled
+traffic (or for the not-yet-implemented pseudo-wires).
+
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/mpls/af_mpls.c | 91 ++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 68 insertions(+), 23 deletions(-)
+
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 0ad8f7141..d1074b8 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -81,35 +81,81 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ 	return true;
+ }
+ 
+-static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+-			struct mpls_entry_decoded dec)
++static int mpls_pkt_determine_af(struct sk_buff *skb)
+ {
+-	/* RFC4385 and RFC5586 encode other packets in mpls such that
+-	 * they don't conflict with the ip version number, making
+-	 * decoding by examining the ip version correct in everything
+-	 * except for the strangest cases.
+-	 *
+-	 * The strange cases if we choose to support them will require
+-	 * manual configuration.
++	if (!pskb_may_pull(skb, sizeof(struct iphdr))) {
++		return AF_PACKET;
++	}
++
++	/* At the moment, this is only used at the end of the LSP when
++	 * the payload is expected to be IP. More comprehensive checks
++	 * will be required if this is to be used where pseudo-wire
++	 * traffic not using RFC4385/RFC5586 encap could be present.
+ 	 */
+-	struct iphdr *hdr4 = ip_hdr(skb);
++
++	switch (ip_hdr(skb)->version) {
++	case 4:
++		return AF_INET;
++	case 6:
++		return AF_INET6;
++	default:
++		return AF_PACKET;
++	}
++}
++
++static bool mpls_egress_to_ip(struct mpls_route *rt, struct sk_buff *skb,
++			struct mpls_entry_decoded dec)
++{
+ 	bool success = true;
++	int af;
++
++	switch (rt->rt_via_table) {
++	case NEIGH_ARP_TABLE:
++		af = AF_INET;
++		break;
++	case NEIGH_ND_TABLE:
++		af = AF_INET6;
++		break;
++	case NEIGH_LINK_TABLE:
++		af = mpls_pkt_determine_af(skb);
++		break;
++	default:
++		/* Unexpected rt_via_table value */
++		WARN_ON(true);
++		af = AF_PACKET;
++		break;
++	}
+ 
+-	if (hdr4->version == 4) {
+-		skb->protocol = htons(ETH_P_IP);
+-		csum_replace2(&hdr4->check,
+-			      htons(hdr4->ttl << 8),
+-			      htons(dec.ttl << 8));
+-		hdr4->ttl = dec.ttl;
++	switch (af) {
++	case AF_INET: {
++		struct iphdr *hdr4 = ip_hdr(skb);
++		if (pskb_may_pull(skb, sizeof(struct iphdr)) &&
++			hdr4->version == 4) {
++			skb->protocol = htons(ETH_P_IP);
++			csum_replace2(&hdr4->check,
++				htons(hdr4->ttl << 8),
++				htons(dec.ttl << 8));
++			hdr4->ttl = dec.ttl;
++		} else {
++			success = false;
++		}
++		break;
+ 	}
+-	else if (hdr4->version == 6) {
++	case AF_INET6: {
+ 		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+-		skb->protocol = htons(ETH_P_IPV6);
+-		hdr6->hop_limit = dec.ttl;
++		if (pskb_may_pull(skb, sizeof(struct ipv6hdr)) &&
++			hdr6->version == 6) {
++			skb->protocol = htons(ETH_P_IPV6);
++			hdr6->hop_limit = dec.ttl;
++		} else {
++			success = false;
++		}
++		break;
+ 	}
+-	else
+-		/* version 0 and version 1 are used by pseudo wires */
++	default:
+ 		success = false;
++		break;
++	}
+ 	return success;
+ }
+ 
+@@ -184,8 +230,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	skb->protocol = htons(ETH_P_MPLS_UC);
+ 
+ 	if (unlikely(!new_header_size && dec.bos)) {
+-		/* Penultimate hop popping */
+-		if (!mpls_egress(rt, skb, dec))
++		if (!mpls_egress_to_ip(rt, skb, dec))
+ 			goto drop;
+ 	} else {
+ 		bool bos;
+-- 
+2.1.4
