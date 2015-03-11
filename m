@@ -1,57 +1,37 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH] fib_trie: Fix uninitialized variable warning
-Date: Wed, 11 Mar 2015 14:02:16 -0700
-Message-ID: <20150311210211.7975.98821.stgit@ahduyck-vm-fedora20>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2] rhashtable: Add arbitrary rehash function
+Date: Thu, 12 Mar 2015 08:07:10 +1100
+Message-ID: <20150311210710.GB10537@gondor.apana.org.au>
+References: <20150309222631.GA12221@gondor.apana.org.au>
+ <E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
+ <20150310224348.GA29994@gondor.apana.org.au>
+ <20150311.163728.900643743533456739.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, josh@joshtriplett.org,
+	paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38696 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752810AbbCKVCS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 17:02:18 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:35525 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbbCKVHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 17:07:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20150311.163728.900643743533456739.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 0-day kernel test infrastructure reported a use of uninitialized
-variable warning for local_table due to the fact that the local and main
-allocations had been swapped from the original setup.  This change corrects
-that by making it so that we free the main table if the local table
-allocation fails.
+On Wed, Mar 11, 2015 at 04:37:28PM -0400, David Miller wrote:
+>
+> I applied both patches, but for this one I had to tack on
+> a removal of ASSERT_BUCKET_LOCK(), debug_dump_table(), and
+> debug_dump_buckets() as they are no longer used.
 
-Fixes: 0ddcf43d5 ("ipv4: FIB Local/MAIN table collapse")
+Sorry, I didn't have PROVE_LOCKING on so I didn't see these
+warnings.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/ipv4/fib_frontend.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 7cda3b0..d098987 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -54,11 +54,11 @@ static int __net_init fib4_rules_init(struct net *net)
- 
- 	main_table  = fib_trie_table(RT_TABLE_MAIN, NULL);
- 	if (main_table == NULL)
--		goto fail;
-+		return -ENOMEM;
- 
- 	local_table = fib_trie_table(RT_TABLE_LOCAL, main_table);
- 	if (local_table == NULL)
--		return -ENOMEM;
-+		goto fail;
- 
- 	hlist_add_head_rcu(&local_table->tb_hlist,
- 				&net->ipv4.fib_table_hash[TABLE_LOCAL_INDEX]);
-@@ -67,7 +67,7 @@ static int __net_init fib4_rules_init(struct net *net)
- 	return 0;
- 
- fail:
--	fib_free_table(local_table);
-+	fib_free_table(main_table);
- 	return -ENOMEM;
- }
- #else
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
