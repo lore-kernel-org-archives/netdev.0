@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Add tx queue maxrate support
-Date: Wed, 11 Mar 2015 18:44:21 +0300
-Message-ID: <550062D5.8030407@cogentembedded.com>
+Date: Wed, 11 Mar 2015 18:47:38 +0300
+Message-ID: <5500639A.4080606@cogentembedded.com>
 References: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com> <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
@@ -13,17 +13,15 @@ To: Or Gerlitz <ogerlitz@mellanox.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:39750 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751545AbbCKPoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 11:44:25 -0400
-Received: by lbiw7 with SMTP id w7so9785585lbi.6
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 08:44:24 -0700 (PDT)
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:44004 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395AbbCKPrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 11:47:43 -0400
+Received: by lbvp9 with SMTP id p9so9779863lbv.10
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 08:47:42 -0700 (PDT)
 In-Reply-To: <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Hello.
 
 On 3/11/2015 4:14 PM, Or Gerlitz wrote:
 
@@ -31,7 +29,7 @@ On 3/11/2015 4:14 PM, Or Gerlitz wrote:
 
 > To support per tx queue maxrate limit, we use the update-qp firmware
 > command to do run-time rate setting for the qp that serves this tx ring.
->
+
 > Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 > Signed-off-by: Ido Shamay <idos@mellanox.com>
 > ---
@@ -56,27 +54,15 @@ On 3/11/2015 4:14 PM, Or Gerlitz wrote:
 > +	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT)) {
 > +		err = -EOPNOTSUPP;
 > +		goto out;
-
-    I would have just used *return*...
-
 > +	}
 > +
 > +	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
 > +	if ((maxrate >> 12)) {
+> +		params.rate_unit = MLX4_QP_RATE_LIMIT_GBS;
+> +		params.rate_val  = maxrate >> 10;
 
-    Double parens make not sense.
+    And shouldn't that be 'maxrate  / 1000' as we seem to be dealing with Mbps?
 
-[...]
-> +	err = mlx4_update_qp(priv->mdev->dev, tx_ring->qpn, MLX4_UPDATE_QP_RATE_LIMIT,
-> +			     &params);
-> +
-> +out:
-> +	return err;
-> +}
-> +
->   static const struct net_device_ops mlx4_netdev_ops = {
->   	.ndo_open		= mlx4_en_open,
->   	.ndo_stop		= mlx4_en_close,
 [...]
 
 WBR, Sergei
