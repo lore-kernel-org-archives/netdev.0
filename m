@@ -1,27 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: repository for switch hardware info
-Date: Wed, 11 Mar 2015 16:30:48 -0400 (EDT)
-Message-ID: <20150311.163048.527361067224524073.davem@davemloft.net>
-References: <20150302.154006.225049966274593660.davem@davemloft.net>
-	<20150302.155735.937483543338955659.davem@davemloft.net>
-	<CA+CtxLQ=ByYDugho5XeOKEn2v2c67qtDd0Q=Cb=ocKn=_r4mdA@mail.gmail.com>
+Subject: Re: [PATCH v2] rhashtable: Add arbitrary rehash function
+Date: Wed, 11 Mar 2015 16:37:28 -0400 (EDT)
+Message-ID: <20150311.163728.900643743533456739.davem@davemloft.net>
+References: <20150309222631.GA12221@gondor.apana.org.au>
+	<E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
+	<20150310224348.GA29994@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: siva.mannem.lnx@gmail.com
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, josh@joshtriplett.org,
+	paulmck@linux.vnet.ibm.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51428 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51505 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423AbbCKUau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:30:50 -0400
-In-Reply-To: <CA+CtxLQ=ByYDugho5XeOKEn2v2c67qtDd0Q=Cb=ocKn=_r4mdA@mail.gmail.com>
+	with ESMTP id S1751307AbbCKUhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:37:31 -0400
+In-Reply-To: <20150310224348.GA29994@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Date: Tue, 10 Mar 2015 19:02:58 +0530
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 11 Mar 2015 09:43:48 +1100
 
-> https://github.com/Broadcom-Switch/OpenNSL
+> This patch adds a rehash function that supports the use of any
+> hash function for the new table.  This is needed to support changing
+> the random seed value during the lifetime of the hash table.
+> 
+> However for now the random seed value is still constant and the
+> rehash function is simply used to replace the existing expand/shrink
+> functions.
+> 
+> Signed-off-by: Herbert Xu <herbert.xu@redhat.com>
 
-Added, thanks.
+I applied both patches, but for this one I had to tack on
+a removal of ASSERT_BUCKET_LOCK(), debug_dump_table(), and
+debug_dump_buckets() as they are no longer used.
+
+Please watch the compiler warning output when making changes,
+thanks.
