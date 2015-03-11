@@ -1,49 +1,190 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] tcp: restore 1.5x per RTT limit to CUBIC cwnd
- growth in congestion avoidance
-Date: Wed, 11 Mar 2015 16:52:14 -0400 (EDT)
-Message-ID: <20150311.165214.2047968573920569481.davem@davemloft.net>
-References: <1426022224-28793-1-git-send-email-ncardwell@google.com>
-	<1426022224-28793-2-git-send-email-ncardwell@google.com>
+From: Ulf Samuelsson <netdev@emagii.com>
+Subject: Re: Bug report: broadcast address as incomplete entry in arp table,
+ effectively a blackhole; reproducer included
+Date: Wed, 11 Mar 2015 21:56:53 +0100
+Message-ID: <5500AC15.2020200@emagii.com>
+References: <20140924161847.GG7118@soda.linbit> <20141119143958.GP307@soda.linbit>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, edumazet@google.com
-To: ncardwell@google.com
+Cc: Olaf Kirch <okir@suse.com>
+To: Lars Ellenberg <lars.ellenberg@linbit.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51691 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930AbbCKUwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:52:16 -0400
-In-Reply-To: <1426022224-28793-2-git-send-email-ncardwell@google.com>
+Received: from mxf3.bahnhof.se ([213.80.101.27]:50603 "EHLO mxf3.bahnhof.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751207AbbCKU5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 16:57:06 -0400
+In-Reply-To: <20141119143958.GP307@soda.linbit>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Tue, 10 Mar 2015 17:17:04 -0400
+Den 2014-11-19 15:39, Lars Ellenberg skrev:
+> Ping ...
+> Any ideas?
+>
+> 	Lars
+Did you ever solve this problem?
 
-> Commit 814d488c6126 ("tcp: fix the timid additive increase on stretch
-> ACKs") fixed a bug where tcp_cong_avoid_ai() would either credit a
-> connection with an increase of snd_cwnd_cnt, or increase snd_cwnd, but
-> not both, resulting in cwnd increasing by 1 packet on at most every
-> alternate invocation of tcp_cong_avoid_ai().
-> 
-> Although the commit correctly implemented the CUBIC algorithm, which
-> can increase cwnd by as much as 1 packet per 1 packet ACKed (2x per
-> RTT), in practice that could be too aggressive: in tests on network
-> paths with small buffers, YouTube server retransmission rates nearly
-> doubled.
-> 
-> This commit restores CUBIC to a maximum cwnd growth rate of 1 packet
-> per 2 packets ACKed (1.5x per RTT). In YouTube tests this restored
-> retransmit rates to low levels.
-> 
-> Testing: This patch has been tested in datacenter netperf transfers
-> and live youtube.com and google.com servers.
-> 
-> Fixes: 9cd981dcf174 ("tcp: fix stretch ACK bugs in CUBIC")
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Have been working on a similar problem.
 
-Applied.
+Are you sure that the entry is never removed?
+
+Once you lose the entry, it is normally garbage collected,
+and this takes a looong time (minutes).
+
+Try leaving it alone for an hour once the problem occurs,
+and check if the garbage collector has not taken the entry out.
+
+The ARP state machine has, as far as I know, no way
+to put an entry into INCOMPLETE once it has reached REACHABLE.
+
+Once in REACHABLE it will move between the following valid states:
+
+* REACHABLE
+* DELAY
+* PROBE
+
+Lost communication will make the entry move into STALE.
+Other failures will make it enter FAILED state.
+In both these states, the garbage collector will delete the entry.
+
+There might of course be some part of the code that aborts the delete.
+
+BR
+Ulf Samuelsson
+
+> On Wed, Sep 24, 2014 at 06:18:47PM +0200, Lars Ellenberg wrote:
+>> You have some interface you want to broadcast on,
+>> so you resolve its broadcast address (once),
+>> and keep sending (e.g. some continuous status updates, or "heartbeat").
+>>
+>> For some reason that interface goes down.
+>> If you keep sending to the previously resolved address,
+>> that will create an incomplete arp entry.
+>>
+>> Unfortunately, that entry *stays* there, even if the interface is then
+>> brought back up (with the same network and broadcast settings).
+>> Once the interface is up, you won't be able to delete that entry
+>> (because, its a broadcast address; that arp entry is not supposed to be
+>> there anyways; that deletion request will be filtered out early...)
+>>
+>> Anyone trying to send to that broadcast address will now effectively
+>> send to a black hole: there is an incomplete arp entry.
+>>
+>>
+>> Fix is then to stop all processes sending to that address,
+>> bring down the device, delete the arp entry, bring it back up,
+>> and then continue all processes sending to that address.
+>>
+>>
+>> I can reproduce this easily with the script below, anywhere I tested,
+>> on a large variety of platforms and kernels.
+>> (you'll obviously have to adjust DEV, BROADCAST and possibly PORT).
+>>
+>>
+>> I suspect this is not intentional, but there is simply some
+>> neigh_flush_dev() or similar missing "somewhere".
+>>
+>> If you want to point me in the right direction as to probable values of
+>> "somewhere", I'll likely be able to figure out a minimal patch myself.
+>>
+>> If you know the right place to fix this from the top of your head,
+>> even better ;-)
+>>
+>> Thanks,
+>> 	Lars
+>>
+>> ------------------------------------------------------
+>>
+>> #!/bin/bash
+>>
+>> DEV=eth1
+>> BROADCAST=192.168.133.255
+>> PORT=6666
+>>
+>> send_udp_broadcast()
+>> {
+>> exec python -c '
+>> from socket import *
+>> from time import sleep
+>> from struct import pack
+>> from datetime import datetime
+>>
+>>
+>> s = socket(AF_INET, SOCK_DGRAM)
+>> s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+>> s.setsockopt(SOL_SOCKET, SO_BINDTODEVICE, pack("'$(( 1+${#DEV} ))'s","'$DEV'"))
+>>
+>> while 1:
+>>     s.sendto(datetime.now().strftime("hi there, it is now %T.%f"), ("'$BROADCAST'",'$PORT'))
+>>     sleep(0.1)
+>> '
+>> }
+>>
+>> p() { printf "\n"; printf "::: %s\n" "$@"; printf "%s\n" "-----------"; }
+>>
+>> arp -n | grep $BROADCAST && {
+>> 	echo >&2 "Sorry, fix the arp table first!"
+>> 	exit 1
+>> }
+>>
+>> ( set +x ; send_udp_broadcast ) &
+>> kid=$!
+>> p "[$kid] Started to send udp broadcasts on $DEV to $BROADCAST:$PORT"
+>>
+>> p "We should see the packets being sent on $DEV"
+>> tcpdump -n -i $DEV -c 2 -xX udp and port $PORT
+>>
+>> p "We should not have any arp entries for $BROADCAST"
+>> arp -n | grep $BROADCAST
+>>
+>> p "But we soon will, after we take down $DEV"
+>> ip link set down $DEV
+>>
+>> sleep 2
+>>
+>> p "Now we should have an incomplete arp entry for $BROADCAST"
+>> arp -n | grep $BROADCAST
+>>
+>> p "It will still be there after we bring $DEV back up"
+>> ip link set up $DEV
+>>
+>> p "There won't be any packets now, this should timeout:"
+>> while read -r -t 5 line ; do
+>> 	echo "$line"
+>> done < <(tcpdump -n -i $DEV -c 2 -xX udp and port $PORT 2>&1)
+>>
+>> p "Because we still have that arp entry"
+>> arp -n | grep $BROADCAST
+>>
+>> p "And we cannot get rid of it, either, as long as this $DEV is up"
+>> arp -d $BROADCAST
+>> arp -n | grep $BROADCAST
+>>
+>> p "but we can stop the child," \
+>>    "take down the device," \
+>>    "remove the arp entry then," \
+>>    "and bring the device back up"
+>>
+>> kill -STOP $kid
+>> ip link set down $DEV
+>> sleep 1
+>> arp -d $BROADCAST
+>> ip link set up $DEV
+>> arp -n | grep $BROADCAST
+>>
+>> p "continue the child" \
+>>    "and now we should see outgoing packets again"
+>>
+>> kill -CONT $kid
+>> tcpdump -n -i $DEV -c 2 -xX udp and port $PORT
+>>
+>> p "and no more arp entry"
+>> arp -n | grep $BROADCAST
+>>
+>> p "Done."
+>> kill $kid
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
