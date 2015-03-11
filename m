@@ -1,29 +1,18 @@
 From: Ulf Samuelsson <netdev@emagii.com>
 Subject: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Wed, 11 Mar 2015 22:01:13 +0100
-Message-ID: <1426107673-45049-1-git-send-email-netdev@emagii.com>
+Date: Wed, 11 Mar 2015 21:28:47 +0100
+Message-ID: <1426105727-64654-1-git-send-email-netdev@emagii.com>
+Cc: Ulf Samuelsson <ulf@emagii.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxf3.bahnhof.se ([213.80.101.27]:51498 "EHLO mxf3.bahnhof.se"
+Received: from mxf3.bahnhof.se ([213.80.101.27]:51504 "EHLO mxf3.bahnhof.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751511AbbCKVBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 17:01:22 -0400
-Received: from localhost (mxf3.local [127.0.0.1])
-	by mxf3-reinject (Postfix) with ESMTP id 111205E0CDE
-	for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 22:01:21 +0100 (CET)
-Received: from mxf3.bahnhof.se ([127.0.0.1])
-	by localhost (mxf3.bahnhof.se [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id hkoqFH9CLraH for <netdev@vger.kernel.org>;
-	Wed, 11 Mar 2015 22:01:14 +0100 (CET)
-Received: from smtp-auth3.bahnhof.se (smtp-auth.bahnhof.se [213.136.33.6])
-	by mxf3.bahnhof.se (Postfix) with ESMTP id 15AA55E7546
-	for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 22:01:14 +0100 (CET)
-Received: from Hydra.bahnhof.se (h-169-18.a454.priv.bahnhof.se [37.123.169.18])
-	(Authenticated sender: mb782575)
-	by smtp-auth3.bahnhof.se (Postfix) with ESMTPA id EAEF828706
-	for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 22:01:13 +0100 (CET)
+	id S1751662AbbCKVBX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 17:01:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+From: Ulf Samuelsson <ulf@emagii.com>
 
 The neighbour state is changed in the ARP timer handler.
 If the state is changed to NUD_STALE, then the neighbour
@@ -61,7 +50,7 @@ The featuree is enabled by setting ARP_GC_APPLY_GUARDBAND
 The guardband time (in ticks) is set in ARP_GC_GUARDBAND
 Default time is 100 ms if HZ_### is set.
 
-Signed-off-by: Ulf Samuelsson <netdev@emagii.com>
+Signed-off-by: Ulf Samuelsson <ulf@emagii.com>
 ---
  net/Kconfig          |   32 ++++++++++++++++++++++++++++++++
  net/core/neighbour.c |   15 ++++++++++++---
