@@ -1,46 +1,55 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH 2/2] ath10k: drop unnecessary check for negative return value
-Date: Wed, 11 Mar 2015 13:20:31 -0400
-Message-ID: <1426094431-10272-1-git-send-email-hofrat@osadl.org>
-Cc: Valdis.Kletnieks@vt.edu, Bj??rn Mork <bjorn@mork.no>,
-	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicholas Mc Guire <hofrat@osadl.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([62.245.132.105]:58066 "EHLO www.osadl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751356AbbCKRZX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 13:25:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: [PATCH] mm: kill kmemcheck
+Date: Wed, 11 Mar 2015 13:25:47 -0400
+Message-ID: <55007A9B.4010608@oracle.com>
+References: <55003666.3020100@oracle.com>	<20150311084034.04ce6801@grimm.local.home>	<55004595.7020304@oracle.com> <20150311.132052.205877953171712952.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, netdev@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150311.132052.205877953171712952.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-wait_event_timeout() returns 0 on timeout and >= 1 on success but never
-< 0 - so checking for timeout should be for equiavalence to 0 no <= 0.
+On 03/11/2015 01:20 PM, David Miller wrote:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> Date: Wed, 11 Mar 2015 09:39:33 -0400
+> 
+>> > On 03/11/2015 08:40 AM, Steven Rostedt wrote:
+>>> >> On Wed, 11 Mar 2015 08:34:46 -0400
+>>> >> Sasha Levin <sasha.levin@oracle.com> wrote:
+>>> >> 
+>>>>> >>> > Fair enough. We knew there are existing kmemcheck users, but KASan should be
+>>>>> >>> > superior both in performance and the scope of bugs it finds. It also shouldn't
+>>>>> >>> > impose new limitations beyond requiring gcc 4.9.2+.
+>>>>> >>> >
+>>> >> Ouch! OK, then I can't use it. I'm currently compiling with gcc 4.6.3.
+>>> >> 
+>>> >> It will be a while before I upgrade my build farm to something newer.
+>> > 
+>> > Are you actually compiling new kernels with 4.6.3, or are you using older
+>> > kernels as well?
+>> > 
+>> > There's no real hurry to kill kmemcheck right now, but we do want to stop
+>> > supporting that in favour of KASan.
+> Is the spectrum of CPU's supported by this GCC feature equal to all of the
+> CPU's supported by the kernel right now?
+> 
+> If not, removing kmemcheck will always be a regression for someone.
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
+You're probably wondering why there are changes to SPARC in that patchset? :)
 
-Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-CONFIG_ATH10K=m
+I don't really know. Both kmemcheck and KASan run only on x86. I've also asked
+Vegard, who didn't know either... I guess it got copy-pasted from a different
+code.
 
-Patch is against 4.0-rc3 (localversion-next is -next-20150311)
+As far as I know the only regression is requiring newer GCC.
 
- drivers/net/wireless/ath/ath10k/mac.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
-index 7b27d99..4286f5c 100644
---- a/drivers/net/wireless/ath/ath10k/mac.c
-+++ b/drivers/net/wireless/ath/ath10k/mac.c
-@@ -4498,7 +4498,7 @@ static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 				 check_htt_state(ar, skip),
- 				 ATH10K_FLUSH_TIMEOUT_HZ);
- 
--	if (ret <= 0 || skip)
-+	if (ret == 0 || skip)
- 		ath10k_warn(ar, "failed to flush transmit queue (skip %i ar-state %i): %i\n",
- 			    skip, ar->state, ret);
- 
--- 
-1.7.10.4
+Thanks,
+Sasha
