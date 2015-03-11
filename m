@@ -1,60 +1,75 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Why do we prefer skb->priority to tc filters?
-Date: Wed, 11 Mar 2015 15:12:19 -0700
-Message-ID: <CAHA+R7N88DFPpfPeN5cqru7oODfew1ZUdT80R0fj1QkQsx-siw@mail.gmail.com>
-References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
-	<CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
-	<1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
-	<1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
-	<1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: add real socket cookies
+Date: Wed, 11 Mar 2015 15:30:35 -0700
+Message-ID: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.175345.836846566788322568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, salo@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:35863 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbbCKWMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 18:12:20 -0400
-Received: by obcva2 with SMTP id va2so12204224obc.3
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 15:12:19 -0700 (PDT)
-In-Reply-To: <1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:42940 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853AbbCKWai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 18:30:38 -0400
+Received: by obbnt9 with SMTP id nt9so12263791obb.9
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 15:30:37 -0700 (PDT)
+In-Reply-To: <20150311.175345.836846566788322568.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 2:47 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-03-11 at 13:46 -0700, Cong Wang wrote:
->
->> That is just a permission check when val > 6, given the fact most
->> daemons have root permission, I doubt your argument makes a difference
->> for discussion. At least with userns having root permission is more common.
->
-> Some setups use ip[6]tables rules to mangle skb->priority to select a
-> HTB class.
->
-> Google definitely uses this model, as netfilter code runs on multiple
-> cpus, while HTB classifier runs under qdisc spinlock, so far.
+On Wed, 2015-03-11 at 17:53 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 10 Mar 2015 15:45:33 -0700
+> 
+> > diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> > index 14d02ea905b6..a097ae38b639 100644
+> > --- a/net/ipv4/inet_connection_sock.c
+> > +++ b/net/ipv4/inet_connection_sock.c
+> > @@ -678,7 +678,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+> >  		newsk->sk_write_space = sk_stream_write_space;
+> >  
+> >  		newsk->sk_mark = inet_rsk(req)->ir_mark;
+> > -
+> > +		atomic64_cmpxchg(&newsk->sk_cookie, 0,
+> > +				 atomic64_read(&inet_rsk(req)->ir_cookie));
+> >  		newicsk->icsk_retransmits = 0;
+> >  		newicsk->icsk_backoff	  = 0;
+> >  		newicsk->icsk_probes_out  = 0;
+> 
+> I think you have to be more careful here.
+> 
+> sk_clone_lock() is not going to zero out sk_cookie for you, it only
+> does so if the priority has __GFP_ZERO in it and some callsites use
+> just plain GFP_ATOMIC.
+> 
+> Therefore, you can't just assume sk_cookie is zero.
+> 
+> Just use atomic64_set() here, you have exclusive access to this piece
+> of memory at this point in time, and you'll save an unnecessary atomic
+> operation as well.
 
-I knew we can modify skb->priority in a few ways, for example skbedit.
+Note that sk_clone_lock() really does the clear for us :
 
-That is not my concern, all what I am thinking is there is some
-way in application layer to bypass our tc filters, which is not expected
-to happen for me. Given our specific case, I want to propose to clear
-skb->priority after moving out of a netns:
+net/core/sock.c:1541:		atomic64_set(&newsk->sk_cookie, 0);
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 962ee9d..2301f01 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1694,6 +1694,7 @@ int __dev_forward_skb(struct net_device *dev,
-struct sk_buff *skb)
-        }
+atomic_cmpxchg() is needed here in case a concurrent dumper already
+caught the new socket.
 
-        skb_scrub_packet(skb, true);
-+       skb->priority = 0;
-        skb->protocol = eth_type_trans(skb, dev);
-        skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+I thought of adding a 'u64 cookie' parameter to sk_clone(), but it
+probably can be done in a followup patch, not sure it is worth the
+complexity.
+
+This would avoid the atomic64_cmpxchg(), but we also simply can avoid
+this atomic64_cmpxchg() if inet_rsk(req)->ir_cookie is 0, as it is
+probably 0 anyway.
+
+I can send a v2 with :
+
+u64 cookie = atomic64_read(&inet_rsk(req)->ir_cookie);
+if (cookie)
+	atomic64_cmpxchg(&newsk->sk_cookie, 0, cooke);
+
+Thanks !
