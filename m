@@ -1,53 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 1/2] net: implement dma cache skb allocator
-Date: Wed, 11 Mar 2015 08:42:40 -0700
-Message-ID: <1426088560.11398.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426009384-11544-1-git-send-email-_govind@gmx.com>
-	 <1426009384-11544-2-git-send-email-_govind@gmx.com>
-	 <54FF5521.5000007@redhat.com> <alpine.LNX.2.03.1503111359280.3394@ws.cisco>
-	 <5500496E.1060701@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Add tx queue maxrate support
+Date: Wed, 11 Mar 2015 18:44:21 +0300
+Message-ID: <550062D5.8030407@cogentembedded.com>
+References: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com> <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:43040 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285AbbCKPmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 11:42:43 -0400
-Received: by igbhn18 with SMTP id hn18so13296407igb.2
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 08:42:42 -0700 (PDT)
-In-Reply-To: <5500496E.1060701@gmail.com>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:39750 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545AbbCKPoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 11:44:25 -0400
+Received: by lbiw7 with SMTP id w7so9785585lbi.6
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 08:44:24 -0700 (PDT)
+In-Reply-To: <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-11 at 06:55 -0700, Alexander Duyck wrote:
+Hello.
 
-> That definitely helps but still leaves you open since a 257 byte packet
-> would be consuming 9K in that case.  Also standard flows with frames of
-> 1514 still take a hard hit with a receive buffer size of 9K.
+On 3/11/2015 4:14 PM, Or Gerlitz wrote:
 
-One possible way to deal with this would be to try to use order-2 pages,
-(but not compound pages) but break them.
+> Add ndo_set_tx_maxrate support.
 
-split_page(page, 2);
+> To support per tx queue maxrate limit, we use the update-qp firmware
+> command to do run-time rate setting for the qp that serves this tx ring.
+>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Ido Shamay <idos@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   33 ++++++++++++++++++++++++
+>   1 files changed, 33 insertions(+), 0 deletions(-)
 
-struct page *page0 = page;
-struct page *page1 = page + 1;
-struct page *page2 = page + 2;
-struct page *page3 = page + 3;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index c59ed92..2a58d2a 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -2379,6 +2379,37 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+>   }
+>   #endif
+>
+> +int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
+> +{
+> +	struct mlx4_en_priv *priv = netdev_priv(dev);
+> +	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[queue_index];
+> +	struct mlx4_update_qp_params params;
+> +	int err;
+> +
+> +	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT)) {
+> +		err = -EOPNOTSUPP;
+> +		goto out;
 
+    I would have just used *return*...
 
-if frame length <= 4096, attach page0 as skb first frag, and free
-page[1-3]
+> +	}
+> +
+> +	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
+> +	if ((maxrate >> 12)) {
 
-If frame length <= 8192 bytes, driver can attach page0 & page1 to the
-skb, and free page[2-3]
+    Double parens make not sense.
 
-Otherwise, attach page[0-2] to skb and free page3
+[...]
+> +	err = mlx4_update_qp(priv->mdev->dev, tx_ring->qpn, MLX4_UPDATE_QP_RATE_LIMIT,
+> +			     &params);
+> +
+> +out:
+> +	return err;
+> +}
+> +
+>   static const struct net_device_ops mlx4_netdev_ops = {
+>   	.ndo_open		= mlx4_en_open,
+>   	.ndo_stop		= mlx4_en_close,
+[...]
 
-Not sure if buddy allocator will be pleased, but worth trying ?
+WBR, Sergei
