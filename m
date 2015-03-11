@@ -1,125 +1,117 @@
-From: Igal.Liberman <igal.liberman@freescale.com>
-Subject: [v2,00/11] Freescale DPAA FMan FLIB(s)
-Date: Wed, 11 Mar 2015 07:03:52 +0200
-Message-ID: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time device specific parameters
+Date: Wed, 11 Mar 2015 11:08:50 +0200
+Message-ID: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: scottwood@freescale.com, Igal Liberman <Igal.Liberman@freescale.com>
-To: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
- <linux-kernel@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, shannon.nelson@intel.com,
+	dledford@redhat.com, greearb@candelatech.com,
+	Rose Gregory V <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg K-H <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:48091 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751746AbbCKJJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 05:09:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSWdhbCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIEZy
-ZWVzY2FsZSBEYXRhIFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSAoRFBBQSkgaXMgYSBz
-ZXQgb2YKaGFyZHdhcmUgY29tcG9uZW50cyBvbiBzcGVjaWZpYyBRb3JJUSBtdWx0aWNvcmUgcHJv
-Y2Vzc29ycy4gVGhpcwphcmNoaXRlY3R1cmUgcHJvdmlkZXMgdGhlIGluZnJhc3RydWN0dXJlIHRv
-IHN1cHBvcnQgc2ltcGxpZmllZApzaGFyaW5nIG9mIG5ldHdvcmtpbmcgaW50ZXJmYWNlcyBhbmQg
-YWNjZWxlcmF0b3JzIGJ5IG11bHRpcGxlIENQVQpjb3JlcyBhbmQgdGhlIGFjY2VsZXJhdG9ycy4K
-Ck9uZSBvZiB0aGUgRFBBQSBhY2NlbGVyYXRvcnMgaXMgdGhlIEZyYW1lIE1hbmFnZXIgKEZNYW4p
-IHdoaWNoCmVuYWJsZXMgdGhlIEV0aGVybmV0IG5ldHdvcmsgaW50ZXJmYWNlcy4KClRoaXMgcGF0
-Y2ggcHJlc2VudHMgdGhlIEZNYW4gRm91bmRhdGlvbiBMaWJyYXJpZXMgKEZMSUIpIGhlYWRlcnMu
-ClRoZSBGTWFuIEZMSUIgYWRkcyBiYXNpYyBzdXBwb3J0IGZvciB0aGUgRFBBQSBGTWFuIGhhcmR3
-YXJlIHJlZ2lzdGVyCmFjY2Vzcy4KCklnYWwgTGliZXJtYW4gKDcpOgogIHNvYy9mbWFuOiBBZGQg
-dGhlIEZNYW4gRkxJQiBoZWFkZXJzCiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBGTElCCiAgc29j
-L2ZtYW46IEFkZCB0aGUgRk1hbiBwb3J0IEZMSUIKICBzb2MvZm1hbjogQWRkIHRoZSBGTWFuIE1B
-QyBGTElCCiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBwYXJzZXIgYW5kIEtleUdlbiBGTElCKHMp
-CiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBSVEMgRkxJQgogIHNvYy9mbWFuOiBBZGQgdGhlIEZN
-YW4gU1AgRkxJQgoKTWFkYWxpbiBCdWN1ciAoNCk6CiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBw
-b3J0IEZMSUIgaGVhZGVycwogIHNvYy9mbWFuOiBBZGQgdGhlIEZNYW4gTUFDIEZMSUIgaGVhZGVy
-cwogIHNvYy9mbWFuOiBBZGQgdGhlIEZNYW4gcGFyc2VyIGFuZCBLZXlHZW4gRkxJQiBoZWFkZXJz
-CiAgc29jL2ZtYW46IEFkZCB0aGUgRk1hbiBSVEMgRkxJQiBoZWFkZXIKCiBkcml2ZXJzL3NvYy9L
-Y29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEgKwogZHJpdmVycy9z
-b2MvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAxICsKIGRyaXZl
-cnMvc29jL2ZzbC9LY29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMSArCiBk
-cml2ZXJzL3NvYy9mc2wvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEg
-KwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgfCAg
-IDM1ICsKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICAg
-IHwgICAxMSArCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2NvbW1vbi9nZW5lcmFsLmggICAg
-ICAgICB8ICAgNDEgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mbWFuX2NvbW1vbi5oICAg
-ICAgICAgICAgfCAgIDczICsKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2VuZXQuaCAg
-ICAgICAgICAgICAgIHwgIDI3NSArKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9m
-bWFuLmggICAgICAgICAgICAgICB8ICA4MDIgKysrKysrKysrKwogZHJpdmVycy9zb2MvZnNsL2Zt
-YW4vZmxpYi9mc2xfZm1hbl9kdHNlYy5oICAgICAgICAgfCAxMDE2ICsrKysrKysrKysrKysKIGRy
-aXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fZHRzZWNfbWlpX2FjYy5oIHwgIDEwMyAr
-KwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl9rZy5oICAgICAgICAgICAgfCAg
-NTA1ICsrKysrKysKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fbWVtYWMuaCAg
-ICAgICAgIHwgIDQ5NCArKysrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFu
-X21lbWFjX21paV9hY2MuaCB8ICAgNzYgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xf
-Zm1hbl9wb3J0LmggICAgICAgICAgfCAgNjAxICsrKysrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1h
-bi9mbGliL2ZzbF9mbWFuX3Bycy5oICAgICAgICAgICB8ICAxMDYgKysKIGRyaXZlcnMvc29jL2Zz
-bC9mbWFuL2ZsaWIvZnNsX2ZtYW5fcnRjLmggICAgICAgICAgIHwgIDQxNCArKysrKysKIGRyaXZl
-cnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fc3AuaCAgICAgICAgICAgIHwgIDEzMiArKwog
-ZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl90Z2VjLmggICAgICAgICAgfCAgNDgz
-ICsrKysrKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vZm1hbi5jICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAxMzU1ICsrKysrKysrKysrKysrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvTWFr
-ZWZpbGUgICAgICAgICAgICAgICAgICB8ICAgIDUgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFj
-L2ZtYW5fY3JjMzIuYyAgICAgICAgICAgICAgfCAgMTE2ICsrCiBkcml2ZXJzL3NvYy9mc2wvZm1h
-bi9tYWMvZm1hbl9jcmMzMi5oICAgICAgICAgICAgICB8ICAgMzkgKwogZHJpdmVycy9zb2MvZnNs
-L2ZtYW4vbWFjL2ZtYW5fZHRzZWMuYyAgICAgICAgICAgICAgfCAgODM4ICsrKysrKysrKysrCiBk
-cml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvZm1hbl9kdHNlY19taWlfYWNjLmMgICAgICB8ICAxNjgg
-KysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvZm1hbl9tZW1hYy5jICAgICAgICAgICAgICB8
-ICA1MTAgKysrKysrKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fbWVtYWNfbWlpX2Fj
-Yy5jICAgICAgfCAgMjE3ICsrKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fdGdlYy5j
-ICAgICAgICAgICAgICAgfCAgMzcxICsrKysrCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9wY2QvTWFr
-ZWZpbGUgICAgICAgICAgICAgICAgICB8ICAgIDMgKwogZHJpdmVycy9zb2MvZnNsL2ZtYW4vcGNk
-L2ZtYW5fa2cuYyAgICAgICAgICAgICAgICAgfCAgODQ5ICsrKysrKysrKysrCiBkcml2ZXJzL3Nv
-Yy9mc2wvZm1hbi9wY2QvZm1hbl9wcnMuYyAgICAgICAgICAgICAgICB8ICAxMjYgKysKIGRyaXZl
-cnMvc29jL2ZzbC9mbWFuL3BvcnQvTWFrZWZpbGUgICAgICAgICAgICAgICAgIHwgICAgMyArCiBk
-cml2ZXJzL3NvYy9mc2wvZm1hbi9wb3J0L2ZtYW5fcG9ydC5jICAgICAgICAgICAgICB8IDE1MzUg
-KysrKysrKysrKysrKysrKysrKysKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL3J0Yy9NYWtlZmlsZSAg
-ICAgICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL3NvYy9mc2wvZm1hbi9ydGMvZm1hbl9y
-dGMuYyAgICAgICAgICAgICAgICB8ICAzNTMgKysrKysKIGRyaXZlcnMvc29jL2ZzbC9mbWFuL3Nw
-L01ha2VmaWxlICAgICAgICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL3NvYy9mc2wvZm1h
-bi9zcC9mbWFuX3NwLmMgICAgICAgICAgICAgICAgICB8ICAyMDMgKysrCiAzOCBmaWxlcyBjaGFu
-Z2VkLCAxMTg2OCBpbnNlcnRpb25zKCspCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2Mv
-ZnNsL0tjb25maWcKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvTWFrZWZpbGUK
-IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9LY29uZmlnCiBjcmVhdGUg
-bW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vTWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEw
-MDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2NvbW1vbi9nZW5lcmFsLmgKIGNyZWF0ZSBt
-b2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZtYW5fY29tbW9uLmgKIGNyZWF0
-ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9lbmV0LmgKIGNyZWF0
-ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuLmgKIGNyZWF0
-ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuX2R0c2VjLmgK
-IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuX2R0
-c2VjX21paV9hY2MuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL2Zs
-aWIvZnNsX2ZtYW5fa2cuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFu
-L2ZsaWIvZnNsX2ZtYW5fbWVtYWMuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2Zz
-bC9mbWFuL2ZsaWIvZnNsX2ZtYW5fbWVtYWNfbWlpX2FjYy5oCiBjcmVhdGUgbW9kZSAxMDA2NDQg
-ZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl9wb3J0LmgKIGNyZWF0ZSBtb2RlIDEw
-MDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9mbGliL2ZzbF9mbWFuX3Bycy5oCiBjcmVhdGUgbW9k
-ZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vZmxpYi9mc2xfZm1hbl9ydGMuaAogY3JlYXRl
-IG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fc3AuaAogY3Jl
-YXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL2ZsaWIvZnNsX2ZtYW5fdGdlYy5o
-CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vZm1hbi5jCiBjcmVhdGUg
-bW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL01ha2VmaWxlCiBjcmVhdGUgbW9k
-ZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fY3JjMzIuYwogY3JlYXRlIG1v
-ZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL21hYy9mbWFuX2NyYzMyLmgKIGNyZWF0ZSBt
-b2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9tYWMvZm1hbl9kdHNlYy5jCiBjcmVhdGUg
-bW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fZHRzZWNfbWlpX2FjYy5j
-CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vbWFjL2ZtYW5fbWVtYWMu
-YwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL21hYy9mbWFuX21lbWFj
-X21paV9hY2MuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL21hYy9m
-bWFuX3RnZWMuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3BjZC9N
-YWtlZmlsZQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3BjZC9mbWFu
-X2tnLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9wY2QvZm1hbl9w
-cnMuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3BvcnQvTWFrZWZp
-bGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9wb3J0L2ZtYW5fcG9y
-dC5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vcnRjL01ha2VmaWxl
-CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9zb2MvZnNsL2ZtYW4vcnRjL2ZtYW5fcnRjLmMK
-IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3NvYy9mc2wvZm1hbi9zcC9NYWtlZmlsZQogY3Jl
-YXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2ZzbC9mbWFuL3NwL2ZtYW5fc3AuYwoKLS0gCjEu
-Ny45LjUKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxp
-bnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0
-cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+Hi Dave,
+
+This patchset adds support to enabling configuring _ConnectX-3 specific_
+hardware tunables. Hadar took the RFC [1] (the V0) and adapted it according to
+Greg K-H comments. And also according to previous similar discussions with
+Intel [1] and [2]. I understand and agree with your approach that user
+shouldn't care which hardware is at the bottom of the network stack. but, we're
+talking here on an HCA that could be both Ethernet and RDMA device - so, the
+usual networking API's might not suitable for all its tunables. Also, customers
+are paying for a very sophisticated piece of hardware, and we would like to
+enable power user to tweak it in some situtations. Of course the default mode
+should be used in 99% of the use cases.
+
+Below is Hadar text that gets into the details.
+
+Thanks,
+Amir.
+
+
+When configuring a device at an early boot stage, most kernel drivers
+use module parameters (the parameters' settings can be determined in
+modprobe.d config files).
+These parameters are difficult to manage, and one of the reasons is that
+module parameters are set per driver and not per device (NICs using the
+same driver cannot be set with different configurations).
+Furthermore, using other existing configuration tools like ethtool,
+ifconfig, ip link commands or sysfs entries is not applicable, since
+they all rely on having a netdevice already set up.
+
+In the past, 'request_firmware' solution for configuration parameters
+was suggested by Shannon Nelson from Intel[1]. The idea was rejected by
+Greg KH, who claimed it was abusive of the request_firmware mechanism.
+Greg suggested using configfs for device configuration instead (as done
+by the USB gadget driver).
+
+We introduce a new mlx4_core infrastructure using configfs to allow the
+configuration of mlx4 device. The goal is to set low-level device
+functionality which is specific to Mellanox ConnectX device
+hardware/firmware, needs to be sorted when the device is initialized and
+before the upper layer protocol (Ethernet or Infiniband) is set.
+
+Lately Intel suggested to configure NPAR BW configuration through
+configfs[2]. The idea was rejected since those are networking
+parameters that could be used in the future by other devices or vendors.
+
+This patchset is a continuation to the RFC already sent by us[3].
+We follow Greg K-H suggestion and implemented configfs for mlx4_core use
+only.
+
+In this patchset we export to configfs 2 parameters dmfs mode and port
+type. Both parameters must be set at initialization stage since port
+type determine which upper layer protocol to use and dmfs mode must be
+set before Ethernet or IPoIB interfaces are up. Until now, the user was
+able to change dmfs mode and port type (in SR-IOV) only through module
+parameter, before mlx4_core was loaded. Using configfs allows setting
+those parameters after mlx4_core is loaded and also set different
+configuration per pci device. In the future, new low-level and specific
+device configurations for mlx4_core will be configured through configfs.
+
+Hadar.
+
+Changes from V0:
+- Remove devconf generic module
+- Move configfs configuration tree from drivers/devconf to mlx4
+private location.
+
+[1] - https://lkml.org/lkml/2013/1/10/606
+[2] - https://lkml.org/lkml/2015/3/3/724
+[3] - http://marc.info/?l=linux-netdev&m=142074512422335&w=2
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+
+Hadar Hen Zion (3):
+  net/mlx4_core: Add configfs entries for setting device specific
+    parameters
+  net/mlx4_core: Set port_type value according to configfs configuration
+  net/mlx4_core: Set DMFS mode according to configfs configuration
+
+ drivers/net/ethernet/mellanox/mlx4/Kconfig  |   8 +
+ drivers/net/ethernet/mellanox/mlx4/Makefile |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/catas.c  |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/conf.c   | 532 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/main.c   |  76 +++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h   |  47 ++-
+ include/linux/mlx4/device.h                 |  12 +
+ 7 files changed, 659 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/conf.c
+
+-- 
+1.9.3
