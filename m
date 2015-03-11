@@ -1,34 +1,44 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCHv1 net] xen-netback: notify immediately after pushing Tx
- response.
-Date: Wed, 11 Mar 2015 17:44:19 +0000
-Message-ID: <20150311174419.GB15153@zion.uk.xensource.com>
-References: <1426087679-13927-1-git-send-email-david.vrabel@citrix.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 2/2 net-next] hyperv: Support batched notification
+Date: Wed, 11 Mar 2015 17:45:02 +0000
+Message-ID: <BY2PR0301MB07115FFD6E62E07CBAB0AED0A0190@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <1426013383-2853-1-git-send-email-kys@microsoft.com>
+ <1426013404-2892-1-git-send-email-kys@microsoft.com>
+ <1426013404-2892-2-git-send-email-kys@microsoft.com>
+ <20150311092354.GA13144@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:59842 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769AbbCKRoV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 13:44:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1426087679-13927-1-git-send-email-david.vrabel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150311092354.GA13144@aepfle.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 11, 2015 at 03:27:59PM +0000, David Vrabel wrote:
-> This fixes a performance regression introduced by
-> 7fbb9d8415d4a51cf542e87cf3a717a9f7e6aedc (xen-netback: release pending
-> index before pushing Tx responses)
-> 
-> Moving the notify outside of the spin locks means it can be delayed a
-> long time (if the dealloc thread is descheduled or there is an
-> interrupt or softirq).
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
+aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogV2VkbmVzZGF5LCBNYXJjaCAxMSwgMjAxNSAy
+OjI0IEFNDQo+IFRvOiBLWSBTcmluaXZhc2FuDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBncmVna2hAbGludXhmb3VuZGF0aW9uLm9yZzsgbGlu
+dXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9y
+ZzsgYXB3QGNhbm9uaWNhbC5jb207IGphc293YW5nQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6
+IFtQQVRDSCAyLzIgbmV0LW5leHRdIGh5cGVydjogU3VwcG9ydCBiYXRjaGVkIG5vdGlmaWNhdGlv
+bg0KPiANCj4gT24gVHVlLCBNYXIgMTAsIEsuIFkuIFNyaW5pdmFzYW4gd3JvdGU6DQo+IA0KPiA+
+IE9wdGltaXplIG5vdGlmeWluZyB0aGUgaG9zdCBieSBkZWZlcnJpbmcgbm90aWZpY2F0aW9uIHVu
+dGlsIHRoZXJlIGFyZQ0KPiA+IG5vIG1vcmUgcGFja2V0cyB0byBiZSBzZW50LiBUaGlzIHdpbGwg
+aGVscCBpbiBiYXRjaGluZyB0aGUgcmVxdWVzdHMgb24NCj4gPiB0aGUgaG9zdC4NCj4gDQo+IFRo
+ZSBzdWJqZWN0cyBmb3IgdGhlIG5ldHdvcmsgZHJpdmVyIHNheSAiaHlwZXJ2OiIuIEJ1dCBhbGwg
+c3VjaCBjaGFuZ2VzDQo+IHNob3VsZCBnZXQgIm5ldHZzYzoiIGFzIHByZWZpeCB0byBtYWtlIGl0
+IGNsZWFyIHdoYXQgZWFjaCBzaW5nbGUgcGF0Y2ggaXMgYWxsDQo+IGFib3V0Lg0KPiANCj4gVGhp
+cyBzaG91bGQgYmUgY2hhbmdlZCBmb3IgdXBjb21pbmcgc3VibWlzc2lvbnMuDQoNCk9sYWYsDQpU
+aGlzIGlzIHRoZSBjb252ZW50aW9uIHRoYXQgd2UgaGF2ZSB1c2VkIGZvciBwYXRjaGVzIHN1Ym1p
+dHRlZCB0byBEYXZpZCdzIHRyZWUuIFlvdSB3aWxsIHNlZQ0KbmV0LW5leHQgaW4gdGhlIHN1Ympl
+Y3QgbGluZSBhbmQgeW91IGNhbiBrZXkgb2ZmIG9mIHRoYXQuDQoNCksuIFkNCj4gDQo+IFRoYW5r
+cyENCj4gDQo+IE9sYWYNCg==
