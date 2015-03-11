@@ -1,37 +1,23 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] rhashtable: Add arbitrary rehash function
-Date: Thu, 12 Mar 2015 08:07:10 +1100
-Message-ID: <20150311210710.GB10537@gondor.apana.org.au>
-References: <20150309222631.GA12221@gondor.apana.org.au>
- <E1YV69U-0003Dq-HS@gondolin.me.apana.org.au>
- <20150310224348.GA29994@gondor.apana.org.au>
- <20150311.163728.900643743533456739.davem@davemloft.net>
+From: Loan Financiers worldwid <smufutau@unilag.edu.ng>
+Subject: Loan of any Amount
+Date: Wed, 11 Mar 2015 20:53:02 +0100
+Message-ID: <20150311202649.410789C456@mailgw.unilag.edu.ng>
+Reply-To: financiersworldwid01@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, josh@joshtriplett.org,
-	paulmck@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <smufutau@unilag.edu.ng>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:35525 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbbCKVHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 17:07:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20150311.163728.900643743533456739.davem@davemloft.net>
+Received: from [196.45.48.7] ([196.45.48.7]:42914 "EHLO mailgw.unilag.edu.ng"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751384AbbCKVLD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 17:11:03 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 04:37:28PM -0400, David Miller wrote:
->
-> I applied both patches, but for this one I had to tack on
-> a removal of ASSERT_BUCKET_LOCK(), debug_dump_table(), and
-> debug_dump_buckets() as they are no longer used.
+Do you need loan to pay off bills or start up business? 
 
-Sorry, I didn't have PROVE_LOCKING on so I didn't see these
-warnings.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+---
+This email is free from viruses and malware because avast! Antivirus protection is active.
+http://www.avast.com
