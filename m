@@ -1,46 +1,48 @@
-From: Andrey Ryabinin <ryabinin.a.a@gmail.com>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Wed, 11 Mar 2015 23:01:00 +0300
-Message-ID: <CAPAsAGwuCzzDCgiNd=LrHA_W1Nj5TJu3Qym9tR3jnGdT45HQuw@mail.gmail.com>
-References: <55004595.7020304@oracle.com>
-	<20150311.132052.205877953171712952.davem@davemloft.net>
-	<55007A9B.4010608@oracle.com>
-	<20150311.144443.1290707334236248572.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sasha Levin <sasha.levin@oracle.com>, rostedt@goodmis.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	linux-crypto@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20150311.144443.1290707334236248572.davem@davemloft.net>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Priit Laes <plaes@plaes.org>
+Subject: [PATCH 2/6] rtlwifi: Clean rtl_evm_db_to_percentage a bit
+Date: Wed, 11 Mar 2015 22:03:25 +0200
+Message-ID: <1426104209-6913-3-git-send-email-plaes@plaes.org>
+References: <1426104209-6913-1-git-send-email-plaes@plaes.org>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Priit Laes <plaes@plaes.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plaes.org ([188.166.43.21]:51905 "EHLO plaes.org"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752324AbbCKUDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 16:03:48 -0400
+In-Reply-To: <1426104209-6913-1-git-send-email-plaes@plaes.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2015-03-11 21:44 GMT+03:00 David Miller <davem@davemloft.net>:
-> From: Sasha Levin <sasha.levin@oracle.com>
-> Date: Wed, 11 Mar 2015 13:25:47 -0400
->
->> You're probably wondering why there are changes to SPARC in that patchset? :)
->
-> Libsanitizer doesn't even build have the time on sparc, the release
-> manager has to hand patch it into building again every major release
-> because of the way ASAN development is done out of tree and local
-> commits to the gcc tree are basically written over during the
-> next merge.
->
+Signed-off-by: Priit Laes <plaes@plaes.org>
+---
+ drivers/net/wireless/rtlwifi/stats.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-Libsanitizer is userspace lib it's for userspace ASan, KASan doesn't use it.
-We have our own 'libsanitzer' in kernel.
-
-> So I'm a little bit bitter about this, as you can see. :)
->
-
-
+diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
+index 874e7d1..2021223 100644
+--- a/drivers/net/wireless/rtlwifi/stats.c
++++ b/drivers/net/wireless/rtlwifi/stats.c
+@@ -39,15 +39,8 @@ EXPORT_SYMBOL(rtl_query_rxpwrpercentage);
+ 
+ u8 rtl_evm_db_to_percentage(char value)
+ {
+-	char ret_val;
+-	ret_val = value;
+-
+-	if (ret_val >= 0)
+-		ret_val = 0;
+-	if (ret_val <= -33)
+-		ret_val = -33;
+-	ret_val = 0 - ret_val;
+-	ret_val *= 3;
++	char ret_val = clamp(-value, 0, 33) * 3;
++
+ 	if (ret_val == 99)
+ 		ret_val = 100;
+ 
 -- 
-Best regards,
-Andrey Ryabinin
+2.3.1
