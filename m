@@ -1,23 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: Remove iocb argument from sendmsg and recvmsg
-Date: Wed, 11 Mar 2015 00:02:48 -0400 (EDT)
-Message-ID: <20150311.000248.417529352060472113.davem@davemloft.net>
-References: <54FFAA5B.3080608@intel.com>
+Subject: Re: [PATCH 1/1] bridge: turn off carrier when the bridge is created
+Date: Wed, 11 Mar 2015 00:03:50 -0400 (EDT)
+Message-ID: <20150311.000350.315385397499592379.davem@davemloft.net>
+References: <1425971382-14177-1-git-send-email-Yanjun.Zhu@windriver.com>
+	<1425971382-14177-2-git-send-email-Yanjun.Zhu@windriver.com>
+	<54FFAAF9.3000207@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, herbert@gondor.apana.org.au, hch@lst.de,
-	viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: tadeusz.struk@intel.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <54FFAA5B.3080608@intel.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	dsahern@gmail.com
+To: Yanjun.Zhu@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37624 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750798AbbCKEDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 00:03:52 -0400
+In-Reply-To: <54FFAAF9.3000207@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Date: Wed, 11 Mar 2015 10:39:53 +0800
 
-Because of the way you quoted the patch, it looked like a list posting
-looping back to the list again, because of the "List-ID: " email header.
+> Hi, Stephen && David
+> 
+> Any comment?
 
-Therefore your posting was blocked and you'll have to resend your posting
-in a way such that this doesn't happen.
+Asking Stephen to look at this more times will not make him respond
+any faster.  I see your posting, he sees it, everyone sees it.
+
+If he's too busy to look into this, that's just the state of affairs
+right now and you just need to be patient.
+
+Thanks.
