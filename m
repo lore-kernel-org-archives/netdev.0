@@ -1,51 +1,46 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net] sock: fix possible NULL sk dereference in __skb_tstamp_tx
-Date: Wed, 11 Mar 2015 15:43:55 -0400
-Message-ID: <1426103035-24748-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, gnomes@lxorguk.ukuu.org.uk,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:40067 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbbCKTn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 15:43:59 -0400
-Received: by ykq142 with SMTP id 142so5091236ykq.7
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 12:43:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Ryabinin <ryabinin.a.a@gmail.com>
+Subject: Re: [PATCH] mm: kill kmemcheck
+Date: Wed, 11 Mar 2015 23:01:00 +0300
+Message-ID: <CAPAsAGwuCzzDCgiNd=LrHA_W1Nj5TJu3Qym9tR3jnGdT45HQuw@mail.gmail.com>
+References: <55004595.7020304@oracle.com>
+	<20150311.132052.205877953171712952.davem@davemloft.net>
+	<55007A9B.4010608@oracle.com>
+	<20150311.144443.1290707334236248572.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Sasha Levin <sasha.levin@oracle.com>, rostedt@goodmis.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	linux-crypto@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20150311.144443.1290707334236248572.davem@davemloft.net>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+2015-03-11 21:44 GMT+03:00 David Miller <davem@davemloft.net>:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> Date: Wed, 11 Mar 2015 13:25:47 -0400
+>
+>> You're probably wondering why there are changes to SPARC in that patchset? :)
+>
+> Libsanitizer doesn't even build have the time on sparc, the release
+> manager has to hand patch it into building again every major release
+> because of the way ASAN development is done out of tree and local
+> commits to the gcc tree are basically written over during the
+> next merge.
+>
 
-Test that sk != NULL before reading sk->sk_tsflags.
+Libsanitizer is userspace lib it's for userspace ASan, KASan doesn't use it.
+We have our own 'libsanitzer' in kernel.
 
-Fixes: 49ca0d8bfaf3 ("net-timestamp: no-payload option")
+> So I'm a little bit bitter about this, as you can see. :)
+>
 
-Reported-by: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/core/skbuff.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 47c3241..5bffca7 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3689,9 +3689,13 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 		     struct sock *sk, int tstype)
- {
- 	struct sk_buff *skb;
--	bool tsonly = sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
-+	bool tsonly;
- 
--	if (!sk || !skb_may_tx_timestamp(sk, tsonly))
-+	if (!sk)
-+		return;
-+
-+	tsonly = sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
-+	if (!skb_may_tx_timestamp(sk, tsonly))
- 		return;
- 
- 	if (tsonly)
 -- 
-2.2.0.rc0.207.ga3a616c
+Best regards,
+Andrey Ryabinin
