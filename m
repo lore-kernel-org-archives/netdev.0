@@ -1,43 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] ipv4: FIB Local/MAIN table collapse
-Date: Wed, 11 Mar 2015 16:28:50 -0400 (EDT)
-Message-ID: <20150311.162850.1722797143871993349.davem@davemloft.net>
-References: <20150306213830.1139.16932.stgit@ahduyck-vm-fedora20>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC v2] ath10k: move code from parameter list into a function
+Date: Wed, 11 Mar 2015 23:29:03 +0300
+Message-ID: <5500A58F.3040904@cogentembedded.com>
+References: <1426100519-20636-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	jiri@resnulli.us, sfeldma@gmail.com
-To: alexander.h.duyck@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51403 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752553AbbCKU2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 16:28:54 -0400
-In-Reply-To: <20150306213830.1139.16932.stgit@ahduyck-vm-fedora20>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Valdis.Kletnieks@vt.edu, Bj??rn Mork <bjorn@mork.no>,
+	Jeff Haran <Jeff.Haran@citrix.com>,
+	Pat Erley <pat-lkml@erley.org>, ath10k@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <hofrat@osadl.org>,
+	Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426100519-20636-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Fri, 06 Mar 2015 13:47:00 -0800
+Hello.
 
-> This patch is meant to collapse local and main into one by converting
-> tb_data from an array to a pointer.  Doing this allows us to point the
-> local table into the main while maintaining the same variables in the
-> table.
-> 
-> As such the tb_data was converted from an array to a pointer, and a new
-> array called data is added in order to still provide an object for tb_data
-> to point to.
-> 
-> In order to track the origin of the fib aliases a tb_id value was added in
-> a hole that existed on 64b systems.  Using this we can also reverse the
-> merge in the event that custom FIB rules are enabled.
-> 
-> With this patch I am seeing an improvement of 20ns to 30ns for routing
-> lookups as long as custom rules are not enabled, with custom rules enabled
-> we fall back to split tables and the original behavior.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+On 03/11/2015 10:01 PM, Nicholas Mc Guire wrote:
 
-I've applied this, let's see what happens.
+> Putting code into the parameter list of wait_event_timeout() might be
+> legal C-code but not really readable - the "inline" code is simply
+> moved into a function and that passed to wait_event_timeout() as the
+> condition. As wait_event_timeout will always return >= 0 the following
+> timeout check is fixed up to  ret == 0 .
+
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+[...]
+
+> diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
+> index e8cc19f..a7a12cc 100644
+> --- a/drivers/net/wireless/ath/ath10k/mac.c
+> +++ b/drivers/net/wireless/ath/ath10k/mac.c
+> @@ -4463,11 +4463,25 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
+>   	return ret;
+>   }
+>
+> +static bool check_htt_state(struct ath10k *ar, bool *skip)
+> +{
+> +	bool empty;
+> +
+> +	spin_lock_bh(&ar->htt.tx_lock);
+> +	empty = (ar->htt.num_pending_tx == 0);
+> +	spin_unlock_bh(&ar->htt.tx_lock);
+> +
+> +	*skip = (ar->state == ATH10K_STATE_WEDGED) ||
+> +		test_bit(ATH10K_FLAG_CRASH_FLUSH,
+> +			 &ar->dev_flags);
+> +	return (empty || *skip);
+
+    Parens not needed here.
+
+[...]
+
+WBR, Sergei
