@@ -1,91 +1,60 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 3/3] net/mlx4_en: Add tx queue maxrate support
-Date: Wed, 11 Mar 2015 15:14:50 +0200
-Message-ID: <1426079690-28271-4-git-send-email-ogerlitz@mellanox.com>
-References: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: RFC: dsa: add support for multiple CPU ports
+Date: Wed, 11 Mar 2015 14:30:57 +0100
+Message-ID: <20150311133057.GA9601@lunn.ch>
+References: <20150310190129.GB5636@codeaurora.org>
+ <20150310193151.GE10838@lunn.ch>
+ <20150310204021.GA2740@codeaurora.org>
+ <CAGVrzcZcLgMWuNJ9R_izuBRyyY21=ZJw+2Dk8RfxijGd2fMXNQ@mail.gmail.com>
+ <20150311011802.GA10875@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Jonas Gorski <jogo@openwrt.org>
+To: Mathieu Olivari <mathieu@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48328 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753202AbbCKN0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Mar 2015 09:26:03 -0400
-In-Reply-To: <1426079690-28271-1-git-send-email-ogerlitz@mellanox.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:57646 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750770AbbCKNeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Mar 2015 09:34:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20150311011802.GA10875@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ndo_set_tx_maxrate support.
+> We already have existing interface for eth0/eth1. Maybe we should
+> consider allowing them to be bridge. User configuration would look like
+> this:
+> 
+> brctl addbr br-lan
+> brctl addif br-lan eth1
+> brctl addif br-lan lan1
+> brctl addif br-lan lan2
+> brctl addif br-lan lan3
+> brctl addif br-lan lan4
 
-To support per tx queue maxrate limit, we use the update-qp firmware
-command to do run-time rate setting for the qp that serves this tx ring.
+Think about this from the perspective of somebody how does not know
+there is a switch.  When i look at this, to me it means packets from
+lan1, lan2, lan3, lan4 and eth1 are bridged together. So we are going
+to get packets sent out eth1 without a tag on it, and the switch is
+very likely to drop it, since the port is in a mode which expects a
+tag. You are not using the brctl command with its normal meaning,
+which is bad.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Ido Shamay <idos@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   33 ++++++++++++++++++++++++
- 1 files changed, 33 insertions(+), 0 deletions(-)
+Configuring this at the bridge layer is also wrong. What conduit a DSA
+slave interfaces uses is a DSA layer issue.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index c59ed92..2a58d2a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2379,6 +2379,37 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
- }
- #endif
- 
-+int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[queue_index];
-+	struct mlx4_update_qp_params params;
-+	int err;
-+
-+	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT)) {
-+		err = -EOPNOTSUPP;
-+		goto out;
-+	}
-+
-+	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
-+	if ((maxrate >> 12)) {
-+		params.rate_unit = MLX4_QP_RATE_LIMIT_GBS;
-+		params.rate_val  = maxrate >> 10;
-+	} else if (maxrate) {
-+		params.rate_unit = MLX4_QP_RATE_LIMIT_MBS;
-+		params.rate_val  = maxrate;
-+	} else { /* zero serves to revoke the QP rate-limitation */
-+		params.rate_unit = 0;
-+		params.rate_val  = 0;
-+	}
-+
-+	err = mlx4_update_qp(priv->mdev->dev, tx_ring->qpn, MLX4_UPDATE_QP_RATE_LIMIT,
-+			     &params);
-+
-+out:
-+	return err;
-+}
-+
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
-@@ -2410,6 +2441,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
- 	.ndo_features_check	= mlx4_en_features_check,
- #endif
-+	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
- };
- 
- static const struct net_device_ops mlx4_netdev_ops_master = {
-@@ -2444,6 +2476,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
- 	.ndo_features_check	= mlx4_en_features_check,
- #endif
-+	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
- };
- 
- struct mlx4_en_bond {
--- 
-1.7.1
+Before we can come up with a nice solution, i think we first need to
+understand what the switches are capable off. If trunking does work,
+it is a relatively nice system for the user to configure, in that
+there is nothing for the user to configure! Assuming the switch can do
+reasonable load balancing, we also get near optimal usage of the two
+conduits.
+
+I don't know when i will have time to play with this, and if somebody
+comes along with a better idea, i'm very open to adopting that idea
+over mine.
+
+      Andrew
