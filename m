@@ -1,39 +1,51 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 7/8] isdn: replace CONFIG_8xx by CONFIG_PPC_8xx
-Date: Thu, 12 Mar 2015 15:27:20 -0400 (EDT)
-Message-ID: <20150312.152720.2248943963968220981.davem@redhat.com>
-References: <20150312152409.E7B5C1A2422@localhost.localdomain>
+Subject: Re: [PATCH net-next] ebpf: verifier: check that call reg with
+ ARG_ANYTHING is initialized
+Date: Thu, 12 Mar 2015 15:29:53 -0400 (EDT)
+Message-ID: <20150312.152953.1275852274250204822.davem@redhat.com>
+References: <8bb5d2d9c8d471c1161ae60ea92141aef00a4fc8.1426172976.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	user-mode-linux-devel@lists.sourceforge.net,
-	user-mode-linux-user@lists.sourceforge.net,
-	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
-	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
-To: christophe.leroy@c-s.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150312152409.E7B5C1A2422@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@plumgrid.com, challa@noironetworks.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50953 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754430AbbCLTaN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 15:30:13 -0400
+In-Reply-To: <8bb5d2d9c8d471c1161ae60ea92141aef00a4fc8.1426172976.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Date: Thu, 12 Mar 2015 16:24:09 +0100 (CET)
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 12 Mar 2015 17:21:42 +0100
 
-> Two config options exist to define powerpc MPC8xx:
-> * CONFIG_PPC_8xx
-> * CONFIG_8xx
-> In addition, CONFIG_PPC_8xx also defines CONFIG_CPM1 as
-> communication co-processor
+> I noticed that a helper function with argument type ARG_ANYTHING does
+> not need to have an initialized value (register).
 > 
-> arch/powerpc/platforms/Kconfig.cputype has contained the following
-> comment about CONFIG_8xx item for some years:
-> "# this is temp to handle compat with arch=ppc"
+> This can worst case lead to unintented stack memory leakage in future
+> helper functions if they are not carefully designed, or unintended
+> application behaviour in case the application developer was not careful
+> enough to match a correct helper function signature in the API.
 > 
-> It looks like not many places still have that old CONFIG_8xx used,
-> so it is likely to be a good time to get rid of it completely ?
+> The underlying issue is that ARG_ANYTHING should actually be split
+> into two different semantics:
 > 
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+>   1) ARG_DONTCARE for function arguments that the helper function
+>      does not care about (in other words: the default for unused
+>      function arguments), and
+> 
+>   2) ARG_ANYTHING that is an argument actually being used by a
+>      helper function and *guaranteed* to be an initialized register.
+> 
+> The current risk is low: ARG_ANYTHING is only used for the 'flags'
+> argument (r4) in bpf_map_update_elem() that internally does strict
+> checking.
+> 
+> Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  I'm fine with this going to net-next, but it also applies to net.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied to net-next, thanks Daniel.
