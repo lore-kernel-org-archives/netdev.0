@@ -1,131 +1,117 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [v2,00/11] Freescale DPAA FMan FLIB(s)
-Date: Thu, 12 Mar 2015 10:57:32 -0500
-Message-ID: <E454F6B7-4DEB-446C-8077-F8495D51B834@kernel.crashing.org>
-References: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, scottwood@freescale.com
-To: "Igal.Liberman" <igal.liberman@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 4/4] bonding: Do not ignore notifications for
+ ARP-work-queue
+Date: Thu, 12 Mar 2015 17:12:25 +0100
+Message-ID: <5501BAE9.1000102@redhat.com>
+References: <1426139679-27249-1-git-send-email-maheshb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59087 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753928AbbCLQMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 12:12:36 -0400
+In-Reply-To: <1426139679-27249-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 03/12/2015 06:54 AM, Mahesh Bandewar wrote:
+> This patch adds code to reschedule the ARP-work (aggressively)
+> to handle the notifications before resuming the regular cycle.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++----------------
+>  1 file changed, 22 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 54ecb7a22bae..882974d543d2 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2814,17 +2814,20 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
+>  					    arp_work.work);
+>  	bool should_notify_peers = false;
+>  	bool should_notify_rtnl = false;
+> -	int delta_in_ticks;
+> +	unsigned long delta_in_ticks;
+>  
+>  	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+>  
+>  	if (!bond_has_slaves(bond))
+>  		goto re_arm;
+>  
+> -	rcu_read_lock();
+> -
+>  	should_notify_peers = bond_should_notify_peers(bond);
+> +	if (bond_get_notif_pending(bond, BOND_ARP_NOTIF)) {
+> +		rcu_read_lock();
+> +		goto eval_arp_probe;
+> +	}
+>  
+> +	rcu_read_lock();
+^^^^^^^
+Since rcu_read_lock() is acquired in both cases, why don't you leave it
+where it is now ? Then you'll be able to save a line and drop the { }
+on the "if" above.
 
 
-On Mar 11, 2015, at 12:03 AM, Igal.Liberman <igal.liberman@freescale.com> wrote:
+>  	if (bond_ab_arp_inspect(bond)) {
+>  		rcu_read_unlock();
+>  
+> @@ -2841,25 +2844,28 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
+>  		rcu_read_lock();
+>  	}
+>  
+> +eval_arp_probe:
+>  	should_notify_rtnl = bond_ab_arp_probe(bond);
+^^^^^
+Keep in mind that bond_ab_arp_probe() calls bond_arp_send_all() each time
+if we have an active slave. We could be sending ARP requests each tick
+until rtnl gets acquired.
 
-> From: Igal Liberman <Igal.Liberman@freescale.com>
+>  	rcu_read_unlock();
+>  
+>  re_arm:
+> -	if (bond->params.arp_interval)
+> -		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+> -
+>  	if (should_notify_peers || should_notify_rtnl) {
+> -		if (!rtnl_trylock())
+> -			return;
+> -
+> -		if (should_notify_peers)
+> -			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+> -						 bond->dev);
+> -		if (should_notify_rtnl)
+> -			bond_slave_state_notify(bond);
+> -
+> -		rtnl_unlock();
+> +		if (!rtnl_trylock()) {
+> +			delta_in_ticks = 1;
+> +			bond_set_notif_pending(bond, BOND_ARP_NOTIF, 1);
+> +		} else {
+> +			if (should_notify_rtnl)
+> +				bond_slave_state_notify(bond);
+> +			if (should_notify_peers)
+> +				call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+> +							 bond->dev);
+> +			rtnl_unlock();
+> +			bond_set_notif_pending(bond, BOND_ARP_NOTIF, 0);
+> +		}
+>  	}
+> +
+> +	if (bond->params.arp_interval)
+> +		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+>  }
+>  
+>  /*-------------------------- netdev event handling --------------------------*/
 > 
-> The Freescale Data Path Acceleration Architecture (DPAA) is a set of
-> hardware components on specific QorIQ multicore processors. This
-> architecture provides the infrastructure to support simplified
-> sharing of networking interfaces and accelerators by multiple CPU
-> cores and the accelerators.
-> 
-> One of the DPAA accelerators is the Frame Manager (FMan) which
-> enables the Ethernet network interfaces.
-> 
-> This patch presents the FMan Foundation Libraries (FLIB) headers.
-> The FMan FLIB adds basic support for the DPAA FMan hardware register
-> access.
-> 
-> Igal Liberman (7):
->  soc/fman: Add the FMan FLIB headers
->  soc/fman: Add the FMan FLIB
->  soc/fman: Add the FMan port FLIB
->  soc/fman: Add the FMan MAC FLIB
->  soc/fman: Add the FMan parser and KeyGen FLIB(s)
->  soc/fman: Add the FMan RTC FLIB
->  soc/fman: Add the FMan SP FLIB
-> 
-> Madalin Bucur (4):
->  soc/fman: Add the FMan port FLIB headers
->  soc/fman: Add the FMan MAC FLIB headers
->  soc/fman: Add the FMan parser and KeyGen FLIB headers
->  soc/fman: Add the FMan RTC FLIB header
-> 
-> drivers/soc/Kconfig                                |    1 +
-> drivers/soc/Makefile                               |    1 +
-> drivers/soc/fsl/Kconfig                            |    1 +
-> drivers/soc/fsl/Makefile                           |    1 +
-> drivers/soc/fsl/fman/Kconfig                       |   35 +
-> drivers/soc/fsl/fman/Makefile                      |   11 +
-> drivers/soc/fsl/fman/flib/common/general.h         |   41 +
-> drivers/soc/fsl/fman/flib/fman_common.h            |   73 +
-> drivers/soc/fsl/fman/flib/fsl_enet.h               |  275 ++++
-> drivers/soc/fsl/fman/flib/fsl_fman.h               |  802 ++++++++++
-> drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h         | 1016 +++++++++++++
-> drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h |  103 ++
-> drivers/soc/fsl/fman/flib/fsl_fman_kg.h            |  505 +++++++
-> drivers/soc/fsl/fman/flib/fsl_fman_memac.h         |  494 +++++++
-> drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h |   76 +
-> drivers/soc/fsl/fman/flib/fsl_fman_port.h          |  601 ++++++++
-> drivers/soc/fsl/fman/flib/fsl_fman_prs.h           |  106 ++
-> drivers/soc/fsl/fman/flib/fsl_fman_rtc.h           |  414 ++++++
-> drivers/soc/fsl/fman/flib/fsl_fman_sp.h            |  132 ++
-> drivers/soc/fsl/fman/flib/fsl_fman_tgec.h          |  483 ++++++
-> drivers/soc/fsl/fman/fman.c                        | 1355 +++++++++++++++++
-> drivers/soc/fsl/fman/mac/Makefile                  |    5 +
-> drivers/soc/fsl/fman/mac/fman_crc32.c              |  116 ++
-> drivers/soc/fsl/fman/mac/fman_crc32.h              |   39 +
-> drivers/soc/fsl/fman/mac/fman_dtsec.c              |  838 +++++++++++
-> drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c      |  168 +++
-> drivers/soc/fsl/fman/mac/fman_memac.c              |  510 +++++++
-> drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c      |  217 +++
-> drivers/soc/fsl/fman/mac/fman_tgec.c               |  371 +++++
-> drivers/soc/fsl/fman/pcd/Makefile                  |    3 +
-> drivers/soc/fsl/fman/pcd/fman_kg.c                 |  849 +++++++++++
-> drivers/soc/fsl/fman/pcd/fman_prs.c                |  126 ++
-> drivers/soc/fsl/fman/port/Makefile                 |    3 +
-> drivers/soc/fsl/fman/port/fman_port.c              | 1535 ++++++++++++++++++++
-> drivers/soc/fsl/fman/rtc/Makefile                  |    3 +
-> drivers/soc/fsl/fman/rtc/fman_rtc.c                |  353 +++++
-> drivers/soc/fsl/fman/sp/Makefile                   |    3 +
-> drivers/soc/fsl/fman/sp/fman_sp.c                  |  203 +++
-> 38 files changed, 11868 insertions(+)
-> create mode 100644 drivers/soc/fsl/Kconfig
-> create mode 100644 drivers/soc/fsl/Makefile
-> create mode 100644 drivers/soc/fsl/fman/Kconfig
-> create mode 100644 drivers/soc/fsl/fman/Makefile
-> create mode 100644 drivers/soc/fsl/fman/flib/common/general.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fman_common.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_enet.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_kg.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_port.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_prs.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_rtc.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_sp.h
-> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_tgec.h
-> create mode 100644 drivers/soc/fsl/fman/fman.c
-> create mode 100644 drivers/soc/fsl/fman/mac/Makefile
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_crc32.c
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_crc32.h
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec.c
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_memac.c
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c
-> create mode 100644 drivers/soc/fsl/fman/mac/fman_tgec.c
-> create mode 100644 drivers/soc/fsl/fman/pcd/Makefile
-> create mode 100644 drivers/soc/fsl/fman/pcd/fman_kg.c
-> create mode 100644 drivers/soc/fsl/fman/pcd/fman_prs.c
-> create mode 100644 drivers/soc/fsl/fman/port/Makefile
-> create mode 100644 drivers/soc/fsl/fman/port/fman_port.c
-> create mode 100644 drivers/soc/fsl/fman/rtc/Makefile
-> create mode 100644 drivers/soc/fsl/fman/rtc/fman_rtc.c
-> create mode 100644 drivers/soc/fsl/fman/sp/Makefile
-> create mode 100644 drivers/soc/fsl/fman/sp/fman_sp.c
-> 
-> -- 
-> 1.7.9.5
-
-What changed in v2?
-
-- k
