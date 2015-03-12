@@ -1,41 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] rhashtable: Fix race between rehashing and
- readers
-Date: Fri, 13 Mar 2015 08:50:02 +1100
-Message-ID: <20150312215002.GB20117@gondor.apana.org.au>
-References: <20150312110749.GA19285@gondor.apana.org.au>
- <20150312133749.GB21620@casper.infradead.org>
- <20150312163348.GD5378@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/7] inet: tcp listener refactoring, part 8
+Date: Thu, 12 Mar 2015 14:50:09 -0700
+Message-ID: <1426197016-14482-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:57637 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752737AbbCLVuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 17:50:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20150312163348.GD5378@casper.infradead.org>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:48707 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751324AbbCLVuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 17:50:24 -0400
+Received: by mail-vc0-f202.google.com with SMTP id hy10so3111855vcb.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 14:50:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 04:33:48PM +0000, Thomas Graf wrote:
-> Rehashing can occur in parallel to readers. Readers are aware of this
-> situation so new readers are allowed while the rehashing is in
-> process. Existing readers may have already fetched the tbl and
-> future_tbl and may thus assume no rehashing is in progress. The
-> rehashing must thus wait for all existing readers to complete after
-> publihsing the future_tbl to make sure all parallel readers see the
-> table before we start moving entries.
-> 
-> Fixes: aa34a6cb0478 ("rhashtable: Add arbitrary rehash function")
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
-> Herbert: This is what I think is needed to fix this properly.
+These patches prepare request socks being hashed into general ehash
+table : We declare 3 aliases (ireq_state, ireq_refcnt, ireq_family)
 
-Nack.  Please see my previous email.
+Note that refcnt is not yet handled, this will be done later.
+
+Eric Dumazet (7):
+  inet: add TCP_NEW_SYN_RECV state
+  inet: add ireq_state field to inet_request_sock
+  inet: add rsk_refcnt/ireq_refcnt to request socks
+  net: add req_prot_cleanup() & req_prot_init() helpers
+  inet: prepare sock_edemux() & sock_gen_put() for new SYN_RECV state
+  inet: get_openreq4() & get_openreq6() do not need listener
+  inet: introduce ireq_family
+
+ include/net/inet_sock.h    |  3 ++
+ include/net/request_sock.h | 13 +++++++++
+ include/net/sock.h         |  2 +-
+ include/net/tcp_states.h   |  4 ++-
+ net/core/sock.c            | 71 ++++++++++++++++++++++++++++------------------
+ net/dccp/ipv4.c            |  2 ++
+ net/dccp/ipv6.c            |  4 +++
+ net/ipv4/inet_diag.c       |  5 ++--
+ net/ipv4/inet_hashtables.c |  2 ++
+ net/ipv4/syncookies.c      |  2 ++
+ net/ipv4/tcp_input.c       |  1 +
+ net/ipv4/tcp_ipv4.c        |  9 +++---
+ net/ipv6/syncookies.c      |  3 ++
+ net/ipv6/tcp_ipv6.c        |  5 ++--
+ 14 files changed, 87 insertions(+), 39 deletions(-)
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.2.0.rc0.207.ga3a616c
