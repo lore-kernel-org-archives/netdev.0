@@ -1,85 +1,116 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 6/8] inet: prepare sock_edemux() & sock_gen_put() for new SYN_RECV state
-Date: Thu, 12 Mar 2015 16:44:08 -0700
-Message-ID: <1426203850-11034-7-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 7/8] inet: get_openreq4() & get_openreq6() do not need listener
+Date: Thu, 12 Mar 2015 16:44:09 -0700
+Message-ID: <1426203850-11034-8-git-send-email-edumazet@google.com>
 References: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f73.google.com ([209.85.218.73]:32889 "EHLO
-	mail-oi0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819AbbCLXpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:45:07 -0400
-Received: by oiba3 with SMTP id a3so1739169oib.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:45:06 -0700 (PDT)
+Received: from mail-ob0-f201.google.com ([209.85.214.201]:34151 "EHLO
+	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755478AbbCLXpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:45:16 -0400
+Received: by obcwp18 with SMTP id wp18so5094860obc.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:45:15 -0700 (PDT)
 In-Reply-To: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sock_edemux() & sock_gen_put() should be ready to cope with request socks.
+ireq->ir_num contains local port, use it.
+
+Also, get_openreq4() dumping listen_sk->refcnt makes litle sense.
+
+inet_diag_fill_req() can also use ireq->ir_num
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/request_sock.h | 5 +++++
- include/net/sock.h         | 2 +-
- net/core/sock.c            | 2 ++
- net/ipv4/inet_hashtables.c | 2 ++
- 4 files changed, 10 insertions(+), 1 deletion(-)
+ net/ipv4/inet_diag.c | 3 +--
+ net/ipv4/tcp_ipv4.c  | 8 ++++----
+ net/ipv6/tcp_ipv6.c  | 4 ++--
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index e255ecf8bb40..3275cf31f731 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -77,6 +77,11 @@ static inline struct request_sock *reqsk_alloc(const struct request_sock_ops *op
- 	return req;
- }
- 
-+static inline struct request_sock *inet_reqsk(struct sock *sk)
-+{
-+	return (struct request_sock *)sk;
-+}
-+
- static inline void __reqsk_free(struct request_sock *req)
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 29317ff4a007..c55a6fa3162d 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -718,7 +718,6 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 			      const struct nlmsghdr *unlh)
  {
- 	kmem_cache_free(req->rsk_ops->slab, req);
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 9411c3421dd3..f10832ca2e90 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1625,7 +1625,7 @@ static inline void sock_put(struct sock *sk)
- 		sk_free(sk);
- }
- /* Generic version of sock_put(), dealing with all sockets
-- * (TCP_TIMEWAIT, ESTABLISHED...)
-+ * (TCP_TIMEWAIT, TCP_NEW_SYN_RECV, ESTABLISHED...)
-  */
- void sock_gen_put(struct sock *sk);
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+-	struct inet_sock *inet = inet_sk(sk);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr *nlh;
+ 	long tmo;
+@@ -744,7 +743,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 	if (tmo < 0)
+ 		tmo = 0;
  
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 63d871a91b5c..4bc42efb3e40 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1668,6 +1668,8 @@ void sock_edemux(struct sk_buff *skb)
+-	r->id.idiag_sport = inet->inet_sport;
++	r->id.idiag_sport = htons(ireq->ir_num);
+ 	r->id.idiag_dport = ireq->ir_rmt_port;
  
- 	if (sk->sk_state == TCP_TIME_WAIT)
- 		inet_twsk_put(inet_twsk(sk));
-+	else if (sk->sk_state == TCP_NEW_SYN_RECV)
-+		reqsk_put(inet_reqsk(sk));
- 	else
- 		sock_put(sk);
+ 	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index f0c6fc32bfa8..70b0f701bbdb 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2204,7 +2204,7 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
  }
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index f6a12b97d12b..64401a2fdd33 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -262,6 +262,8 @@ void sock_gen_put(struct sock *sk)
+ EXPORT_SYMBOL(tcp_proc_unregister);
  
- 	if (sk->sk_state == TCP_TIME_WAIT)
- 		inet_twsk_free(inet_twsk(sk));
-+	else if (sk->sk_state == TCP_NEW_SYN_RECV)
-+		reqsk_free(inet_reqsk(sk));
- 	else
- 		sk_free(sk);
+-static void get_openreq4(const struct sock *sk, const struct request_sock *req,
++static void get_openreq4(const struct request_sock *req,
+ 			 struct seq_file *f, int i, kuid_t uid)
+ {
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+@@ -2214,7 +2214,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
+ 		" %02X %08X:%08X %02X:%08lX %08X %5u %8d %u %d %pK",
+ 		i,
+ 		ireq->ir_loc_addr,
+-		ntohs(inet_sk(sk)->inet_sport),
++		ireq->ir_num,
+ 		ireq->ir_rmt_addr,
+ 		ntohs(ireq->ir_rmt_port),
+ 		TCP_SYN_RECV,
+@@ -2225,7 +2225,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
+ 		from_kuid_munged(seq_user_ns(f), uid),
+ 		0,  /* non standard timer */
+ 		0, /* open_requests have no inode */
+-		atomic_read(&sk->sk_refcnt),
++		0,
+ 		req);
  }
+ 
+@@ -2332,7 +2332,7 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
+ 			get_tcp4_sock(v, seq, st->num);
+ 		break;
+ 	case TCP_SEQ_STATE_OPENREQ:
+-		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid);
++		get_openreq4(v, seq, st->num, st->uid);
+ 		break;
+ 	}
+ out:
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5d46832c6f72..1ccfede7d55f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1689,7 +1689,7 @@ static void tcp_v6_destroy_sock(struct sock *sk)
+ #ifdef CONFIG_PROC_FS
+ /* Proc filesystem TCPv6 sock list dumping. */
+ static void get_openreq6(struct seq_file *seq,
+-			 const struct sock *sk, struct request_sock *req, int i, kuid_t uid)
++			 struct request_sock *req, int i, kuid_t uid)
+ {
+ 	int ttd = req->expires - jiffies;
+ 	const struct in6_addr *src = &inet_rsk(req)->ir_v6_loc_addr;
+@@ -1827,7 +1827,7 @@ static int tcp6_seq_show(struct seq_file *seq, void *v)
+ 			get_tcp6_sock(seq, v, st->num);
+ 		break;
+ 	case TCP_SEQ_STATE_OPENREQ:
+-		get_openreq6(seq, st->syn_wait_sk, v, st->num, st->uid);
++		get_openreq6(seq, v, st->num, st->uid);
+ 		break;
+ 	}
+ out:
 -- 
 2.2.0.rc0.207.ga3a616c
