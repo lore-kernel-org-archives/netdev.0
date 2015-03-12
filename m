@@ -1,36 +1,30 @@
-From: Wang YanQing <udknight@gmail.com>
-Subject: [PATCH] net:Kconfig: drop no sense dependence entry for BONDING
-Date: Thu, 12 Mar 2015 21:59:33 +0800
-Message-ID: <20150312135933.GA3502@udknight>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/4] rhashtable: Move masking back into key_hashfn
+Date: Thu, 12 Mar 2015 14:02:33 +0000
+Message-ID: <20150312140233.GA4001@casper.infradead.org>
+References: <20150312034923.GA14415@gondor.apana.org.au>
+ <E1YVu7u-0003lJ-1J@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-kbuild@vger.kernel.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:50245 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754193AbbCLOCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 10:02:34 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <E1YVu7u-0003lJ-1J@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"IPV6 || IPV6=n" means no dependence!
+On 03/12/15 at 02:49pm, Herbert Xu wrote:
+> This patch reverts commit c88455ce50ae4224d84960ce2baa53e61580df27
+> ("rhashtable: key_hashfn() must return full hash value") because
+> the only user of it always masks the hash value.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Signed-off-by: Wang YanQing <udknight@gmail.com>
----
- drivers/net/Kconfig | 1 -
- 1 file changed, 1 deletion(-)
+Need for this is gone with new rehashing.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index df51d60..37b364f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -40,7 +40,6 @@ if NET_CORE
- config BONDING
- 	tristate "Bonding driver support"
- 	depends on INET
--	depends on IPV6 || IPV6=n
- 	---help---
- 	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
- 	  Channels together. This is called 'Etherchannel' by Cisco,
--- 
-2.2.2.dirty
+Acked-by: Thomas Graf <tgraf@suug.ch>
