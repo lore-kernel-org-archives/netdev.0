@@ -1,28 +1,36 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/3] EEE support for mv88e6172
-Date: Thu, 12 Mar 2015 14:48:04 +0100
-Message-ID: <20150312134804.GA7311@lunn.ch>
-References: <1426025160-13992-1-git-send-email-andrew@lunn.ch>
- <20150311.165931.2141833376642325076.davem@davemloft.net>
- <55015248.9090103@roeck-us.net>
- <20150312121416.GF14112@lunn.ch>
- <5501978B.10308@roeck-us.net>
+From: Wang YanQing <udknight@gmail.com>
+Subject: [PATCH] net:Kconfig: drop no sense dependence entry for BONDING
+Date: Thu, 12 Mar 2015 21:59:33 +0800
+Message-ID: <20150312135933.GA3502@udknight>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58607 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754149AbbCLNv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2015 09:51:29 -0400
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-kbuild@vger.kernel.org, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5501978B.10308@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Did you have time to test the bridging code ?
+"IPV6 || IPV6=n" means no dependence!
 
-Yes, i plan to play with it later today or tomorrow.
+Signed-off-by: Wang YanQing <udknight@gmail.com>
+---
+ drivers/net/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
 
-     Andrew
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index df51d60..37b364f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -40,7 +40,6 @@ if NET_CORE
+ config BONDING
+ 	tristate "Bonding driver support"
+ 	depends on INET
+-	depends on IPV6 || IPV6=n
+ 	---help---
+ 	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
+ 	  Channels together. This is called 'Etherchannel' by Cisco,
+-- 
+2.2.2.dirty
