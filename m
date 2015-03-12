@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add real socket cookies
-Date: Wed, 11 Mar 2015 21:21:12 -0400 (EDT)
-Message-ID: <20150311.212112.908171202958424986.davem@davemloft.net>
-References: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150311.175345.836846566788322568.davem@davemloft.net>
-	<1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [net-next PATCH] fib_trie: Only display main table in
+ /proc/net/route
+Date: Wed, 11 Mar 2015 21:22:28 -0400 (EDT)
+Message-ID: <20150311.212228.1581184934531828534.davem@davemloft.net>
+References: <20150311233536.1696.1657.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, salo@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54469 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54482 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbbCLBVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:21:14 -0400
-In-Reply-To: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751644AbbCLBWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:22:30 -0400
+In-Reply-To: <20150311233536.1696.1657.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 11 Mar 2015 15:30:35 -0700
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Wed, 11 Mar 2015 16:36:08 -0700
 
-> Note that sk_clone_lock() really does the clear for us :
+> When we merged the tries for local and main I had overlooked the iterator
+> for /proc/net/route.  As a result it was outputting both local and main
+> when the two tries were merged.
 > 
-> net/core/sock.c:1541:		atomic64_set(&newsk->sk_cookie, 0);
+> This patch resolves that by only providing output for aliases that are
+> actually in the main trie.  As a result we should go back to the original
+> behavior which I assume will be necessary to maintain legacy support.
 > 
-> atomic_cmpxchg() is needed here in case a concurrent dumper already
-> caught the new socket.
+> Fixes: 0ddcf43d5 ("ipv4: FIB Local/MAIN table collapse")
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-How is newsk visible at this moment?
+Applied, thanks Alex.
 
-It is freshly allocated, and not present in any tables.  Nothing even
-indirectly links to it at this point.
-
-Visibility only happens after we return from this function, in
-routines such as tcp_v4_syn_recv_sock() which do the hash table
-insertion.
+Please don't put empty lines between Fixes: tags and the signoffs
+and acks, they belong together.
