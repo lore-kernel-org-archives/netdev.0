@@ -1,157 +1,105 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V2 2/3 net-next] Drivers: hv: vmbus: Fix a bug in the
- signalling logic with kick_q
-Date: Thu, 12 Mar 2015 04:49:33 +0000
-Message-ID: <BY2PR0301MB0711C895BC9A8AB83B7A0789A0060@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1426100635-9508-1-git-send-email-kys@microsoft.com>
- <1426100660-9547-1-git-send-email-kys@microsoft.com>
- <1426100660-9547-2-git-send-email-kys@microsoft.com>
- <1426129662.12154.2@smtp.corp.redhat.com>
- <BY2PR0301MB07112F975DF45C35BAD926B7A0060@BY2PR0301MB0711.namprd03.prod.outlook.com>
+From: John <jw@nuclearfallout.net>
+Subject: Re: [PATCH net] xps: must clear sender_cpu before forwarding
+Date: Wed, 11 Mar 2015 22:21:32 -0700
+Message-ID: <5501225C.7040205@nuclearfallout.net>
+References: <5500E52C.7080603@nuclearfallout.net>	 <CANn89iLHkYc2Kay7z+v=tHMW5aYSqUf8V4f70Z-d5fUuuUXnpw@mail.gmail.com> <1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: KY Srinivasan <kys@microsoft.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BY2PR0301MB07112F975DF45C35BAD926B7A0060@BY2PR0301MB0711.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.nuclearfallout.net ([208.146.45.251]:56088 "EHLO
+	mail.nuclearfallout.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909AbbCLFaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 01:30:39 -0400
+In-Reply-To: <1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Thanks, Eric. I will test again tomorrow.
 
+-John
 
-> -----Original Message-----
-> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On
-> Behalf Of KY Srinivasan
-> Sent: Wednesday, March 11, 2015 8:32 PM
-> To: Jason Wang
-> Cc: olaf@aepfle.de; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> gregkh@linuxfoundation.org; apw@canonical.com;
-> devel@linuxdriverproject.org; davem@davemloft.net
-> Subject: RE: [PATCH V2 2/3 net-next] Drivers: hv: vmbus: Fix a bug in the
-> signalling logic with kick_q
-> 
-> 
-> 
-> > -----Original Message-----
-> > From: Jason Wang [mailto:jasowang@redhat.com]
-> > Sent: Wednesday, March 11, 2015 8:08 PM
-> > To: KY Srinivasan
-> > Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> > kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> > apw@canonical.com; gregkh@linuxfoundation.org; KY Srinivasan
-> > Subject: Re: [PATCH V2 2/3 net-next] Drivers: hv: vmbus: Fix a bug in
-> > the signalling logic with kick_q
-> >
-> >
-> >
-> > On Thu, Mar 12, 2015 at 3:04 AM, K. Y. Srinivasan <kys@microsoft.com>
-> > wrote:
-> > > When the caller specifies that signalling should be deferred, we
-> > > need to address the case where we are not able to place the current
-> > > packet because the buffer is full. In this case, we will signal the
-> > > host as some packets may have been placed on the ring buffer.
-> > > I would like to thank Jason Wang <jasowang@redhat.com> for pointing
-> > > out this issue.
-> > >
-> > > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > > ---
-> > >  drivers/hv/channel.c |   32 ++++++++++++++++++++++++++++++++
-> > >  1 files changed, 32 insertions(+), 0 deletions(-)
-> > >
-> > > diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c index
-> > > e58cdb7..ae06ba9 100644
-> > > --- a/drivers/hv/channel.c
-> > > +++ b/drivers/hv/channel.c
-> > > @@ -614,8 +614,24 @@ int vmbus_sendpacket_ctl(struct
-> vmbus_channel
-> > > *channel, void *buffer,
-> > >
-> > >  	ret = hv_ringbuffer_write(&channel->outbound, bufferlist, 3,
-> > > &signal);
-> > >
-> > > +	/*
-> > > +	 * Here is the logic for signalling the host:
-> > > +	 * 1. If the host is already draining the ringbuffer,
-> > > +	 *    don't signal. This is indicated by the parameter
-> > > +	 *    "signal".
-> > > +	 *
-> > > +	 * 2. If we are not able to write, signal if kick_q is false.
-> > > +	 *    kick_q being false indicates that we may have placed zero or
-> > > +	 *    more packets with more packets to come. We will signal in
-> > > +	 *    this case even if potentially we may have not placed any
-> > > +	 *    packet. This is a rare enough condition that it should not
-> > > +	 *    matter.
-> > > +	 */
-> > > +
-> > >  	if ((ret == 0) && kick_q && signal)
-> > >  		vmbus_setevent(channel);
-> > > +	else if ((ret != 0) && !kick_q)
-> > > +		vmbus_setevent(channel);
-> > >
-> > >  	return ret;
-> > >  }
-> > > @@ -705,8 +721,24 @@ int vmbus_sendpacket_pagebuffer_ctl(struct
-> > > vmbus_channel *channel,
-> > >
-> > >  	ret = hv_ringbuffer_write(&channel->outbound, bufferlist, 3,
-> > > &signal);
-> > >
-> > > +	/*
-> > > +	 * Here is the logic for signalling the host:
-> > > +	 * 1. If the host is already draining the ringbuffer,
-> > > +	 *    don't signal. This is indicated by the parameter
-> > > +	 *    "signal".
-> > > +	 *
-> > > +	 * 2. If we are not able to write, signal if kick_q is false.
-> > > +	 *    kick_q being false indicates that we may have placed zero or
-> > > +	 *    more packets with more packets to come. We will signal in
-> > > +	 *    this case even if potentially we may have not placed any
-> > > +	 *    packet. This is a rare enough condition that it should not
-> > > +	 *    matter.
-> > > +	 */
-> > > +
-> > >  	if ((ret == 0) && kick_q && signal)
-> > >  		vmbus_setevent(channel);
-> > > +	else if ((ret != 0) && !kick_q)
-> > > +		vmbus_setevent(channel);
-> > >
-> > >  	return ret;
-> > >  }
-> > > --
-> >
-> > Looks like we need to kick unconditionally here. Consider we may get -
-> > EAGAIN when we want to send the last skb (kick_q is true) from the
-> > list. We need kick host in this case.
-> >
-> > Btw, another method is let the driver to decide e.g exporting the
-> > vmbus_setevent() and call it in netvsc_start_xmit().
-> 
-> There is other state that governs if the host needs to be signaled and I don't
-> think we want to expose that to netvsc. In any case, netvsc will have to signal
-> the host when EGAIN is received.
-> We might as well do it in the vmbus driver.
-> 
-> Thank you Jason, I will respin and resubmit the series.
-
-Looks like there may be a way to make the signaling more precise even in this case.
-I am going to experiment with it.
-
-K. Y
-> 
-> K. Y
-> >
-> >
-> >
-> 
-> _______________________________________________
-> devel mailing list
-> devel@linuxdriverproject.org
-> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+On 3/11/2015 6:42 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> John reported that my previous commit added a regression
+> on his router.
+>
+> This is because sender_cpu & napi_id share a common location,
+> so get_xps_queue() can see garbage and perform an out of bound access.
+>
+> We need to make sure sender_cpu is cleared before doing the transmit,
+> otherwise any NIC busy poll enabled (skb_mark_napi_id()) can trigger
+> this bug.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: John <jw@nuclearfallout.net>
+> Bisected-by: John <jw@nuclearfallout.net>
+> Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
+> ---
+>   include/linux/skbuff.h |    7 +++++++
+>   net/core/skbuff.c      |    2 +-
+>   net/ipv4/ip_forward.c  |    1 +
+>   net/ipv6/ip6_output.c  |    1 +
+>   4 files changed, 10 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 30007afe70b3..f54d6659713a 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -948,6 +948,13 @@ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
+>   	to->l4_hash = from->l4_hash;
+>   };
+>   
+> +static inline void skb_sender_cpu_clear(struct sk_buff *skb)
+> +{
+> +#ifdef CONFIG_XPS
+> +	skb->sender_cpu = 0;
+> +#endif
+> +}
+> +
+>   #ifdef NET_SKBUFF_DATA_USES_OFFSET
+>   static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
+>   {
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index f80507823531..434e78e5254d 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -4173,7 +4173,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
+>   	skb->ignore_df = 0;
+>   	skb_dst_drop(skb);
+>   	skb->mark = 0;
+> -	skb->sender_cpu = 0;
+> +	skb_sender_cpu_clear(skb);
+>   	skb_init_secmark(skb);
+>   	secpath_reset(skb);
+>   	nf_reset(skb);
+> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+> index 787b3c294ce6..d9bc28ac5d1b 100644
+> --- a/net/ipv4/ip_forward.c
+> +++ b/net/ipv4/ip_forward.c
+> @@ -67,6 +67,7 @@ static int ip_forward_finish(struct sk_buff *skb)
+>   	if (unlikely(opt->optlen))
+>   		ip_forward_options(skb);
+>   
+> +	skb_sender_cpu_clear(skb);
+>   	return dst_output(skb);
+>   }
+>   
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 0a04a37305d5..7e80b61b51ff 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -318,6 +318,7 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
+>   
+>   static inline int ip6_forward_finish(struct sk_buff *skb)
+>   {
+> +	skb_sender_cpu_clear(skb);
+>   	return dst_output(skb);
+>   }
+>   
+>
+>
