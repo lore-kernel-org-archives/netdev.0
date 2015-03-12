@@ -1,128 +1,116 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 4/7] net: add req_prot_cleanup() & req_prot_init() helpers
-Date: Thu, 12 Mar 2015 14:50:13 -0700
-Message-ID: <1426197016-14482-5-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 6/7] inet: get_openreq4() & get_openreq6() do not need listener
+Date: Thu, 12 Mar 2015 14:50:15 -0700
+Message-ID: <1426197016-14482-7-git-send-email-edumazet@google.com>
 References: <1426197016-14482-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:33841 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755071AbbCLVu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 17:50:59 -0400
-Received: by padet14 with SMTP id et14so5565842pad.1
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 14:50:59 -0700 (PDT)
+Received: from mail-yk0-f201.google.com ([209.85.160.201]:34137 "EHLO
+	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932158AbbCLVvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 17:51:19 -0400
+Received: by ykq142 with SMTP id 142so3115793ykq.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 14:51:18 -0700 (PDT)
 In-Reply-To: <1426197016-14482-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make proto_register() & proto_unregister() a bit nicer.
+ireq->ir_num contains local port, use it.
+
+Also, get_openreq4() dumping listen_sk->refcnt makes litle sense.
+
+inet_diag_fill_req() can also use ireq->ir_num
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/core/sock.c | 69 ++++++++++++++++++++++++++++++++++-----------------------
- 1 file changed, 41 insertions(+), 28 deletions(-)
+ net/ipv4/inet_diag.c | 3 +--
+ net/ipv4/tcp_ipv4.c  | 8 ++++----
+ net/ipv6/tcp_ipv6.c  | 4 ++--
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index c8842f279f7a..63d871a91b5c 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2726,6 +2726,42 @@ static inline void release_proto_idx(struct proto *prot)
- }
- #endif
- 
-+static void req_prot_cleanup(struct request_sock_ops *rsk_prot)
-+{
-+	if (!rsk_prot)
-+		return;
-+	kfree(rsk_prot->slab_name);
-+	rsk_prot->slab_name = NULL;
-+	if (rsk_prot->slab) {
-+		kmem_cache_destroy(rsk_prot->slab);
-+		rsk_prot->slab = NULL;
-+	}
-+}
-+
-+static int req_prot_init(const struct proto *prot)
-+{
-+	struct request_sock_ops *rsk_prot = prot->rsk_prot;
-+
-+	if (!rsk_prot)
-+		return 0;
-+
-+	rsk_prot->slab_name = kasprintf(GFP_KERNEL, "request_sock_%s",
-+					prot->name);
-+	if (!rsk_prot->slab_name)
-+		return -ENOMEM;
-+
-+	rsk_prot->slab = kmem_cache_create(rsk_prot->slab_name,
-+					   rsk_prot->obj_size, 0,
-+					   SLAB_HWCACHE_ALIGN, NULL);
-+
-+	if (!rsk_prot->slab) {
-+		pr_crit("%s: Can't create request sock SLAB cache!\n",
-+			prot->name);
-+		return -ENOMEM;
-+	}
-+	return 0;
-+}
-+
- int proto_register(struct proto *prot, int alloc_slab)
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 29317ff4a007..c55a6fa3162d 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -718,7 +718,6 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 			      const struct nlmsghdr *unlh)
  {
- 	if (alloc_slab) {
-@@ -2739,21 +2775,8 @@ int proto_register(struct proto *prot, int alloc_slab)
- 			goto out;
- 		}
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+-	struct inet_sock *inet = inet_sk(sk);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr *nlh;
+ 	long tmo;
+@@ -744,7 +743,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 	if (tmo < 0)
+ 		tmo = 0;
  
--		if (prot->rsk_prot != NULL) {
--			prot->rsk_prot->slab_name = kasprintf(GFP_KERNEL, "request_sock_%s", prot->name);
--			if (prot->rsk_prot->slab_name == NULL)
--				goto out_free_sock_slab;
--
--			prot->rsk_prot->slab = kmem_cache_create(prot->rsk_prot->slab_name,
--								 prot->rsk_prot->obj_size, 0,
--								 SLAB_HWCACHE_ALIGN, NULL);
--
--			if (prot->rsk_prot->slab == NULL) {
--				pr_crit("%s: Can't create request sock SLAB cache!\n",
--					prot->name);
--				goto out_free_request_sock_slab_name;
--			}
--		}
-+		if (req_prot_init(prot))
-+			goto out_free_request_sock_slab;
+-	r->id.idiag_sport = inet->inet_sport;
++	r->id.idiag_sport = htons(ireq->ir_num);
+ 	r->id.idiag_dport = ireq->ir_rmt_port;
  
- 		if (prot->twsk_prot != NULL) {
- 			prot->twsk_prot->twsk_slab_name = kasprintf(GFP_KERNEL, "tw_sock_%s", prot->name);
-@@ -2782,14 +2805,8 @@ int proto_register(struct proto *prot, int alloc_slab)
- out_free_timewait_sock_slab_name:
- 	kfree(prot->twsk_prot->twsk_slab_name);
- out_free_request_sock_slab:
--	if (prot->rsk_prot && prot->rsk_prot->slab) {
--		kmem_cache_destroy(prot->rsk_prot->slab);
--		prot->rsk_prot->slab = NULL;
--	}
--out_free_request_sock_slab_name:
--	if (prot->rsk_prot)
--		kfree(prot->rsk_prot->slab_name);
--out_free_sock_slab:
-+	req_prot_cleanup(prot->rsk_prot);
-+
- 	kmem_cache_destroy(prot->slab);
- 	prot->slab = NULL;
- out:
-@@ -2809,11 +2826,7 @@ void proto_unregister(struct proto *prot)
- 		prot->slab = NULL;
+ 	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index f0c6fc32bfa8..70b0f701bbdb 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2204,7 +2204,7 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
+ }
+ EXPORT_SYMBOL(tcp_proc_unregister);
+ 
+-static void get_openreq4(const struct sock *sk, const struct request_sock *req,
++static void get_openreq4(const struct request_sock *req,
+ 			 struct seq_file *f, int i, kuid_t uid)
+ {
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+@@ -2214,7 +2214,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
+ 		" %02X %08X:%08X %02X:%08lX %08X %5u %8d %u %d %pK",
+ 		i,
+ 		ireq->ir_loc_addr,
+-		ntohs(inet_sk(sk)->inet_sport),
++		ireq->ir_num,
+ 		ireq->ir_rmt_addr,
+ 		ntohs(ireq->ir_rmt_port),
+ 		TCP_SYN_RECV,
+@@ -2225,7 +2225,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
+ 		from_kuid_munged(seq_user_ns(f), uid),
+ 		0,  /* non standard timer */
+ 		0, /* open_requests have no inode */
+-		atomic_read(&sk->sk_refcnt),
++		0,
+ 		req);
+ }
+ 
+@@ -2332,7 +2332,7 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
+ 			get_tcp4_sock(v, seq, st->num);
+ 		break;
+ 	case TCP_SEQ_STATE_OPENREQ:
+-		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid);
++		get_openreq4(v, seq, st->num, st->uid);
+ 		break;
  	}
- 
--	if (prot->rsk_prot != NULL && prot->rsk_prot->slab != NULL) {
--		kmem_cache_destroy(prot->rsk_prot->slab);
--		kfree(prot->rsk_prot->slab_name);
--		prot->rsk_prot->slab = NULL;
--	}
-+	req_prot_cleanup(prot->rsk_prot);
- 
- 	if (prot->twsk_prot != NULL && prot->twsk_prot->twsk_slab != NULL) {
- 		kmem_cache_destroy(prot->twsk_prot->twsk_slab);
+ out:
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5d46832c6f72..1ccfede7d55f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1689,7 +1689,7 @@ static void tcp_v6_destroy_sock(struct sock *sk)
+ #ifdef CONFIG_PROC_FS
+ /* Proc filesystem TCPv6 sock list dumping. */
+ static void get_openreq6(struct seq_file *seq,
+-			 const struct sock *sk, struct request_sock *req, int i, kuid_t uid)
++			 struct request_sock *req, int i, kuid_t uid)
+ {
+ 	int ttd = req->expires - jiffies;
+ 	const struct in6_addr *src = &inet_rsk(req)->ir_v6_loc_addr;
+@@ -1827,7 +1827,7 @@ static int tcp6_seq_show(struct seq_file *seq, void *v)
+ 			get_tcp6_sock(seq, v, st->num);
+ 		break;
+ 	case TCP_SEQ_STATE_OPENREQ:
+-		get_openreq6(seq, st->syn_wait_sk, v, st->num, st->uid);
++		get_openreq6(seq, v, st->num, st->uid);
+ 		break;
+ 	}
+ out:
 -- 
 2.2.0.rc0.207.ga3a616c
