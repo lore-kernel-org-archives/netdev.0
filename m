@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Thu, 12 Mar 2015 14:26:21 -0400 (EDT)
-Message-ID: <20150312.142621.1128728353472907283.davem@davemloft.net>
-References: <1426107673-45049-1-git-send-email-netdev@emagii.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2 nf-next 3/6] netfilter: bridge: use skb->cb to track
+ otherhost mangling
+Date: Thu, 12 Mar 2015 19:31:13 +0100
+Message-ID: <20150312183113.GA12169@breakpoint.cc>
+References: <1426179925-18220-1-git-send-email-fw@strlen.de>
+ <1426179925-18220-4-git-send-email-fw@strlen.de>
+ <5501D498.4050003@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: netdev@emagii.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38288 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752970AbbCLS0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:26:23 -0400
-In-Reply-To: <1426107673-45049-1-git-send-email-netdev@emagii.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Eyal Birger <eyal.birger@gmail.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5501D498.4050003@hartkopp.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+> On 03/12/2015 06:05 PM, Florian Westphal wrote:
+> > nf_bridge_info->mask is used for several things, for example to remember
+> > if skb->pkt_type was set to OTHER_HOST.
+> > 
+> > For a bridge, OTHER_HOST is expected case. For ip forward its a
+> > non-starter though -- routing expects PACKET_HOST.
+> > 
+> > Bridge netfilter thus changes OTHER_HOST to PACKET_HOST
+> > before hook invocation and then un-does it after hook traversal.
+> > 
+> > For this, cb[] can be used since the skb will never be used outside
+> > (fake inet) bridge forwarding while in 'fake PACKET_HOST' state.
+> > 
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> > ---
+> >  include/linux/netfilter_bridge.h |  1 -
+> >  net/bridge/br_netfilter.c        | 71 ++++++++++++++++++++++++++--------------
+> 
+> 
+> > @@ -1104,6 +1125,8 @@ static int __init br_netfilter_init(void)
+> >  {
+> >  	int ret;
+> >  
+> > +	BUILD_BUG_ON(sizeof(struct nf_bridge_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
+> > +
+> 
+> Please use sock_skb_cb_check_size(size) for cb size checking which is the
+> 'new' check for cb sizes for netdev.
 
-I hate changes like this.
-
-By making this a Kconfig options it cannot be dynamic, and every
-distribution is going to have to scratch their head and decide
-what to set this to.
-
-That's seriously suboptimal.
-
-If you want to change behavior based upon whether userspace is
-managing the damn table, make it so the user doing so has to
-ask for the new behavior at _RUN TIME_ via the netlink interface
-or similar.
-
-Picking the guard time itself at compile time is also undesirable.
-
-And you don't even want a damn timer, what you want is for the
-state of the entry to be frozen and for the user to "release"
-it by either adjusting the state to something else or marking
-in some other way to allow it to be unfrozen and released again.
-
-Why put it to chance with some timeout?  Make things explicit.
-
-I'm not applying this patch.
+I can do this for conistency, but its technically not needed here.
