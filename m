@@ -1,79 +1,74 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/4] rhashtable: Use head_hashfn instead of obj_raw_hashfn
-Date: Thu, 12 Mar 2015 14:49:39 +1100
-Message-ID: <E1YVu7v-0003lg-9c@gondolin.me.apana.org.au>
+Subject: [PATCH 4/4] rhashtable: Remove obj_raw_hashfn
+Date: Thu, 12 Mar 2015 14:49:41 +1100
+Message-ID: <E1YVu7x-0003mE-G7@gondolin.me.apana.org.au>
 References: <20150312034923.GA14415@gondor.apana.org.au>
 To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:56795 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:53947 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361AbbCLDtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:49:42 -0400
+	with ESMTP id S1751107AbbCLDtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:49:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we don't have cross-table hashes, we no longer need to
-keep the entire hash value so all users of obj_raw_hashfn can
-use head_hashfn instead.
+Now that the only caller of obj_raw_hashfn is head_hashfn, we can
+simply kill it and fold it into the latter.
+
+This patch also moves the common shift from head_hashfn/key_hashfn
+into rht_bucket_index.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- lib/rhashtable.c |   12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+ lib/rhashtable.c |   25 +++++++------------------
+ 1 file changed, 7 insertions(+), 18 deletions(-)
 
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ff9cc33..03fdaf8 100644
+index 838cccc..6ffc793 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -403,7 +403,7 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 	rcu_read_lock();
+@@ -63,36 +63,25 @@ static void *rht_obj(const struct rhashtable *ht, const struct rhash_head *he)
  
- 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	hash = obj_raw_hashfn(ht, old_tbl, rht_obj(ht, obj));
-+	hash = head_hashfn(ht, old_tbl, obj);
+ static u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
+ {
+-	return hash & (tbl->size - 1);
+-}
+-
+-static u32 obj_raw_hashfn(struct rhashtable *ht,
+-			  const struct bucket_table *tbl, const void *ptr)
+-{
+-	u32 hash;
+-
+-	if (unlikely(!ht->p.key_len))
+-		hash = ht->p.obj_hashfn(ptr, tbl->hash_rnd);
+-	else
+-		hash = ht->p.hashfn(ptr + ht->p.key_offset, ht->p.key_len,
+-				    tbl->hash_rnd);
+-
+-	return hash >> HASH_RESERVED_SPACE;
++	return (hash >> HASH_RESERVED_SPACE) & (tbl->size - 1);
+ }
  
- 	spin_lock_bh(bucket_lock(old_tbl, hash));
+ static u32 key_hashfn(struct rhashtable *ht, const struct bucket_table *tbl,
+ 		      const void *key)
+ {
+ 	return rht_bucket_index(tbl, ht->p.hashfn(key, ht->p.key_len,
+-						  tbl->hash_rnd) >>
+-				     HASH_RESERVED_SPACE);
++						  tbl->hash_rnd));
+ }
  
-@@ -415,7 +415,7 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 	 */
- 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
- 	if (tbl != old_tbl) {
--		hash = obj_raw_hashfn(ht, tbl, rht_obj(ht, obj));
-+		hash = head_hashfn(ht, tbl, obj);
- 		spin_lock_nested(bucket_lock(tbl, hash), RHT_LOCK_NESTED);
- 	}
+ static u32 head_hashfn(struct rhashtable *ht,
+ 		       const struct bucket_table *tbl,
+ 		       const struct rhash_head *he)
+ {
+-	return rht_bucket_index(tbl, obj_raw_hashfn(ht, tbl, rht_obj(ht, he)));
++	const char *ptr = rht_obj(ht, he);
++
++	return likely(ht->p.key_len) ?
++	       key_hashfn(ht, tbl, ptr + ht->p.key_offset) :
++	       rht_bucket_index(tbl, ht->p.obj_hashfn(ptr, tbl->hash_rnd));
+ }
  
-@@ -428,7 +428,6 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 
- 	no_resize_running = tbl == old_tbl;
- 
--	hash = rht_bucket_index(tbl, hash);
- 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
- 
- 	if (rht_is_a_nulls(head))
-@@ -444,11 +443,11 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 
- exit:
- 	if (tbl != old_tbl) {
--		hash = obj_raw_hashfn(ht, tbl, rht_obj(ht, obj));
-+		hash = head_hashfn(ht, tbl, obj);
- 		spin_unlock(bucket_lock(tbl, hash));
- 	}
- 
--	hash = obj_raw_hashfn(ht, old_tbl, rht_obj(ht, obj));
-+	hash = head_hashfn(ht, old_tbl, obj);
- 	spin_unlock_bh(bucket_lock(old_tbl, hash));
- 
- 	rcu_read_unlock();
-@@ -487,9 +486,8 @@ static bool __rhashtable_remove(struct rhashtable *ht,
- 	unsigned hash;
- 	bool ret = false;
- 
--	hash = obj_raw_hashfn(ht, tbl, rht_obj(ht, obj));
-+	hash = head_hashfn(ht, tbl, obj);
- 	lock = bucket_lock(tbl, hash);
--	hash = rht_bucket_index(tbl, hash);
- 
- 	spin_lock_bh(lock);
- 
+ #ifdef CONFIG_PROVE_LOCKING
