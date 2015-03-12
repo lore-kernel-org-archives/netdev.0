@@ -1,31 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] net: add real socket cookies
-Date: Wed, 11 Mar 2015 19:23:32 -0700
-Message-ID: <1426127012.11398.132.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1426114608.11398.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1426125194.11398.131.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150311.215553.1544350193194225837.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] mm: kill kmemcheck
+Date: Thu, 12 Mar 2015 11:27:57 +1030
+Message-ID: <87egovxca2.fsf@rustcorp.com.au>
+References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, salo@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:35486 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbbCLCXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 22:23:35 -0400
-Received: by ieclw3 with SMTP id lw3so10028350iec.2
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 19:23:34 -0700 (PDT)
-In-Reply-To: <20150311.215553.1544350193194225837.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: , Vladimir Davydov <vdavydov@parallels.com>,
+	Sam Ravnborg <sam@rav>, Geert Uytterhoeven <geert+renesas@glider.be>,
+	"open list:SUPERH" <linux-sh@vger.kernel.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>, Jianyu Zhan <nasa4836@gmail.com>,
+	Paul Mackerras <paulus@samba.org>, Pavel Machek <pavel@ucw.cz>,
+	Miklos Szeredi <mszeredi@suse.cz>, Christoph Lameter <cl@linux.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	"open list:GENERIC INCLUDE/A..." <linux-arch@vger.kernel.org>,
+	Andi Kleen <ak@linux.intel.com>,
+	Russell King <linux@arm.linux.org.uk>, Kukjin Kim <kgene@kernel.org>,
+	Jingoo Han <jg1.han@samsung.com>, James Morris <jmorris@namei.org>,
+	Chris Bainbridge <chris.bainbridge@gmail.com>,
+	Antti Palosaari <crope@iki.fi>, Mel Gorman <mgorman@suse.de>,
+	Ritesh Harjani <ritesh.harjani@gmail.com>,
+	Shaohua Li <shli@kernel.org>,
+	Alexander Du
+To: Sasha Levin <sasha.levin@oracle.com>, linux-kernel@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-03-11 at 21:55 -0400, David Miller wrote:
-
-> Oh, even better, I'll push this one actually.
-> 
-> Thanks!
-
-Perfect, thanks David.
+U2FzaGEgTGV2aW4gPHNhc2hhLmxldmluQG9yYWNsZS5jb20+IHdyaXRlczoKPiBBcyBkaXNjdXNz
+ZWQgb24gTFNGL01NLCBraWxsIGttZW1jaGVjay4KCkRhbW46IEkgbGl0ZXJhbGx5IGFkZGVkIENP
+TkZJR19LTUVNQ0hFQ0sgc3VwcG9ydCB0byB2aXJ0aW8geWVzdGVyZGF5IQoKV2lsbCB0cnkgS2Fz
+YW4gbm93LgoKVGhhbmtzIGZvciB0aGUgaGVhZHMtdXAsClJ1c3R5LgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0
+CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9s
+aXN0aW5mby9saW51eHBwYy1kZXY=
