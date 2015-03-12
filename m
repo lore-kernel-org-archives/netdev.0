@@ -1,65 +1,42 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: [PATCH 02/22] netfilter: %pF is only for function pointers
-Date: Wed, 11 Mar 2015 22:13:37 -0500
-Message-ID: <1426130037-17956-2-git-send-email-scottwood@freescale.com>
-References: <1426130037-17956-1-git-send-email-scottwood@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: add real socket cookies
+Date: Wed, 11 Mar 2015 20:21:16 -0700
+Message-ID: <1426130476.11398.137.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426114608.11398.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426125194.11398.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.215553.1544350193194225837.davem@davemloft.net>
+	 <1426128863.11398.135.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Scott Wood <scottwood@freescale.com>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>, <lvs-devel@vger.kernel.org>
-To: <trivial@kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1426130037-17956-1-git-send-email-scottwood@freescale.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, salo@google.com,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:35089 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbbCLDVS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:21:18 -0400
+Received: by ieclw3 with SMTP id lw3so12643196iec.2
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 20:21:17 -0700 (PDT)
+In-Reply-To: <1426128863.11398.135.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use %pS for actual addresses, otherwise you'll get bad output
-on arches like ppc64 where %pF expects a function descriptor.
+On Wed, 2015-03-11 at 19:54 -0700, Eric Dumazet wrote:
+> On Wed, 2015-03-11 at 21:55 -0400, David Miller wrote:
+> 
+> > Oh, even better, I'll push this one actually.
+> > 
+> 
+> I'll send an update, because I broke the build when CONFIG_NET_NS=n
+> 
+> Or maybe we should adapt/push Eric patch 2/8 (net: Introduce
+> possible_net_t)
+> 
+> Eric, do you mind if I respin your patch, or do you prefer to do this
+> yourself ?
 
-Signed-off-by: Scott Wood <scottwood@freescale.com>
-Cc: netdev@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org
-Cc: lvs-devel@vger.kernel.org
----
- net/netfilter/ipvs/ip_vs_conn.c | 2 +-
- net/netfilter/ipvs/ip_vs_ctl.c  | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index b0f7b62..f9f3c3d 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -184,7 +184,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
- 		hlist_add_head_rcu(&cp->c_list, &ip_vs_conn_tab[hash]);
- 		ret = 1;
- 	} else {
--		pr_err("%s(): request for already hashed, called from %pF\n",
-+		pr_err("%s(): request for already hashed, called from %pS\n",
- 		       __func__, __builtin_return_address(0));
- 		ret = 0;
- 	}
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index ed99448..bd1ef52 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -300,7 +300,7 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
- 	unsigned int hash;
- 
- 	if (svc->flags & IP_VS_SVC_F_HASHED) {
--		pr_err("%s(): request for already hashed, called from %pF\n",
-+		pr_err("%s(): request for already hashed, called from %pS\n",
- 		       __func__, __builtin_return_address(0));
- 		return 0;
- 	}
-@@ -334,7 +334,7 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
- static int ip_vs_svc_unhash(struct ip_vs_service *svc)
- {
- 	if (!(svc->flags & IP_VS_SVC_F_HASHED)) {
--		pr_err("%s(): request for unhash flagged, called from %pF\n",
-+		pr_err("%s(): request for unhash flagged, called from %pS\n",
- 		       __func__, __builtin_return_address(0));
- 		return 0;
- 	}
--- 
-2.1.0
-
+Hmm.. no hurry, I'll send a small fix in a few minutes, I simply have to
+use write_pnet() on few places.
