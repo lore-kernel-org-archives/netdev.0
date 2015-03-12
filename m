@@ -1,69 +1,93 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v6 tip 2/8] tracing: attach BPF programs to kprobes
-Date: Thu, 12 Mar 2015 09:18:34 -0700
-Message-ID: <5501BC5A.6000204@plumgrid.com>
-References: <1426047534-8148-1-git-send-email-ast@plumgrid.com> <1426047534-8148-3-git-send-email-ast@plumgrid.com> <20150312151507.GI2896@worktop.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150312151507.GI2896@worktop.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] ebpf: verifier: check that call reg with ARG_ANYTHING is initialized
+Date: Thu, 12 Mar 2015 17:21:42 +0100
+Message-ID: <8bb5d2d9c8d471c1161ae60ea92141aef00a4fc8.1426172976.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, challa@noironetworks.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46538 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932419AbbCLQVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:21:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/12/15 8:15 AM, Peter Zijlstra wrote:
-> On Tue, Mar 10, 2015 at 09:18:48PM -0700, Alexei Starovoitov wrote:
->> +unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
->> +{
->> +	unsigned int ret;
->> +	int cpu;
->> +
->> +	if (in_nmi()) /* not supported yet */
->> +		return 1;
->> +
->> +	preempt_disable_notrace();
->> +
->> +	cpu = raw_smp_processor_id();
->> +	if (unlikely(per_cpu(bpf_prog_active, cpu)++ != 0)) {
->> +		/* since some bpf program is already running on this cpu,
->> +		 * don't call into another bpf program (same or different)
->> +		 * and don't send kprobe event into ring-buffer,
->> +		 * so return zero here
->> +		 */
->> +		ret = 0;
->> +		goto out;
->> +	}
->> +
->> +	rcu_read_lock();
->
-> You've so far tried very hard to not get into tracing; and then you call
-> rcu_read_lock() :-)
->
-> So either document why this isn't a problem, provide
-> rcu_read_lock_notrace() or switch to RCU-sched and thereby avoid the
-> problem.
+I noticed that a helper function with argument type ARG_ANYTHING does
+not need to have an initialized value (register).
 
-I don't see the problem.
-I actually do turn on func and func_graph tracers from time to time to
-debug bpf core itself. Why would tracing interfere with anything that
-this patch is doing? When we're inside tracing processing, we need to
-use only _notrace() helpers otherwise recursion will hurt, but this
-code is not invoked from there. It's called from 
-kprobe_ftrace_handler|kprobe_int3_handler->kprobe_dispatcher->
-kprobe_perf_func->trace_call_bpf which all are perfectly traceable.
-Probably my copy paste of preempt_disable_notrace() line from
-stack_trace_call() became source of confusion? I believe
-normal preempt_disable() here will be just fine.
-It's actually redundant too, since preemption is disabled by kprobe
-anyway. Please help me understand what I'm missing.
+This can worst case lead to unintented stack memory leakage in future
+helper functions if they are not carefully designed, or unintended
+application behaviour in case the application developer was not careful
+enough to match a correct helper function signature in the API.
+
+The underlying issue is that ARG_ANYTHING should actually be split
+into two different semantics:
+
+  1) ARG_DONTCARE for function arguments that the helper function
+     does not care about (in other words: the default for unused
+     function arguments), and
+
+  2) ARG_ANYTHING that is an argument actually being used by a
+     helper function and *guaranteed* to be an initialized register.
+
+The current risk is low: ARG_ANYTHING is only used for the 'flags'
+argument (r4) in bpf_map_update_elem() that internally does strict
+checking.
+
+Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ I'm fine with this going to net-next, but it also applies to net.
+
+ include/linux/bpf.h   | 4 +++-
+ kernel/bpf/verifier.c | 5 ++++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index b36a09e..b3a6f84 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -44,7 +44,7 @@ struct bpf_map_type_list {
+ 
+ /* function argument constraints */
+ enum bpf_arg_type {
+-	ARG_ANYTHING = 0,	/* any argument is ok */
++	ARG_DONTCARE = 0,	/* unused argument in helper function */
+ 
+ 	/* the following constraints used to prototype
+ 	 * bpf_map_lookup/update/delete_elem() functions
+@@ -58,6 +58,8 @@ enum bpf_arg_type {
+ 	 */
+ 	ARG_PTR_TO_STACK,	/* any pointer to eBPF program stack */
+ 	ARG_CONST_STACK_SIZE,	/* number of bytes accessed from stack */
++
++	ARG_ANYTHING,		/* any (initialized) argument is ok */
+ };
+ 
+ /* type of values returned from helper functions */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index bdf4192..e6b5224 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -755,7 +755,7 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 	enum bpf_reg_type expected_type;
+ 	int err = 0;
+ 
+-	if (arg_type == ARG_ANYTHING)
++	if (arg_type == ARG_DONTCARE)
+ 		return 0;
+ 
+ 	if (reg->type == NOT_INIT) {
+@@ -763,6 +763,9 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 		return -EACCES;
+ 	}
+ 
++	if (arg_type == ARG_ANYTHING)
++		return 0;
++
+ 	if (arg_type == ARG_PTR_TO_STACK || arg_type == ARG_PTR_TO_MAP_KEY ||
+ 	    arg_type == ARG_PTR_TO_MAP_VALUE) {
+ 		expected_type = PTR_TO_STACK;
+-- 
+1.9.3
