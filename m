@@ -1,90 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/4] bonding: Do not ignore notifications for
- miimon-work-queue
-Date: Thu, 12 Mar 2015 02:34:40 -0700
-Message-ID: <1426152880.11398.151.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426139677-27167-1-git-send-email-maheshb@google.com>
+From: Ian Wilson <iwilson@brocade.com>
+Subject: [PATCH] netfilter: Zero the tuple in nfnl_cthelper_parse_tuple()
+Date: Thu, 12 Mar 2015 09:37:58 +0000
+Message-ID: <1426153078-20863-1-git-send-email-iwilson@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain
+Cc: Ian Wilson <iwilson@brocade.com>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:39198 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbbCLJem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 05:34:42 -0400
-Received: by pabrd3 with SMTP id rd3so19132753pab.6
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 02:34:42 -0700 (PDT)
-In-Reply-To: <1426139677-27167-1-git-send-email-maheshb@google.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33829 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753943AbbCLJi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 05:38:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-03-11 at 22:54 -0700, Mahesh Bandewar wrote:
-> This patch adds code to reschedule the mii-work (aggressively)
-> just to handle the notification before resuming the regular
-> cycle.
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  drivers/net/bonding/bond_main.c | 24 +++++++++++++++---------
->  1 file changed, 15 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 19eabea2d7d9..54ecb7a22bae 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2143,10 +2143,13 @@ static void bond_mii_monitor(struct work_struct *work)
->  	if (!bond_has_slaves(bond))
->  		goto re_arm;
->  
-> -	rcu_read_lock();
-> -
-> +	if (bond_get_notif_pending(bond, BOND_MII_NOTIF)) {
-> +		should_notify_peers = true;
-> +		goto re_arm;
-> +	}
->  	should_notify_peers = bond_should_notify_peers(bond);
->  
-> +	rcu_read_lock();
->  	if (bond_miimon_inspect(bond)) {
->  		rcu_read_unlock();
->  
-> @@ -2164,15 +2167,18 @@ static void bond_mii_monitor(struct work_struct *work)
->  		rcu_read_unlock();
->  
->  re_arm:
-> -	if (bond->params.miimon)
-> -		queue_delayed_work(bond->wq, &bond->mii_work, delay);
-> -
->  	if (should_notify_peers) {
-> -		if (!rtnl_trylock())
-> -			return;
-> -		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
-> -		rtnl_unlock();
-> +		if (!rtnl_trylock()) {
-> +			delay = 1;
-> +			bond_set_notif_pending(bond, BOND_MII_NOTIF, 1);
-> +		} else {
-> +			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
-> +			rtnl_unlock();
-> +			bond_set_notif_pending(bond, BOND_MII_NOTIF, 0);
+nfnl_cthelper_parse_tuple() is called from nfnl_cthelper_new(),
+nfnl_cthelper_get() and nfnl_cthelper_del().  In each case they pass
+a pointer to an nf_conntrack_tuple data structure local variable:
 
-You probably should clear notif bit before releasing rtnl
+    struct nf_conntrack_tuple tuple;
+    ...
+    ret = nfnl_cthelper_parse_tuple(&tuple, tb[NFCTH_TUPLE]);
 
-(same remark for patches 3 & 4)
+The problem is that this local variable is not initialized, and
+nfnl_cthelper_parse_tuple() only initializes two fields: src.l3num and
+dst.protonum.  This leaves all other fields with undefined values
+based on whatever is on the stack:
 
-> +		}
->  	}
-> +	if (bond->params.miimon)
-> +		queue_delayed_work(bond->wq, &bond->mii_work, delay);
->  }
->  
->  static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
+    tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
+    tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
+
+The symptom observed was that when the rpc and tns helpers were added
+then traffic to port 1536 was being sent to user-space.
+
+Signed-off-by: Ian Wilson <iwilson@brocade.com>
+---
+ net/netfilter/nfnetlink_cthelper.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
+index a5599fc..54330fb 100644
+--- a/net/netfilter/nfnetlink_cthelper.c
++++ b/net/netfilter/nfnetlink_cthelper.c
+@@ -77,6 +77,9 @@ nfnl_cthelper_parse_tuple(struct nf_conntrack_tuple *tuple,
+ 	if (!tb[NFCTH_TUPLE_L3PROTONUM] || !tb[NFCTH_TUPLE_L4PROTONUM])
+ 		return -EINVAL;
+ 
++	/* Not all fields are initialized so first zero the tuple */
++	memset(tuple, 0, sizeof(struct nf_conntrack_tuple));
++
+ 	tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
+ 	tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
+ 
+-- 
+1.9.1
