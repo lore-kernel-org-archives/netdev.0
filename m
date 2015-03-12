@@ -1,47 +1,51 @@
-From: Dmitry Sytchev <kbdfck@gmail.com>
-Subject: Re: Why do we prefer skb->priority to tc filters?
-Date: Thu, 12 Mar 2015 11:53:25 +0400
-Message-ID: <CA+GmxbbGHXrZ6OrwPm0WBzk89iK94wyzJJAqbqw_XbVELvy9nQ@mail.gmail.com>
-References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
-	<CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
-	<1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
-	<1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
-	<1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pekka Enberg <penberg@iki.fi>
+Subject: Re: [PATCH] mm: kill kmemcheck
+Date: Thu, 12 Mar 2015 09:07:36 +0200
+Message-ID: <55013B38.6040100@iki.fi>
+References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:33063 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753074AbbCLHx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 03:53:26 -0400
-Received: by iecvj10 with SMTP id vj10so23551479iec.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 00:53:25 -0700 (PDT)
-In-Reply-To: <1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Vladimir Davydov <vdavydov@parallels.com>,
+ Geert Uytterhoeven <geert+renesas@glider.be>,
+ SUPERH <linux-sh@vger.kernel.org>, Catalin Marinas <catalin.marinas@arm.com>,
+ Will Deacon <will.deacon@arm.com>, Jianyu Zhan <nasa4836@gmail.com>,
+ Paul Mackerras <paulus@samba.org>, Pavel Machek <pavel@ucw.cz>,
+ Miklos Szeredi <mszeredi@suse.cz>, Christoph Lameter <cl@linux.com>,
+ Marek Szyprowski <m.szyprowski@samsung.com>,
+ "open list:GENERIC INCLUDE/A..." <linux-arch@vger.kernel.org>,
+ Andi Kleen <ak@linux.intel.com>, Russell King <linux@arm.linux.org.uk>,
+ Jingoo Han <jg1.han@samsung.com>, James Morris <jmorris@namei.org>,
+ Chris Bainbridge <chris.bainbridge@gmail.com>, Antti Palosaari <crope@iki.fi>,
+ Mel Gorman <mgorman@suse.de>, Ritesh Harjani <ritesh.harjani@gmail.com>,
+ Shaohua Li <shli@kernel.org>, Alexander Duyck <alexander.h.duyck@intel.com>,
+ Wang Nan <wangnan0@huawei.com>, Jiri
+To: Sasha Levin <sasha.levin@oracle.com>, linux-kernel@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Sorry for slight offtopic, but for some reason, recent netfilter SET
-changes, which allow setting queue number and priority via ipset
-skbinfo extension, don't work with multiple HTB on top of multiq or
-mq.
-At the same time, tc filters set on outbound iface with skbedit works
-fine both for prio and queue number.
-How can I find the difference in their behaviour to trace where queue
-number set by ipset match gets lost?
-
-> Google definitely uses this model, as netfilter code runs on multiple
-> cpus, while HTB classifier runs under qdisc spinlock, so far.
->
-> If you believe root user should not set skb->priority to arbitrary
-> values, this is a very different concern.
-
-
-
--- 
-Best regards,
-
-Dmitry Sytchev,
-IT Engineer
+SGkgU2FzaGEsCgpPbiAzLzExLzE1IDE6NDMgUE0sIFNhc2hhIExldmluIHdyb3RlOgo+IEFzIGRp
+c2N1c3NlZCBvbiBMU0YvTU0sIGtpbGwga21lbWNoZWNrLgo+Cj4gS0FTYW4gaXMgYSByZXBsYWNl
+bWVudCB0aGF0IGlzIGFibGUgdG8gd29yayB3aXRob3V0IHRoZSBsaW1pdGF0aW9uIG9mCj4ga21l
+bWNoZWNrIChzaW5nbGUgQ1BVLCBzbG93KS4gS0FTYW4gaXMgYWxyZWFkeSB1cHN0cmVhbS4KPgo+
+IFdlIGFyZSBhbHNvIG5vdCBhd2FyZSBvZiBhbnkgdXNlcnMgb2Yga21lbWNoZWNrIChvciB1c2Vy
+cyB3aG8gZG9uJ3QgY29uc2lkZXIKPiBLQVNhbiBhcyBhIHN1aXRhYmxlIHJlcGxhY2VtZW50KS4K
+Pgo+IEkndmUgYnVpbGQgdGVzdGVkIGl0IHVzaW5nIGFsbFt5ZXMsbm8sbW9kXWNvbmZpZyBhbmQg
+ZnV6emVkIGEgYml0IHdpdGggdGhpcwo+IHBhdGNoIGFwcGxpZWQsIGRpZG4ndCBub3RpY2UgYW55
+IGJhZCBiZWhhdmlvdXIuCj4KPiBTaWduZWQtb2ZmLWJ5OiBTYXNoYSBMZXZpbiA8c2FzaGEubGV2
+aW5Ab3JhY2xlLmNvbT4KCkNhbiB5b3UgZWxhYm9yYXRlIG9uIHdoYXQgZXhhY3RseSB3YXMgZGlz
+Y3Vzc2VkIGF0IExTRi9NTT8gUHJlZmVyYWJseSBpbiAKdGhlIGNvbW1pdCBsb2cuIDstKQoKLSBQ
+ZWtrYQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51
+eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBz
+Oi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
