@@ -1,92 +1,51 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH V2 0/1] neighbour: Support broadcast ARP in neighbor PROPE
- state
-Date: Thu, 12 Mar 2015 17:42:53 +0900
-Message-ID: <5501518D.2070405@miraclelinux.com>
-References: <1426143501-30827-1-git-send-email-Yanjun.Zhu@windriver.com> <55013BD4.2080605@windriver.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 0/3] EEE support for mv88e6172
+Date: Thu, 12 Mar 2015 01:46:00 -0700
+Message-ID: <55015248.9090103@roeck-us.net>
+References: <1426025160-13992-1-git-send-email-andrew@lunn.ch> <20150311.165931.2141833376642325076.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	"YOSHIFUJI Hideaki (USAGI Project)" <yoshfuji@linux-ipv6.org>
-To: yzhu1 <Yanjun.Zhu@windriver.com>, brian.haley@hp.com,
-	davem@davemloft.net, alexandre.dietsch@windriver.com,
-	clinton.slabbert@windriver.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, netdev@vger.kernel.org,
-	ulf.samuelsson@ericsson.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og124.obsmtp.com ([64.18.2.26]:45196 "HELO
-	exprod7og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753057AbbCLIm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 04:42:59 -0400
-Received: by mail-pd0-f181.google.com with SMTP id fp1so18427984pdb.2
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 01:42:58 -0700 (PDT)
-In-Reply-To: <55013BD4.2080605@windriver.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:46382 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753337AbbCLIqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 04:46:03 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YVykk-003Mrg-KV
+	for netdev@vger.kernel.org; Thu, 12 Mar 2015 08:46:02 +0000
+In-Reply-To: <20150311.165931.2141833376642325076.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-yzhu1 wrote:
-> The state machine is in the attachment.
+On 03/11/2015 01:59 PM, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Tue, 10 Mar 2015 23:05:56 +0100
 >
-> Best Regards!
-> Zhu Yanjun
-> On 03/12/2015 02:58 PM, Zhu Yanjun wrote:
->> V2:
->>    set ARP_PROBE_BCAST default N.
+>> This patchset contains two cleanups and then adds EEE support
+>> to the mv88e6172, using the base provided by Guenter Roeck
 >>
->> V1:
->>    Have a problem with an HP router at a certain location, which
->>    is configured to only answer to broadcast ARP requests.
->>    That cannot be changed.
->>
->>    The first ARP request the kernel sends out, is a broadcast request,
->>    which is fine, but after the reply, the kernel sends unicast requests,
->>    which will not get any replies.
->>
->>    The ARP entry will after some time enter STALE state,
->>    and if nothing is done it will time out, and be removed.
->>    This process takes to long, and I have been told that it is
->>    difficult to makes changes that will eventually remove it.
->>
->>    Have tried to change the state from STALE to INCOMPLETE, which failed,
->>    and then tried to change the state to PROBE which also failed.
->>
->>    The stack is only sending out unicasts, and never broadcast.
->>    Is there any way to get the stack to send out a broadcast ARP
->>    without having to wait for the entry to be removed?
-
-Neighbour subsystem will send multicast probes after unicast
-probes in NUD_PROBE state if mcast_solicit is more than
-ucast_solicit.  Try setting net.ipv4.neigh.*.ucast_solicit to
-the value less than net.ipv4.neigh.*.mcast_solicit, please?
-e.g.
-
-net.ipv4.neigh.eth0.mcast_solicit = 3
-net.ipv4.neigh.eth0.ucast_solicit = 1
-
---yoshfuji
-
-
->>
->>    I think the recommended behaviour in IPv6 is to send out 3 unicasts
->>    and if all fails, to send out broadcasts.
->>
->> Zhu Yanjun (1):
->>    neighbour: Support broadcast ARP in neighbor PROPE state
->>
->>   include/net/neighbour.h        |  7 ++++++
->>   include/uapi/linux/neighbour.h |  6 +++++
->>   include/uapi/linux/sysctl.h    |  3 +++
->>   kernel/sysctl_binary.c         |  3 +++
->>   net/core/neighbour.c           | 44 +++++++++++++++++++++++++++++---
->>   net/ipv4/Kconfig               | 57 ++++++++++++++++++++++++++++++++++++++++++
->>   net/ipv4/arp.c                 |  7 ++++--
->>   7 files changed, 121 insertions(+), 6 deletions(-)
->>
+>> Tested on a WRT1900AC with mv88e6172 and DIR665 with mv88e6171.
+>
+> This series does not apply cleanly to net-next.
+>
+> I really want to discourage you posting patches against trees other
+> that net and net-next like this, without CLEARLY marking in the
+> Subject lines that this patch series is special and that I should
+> not try to review and apply it at all.
 >
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Andrew,
+
+I see two options: I can submit my entire series of HW bridging
+patches for mv88e6xxx, or I submit the introductory patches of that
+series (the ones refactoring the code to prepare for HW bridging)
+plus your (rebased) patches on top of it.
+
+What do you think ?
+
+Thanks,
+Guenter
