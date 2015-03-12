@@ -1,37 +1,60 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH RFC 2/4] aio: prefer aio_op op over iter_op
-Date: Thu, 12 Mar 2015 06:48:25 +0000
-Message-ID: <20150312064825.GL29656@ZenIV.linux.org.uk>
-References: <20150311224607.23777.2181.stgit@tstruk-mobl1>
- <20150311224618.23777.38330.stgit@tstruk-mobl1>
+From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Subject: [PATCH V2 0/1] neighbour: Support broadcast ARP in neighbor PROPE state
+Date: Thu, 12 Mar 2015 14:58:20 +0800
+Message-ID: <1426143501-30827-1-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-aio@kvack.org,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	ying.xue@windriver.com, bcrl@kvack.org,
-	linux-fsdevel@vger.kernel.org, hch@lst.de,
-	linux-crypto@vger.kernel.org
-To: Tadeusz Struk <tadeusz.struk@intel.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150311224618.23777.38330.stgit@tstruk-mobl1>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <brian.haley@hp.com>, <davem@davemloft.net>,
+	<alexandre.dietsch@windriver.com>,
+	<clinton.slabbert@windriver.com>, <kuznet@ms2.inr.ac.ru>,
+	<jmorris@namei.org>, <kaber@trash.net>, <netdev@vger.kernel.org>,
+	<ulf.samuelsson@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:61604 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121AbbCLG6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 02:58:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 03:46:18PM -0700, Tadeusz Struk wrote:
-> AIO interface should prefer AIO operations over iter_op
+V2:
+  set ARP_PROBE_BCAST default N.
 
-What the devil for?  read_iter and write_iter *ARE* aio operations, as much
-as soon to be removed aio_read and aio_write.  And yes, those are going to
-be removed very soon.
+V1:
+  Have a problem with an HP router at a certain location, which
+  is configured to only answer to broadcast ARP requests.
+  That cannot be changed.
 
-Note that ->read_iter() and ->write_iter() are getting iocb pointer passed
-to them.  It's just that socket instances are not passing it along to
-->sendmsg/->recvmsg anymore.
+  The first ARP request the kernel sends out, is a broadcast request,
+  which is fine, but after the reply, the kernel sends unicast requests,
+  which will not get any replies.
 
-And why, in name of everything unholy, do your methods get redundant
-total_len argument?  It's iov_iter_count(&msg->msg_iter) (and in iov_iter-net
-I have an inline helper doing that - enough places open-coding that thing).
-If nothing else, ->sendmsg() and ->recvmsg() would benefit from removing
-that argument as well.  I have patches doing that, but iocb removal conflicts
-with them and they need to be rebased to current net/master...
+  The ARP entry will after some time enter STALE state,
+  and if nothing is done it will time out, and be removed.
+  This process takes to long, and I have been told that it is
+  difficult to makes changes that will eventually remove it.
+
+  Have tried to change the state from STALE to INCOMPLETE, which failed,
+  and then tried to change the state to PROBE which also failed.
+
+  The stack is only sending out unicasts, and never broadcast.
+  Is there any way to get the stack to send out a broadcast ARP
+  without having to wait for the entry to be removed?
+
+  I think the recommended behaviour in IPv6 is to send out 3 unicasts
+  and if all fails, to send out broadcasts.
+
+Zhu Yanjun (1):
+  neighbour: Support broadcast ARP in neighbor PROPE state
+
+ include/net/neighbour.h        |  7 ++++++
+ include/uapi/linux/neighbour.h |  6 +++++
+ include/uapi/linux/sysctl.h    |  3 +++
+ kernel/sysctl_binary.c         |  3 +++
+ net/core/neighbour.c           | 44 +++++++++++++++++++++++++++++---
+ net/ipv4/Kconfig               | 57 ++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/arp.c                 |  7 ++++--
+ 7 files changed, 121 insertions(+), 6 deletions(-)
+
+-- 
+1.9.1
