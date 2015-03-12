@@ -1,54 +1,106 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: Re: [PATCH RFC 2/4] aio: prefer aio_op op over iter_op
-Date: Thu, 12 Mar 2015 07:00:59 -0700
-Message-ID: <55019C1B.6090909@intel.com>
-References: <20150311224607.23777.2181.stgit@tstruk-mobl1> <20150311224618.23777.38330.stgit@tstruk-mobl1> <20150312064825.GL29656@ZenIV.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/4] bonding work-queues, try_rtnl() &
+ notifications
+Date: Thu, 12 Mar 2015 07:11:06 -0700
+Message-ID: <1426169466.11398.158.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426139673-26995-1-git-send-email-maheshb@google.com>
+	 <550181E6.2080100@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-aio@kvack.org,
- herbert@gondor.apana.org.au, netdev@vger.kernel.org,
- ying.xue@windriver.com, bcrl@kvack.org, linux-fsdevel@vger.kernel.org,
- hch@lst.de, linux-crypto@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <owner-linux-aio@kvack.org>
-In-Reply-To: <20150312064825.GL29656@ZenIV.linux.org.uk>
-Sender: owner-linux-aio@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:45370 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753847AbbCLOLJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 10:11:09 -0400
+Received: by igjz20 with SMTP id z20so16887345igj.4
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 07:11:08 -0700 (PDT)
+In-Reply-To: <550181E6.2080100@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2015 11:48 PM, Al Viro wrote:
->> AIO interface should prefer AIO operations over iter_op
-> What the devil for?  read_iter and write_iter *ARE* aio operations, as much
-> as soon to be removed aio_read and aio_write.  And yes, those are going to
-> be removed very soon.
-
-That's fine. When those will get removed, then as part of the cleanup we can 
-merge sock_read_iter() with sock_aio_read() and sock_write_iter()
-with sock_aio_write() and call sock_recvmsg()/sock_sendmsg() or 
-sock->ops->aio_recvmsg()/sock->ops->aio_sendmsg based on if (is_sync_kiocb(iocb))
-
+On Thu, 2015-03-12 at 13:09 +0100, Nikolay Aleksandrov wrote:
+> On 12/03/15 06:54, Mahesh Bandewar wrote:
+> > This patch series tries to address the issue discovered in various work-
+> > queues and the way these handlers deal with the RTNL. Especially for 
+> > notification handling. If RTNL can not be acquired, these handlers ignore
+> > sending notifications and just re-arm the timer. This could be very 
+> > problematic if the re-arm timer has larger value (e.g. in minutes).
+> > 
+> > 
+> > Mahesh Bandewar (4):
+> >   bonding: Handle notifications during work-queue processing gracefully
+> >   bonding: Do not ignore notifications for miimon-work-queue
+> >   bonding: Do not ignore notifications for AD-work-queue
+> >   bonding: Do not ignore notifications for ARP-work-queue
+> > 
+> >  drivers/net/bonding/bond_3ad.c  | 22 ++++++++++++---
+> >  drivers/net/bonding/bond_main.c | 62 ++++++++++++++++++++++++-----------------
+> >  include/net/bonding.h           | 22 +++++++++++++++
+> >  3 files changed, 77 insertions(+), 29 deletions(-)
+> > 
 > 
-> Note that ->read_iter() and ->write_iter() are getting iocb pointer passed
-> to them.  It's just that socket instances are not passing it along to
-> ->sendmsg/->recvmsg anymore.
+> Hello Mahesh,
+> The current behaviour was chosen as a best-effort type because such change
+> could skew the monitoring/AD timers because you re-schedule every time you
+> cannot acquire rtnl and move their timers with 1 tick ahead which could lead 
+> to false link drops, state machines running late and so on.
+> Currently the monitoring/AD functions have priority over the notifications as in
+> we might miss a notification but we try not to miss a monitoring/AD event, thus I'd
+> suggest to solve this in a different manner. If you'd like to have the best of both
+> worlds i.e. not miss a monitoring event and also not miss any notifications you should
+> use a different strategy. 
 
-and that's the main reason why I have added the sock_aio_read() and sock_aio_write()
-I didn't want to mess with the sock_read_iter() and sock_write_iter() for now.
 
-> 
-> And why, in name of everything unholy, do your methods get redundant
-> total_len argument?  It's iov_iter_count(&msg->msg_iter) (and in iov_iter-net
-> I have an inline helper doing that - enough places open-coding that thing).
-> If nothing else, ->sendmsg() and ->recvmsg() would benefit from removing
-> that argument as well.  I have patches doing that, but iocb removal conflicts
-> with them and they need to be rebased to current net/master...
+I think I disagree here.
 
-You are right, it's not needed at all. I took the signatures from sendmsg() and
-recvmsg() and just added iocb. I will remove them in v2 if you want, or you can
-add it to your patches.
+All rtnl_trylock() call sites must be very careful about what they are
+doing.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-aio' in
-the body to majordomo@kvack.org.  For more info on Linux AIO,
-see: http://www.kvack.org/aio/
-Don't email: <a href=mailto:"aart@kvack.org">aart@kvack.org</a>
+bonding is not, and we should fix this.
+
+Mahesh fix seems very reasonable. If you need something else, please
+provide your own patch.
+
+When code is the following :
+
+        if (!rtnl_trylock())
+                 return;
+        call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+        rtnl_unlock();
+
+Then, one must understand what happens if at this point rtnl_trylock()
+never succeeds.
+
+Like, what happens if you remove the whole thing.
+
+If the code is not needed, remove it, instead of having flaky behavior.
+
+
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c026ce9cd7b6f52f1a6bff88b9e6053b13ecebcd..958c9a46345a59daee2dbd34d859b17af94931bc 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2167,12 +2167,6 @@ re_arm:
+ 	if (bond->params.miimon)
+ 		queue_delayed_work(bond->wq, &bond->mii_work, delay);
+ 
+-	if (should_notify_peers) {
+-		if (!rtnl_trylock())
+-			return;
+-		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+-		rtnl_unlock();
+-	}
+ }
+ 
+ static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
