@@ -1,43 +1,44 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2 nf-next 3/6] netfilter: bridge: use skb->cb to track
- otherhost mangling
-Date: Thu, 12 Mar 2015 19:40:09 +0100
-Message-ID: <5501DD89.4070408@hartkopp.net>
-References: <1426179925-18220-1-git-send-email-fw@strlen.de> <1426179925-18220-4-git-send-email-fw@strlen.de> <5501D498.4050003@hartkopp.net> <20150312183113.GA12169@breakpoint.cc> <20150312183503.GB12169@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] Introduce possible_net_t
+Date: Thu, 12 Mar 2015 14:40:15 -0400 (EDT)
+Message-ID: <20150312.144015.420979058716247691.davem@davemloft.net>
+References: <1426130872.11398.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150311.232940.1345045254716776224.davem@davemloft.net>
+	<87oany7tha.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Eyal Birger <eyal.birger@gmail.com>
-To: Florian Westphal <fw@strlen.de>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, salo@google.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:13775 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773AbbCLSkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:40:13 -0400
-In-Reply-To: <20150312183503.GB12169@breakpoint.cc>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38446 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751373AbbCLSkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:40:17 -0400
+In-Reply-To: <87oany7tha.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/12/2015 07:35 PM, Florian Westphal wrote:
-> Florian Westphal <fw@strlen.de> wrote:
->>>> +	BUILD_BUG_ON(sizeof(struct nf_bridge_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
->>>> +
->>>
->>> Please use sock_skb_cb_check_size(size) for cb size checking which is the
->>> 'new' check for cb sizes for netdev.
->>
->> I can do this for conistency, but its technically not needed here.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Wed, 11 Mar 2015 23:03:13 -0500
+
+> The current usage of write_pnet and read_pnet is a little laborious and
+> error prone as you only notice if you failed to include them if are
+> compiling with network namespaces enabled.
 > 
-> I take that back, it would actually be inconsistent to use
-> sock_skb_cb_check_size since nf_bridge skbs will not be associated with
-> sockets.
+> possible_net_t remedies that by using a type that is 0 bytes when
+> network namespaces are disabled and can only be read and written to with
+> read_pnet and write_pnet.
 > 
+> Aka less work and safer for the same effect.
+> 
+> I kill hold_net and release_net first as are they are haven't been used
+> since 2008 and are noise at the points where write_pnet and read_pnet
+> are used.
+> 
+> I have folded in Eric Dumazets suggestions to improve the killing of
+> hold_net and release net.  And respon.  I had to respin anyway as
+> there was enough changes elsewhere in the tree the previous version
+> of these patches did not quite apply cleanly.
 
-Ok. I just wanted to make sure that the use of the cb[]-space doesn't clash
-with the new space that's acquired by the dropcount stuff.
-
-Sorry for the noise :-)
-
-Best regards,
-Oliver
+Series applied, thanks!
