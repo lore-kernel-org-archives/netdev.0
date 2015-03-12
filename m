@@ -1,65 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 7/8] isdn: replace CONFIG_8xx by CONFIG_PPC_8xx
-Date: Thu, 12 Mar 2015 21:52:56 +0300
-Message-ID: <5501E088.6020502@cogentembedded.com>
-References: <20150312152409.E7B5C1A2422@localhost.localdomain>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
+ device specific parameters
+Date: Thu, 12 Mar 2015 20:59:26 +0200
+Message-ID: <CAJL1qvHOFzAU=ciTR2A3AgoX622+c5wDYLEC07OaGwOZsC6jxA@mail.gmail.com>
+References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
+	<20150311.131457.1314699780103858026.davem@davemloft.net>
+	<CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
+	<20150312.140505.1685428263314887570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	user-mode-linux-devel@lists.sourceforge.net,
-	user-mode-linux-user@lists.sourceforge.net,
-	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
-	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
-To: Christophe Leroy <christophe.leroy@c-s.fr>,
-	Karsten Keil <isdn@linux-pingi.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: gregkh@linuxfoundation.org, Amir Vadai <amirv@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hadar Hen Zion <hadarh@mellanox.com>, yevgenyp@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, shannon.nelson@intel.com,
+	dledford@redhat.com, Ben Greear <greearb@candelatech.com>,
+	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:32878 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751617AbbCLSxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:53:00 -0400
-Received: by lbdu14 with SMTP id u14so18121648lbd.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 11:52:59 -0700 (PDT)
-In-Reply-To: <20150312152409.E7B5C1A2422@localhost.localdomain>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:41890 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbbCLS71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:59:27 -0400
+Received: by igal13 with SMTP id l13so157096iga.0
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 11:59:26 -0700 (PDT)
+In-Reply-To: <20150312.140505.1685428263314887570.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, Mar 12, 2015 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+> Date: Thu, 12 Mar 2015 10:07:35 +0200
+>
+>> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
+>>>
+>>> From: Amir Vadai <amirv@mellanox.com>
+>>> Date: Wed, 11 Mar 2015 11:08:50 +0200
+>>>
+>>> > Also, customers are paying for a very sophisticated piece of
+>>> > hardware, and we would like to enable power user to tweak it in some
+>>> > situtations. Of course the default mode should be used in 99% of the
+>>> > use cases.
+>>>
+>>> How much money someone pays for your hardware has nothing to do with
+>>> the standards by which we design userspace interfaces to configure
+>>> these devices.
+>>>
+>>> These textual interfaces are arbitrary, and you are choosing it only
+>>> because you cannot come up with a more reasonable scheme,
+>>>
+>>> I'm not applying these changes.
+>>> --
+>>
+>> In previous conversations Greg suggested us to use configfs.
+>>
+>> Is this case a misuse of configfs?  maybe configfs should be deprecated... Greg?
+>>
+>> Is a scheme based on netlink will be acceptable by you?
+>
+> A portable, well typed, interface that other vendors could use if their
+> hardware had similar features would be acceptable.
 
-On 03/12/2015 06:24 PM, Christophe Leroy wrote:
-
-> Two config options exist to define powerpc MPC8xx:
-> * CONFIG_PPC_8xx
-> * CONFIG_8xx
-> In addition, CONFIG_PPC_8xx also defines CONFIG_CPM1 as
-> communication co-processor
-
-> arch/powerpc/platforms/Kconfig.cputype has contained the following
-> comment about CONFIG_8xx item for some years:
-> "# this is temp to handle compat with arch=ppc"
-
-> It looks like not many places still have that old CONFIG_8xx used,
-> so it is likely to be a good time to get rid of it completely ?
-
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-
-[...]
-
-> diff --git a/drivers/isdn/hardware/mISDN/Kconfig b/drivers/isdn/hardware/mISDN/Kconfig
-> index 09df54f..ad9deab 100644
-> --- a/drivers/isdn/hardware/mISDN/Kconfig
-> +++ b/drivers/isdn/hardware/mISDN/Kconfig
-[...]
-> @@ -28,7 +28,7 @@ config MISDN_HFCMULTI_8xx
->   	depends on MISDN
->   	depends on MISDN_HFCMULTI
->   	depends on 8xx
-
-    Eh, how about this one?
-
-> -	default 8xx
-> +	default PPC_8xx
->   	help
->   	  Enable support for the XHFC embedded solution from Speech Design.
-
-WBR, Sergei
+Do you mean an interface implementation that reminds the ethtool
+private flags scheme but implemented through netlink, allows
+configuration without a netdevice and more flexibility?
