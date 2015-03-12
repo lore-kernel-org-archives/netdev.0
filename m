@@ -1,117 +1,69 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 4/4] bonding: Do not ignore notifications for
- ARP-work-queue
-Date: Thu, 12 Mar 2015 17:12:25 +0100
-Message-ID: <5501BAE9.1000102@redhat.com>
-References: <1426139679-27249-1-git-send-email-maheshb@google.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v6 tip 2/8] tracing: attach BPF programs to kprobes
+Date: Thu, 12 Mar 2015 09:18:34 -0700
+Message-ID: <5501BC5A.6000204@plumgrid.com>
+References: <1426047534-8148-1-git-send-email-ast@plumgrid.com> <1426047534-8148-3-git-send-email-ast@plumgrid.com> <20150312151507.GI2896@worktop.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59087 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753928AbbCLQMg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2015 12:12:36 -0400
-In-Reply-To: <1426139679-27249-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150312151507.GI2896@worktop.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/12/2015 06:54 AM, Mahesh Bandewar wrote:
-> This patch adds code to reschedule the ARP-work (aggressively)
-> to handle the notifications before resuming the regular cycle.
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++----------------
->  1 file changed, 22 insertions(+), 16 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 54ecb7a22bae..882974d543d2 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2814,17 +2814,20 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
->  					    arp_work.work);
->  	bool should_notify_peers = false;
->  	bool should_notify_rtnl = false;
-> -	int delta_in_ticks;
-> +	unsigned long delta_in_ticks;
->  
->  	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->  
->  	if (!bond_has_slaves(bond))
->  		goto re_arm;
->  
-> -	rcu_read_lock();
-> -
->  	should_notify_peers = bond_should_notify_peers(bond);
-> +	if (bond_get_notif_pending(bond, BOND_ARP_NOTIF)) {
-> +		rcu_read_lock();
-> +		goto eval_arp_probe;
-> +	}
->  
-> +	rcu_read_lock();
-^^^^^^^
-Since rcu_read_lock() is acquired in both cases, why don't you leave it
-where it is now ? Then you'll be able to save a line and drop the { }
-on the "if" above.
+On 3/12/15 8:15 AM, Peter Zijlstra wrote:
+> On Tue, Mar 10, 2015 at 09:18:48PM -0700, Alexei Starovoitov wrote:
+>> +unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
+>> +{
+>> +	unsigned int ret;
+>> +	int cpu;
+>> +
+>> +	if (in_nmi()) /* not supported yet */
+>> +		return 1;
+>> +
+>> +	preempt_disable_notrace();
+>> +
+>> +	cpu = raw_smp_processor_id();
+>> +	if (unlikely(per_cpu(bpf_prog_active, cpu)++ != 0)) {
+>> +		/* since some bpf program is already running on this cpu,
+>> +		 * don't call into another bpf program (same or different)
+>> +		 * and don't send kprobe event into ring-buffer,
+>> +		 * so return zero here
+>> +		 */
+>> +		ret = 0;
+>> +		goto out;
+>> +	}
+>> +
+>> +	rcu_read_lock();
+>
+> You've so far tried very hard to not get into tracing; and then you call
+> rcu_read_lock() :-)
+>
+> So either document why this isn't a problem, provide
+> rcu_read_lock_notrace() or switch to RCU-sched and thereby avoid the
+> problem.
 
-
->  	if (bond_ab_arp_inspect(bond)) {
->  		rcu_read_unlock();
->  
-> @@ -2841,25 +2844,28 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
->  		rcu_read_lock();
->  	}
->  
-> +eval_arp_probe:
->  	should_notify_rtnl = bond_ab_arp_probe(bond);
-^^^^^
-Keep in mind that bond_ab_arp_probe() calls bond_arp_send_all() each time
-if we have an active slave. We could be sending ARP requests each tick
-until rtnl gets acquired.
-
->  	rcu_read_unlock();
->  
->  re_arm:
-> -	if (bond->params.arp_interval)
-> -		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
-> -
->  	if (should_notify_peers || should_notify_rtnl) {
-> -		if (!rtnl_trylock())
-> -			return;
-> -
-> -		if (should_notify_peers)
-> -			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-> -						 bond->dev);
-> -		if (should_notify_rtnl)
-> -			bond_slave_state_notify(bond);
-> -
-> -		rtnl_unlock();
-> +		if (!rtnl_trylock()) {
-> +			delta_in_ticks = 1;
-> +			bond_set_notif_pending(bond, BOND_ARP_NOTIF, 1);
-> +		} else {
-> +			if (should_notify_rtnl)
-> +				bond_slave_state_notify(bond);
-> +			if (should_notify_peers)
-> +				call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-> +							 bond->dev);
-> +			rtnl_unlock();
-> +			bond_set_notif_pending(bond, BOND_ARP_NOTIF, 0);
-> +		}
->  	}
-> +
-> +	if (bond->params.arp_interval)
-> +		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
->  }
->  
->  /*-------------------------- netdev event handling --------------------------*/
-> 
+I don't see the problem.
+I actually do turn on func and func_graph tracers from time to time to
+debug bpf core itself. Why would tracing interfere with anything that
+this patch is doing? When we're inside tracing processing, we need to
+use only _notrace() helpers otherwise recursion will hurt, but this
+code is not invoked from there. It's called from 
+kprobe_ftrace_handler|kprobe_int3_handler->kprobe_dispatcher->
+kprobe_perf_func->trace_call_bpf which all are perfectly traceable.
+Probably my copy paste of preempt_disable_notrace() line from
+stack_trace_call() became source of confusion? I believe
+normal preempt_disable() here will be just fine.
+It's actually redundant too, since preemption is disabled by kprobe
+anyway. Please help me understand what I'm missing.
