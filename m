@@ -1,69 +1,55 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 0/4] bonding work-queues, try_rtnl() & notifications
-Date: Thu, 12 Mar 2015 13:09:10 +0100
-Message-ID: <550181E6.2080100@redhat.com>
-References: <1426139673-26995-1-git-send-email-maheshb@google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 0/3] EEE support for mv88e6172
+Date: Thu, 12 Mar 2015 13:14:16 +0100
+Message-ID: <20150312121416.GF14112@lunn.ch>
+References: <1426025160-13992-1-git-send-email-andrew@lunn.ch>
+ <20150311.165931.2141833376642325076.davem@davemloft.net>
+ <55015248.9090103@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40342 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:58491 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754059AbbCLMJX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2015 08:09:23 -0400
-In-Reply-To: <1426139673-26995-1-git-send-email-maheshb@google.com>
+	id S932158AbbCLMRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 08:17:42 -0400
+Content-Disposition: inline
+In-Reply-To: <55015248.9090103@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/15 06:54, Mahesh Bandewar wrote:
-> This patch series tries to address the issue discovered in various work-
-> queues and the way these handlers deal with the RTNL. Especially for 
-> notification handling. If RTNL can not be acquired, these handlers ignore
-> sending notifications and just re-arm the timer. This could be very 
-> problematic if the re-arm timer has larger value (e.g. in minutes).
+On Thu, Mar 12, 2015 at 01:46:00AM -0700, Guenter Roeck wrote:
+> On 03/11/2015 01:59 PM, David Miller wrote:
+> >From: Andrew Lunn <andrew@lunn.ch>
+> >Date: Tue, 10 Mar 2015 23:05:56 +0100
+> >
+> >>This patchset contains two cleanups and then adds EEE support
+> >>to the mv88e6172, using the base provided by Guenter Roeck
+> >>
+> >>Tested on a WRT1900AC with mv88e6172 and DIR665 with mv88e6171.
+> >
+> >This series does not apply cleanly to net-next.
+> >
+> >I really want to discourage you posting patches against trees other
+> >that net and net-next like this, without CLEARLY marking in the
+> >Subject lines that this patch series is special and that I should
+> >not try to review and apply it at all.
+> >
 > 
-> 
-> Mahesh Bandewar (4):
->   bonding: Handle notifications during work-queue processing gracefully
->   bonding: Do not ignore notifications for miimon-work-queue
->   bonding: Do not ignore notifications for AD-work-queue
->   bonding: Do not ignore notifications for ARP-work-queue
-> 
->  drivers/net/bonding/bond_3ad.c  | 22 ++++++++++++---
->  drivers/net/bonding/bond_main.c | 62 ++++++++++++++++++++++++-----------------
->  include/net/bonding.h           | 22 +++++++++++++++
->  3 files changed, 77 insertions(+), 29 deletions(-)
-> 
+> Andrew,
 
-Hello Mahesh,
-The current behaviour was chosen as a best-effort type because such change
-could skew the monitoring/AD timers because you re-schedule every time you
-cannot acquire rtnl and move their timers with 1 tick ahead which could lead 
-to false link drops, state machines running late and so on.
-Currently the monitoring/AD functions have priority over the notifications as in
-we might miss a notification but we try not to miss a monitoring/AD event, thus I'd
-suggest to solve this in a different manner. If you'd like to have the best of both
-worlds i.e. not miss a monitoring event and also not miss any notifications you should
-use a different strategy. One idea would be to use a new "work" which checks some
-notification bits and sends various types of notifications, then the monitoring
-works can just schedule it whenever they need to send notifications and can keep their
-running times accurate. The new work should handle the rtnl side of things and re-schedule
-itself if necessary, now that is only an idea from the top of my head I haven't checked
-if it's feasible or if there isn't a better approach so I'd be open to other ideas. Also
-if you do decide to go this way, you should be very careful with the order of work
-cancellation in bond_close(). In fact, IIRC, this has already been done by the slave
-array update that you introduced and also by the igmp resend work.
+Yes, i messed up :-(
+ 
+> I see two options: I can submit my entire series of HW bridging
+> patches for mv88e6xxx, or I submit the introductory patches of that
+> series (the ones refactoring the code to prepare for HW bridging)
+> plus your (rebased) patches on top of it.
+> 
+> What do you think ?
 
-There's also a bug in bond_should_notify_peers(), as in it's not RCU safe
-on its own, it's currently safe because its callers use it in RCU protected sections
-but here you move it outside so it should be fixed first (take a look at how "slave" is used).
+There is no rush with these patches. When you are ready, post the
+whole hardware bridge patches for review. Once they are accepted, i
+will try again with the EEE patches for mv88e6171.
 
-Nik
+     Andrew
