@@ -1,67 +1,67 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
- device specific parameters
-Date: Thu, 12 Mar 2015 20:59:26 +0200
-Message-ID: <CAJL1qvHOFzAU=ciTR2A3AgoX622+c5wDYLEC07OaGwOZsC6jxA@mail.gmail.com>
-References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
-	<20150311.131457.1314699780103858026.davem@davemloft.net>
-	<CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
-	<20150312.140505.1685428263314887570.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: gregkh@linuxfoundation.org, Amir Vadai <amirv@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Hadar Hen Zion <hadarh@mellanox.com>, yevgenyp@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, shannon.nelson@intel.com,
-	dledford@redhat.com, Ben Greear <greearb@candelatech.com>,
-	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] cls_bpf: do eBPF invocation under non-bh RCU lock variant for maps
+Date: Thu, 12 Mar 2015 20:03:12 +0100
+Message-ID: <91a3d08794f55f1f7a86a45f5d00ee72c8106061.1426185074.git.daniel@iogearbox.net>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:41890 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630AbbCLS71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:59:27 -0400
-Received: by igal13 with SMTP id l13so157096iga.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 11:59:26 -0700 (PDT)
-In-Reply-To: <20150312.140505.1685428263314887570.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:39852 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908AbbCLTDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 15:03:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
-> From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-> Date: Thu, 12 Mar 2015 10:07:35 +0200
->
->> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
->>>
->>> From: Amir Vadai <amirv@mellanox.com>
->>> Date: Wed, 11 Mar 2015 11:08:50 +0200
->>>
->>> > Also, customers are paying for a very sophisticated piece of
->>> > hardware, and we would like to enable power user to tweak it in some
->>> > situtations. Of course the default mode should be used in 99% of the
->>> > use cases.
->>>
->>> How much money someone pays for your hardware has nothing to do with
->>> the standards by which we design userspace interfaces to configure
->>> these devices.
->>>
->>> These textual interfaces are arbitrary, and you are choosing it only
->>> because you cannot come up with a more reasonable scheme,
->>>
->>> I'm not applying these changes.
->>> --
->>
->> In previous conversations Greg suggested us to use configfs.
->>
->> Is this case a misuse of configfs?  maybe configfs should be deprecated... Greg?
->>
->> Is a scheme based on netlink will be acceptable by you?
->
-> A portable, well typed, interface that other vendors could use if their
-> hardware had similar features would be acceptable.
+Currently, it is possible in cls_bpf to access eBPF maps only under
+rcu_read_lock_bh() variants: while on ingress side, that is, handle_ing(),
+the classifier would be called from __netif_receive_skb_core() under
+rcu_read_lock(); on egress side, however, it's rcu_read_lock_bh() via
+__dev_queue_xmit().
 
-Do you mean an interface implementation that reminds the ethtool
-private flags scheme but implemented through netlink, allows
-configuration without a netdevice and more flexibility?
+This rcu/rcu_bh mix doesn't work together with eBPF maps as they require
+soley to be called under rcu_read_lock(). eBPF maps could also be shared
+among various other eBPF programs (possibly even with other eBPF program
+types, f.e. tracing) and user space processes, so any context is assumed.
+
+Therefore, a possible fix for cls_bpf is to wrap/nest eBPF program
+invocation under non-bh RCU lock variant.
+
+Fixes: e2e9b6541dd4 ("cls_bpf: add initial eBPF support for programmable classifiers")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/sched/cls_bpf.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 243c9f2..5c4171c 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -64,8 +64,10 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ {
+ 	struct cls_bpf_head *head = rcu_dereference_bh(tp->root);
+ 	struct cls_bpf_prog *prog;
+-	int ret;
++	int ret = -1;
+ 
++	/* Needed here for accessing maps. */
++	rcu_read_lock();
+ 	list_for_each_entry_rcu(prog, &head->plist, link) {
+ 		int filter_res = BPF_PROG_RUN(prog->filter, skb);
+ 
+@@ -80,10 +82,11 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		if (ret < 0)
+ 			continue;
+ 
+-		return ret;
++		break;
+ 	}
++	rcu_read_unlock();
+ 
+-	return -1;
++	return ret;
+ }
+ 
+ static bool cls_bpf_is_ebpf(const struct cls_bpf_prog *prog)
+-- 
+1.9.3
