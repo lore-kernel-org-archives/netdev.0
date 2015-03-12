@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 v2] rhashtable hash cleanups
-Date: Thu, 12 Mar 2015 14:36:11 -0400 (EDT)
-Message-ID: <20150312.143611.1943593719035919241.davem@davemloft.net>
-References: <20150312012944.GA12857@gondor.apana.org.au>
-	<20150312034923.GA14415@gondor.apana.org.au>
+Subject: Re: [PATCH net] virtio-net: correctly delete napi hash
+Date: Thu, 12 Mar 2015 14:37:49 -0400 (EDT)
+Message-ID: <20150312.143749.1356539359045388378.davem@davemloft.net>
+References: <1426139864-25023-1-git-send-email-jasowang@redhat.com>
+	<20150312082351-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38407 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbbCLSgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:36:14 -0400
-In-Reply-To: <20150312034923.GA14415@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20150312082351-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 12 Mar 2015 14:49:23 +1100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 12 Mar 2015 08:25:34 +0100
 
-> This is a rebase on top of the nested lock annotation fix.
-> 
-> Nothing to see here, just a bunch of simple clean-ups before
-> I move onto something more substantial (hopefully).
+> On Thu, Mar 12, 2015 at 01:57:44PM +0800, Jason Wang wrote:
+>> We don't delete napi from hash list during module exit. This will
+>> cause the following panic when doing module load and unload:
+ ...
+>> This patch fixes this by doing this in virtnet_free_queues(). And also
+>> don't delete napi in virtnet_freeze() since it will call
+>> virtnet_free_queues() which has already did this.
+>> 
+>> Fixes 91815639d880 ("virtio-net: rx busy polling support")
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+ ...
+> Dave, can you pick this up pls?
+> Looks like a stable candidate too.
 
-I've applied this series, but please look into the bug Thomas
-reported before making any further changes to rhashtable.
-
-Thanks.
+Applied and queued up for -stable, thanks.
