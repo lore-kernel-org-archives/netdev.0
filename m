@@ -1,93 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Why do we prefer skb->priority to tc filters?
-Date: Thu, 12 Mar 2015 09:59:02 -0700
-Message-ID: <CAHA+R7MHptw8gbA6nqPYzc2vSGEunwKTJmL6kJ81820c7oc6BQ@mail.gmail.com>
-References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
-	<CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
-	<1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
-	<1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
-	<1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7N88DFPpfPeN5cqru7oODfew1ZUdT80R0fj1QkQsx-siw@mail.gmail.com>
-	<1426118427.11398.114.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:33410 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932203AbbCLQ7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:59:06 -0400
-Received: by iecvj10 with SMTP id vj10so47468371iec.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 09:59:05 -0700 (PDT)
-In-Reply-To: <1426118427.11398.114.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 nf-next 0/6] more bridge netfilter refactoring
+Date: Thu, 12 Mar 2015 18:05:19 +0100
+Message-ID: <1426179925-18220-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 11, 2015 at 5:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-03-11 at 15:12 -0700, Cong Wang wrote:
->
->> I knew we can modify skb->priority in a few ways, for example skbedit.
->>
->> That is not my concern, all what I am thinking is there is some
->> way in application layer to bypass our tc filters, which is not expected
->> to happen for me. Given our specific case, I want to propose to clear
->> skb->priority after moving out of a netns:
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 962ee9d..2301f01 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -1694,6 +1694,7 @@ int __dev_forward_skb(struct net_device *dev,
->> struct sk_buff *skb)
->>         }
->>
->>         skb_scrub_packet(skb, true);
->> +       skb->priority = 0;
->>         skb->protocol = eth_type_trans(skb, dev);
->>         skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
->
-> This looks more reasonable than your prior change to fq_codel, sfq, and
-> others.
+This is another batch towards the planned skb->nf_bridge removal.
 
+These patches rid ip_fragment of the bridge netfilter mtu/ll hacks
+and remove the nf_bridge_info->data area that is used to store
+original mac address for refragmentation and neigh resolution.
 
-My previous change is only for discussion, never mean to send out.
+The need to use it for the DNAT detection is already resolved
+via
 
->
-> If you use mavclan or ipvlan, not all paths will use __dev_forward_skb()
->
+http://patchwork.ozlabs.org/patch/448342/
 
-That is intentional, because I am not sure about stacked device
-like macvlan or tunnel, it might make some sense to keep that value.
+These patches go on top of this.
 
-> So I am guessing you use veth maybe. Who knows.
->
+While at it, this series also replaces the 'mask' flags with
+a tristate enum to separate those 'flags' that have to be visible
+outside of bridge netfilter context and those that are internal.
 
+Tested, on host connected to kvm-bridge:
 
-Exactly, otherwise I would probably just change skb_scrub_packet(). ;)
+ping -s $bignum $ip_behind_bridge
 
+on bridge:
+-j REDIRECT
+-j DNAT --to-destination $ip_behind_bridge
 
-> Note that you could instead use :
->
->  skb->priority = skb->priority & TC_PRIO_MAX;
->
-> This way, TC_PRIO_CONTROL legitimate traffic would not be downgraded to
-> TC_PRIO_BESTEFFORT.
->
-> This all looks like a policy decision, and we probably should not hard
-> code it in the kernel : Some users have trusted applications running in
-> containers.
->
-
-For veth case, I think we don't need to keep TC_PRIO_* either, because
-the packet will normally go to Rx path after that, where these values make
-no sense.
-
-(For my own case, we redirect it to eth0, but still it goes out of its
-original netns).
-
-Thanks.
+ include/linux/netfilter_bridge.h          |   36 ----
+ include/linux/skbuff.h                    |   16 +
+ include/net/ip.h                          |    4 
+ net/bridge/br_device.c                    |    2 
+ net/bridge/br_netfilter.c                 |  246 +++++++++++++++++++++---------
+ net/bridge/br_private.h                   |    2 
+ net/ipv4/ip_output.c                      |   37 ++--
+ net/ipv4/netfilter/nf_defrag_ipv4.c       |    2 
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c |    2 
+ 9 files changed, 215 insertions(+), 132 deletions(-)
