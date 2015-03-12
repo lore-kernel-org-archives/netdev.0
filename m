@@ -1,50 +1,35 @@
-From: Jaeden Amero <jaeden.amero@ni.com>
-Subject: [PATCH] net/macb: Only adjust tx_clk on link change
-Date: Thu, 12 Mar 2015 18:07:54 -0500
-Message-ID: <1426201674-824-1-git-send-email-jaeden.amero@ni.com>
-Cc: Jaeden Amero <jaeden.amero@ni.com>, Josh Cartwright <joshc@ni.com>,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: MTU of bridge after deleting an interface
+Date: Thu, 12 Mar 2015 16:18:19 -0700
+Message-ID: <CAJieiUhEGkxZ0a5kstobgNpP31xKrT+yLLBm4L1QrB1iHQgWJA@mail.gmail.com>
+References: <ebf95dd7-9166-43d5-9919-22f2cd654ef6@default>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33061 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751858AbbCLXSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:18:20 -0400
+Received: by padet14 with SMTP id et14so24392819pad.0
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:18:20 -0700 (PDT)
+In-Reply-To: <ebf95dd7-9166-43d5-9919-22f2cd654ef6@default>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The PHY state machine (in drivers/net/phy/phy.c) will unconditionally
-call phydev->adjust_link (macb_handle_link_change) when polling in the
-PHY_CHANGELINK state. As currently written, macb always ends up
-requesting a new tx_clk frequency in macb_handle_link_change. It is a
-waste of time to request a new tx_clk frequency if the link state hasn't
-changed, as the tx_clk will already be configured properly.
-
-Let's only request a new tx_clk clock frequency when necessary.
-
-Signed-off-by: Jaeden Amero <jaeden.amero@ni.com>
-Cc: Josh Cartwright <joshc@ni.com>
-Cc: Soren Brinkmann <soren.brinkmann@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index f00be58..a0a04b3 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -293,10 +293,13 @@ static void macb_handle_link_change(struct net_device *dev)
- 
- 	spin_unlock_irqrestore(&bp->lock, flags);
- 
--	macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
--
- 	if (status_change) {
- 		if (phydev->link) {
-+			/* Update the TX clock rate if and only if the link is
-+			 * up and there has been a link change.
-+			 */
-+			macb_set_tx_clk(bp->tx_clk, phydev->speed, dev);
-+
- 			netif_carrier_on(dev);
- 			netdev_info(dev, "link up (%d/%s)\n",
- 				    phydev->speed,
--- 
-2.1.4
+On Thu, Mar 12, 2015 at 3:37 PM, Venkat Venkatsubra
+<venkat.x.venkatsubra@oracle.com> wrote:
+> Hello All,
+>
+> When adding an interface the bridge interface's MTU is set to the
+> minimum of all the interfaces. Call to dev_set_mtu(br->dev, br_min_mtu(br))
+> in br_add_if() achieves that. But when deleting an interface from the bridge
+> the MTU is not reset again to the minimum of the current set of interfaces.
+> Is there a reason it is that way ?
+>
+> If not I could send a patch that resets the MTU with a call to
+> dev_set_mtu(br->dev, br_min_mtu(br)) in br_del_if().
+>
+seems like the right thing to do. you should submit a patch.
