@@ -1,63 +1,70 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 0/8] powerpc/8xx: Getting rid of CONFIG_8xx
-Date: Thu, 12 Mar 2015 21:20:01 +0100
-Message-ID: <CAMuHMdVuECs41hdUfdK9Q6-Kf53C874RC7PuvoqU8LieqgmDug@mail.gmail.com>
-References: <20150312152420.11C821A2425@localhost.localdomain>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
+ device specific parameters
+Date: Thu, 12 Mar 2015 22:51:32 +0200
+Message-ID: <CAJ3xEMibyF7B3m2nrgBE8Zaj+oH+cJ+MH_61QfvO-ge=3CWYkQ@mail.gmail.com>
+References: <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
+	<20150312.140505.1685428263314887570.davem@davemloft.net>
+	<CAJL1qvHOFzAU=ciTR2A3AgoX622+c5wDYLEC07OaGwOZsC6jxA@mail.gmail.com>
+	<20150312.153130.1372889580818723770.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	Vitaly Bordug <vitb@kernel.crashing.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Jeff Dike <jdike@addtoit.com>,
-	Richard Weinberger <richard@nod.at>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+Cc: hadarh@dev.mellanox.co.il,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Brian Norris <computersforpeace@gmail.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	uml-devel <user-mode-linux-devel@lists.sourceforge.net>,
-	uml-user <user-mode-linux-user@lists.sourceforge.net>,
-	Linux Fbdev developm
-To: Christophe Leroy <christophe.leroy@c-s.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150312152420.11C821A2425@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Amir Vadai <amirv@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"talal@mellanox.com" <talal@mellanox.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Doug Ledford <dledford@redhat.com>, greearb@candelatech.com,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	john.ronciak@intel.com
+To: David Miller <davem@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:46285 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754060AbbCLUvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 16:51:33 -0400
+Received: by oiga141 with SMTP id a141so16919487oig.13
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 13:51:32 -0700 (PDT)
+In-Reply-To: <20150312.153130.1372889580818723770.davem@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 4:24 PM, Christophe Leroy
-<christophe.leroy@c-s.fr> wrote:
-> Two config options exist to define powerpc MPC8xx:
-> * CONFIG_PPC_8xx
-> * CONFIG_8xx
-> In addition, CONFIG_PPC_8xx also defines CONFIG_CPM1 as
-> communication co-processor
->
-> arch/powerpc/platforms/Kconfig.cputype has contained the following
-> comment about CONFIG_8xx item for some years:
-> "# this is temp to handle compat with arch=ppc"
->
-> It looks like not many places still have that old CONFIG_8xx used,
-> so it is likely to be a good time to get rid of it completely ?
+On Thu, Mar 12, 2015 at 9:31 PM, David Miller <davem@redhat.com> wrote:
+> From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+>> On Thu, Mar 12, 2015 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+>>>> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net>
 
-We also have CONFIG_40x,. CONFIG_44x, and CONFIG_4xx.
-There's no CONFIG_PPC_4* though.
+[...]
+>>>>> These textual interfaces are arbitrary, and you are choosing it only
+>>>>> because you cannot come up with a more reasonable scheme,
 
-Do we want (some) consistency?
+[...]
+>>>> Is a scheme based on netlink will be acceptable by you?
 
-Gr{oetje,eeting}s,
+>>> A portable, well typed, interface that other vendors could use if their
+>>> hardware had similar features would be acceptable.
 
-                        Geert
+>> Do you mean an interface implementation that reminds the ethtool
+>> private flags scheme but implemented through netlink, allows
+>> configuration without a netdevice and more flexibility?
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> I mean exactly what I said, neither more nor less.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Hey Dave, we're trying to see we understand... already two
+implementations in a row weren't accepted, so now before doing the 3rd
+one, we want to better align.
+
+So, it has to be non-textual, portable, well typed and one that can be
+used by other vendors too. We are talking that could be used for
+multiple vendor driver to configure few proprietary HW initialization
+params. So how about a scheme based on key/value pairs carried over
+netlink messages?
+
+Or.
