@@ -1,40 +1,53 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH 2/2 net-next] hyperv: Support batched notification
-Date: Thu, 12 Mar 2015 12:06:28 +0100
-Message-ID: <20150312110628.GC11353@aepfle.de>
-References: <1426013383-2853-1-git-send-email-kys@microsoft.com>
- <1426013404-2892-1-git-send-email-kys@microsoft.com>
- <1426013404-2892-2-git-send-email-kys@microsoft.com>
- <20150311092354.GA13144@aepfle.de>
- <BY2PR0301MB07115FFD6E62E07CBAB0AED0A0190@BY2PR0301MB0711.namprd03.prod.outlook.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: rhashtable: Fix reader/rehash race
+Date: Thu, 12 Mar 2015 22:07:49 +1100
+Message-ID: <20150312110749.GA19285@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>
-To: KY Srinivasan <kys@microsoft.com>
+Content-Type: text/plain; charset=us-ascii
+To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:22083 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753305AbbCLLGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 07:06:31 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:43481 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752235AbbCLLHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 07:07:52 -0400
 Content-Disposition: inline
-In-Reply-To: <BY2PR0301MB07115FFD6E62E07CBAB0AED0A0190@BY2PR0301MB0711.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, KY Srinivasan wrote:
+There is a potential race condition between readers and the rehasher.
+In particular, the rehasher could have started a rehash while the
+reader finishes a scan of the old table but fails to see the new
+table pointer.
 
-> This is the convention that we have used for patches submitted to
-> David's tree.
+This patch closes this window by adding smp_wmb/smp_rmb.
+    
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I see, it refers to the directory name. In a bunch of backports it gives
-the impression it affects the Hyper-V support as whole, while in fact a
-given change is just for the network driver. Looks like I have to live
-with that.
-
-Olaf
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 6ffc793..68210cc 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -271,6 +271,9 @@ static void rhashtable_rehash(struct rhashtable *ht,
+ 	 */
+ 	rcu_assign_pointer(ht->future_tbl, new_tbl);
+ 
++	/* Ensure the new table is visible to readers. */
++	smp_wmb();
++
+ 	for (old_hash = 0; old_hash < old_tbl->size; old_hash++)
+ 		rhashtable_rehash_chain(ht, old_hash);
+ 
+@@ -618,6 +621,9 @@ restart:
+ 		return rht_obj(ht, he);
+ 	}
+ 
++	/* Ensure we see any new tables. */
++	smp_rmb();
++
+ 	old_tbl = tbl;
+ 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
+ 	if (unlikely(tbl != old_tbl))
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
