@@ -1,100 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] xps: must clear sender_cpu before forwarding
-Date: Wed, 11 Mar 2015 18:42:02 -0700
-Message-ID: <1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5500E52C.7080603@nuclearfallout.net>
-	 <CANn89iLHkYc2Kay7z+v=tHMW5aYSqUf8V4f70Z-d5fUuuUXnpw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: John <jw@nuclearfallout.net>, David Miller <davem@davemloft.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next] switchdev: correct spelling of notifier in comments
+Date: Thu, 12 Mar 2015 10:42:50 +0900
+Message-ID: <1426124570-17667-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:34997 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026AbbCLBmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:42:04 -0400
-Received: by ieclw3 with SMTP id lw3so8091927iec.2
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 18:42:03 -0700 (PDT)
-In-Reply-To: <CANn89iLHkYc2Kay7z+v=tHMW5aYSqUf8V4f70Z-d5fUuuUXnpw@mail.gmail.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:34713 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbbCLBnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:43:10 -0400
+Received: by pdno5 with SMTP id o5so15868628pdn.1
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 18:43:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-John reported that my previous commit added a regression
-on his router.
-
-This is because sender_cpu & napi_id share a common location,
-so get_xps_queue() can see garbage and perform an out of bound access.
-
-We need to make sure sender_cpu is cleared before doing the transmit,
-otherwise any NIC busy poll enabled (skb_mark_napi_id()) can trigger
-this bug.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: John <jw@nuclearfallout.net>
-Bisected-by: John <jw@nuclearfallout.net>
-Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- include/linux/skbuff.h |    7 +++++++
- net/core/skbuff.c      |    2 +-
- net/ipv4/ip_forward.c  |    1 +
- net/ipv6/ip6_output.c  |    1 +
- 4 files changed, 10 insertions(+), 1 deletion(-)
+ net/switchdev/switchdev.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 30007afe70b3..f54d6659713a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -948,6 +948,13 @@ static inline void skb_copy_hash(struct sk_buff *to, const struct sk_buff *from)
- 	to->l4_hash = from->l4_hash;
- };
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 8cf42a6..b7a23132 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -59,7 +59,7 @@ static DEFINE_MUTEX(netdev_switch_mutex);
+ static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
  
-+static inline void skb_sender_cpu_clear(struct sk_buff *skb)
-+{
-+#ifdef CONFIG_XPS
-+	skb->sender_cpu = 0;
-+#endif
-+}
-+
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
- {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f80507823531..434e78e5254d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4173,7 +4173,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
- 	skb->ignore_df = 0;
- 	skb_dst_drop(skb);
- 	skb->mark = 0;
--	skb->sender_cpu = 0;
-+	skb_sender_cpu_clear(skb);
- 	skb_init_secmark(skb);
- 	secpath_reset(skb);
- 	nf_reset(skb);
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 787b3c294ce6..d9bc28ac5d1b 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -67,6 +67,7 @@ static int ip_forward_finish(struct sk_buff *skb)
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
+ /**
+- *	register_netdev_switch_notifier - Register nofifier
++ *	register_netdev_switch_notifier - Register notifier
+  *	@nb: notifier_block
+  *
+  *	Register switch device notifier. This should be used by code
+@@ -78,7 +78,7 @@ int register_netdev_switch_notifier(struct notifier_block *nb)
+ EXPORT_SYMBOL_GPL(register_netdev_switch_notifier);
  
-+	skb_sender_cpu_clear(skb);
- 	return dst_output(skb);
- }
+ /**
+- *	unregister_netdev_switch_notifier - Unregister nofifier
++ *	unregister_netdev_switch_notifier - Unregister notifier
+  *	@nb: notifier_block
+  *
+  *	Unregister switch device notifier.
+@@ -96,7 +96,7 @@ int unregister_netdev_switch_notifier(struct notifier_block *nb)
+ EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
  
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 0a04a37305d5..7e80b61b51ff 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -318,6 +318,7 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
- 
- static inline int ip6_forward_finish(struct sk_buff *skb)
- {
-+	skb_sender_cpu_clear(skb);
- 	return dst_output(skb);
- }
- 
+ /**
+- *	call_netdev_switch_notifiers - Call nofifiers
++ *	call_netdev_switch_notifiers - Call notifiers
+  *	@val: value passed unmodified to notifier function
+  *	@dev: port device
+  *	@info: notifier information data
+-- 
+2.1.4
