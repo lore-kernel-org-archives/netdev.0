@@ -1,95 +1,69 @@
-From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Wed, 11 Mar 2015 16:37:40 -0700
-Message-ID: <20150311233738.GA5566@codeaurora.org>
-References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
- <20150310204021.GA2740@codeaurora.org>
- <CAGVrzcZcLgMWuNJ9R_izuBRyyY21=ZJw+2Dk8RfxijGd2fMXNQ@mail.gmail.com>
- <20150311011802.GA10875@codeaurora.org>
- <20150311133057.GA9601@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why do we prefer skb->priority to tc filters?
+Date: Wed, 11 Mar 2015 17:00:27 -0700
+Message-ID: <1426118427.11398.114.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
+	 <CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
+	 <1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
+	 <1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
+	 <1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7N88DFPpfPeN5cqru7oODfew1ZUdT80R0fj1QkQsx-siw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Jonas Gorski <jogo@openwrt.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53490 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbbCKXhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 19:37:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20150311133057.GA9601@lunn.ch>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:33485 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709AbbCLAAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 20:00:34 -0400
+Received: by iecvj10 with SMTP id vj10so3203773iec.0
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 17:00:33 -0700 (PDT)
+In-Reply-To: <CAHA+R7N88DFPpfPeN5cqru7oODfew1ZUdT80R0fj1QkQsx-siw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 02:30:57PM +0100, Andrew Lunn wrote:
-> > We already have existing interface for eth0/eth1. Maybe we should
-> > consider allowing them to be bridge. User configuration would look like
-> > this:
-> > 
-> > brctl addbr br-lan
-> > brctl addif br-lan eth1
-> > brctl addif br-lan lan1
-> > brctl addif br-lan lan2
-> > brctl addif br-lan lan3
-> > brctl addif br-lan lan4
+On Wed, 2015-03-11 at 15:12 -0700, Cong Wang wrote:
+
+> I knew we can modify skb->priority in a few ways, for example skbedit.
 > 
-> Think about this from the perspective of somebody how does not know
-> there is a switch.  When i look at this, to me it means packets from
-> lan1, lan2, lan3, lan4 and eth1 are bridged together. So we are going
-> to get packets sent out eth1 without a tag on it, and the switch is
-> very likely to drop it, since the port is in a mode which expects a
-> tag. You are not using the brctl command with its normal meaning,
-> which is bad.
+> That is not my concern, all what I am thinking is there is some
+> way in application layer to bypass our tc filters, which is not expected
+> to happen for me. Given our specific case, I want to propose to clear
+> skb->priority after moving out of a netns:
 > 
-> Configuring this at the bridge layer is also wrong. What conduit a DSA
-> slave interfaces uses is a DSA layer issue.
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 962ee9d..2301f01 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1694,6 +1694,7 @@ int __dev_forward_skb(struct net_device *dev,
+> struct sk_buff *skb)
+>         }
 > 
-> Before we can come up with a nice solution, i think we first need to
-> understand what the switches are capable off. If trunking does work,
-> it is a relatively nice system for the user to configure, in that
-> there is nothing for the user to configure! Assuming the switch can do
-> reasonable load balancing, we also get near optimal usage of the two
-> conduits.
-> 
+>         skb_scrub_packet(skb, true);
+> +       skb->priority = 0;
+>         skb->protocol = eth_type_trans(skb, dev);
+>         skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
 
-Agreed. The switches I'm talking about (QCA8xxx/AR8xxx) don't support
-a mode which would allow them to use all the CPU ports as one logical
-bonding interface. I'm not sure how many of the switches in OpenWrt do.
+This looks more reasonable than your prior change to fq_codel, sfq, and
+others.
 
-I know some of these switches don't even support tagging. So I'd be
-surprised if they're all capable of bonding.
+If you use mavclan or ipvlan, not all paths will use __dev_forward_skb()
 
-The base usage scenario for these switches is using port based vlan.
-The user knows very well there is a switch (OpenWrt even has a webpage
-for it), and he provides a static configuration by telling it how he
-want the ports to be connected to each other.
-In the previous example, it would be something like creating 2 logical
-switches: P0/P1 and P2/P3/P4/P5/P6. Or it could be something like
-(lan1 - P0/P1/P2) and (lan2 - P3/P4) and (lan3 - P5/P6). Or anything else.
-That's the mode that OpenWrt is using in pretty much all its target. It is
-also the way they get configured in most home routers in general.
+So I am guessing you use veth maybe. Who knows.
 
-I understand the value of using bonding. But we should also have a way to
-configure more simple hardware - which is typically using port based vlan.
+Note that you could instead use :
 
-> I don't know when i will have time to play with this, and if somebody
-> comes along with a better idea, i'm very open to adopting that idea
-> over mine.
+ skb->priority = skb->priority & TC_PRIO_MAX;
 
-I think DSA should probably support both. I think it should allow
-bonding for switches who support it, but it should also allow for port
-based vlan mapped by the user.
+This way, TC_PRIO_CONTROL legitimate traffic would not be downgraded to
+TC_PRIO_BESTEFFORT.
 
-Another way to support these could be to make the cpu port "optional".
-These switches would have no cpu port, all the ports would have a
-net_device (including the xMII ones). They would get bridged, and
-packets that are sent to interface connected to cpu would be dropped by
-the switch xmit function.
-I didn't try that, but it should work.
-
-> 
->       Andrew
+This all looks like a policy decision, and we probably should not hard
+code it in the kernel : Some users have trusted applications running in
+containers.
