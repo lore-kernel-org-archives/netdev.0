@@ -1,14 +1,13 @@
 From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH 5/8] tty: cpm_uart: replace CONFIG_8xx by CONFIG_CPM1
-Date: Thu, 12 Mar 2015 16:23:59 +0100 (CET)
-Message-ID: <20150312152359.B611E1A2420@localhost.localdomain>
+Subject: [PATCH 2/8] um: replace CONFIG_8xx by CONFIG_PPC_8xx
+Date: Thu, 12 Mar 2015 16:23:44 +0100 (CET)
+Message-ID: <20150312152344.83BA31A241D@localhost.localdomain>
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	user-mode-linux-devel@lists.sourceforge.net,
 	user-mode-linux-user@lists.sourceforge.net,
 	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
 	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Slaby <jslaby@suse.cz>
+To: Jeff Dike <jdike@addtoit.com>, Richard Weinberger <richard@nod.at>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -29,48 +28,63 @@ so it is likely to be a good time to get rid of it completely ?
 Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
 ---
- drivers/tty/serial/Kconfig             | 2 +-
- drivers/tty/serial/cpm_uart/Makefile   | 2 +-
- drivers/tty/serial/cpm_uart/cpm_uart.h | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ arch/um/sys-ppc/misc.S | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/tty/serial/Kconfig b/drivers/tty/serial/Kconfig
-index c9dbc62..6086586 100644
---- a/drivers/tty/serial/Kconfig
-+++ b/drivers/tty/serial/Kconfig
-@@ -868,7 +868,7 @@ config SERIAL_PMACZILOG_CONSOLE
+diff --git a/arch/um/sys-ppc/misc.S b/arch/um/sys-ppc/misc.S
+index 1364b7d..163e0b2 100644
+--- a/arch/um/sys-ppc/misc.S
++++ b/arch/um/sys-ppc/misc.S
+@@ -18,7 +18,7 @@
+ #include <asm/processor.h>
+ #include "ppc_asm.h"
  
- config SERIAL_CPM
- 	tristate "CPM SCC/SMC serial port support"
--	depends on CPM2 || 8xx
-+	depends on CPM2 || CPM1
- 	select SERIAL_CORE
- 	help
- 	  This driver supports the SCC and SMC serial ports on Motorola 
-diff --git a/drivers/tty/serial/cpm_uart/Makefile b/drivers/tty/serial/cpm_uart/Makefile
-index e072724..896a5d5 100644
---- a/drivers/tty/serial/cpm_uart/Makefile
-+++ b/drivers/tty/serial/cpm_uart/Makefile
-@@ -6,6 +6,6 @@ obj-$(CONFIG_SERIAL_CPM) += cpm_uart.o
+-#if defined(CONFIG_4xx) || defined(CONFIG_8xx)
++#if defined(CONFIG_4xx) || defined(CONFIG_PPC_8xx)
+ #define CACHE_LINE_SIZE		16
+ #define LG_CACHE_LINE_SIZE	4
+ #define MAX_COPY_PREFETCH	1
+@@ -26,7 +26,7 @@
+ #define CACHE_LINE_SIZE		32
+ #define LG_CACHE_LINE_SIZE	5
+ #define MAX_COPY_PREFETCH	4
+-#endif /* CONFIG_4xx || CONFIG_8xx */
++#endif /* CONFIG_4xx || CONFIG_PPC_8xx */
  
- # Select the correct platform objects.
- cpm_uart-objs-$(CONFIG_CPM2)	+= cpm_uart_cpm2.o
--cpm_uart-objs-$(CONFIG_8xx)	+= cpm_uart_cpm1.o
-+cpm_uart-objs-$(CONFIG_CPM1)	+= cpm_uart_cpm1.o
+ 	.text
  
- cpm_uart-objs	:= cpm_uart_core.o $(cpm_uart-objs-y)
-diff --git a/drivers/tty/serial/cpm_uart/cpm_uart.h b/drivers/tty/serial/cpm_uart/cpm_uart.h
-index cf34d26..0ad027b 100644
---- a/drivers/tty/serial/cpm_uart/cpm_uart.h
-+++ b/drivers/tty/serial/cpm_uart/cpm_uart.h
-@@ -19,7 +19,7 @@
+@@ -38,7 +38,7 @@
+ _GLOBAL(clear_page)
+ 	li	r0,4096/CACHE_LINE_SIZE
+ 	mtctr	r0
+-#ifdef CONFIG_8xx
++#ifdef CONFIG_PPC_8xx
+ 	li	r4, 0
+ 1:	stw	r4, 0(r3)
+ 	stw	r4, 4(r3)
+@@ -72,7 +72,7 @@ _GLOBAL(copy_page)
+ 	addi	r4,r4,-4
+ 	li	r5,4
  
- #if defined(CONFIG_CPM2)
- #include "cpm_uart_cpm2.h"
--#elif defined(CONFIG_8xx)
-+#elif defined(CONFIG_CPM1)
- #include "cpm_uart_cpm1.h"
+-#ifndef CONFIG_8xx
++#ifndef CONFIG_PPC_8xx
+ #if MAX_COPY_PREFETCH > 1
+ 	li	r0,MAX_COPY_PREFETCH
+ 	li	r11,4
+@@ -84,12 +84,12 @@ _GLOBAL(copy_page)
+ 	dcbt	r5,r4
+ 	li	r11,CACHE_LINE_SIZE+4
+ #endif /* MAX_COPY_PREFETCH */
+-#endif /* CONFIG_8xx */
++#endif /* CONFIG_PPC_8xx */
+ 
+ 	li	r0,4096/CACHE_LINE_SIZE
+ 	mtctr	r0
+ 1:
+-#ifndef CONFIG_8xx
++#ifndef CONFIG_PPC_8xx
+ 	dcbt	r11,r4
+ 	dcbz	r5,r3
  #endif
- 
 -- 
 2.1.0
