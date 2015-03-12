@@ -1,116 +1,132 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 7/8] inet: get_openreq4() & get_openreq6() do not need listener
-Date: Thu, 12 Mar 2015 16:44:09 -0700
-Message-ID: <1426203850-11034-8-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 8/8] inet: introduce ireq_family
+Date: Thu, 12 Mar 2015 16:44:10 -0700
+Message-ID: <1426203850-11034-9-git-send-email-edumazet@google.com>
 References: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:34151 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755478AbbCLXpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:45:16 -0400
-Received: by obcwp18 with SMTP id wp18so5094860obc.1
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:45:15 -0700 (PDT)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:33702 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755530AbbCLXpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:45:23 -0400
+Received: by pablj1 with SMTP id lj1so5785451pab.0
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:45:23 -0700 (PDT)
 In-Reply-To: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ireq->ir_num contains local port, use it.
-
-Also, get_openreq4() dumping listen_sk->refcnt makes litle sense.
-
-inet_diag_fill_req() can also use ireq->ir_num
+Before inserting request socks into general hash table,
+fill their socket family.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/inet_diag.c | 3 +--
- net/ipv4/tcp_ipv4.c  | 8 ++++----
- net/ipv6/tcp_ipv6.c  | 4 ++--
- 3 files changed, 7 insertions(+), 8 deletions(-)
+ include/net/inet_sock.h | 1 +
+ net/dccp/ipv4.c         | 1 +
+ net/dccp/ipv6.c         | 1 +
+ net/ipv4/inet_diag.c    | 2 +-
+ net/ipv4/syncookies.c   | 1 +
+ net/ipv4/tcp_ipv4.c     | 1 +
+ net/ipv6/syncookies.c   | 1 +
+ net/ipv6/tcp_ipv6.c     | 1 +
+ 8 files changed, 8 insertions(+), 1 deletion(-)
 
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 9d6470c16a27..b3053fdd871e 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -82,6 +82,7 @@ struct inet_request_sock {
+ #define ireq_net		req.__req_common.skc_net
+ #define ireq_state		req.__req_common.skc_state
+ #define ireq_refcnt		req.__req_common.skc_refcnt
++#define ireq_family		req.__req_common.skc_family
+ 
+ 	kmemcheck_bitfield_begin(flags);
+ 	u16			snd_wscale : 4,
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index f695874b5ade..8f6f4004daac 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -642,6 +642,7 @@ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq->ir_loc_addr = ip_hdr(skb)->daddr;
+ 	ireq->ir_rmt_addr = ip_hdr(skb)->saddr;
+ 	write_pnet(&ireq->ireq_net, sock_net(sk));
++	ireq->ireq_family = AF_INET;
+ 
+ 	/*
+ 	 * Step 3: Process LISTEN state
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 703a21acf434..5166b0043f95 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -404,6 +404,7 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	ireq->ir_v6_rmt_addr = ipv6_hdr(skb)->saddr;
+ 	ireq->ir_v6_loc_addr = ipv6_hdr(skb)->daddr;
+ 	write_pnet(&ireq->ireq_net, sock_net(sk));
++	ireq->ireq_family = AF_INET6;
+ 
+ 	if (ipv6_opt_accepted(sk, skb, IP6CB(skb)) ||
+ 	    np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo ||
 diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 29317ff4a007..c55a6fa3162d 100644
+index c55a6fa3162d..43789c99031f 100644
 --- a/net/ipv4/inet_diag.c
 +++ b/net/ipv4/inet_diag.c
-@@ -718,7 +718,6 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
- 			      const struct nlmsghdr *unlh)
- {
- 	const struct inet_request_sock *ireq = inet_rsk(req);
--	struct inet_sock *inet = inet_sk(sk);
- 	struct inet_diag_msg *r;
- 	struct nlmsghdr *nlh;
- 	long tmo;
-@@ -744,7 +743,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
- 	if (tmo < 0)
- 		tmo = 0;
+@@ -728,7 +728,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 		return -EMSGSIZE;
  
--	r->id.idiag_sport = inet->inet_sport;
-+	r->id.idiag_sport = htons(ireq->ir_num);
- 	r->id.idiag_dport = ireq->ir_rmt_port;
+ 	r = nlmsg_data(nlh);
+-	r->idiag_family = sk->sk_family;
++	r->idiag_family = ireq->ireq_family;
+ 	r->idiag_state = TCP_SYN_RECV;
+ 	r->idiag_timer = 1;
+ 	r->idiag_retrans = req->num_retrans;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 18e5a67fda81..0c432730c7b4 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -347,6 +347,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	treq->snt_synack	= tcp_opt.saw_tstamp ? tcp_opt.rcv_tsecr : 0;
+ 	treq->listener		= NULL;
+ 	write_pnet(&ireq->ireq_net, sock_net(sk));
++	ireq->ireq_family = AF_INET;
  
- 	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
+ 	/* We throwed the options of the initial SYN away, so we hope
+ 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index f0c6fc32bfa8..70b0f701bbdb 100644
+index 70b0f701bbdb..1f514a0c5e60 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -2204,7 +2204,7 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
- }
- EXPORT_SYMBOL(tcp_proc_unregister);
- 
--static void get_openreq4(const struct sock *sk, const struct request_sock *req,
-+static void get_openreq4(const struct request_sock *req,
- 			 struct seq_file *f, int i, kuid_t uid)
- {
- 	const struct inet_request_sock *ireq = inet_rsk(req);
-@@ -2214,7 +2214,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
- 		" %02X %08X:%08X %02X:%08lX %08X %5u %8d %u %d %pK",
- 		i,
- 		ireq->ir_loc_addr,
--		ntohs(inet_sk(sk)->inet_sport),
-+		ireq->ir_num,
- 		ireq->ir_rmt_addr,
- 		ntohs(ireq->ir_rmt_port),
- 		TCP_SYN_RECV,
-@@ -2225,7 +2225,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
- 		from_kuid_munged(seq_user_ns(f), uid),
- 		0,  /* non standard timer */
- 		0, /* open_requests have no inode */
--		atomic_read(&sk->sk_refcnt),
-+		0,
- 		req);
+@@ -1228,6 +1228,7 @@ static void tcp_v4_init_req(struct request_sock *req, struct sock *sk,
+ 	ireq->ir_rmt_addr = ip_hdr(skb)->saddr;
+ 	ireq->no_srccheck = inet_sk(sk)->transparent;
+ 	ireq->opt = tcp_v4_save_options(skb);
++	ireq->ireq_family = AF_INET;
  }
  
-@@ -2332,7 +2332,7 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
- 			get_tcp4_sock(v, seq, st->num);
- 		break;
- 	case TCP_SEQ_STATE_OPENREQ:
--		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid);
-+		get_openreq4(v, seq, st->num, st->uid);
- 		break;
- 	}
- out:
+ static struct dst_entry *tcp_v4_route_req(struct sock *sk, struct flowi *fl,
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 66bba6a84e47..58875ce8e178 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -197,6 +197,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	treq = tcp_rsk(req);
+ 	treq->listener = NULL;
+ 	write_pnet(&ireq->ireq_net, sock_net(sk));
++	ireq->ireq_family = AF_INET6;
+ 
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto out_free;
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5d46832c6f72..1ccfede7d55f 100644
+index 1ccfede7d55f..c5fc6a5e4adc 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -1689,7 +1689,7 @@ static void tcp_v6_destroy_sock(struct sock *sk)
- #ifdef CONFIG_PROC_FS
- /* Proc filesystem TCPv6 sock list dumping. */
- static void get_openreq6(struct seq_file *seq,
--			 const struct sock *sk, struct request_sock *req, int i, kuid_t uid)
-+			 struct request_sock *req, int i, kuid_t uid)
- {
- 	int ttd = req->expires - jiffies;
- 	const struct in6_addr *src = &inet_rsk(req)->ir_v6_loc_addr;
-@@ -1827,7 +1827,7 @@ static int tcp6_seq_show(struct seq_file *seq, void *v)
- 			get_tcp6_sock(seq, v, st->num);
- 		break;
- 	case TCP_SEQ_STATE_OPENREQ:
--		get_openreq6(seq, st->syn_wait_sk, v, st->num, st->uid);
-+		get_openreq6(seq, v, st->num, st->uid);
- 		break;
+@@ -749,6 +749,7 @@ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
+ 		atomic_inc(&skb->users);
+ 		ireq->pktopts = skb;
  	}
- out:
++	ireq->ireq_family = AF_INET6;
+ }
+ 
+ static struct dst_entry *tcp_v6_route_req(struct sock *sk, struct flowi *fl,
 -- 
 2.2.0.rc0.207.ga3a616c
