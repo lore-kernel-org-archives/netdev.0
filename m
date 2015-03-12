@@ -1,49 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/4] rhashtable: Remove key length argument to key_hashfn
-Date: Thu, 12 Mar 2015 14:49:40 +1100
-Message-ID: <E1YVu7w-0003lx-DS@gondolin.me.apana.org.au>
-References: <20150312034923.GA14415@gondor.apana.org.au>
-To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] xps: must clear sender_cpu before forwarding
+Date: Wed, 11 Mar 2015 23:51:34 -0400 (EDT)
+Message-ID: <20150311.235134.2179029122534232611.davem@davemloft.net>
+References: <5500E52C.7080603@nuclearfallout.net>
+	<CANn89iLHkYc2Kay7z+v=tHMW5aYSqUf8V4f70Z-d5fUuuUXnpw@mail.gmail.com>
+	<1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jw@nuclearfallout.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:38532 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751830AbbCLDtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:49:42 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:56057 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107AbbCLDvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:51:36 -0400
+In-Reply-To: <1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-key_hashfn has only one caller and it doesn't really need to supply
-the key length as an extra parameter.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 11 Mar 2015 18:42:02 -0700
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> John reported that my previous commit added a regression
+> on his router.
+> 
+> This is because sender_cpu & napi_id share a common location,
+> so get_xps_queue() can see garbage and perform an out of bound access.
+> 
+> We need to make sure sender_cpu is cleared before doing the transmit,
+> otherwise any NIC busy poll enabled (skb_mark_napi_id()) can trigger
+> this bug.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: John <jw@nuclearfallout.net>
+> Bisected-by: John <jw@nuclearfallout.net>
+> Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
 
- lib/rhashtable.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 03fdaf8..838cccc 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -81,9 +81,10 @@ static u32 obj_raw_hashfn(struct rhashtable *ht,
- }
- 
- static u32 key_hashfn(struct rhashtable *ht, const struct bucket_table *tbl,
--		      const void *key, u32 len)
-+		      const void *key)
- {
--	return rht_bucket_index(tbl, ht->p.hashfn(key, len, tbl->hash_rnd) >>
-+	return rht_bucket_index(tbl, ht->p.hashfn(key, ht->p.key_len,
-+						  tbl->hash_rnd) >>
- 				     HASH_RESERVED_SPACE);
- }
- 
-@@ -619,7 +620,7 @@ void *rhashtable_lookup_compare(struct rhashtable *ht, const void *key,
- 	rcu_read_lock();
- 
- 	tbl = rht_dereference_rcu(ht->tbl, ht);
--	hash = key_hashfn(ht, tbl, key, ht->p.key_len);
-+	hash = key_hashfn(ht, tbl, key);
- restart:
- 	rht_for_each_rcu(he, tbl, hash) {
- 		if (!compare(rht_obj(ht, he), arg))
+Applied, thanks Eric.
