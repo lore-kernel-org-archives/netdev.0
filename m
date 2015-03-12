@@ -1,103 +1,82 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next 4/4] bonding: Do not ignore notifications for ARP-work-queue
-Date: Wed, 11 Mar 2015 22:54:39 -0700
-Message-ID: <1426139679-27249-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] virtio-net: correctly delete napi hash
+Date: Thu, 12 Mar 2015 13:57:44 +0800
+Message-ID: <1426139864-25023-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f74.google.com ([209.85.218.74]:34159 "EHLO
-	mail-oi0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751833AbbCLFym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 01:54:42 -0400
-Received: by oifu20 with SMTP id u20so3834381oif.1
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 22:54:41 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:53300 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751258AbbCLF54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 01:57:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds code to reschedule the ARP-work (aggressively)
-to handle the notifications before resuming the regular cycle.
+We don't delete napi from hash list during module exit. This will
+cause the following panic when doing module load and unload:
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+BUG: unable to handle kernel paging request at 0000004e00000075
+IP: [<ffffffff816bd01b>] napi_hash_add+0x6b/0xf0
+PGD 3c5d5067 PUD 0
+Oops: 0000 [#1] SMP
+...
+Call Trace:
+[<ffffffffa0a5bfb7>] init_vqs+0x107/0x490 [virtio_net]
+[<ffffffffa0a5c9f2>] virtnet_probe+0x562/0x791815639d880be [virtio_net]
+[<ffffffff8139e667>] virtio_dev_probe+0x137/0x200
+[<ffffffff814c7f2a>] driver_probe_device+0x7a/0x250
+[<ffffffff814c81d3>] __driver_attach+0x93/0xa0
+[<ffffffff814c8140>] ? __device_attach+0x40/0x40
+[<ffffffff814c6053>] bus_for_each_dev+0x63/0xa0
+[<ffffffff814c7a79>] driver_attach+0x19/0x20
+[<ffffffff814c76f0>] bus_add_driver+0x170/0x220
+[<ffffffffa0a60000>] ? 0xffffffffa0a60000
+[<ffffffff814c894f>] driver_register+0x5f/0xf0
+[<ffffffff8139e41b>] register_virtio_driver+0x1b/0x30
+[<ffffffffa0a60010>] virtio_net_driver_init+0x10/0x12 [virtio_net]
+
+This patch fixes this by doing this in virtnet_free_queues(). And also
+don't delete napi in virtnet_freeze() since it will call
+virtnet_free_queues() which has already did this.
+
+Fixes 91815639d880 ("virtio-net: rx busy polling support")
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 38 ++++++++++++++++++++++----------------
- 1 file changed, 22 insertions(+), 16 deletions(-)
+ drivers/net/virtio_net.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 54ecb7a22bae..882974d543d2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2814,17 +2814,20 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
- 					    arp_work.work);
- 	bool should_notify_peers = false;
- 	bool should_notify_rtnl = false;
--	int delta_in_ticks;
-+	unsigned long delta_in_ticks;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f1ff366..59b0e97 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1448,8 +1448,10 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+ {
+ 	int i;
  
- 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
- 
- 	if (!bond_has_slaves(bond))
- 		goto re_arm;
- 
--	rcu_read_lock();
--
- 	should_notify_peers = bond_should_notify_peers(bond);
-+	if (bond_get_notif_pending(bond, BOND_ARP_NOTIF)) {
-+		rcu_read_lock();
-+		goto eval_arp_probe;
+-	for (i = 0; i < vi->max_queue_pairs; i++)
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		napi_hash_del(&vi->rq[i].napi);
+ 		netif_napi_del(&vi->rq[i].napi);
 +	}
  
-+	rcu_read_lock();
- 	if (bond_ab_arp_inspect(bond)) {
- 		rcu_read_unlock();
+ 	kfree(vi->rq);
+ 	kfree(vi->sq);
+@@ -1948,11 +1950,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 	cancel_delayed_work_sync(&vi->refill);
  
-@@ -2841,25 +2844,28 @@ static void bond_activebackup_arp_mon(struct work_struct *work)
- 		rcu_read_lock();
+ 	if (netif_running(vi->dev)) {
+-		for (i = 0; i < vi->max_queue_pairs; i++) {
++		for (i = 0; i < vi->max_queue_pairs; i++)
+ 			napi_disable(&vi->rq[i].napi);
+-			napi_hash_del(&vi->rq[i].napi);
+-			netif_napi_del(&vi->rq[i].napi);
+-		}
  	}
  
-+eval_arp_probe:
- 	should_notify_rtnl = bond_ab_arp_probe(bond);
- 	rcu_read_unlock();
- 
- re_arm:
--	if (bond->params.arp_interval)
--		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
--
- 	if (should_notify_peers || should_notify_rtnl) {
--		if (!rtnl_trylock())
--			return;
--
--		if (should_notify_peers)
--			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
--						 bond->dev);
--		if (should_notify_rtnl)
--			bond_slave_state_notify(bond);
--
--		rtnl_unlock();
-+		if (!rtnl_trylock()) {
-+			delta_in_ticks = 1;
-+			bond_set_notif_pending(bond, BOND_ARP_NOTIF, 1);
-+		} else {
-+			if (should_notify_rtnl)
-+				bond_slave_state_notify(bond);
-+			if (should_notify_peers)
-+				call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-+							 bond->dev);
-+			rtnl_unlock();
-+			bond_set_notif_pending(bond, BOND_ARP_NOTIF, 0);
-+		}
- 	}
-+
-+	if (bond->params.arp_interval)
-+		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
- }
- 
- /*-------------------------- netdev event handling --------------------------*/
+ 	remove_vq_common(vi);
 -- 
-2.2.0.rc0.207.ga3a616c
+2.1.0
