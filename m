@@ -1,58 +1,60 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 2/8] inet: add TCP_NEW_SYN_RECV state
-Date: Thu, 12 Mar 2015 16:44:04 -0700
-Message-ID: <1426203850-11034-3-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 3/8] inet: add ireq_state field to inet_request_sock
+Date: Thu, 12 Mar 2015 16:44:05 -0700
+Message-ID: <1426203850-11034-4-git-send-email-edumazet@google.com>
 References: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f202.google.com ([209.85.213.202]:34141 "EHLO
-	mail-ig0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991AbbCLXol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:44:41 -0400
-Received: by igqa13 with SMTP id a13so574634igq.1
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:44:41 -0700 (PDT)
+Received: from mail-oi0-f74.google.com ([209.85.218.74]:34769 "EHLO
+	mail-oi0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753415AbbCLXoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:44:46 -0400
+Received: by oifu20 with SMTP id u20so5530363oif.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:44:46 -0700 (PDT)
 In-Reply-To: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TCP_SYN_RECV state is currently used by fast open sockets.
+We need to identify request sock when they'll be visible in
+global ehash table.
 
-Initial TCP requests (the pseudo sockets created when a SYN is received)
-are not yet associated to a state. They are attached to their parent,
-and the parent is in TCP_LISTEN state.
+ireq_state is an alias to req.__req_common.skc_state.
 
-This commit adds TCP_NEW_SYN_RECV state, so that we can convert
-TCP stack to a different schem gradually.
-
-This state is not exported to user space.
+Its value is set to TCP_NEW_SYN_RECV
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp_states.h | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/net/inet_sock.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/include/net/tcp_states.h b/include/net/tcp_states.h
-index b0b645988bd8..50e78a74d0df 100644
---- a/include/net/tcp_states.h
-+++ b/include/net/tcp_states.h
-@@ -25,6 +25,7 @@ enum {
- 	TCP_LAST_ACK,
- 	TCP_LISTEN,
- 	TCP_CLOSING,	/* Now a valid state */
-+	TCP_NEW_SYN_RECV,
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 30f7170abbf3..b31f01de5cd6 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -27,6 +27,7 @@
+ #include <net/sock.h>
+ #include <net/request_sock.h>
+ #include <net/netns/hash.h>
++#include <net/tcp_states.h>
  
- 	TCP_MAX_STATES	/* Leave at the end! */
- };
-@@ -44,7 +45,8 @@ enum {
- 	TCPF_CLOSE_WAIT	 = (1 << 8),
- 	TCPF_LAST_ACK	 = (1 << 9),
- 	TCPF_LISTEN	 = (1 << 10),
--	TCPF_CLOSING	 = (1 << 11) 
-+	TCPF_CLOSING	 = (1 << 11),
-+	TCPF_NEW_SYN_RECV = (1 << 12),
- };
+ /** struct ip_options - IP Options
+  *
+@@ -79,6 +80,7 @@ struct inet_request_sock {
+ #define ir_iif			req.__req_common.skc_bound_dev_if
+ #define ir_cookie		req.__req_common.skc_cookie
+ #define ireq_net		req.__req_common.skc_net
++#define ireq_state		req.__req_common.skc_state
  
- #endif	/* _LINUX_TCP_STATES_H */
+ 	kmemcheck_bitfield_begin(flags);
+ 	u16			snd_wscale : 4,
+@@ -250,6 +252,7 @@ static inline struct request_sock *inet_reqsk_alloc(struct request_sock_ops *ops
+ 		kmemcheck_annotate_bitfield(ireq, flags);
+ 		ireq->opt = NULL;
+ 		atomic64_set(&ireq->ir_cookie, 0);
++		ireq->ireq_state = TCP_NEW_SYN_RECV;
+ 	}
+ 
+ 	return req;
 -- 
 2.2.0.rc0.207.ga3a616c
