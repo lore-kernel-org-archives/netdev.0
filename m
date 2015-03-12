@@ -1,51 +1,40 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: Fix reader/rehash race
-Date: Fri, 13 Mar 2015 08:49:44 +1100
-Message-ID: <20150312214944.GA20117@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] rhashtable: Fix race between rehashing and
+ readers
+Date: Fri, 13 Mar 2015 08:50:02 +1100
+Message-ID: <20150312215002.GB20117@gondor.apana.org.au>
 References: <20150312110749.GA19285@gondor.apana.org.au>
  <20150312133749.GB21620@casper.infradead.org>
+ <20150312163348.GD5378@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:41806 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:57637 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752737AbbCLVtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 17:49:47 -0400
+	with ESMTP id S1752737AbbCLVuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 17:50:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20150312133749.GB21620@casper.infradead.org>
+In-Reply-To: <20150312163348.GD5378@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 01:37:49PM +0000, Thomas Graf wrote:
-> On 03/12/15 at 10:07pm, Herbert Xu wrote:
-> > There is a potential race condition between readers and the rehasher.
-> > In particular, the rehasher could have started a rehash while the
-> > reader finishes a scan of the old table but fails to see the new
-> > table pointer.
-> > 
-> > This patch closes this window by adding smp_wmb/smp_rmb.
-> >     
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Thu, Mar 12, 2015 at 04:33:48PM +0000, Thomas Graf wrote:
+> Rehashing can occur in parallel to readers. Readers are aware of this
+> situation so new readers are allowed while the rehashing is in
+> process. Existing readers may have already fetched the tbl and
+> future_tbl and may thus assume no rehashing is in progress. The
+> rehashing must thus wait for all existing readers to complete after
+> publihsing the future_tbl to make sure all parallel readers see the
+> table before we start moving entries.
 > 
-> Are you sure this is sufficient? I think it is still possible
-> for a rehash to preempt a reader in between:
-> 
->         tbl = rht_dereference_rcu(ht->future_tbl, ht);
->         if (unlikely(tbl != old_tbl))
-> 
-> in which case old entries will be moved to the new table
-> without the reader seeing them. I don't see how ensuring order
-> solves this.
+> Fixes: aa34a6cb0478 ("rhashtable: Add arbitrary rehash function")
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+> Herbert: This is what I think is needed to fix this properly.
 
-It doesn't matter.  The wmb/smb guarauntees that if the reader
-cannot find the element in the old table then it must see the
-new table pointer.  Vice versa if it cannot see the new table
-pointer then the element (if it existed at all) must be in the
-old table.
-
-Cheers,
+Nack.  Please see my previous email.
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
