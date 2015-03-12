@@ -1,58 +1,59 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2 nf-next 3/6] netfilter: bridge: use skb->cb to track
- otherhost mangling
-Date: Thu, 12 Mar 2015 19:02:00 +0100
-Message-ID: <5501D498.4050003@hartkopp.net>
-References: <1426179925-18220-1-git-send-email-fw@strlen.de> <1426179925-18220-4-git-send-email-fw@strlen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
+ device specific parameters
+Date: Thu, 12 Mar 2015 14:05:05 -0400 (EDT)
+Message-ID: <20150312.140505.1685428263314887570.davem@davemloft.net>
+References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
+	<20150311.131457.1314699780103858026.davem@davemloft.net>
+	<CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eyal Birger <eyal.birger@gmail.com>
-To: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1426179925-18220-4-git-send-email-fw@strlen.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, amirv@mellanox.com,
+	netdev@vger.kernel.org, hadarh@mellanox.com, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, talal@mellanox.com,
+	shannon.nelson@intel.com, dledford@redhat.com,
+	greearb@candelatech.com, gregory.v.rose@intel.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com
+To: hadarh@dev.mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37973 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755102AbbCLSFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:05:11 -0400
+In-Reply-To: <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Date: Thu, 12 Mar 2015 10:07:35 +0200
 
-
-On 03/12/2015 06:05 PM, Florian Westphal wrote:
-> nf_bridge_info->mask is used for several things, for example to remember
-> if skb->pkt_type was set to OTHER_HOST.
+> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> From: Amir Vadai <amirv@mellanox.com>
+>> Date: Wed, 11 Mar 2015 11:08:50 +0200
+>>
+>> > Also, customers are paying for a very sophisticated piece of
+>> > hardware, and we would like to enable power user to tweak it in some
+>> > situtations. Of course the default mode should be used in 99% of the
+>> > use cases.
+>>
+>> How much money someone pays for your hardware has nothing to do with
+>> the standards by which we design userspace interfaces to configure
+>> these devices.
+>>
+>> These textual interfaces are arbitrary, and you are choosing it only
+>> because you cannot come up with a more reasonable scheme,
+>>
+>> I'm not applying these changes.
+>> --
 > 
-> For a bridge, OTHER_HOST is expected case. For ip forward its a
-> non-starter though -- routing expects PACKET_HOST.
+> In previous conversations Greg suggested us to use configfs.
 > 
-> Bridge netfilter thus changes OTHER_HOST to PACKET_HOST
-> before hook invocation and then un-does it after hook traversal.
+> Is this case a misuse of configfs?  maybe configfs should be deprecated... Greg?
 > 
-> For this, cb[] can be used since the skb will never be used outside
-> (fake inet) bridge forwarding while in 'fake PACKET_HOST' state.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  include/linux/netfilter_bridge.h |  1 -
->  net/bridge/br_netfilter.c        | 71 ++++++++++++++++++++++++++--------------
+> Is a scheme based on netlink will be acceptable by you?
 
-
-> @@ -1104,6 +1125,8 @@ static int __init br_netfilter_init(void)
->  {
->  	int ret;
->  
-> +	BUILD_BUG_ON(sizeof(struct nf_bridge_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
-> +
-
-Please use sock_skb_cb_check_size(size) for cb size checking which is the
-'new' check for cb sizes for netdev.
-
-See:
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit?id=b4772ef879a8f7d8c56118c2ae5a296fcf6f81d2
-
->  	ret = nf_register_hooks(br_nf_ops, ARRAY_SIZE(br_nf_ops));
->  	if (ret < 0)
->  		return ret;
-> 
-
-Regards,
-Oliver
+A portable, well typed, interface that other vendors could use if their
+hardware had similar features would be acceptable.
