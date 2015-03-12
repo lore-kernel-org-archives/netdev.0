@@ -1,45 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net:Kconfig: drop no sense dependence entry for BONDING
-Date: Thu, 12 Mar 2015 10:30:44 -0700
-Message-ID: <1426181444.11398.167.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150312135933.GA3502@udknight>
-	 <5969250.CkvXFhddBO@tacticalops>
+From: Martin Lau <kafai@fb.com>
+Subject: [Question]: Details on TCP_INFO extension
+Date: Thu, 12 Mar 2015 10:58:38 -0700
+Message-ID: <20150312175837.GE1032293@devbig242.prn2.facebook.com>
+References: <54E661BF.4020404@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wang YanQing <udknight@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-kbuild@vger.kernel.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: Martin Walch <walch.martin@web.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5969250.CkvXFhddBO@tacticalops>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: rapier <rapier@psc.edu>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: <tcpinst-wg@psc.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:56507 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754162AbbCLR6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 13:58:46 -0400
+Content-Disposition: inline
+In-Reply-To: <54E661BF.4020404@psc.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-12 at 16:14 +0100, Martin Walch wrote:
-> On Thursday 12 March 2015 21:59:33 Wang YanQing wrote:
-> > "IPV6 || IPV6=n" means no dependence!
-> 
-> IPV6 and BONDING are both tristate symbols and therefore this is not the same
-> as no dependency. When setting IPV6 to m, the expression evaluates to
-> 
-> "IPV6 || IPV6=n" 
-> "m || m=n"
-> "m || n"
-> "m"
-> 
-> So, if IPV6=m, then BONDING can only be n or m, but not y.
+Old Title: [Tcpinst-wg] Welcome to the TCP Instrumentation List
 
-Right.
+On Thu, Feb 19, 2015 at 05:20:47PM -0500, rapier wrote:
+> There should be two sets of instruments. Operational and diagnostic. The 
+> operation instruments will be be used to extend TCP_INFO and will always 
+> be available. Google will be providing a patch for upstream with 8 
+> instruments in this category. The diagnostic instruments will be enabled 
+> by the user on an as needed basis. These data from these instruments 
+> will be stored in a separate structure that is referenced by a pointer 
+> in the socket or some other mechanism. The ability to only enable a 
+> subset of these instruments should be a design goal.
+Can Google share which 8 fields will be added to TCP_INFO?
 
-But it looks like bonding driver no longer has IPV6 dependencies.
-
-Patch should work, but the changelog should be changed to explain why
-the patch is valid, and this should be tested.
-
-Presumably we need to make sure the following builds and runs properly
-
-CONFIG_BONDING=y
-CONFIG_IPV6=m
+Thanks,
+--Martin
