@@ -1,61 +1,69 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
- device specific parameters
-Date: Thu, 12 Mar 2015 14:02:05 +0200
-Message-ID: <5501803D.8020101@mellanox.com>
-References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
- <20150311.131457.1314699780103858026.davem@davemloft.net>
- <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
- <20150312090042.GB1092@kroah.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 0/4] bonding work-queues, try_rtnl() & notifications
+Date: Thu, 12 Mar 2015 13:09:10 +0100
+Message-ID: <550181E6.2080100@redhat.com>
+References: <1426139673-26995-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Amir Vadai <amirv@mellanox.com>,
+Cc: Maciej Zenczykowski <maze@google.com>,
 	netdev <netdev@vger.kernel.org>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	<yevgenyp@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	<shannon.nelson@intel.com>, <dledford@redhat.com>,
-	<greearb@candelatech.com>, <gregory.v.rose@intel.com>,
-	<jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<john.ronciak@intel.com>
-To: Greg KH <gregkh@linuxfoundation.org>,
-	Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0077.outbound.protection.outlook.com ([157.56.112.77]:55508
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751370AbbCLMCg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2015 08:02:36 -0400
-In-Reply-To: <20150312090042.GB1092@kroah.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40342 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754059AbbCLMJX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 08:09:23 -0400
+In-Reply-To: <1426139673-26995-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/12/2015 11:00 AM, Greg KH wrote:
-> On Thu, Mar 12, 2015 at 10:07:35AM +0200, Hadar Hen Zion wrote:
->> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Amir Vadai <amirv@mellanox.com>
->>> Date: Wed, 11 Mar 2015 11:08:50 +0200
->>>
->>>> Also, customers are paying for a very sophisticated piece of hardware, and we would like to enable power user to tweak it in some situtations. Of course the default mode should be used in 99% of the use cases.
->>> How much money someone pays for your hardware has nothing to do with the standards by which we design userspace interfaces to configure these devices.
->>>
->>> These textual interfaces are arbitrary, and you are choosing it only because you cannot come up with a more reasonable scheme,
->>>
->>> I'm not applying these changes.
->>> ---
->> In previous conversations Greg suggested us to use configfs.
->>
->> Is this case a misuse of configfs? maybe configfs should be deprecated... Greg?
-> No, this has nothing to do with the validity of configfs, please re-read what David said to you.
+On 12/03/15 06:54, Mahesh Bandewar wrote:
+> This patch series tries to address the issue discovered in various work-
+> queues and the way these handlers deal with the RTNL. Especially for 
+> notification handling. If RTNL can not be acquired, these handlers ignore
+> sending notifications and just re-arm the timer. This could be very 
+> problematic if the re-arm timer has larger value (e.g. in minutes).
+> 
+> 
+> Mahesh Bandewar (4):
+>   bonding: Handle notifications during work-queue processing gracefully
+>   bonding: Do not ignore notifications for miimon-work-queue
+>   bonding: Do not ignore notifications for AD-work-queue
+>   bonding: Do not ignore notifications for ARP-work-queue
+> 
+>  drivers/net/bonding/bond_3ad.c  | 22 ++++++++++++---
+>  drivers/net/bonding/bond_main.c | 62 ++++++++++++++++++++++++-----------------
+>  include/net/bonding.h           | 22 +++++++++++++++
+>  3 files changed, 77 insertions(+), 29 deletions(-)
+> 
 
-Greg,
+Hello Mahesh,
+The current behaviour was chosen as a best-effort type because such change
+could skew the monitoring/AD timers because you re-schedule every time you
+cannot acquire rtnl and move their timers with 1 tick ahead which could lead 
+to false link drops, state machines running late and so on.
+Currently the monitoring/AD functions have priority over the notifications as in
+we might miss a notification but we try not to miss a monitoring/AD event, thus I'd
+suggest to solve this in a different manner. If you'd like to have the best of both
+worlds i.e. not miss a monitoring event and also not miss any notifications you should
+use a different strategy. One idea would be to use a new "work" which checks some
+notification bits and sends various types of notifications, then the monitoring
+works can just schedule it whenever they need to send notifications and can keep their
+running times accurate. The new work should handle the rtnl side of things and re-schedule
+itself if necessary, now that is only an idea from the top of my head I haven't checked
+if it's feasible or if there isn't a better approach so I'd be open to other ideas. Also
+if you do decide to go this way, you should be very careful with the order of work
+cancellation in bond_close(). In fact, IIRC, this has already been done by the slave
+array update that you introduced and also by the igmp resend work.
 
-So.. M2-- reading Dave's words I understand that he's against textual 
-interfacessuch as configfs and prefers others. This brings two questions 
-to the table (1) do we need to deprecate these textual interfaces / 
-configfs and avoid using them for configuration purposes with new code? 
-(2) does programmable interface such as netlink is the way to go for our 
-purposes here (and elsewhere)?
+There's also a bug in bond_should_notify_peers(), as in it's not RCU safe
+on its own, it's currently safe because its callers use it in RCU protected sections
+but here you move it outside so it should be fixed first (take a look at how "slave" is used).
 
-Or.
+Nik
