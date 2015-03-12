@@ -1,128 +1,85 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 5/8] net: add req_prot_cleanup() & req_prot_init() helpers
-Date: Thu, 12 Mar 2015 16:44:07 -0700
-Message-ID: <1426203850-11034-6-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 6/8] inet: prepare sock_edemux() & sock_gen_put() for new SYN_RECV state
+Date: Thu, 12 Mar 2015 16:44:08 -0700
+Message-ID: <1426203850-11034-7-git-send-email-edumazet@google.com>
 References: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:60540 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755391AbbCLXpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:45:00 -0400
-Received: by mail-vc0-f202.google.com with SMTP id hy10so3218972vcb.1
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:44:59 -0700 (PDT)
+Received: from mail-oi0-f73.google.com ([209.85.218.73]:32889 "EHLO
+	mail-oi0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752819AbbCLXpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:45:07 -0400
+Received: by oiba3 with SMTP id a3so1739169oib.0
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:45:06 -0700 (PDT)
 In-Reply-To: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make proto_register() & proto_unregister() a bit nicer.
+sock_edemux() & sock_gen_put() should be ready to cope with request socks.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/core/sock.c | 69 ++++++++++++++++++++++++++++++++++-----------------------
- 1 file changed, 41 insertions(+), 28 deletions(-)
+ include/net/request_sock.h | 5 +++++
+ include/net/sock.h         | 2 +-
+ net/core/sock.c            | 2 ++
+ net/ipv4/inet_hashtables.c | 2 ++
+ 4 files changed, 10 insertions(+), 1 deletion(-)
 
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index e255ecf8bb40..3275cf31f731 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -77,6 +77,11 @@ static inline struct request_sock *reqsk_alloc(const struct request_sock_ops *op
+ 	return req;
+ }
+ 
++static inline struct request_sock *inet_reqsk(struct sock *sk)
++{
++	return (struct request_sock *)sk;
++}
++
+ static inline void __reqsk_free(struct request_sock *req)
+ {
+ 	kmem_cache_free(req->rsk_ops->slab, req);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 9411c3421dd3..f10832ca2e90 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1625,7 +1625,7 @@ static inline void sock_put(struct sock *sk)
+ 		sk_free(sk);
+ }
+ /* Generic version of sock_put(), dealing with all sockets
+- * (TCP_TIMEWAIT, ESTABLISHED...)
++ * (TCP_TIMEWAIT, TCP_NEW_SYN_RECV, ESTABLISHED...)
+  */
+ void sock_gen_put(struct sock *sk);
+ 
 diff --git a/net/core/sock.c b/net/core/sock.c
-index c8842f279f7a..63d871a91b5c 100644
+index 63d871a91b5c..4bc42efb3e40 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -2726,6 +2726,42 @@ static inline void release_proto_idx(struct proto *prot)
+@@ -1668,6 +1668,8 @@ void sock_edemux(struct sk_buff *skb)
+ 
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		inet_twsk_put(inet_twsk(sk));
++	else if (sk->sk_state == TCP_NEW_SYN_RECV)
++		reqsk_put(inet_reqsk(sk));
+ 	else
+ 		sock_put(sk);
  }
- #endif
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index f6a12b97d12b..64401a2fdd33 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -262,6 +262,8 @@ void sock_gen_put(struct sock *sk)
  
-+static void req_prot_cleanup(struct request_sock_ops *rsk_prot)
-+{
-+	if (!rsk_prot)
-+		return;
-+	kfree(rsk_prot->slab_name);
-+	rsk_prot->slab_name = NULL;
-+	if (rsk_prot->slab) {
-+		kmem_cache_destroy(rsk_prot->slab);
-+		rsk_prot->slab = NULL;
-+	}
-+}
-+
-+static int req_prot_init(const struct proto *prot)
-+{
-+	struct request_sock_ops *rsk_prot = prot->rsk_prot;
-+
-+	if (!rsk_prot)
-+		return 0;
-+
-+	rsk_prot->slab_name = kasprintf(GFP_KERNEL, "request_sock_%s",
-+					prot->name);
-+	if (!rsk_prot->slab_name)
-+		return -ENOMEM;
-+
-+	rsk_prot->slab = kmem_cache_create(rsk_prot->slab_name,
-+					   rsk_prot->obj_size, 0,
-+					   SLAB_HWCACHE_ALIGN, NULL);
-+
-+	if (!rsk_prot->slab) {
-+		pr_crit("%s: Can't create request sock SLAB cache!\n",
-+			prot->name);
-+		return -ENOMEM;
-+	}
-+	return 0;
-+}
-+
- int proto_register(struct proto *prot, int alloc_slab)
- {
- 	if (alloc_slab) {
-@@ -2739,21 +2775,8 @@ int proto_register(struct proto *prot, int alloc_slab)
- 			goto out;
- 		}
- 
--		if (prot->rsk_prot != NULL) {
--			prot->rsk_prot->slab_name = kasprintf(GFP_KERNEL, "request_sock_%s", prot->name);
--			if (prot->rsk_prot->slab_name == NULL)
--				goto out_free_sock_slab;
--
--			prot->rsk_prot->slab = kmem_cache_create(prot->rsk_prot->slab_name,
--								 prot->rsk_prot->obj_size, 0,
--								 SLAB_HWCACHE_ALIGN, NULL);
--
--			if (prot->rsk_prot->slab == NULL) {
--				pr_crit("%s: Can't create request sock SLAB cache!\n",
--					prot->name);
--				goto out_free_request_sock_slab_name;
--			}
--		}
-+		if (req_prot_init(prot))
-+			goto out_free_request_sock_slab;
- 
- 		if (prot->twsk_prot != NULL) {
- 			prot->twsk_prot->twsk_slab_name = kasprintf(GFP_KERNEL, "tw_sock_%s", prot->name);
-@@ -2782,14 +2805,8 @@ int proto_register(struct proto *prot, int alloc_slab)
- out_free_timewait_sock_slab_name:
- 	kfree(prot->twsk_prot->twsk_slab_name);
- out_free_request_sock_slab:
--	if (prot->rsk_prot && prot->rsk_prot->slab) {
--		kmem_cache_destroy(prot->rsk_prot->slab);
--		prot->rsk_prot->slab = NULL;
--	}
--out_free_request_sock_slab_name:
--	if (prot->rsk_prot)
--		kfree(prot->rsk_prot->slab_name);
--out_free_sock_slab:
-+	req_prot_cleanup(prot->rsk_prot);
-+
- 	kmem_cache_destroy(prot->slab);
- 	prot->slab = NULL;
- out:
-@@ -2809,11 +2826,7 @@ void proto_unregister(struct proto *prot)
- 		prot->slab = NULL;
- 	}
- 
--	if (prot->rsk_prot != NULL && prot->rsk_prot->slab != NULL) {
--		kmem_cache_destroy(prot->rsk_prot->slab);
--		kfree(prot->rsk_prot->slab_name);
--		prot->rsk_prot->slab = NULL;
--	}
-+	req_prot_cleanup(prot->rsk_prot);
- 
- 	if (prot->twsk_prot != NULL && prot->twsk_prot->twsk_slab != NULL) {
- 		kmem_cache_destroy(prot->twsk_prot->twsk_slab);
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		inet_twsk_free(inet_twsk(sk));
++	else if (sk->sk_state == TCP_NEW_SYN_RECV)
++		reqsk_free(inet_reqsk(sk));
+ 	else
+ 		sk_free(sk);
+ }
 -- 
 2.2.0.rc0.207.ga3a616c
