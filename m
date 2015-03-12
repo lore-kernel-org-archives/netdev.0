@@ -1,57 +1,113 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v6 tip 2/8] tracing: attach BPF programs to kprobes
-Date: Thu, 12 Mar 2015 09:43:54 -0700
-Message-ID: <5501C24A.30206@plumgrid.com>
-References: <1426047534-8148-1-git-send-email-ast@plumgrid.com>	<1426047534-8148-3-git-send-email-ast@plumgrid.com>	<20150312151507.GI2896@worktop.programming.kicks-ass.net>	<5501BC5A.6000204@plumgrid.com> <20150312122345.0b28c266@gandalf.local.home>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/2] rhashtable: Arbitrary rehashing
+Date: Thu, 12 Mar 2015 16:46:35 +0000
+Message-ID: <20150312164635.GA11089@casper.infradead.org>
+References: <20150131102150.GA29498@gondor.apana.org.au>
+ <20150202.191956.404010205495035337.davem@davemloft.net>
+ <20150202.192634.1792206005008667377.davem@davemloft.net>
+ <20150203201750.GA22474@gondor.apana.org.au>
+ <20150309095833.GA4028@gondor.apana.org.au>
+ <20150309222631.GA12221@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150312122345.0b28c266@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	josh@joshtriplett.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:51179 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbbCLQqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:46:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20150309222631.GA12221@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/12/15 9:23 AM, Steven Rostedt wrote:
-> On Thu, 12 Mar 2015 09:18:34 -0700
-> Alexei Starovoitov <ast@plumgrid.com> wrote:
->
->>> You've so far tried very hard to not get into tracing; and then you call
->>> rcu_read_lock() :-)
->>>
->>> So either document why this isn't a problem, provide
->>> rcu_read_lock_notrace() or switch to RCU-sched and thereby avoid the
->>> problem.
->>
->> I don't see the problem.
->> I actually do turn on func and func_graph tracers from time to time to
->> debug bpf core itself. Why would tracing interfere with anything that
->> this patch is doing? When we're inside tracing processing, we need to
->> use only _notrace() helpers otherwise recursion will hurt, but this
->> code is not invoked from there. It's called from
->> kprobe_ftrace_handler|kprobe_int3_handler->kprobe_dispatcher->
->> kprobe_perf_func->trace_call_bpf which all are perfectly traceable.
->> Probably my copy paste of preempt_disable_notrace() line from
->> stack_trace_call() became source of confusion? I believe
->> normal preempt_disable() here will be just fine.
->> It's actually redundant too, since preemption is disabled by kprobe
->> anyway. Please help me understand what I'm missing.
->
-> As Peter stated, "You've so far tried very hard to not get into
-> tracing", which the preempt_disable_notrace() is the source of confusion.
->
-> Just remove the _notrace() part, as it doesn't make sense to have part
-> not traced, and other parts traced for no apparent reason.
 
-sure. consider it done. should I respin right away or you can review
-the rest?
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On 03/10/15 at 09:26am, Herbert Xu wrote:
+> I have tested it using netlink but obviously more testing especially
+> using netfilter would be welcome.
+
+I ran the attached bind_netlink test written by Ying Xue and it
+currently crashes with:
+
+[  108.693908] BUG: unable to handle kernel paging request at fffffffffffffe68
+
+I'm running bind_netlink like this:
+
+while true; do
+    ./bind_netlink 9000 324234324&
+    ./bind_netlink 9000 888448422&
+    ./bind_netlink 9000 324
+done
+
+I tested with the synchronize_rcu() fix on top as well and that
+didn't help so it must be something else.
+
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="bind_netlink.c"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <linux/netlink.h>
+
+void diep(char *err)
+{
+	perror(err);
+	exit(1);
+}
+
+int main(int argc, char *argv[])
+{
+	int i;
+	int *fds;
+	int num_ports;
+	struct sockaddr_nl local;
+
+	srand(strtoul(argv[2], NULL, 0));
+
+	if (argc < 2) {
+		fprintf(stderr, "Usage: %s <PORTS>\n", argv[0]);
+		exit(1);
+	}
+
+	num_ports = atoi(argv[optind]);
+
+	printf("Create %u ports\n", num_ports);
+
+	fds = malloc(sizeof(int) * num_ports);
+	for (i = 1; i <= num_ports; i++) {
+		if (!(fds[i] = socket(PF_NETLINK, SOCK_RAW, 0)))
+			diep("socket");
+
+		memset(&local, 0, sizeof(local));
+		local.nl_family = AF_NETLINK;
+		local.nl_pid = rand();
+		local.nl_groups = 0;
+		if(bind(fds[i], (struct sockaddr *)&local, sizeof(local)) != 0){
+			diep("socket");
+		}
+		
+		if (!(i % 1000))
+			printf("Created %u ports\n", i);
+
+	}
+	printf("Ports successfully created, terminating\n");
+
+	return 0;
+}
+
+--YZ5djTAD1cGYuMQK--
