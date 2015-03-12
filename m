@@ -1,57 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] net: add real socket cookies
-Date: Wed, 11 Mar 2015 21:55:53 -0400 (EDT)
-Message-ID: <20150311.215553.1544350193194225837.davem@davemloft.net>
-References: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1426114608.11398.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1426125194.11398.131.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, salo@google.com
-To: eric.dumazet@gmail.com
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next] vxlan: Correct path typo in comment
+Date: Thu, 12 Mar 2015 11:00:10 +0900
+Message-ID: <1426125610-7903-1-git-send-email-simon.horman@netronome.com>
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Simon Horman <simon.horman@netronome.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54832 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551AbbCLBzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:55:54 -0400
-In-Reply-To: <1426125194.11398.131.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:34289 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbbCLCA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 22:00:29 -0400
+Received: by pdno5 with SMTP id o5so15975524pdn.1
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 19:00:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 11 Mar 2015 18:53:14 -0700
+Flags are used in the return path rather than the return patch.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> A long standing problem in netlink socket dumps is the use
-> of kernel socket addresses as cookies.
-> 
-> 1) It is a security concern.
-> 
-> 2) Sockets can be reused quite quickly, so there is
->    no guarantee a cookie is used once and identify
->    a flow.
-> 
-> 3) request sock, establish sock, and timewait socks
->    for a given flow have different cookies.
-> 
-> 
-> Part of our effort to bring better TCP statistics requires
-> to switch to a different allocator.
-> 
-> In this patch, I chose to use a per network namespace 64bit generator,
-> and to use it only in the case a socket needs to be dumped to netlink.
-> (This might be refined later if needed)
-> 
-> Note that I tried to carry cookies from request sock, to establish sock,
-> then timewait sockets.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eric Salo <salo@google.com>
-> ---
-> v3:  use atomic64_set() in inet_csk_clone_lock() as David requested.
+Fixes: af33c1adae1e ("vxlan: Eliminate dependency on UDP socket in transmit path")
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ include/net/vxlan.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Oh, even better, I'll push this one actually.
-
-Thanks!
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index eabd3a0..9564b77 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -130,7 +130,7 @@ struct vxlan_sock {
+ #define VXLAN_F_GBP			0x800
+ #define VXLAN_F_REMCSUM_NOPARTIAL	0x1000
+ 
+-/* Flags that are used in the receive patch. These flags must match in
++/* Flags that are used in the receive path. These flags must match in
+  * order for a socket to be shareable
+  */
+ #define VXLAN_F_RCV_FLAGS		(VXLAN_F_GBP |			\
+-- 
+2.1.4
