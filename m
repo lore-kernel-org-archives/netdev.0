@@ -1,47 +1,61 @@
 From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH 6/8] mtd: replace CONFIG_8xx by CONFIG_PPC_8xx
-Date: Thu, 12 Mar 2015 16:24:04 +0100 (CET)
-Message-ID: <20150312152404.D6C391A2421@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-fbdev@vger.kernel.org, linux-serial@vger.kernel.org,
- user-mode-linux-devel@lists.sourceforge.net, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-mtd@lists.infradead.org,
- user-mode-linux-user@lists.sourceforge.net, linuxppc-dev@lists.ozlabs.org
-To: David Woodhouse <dwmw2@infradead.org>,
- Brian Norris <computersforpeace@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 7/8] isdn: replace CONFIG_8xx by CONFIG_PPC_8xx
+Date: Thu, 12 Mar 2015 16:24:09 +0100 (CET)
+Message-ID: <20150312152409.E7B5C1A2422@localhost.localdomain>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
+	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pegase1.c-s.fr ([93.17.236.30]:10582 "EHLO mailhub1.si.c-s.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932196AbbCLPfm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 11:35:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VHdvIGNvbmZpZyBvcHRpb25zIGV4aXN0IHRvIGRlZmluZSBwb3dlcnBjIE1QQzh4eDoKKiBDT05G
-SUdfUFBDXzh4eAoqIENPTkZJR184eHgKSW4gYWRkaXRpb24sIENPTkZJR19QUENfOHh4IGFsc28g
-ZGVmaW5lcyBDT05GSUdfQ1BNMSBhcwpjb21tdW5pY2F0aW9uIGNvLXByb2Nlc3NvcgoKYXJjaC9w
-b3dlcnBjL3BsYXRmb3Jtcy9LY29uZmlnLmNwdXR5cGUgaGFzIGNvbnRhaW5lZCB0aGUgZm9sbG93
-aW5nCmNvbW1lbnQgYWJvdXQgQ09ORklHXzh4eCBpdGVtIGZvciBzb21lIHllYXJzOgoiIyB0aGlz
-IGlzIHRlbXAgdG8gaGFuZGxlIGNvbXBhdCB3aXRoIGFyY2g9cHBjIgoKSXQgbG9va3MgbGlrZSBu
-b3QgbWFueSBwbGFjZXMgc3RpbGwgaGF2ZSB0aGF0IG9sZCBDT05GSUdfOHh4IHVzZWQsCnNvIGl0
-IGlzIGxpa2VseSB0byBiZSBhIGdvb2QgdGltZSB0byBnZXQgcmlkIG9mIGl0IGNvbXBsZXRlbHkg
-PwoKU2lnbmVkLW9mZi1ieTogQ2hyaXN0b3BoZSBMZXJveSA8Y2hyaXN0b3BoZS5sZXJveUBjLXMu
-ZnI+CgotLS0KIGRyaXZlcnMvbXRkL21hcHMvS2NvbmZpZyB8IDIgKy0KIDEgZmlsZSBjaGFuZ2Vk
-LCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbXRk
-L21hcHMvS2NvbmZpZyBiL2RyaXZlcnMvbXRkL21hcHMvS2NvbmZpZwppbmRleCBiYTgwMWQyLi5l
-NzE1YWU5IDEwMDY0NAotLS0gYS9kcml2ZXJzL210ZC9tYXBzL0tjb25maWcKKysrIGIvZHJpdmVy
-cy9tdGQvbWFwcy9LY29uZmlnCkBAIC0yNDIsNyArMjQyLDcgQEAgY29uZmlnIE1URF9MNDQwR1gK
-IAogY29uZmlnIE1URF9DRklfRkxBR0FETQogCXRyaXN0YXRlICJDRkkgRmxhc2ggZGV2aWNlIG1h
-cHBpbmcgb24gRmxhZ2FETSIKLQlkZXBlbmRzIG9uIDh4eCAmJiBNVERfQ0ZJCisJZGVwZW5kcyBv
-biBQUENfOHh4ICYmIE1URF9DRkkKIAloZWxwCiAJICBNYXBwaW5nIGZvciB0aGUgRmxhZ2EgZGln
-aXRhbCBtb2R1bGUuIElmIHlvdSBkb24ndCBoYXZlIG9uZSwgaWdub3JlCiAJICB0aGlzIHNldHRp
-bmcuCi0tIAoyLjEuMAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJz
-Lm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+Two config options exist to define powerpc MPC8xx:
+* CONFIG_PPC_8xx
+* CONFIG_8xx
+In addition, CONFIG_PPC_8xx also defines CONFIG_CPM1 as
+communication co-processor
+
+arch/powerpc/platforms/Kconfig.cputype has contained the following
+comment about CONFIG_8xx item for some years:
+"# this is temp to handle compat with arch=ppc"
+
+It looks like not many places still have that old CONFIG_8xx used,
+so it is likely to be a good time to get rid of it completely ?
+
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+
+---
+ drivers/isdn/hardware/mISDN/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/isdn/hardware/mISDN/Kconfig b/drivers/isdn/hardware/mISDN/Kconfig
+index 09df54f..ad9deab 100644
+--- a/drivers/isdn/hardware/mISDN/Kconfig
++++ b/drivers/isdn/hardware/mISDN/Kconfig
+@@ -13,7 +13,7 @@ config MISDN_HFCPCI
+ 
+ config MISDN_HFCMULTI
+ 	tristate "Support for HFC multiport cards (HFC-4S/8S/E1)"
+-	depends on PCI || 8xx
++	depends on PCI || PPC_8xx
+ 	depends on MISDN
+ 	help
+ 	  Enable support for cards with Cologne Chip AG's HFC multiport
+@@ -28,7 +28,7 @@ config MISDN_HFCMULTI_8xx
+ 	depends on MISDN
+ 	depends on MISDN_HFCMULTI
+ 	depends on 8xx
+-	default 8xx
++	default PPC_8xx
+ 	help
+ 	  Enable support for the XHFC embedded solution from Speech Design.
+ 
+-- 
+2.1.0
