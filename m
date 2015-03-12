@@ -1,63 +1,47 @@
-From: Lars Ellenberg <lars.ellenberg@linbit.com>
-Subject: Re: Bug report: broadcast address as incomplete entry in arp table, effectively a blackhole; reproducer included
-Date: Thu, 12 Mar 2015 08:27:20 +0100
-Message-ID: <F2F490FA-3AED-436B-BB9E-818353BCEA9B@linbit.com>
-References: <20140924161847.GG7118@soda.linbit> <20141119143958.GP307@soda.linbit> <5500AC15.2020200@emagii.com>
+From: Dmitry Sytchev <kbdfck@gmail.com>
+Subject: Re: Why do we prefer skb->priority to tc filters?
+Date: Thu, 12 Mar 2015 11:53:25 +0400
+Message-ID: <CA+GmxbbGHXrZ6OrwPm0WBzk89iK94wyzJJAqbqw_XbVELvy9nQ@mail.gmail.com>
+References: <CAHA+R7Oz=Je_avfzjLib0YaQRUArEpt+sm1qNqcV_oEvUp3=eA@mail.gmail.com>
+	<CAHA+R7Os6=uxTAYr=0ZrCKZpySNJ4QoT=mJa5daGJ_0zgD1Y7w@mail.gmail.com>
+	<1426098340.11398.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7Pa6ypGoUr5jJfbayzwjLA-C78NOa1iPmsbmx+wXP56AA@mail.gmail.com>
+	<1426104582.11398.61.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7M8EFF=y7LOqsiHMsT+Q1e+3wxAE93njkSk3p9nYc2gTA@mail.gmail.com>
+	<1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Ulf Samuelsson <netdev@emagii.com>, netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra13.linbit.com ([212.69.166.240]:57244 "EHLO
-	zimbra13.linbit.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752661AbbCLHga convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 03:36:30 -0400
-In-Reply-To: <5500AC15.2020200@emagii.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:33063 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753074AbbCLHx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 03:53:26 -0400
+Received: by iecvj10 with SMTP id vj10so23551479iec.0
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 00:53:25 -0700 (PDT)
+In-Reply-To: <1426110450.11398.84.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 11. M=C3=A4rz 2015 21:56:53 MEZ, schrieb Ulf Samuelsson <netdev@emag=
-ii.com>:
->Den 2014-11-19 15:39, Lars Ellenberg skrev:
->> Ping ...
->> Any ideas?
->>
->> 	Lars
->Did you ever solve this problem?
+Sorry for slight offtopic, but for some reason, recent netfilter SET
+changes, which allow setting queue number and priority via ipset
+skbinfo extension, don't work with multiple HTB on top of multiq or
+mq.
+At the same time, tc filters set on outbound iface with skbedit works
+fine both for prio and queue number.
+How can I find the difference in their behaviour to trace where queue
+number set by ipset match gets lost?
 
-
-There are the stated workarounds.
-No solution.
-In fact this is the first reaction I had at all.
-
->Have been working on a similar problem.
+> Google definitely uses this model, as netfilter code runs on multiple
+> cpus, while HTB classifier runs under qdisc spinlock, so far.
 >
->Are you sure that the entry is never removed?
-
-Not sure, never is a long time to cover. Not within hours, though.
-And not deletable "by hand".
-My guess it's that it is in some part of the table that is not walked a=
-nymore, because the system"knows" that this entry cannot possibly exist=
-, so why even bother to look :-/
-
->Once you lose the entry, it is normally garbage collected,
->and this takes a looong time (minutes).
->
->Try leaving it alone for an hour once the problem occurs,
->and check if the garbage collector has not taken the entry out.
-
-You realize that I can reproduce at will, I can provoke the problem.
+> If you believe root user should not set skb->priority to arbitrary
+> values, this is a very different concern.
 
 
->The ARP state machine has, as far as I know, no way
->to put an entry into INCOMPLETE once it has reached REACHABLE.
->
->Once in REACHABLE it will move between the following valid states:
 
-It never was reachable.
-It either is the broadcast address, which won't be ARP resolved obvious=
-ly. Or it is unreachable -- nothing has the supposedly broadcast addres=
-s assigned...
+-- 
+Best regards,
 
-Thanks,
-    Lars
+Dmitry Sytchev,
+IT Engineer
