@@ -1,14 +1,14 @@
 From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH 4/8] net: freescale: replace CONFIG_8xx by CONFIG_PPC_8xx
-Date: Thu, 12 Mar 2015 16:23:54 +0100 (CET)
-Message-ID: <20150312152354.A47721A241F@localhost.localdomain>
+Subject: [PATCH 5/8] tty: cpm_uart: replace CONFIG_8xx by CONFIG_CPM1
+Date: Thu, 12 Mar 2015 16:23:59 +0100 (CET)
+Message-ID: <20150312152359.B611E1A2420@localhost.localdomain>
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	user-mode-linux-devel@lists.sourceforge.net,
 	user-mode-linux-user@lists.sourceforge.net,
 	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
 	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
-To: Vitaly Bordug <vitb@kernel.crashing.org>,
-	Pantelis Antoniou <pantelis.antoniou@gmail.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -29,35 +29,48 @@ so it is likely to be a good time to get rid of it completely ?
 Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
 ---
- drivers/net/ethernet/freescale/fs_enet/mac-fec.c | 2 +-
- drivers/net/ethernet/freescale/fs_enet/mac-scc.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/tty/serial/Kconfig             | 2 +-
+ drivers/tty/serial/cpm_uart/Makefile   | 2 +-
+ drivers/tty/serial/cpm_uart/cpm_uart.h | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-index b34214e..0e02bb4 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
-@@ -38,7 +38,7 @@
- #include <asm/irq.h>
- #include <asm/uaccess.h>
+diff --git a/drivers/tty/serial/Kconfig b/drivers/tty/serial/Kconfig
+index c9dbc62..6086586 100644
+--- a/drivers/tty/serial/Kconfig
++++ b/drivers/tty/serial/Kconfig
+@@ -868,7 +868,7 @@ config SERIAL_PMACZILOG_CONSOLE
  
--#ifdef CONFIG_8xx
-+#ifdef CONFIG_PPC_8xx
- #include <asm/8xx_immap.h>
- #include <asm/pgtable.h>
- #include <asm/cpm1.h>
-diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-scc.c b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
-index 7a184e8..eec8963 100644
---- a/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
-@@ -37,7 +37,7 @@
- #include <asm/irq.h>
- #include <asm/uaccess.h>
+ config SERIAL_CPM
+ 	tristate "CPM SCC/SMC serial port support"
+-	depends on CPM2 || 8xx
++	depends on CPM2 || CPM1
+ 	select SERIAL_CORE
+ 	help
+ 	  This driver supports the SCC and SMC serial ports on Motorola 
+diff --git a/drivers/tty/serial/cpm_uart/Makefile b/drivers/tty/serial/cpm_uart/Makefile
+index e072724..896a5d5 100644
+--- a/drivers/tty/serial/cpm_uart/Makefile
++++ b/drivers/tty/serial/cpm_uart/Makefile
+@@ -6,6 +6,6 @@ obj-$(CONFIG_SERIAL_CPM) += cpm_uart.o
  
--#ifdef CONFIG_8xx
-+#ifdef CONFIG_PPC_8xx
- #include <asm/8xx_immap.h>
- #include <asm/pgtable.h>
- #include <asm/cpm1.h>
+ # Select the correct platform objects.
+ cpm_uart-objs-$(CONFIG_CPM2)	+= cpm_uart_cpm2.o
+-cpm_uart-objs-$(CONFIG_8xx)	+= cpm_uart_cpm1.o
++cpm_uart-objs-$(CONFIG_CPM1)	+= cpm_uart_cpm1.o
+ 
+ cpm_uart-objs	:= cpm_uart_core.o $(cpm_uart-objs-y)
+diff --git a/drivers/tty/serial/cpm_uart/cpm_uart.h b/drivers/tty/serial/cpm_uart/cpm_uart.h
+index cf34d26..0ad027b 100644
+--- a/drivers/tty/serial/cpm_uart/cpm_uart.h
++++ b/drivers/tty/serial/cpm_uart/cpm_uart.h
+@@ -19,7 +19,7 @@
+ 
+ #if defined(CONFIG_CPM2)
+ #include "cpm_uart_cpm2.h"
+-#elif defined(CONFIG_8xx)
++#elif defined(CONFIG_CPM1)
+ #include "cpm_uart_cpm1.h"
+ #endif
+ 
 -- 
 2.1.0
