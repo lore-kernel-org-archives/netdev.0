@@ -1,45 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] virtio-net: correctly delete napi hash
-Date: Thu, 12 Mar 2015 14:37:49 -0400 (EDT)
-Message-ID: <20150312.143749.1356539359045388378.davem@davemloft.net>
-References: <1426139864-25023-1-git-send-email-jasowang@redhat.com>
-	<20150312082351-mutt-send-email-mst@redhat.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v2 nf-next 3/6] netfilter: bridge: use skb->cb to track
+ otherhost mangling
+Date: Thu, 12 Mar 2015 19:40:09 +0100
+Message-ID: <5501DD89.4070408@hartkopp.net>
+References: <1426179925-18220-1-git-send-email-fw@strlen.de> <1426179925-18220-4-git-send-email-fw@strlen.de> <5501D498.4050003@hartkopp.net> <20150312183113.GA12169@breakpoint.cc> <20150312183503.GB12169@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150312082351-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Eyal Birger <eyal.birger@gmail.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:13775 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773AbbCLSkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:40:13 -0400
+In-Reply-To: <20150312183503.GB12169@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 12 Mar 2015 08:25:34 +0100
+On 03/12/2015 07:35 PM, Florian Westphal wrote:
+> Florian Westphal <fw@strlen.de> wrote:
+>>>> +	BUILD_BUG_ON(sizeof(struct nf_bridge_skb_cb) > FIELD_SIZEOF(struct sk_buff, cb));
+>>>> +
+>>>
+>>> Please use sock_skb_cb_check_size(size) for cb size checking which is the
+>>> 'new' check for cb sizes for netdev.
+>>
+>> I can do this for conistency, but its technically not needed here.
+> 
+> I take that back, it would actually be inconsistent to use
+> sock_skb_cb_check_size since nf_bridge skbs will not be associated with
+> sockets.
+> 
 
-> On Thu, Mar 12, 2015 at 01:57:44PM +0800, Jason Wang wrote:
->> We don't delete napi from hash list during module exit. This will
->> cause the following panic when doing module load and unload:
- ...
->> This patch fixes this by doing this in virtnet_free_queues(). And also
->> don't delete napi in virtnet_freeze() since it will call
->> virtnet_free_queues() which has already did this.
->> 
->> Fixes 91815639d880 ("virtio-net: rx busy polling support")
->> Cc: Rusty Russell <rusty@rustcorp.com.au>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
- ...
-> Dave, can you pick this up pls?
-> Looks like a stable candidate too.
+Ok. I just wanted to make sure that the use of the cb[]-space doesn't clash
+with the new space that's acquired by the dropcount stuff.
 
-Applied and queued up for -stable, thanks.
+Sorry for the noise :-)
+
+Best regards,
+Oliver
