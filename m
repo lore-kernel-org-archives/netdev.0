@@ -1,51 +1,57 @@
-From: Pekka Enberg <penberg@iki.fi>
-Subject: Re: [PATCH] mm: kill kmemcheck
-Date: Thu, 12 Mar 2015 09:07:36 +0200
-Message-ID: <55013B38.6040100@iki.fi>
-References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
+ device specific parameters
+Date: Thu, 12 Mar 2015 10:07:35 +0200
+Message-ID: <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
+References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
+	<20150311.131457.1314699780103858026.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Vladimir Davydov <vdavydov@parallels.com>,
- Geert Uytterhoeven <geert+renesas@glider.be>,
- SUPERH <linux-sh@vger.kernel.org>, Catalin Marinas <catalin.marinas@arm.com>,
- Will Deacon <will.deacon@arm.com>, Jianyu Zhan <nasa4836@gmail.com>,
- Paul Mackerras <paulus@samba.org>, Pavel Machek <pavel@ucw.cz>,
- Miklos Szeredi <mszeredi@suse.cz>, Christoph Lameter <cl@linux.com>,
- Marek Szyprowski <m.szyprowski@samsung.com>,
- "open list:GENERIC INCLUDE/A..." <linux-arch@vger.kernel.org>,
- Andi Kleen <ak@linux.intel.com>, Russell King <linux@arm.linux.org.uk>,
- Jingoo Han <jg1.han@samsung.com>, James Morris <jmorris@namei.org>,
- Chris Bainbridge <chris.bainbridge@gmail.com>, Antti Palosaari <crope@iki.fi>,
- Mel Gorman <mgorman@suse.de>, Ritesh Harjani <ritesh.harjani@gmail.com>,
- Shaohua Li <shli@kernel.org>, Alexander Duyck <alexander.h.duyck@intel.com>,
- Wang Nan <wangnan0@huawei.com>, Jiri
-To: Sasha Levin <sasha.levin@oracle.com>, linux-kernel@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>, netdev <netdev@vger.kernel.org>,
+	Hadar Hen Zion <hadarh@mellanox.com>, yevgenyp@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, shannon.nelson@intel.com,
+	dledford@redhat.com, greearb@candelatech.com,
+	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com
+To: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:34288 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753525AbbCLIHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 04:07:36 -0400
+Received: by iecsl2 with SMTP id sl2so24962252iec.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 01:07:35 -0700 (PDT)
+In-Reply-To: <20150311.131457.1314699780103858026.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgU2FzaGEsCgpPbiAzLzExLzE1IDE6NDMgUE0sIFNhc2hhIExldmluIHdyb3RlOgo+IEFzIGRp
-c2N1c3NlZCBvbiBMU0YvTU0sIGtpbGwga21lbWNoZWNrLgo+Cj4gS0FTYW4gaXMgYSByZXBsYWNl
-bWVudCB0aGF0IGlzIGFibGUgdG8gd29yayB3aXRob3V0IHRoZSBsaW1pdGF0aW9uIG9mCj4ga21l
-bWNoZWNrIChzaW5nbGUgQ1BVLCBzbG93KS4gS0FTYW4gaXMgYWxyZWFkeSB1cHN0cmVhbS4KPgo+
-IFdlIGFyZSBhbHNvIG5vdCBhd2FyZSBvZiBhbnkgdXNlcnMgb2Yga21lbWNoZWNrIChvciB1c2Vy
-cyB3aG8gZG9uJ3QgY29uc2lkZXIKPiBLQVNhbiBhcyBhIHN1aXRhYmxlIHJlcGxhY2VtZW50KS4K
-Pgo+IEkndmUgYnVpbGQgdGVzdGVkIGl0IHVzaW5nIGFsbFt5ZXMsbm8sbW9kXWNvbmZpZyBhbmQg
-ZnV6emVkIGEgYml0IHdpdGggdGhpcwo+IHBhdGNoIGFwcGxpZWQsIGRpZG4ndCBub3RpY2UgYW55
-IGJhZCBiZWhhdmlvdXIuCj4KPiBTaWduZWQtb2ZmLWJ5OiBTYXNoYSBMZXZpbiA8c2FzaGEubGV2
-aW5Ab3JhY2xlLmNvbT4KCkNhbiB5b3UgZWxhYm9yYXRlIG9uIHdoYXQgZXhhY3RseSB3YXMgZGlz
-Y3Vzc2VkIGF0IExTRi9NTT8gUHJlZmVyYWJseSBpbiAKdGhlIGNvbW1pdCBsb2cuIDstKQoKLSBQ
-ZWtrYQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51
-eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBz
-Oi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
+>
+> From: Amir Vadai <amirv@mellanox.com>
+> Date: Wed, 11 Mar 2015 11:08:50 +0200
+>
+> > Also, customers are paying for a very sophisticated piece of
+> > hardware, and we would like to enable power user to tweak it in some
+> > situtations. Of course the default mode should be used in 99% of the
+> > use cases.
+>
+> How much money someone pays for your hardware has nothing to do with
+> the standards by which we design userspace interfaces to configure
+> these devices.
+>
+> These textual interfaces are arbitrary, and you are choosing it only
+> because you cannot come up with a more reasonable scheme,
+>
+> I'm not applying these changes.
+> --
+
+In previous conversations Greg suggested us to use configfs.
+
+Is this case a misuse of configfs?  maybe configfs should be deprecated... Greg?
+
+Is a scheme based on netlink will be acceptable by you?
+
+Thanks,
+
+Hadar and Amir
