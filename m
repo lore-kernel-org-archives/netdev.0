@@ -1,67 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] cls_bpf: do eBPF invocation under non-bh RCU lock variant for maps
-Date: Thu, 12 Mar 2015 20:03:12 +0100
-Message-ID: <91a3d08794f55f1f7a86a45f5d00ee72c8106061.1426185074.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39852 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbbCLTDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 15:03:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: [PATCH] mm: kill kmemcheck
+Date: Thu, 12 Mar 2015 09:00:15 -0400
+Message-ID: <20150312090015.656c2f9c@lwn.net>
+References: <1426074547-21888-1-git-send-email-sasha.levin@oracle.com>
+ <55013B38.6040100@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Vladimir Davydov <vdavydov@parallels.com>,
+ Geert Uytterhoeven <geert+renesas@glider.be>,
+ "open list:SUPERH" <linux-sh@vger.kernel.org>,
+ Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>,
+ Jianyu Zhan <nasa4836@gmail.com>, Paul Mackerras <paulus@samba.org>,
+ Pavel Machek <pavel@ucw.cz>, Miklos Szeredi <mszeredi@suse.cz>,
+ Christoph Lameter <cl@linux.com>, Marek Szyprowski <m.szyprowski@samsung.com>,
+ "open list:GENERIC INCLUDE/A..." <linux-arch@vger.kernel.org>,
+ Andi Kleen <ak@linux.intel.com>, Russell King <linux@arm.linux.org.uk>,
+ Jingoo Han <jg1.han@samsung.com>, James Morris <jmorris@namei.org>,
+ Chris Bainbridge <chris.bainbridge@gmail.com>, Antti Palosaari <crope@iki.fi>,
+ Mel Gorman <mgorman@suse.de>, Ritesh Harjani <ritesh.harjani@gmail.com>,
+ Shaohua Li <shli@kernel.org>, Alexander Duyck <alexander.h.duyck@intel.com>,
+ Wang Nan <wangnan0@huawei
+To: Pekka Enberg <penberg@iki.fi>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <55013B38.6040100@iki.fi>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Currently, it is possible in cls_bpf to access eBPF maps only under
-rcu_read_lock_bh() variants: while on ingress side, that is, handle_ing(),
-the classifier would be called from __netif_receive_skb_core() under
-rcu_read_lock(); on egress side, however, it's rcu_read_lock_bh() via
-__dev_queue_xmit().
-
-This rcu/rcu_bh mix doesn't work together with eBPF maps as they require
-soley to be called under rcu_read_lock(). eBPF maps could also be shared
-among various other eBPF programs (possibly even with other eBPF program
-types, f.e. tracing) and user space processes, so any context is assumed.
-
-Therefore, a possible fix for cls_bpf is to wrap/nest eBPF program
-invocation under non-bh RCU lock variant.
-
-Fixes: e2e9b6541dd4 ("cls_bpf: add initial eBPF support for programmable classifiers")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/sched/cls_bpf.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 243c9f2..5c4171c 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -64,8 +64,10 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- {
- 	struct cls_bpf_head *head = rcu_dereference_bh(tp->root);
- 	struct cls_bpf_prog *prog;
--	int ret;
-+	int ret = -1;
- 
-+	/* Needed here for accessing maps. */
-+	rcu_read_lock();
- 	list_for_each_entry_rcu(prog, &head->plist, link) {
- 		int filter_res = BPF_PROG_RUN(prog->filter, skb);
- 
-@@ -80,10 +82,11 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		if (ret < 0)
- 			continue;
- 
--		return ret;
-+		break;
- 	}
-+	rcu_read_unlock();
- 
--	return -1;
-+	return ret;
- }
- 
- static bool cls_bpf_is_ebpf(const struct cls_bpf_prog *prog)
--- 
-1.9.3
+T24gVGh1LCAxMiBNYXIgMjAxNSAwOTowNzozNiArMDIwMApQZWtrYSBFbmJlcmcgPHBlbmJlcmdA
+aWtpLmZpPiB3cm90ZToKCj4gQ2FuIHlvdSBlbGFib3JhdGUgb24gd2hhdCBleGFjdGx5IHdhcyBk
+aXNjdXNzZWQgYXQgTFNGL01NPyBQcmVmZXJhYmx5IGluIAo+IHRoZSBjb21taXQgbG9nLiA7LSkK
+CkknbGwgaGF2ZSB0aGUgcmVwb3J0IGZyb20gdGhhdCBzZXNzaW9uIHVwLCBob3BlZnVsbHkgYnkg
+dGhlIGVuZCBvZiB0aGUKd2Vlay4KClRoYW5rcywKCmpvbgpfX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4
+cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5m
+by9saW51eHBwYy1kZXY=
