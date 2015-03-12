@@ -1,55 +1,72 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next v3] tipc: fix undefined __ipv6_sock_mc_join compile
- error
-Date: Thu, 12 Mar 2015 11:35:04 +0800
-Message-ID: <55010968.5090606@windriver.com>
-References: <1426060274-2930-1-git-send-email-ying.xue@windriver.com> <20150311.175954.948622401089738977.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [rhashtable] [ INFO: possible recursive locking detected ]
+Date: Thu, 12 Mar 2015 14:37:45 +1100
+Message-ID: <20150312033744.GA13869@gondor.apana.org.au>
+References: <20150312032924.GA12390@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <fengguang.wu@intel.com>,
-	<netdev@vger.kernel.org>, <willemb@google.com>,
-	<tipc-discussion@lists.sourceforge.net>, <kbuild-all@01.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKP <lkp@01.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:39898 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbbCLDfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:35:30 -0400
-In-Reply-To: <20150311.175954.948622401089738977.davem@davemloft.net>
+Received: from ringil.hengli.com.au ([178.18.16.133]:41667 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267AbbCLDhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:37:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20150312032924.GA12390@wfg-t540p.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/12/2015 05:59 AM, David Miller wrote:
-> From: Ying Xue <ying.xue@windriver.com>
-> Date: Wed, 11 Mar 2015 15:51:13 +0800
+On Thu, Mar 12, 2015 at 11:29:24AM +0800, Fengguang Wu wrote:
+> Greetings,
 > 
->> diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
->> index c25a3a1..5bb8fc9 100644
->> --- a/net/tipc/Kconfig
->> +++ b/net/tipc/Kconfig
->> @@ -29,6 +29,7 @@ config TIPC_MEDIA_IB
->>  config TIPC_MEDIA_UDP
->>  	bool "IP/UDP media type support"
->>  	depends on TIPC
->> +	depends on (IPV6=y || IPV6=n)
->>  	select NET_UDP_TUNNEL
->>  	help
->>  	  Saying Y here will enable support for running TIPC over IP/UDP
+> 0day kernel testing robot got the below dmesg and the first bad commit is
 > 
-> This really is not what you want.
+> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git master
 > 
-> You want to enable TIPC_MEDIA_UDP if IPV6 is "compatible" with TIPC,
-> what you're using here is a sledgehammer.
-> 
-> I would really suggest breaking this facility out into it's own
-> module, then you can mark it tristate and do this correctly.
-> 
-> 
+> commit aa34a6cb0478842452bac58edb50d3ef9e178c92
+> Author:     Herbert Xu <herbert@gondor.apana.org.au>
+> AuthorDate: Wed Mar 11 09:43:48 2015 +1100
+> Commit:     David S. Miller <davem@davemloft.net>
+> CommitDate: Wed Mar 11 16:36:21 2015 -0400
 
-Thank you for the review. OK, I will change the code again following your
-suggestions.
+Thanks for the report.  This patch should fix it.
 
-Regards,
-Ying
+--8<--
+rhashtable: Add annotation to nested lock
+    
+Commit aa34a6cb0478842452bac58edb50d3ef9e178c92 ("rhashtable:
+Add arbitrary rehash function") killed the annotation on the
+nested lock which leads to bitching from lockdep.
+    
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5f9af45..6ffc793 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -225,7 +225,7 @@ static int rhashtable_rehash_one(struct rhashtable *ht, unsigned old_hash)
+ 
+ 	new_bucket_lock = bucket_lock(new_tbl, new_hash);
+ 
+-	spin_lock(new_bucket_lock);
++	spin_lock_nested(new_bucket_lock, RHT_LOCK_NESTED);
+ 	head = rht_dereference_bucket(new_tbl->buckets[new_hash],
+ 				      new_tbl, new_hash);
+ 
+@@ -406,7 +406,7 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+ 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
+ 	if (tbl != old_tbl) {
+ 		hash = head_hashfn(ht, tbl, obj);
+-		spin_lock(bucket_lock(tbl, hash));
++		spin_lock_nested(bucket_lock(tbl, hash), RHT_LOCK_NESTED);
+ 	}
+ 
+ 	if (compare &&
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
