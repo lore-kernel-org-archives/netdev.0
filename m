@@ -1,69 +1,50 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next ] mpls: In mpls_egress verify the packet length.
-Date: Thu, 12 Mar 2015 18:22:59 -0500
-Message-ID: <87a8zhztpo.fsf@x220.int.ebiederm.org>
-References: <5500BB5E.4070909@brocade.com>
-	<87385a13jz.fsf@x220.int.ebiederm.org>
-	<87wq2mym03.fsf_-_@x220.int.ebiederm.org>
-	<20150312.182558.447886504045770209.davem@davemloft.net>
-	<87h9tpzv76.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: rshearma@brocade.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/8] inet: tcp listener refactoring, part 8
+Date: Thu, 12 Mar 2015 16:44:02 -0700
+Message-ID: <1426203850-11034-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:39448 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752470AbbCLX0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:26:41 -0400
-In-Reply-To: <87h9tpzv76.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 12 Mar 2015 17:50:53 -0500")
+Received: from mail-ig0-f202.google.com ([209.85.213.202]:34116 "EHLO
+	mail-ig0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752991AbbCLXo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 19:44:27 -0400
+Received: by igqa13 with SMTP id a13so574229igq.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 16:44:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+These patches prepare request socks being hashed into general ehash
+table : We declare 3 aliases (ireq_state, ireq_refcnt, ireq_family)
 
-Reobert Shearman noticed that mpls_egress is failing to verify that
-the bytes to be examined are in fact present in the packet before
-mpls_egress reads those bytes.
+Note that refcnt is not yet handled, this will be done later.
 
-As suggested by David Miller reduce this to a single pskb_may_pull
-call so that we don't do unnecessary work in the fast path.
 
-Reported-by: Robert Shearman <rshearma@brocade.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/mpls/af_mpls.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+Eric Dumazet (8):
+  ipv6: add missing ireq_net & ir_cookie initializations
+  inet: add TCP_NEW_SYN_RECV state
+  inet: add ireq_state field to inet_request_sock
+  inet: add rsk_refcnt/ireq_refcnt to request socks
+  net: add req_prot_cleanup() & req_prot_init() helpers
+  inet: prepare sock_edemux() & sock_gen_put() for new SYN_RECV state
+  inet: get_openreq4() & get_openreq6() do not need listener
+  inet: introduce ireq_family
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 0ad8f7141be2..db8a2ea6d4de 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -92,9 +92,24 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
- 	 * The strange cases if we choose to support them will require
- 	 * manual configuration.
- 	 */
--	struct iphdr *hdr4 = ip_hdr(skb);
-+	struct iphdr *hdr4;
- 	bool success = true;
- 
-+	/* The IPv4 code below accesses through the IPv4 header
-+	 * checksum, which is 12 bytes into the packet.
-+	 * The IPv6 code below accesses through the IPv6 hop limit
-+	 * which is 8 bytes into the packet.
-+	 *
-+	 * For all supported cases there should always be at least 12
-+	 * bytes of packet data present.  The IPv4 header is 20 bytes
-+	 * without options and the IPv6 header is always 40 bytes
-+	 * long.
-+	 */
-+	if (!pskb_may_pull(skb, 12))
-+		return false;
-+
-+	/* Use ip_hdr to find the ip protocol version */
-+	hdr4 = ip_hdr(skb);
- 	if (hdr4->version == 4) {
- 		skb->protocol = htons(ETH_P_IP);
- 		csum_replace2(&hdr4->check,
+ include/net/inet_sock.h    |  6 ++++
+ include/net/request_sock.h | 13 +++++++++
+ include/net/sock.h         |  2 +-
+ include/net/tcp_states.h   |  4 ++-
+ net/core/sock.c            | 71 ++++++++++++++++++++++++++++------------------
+ net/dccp/ipv4.c            |  2 +-
+ net/dccp/ipv6.c            |  2 ++
+ net/ipv4/inet_diag.c       |  5 ++--
+ net/ipv4/inet_hashtables.c |  2 ++
+ net/ipv4/syncookies.c      |  1 +
+ net/ipv4/tcp_input.c       |  1 -
+ net/ipv4/tcp_ipv4.c        |  9 +++---
+ net/ipv6/syncookies.c      |  2 ++
+ net/ipv6/tcp_ipv6.c        |  5 ++--
+ 14 files changed, 84 insertions(+), 41 deletions(-)
+
 -- 
-2.2.1
+2.2.0.rc0.207.ga3a616c
