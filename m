@@ -1,74 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/4] rhashtable: Remove obj_raw_hashfn
-Date: Thu, 12 Mar 2015 12:30:56 +1100
-Message-ID: <E1YVrxg-0003NF-2u@gondolin.me.apana.org.au>
-References: <20150312012944.GA12857@gondor.apana.org.au>
-To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: add real socket cookies
+Date: Wed, 11 Mar 2015 18:31:42 -0700
+Message-ID: <1426123902.11398.120.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.175345.836846566788322568.davem@davemloft.net>
+	 <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.212112.908171202958424986.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, salo@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:53363 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752044AbbCLBa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:30:57 -0400
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:36211 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbbCLBbp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:31:45 -0400
+Received: by iegc3 with SMTP id c3so8374721ieg.3
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 18:31:45 -0700 (PDT)
+In-Reply-To: <20150311.212112.908171202958424986.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the only caller of obj_raw_hashfn is head_hashfn, we can
-simply kill it and fold it into the latter.
+On Wed, 2015-03-11 at 21:21 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 11 Mar 2015 15:30:35 -0700
+> 
+> > Note that sk_clone_lock() really does the clear for us :
+> > 
+> > net/core/sock.c:1541:		atomic64_set(&newsk->sk_cookie, 0);
+> > 
+> > atomic_cmpxchg() is needed here in case a concurrent dumper already
+> > caught the new socket.
+> 
+> How is newsk visible at this moment?
+> 
+> It is freshly allocated, and not present in any tables.  Nothing even
+> indirectly links to it at this point.
+> 
+> Visibility only happens after we return from this function, in
+> routines such as tcp_v4_syn_recv_sock() which do the hash table
+> insertion.
 
-This patch also moves the common shift from head_hashfn/key_hashfn
-into rht_bucket_index.
+Yes, but remember we use RCU with SLAB_DESTROY_BY_RCU thing,
+and inet_diag_dump_one_icsk() uses RCU as well.
 
-Signed-off-by: Herbert Xu <herbert.xu@redhat.com>
----
+I wanted to be extra careful here. Note that with v2, this
+atomic_cmpxchg() wont happen unless one dump operation previously
+revealed the SYN_RECV to the world.
 
- lib/rhashtable.c |   25 +++++++------------------
- 1 file changed, 7 insertions(+), 18 deletions(-)
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 91b52da..5f9af45 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -63,36 +63,25 @@ static void *rht_obj(const struct rhashtable *ht, const struct rhash_head *he)
- 
- static u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
- {
--	return hash & (tbl->size - 1);
--}
--
--static u32 obj_raw_hashfn(struct rhashtable *ht,
--			  const struct bucket_table *tbl, const void *ptr)
--{
--	u32 hash;
--
--	if (unlikely(!ht->p.key_len))
--		hash = ht->p.obj_hashfn(ptr, tbl->hash_rnd);
--	else
--		hash = ht->p.hashfn(ptr + ht->p.key_offset, ht->p.key_len,
--				    tbl->hash_rnd);
--
--	return hash >> HASH_RESERVED_SPACE;
-+	return (hash >> HASH_RESERVED_SPACE) & (tbl->size - 1);
- }
- 
- static u32 key_hashfn(struct rhashtable *ht, const struct bucket_table *tbl,
- 		      const void *key)
- {
- 	return rht_bucket_index(tbl, ht->p.hashfn(key, ht->p.key_len,
--						  tbl->hash_rnd) >>
--				     HASH_RESERVED_SPACE);
-+						  tbl->hash_rnd));
- }
- 
- static u32 head_hashfn(struct rhashtable *ht,
- 		       const struct bucket_table *tbl,
- 		       const struct rhash_head *he)
- {
--	return rht_bucket_index(tbl, obj_raw_hashfn(ht, tbl, rht_obj(ht, he)));
-+	const char *ptr = rht_obj(ht, he);
-+
-+	return likely(ht->p.key_len) ?
-+	       key_hashfn(ht, tbl, ptr + ht->p.key_offset) :
-+	       rht_bucket_index(tbl, ht->p.obj_hashfn(ptr, tbl->hash_rnd));
- }
- 
- #ifdef CONFIG_PROVE_LOCKING
+I have no strong opinion and definitely it is currently safe to use
+atomic64_set() here.
