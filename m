@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] fib_trie: Only display main table in
- /proc/net/route
-Date: Wed, 11 Mar 2015 21:22:28 -0400 (EDT)
-Message-ID: <20150311.212228.1581184934531828534.davem@davemloft.net>
-References: <20150311233536.1696.1657.stgit@ahduyck-vm-fedora20>
+Subject: Re: [PATCH] net: sysctl_net_core: check SNDBUF and RCVBUF for min
+ length
+Date: Wed, 11 Mar 2015 21:25:45 -0400 (EDT)
+Message-ID: <20150311.212545.1595223451693204245.davem@davemloft.net>
+References: <1426073357-6211-1-git-send-email-alexey.kodanev@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vasily.isaenko@oracle.com
+To: alexey.kodanev@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54482 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54534 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751644AbbCLBWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:22:30 -0400
-In-Reply-To: <20150311233536.1696.1657.stgit@ahduyck-vm-fedora20>
+	with ESMTP id S1751415AbbCLBZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:25:47 -0400
+In-Reply-To: <1426073357-6211-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Wed, 11 Mar 2015 16:36:08 -0700
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Date: Wed, 11 Mar 2015 14:29:17 +0300
 
-> When we merged the tries for local and main I had overlooked the iterator
-> for /proc/net/route.  As a result it was outputting both local and main
-> when the two tries were merged.
+> sysctl has sysctl.net.core.rmem_*/wmem_* parameters which can be
+> set to incorrect values. Given that 'struct sk_buff' allocates from
+> rcvbuf, incorrectly set buffer length could result to memory
+> allocation failures. For example, set them as follows:
 > 
-> This patch resolves that by only providing output for aliases that are
-> actually in the main trie.  As a result we should go back to the original
-> behavior which I assume will be necessary to maintain legacy support.
+>     # sysctl net.core.rmem_default=64
+>       net.core.wmem_default = 64
+>     # sysctl net.core.wmem_default=64
+>       net.core.wmem_default = 64
+>     # ping localhost -s 1024 -i 0 > /dev/null
 > 
-> Fixes: 0ddcf43d5 ("ipv4: FIB Local/MAIN table collapse")
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> This could result to the following failure:
+ ...
+> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
 
-Applied, thanks Alex.
-
-Please don't put empty lines between Fixes: tags and the signoffs
-and acks, they belong together.
+Applied, but someone needs to followup with fixes to AF_UNIX etc.
