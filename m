@@ -1,30 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] tcp: restore 1.5x per RTT limit to CUBIC cwnd
- growth in congestion avoidance
-Date: Wed, 11 Mar 2015 21:17:38 -0400 (EDT)
-Message-ID: <20150311.211738.171700356008439310.davem@davemloft.net>
-References: <1426022224-28793-2-git-send-email-ncardwell@google.com>
-	<20150311.165214.2047968573920569481.davem@davemloft.net>
-	<CADVnQy=5_8tY+_7k+LcUC=MBtbBnSMeS2yq6na51Qx6Ex=b_Tw@mail.gmail.com>
+Subject: Re: [PATCH net-next] net: add real socket cookies
+Date: Wed, 11 Mar 2015 21:21:12 -0400 (EDT)
+Message-ID: <20150311.212112.908171202958424986.davem@davemloft.net>
+References: <1426027533.11398.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150311.175345.836846566788322568.davem@davemloft.net>
+	<1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, edumazet@google.com
-To: ncardwell@google.com
+Cc: netdev@vger.kernel.org, salo@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54434 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54469 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbbCLBRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:17:43 -0400
-In-Reply-To: <CADVnQy=5_8tY+_7k+LcUC=MBtbBnSMeS2yq6na51Qx6Ex=b_Tw@mail.gmail.com>
+	with ESMTP id S1750784AbbCLBVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 21:21:14 -0400
+In-Reply-To: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Wed, 11 Mar 2015 18:10:42 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 11 Mar 2015 15:30:35 -0700
 
-> My sense is that both of these fixes are appropriate for the stable
-> queue, since they fix serious packet loss issues that folks running
-> 3.19.x will run into:
+> Note that sk_clone_lock() really does the clear for us :
+> 
+> net/core/sock.c:1541:		atomic64_set(&newsk->sk_cookie, 0);
+> 
+> atomic_cmpxchg() is needed here in case a concurrent dumper already
+> caught the new socket.
 
-Ok, queued up, thanks.
+How is newsk visible at this moment?
+
+It is freshly allocated, and not present in any tables.  Nothing even
+indirectly links to it at this point.
+
+Visibility only happens after we return from this function, in
+routines such as tcp_v4_syn_recv_sock() which do the hash table
+insertion.
