@@ -1,53 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: rhashtable: Fix reader/rehash race
-Date: Thu, 12 Mar 2015 22:07:49 +1100
-Message-ID: <20150312110749.GA19285@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:43481 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235AbbCLLHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 07:07:52 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yang Bai <hamo.by@gmail.com>
+Subject: [PATCH] rtlwifi: get buffer_desc before trying to alloc new skb
+Date: Thu, 12 Mar 2015 19:33:56 +0800
+Message-ID: <1426160036-1542-1-git-send-email-hamo.by@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hamo.by@gmail.com
+To: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
+	kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a potential race condition between readers and the rehasher.
-In particular, the rehasher could have started a rehash while the
-reader finishes a scan of the old table but fails to see the new
-table pointer.
+if rtlpriv->use_new_trx_flow == true and we run out of memory
+to alloc a new skb, we will directly jump to no_new tag with
+buffer_desc == NULL. Then we will dereference this NULL pointer
+in function _rtl_pci_init_one_rxdesc.
 
-This patch closes this window by adding smp_wmb/smp_rmb.
-    
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Yang Bai <hamo.by@gmail.com>
+---
+ drivers/net/wireless/rtlwifi/pci.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 6ffc793..68210cc 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -271,6 +271,9 @@ static void rhashtable_rehash(struct rhashtable *ht,
- 	 */
- 	rcu_assign_pointer(ht->future_tbl, new_tbl);
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index a62170e..7fe04d1 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -820,17 +820,19 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
+ 		pci_unmap_single(rtlpci->pdev, *((dma_addr_t *)skb->cb),
+ 				 rtlpci->rxbuffersize, PCI_DMA_FROMDEVICE);
  
-+	/* Ensure the new table is visible to readers. */
-+	smp_wmb();
++		if (rtlpriv->use_new_trx_flow)
++			buffer_desc =
++			  &rtlpci->rx_ring[rxring_idx].buffer_desc
++				[rtlpci->rx_ring[rxring_idx].idx];
 +
- 	for (old_hash = 0; old_hash < old_tbl->size; old_hash++)
- 		rhashtable_rehash_chain(ht, old_hash);
- 
-@@ -618,6 +621,9 @@ restart:
- 		return rht_obj(ht, he);
- 	}
- 
-+	/* Ensure we see any new tables. */
-+	smp_rmb();
+ 		/* get a new skb - if fail, old one will be reused */
+ 		new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
+ 		if (unlikely(!new_skb))
+ 			goto no_new;
+-		if (rtlpriv->use_new_trx_flow) {
+-			buffer_desc =
+-			  &rtlpci->rx_ring[rxring_idx].buffer_desc
+-				[rtlpci->rx_ring[rxring_idx].idx];
++		if (rtlpriv->use_new_trx_flow)
+ 			/*means rx wifi info*/
+ 			pdesc = (struct rtl_rx_desc *)skb->data;
+-		}
 +
- 	old_tbl = tbl;
- 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
- 	if (unlikely(tbl != old_tbl))
+ 		memset(&rx_status , 0 , sizeof(rx_status));
+ 		rtlpriv->cfg->ops->query_rx_desc(hw, &stats,
+ 						 &rx_status, (u8 *)pdesc, skb);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.3.1
