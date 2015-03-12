@@ -1,54 +1,38 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] ebpf: verifier: check that call reg with ARG_ANYTHING
- is initialized
-Date: Thu, 12 Mar 2015 09:53:59 -0700
-Message-ID: <5501C4A7.8020803@plumgrid.com>
-References: <8bb5d2d9c8d471c1161ae60ea92141aef00a4fc8.1426172976.git.daniel@iogearbox.net>
+From: Martin Lau <kafai@fb.com>
+Subject: Re: [Question] net/mlx4_en: Memory consumption issue with mlx4_en
+ driver
+Date: Thu, 12 Mar 2015 09:56:47 -0700
+Message-ID: <20150312165647.GD1032293@devbig242.prn2.facebook.com>
+References: <20150311185146.GA1032293@devbig242.prn2.facebook.com>
+ <1426105262.11398.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: challa@noironetworks.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:33802 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932148AbbCLQx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:53:56 -0400
-Received: by iecsl2 with SMTP id sl2so48928097iec.1
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 09:53:55 -0700 (PDT)
-In-Reply-To: <8bb5d2d9c8d471c1161ae60ea92141aef00a4fc8.1426172976.git.daniel@iogearbox.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58375 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932487AbbCLQ4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:56:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1426105262.11398.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/12/15 9:21 AM, Daniel Borkmann wrote:
-> I noticed that a helper function with argument type ARG_ANYTHING does
-> not need to have an initialized value (register).
->
-> This can worst case lead to unintented stack memory leakage in future
-> helper functions if they are not carefully designed, or unintended
-> application behaviour in case the application developer was not careful
-> enough to match a correct helper function signature in the API.
->
-> The underlying issue is that ARG_ANYTHING should actually be split
-> into two different semantics:
->
->    1) ARG_DONTCARE for function arguments that the helper function
->       does not care about (in other words: the default for unused
->       function arguments), and
->
->    2) ARG_ANYTHING that is an argument actually being used by a
->       helper function and *guaranteed* to be an initialized register.
->
-> The current risk is low: ARG_ANYTHING is only used for the 'flags'
-> argument (r4) in bpf_map_update_elem() that internally does strict
-> checking.
->
-> Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->   I'm fine with this going to net-next, but it also applies to net.
+On Wed, Mar 11, 2015 at 01:21:02PM -0700, Eric Dumazet wrote:
+> You know, even the order-3 allocations done for regular skb allocations
+> will hurt you : a single copybreaked skb stored a long time in a tcp
+> receive queue will hold 32KB of memory.
+> 
+> Even 4KB can lead to disasters.
+Thanks for the pointer.  I look a little deeper at the allocation in skbuff.c.
+I can see your point.
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> You could lower tcp_rmem so that collapsing happens sooner.
+It is what we did.  However, a buggy process accommodated enough stalled
+sockets (stop reading from it but not closing it) will re-surface the problem.
 
-nice catch. you understood verifier so well :)
-Also agree that net-next is enough.
+Thanks,
+--Martin
