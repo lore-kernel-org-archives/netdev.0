@@ -1,40 +1,31 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next] vxlan: Correct path typo in comment
-Date: Thu, 12 Mar 2015 11:00:10 +0900
-Message-ID: <1426125610-7903-1-git-send-email-simon.horman@netronome.com>
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	Simon Horman <simon.horman@netronome.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: add real socket cookies
+Date: Wed, 11 Mar 2015 19:23:32 -0700
+Message-ID: <1426127012.11398.132.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426113035.11398.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426114608.11398.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426125194.11398.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.215553.1544350193194225837.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, salo@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34289 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160AbbCLCA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 22:00:29 -0400
-Received: by pdno5 with SMTP id o5so15975524pdn.1
-        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 19:00:29 -0700 (PDT)
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:35486 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbbCLCXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 22:23:35 -0400
+Received: by ieclw3 with SMTP id lw3so10028350iec.2
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 19:23:34 -0700 (PDT)
+In-Reply-To: <20150311.215553.1544350193194225837.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flags are used in the return path rather than the return patch.
+On Wed, 2015-03-11 at 21:55 -0400, David Miller wrote:
 
-Fixes: af33c1adae1e ("vxlan: Eliminate dependency on UDP socket in transmit path")
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- include/net/vxlan.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Oh, even better, I'll push this one actually.
+> 
+> Thanks!
 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index eabd3a0..9564b77 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -130,7 +130,7 @@ struct vxlan_sock {
- #define VXLAN_F_GBP			0x800
- #define VXLAN_F_REMCSUM_NOPARTIAL	0x1000
- 
--/* Flags that are used in the receive patch. These flags must match in
-+/* Flags that are used in the receive path. These flags must match in
-  * order for a socket to be shareable
-  */
- #define VXLAN_F_RCV_FLAGS		(VXLAN_F_GBP |			\
--- 
-2.1.4
+Perfect, thanks David.
