@@ -1,57 +1,101 @@
-From: Ian Wilson <iwilson@brocade.com>
-Subject: [PATCH] netfilter: Zero the tuple in nfnl_cthelper_parse_tuple()
-Date: Thu, 12 Mar 2015 09:37:58 +0000
-Message-ID: <1426153078-20863-1-git-send-email-iwilson@brocade.com>
+From: Ronald Pina <pinaronald@gmail.com>
+Subject: Adjusting patch to support napi weighting on kernel 3.4.1
+Date: Thu, 12 Mar 2015 10:42:29 +0100
+Message-ID: <CAONBAadh1ZcH+D8XOkaLBWS0ssV4SVCNCq616Q8EK4kjY_G=xg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ian Wilson <iwilson@brocade.com>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <pablo@netfilter.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33829 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753943AbbCLJi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 05:38:29 -0400
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:34060 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753119AbbCLJm3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 05:42:29 -0400
+Received: by iecsl2 with SMTP id sl2so29035296iec.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 02:42:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nfnl_cthelper_parse_tuple() is called from nfnl_cthelper_new(),
-nfnl_cthelper_get() and nfnl_cthelper_del().  In each case they pass
-a pointer to an nf_conntrack_tuple data structure local variable:
+Hello
+I am trying to adjust the of Stephen Hemminger patch (
+http://marc.info/?l=3Dlinux-netdev&m=3D111773621018096&w=3D2 ),  suport=
+ing
+napi weight changes for every network interfaces and  including
+virtual paravirtualized network interfaces like xen vif (since they
+use napi now) on kernel 3.4.1.
 
-    struct nf_conntrack_tuple tuple;
-    ...
-    ret = nfnl_cthelper_parse_tuple(&tuple, tb[NFCTH_TUPLE]);
+The changes are listed below.
 
-The problem is that this local variable is not initialized, and
-nfnl_cthelper_parse_tuple() only initializes two fields: src.l3num and
-dst.protonum.  This leaves all other fields with undefined values
-based on whatever is on the stack:
++static int change_weight(struct napi_struct *napi, unsigned long new_w=
+eight)
++{
++         napi->weight =3D new_weight;
++         return 0;
++ }
 
-    tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
-    tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
++ static ssize_t weight_store(struct device *dev, struct
+device_attribute *attr, const char *buf, size_t len)
++ {
++         return netdev_store(dev, attr, buf, len, change_weight);
++ }
++NETDEVICE_SHOW_RW ( weight, fmt_dec);
 
-The symptom observed was that when the rpc and tns helpers were added
-then traffic to port 1536 was being sent to user-space.
 
-Signed-off-by: Ian Wilson <iwilson@brocade.com>
+static struct attribute *net_class_attrs[] =3D {
+&dev_attr_netdev_group.attr,
+         &dev_attr_type.attr,
+         &dev_attr_dev_id.attr,
+         &dev_attr_dev_port.attr,
+         &dev_attr_iflink.attr,
+         &dev_attr_ifindex.attr,
+         &dev_attr_name_assign_type.attr,
+         &dev_attr_addr_assign_type.attr,
++      &dev_attr_addr_weight.attr,
+         &dev_attr_link_mode.attr,
+         &dev_attr_address.attr,
+         &dev_attr_broadcast.attr,
+         &dev_attr_speed.attr,
+         &dev_attr_duplex.attr,
+         &dev_attr_dormant.attr,
+         &dev_attr_operstate.attr,
+         &dev_attr_carrier_changes.attr,
+         &dev_attr_ifalias.attr,
+         &dev_attr_carrier.attr,
+         &dev_attr_mtu.attr,
+         &dev_attr_flags.attr,
+         &dev_attr_tx_queue_len.attr,
+         &dev_attr_gro_flush_timeout.attr,
+         &dev_attr_phys_port_id.attr,
+         &dev_attr_phys_switch_id.attr,
+         NULL,
+ };
+
+But the weight prameter is on the napi_structure, not on the struct
+net_device.   I tried to compile it but it shows:
+-----------------------------------------------------------------------=
 ---
- net/netfilter/nfnetlink_cthelper.c | 3 +++
- 1 file changed, 3 insertions(+)
+net/core/net-sysfs.c: In function =E2=80=98format_weight=E2=80=99:
+net/core/net-sysfs.c:268: error: =E2=80=98const struct net_device=E2=80=
+=99 has no
+member named =E2=80=98weight=E2=80=99
+net/core/net-sysfs.c: In function =E2=80=98store_weight=E2=80=99:
+net/core/net-sysfs.c:280: warning: passing argument 5 of
+=E2=80=98netdev_store=E2=80=99 from incompatible pointer type
+net/core/net-sysfs.c:80: note: expected =E2=80=98int (*)(struct net_dev=
+ice *,
+long unsigned int)=E2=80=99 but argument is of type =E2=80=98int (*)(st=
+ruct
+napi_struct *, long unsigned int)=E2=80=99
+make[2]: *** [net/core/net-sysfs.o] Error 1
+make[1]: *** [net/core] Error 2
+make: *** [net] Error 2
 
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index a5599fc..54330fb 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -77,6 +77,9 @@ nfnl_cthelper_parse_tuple(struct nf_conntrack_tuple *tuple,
- 	if (!tb[NFCTH_TUPLE_L3PROTONUM] || !tb[NFCTH_TUPLE_L4PROTONUM])
- 		return -EINVAL;
- 
-+	/* Not all fields are initialized so first zero the tuple */
-+	memset(tuple, 0, sizeof(struct nf_conntrack_tuple));
-+
- 	tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
- 	tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
- 
--- 
-1.9.1
+-----------------------------------------------------------------------=
+-----
+
+How can i reference struct  napi_stuct inide the function
+change_weight, and how can i pass the new weight to netdev_store
+function ?
+
+Thanks in advance
+Ronald
