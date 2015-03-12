@@ -1,53 +1,61 @@
-From: Yang Bai <hamo.by@gmail.com>
-Subject: [PATCH] rtlwifi: get buffer_desc before trying to alloc new skb
-Date: Thu, 12 Mar 2015 19:33:56 +0800
-Message-ID: <1426160036-1542-1-git-send-email-hamo.by@gmail.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hamo.by@gmail.com
-To: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
+ device specific parameters
+Date: Thu, 12 Mar 2015 14:02:05 +0200
+Message-ID: <5501803D.8020101@mellanox.com>
+References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
+ <20150311.131457.1314699780103858026.davem@davemloft.net>
+ <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
+ <20150312090042.GB1092@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	<yevgenyp@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	<shannon.nelson@intel.com>, <dledford@redhat.com>,
+	<greearb@candelatech.com>, <gregory.v.rose@intel.com>,
+	<jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
+	<john.ronciak@intel.com>
+To: Greg KH <gregkh@linuxfoundation.org>,
+	Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0077.outbound.protection.outlook.com ([157.56.112.77]:55508
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751370AbbCLMCg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Mar 2015 08:02:36 -0400
+In-Reply-To: <20150312090042.GB1092@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-if rtlpriv->use_new_trx_flow == true and we run out of memory
-to alloc a new skb, we will directly jump to no_new tag with
-buffer_desc == NULL. Then we will dereference this NULL pointer
-in function _rtl_pci_init_one_rxdesc.
+On 3/12/2015 11:00 AM, Greg KH wrote:
+> On Thu, Mar 12, 2015 at 10:07:35AM +0200, Hadar Hen Zion wrote:
+>> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Amir Vadai <amirv@mellanox.com>
+>>> Date: Wed, 11 Mar 2015 11:08:50 +0200
+>>>
+>>>> Also, customers are paying for a very sophisticated piece of hardware, and we would like to enable power user to tweak it in some situtations. Of course the default mode should be used in 99% of the use cases.
+>>> How much money someone pays for your hardware has nothing to do with the standards by which we design userspace interfaces to configure these devices.
+>>>
+>>> These textual interfaces are arbitrary, and you are choosing it only because you cannot come up with a more reasonable scheme,
+>>>
+>>> I'm not applying these changes.
+>>> ---
+>> In previous conversations Greg suggested us to use configfs.
+>>
+>> Is this case a misuse of configfs? maybe configfs should be deprecated... Greg?
+> No, this has nothing to do with the validity of configfs, please re-read what David said to you.
 
-Signed-off-by: Yang Bai <hamo.by@gmail.com>
----
- drivers/net/wireless/rtlwifi/pci.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+Greg,
 
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index a62170e..7fe04d1 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -820,17 +820,19 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
- 		pci_unmap_single(rtlpci->pdev, *((dma_addr_t *)skb->cb),
- 				 rtlpci->rxbuffersize, PCI_DMA_FROMDEVICE);
- 
-+		if (rtlpriv->use_new_trx_flow)
-+			buffer_desc =
-+			  &rtlpci->rx_ring[rxring_idx].buffer_desc
-+				[rtlpci->rx_ring[rxring_idx].idx];
-+
- 		/* get a new skb - if fail, old one will be reused */
- 		new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
- 		if (unlikely(!new_skb))
- 			goto no_new;
--		if (rtlpriv->use_new_trx_flow) {
--			buffer_desc =
--			  &rtlpci->rx_ring[rxring_idx].buffer_desc
--				[rtlpci->rx_ring[rxring_idx].idx];
-+		if (rtlpriv->use_new_trx_flow)
- 			/*means rx wifi info*/
- 			pdesc = (struct rtl_rx_desc *)skb->data;
--		}
-+
- 		memset(&rx_status , 0 , sizeof(rx_status));
- 		rtlpriv->cfg->ops->query_rx_desc(hw, &stats,
- 						 &rx_status, (u8 *)pdesc, skb);
--- 
-2.3.1
+So.. M2-- reading Dave's words I understand that he's against textual 
+interfacessuch as configfs and prefers others. This brings two questions 
+to the table (1) do we need to deprecate these textual interfaces / 
+configfs and avoid using them for configuration purposes with new code? 
+(2) does programmable interface such as netlink is the way to go for our 
+purposes here (and elsewhere)?
+
+Or.
