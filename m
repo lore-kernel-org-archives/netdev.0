@@ -1,38 +1,46 @@
-From: Martin Lau <kafai@fb.com>
-Subject: Re: [Question] net/mlx4_en: Memory consumption issue with mlx4_en
- driver
-Date: Thu, 12 Mar 2015 09:56:47 -0700
-Message-ID: <20150312165647.GD1032293@devbig242.prn2.facebook.com>
-References: <20150311185146.GA1032293@devbig242.prn2.facebook.com>
- <1426105262.11398.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net 2/2] rhashtable: remove indirection for grow/shrink
+ decision functions
+Date: Thu, 12 Mar 2015 16:57:33 +0000
+Message-ID: <20150312165733.GB11089@casper.infradead.org>
+References: <1424886096.5565.104.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150311064241.GA7153@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, daniel@iogearbox.net,
+	David.Laight@aculab.com, davem@davemloft.net, pablo@netfilter.org,
+	johunt@akamai.com, kaber@trash.net, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58375 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932487AbbCLQ4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:56:55 -0400
+Received: from casper.infradead.org ([85.118.1.10]:51277 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964781AbbCLQ5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:57:38 -0400
 Content-Disposition: inline
-In-Reply-To: <1426105262.11398.66.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20150311064241.GA7153@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 11, 2015 at 01:21:02PM -0700, Eric Dumazet wrote:
-> You know, even the order-3 allocations done for regular skb allocations
-> will hurt you : a single copybreaked skb stored a long time in a tcp
-> receive queue will hold 32KB of memory.
+On 03/11/15 at 05:42pm, Herbert Xu wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > There is no need to track number of elements, using either an atomic_t
+> > or percpu_counter. This adds unnecessary burden.
+> > 
+> > 1) Automatic shrinking is a non issue. This will free very little
+> > memory, compared to previous peak usage (including objects put in
+> > rhashtable). If hash grown to a certain point, it's likely it will grow
+> > again later.
+> > 
+> > 2) Growing can be triggered when any bucket has more than X elems, and
+> > that is given for free at insert time.
+> > X could be log2(buckets)/2 I guess. (aka shift/2)
+> > 
+> > A global limit on number of elements should be controlled by rhashtable
+> > users - if needed -, not in the rhashtable itself.
 > 
-> Even 4KB can lead to disasters.
-Thanks for the pointer.  I look a little deeper at the allocation in skbuff.c.
-I can see your point.
+> I agree in the strongest terms :)
 
-> You could lower tcp_rmem so that collapsing happens sooner.
-It is what we did.  However, a buggy process accommodated enough stalled
-sockets (stop reading from it but not closing it) will re-surface the problem.
-
-Thanks,
---Martin
+I agree that the max elements should be enforced by users as done by
+Netlink right now. I'm also fine with ditching nelems from rhashtable
+as long as shrinking is covered. Patrick mentioned several times by
+now that nft sets want to have shrinking.
