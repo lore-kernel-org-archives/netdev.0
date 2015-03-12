@@ -1,145 +1,54 @@
-From: "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>
-Subject: RE: [v2,00/11] Freescale DPAA FMan FLIB(s)
-Date: Thu, 12 Mar 2015 19:11:02 +0000
-Message-ID: <DM2PR03MB38328109F9D55CD059BE432E6060@DM2PR03MB383.namprd03.prod.outlook.com>
-References: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH] fib_trie: Only display main table in
+ /proc/net/route
+Date: Thu, 12 Mar 2015 12:13:49 -0700
+Message-ID: <1426187629.11398.172.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150311233536.1696.1657.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Scott Wood <scottwood@freescale.com>
-To: "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:33922 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751616AbbCLTN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 15:13:57 -0400
+Received: by iecsl2 with SMTP id sl2so55426709iec.1
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 12:13:57 -0700 (PDT)
+In-Reply-To: <20150311233536.1696.1657.stgit@ahduyck-vm-fedora20>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, 
+Alex,
 
-In v2 of DPAA FMan FLIBs we've made the following updates:
-- Split the header patch ([v2,01/11] soc/fman: Add the FMan FLIB headers) from one big patch to smaller patches - Kumar's feedback.
-- Removed the KILOBYTE defines - Kumar's feedback.
-- Addressed several comments from Scott on [v2,02/11] soc/fman: Add the FMan FLIB.
+I caught this message with latest net-next
 
-Best regards,
-Igal Liberman.
-
-> -----Original Message-----
-> From: Igal.Liberman [mailto:igal.liberman@freescale.com]
-> Sent: Wednesday, March 11, 2015 7:04 AM
-> To: linuxppc-dev@lists.ozlabs.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org
-> Cc: Wood Scott-B07421; Liberman Igal-B31950
-> Subject: [v2,00/11] Freescale DPAA FMan FLIB(s)
-> 
-> From: Igal Liberman <Igal.Liberman@freescale.com>
-> 
-> The Freescale Data Path Acceleration Architecture (DPAA) is a set of
-> hardware components on specific QorIQ multicore processors. This
-> architecture provides the infrastructure to support simplified sharing of
-> networking interfaces and accelerators by multiple CPU cores and the
-> accelerators.
-> 
-> One of the DPAA accelerators is the Frame Manager (FMan) which enables
-> the Ethernet network interfaces.
-> 
-> This patch presents the FMan Foundation Libraries (FLIB) headers.
-> The FMan FLIB adds basic support for the DPAA FMan hardware register
-> access.
-> 
-> Igal Liberman (7):
->   soc/fman: Add the FMan FLIB headers
->   soc/fman: Add the FMan FLIB
->   soc/fman: Add the FMan port FLIB
->   soc/fman: Add the FMan MAC FLIB
->   soc/fman: Add the FMan parser and KeyGen FLIB(s)
->   soc/fman: Add the FMan RTC FLIB
->   soc/fman: Add the FMan SP FLIB
-> 
-> Madalin Bucur (4):
->   soc/fman: Add the FMan port FLIB headers
->   soc/fman: Add the FMan MAC FLIB headers
->   soc/fman: Add the FMan parser and KeyGen FLIB headers
->   soc/fman: Add the FMan RTC FLIB header
-> 
->  drivers/soc/Kconfig                                |    1 +
->  drivers/soc/Makefile                               |    1 +
->  drivers/soc/fsl/Kconfig                            |    1 +
->  drivers/soc/fsl/Makefile                           |    1 +
->  drivers/soc/fsl/fman/Kconfig                       |   35 +
->  drivers/soc/fsl/fman/Makefile                      |   11 +
->  drivers/soc/fsl/fman/flib/common/general.h         |   41 +
->  drivers/soc/fsl/fman/flib/fman_common.h            |   73 +
->  drivers/soc/fsl/fman/flib/fsl_enet.h               |  275 ++++
->  drivers/soc/fsl/fman/flib/fsl_fman.h               |  802 ++++++++++
->  drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h         | 1016 +++++++++++++
->  drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h |  103 ++
->  drivers/soc/fsl/fman/flib/fsl_fman_kg.h            |  505 +++++++
->  drivers/soc/fsl/fman/flib/fsl_fman_memac.h         |  494 +++++++
->  drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h |   76 +
->  drivers/soc/fsl/fman/flib/fsl_fman_port.h          |  601 ++++++++
->  drivers/soc/fsl/fman/flib/fsl_fman_prs.h           |  106 ++
->  drivers/soc/fsl/fman/flib/fsl_fman_rtc.h           |  414 ++++++
->  drivers/soc/fsl/fman/flib/fsl_fman_sp.h            |  132 ++
->  drivers/soc/fsl/fman/flib/fsl_fman_tgec.h          |  483 ++++++
->  drivers/soc/fsl/fman/fman.c                        | 1355 +++++++++++++++++
->  drivers/soc/fsl/fman/mac/Makefile                  |    5 +
->  drivers/soc/fsl/fman/mac/fman_crc32.c              |  116 ++
->  drivers/soc/fsl/fman/mac/fman_crc32.h              |   39 +
->  drivers/soc/fsl/fman/mac/fman_dtsec.c              |  838 +++++++++++
->  drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c      |  168 +++
->  drivers/soc/fsl/fman/mac/fman_memac.c              |  510 +++++++
->  drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c      |  217 +++
->  drivers/soc/fsl/fman/mac/fman_tgec.c               |  371 +++++
->  drivers/soc/fsl/fman/pcd/Makefile                  |    3 +
->  drivers/soc/fsl/fman/pcd/fman_kg.c                 |  849 +++++++++++
->  drivers/soc/fsl/fman/pcd/fman_prs.c                |  126 ++
->  drivers/soc/fsl/fman/port/Makefile                 |    3 +
->  drivers/soc/fsl/fman/port/fman_port.c              | 1535
-> ++++++++++++++++++++
->  drivers/soc/fsl/fman/rtc/Makefile                  |    3 +
->  drivers/soc/fsl/fman/rtc/fman_rtc.c                |  353 +++++
->  drivers/soc/fsl/fman/sp/Makefile                   |    3 +
->  drivers/soc/fsl/fman/sp/fman_sp.c                  |  203 +++
->  38 files changed, 11868 insertions(+)
->  create mode 100644 drivers/soc/fsl/Kconfig  create mode 100644
-> drivers/soc/fsl/Makefile  create mode 100644 drivers/soc/fsl/fman/Kconfig
-> create mode 100644 drivers/soc/fsl/fman/Makefile  create mode 100644
-> drivers/soc/fsl/fman/flib/common/general.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fman_common.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_enet.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_kg.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_port.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_prs.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_rtc.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_sp.h
->  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_tgec.h
->  create mode 100644 drivers/soc/fsl/fman/fman.c  create mode 100644
-> drivers/soc/fsl/fman/mac/Makefile  create mode 100644
-> drivers/soc/fsl/fman/mac/fman_crc32.c
->  create mode 100644 drivers/soc/fsl/fman/mac/fman_crc32.h
->  create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec.c
->  create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c
->  create mode 100644 drivers/soc/fsl/fman/mac/fman_memac.c
->  create mode 100644 drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c
->  create mode 100644 drivers/soc/fsl/fman/mac/fman_tgec.c
->  create mode 100644 drivers/soc/fsl/fman/pcd/Makefile  create mode
-> 100644 drivers/soc/fsl/fman/pcd/fman_kg.c
->  create mode 100644 drivers/soc/fsl/fman/pcd/fman_prs.c
->  create mode 100644 drivers/soc/fsl/fman/port/Makefile
->  create mode 100644 drivers/soc/fsl/fman/port/fman_port.c
->  create mode 100644 drivers/soc/fsl/fman/rtc/Makefile  create mode 100644
-> drivers/soc/fsl/fman/rtc/fman_rtc.c
->  create mode 100644 drivers/soc/fsl/fman/sp/Makefile  create mode 100644
-> drivers/soc/fsl/fman/sp/fman_sp.c
-> 
-> --
-> 1.7.9.5
+[   31.449563] WARNING: CPU: 2 PID: 10307 at net/ipv4/fib_trie.c:1124 fib_table_insert+0x467/0x4d0()
+[   31.449564] Modules linked in: w1_therm wire cdc_acm ehci_pci ehci_hcd i2c_dev i2c_i801 i2c_core msr cpuid ib_uverbs mlx4_ib ib_sa ib_mad ib_core ib_addr ip6table_mangle ip6_tables ipv6 xt_multiport iptable_mangle
+[   31.449576] CPU: 2 PID: 10307 Comm: route Not tainted 4.0.0-smp-DEV #1321
+[   31.449578]  ffffffff8197e8b3 ffff883ff235fa78 ffffffff8160c40f 00000000000000d5
+[   31.449579]  0000000000000000 ffff883ff235fab8 ffffffff810a35d7 0000000000000000
+[   31.449581]  0000000000000000 000000007f000000 ffff883ff235fb90 0000000000000008
+[   31.449582] Call Trace:
+[   31.449587]  [<ffffffff8160c40f>] dump_stack+0x45/0x57
+[   31.449591]  [<ffffffff810a35d7>] warn_slowpath_common+0x97/0xe0
+[   31.449592]  [<ffffffff810a363a>] warn_slowpath_null+0x1a/0x20
+[   31.449594]  [<ffffffff815e5fc7>] fib_table_insert+0x467/0x4d0
+[   31.449597]  [<ffffffff815e10de>] ip_rt_ioctl+0x30e/0x460
+[   31.449599]  [<ffffffff811e0000>] ? do_readv_writev+0x70/0x2e0
+[   31.449601]  [<ffffffff815d9485>] inet_ioctl+0x65/0x90
+[   31.449604]  [<ffffffff81541e90>] sock_do_ioctl+0x30/0x70
+[   31.449606]  [<ffffffff81541fef>] routing_ioctl+0x11f/0x220
+[   31.449608]  [<ffffffff81546c68>] ? sk_prot_alloc+0x48/0x1a0
+[   31.449610]  [<ffffffff811e0000>] ? do_readv_writev+0x70/0x2e0
+[   31.449611]  [<ffffffff81542a52>] compat_sock_ioctl+0x702/0x930
+[   31.449613]  [<ffffffff81542d11>] ? sock_alloc_file+0x91/0x120
+[   31.449616]  [<ffffffff811fc7bb>] ? __fd_install+0x2b/0x60
+[   31.449617]  [<ffffffff811fc815>] ? fd_install+0x25/0x30
+[   31.449619]  [<ffffffff81542deb>] ? sock_map_fd+0x4b/0x70
+[   31.449621]  [<ffffffff81230233>] compat_SyS_ioctl+0xf3/0x1220
+[   31.449624]  [<ffffffff8157f27e>] ? compat_SyS_socketcall+0x9e/0x4a0
+[   31.449626]  [<ffffffff81095dec>] ? do_page_fault+0xc/0x10
+[   31.449629]  [<ffffffff81614c93>] sysenter_dispatch+0x7/0x1a
+[   31.449630] ---[ end trace 0f37afa3e6f481a5 ]---
