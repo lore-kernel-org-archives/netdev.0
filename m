@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xps: must clear sender_cpu before forwarding
-Date: Wed, 11 Mar 2015 23:51:34 -0400 (EDT)
-Message-ID: <20150311.235134.2179029122534232611.davem@davemloft.net>
-References: <5500E52C.7080603@nuclearfallout.net>
-	<CANn89iLHkYc2Kay7z+v=tHMW5aYSqUf8V4f70Z-d5fUuuUXnpw@mail.gmail.com>
-	<1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH 3/15] net/mlx5_core: don't export static symbol
+Date: Thu, 12 Mar 2015 00:04:23 -0400 (EDT)
+Message-ID: <20150312.000423.2003322738364745908.davem@davemloft.net>
+References: <1426092997-30605-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1426092997-30605-4-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jw@nuclearfallout.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eli@mellanox.com, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, daniel@iogearbox.net
+To: Julia.Lawall@lip6.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56057 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56178 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107AbbCLDvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Mar 2015 23:51:36 -0400
-In-Reply-To: <1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751568AbbCLEE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 00:04:26 -0400
+In-Reply-To: <1426092997-30605-4-git-send-email-Julia.Lawall@lip6.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 11 Mar 2015 18:42:02 -0700
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Wed, 11 Mar 2015 17:56:25 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> John reported that my previous commit added a regression
-> on his router.
-> 
-> This is because sender_cpu & napi_id share a common location,
-> so get_xps_queue() can see garbage and perform an out of bound access.
-> 
-> We need to make sure sender_cpu is cleared before doing the transmit,
-> otherwise any NIC busy poll enabled (skb_mark_napi_id()) can trigger
-> this bug.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: John <jw@nuclearfallout.net>
-> Bisected-by: John <jw@nuclearfallout.net>
-> Fixes: 2bd82484bb4c ("xps: fix xps for stacked devices")
+> The semantic patch that fixes this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Applied, thanks Eric.
+Applied, thank you Julia.
