@@ -1,78 +1,102 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: Re: [PATCH] ixgbe: Remove NETIF_F_HW_VLAN_CTAG_FILTER
- from hw_features
-Date: Thu, 12 Mar 2015 06:00:50 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E576A1@BPXM14GP.gisp.nec.co.jp>
-References: <20150311030305.1337.10832.stgit@ahduyck-vm-fedora20>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] 9p/trans_virtio: fix hot-unplug
+Date: Thu, 12 Mar 2015 07:36:13 +0100
+Message-ID: <20150312073545-mutt-send-email-mst@redhat.com>
+References: <20150309154814-mutt-send-email-mst@redhat.com>
+	<874mprxb2d.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20150311030305.1337.10832.stgit@ahduyck-vm-fedora20>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Eric Van Hensbergen <ericvh@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	v9fs-developer@lists.sourceforge.net, Ron Minnich <rminnich@sandia.gov>,
+	"David S. Miller" <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <874mprxb2d.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> Subject: [PATCH] ixgbe: Remove NETIF_F_HW_VLAN_CTAG_FILTER from hw_features
+On Thu, Mar 12, 2015 at 11:54:10AM +1030, Rusty Russell wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > On device hot-unplug, 9p/virtio currently will kfree channel while
+> > it might still be in use.
+> >
+> > Of course, it might stay used forever, so it's an extremely ugly hack,
+> > but it seems better than use-after-free that we have now.
+> >
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > 
-> This change makes it so that the HW_VLAN_STAG_FILTER bit is not falsely
+> I'll apply it, but it looks like a bandaid.
 
-s/STAG/CTAG/ right?
 
-thanks,
-Hiroshi
+Absolutely.
 
-> advertised as being a feature that can be toggled on ixgbe parts.  The
-> driver was setting the bit in features and letting it be inherited by
-> hw_features, however the driver was actually ignoring the value of the bit
-> and just assuming it was always set.  As a result VLAN filtering was always
-> enabled which is a requirement for SR-IOV, VMDq, DCB, FCoE, and possibly
-> other features within the adapters.
+> The right answer would seem to be:
+> 1) Use reference counting: 1 for client, 1 for transport.
+> 2) When hot unplug, complete (ie. fail) all outstanding requests.
+> 3) From then on, fail all incoming requests.
+> 4) When refcount hits 0, free the structure.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 21aea7e..08c27ed 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -8406,7 +8406,6 @@ skip_sriov:
->  			   NETIF_F_IPV6_CSUM |
->  			   NETIF_F_HW_VLAN_CTAG_TX |
->  			   NETIF_F_HW_VLAN_CTAG_RX |
-> -			   NETIF_F_HW_VLAN_CTAG_FILTER |
->  			   NETIF_F_TSO |
->  			   NETIF_F_TSO6 |
->  			   NETIF_F_RXHASH |
-> @@ -8428,6 +8427,7 @@ skip_sriov:
->  	}
-> 
->  	netdev->hw_features |= NETIF_F_RXALL;
-> +	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-> 
->  	netdev->vlan_features |= NETIF_F_TSO;
->  	netdev->vlan_features |= NETIF_F_TSO6;
+> Thanks,
+> Rusty.
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Right. Will try to do for 4.1.
+
+> 
+> 
+> > ---
+> >  net/9p/trans_virtio.c | 25 +++++++++++++++++++++----
+> >  1 file changed, 21 insertions(+), 4 deletions(-)
+> >
+> > diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+> > index d8e376a..d1b2f306 100644
+> > --- a/net/9p/trans_virtio.c
+> > +++ b/net/9p/trans_virtio.c
+> > @@ -658,14 +658,31 @@ p9_virtio_create(struct p9_client *client, const char *devname, char *args)
+> >  static void p9_virtio_remove(struct virtio_device *vdev)
+> >  {
+> >  	struct virtio_chan *chan = vdev->priv;
+> > -
+> > -	if (chan->inuse)
+> > -		p9_virtio_close(chan->client);
+> > -	vdev->config->del_vqs(vdev);
+> > +	unsigned long warning_time;
+> > +	bool inuse;
+> >  
+> >  	mutex_lock(&virtio_9p_lock);
+> > +
+> > +	/* Remove self from list so we don't get new users. */
+> >  	list_del(&chan->chan_list);
+> > +	warning_time = jiffies;
+> > +
+> > +	/* Wait for existing users to close. */
+> > +	while (chan->inuse) {
+> > +		mutex_unlock(&virtio_9p_lock);
+> > +		msleep(250);
+> > +               if (time_after(jiffies, warning_time + 10 * HZ)) {
+> > +			dev_emerg(&vdev->dev, "p9_virtio_remove: "
+> > +				  "waiting for device in use.\n");
+> > +			warning_time = jiffies;
+> > +               }
+> > +		mutex_lock(&virtio_9p_lock);
+> > +	}
+> > +
+> >  	mutex_unlock(&virtio_9p_lock);
+> > +
+> > +	vdev->config->del_vqs(vdev);
+> > +
+> >  	sysfs_remove_file(&(vdev->dev.kobj), &dev_attr_mount_tag.attr);
+> >  	kobject_uevent(&(vdev->dev.kobj), KOBJ_CHANGE);
+> >  	kfree(chan->tag);
+> > -- 
+> > MST
