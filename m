@@ -1,87 +1,59 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 3/3] net/mlx4_en: Add tx queue maxrate support
-Date: Thu, 12 Mar 2015 10:53:25 +0200
-Message-ID: <1426150405-7904-4-git-send-email-ogerlitz@mellanox.com>
-References: <1426150405-7904-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next V1 0/3] net/mlx4_core: Allow setting init-time
+ device specific parameters
+Date: Thu, 12 Mar 2015 10:00:42 +0100
+Message-ID: <20150312090042.GB1092@kroah.com>
+References: <1426064933-29072-1-git-send-email-amirv@mellanox.com>
+ <20150311.131457.1314699780103858026.davem@davemloft.net>
+ <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hadar Hen Zion <hadarh@mellanox.com>, yevgenyp@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, shannon.nelson@intel.com,
+	dledford@redhat.com, greearb@candelatech.com,
+	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com
+To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48016 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752863AbbCLIxo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2015 04:53:44 -0400
-In-Reply-To: <1426150405-7904-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:60830 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750726AbbCLJAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 05:00:47 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJL1qvHP0cLRVf53J9MuJrYCJLjE=mzEU70JofJ8zH_Yf-O16g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ndo_set_tx_maxrate support.
+On Thu, Mar 12, 2015 at 10:07:35AM +0200, Hadar Hen Zion wrote:
+> On Wed, Mar 11, 2015 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
+> >
+> > From: Amir Vadai <amirv@mellanox.com>
+> > Date: Wed, 11 Mar 2015 11:08:50 +0200
+> >
+> > > Also, customers are paying for a very sophisticated piece of
+> > > hardware, and we would like to enable power user to tweak it in some
+> > > situtations. Of course the default mode should be used in 99% of the
+> > > use cases.
+> >
+> > How much money someone pays for your hardware has nothing to do with
+> > the standards by which we design userspace interfaces to configure
+> > these devices.
+> >
+> > These textual interfaces are arbitrary, and you are choosing it only
+> > because you cannot come up with a more reasonable scheme,
+> >
+> > I'm not applying these changes.
+> > --
+> 
+> In previous conversations Greg suggested us to use configfs.
+> 
+> Is this case a misuse of configfs?  maybe configfs should be deprecated... Greg?
 
-To support per tx queue maxrate limit, we use the update-qp firmware
-command to do run-time rate setting for the qp that serves this tx ring.
+No, this has nothing to do with the validity of configfs, please re-read
+what David said to you.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Ido Shamay <idos@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   29 ++++++++++++++++++++++++
- 1 files changed, 29 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index c59ed92..d8dc3f9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2379,6 +2379,33 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
- }
- #endif
- 
-+int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[queue_index];
-+	struct mlx4_update_qp_params params;
-+	int err;
-+
-+	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT))
-+		return -EOPNOTSUPP;
-+
-+	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
-+	if (maxrate >> 12) {
-+		params.rate_unit = MLX4_QP_RATE_LIMIT_GBS;
-+		params.rate_val  = maxrate / 1000;
-+	} else if (maxrate) {
-+		params.rate_unit = MLX4_QP_RATE_LIMIT_MBS;
-+		params.rate_val  = maxrate;
-+	} else { /* zero serves to revoke the QP rate-limitation */
-+		params.rate_unit = 0;
-+		params.rate_val  = 0;
-+	}
-+
-+	err = mlx4_update_qp(priv->mdev->dev, tx_ring->qpn, MLX4_UPDATE_QP_RATE_LIMIT,
-+			     &params);
-+	return err;
-+}
-+
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
-@@ -2410,6 +2437,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
- 	.ndo_features_check	= mlx4_en_features_check,
- #endif
-+	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
- };
- 
- static const struct net_device_ops mlx4_netdev_ops_master = {
-@@ -2444,6 +2472,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
- 	.ndo_features_check	= mlx4_en_features_check,
- #endif
-+	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
- };
- 
- struct mlx4_en_bond {
--- 
-1.7.1
+greg k-h
