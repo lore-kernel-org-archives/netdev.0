@@ -1,65 +1,63 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH RFC v2] ath10k: move code from parameter list into a
-	function
-Date: Thu, 12 Mar 2015 08:32:30 +0100
-Message-ID: <20150312073230.GA32014@opentech.at>
-References: <1426100519-20636-1-git-send-email-hofrat@osadl.org> <5500A58F.3040904@cogentembedded.com>
+From: Lars Ellenberg <lars.ellenberg@linbit.com>
+Subject: Re: Bug report: broadcast address as incomplete entry in arp table, effectively a blackhole; reproducer included
+Date: Thu, 12 Mar 2015 08:27:20 +0100
+Message-ID: <F2F490FA-3AED-436B-BB9E-818353BCEA9B@linbit.com>
+References: <20140924161847.GG7118@soda.linbit> <20141119143958.GP307@soda.linbit> <5500AC15.2020200@emagii.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	Kalle Valo <kvalo@qca.qualcomm.com>, Valdis.Kletnieks@vt.edu,
-	Bj??rn Mork <bjorn@mork.no>,
-	Jeff Haran <Jeff.Haran@citrix.com>,
-	Pat Erley <pat-lkml@erley.org>, ath10k@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5500A58F.3040904@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Ulf Samuelsson <netdev@emagii.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra13.linbit.com ([212.69.166.240]:57244 "EHLO
+	zimbra13.linbit.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbbCLHga convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 03:36:30 -0400
+In-Reply-To: <5500AC15.2020200@emagii.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Mar 2015, Sergei Shtylyov wrote:
-
-> Hello.
->
-> On 03/11/2015 10:01 PM, Nicholas Mc Guire wrote:
->
->> Putting code into the parameter list of wait_event_timeout() might be
->> legal C-code but not really readable - the "inline" code is simply
->> moved into a function and that passed to wait_event_timeout() as the
->> condition. As wait_event_timeout will always return >= 0 the following
->> timeout check is fixed up to  ret == 0 .
->
->> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-> [...]
->
->> diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
->> index e8cc19f..a7a12cc 100644
->> --- a/drivers/net/wireless/ath/ath10k/mac.c
->> +++ b/drivers/net/wireless/ath/ath10k/mac.c
->> @@ -4463,11 +4463,25 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
->>   	return ret;
->>   }
+Am 11. M=C3=A4rz 2015 21:56:53 MEZ, schrieb Ulf Samuelsson <netdev@emag=
+ii.com>:
+>Den 2014-11-19 15:39, Lars Ellenberg skrev:
+>> Ping ...
+>> Any ideas?
 >>
->> +static bool check_htt_state(struct ath10k *ar, bool *skip)
->> +{
->> +	bool empty;
->> +
->> +	spin_lock_bh(&ar->htt.tx_lock);
->> +	empty = (ar->htt.num_pending_tx == 0);
->> +	spin_unlock_bh(&ar->htt.tx_lock);
->> +
->> +	*skip = (ar->state == ATH10K_STATE_WEDGED) ||
->> +		test_bit(ATH10K_FLAG_CRASH_FLUSH,
->> +			 &ar->dev_flags);
->> +	return (empty || *skip);
->
->    Parens not needed here.
->
-Thanks - will see what else I forgot and then repost a cleaned up
-version.
+>> 	Lars
+>Did you ever solve this problem?
 
-thx!
-hofrat
+
+There are the stated workarounds.
+No solution.
+In fact this is the first reaction I had at all.
+
+>Have been working on a similar problem.
+>
+>Are you sure that the entry is never removed?
+
+Not sure, never is a long time to cover. Not within hours, though.
+And not deletable "by hand".
+My guess it's that it is in some part of the table that is not walked a=
+nymore, because the system"knows" that this entry cannot possibly exist=
+, so why even bother to look :-/
+
+>Once you lose the entry, it is normally garbage collected,
+>and this takes a looong time (minutes).
+>
+>Try leaving it alone for an hour once the problem occurs,
+>and check if the garbage collector has not taken the entry out.
+
+You realize that I can reproduce at will, I can provoke the problem.
+
+
+>The ARP state machine has, as far as I know, no way
+>to put an entry into INCOMPLETE once it has reached REACHABLE.
+>
+>Once in REACHABLE it will move between the following valid states:
+
+It never was reachable.
+It either is the broadcast address, which won't be ARP resolved obvious=
+ly. Or it is unreachable -- nothing has the supposedly broadcast addres=
+s assigned...
+
+Thanks,
+    Lars
