@@ -1,47 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Question]: Details on TCP_INFO extension
-Date: Thu, 12 Mar 2015 11:36:05 -0700
-Message-ID: <1426185365.11398.171.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54E661BF.4020404@psc.edu>
-	 <20150312175837.GE1032293@devbig242.prn2.facebook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4 v2] rhashtable hash cleanups
+Date: Thu, 12 Mar 2015 14:36:11 -0400 (EDT)
+Message-ID: <20150312.143611.1943593719035919241.davem@davemloft.net>
+References: <20150312012944.GA12857@gondor.apana.org.au>
+	<20150312034923.GA14415@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tcpinst-wg@psc.edu, rapier <rapier@psc.edu>,
-	Yuchung Cheng <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>, kernel-team@fb.com
-To: Martin Lau <kafai@fb.com>, Eric Salo <salo@google.com>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:32923 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbbCLSgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:36:19 -0400
-Received: by iecvj10 with SMTP id vj10so51832425iec.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 11:36:18 -0700 (PDT)
-In-Reply-To: <20150312175837.GE1032293@devbig242.prn2.facebook.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38407 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751812AbbCLSgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:36:14 -0400
+In-Reply-To: <20150312034923.GA14415@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-12 at 10:58 -0700, Martin Lau wrote:
-> Old Title: [Tcpinst-wg] Welcome to the TCP Instrumentation List
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 12 Mar 2015 14:49:23 +1100
+
+> This is a rebase on top of the nested lock annotation fix.
 > 
-> On Thu, Feb 19, 2015 at 05:20:47PM -0500, rapier wrote:
-> > There should be two sets of instruments. Operational and diagnostic. The 
-> > operation instruments will be be used to extend TCP_INFO and will always 
-> > be available. Google will be providing a patch for upstream with 8 
-> > instruments in this category. The diagnostic instruments will be enabled 
-> > by the user on an as needed basis. These data from these instruments 
-> > will be stored in a separate structure that is referenced by a pointer 
-> > in the socket or some other mechanism. The ability to only enable a 
-> > subset of these instruments should be a design goal.
-> Can Google share which 8 fields will be added to TCP_INFO?
-> 
-> Thanks,
-> --Martin
-> --
+> Nothing to see here, just a bunch of simple clean-ups before
+> I move onto something more substantial (hopefully).
 
-CC Eric Salo, who is working on this topic.
+I've applied this series, but please look into the bug Thomas
+reported before making any further changes to rhashtable.
 
-Note that I upstreamed yesterday support for an unified socket cookie.
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=33cf7c90fe2f97afb1cadaa0cfb782cb9d1b9ee2
+Thanks.
