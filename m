@@ -1,212 +1,131 @@
-From: Jonas Johansson <jonasj76@gmail.com>
-Subject: [PATCH net-next] team: Notify state change on ports
-Date: Thu, 12 Mar 2015 17:03:56 +0100
-Message-ID: <1426176236-28255-1-git-send-email-jonas.johansson@gmail.com>
-Cc: ogerlitz@mellanox.com, monis@mellanox.com,
-	jonas.johansson@westermo.se, Jonas Johansson <jonasj76@gmail.com>
-To: jiri@resnulli.us, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:37495 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964812AbbCLQEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 12:04:51 -0400
-Received: by labgq15 with SMTP id gq15so16893019lab.4
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 09:04:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [v2,00/11] Freescale DPAA FMan FLIB(s)
+Date: Thu, 12 Mar 2015 10:57:32 -0500
+Message-ID: <E454F6B7-4DEB-446C-8077-F8495D51B834@kernel.crashing.org>
+References: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, scottwood@freescale.com
+To: "Igal.Liberman" <igal.liberman@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jonas Johansson <jonasj76@gmail.com>
 
-Use notifier chain to dispatch an event upon a change in port state. The event
-is dispatched with the notifier_bonding_info struct.
-The notifier_bonding_info struct was introduced to notify state change on
-bonding slaves (commit 61bd3857), so some fields are set to -1, due that the
-data is not available in team.
+On Mar 11, 2015, at 12:03 AM, Igal.Liberman <igal.liberman@freescale.com> wrote:
 
-Signed-off-by: Jonas Johansson <jonasj76@gmail.com>
----
-This patch is just a step into introducing HW bonding support. In a previous
-(not applied) patchset [1], I added two (2) new ndo ops which was used to
-receive a port state change. This patch will instead use the same mechanism
-as introduced in [2] and [3] to notify a port state change.
+> From: Igal Liberman <Igal.Liberman@freescale.com>
+> 
+> The Freescale Data Path Acceleration Architecture (DPAA) is a set of
+> hardware components on specific QorIQ multicore processors. This
+> architecture provides the infrastructure to support simplified
+> sharing of networking interfaces and accelerators by multiple CPU
+> cores and the accelerators.
+> 
+> One of the DPAA accelerators is the Frame Manager (FMan) which
+> enables the Ethernet network interfaces.
+> 
+> This patch presents the FMan Foundation Libraries (FLIB) headers.
+> The FMan FLIB adds basic support for the DPAA FMan hardware register
+> access.
+> 
+> Igal Liberman (7):
+>  soc/fman: Add the FMan FLIB headers
+>  soc/fman: Add the FMan FLIB
+>  soc/fman: Add the FMan port FLIB
+>  soc/fman: Add the FMan MAC FLIB
+>  soc/fman: Add the FMan parser and KeyGen FLIB(s)
+>  soc/fman: Add the FMan RTC FLIB
+>  soc/fman: Add the FMan SP FLIB
+> 
+> Madalin Bucur (4):
+>  soc/fman: Add the FMan port FLIB headers
+>  soc/fman: Add the FMan MAC FLIB headers
+>  soc/fman: Add the FMan parser and KeyGen FLIB headers
+>  soc/fman: Add the FMan RTC FLIB header
+> 
+> drivers/soc/Kconfig                                |    1 +
+> drivers/soc/Makefile                               |    1 +
+> drivers/soc/fsl/Kconfig                            |    1 +
+> drivers/soc/fsl/Makefile                           |    1 +
+> drivers/soc/fsl/fman/Kconfig                       |   35 +
+> drivers/soc/fsl/fman/Makefile                      |   11 +
+> drivers/soc/fsl/fman/flib/common/general.h         |   41 +
+> drivers/soc/fsl/fman/flib/fman_common.h            |   73 +
+> drivers/soc/fsl/fman/flib/fsl_enet.h               |  275 ++++
+> drivers/soc/fsl/fman/flib/fsl_fman.h               |  802 ++++++++++
+> drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h         | 1016 +++++++++++++
+> drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h |  103 ++
+> drivers/soc/fsl/fman/flib/fsl_fman_kg.h            |  505 +++++++
+> drivers/soc/fsl/fman/flib/fsl_fman_memac.h         |  494 +++++++
+> drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h |   76 +
+> drivers/soc/fsl/fman/flib/fsl_fman_port.h          |  601 ++++++++
+> drivers/soc/fsl/fman/flib/fsl_fman_prs.h           |  106 ++
+> drivers/soc/fsl/fman/flib/fsl_fman_rtc.h           |  414 ++++++
+> drivers/soc/fsl/fman/flib/fsl_fman_sp.h            |  132 ++
+> drivers/soc/fsl/fman/flib/fsl_fman_tgec.h          |  483 ++++++
+> drivers/soc/fsl/fman/fman.c                        | 1355 +++++++++++++++++
+> drivers/soc/fsl/fman/mac/Makefile                  |    5 +
+> drivers/soc/fsl/fman/mac/fman_crc32.c              |  116 ++
+> drivers/soc/fsl/fman/mac/fman_crc32.h              |   39 +
+> drivers/soc/fsl/fman/mac/fman_dtsec.c              |  838 +++++++++++
+> drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c      |  168 +++
+> drivers/soc/fsl/fman/mac/fman_memac.c              |  510 +++++++
+> drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c      |  217 +++
+> drivers/soc/fsl/fman/mac/fman_tgec.c               |  371 +++++
+> drivers/soc/fsl/fman/pcd/Makefile                  |    3 +
+> drivers/soc/fsl/fman/pcd/fman_kg.c                 |  849 +++++++++++
+> drivers/soc/fsl/fman/pcd/fman_prs.c                |  126 ++
+> drivers/soc/fsl/fman/port/Makefile                 |    3 +
+> drivers/soc/fsl/fman/port/fman_port.c              | 1535 ++++++++++++++++++++
+> drivers/soc/fsl/fman/rtc/Makefile                  |    3 +
+> drivers/soc/fsl/fman/rtc/fman_rtc.c                |  353 +++++
+> drivers/soc/fsl/fman/sp/Makefile                   |    3 +
+> drivers/soc/fsl/fman/sp/fman_sp.c                  |  203 +++
+> 38 files changed, 11868 insertions(+)
+> create mode 100644 drivers/soc/fsl/Kconfig
+> create mode 100644 drivers/soc/fsl/Makefile
+> create mode 100644 drivers/soc/fsl/fman/Kconfig
+> create mode 100644 drivers/soc/fsl/fman/Makefile
+> create mode 100644 drivers/soc/fsl/fman/flib/common/general.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fman_common.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_enet.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_kg.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_port.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_prs.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_rtc.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_sp.h
+> create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_tgec.h
+> create mode 100644 drivers/soc/fsl/fman/fman.c
+> create mode 100644 drivers/soc/fsl/fman/mac/Makefile
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_crc32.c
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_crc32.h
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec.c
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_memac.c
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c
+> create mode 100644 drivers/soc/fsl/fman/mac/fman_tgec.c
+> create mode 100644 drivers/soc/fsl/fman/pcd/Makefile
+> create mode 100644 drivers/soc/fsl/fman/pcd/fman_kg.c
+> create mode 100644 drivers/soc/fsl/fman/pcd/fman_prs.c
+> create mode 100644 drivers/soc/fsl/fman/port/Makefile
+> create mode 100644 drivers/soc/fsl/fman/port/fman_port.c
+> create mode 100644 drivers/soc/fsl/fman/rtc/Makefile
+> create mode 100644 drivers/soc/fsl/fman/rtc/fman_rtc.c
+> create mode 100644 drivers/soc/fsl/fman/sp/Makefile
+> create mode 100644 drivers/soc/fsl/fman/sp/fman_sp.c
+> 
+> -- 
+> 1.7.9.5
 
-A state change on a port can be used by a switching device to e.g. load
-balance packets over the active ports. Due to that HW bonding isn't added to
-the kernel yet this patch may atm only be of use for [4] to use the team
-driver instead of the bonding driver. But I hope it will become useful as a
-first step to introduce HW bonding.
+What changed in v2?
 
-[1] - [PATCH net-next 0/2] dsa: implement HW bonding'
-      http://marc.info/?l=linux-netdev&m=142442948421049&w=2
-[2] - net/core: Add event for a change in slave state'
-      commit: 61bd3857
-[3] - net/bonding: Move slave state changes to a helper function
-      commit: 69a2338e
-[4] - [PATCH 00/10] Add HA and LAG support to mlx4 RoCE and SRIOV services
-      http://marc.info/?l=linux-netdev&m=142309529514580&w=2
-
- drivers/net/team/team.c | 85 +++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/if_team.h | 10 ++++++
- 2 files changed, 95 insertions(+)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index a23319f..aef8120 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -659,6 +659,86 @@ static void team_notify_peers_fini(struct team *team)
- 	cancel_delayed_work_sync(&team->notify_peers.dw);
- }
- 
-+/*********************
-+ * Port notification
-+ *********************/
-+
-+static void team_fill_ifbond(struct team *team, struct ifbond *info)
-+{
-+	info->bond_mode = -1;
-+	info->miimon = -1;
-+	info->num_slaves = team->en_port_count;
-+}
-+
-+static void team_fill_ifslave(struct team_port *port, struct ifslave *info)
-+{
-+	strcpy(info->slave_name, port->dev->name);
-+	info->link = port->state.linkup;
-+	if (team_port_enabled(port))
-+		info->state = BOND_STATE_ACTIVE;
-+	else
-+		info->state = BOND_STATE_BACKUP;
-+	info->link_failure_count = 0;
-+}
-+
-+static void team_notify_port_work(struct work_struct *work)
-+{
-+	struct team *team;
-+	struct team_port_notify *notify;
-+
-+	team = container_of(work, struct team, notify_ports.dw.work);
-+
-+	if (!rtnl_trylock()) {
-+		schedule_delayed_work(&team->notify_ports.dw, 0);
-+		return;
-+	}
-+	rcu_read_lock();
-+
-+	notify = list_first_or_null_rcu(&team->notify_ports.port_list,
-+					struct team_port_notify, list);
-+	if (!notify)
-+		goto unlock;
-+
-+	netdev_bonding_info_change(notify->dev, &notify->bonding_info);
-+	dev_put(notify->dev);
-+	list_del_rcu(&notify->list);
-+	kfree(notify);
-+
-+	if (list_first_or_null_rcu(&team->notify_ports.port_list,
-+				   struct team_port_notify, list))
-+		schedule_delayed_work(&team->notify_ports.dw, msecs_to_jiffies(1));
-+unlock:
-+	rcu_read_unlock();
-+	rtnl_unlock();
-+}
-+
-+static void team_notify_port(struct team *team, struct team_port *port)
-+{
-+	struct team_port_notify *notify;
-+
-+	notify = kmalloc(sizeof(*notify), GFP_KERNEL);
-+	if (!notify)
-+		return;
-+
-+	dev_hold(port->dev);
-+	notify->dev = port->dev;
-+	team_fill_ifslave(port, &notify->bonding_info.slave);
-+	team_fill_ifbond(team, &notify->bonding_info.master);
-+
-+	list_add_tail_rcu(&notify->list, &team->notify_ports.port_list);
-+	schedule_delayed_work(&team->notify_ports.dw, 0);
-+}
-+
-+static void team_notify_port_init(struct team *team)
-+{
-+	INIT_LIST_HEAD(&team->notify_ports.port_list);
-+	INIT_DELAYED_WORK(&team->notify_ports.dw, team_notify_port_work);
-+}
-+
-+static void team_notify_port_fini(struct team *team)
-+{
-+	cancel_delayed_work_sync(&team->notify_ports.dw);
-+}
- 
- /*******************************
-  * Send multicast group rejoins
-@@ -932,6 +1012,7 @@ static void team_port_enable(struct team *team,
- 		team->ops.port_enabled(team, port);
- 	team_notify_peers(team);
- 	team_mcast_rejoin(team);
-+	team_notify_port(team, port);
- }
- 
- static void __reconstruct_port_hlist(struct team *team, int rm_index)
-@@ -963,6 +1044,7 @@ static void team_port_disable(struct team *team,
- 	team_adjust_ops(team);
- 	team_notify_peers(team);
- 	team_mcast_rejoin(team);
-+	team_notify_port(team, port);
- }
- 
- #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
-@@ -1581,6 +1663,7 @@ static int team_init(struct net_device *dev)
- 
- 	team_notify_peers_init(team);
- 	team_mcast_rejoin_init(team);
-+	team_notify_port_init(team);
- 
- 	err = team_options_register(team, team_options, ARRAY_SIZE(team_options));
- 	if (err)
-@@ -1592,6 +1675,7 @@ static int team_init(struct net_device *dev)
- 	return 0;
- 
- err_options_register:
-+	team_notify_port_fini(team);
- 	team_mcast_rejoin_fini(team);
- 	team_notify_peers_fini(team);
- 	team_queue_override_fini(team);
-@@ -1613,6 +1697,7 @@ static void team_uninit(struct net_device *dev)
- 
- 	__team_change_mode(team, NULL); /* cleanup */
- 	__team_options_unregister(team, team_options, ARRAY_SIZE(team_options));
-+	team_notify_port_fini(team);
- 	team_mcast_rejoin_fini(team);
- 	team_notify_peers_fini(team);
- 	team_queue_override_fini(team);
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index a6aa970..fc59e39 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -28,6 +28,12 @@ struct team_pcpu_stats {
- 
- struct team;
- 
-+struct team_port_notify {
-+	struct list_head list; /* node in notify list */
-+	struct net_device *dev;
-+	struct netdev_bonding_info bonding_info;
-+};
-+
- struct team_port {
- 	struct net_device *dev;
- 	struct hlist_node hlist; /* node in enabled ports hash list */
-@@ -207,6 +213,10 @@ struct team {
- 		atomic_t count_pending;
- 		struct delayed_work dw;
- 	} mcast_rejoin;
-+	struct {
-+		struct list_head port_list; /* list of ports to be notified */
-+		struct delayed_work dw;
-+	} notify_ports;
- 	long mode_priv[TEAM_MODE_PRIV_LONGS];
- };
- 
--- 
-2.1.0
+- k
