@@ -1,43 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] rds: avoid potential stack overflow
-Date: Thu, 12 Mar 2015 00:28:18 -0400 (EDT)
-Message-ID: <20150312.002818.1582458495369122296.davem@davemloft.net>
-References: <4321699.nNdBmxDHpu@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: Kill hold_net release_net
+Date: Wed, 11 Mar 2015 21:35:23 -0700
+Message-ID: <1426134923.11398.142.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150311.215553.1544350193194225837.davem@davemloft.net>
+	 <1426128863.11398.135.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426130872.11398.141.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150311.232940.1345045254716776224.davem@davemloft.net>
+	 <87oany7tha.fsf_-_@x220.int.ebiederm.org>
+	 <87ioe67tfr.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@purestorage.com,
-	rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
-	chien.yen@oracle.com, sowmini.varadhan@oracle.com,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	salo@google.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56370 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751109AbbCLE2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 00:28:20 -0400
-In-Reply-To: <4321699.nNdBmxDHpu@wuerfel>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:36497 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbbCLEf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 00:35:28 -0400
+Received: by iegc3 with SMTP id c3so16854407ieg.3
+        for <netdev@vger.kernel.org>; Wed, 11 Mar 2015 21:35:27 -0700 (PDT)
+In-Reply-To: <87ioe67tfr.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 11 Mar 2015 22:46:59 +0100
-
-> The rds_iw_update_cm_id function stores a large 'struct rds_sock' object
-> on the stack in order to pass a pair of addresses. This happens to just
-> fit withint the 1024 byte stack size warning limit on x86, but just
-> exceed that limit on ARM, which gives us this warning:
+On Wed, 2015-03-11 at 23:04 -0500, Eric W. Biederman wrote:
+> hold_net and release_net were an idea that turned out to be useless.
+> The code has been disabled since 2008.  Kill the code it is long past due.
 > 
-> net/rds/iw_rdma.c:200:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
-> 
-> As the use of this large variable is basically bogus, we can rearrange
-> the code to not do that. Instead of passing an rds socket into
-> rds_iw_get_device, we now just pass the two addresses that we have
-> available in rds_iw_update_cm_id, and we change rds_iw_get_mr accordingly,
-> to create two address structures on the stack there.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 > ---
-> v2: fix incorrect commit message
 
-Applied, thanks Arnd.
+Acked-by: Eric Dumazet <edumazet@google.com>
