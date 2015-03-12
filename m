@@ -1,44 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Introduce possible_net_t
-Date: Thu, 12 Mar 2015 14:40:15 -0400 (EDT)
-Message-ID: <20150312.144015.420979058716247691.davem@davemloft.net>
-References: <1426130872.11398.141.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150311.232940.1345045254716776224.davem@davemloft.net>
-	<87oany7tha.fsf_-_@x220.int.ebiederm.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 7/8] isdn: replace CONFIG_8xx by CONFIG_PPC_8xx
+Date: Thu, 12 Mar 2015 21:52:56 +0300
+Message-ID: <5501E088.6020502@cogentembedded.com>
+References: <20150312152409.E7B5C1A2422@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, salo@google.com
-To: ebiederm@xmission.com
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
+	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
+To: Christophe Leroy <christophe.leroy@c-s.fr>,
+	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38446 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751373AbbCLSkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:40:17 -0400
-In-Reply-To: <87oany7tha.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:32878 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617AbbCLSxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 14:53:00 -0400
+Received: by lbdu14 with SMTP id u14so18121648lbd.0
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 11:52:59 -0700 (PDT)
+In-Reply-To: <20150312152409.E7B5C1A2422@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 11 Mar 2015 23:03:13 -0500
+Hello.
 
-> The current usage of write_pnet and read_pnet is a little laborious and
-> error prone as you only notice if you failed to include them if are
-> compiling with network namespaces enabled.
-> 
-> possible_net_t remedies that by using a type that is 0 bytes when
-> network namespaces are disabled and can only be read and written to with
-> read_pnet and write_pnet.
-> 
-> Aka less work and safer for the same effect.
-> 
-> I kill hold_net and release_net first as are they are haven't been used
-> since 2008 and are noise at the points where write_pnet and read_pnet
-> are used.
-> 
-> I have folded in Eric Dumazets suggestions to improve the killing of
-> hold_net and release net.  And respon.  I had to respin anyway as
-> there was enough changes elsewhere in the tree the previous version
-> of these patches did not quite apply cleanly.
+On 03/12/2015 06:24 PM, Christophe Leroy wrote:
 
-Series applied, thanks!
+> Two config options exist to define powerpc MPC8xx:
+> * CONFIG_PPC_8xx
+> * CONFIG_8xx
+> In addition, CONFIG_PPC_8xx also defines CONFIG_CPM1 as
+> communication co-processor
+
+> arch/powerpc/platforms/Kconfig.cputype has contained the following
+> comment about CONFIG_8xx item for some years:
+> "# this is temp to handle compat with arch=ppc"
+
+> It looks like not many places still have that old CONFIG_8xx used,
+> so it is likely to be a good time to get rid of it completely ?
+
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+
+[...]
+
+> diff --git a/drivers/isdn/hardware/mISDN/Kconfig b/drivers/isdn/hardware/mISDN/Kconfig
+> index 09df54f..ad9deab 100644
+> --- a/drivers/isdn/hardware/mISDN/Kconfig
+> +++ b/drivers/isdn/hardware/mISDN/Kconfig
+[...]
+> @@ -28,7 +28,7 @@ config MISDN_HFCMULTI_8xx
+>   	depends on MISDN
+>   	depends on MISDN_HFCMULTI
+>   	depends on 8xx
+
+    Eh, how about this one?
+
+> -	default 8xx
+> +	default PPC_8xx
+>   	help
+>   	  Enable support for the XHFC embedded solution from Speech Design.
+
+WBR, Sergei
