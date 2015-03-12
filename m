@@ -1,135 +1,145 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next 0/4] bonding work-queues, try_rtnl() & notifications
-Date: Thu, 12 Mar 2015 12:10:07 -0700
-Message-ID: <13968.1426187407@famine>
-References: <1426139673-26995-1-git-send-email-maheshb@google.com> <550181E6.2080100@redhat.com> <1426169466.11398.158.camel@edumazet-glaptop2.roam.corp.google.com> <5501A107.5040400@redhat.com> <5501A1B1.3030907@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:58612 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285AbbCLTKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 15:10:16 -0400
-In-reply-to: <5501A1B1.3030907@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>
+Subject: RE: [v2,00/11] Freescale DPAA FMan FLIB(s)
+Date: Thu, 12 Mar 2015 19:11:02 +0000
+Message-ID: <DM2PR03MB38328109F9D55CD059BE432E6060@DM2PR03MB383.namprd03.prod.outlook.com>
+References: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Scott Wood <scottwood@freescale.com>
+To: "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426050232-12075-1-git-send-email-igal.liberman@freescale.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+Hello, 
 
->On 12/03/15 15:21, Nikolay Aleksandrov wrote:
->> On 12/03/15 15:11, Eric Dumazet wrote:
->>> On Thu, 2015-03-12 at 13:09 +0100, Nikolay Aleksandrov wrote:
->>>> On 12/03/15 06:54, Mahesh Bandewar wrote:
->>>>> This patch series tries to address the issue discovered in various work-
->>>>> queues and the way these handlers deal with the RTNL. Especially for 
->>>>> notification handling. If RTNL can not be acquired, these handlers ignore
->>>>> sending notifications and just re-arm the timer. This could be very 
->>>>> problematic if the re-arm timer has larger value (e.g. in minutes).
->>>>>
->>>>>
->>>>> Mahesh Bandewar (4):
->>>>>   bonding: Handle notifications during work-queue processing gracefully
->>>>>   bonding: Do not ignore notifications for miimon-work-queue
->>>>>   bonding: Do not ignore notifications for AD-work-queue
->>>>>   bonding: Do not ignore notifications for ARP-work-queue
->>>>>
->>>>>  drivers/net/bonding/bond_3ad.c  | 22 ++++++++++++---
->>>>>  drivers/net/bonding/bond_main.c | 62 ++++++++++++++++++++++++-----------------
->>>>>  include/net/bonding.h           | 22 +++++++++++++++
->>>>>  3 files changed, 77 insertions(+), 29 deletions(-)
->>>>>
->>>>
->>>> Hello Mahesh,
->>>> The current behaviour was chosen as a best-effort type because such change
->>>> could skew the monitoring/AD timers because you re-schedule every time you
->>>> cannot acquire rtnl and move their timers with 1 tick ahead which could lead 
->>>> to false link drops, state machines running late and so on.
->>>> Currently the monitoring/AD functions have priority over the notifications as in
->>>> we might miss a notification but we try not to miss a monitoring/AD event, thus I'd
->>>> suggest to solve this in a different manner. If you'd like to have the best of both
->>>> worlds i.e. not miss a monitoring event and also not miss any notifications you should
->>>> use a different strategy. 
->>>
->>>
->>> I think I disagree here.
->>>
->>> All rtnl_trylock() call sites must be very careful about what they are
->>> doing.
->>>
->>> bonding is not, and we should fix this.
->>>
->>> Mahesh fix seems very reasonable. If you need something else, please
->>> provide your own patch.
->>>
->>> When code is the following :
->>>
->>>         if (!rtnl_trylock())
->>>                  return;
->>>         call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
->>>         rtnl_unlock();
->>>
->>> Then, one must understand what happens if at this point rtnl_trylock()
->>> never succeeds.
->>>
->>> Like, what happens if you remove the whole thing.
->>>
->>> If the code is not needed, remove it, instead of having flaky behavior.
->>>
->> 
->> I agree that it should be fixed and that would work, my only concern is that in
->> rare cases this might lead to skewing of the monitoring/AD timers because with
->> every failed attempt at obtaining rtnl it moves the associated timer with 1 tick
->> ahead, because when it successfully obtains it then the timer gets re-armed with the
->> full timeout. What I suggested has already been done actually by the slave array update
->> which uses a work item of its own because of the rtnl update, so we could just pull all
->> of the call sites that request rtnl in a single work item which checks some bits and
->> calls the appropriate notifications or re-schedules itself if necessary, that would keep
->> all the monitoring/AD timers closer to being correct.
->> I can see that this would be a very rare case so I don't have a strong feeling about
->> my argument, I just wanted to make sure it gets considered. If you and the others decide
->> it's not worth it, then so be it. Also pulling all rtnl call sites in a single place
->> looks cleaner to me instead of having the same logic in each work item's function.
->> 
->> Cheers,
->>  Nik
->> 
->
->Well, of course that has its own problems of missed updates. Hrm.. Okay
->let's leave it this way. Never mind my argument about the timer
->skewing, consider only fixing the RCU problem.
+In v2 of DPAA FMan FLIBs we've made the following updates:
+- Split the header patch ([v2,01/11] soc/fman: Add the FMan FLIB headers) from one big patch to smaller patches - Kumar's feedback.
+- Removed the KILOBYTE defines - Kumar's feedback.
+- Addressed several comments from Scott on [v2,02/11] soc/fman: Add the FMan FLIB.
 
-	I don't see an issue with how this changes the notification
-processing.  I was initially concerned with the 802.3ad state machine,
-but the actual state machine processing is skipped for the "accelerated"
-invocation that sends the notifier.  I don't see that the state machine
-itself will become skewed due to delays unless rtnl_trylock fails
-continuously for an extended period (upwards of 2 seconds, I think, long
-enough to risk the 3 second LACPDU timeout if LACP rate is set to fast).
+Best regards,
+Igal Liberman.
 
-	When the "rtnl_trylock" business was added, the primary concern
-was deadlock avoidance, not timely delivery of the notifications.  The
-deadlock still looks to be a concern; some paths come in with RTNL held
-and acquire the bond->mode_lock, the various monitoring functions are
-doing the opposite order.
-
-	I recall another suggestion a while back to modify the bonding
-periodic functions to acquire RTNL for every pass (followed by the
-mode_lock) to eliminate the trylock, but I don't see that as preferrable
-due to the amount of spurious RTNL acquisitions.
-
-	That said, it would be better to have a more deterministic
-system (e.g., moving the "needs RTNL" logic into its own work item
-without conditional locking), but as an incremental change to what's
-there now, I don't see a problem with this patch set.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+> -----Original Message-----
+> From: Igal.Liberman [mailto:igal.liberman@freescale.com]
+> Sent: Wednesday, March 11, 2015 7:04 AM
+> To: linuxppc-dev@lists.ozlabs.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Cc: Wood Scott-B07421; Liberman Igal-B31950
+> Subject: [v2,00/11] Freescale DPAA FMan FLIB(s)
+> 
+> From: Igal Liberman <Igal.Liberman@freescale.com>
+> 
+> The Freescale Data Path Acceleration Architecture (DPAA) is a set of
+> hardware components on specific QorIQ multicore processors. This
+> architecture provides the infrastructure to support simplified sharing of
+> networking interfaces and accelerators by multiple CPU cores and the
+> accelerators.
+> 
+> One of the DPAA accelerators is the Frame Manager (FMan) which enables
+> the Ethernet network interfaces.
+> 
+> This patch presents the FMan Foundation Libraries (FLIB) headers.
+> The FMan FLIB adds basic support for the DPAA FMan hardware register
+> access.
+> 
+> Igal Liberman (7):
+>   soc/fman: Add the FMan FLIB headers
+>   soc/fman: Add the FMan FLIB
+>   soc/fman: Add the FMan port FLIB
+>   soc/fman: Add the FMan MAC FLIB
+>   soc/fman: Add the FMan parser and KeyGen FLIB(s)
+>   soc/fman: Add the FMan RTC FLIB
+>   soc/fman: Add the FMan SP FLIB
+> 
+> Madalin Bucur (4):
+>   soc/fman: Add the FMan port FLIB headers
+>   soc/fman: Add the FMan MAC FLIB headers
+>   soc/fman: Add the FMan parser and KeyGen FLIB headers
+>   soc/fman: Add the FMan RTC FLIB header
+> 
+>  drivers/soc/Kconfig                                |    1 +
+>  drivers/soc/Makefile                               |    1 +
+>  drivers/soc/fsl/Kconfig                            |    1 +
+>  drivers/soc/fsl/Makefile                           |    1 +
+>  drivers/soc/fsl/fman/Kconfig                       |   35 +
+>  drivers/soc/fsl/fman/Makefile                      |   11 +
+>  drivers/soc/fsl/fman/flib/common/general.h         |   41 +
+>  drivers/soc/fsl/fman/flib/fman_common.h            |   73 +
+>  drivers/soc/fsl/fman/flib/fsl_enet.h               |  275 ++++
+>  drivers/soc/fsl/fman/flib/fsl_fman.h               |  802 ++++++++++
+>  drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h         | 1016 +++++++++++++
+>  drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h |  103 ++
+>  drivers/soc/fsl/fman/flib/fsl_fman_kg.h            |  505 +++++++
+>  drivers/soc/fsl/fman/flib/fsl_fman_memac.h         |  494 +++++++
+>  drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h |   76 +
+>  drivers/soc/fsl/fman/flib/fsl_fman_port.h          |  601 ++++++++
+>  drivers/soc/fsl/fman/flib/fsl_fman_prs.h           |  106 ++
+>  drivers/soc/fsl/fman/flib/fsl_fman_rtc.h           |  414 ++++++
+>  drivers/soc/fsl/fman/flib/fsl_fman_sp.h            |  132 ++
+>  drivers/soc/fsl/fman/flib/fsl_fman_tgec.h          |  483 ++++++
+>  drivers/soc/fsl/fman/fman.c                        | 1355 +++++++++++++++++
+>  drivers/soc/fsl/fman/mac/Makefile                  |    5 +
+>  drivers/soc/fsl/fman/mac/fman_crc32.c              |  116 ++
+>  drivers/soc/fsl/fman/mac/fman_crc32.h              |   39 +
+>  drivers/soc/fsl/fman/mac/fman_dtsec.c              |  838 +++++++++++
+>  drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c      |  168 +++
+>  drivers/soc/fsl/fman/mac/fman_memac.c              |  510 +++++++
+>  drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c      |  217 +++
+>  drivers/soc/fsl/fman/mac/fman_tgec.c               |  371 +++++
+>  drivers/soc/fsl/fman/pcd/Makefile                  |    3 +
+>  drivers/soc/fsl/fman/pcd/fman_kg.c                 |  849 +++++++++++
+>  drivers/soc/fsl/fman/pcd/fman_prs.c                |  126 ++
+>  drivers/soc/fsl/fman/port/Makefile                 |    3 +
+>  drivers/soc/fsl/fman/port/fman_port.c              | 1535
+> ++++++++++++++++++++
+>  drivers/soc/fsl/fman/rtc/Makefile                  |    3 +
+>  drivers/soc/fsl/fman/rtc/fman_rtc.c                |  353 +++++
+>  drivers/soc/fsl/fman/sp/Makefile                   |    3 +
+>  drivers/soc/fsl/fman/sp/fman_sp.c                  |  203 +++
+>  38 files changed, 11868 insertions(+)
+>  create mode 100644 drivers/soc/fsl/Kconfig  create mode 100644
+> drivers/soc/fsl/Makefile  create mode 100644 drivers/soc/fsl/fman/Kconfig
+> create mode 100644 drivers/soc/fsl/fman/Makefile  create mode 100644
+> drivers/soc/fsl/fman/flib/common/general.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fman_common.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_enet.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_dtsec_mii_acc.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_kg.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_memac_mii_acc.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_port.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_prs.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_rtc.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_sp.h
+>  create mode 100644 drivers/soc/fsl/fman/flib/fsl_fman_tgec.h
+>  create mode 100644 drivers/soc/fsl/fman/fman.c  create mode 100644
+> drivers/soc/fsl/fman/mac/Makefile  create mode 100644
+> drivers/soc/fsl/fman/mac/fman_crc32.c
+>  create mode 100644 drivers/soc/fsl/fman/mac/fman_crc32.h
+>  create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec.c
+>  create mode 100644 drivers/soc/fsl/fman/mac/fman_dtsec_mii_acc.c
+>  create mode 100644 drivers/soc/fsl/fman/mac/fman_memac.c
+>  create mode 100644 drivers/soc/fsl/fman/mac/fman_memac_mii_acc.c
+>  create mode 100644 drivers/soc/fsl/fman/mac/fman_tgec.c
+>  create mode 100644 drivers/soc/fsl/fman/pcd/Makefile  create mode
+> 100644 drivers/soc/fsl/fman/pcd/fman_kg.c
+>  create mode 100644 drivers/soc/fsl/fman/pcd/fman_prs.c
+>  create mode 100644 drivers/soc/fsl/fman/port/Makefile
+>  create mode 100644 drivers/soc/fsl/fman/port/fman_port.c
+>  create mode 100644 drivers/soc/fsl/fman/rtc/Makefile  create mode 100644
+> drivers/soc/fsl/fman/rtc/fman_rtc.c
+>  create mode 100644 drivers/soc/fsl/fman/sp/Makefile  create mode 100644
+> drivers/soc/fsl/fman/sp/fman_sp.c
+> 
+> --
+> 1.7.9.5
