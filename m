@@ -1,64 +1,87 @@
-From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: [PATCH] wl18xx: show rx_frames_per_rates as an array as it really is
-Date: Fri, 13 Mar 2015 15:17:14 +0800
-Message-ID: <1426231034-20163-1-git-send-email-nicolas.iooss_linux@m4x.org>
-References: <55018919.3050902@m4x.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-To: kvalo@codeaurora.org, eliad@wizery.com,
-	linux-wireless@vger.kernel.org
+From: Fred Chou <fred.chou.nd@gmail.com>
+Subject: [PATCH] ath9k_htc: check seq number instead of cmd id for timeout
+Date: Fri, 13 Mar 2015 16:32:38 +0800
+Message-ID: <1426235558-13787-1-git-send-email-fred.chou.nd@gmail.com>
+Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Fred Chou <fred.chou.nd@gmail.com>
+To: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55018919.3050902@m4x.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In struct wl18xx_acx_rx_rate_stat, rx_frames_per_rates field is an
-array, not a number.  This means WL18XX_DEBUGFS_FWSTATS_FILE can't be
-used to display this field in debugfs (it would display a pointer, not
-the actual data).  Use WL18XX_DEBUGFS_FWSTATS_FILE_ARRAY instead.
+From: Fred Chou <fred.chou.nd@gmail.com>
 
-This bug has been found by adding a __printf attribute to
-wl1271_format_buffer.  gcc complained about "format '%u' expects
-argument of type 'unsigned int', but argument 5 has type 'u32 *'".
+As the driver may send multiple wmi commands with identical cmd id,
+it is more robust to check seq number for timeout instead.
 
-Fixes: c5d94169e818 ("wl18xx: use new fw stats structures")
-Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
 ---
+ drivers/net/wireless/ath/ath9k/wmi.c | 12 ++++++------
+ drivers/net/wireless/ath/ath9k/wmi.h |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-This patch is only compile-tested as I haven't got the hardware to
-test it live.
-
- drivers/net/wireless/ti/wl18xx/debugfs.c | 2 +-
- drivers/net/wireless/ti/wlcore/debugfs.h | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ti/wl18xx/debugfs.c b/drivers/net/wireless/ti/wl18xx/debugfs.c
-index c93fae95baac..5fbd2230f372 100644
---- a/drivers/net/wireless/ti/wl18xx/debugfs.c
-+++ b/drivers/net/wireless/ti/wl18xx/debugfs.c
-@@ -139,7 +139,7 @@ WL18XX_DEBUGFS_FWSTATS_FILE(rx_filter, protection_filter, "%u");
- WL18XX_DEBUGFS_FWSTATS_FILE(rx_filter, accum_arp_pend_requests, "%u");
- WL18XX_DEBUGFS_FWSTATS_FILE(rx_filter, max_arp_queue_dep, "%u");
+diff --git a/drivers/net/wireless/ath/ath9k/wmi.c b/drivers/net/wireless/ath/ath9k/wmi.c
+index 65c8894..aba909f 100644
+--- a/drivers/net/wireless/ath/ath9k/wmi.c
++++ b/drivers/net/wireless/ath/ath9k/wmi.c
+@@ -224,7 +224,7 @@ static void ath9k_wmi_ctrl_rx(void *priv, struct sk_buff *skb,
  
--WL18XX_DEBUGFS_FWSTATS_FILE(rx_rate, rx_frames_per_rates, "%u");
-+WL18XX_DEBUGFS_FWSTATS_FILE_ARRAY(rx_rate, rx_frames_per_rates, 50);
+ 	/* Check if there has been a timeout. */
+ 	spin_lock(&wmi->wmi_lock);
+-	if (cmd_id != wmi->last_cmd_id) {
++	if (be16_to_cpu(hdr->seq_no) != wmi->last_seq_id) {
+ 		spin_unlock(&wmi->wmi_lock);
+ 		goto free_skb;
+ 	}
+@@ -272,11 +272,16 @@ static int ath9k_wmi_cmd_issue(struct wmi *wmi,
+ 			       enum wmi_cmd_id cmd, u16 len)
+ {
+ 	struct wmi_cmd_hdr *hdr;
++	unsigned long flags;
  
- WL18XX_DEBUGFS_FWSTATS_FILE_ARRAY(aggr_size, tx_agg_vs_rate,
- 				  AGGR_STATS_TX_AGG*AGGR_STATS_TX_RATE);
-diff --git a/drivers/net/wireless/ti/wlcore/debugfs.h b/drivers/net/wireless/ti/wlcore/debugfs.h
-index 0f2cfb0d2a9e..bf14676e6515 100644
---- a/drivers/net/wireless/ti/wlcore/debugfs.h
-+++ b/drivers/net/wireless/ti/wlcore/debugfs.h
-@@ -26,8 +26,8 @@
+ 	hdr = (struct wmi_cmd_hdr *) skb_push(skb, sizeof(struct wmi_cmd_hdr));
+ 	hdr->command_id = cpu_to_be16(cmd);
+ 	hdr->seq_no = cpu_to_be16(++wmi->tx_seq_id);
  
- #include "wlcore.h"
++	spin_lock_irqsave(&wmi->wmi_lock, flags);
++	wmi->last_seq_id = wmi->tx_seq_id;
++	spin_unlock_irqrestore(&wmi->wmi_lock, flags);
++
+ 	return htc_send_epid(wmi->htc, skb, wmi->ctrl_epid);
+ }
  
--int wl1271_format_buffer(char __user *userbuf, size_t count,
--			 loff_t *ppos, char *fmt, ...);
-+__printf(4, 5) int wl1271_format_buffer(char __user *userbuf, size_t count,
-+					loff_t *ppos, char *fmt, ...);
+@@ -292,7 +297,6 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
+ 	struct sk_buff *skb;
+ 	u8 *data;
+ 	int time_left, ret = 0;
+-	unsigned long flags;
  
- int wl1271_debugfs_init(struct wl1271 *wl);
- void wl1271_debugfs_exit(struct wl1271 *wl);
+ 	if (ah->ah_flags & AH_UNPLUGGED)
+ 		return 0;
+@@ -320,10 +324,6 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
+ 	wmi->cmd_rsp_buf = rsp_buf;
+ 	wmi->cmd_rsp_len = rsp_len;
+ 
+-	spin_lock_irqsave(&wmi->wmi_lock, flags);
+-	wmi->last_cmd_id = cmd_id;
+-	spin_unlock_irqrestore(&wmi->wmi_lock, flags);
+-
+ 	ret = ath9k_wmi_cmd_issue(wmi, skb, cmd_id, cmd_len);
+ 	if (ret)
+ 		goto out;
+diff --git a/drivers/net/wireless/ath/ath9k/wmi.h b/drivers/net/wireless/ath/ath9k/wmi.h
+index 0db37f2..2aad6dc 100644
+--- a/drivers/net/wireless/ath/ath9k/wmi.h
++++ b/drivers/net/wireless/ath/ath9k/wmi.h
+@@ -143,7 +143,7 @@ struct wmi {
+ 	enum htc_endpoint_id ctrl_epid;
+ 	struct mutex op_mutex;
+ 	struct completion cmd_wait;
+-	enum wmi_cmd_id last_cmd_id;
++	u16 last_seq_id;
+ 	struct sk_buff_head wmi_event_queue;
+ 	struct tasklet_struct wmi_event_tasklet;
+ 	u16 tx_seq_id;
 -- 
-2.3.2
+1.9.1
