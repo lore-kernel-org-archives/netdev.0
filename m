@@ -1,111 +1,281 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 net-next 0/2] bpf: allow eBPF access skb fields
-Date: Fri, 13 Mar 2015 11:57:41 -0700
-Message-ID: <1426273064-4837-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next 2/2] samples: bpf: add skb->field examples and tests
+Date: Fri, 13 Mar 2015 11:57:43 -0700
+Message-ID: <1426273064-4837-3-git-send-email-ast@plumgrid.com>
+References: <1426273064-4837-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426273064-4837-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+- modify sockex1 example to count number of bytes in outgoing packets
+- modify sockex2 example to count number of bytes and packets per flow
+- add 4 stress tests that exercise 'skb->field' code path of verifier
 
-V1->V2:
-- refactored field access converter into common helper convert_skb_access()
-  used in both classic and extended BPF
-- added missing build_bug_on for field 'len'
-- added comment to uapi/linux/bpf.h as suggested by Daniel
-- dropped exposing 'ifindex' field for now
-
-classic BPF has a way to access skb fields, whereas extended BPF didn't.
-This patch introduces this ability.
-
-Classic BPF can access fields via negative SKF_AD_OFF offset.
-Positive bpf_ld_abs N is treated as load from packet, whereas
-bpf_ld_abs -0x1000 + N is treated as skb fields access.
-Many offsets were hard coded over years: SKF_AD_PROTOCOL, SKF_AD_PKTTYPE, etc.
-The problem with this approach was that for every new field classic bpf
-assembler had to be tweaked.
-
-I've considered doing the same for extended, but for every new field LLVM
-compiler would have to be modifed. Since it would need to add a new intrinsic.
-It could be done with single intrinsic and magic offset or use of inline
-assembler, but neither are clean from compiler backend point of view, since
-they look like calls but shouldn't scratch caller-saved registers.
-
-Another approach was to introduce a new helper functions like bpf_get_pkt_type()
-for every field that we want to access, but that is equally ugly for kernel
-and slow, since helpers are calls and they are slower then just loads.
-In theory helper calls can be 'inlined' inside kernel into direct loads, but
-since they were calls for user space, compiler would have to spill registers
-around such calls anyway. Teaching compiler to treat such helpers differently
-is even uglier.
-
-They were few other ideas considered. At the end the best seems to be to
-introduce a user accessible mirror of in-kernel sk_buff structure:
-
-struct __sk_buff {
-    __u32 len;
-    __u32 pkt_type;
-    __u32 mark;
-    __u32 queue_mapping;
-};
-
-bpf programs will do:
-
-int bpf_prog1(struct __sk_buff *skb)
-{
-    __u32 var = skb->pkt_type;
-
-which will be compiled to bpf assembler as:
-
-dst_reg = *(u32 *)(src_reg + 4) // 4 == offsetof(struct __sk_buff, pkt_type)
-
-bpf verifier will check validity of access and will convert it to:
-
-dst_reg = *(u8 *)(src_reg + offsetof(struct sk_buff, __pkt_type_offset))
-dst_reg &= 7
-
-since 'pkt_type' is a bitfield.
-
-No new instructions added. LLVM doesn't need to be modified.
-JITs don't change and verifier already knows when it accesses 'ctx' pointer.
-The only thing needed was to convert user visible offset within __sk_buff
-to kernel internal offset within sk_buff.
-For 'len' and other fields conversion is trivial.
-Converting 'pkt_type' takes 2 or 3 instructions depending on endianness.
-More fields can be exposed by adding to the end of the 'struct __sk_buff'.
-Like vlan_tci and others can be added later.
-
-When pkt_type field is moved around, goes into different structure, removed or
-its size changes, the function convert_skb_access() would need to updated and
-it will cover both classic and extended.
-
-Patch 2 updates examples to demonstrates how fields are accessed and
-adds new tests for verifier, since it needs to detect a corner case when
-attacker is using single bpf instruction in two branches with different
-register types.
-
-The 4 fields of __sk_buff are already exposed to user space via classic bpf and
-I believe they're useful in extended as well.
-
-Alexei Starovoitov (2):
-  bpf: allow extended BPF programs access skb fields
-  samples: bpf: add skb->field examples and tests
-
- include/linux/bpf.h         |    5 +-
- include/uapi/linux/bpf.h    |   10 +++
- kernel/bpf/syscall.c        |    2 +-
- kernel/bpf/verifier.c       |  152 ++++++++++++++++++++++++++++++++++++++-----
- net/core/filter.c           |  100 +++++++++++++++++++++++-----
- samples/bpf/sockex1_kern.c  |    8 ++-
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ samples/bpf/sockex1_kern.c  |    8 +++--
  samples/bpf/sockex1_user.c  |    2 +-
- samples/bpf/sockex2_kern.c  |   26 +++++---
- samples/bpf/sockex2_user.c  |   11 +++-
- samples/bpf/test_verifier.c |   70 ++++++++++++++++++++
- 10 files changed, 335 insertions(+), 51 deletions(-)
+ samples/bpf/sockex2_kern.c  |   26 +++++++++-------
+ samples/bpf/sockex2_user.c  |   11 +++++--
+ samples/bpf/test_verifier.c |   70 +++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 101 insertions(+), 16 deletions(-)
 
+diff --git a/samples/bpf/sockex1_kern.c b/samples/bpf/sockex1_kern.c
+index 066892662915..ed18e9a4909c 100644
+--- a/samples/bpf/sockex1_kern.c
++++ b/samples/bpf/sockex1_kern.c
+@@ -1,5 +1,6 @@
+ #include <uapi/linux/bpf.h>
+ #include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
+ #include <uapi/linux/ip.h>
+ #include "bpf_helpers.h"
+ 
+@@ -11,14 +12,17 @@ struct bpf_map_def SEC("maps") my_map = {
+ };
+ 
+ SEC("socket1")
+-int bpf_prog1(struct sk_buff *skb)
++int bpf_prog1(struct __sk_buff *skb)
+ {
+ 	int index = load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol));
+ 	long *value;
+ 
++	if (skb->pkt_type != PACKET_OUTGOING)
++		return 0;
++
+ 	value = bpf_map_lookup_elem(&my_map, &index);
+ 	if (value)
+-		__sync_fetch_and_add(value, 1);
++		__sync_fetch_and_add(value, skb->len);
+ 
+ 	return 0;
+ }
+diff --git a/samples/bpf/sockex1_user.c b/samples/bpf/sockex1_user.c
+index 34a443ff3831..678ce4693551 100644
+--- a/samples/bpf/sockex1_user.c
++++ b/samples/bpf/sockex1_user.c
+@@ -40,7 +40,7 @@ int main(int ac, char **argv)
+ 		key = IPPROTO_ICMP;
+ 		assert(bpf_lookup_elem(map_fd[0], &key, &icmp_cnt) == 0);
+ 
+-		printf("TCP %lld UDP %lld ICMP %lld packets\n",
++		printf("TCP %lld UDP %lld ICMP %lld bytes\n",
+ 		       tcp_cnt, udp_cnt, icmp_cnt);
+ 		sleep(1);
+ 	}
+diff --git a/samples/bpf/sockex2_kern.c b/samples/bpf/sockex2_kern.c
+index 6f0135f0f217..ba0e177ff561 100644
+--- a/samples/bpf/sockex2_kern.c
++++ b/samples/bpf/sockex2_kern.c
+@@ -42,13 +42,13 @@ static inline int proto_ports_offset(__u64 proto)
+ 	}
+ }
+ 
+-static inline int ip_is_fragment(struct sk_buff *ctx, __u64 nhoff)
++static inline int ip_is_fragment(struct __sk_buff *ctx, __u64 nhoff)
+ {
+ 	return load_half(ctx, nhoff + offsetof(struct iphdr, frag_off))
+ 		& (IP_MF | IP_OFFSET);
+ }
+ 
+-static inline __u32 ipv6_addr_hash(struct sk_buff *ctx, __u64 off)
++static inline __u32 ipv6_addr_hash(struct __sk_buff *ctx, __u64 off)
+ {
+ 	__u64 w0 = load_word(ctx, off);
+ 	__u64 w1 = load_word(ctx, off + 4);
+@@ -58,7 +58,7 @@ static inline __u32 ipv6_addr_hash(struct sk_buff *ctx, __u64 off)
+ 	return (__u32)(w0 ^ w1 ^ w2 ^ w3);
+ }
+ 
+-static inline __u64 parse_ip(struct sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
++static inline __u64 parse_ip(struct __sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
+ 			     struct flow_keys *flow)
+ {
+ 	__u64 verlen;
+@@ -82,7 +82,7 @@ static inline __u64 parse_ip(struct sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
+ 	return nhoff;
+ }
+ 
+-static inline __u64 parse_ipv6(struct sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
++static inline __u64 parse_ipv6(struct __sk_buff *skb, __u64 nhoff, __u64 *ip_proto,
+ 			       struct flow_keys *flow)
+ {
+ 	*ip_proto = load_byte(skb,
+@@ -96,7 +96,7 @@ static inline __u64 parse_ipv6(struct sk_buff *skb, __u64 nhoff, __u64 *ip_proto
+ 	return nhoff;
+ }
+ 
+-static inline bool flow_dissector(struct sk_buff *skb, struct flow_keys *flow)
++static inline bool flow_dissector(struct __sk_buff *skb, struct flow_keys *flow)
+ {
+ 	__u64 nhoff = ETH_HLEN;
+ 	__u64 ip_proto;
+@@ -183,18 +183,23 @@ static inline bool flow_dissector(struct sk_buff *skb, struct flow_keys *flow)
+ 	return true;
+ }
+ 
++struct pair {
++	long packets;
++	long bytes;
++};
++
+ struct bpf_map_def SEC("maps") hash_map = {
+ 	.type = BPF_MAP_TYPE_HASH,
+ 	.key_size = sizeof(__be32),
+-	.value_size = sizeof(long),
++	.value_size = sizeof(struct pair),
+ 	.max_entries = 1024,
+ };
+ 
+ SEC("socket2")
+-int bpf_prog2(struct sk_buff *skb)
++int bpf_prog2(struct __sk_buff *skb)
+ {
+ 	struct flow_keys flow;
+-	long *value;
++	struct pair *value;
+ 	u32 key;
+ 
+ 	if (!flow_dissector(skb, &flow))
+@@ -203,9 +208,10 @@ int bpf_prog2(struct sk_buff *skb)
+ 	key = flow.dst;
+ 	value = bpf_map_lookup_elem(&hash_map, &key);
+ 	if (value) {
+-		__sync_fetch_and_add(value, 1);
++		__sync_fetch_and_add(&value->packets, 1);
++		__sync_fetch_and_add(&value->bytes, skb->len);
+ 	} else {
+-		long val = 1;
++		struct pair val = {1, skb->len};
+ 
+ 		bpf_map_update_elem(&hash_map, &key, &val, BPF_ANY);
+ 	}
+diff --git a/samples/bpf/sockex2_user.c b/samples/bpf/sockex2_user.c
+index d2d5f5a790d3..29a276d766fc 100644
+--- a/samples/bpf/sockex2_user.c
++++ b/samples/bpf/sockex2_user.c
+@@ -6,6 +6,11 @@
+ #include <unistd.h>
+ #include <arpa/inet.h>
+ 
++struct pair {
++	__u64 packets;
++	__u64 bytes;
++};
++
+ int main(int ac, char **argv)
+ {
+ 	char filename[256];
+@@ -29,13 +34,13 @@ int main(int ac, char **argv)
+ 
+ 	for (i = 0; i < 5; i++) {
+ 		int key = 0, next_key;
+-		long long value;
++		struct pair value;
+ 
+ 		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
+ 			bpf_lookup_elem(map_fd[0], &next_key, &value);
+-			printf("ip %s count %lld\n",
++			printf("ip %s bytes %lld packets %lld\n",
+ 			       inet_ntoa((struct in_addr){htonl(next_key)}),
+-			       value);
++			       value.bytes, value.packets);
+ 			key = next_key;
+ 		}
+ 		sleep(1);
+diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
+index 7b56b59fad8e..df6dbb6576f6 100644
+--- a/samples/bpf/test_verifier.c
++++ b/samples/bpf/test_verifier.c
+@@ -14,6 +14,7 @@
+ #include <linux/unistd.h>
+ #include <string.h>
+ #include <linux/filter.h>
++#include <stddef.h>
+ #include "libbpf.h"
+ 
+ #define MAX_INSNS 512
+@@ -642,6 +643,75 @@ static struct bpf_test tests[] = {
+ 		},
+ 		.result = ACCEPT,
+ 	},
++	{
++		"access skb fields ok",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, len)),
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_0, 0, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, mark)),
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_0, 0, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, pkt_type)),
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_0, 0, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, queue_mapping)),
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_0, 0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++	},
++	{
++		"access skb fields bad1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -4),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "invalid bpf_context access",
++		.result = REJECT,
++	},
++	{
++		"access skb fields bad2",
++		.insns = {
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_1, 0, 9),
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, pkt_type)),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {4},
++		.errstr = "different pointers",
++		.result = REJECT,
++	},
++	{
++		"access skb fields bad3",
++		.insns = {
++			BPF_JMP_IMM(BPF_JGE, BPF_REG_1, 0, 2),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, pkt_type)),
++			BPF_EXIT_INSN(),
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_JMP_IMM(BPF_JA, 0, 0, -12),
++		},
++		.fixup = {6},
++		.errstr = "different pointers",
++		.result = REJECT,
++	},
+ };
+ 
+ static int probe_filter_length(struct bpf_insn *fp)
 -- 
 1.7.9.5
