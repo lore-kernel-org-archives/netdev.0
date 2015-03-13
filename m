@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 2/7] tipc: move message validation function to msg.c
-Date: Fri, 13 Mar 2015 16:08:06 -0400
-Message-ID: <1426277291-2427-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 1/7] tipc: add framework for node capabilities exchange
+Date: Fri, 13 Mar 2015 16:08:05 -0400
+Message-ID: <1426277291-2427-2-git-send-email-jon.maloy@ericsson.com>
 References: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,202 +10,110 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.biz.mail.bf1.yahoo.com ([98.139.221.62]:44830 "EHLO
+Received: from smtp103.biz.mail.bf1.yahoo.com ([98.139.221.62]:44811 "EHLO
 	smtp103.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754535AbbCMUIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:08:50 -0400
+	by vger.kernel.org with ESMTP id S1753926AbbCMUIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:08:48 -0400
 In-Reply-To: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function link_buf_validate() is in reality re-entrant and context
-independent, and will in later commits be called from several locations.
-Therefore, we move it to msg.c, make it outline and rename the it to
-tipc_msg_validate().
+The TIPC protocol spec has defined a 13 bit capability bitmap in
+the neighbor discovery header, as a means to maintain compatibility
+between different code and protocol generations. Until now this field
+has been unused.
 
-We also redesign the function to make proper use of pskb_may_pull()
+We now introduce the basic framework for exchanging capabilities
+between nodes at first contact. After exchange, a peer node's
+capabilities are stored as a 16 bit bitmap in struct tipc_node.
 
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 58 +--------------------------------------------------------
- net/tipc/msg.c  | 44 ++++++++++++++++++++++++++++++++++++++++++-
- net/tipc/msg.h  |  5 +++--
- 3 files changed, 47 insertions(+), 60 deletions(-)
+ net/tipc/discover.c |  3 +++
+ net/tipc/msg.h      | 11 ++++++++++-
+ net/tipc/node.h     |  4 +++-
+ 3 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 98609fd..944c8c6 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1048,61 +1048,6 @@ static void link_retrieve_defq(struct tipc_link *link,
- }
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index 5967506..169f3dd 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -89,6 +89,7 @@ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
+ 		      MAX_H_SIZE, dest_domain);
+ 	msg_set_non_seq(msg, 1);
+ 	msg_set_node_sig(msg, tn->random);
++	msg_set_node_capabilities(msg, 0);
+ 	msg_set_dest_domain(msg, dest_domain);
+ 	msg_set_bc_netid(msg, tn->net_id);
+ 	b_ptr->media->addr2msg(msg_media_addr(msg), &b_ptr->addr);
+@@ -133,6 +134,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
+ 	u32 net_id = msg_bc_netid(msg);
+ 	u32 mtyp = msg_type(msg);
+ 	u32 signature = msg_node_sig(msg);
++	u16 caps = msg_node_capabilities(msg);
+ 	bool addr_match = false;
+ 	bool sign_match = false;
+ 	bool link_up = false;
+@@ -167,6 +169,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
+ 	if (!node)
+ 		return;
+ 	tipc_node_lock(node);
++	node->capabilities = caps;
+ 	link = node->links[bearer->identity];
  
- /**
-- * link_recv_buf_validate - validate basic format of received message
-- *
-- * This routine ensures a TIPC message has an acceptable header, and at least
-- * as much data as the header indicates it should.  The routine also ensures
-- * that the entire message header is stored in the main fragment of the message
-- * buffer, to simplify future access to message header fields.
-- *
-- * Note: Having extra info present in the message header or data areas is OK.
-- * TIPC will ignore the excess, under the assumption that it is optional info
-- * introduced by a later release of the protocol.
-- */
--static int link_recv_buf_validate(struct sk_buff *buf)
--{
--	static u32 min_data_hdr_size[8] = {
--		SHORT_H_SIZE, MCAST_H_SIZE, NAMED_H_SIZE, BASIC_H_SIZE,
--		MAX_H_SIZE, MAX_H_SIZE, MAX_H_SIZE, MAX_H_SIZE
--		};
--
--	struct tipc_msg *msg;
--	u32 tipc_hdr[2];
--	u32 size;
--	u32 hdr_size;
--	u32 min_hdr_size;
--
--	/* If this packet comes from the defer queue, the skb has already
--	 * been validated
--	 */
--	if (unlikely(TIPC_SKB_CB(buf)->deferred))
--		return 1;
--
--	if (unlikely(buf->len < MIN_H_SIZE))
--		return 0;
--
--	msg = skb_header_pointer(buf, 0, sizeof(tipc_hdr), tipc_hdr);
--	if (msg == NULL)
--		return 0;
--
--	if (unlikely(msg_version(msg) != TIPC_VERSION))
--		return 0;
--
--	size = msg_size(msg);
--	hdr_size = msg_hdr_sz(msg);
--	min_hdr_size = msg_isdata(msg) ?
--		min_data_hdr_size[msg_type(msg)] : INT_H_SIZE;
--
--	if (unlikely((hdr_size < min_hdr_size) ||
--		     (size < hdr_size) ||
--		     (buf->len < size) ||
--		     (size - hdr_size > TIPC_MAX_USER_MSG_SIZE)))
--		return 0;
--
--	return pskb_may_pull(buf, hdr_size);
--}
--
--/**
-  * tipc_rcv - process TIPC packets/messages arriving from off-node
-  * @net: the applicable net namespace
-  * @skb: TIPC packet
-@@ -1127,7 +1072,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
- 
- 	while ((skb = __skb_dequeue(&head))) {
- 		/* Ensure message is well-formed */
--		if (unlikely(!link_recv_buf_validate(skb)))
-+		if (unlikely(!tipc_msg_validate(skb)))
- 			goto discard;
- 
- 		/* Ensure message data is a single contiguous unit */
-@@ -1398,7 +1343,6 @@ static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
- 
- 	if (tipc_link_defer_pkt(&l_ptr->deferred_queue, buf)) {
- 		l_ptr->stats.deferred_recv++;
--		TIPC_SKB_CB(buf)->deferred = true;
- 		if ((skb_queue_len(&l_ptr->deferred_queue) % 16) == 1)
- 			tipc_link_proto_xmit(l_ptr, STATE_MSG, 0, 0, 0, 0, 0);
- 	} else {
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index b6eb90c..4a64caf 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/msg.c: TIPC message header routines
-  *
-- * Copyright (c) 2000-2006, 2014, Ericsson AB
-+ * Copyright (c) 2000-2006, 2014-2015, Ericsson AB
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -181,6 +181,48 @@ err:
- 	return 0;
- }
- 
-+/* tipc_msg_validate - validate basic format of received message
-+ *
-+ * This routine ensures a TIPC message has an acceptable header, and at least
-+ * as much data as the header indicates it should.  The routine also ensures
-+ * that the entire message header is stored in the main fragment of the message
-+ * buffer, to simplify future access to message header fields.
-+ *
-+ * Note: Having extra info present in the message header or data areas is OK.
-+ * TIPC will ignore the excess, under the assumption that it is optional info
-+ * introduced by a later release of the protocol.
-+ */
-+bool tipc_msg_validate(struct sk_buff *skb)
-+{
-+	struct tipc_msg *msg;
-+	int msz, hsz;
-+
-+	if (unlikely(TIPC_SKB_CB(skb)->validated))
-+		return true;
-+	if (unlikely(!pskb_may_pull(skb, MIN_H_SIZE)))
-+		return false;
-+
-+	hsz = msg_hdr_sz(buf_msg(skb));
-+	if (unlikely(hsz < MIN_H_SIZE) || (hsz > MAX_H_SIZE))
-+		return false;
-+	if (unlikely(!pskb_may_pull(skb, hsz)))
-+		return false;
-+
-+	msg = buf_msg(skb);
-+	if (unlikely(msg_version(msg) != TIPC_VERSION))
-+		return false;
-+
-+	msz = msg_size(msg);
-+	if (unlikely(msz < hsz))
-+		return false;
-+	if (unlikely((msz - hsz) > TIPC_MAX_USER_MSG_SIZE))
-+		return false;
-+	if (unlikely(skb->len < msz))
-+		return false;
-+
-+	TIPC_SKB_CB(skb)->validated = true;
-+	return true;
-+}
- 
- /**
-  * tipc_msg_build - create buffer chain containing specified header and data
+ 	/* Prepare to validate requesting node's signature and media address */
 diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 7cece64..62306b8 100644
+index fa16784..7cece64 100644
 --- a/net/tipc/msg.h
 +++ b/net/tipc/msg.h
-@@ -1,7 +1,7 @@
+@@ -510,7 +510,6 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
+ #define DSC_REQ_MSG		0
+ #define DSC_RESP_MSG		1
+ 
+-
  /*
-  * net/tipc/msg.h: Include file for TIPC message header routines
-  *
-- * Copyright (c) 2000-2007, 2014, Ericsson AB
-+ * Copyright (c) 2000-2007, 2014-2015 Ericsson AB
-  * Copyright (c) 2005-2008, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -92,7 +92,7 @@ struct plist;
- struct tipc_skb_cb {
- 	void *handle;
- 	struct sk_buff *tail;
--	bool deferred;
-+	bool validated;
- 	bool wakeup_pending;
- 	bool bundling;
- 	u16 chain_sz;
-@@ -758,6 +758,7 @@ static inline u32 msg_tot_origport(struct tipc_msg *m)
+  * Word 1
+  */
+@@ -534,6 +533,16 @@ static inline void msg_set_node_sig(struct tipc_msg *m, u32 n)
+ 	msg_set_bits(m, 1, 0, 0xffff, n);
  }
  
- struct sk_buff *tipc_buf_acquire(u32 size);
-+bool tipc_msg_validate(struct sk_buff *skb);
- bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
- 		      int err);
- void tipc_msg_init(u32 own_addr, struct tipc_msg *m, u32 user, u32 type,
++static inline u32 msg_node_capabilities(struct tipc_msg *m)
++{
++	return msg_bits(m, 1, 15, 0x1fff);
++}
++
++static inline void msg_set_node_capabilities(struct tipc_msg *m, u32 n)
++{
++	msg_set_bits(m, 1, 15, 0x1fff, n);
++}
++
+ 
+ /*
+  * Word 2
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 3d18c66..f78be64 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -106,6 +106,7 @@ struct tipc_node_bclink {
+  * @list: links to adjacent nodes in sorted list of cluster's nodes
+  * @working_links: number of working links to node (both active and standby)
+  * @link_cnt: number of links to node
++ * @capabilities: bitmap, indicating peer node's functional capabilities
+  * @signature: node instance identifier
+  * @link_id: local and remote bearer ids of changing link, if any
+  * @publ_list: list of publications
+@@ -125,7 +126,8 @@ struct tipc_node {
+ 	struct tipc_node_bclink bclink;
+ 	struct list_head list;
+ 	int link_cnt;
+-	int working_links;
++	u16 working_links;
++	u16 capabilities;
+ 	u32 signature;
+ 	u32 link_id;
+ 	struct list_head publ_list;
 -- 
 1.9.1
