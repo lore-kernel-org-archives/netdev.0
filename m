@@ -1,162 +1,102 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/6] rhashtable: Move future_tbl into struct bucket_table
-Date: Fri, 13 Mar 2015 20:57:15 +1100
-Message-ID: <E1YWMLD-0000CV-VK@gondolin.me.apana.org.au>
+Subject: [PATCH 3/6] rhashtable: Move seed init into bucket_table_alloc
+Date: Fri, 13 Mar 2015 20:57:12 +1100
+Message-ID: <E1YWMLA-0000Bg-H9@gondolin.me.apana.org.au>
 References: <20150313095607.GA598@gondor.apana.org.au>
 To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:36858 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:47533 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbbCMJ5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 05:57:19 -0400
+	with ESMTP id S1751979AbbCMJ5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 05:57:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves future_tbl to open up the possibility of having
-multiple rehashes on the same table.
+It seems that I have already made every rehash redo the random
+seed even though my commit message indicated otherwise :)
+
+Since we have already taken that step, this patch goes one step
+further and moves the seed initialisation into bucket_table_alloc.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |    5 +++--
- lib/rhashtable.c           |   27 +++++++++++----------------
- 2 files changed, 14 insertions(+), 18 deletions(-)
+ lib/rhashtable.c |   16 ++++++----------
+ 1 file changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index ed7562a..1695378 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -56,6 +56,7 @@ struct rhash_head {
-  * @locks: Array of spinlocks protecting individual buckets
-  * @walkers: List of active walkers
-  * @rcu: RCU structure for freeing the table
-+ * @future_tbl: Table under construction during rehashing
-  * @buckets: size * hash buckets
-  */
- struct bucket_table {
-@@ -68,6 +69,8 @@ struct bucket_table {
- 	struct list_head	walkers;
- 	struct rcu_head		rcu;
- 
-+	struct bucket_table __rcu *future_tbl;
-+
- 	struct rhash_head __rcu	*buckets[] ____cacheline_aligned_in_smp;
- };
- 
-@@ -105,7 +108,6 @@ struct rhashtable_params {
- /**
-  * struct rhashtable - Hash table handle
-  * @tbl: Bucket table
-- * @future_tbl: Table under construction during expansion/shrinking
-  * @nelems: Number of elements in table
-  * @p: Configuration parameters
-  * @run_work: Deferred worker to expand/shrink asynchronously
-@@ -114,7 +116,6 @@ struct rhashtable_params {
-  */
- struct rhashtable {
- 	struct bucket_table __rcu	*tbl;
--	struct bucket_table __rcu       *future_tbl;
- 	atomic_t			nelems;
- 	bool                            being_destroyed;
- 	struct rhashtable_params	p;
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ff4ea17..9d53a46 100644
+index 5d06cc2..e55bbc8 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -207,8 +207,9 @@ static bool rht_shrink_below_30(const struct rhashtable *ht,
+@@ -142,7 +142,7 @@ static void bucket_table_free(const struct bucket_table *tbl)
+ }
  
- static int rhashtable_rehash_one(struct rhashtable *ht, unsigned old_hash)
+ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+-					       size_t nbuckets, u32 hash_rnd)
++					       size_t nbuckets)
  {
--	struct bucket_table *new_tbl = rht_dereference(ht->future_tbl, ht);
- 	struct bucket_table *old_tbl = rht_dereference(ht->tbl, ht);
-+	struct bucket_table *new_tbl =
-+		rht_dereference(old_tbl->future_tbl, ht) ?: old_tbl;
- 	struct rhash_head __rcu **pprev = &old_tbl->buckets[old_hash];
- 	int err = -ENOENT;
- 	struct rhash_head *head, *next, *entry;
-@@ -273,10 +274,8 @@ static void rhashtable_rehash(struct rhashtable *ht,
+ 	struct bucket_table *tbl = NULL;
+ 	size_t size;
+@@ -158,7 +158,6 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
  
+ 	tbl->size = nbuckets;
+ 	tbl->shift = ilog2(nbuckets);
+-	tbl->hash_rnd = hash_rnd;
+ 
+ 	if (alloc_bucket_locks(ht, tbl) < 0) {
+ 		bucket_table_free(tbl);
+@@ -167,6 +166,8 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+ 
+ 	INIT_LIST_HEAD(&tbl->walkers);
+ 
++	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
++
+ 	for (i = 0; i < nbuckets; i++)
+ 		INIT_RHT_NULLS_HEAD(tbl->buckets[i], ht, i);
+ 
+@@ -264,8 +265,6 @@ static void rhashtable_rehash(struct rhashtable *ht,
+ 	struct rhashtable_walker *walker;
+ 	unsigned old_hash;
+ 
+-	get_random_bytes(&new_tbl->hash_rnd, sizeof(new_tbl->hash_rnd));
+-
  	/* Make insertions go into the new, empty table right away. Deletions
  	 * and lookups will be attempted in both tables until we synchronize.
--	 * The synchronize_rcu() guarantees for the new table to be picked up
--	 * so no new additions go into the old table while we relink.
- 	 */
--	rcu_assign_pointer(ht->future_tbl, new_tbl);
-+	rcu_assign_pointer(old_tbl->future_tbl, new_tbl);
+ 	 * The synchronize_rcu() guarantees for the new table to be picked up
+@@ -315,7 +314,7 @@ int rhashtable_expand(struct rhashtable *ht)
  
- 	/* Ensure the new table is visible to readers. */
- 	smp_wmb();
-@@ -400,7 +399,7 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 	 * also grab the bucket lock in old_tbl because until the
- 	 * rehash completes ht->tbl won't be changed.
- 	 */
--	tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	tbl = rht_dereference_rcu(old_tbl->future_tbl, ht) ?: old_tbl;
- 	if (tbl != old_tbl) {
- 		hash = head_hashfn(ht, tbl, obj);
- 		spin_lock_nested(bucket_lock(tbl, hash), SINGLE_DEPTH_NESTING);
-@@ -525,7 +524,7 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
- 	 * visible then that guarantees the entry to still be in
- 	 * old_tbl if it exists.
- 	 */
--	tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	tbl = rht_dereference_rcu(old_tbl->future_tbl, ht) ?: old_tbl;
- 	if (!ret && old_tbl != tbl)
- 		ret = __rhashtable_remove(ht, tbl, obj);
+ 	ASSERT_RHT_MUTEX(ht);
  
-@@ -599,7 +598,7 @@ EXPORT_SYMBOL_GPL(rhashtable_lookup);
- void *rhashtable_lookup_compare(struct rhashtable *ht, const void *key,
- 				bool (*compare)(void *, void *), void *arg)
+-	new_tbl = bucket_table_alloc(ht, old_tbl->size * 2, old_tbl->hash_rnd);
++	new_tbl = bucket_table_alloc(ht, old_tbl->size * 2);
+ 	if (new_tbl == NULL)
+ 		return -ENOMEM;
+ 
+@@ -346,7 +345,7 @@ int rhashtable_shrink(struct rhashtable *ht)
+ 
+ 	ASSERT_RHT_MUTEX(ht);
+ 
+-	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2, old_tbl->hash_rnd);
++	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2);
+ 	if (new_tbl == NULL)
+ 		return -ENOMEM;
+ 
+@@ -926,7 +925,6 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
  {
--	const struct bucket_table *tbl, *old_tbl;
-+	const struct bucket_table *tbl;
- 	struct rhash_head *he;
- 	u32 hash;
+ 	struct bucket_table *tbl;
+ 	size_t size;
+-	u32 hash_rnd;
  
-@@ -618,9 +617,8 @@ restart:
- 	/* Ensure we see any new tables. */
- 	smp_rmb();
+ 	size = HASH_DEFAULT_SIZE;
  
--	old_tbl = tbl;
--	tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	if (unlikely(tbl != old_tbl))
-+	tbl = rht_dereference_rcu(tbl->future_tbl, ht);
-+	if (unlikely(tbl))
- 		goto restart;
- 	rcu_read_unlock();
- 
-@@ -830,14 +828,13 @@ next:
- 		iter->skip = 0;
- 	}
- 
--	iter->walker->tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	if (iter->walker->tbl != tbl) {
-+	iter->walker->tbl = rht_dereference_rcu(tbl->future_tbl, ht);
-+	if (iter->walker->tbl) {
- 		iter->slot = 0;
- 		iter->skip = 0;
- 		return ERR_PTR(-EAGAIN);
- 	}
- 
--	iter->walker->tbl = NULL;
- 	iter->p = NULL;
- 
- out:
-@@ -865,8 +862,7 @@ void rhashtable_walk_stop(struct rhashtable_iter *iter)
- 	ht = iter->ht;
- 
- 	mutex_lock(&ht->mutex);
--	if (rht_dereference(ht->tbl, ht) == tbl ||
--	    rht_dereference(ht->future_tbl, ht) == tbl)
-+	if (tbl->rehash < tbl->size)
- 		list_add(&iter->walker->list, &tbl->walkers);
+@@ -952,9 +950,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
  	else
- 		iter->walker->tbl = NULL;
-@@ -961,7 +957,6 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	atomic_set(&ht->nelems, 0);
+ 		ht->p.locks_mul = BUCKET_LOCKS_PER_CPU;
  
- 	RCU_INIT_POINTER(ht->tbl, tbl);
--	RCU_INIT_POINTER(ht->future_tbl, tbl);
- 
- 	INIT_WORK(&ht->run_work, rht_deferred_worker);
+-	get_random_bytes(&hash_rnd, sizeof(hash_rnd));
+-
+-	tbl = bucket_table_alloc(ht, size, hash_rnd);
++	tbl = bucket_table_alloc(ht, size);
+ 	if (tbl == NULL)
+ 		return -ENOMEM;
  
