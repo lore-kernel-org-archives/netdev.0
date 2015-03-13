@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: Don't set s_addr in vxlan_create_sock
-Date: Thu, 12 Mar 2015 23:24:02 -0400 (EDT)
-Message-ID: <20150312.232402.1611238890043593143.davem@davemloft.net>
-References: <1426212058-11224-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the vfs tree
+Date: Thu, 12 Mar 2015 23:24:26 -0400 (EDT)
+Message-ID: <20150312.232426.1464986797003264151.davem@davemloft.net>
+References: <20150313131543.7c050492@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: simon.horman@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43815 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbbCMDYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 23:24:04 -0400
-In-Reply-To: <1426212058-11224-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, viro@ZenIV.linux.org.uk,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hch@lst.de, ying.xue@windriver.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150313131543.7c050492@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Fri, 13 Mar 2015 11:00:58 +0900
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 13 Mar 2015 13:15:43 +1100
 
-> In the case of AF_INET s_addr was set to INADDR_ANY (0) which which both
-> symmetric with the AF_INET6 case, where s_addr is not set, and unnecessary
-> as udp_conf is zeroed out earlier in the same function.
+> Today's linux-next merge of the net-next tree got a conflict in
+> net/socket.c between commits 005139a14660 ("fs: remove ki_nbytes") and
+> e9eab93cc2dc ("fs: don't allow to complete sync iocbs through
+> aio_complete") from the vfs tree and commit 1b784140474e ("net: Remove
+> iocb argument from sendmsg and recvmsg") from the net-next tree.
 > 
-> I suspect this change does not have any run-time effect due to compiler
-> optimisations. But it does make the code a little easier on the/my eyes.
-> 
-> Cc: Tom Herbert <therbert@google.com>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> I fixed it up (mainly using the net-next version - see below) and can
+> carry the fix as necessary (no action is required).
 
-Seems totally reasonable, applied, thanks Simon.
+Al, how do you want to resolve this?
