@@ -1,40 +1,36 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/3] inet_diag: adjust inet_sk_diag_fill() bug condition
-Date: Fri, 13 Mar 2015 13:19:17 -0700
-Message-ID: <1426277958-9772-3-git-send-email-edumazet@google.com>
-References: <1426277958-9772-1-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 0/3] tcp listener refactoring, part 9
+Date: Fri, 13 Mar 2015 13:19:15 -0700
+Message-ID: <1426277958-9772-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:33959 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879AbbCMUTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:19:43 -0400
-Received: by obcwp18 with SMTP id wp18so6690859obc.1
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 13:19:43 -0700 (PDT)
-In-Reply-To: <1426277958-9772-1-git-send-email-edumazet@google.com>
+Received: from mail-qg0-f73.google.com ([209.85.192.73]:33958 "EHLO
+	mail-qg0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521AbbCMUZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:25:40 -0400
+Received: by qgdq107 with SMTP id q107so4171845qgd.1
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 13:25:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet_sk_diag_fill() only copes with non timewait and non request socks
+This preliminary work pushes socket convergence a bit more:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/inet_diag.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+1) request sock ir_iif is universally set
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index e1e4d8c0384a..d827fe2e3ce0 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -93,7 +93,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 		return -EMSGSIZE;
- 
- 	r = nlmsg_data(nlh);
--	BUG_ON(sk->sk_state == TCP_TIME_WAIT);
-+	BUG_ON((1 << sk->sk_state) & (TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV));
- 
- 	r->idiag_family = sk->sk_family;
- 	r->idiag_state = sk->sk_state;
+2) inet_diag can use common helpers to reduce LOC
+
+Eric Dumazet (3):
+  inet: fill request sock ir_iif for IPv4
+  inet_diag: adjust inet_sk_diag_fill() bug condition
+  inet_diag: factorize code in new inet_diag_msg_common_fill() helper
+
+ net/dccp/ipv4.c       |   1 +
+ net/ipv4/inet_diag.c  | 151 ++++++++++++++++----------------------------------
+ net/ipv4/syncookies.c |   2 +
+ net/ipv4/tcp_input.c  |   3 +
+ net/ipv6/tcp_ipv6.c   |   2 -
+ 5 files changed, 55 insertions(+), 104 deletions(-)
+
 -- 
 2.2.0.rc0.207.ga3a616c
