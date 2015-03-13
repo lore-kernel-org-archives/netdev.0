@@ -1,60 +1,47 @@
-From: Mathieu Olivari <mathieu@codeaurora.org>
-Subject: Re: RFC: dsa: add support for multiple CPU ports
-Date: Thu, 12 Mar 2015 18:57:10 -0700
-Message-ID: <20150313015710.GA13593@codeaurora.org>
-References: <20150310190129.GB5636@codeaurora.org>
- <20150310193151.GE10838@lunn.ch>
- <20150310204021.GA2740@codeaurora.org>
- <CAGVrzcZcLgMWuNJ9R_izuBRyyY21=ZJw+2Dk8RfxijGd2fMXNQ@mail.gmail.com>
- <20150311011802.GA10875@codeaurora.org>
- <20150311133057.GA9601@lunn.ch>
- <20150311233738.GA5566@codeaurora.org>
- <20150312001926.GB9601@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Jonas Gorski <jogo@openwrt.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next] vxlan: Don't set s_addr in vxlan_create_sock
+Date: Fri, 13 Mar 2015 11:00:58 +0900
+Message-ID: <1426212058-11224-1-git-send-email-simon.horman@netronome.com>
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Simon Horman <simon.horman@netronome.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56607 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628AbbCMB5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 21:57:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20150312001926.GB9601@lunn.ch>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:44584 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755393AbbCMCBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 22:01:24 -0400
+Received: by padet14 with SMTP id et14so25244437pad.11
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 19:01:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 01:19:26AM +0100, Andrew Lunn wrote:
-> > Agreed. The switches I'm talking about (QCA8xxx/AR8xxx) don't support
-> > a mode which would allow them to use all the CPU ports as one logical
-> > bonding interface.
-> 
-> I had a 60 second look at https://www.codeaurora.org/cgit/quic/qsdk/oss/lklm/qca-ssdk/
-> 
-> It looks like dess, isis, and isisc have some support for trunks, and
-> the rest do not.
-> 
+In the case of AF_INET s_addr was set to INADDR_ANY (0) which which both
+symmetric with the AF_INET6 case, where s_addr is not set, and unnecessary
+as udp_conf is zeroed out earlier in the same function.
 
-Yes, they do. But not on the CPU port, unfortunately.
+I suspect this change does not have any run-time effect due to compiler
+optimisations. But it does make the code a little easier on the/my eyes.
 
-> > I know some of these switches don't even support tagging. So I'd be
-> > surprised if they're all capable of bonding.
-> 
-> So we are going to end up with multiple solutions depending on what
-> the hardware is capable of.
-> 
-> > I think DSA should probably support both. I think it should allow
-> > bonding for switches who support it, but it should also allow for port
-> > based vlan mapped by the user.
-> 
-> So the question is, how do you make the existing concepts in Linux
-> support this, so configuration is how you expect it to be, without
-> special cases, oddities, etc.
-> 
+Cc: Tom Herbert <therbert@google.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-I'll start by ignoring the second CPU port for now and see how far I go.
+---
+* Found by inspection, lightly tested
+---
+ drivers/net/vxlan.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-> 	Andrew
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1e0a775..25d92d4 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2516,7 +2516,6 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
+ 		    !(flags & VXLAN_F_UDP_ZERO_CSUM6_RX);
+ 	} else {
+ 		udp_conf.family = AF_INET;
+-		udp_conf.local_ip.s_addr = INADDR_ANY;
+ 	}
+ 
+ 	udp_conf.local_udp_port = port;
+-- 
+2.1.4
