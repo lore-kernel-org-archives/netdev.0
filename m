@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] rhashtable: Arbitrary rehashing
-Date: Thu, 12 Mar 2015 23:02:06 -0400 (EDT)
-Message-ID: <20150312.230206.833345501561152507.davem@davemloft.net>
-References: <20150309222631.GA12221@gondor.apana.org.au>
-	<20150312164635.GA11089@casper.infradead.org>
-	<20150313015410.GA28133@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] net: bcmgenet: rewrite bcmgenet_rx_refill()
+Date: Thu, 12 Mar 2015 23:03:48 -0400 (EDT)
+Message-ID: <20150312.230348.1911227825204957840.davem@davemloft.net>
+References: <20150312224800.AE7A7220365@puck.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, josh@joshtriplett.org,
-	paulmck@linux.vnet.ibm.com
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, jaedon.shin@gmail.com
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43603 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43634 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277AbbCMDCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 23:02:07 -0400
-In-Reply-To: <20150313015410.GA28133@gondor.apana.org.au>
+	with ESMTP id S1755408AbbCMDDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 23:03:50 -0400
+In-Reply-To: <20150312224800.AE7A7220365@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 13 Mar 2015 12:54:10 +1100
+From: Petri Gynther <pgynther@google.com>
+Date: Thu, 12 Mar 2015 15:48:00 -0700 (PDT)
 
-> rhashtable: Fix read-side crash during rehash
->     
-> This patch fixes a typo rhashtable_lookup_compare where we fail
-> to recompute the hash when looking up the new table.  This causes
-> elements to be missed and potentially a crash during a resize.
+> Currently, bcmgenet_desc_rx() calls bcmgenet_rx_refill() at the end of
+> Rx packet processing loop, after the current Rx packet has already been
+> passed to napi_gro_receive(). However, bcmgenet_rx_refill() might fail
+> to allocate a new Rx skb, thus leaving a hole on the Rx queue where no
+> valid Rx buffer exists.
 > 
-> Reported-by: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> To eliminate this situation:
+> 1. Rewrite bcmgenet_rx_refill() to retain the current Rx skb on the Rx
+>    queue if a new replacement Rx skb can't be allocated and DMA-mapped.
+>    In this case, the data on the current Rx skb is effectively dropped.
+> 2. Modify bcmgenet_desc_rx() to call bcmgenet_rx_refill() at the top of
+>    Rx packet processing loop, so that the new replacement Rx skb is
+>    already in place before the current Rx skb is processed.
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-Applied.
+I'll apply this after Florian reports back about his testing.
