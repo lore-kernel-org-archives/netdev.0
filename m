@@ -1,30 +1,56 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH net-next 0/2] bpf: allow extended BPF programs access
- skb fields
-Date: Fri, 13 Mar 2015 11:40:04 +0100
-Message-ID: <5502BE84.7020105@iogearbox.net>
-References: <1426213271-8363-1-git-send-email-ast@plumgrid.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: netfilter: Fix potential crash in nft_hash walker
+Date: Fri, 13 Mar 2015 11:50:50 +0100
+Message-ID: <20150313105050.GA3546@salvia>
+References: <20150312235214.GA26546@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1426213271-8363-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53059 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751547AbbCMKrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2015 06:47:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20150312235214.GA26546@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2015 03:21 AM, Alexei Starovoitov wrote:
-...
-> Daniel,
-> patch 1 includes a bit of code that does prog_realloc and branch adjustment
-> to make room for new instructions. I think you'd need the same for your
-> 'constant blinding' work. If indeed that would be the case, we'll make it
-> into a helper function.
+On Fri, Mar 13, 2015 at 10:52:14AM +1100, Herbert Xu wrote:
+> When we get back an EAGAIN from rhashtable_walk_next we were
+> treating it as a valid object which obviously doesn't work too
+> well.
+>     
+> Luckily this is hard to trigger so it seems nobody has run into
+> it yet.
+>     
+> This patch fixes it by redoing the next call when we get an EAGAIN.
 
-Yes, thanks will take care of that.
+I'll enqueue this for nf, thanks Herbert.
 
-Cheers,
-Daniel
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+> index c82df0a..37c15e6 100644
+> --- a/net/netfilter/nft_hash.c
+> +++ b/net/netfilter/nft_hash.c
+> @@ -153,6 +153,8 @@ static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
+>  				iter->err = err;
+>  				goto out;
+>  			}
+> +
+> +			continue;
+>  		}
+>  
+>  		if (iter->count < iter->skip)
+> -- 
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
