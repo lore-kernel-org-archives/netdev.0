@@ -1,82 +1,48 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 3/4] netfilter: Fix portid types
-Date: Fri, 13 Mar 2015 12:31:15 +0100
-Message-ID: <1426246276-15839-4-git-send-email-richard@nod.at>
-References: <1426246276-15839-1-git-send-email-richard@nod.at>
-Cc: linux-wireless@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sameo@linux.intel.com, aloisio.almeida@openbossa.org,
-	lauro.venancio@openbossa.org, davem@davemloft.net,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, pablo@netfilter.org,
-	Richard Weinberger <richard@nod.at>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426246276-15839-1-git-send-email-richard@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/6] rhashtable: Move seed init into bucket_table_alloc
+Date: Fri, 13 Mar 2015 22:40:18 +1100
+Message-ID: <20150313114018.GA3439@gondor.apana.org.au>
+References: <20150313095607.GA598@gondor.apana.org.au>
+ <E1YWMLA-0000Bg-H9@gondolin.me.apana.org.au>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAFE8C4@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:58809 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751100AbbCMLki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 07:40:38 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAFE8C4@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The netlink portid is an unsigned integer, use this type
-also in netfilter.
+On Fri, Mar 13, 2015 at 11:33:39AM +0000, David Laight wrote:
+>
+> If the decision to resize a hash table is based on the length
+> of the hash chains, then changing the hash function might either
+> make that unnecessary or make an immediate resize be needed.
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- net/netfilter/nfnetlink_log.c        | 4 ++--
- net/netfilter/nfnetlink_queue_core.c | 7 ++++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
+My plan is to trigger a delayed resize (as we do now) if we're
+over 75%.
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 11d85b3..7f00846 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -62,7 +62,7 @@ struct nfulnl_instance {
- 	struct timer_list timer;
- 	struct net *net;
- 	struct user_namespace *peer_user_ns;	/* User namespace of the peer process */
--	int peer_portid;			/* PORTID of the peer process */
-+	unsigned int peer_portid;		/* PORTID of the peer process */
- 
- 	/* configurable parameters */
- 	unsigned int flushtimeout;	/* timeout until queue flush */
-@@ -151,7 +151,7 @@ static void nfulnl_timer(unsigned long data);
- 
- static struct nfulnl_instance *
- instance_create(struct net *net, u_int16_t group_num,
--		int portid, struct user_namespace *user_ns)
-+		unsigned int portid, struct user_namespace *user_ns)
- {
- 	struct nfulnl_instance *inst;
- 	struct nfnl_log_net *log = nfnl_log_pernet(net);
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 0db8515..1b7f7b8 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -54,7 +54,7 @@ struct nfqnl_instance {
- 	struct hlist_node hlist;		/* global list of queues */
- 	struct rcu_head rcu;
- 
--	int peer_portid;
-+	unsigned int peer_portid;
- 	unsigned int queue_maxlen;
- 	unsigned int copy_range;
- 	unsigned int queue_dropped;
-@@ -110,7 +110,7 @@ instance_lookup(struct nfnl_queue_net *q, u_int16_t queue_num)
- 
- static struct nfqnl_instance *
- instance_create(struct nfnl_queue_net *q, u_int16_t queue_num,
--		int portid)
-+		unsigned int portid)
- {
- 	struct nfqnl_instance *inst;
- 	unsigned int h;
-@@ -860,7 +860,8 @@ static const struct nla_policy nfqa_verdict_batch_policy[NFQA_MAX+1] = {
- };
- 
- static struct nfqnl_instance *
--verdict_instance_lookup(struct nfnl_queue_net *q, u16 queue_num, int nlportid)
-+verdict_instance_lookup(struct nfnl_queue_net *q, u16 queue_num,
-+			unsigned int nlportid)
- {
- 	struct nfqnl_instance *queue;
- 
+If we get a chain length above 4 then we do an immediate resize
+if we're already over 75% and the delayed resize hasn't started
+yet, otherwise we do an immediate rehash with no change in the
+hash table size.
+
+Note that in my new scheme the rehash will contain two distinct
+parts.  The first part that is executed immediately will only
+involve allocating the hash table.
+
+The hard work of movings across is always performed in the kernel
+thread.
+
+Cheers,
 -- 
-1.8.4.5
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
