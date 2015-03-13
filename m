@@ -1,27 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 6/6] rhashtable: Move future_tbl into struct bucket_table
-Date: Fri, 13 Mar 2015 16:13:16 +0000
-Message-ID: <20150313161316.GH17829@casper.infradead.org>
-References: <20150313095607.GA598@gondor.apana.org.au>
- <E1YWMLD-0000CV-VK@gondolin.me.apana.org.au>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH 2/3 RFC] ath10k: wmi: match wait_for_completion_timeout return type
+Date: Fri, 13 Mar 2015 18:20:01 +0200
+Message-ID: <87bnjwrhse.fsf@kamboji.qca.qualcomm.com>
+References: <1426175362-8640-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57846 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755695AbbCMQNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:13:17 -0400
-Content-Disposition: inline
-In-Reply-To: <E1YWMLD-0000CV-VK@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>
+To: Nicholas Mc Guire <hofrat@osadl.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426175362-8640-1-git-send-email-hofrat@osadl.org> (Nicholas Mc
+	Guire's message of "Thu, 12 Mar 2015 11:49:22 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/13/15 at 08:57pm, Herbert Xu wrote:
-> This patch moves future_tbl to open up the possibility of having
-> multiple rehashes on the same table.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Nicholas Mc Guire <hofrat@osadl.org> writes:
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+> Return type of wait_for_completion_timeout is unsigned long not int.
+> An appropriately named unsigned long is added and the assignments fixed up.
+> Rather than returning 0 (timeout) or a more or less random remaining time
+> (completion success) this return 0 or 1 which also resolves the type of the
+> functions being int.
+>
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+
+Why does patch 2 in this patchset have RFC in the title but patches 1
+and 3 not? That just makes me confused, I can't tell what you want me to
+do with the patches. Normally I just drop all patches (or patchsets)
+which have RFC, and that's what I'm going to do now.
+
+To save everyone's time, when submitting something please state clearly
+what's your intention.
+
+-- 
+Kalle Valo
