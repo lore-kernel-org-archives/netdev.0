@@ -1,51 +1,71 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: mmotm 2015-03-12-15-17 uploaded (rocker.c)
-Date: Fri, 13 Mar 2015 09:06:11 -0700
-Message-ID: <55030AF3.5070705@infradead.org>
-References: <550210ac.Pr9rP4DS86Wiia6Q%akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] inet_diag: fix possible overflow in
+ inet_diag_dump_one_icsk()
+Date: Fri, 13 Mar 2015 09:09:54 -0700
+Message-ID: <1426262994.11398.188.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org, sfr@canb.auug.org.au, mhocko@suse.cz,
-	Jiri Pirko <jiri@resnulli.us>, sfeldma@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <550210ac.Pr9rP4DS86Wiia6Q%akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:34049 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbbCMQKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:10:22 -0400
+Received: by iecsl2 with SMTP id sl2so112457662iec.1
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 09:10:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/12/15 15:18, akpm@linux-foundation.org wrote:
-> The mm-of-the-moment snapshot 2015-03-12-15-17 has been uploaded to
-> 
->    http://www.ozlabs.org/~akpm/mmotm/
-> 
-> mmotm-readme.txt says
-> 
-> README for mm-of-the-moment:
-> 
-> http://www.ozlabs.org/~akpm/mmotm/
-> 
-> This is a snapshot of my -mm patch queue.  Uploaded at random hopefully
-> more than once a week.
-> 
-> You will need quilt to apply these patches to the latest Linus release (3.x
-> or 3.x-rcY).  The series file is in broken-out.tar.gz and is duplicated in
-> http://ozlabs.org/~akpm/mmotm/series
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-on i386:  found in mmotm but contained in linux-next:
+inet_diag_dump_one_icsk() allocates too small skb.
 
-when CONFIG_INET is not enabled:
+Add inet_sk_attr_size() helper right before inet_sk_diag_fill()
+so that it can be updated if/when new attributes are added.
 
+iproute2/ss currently does not use this dump_one() interface,
+this might explain nobody noticed this problem yet.
 
-drivers/built-in.o: In function `rocker_port_fib_ipv4.isra.55':
-rocker.c:(.text+0x1ea5ae): undefined reference to `arp_tbl'
-rocker.c:(.text+0x1ea6b1): undefined reference to `arp_tbl'
-drivers/built-in.o: In function `rocker_netevent_event':
-rocker.c:(.text+0x1ea7b8): undefined reference to `arp_tbl'
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inet_diag.c |   18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
-
-
--- 
-~Randy
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 81751f12645f..3ad64c8e4079 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -71,6 +71,20 @@ static inline void inet_diag_unlock_handler(
+ 	mutex_unlock(&inet_diag_table_mutex);
+ }
+ 
++size_t inet_sk_attr_size(void)
++{
++	return	  nla_total_size(sizeof(struct tcp_info))
++		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
++		+ nla_total_size(1) /* INET_DIAG_TOS */
++		+ nla_total_size(1) /* INET_DIAG_TCLASS */
++		+ nla_total_size(sizeof(struct inet_diag_meminfo))
++		+ nla_total_size(sizeof(struct inet_diag_msg))
++		+ nla_total_size(SK_MEMINFO_VARS * sizeof(u32))
++		+ nla_total_size(TCP_CA_NAME_MAX)
++		+ nla_total_size(sizeof(struct tcpvegas_info))
++		+ 64;
++}
++
+ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 			      struct sk_buff *skb, struct inet_diag_req_v2 *req,
+ 			      struct user_namespace *user_ns,		      	
+@@ -326,9 +340,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *in_s
+ 	if (err)
+ 		goto out;
+ 
+-	rep = nlmsg_new(sizeof(struct inet_diag_msg) +
+-			sizeof(struct inet_diag_meminfo) +
+-			sizeof(struct tcp_info) + 64, GFP_KERNEL);
++	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
+ 	if (!rep) {
+ 		err = -ENOMEM;
+ 		goto out;
