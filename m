@@ -1,44 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bcmgenet: rewrite bcmgenet_rx_refill()
-Date: Fri, 13 Mar 2015 15:48:44 -0400 (EDT)
-Message-ID: <20150313.154844.1460460664757494447.davem@davemloft.net>
-References: <20150312224800.AE7A7220365@puck.mtv.corp.google.com>
-	<55032C64.3010706@gmail.com>
+Subject: Re: [PATCH net] bnx2x: Fix statistics locking scheme
+Date: Fri, 13 Mar 2015 15:51:47 -0400 (EDT)
+Message-ID: <20150313.155147.274140101234642831.davem@davemloft.net>
+References: <1426253565-10302-1-git-send-email-Yuval.Mintz@qlogic.com>
+	<20150313.123822.1761706097366192562.davem@davemloft.net>
+	<B5657A6538887040AD3A81F1008BEC63C10D9E@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pgynther@google.com, netdev@vger.kernel.org, jaedon.shin@gmail.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53369 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53388 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752043AbbCMTsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:48:46 -0400
-In-Reply-To: <55032C64.3010706@gmail.com>
+	with ESMTP id S1753717AbbCMTvt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:51:49 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63C10D9E@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 13 Mar 2015 11:28:52 -0700
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Fri, 13 Mar 2015 19:02:36 +0000
 
-> On 12/03/15 15:48, Petri Gynther wrote:
->> Currently, bcmgenet_desc_rx() calls bcmgenet_rx_refill() at the end of
->> Rx packet processing loop, after the current Rx packet has already been
->> passed to napi_gro_receive(). However, bcmgenet_rx_refill() might fail
->> to allocate a new Rx skb, thus leaving a hole on the Rx queue where no
->> valid Rx buffer exists.
->> 
->> To eliminate this situation:
->> 1. Rewrite bcmgenet_rx_refill() to retain the current Rx skb on the Rx
->>    queue if a new replacement Rx skb can't be allocated and DMA-mapped.
->>    In this case, the data on the current Rx skb is effectively dropped.
->> 2. Modify bcmgenet_desc_rx() to call bcmgenet_rx_refill() at the top of
->>    Rx packet processing loop, so that the new replacement Rx skb is
->>    already in place before the current Rx skb is processed.
+>> This is terrible.
 > 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+>> Either you use locking to protect critical sections, or you don't.
 > 
-> Thanks! Have not noticed any performance impact doing 64B/1500B testing.
+>> I do not want to see any code that enters the critical
+>> section when the locked state cannot be acquired.
+> 
+> I've no real objection to re-spinning this, 
+> given that it's an error flow we've never actually encountered.
+> 
+> Do notice that this doesn't change existing behavior of code.
 
-Applied, thanks everyone.
+I disagree.
+
+The existing code took the spinlock unconditionally, and only
+executed the critical section under the lock.
+
+This exact place is where you are adding the semaphore timeout
+stuff I am specifically objecting too.
