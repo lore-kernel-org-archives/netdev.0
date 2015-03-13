@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] tipc: some optimizations and impovements
-Date: Fri, 13 Mar 2015 15:44:59 -0400 (EDT)
-Message-ID: <20150313.154459.801876044095572984.davem@davemloft.net>
-References: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
-	<20150313.125227.1523044445570081158.davem@davemloft.net>
-	<550319E2.2020108@donjonn.com>
+Subject: Re: [PATCH 2/4] net: esp: check CRYPTO_TFM_REQ_DMA flag when
+ allocating crypto request
+Date: Fri, 13 Mar 2015 15:46:08 -0400 (EDT)
+Message-ID: <20150313.154608.548532696978553073.davem@davemloft.net>
+References: <1426266882-31626-1-git-send-email-horia.geanta@freescale.com>
+	<1426266922-31679-1-git-send-email-horia.geanta@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	paul.gortmaker@windriver.com, erik.hugne@ericsson.com,
-	ying.xue@windriver.com, tipc-discussion@lists.sourceforge.net
-To: maloy@donjonn.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53335 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504AbbCMTpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:45:04 -0400
-In-Reply-To: <550319E2.2020108@donjonn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, kim.phillips@freescale.com
+To: horia.geanta@freescale.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1426266922-31679-1-git-send-email-horia.geanta@freescale.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <maloy@donjonn.com>
-Date: Fri, 13 Mar 2015 13:09:54 -0400
+From: Horia Geanta <horia.geanta@freescale.com>
+Date: Fri, 13 Mar 2015 19:15:22 +0200
 
-> On 15-03-13 12:52 PM, David Miller wrote:
->> From: Jon Maloy <jon.maloy@ericsson.com>
->> Date: Fri, 13 Mar 2015 10:27:33 -0400
->>
->> I also don't think you even need to clone the SKB there either.
+> Some crypto backends might require the requests' private contexts
+> to be allocated in DMA-able memory.
 > 
-> I don't don't see how we can not. We may extract many
-> buffers from different positions in the data area, which will
-> be sent in different directions, and be freed at different
-> moments of time.
+> Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
 
-Ok, sounds like you need to clone after all.
+No way.
+
+Upper layers should be absolutely not required to know about such
+requirements.
+
+Such details _must_ be hidden inside of the crypto layer and drivers
+and not leak out into the users of the crypto interfaces.
