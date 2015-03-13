@@ -1,88 +1,116 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the vfs tree
-Date: Fri, 13 Mar 2015 13:15:43 +1100
-Message-ID: <20150313131543.7c050492@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/gq5ucSd4VE9yMwX2d+==V2J"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Christoph Hellwig <hch@lst.de>,
-	Ying Xue <ying.xue@windriver.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 0/2] bpf: allow extended BPF programs access skb fields
+Date: Thu, 12 Mar 2015 19:21:09 -0700
+Message-ID: <1426213271-8363-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/gq5ucSd4VE9yMwX2d+==V2J
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hi All,
 
-Hi all,
+classic BPF has a way to access skb fields, whereas extended BPF didn't.
+This patch introduces this ability.
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/socket.c between commits 005139a14660 ("fs: remove ki_nbytes") and
-e9eab93cc2dc ("fs: don't allow to complete sync iocbs through
-aio_complete") from the vfs tree and commit 1b784140474e ("net: Remove
-iocb argument from sendmsg and recvmsg") from the net-next tree.
+Classic BPF can access fields via negative SKF_AD_OFF offset.
+Positive bpf_ld_abs N is treated as load from packet, whereas
+bpf_ld_abs -0x1000 + N is treated as skb fields access.
+Many offsets were hard coded over years: SKF_AD_PROTOCOL, SKF_AD_PKTTYPE, etc.
+The problem with this approach was that for every new field classic bpf
+assembler had to be tweaked.
 
-I fixed it up (mainly using the net-next version - see below) and can
-carry the fix as necessary (no action is required).
+I've considered doing the same for extended, but for every new field LLVM
+compiler would have to be modifed. Since it would need to add a new intrinsic.
+It could be done with single intrinsic and magic offset or use of inline
+assembler, but neither are clean from compiler backend point of view, since
+they look like calls but shouldn't scratch caller-saved registers.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Another approach was to introduce a new helper functions like bpf_get_pkt_type()
+for every field that we want to access, but that is equally ugly for kernel
+and slow, since helpers are calls and they are slower then just loads.
+In theory helper calls can be 'inlined' inside kernel into direct loads, but
+since they were calls for user space, compiler would have to spill registers
+around such calls anyway. Teaching compiler to treat such helpers differently
+is even uglier.
 
-diff --cc net/socket.c
-index f6c519d7b3ba,95d3085cb477..000000000000
---- a/net/socket.c
-+++ b/net/socket.c
-@@@ -855,11 -807,10 +807,10 @@@ static ssize_t sock_read_iter(struct ki
-  	if (iocb->ki_pos !=3D 0)
-  		return -ESPIPE;
- =20
- -	if (iocb->ki_nbytes =3D=3D 0)	/* Match SYS5 behaviour */
- +	if (!iov_iter_count(to))	/* Match SYS5 behaviour */
-  		return 0;
- =20
-- 	res =3D __sock_recvmsg(iocb, sock, &msg,
-- 			     iov_iter_count(to), msg.msg_flags);
- -	res =3D sock_recvmsg(sock, &msg, iocb->ki_nbytes, msg.msg_flags);
-++	res =3D sock_recvmsg(sock, &msg, iov_iter_count(to), msg.msg_flags);
-  	*to =3D msg.msg_iter;
-  	return res;
-  }
-@@@ -880,7 -831,7 +831,7 @@@ static ssize_t sock_write_iter(struct k
-  	if (sock->type =3D=3D SOCK_SEQPACKET)
-  		msg.msg_flags |=3D MSG_EOR;
- =20
-- 	res =3D __sock_sendmsg(iocb, sock, &msg, iov_iter_count(from));
- -	res =3D sock_sendmsg(sock, &msg, iocb->ki_nbytes);
-++	res =3D sock_sendmsg(sock, &msg, iov_iter_count(from));
-  	*from =3D msg.msg_iter;
-  	return res;
-  }
+They were few other ideas considered. At the end the best seems to be to
+introduce a user accessible mirror of in-kernel sk_buff structure:
 
---Sig_/gq5ucSd4VE9yMwX2d+==V2J
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+struct __sk_buff {
+    __u32 len;
+    __u32 pkt_type;
+    __u32 mark;
+    __u32 ifindex;
+    __u32 queue_mapping;
+};
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+bpf programs will do:
 
-iQIcBAEBCAAGBQJVAkhUAAoJEMDTa8Ir7ZwVG5EP/1vqUfrhDlfVPB4neBvGHVrI
-ilRXWeza00D+cxKXrzIHgzlJWpnEHzMSM2kSlKTNbggZmWUdG4NPh8ie/aElkoN0
-gwmYkzrJKeePlNtZGwJUkdWqdXXw+HfB5PFIg2ew1Yjc7PbJ6CAu+4OdZz05aFHx
-gIddKx1FI1zlhITz7SGbbkuVPNNNJ1A2s5Rp+VEHJZROIYam3nCen51TgSUJZ+uV
-QiSzWHAgSgd1d/nHpI45dfsOUBAEIYkECWYp5Vs4vVmCcEfGDx7wHNX+2Biyt9gx
-Tfh17UfaJcmu1RFUQPK/zPREgokdmHEepOMrkTnYEIxbCjZn3a6TBP2to/KedOY0
-1GxlIMkFoPum6Bhgigh8puBK5lH/SgkYwy+2UR7YQNyuRobuv7/y0WLCDpYb5EfT
-OtfY2T64APbWFZ67vKrtbu2i+SxBuCjY/QbGiO8NqrOPktSoZIE58UR1B4L0Jsh4
-Ltl1eYeW6kBD5s+uDQgVf1d6b52R5AcyvU7fsQm3EeXAGhTfMVb36et67/r6fF8D
-hBorWrO2cZXBX42zKYyrlS4F5Vsg1aPoM1jQSBCqsQpeXkcL+CJMRkMG1N2Dq6eo
-rbBIdpxWImpPz/NgoNUgX98Q3OZIfB1e5H+yVGQikOauosyTxF2zitlkB2Wih4Jh
-YXYIstnK9pYKap7Fhf6v
-=zMg+
------END PGP SIGNATURE-----
+int bpf_prog1(struct __sk_buff *skb)
+{
+    __u32 var = skb->pkt_type;
 
---Sig_/gq5ucSd4VE9yMwX2d+==V2J--
+which will be compiled to bpf assembler as:
+
+dst_reg = *(u32 *)(src_reg + 4) // 4 == offsetof(struct __sk_buff, pkt_type)
+
+bpf verifier will check validity of access and will convert it to:
+
+dst_reg = *(u8 *)(src_reg + offsetof(struct sk_buff, __pkt_type_offset))
+dst_reg &= 7
+
+since 'pkt_type' is a bitfield.
+
+llvm doesn't need to be modified at all, JITs don't change either and
+verifier already knows when it accesses 'ctx' pointer.
+The only thing needed was to convert user visible offset within __sk_buff
+to kernel internal offset within sk_buff.
+For 'len' and other fields conversion is trivial.
+Converting 'pkt_type' takes 2 or 3 instructions depending on endianness.
+More fields can be exposed by adding to the end of the 'struct __sk_buff'.
+Like vlan_tci and others can be added later.
+
+When pkt_type field is moved around, goes into different structure, removed or
+its size changes, the function sk_filter_convert_ctx_access() would need to be
+updated. Just like the function convert_bpf_extensions() in case of classic bpf.
+
+Patch 2 updates examples to demonstrates how fields are accessed and
+adds new tests for verifier, since it needs to detect a corner case when
+attacker is using single bpf instruction in two branches with different
+register types.
+
+The 5 fields of __sk_buff are already exposed to user space via classic bpf and
+I believe they're useful to access from extended.
+I don't think we need to expose skb->protocol or skb->dev->type, but that's
+a seprate discussion.
+
+Daniel,
+patch 1 includes a bit of code that does prog_realloc and branch adjustment
+to make room for new instructions. I think you'd need the same for your
+'constant blinding' work. If indeed that would be the case, we'll make it
+into a helper function.
+
+Since sk_filter_ops are shared between BPF_PROG_TYPE_SOCKET_FILTER and
+BPF_PROG_TYPE_SCHED_CLS types, cls_bpf will be able to see packet length :)
+
+Alexei Starovoitov (2):
+  bpf: allow extended BPF programs access skb fields
+  samples: bpf: add skb->field examples and tests
+
+ include/linux/bpf.h         |    5 +-
+ include/uapi/linux/bpf.h    |    8 +++
+ kernel/bpf/syscall.c        |    2 +-
+ kernel/bpf/verifier.c       |  152 ++++++++++++++++++++++++++++++++++++++-----
+ net/core/filter.c           |   58 ++++++++++++++++-
+ samples/bpf/sockex1_kern.c  |    8 ++-
+ samples/bpf/sockex1_user.c  |    2 +-
+ samples/bpf/sockex2_kern.c  |   26 +++++---
+ samples/bpf/sockex2_user.c  |   11 +++-
+ samples/bpf/test_verifier.c |   73 +++++++++++++++++++++
+ 10 files changed, 309 insertions(+), 36 deletions(-)
+
+-- 
+1.7.9.5
