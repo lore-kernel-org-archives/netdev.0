@@ -1,86 +1,44 @@
-From: Horia Geanta <horia.geanta@freescale.com>
-Subject: [PATCH 2/4] net: esp: check CRYPTO_TFM_REQ_DMA flag when allocating crypto request
-Date: Fri, 13 Mar 2015 19:15:22 +0200
-Message-ID: <1426266922-31679-1-git-send-email-horia.geanta@freescale.com>
-References: <1426266882-31626-1-git-send-email-horia.geanta@freescale.com>
+From: Nicholas Mc Guire <der.herr-kA1LtwSENNE@public.gmane.org>
+Subject: Re: [PATCH] ath10k: match wait_for_completion_timeout return type
+Date: Fri, 13 Mar 2015 18:34:05 +0100
+Message-ID: <20150313173405.GB9934@opentech.at>
+References: <1426094076-10134-1-git-send-email-hofrat@osadl.org> <87y4n0q1rq.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kim Phillips <kim.phillips@freescale.com>
-To: <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0138.outbound.protection.outlook.com ([157.56.110.138]:22256
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751847AbbCMRaO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 13:30:14 -0400
-In-Reply-To: <1426266882-31626-1-git-send-email-horia.geanta@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87y4n0q1rq.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Some crypto backends might require the requests' private contexts
-to be allocated in DMA-able memory.
+On Fri, 13 Mar 2015, Kalle Valo wrote:
 
-Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
----
+> Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org> writes:
+> 
+> > Return type of wait_for_completion_timeout is unsigned long not int.
+> > An appropriately named unsigned long is added and the assignments fixed up.
+> >
+> > Signed-off-by: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
+> 
+> Doesn't apply:
+> 
+> Applying: ath10k: match wait_for_completion_timeout return type
+> fatal: sha1 information is lacking or useless (drivers/net/wireless/ath/ath10k/mac.c).
+> Repository lacks necessary blobs to fall back on 3-way merge.
+> Cannot fall back to three-way merge.
+> Patch failed at 0001 ath10k: match wait_for_completion_timeout return type
+>
+sorry - no idea how I managed that - checking it.
 
-Depends on patch 1/4 (sent only on crypto list) that adds the
-CRYPTO_TFM_REQ_DMA flag.
+Will fix it up and repost.
 
- net/ipv4/esp4.c | 7 ++++++-
- net/ipv6/esp6.c | 7 ++++++-
- 2 files changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 60173d4d3a0e..3e6ddece0cbe 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -38,6 +38,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
- static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
- {
- 	unsigned int len;
-+	gfp_t gfp = GFP_ATOMIC;
- 
- 	len = seqhilen;
- 
-@@ -54,7 +55,11 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
- 
- 	len += sizeof(struct scatterlist) * nfrags;
- 
--	return kmalloc(len, GFP_ATOMIC);
-+	if (crypto_aead_reqsize(aead) &&
-+	    (crypto_aead_get_flags(aead) & CRYPTO_TFM_REQ_DMA))
-+		gfp |= GFP_DMA;
-+
-+	return kmalloc(len, gfp);
- }
- 
- static inline __be32 *esp_tmp_seqhi(void *tmp)
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index e48f2c7c5c59..0d173eedad4e 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -65,6 +65,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu);
- static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqihlen)
- {
- 	unsigned int len;
-+	gfp_t gfp = GFP_ATOMIC;
- 
- 	len = seqihlen;
- 
-@@ -81,7 +82,11 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqihlen)
- 
- 	len += sizeof(struct scatterlist) * nfrags;
- 
--	return kmalloc(len, GFP_ATOMIC);
-+	if (crypto_aead_reqsize(aead) &&
-+	    (crypto_aead_get_flags(aead) & CRYPTO_TFM_REQ_DMA))
-+		gfp |= GFP_DMA;
-+
-+	return kmalloc(len, gfp);
- }
- 
- static inline __be32 *esp_tmp_seqhi(void *tmp)
--- 
-1.8.3.1
+thx!
+hofrat
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
