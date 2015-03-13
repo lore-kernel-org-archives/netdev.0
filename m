@@ -1,51 +1,40 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [PATCH v2 nf-next 1/6] net: untangle ip_fragment and bridge netfilter
-Date: Thu, 12 Mar 2015 17:38:11 -0700
-Message-ID: <CACzMAJJwWFnxk76cFdVgNsAYgDROAuu=+UtP1zVa0JbHq5QxbA@mail.gmail.com>
-References: <1426179925-18220-1-git-send-email-fw@strlen.de>
-	<1426179925-18220-2-git-send-email-fw@strlen.de>
+From: ATM OFFICE <matsuya-tm@jupiter.ocn.ne.jp>
+Subject: HELLO DEAR BENEFICIARY
+Date: Fri, 13 Mar 2015 09:35:49 +0900 (JST)
+Message-ID: <1729101769.2896383.1426206949700.JavaMail.root@jupiter.ocn.ne.jp>
+Reply-To: "Mr. Everest Ony" <everest_onye@outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aob139.obsmtp.com ([74.125.149.251]:39565 "HELO
-	psmtp.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751391AbbCMAiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Mar 2015 20:38:19 -0400
-Received: by mail-ie0-f181.google.com with SMTP id vj10so67917278iec.0
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 17:38:13 -0700 (PDT)
-In-Reply-To: <1426179925-18220-2-git-send-email-fw@strlen.de>
+Received: from mbkd0325.ocn.ad.jp ([153.149.236.26]:40736 "EHLO
+	mbkd0325.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391AbbCMAvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 20:51:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 10:05 AM, Florian Westphal <fw@strlen.de> wrote:
-> Long time ago it was possible for the netfilter ip_conntrack
-> core to call ip_fragment in POST_ROUTING hook.
->
-> This is no longer the case, so the only case where bridge netfilter
-> ends up calling ip_fragment is the direct call site in br_netfilter.c.
->
-> Add ll and mtu arguments for ip_fragment and then get rid of the bridge
-> netfilter specific helpers from ip_fragment.
->
-> Cc: Andy Zhou <azhou@nicira.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  include/linux/netfilter_bridge.h | 17 -----------------
->  include/net/ip.h                 |  4 ++--
->  net/bridge/br_netfilter.c        | 23 ++++++++++++++++++++---
->  net/ipv4/ip_output.c             | 37 +++++++++++++++++++++----------------
->  4 files changed, 43 insertions(+), 38 deletions(-)
->
-> diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-> index ed0d3bf..fbbd5de 100644
-> --- a/include/linux/netfilter_bridge.h
-> +++ b/include/linux/netfilter_bridge.h
-I like this patch a lot.  The nf_brdige was confusing to me when I
-looked into this area. I am happen to it is going away.
+Dear Beneficiary
 
-With this patch, it seems we don't need the 'dev' variable anymore,
-all we need is 'net' and we can move it into the 'if' block for
-sending icmp.
+This is to inform you that your Fund through our global intelligence
+check network of monitoring and after due consideration
+unclaimed amounts approved for payment to you. the waiting
+the Fund has been removed and is credited with success in the ATM card
+It is ready to be delivered to you immediately. This office will send you a MasterCard card that you will use to withdraw your funds at any ATM or machine output MASTERCARD worldwide, with a maximum of $5,000 daily.
+
+All you have to do now is contact Mr.Everest Ony and ask him to send you the ATM card
+valued at $1,300, 000, 00 USD
+Please contact him immediately in his email address: (everest_onye@outlook.com)
+Submit your information below
+so that he  can deliver your ATM card to you,You can ask him to tell you more about this your fund.
+
+1. FULL NAME: _
+2. YOUR ADDRESS: _
+3. the name of the country: _
+4. PHONE: _
+5.OCCUPATION: _
+_________________ 6.AGE
+Best regards
+
+Mr.Osman
