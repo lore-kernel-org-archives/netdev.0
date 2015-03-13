@@ -1,67 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ip6_tunnel: fix error code when tunnel exists
-Date: Fri, 13 Mar 2015 06:43:47 -0700
-Message-ID: <1426254227.11398.183.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426251537-31870-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH 4/4] netfilter: Fix format string of nfnetlink_queue proc
+ file
+Date: Fri, 13 Mar 2015 14:43:54 +0100
+Message-ID: <5502E99A.2060901@nod.at>
+References: <1426246276-15839-1-git-send-email-richard@nod.at> <1426246276-15839-5-git-send-email-richard@nod.at> <20150313121539.GA14488@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	me@pierre-cheynier.net,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sameo@linux.intel.com,
+	aloisio.almeida@openbossa.org, lauro.venancio@openbossa.org,
+	davem@davemloft.net, kadlec@blackhole.kfki.hu, kaber@trash.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:36463 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755301AbbCMNn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 09:43:59 -0400
-Received: by iegc3 with SMTP id c3so108199311ieg.3
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 06:43:58 -0700 (PDT)
-In-Reply-To: <1426251537-31870-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from a.ns.miles-group.at ([95.130.255.143]:65276 "EHLO radon.swed.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755338AbbCMNoB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2015 09:44:01 -0400
+In-Reply-To: <20150313121539.GA14488@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-03-13 at 13:58 +0100, Nicolas Dichtel wrote:
-> After commit 2b0bb01b6edb, the kernel returns -ENOBUFS when user tries to add
-> an existing tunnel with ioctl API:
-> $ ip -6 tunnel add ip6tnl1 mode ip6ip6 dev eth1
-> add tunnel "ip6tnl0" failed: No buffer space available
+Am 13.03.2015 um 13:15 schrieb Pablo Neira Ayuso:
+> On Fri, Mar 13, 2015 at 12:31:16PM +0100, Richard Weinberger wrote:
+>> The printed values are all of type unsigned integer, therefore use
+>> %u instead of %d. Otherwise an user can face negative values.
+>>
+>> Fixes:
+>> $ cat /proc/net/netfilter/nfnetlink_queue
+>>     0  29508   278 2 65531     0 2004213241 -2129885586  1
+>>     1 -27747     0 2 65531     0     0        0  1
+>>     2 -27748     0 2 65531     0     0        0  1
 > 
-> It's confusing, the right error is EEXIST.
+> I guess you want to access stats on dropped packets.
+
+Correct. :)
+
+> I prefer if you extend nfnetlink_queue to provide statistics through
+> nfnetlink_queue, so you don't have to manually parse this text-based
+> /proc entry and we can deprecate this interface. That shouldn't have
+> been there in first place.
+
+You mean statistics via netlink attributes? I can add that!
+But I think we should also fix the format string of the proc file
+as the fix is easy and non-intrusive.
+
+Thanks,
+//richard
+
+> Thanks.
 > 
-> Fixes: 2b0bb01b6edb ("ip6_tunnel: Return an error when adding an existing tunnel.")
-> CC: Steffen Klassert <steffen.klassert@secunet.com>
-> Reported-by: Pierre Cheynier <me@pierre-cheynier.net>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  net/ipv6/ip6_tunnel.c | 22 +++++++++++++---------
->  1 file changed, 13 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-> index 266a264ec212..7ba5608d64c5 100644
-> --- a/net/ipv6/ip6_tunnel.c
-> +++ b/net/ipv6/ip6_tunnel.c
-> @@ -380,7 +380,7 @@ static struct ip6_tnl *ip6_tnl_locate(struct net *net,
->  		if (ipv6_addr_equal(local, &t->parms.laddr) &&
->  		    ipv6_addr_equal(remote, &t->parms.raddr)) {
->  			if (create)
-> -				return NULL;
-> +				return ERR_PTR(-EEXIST);
->  
->  			return t;
->  		}
-> @@ -1420,7 +1420,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  			}
->  			ip6_tnl_parm_from_user(&p1, &p);
->  			t = ip6_tnl_locate(net, &p1, 0);
-> -			if (t == NULL)
-> +			if (IS_ERR_OR_NULL(t))
-
-These IS_ERR_OR_NULL(t) looks like defensive/lazy programming to me.
-
-A NULL pointer should not be allowed here.
-
-If t is not valid, it should be a plain error code mapping.
-
-I wish we get rid of all IS_ERR_OR_NULL() uses in networking tree,
-instead of adding plenty of them.
+>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>> ---
+>>  net/netfilter/nfnetlink_queue_core.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+>> index 1b7f7b8..2121ab5 100644
+>> --- a/net/netfilter/nfnetlink_queue_core.c
+>> +++ b/net/netfilter/nfnetlink_queue_core.c
+>> @@ -1243,7 +1243,7 @@ static int seq_show(struct seq_file *s, void *v)
+>>  {
+>>  	const struct nfqnl_instance *inst = v;
+>>  
+>> -	seq_printf(s, "%5d %6d %5d %1d %5d %5d %5d %8d %2d\n",
+>> +	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %2d\n",
+>>  		   inst->queue_num,
+>>  		   inst->peer_portid, inst->queue_total,
+>>  		   inst->copy_mode, inst->copy_range,
+>> -- 
+>> 1.8.4.5
+>>
