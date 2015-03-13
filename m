@@ -1,66 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Fix statistics locking scheme
-Date: Fri, 13 Mar 2015 12:38:22 -0400 (EDT)
-Message-ID: <20150313.123822.1761706097366192562.davem@davemloft.net>
-References: <1426253565-10302-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v6 tip 3/8] tracing: allow BPF programs to call bpf_ktime_get_ns()
+Date: Fri, 13 Mar 2015 09:38:37 -0700
+Message-ID: <5503128D.70908@plumgrid.com>
+References: <1426047534-8148-1-git-send-email-ast@plumgrid.com> <1426047534-8148-4-git-send-email-ast@plumgrid.com> <5502C8EB.9070307@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51229 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752303AbbCMQiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:38:23 -0400
-In-Reply-To: <1426253565-10302-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5502C8EB.9070307-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Fri, 13 Mar 2015 15:32:45 +0200
+On 3/13/15 4:24 AM, He Kuang wrote:
+> Hi, Alexei
+>
+> I've followed up your bpf version. In bpf filter, sometimes we need to
+> get 'pid' and some other context informations to decide whether to
+> filter or not.
+>
+> For example, to trace a vfs read procedure, we can insert bpf program to
+> '__vfs_read(struct file *file, char __user *buf ...)', mark some of
+> 'buf' addresses and only trace the read procedure of these 'buf's. But
+> this parameter is a userspace pointer, the value is meaningless to other
+> processes, so we should also record 'pid' to make sense.
+>
+> To a function like __vfs_read, 'pid' can't be extracted from function
+> parameters directly. What's your opinion on this issue?
 
-> -	spin_lock_bh(&bp->stats_lock);
-> -	state = bp->stats_state;
-> +	/* Statistics update run from timer context, and we don't want to stop
-> +	 * that context in case someone is in the middle of a transition.
-> +	 * For other events, wait a bit until lock is taken.
-> +	 */
-> +	if (down_trylock(&bp->stats_lock)) {
-> +		if (event == STATS_EVENT_UPDATE)
-> +			return;
-> +
-> +		if (down_timeout(&bp->stats_lock, HZ / 10))
-> +			BNX2X_ERR("Unable to acquire stats lock\n");
-> +	}
-> +
-> +	bnx2x_stats_stm[state][event].action(bp);
-
-You run the action even if you can't get the semaphore.
-
-> +{
-> +	int cnt = 10;
-> +
-> +	if (down_timeout(&bp->stats_lock, HZ / 10))
->  		BNX2X_ERR("Unable to acquire stats lock\n");
-> +
-> +	/* Wait for statistics to end, then run supplied function 'safely' */
->  	bnx2x_stats_comp(bp);
-> +	while (bp->stats_pending && cnt) {
-> +		if (bnx2x_storm_stats_update(bp)) {
-> +			usleep_range(1000, 2000);
-> +			cnt--;
-> +		}
-> +	}
-> +	if (bp->stats_pending)
-> +		BNX2X_ERR("Failed to wait for stats pending to stop; Continuing anyway\n");
-
-Here again, same thing, if you timeout trying to wait for the pending
-counter to clear, you still execute the protected section of code.
-
-This is terrible.
-
-Either you use locking to protect critical sections, or you don't.
-
-I do not want to see any code that enters the critical section when
-the locked state cannot be acquired.
+yes. it's the next thing on todo list after this set of patches.
+There are several ways to let programs see 'pid'. We'll debate about
+the best approach hopefully soon :)
