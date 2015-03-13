@@ -1,41 +1,287 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 5/8] iproute2: misc whitespace cleanup
-Date: Fri, 13 Mar 2015 13:56:05 -0500
-Message-ID: <87egosraka.fsf@x220.int.ebiederm.org>
+Subject: [PATCH net-next 6/8] iproute2: Add support for  RTA_VIA attributes
+Date: Fri, 13 Mar 2015 13:57:40 -0500
+Message-ID: <878uf0rahn.fsf@x220.int.ebiederm.org>
 References: <87bnjwspek.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:47578 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:48009 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754352AbbCMS7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 14:59:47 -0400
+	with ESMTP id S1752656AbbCMTBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:01:23 -0400
 In-Reply-To: <87bnjwspek.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Fri, 13 Mar 2015 13:50:11 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This removes an extra space and causes things to line up.
+Add support for the RTA_VIA attribute that specifies an address family
+as well as an address for the next hop gateway.
 
+To make it easy to pass this reorder inet_prefix so that it's tail
+is a proper RTA_VIA attribute.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- ip/iptunnel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/rtnetlink.h |  7 +++++
+ include/utils.h           |  7 +++--
+ ip/iproute.c              | 76 +++++++++++++++++++++++++++++++++++++++++------
+ man/man8/ip-route.8.in    | 18 +++++++----
+ 4 files changed, 90 insertions(+), 18 deletions(-)
 
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index 29188c450370..be84b83ec673 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -342,7 +342,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
- 	printf("%s: %s/ip  remote %s  local %s ",
- 	       p->name,
- 	       tnl_strproto(p->iph.protocol),
--	       p->iph.daddr ? format_host(AF_INET, 4, &p->iph.daddr, s1, sizeof(s1))  : "any",
-+	       p->iph.daddr ? format_host(AF_INET, 4, &p->iph.daddr, s1, sizeof(s1)) : "any",
- 	       p->iph.saddr ? rt_addr_n2a(AF_INET, 4, &p->iph.saddr, s2, sizeof(s2)) : "any");
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 3eb78105399b..03e4c8df8e60 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -303,6 +303,7 @@ enum rtattr_type_t {
+ 	RTA_TABLE,
+ 	RTA_MARK,
+ 	RTA_MFC_STATS,
++	RTA_VIA,
+ 	__RTA_MAX
+ };
  
- 	if (p->iph.protocol == IPPROTO_IPV6 && (p->i_flags & SIT_ISATAP)) {
+@@ -344,6 +345,12 @@ struct rtnexthop {
+ #define RTNH_SPACE(len)	RTNH_ALIGN(RTNH_LENGTH(len))
+ #define RTNH_DATA(rtnh)   ((struct rtattr*)(((char*)(rtnh)) + RTNH_LENGTH(0)))
+ 
++/* RTA_VIA */
++struct rtvia {
++	__kernel_sa_family_t	rtvia_family;
++	__u8			rtvia_addr[0];
++};
++
+ /* RTM_CACHEINFO */
+ 
+ struct rta_cacheinfo {
+diff --git a/include/utils.h b/include/utils.h
+index d96bd03dd816..2db09c7f790f 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -50,10 +50,11 @@ extern void incomplete_command(void) __attribute__((noreturn));
+ 
+ typedef struct
+ {
+-	__u8 family;
+-	__u8 bytelen;
++	__u16 flags;
++	__u16 bytelen;
+ 	__s16 bitlen;
+-	__u32 flags;
++	/* These next two fields match rtvia */
++	__u16 family;
+ 	__u32 data[8];
+ } inet_prefix;
+ 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 201eb98a23ad..6c40899dbf46 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -75,7 +75,8 @@ static void usage(void)
+ 	fprintf(stderr, "             [ table TABLE_ID ] [ proto RTPROTO ]\n");
+ 	fprintf(stderr, "             [ scope SCOPE ] [ metric METRIC ]\n");
+ 	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
+-	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
++	fprintf(stderr, "NH := [ via [ FAMILY ] ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
++	fprintf(stderr, "FAMILY := [ inet | inet6 | ipx | dnet | bridge | link ]");
+ 	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
+ 	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ] [ reordering NUMBER ]\n");
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+@@ -185,8 +186,15 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
+ 	    (r->rtm_family != filter.msrc.family ||
+ 	     (filter.msrc.bitlen >= 0 && filter.msrc.bitlen < r->rtm_src_len)))
+ 		return 0;
+-	if (filter.rvia.family && r->rtm_family != filter.rvia.family)
+-		return 0;
++	if (filter.rvia.family) {
++		int family = r->rtm_family;
++		if (tb[RTA_VIA]) {
++			struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
++			family = via->rtvia_family;
++		}
++		if (family != filter.rvia.family)
++			return 0;
++	}
+ 	if (filter.rprefsrc.family && r->rtm_family != filter.rprefsrc.family)
+ 		return 0;
+ 
+@@ -205,6 +213,12 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
+ 		via.family = r->rtm_family;
+ 		if (tb[RTA_GATEWAY])
+ 			memcpy(&via.data, RTA_DATA(tb[RTA_GATEWAY]), host_len/8);
++		if (tb[RTA_VIA]) {
++			size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
++			struct rtvia *rtvia = RTA_DATA(tb[RTA_VIA]);
++			via.family = rtvia->rtvia_family;
++			memcpy(&via.data, rtvia->rtvia_addr, len);
++		}
+ 	}
+ 	if (filter.rprefsrc.bitlen>0) {
+ 		memset(&prefsrc, 0, sizeof(prefsrc));
+@@ -400,6 +414,14 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				    RTA_DATA(tb[RTA_GATEWAY]),
+ 				    abuf, sizeof(abuf)));
+ 	}
++	if (tb[RTA_VIA]) {
++		size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
++		struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
++		fprintf(fp, "via %s %s ",
++			family_name(via->rtvia_family),
++			format_host(via->rtvia_family, len, via->rtvia_addr,
++				    abuf, sizeof(abuf)));
++	}
+ 	if (tb[RTA_OIF] && filter.oifmask != -1)
+ 		fprintf(fp, "dev %s ", ll_index_to_name(*(int*)RTA_DATA(tb[RTA_OIF])));
+ 
+@@ -615,6 +637,14 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 							    RTA_DATA(tb[RTA_GATEWAY]),
+ 							    abuf, sizeof(abuf)));
+ 				}
++				if (tb[RTA_VIA]) {
++					size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
++					struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
++					fprintf(fp, "via %s %s ",
++						family_name(via->rtvia_family),
++						format_host(via->rtvia_family, len, via->rtvia_addr,
++							    abuf, sizeof(abuf)));
++				}
+ 				if (tb[RTA_FLOW]) {
+ 					__u32 to = rta_getattr_u32(tb[RTA_FLOW]);
+ 					__u32 from = to>>16;
+@@ -662,12 +692,23 @@ static int parse_one_nh(struct rtmsg *r, struct rtattr *rta,
+ 	while (++argv, --argc > 0) {
+ 		if (strcmp(*argv, "via") == 0) {
+ 			inet_prefix addr;
++			int family;
+ 			NEXT_ARG();
+-			get_addr(&addr, *argv, r->rtm_family);
++			family = read_family(*argv);
++			if (family == AF_UNSPEC)
++				family = r->rtm_family;
++			else
++				NEXT_ARG();
++			get_addr(&addr, *argv, family);
+ 			if (r->rtm_family == AF_UNSPEC)
+ 				r->rtm_family = addr.family;
+-			rta_addattr_l(rta, 4096, RTA_GATEWAY, &addr.data, addr.bytelen);
+-			rtnh->rtnh_len += sizeof(struct rtattr) + addr.bytelen;
++			if (addr.family == r->rtm_family) {
++				rta_addattr_l(rta, 4096, RTA_GATEWAY, &addr.data, addr.bytelen);
++				rtnh->rtnh_len += sizeof(struct rtattr) + addr.bytelen;
++			} else {
++				rta_addattr_l(rta, 4096, RTA_VIA, &addr.family, addr.bytelen+2);
++				rtnh->rtnh_len += sizeof(struct rtattr) + addr.bytelen+2;
++			}
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+ 			if ((rtnh->rtnh_ifindex = ll_name_to_index(*argv)) == 0) {
+@@ -775,12 +816,21 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			addattr_l(&req.n, sizeof(req), RTA_PREFSRC, &addr.data, addr.bytelen);
+ 		} else if (strcmp(*argv, "via") == 0) {
+ 			inet_prefix addr;
++			int family;
+ 			gw_ok = 1;
+ 			NEXT_ARG();
+-			get_addr(&addr, *argv, req.r.rtm_family);
++			family = read_family(*argv);
++			if (family == AF_UNSPEC)
++				family = req.r.rtm_family;
++			else
++				NEXT_ARG();
++			get_addr(&addr, *argv, family);
+ 			if (req.r.rtm_family == AF_UNSPEC)
+ 				req.r.rtm_family = addr.family;
+-			addattr_l(&req.n, sizeof(req), RTA_GATEWAY, &addr.data, addr.bytelen);
++			if (addr.family == req.r.rtm_family)
++				addattr_l(&req.n, sizeof(req), RTA_GATEWAY, &addr.data, addr.bytelen);
++			else
++				addattr_l(&req.n, sizeof(req), RTA_VIA, &addr.family, addr.bytelen+2);
+ 		} else if (strcmp(*argv, "from") == 0) {
+ 			inet_prefix addr;
+ 			NEXT_ARG();
+@@ -1265,8 +1315,14 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
+ 			get_unsigned(&mark, *argv, 0);
+ 			filter.markmask = -1;
+ 		} else if (strcmp(*argv, "via") == 0) {
++			int family;
+ 			NEXT_ARG();
+-			get_prefix(&filter.rvia, *argv, do_ipv6);
++			family = read_family(*argv);
++			if (family == AF_UNSPEC)
++				family = do_ipv6;
++			else
++				NEXT_ARG();
++			get_prefix(&filter.rvia, *argv, family);
+ 		} else if (strcmp(*argv, "src") == 0) {
+ 			NEXT_ARG();
+ 			get_prefix(&filter.rprefsrc, *argv, do_ipv6);
+@@ -1568,6 +1624,8 @@ static int iproute_get(int argc, char **argv)
+ 			tb[RTA_OIF]->rta_type = 0;
+ 		if (tb[RTA_GATEWAY])
+ 			tb[RTA_GATEWAY]->rta_type = 0;
++		if (tb[RTA_VIA])
++			tb[RTA_VIA]->rta_type = 0;
+ 		if (!idev && tb[RTA_IIF])
+ 			tb[RTA_IIF]->rta_type = 0;
+ 		req.n.nlmsg_flags = NLM_F_REQUEST;
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 2b1583d5a30c..906cfea0cd6b 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -81,13 +81,18 @@ replace " } "
+ .ti -8
+ .IR NH " := [ "
+ .B  via
+-.IR ADDRESS " ] [ "
++[
++.IR FAMILY " ] " ADDRESS " ] [ "
+ .B  dev
+ .IR STRING " ] [ "
+ .B  weight
+ .IR NUMBER " ] " NHFLAGS
+ 
+ .ti -8
++.IR FAMILY " := [ "
++.BR inet " | " inet6 " | " ipx " | " dnet " | " bridge " | " link " ]"
++
++.ti -8
+ .IR OPTIONS " := " FLAGS " [ "
+ .B  mtu
+ .IR NUMBER " ] [ "
+@@ -333,9 +338,10 @@ table by default.
+ the output device name.
+ 
+ .TP
+-.BI via " ADDRESS"
+-the address of the nexthop router.  Actually, the sense of this field
+-depends on the route type.  For normal
++.BI via " [ FAMILY ] ADDRESS"
++the address of the nexthop router, in the address family FAMILY.
++Actually, the sense of this field depends on the route type.  For
++normal
+ .B unicast
+ routes it is either the true next hop router or, if it is a direct
+ route installed in BSD compatibility mode, it can be a local address
+@@ -472,7 +478,7 @@ is a complex value with its own syntax similar to the top level
+ argument lists:
+ 
+ .in +8
+-.BI via " ADDRESS"
++.BI via " [ FAMILY ] ADDRESS"
+ - is the nexthop router.
+ .sp
+ 
+@@ -669,7 +675,7 @@ only list routes of this type.
+ only list routes going via this device.
+ 
+ .TP
+-.BI via " PREFIX"
++.BI via " [ FAMILY ] PREFIX"
+ only list routes going via the nexthop routers selected by
+ .IR PREFIX "."
+ 
 -- 
 2.2.1
