@@ -1,56 +1,37 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/2] bpf: allow extended BPF programs access
- skb fields
-Date: Fri, 13 Mar 2015 17:43:34 +0100
-Message-ID: <550313B6.2080701@iogearbox.net>
-References: <1426213271-8363-1-git-send-email-ast@plumgrid.com> <1426213271-8363-2-git-send-email-ast@plumgrid.com> <5502B48B.7040909@iogearbox.net> <55030ED8.4020209@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] inet_diag: fix possible overflow in
+ inet_diag_dump_one_icsk()
+Date: Fri, 13 Mar 2015 09:47:22 -0700
+Message-ID: <1426265242.11398.189.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426262994.11398.188.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55030ED8.4020209@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:32877 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752134AbbCMQrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:47:32 -0400
+Received: by iecvj10 with SMTP id vj10so110985867iec.0
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 09:47:31 -0700 (PDT)
+In-Reply-To: <1426262994.11398.188.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2015 05:22 PM, Alexei Starovoitov wrote:
-> On 3/13/15 2:57 AM, Daniel Borkmann wrote:
->> On 03/13/2015 03:21 AM, Alexei Starovoitov wrote:
->>> introduce user accessible mirror of in-kernel 'struct sk_buff':
->>
->> For each member, I'd also add BUILD_BUG_ON()s similarly as we have in
->> convert_bpf_extensions(). That way, people won't forget to adjust the
->> code.
->
-> I thought about it, but didn't add it, since we already have them
-> in the same file several lines above this spot.
-> I think one build error per .c file should be enough to attract
-> attention.
-> Though I'll add a comment to convert_bpf_extensions() that build_bug_on
-> errors should be addressed in two places.
+On Fri, 2015-03-13 at 09:09 -0700, Eric Dumazet wrote:
 
-My concern would be that in case the code gets changed, this spot
-could easily be overlooked by someone possibly unfamiliar with the
-code, since no build error triggers there.
 
-So I guess it wouldn't hurt or cost us much to also adding the
-BUILD_BUG_ON()s there instead of a comment.
+> 
+> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+> index 81751f12645f..3ad64c8e4079 100644
+> --- a/net/ipv4/inet_diag.c
+> +++ b/net/ipv4/inet_diag.c
+> @@ -71,6 +71,20 @@ static inline void inet_diag_unlock_handler(
+>  	mutex_unlock(&inet_diag_table_mutex);
+>  }
+>  
+> +size_t inet_sk_attr_size(void)
 
-...
->> The remaining fields we export in classic BPF would be skb->hash,
->> skb->protocol, skb->vlan_tci, are we adding them as well to match
->> up functionality with classic BPF? For example, I can see hash being
->> useful as a key to be used with eBPF maps, etc.
->
-> I want to do skb->protocol and skb->vlan_tci differently and hopefully
-> more generically than classic did them, so they will come in the
-> follow on patches. skb->hash also should be done differently.
-> So yes. All of them are subjects of future patches/discussions.
-
-Ok, sounds good.
-
-Thanks,
-Daniel
+Arg, I forgot static here, will send a v2
