@@ -1,55 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/2] net: bcmgenet: use skb_put_padto()
-Date: Fri, 13 Mar 2015 15:58:31 -0700
-Message-ID: <1426287512-10742-2-git-send-email-f.fainelli@gmail.com>
-References: <1426287512-10742-1-git-send-email-f.fainelli@gmail.com>
-Cc: edumazet@google.com, Florian Fainelli <f.fainelli@gmail.com>,
-	davem@davemloft.net, jaedon.shin@gmail.com, pgynther@google.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 2/3] inet_diag: adjust inet_sk_diag_fill() bug condition
+Date: Fri, 13 Mar 2015 15:51:11 -0700
+Message-ID: <1426287072-22175-3-git-send-email-edumazet@google.com>
+References: <1426287072-22175-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:35940 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757262AbbCMW7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 18:59:42 -0400
-Received: by pdbnh10 with SMTP id nh10so32298535pdb.3
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 15:59:41 -0700 (PDT)
-In-Reply-To: <1426287512-10742-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-qg0-f73.google.com ([209.85.192.73]:33607 "EHLO
+	mail-qg0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756989AbbCMW6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 18:58:48 -0400
+Received: by qgdz107 with SMTP id z107so4317178qgd.0
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 15:58:48 -0700 (PDT)
+In-Reply-To: <1426287072-22175-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We use skb_pad() to pad small packets, and then we need to enforce again
-in bcmgenet_xmit() a check on ETH_ZLEN. Use skb_put_padto() which pads
-up to the specified length and also increases skb->len accordingly. Note
-that we still need to use skb_headlen() since we might transmitting the
-first part out of a train of fragments.
+inet_sk_diag_fill() only copes with non timewait and non request socks
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/ipv4/inet_diag.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index e74ae628bbb9..cee86c24b35f 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1108,8 +1108,7 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index e1e4d8c0384a..d827fe2e3ce0 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -93,7 +93,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 		return -EMSGSIZE;
  
- 	tx_cb_ptr->skb = skb;
+ 	r = nlmsg_data(nlh);
+-	BUG_ON(sk->sk_state == TCP_TIME_WAIT);
++	BUG_ON((1 << sk->sk_state) & (TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV));
  
--	skb_len = skb_headlen(skb) < ETH_ZLEN ? ETH_ZLEN : skb_headlen(skb);
--
-+	skb_len = skb_headlen(skb);
- 	mapping = dma_map_single(kdev, skb->data, skb_len, DMA_TO_DEVICE);
- 	ret = dma_mapping_error(kdev, mapping);
- 	if (ret) {
-@@ -1272,7 +1271,7 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 	}
- 
--	if (skb_padto(skb, ETH_ZLEN)) {
-+	if (skb_put_padto(skb, ETH_ZLEN)) {
- 		ret = NETDEV_TX_OK;
- 		goto out;
- 	}
+ 	r->idiag_family = sk->sk_family;
+ 	r->idiag_state = sk->sk_state;
 -- 
-2.1.0
+2.2.0.rc0.207.ga3a616c
