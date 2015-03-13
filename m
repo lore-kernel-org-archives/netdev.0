@@ -1,45 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: Fix reader/rehash race
-Date: Fri, 13 Mar 2015 21:36:15 +1100
-Message-ID: <20150313103615.GB1559@gondor.apana.org.au>
-References: <20150312110749.GA19285@gondor.apana.org.au>
- <20150312133749.GB21620@casper.infradead.org>
- <20150312214944.GA20117@gondor.apana.org.au>
- <20150313103259.GC11089@casper.infradead.org>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH net-next 0/2] bpf: allow extended BPF programs access
+ skb fields
+Date: Fri, 13 Mar 2015 11:40:04 +0100
+Message-ID: <5502BE84.7020105@iogearbox.net>
+References: <1426213271-8363-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:54473 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751547AbbCMKgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 06:36:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20150313103259.GC11089@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1426213271-8363-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 13, 2015 at 10:32:59AM +0000, Thomas Graf wrote:
->
-> One last question though. What about rhashtable_remove()?
-> The spin_unlock_bh() in __rhashtable_remove() only guarantees
-> for loads before the release to be completed. The future_tbl
-> load could still be reordered before the traversal is complete.
-> I think it needs an smp_rmb() as well.
+On 03/13/2015 03:21 AM, Alexei Starovoitov wrote:
+...
+> Daniel,
+> patch 1 includes a bit of code that does prog_realloc and branch adjustment
+> to make room for new instructions. I think you'd need the same for your
+> 'constant blinding' work. If indeed that would be the case, we'll make it
+> into a helper function.
 
-rhashtable_remove is fine because the rehasher has to take the
-same lock to move things over.  That's what guarantees the new
-future_tbl to be visible if it moved the to-be-removed object
-over to the new table.
-
-IOW if rhashtable_remove couldn't see the future_tbl then that
-can only mean that the rehasher has yet to take the lock on that
-bucket which implies that the object if it existed at all is still
-in that bucket.
+Yes, thanks will take care of that.
 
 Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Daniel
