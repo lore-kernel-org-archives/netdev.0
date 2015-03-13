@@ -1,186 +1,93 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net 3/3] gianfar: Consider dts property endianess on handling
-Date: Fri, 13 Mar 2015 10:52:32 +0200
-Message-ID: <1426236752-7337-1-git-send-email-claudiu.manoil@freescale.com>
+From: He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v6 tip 3/8] tracing: allow BPF programs to call bpf_ktime_get_ns()
+Date: Fri, 13 Mar 2015 19:24:27 +0800
+Message-ID: <5502C8EB.9070307@huawei.com>
+References: <1426047534-8148-1-git-send-email-ast@plumgrid.com> <1426047534-8148-4-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0146.outbound.protection.outlook.com ([157.56.111.146]:5600
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751100AbbCML1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 07:27:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	<linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1426047534-8148-4-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jingchang Lu <jingchang.lu@freescale.com>
+Hi, Alexei
 
-Use of_property_read*() to get arch endian consistent
-property values. Do some refactoring in the process.
+I've followed up your bpf version. In bpf filter, sometimes we need to
+get 'pid' and some other context informations to decide whether to
+filter or not.
 
-Signed-off-by: Jingchang Lu <jingchang.lu@freescale.com>
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 77 +++++++++++++++++++-------------
- 1 file changed, 47 insertions(+), 30 deletions(-)
+For example, to trace a vfs read procedure, we can insert bpf program to
+'__vfs_read(struct file *file, char __user *buf ...)', mark some of
+'buf' addresses and only trace the read procedure of these 'buf's. But
+this parameter is a userspace pointer, the value is meaningless to other
+processes, so we should also record 'pid' to make sense.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 5d6883d..70fa688 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -697,19 +697,28 @@ static int gfar_parse_group(struct device_node *np,
- 	grp->priv = priv;
- 	spin_lock_init(&grp->grplock);
- 	if (priv->mode == MQ_MG_MODE) {
--		u32 *rxq_mask, *txq_mask;
--		rxq_mask = (u32 *)of_get_property(np, "fsl,rx-bit-map", NULL);
--		txq_mask = (u32 *)of_get_property(np, "fsl,tx-bit-map", NULL);
-+		u32 rxq_mask, txq_mask;
-+		int ret;
-+
-+		grp->rx_bit_map = (DEFAULT_MAPPING >> priv->num_grps);
-+		grp->tx_bit_map = (DEFAULT_MAPPING >> priv->num_grps);
-+
-+		ret = of_property_read_u32(np, "fsl,rx-bit-map", &rxq_mask);
-+		if (!ret) {
-+			grp->rx_bit_map = rxq_mask ?
-+			rxq_mask : (DEFAULT_MAPPING >> priv->num_grps);
-+		}
-+
-+		ret = of_property_read_u32(np, "fsl,tx-bit-map", &txq_mask);
-+		if (!ret) {
-+			grp->tx_bit_map = txq_mask ?
-+			txq_mask : (DEFAULT_MAPPING >> priv->num_grps);
-+		}
- 
- 		if (priv->poll_mode == GFAR_SQ_POLLING) {
- 			/* One Q per interrupt group: Q0 to G0, Q1 to G1 */
- 			grp->rx_bit_map = (DEFAULT_MAPPING >> priv->num_grps);
- 			grp->tx_bit_map = (DEFAULT_MAPPING >> priv->num_grps);
--		} else { /* GFAR_MQ_POLLING */
--			grp->rx_bit_map = rxq_mask ?
--			*rxq_mask : (DEFAULT_MAPPING >> priv->num_grps);
--			grp->tx_bit_map = txq_mask ?
--			*txq_mask : (DEFAULT_MAPPING >> priv->num_grps);
- 		}
- 	} else {
- 		grp->rx_bit_map = 0xFF;
-@@ -770,11 +779,10 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	struct gfar_private *priv = NULL;
- 	struct device_node *np = ofdev->dev.of_node;
- 	struct device_node *child = NULL;
--	const u32 *stash;
--	const u32 *stash_len;
--	const u32 *stash_idx;
-+	struct property *stash;
-+	u32 stash_len = 0;
-+	u32 stash_idx = 0;
- 	unsigned int num_tx_qs, num_rx_qs;
--	u32 *tx_queues, *rx_queues;
- 	unsigned short mode, poll_mode;
- 
- 	if (!np)
-@@ -788,10 +796,6 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 		poll_mode = GFAR_SQ_POLLING;
- 	}
- 
--	/* parse the num of HW tx and rx queues */
--	tx_queues = (u32 *)of_get_property(np, "fsl,num_tx_queues", NULL);
--	rx_queues = (u32 *)of_get_property(np, "fsl,num_rx_queues", NULL);
--
- 	if (mode == SQ_SG_MODE) {
- 		num_tx_qs = 1;
- 		num_rx_qs = 1;
-@@ -810,8 +814,17 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 			num_tx_qs = num_grps; /* one txq per int group */
- 			num_rx_qs = num_grps; /* one rxq per int group */
- 		} else { /* GFAR_MQ_POLLING */
--			num_tx_qs = tx_queues ? *tx_queues : 1;
--			num_rx_qs = rx_queues ? *rx_queues : 1;
-+			u32 tx_queues, rx_queues;
-+			int ret;
-+
-+			/* parse the num of HW tx and rx queues */
-+			ret = of_property_read_u32(np, "fsl,num_tx_queues",
-+						   &tx_queues);
-+			num_tx_qs = ret ? 1 : tx_queues;
-+
-+			ret = of_property_read_u32(np, "fsl,num_rx_queues",
-+						   &rx_queues);
-+			num_rx_qs = ret ? 1 : rx_queues;
- 		}
- 	}
- 
-@@ -852,13 +865,17 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	if (err)
- 		goto rx_alloc_failed;
- 
-+	err = of_property_read_string(np, "model", &model);
-+	if (err) {
-+		pr_err("Device model property missing, aborting\n");
-+		goto rx_alloc_failed;
-+	}
-+
- 	/* Init Rx queue filer rule set linked list */
- 	INIT_LIST_HEAD(&priv->rx_list.list);
- 	priv->rx_list.count = 0;
- 	mutex_init(&priv->rx_queue_access);
- 
--	model = of_get_property(np, "model", NULL);
--
- 	for (i = 0; i < MAXGROUPS; i++)
- 		priv->gfargrp[i].regs = NULL;
- 
-@@ -878,22 +895,22 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 			goto err_grp_init;
- 	}
- 
--	stash = of_get_property(np, "bd-stash", NULL);
-+	stash = of_find_property(np, "bd-stash", NULL);
- 
- 	if (stash) {
- 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_BD_STASHING;
- 		priv->bd_stash_en = 1;
- 	}
- 
--	stash_len = of_get_property(np, "rx-stash-len", NULL);
-+	err = of_property_read_u32(np, "rx-stash-len", &stash_len);
- 
--	if (stash_len)
--		priv->rx_stash_size = *stash_len;
-+	if (err == 0)
-+		priv->rx_stash_size = stash_len;
- 
--	stash_idx = of_get_property(np, "rx-stash-idx", NULL);
-+	err = of_property_read_u32(np, "rx-stash-idx", &stash_idx);
- 
--	if (stash_idx)
--		priv->rx_stash_index = *stash_idx;
-+	if (err == 0)
-+		priv->rx_stash_index = stash_idx;
- 
- 	if (stash_len || stash_idx)
- 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_BUF_STASHING;
-@@ -920,15 +937,15 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 				     FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
- 				     FSL_GIANFAR_DEV_HAS_TIMER;
- 
--	ctype = of_get_property(np, "phy-connection-type", NULL);
-+	err = of_property_read_string(np, "phy-connection-type", &ctype);
- 
- 	/* We only care about rgmii-id.  The rest are autodetected */
--	if (ctype && !strcmp(ctype, "rgmii-id"))
-+	if (err == 0 && !strcmp(ctype, "rgmii-id"))
- 		priv->interface = PHY_INTERFACE_MODE_RGMII_ID;
- 	else
- 		priv->interface = PHY_INTERFACE_MODE_MII;
- 
--	if (of_get_property(np, "fsl,magic-packet", NULL))
-+	if (of_find_property(np, "fsl,magic-packet", NULL))
- 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_MAGIC_PACKET;
- 
- 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
--- 
-1.7.11.7
+To a function like __vfs_read, 'pid' can't be extracted from function
+parameters directly. What's your opinion on this issue?
+
+Thanks!
+
+On 2015/3/11 12:18, Alexei Starovoitov wrote:
+> bpf_ktime_get_ns() is used by programs to compue time delta between events
+> or as a timestamp
+>
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+> ---
+>   include/uapi/linux/bpf.h |    1 +
+>   kernel/trace/bpf_trace.c |   11 +++++++++++
+>   2 files changed, 12 insertions(+)
+>
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 4486d36d2e9e..101e509d1001 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -165,6 +165,7 @@ enum bpf_func_id {
+>   	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
+>   	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
+>   	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
+> +	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
+>   	__BPF_FUNC_MAX_ID,
+>   };
+>   
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index 450ea93ac4ab..ee7c2c629e75 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -56,6 +56,12 @@ static u64 bpf_probe_read(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+>   	return probe_kernel_read(dst, unsafe_ptr, size);
+>   }
+>   
+> +static u64 bpf_ktime_get_ns(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> +{
+> +	/* NMI safe access to clock monotonic */
+> +	return ktime_get_mono_fast_ns();
+> +}
+> +
+>   static struct bpf_func_proto kprobe_prog_funcs[] = {
+>   	[BPF_FUNC_probe_read] = {
+>   		.func = bpf_probe_read,
+> @@ -65,6 +71,11 @@ static struct bpf_func_proto kprobe_prog_funcs[] = {
+>   		.arg2_type = ARG_CONST_STACK_SIZE,
+>   		.arg3_type = ARG_ANYTHING,
+>   	},
+> +	[BPF_FUNC_ktime_get_ns] = {
+> +		.func = bpf_ktime_get_ns,
+> +		.gpl_only = true,
+> +		.ret_type = RET_INTEGER,
+> +	},
+>   };
+>   
+>   static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
