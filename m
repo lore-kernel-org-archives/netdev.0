@@ -1,30 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 9/9] tulip_core.c : out-of-bounds check.
-Date: Fri, 13 Mar 2015 12:43:49 -0400 (EDT)
-Message-ID: <20150313.124349.1006280192823176579.davem@davemloft.net>
-References: <1426256152-5522-1-git-send-email-ameenali023@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/2] bpf: allow extended BPF programs access
+ skb fields
+Date: Fri, 13 Mar 2015 17:43:34 +0100
+Message-ID: <550313B6.2080701@iogearbox.net>
+References: <1426213271-8363-1-git-send-email-ast@plumgrid.com> <1426213271-8363-2-git-send-email-ast@plumgrid.com> <5502B48B.7040909@iogearbox.net> <55030ED8.4020209@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ameenali023@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51294 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757164AbbCMQnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:43:51 -0400
-In-Reply-To: <1426256152-5522-1-git-send-email-ameenali023@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55030ED8.4020209@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ameen Ali <ameenali023@gmail.com>
-Date: Fri, 13 Mar 2015 16:15:52 +0200
+On 03/13/2015 05:22 PM, Alexei Starovoitov wrote:
+> On 3/13/15 2:57 AM, Daniel Borkmann wrote:
+>> On 03/13/2015 03:21 AM, Alexei Starovoitov wrote:
+>>> introduce user accessible mirror of in-kernel 'struct sk_buff':
+>>
+>> For each member, I'd also add BUILD_BUG_ON()s similarly as we have in
+>> convert_bpf_extensions(). That way, people won't forget to adjust the
+>> code.
+>
+> I thought about it, but didn't add it, since we already have them
+> in the same file several lines above this spot.
+> I think one build error per .c file should be enough to attract
+> attention.
+> Though I'll add a comment to convert_bpf_extensions() that build_bug_on
+> errors should be addressed in two places.
 
-> Array index 'j' is used before limits check.
-> 
-> Suggest put limit check before index use.
-> 
-> Signed-off-by : <Ameenali023@gmail.com>
+My concern would be that in case the code gets changed, this spot
+could easily be overlooked by someone possibly unfamiliar with the
+code, since no build error triggers there.
 
-Applied, thanks.
+So I guess it wouldn't hurt or cost us much to also adding the
+BUILD_BUG_ON()s there instead of a comment.
+
+...
+>> The remaining fields we export in classic BPF would be skb->hash,
+>> skb->protocol, skb->vlan_tci, are we adding them as well to match
+>> up functionality with classic BPF? For example, I can see hash being
+>> useful as a key to be used with eBPF maps, etc.
+>
+> I want to do skb->protocol and skb->vlan_tci differently and hopefully
+> more generically than classic did them, so they will come in the
+> follow on patches. skb->hash also should be done differently.
+> So yes. All of them are subjects of future patches/discussions.
+
+Ok, sounds good.
+
+Thanks,
+Daniel
