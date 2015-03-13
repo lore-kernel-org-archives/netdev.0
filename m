@@ -1,44 +1,59 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 1/2] bpf: allow extended BPF programs access
- skb fields
-Date: Fri, 13 Mar 2015 10:09:21 -0700
-Message-ID: <550319C1.50209@plumgrid.com>
-References: <1426213271-8363-1-git-send-email-ast@plumgrid.com> <1426213271-8363-2-git-send-email-ast@plumgrid.com> <5502B48B.7040909@iogearbox.net> <55030ED8.4020209@plumgrid.com> <550313B6.2080701@iogearbox.net>
+From: Jon Maloy <maloy@donjonn.com>
+Subject: Re: [PATCH net-next 0/7] tipc: some optimizations
+	and impovements
+Date: Fri, 13 Mar 2015 13:09:54 -0400
+Message-ID: <550319E2.2020108@donjonn.com>
+References: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
+	<20150313.125227.1523044445570081158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <550313B6.2080701@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	paul.gortmaker@windriver.com
+To: David Miller <davem@davemloft.net>, jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20150313.125227.1523044445570081158.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 3/13/15 9:43 AM, Daniel Borkmann wrote:
-> On 03/13/2015 05:22 PM, Alexei Starovoitov wrote:
->> On 3/13/15 2:57 AM, Daniel Borkmann wrote:
->>> On 03/13/2015 03:21 AM, Alexei Starovoitov wrote:
->>>> introduce user accessible mirror of in-kernel 'struct sk_buff':
->>>
->>> For each member, I'd also add BUILD_BUG_ON()s similarly as we have in
->>> convert_bpf_extensions(). That way, people won't forget to adjust the
->>> code.
->>
->> I thought about it, but didn't add it, since we already have them
->> in the same file several lines above this spot.
->> I think one build error per .c file should be enough to attract
->> attention.
->> Though I'll add a comment to convert_bpf_extensions() that build_bug_on
->> errors should be addressed in two places.
->
-> My concern would be that in case the code gets changed, this spot
-> could easily be overlooked by someone possibly unfamiliar with the
-> code, since no build error triggers there.
->
-> So I guess it wouldn't hurt or cost us much to also adding the
-> BUILD_BUG_ON()s there instead of a comment.
 
-I think it's overkill, but fine, it's minor. Will add another set
-of build_bug_ons and see how it looks.
+On 15-03-13 12:52 PM, David Miller wrote:
+> From: Jon Maloy <jon.maloy@ericsson.com>
+> Date: Fri, 13 Mar 2015 10:27:33 -0400
+>
+>> The commits in this series contain some relatively simple changes
+>> that lead to better throughput across TIPC connections. We also make
+>> changes to the implementation of link transmission queueing and priority
+>> handling, in order to make the code more comprehensible and maintainable.
+> I think you should do the SKB linearization changes properly.
+>
+> Simply do pskb_may_pull() before you inspect any header, and you can
+> do this everwhere, even your bundling extraction code path.
+Ok, I'll try that.
+
+>
+> I also don't think you even need to clone the SKB there either.
+
+I don't don't see how we can not. We may extract many
+buffers from different positions in the data area, which will
+be sent in different directions, and be freed at different
+moments of time.
+
+///jon
+>
+> Thanks.
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
