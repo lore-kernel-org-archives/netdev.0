@@ -1,87 +1,58 @@
-From: Fred Chou <fred.chou.nd@gmail.com>
-Subject: [PATCH] ath9k_htc: check seq number instead of cmd id for timeout
-Date: Fri, 13 Mar 2015 16:32:38 +0800
-Message-ID: <1426235558-13787-1-git-send-email-fred.chou.nd@gmail.com>
-Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Fred Chou <fred.chou.nd@gmail.com>
-To: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] SUNRPC: fix build-warning due to format missmatch
+Date: Fri, 13 Mar 2015 04:25:34 -0400
+Message-ID: <1426235134-14349-1-git-send-email-hofrat@osadl.org>
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	kbuild test robot <fengguang.wu@intel.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Fred Chou <fred.chou.nd@gmail.com>
+fix build-warning introduced by commit: f0eede10fd4 ("SUNRPC: use
+jiffies_to_msecs for converting jiffies") which did not fixup
+the format properly (my bad).
 
-As the driver may send multiple wmi commands with identical cmd id,
-it is more robust to check seq number for timeout instead.
-
-Signed-off-by: Fred Chou <fred.chou.nd@gmail.com>
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 ---
- drivers/net/wireless/ath/ath9k/wmi.c | 12 ++++++------
- drivers/net/wireless/ath/ath9k/wmi.h |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/wmi.c b/drivers/net/wireless/ath/ath9k/wmi.c
-index 65c8894..aba909f 100644
---- a/drivers/net/wireless/ath/ath9k/wmi.c
-+++ b/drivers/net/wireless/ath/ath9k/wmi.c
-@@ -224,7 +224,7 @@ static void ath9k_wmi_ctrl_rx(void *priv, struct sk_buff *skb,
+This fixes the build warning reported by kbuild test robot
+<fengguang.wu@intel.com> - thanks !
+>    net/sunrpc/sched.c: In function '__rpc_add_timer':
+> >> net/sunrpc/sched.c:92:2: warning: format '%lu' expects argument of type 'long unsigned int', but argument 3 has type 'unsigned int' [-Wformat=]
+>      dprintk("RPC: %5u setting alarm for %lu ms\n",
+>      ^
+
+While at it this also fixes the checkpatch alignment warning.
+
+Patch was compile tested with x86_64_defconfig and xtensa_defconfig
+(implies CONFIG_SUNRPC=y/m)
+
+Patch is against 4.0-rc3 (localversion-next is -next-20150312)
+with commit: f0eede10fd4 ("SUNRPC: use jiffies_to_msecs for converting
+jiffies") applied.
+
+ net/sunrpc/sched.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
+index c234e7f..337ca85 100644
+--- a/net/sunrpc/sched.c
++++ b/net/sunrpc/sched.c
+@@ -89,8 +89,8 @@ __rpc_add_timer(struct rpc_wait_queue *queue, struct rpc_task *task)
+ 	if (!task->tk_timeout)
+ 		return;
  
- 	/* Check if there has been a timeout. */
- 	spin_lock(&wmi->wmi_lock);
--	if (cmd_id != wmi->last_cmd_id) {
-+	if (be16_to_cpu(hdr->seq_no) != wmi->last_seq_id) {
- 		spin_unlock(&wmi->wmi_lock);
- 		goto free_skb;
- 	}
-@@ -272,11 +272,16 @@ static int ath9k_wmi_cmd_issue(struct wmi *wmi,
- 			       enum wmi_cmd_id cmd, u16 len)
- {
- 	struct wmi_cmd_hdr *hdr;
-+	unsigned long flags;
+-	dprintk("RPC: %5u setting alarm for %lu ms\n",
+-			task->tk_pid, jiffies_to_msecs(task->tk_timeout));
++	dprintk("RPC: %5u setting alarm for %u ms\n",
++		task->tk_pid, jiffies_to_msecs(task->tk_timeout));
  
- 	hdr = (struct wmi_cmd_hdr *) skb_push(skb, sizeof(struct wmi_cmd_hdr));
- 	hdr->command_id = cpu_to_be16(cmd);
- 	hdr->seq_no = cpu_to_be16(++wmi->tx_seq_id);
- 
-+	spin_lock_irqsave(&wmi->wmi_lock, flags);
-+	wmi->last_seq_id = wmi->tx_seq_id;
-+	spin_unlock_irqrestore(&wmi->wmi_lock, flags);
-+
- 	return htc_send_epid(wmi->htc, skb, wmi->ctrl_epid);
- }
- 
-@@ -292,7 +297,6 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
- 	struct sk_buff *skb;
- 	u8 *data;
- 	int time_left, ret = 0;
--	unsigned long flags;
- 
- 	if (ah->ah_flags & AH_UNPLUGGED)
- 		return 0;
-@@ -320,10 +324,6 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
- 	wmi->cmd_rsp_buf = rsp_buf;
- 	wmi->cmd_rsp_len = rsp_len;
- 
--	spin_lock_irqsave(&wmi->wmi_lock, flags);
--	wmi->last_cmd_id = cmd_id;
--	spin_unlock_irqrestore(&wmi->wmi_lock, flags);
--
- 	ret = ath9k_wmi_cmd_issue(wmi, skb, cmd_id, cmd_len);
- 	if (ret)
- 		goto out;
-diff --git a/drivers/net/wireless/ath/ath9k/wmi.h b/drivers/net/wireless/ath/ath9k/wmi.h
-index 0db37f2..2aad6dc 100644
---- a/drivers/net/wireless/ath/ath9k/wmi.h
-+++ b/drivers/net/wireless/ath/ath9k/wmi.h
-@@ -143,7 +143,7 @@ struct wmi {
- 	enum htc_endpoint_id ctrl_epid;
- 	struct mutex op_mutex;
- 	struct completion cmd_wait;
--	enum wmi_cmd_id last_cmd_id;
-+	u16 last_seq_id;
- 	struct sk_buff_head wmi_event_queue;
- 	struct tasklet_struct wmi_event_tasklet;
- 	u16 tx_seq_id;
+ 	task->u.tk_wait.expires = jiffies + task->tk_timeout;
+ 	if (list_empty(&queue->timer_list.list) || time_before(task->u.tk_wait.expires, queue->timer_list.expires))
 -- 
-1.9.1
+1.7.10.4
