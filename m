@@ -1,7 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 0/7] tipc: some optimizations and impovements
-Date: Fri, 13 Mar 2015 10:27:33 -0400
-Message-ID: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/7] tipc: add framework for node capabilities exchange
+Date: Fri, 13 Mar 2015 10:27:34 -0400
+Message-ID: <1426256860-31208-2-git-send-email-jon.maloy@ericsson.com>
+References: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -9,37 +10,110 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:31913 "EHLO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:31925 "EHLO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751624AbbCMO2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 10:28:14 -0400
+	by vger.kernel.org with ESMTP id S1751056AbbCMO2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 10:28:15 -0400
+In-Reply-To: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commits in this series contain some relatively simple changes
-that lead to better throughput across TIPC connections. We also make
-changes to the implementation of link transmission queueing and priority
-handling, in order to make the code more comprehensible and maintainable.
+The TIPC protocol spec has defined a 13 bit capability bitmap in
+the neighbor discovery header, as a means to maintain compatibility
+between different code and protocol generations. Until now this field
+has been unused.
 
+We now introduce the basic framework for exchanging capabilities
+between nodes at first contact. After exchange, a peer node's
+capabilities are stored as a 16 bit bitmap in struct tipc_node.
 
-Jon Maloy (7):
-  tipc: add framework for node capabilities exchange
-  tipc: move message validation function to msg.c
-  tipc: eliminate unnecessary linearization of incoming buffers
-  tipc: extract bundled buffers by cloning instead of copying
-  tipc: eliminate unnecessary call to broadcast ack function
-  tipc: split link outqueue
-  tipc: clean up handling of message priorities
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/discover.c |  3 +++
+ net/tipc/msg.h      | 11 ++++++++++-
+ net/tipc/node.h     |  4 +++-
+ 3 files changed, 16 insertions(+), 2 deletions(-)
 
- net/tipc/bcast.c    |  53 ++++----
- net/tipc/discover.c |   3 +
- net/tipc/link.c     | 352 +++++++++++++++++++---------------------------------
- net/tipc/link.h     |  17 ++-
- net/tipc/msg.c      | 123 ++++++++++++------
- net/tipc/msg.h      |  87 +++++++------
- net/tipc/node.c     |   4 +-
- net/tipc/node.h     |   6 +-
- 8 files changed, 303 insertions(+), 342 deletions(-)
-
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index 5967506..169f3dd 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -89,6 +89,7 @@ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
+ 		      MAX_H_SIZE, dest_domain);
+ 	msg_set_non_seq(msg, 1);
+ 	msg_set_node_sig(msg, tn->random);
++	msg_set_node_capabilities(msg, 0);
+ 	msg_set_dest_domain(msg, dest_domain);
+ 	msg_set_bc_netid(msg, tn->net_id);
+ 	b_ptr->media->addr2msg(msg_media_addr(msg), &b_ptr->addr);
+@@ -133,6 +134,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
+ 	u32 net_id = msg_bc_netid(msg);
+ 	u32 mtyp = msg_type(msg);
+ 	u32 signature = msg_node_sig(msg);
++	u16 caps = msg_node_capabilities(msg);
+ 	bool addr_match = false;
+ 	bool sign_match = false;
+ 	bool link_up = false;
+@@ -167,6 +169,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
+ 	if (!node)
+ 		return;
+ 	tipc_node_lock(node);
++	node->capabilities = caps;
+ 	link = node->links[bearer->identity];
+ 
+ 	/* Prepare to validate requesting node's signature and media address */
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index fa16784..7cece64 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -510,7 +510,6 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
+ #define DSC_REQ_MSG		0
+ #define DSC_RESP_MSG		1
+ 
+-
+ /*
+  * Word 1
+  */
+@@ -534,6 +533,16 @@ static inline void msg_set_node_sig(struct tipc_msg *m, u32 n)
+ 	msg_set_bits(m, 1, 0, 0xffff, n);
+ }
+ 
++static inline u32 msg_node_capabilities(struct tipc_msg *m)
++{
++	return msg_bits(m, 1, 15, 0x1fff);
++}
++
++static inline void msg_set_node_capabilities(struct tipc_msg *m, u32 n)
++{
++	msg_set_bits(m, 1, 15, 0x1fff, n);
++}
++
+ 
+ /*
+  * Word 2
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 3d18c66..f78be64 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -106,6 +106,7 @@ struct tipc_node_bclink {
+  * @list: links to adjacent nodes in sorted list of cluster's nodes
+  * @working_links: number of working links to node (both active and standby)
+  * @link_cnt: number of links to node
++ * @capabilities: bitmap, indicating peer node's functional capabilities
+  * @signature: node instance identifier
+  * @link_id: local and remote bearer ids of changing link, if any
+  * @publ_list: list of publications
+@@ -125,7 +126,8 @@ struct tipc_node {
+ 	struct tipc_node_bclink bclink;
+ 	struct list_head list;
+ 	int link_cnt;
+-	int working_links;
++	u16 working_links;
++	u16 capabilities;
+ 	u32 signature;
+ 	u32 link_id;
+ 	struct list_head publ_list;
 -- 
 1.9.1
