@@ -1,53 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/2] ebpf: add prandom helper for packet sampling
-Date: Fri, 13 Mar 2015 23:44:38 +0100
-Message-ID: <55036856.1040309@iogearbox.net>
-References: <cover.1426249641.git.daniel@iogearbox.net> <83348b7717b2f044140539fc7faa36bebcc3da58.1426249641.git.daniel@iogearbox.net> <55031730.5030303@plumgrid.com> <55031860.20903@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] inet_diag: factorize code in new
+ inet_diag_msg_common_fill() helper
+Date: Fri, 13 Mar 2015 15:48:08 -0700
+Message-ID: <1426286888.11398.193.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426277958-9772-1-git-send-email-edumazet@google.com>
+	 <1426277958-9772-4-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>, davem@davemloft.net
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48148 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbbCMWop (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 18:44:45 -0400
-In-Reply-To: <55031860.20903@iogearbox.net>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:34914 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbbCMWsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 18:48:10 -0400
+Received: by ieclw3 with SMTP id lw3so130608472iec.2
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 15:48:09 -0700 (PDT)
+In-Reply-To: <1426277958-9772-4-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2015 06:03 PM, Daniel Borkmann wrote:
-> On 03/13/2015 05:58 PM, Alexei Starovoitov wrote:
-...
->>> +static u64 bpf_random(u64 dw, u64 r2, u64 r3, u64 r4, u64 r5)
->>> +{
->>> +    return prandom_u32() | (dw ? ((u64)prandom_u32() << 32) : 0);
->>
->> can you make first argument to be a flag instead of bool ?
->> 0 to return u32, 1 to return u64 and >=2 to be reserved and
->> return -EINVAL?
-...
->> This way we can extend it later. For example 2 might return
->> 8 truly random bytes from get_random_bytes_arch()
+On Fri, 2015-03-13 at 13:19 -0700, Eric Dumazet wrote:
+> Now the three type of sockets share a common base, we can factorize
+> code in inet_diag_msg_common_fill().
+> 
+> inet_diag_entry no longer requires saddr_storage & daddr_storage
+> and the extra copies.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv4/inet_diag.c | 149 +++++++++++++++++----------------------------------
+>  1 file changed, 48 insertions(+), 101 deletions(-)
+> 
+> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+> index d827fe2e3ce0..abf5e75d0a75 100644
+> --- a/net/ipv4/inet_diag.c
+> +++ b/net/ipv4/inet_diag.c
+> @@ -44,10 +44,6 @@ struct inet_diag_entry {
+>  	u16 dport;
+>  	u16 family;
+>  	u16 userlocks;
+> -#if IS_ENABLED(CONFIG_IPV6)
+> -	struct in6_addr saddr_storage;	/* for IPv4-mapped-IPv6 addresses */
+> -	struct in6_addr daddr_storage;	/* for IPv4-mapped-IPv6 addresses */
+> -#endif
+>  };
+>  
+>  static DEFINE_MUTEX(inet_diag_table_mutex);
+> @@ -70,6 +66,31 @@ static void inet_diag_unlock_handler(const struct inet_diag_handler *handler)
+>  	mutex_unlock(&inet_diag_table_mutex);
+>  }
+>  
+> +static void inet_diag_msg_common_fill(struct inet_diag_msg *r,
+> +				      const struct sock *sk)
 
-Hmm, just got back to this thinking about it a bit more. I don't
-like that we would return with a negative error here. An eBPF
-application would then need to check for errors as well to make
-sure, and the signature returns max u64. So _theoretically_,
--EINVAL could also come as a result from prandom() albeit unlikely.
-That would make the interface a bit ugly, imho.
+Arg this const qualifier needs to be removed
 
-I think the interface should be as simple as possible for
-obtaining a random number. I think that if we would want to
-support something like get_random_bytes_arch(), it would be
-better to do so in a new interface, where the name also more
-clearly indicates where the random data comes from.
-
-That said, I'd rather prefer to leave the code as is, but go
-with the rename, maybe even BPF_FUNC_get_prandom_val so it
-indicates it's pseudo-random as opposed to, say, something like
-BPF_FUNC_get_srandom_val if we need that one day.
-
-Cheers,
-Daniel
+Will send a v2, sorry.
