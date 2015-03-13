@@ -1,37 +1,47 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath10k: match wait_for_completion_timeout return type
-Date: Fri, 13 Mar 2015 18:51:21 +0200
-Message-ID: <87y4n0q1rq.fsf@kamboji.qca.qualcomm.com>
-References: <1426094076-10134-1-git-send-email-hofrat@osadl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] tipc: some optimizations
+	and impovements
+Date: Fri, 13 Mar 2015 12:52:27 -0400 (EDT)
+Message-ID: <20150313.125227.1523044445570081158.davem@davemloft.net>
+References: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:4162 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491AbbCMQve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:51:34 -0400
-In-Reply-To: <1426094076-10134-1-git-send-email-hofrat@osadl.org> (Nicholas Mc
-	Guire's message of "Wed, 11 Mar 2015 13:14:36 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Nicholas Mc Guire <hofrat@osadl.org> writes:
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 13 Mar 2015 10:27:33 -0400
 
-> Return type of wait_for_completion_timeout is unsigned long not int.
-> An appropriately named unsigned long is added and the assignments fixed up.
->
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> The commits in this series contain some relatively simple changes
+> that lead to better throughput across TIPC connections. We also make
+> changes to the implementation of link transmission queueing and priority
+> handling, in order to make the code more comprehensible and maintainable.
 
-Doesn't apply:
+I think you should do the SKB linearization changes properly.
 
-Applying: ath10k: match wait_for_completion_timeout return type
-fatal: sha1 information is lacking or useless (drivers/net/wireless/ath/ath10k/mac.c).
-Repository lacks necessary blobs to fall back on 3-way merge.
-Cannot fall back to three-way merge.
-Patch failed at 0001 ath10k: match wait_for_completion_timeout return type
+Simply do pskb_may_pull() before you inspect any header, and you can
+do this everwhere, even your bundling extraction code path.
 
--- 
-Kalle Valo
+I also don't think you even need to clone the SKB there either.
+
+Thanks.
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
