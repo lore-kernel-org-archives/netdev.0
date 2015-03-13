@@ -1,82 +1,41 @@
-From: Horia Geanta <horia.geanta@freescale.com>
-Subject: [PATCH v2 2/4] net: esp: check CRYPTO_TFM_REQ_DMA flag when allocating crypto request
-Date: Fri, 13 Mar 2015 19:38:11 +0200
-Message-ID: <1426268291-21507-1-git-send-email-horia.geanta@freescale.com>
-References: <1426268260-20824-1-git-send-email-horia.geanta@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kim Phillips <kim.phillips@freescale.com>,
-	Horia Geanta <horia.geanta@freescale.com>
-To: <linux-crypto@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1426268260-20824-1-git-send-email-horia.geanta@freescale.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dominique Martinet <dominique.martinet@cea.fr>
+Subject: [PATCH 1/2] net/9p: Initialize opts->privport as it should be.
+Date: Fri, 13 Mar 2015 19:04:39 +0100
+Message-ID: <1426269880-23860-1-git-send-email-dominique.martinet@cea.fr>
+Cc: Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Dominique Martinet <dominique.martinet@cea.fr>
+To: Eric Van Hensbergen <ericvh@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nautica.notk.org ([91.121.71.147]:41315 "EHLO nautica.notk.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1945947AbbCMSKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2015 14:10:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some crypto backends might require the requests' private contexts
-to be allocated in DMA-able memory.
+We're currently using an uninitialized value if option privport is not set,
+thus (almost) always using a privileged port.
 
-Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
+Signed-off-by: Dominique Martinet <dominique.martinet@cea.fr>
 ---
+ net/9p/trans_fd.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Depends on patch 1/4 (sent only on crypto list) that adds the
-CRYPTO_TFM_REQ_DMA flag.
-
- net/ipv4/esp4.c | 7 ++++++-
- net/ipv6/esp6.c | 7 ++++++-
- 2 files changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 60173d4d3a0e..3e6ddece0cbe 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -38,6 +38,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
- static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
- {
- 	unsigned int len;
-+	gfp_t gfp = GFP_ATOMIC;
+diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+index c73b894..154479d 100644
+--- a/net/9p/trans_fd.c
++++ b/net/9p/trans_fd.c
+@@ -734,6 +734,7 @@ static int parse_opts(char *params, struct p9_fd_opts *opts)
+ 	opts->port = P9_PORT;
+ 	opts->rfd = ~0;
+ 	opts->wfd = ~0;
++	opts->privport = 0;
  
- 	len = seqhilen;
- 
-@@ -54,7 +55,11 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
- 
- 	len += sizeof(struct scatterlist) * nfrags;
- 
--	return kmalloc(len, GFP_ATOMIC);
-+	if (crypto_aead_reqsize(aead) &&
-+	    (crypto_aead_get_flags(aead) & CRYPTO_TFM_REQ_DMA))
-+		gfp |= GFP_DMA;
-+
-+	return kmalloc(len, gfp);
- }
- 
- static inline __be32 *esp_tmp_seqhi(void *tmp)
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index e48f2c7c5c59..0d173eedad4e 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -65,6 +65,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu);
- static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqihlen)
- {
- 	unsigned int len;
-+	gfp_t gfp = GFP_ATOMIC;
- 
- 	len = seqihlen;
- 
-@@ -81,7 +82,11 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqihlen)
- 
- 	len += sizeof(struct scatterlist) * nfrags;
- 
--	return kmalloc(len, GFP_ATOMIC);
-+	if (crypto_aead_reqsize(aead) &&
-+	    (crypto_aead_get_flags(aead) & CRYPTO_TFM_REQ_DMA))
-+		gfp |= GFP_DMA;
-+
-+	return kmalloc(len, gfp);
- }
- 
- static inline __be32 *esp_tmp_seqhi(void *tmp)
+ 	if (!params)
+ 		return 0;
 -- 
-1.8.3.1
+1.9.3
