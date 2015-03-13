@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bcmgenet: rewrite bcmgenet_rx_refill()
-Date: Thu, 12 Mar 2015 23:03:48 -0400 (EDT)
-Message-ID: <20150312.230348.1911227825204957840.davem@davemloft.net>
-References: <20150312224800.AE7A7220365@puck.mtv.corp.google.com>
+Subject: Re: [PATCH] net/macb: Only adjust tx_clk on link change
+Date: Thu, 12 Mar 2015 23:04:45 -0400 (EDT)
+Message-ID: <20150312.230445.1330829248378823525.davem@davemloft.net>
+References: <1426201674-824-1-git-send-email-jaeden.amero@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, jaedon.shin@gmail.com
-To: pgynther@google.com
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, joshc@ni.com,
+	soren.brinkmann@xilinx.com
+To: jaeden.amero@ni.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43634 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43642 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755408AbbCMDDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 23:03:50 -0400
-In-Reply-To: <20150312224800.AE7A7220365@puck.mtv.corp.google.com>
+	with ESMTP id S1753210AbbCMDEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 23:04:47 -0400
+In-Reply-To: <1426201674-824-1-git-send-email-jaeden.amero@ni.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petri Gynther <pgynther@google.com>
-Date: Thu, 12 Mar 2015 15:48:00 -0700 (PDT)
+From: Jaeden Amero <jaeden.amero@ni.com>
+Date: Thu, 12 Mar 2015 18:07:54 -0500
 
-> Currently, bcmgenet_desc_rx() calls bcmgenet_rx_refill() at the end of
-> Rx packet processing loop, after the current Rx packet has already been
-> passed to napi_gro_receive(). However, bcmgenet_rx_refill() might fail
-> to allocate a new Rx skb, thus leaving a hole on the Rx queue where no
-> valid Rx buffer exists.
+> The PHY state machine (in drivers/net/phy/phy.c) will unconditionally
+> call phydev->adjust_link (macb_handle_link_change) when polling in the
+> PHY_CHANGELINK state. As currently written, macb always ends up
+> requesting a new tx_clk frequency in macb_handle_link_change. It is a
+> waste of time to request a new tx_clk frequency if the link state hasn't
+> changed, as the tx_clk will already be configured properly.
 > 
-> To eliminate this situation:
-> 1. Rewrite bcmgenet_rx_refill() to retain the current Rx skb on the Rx
->    queue if a new replacement Rx skb can't be allocated and DMA-mapped.
->    In this case, the data on the current Rx skb is effectively dropped.
-> 2. Modify bcmgenet_desc_rx() to call bcmgenet_rx_refill() at the top of
->    Rx packet processing loop, so that the new replacement Rx skb is
->    already in place before the current Rx skb is processed.
+> Let's only request a new tx_clk clock frequency when necessary.
 > 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> Signed-off-by: Jaeden Amero <jaeden.amero@ni.com>
 
-I'll apply this after Florian reports back about his testing.
+Applied to net-next, thanks.
