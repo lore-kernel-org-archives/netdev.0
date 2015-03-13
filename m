@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] net: esp: check CRYPTO_TFM_REQ_DMA flag when
- allocating crypto request
-Date: Fri, 13 Mar 2015 15:46:08 -0400 (EDT)
-Message-ID: <20150313.154608.548532696978553073.davem@davemloft.net>
-References: <1426266882-31626-1-git-send-email-horia.geanta@freescale.com>
-	<1426266922-31679-1-git-send-email-horia.geanta@freescale.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: rewrite bcmgenet_rx_refill()
+Date: Fri, 13 Mar 2015 15:48:44 -0400 (EDT)
+Message-ID: <20150313.154844.1460460664757494447.davem@davemloft.net>
+References: <20150312224800.AE7A7220365@puck.mtv.corp.google.com>
+	<55032C64.3010706@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, kim.phillips@freescale.com
-To: horia.geanta@freescale.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1426266922-31679-1-git-send-email-horia.geanta@freescale.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pgynther@google.com, netdev@vger.kernel.org, jaedon.shin@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752043AbbCMTsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:48:46 -0400
+In-Reply-To: <55032C64.3010706@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Horia Geanta <horia.geanta@freescale.com>
-Date: Fri, 13 Mar 2015 19:15:22 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 13 Mar 2015 11:28:52 -0700
 
-> Some crypto backends might require the requests' private contexts
-> to be allocated in DMA-able memory.
+> On 12/03/15 15:48, Petri Gynther wrote:
+>> Currently, bcmgenet_desc_rx() calls bcmgenet_rx_refill() at the end of
+>> Rx packet processing loop, after the current Rx packet has already been
+>> passed to napi_gro_receive(). However, bcmgenet_rx_refill() might fail
+>> to allocate a new Rx skb, thus leaving a hole on the Rx queue where no
+>> valid Rx buffer exists.
+>> 
+>> To eliminate this situation:
+>> 1. Rewrite bcmgenet_rx_refill() to retain the current Rx skb on the Rx
+>>    queue if a new replacement Rx skb can't be allocated and DMA-mapped.
+>>    In this case, the data on the current Rx skb is effectively dropped.
+>> 2. Modify bcmgenet_desc_rx() to call bcmgenet_rx_refill() at the top of
+>>    Rx packet processing loop, so that the new replacement Rx skb is
+>>    already in place before the current Rx skb is processed.
 > 
-> Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> Thanks! Have not noticed any performance impact doing 64B/1500B testing.
 
-No way.
-
-Upper layers should be absolutely not required to know about such
-requirements.
-
-Such details _must_ be hidden inside of the crypto layer and drivers
-and not leak out into the users of the crypto interfaces.
+Applied, thanks everyone.
