@@ -1,33 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] net: bcmgenet: add support for xmit_more
-Date: Fri, 13 Mar 2015 12:49:07 -0700
-Message-ID: <1426276147.11398.191.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426273867-10874-1-git-send-email-f.fainelli@gmail.com>
-	 <1426273867-10874-3-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] inet_diag: fix possible overflow in
+ inet_diag_dump_one_icsk()
+Date: Fri, 13 Mar 2015 15:55:00 -0400 (EDT)
+Message-ID: <20150313.155500.725084979936385610.davem@davemloft.net>
+References: <1426262994.11398.188.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1426265399.11398.190.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
-	jaedon.shin@gmail.com, pgynther@google.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:36264 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030257AbbCMTyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:54:55 -0400
-Received: by iegc3 with SMTP id c3so126661427ieg.3
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 12:54:49 -0700 (PDT)
-In-Reply-To: <1426273867-10874-3-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53426 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030338AbbCMTzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 15:55:02 -0400
+In-Reply-To: <1426265399.11398.190.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-03-13 at 12:11 -0700, Florian Fainelli wrote:
-> Delay the update of the TDMA producer index unless this is the last SKB
-> in a batch, or the queue is already stopped. Move the check for whether
-> the queue should be stopped before the xmit_more check to avoid locking
-> the transmit queue in case there was a SKB submitted which has xmit_more
-> set.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 13 Mar 2015 09:49:59 -0700
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> inet_diag_dump_one_icsk() allocates too small skb.
+> 
+> Add inet_sk_attr_size() helper right before inet_sk_diag_fill()
+> so that it can be updated if/when new attributes are added.
+> 
+> iproute2/ss currently does not use this dump_one() interface,
+> this might explain nobody noticed this problem yet.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> v2: added missing 'static' qualifier
+
+Applied and queued up for -stable, thanks Eric.
