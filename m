@@ -1,76 +1,131 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2] ixgbe: Remove NETIF_F_HW_VLAN_CTAG_FILTER from
- hw_features
-Date: Fri, 13 Mar 2015 04:58:28 -0700
-Message-ID: <1426247908.2670.6.camel@jtkirshe-mobl>
-References: <20150312152055.1319.61781.stgit@ahduyck-vm-fedora20>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-6fAFJ0ESO7sb4/xYiqOp"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	h-shimamoto@ct.jp.nec.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: [PATCH net-next] Configure bridge FDB ageing time using netlink.
+Date: Fri, 13 Mar 2015 17:40:54 +0530
+Message-ID: <1426248654-64401-1-git-send-email-siva.mannem.lnx@gmail.com>
+Cc: Siva Mannem <siva.mannem.lnx@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54101 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752756AbbCML63 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 07:58:29 -0400
-In-Reply-To: <20150312152055.1319.61781.stgit@ahduyck-vm-fedora20>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:40487 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbbCMMLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 08:11:04 -0400
+Received: by pdbfp1 with SMTP id fp1so28475983pdb.7
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 05:11:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+---
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_device.c       | 13 +++++++++++++
+ net/bridge/br_netlink.c      | 14 ++++++++++++--
+ net/bridge/br_private.h      |  5 +++++
+ 4 files changed, 31 insertions(+), 2 deletions(-)
 
---=-6fAFJ0ESO7sb4/xYiqOp
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2015-03-12 at 08:22 -0700, Alexander Duyck wrote:
-> This change makes it so that the HW_VLAN_CTAG_FILTER bit is not
-> falsely
-> advertised as being a feature that can be toggled on ixgbe parts.  The
-> driver was setting the bit in features and letting it be inherited by
-> hw_features, however the driver was actually ignoring the value of the
-> bit
-> and just assuming it was always set.  As a result VLAN filtering was
-> always
-> enabled which is a requirement for SR-IOV, VMDq, DCB, FCoE, and
-> possibly
-> other features within the adapters.
->=20
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> ---
->=20
-> v2: Updated patch description replacing STAG reference with CTAG
->=20
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-
-Thanks Alex, I have applied your updated patch to my queue.
-
-git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
-dev-queue
-
---=-6fAFJ0ESO7sb4/xYiqOp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVAtDkAAoJEOVv75VaS+3OJ/IQAI2x8K1pbUCByN1gVRfr6Vk9
-Hfnttq2oUfQ9IlG20ID6DKqhZ9EMy++cz3Obc/2qbq6O5nDT1iaix++d4q10Nk7P
-EcyUNuDyS5AV+xgV38GTEW3KiLtBmdU9HLSYw3j2KTD31mTte9bRCxmoj23l4SEC
-sqW2TPzG9nxpWpFLNl/dNPAX/HjbFDFu5mgEy2Q/KCpojf1JP0sK+IzdJ7QaP0LU
-opan8BzB5z0XF1TJ+ga1eleds0V3h872EtOaTTQBcRF+VcfCy0Jhp9zDEb+6eAQp
-V6p5pQv2cd5P2XQN8hBVxxAJJqzq/hT195Lmoyl89FzgJTEkT4qp25LaGFjT8JNx
-Lfvl8TYtws4FwYfLExoqacm2v6qqXz/ZbBSyMTdtTE6z9ER8iJbQAfyxuaJy7/E4
-1lrPWvp7+TU7b55Otk27YNMIqA/e6myYvm+p0BwlL03mcNr9dqPPjTug2QvVpL99
-v45Z7zjH3UFO1Gb1DiIwyFj/E6jH/1IE8CgOGoKvrYxm6sgASEdnBars57xpY/pr
-GARaubcsDpMua5ggxzguEnabIjWiUeR02dYfZLtkLp5H6bSZV1EXdrJSt3GQHR0x
-O8Jlv99t1nbO+AlnZJluOQyNRawoYWRl5otIUD/Fb3D1aLRrFgGI//cXavQzKqUQ
-pghFbzVKowgARhKXrEy1
-=npLB
------END PGP SIGNATURE-----
-
---=-6fAFJ0ESO7sb4/xYiqOp--
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 756436e..4a59232 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -224,6 +224,7 @@ enum {
+ 	IFLA_BR_FORWARD_DELAY,
+ 	IFLA_BR_HELLO_TIME,
+ 	IFLA_BR_MAX_AGE,
++	IFLA_BR_AGEING_TIME,
+ 	__IFLA_BR_MAX,
+ };
+ 
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 294cbcc..1a665aa 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -392,3 +392,16 @@ void br_dev_setup(struct net_device *dev)
+ 	br_stp_timer_init(br);
+ 	br_multicast_init(br);
+ }
++
++int br_set_ageing_time(struct net_bridge *br, unsigned long val)
++{
++	unsigned long t = clock_t_to_jiffies(val);
++
++	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
++		return -ERANGE;
++
++	spin_lock_bh(&br->lock);
++	br->ageing_time = t;
++	spin_unlock_bh(&br->lock);
++	return 0;
++}
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 8bc6b67..d80e802 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -733,6 +733,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_FORWARD_DELAY]	= { .type = NLA_U32 },
+ 	[IFLA_BR_HELLO_TIME]	= { .type = NLA_U32 },
+ 	[IFLA_BR_MAX_AGE]	= { .type = NLA_U32 },
++	[IFLA_BR_AGEING_TIME]	= { .type = NLA_U32 },
+ };
+ 
+ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+@@ -762,6 +763,12 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 			return err;
+ 	}
+ 
++	if (data[IFLA_BR_AGEING_TIME]) {
++		err = br_set_ageing_time(br, nla_get_u32(data[IFLA_BR_AGEING_TIME]));
++		if (err)
++			return err;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -770,6 +777,7 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	return nla_total_size(sizeof(u32)) +	/* IFLA_BR_FORWARD_DELAY  */
+ 	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_HELLO_TIME */
+ 	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_MAX_AGE */
++	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_AGEING_TIME */
+ 	       0;
+ }
+ 
+@@ -778,11 +786,13 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	struct net_bridge *br = netdev_priv(brdev);
+ 	u32 forward_delay = jiffies_to_clock_t(br->forward_delay);
+ 	u32 hello_time = jiffies_to_clock_t(br->hello_time);
+-	u32 age_time = jiffies_to_clock_t(br->max_age);
++	u32 max_age = jiffies_to_clock_t(br->max_age);
++	u32 ageing_time = jiffies_to_clock_t(br->ageing_time);
+ 
+ 	if (nla_put_u32(skb, IFLA_BR_FORWARD_DELAY, forward_delay) ||
+ 	    nla_put_u32(skb, IFLA_BR_HELLO_TIME, hello_time) ||
+-	    nla_put_u32(skb, IFLA_BR_MAX_AGE, age_time))
++	    nla_put_u32(skb, IFLA_BR_MAX_AGE, max_age) ||
++	    nla_put_u32(skb, IFLA_BR_AGEING_TIME, ageing_time))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index f0a0438..819761b 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -25,6 +25,10 @@
+ 
+ #define BR_HOLD_TIME (1*HZ)
+ 
++/* values as per ieee8021QBridgeFdbAgingTime */ 
++#define BR_MIN_AGEING_TIME  (10*HZ)
++#define BR_MAX_AGEING_TIME  (1000000*HZ)
++
+ #define BR_PORT_BITS	10
+ #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
+ #define BR_VLAN_BITMAP_LEN	BITS_TO_LONGS(VLAN_N_VID)
+@@ -345,6 +349,7 @@ static inline int br_is_root_bridge(const struct net_bridge *br)
+ void br_dev_setup(struct net_device *dev);
+ void br_dev_delete(struct net_device *dev, struct list_head *list);
+ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
++int br_set_ageing_time(struct net_bridge *br, unsigned long val);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ 				       struct sk_buff *skb)
+-- 
+2.1.0
