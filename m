@@ -1,31 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] xps: must clear sender_cpu before forwarding
-Date: Thu, 12 Mar 2015 19:57:10 -0700
-Message-ID: <1426215430.11398.179.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5500E52C.7080603@nuclearfallout.net>
-	 <CANn89iLHkYc2Kay7z+v=tHMW5aYSqUf8V4f70Z-d5fUuuUXnpw@mail.gmail.com>
-	 <1426124522.11398.129.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150311.235134.2179029122534232611.davem@davemloft.net>
-	 <55024D36.7040108@nuclearfallout.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/8] inet: tcp listener refactoring, part 8
+Date: Thu, 12 Mar 2015 22:59:02 -0400 (EDT)
+Message-ID: <20150312.225902.346508150299996301.davem@davemloft.net>
+References: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: John <jw@nuclearfallout.net>
+Cc: netdev@vger.kernel.org
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:34943 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751931AbbCMC5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 22:57:12 -0400
-Received: by ieclw3 with SMTP id lw3so77447165iec.2
-        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 19:57:11 -0700 (PDT)
-In-Reply-To: <55024D36.7040108@nuclearfallout.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43582 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751931AbbCMC7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 22:59:04 -0400
+In-Reply-To: <1426203850-11034-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-12 at 19:36 -0700, John wrote:
+From: Eric Dumazet <edumazet@google.com>
+Date: Thu, 12 Mar 2015 16:44:02 -0700
 
-> Running this patch, I have confirmed that I no longer see panics under 
-> the conditions that I saw them previously.
+> These patches prepare request socks being hashed into general ehash
+> table : We declare 3 aliases (ireq_state, ireq_refcnt, ireq_family)
+> 
+> Note that refcnt is not yet handled, this will be done later.
 
-Thanks a lot John !
+Looks good, series applied, thanks Eric!
