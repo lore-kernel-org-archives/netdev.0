@@ -1,43 +1,211 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: Fix statistics locking scheme
-Date: Fri, 13 Mar 2015 20:05:36 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63C10E0E@avmb3.qlogic.org>
-References: <1426253565-10302-1-git-send-email-Yuval.Mintz@qlogic.com>
-	<20150313.123822.1761706097366192562.davem@davemloft.net>
-	<B5657A6538887040AD3A81F1008BEC63C10D9E@avmb3.qlogic.org>,<20150313.155147.274140101234642831.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: David Miller <davem@davemloft.net>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 2/7] tipc: move message validation function to msg.c
+Date: Fri, 13 Mar 2015 16:08:06 -0400
+Message-ID: <1426277291-2427-3-git-send-email-jon.maloy@ericsson.com>
+References: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avcashub3.qlogic.com ([198.70.193.117]:31238 "EHLO
-	avcashub1.qlogic.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754137AbbCMUFi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:05:38 -0400
-In-Reply-To: <20150313.155147.274140101234642831.davem@davemloft.net>
-Content-Language: en-US
+Received: from smtp103.biz.mail.bf1.yahoo.com ([98.139.221.62]:44830 "EHLO
+	smtp103.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754535AbbCMUIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:08:50 -0400
+In-Reply-To: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> I've no real objection to re-spinning this,
->> given that it's an error flow we've never actually encountered.
->> Do notice that this doesn't change existing behavior of code.
+The function link_buf_validate() is in reality re-entrant and context
+independent, and will in later commits be called from several locations.
+Therefore, we move it to msg.c, make it outline and rename the it to
+tipc_msg_validate().
 
->I disagree.
+We also redesign the function to make proper use of pskb_may_pull()
 
->The existing code took the spinlock unconditionally, and only
->executed the critical section under the lock.
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/link.c | 58 +--------------------------------------------------------
+ net/tipc/msg.c  | 44 ++++++++++++++++++++++++++++++++++++++++++-
+ net/tipc/msg.h  |  5 +++--
+ 3 files changed, 47 insertions(+), 60 deletions(-)
 
->This exact place is where you are adding the semaphore timeout
->stuff I am specifically objecting too.
-
-I can't really see why we should look at the existing spinlock critical
-section as if that's the more important one, given that the surrounding
-logic is broken, i.e., that a context switch between the spinlock release
-and the action() taking place might result in the state machine no
-longer truthfully representing the actual HW/FW configuration.
-
-Regardless, you've made your disdain for this... well, more than obvious.
-And since I can't really justify this behaviour, I think I'll simply re-spin it. 
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 98609fd..944c8c6 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1048,61 +1048,6 @@ static void link_retrieve_defq(struct tipc_link *link,
+ }
+ 
+ /**
+- * link_recv_buf_validate - validate basic format of received message
+- *
+- * This routine ensures a TIPC message has an acceptable header, and at least
+- * as much data as the header indicates it should.  The routine also ensures
+- * that the entire message header is stored in the main fragment of the message
+- * buffer, to simplify future access to message header fields.
+- *
+- * Note: Having extra info present in the message header or data areas is OK.
+- * TIPC will ignore the excess, under the assumption that it is optional info
+- * introduced by a later release of the protocol.
+- */
+-static int link_recv_buf_validate(struct sk_buff *buf)
+-{
+-	static u32 min_data_hdr_size[8] = {
+-		SHORT_H_SIZE, MCAST_H_SIZE, NAMED_H_SIZE, BASIC_H_SIZE,
+-		MAX_H_SIZE, MAX_H_SIZE, MAX_H_SIZE, MAX_H_SIZE
+-		};
+-
+-	struct tipc_msg *msg;
+-	u32 tipc_hdr[2];
+-	u32 size;
+-	u32 hdr_size;
+-	u32 min_hdr_size;
+-
+-	/* If this packet comes from the defer queue, the skb has already
+-	 * been validated
+-	 */
+-	if (unlikely(TIPC_SKB_CB(buf)->deferred))
+-		return 1;
+-
+-	if (unlikely(buf->len < MIN_H_SIZE))
+-		return 0;
+-
+-	msg = skb_header_pointer(buf, 0, sizeof(tipc_hdr), tipc_hdr);
+-	if (msg == NULL)
+-		return 0;
+-
+-	if (unlikely(msg_version(msg) != TIPC_VERSION))
+-		return 0;
+-
+-	size = msg_size(msg);
+-	hdr_size = msg_hdr_sz(msg);
+-	min_hdr_size = msg_isdata(msg) ?
+-		min_data_hdr_size[msg_type(msg)] : INT_H_SIZE;
+-
+-	if (unlikely((hdr_size < min_hdr_size) ||
+-		     (size < hdr_size) ||
+-		     (buf->len < size) ||
+-		     (size - hdr_size > TIPC_MAX_USER_MSG_SIZE)))
+-		return 0;
+-
+-	return pskb_may_pull(buf, hdr_size);
+-}
+-
+-/**
+  * tipc_rcv - process TIPC packets/messages arriving from off-node
+  * @net: the applicable net namespace
+  * @skb: TIPC packet
+@@ -1127,7 +1072,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
+ 
+ 	while ((skb = __skb_dequeue(&head))) {
+ 		/* Ensure message is well-formed */
+-		if (unlikely(!link_recv_buf_validate(skb)))
++		if (unlikely(!tipc_msg_validate(skb)))
+ 			goto discard;
+ 
+ 		/* Ensure message data is a single contiguous unit */
+@@ -1398,7 +1343,6 @@ static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
+ 
+ 	if (tipc_link_defer_pkt(&l_ptr->deferred_queue, buf)) {
+ 		l_ptr->stats.deferred_recv++;
+-		TIPC_SKB_CB(buf)->deferred = true;
+ 		if ((skb_queue_len(&l_ptr->deferred_queue) % 16) == 1)
+ 			tipc_link_proto_xmit(l_ptr, STATE_MSG, 0, 0, 0, 0, 0);
+ 	} else {
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index b6eb90c..4a64caf 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/msg.c: TIPC message header routines
+  *
+- * Copyright (c) 2000-2006, 2014, Ericsson AB
++ * Copyright (c) 2000-2006, 2014-2015, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -181,6 +181,48 @@ err:
+ 	return 0;
+ }
+ 
++/* tipc_msg_validate - validate basic format of received message
++ *
++ * This routine ensures a TIPC message has an acceptable header, and at least
++ * as much data as the header indicates it should.  The routine also ensures
++ * that the entire message header is stored in the main fragment of the message
++ * buffer, to simplify future access to message header fields.
++ *
++ * Note: Having extra info present in the message header or data areas is OK.
++ * TIPC will ignore the excess, under the assumption that it is optional info
++ * introduced by a later release of the protocol.
++ */
++bool tipc_msg_validate(struct sk_buff *skb)
++{
++	struct tipc_msg *msg;
++	int msz, hsz;
++
++	if (unlikely(TIPC_SKB_CB(skb)->validated))
++		return true;
++	if (unlikely(!pskb_may_pull(skb, MIN_H_SIZE)))
++		return false;
++
++	hsz = msg_hdr_sz(buf_msg(skb));
++	if (unlikely(hsz < MIN_H_SIZE) || (hsz > MAX_H_SIZE))
++		return false;
++	if (unlikely(!pskb_may_pull(skb, hsz)))
++		return false;
++
++	msg = buf_msg(skb);
++	if (unlikely(msg_version(msg) != TIPC_VERSION))
++		return false;
++
++	msz = msg_size(msg);
++	if (unlikely(msz < hsz))
++		return false;
++	if (unlikely((msz - hsz) > TIPC_MAX_USER_MSG_SIZE))
++		return false;
++	if (unlikely(skb->len < msz))
++		return false;
++
++	TIPC_SKB_CB(skb)->validated = true;
++	return true;
++}
+ 
+ /**
+  * tipc_msg_build - create buffer chain containing specified header and data
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 7cece64..62306b8 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/msg.h: Include file for TIPC message header routines
+  *
+- * Copyright (c) 2000-2007, 2014, Ericsson AB
++ * Copyright (c) 2000-2007, 2014-2015 Ericsson AB
+  * Copyright (c) 2005-2008, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -92,7 +92,7 @@ struct plist;
+ struct tipc_skb_cb {
+ 	void *handle;
+ 	struct sk_buff *tail;
+-	bool deferred;
++	bool validated;
+ 	bool wakeup_pending;
+ 	bool bundling;
+ 	u16 chain_sz;
+@@ -758,6 +758,7 @@ static inline u32 msg_tot_origport(struct tipc_msg *m)
+ }
+ 
+ struct sk_buff *tipc_buf_acquire(u32 size);
++bool tipc_msg_validate(struct sk_buff *skb);
+ bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
+ 		      int err);
+ void tipc_msg_init(u32 own_addr, struct tipc_msg *m, u32 user, u32 type,
+-- 
+1.9.1
