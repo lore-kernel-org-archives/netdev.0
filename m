@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 3/6] tcp_metrics: Add a field tcpm_net and verify it matches on lookup
-Date: Fri, 13 Mar 2015 00:05:52 -0500
-Message-ID: <87ioe5xz9r.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH net-next 4/6] tcp_metrics: Remove the unused return code from tcp_metrics_flush_all
+Date: Fri, 13 Mar 2015 00:06:43 -0500
+Message-ID: <87a8zhxz8c.fsf_-_@x220.int.ebiederm.org>
 References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
 	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
 	<87d25hrv9m.fsf@x220.int.ebiederm.org>
@@ -19,122 +19,56 @@ Cc: edumazet@google.com, netdev@vger.kernel.org,
 	Julian Anastasov <ja@ssi.bg>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:38600 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751306AbbCMFJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 01:09:35 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:36193 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139AbbCMFKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 01:10:25 -0400
 In-Reply-To: <87y4n1xzco.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Fri, 13 Mar 2015 00:04:07 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-In preparation for using one tcp metrics hash table for all network
-namespaces add a field tcpm_net to struct tcp_metrics_block, and
-verify that field on all hash table lookups.
-
-Make the field tcpm_net of type possible_net_t so it takes no space
-when network namespaces are disabled.
-
-Further add a function tm_net to read that field so we can be
-efficient when network namespaces are disabled and concise
-the rest of the time.
+tcp_metrics_flush_all always returns 0.  Remove the unnecessary return code.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/ipv4/tcp_metrics.c | 24 +++++++++++++++++++-----
- 1 file changed, 19 insertions(+), 5 deletions(-)
+ net/ipv4/tcp_metrics.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index fbb42f44501e..461c3d2e1ca4 100644
+index 461c3d2e1ca4..0d07e14f2ca5 100644
 --- a/net/ipv4/tcp_metrics.c
 +++ b/net/ipv4/tcp_metrics.c
-@@ -40,6 +40,7 @@ struct tcp_fastopen_metrics {
+@@ -1043,7 +1043,7 @@ out_free:
  
- struct tcp_metrics_block {
- 	struct tcp_metrics_block __rcu	*tcpm_next;
-+	possible_net_t			tcpm_net;
- 	struct inetpeer_addr		tcpm_saddr;
- 	struct inetpeer_addr		tcpm_daddr;
- 	unsigned long			tcpm_stamp;
-@@ -52,6 +53,11 @@ struct tcp_metrics_block {
- 	struct rcu_head			rcu_head;
- };
+ #define deref_genl(p)	rcu_dereference_protected(p, lockdep_genl_is_held())
  
-+static inline struct net *tm_net(struct tcp_metrics_block *tm)
-+{
-+	return read_pnet(&tm->tcpm_net);
-+}
-+
- static bool tcp_metric_locked(struct tcp_metrics_block *tm,
- 			      enum tcp_metric_index idx)
+-static int tcp_metrics_flush_all(struct net *net)
++static void tcp_metrics_flush_all(struct net *net)
  {
-@@ -183,6 +189,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 		if (!tm)
- 			goto out_unlock;
- 	}
-+	write_pnet(&tm->tcpm_net, net);
- 	tm->tcpm_saddr = *saddr;
- 	tm->tcpm_daddr = *daddr;
- 
-@@ -217,7 +224,8 @@ static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *s
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
- 		if (addr_same(&tm->tcpm_saddr, saddr) &&
--		    addr_same(&tm->tcpm_daddr, daddr))
-+		    addr_same(&tm->tcpm_daddr, daddr) &&
-+		    net_eq(tm_net(tm), net))
- 			break;
- 		depth++;
- 	}
-@@ -258,7 +266,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
- 		if (addr_same(&tm->tcpm_saddr, &saddr) &&
--		    addr_same(&tm->tcpm_daddr, &daddr))
-+		    addr_same(&tm->tcpm_daddr, &daddr) &&
-+		    net_eq(tm_net(tm), net))
- 			break;
- 	}
- 	tcpm_check_stamp(tm, dst);
-@@ -306,7 +315,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
- 		if (addr_same(&tm->tcpm_saddr, &saddr) &&
--		    addr_same(&tm->tcpm_daddr, &daddr))
-+		    addr_same(&tm->tcpm_daddr, &daddr) &&
-+		    net_eq(tm_net(tm), net))
- 			break;
- 	}
- 	return tm;
-@@ -912,6 +922,8 @@ static int tcp_metrics_nl_dump(struct sk_buff *skb,
- 		rcu_read_lock();
- 		for (col = 0, tm = rcu_dereference(hb->chain); tm;
- 		     tm = rcu_dereference(tm->tcpm_next), col++) {
-+			if (!net_eq(tm_net(tm), net))
-+				continue;
- 			if (col < s_col)
- 				continue;
- 			if (tcp_metrics_dump_info(skb, cb, tm) < 0) {
-@@ -1004,7 +1016,8 @@ static int tcp_metrics_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
- 		if (addr_same(&tm->tcpm_daddr, &daddr) &&
--		    (!src || addr_same(&tm->tcpm_saddr, &saddr))) {
-+		    (!src || addr_same(&tm->tcpm_saddr, &saddr)) &&
-+		    net_eq(tm_net(tm), net)) {
- 			ret = tcp_metrics_fill_info(msg, tm);
- 			break;
+ 	unsigned int max_rows = 1U << net->ipv4.tcp_metrics_hash_log;
+ 	struct tcpm_hash_bucket *hb = net->ipv4.tcp_metrics_hash;
+@@ -1064,7 +1064,6 @@ static int tcp_metrics_flush_all(struct net *net)
+ 			tm = next;
  		}
-@@ -1081,7 +1094,8 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	spin_lock_bh(&tcp_metrics_lock);
- 	for (tm = deref_locked_genl(*pp); tm; tm = deref_locked_genl(*pp)) {
- 		if (addr_same(&tm->tcpm_daddr, &daddr) &&
--		    (!src || addr_same(&tm->tcpm_saddr, &saddr))) {
-+		    (!src || addr_same(&tm->tcpm_saddr, &saddr)) &&
-+		    net_eq(tm_net(tm), net)) {
- 			*pp = tm->tcpm_next;
- 			kfree_rcu(tm, rcu_head);
- 			found = true;
+ 	}
+-	return 0;
+ }
+ 
+ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+@@ -1081,8 +1080,10 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	ret = parse_nl_addr(info, &daddr, &hash, 1);
+ 	if (ret < 0)
+ 		return ret;
+-	if (ret > 0)
+-		return tcp_metrics_flush_all(net);
++	if (ret > 0) {
++		tcp_metrics_flush_all(net);
++		return 0;
++	}
+ 	ret = parse_nl_saddr(info, &saddr);
+ 	if (ret < 0)
+ 		src = false;
 -- 
 2.2.1
