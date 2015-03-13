@@ -1,41 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/6] rhashtable: Move seed init into bucket_table_alloc
-Date: Fri, 13 Mar 2015 11:33:39 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAFE8C4@AcuExch.aculab.com>
-References: <20150313095607.GA598@gondor.apana.org.au>
- <E1YWMLA-0000Bg-H9@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
-	Thomas Graf <tgraf@suug.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:53233 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605AbbCMLeg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 07:34:36 -0400
-In-Reply-To: <E1YWMLA-0000Bg-H9@gondolin.me.apana.org.au>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH 2/4] nfc: Fix portid type in urelease_work
+Date: Fri, 13 Mar 2015 12:31:14 +0100
+Message-ID: <1426246276-15839-3-git-send-email-richard@nod.at>
+References: <1426246276-15839-1-git-send-email-richard@nod.at>
+Cc: linux-wireless@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sameo@linux.intel.com, aloisio.almeida@openbossa.org,
+	lauro.venancio@openbossa.org, davem@davemloft.net,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, pablo@netfilter.org,
+	Richard Weinberger <richard@nod.at>
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1426246276-15839-1-git-send-email-richard@nod.at>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu
-> It seems that I have already made every rehash redo the random
-> seed even though my commit message indicated otherwise :)
-> 
-> Since we have already taken that step, this patch goes one step
-> further and moves the seed initialisation into bucket_table_alloc.
+portid is an unsigned integer. Fix urelease_work to
+match all other portid user in the kernel.
 
-If the decision to resize a hash table is based on the length
-of the hash chains, then changing the hash function might either
-make that unnecessary or make an immediate resize be needed.
+Signed-off-by: Richard Weinberger <richard@nod.at>
+---
+ net/nfc/netlink.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Not that I'm convinced you can get a good enough hash function
-to avoid one or two long chains when the has table is large.
-I've not played with the hashes used for network 'stuff' but
-I remember playing with the elf symbol table hash. Whatever I
-did one or two chains would end up with more elements than
-you might have hoped.
+diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+index 14a2d11..1f12c4c 100644
+--- a/net/nfc/netlink.c
++++ b/net/nfc/netlink.c
+@@ -1583,8 +1583,8 @@ static const struct genl_ops nfc_genl_ops[] = {
+ 
+ 
+ struct urelease_work {
+-	struct	work_struct w;
+-	int	portid;
++	struct		work_struct w;
++	unsigned int	portid;
+ };
+ 
+ static void nfc_urelease_event_work(struct work_struct *work)
+-- 
+1.8.4.5
 
-	David
