@@ -1,93 +1,41 @@
-From: He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v6 tip 3/8] tracing: allow BPF programs to call bpf_ktime_get_ns()
-Date: Fri, 13 Mar 2015 19:24:27 +0800
-Message-ID: <5502C8EB.9070307@huawei.com>
-References: <1426047534-8148-1-git-send-email-ast@plumgrid.com> <1426047534-8148-4-git-send-email-ast@plumgrid.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/6] rhashtable: Move seed init into bucket_table_alloc
+Date: Fri, 13 Mar 2015 11:33:39 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAFE8C4@AcuExch.aculab.com>
+References: <20150313095607.GA598@gondor.apana.org.au>
+ <E1YWMLA-0000Bg-H9@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	<linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1426047534-8148-4-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
+	Thomas Graf <tgraf@suug.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.181]:53233 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752605AbbCMLeg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 07:34:36 -0400
+In-Reply-To: <E1YWMLA-0000Bg-H9@gondolin.me.apana.org.au>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Alexei
+From: Herbert Xu
+> It seems that I have already made every rehash redo the random
+> seed even though my commit message indicated otherwise :)
+> 
+> Since we have already taken that step, this patch goes one step
+> further and moves the seed initialisation into bucket_table_alloc.
 
-I've followed up your bpf version. In bpf filter, sometimes we need to
-get 'pid' and some other context informations to decide whether to
-filter or not.
+If the decision to resize a hash table is based on the length
+of the hash chains, then changing the hash function might either
+make that unnecessary or make an immediate resize be needed.
 
-For example, to trace a vfs read procedure, we can insert bpf program to
-'__vfs_read(struct file *file, char __user *buf ...)', mark some of
-'buf' addresses and only trace the read procedure of these 'buf's. But
-this parameter is a userspace pointer, the value is meaningless to other
-processes, so we should also record 'pid' to make sense.
+Not that I'm convinced you can get a good enough hash function
+to avoid one or two long chains when the has table is large.
+I've not played with the hashes used for network 'stuff' but
+I remember playing with the elf symbol table hash. Whatever I
+did one or two chains would end up with more elements than
+you might have hoped.
 
-To a function like __vfs_read, 'pid' can't be extracted from function
-parameters directly. What's your opinion on this issue?
-
-Thanks!
-
-On 2015/3/11 12:18, Alexei Starovoitov wrote:
-> bpf_ktime_get_ns() is used by programs to compue time delta between events
-> or as a timestamp
->
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-> ---
->   include/uapi/linux/bpf.h |    1 +
->   kernel/trace/bpf_trace.c |   11 +++++++++++
->   2 files changed, 12 insertions(+)
->
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 4486d36d2e9e..101e509d1001 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -165,6 +165,7 @@ enum bpf_func_id {
->   	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
->   	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
->   	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
-> +	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
->   	__BPF_FUNC_MAX_ID,
->   };
->   
-> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> index 450ea93ac4ab..ee7c2c629e75 100644
-> --- a/kernel/trace/bpf_trace.c
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -56,6 +56,12 @@ static u64 bpf_probe_read(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
->   	return probe_kernel_read(dst, unsafe_ptr, size);
->   }
->   
-> +static u64 bpf_ktime_get_ns(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> +{
-> +	/* NMI safe access to clock monotonic */
-> +	return ktime_get_mono_fast_ns();
-> +}
-> +
->   static struct bpf_func_proto kprobe_prog_funcs[] = {
->   	[BPF_FUNC_probe_read] = {
->   		.func = bpf_probe_read,
-> @@ -65,6 +71,11 @@ static struct bpf_func_proto kprobe_prog_funcs[] = {
->   		.arg2_type = ARG_CONST_STACK_SIZE,
->   		.arg3_type = ARG_ANYTHING,
->   	},
-> +	[BPF_FUNC_ktime_get_ns] = {
-> +		.func = bpf_ktime_get_ns,
-> +		.gpl_only = true,
-> +		.ret_type = RET_INTEGER,
-> +	},
->   };
->   
->   static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
+	David
