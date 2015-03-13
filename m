@@ -1,34 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] tcp_metrics: Network namespace bloat
- reduction v3
-Date: Fri, 13 Mar 2015 01:57:38 -0400 (EDT)
-Message-ID: <20150313.015738.1931057813270562576.davem@davemloft.net>
-References: <87h9tu114z.fsf_-_@x220.int.ebiederm.org>
-	<87vbi7fq92.fsf_-_@x220.int.ebiederm.org>
-	<87y4n1xzco.fsf_-_@x220.int.ebiederm.org>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [PATCH 2/3 RFC] ath10k: wmi: match wait_for_completion_timeout
+ return type
+Date: Fri, 13 Mar 2015 07:47:45 +0100
+Message-ID: <CA+BoTQ=VYkOcKBjBuLsJcDjPNevTD2UFxVfB1uimRr=9uBO4Fw@mail.gmail.com>
+References: <1426175362-8640-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
-	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
-	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
-	shmulik.ladkani@gmail.com, dsahern@gmail.com, ja@ssi.bg
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45055 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbbCMF5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 01:57:44 -0400
-In-Reply-To: <87y4n1xzco.fsf_-_@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+To: Nicholas Mc Guire <hofrat@osadl.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426175362-8640-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 13 Mar 2015 00:04:07 -0500
+On 12 March 2015 at 16:49, Nicholas Mc Guire <hofrat@osadl.org> wrote:
+> Return type of wait_for_completion_timeout is unsigned long not int.
+> An appropriately named unsigned long is added and the assignments fix=
+ed up.
+> Rather than returning 0 (timeout) or a more or less random remaining =
+time
+> (completion success) this return 0 or 1 which also resolves the type =
+of the
+> functions being int.
+>
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> ---
+>
+> Checking the call-sites of ath10k_wmi_wait_for_unified_ready and
+> ath10k_wmi_wait_for_service_ready the positive return value (remainin=
+g
+> time in jiffies) is never passed up the call-chain nor used so it is
+> cleaner to treat this like a boolean success/fail only (actually the =
+two
+> functions should probably be of type bool - but that does not seem to=
+ be
+> common practice in the ath10k code base)
 
-> This is a small pile of patches that convert tcp_metrics from using a
-> hash table per network namespace to using a single hash table for all
-> network namespaces.
+It'd make sense to have these functions return 0 or -ETIMEDOUT. In
+that case both call sites would need to be adjusted to treat "< 0" or
+"!x" as an error (instead of the current "<=3D 0") condition and not se=
+t
+-ETIMEDOUT themselves.
 
-Looks great, series applied, thanks Eric!
+
+Micha=C5=82
