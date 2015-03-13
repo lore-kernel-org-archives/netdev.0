@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6_tunnel: fix error code when tunnel exists
-Date: Fri, 13 Mar 2015 12:32:31 -0400 (EDT)
-Message-ID: <20150313.123231.1641333637059823788.davem@davemloft.net>
-References: <1426251537-31870-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1426254227.11398.183.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: linux-next: manual merge of the net-next tree with the vfs tree
+Date: Fri, 13 Mar 2015 16:37:07 +0000
+Message-ID: <20150313163707.GP29656@ZenIV.linux.org.uk>
+References: <20150313131543.7c050492@canb.auug.org.au>
+ <20150312.232426.1464986797003264151.davem@davemloft.net>
+ <20150313035609.GO29656@ZenIV.linux.org.uk>
+ <20150313153817.34510752@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	me@pierre-cheynier.net, steffen.klassert@secunet.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51164 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751481AbbCMQcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:32:33 -0400
-In-Reply-To: <1426254227.11398.183.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hch@lst.de, ying.xue@windriver.com,
+	Felipe Balbi <balbi@ti.com>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-usb@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150313153817.34510752@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 13 Mar 2015 06:43:47 -0700
+On Fri, Mar 13, 2015 at 03:38:17PM +1100, Stephen Rothwell wrote:
 
-> 
-> These IS_ERR_OR_NULL(t) looks like defensive/lazy programming to me.
- ...
-> I wish we get rid of all IS_ERR_OR_NULL() uses in networking tree,
-> instead of adding plenty of them.
+> There is also a conflict with e9eab93cc2dc ("fs: don't allow to
+> complete sync iocbs through aio_complete"), though it doesn't show up
+> in the resolution since I I just used the next-next tree bits.  So a
+> common branch containing that as well could be merged into both trees.
 
-+1
+OK, for now I've done just that (vfs.git#iocb in never-rebase mode).
+I still think that vfs.git#gadget ought to go into mainline; arguments
+for the rest of #iocb are weaker and merging it into net-next would
+suffice; as the matter of fact, I have pending stuff for net-next touching
+the same area (further reduction of ->sendmsg()/->recvmsg() argument lists;
+total_len is redundant); might as well deal with that when feeding that
+to Dave...
