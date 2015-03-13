@@ -1,206 +1,304 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 4/7] tipc: extract bundled
-	buffers by cloning instead of copying
-Date: Fri, 13 Mar 2015 16:08:08 -0400
-Message-ID: <1426277291-2427-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 7/7] tipc: clean up handling of message priorities
+Date: Fri, 13 Mar 2015 16:08:11 -0400
+Message-ID: <1426277291-2427-8-git-send-email-jon.maloy@ericsson.com>
 References: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp103.biz.mail.bf1.yahoo.com ([98.139.221.62]:44920 "EHLO
+	smtp103.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932075AbbCMUJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 16:09:00 -0400
 In-Reply-To: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When we currently extract a bundled buffer from a message bundle in
-the function tipc_msg_extract(), we allocate a new buffer and explicitly
-copy the linear data area.
+Messages transferred by TIPC are assigned an "importance priority", -an
+integer value indicating how to treat the message when there is link or
+destination socket congestion.
 
-This is unnecessary, since we can just clone the buffer and do
-skb_pull() on the clone to move the data pointer to the correct
-position.
+There is no separate header field for this value. Instead, the message
+user values have been chosen in ascending order according to perceived
+importance, so that the message user field can be used for this.
 
-This is what we do in this commit.
+This is not a good solution. First, we have many more users than the
+needed priority levels, so we end up with treating more priority
+levels than necessary. Second, the user field cannot always
+accurately reflect the priority of the message. E.g., a message
+fragment packet should really have the priority of the enveloped
+user data message, and not the priority of the MSG_FRAGMENTER user.
+Until now, we have been working around this problem in different ways,
+but it is now time to implement a consistent way of handling such
+priorities, although still within the constraint that we cannot
+allocate any more bits in the regular data message header for this.
+
+In this commit, we define a new priority level, TIPC_SYSTEM_IMPORTANCE,
+that will be the only one used apart from the four (lower) user data
+levels. All non-data messages map down to this priority. Furthermore,
+we take some free bits from the MSG_FRAGMENTER header and allocate
+them to store the priority of the enveloped message. We then adjust
+the functions msg_importance()/msg_set_importance() so that they
+read/set the correct header fields depending on user type.
+
+This small protocol change is fully compatible, because the code at
+the receiving end of a link currently reads the importance level
+only from user data messages, where there is no change.
 
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 45 ++++++++++++---------------------------------
- net/tipc/msg.c  | 30 ++++++++++++++++--------------
- 2 files changed, 28 insertions(+), 47 deletions(-)
+ net/tipc/bcast.c |  1 -
+ net/tipc/link.c  | 40 +++++++++++++---------------------
+ net/tipc/msg.c   |  5 +----
+ net/tipc/msg.h   | 65 +++++++++++++++++++++++++++++---------------------------
+ 4 files changed, 50 insertions(+), 61 deletions(-)
 
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 17cb0ff..5aff084 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -383,7 +383,6 @@ int tipc_bclink_xmit(struct net *net, struct sk_buff_head *list)
+ 		__skb_queue_purge(list);
+ 		return -EHOSTUNREACH;
+ 	}
+-
+ 	/* Broadcast to all nodes */
+ 	if (likely(bclink)) {
+ 		tipc_bclink_lock(net);
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 8c6639d..56c39b1 100644
+index 7e0036f..bc49120 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/link.c: TIPC link code
-  *
-- * Copyright (c) 1996-2007, 2012-2014, Ericsson AB
-+ * Copyright (c) 1996-2007, 2012-2015, Ericsson AB
-  * Copyright (c) 2004-2007, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-@@ -1117,7 +1117,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
- 		ackd = msg_ack(msg);
- 
- 		/* Release acked messages */
--		if (n_ptr->bclink.recv_permitted)
-+		if (likely(n_ptr->bclink.recv_permitted))
- 			tipc_bclink_acknowledge(n_ptr, msg_bcast_ack(msg));
- 
- 		released = 0;
-@@ -1712,45 +1712,24 @@ void tipc_link_dup_queue_xmit(struct tipc_link *l_ptr,
- 	}
- }
- 
--/**
-- * buf_extract - extracts embedded TIPC message from another message
-- * @skb: encapsulating message buffer
-- * @from_pos: offset to extract from
-- *
-- * Returns a new message buffer containing an embedded message.  The
-- * encapsulating buffer is left unchanged.
-- */
--static struct sk_buff *buf_extract(struct sk_buff *skb, u32 from_pos)
--{
--	struct tipc_msg *msg = (struct tipc_msg *)(skb->data + from_pos);
--	u32 size = msg_size(msg);
--	struct sk_buff *eb;
--
--	eb = tipc_buf_acquire(size);
--	if (eb)
--		skb_copy_to_linear_data(eb, msg, size);
--	return eb;
--}
--
- /* tipc_link_dup_rcv(): Receive a tunnelled DUPLICATE_MSG packet.
-  * Owner node is locked.
+@@ -35,6 +35,7 @@
   */
--static void tipc_link_dup_rcv(struct tipc_link *l_ptr,
--			      struct sk_buff *t_buf)
-+static void tipc_link_dup_rcv(struct tipc_link *link,
-+			      struct sk_buff *skb)
- {
--	struct sk_buff *buf;
-+	struct sk_buff *iskb;
-+	int pos = 0;
  
--	if (!tipc_link_is_up(l_ptr))
-+	if (!tipc_link_is_up(link))
- 		return;
- 
--	buf = buf_extract(t_buf, INT_H_SIZE);
--	if (buf == NULL) {
-+	if (!tipc_msg_extract(skb, &iskb, &pos)) {
- 		pr_warn("%sfailed to extract inner dup pkt\n", link_co_err);
- 		return;
- 	}
+ #include "core.h"
++#include "subscr.h"
+ #include "link.h"
+ #include "bcast.h"
+ #include "socket.h"
+@@ -305,12 +306,10 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
+ 	msg_set_session(msg, (tn->random & 0xffff));
+ 	msg_set_bearer_id(msg, b_ptr->identity);
+ 	strcpy((char *)msg_data(msg), if_name);
 -
--	/* Add buffer to deferred queue, if applicable: */
--	link_handle_out_of_seq_msg(l_ptr, buf);
-+	/* Append buffer to deferred queue, if applicable: */
-+	link_handle_out_of_seq_msg(link, iskb);
+-	l_ptr->priority = b_ptr->priority;
+-	tipc_link_set_queue_limits(l_ptr, b_ptr->window);
+-
+ 	l_ptr->net_plane = b_ptr->net_plane;
+ 	link_init_max_pkt(l_ptr);
++	l_ptr->priority = b_ptr->priority;
++	tipc_link_set_queue_limits(l_ptr, b_ptr->window);
+ 
+ 	l_ptr->next_out_no = 1;
+ 	__skb_queue_head_init(&l_ptr->transmq);
+@@ -708,7 +707,7 @@ static int tipc_link_cong(struct tipc_link *link, struct sk_buff_head *list)
+ {
+ 	struct sk_buff *skb = skb_peek(list);
+ 	struct tipc_msg *msg = buf_msg(skb);
+-	uint imp = tipc_msg_tot_importance(msg);
++	int imp = msg_importance(msg);
+ 	u32 oport = msg_tot_origport(msg);
+ 
+ 	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE)) {
+@@ -745,7 +744,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+ {
+ 	struct tipc_msg *msg = buf_msg(skb_peek(list));
+ 	unsigned int maxwin = link->window;
+-	uint imp = tipc_msg_tot_importance(msg);
++	unsigned int imp = msg_importance(msg);
+ 	uint mtu = link->max_pkt;
+ 	uint ack = mod(link->next_in_no - 1);
+ 	uint seqno = link->next_out_no;
+@@ -755,7 +754,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+ 	struct sk_buff_head *backlogq = &link->backlogq;
+ 	struct sk_buff *skb, *tmp;
+ 
+-	/* Match queue limits against msg importance: */
++	/* Match queue limit against msg importance: */
+ 	if (unlikely(skb_queue_len(backlogq) >= link->queue_limit[imp]))
+ 		return tipc_link_cong(link, list);
+ 
+@@ -1811,25 +1810,16 @@ static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tol)
+ 	l_ptr->abort_limit = tol / (jiffies_to_msecs(l_ptr->cont_intv) / 4);
  }
  
- /*  tipc_link_failover_rcv(): Receive a tunnelled ORIGINAL_MSG packet
-@@ -1762,6 +1741,7 @@ static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
- 	struct tipc_msg *t_msg = buf_msg(t_buf);
- 	struct sk_buff *buf = NULL;
- 	struct tipc_msg *msg;
-+	int pos = 0;
+-void tipc_link_set_queue_limits(struct tipc_link *l_ptr, u32 window)
++void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
+ {
+-	l_ptr->window = window;
+-
+-	/* Data messages from this node, inclusive FIRST_FRAGM */
+-	l_ptr->queue_limit[TIPC_LOW_IMPORTANCE] = window;
+-	l_ptr->queue_limit[TIPC_MEDIUM_IMPORTANCE] = (window / 3) * 4;
+-	l_ptr->queue_limit[TIPC_HIGH_IMPORTANCE] = (window / 3) * 5;
+-	l_ptr->queue_limit[TIPC_CRITICAL_IMPORTANCE] = (window / 3) * 6;
+-	/* Transiting data messages,inclusive FIRST_FRAGM */
+-	l_ptr->queue_limit[TIPC_LOW_IMPORTANCE + 4] = 300;
+-	l_ptr->queue_limit[TIPC_MEDIUM_IMPORTANCE + 4] = 600;
+-	l_ptr->queue_limit[TIPC_HIGH_IMPORTANCE + 4] = 900;
+-	l_ptr->queue_limit[TIPC_CRITICAL_IMPORTANCE + 4] = 1200;
+-	l_ptr->queue_limit[CONN_MANAGER] = 1200;
+-	l_ptr->queue_limit[CHANGEOVER_PROTOCOL] = 2500;
+-	l_ptr->queue_limit[NAME_DISTRIBUTOR] = 3000;
+-	/* FRAGMENT and LAST_FRAGMENT packets */
+-	l_ptr->queue_limit[MSG_FRAGMENTER] = 4000;
++	int max_bulk = TIPC_MAX_PUBLICATIONS / (l->max_pkt / ITEM_SIZE);
++
++	l->window = win;
++	l->queue_limit[TIPC_LOW_IMPORTANCE]      = win / 2;
++	l->queue_limit[TIPC_MEDIUM_IMPORTANCE]   = win;
++	l->queue_limit[TIPC_HIGH_IMPORTANCE]     = win / 2 * 3;
++	l->queue_limit[TIPC_CRITICAL_IMPORTANCE] = win * 2;
++	l->queue_limit[TIPC_SYSTEM_IMPORTANCE]   = max_bulk;
+ }
  
- 	if (tipc_link_is_up(l_ptr))
- 		tipc_link_reset(l_ptr);
-@@ -1773,8 +1753,7 @@ static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
- 	/* Should there be an inner packet? */
- 	if (l_ptr->exp_msg_count) {
- 		l_ptr->exp_msg_count--;
--		buf = buf_extract(t_buf, INT_H_SIZE);
--		if (buf == NULL) {
-+		if (!tipc_msg_extract(t_buf, &buf, &pos)) {
- 			pr_warn("%sno inner failover pkt\n", link_co_err);
- 			goto exit;
- 		}
+ /* tipc_link_find_owner - locate owner node of link by link's name
 diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index ff8c64c..333d2ae 100644
+index 47c8fd8..0c6dad8 100644
 --- a/net/tipc/msg.c
 +++ b/net/tipc/msg.c
-@@ -372,38 +372,40 @@ bool tipc_msg_bundle(struct sk_buff_head *list, struct sk_buff *skb, u32 mtu)
+@@ -272,6 +272,7 @@ int tipc_msg_build(struct tipc_msg *mhdr, struct msghdr *m,
+ 		      FIRST_FRAGMENT, INT_H_SIZE, msg_destnode(mhdr));
+ 	msg_set_size(&pkthdr, pktmax);
+ 	msg_set_fragm_no(&pkthdr, pktno);
++	msg_set_importance(&pkthdr, msg_importance(mhdr));
  
- /**
-  *  tipc_msg_extract(): extract bundled inner packet from buffer
-- *  @skb: linear outer buffer, to be extracted from.
-+ *  @skb: buffer to be extracted from.
-  *  @iskb: extracted inner buffer, to be returned
-- *  @pos: position of msg to be extracted. Returns with pointer of next msg
-+ *  @pos: position in outer message of msg to be extracted.
-+ *        Returns position of next msg
-  *  Consumes outer buffer when last packet extracted
-  *  Returns true when when there is an extracted buffer, otherwise false
-  */
- bool tipc_msg_extract(struct sk_buff *skb, struct sk_buff **iskb, int *pos)
+ 	/* Prepare first fragment */
+ 	skb = tipc_buf_acquire(pktmax);
+@@ -467,7 +468,6 @@ bool tipc_msg_reverse(u32 own_addr,  struct sk_buff *buf, u32 *dnode,
+ 		      int err)
  {
- 	struct tipc_msg *msg;
--	int imsz;
--	struct tipc_msg *imsg;
-+	int imsz, offset;
+ 	struct tipc_msg *msg = buf_msg(buf);
+-	uint imp = msg_importance(msg);
+ 	struct tipc_msg ohdr;
+ 	uint rdsz = min_t(uint, msg_data_sz(msg), MAX_FORWARD_SIZE);
  
-+	*iskb = NULL;
- 	if (unlikely(skb_linearize(skb)))
--		return false;
-+		goto none;
+@@ -479,9 +479,6 @@ bool tipc_msg_reverse(u32 own_addr,  struct sk_buff *buf, u32 *dnode,
+ 	if (msg_errcode(msg))
+ 		goto exit;
+ 	memcpy(&ohdr, msg, msg_hdr_sz(msg));
+-	imp = min_t(uint, imp + 1, TIPC_CRITICAL_IMPORTANCE);
+-	if (msg_isdata(msg))
+-		msg_set_importance(msg, imp);
+ 	msg_set_errcode(msg, err);
+ 	msg_set_origport(msg, msg_destport(&ohdr));
+ 	msg_set_destport(msg, msg_origport(&ohdr));
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index e5fc5fd..bd3969a 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -54,6 +54,8 @@ struct plist;
+  * - TIPC_HIGH_IMPORTANCE
+  * - TIPC_CRITICAL_IMPORTANCE
+  */
++#define TIPC_SYSTEM_IMPORTANCE	4
 +
- 	msg = buf_msg(skb);
--	imsg = (struct tipc_msg *)(msg_data(msg) + *pos);
--	/* Is there space left for shortest possible message? */
--	if (*pos > (msg_data_sz(msg) - SHORT_H_SIZE))
-+	offset = msg_hdr_sz(msg) + *pos;
-+	if (unlikely(offset > (msg_size(msg) - MIN_H_SIZE)))
- 		goto none;
--	imsz = msg_size(imsg);
  
--	/* Is there space left for current message ? */
--	if ((*pos + imsz) > msg_data_sz(msg))
-+	*iskb = skb_clone(skb, GFP_ATOMIC);
-+	if (unlikely(!*iskb))
- 		goto none;
--	*iskb = tipc_buf_acquire(imsz);
--	if (!*iskb)
-+	skb_pull(*iskb, offset);
-+	imsz = msg_size(buf_msg(*iskb));
-+	skb_trim(*iskb, imsz);
-+	if (unlikely(!tipc_msg_validate(*iskb)))
- 		goto none;
--	skb_copy_to_linear_data(*iskb, imsg, imsz);
- 	*pos += align(imsz);
- 	return true;
- none:
- 	kfree_skb(skb);
-+	kfree_skb(*iskb);
- 	*iskb = NULL;
- 	return false;
+ /*
+  * Payload message types
+@@ -64,6 +66,19 @@ struct plist;
+ #define TIPC_DIRECT_MSG		3
+ 
+ /*
++ * Internal message users
++ */
++#define  BCAST_PROTOCOL       5
++#define  MSG_BUNDLER          6
++#define  LINK_PROTOCOL        7
++#define  CONN_MANAGER         8
++#define  CHANGEOVER_PROTOCOL  10
++#define  NAME_DISTRIBUTOR     11
++#define  MSG_FRAGMENTER       12
++#define  LINK_CONFIG          13
++#define  SOCK_WAKEUP          14       /* pseudo user */
++
++/*
+  * Message header sizes
+  */
+ #define SHORT_H_SIZE              24	/* In-cluster basic payload message */
+@@ -170,16 +185,6 @@ static inline void msg_set_user(struct tipc_msg *m, u32 n)
+ 	msg_set_bits(m, 0, 25, 0xf, n);
  }
+ 
+-static inline u32 msg_importance(struct tipc_msg *m)
+-{
+-	return msg_bits(m, 0, 25, 0xf);
+-}
+-
+-static inline void msg_set_importance(struct tipc_msg *m, u32 i)
+-{
+-	msg_set_user(m, i);
+-}
+-
+ static inline u32 msg_hdr_sz(struct tipc_msg *m)
+ {
+ 	return msg_bits(m, 0, 21, 0xf) << 2;
+@@ -336,6 +341,25 @@ static inline void msg_set_seqno(struct tipc_msg *m, u32 n)
+ /*
+  * Words 3-10
+  */
++static inline u32 msg_importance(struct tipc_msg *m)
++{
++	if (unlikely(msg_user(m) == MSG_FRAGMENTER))
++		return msg_bits(m, 5, 13, 0x7);
++	if (likely(msg_isdata(m) && !msg_errcode(m)))
++		return msg_user(m);
++	return TIPC_SYSTEM_IMPORTANCE;
++}
++
++static inline void msg_set_importance(struct tipc_msg *m, u32 i)
++{
++	if (unlikely(msg_user(m) == MSG_FRAGMENTER))
++		msg_set_bits(m, 5, 13, 0x7, i);
++	else if (likely(i < TIPC_SYSTEM_IMPORTANCE))
++		msg_set_user(m, i);
++	else
++		pr_warn("Trying to set illegal importance in message\n");
++}
++
+ static inline u32 msg_prevnode(struct tipc_msg *m)
+ {
+ 	return msg_word(m, 3);
+@@ -458,20 +482,6 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
+  */
+ 
+ /*
+- * Internal message users
+- */
+-#define  BCAST_PROTOCOL       5
+-#define  MSG_BUNDLER          6
+-#define  LINK_PROTOCOL        7
+-#define  CONN_MANAGER         8
+-#define  ROUTE_DISTRIBUTOR    9		/* obsoleted */
+-#define  CHANGEOVER_PROTOCOL  10
+-#define  NAME_DISTRIBUTOR     11
+-#define  MSG_FRAGMENTER       12
+-#define  LINK_CONFIG          13
+-#define  SOCK_WAKEUP          14       /* pseudo user */
+-
+-/*
+  *  Connection management protocol message types
+  */
+ #define CONN_PROBE        0
+@@ -743,13 +753,6 @@ static inline void msg_set_link_tolerance(struct tipc_msg *m, u32 n)
+ 	msg_set_bits(m, 9, 0, 0xffff, n);
+ }
+ 
+-static inline u32 tipc_msg_tot_importance(struct tipc_msg *m)
+-{
+-	if ((msg_user(m) == MSG_FRAGMENTER) && (msg_type(m) == FIRST_FRAGMENT))
+-		return msg_importance(msg_get_wrapped(m));
+-	return msg_importance(m);
+-}
+-
+ static inline u32 msg_tot_origport(struct tipc_msg *m)
+ {
+ 	if ((msg_user(m) == MSG_FRAGMENTER) && (msg_type(m) == FIRST_FRAGMENT))
 -- 
 1.9.1
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
