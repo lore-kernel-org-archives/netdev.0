@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/7] tipc: add framework for node capabilities exchange
-Date: Fri, 13 Mar 2015 10:27:34 -0400
-Message-ID: <1426256860-31208-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/7] tipc: eliminate unnecessary linearization of incoming buffers
+Date: Fri, 13 Mar 2015 10:27:36 -0400
+Message-ID: <1426256860-31208-4-git-send-email-jon.maloy@ericsson.com>
 References: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,110 +10,103 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:31925 "EHLO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:31951 "EHLO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751056AbbCMO2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 10:28:15 -0400
+	by vger.kernel.org with ESMTP id S1751624AbbCMO2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 10:28:16 -0400
 In-Reply-To: <1426256860-31208-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TIPC protocol spec has defined a 13 bit capability bitmap in
-the neighbor discovery header, as a means to maintain compatibility
-between different code and protocol generations. Until now this field
-has been unused.
+Currently, TIPC linearizes all incoming buffers directly at reception
+before passing them upwards in the stack. This is clearly a waste of
+CPU resources, and must be avoided.
 
-We now introduce the basic framework for exchanging capabilities
-between nodes at first contact. After exchange, a peer node's
-capabilities are stored as a 16 bit bitmap in struct tipc_node.
+In this commit, we eliminate this unnecessary linearization. We still
+ensure that at least the message header is linear, and that the buffer
+is linearized where this is still needed, i.e. when unbundling and when
+reversing messages.
+
+In addition, we ensure that fragmented messages are validated after
+reassembly before delivering them upwards in the stack.
 
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/discover.c |  3 +++
- net/tipc/msg.h      | 11 ++++++++++-
- net/tipc/node.h     |  4 +++-
- 3 files changed, 16 insertions(+), 2 deletions(-)
+ net/tipc/link.c |  5 -----
+ net/tipc/msg.c  | 14 ++++++++++----
+ 2 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index 5967506..169f3dd 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -89,6 +89,7 @@ static void tipc_disc_init_msg(struct net *net, struct sk_buff *buf, u32 type,
- 		      MAX_H_SIZE, dest_domain);
- 	msg_set_non_seq(msg, 1);
- 	msg_set_node_sig(msg, tn->random);
-+	msg_set_node_capabilities(msg, 0);
- 	msg_set_dest_domain(msg, dest_domain);
- 	msg_set_bc_netid(msg, tn->net_id);
- 	b_ptr->media->addr2msg(msg_media_addr(msg), &b_ptr->addr);
-@@ -133,6 +134,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
- 	u32 net_id = msg_bc_netid(msg);
- 	u32 mtyp = msg_type(msg);
- 	u32 signature = msg_node_sig(msg);
-+	u16 caps = msg_node_capabilities(msg);
- 	bool addr_match = false;
- 	bool sign_match = false;
- 	bool link_up = false;
-@@ -167,6 +169,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
- 	if (!node)
- 		return;
- 	tipc_node_lock(node);
-+	node->capabilities = caps;
- 	link = node->links[bearer->identity];
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 944c8c6..8c6639d 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1075,13 +1075,8 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
+ 		if (unlikely(!tipc_msg_validate(skb)))
+ 			goto discard;
  
- 	/* Prepare to validate requesting node's signature and media address */
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index fa16784..7cece64 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -510,7 +510,6 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
- #define DSC_REQ_MSG		0
- #define DSC_RESP_MSG		1
- 
+-		/* Ensure message data is a single contiguous unit */
+-		if (unlikely(skb_linearize(skb)))
+-			goto discard;
 -
- /*
-  * Word 1
+ 		/* Handle arrival of a non-unicast link message */
+ 		msg = buf_msg(skb);
+-
+ 		if (unlikely(msg_non_seq(msg))) {
+ 			if (msg_user(msg) ==  LINK_CONFIG)
+ 				tipc_disc_rcv(net, skb, b_ptr);
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 1364ceb..663ed29 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -165,6 +165,9 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
+ 	}
+ 
+ 	if (fragid == LAST_FRAGMENT) {
++		TIPC_SKB_CB(head)->validated = false;
++		if (unlikely(!tipc_msg_validate(head)))
++			goto err;
+ 		*buf = head;
+ 		TIPC_SKB_CB(head)->tail = NULL;
+ 		*headbuf = NULL;
+@@ -172,7 +175,6 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
+ 	}
+ 	*buf = NULL;
+ 	return 0;
+-
+ err:
+ 	pr_warn_ratelimited("Unable to build fragment list\n");
+ 	kfree_skb(*buf);
+@@ -376,10 +378,14 @@ bool tipc_msg_bundle(struct sk_buff_head *list, struct sk_buff *skb, u32 mtu)
   */
-@@ -534,6 +533,16 @@ static inline void msg_set_node_sig(struct tipc_msg *m, u32 n)
- 	msg_set_bits(m, 1, 0, 0xffff, n);
- }
+ bool tipc_msg_extract(struct sk_buff *skb, struct sk_buff **iskb, int *pos)
+ {
+-	struct tipc_msg *msg = buf_msg(skb);
++	struct tipc_msg *msg;
+ 	int imsz;
+-	struct tipc_msg *imsg = (struct tipc_msg *)(msg_data(msg) + *pos);
++	struct tipc_msg *imsg;
  
-+static inline u32 msg_node_capabilities(struct tipc_msg *m)
-+{
-+	return msg_bits(m, 1, 15, 0x1fff);
-+}
-+
-+static inline void msg_set_node_capabilities(struct tipc_msg *m, u32 n)
-+{
-+	msg_set_bits(m, 1, 15, 0x1fff, n);
-+}
-+
++	if (unlikely(skb_linearize(skb)))
++		return false;
++	msg = buf_msg(skb);
++	imsg = (struct tipc_msg *)(msg_data(msg) + *pos);
+ 	/* Is there space left for shortest possible message? */
+ 	if (*pos > (msg_data_sz(msg) - SHORT_H_SIZE))
+ 		goto none;
+@@ -461,11 +467,11 @@ bool tipc_msg_reverse(u32 own_addr,  struct sk_buff *buf, u32 *dnode,
  
- /*
-  * Word 2
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 3d18c66..f78be64 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -106,6 +106,7 @@ struct tipc_node_bclink {
-  * @list: links to adjacent nodes in sorted list of cluster's nodes
-  * @working_links: number of working links to node (both active and standby)
-  * @link_cnt: number of links to node
-+ * @capabilities: bitmap, indicating peer node's functional capabilities
-  * @signature: node instance identifier
-  * @link_id: local and remote bearer ids of changing link, if any
-  * @publ_list: list of publications
-@@ -125,7 +126,8 @@ struct tipc_node {
- 	struct tipc_node_bclink bclink;
- 	struct list_head list;
- 	int link_cnt;
--	int working_links;
-+	u16 working_links;
-+	u16 capabilities;
- 	u32 signature;
- 	u32 link_id;
- 	struct list_head publ_list;
+ 	if (skb_linearize(buf))
+ 		goto exit;
++	msg = buf_msg(buf);
+ 	if (msg_dest_droppable(msg))
+ 		goto exit;
+ 	if (msg_errcode(msg))
+ 		goto exit;
+-
+ 	memcpy(&ohdr, msg, msg_hdr_sz(msg));
+ 	imp = min_t(uint, imp + 1, TIPC_CRITICAL_IMPORTANCE);
+ 	if (msg_isdata(msg))
 -- 
 1.9.1
