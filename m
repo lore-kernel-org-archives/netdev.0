@@ -1,53 +1,34 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH 2/3 RFC] ath10k: wmi: match wait_for_completion_timeout
-	return type
-Date: Fri, 13 Mar 2015 17:24:09 +0100
-Message-ID: <20150313162409.GA5939@opentech.at>
-References: <1426175362-8640-1-git-send-email-hofrat@osadl.org> <87bnjwrhse.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] rhashtable: Fixes + cleanups + preparation for
+ multiple rehash
+Date: Fri, 13 Mar 2015 12:25:05 -0400 (EDT)
+Message-ID: <20150313.122505.22987105222244414.davem@davemloft.net>
+References: <20150313095607.GA598@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath10k@lists.infradead.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hofr.at ([212.69.189.236]:54677 "EHLO mail.hofr.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932168AbbCMQYL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 12:24:11 -0400
-Content-Disposition: inline
-In-Reply-To: <87bnjwrhse.fsf@kamboji.qca.qualcomm.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51090 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932217AbbCMQZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 12:25:10 -0400
+In-Reply-To: <20150313095607.GA598@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Mar 2015, Kalle Valo wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 13 Mar 2015 20:56:07 +1100
 
-> Nicholas Mc Guire <hofrat@osadl.org> writes:
+> Patch 1 fixes the walker so that it behaves properly even during
+> a resize.
 > 
-> > Return type of wait_for_completion_timeout is unsigned long not int.
-> > An appropriately named unsigned long is added and the assignments fixed up.
-> > Rather than returning 0 (timeout) or a more or less random remaining time
-> > (completion success) this return 0 or 1 which also resolves the type of the
-> > functions being int.
-> >
-> > Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> Patch 2-3 are cleanups.
 > 
-> Why does patch 2 in this patchset have RFC in the title but patches 1
-> and 3 not? That just makes me confused, I can't tell what you want me to
-> do with the patches. Normally I just drop all patches (or patchsets)
-> which have RFC, and that's what I'm going to do now.
-> 
-> To save everyone's time, when submitting something please state clearly
-> what's your intention.
->
-ok - was simply unsure about the proposed change 
-and 1 was a trivial cleanup (which should have been 
-sent out as a seperate patch and not part of a series - my mistake)
+> Patch 4-6 lays some ground work for the upcoming multiple rehashing.
 
-Will fix this up and repost it.
+Looks like this needs at least one respin, to fix the printf formatting
+from changing size to unsigned int from size_t.
 
-sorry for the screwup - no intent to wast anybodies time.
-
-thx!
-hofrat
- 
+And perhaps addressing the ordering of patches #6 and #1.
