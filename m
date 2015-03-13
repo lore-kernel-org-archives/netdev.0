@@ -1,70 +1,95 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/2] rhashtable: Arbitrary rehashing
-Date: Fri, 13 Mar 2015 12:54:10 +1100
-Message-ID: <20150313015410.GA28133@gondor.apana.org.au>
-References: <20150131102150.GA29498@gondor.apana.org.au>
- <20150202.191956.404010205495035337.davem@davemloft.net>
- <20150202.192634.1792206005008667377.davem@davemloft.net>
- <20150203201750.GA22474@gondor.apana.org.au>
- <20150309095833.GA4028@gondor.apana.org.au>
- <20150309222631.GA12221@gondor.apana.org.au>
- <20150312164635.GA11089@casper.infradead.org>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next 2/4] bonding: Do not ignore notifications for miimon-work-queue
+Date: Thu, 12 Mar 2015 18:54:09 -0700
+Message-ID: <CAF2d9jjDCh0n12BDuw0Arjs3gb0CG73R53QxFLpFmp-2VBjCbg@mail.gmail.com>
+References: <1426139677-27167-1-git-send-email-maheshb@google.com> <1426152880.11398.151.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	josh@joshtriplett.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:42281 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753007AbbCMByT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 21:54:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20150312164635.GA11089@casper.infradead.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:46508 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753112AbbCMBya (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Mar 2015 21:54:30 -0400
+Received: by obcva2 with SMTP id va2so17610358obc.13
+        for <netdev@vger.kernel.org>; Thu, 12 Mar 2015 18:54:30 -0700 (PDT)
+In-Reply-To: <1426152880.11398.151.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 12, 2015 at 04:46:35PM +0000, Thomas Graf wrote:
-> On 03/10/15 at 09:26am, Herbert Xu wrote:
-> > I have tested it using netlink but obviously more testing especially
-> > using netfilter would be welcome.
-> 
-> I ran the attached bind_netlink test written by Ying Xue and it
-> currently crashes with:
-> 
-> [  108.693908] BUG: unable to handle kernel paging request at fffffffffffffe68
+On Thu, Mar 12, 2015 at 2:34 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-03-11 at 22:54 -0700, Mahesh Bandewar wrote:
+>> This patch adds code to reschedule the mii-work (aggressively)
+>> just to handle the notification before resuming the regular
+>> cycle.
+>>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> ---
+>>  drivers/net/bonding/bond_main.c | 24 +++++++++++++++---------
+>>  1 file changed, 15 insertions(+), 9 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 19eabea2d7d9..54ecb7a22bae 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -2143,10 +2143,13 @@ static void bond_mii_monitor(struct work_struct *work)
+>>       if (!bond_has_slaves(bond))
+>>               goto re_arm;
+>>
+>> -     rcu_read_lock();
+>> -
+>> +     if (bond_get_notif_pending(bond, BOND_MII_NOTIF)) {
+>> +             should_notify_peers = true;
+>> +             goto re_arm;
+>> +     }
+>>       should_notify_peers = bond_should_notify_peers(bond);
+>>
+>> +     rcu_read_lock();
+>>       if (bond_miimon_inspect(bond)) {
+>>               rcu_read_unlock();
+>>
+>> @@ -2164,15 +2167,18 @@ static void bond_mii_monitor(struct work_struct *work)
+>>               rcu_read_unlock();
+>>
+>>  re_arm:
+>> -     if (bond->params.miimon)
+>> -             queue_delayed_work(bond->wq, &bond->mii_work, delay);
+>> -
+>>       if (should_notify_peers) {
+>> -             if (!rtnl_trylock())
+>> -                     return;
+>> -             call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+>> -             rtnl_unlock();
+>> +             if (!rtnl_trylock()) {
+>> +                     delay = 1;
+>> +                     bond_set_notif_pending(bond, BOND_MII_NOTIF, 1);
+>> +             } else {
+>> +                     call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+>> +                     rtnl_unlock();
+>> +                     bond_set_notif_pending(bond, BOND_MII_NOTIF, 0);
+>
+> You probably should clear notif bit before releasing rtnl
+>
+> (same remark for patches 3 & 4)
+>
+Since this op is atomic and does not need lock, I used it in the
+current fashion. I probably won't need to clear it if I use the
+test_and_clear instead of current test_bit() in get_notif_pending()
 
-Oops, thanks for testing and finding this bug.
-
-This patch should cure it.
-
----8<---
-rhashtable: Fix read-side crash during rehash
-    
-This patch fixes a typo rhashtable_lookup_compare where we fail
-to recompute the hash when looking up the new table.  This causes
-elements to be missed and potentially a crash during a resize.
-
-Reported-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 9666efec..f8c5063 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -614,8 +614,8 @@ void *rhashtable_lookup_compare(struct rhashtable *ht, const void *key,
- 	rcu_read_lock();
- 
- 	tbl = rht_dereference_rcu(ht->tbl, ht);
--	hash = key_hashfn(ht, tbl, key);
- restart:
-+	hash = key_hashfn(ht, tbl, key);
- 	rht_for_each_rcu(he, tbl, hash) {
- 		if (!compare(rht_obj(ht, he), arg))
- 			continue;
-
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>> +             }
+>>       }
+>> +     if (bond->params.miimon)
+>> +             queue_delayed_work(bond->wq, &bond->mii_work, delay);
+>>  }
+>>
+>>  static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
+>
+>
