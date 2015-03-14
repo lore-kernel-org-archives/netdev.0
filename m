@@ -1,44 +1,28 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH] bogus MSG_PEEK test in rxrpc_recvmsg()
-Date: Sat, 14 Mar 2015 05:34:56 +0000
-Message-ID: <20150314053456.GT29656@ZenIV.linux.org.uk>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
+Date: Fri, 13 Mar 2015 23:52:31 -0700
+Message-ID: <CAE4R7bB2kOPMbVw3UY47p_M2-Enqy1V3+mjK+=KsYz3s8WOsfQ@mail.gmail.com>
+References: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dhowells@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: Siva Mannem <siva.mannem.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:49990 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbbCNFe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 01:34:58 -0400
-Content-Disposition: inline
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:33155 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751973AbbCNGwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 02:52:33 -0400
+Received: by qcyi15 with SMTP id i15so6455394qcy.0
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 23:52:32 -0700 (PDT)
+In-Reply-To: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[I would really like an ACK on that one from dhowells; it appears to be
-quite straightforward, but...]
+On Fri, Mar 13, 2015 at 6:40 PM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
+> This patch allows user to configure bridge's FDB ageing using
+> netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
+> as per ieee8021QBridgeFdbAgingTime.
+>
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
 
-MSG_PEEK isn't passed to ->recvmsg() via msg->msg_flags; as the matter of
-fact, neither the kernel users of rxrpc, nor the syscalls ever set that bit
-in there.  It gets passed via flags; in fact, another such check in the same
-function is done correctly - as flags & MSG_PEEK.
-
-It had been that way (effectively disabled) for 8 years, though, so the patch
-needs beating up - that case had never been tested.  If it is correct, it's
--stable fodder.
-
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-diff --git a/net/rxrpc/ar-recvmsg.c b/net/rxrpc/ar-recvmsg.c
-index a4f883e..b92bede 100644
---- a/net/rxrpc/ar-recvmsg.c
-+++ b/net/rxrpc/ar-recvmsg.c
-@@ -87,7 +87,7 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 		if (!skb) {
- 			/* nothing remains on the queue */
- 			if (copied &&
--			    (msg->msg_flags & MSG_PEEK || timeo == 0))
-+			    (flags & MSG_PEEK || timeo == 0))
- 				goto out;
- 
- 			/* wait for a message to turn up */
+Reviewed-by: Scott Feldman <sfeldma@gmail.com>
