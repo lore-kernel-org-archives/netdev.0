@@ -1,95 +1,76 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net/fsl: remove dependency FSL_SOC from MDIO
-Date: Sat, 14 Mar 2015 20:14:17 +0000
-Message-ID: <1426364057.4173.115.camel@decadent.org.uk>
-References: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] ath10k: core: harmonize error case handling in ath10k_core_start
+Date: Sat, 14 Mar 2015 23:18:40 +0300
+Message-ID: <550497A0.5040508@cogentembedded.com>
+References: <1426323313-1344-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-osc6E2dMpoU3mpbKMk+2"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Shaohui Xie <Shaohui.Xie@freescale.com>
-To: shh.xie@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53849 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752488AbbCNUO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 16:14:29 -0400
-In-Reply-To: <1425983472-24629-1-git-send-email-shh.xie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <hofrat@osadl.org>,
+	Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426323313-1344-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello.
 
---=-osc6E2dMpoU3mpbKMk+2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 03/14/2015 11:55 AM, Nicholas Mc Guire wrote:
 
-On Tue, 2015-03-10 at 18:31 +0800, shh.xie@gmail.com wrote:
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
->=20
-> FSL_PQ_MDIO and FSL_XGMAC_MDIO are not really depend on FSL_SOC, they
-> can build on non-PPC platforms.
+> All of the bringup/init functions called in ath10k_core_start return 0 on
+> success and != 0 on failure - ath10k_wmi_wait_for_service_ready and
+> ath10k_wmi_wait_for_unified_ready were adjusted to fit this model and the
+> call sites here fixed up accordingly.
 
-If this hardware can actually be used on other architectures, fine.
+    If you've changed the sense of these function's results, you need to 
+adjust the call sites in the same patch, because otherwise one wouldn't be 
+able to bisect this...
 
-If not, the dependency should be FSL_SOC || COMPILE_TEST so that the
-option is only available on other architectures when developers want to
-check that these drivers build.
-
-Ben.
-
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 > ---
->  drivers/net/ethernet/freescale/Kconfig | 2 --
->  1 file changed, 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/etherne=
-t/freescale/Kconfig
-> index ba84c4a..25e3425 100644
-> --- a/drivers/net/ethernet/freescale/Kconfig
-> +++ b/drivers/net/ethernet/freescale/Kconfig
-> @@ -58,14 +58,12 @@ source "drivers/net/ethernet/freescale/fs_enet/Kconfi=
-g"
-> =20
->  config FSL_PQ_MDIO
->  	tristate "Freescale PQ MDIO"
-> -	depends on FSL_SOC
->  	select PHYLIB
->  	---help---
->  	  This driver supports the MDIO bus used by the gianfar and UCC drivers=
-.
-> =20
->  config FSL_XGMAC_MDIO
->  	tristate "Freescale XGMAC MDIO"
-> -	depends on FSL_SOC
->  	select PHYLIB
->  	select OF_MDIO
->  	---help---
+>
+> Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+> CONFIG_ATH10K=m
+>
+> Patch is against 4.0-rc3 (localversion-next is -next-20150313)
+>
+>   drivers/net/wireless/ath/ath10k/core.c |    6 ++----
+>   1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
+> index c0e454b..e97069f 100644
+> --- a/drivers/net/wireless/ath/ath10k/core.c
+> +++ b/drivers/net/wireless/ath/ath10k/core.c
+> @@ -1080,9 +1080,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode)
+>
+>   	if (mode == ATH10K_FIRMWARE_MODE_NORMAL) {
+>   		status = ath10k_wmi_wait_for_service_ready(ar);
+> -		if (status <= 0) {
 
---=20
-Ben Hutchings
-Q.  Which is the greater problem in the world today, ignorance or apathy?
-A.  I don't know and I couldn't care less.
+    With the changed result sense, this check would always succeed, right? 
+Then this gets check broken after the 1st patch.
 
---=-osc6E2dMpoU3mpbKMk+2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+> +		if (status) {
+>   			ath10k_warn(ar, "wmi service ready event not received");
+> -			status = -ETIMEDOUT;
+>   			goto err_hif_stop;
+>   		}
+>   	}
+> @@ -1098,9 +1097,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode)
+>   	}
+>
+>   	status = ath10k_wmi_wait_for_unified_ready(ar);
+> -	if (status <= 0) {
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+    Likewise.
 
-iQIVAwUAVQSWnue/yOyVhhEJAQqYRw//fHXS++L9jzFLIheg+HPG1Xy1hDueq2gE
-6D2qYpo1aAjNS/S/obr+Grt8iuqz5KzyS43ezWnGbMVcLL3QpvRy7/wDG1j3eeYV
-44l0F90fJEO5LB4p2fMPSH8QrNxJ//QtLeKQ8evTh0FoH3f2jYUfYgn8J8G5Eoyw
-BhfBxFcfTEfc7kUq7Nkt5noE0MMLGmLiOOtFLwzNqSKxxt2IS/g8Vso1eYeBeES5
-SBg45tKNtCYEMV6z830ZAfOKYDQmUt7rgComVPagkxFou9je0Z+b8bIrWCi8xB9B
-Md/5gk3UjMqzEiIiD2FA+TwXX/6kCKx6A1pBr0SOBqlg5WEvOG6+ElRHXEQakeCL
-zOBnYevM8m/HibpEtMn1P9XsCsWRXK6/6JXFULTsqhz5WgyfYahj99tRI6zwfzuG
-DeWkmD2ggM9TE6oSh0+m47DCaIihgkTpQesivmNxKr5JGmR+dzUgLf0IYmNzj/R4
-pKuBp4/47uv33NVVqeQT/GEyYke0cwhrrDnjDOXWPWcr9z+oLQPojzGsuAZq+mcu
-DUjdEHeIojUMVBpiecPsurWJdIvKxvcsjY+9YfJnmX+03FjrreX2fDrC2IlAS645
-aXZnWJwzFpzgs+CMuqZB7lUlG+t7xVh64lDucR9WiXT7+rqHebOxscYpLj3W6eYH
-qfSBqBQceH8=
-=nBz1
------END PGP SIGNATURE-----
+> +	if (status) {
+>   		ath10k_err(ar, "wmi unified ready event not received\n");
+> -		status = -ETIMEDOUT;
+>   		goto err_hif_stop;
+>   	}
 
---=-osc6E2dMpoU3mpbKMk+2--
+WBR, Sergei
