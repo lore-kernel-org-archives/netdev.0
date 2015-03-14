@@ -1,103 +1,80 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 3/6] rhashtable: Move seed init into bucket_table_alloc
-Date: Sat, 14 Mar 2015 13:57:22 +1100
-Message-ID: <E1YWcGQ-0002nw-IJ@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 5/6] rhashtable: Add rehash counter to bucket_table
+Date: Sat, 14 Mar 2015 13:57:24 +1100
+Message-ID: <E1YWcGS-0002oU-RF@gondolin.me.apana.org.au>
 References: <20150314025339.GA10585@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:58443 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:36488 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751596AbbCNC50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:57:26 -0400
+	with ESMTP id S1751884AbbCNC52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:57:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems that I have already made every rehash redo the random
-seed even though my commit message indicated otherwise :)
+This patch adds a rehash counter to bucket_table to indicate
+the last bucket that has been rehashed.  This serves two purposes:
 
-Since we have already taken that step, this patch goes one step
-further and moves the seed initialisation into bucket_table_alloc.
+1. Any bucket that has been rehashed can never gain a new object.
+2. If the rehash counter reaches the size of the table, the table
+will forever remain empty.
+
+This patch also downsizes bucket_table->size to an unsigned int
+since we do not support sizes greater than 32 bits yet.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- lib/rhashtable.c |   16 ++++++----------
- 1 file changed, 6 insertions(+), 10 deletions(-)
+ include/linux/rhashtable.h |    4 +++-
+ lib/rhashtable.c           |    1 +
+ lib/test_rhashtable.c      |    2 +-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index a0abddd..ed7562a 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -49,6 +49,7 @@ struct rhash_head {
+ /**
+  * struct bucket_table - Table of hash buckets
+  * @size: Number of hash buckets
++ * @rehash: Current bucket being rehashed
+  * @hash_rnd: Random seed to fold into hash
+  * @shift: Current size (1 << shift)
+  * @locks_mask: Mask to apply before accessing locks[]
+@@ -58,7 +59,8 @@ struct rhash_head {
+  * @buckets: size * hash buckets
+  */
+ struct bucket_table {
+-	size_t			size;
++	unsigned int		size;
++	unsigned int		rehash;
+ 	u32			hash_rnd;
+ 	u32			shift;
+ 	unsigned int		locks_mask;
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5d06cc2..e55bbc8 100644
+index 36fb091..ff4ea17 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -142,7 +142,7 @@ static void bucket_table_free(const struct bucket_table *tbl)
+@@ -260,6 +260,7 @@ static void rhashtable_rehash_chain(struct rhashtable *ht, unsigned old_hash)
+ 	spin_lock_bh(old_bucket_lock);
+ 	while (!rhashtable_rehash_one(ht, old_hash))
+ 		;
++	old_tbl->rehash++;
+ 	spin_unlock_bh(old_bucket_lock);
  }
  
- static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
--					       size_t nbuckets, u32 hash_rnd)
-+					       size_t nbuckets)
- {
- 	struct bucket_table *tbl = NULL;
- 	size_t size;
-@@ -158,7 +158,6 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+index 67c7593..16974fd 100644
+--- a/lib/test_rhashtable.c
++++ b/lib/test_rhashtable.c
+@@ -80,7 +80,7 @@ static void test_bucket_stats(struct rhashtable *ht, bool quiet)
+ 		rcu_cnt = cnt = 0;
  
- 	tbl->size = nbuckets;
- 	tbl->shift = ilog2(nbuckets);
--	tbl->hash_rnd = hash_rnd;
+ 		if (!quiet)
+-			pr_info(" [%#4x/%zu]", i, tbl->size);
++			pr_info(" [%#4x/%u]", i, tbl->size);
  
- 	if (alloc_bucket_locks(ht, tbl) < 0) {
- 		bucket_table_free(tbl);
-@@ -167,6 +166,8 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
- 
- 	INIT_LIST_HEAD(&tbl->walkers);
- 
-+	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
-+
- 	for (i = 0; i < nbuckets; i++)
- 		INIT_RHT_NULLS_HEAD(tbl->buckets[i], ht, i);
- 
-@@ -264,8 +265,6 @@ static void rhashtable_rehash(struct rhashtable *ht,
- 	struct rhashtable_walker *walker;
- 	unsigned old_hash;
- 
--	get_random_bytes(&new_tbl->hash_rnd, sizeof(new_tbl->hash_rnd));
--
- 	/* Make insertions go into the new, empty table right away. Deletions
- 	 * and lookups will be attempted in both tables until we synchronize.
- 	 * The synchronize_rcu() guarantees for the new table to be picked up
-@@ -315,7 +314,7 @@ int rhashtable_expand(struct rhashtable *ht)
- 
- 	ASSERT_RHT_MUTEX(ht);
- 
--	new_tbl = bucket_table_alloc(ht, old_tbl->size * 2, old_tbl->hash_rnd);
-+	new_tbl = bucket_table_alloc(ht, old_tbl->size * 2);
- 	if (new_tbl == NULL)
- 		return -ENOMEM;
- 
-@@ -346,7 +345,7 @@ int rhashtable_shrink(struct rhashtable *ht)
- 
- 	ASSERT_RHT_MUTEX(ht);
- 
--	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2, old_tbl->hash_rnd);
-+	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2);
- 	if (new_tbl == NULL)
- 		return -ENOMEM;
- 
-@@ -926,7 +925,6 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- {
- 	struct bucket_table *tbl;
- 	size_t size;
--	u32 hash_rnd;
- 
- 	size = HASH_DEFAULT_SIZE;
- 
-@@ -952,9 +950,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	else
- 		ht->p.locks_mul = BUCKET_LOCKS_PER_CPU;
- 
--	get_random_bytes(&hash_rnd, sizeof(hash_rnd));
--
--	tbl = bucket_table_alloc(ht, size, hash_rnd);
-+	tbl = bucket_table_alloc(ht, size);
- 	if (tbl == NULL)
- 		return -ENOMEM;
- 
+ 		rht_for_each_entry_rcu(obj, pos, tbl, i, node) {
+ 			cnt++;
