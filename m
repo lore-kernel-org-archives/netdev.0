@@ -1,76 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] ath10k: core: harmonize error case handling in ath10k_core_start
-Date: Sat, 14 Mar 2015 23:18:40 +0300
-Message-ID: <550497A0.5040508@cogentembedded.com>
-References: <1426323313-1344-1-git-send-email-hofrat@osadl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michal Kazior <michal.kazior@tieto.com>,
-	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicholas Mc Guire <hofrat@osadl.org>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426323313-1344-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: do not use slave MII bus for fixed PHYs
+Date: Sat, 14 Mar 2015 13:21:59 -0700
+Message-ID: <1426364519-13465-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34761 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbbCNUWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 16:22:45 -0400
+Received: by pacwe9 with SMTP id we9so22377285pac.1
+        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 13:22:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Commit cd28a1a9baee7 ("net: dsa: fully divert PHY reads/writes if
+requested") introduced a check for particular PHYs that need to be
+accessed using the slave MII bus created by DSA, but this check was too
+inclusive. This would prevent fixed PHYs from being successfully
+registered because those should not go through the slave MII bus created
+by DSA.
 
-On 03/14/2015 11:55 AM, Nicholas Mc Guire wrote:
+Make sure we check that the PHY is not a fixed PHY to prevent that from
+happening.
 
-> All of the bringup/init functions called in ath10k_core_start return 0 on
-> success and != 0 on failure - ath10k_wmi_wait_for_service_ready and
-> ath10k_wmi_wait_for_unified_ready were adjusted to fit this model and the
-> call sites here fixed up accordingly.
+Fixes: cd28a1a9baee7 ("net: dsa: fully divert PHY reads/writes if requested")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Hi David,
 
-    If you've changed the sense of these function's results, you need to 
-adjust the call sites in the same patch, because otherwise one wouldn't be 
-able to bisect this...
+This change is only in net-next for now, thanks!
 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-> ---
->
-> Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-> CONFIG_ATH10K=m
->
-> Patch is against 4.0-rc3 (localversion-next is -next-20150313)
->
->   drivers/net/wireless/ath/ath10k/core.c |    6 ++----
->   1 file changed, 2 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
-> index c0e454b..e97069f 100644
-> --- a/drivers/net/wireless/ath/ath10k/core.c
-> +++ b/drivers/net/wireless/ath/ath10k/core.c
-> @@ -1080,9 +1080,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode)
->
->   	if (mode == ATH10K_FIRMWARE_MODE_NORMAL) {
->   		status = ath10k_wmi_wait_for_service_ready(ar);
-> -		if (status <= 0) {
+ net/dsa/slave.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-    With the changed result sense, this check would always succeed, right? 
-Then this gets check broken after the 1st patch.
-
-> +		if (status) {
->   			ath10k_warn(ar, "wmi service ready event not received");
-> -			status = -ETIMEDOUT;
->   			goto err_hif_stop;
->   		}
->   	}
-> @@ -1098,9 +1097,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode)
->   	}
->
->   	status = ath10k_wmi_wait_for_unified_ready(ar);
-> -	if (status <= 0) {
-
-    Likewise.
-
-> +	if (status) {
->   		ath10k_err(ar, "wmi unified ready event not received\n");
-> -		status = -ETIMEDOUT;
->   		goto err_hif_stop;
->   	}
-
-WBR, Sergei
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 188b69773e70..6511552039d6 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -675,7 +675,8 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 		 * want to bind this device using the slave MII bus created by
+ 		 * DSA to make that happen.
+ 		 */
+-		if (ret >= 0 && (ds->phys_mii_mask & (1 << ret))) {
++		if (!phy_is_fixed && ret >= 0 &&
++		    (ds->phys_mii_mask & (1 << ret))) {
+ 			ret = dsa_slave_phy_connect(p, slave_dev, ret);
+ 			if (ret)
+ 				return ret;
+-- 
+2.1.0
