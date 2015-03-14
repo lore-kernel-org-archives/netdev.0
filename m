@@ -1,7 +1,7 @@
 From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] ath10k: core: match wait_for_completion_timeout return type
-Date: Sat, 14 Mar 2015 05:37:37 -0400
-Message-ID: <1426325858-19808-1-git-send-email-hofrat@osadl.org>
+Subject: [PATCH] ath10k: thermal: match wait_for_completion_timeout return type
+Date: Sat, 14 Mar 2015 05:37:22 -0400
+Message-ID: <1426325842-19774-1-git-send-email-hofrat@osadl.org>
 Cc: ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Nicholas Mc Guire <hofrat@osadl.org>
@@ -21,32 +21,33 @@ CONFIG_ATH10K=m
 
 Patch is against 4.0-rc3 (localversion-next is -next-20150313)
 
- drivers/net/wireless/ath/ath10k/core.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath10k/thermal.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
-index c0e454b..5fd833e 100644
---- a/drivers/net/wireless/ath/ath10k/core.c
-+++ b/drivers/net/wireless/ath/ath10k/core.c
-@@ -1151,6 +1151,7 @@ EXPORT_SYMBOL(ath10k_core_start);
- int ath10k_wait_for_suspend(struct ath10k *ar, u32 suspend_opt)
+diff --git a/drivers/net/wireless/ath/ath10k/thermal.c b/drivers/net/wireless/ath/ath10k/thermal.c
+index aede750..dfa7c93 100644
+--- a/drivers/net/wireless/ath/ath10k/thermal.c
++++ b/drivers/net/wireless/ath/ath10k/thermal.c
+@@ -127,6 +127,7 @@ static ssize_t ath10k_thermal_show_temp(struct device *dev,
  {
- 	int ret;
+ 	struct ath10k *ar = dev_get_drvdata(dev);
+ 	int ret, temperature;
 +	unsigned long time_left;
  
- 	reinit_completion(&ar->target_suspend);
+ 	mutex_lock(&ar->conf_mutex);
  
-@@ -1160,9 +1161,9 @@ int ath10k_wait_for_suspend(struct ath10k *ar, u32 suspend_opt)
- 		return ret;
+@@ -148,9 +149,9 @@ static ssize_t ath10k_thermal_show_temp(struct device *dev,
+ 		goto out;
  	}
  
--	ret = wait_for_completion_timeout(&ar->target_suspend, 1 * HZ);
-+	time_left = wait_for_completion_timeout(&ar->target_suspend, 1 * HZ);
- 
+-	ret = wait_for_completion_timeout(&ar->thermal.wmi_sync,
+-					  ATH10K_THERMAL_SYNC_TIMEOUT_HZ);
 -	if (ret == 0) {
++	time_left = wait_for_completion_timeout(&ar->thermal.wmi_sync,
++						ATH10K_THERMAL_SYNC_TIMEOUT_HZ);
 +	if (!time_left) {
- 		ath10k_warn(ar, "suspend timed out - target pause event never came\n");
- 		return -ETIMEDOUT;
- 	}
+ 		ath10k_warn(ar, "failed to synchronize thermal read\n");
+ 		ret = -ETIMEDOUT;
+ 		goto out;
 -- 
 1.7.10.4
