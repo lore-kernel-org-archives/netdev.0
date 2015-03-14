@@ -1,87 +1,100 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH iproute2] ss: better 32bit support
-Date: Sat, 14 Mar 2015 19:19:20 +0000
-Message-ID: <1426360760.4173.101.camel@decadent.org.uk>
-References: <1426006607.11398.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next v3 1/2] net: implement dma cache skb allocator
+Date: Sat, 14 Mar 2015 20:08:45 +0000
+Message-ID: <1426363725.4173.113.camel@decadent.org.uk>
+References: <1426009384-11544-1-git-send-email-_govind@gmx.com>
+	 <1426009384-11544-2-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-dWlx9kO9u+GeD39WMqRd"
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	protocol="application/pgp-signature"; boundary="=-Xc8b6xFcB71Gm/+G+6jP"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53705 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53833 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751837AbbCNTTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 15:19:34 -0400
-In-Reply-To: <1426006607.11398.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	by vger.kernel.org with ESMTP id S1751296AbbCNUI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 16:08:59 -0400
+In-Reply-To: <1426009384-11544-2-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-dWlx9kO9u+GeD39WMqRd
+--=-Xc8b6xFcB71Gm/+G+6jP
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2015-03-10 at 09:56 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> Socket cookies are 64bit, even if ss happens to be
-> a 32bit binary, running on a 64 bit host.
->=20
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  misc/ss.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 21a4366..ba58894 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -679,9 +679,9 @@ static inline char *sock_addr_get_str(const inet_pref=
-ix *prefix)
->      return tmp;
->  }
-> =20
-> -static unsigned long cookie_sk_get(uint32_t *cookie)
-> +static unsigned long long cookie_sk_get(const uint32_t *cookie)
->  {
-> -	return (((unsigned long)cookie[1] << 31) << 1) | cookie[0];
-> +	return (((unsigned long long)cookie[1] << 31) << 1) | cookie[0];
+On Tue, 2015-03-10 at 23:13 +0530, Govindarajulu Varadarajan wrote:
+[...]
+> +static struct netdev_dma_node *netdev_dma_alloc(struct netdev_dma_head *=
+nc_head,
+> +						size_t sz)
+> +{
+> +	struct netdev_dma_node *nc =3D nc_head->nc;
+> +	int offset;
+> +
+> +	if (unlikely(!nc)) {
+> +refill:
+> +		__dma_cache_refill(nc_head, sz);
+> +		nc =3D nc_head->nc;
+> +		if (unlikely(!nc))
+> +			return NULL;
+> +	}
+> +
+> +	offset =3D nc->frag.offset - sz;
+> +	if (offset < 0) {
+> +		if (!atomic_sub_and_test(nc->pagecnt_bias,
+> +					 &nc->frag.page->_count)) {
+> +			/* the caller has processed all the frags belonging to
+> +			 * this page. Since page->_count is not 0 and
+> +			 * nc->dma_count is 0 these frags should be in stack.
+> +			 * We should unmap the page here.
 
-Then you should also use << 32 instead of splitting it into two shifts.
+Unmapping potentially copies data back from a bounce buffer (even if
+it's already been synchronised).  This is OK in the case of a buffer
+that's attached to the skb as a page fragment, because in that case it's
+read-only for the stack.  It's not OK for a buffer that has been passed
+to build_skb(), as this may legitimately have been changed by the stack
+and this will overwrite the changes.
+
+So you have to choose between DMA buffer recycling and build_skb().
+
+> +			 */
+> +			if (!nc->dma_count) {
+> +				dma_unmap_single(nc_head->dev, nc->dma_addr,
+> +						 nc->frag.size,
+> +						 DMA_FROM_DEVICE);
+[...]
+
+Don't mix dma_map_page() and dma_unmap_single().
 
 Ben.
-
->  }
-> =20
->  static const char *sstate_name[] =3D {
 
 --=20
 Ben Hutchings
 Q.  Which is the greater problem in the world today, ignorance or apathy?
 A.  I don't know and I couldn't care less.
 
---=-dWlx9kO9u+GeD39WMqRd
+--=-Xc8b6xFcB71Gm/+G+6jP
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVQSJvee/yOyVhhEJAQoxkBAAwirW2et9yP07YvPVpacYIDkGfiKkvIbk
-xvsSOug4/hNRsvpUOc1saulqJoOR8MHjvu59T+A+eyvmMVDqgqV6vNK0QorYq5fH
-NQahGXHU/OTa11ZXsHpvn8jIxHytD327m4dTquEVa27oZGelBnsggGXNNtzqM2pC
-C/J/GelmRDJM71Cja2zOu5s2FaevffqcFcR1JdfO3g8gsQNsf/GwxlpEuV3w1zlE
-a6LQR2/ZCuTvSw05UVZqH6rkPHwnZXny/eRG+lVmhaMavHco6+IAudTp/0/iMRyI
-XdVcmgL9rAFcdWDmdwU6OpzgWkpWPD3VyPQYlH2UZwwaJYOran7pXRsPerEgazyP
-NYmyGCplmpzR45mcGfMxBjVsqQaS7tbxShWo5tGMJmCZ7tspQ/cPj5KkVA62M26S
-78yUPUzRfNcViSwFCpnd6THCP5PTDwPG/k/v1otv8aVTj6KVBT0n+tuX71TWBlOu
-8k84n7QCyCp5GgWyNulxtDEONHwMMZNtAkx9F1zfYVlAwh+NjS2pTASm5GxrzMDz
-mUiPx416QKKJnbb55qamfRjM7VZbPRna3eIEQ68zL0kgccnSaCHLZx3ggrK6oOT+
-U+MExUwLSdUGhFo6+gzn+590AZRLLOc/8DUx85rhyFLavSlsODTZPrbYrB3qcTGh
-0wUQSTV3M/A=
-=To79
+iQIVAwUAVQSVUue/yOyVhhEJAQpu0hAAjOA7G8UD7mkSZ/PvvPF8tXH7wzqU1VQy
+mHlvCCsYAu4xLW3e9nwkXN5A6XSD1+LhzE7/+XcH27mm/wiKqFuQLugH73GdppYe
+ZRhJjV6nlnsu1dafhmNq6nQ3KWK9cCTm3+4UrZ6GQdInvpbrkSkhKXGVnjYU+3cS
+B8cvXRUZ7lhjQxdtYzlKMWLS4cQOm9sPpgkJRWe5THgrSqHmhyb9gsAMi3ArACj6
++xhnpSNyyp3K8tBBCxl/P890mWFM5pDUukNqploeifBlBcf7Hg3c4gHDKsYj2uSD
+bvf8iYMSyazideeNG0oS9IoIIMN+dd70akXFY69hAIAmpLm6R5xyBlamRaX1Jp9B
+8rtZ7YiZHXj+H9U+NlFUtjiHdK+DTl81evPZtA/LoPCExdMZsd0HGbxx5WhgVnBP
+6yQFjMZqTSTZEg7WMHQxk7B2zfe934gB9FRZG7Kn0HFiKdG14QSSmcQG1AfqEPHx
+uuivYtCFvqyD/Z9DnUVXQySJSDFBzKtJYWs6eH2OvzQJR57dDS5LizBRBR29/b+1
+6OULK1yKAxyiEkUxLQBOyEC1cCVENU2+n5G0NZRsy5tDBbQaNlvk2Q22ttO8wMHX
+K9/WBgJ8zDfn5G4VCQRXVuviqEN/lCPqTjxC+SmwkIYIAeQMry36yICz60uunD2g
+/vfSL2+Qz/w=
+=qDri
 -----END PGP SIGNATURE-----
 
---=-dWlx9kO9u+GeD39WMqRd--
+--=-Xc8b6xFcB71Gm/+G+6jP--
