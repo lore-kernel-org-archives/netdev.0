@@ -1,25 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] net: esp: check CRYPTO_TFM_REQ_DMA flag when
- allocating crypto request
-Date: Sat, 14 Mar 2015 14:27:47 -0400 (EDT)
-Message-ID: <20150314.142747.1227972959046492974.davem@davemloft.net>
-References: <1426266922-31679-1-git-send-email-horia.geanta@freescale.com>
-	<20150313.154608.548532696978553073.davem@davemloft.net>
-	<550426A5.4090603@freescale.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2015-03-14
+Date: Sat, 14 Mar 2015 14:30:09 -0400 (EDT)
+Message-ID: <20150314.143009.2216331232217010224.davem@davemloft.net>
+References: <20150314180144.GA22474@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, kim.phillips@freescale.com
-To: horia.geanta@freescale.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <550426A5.4090603@freescale.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150314180144.GA22474-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Horia Geant=E3 <horia.geanta@freescale.com>
-Date: Sat, 14 Mar 2015 14:16:37 +0200
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 14 Mar 2015 20:01:44 +0200
 
-> However, ESP is not using aead_request_alloc().
+> Here's another set of Bluetooth & ieee802154 patches intended for 4.1:
+> 
+>  - Added support for QCA ROME chipset family in the btusb driver
+>  - at86rf230 driver fixes & cleanups
+>  - ieee802154 cleanups
+>  - Refactoring of Bluetooth mgmt API to allow new users
+>  - New setting for static Bluetooth address exposed to user space
+>  - Refactoring of hci_dev flags to remove limit of 32
+>  - Remove unnecessary fast-connectable setting usage restrictions
+>  - Fix behavior to be consistent when trying to pair already paired device
+>  - Service discovery corner-case fixes
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Then find a way to adjust it to do so.
+Pulled, thanks Johan.
