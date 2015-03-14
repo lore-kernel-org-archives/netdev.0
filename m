@@ -1,60 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/6] rhashtable: Fix walker behaviour during rehash
-Date: Sat, 14 Mar 2015 10:42:21 +1100
-Message-ID: <20150313234221.GA9020@gondor.apana.org.au>
-References: <20150313095607.GA598@gondor.apana.org.au>
- <E1YWML8-0000B6-62@gondolin.me.apana.org.au>
- <20150313155023.GG17829@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [next-queue 3/7] ixgbe: cleanup make ixgbe_set_ethertype_anti_spoofing_X550 static
+Date: Fri, 13 Mar 2015 17:00:44 -0700
+Message-ID: <1426291248-14739-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	<kernel-team@fb.com>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:40769 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752033AbbCMXm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 19:42:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20150313155023.GG17829@casper.infradead.org>
+Received: from mga03.intel.com ([134.134.136.65]:19110 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750818AbbCNAAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2015 20:00:53 -0400
+In-Reply-To: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 13, 2015 at 03:50:23PM +0000, Thomas Graf wrote:
->
-> Is there a reason to keeping rhashtable_walk_init() and
-> rhashtable_walk_start() separate? It seems like one always has
-> to call init for each iteration as start does not reset the
-> iterator bits. It would also safe a mutex_lock().
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Yes they are needed for netlink users, e.g., netfilter.  Proc
-users will always init/start while netlink users can init, and
-then just use start/stop to keep their state.
+Correcting a mistake when I initial created this function.  I should
+have made this static since it is only referenced where the function
+pointer is assigned.
 
-> > @@ -826,17 +832,18 @@ next:
-> >  		iter->skip = 0;
-> >  	}
-> >  
-> > -	iter->p = NULL;
-> > -
-> > -out:
-> > -	if (iter->walker->resize) {
-> > -		iter->p = NULL;
-> > +	iter->walker->tbl = rht_dereference_rcu(ht->future_tbl, ht);
-> > +	if (iter->walker->tbl != tbl) {
-> 
-> I was confused at first because this would cause to always dump the
-> table twice in the regular case. I see that in patch 6/6 you change
-> the meaning of future_tbl and only make it non-NULL during the short
-> period of the rehashing. Ordering patch 6 in front of 1 would have
-> helped ;-)
-> 
-> Looks good in combination with patch 6.
+CC: <kernel-team@fb.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-No this patch is needed on its own and should not depend on patch 6
-in any way.
-
-Cheers,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 161a9e5..58a3155 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1347,8 +1347,8 @@ mac_reset_top:
+  *  @enable: enable or disable switch for Ethertype anti-spoofing
+  *  @vf: Virtual Function pool - VF Pool to set for Ethertype anti-spoofing
+  **/
+-void ixgbe_set_ethertype_anti_spoofing_X550(struct ixgbe_hw *hw, bool enable,
+-					    int vf)
++static void ixgbe_set_ethertype_anti_spoofing_X550(struct ixgbe_hw *hw,
++						   bool enable, int vf)
+ {
+ 	int vf_target_reg = vf >> 3;
+ 	int vf_target_shift = vf % 8 + IXGBE_SPOOF_ETHERTYPEAS_SHIFT;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.3
