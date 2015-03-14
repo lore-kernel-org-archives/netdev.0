@@ -1,40 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] tipc: some optimizations and
- impovements
-Date: Sat, 14 Mar 2015 14:39:02 -0400 (EDT)
-Message-ID: <20150314.143902.386608049896474304.davem@davemloft.net>
-References: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
+From: Heiko Stuebner <heiko@sntech.de>
+Subject: Re: [PATCH] ARM: dts: rockchip: disable gmac by default in rk3288.dtsi
+Date: Sat, 14 Mar 2015 19:40:21 +0100
+Message-ID: <27431752.zqze5zkeW3@phil>
+References: <1426294532-32078-1-git-send-email-amstan@chromium.org> <1426294532-32078-2-git-send-email-amstan@chromium.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35223 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbbCNSjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 14:39:05 -0400
-In-Reply-To: <1426277291-2427-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roger.chen@rock-chips.com, dianders@chromium.org,
+	peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	kever.yang@rock-chips.com, eddie.cai@rock-chips.com,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org
+To: Alexandru M Stan <amstan@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426294532-32078-2-git-send-email-amstan@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 13 Mar 2015 16:08:04 -0400
+Am Freitag, 13. M=E4rz 2015, 17:55:32 schrieb Alexandru M Stan:
+> This block should not be enabled by default or else if the kconfig is=
+ set,
+> it will try to load/probe even if there's no phy connected.
+>=20
+> Signed-off-by: Alexandru M Stan <amstan@chromium.org>
 
-> The commits in this series contain some relatively simple changes that
-> lead to better throughput across TIPC connections. We also make changes
-> to the implementation of link transmission queueing and priority
-> handling, in order to make the code more comprehensible and maintainable.
-> 
-> v2: Commit #2: Redesigned tipc_msg_validate() to use pskb_may_pull(),
->                as per feedback from David Miller.
->     Commit #3: Some cosmetic changes to tipc_msg_extract(). I tried to
->                replace the unconditional skb_linearize() with calls to
->                pskb_may_pull() at selected locations, but I gave up.
->                First, skb_trim() requires a fully linearized buffer.
->                Second, it doesn't make much sense; the whole buffer
->                will end up linearized, one way or another.
+applied to my fixes branch
 
-Series applied, thanks Jon.
+
+Thanks
+Heiko
+
+> ---
+>  arch/arm/boot/dts/rk3288.dtsi | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288=
+=2Edtsi
+> index d771f68..eccc78d 100644
+> --- a/arch/arm/boot/dts/rk3288.dtsi
+> +++ b/arch/arm/boot/dts/rk3288.dtsi
+> @@ -411,6 +411,7 @@
+>  			"mac_clk_rx", "mac_clk_tx",
+>  			"clk_mac_ref", "clk_mac_refout",
+>  			"aclk_mac", "pclk_mac";
+> +		status =3D "disabled";
+>  	};
+>=20
+>  	usb_host0_ehci: usb@ff500000 {
