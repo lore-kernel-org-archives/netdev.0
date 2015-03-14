@@ -1,76 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 4/6] rhashtable: Free bucket tables asynchronously after rehash
-Date: Sat, 14 Mar 2015 13:57:23 +1100
-Message-ID: <E1YWcGR-0002oD-Lm@gondolin.me.apana.org.au>
-References: <20150314025339.GA10585@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	netdev@vger.kernel.org
+From: Jaedon Shin <jaedon.shin@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: bcmgenet: use skb_put_padto()
+Date: Sat, 14 Mar 2015 13:48:55 +0900
+Message-ID: <6CCFE062-6F9D-48CB-9D6A-B169874A27AA@gmail.com>
+References: <1426287512-10742-1-git-send-email-f.fainelli@gmail.com> <1426287512-10742-2-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2089\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
+	pgynther@google.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:47053 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbbCNC51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:57:27 -0400
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:33871 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750776AbbCNEs7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 00:48:59 -0400
+Received: by pdbni2 with SMTP id ni2so4583312pdb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 21:48:58 -0700 (PDT)
+In-Reply-To: <1426287512-10742-2-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is in fact no need to wait for an RCU grace period in the
-rehash function, since all insertions are guaranteed to go into
-the new table through spin locks.
 
-This patch uses call_rcu to free the old/rehashed table at our
-leisure.
+> On Mar 14, 2015, at 7:58 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 
+> We use skb_pad() to pad small packets, and then we need to enforce again
+> in bcmgenet_xmit() a check on ETH_ZLEN. Use skb_put_padto() which pads
+> up to the specified length and also increases skb->len accordingly. Note
+> that we still need to use skb_headlen() since we might transmitting the
+> first part out of a train of fragments.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c | 5 ++---
+> 1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index e74ae628bbb9..cee86c24b35f 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -1108,8 +1108,7 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+> 
+> 	tx_cb_ptr->skb = skb;
+> 
+> -	skb_len = skb_headlen(skb) < ETH_ZLEN ? ETH_ZLEN : skb_headlen(skb);
+> -
+> +	skb_len = skb_headlen(skb);
+> 	mapping = dma_map_single(kdev, skb->data, skb_len, DMA_TO_DEVICE);
+> 	ret = dma_mapping_error(kdev, mapping);
+> 	if (ret) {
+> @@ -1272,7 +1271,7 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+> 		goto out;
+> 	}
+> 
+> -	if (skb_padto(skb, ETH_ZLEN)) {
+> +	if (skb_put_padto(skb, ETH_ZLEN)) {
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+I suggest to use the eth_skb_pad helper.
 
- include/linux/rhashtable.h |    2 ++
- lib/rhashtable.c           |    9 ++++++---
- 2 files changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 4192682..a0abddd 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -54,6 +54,7 @@ struct rhash_head {
-  * @locks_mask: Mask to apply before accessing locks[]
-  * @locks: Array of spinlocks protecting individual buckets
-  * @walkers: List of active walkers
-+ * @rcu: RCU structure for freeing the table
-  * @buckets: size * hash buckets
-  */
- struct bucket_table {
-@@ -63,6 +64,7 @@ struct bucket_table {
- 	unsigned int		locks_mask;
- 	spinlock_t		*locks;
- 	struct list_head	walkers;
-+	struct rcu_head		rcu;
- 
- 	struct rhash_head __rcu	*buckets[] ____cacheline_aligned_in_smp;
- };
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index e55bbc8..36fb091 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -141,6 +141,11 @@ static void bucket_table_free(const struct bucket_table *tbl)
- 	kvfree(tbl);
- }
- 
-+static void bucket_table_free_rcu(struct rcu_head *head)
-+{
-+	bucket_table_free(container_of(head, struct bucket_table, rcu));
-+}
-+
- static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
- 					       size_t nbuckets)
- {
-@@ -288,9 +293,7 @@ static void rhashtable_rehash(struct rhashtable *ht,
- 	 * table, and thus no references to the old table will
- 	 * remain.
- 	 */
--	synchronize_rcu();
--
--	bucket_table_free(old_tbl);
-+	call_rcu(&old_tbl->rcu, bucket_table_free_rcu);
- }
- 
- /**
+	if (eth_skb_pad(skb)) {
+		dev->stats.tx_dropped++;
+> 		ret = NETDEV_TX_OK;
+> 		goto out;
+> 	}
+> -- 
+> 2.1.0
+> 
