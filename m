@@ -1,32 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 1/2] bpf: allow extended BPF programs access
- skb fields
-Date: Sat, 14 Mar 2015 03:16:45 +0100
-Message-ID: <55039A0D.20000@iogearbox.net>
-References: <1426273064-4837-1-git-send-email-ast@plumgrid.com> <1426273064-4837-2-git-send-email-ast@plumgrid.com> <550392F7.9040308@iogearbox.net> <550397B0.5070409@iogearbox.net> <5503981C.6000801@plumgrid.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/3 net-next] rhashtable: Avoid calculating hash again to
+ unlock
+Date: Sat, 14 Mar 2015 13:20:02 +1100
+Message-ID: <20150314022002.GA10086@gondor.apana.org.au>
+References: <cover.1426257747.git.tgraf@suug.ch>
+ <533e5f99a1fc96e557baf4322bda126530236862.1426257747.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5503981C.6000801@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:33074 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbbCNCUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:20:13 -0400
+Content-Disposition: inline
+In-Reply-To: <533e5f99a1fc96e557baf4322bda126530236862.1426257747.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/14/2015 03:08 AM, Alexei Starovoitov wrote:
-> On 3/13/15 7:06 PM, Daniel Borkmann wrote:
->> On 03/14/2015 02:46 AM, Daniel Borkmann wrote:
->> ...
->>> Previously, it was much more consistent, which I like better. And only
->>> because of the simple BUILD_BUG_ON()? :/
->>
->> Alternative is to move all of them into a central place, something like
->> in twsk_build_assert() or __mld2_query_bugs[].
->
-> nope. that defeats the purpose of bug_on.
+On Fri, Mar 13, 2015 at 03:45:19PM +0100, Thomas Graf wrote:
+> Caching the lock pointer avoids having to hash on the object
+> again to unlock the bucket locks.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Well, it doesn't. ;) It throws a build error thus the user is forced to
-investigate that further.
+Looks good to me.  I originally avoided doing this because I
+thought I had to hold every bucket lock from the first table to
+the last with multiple rehashing.  However, my new scheme only
+requires the "first" table and the last table to be locked so
+caching it is fine.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
