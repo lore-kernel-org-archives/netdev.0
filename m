@@ -1,62 +1,70 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH 2/3 RFC] ath10k: wmi: match wait_for_completion_timeout
-	return type
-Date: Sat, 14 Mar 2015 09:59:38 +0100
-Message-ID: <20150314085938.GA13323@opentech.at>
-References: <1426175362-8640-1-git-send-email-hofrat@osadl.org> <CA+BoTQ=VYkOcKBjBuLsJcDjPNevTD2UFxVfB1uimRr=9uBO4Fw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	Kalle Valo <kvalo@qca.qualcomm.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-kernel@vger.kernel.org,
-	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Michal Kazior <michal.kazior@tieto.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hofr.at ([212.69.189.236]:34625 "EHLO mail.hofr.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750925AbbCNI7k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Mar 2015 04:59:40 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+BoTQ=VYkOcKBjBuLsJcDjPNevTD2UFxVfB1uimRr=9uBO4Fw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH 1/2] ath10k: wmi: match wait_for_completion_timeout return type
+Date: Sat, 14 Mar 2015 04:55:02 -0400
+Message-ID: <1426323302-1310-1-git-send-email-hofrat@osadl.org>
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Mar 2015, Michal Kazior wrote:
+return type of wait_for_completion_timeout is unsigned long not int. This
+patch adjusts the type and name of the return variable and adjusts the 
+success/fail values to match those used at the call site in ath10k_core_start
 
-> On 12 March 2015 at 16:49, Nicholas Mc Guire <hofrat@osadl.org> wrote:
-> > Return type of wait_for_completion_timeout is unsigned long not int.
-> > An appropriately named unsigned long is added and the assignments fixed up.
-> > Rather than returning 0 (timeout) or a more or less random remaining time
-> > (completion success) this return 0 or 1 which also resolves the type of the
-> > functions being int.
-> >
-> > Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-> > ---
-> >
-> > Checking the call-sites of ath10k_wmi_wait_for_unified_ready and
-> > ath10k_wmi_wait_for_service_ready the positive return value (remaining
-> > time in jiffies) is never passed up the call-chain nor used so it is
-> > cleaner to treat this like a boolean success/fail only (actually the two
-> > functions should probably be of type bool - but that does not seem to be
-> > common practice in the ath10k code base)
-> 
-> It'd make sense to have these functions return 0 or -ETIMEDOUT. In
-> that case both call sites would need to be adjusted to treat "< 0" or
-> "!x" as an error (instead of the current "<= 0") condition and not set
-> -ETIMEDOUT themselves.
->
-looking at the call sites in ath10k_core_start more or less 
-all other initialization calls will treate 0 as success and
-!=0 as failure so this is the cleaner solution. as its all
-now
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-status = call()
-if(status)
- 	error
+Adjustment of return values was proposed by Michal Kazior
+<michal.kazior@tieto.com> - thanks!
 
-patch just posted.
+Patch was only compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+CONFIG_ATH10K=m
 
-thx!
-hofrat
+Patch is against 4.0-rc3 (localversion-next is -next-20150313)
+
+ drivers/net/wireless/ath/ath10k/wmi.c |   20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
+index c7ea77e..65e495d 100644
+--- a/drivers/net/wireless/ath/ath10k/wmi.c
++++ b/drivers/net/wireless/ath/ath10k/wmi.c
+@@ -884,20 +884,24 @@ void ath10k_wmi_put_wmi_channel(struct wmi_channel *ch,
+ 
+ int ath10k_wmi_wait_for_service_ready(struct ath10k *ar)
+ {
+-	int ret;
++	unsigned long time_left;
+ 
+-	ret = wait_for_completion_timeout(&ar->wmi.service_ready,
+-					  WMI_SERVICE_READY_TIMEOUT_HZ);
+-	return ret;
++	time_left = wait_for_completion_timeout(&ar->wmi.service_ready,
++						WMI_SERVICE_READY_TIMEOUT_HZ);
++	if (!time_left)
++		return -ETIMEDOUT;
++	return 0;
+ }
+ 
+ int ath10k_wmi_wait_for_unified_ready(struct ath10k *ar)
+ {
+-	int ret;
++	unsigned long time_left;
+ 
+-	ret = wait_for_completion_timeout(&ar->wmi.unified_ready,
+-					  WMI_UNIFIED_READY_TIMEOUT_HZ);
+-	return ret;
++	time_left = wait_for_completion_timeout(&ar->wmi.unified_ready,
++						WMI_UNIFIED_READY_TIMEOUT_HZ);
++	if (!time_left)
++		return -ETIMEDOUT;
++	return 0;
+ }
+ 
+ struct sk_buff *ath10k_wmi_alloc_skb(struct ath10k *ar, u32 len)
+-- 
+1.7.10.4
