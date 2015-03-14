@@ -1,71 +1,47 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: Re: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
-Date: Sun, 15 Mar 2015 05:06:27 +0530
-Message-ID: <CA+CtxLQXOqO6FvB4=8YzXmUDDhEa1HmoNYbMyOwnOB=xBxZ4WQ@mail.gmail.com>
-References: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
-	<CAE4R7bCAfrJDMZMEKhurd2axe0vpo+peZt7DdUMKwWhtwNaMnw@mail.gmail.com>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 1/2] bpf: allow extended BPF programs access
+ skb fields
+Date: Sun, 15 Mar 2015 00:51:37 +0100
+Message-ID: <5504C989.8000800@iogearbox.net>
+References: <1426273064-4837-1-git-send-email-ast@plumgrid.com> <1426273064-4837-2-git-send-email-ast@plumgrid.com> <550392F7.9040308@iogearbox.net> <550397B0.5070409@iogearbox.net> <5503981C.6000801@plumgrid.com> <55039A0D.20000@iogearbox.net> <55039C9D.6010602@plumgrid.com> <5503C03F.8020903@plumgrid.com> <550400D8.5060407@iogearbox.net> <550459E4.1050808@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:33772 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbbCNXg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 19:36:28 -0400
-Received: by wejb47 with SMTP id b47so14705690wej.0
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 16:36:27 -0700 (PDT)
-In-Reply-To: <CAE4R7bCAfrJDMZMEKhurd2axe0vpo+peZt7DdUMKwWhtwNaMnw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <550459E4.1050808-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 15, 2015 at 3:47 AM, Scott Feldman <sfeldma@gmail.com> wrote:
-> On Fri, Mar 13, 2015 at 6:40 PM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
->> This patch allows user to configure bridge's FDB ageing using
->> netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
->> as per ieee8021QBridgeFdbAgingTime.
->>
->> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
->> ---
->> Changes in v2:
->>  - Added commit message.
->>  - Fix style problems reported by checkpatch.pl.
->
->
->> +
->> +int br_set_ageing_time(struct net_bridge *br, unsigned long val)
->> +{
->> +       unsigned long t = clock_t_to_jiffies(val);
->> +
->> +       if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
->> +               return -ERANGE;
->> +
->> +       spin_lock_bh(&br->lock);
->> +       br->ageing_time = t;
->
-> I wonder if you need to call mod_timer(&br->gc_timer, jiffies) after
-> adjusting the time, to make new ageing_time effective?  The worst-case
-> scenario I'm thinking about is if the initial br->ageing_time is the
-> max value (1000000 seconds) and the user changes it the min value (10
-> seconds), will the original 1000000 seconds need to expire before the
-> gc_timer is called again and reset to 10 seconds?
->
-Yes, the new ageing_time becomes effective only after the current timer expires.
-The behavior when ageing_time is set via netlink  is similar to setting it using
-sysfs and brctl. I want to keep the behavior same when the ageing_time is
-configured using any of the existing mechanisms.
+On 03/14/2015 04:55 PM, Alexei Starovoitov wrote:
+...
+> so from there I saw two options: either copy paste all
+> build_bug_on and have the same *insn=... and build_bug_on in
+> two places or consolidate them in single helper function.
+> Obviously single helper function is a preferred method.
+> I'm not sure what are you still arguing about.
 
-If this needs to become effective immediately, I will work on it via
-another patch/RFC.
+I'm repeating myself here, but fair enough. To me the v1
+code in sk_filter_convert_ctx_access() was more sound. So
+taking out the ifindex issue, that's 4 BUILD_BUG_ON()s in
+addition.
 
->> +       spin_unlock_bh(&br->lock);
->> +       return 0;
->> +}
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index 8bc6b67..d80e802 100644
+I actually think the current filter code is in a reasonable
+shape. convert_bpf_extensions() is full of BPF to eBPF
+conversions, so going over convert_bpf_extensions() some of
+them would now use convert_skb_access(), some other ``skb
+accesses''use macros directly in place, the reading-flow of
+this code now is inconsistent to me and it would have been
+more sound if that's just left as is in convert_bpf_extensions().
 
+I'm all for consolidating code, don't get me wrong, but I
+think this exception would be better for above sake. That's
+all I'm trying to say. I understand you're of exact opposite
+opinion, so I guess it's pointless for me to comment any
+further on this.
 
-
--- 
-Regards,
-Siva Mannem.
+Thanks,
+Daniel
