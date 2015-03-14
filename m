@@ -1,69 +1,341 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-queue 0/7][pull request] Intel Wired LAN Driver Updates 2015-03-13
-Date: Fri, 13 Mar 2015 17:00:41 -0700
-Message-ID: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [next-queue 1/7] ixgbe: add new wrapper for X550 support
+Date: Fri, 13 Mar 2015 17:00:42 -0700
+Message-ID: <1426291248-14739-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	<kernel-team@fb.com>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:19110 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818AbbCNAAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 20:00:50 -0400
+	id S1751038AbbCNAAv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2015 20:00:51 -0400
+In-Reply-To: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Don adds additional support for X550 MAC types, which require additional
-steps around enabling and disabling Rx.  Also cleans up variable type
-inconsistency.
+For the X550 mac type we have to do additional steps around
+enabling/disabling Rx.  This patch will add a layer of indirection
+around these support functions to enable this.
 
-I provide a patch to allow relaxed ordering to be enabled on SPARC
-architectures.  Also cleans up ixgbevf whitespace and code comments to
-align the driver with networking coding standard.  Lastly cleaned up
-uses of memcpy() where ether_addr_copy() could have been used.
+CC: <kernel-team@fb.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  7 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 48 +++++++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 13 ++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  8 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  3 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |  2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    | 43 +++++++++++++++++++++
+ 9 files changed, 114 insertions(+), 14 deletions(-)
 
-Alex removes some dead code in the ixgbe cleanup patch.
-
-The following are changes since commit 2801be4a0ea4cd0965f9c12ff813a91892a8e157:
-  Merge branch 'bcmgenet_xmit_more'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Alexander Duyck (1):
-  ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it doesn't do anything
-
-Don Skidmore (3):
-  ixgbe: add new wrapper for X550 support
-  ixgbe: Clean up type inconsistency
-  ixgbe: cleanup make ixgbe_set_ethertype_anti_spoofing_X550 static
-
-Jeff Kirsher (3):
-  ixgbe: enable relaxed ordering for SPARC
-  ixgbevf: Fix code comments and whitespace
-  ixgbevf: Use ether_addr_copy() instead of memcpy()
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    |  10 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |  56 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  13 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  26 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   7 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  47 +++-
- drivers/net/ethernet/intel/ixgbevf/defines.h      | 285 +++++++++++-----------
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  86 +++----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  82 ++++---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 229 +++++++++--------
- drivers/net/ethernet/intel/ixgbevf/mbx.c          |  43 ++--
- drivers/net/ethernet/intel/ixgbevf/mbx.h          |  93 ++++---
- drivers/net/ethernet/intel/ixgbevf/regs.h         | 105 ++++----
- drivers/net/ethernet/intel/ixgbevf/vf.c           |  63 +++--
- drivers/net/ethernet/intel/ixgbevf/vf.h           |  15 +-
- 19 files changed, 636 insertions(+), 536 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index c5c97b4..51628b3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -1193,6 +1193,8 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
+ 	.init_thermal_sensor_thresh = NULL,
+ 	.prot_autoc_read	= &prot_autoc_read_generic,
+ 	.prot_autoc_write	= &prot_autoc_write_generic,
++	.enable_rx		= &ixgbe_enable_rx_generic,
++	.disable_rx		= &ixgbe_disable_rx_generic,
+ };
+ 
+ static struct ixgbe_eeprom_operations eeprom_ops_82598 = {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index cf55a0d..e0c3639 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1977,7 +1977,10 @@ static s32 ixgbe_enable_rx_dma_82599(struct ixgbe_hw *hw, u32 regval)
+ 	 */
+ 	hw->mac.ops.disable_rx_buff(hw);
+ 
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, regval);
++	if (regval & IXGBE_RXCTRL_RXEN)
++		hw->mac.ops.enable_rx(hw);
++	else
++		hw->mac.ops.disable_rx(hw);
+ 
+ 	hw->mac.ops.enable_rx_buff(hw);
+ 
+@@ -2336,6 +2339,8 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
+ 	.init_thermal_sensor_thresh = &ixgbe_init_thermal_sensor_thresh_generic,
+ 	.prot_autoc_read	= &prot_autoc_read_82599,
+ 	.prot_autoc_write	= &prot_autoc_write_82599,
++	.enable_rx		= &ixgbe_enable_rx_generic,
++	.disable_rx		= &ixgbe_disable_rx_generic,
+ };
+ 
+ static struct ixgbe_eeprom_operations eeprom_ops_82599 = {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 9c66bab..13b58f9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -703,7 +703,7 @@ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
+ 	hw->adapter_stopped = true;
+ 
+ 	/* Disable the receive unit */
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, 0);
++	hw->mac.ops.disable_rx(hw);
+ 
+ 	/* Clear interrupt mask to stop interrupts from being generated */
+ 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
+@@ -2639,7 +2639,10 @@ s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw)
+  **/
+ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval)
+ {
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, regval);
++	if (regval & IXGBE_RXCTRL_RXEN)
++		hw->mac.ops.enable_rx(hw);
++	else
++		hw->mac.ops.disable_rx(hw);
+ 
+ 	return 0;
+ }
+@@ -3850,3 +3853,44 @@ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw)
+ 	return 0;
+ }
+ 
++void ixgbe_disable_rx_generic(struct ixgbe_hw *hw)
++{
++	u32 rxctrl;
++
++	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
++	if (rxctrl & IXGBE_RXCTRL_RXEN) {
++		if (hw->mac.type != ixgbe_mac_82598EB) {
++			u32 pfdtxgswc;
++
++			pfdtxgswc = IXGBE_READ_REG(hw, IXGBE_PFDTXGSWC);
++			if (pfdtxgswc & IXGBE_PFDTXGSWC_VT_LBEN) {
++				pfdtxgswc &= ~IXGBE_PFDTXGSWC_VT_LBEN;
++				IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, pfdtxgswc);
++				hw->mac.set_lben = true;
++			} else {
++				hw->mac.set_lben = false;
++			}
++		}
++		rxctrl &= ~IXGBE_RXCTRL_RXEN;
++		IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl);
++	}
++}
++
++void ixgbe_enable_rx_generic(struct ixgbe_hw *hw)
++{
++	u32 rxctrl;
++
++	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
++	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, (rxctrl | IXGBE_RXCTRL_RXEN));
++
++	if (hw->mac.type != ixgbe_mac_82598EB) {
++		if (hw->mac.set_lben) {
++			u32 pfdtxgswc;
++
++			pfdtxgswc = IXGBE_READ_REG(hw, IXGBE_PFDTXGSWC);
++			pfdtxgswc |= IXGBE_PFDTXGSWC_VT_LBEN;
++			IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, pfdtxgswc);
++			hw->mac.set_lben = false;
++		}
++	}
++}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 8cfadcb..f21f8a1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -130,6 +130,8 @@ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
+ 
+ s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
++void ixgbe_disable_rx_generic(struct ixgbe_hw *hw);
++void ixgbe_enable_rx_generic(struct ixgbe_hw *hw);
+ 
+ #define IXGBE_FAILED_READ_REG 0xffffffffU
+ #define IXGBE_FAILED_READ_CFG_DWORD 0xffffffffU
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index e5be0dd..02ffb30 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1637,9 +1637,7 @@ static void ixgbe_free_desc_rings(struct ixgbe_adapter *adapter)
+ 	/* shut down the DMA engines now so they can be reinitialized later */
+ 
+ 	/* first Rx */
+-	reg_ctl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+-	reg_ctl &= ~IXGBE_RXCTRL_RXEN;
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, reg_ctl);
++	hw->mac.ops.disable_rx(hw);
+ 	ixgbe_disable_rx_queue(adapter, rx_ring);
+ 
+ 	/* now Tx */
+@@ -1670,6 +1668,7 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_ring *tx_ring = &adapter->test_tx_ring;
+ 	struct ixgbe_ring *rx_ring = &adapter->test_rx_ring;
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 rctl, reg_data;
+ 	int ret_val;
+ 	int err;
+@@ -1713,14 +1712,16 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
+ 		goto err_nomem;
+ 	}
+ 
+-	rctl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXCTRL);
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXCTRL, rctl & ~IXGBE_RXCTRL_RXEN);
++	hw->mac.ops.disable_rx(hw);
+ 
+ 	ixgbe_configure_rx_ring(adapter, rx_ring);
+ 
+-	rctl |= IXGBE_RXCTRL_RXEN | IXGBE_RXCTRL_DMBYPS;
++	rctl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXCTRL);
++	rctl |= IXGBE_RXCTRL_DMBYPS;
+ 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXCTRL, rctl);
+ 
++	hw->mac.ops.enable_rx(hw);
++
+ 	return 0;
+ 
+ err_nomem:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 21aea7e..581015b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3705,8 +3705,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	u32 rxctrl, rfctl;
+ 
+ 	/* disable receives while setting up the descriptors */
+-	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl & ~IXGBE_RXCTRL_RXEN);
++	hw->mac.ops.disable_rx(hw);
+ 
+ 	ixgbe_setup_psrtype(adapter);
+ 	ixgbe_setup_rdrxctl(adapter);
+@@ -3731,6 +3730,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+ 		ixgbe_configure_rx_ring(adapter, adapter->rx_ring[i]);
+ 
++	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+ 	/* disable drop enable for 82598 parts */
+ 	if (hw->mac.type == ixgbe_mac_82598EB)
+ 		rxctrl |= IXGBE_RXCTRL_DMBYPS;
+@@ -5014,7 +5014,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct net_device *upper;
+ 	struct list_head *iter;
+-	u32 rxctrl;
+ 	int i;
+ 
+ 	/* signal that we are down to the interrupt handler */
+@@ -5022,8 +5021,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 		return; /* do nothing if already down */
+ 
+ 	/* disable receives */
+-	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl & ~IXGBE_RXCTRL_RXEN);
++	hw->mac.ops.disable_rx(hw);
+ 
+ 	/* disable all enabled rx queues */
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 8451f9a..02dc62e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -3067,6 +3067,8 @@ struct ixgbe_mac_operations {
+ 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
+ 	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
+ 	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
++	void (*disable_rx)(struct ixgbe_hw *hw);
++	void (*enable_rx)(struct ixgbe_hw *hw);
+ 	void (*set_ethertype_anti_spoofing)(struct ixgbe_hw *, bool, int);
+ 
+ 	/* DMA Coalescing */
+@@ -3137,6 +3139,7 @@ struct ixgbe_mac_info {
+ 	u8                              flags;
+ 	u8				san_mac_rar_index;
+ 	struct ixgbe_thermal_sensor_data  thermal_sensor_data;
++	bool				set_lben;
+ };
+ 
+ struct ixgbe_phy_info {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 4939542..f5f948d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -820,6 +820,8 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
+ 	.init_thermal_sensor_thresh = NULL,
+ 	.prot_autoc_read	= &prot_autoc_read_generic,
+ 	.prot_autoc_write	= &prot_autoc_write_generic,
++	.enable_rx		= &ixgbe_enable_rx_generic,
++	.disable_rx		= &ixgbe_disable_rx_generic,
+ };
+ 
+ static struct ixgbe_eeprom_operations eeprom_ops_X540 = {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 50bf819..161a9e5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -557,6 +557,47 @@ static s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
+ 	return status;
+ }
+ 
++/** ixgbe_disable_rx_x550 - Disable RX unit
++ *
++ *  Enables the Rx DMA unit for x550
++ **/
++static void ixgbe_disable_rx_x550(struct ixgbe_hw *hw)
++{
++	u32 rxctrl, pfdtxgswc;
++	s32 status;
++	struct ixgbe_hic_disable_rxen fw_cmd;
++
++	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
++	if (rxctrl & IXGBE_RXCTRL_RXEN) {
++		pfdtxgswc = IXGBE_READ_REG(hw, IXGBE_PFDTXGSWC);
++		if (pfdtxgswc & IXGBE_PFDTXGSWC_VT_LBEN) {
++			pfdtxgswc &= ~IXGBE_PFDTXGSWC_VT_LBEN;
++			IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, pfdtxgswc);
++			hw->mac.set_lben = true;
++		} else {
++			hw->mac.set_lben = false;
++		}
++
++		fw_cmd.hdr.cmd = FW_DISABLE_RXEN_CMD;
++		fw_cmd.hdr.buf_len = FW_DISABLE_RXEN_LEN;
++		fw_cmd.hdr.checksum = FW_DEFAULT_CHECKSUM;
++		fw_cmd.port_number = (u8)hw->bus.lan_id;
++
++		status = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
++					sizeof(struct ixgbe_hic_disable_rxen),
++					IXGBE_HI_COMMAND_TIMEOUT, true);
++
++		/* If we fail - disable RX using register write */
++		if (status) {
++			rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
++			if (rxctrl & IXGBE_RXCTRL_RXEN) {
++				rxctrl &= ~IXGBE_RXCTRL_RXEN;
++				IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl);
++			}
++		}
++	}
++}
++
+ /** ixgbe_update_eeprom_checksum_X550 - Updates the EEPROM checksum and flash
+  *  @hw: pointer to hardware structure
+  *
+@@ -1366,6 +1407,8 @@ void ixgbe_set_ethertype_anti_spoofing_X550(struct ixgbe_hw *hw, bool enable,
+ 	.init_thermal_sensor_thresh	= NULL, \
+ 	.prot_autoc_read		= &prot_autoc_read_generic, \
+ 	.prot_autoc_write		= &prot_autoc_write_generic, \
++	.enable_rx			= &ixgbe_enable_rx_generic, \
++	.disable_rx			= &ixgbe_disable_rx_x550, \
+ 
+ static struct ixgbe_mac_operations mac_ops_X550 = {
+ 	X550_COMMON_MAC
 -- 
 1.9.3
