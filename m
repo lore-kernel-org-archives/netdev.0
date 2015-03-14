@@ -1,120 +1,139 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 1/2] ebpf: add prandom helper for packet sampling
-Date: Sat, 14 Mar 2015 02:27:16 +0100
-Message-ID: <1c55eb033835a0c691d7c46155fc3a2ad001d625.1426294922.git.daniel@iogearbox.net>
-References: <cover.1426294922.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
+Date: Sat, 14 Mar 2015 07:10:29 +0530
+Message-ID: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
+Cc: Siva Mannem <siva.mannem.lnx@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56324 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751038AbbCNB1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 21:27:21 -0400
-In-Reply-To: <cover.1426294922.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1426294922.git.daniel@iogearbox.net>
-References: <cover.1426294922.git.daniel@iogearbox.net>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:33974 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781AbbCNBlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 21:41:20 -0400
+Received: by pdbni2 with SMTP id ni2so1717704pdb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 18:41:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work is similar to commit 4cd3675ebf74 ("filter: added BPF
-random opcode") and adds a possibility for packet sampling in eBPF.
+This patch allows user to configure bridge's FDB ageing using
+netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
+as per ieee8021QBridgeFdbAgingTime.
 
-Currently, this is only possible in classic BPF and useful to
-combine sampling with f.e. packet sockets, possible also with tc.
-
-Example function proto-type looks like:
-
-  u32 (*prandom_u32)(void) = (void *)BPF_FUNC_get_prandom_u32;
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
 ---
- v1->v2:
-  - Changed function name
-  - Only u32-wide result
+Changes in v2:
+ - Added commit message.
+ - Fix style problems reported by checkpatch.pl.
 
- include/linux/bpf.h      |  2 ++
- include/uapi/linux/bpf.h |  1 +
- kernel/bpf/core.c        |  2 ++
- kernel/bpf/helpers.c     | 12 ++++++++++++
- net/core/filter.c        |  2 ++
- 5 files changed, 19 insertions(+)
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_device.c       | 13 +++++++++++++
+ net/bridge/br_netlink.c      | 14 ++++++++++++--
+ net/bridge/br_private.h      |  5 +++++
+ 4 files changed, 31 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 80f2e0f..50bf95e 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -154,4 +154,6 @@ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
- extern const struct bpf_func_proto bpf_map_update_elem_proto;
- extern const struct bpf_func_proto bpf_map_delete_elem_proto;
- 
-+extern const struct bpf_func_proto bpf_get_prandom_u32_proto;
-+
- #endif /* _LINUX_BPF_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 3fa1af8..1c2ca2b 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -165,6 +165,7 @@ enum bpf_func_id {
- 	BPF_FUNC_map_lookup_elem, /* void *map_lookup_elem(&map, &key) */
- 	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
- 	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
-+	BPF_FUNC_get_prandom_u32, /* u32 prandom_u32(void) */
- 	__BPF_FUNC_MAX_ID,
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 756436e..4a59232 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -224,6 +224,7 @@ enum {
+ 	IFLA_BR_FORWARD_DELAY,
+ 	IFLA_BR_HELLO_TIME,
+ 	IFLA_BR_MAX_AGE,
++	IFLA_BR_AGEING_TIME,
+ 	__IFLA_BR_MAX,
  };
  
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 50603ae..c1dbbb5d 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -661,6 +661,8 @@ const struct bpf_func_proto bpf_map_lookup_elem_proto __weak;
- const struct bpf_func_proto bpf_map_update_elem_proto __weak;
- const struct bpf_func_proto bpf_map_delete_elem_proto __weak;
- 
-+const struct bpf_func_proto bpf_get_prandom_u32_proto __weak;
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 294cbcc..1a665aa 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -392,3 +392,16 @@ void br_dev_setup(struct net_device *dev)
+ 	br_stp_timer_init(br);
+ 	br_multicast_init(br);
+ }
 +
- /* To execute LD_ABS/LD_IND instructions __bpf_prog_run() may call
-  * skb_copy_bits(), so provide a weak definition of it for NET-less config.
-  */
-diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
-index a3c7701..95eb59a 100644
---- a/kernel/bpf/helpers.c
-+++ b/kernel/bpf/helpers.c
-@@ -11,6 +11,7 @@
-  */
- #include <linux/bpf.h>
- #include <linux/rcupdate.h>
-+#include <linux/random.h>
- 
- /* If kernel subsystem is allowing eBPF programs to call this function,
-  * inside its own verifier_ops->get_func_proto() callback it should return
-@@ -87,3 +88,14 @@ const struct bpf_func_proto bpf_map_delete_elem_proto = {
- 	.arg1_type = ARG_CONST_MAP_PTR,
- 	.arg2_type = ARG_PTR_TO_MAP_KEY,
- };
-+
-+static u64 bpf_get_prandom_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++int br_set_ageing_time(struct net_bridge *br, unsigned long val)
 +{
-+	return prandom_u32();
-+}
++	unsigned long t = clock_t_to_jiffies(val);
 +
-+const struct bpf_func_proto bpf_get_prandom_u32_proto = {
-+	.func		= bpf_get_prandom_u32,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+};
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7a4eb70..4344db3 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1139,6 +1139,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
- 		return &bpf_map_update_elem_proto;
- 	case BPF_FUNC_map_delete_elem:
- 		return &bpf_map_delete_elem_proto;
-+	case BPF_FUNC_get_prandom_u32:
-+		return &bpf_get_prandom_u32_proto;
- 	default:
- 		return NULL;
++	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
++		return -ERANGE;
++
++	spin_lock_bh(&br->lock);
++	br->ageing_time = t;
++	spin_unlock_bh(&br->lock);
++	return 0;
++}
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 8bc6b67..d80e802 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -733,6 +733,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
+ 	[IFLA_BR_FORWARD_DELAY]	= { .type = NLA_U32 },
+ 	[IFLA_BR_HELLO_TIME]	= { .type = NLA_U32 },
+ 	[IFLA_BR_MAX_AGE]	= { .type = NLA_U32 },
++	[IFLA_BR_AGEING_TIME]	= { .type = NLA_U32 },
+ };
+ 
+ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+@@ -762,6 +763,12 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 			return err;
  	}
+ 
++	if (data[IFLA_BR_AGEING_TIME]) {
++		err = br_set_ageing_time(br, nla_get_u32(data[IFLA_BR_AGEING_TIME]));
++		if (err)
++			return err;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -770,6 +777,7 @@ static size_t br_get_size(const struct net_device *brdev)
+ 	return nla_total_size(sizeof(u32)) +	/* IFLA_BR_FORWARD_DELAY  */
+ 	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_HELLO_TIME */
+ 	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_MAX_AGE */
++	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_AGEING_TIME */
+ 	       0;
+ }
+ 
+@@ -778,11 +786,13 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	struct net_bridge *br = netdev_priv(brdev);
+ 	u32 forward_delay = jiffies_to_clock_t(br->forward_delay);
+ 	u32 hello_time = jiffies_to_clock_t(br->hello_time);
+-	u32 age_time = jiffies_to_clock_t(br->max_age);
++	u32 max_age = jiffies_to_clock_t(br->max_age);
++	u32 ageing_time = jiffies_to_clock_t(br->ageing_time);
+ 
+ 	if (nla_put_u32(skb, IFLA_BR_FORWARD_DELAY, forward_delay) ||
+ 	    nla_put_u32(skb, IFLA_BR_HELLO_TIME, hello_time) ||
+-	    nla_put_u32(skb, IFLA_BR_MAX_AGE, age_time))
++	    nla_put_u32(skb, IFLA_BR_MAX_AGE, max_age) ||
++	    nla_put_u32(skb, IFLA_BR_AGEING_TIME, ageing_time))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index f0a0438..325883c 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -25,6 +25,10 @@
+ 
+ #define BR_HOLD_TIME (1*HZ)
+ 
++/* values as per ieee8021QBridgeFdbAgingTime */
++#define BR_MIN_AGEING_TIME  (10 * HZ)
++#define BR_MAX_AGEING_TIME  (1000000 * HZ)
++
+ #define BR_PORT_BITS	10
+ #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
+ #define BR_VLAN_BITMAP_LEN	BITS_TO_LONGS(VLAN_N_VID)
+@@ -345,6 +349,7 @@ static inline int br_is_root_bridge(const struct net_bridge *br)
+ void br_dev_setup(struct net_device *dev);
+ void br_dev_delete(struct net_device *dev, struct list_head *list);
+ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
++int br_set_ageing_time(struct net_bridge *br, unsigned long val);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ 				       struct sk_buff *skb)
 -- 
-1.9.3
+2.1.0
