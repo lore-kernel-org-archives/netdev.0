@@ -1,109 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-queue 4/7] ixgbe: enable relaxed ordering for SPARC
-Date: Fri, 13 Mar 2015 17:00:45 -0700
-Message-ID: <1426291248-14739-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [next-queue 7/7] ixgbevf: Use ether_addr_copy() instead of memcpy()
+Date: Fri, 13 Mar 2015 17:00:48 -0700
+Message-ID: <1426291248-14739-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	<kernel-team@fb.com>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19117 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:19110 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751831AbbCNAAx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 20:00:53 -0400
+	id S1752190AbbCNAAy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Mar 2015 20:00:54 -0400
 In-Reply-To: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes sure that relaxed ordering is not disabled when
-on SPARC, where it helps with performance.
+Use the macro to copy the Ethernet address instead of memcpy().
 
-CC: <kernel-team@fb.com>
-CC: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 8 ++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 8 ++++++--
- 2 files changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/vf.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 51628b3..824a7ab 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -171,17 +171,21 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
-  *  @hw: pointer to hardware structure
-  *
-  *  Starts the hardware using the generic start_hw function.
-- *  Disables relaxed ordering Then set pcie completion timeout
-+ *  Disables relaxed ordering for archs other than SPARC
-+ *  Then set pcie completion timeout
-  *
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index 0d7da03..2614fd3 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -117,7 +117,7 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
+ 	    msgbuf[0] != (IXGBE_VF_RESET | IXGBE_VT_MSGTYPE_NACK))
+ 		return IXGBE_ERR_INVALID_MAC_ADDR;
+ 
+-	memcpy(hw->mac.perm_addr, addr, ETH_ALEN);
++	ether_addr_copy(hw->mac.perm_addr, addr);
+ 	hw->mac.mc_filter_type = msgbuf[IXGBE_VF_MC_TYPE_WORD];
+ 
+ 	return 0;
+@@ -219,7 +219,7 @@ static s32 ixgbevf_mta_vector(struct ixgbe_hw *hw, u8 *mc_addr)
   **/
- static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+ static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr)
  {
-+#ifndef CONFIG_SPARC
- 	u32 regval;
- 	u32 i;
-+#endif
- 	s32 ret_val;
+-	memcpy(mac_addr, hw->mac.perm_addr, ETH_ALEN);
++	ether_addr_copy(mac_addr, hw->mac.perm_addr);
  
- 	ret_val = ixgbe_start_hw_generic(hw);
- 
-+#ifndef CONFIG_SPARC
- 	/* Disable relaxed ordering */
- 	for (i = 0; ((i < hw->mac.max_tx_queues) &&
- 	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-@@ -197,7 +201,7 @@ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
- 			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
- 		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
- 	}
--
-+#endif
- 	if (ret_val)
- 		return ret_val;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 13b58f9..06d8f3c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -312,7 +312,6 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- {
- 	u32 i;
--	u32 regval;
- 
- 	/* Clear the rate limiters */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
-@@ -321,20 +320,25 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	}
- 	IXGBE_WRITE_FLUSH(hw);
- 
-+#ifndef CONFIG_SPARC
- 	/* Disable relaxed ordering */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
-+		u32 regval;
-+
- 		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
- 		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
- 		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
- 	}
- 
- 	for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+		u32 regval;
-+
- 		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
- 		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
- 			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
- 		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
- 	}
--
-+#endif
  	return 0;
  }
+@@ -240,7 +240,7 @@ static s32 ixgbevf_set_uc_addr_vf(struct ixgbe_hw *hw, u32 index, u8 *addr)
+ 	msgbuf[0] |= index << IXGBE_VT_MSGINFO_SHIFT;
+ 	msgbuf[0] |= IXGBE_VF_SET_MACVLAN;
+ 	if (addr)
+-		memcpy(msg_addr, addr, ETH_ALEN);
++		ether_addr_copy(msg_addr, addr);
+ 	ret_val = mbx->ops.write_posted(hw, msgbuf, 3);
  
+ 	if (!ret_val)
+@@ -273,7 +273,7 @@ static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
+ 
+ 	memset(msgbuf, 0, sizeof(msgbuf));
+ 	msgbuf[0] = IXGBE_VF_SET_MAC_ADDR;
+-	memcpy(msg_addr, addr, ETH_ALEN);
++	ether_addr_copy(msg_addr, addr);
+ 	ret_val = mbx->ops.write_posted(hw, msgbuf, 3);
+ 
+ 	if (!ret_val)
 -- 
 1.9.3
