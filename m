@@ -1,98 +1,109 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-queue 5/7] ixgbe: Remove IXGBE_FLAG_IN_NETPOLL since it doesn't do anything
-Date: Fri, 13 Mar 2015 17:00:46 -0700
-Message-ID: <1426291248-14739-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [next-queue 4/7] ixgbe: enable relaxed ordering for SPARC
+Date: Fri, 13 Mar 2015 17:00:45 -0700
+Message-ID: <1426291248-14739-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, <kernel-team@fb.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	<kernel-team@fb.com>,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19112 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:19117 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751950AbbCNAAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751831AbbCNAAx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 13 Mar 2015 20:00:53 -0400
 In-Reply-To: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-
-This patch removes some dead code from the cleanup path for ixgbe.
-
-Setting and clearing the flag doesn't do anything since all we are
-doing is setting the flag, scheduling NAPI, clearing the flag and
-then letting netpoll do the polling cleanup.  As such it doesn't
-make much sense to have it there.
-
-This patch also removes one minor white-space error.
+This patch makes sure that relaxed ordering is not disabled when
+on SPARC, where it helps with performance.
 
 CC: <kernel-team@fb.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+CC: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 18 ++++--------------
- 2 files changed, 4 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 8 ++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 8 ++++++--
+ 2 files changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 7dcbbec..7068e9c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -613,7 +613,6 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG_RX_1BUF_CAPABLE              (u32)(1 << 4)
- #define IXGBE_FLAG_RX_PS_CAPABLE                (u32)(1 << 5)
- #define IXGBE_FLAG_RX_PS_ENABLED                (u32)(1 << 6)
--#define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 7)
- #define IXGBE_FLAG_DCA_ENABLED                  (u32)(1 << 8)
- #define IXGBE_FLAG_DCA_CAPABLE                  (u32)(1 << 9)
- #define IXGBE_FLAG_IMIR_ENABLED                 (u32)(1 << 10)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 581015b..395dc6b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1619,14 +1619,10 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
- 			 struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 51628b3..824a7ab 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -171,17 +171,21 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
+  *  @hw: pointer to hardware structure
+  *
+  *  Starts the hardware using the generic start_hw function.
+- *  Disables relaxed ordering Then set pcie completion timeout
++ *  Disables relaxed ordering for archs other than SPARC
++ *  Then set pcie completion timeout
+  *
+  **/
+ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
  {
--	struct ixgbe_adapter *adapter = q_vector->adapter;
++#ifndef CONFIG_SPARC
+ 	u32 regval;
+ 	u32 i;
++#endif
+ 	s32 ret_val;
+ 
+ 	ret_val = ixgbe_start_hw_generic(hw);
+ 
++#ifndef CONFIG_SPARC
+ 	/* Disable relaxed ordering */
+ 	for (i = 0; ((i < hw->mac.max_tx_queues) &&
+ 	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+@@ -197,7 +201,7 @@ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+ 			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+ 		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+ 	}
 -
- 	if (ixgbe_qv_busy_polling(q_vector))
- 		netif_receive_skb(skb);
--	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
--		napi_gro_receive(&q_vector->napi, skb);
- 	else
--		netif_rx(skb);
-+		napi_gro_receive(&q_vector->napi, skb);
- }
++#endif
+ 	if (ret_val)
+ 		return ret_val;
  
- /**
-@@ -6172,7 +6168,6 @@ static void ixgbe_check_hang_subtask(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 13b58f9..06d8f3c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -312,7 +312,6 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
+ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ {
+ 	u32 i;
+-	u32 regval;
  
- 	/* Cause software interrupt to ensure rings are cleaned */
- 	ixgbe_irq_rearm_queues(adapter, eics);
+ 	/* Clear the rate limiters */
+ 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+@@ -321,20 +320,25 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ 	}
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
++#ifndef CONFIG_SPARC
+ 	/* Disable relaxed ordering */
+ 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
++		u32 regval;
++
+ 		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
+ 		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+ 		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
+ 	}
+ 
+ 	for (i = 0; i < hw->mac.max_rx_queues; i++) {
++		u32 regval;
++
+ 		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+ 		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+ 			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+ 		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+ 	}
 -
++#endif
+ 	return 0;
  }
  
- /**
-@@ -7505,14 +7500,9 @@ static void ixgbe_netpoll(struct net_device *netdev)
- 	if (test_bit(__IXGBE_DOWN, &adapter->state))
- 		return;
- 
--	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
--	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
--		for (i = 0; i < adapter->num_q_vectors; i++)
--			ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
--	} else {
--		ixgbe_intr(adapter->pdev->irq, netdev);
--	}
--	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
-+	/* loop through and schedule all active queues */
-+	for (i = 0; i < adapter->num_q_vectors; i++)
-+		ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
- }
- 
- #endif
 -- 
 1.9.3
