@@ -1,50 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3 net-next] rhashtable: Use spin_lock_bh_nested()
- consistently
-Date: Sat, 14 Mar 2015 13:21:18 +1100
-Message-ID: <20150314022118.GB10086@gondor.apana.org.au>
-References: <cover.1426257747.git.tgraf@suug.ch>
- <cover.1426257747.git.tgraf@suug.ch>
- <ad7f4c80fc041ae4aae4e2ed5294ba1f218e6afb.1426257747.git.tgraf@suug.ch>
- <20150313.125411.1315810617883806607.davem@davemloft.net>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 1/2] bpf: allow extended BPF programs access
+ skb fields
+Date: Fri, 13 Mar 2015 19:27:41 -0700
+Message-ID: <55039C9D.6010602@plumgrid.com>
+References: <1426273064-4837-1-git-send-email-ast@plumgrid.com> <1426273064-4837-2-git-send-email-ast@plumgrid.com> <550392F7.9040308@iogearbox.net> <550397B0.5070409@iogearbox.net> <5503981C.6000801@plumgrid.com> <55039A0D.20000@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:46457 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752906AbbCNCVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:21:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20150313.125411.1315810617883806607.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55039A0D.20000-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 13, 2015 at 12:54:11PM -0400, David Miller wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Fri, 13 Mar 2015 15:45:20 +0100
-> 
-> > No change in behaviour as the outer lock already disables softirq
-> > but it prevents bugs down the line as this lock logically requires
-> > the BH variant.
-> > 
-> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> 
-> I would prefer you don't do this.
-> 
-> x_bh() may be relatively cheap, but it is not zero cost.
-> 
-> If there is an invariant that when we are called here BH
-> is disabled, make it explicit.
+On 3/13/15 7:16 PM, Daniel Borkmann wrote:
+> On 03/14/2015 03:08 AM, Alexei Starovoitov wrote:
+>> On 3/13/15 7:06 PM, Daniel Borkmann wrote:
+>>> On 03/14/2015 02:46 AM, Daniel Borkmann wrote:
+>>> ...
+>>>> Previously, it was much more consistent, which I like better. And only
+>>>> because of the simple BUILD_BUG_ON()? :/
+>>>
+>>> Alternative is to move all of them into a central place, something like
+>>> in twsk_build_assert() or __mld2_query_bugs[].
+>>
+>> nope. that defeats the purpose of bug_on.
+>
+> Well, it doesn't. ;) It throws a build error thus the user is forced to
+> investigate that further.
 
-Agreed.  I dropped the _bh precisely for this reason when I did
-the arbitrary rehash.  Please don't add it back because it serves
-zero purpose.  Only the outside lock should do _bh while the
-nested one should not.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+according to this distorted logic all build_bug_on can be in one file
+across the whole tree, since 'user is forced to investigate' ?!
