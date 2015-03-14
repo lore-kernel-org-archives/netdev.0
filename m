@@ -1,139 +1,164 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
-Date: Sat, 14 Mar 2015 07:10:29 +0530
-Message-ID: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
-Cc: Siva Mannem <siva.mannem.lnx@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:33974 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781AbbCNBlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 21:41:20 -0400
-Received: by pdbni2 with SMTP id ni2so1717704pdb.1
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 18:41:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH v2 net-next 1/2] bpf: allow extended BPF programs access
+ skb fields
+Date: Sat, 14 Mar 2015 02:46:31 +0100
+Message-ID: <550392F7.9040308@iogearbox.net>
+References: <1426273064-4837-1-git-send-email-ast@plumgrid.com> <1426273064-4837-2-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1426273064-4837-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch allows user to configure bridge's FDB ageing using
-netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
-as per ieee8021QBridgeFdbAgingTime.
+On 03/13/2015 07:57 PM, Alexei Starovoitov wrote:
+> introduce user accessible mirror of in-kernel 'struct sk_buff':
+> struct __sk_buff {
+>      __u32 len;
+>      __u32 pkt_type;
+>      __u32 mark;
+>      __u32 queue_mapping;
+> };
+>
+> bpf programs can do:
+>
+> int bpf_prog(struct __sk_buff *skb)
+> {
+>      __u32 var = skb->pkt_type;
+>
+> which will be compiled to bpf assembler as:
+>
+> dst_reg = *(u32 *)(src_reg + 4) // 4 == offsetof(struct __sk_buff, pkt_type)
+>
+> bpf verifier will check validity of access and will convert it to:
+>
+> dst_reg = *(u8 *)(src_reg + offsetof(struct sk_buff, __pkt_type_offset))
+> dst_reg &= 7
+>
+> since skb->pkt_type is a bitfield.
+>
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+...
+> +static u32 convert_skb_access(int skb_field, int dst_reg, int src_reg,
+> +			      struct bpf_insn *insn_buf)
+> +{
+> +	struct bpf_insn *insn = insn_buf;
+> +
+> +	switch (skb_field) {
+> +	case SKF_AD_MARK:
+> +		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, mark) != 4);
+> +
+> +		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
+> +				      offsetof(struct sk_buff, mark));
+> +		break;
+> +
+> +	case SKF_AD_PKTTYPE:
+> +		*insn++ = BPF_LDX_MEM(BPF_B, dst_reg, src_reg, PKT_TYPE_OFFSET());
+> +		*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, PKT_TYPE_MAX);
+> +#ifdef __BIG_ENDIAN_BITFIELD
+> +		*insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, 5);
+> +#endif
+> +		break;
+> +
+> +	case SKF_AD_QUEUE:
+> +		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, queue_mapping) != 2);
+> +
+> +		*insn++ = BPF_LDX_MEM(BPF_H, dst_reg, src_reg,
+> +				      offsetof(struct sk_buff, queue_mapping));
+> +		break;
+> +	}
+> +
+> +	return insn - insn_buf;
+> +}
+> +
+>   static bool convert_bpf_extensions(struct sock_filter *fp,
+>   				   struct bpf_insn **insnp)
+>   {
+>   	struct bpf_insn *insn = *insnp;
+> +	u32 cnt;
+>
+>   	switch (fp->k) {
+>   	case SKF_AD_OFF + SKF_AD_PROTOCOL:
+> @@ -167,13 +200,8 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>   		break;
+>
+>   	case SKF_AD_OFF + SKF_AD_PKTTYPE:
+> -		*insn++ = BPF_LDX_MEM(BPF_B, BPF_REG_A, BPF_REG_CTX,
+> -				      PKT_TYPE_OFFSET());
+> -		*insn = BPF_ALU32_IMM(BPF_AND, BPF_REG_A, PKT_TYPE_MAX);
+> -#ifdef __BIG_ENDIAN_BITFIELD
+> -		insn++;
+> -                *insn = BPF_ALU32_IMM(BPF_RSH, BPF_REG_A, 5);
+> -#endif
+> +		cnt = convert_skb_access(SKF_AD_PKTTYPE, BPF_REG_A, BPF_REG_CTX, insn);
+> +		insn += cnt - 1;
+>   		break;
+>
+>   	case SKF_AD_OFF + SKF_AD_IFINDEX:
+> @@ -197,10 +225,8 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>   		break;
+>
+>   	case SKF_AD_OFF + SKF_AD_MARK:
+> -		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, mark) != 4);
+> -
+> -		*insn = BPF_LDX_MEM(BPF_W, BPF_REG_A, BPF_REG_CTX,
+> -				    offsetof(struct sk_buff, mark));
+> +		cnt = convert_skb_access(SKF_AD_MARK, BPF_REG_A, BPF_REG_CTX, insn);
+> +		insn += cnt - 1;
+>   		break;
+>
+>   	case SKF_AD_OFF + SKF_AD_RXHASH:
+> @@ -211,10 +237,8 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>   		break;
+>
+>   	case SKF_AD_OFF + SKF_AD_QUEUE:
+> -		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, queue_mapping) != 2);
+> -
+> -		*insn = BPF_LDX_MEM(BPF_H, BPF_REG_A, BPF_REG_CTX,
+> -				    offsetof(struct sk_buff, queue_mapping));
+> +		cnt = convert_skb_access(SKF_AD_QUEUE, BPF_REG_A, BPF_REG_CTX, insn);
+> +		insn += cnt - 1;
+>   		break;
+>
+>   	case SKF_AD_OFF + SKF_AD_VLAN_TAG:
+> @@ -1147,13 +1171,55 @@ sk_filter_func_proto(enum bpf_func_id func_id)
+...
+> +static u32 sk_filter_convert_ctx_access(int dst_reg, int src_reg, int ctx_off,
+> +					struct bpf_insn *insn_buf)
+> +{
+> +	struct bpf_insn *insn = insn_buf;
+> +
+> +	switch (ctx_off) {
+> +	case offsetof(struct __sk_buff, len):
+> +		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, len) != 4);
+> +
+> +		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
+> +				      offsetof(struct sk_buff, len));
+> +		break;
+> +
+> +	case offsetof(struct __sk_buff, mark):
+> +		return convert_skb_access(SKF_AD_MARK, dst_reg, src_reg, insn);
+> +
+> +	case offsetof(struct __sk_buff, pkt_type):
+> +		return convert_skb_access(SKF_AD_PKTTYPE, dst_reg, src_reg, insn);
+> +
+> +	case offsetof(struct __sk_buff, queue_mapping):
+> +		return convert_skb_access(SKF_AD_QUEUE, dst_reg, src_reg, insn);
+> +	}
+> +
+> +	return insn - insn_buf;
+>   }
 
-Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
----
-Changes in v2:
- - Added commit message.
- - Fix style problems reported by checkpatch.pl.
+Hmm, I actually liked the previous version much better. :(
 
- include/uapi/linux/if_link.h |  1 +
- net/bridge/br_device.c       | 13 +++++++++++++
- net/bridge/br_netlink.c      | 14 ++++++++++++--
- net/bridge/br_private.h      |  5 +++++
- 4 files changed, 31 insertions(+), 2 deletions(-)
+Now, some members use convert_skb_access() and some skb members are
+converted directly in-place in both, convert_bpf_extensions() _and_
+in sk_filter_convert_ctx_access().
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 756436e..4a59232 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -224,6 +224,7 @@ enum {
- 	IFLA_BR_FORWARD_DELAY,
- 	IFLA_BR_HELLO_TIME,
- 	IFLA_BR_MAX_AGE,
-+	IFLA_BR_AGEING_TIME,
- 	__IFLA_BR_MAX,
- };
- 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 294cbcc..1a665aa 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -392,3 +392,16 @@ void br_dev_setup(struct net_device *dev)
- 	br_stp_timer_init(br);
- 	br_multicast_init(br);
- }
-+
-+int br_set_ageing_time(struct net_bridge *br, unsigned long val)
-+{
-+	unsigned long t = clock_t_to_jiffies(val);
-+
-+	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
-+		return -ERANGE;
-+
-+	spin_lock_bh(&br->lock);
-+	br->ageing_time = t;
-+	spin_unlock_bh(&br->lock);
-+	return 0;
-+}
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 8bc6b67..d80e802 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -733,6 +733,7 @@ static const struct nla_policy br_policy[IFLA_BR_MAX + 1] = {
- 	[IFLA_BR_FORWARD_DELAY]	= { .type = NLA_U32 },
- 	[IFLA_BR_HELLO_TIME]	= { .type = NLA_U32 },
- 	[IFLA_BR_MAX_AGE]	= { .type = NLA_U32 },
-+	[IFLA_BR_AGEING_TIME]	= { .type = NLA_U32 },
- };
- 
- static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
-@@ -762,6 +763,12 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
- 			return err;
- 	}
- 
-+	if (data[IFLA_BR_AGEING_TIME]) {
-+		err = br_set_ageing_time(br, nla_get_u32(data[IFLA_BR_AGEING_TIME]));
-+		if (err)
-+			return err;
-+	}
-+
- 	return 0;
- }
- 
-@@ -770,6 +777,7 @@ static size_t br_get_size(const struct net_device *brdev)
- 	return nla_total_size(sizeof(u32)) +	/* IFLA_BR_FORWARD_DELAY  */
- 	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_HELLO_TIME */
- 	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_MAX_AGE */
-+	       nla_total_size(sizeof(u32)) +	/* IFLA_BR_AGEING_TIME */
- 	       0;
- }
- 
-@@ -778,11 +786,13 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
- 	struct net_bridge *br = netdev_priv(brdev);
- 	u32 forward_delay = jiffies_to_clock_t(br->forward_delay);
- 	u32 hello_time = jiffies_to_clock_t(br->hello_time);
--	u32 age_time = jiffies_to_clock_t(br->max_age);
-+	u32 max_age = jiffies_to_clock_t(br->max_age);
-+	u32 ageing_time = jiffies_to_clock_t(br->ageing_time);
- 
- 	if (nla_put_u32(skb, IFLA_BR_FORWARD_DELAY, forward_delay) ||
- 	    nla_put_u32(skb, IFLA_BR_HELLO_TIME, hello_time) ||
--	    nla_put_u32(skb, IFLA_BR_MAX_AGE, age_time))
-+	    nla_put_u32(skb, IFLA_BR_MAX_AGE, max_age) ||
-+	    nla_put_u32(skb, IFLA_BR_AGEING_TIME, ageing_time))
- 		return -EMSGSIZE;
- 
- 	return 0;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index f0a0438..325883c 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -25,6 +25,10 @@
- 
- #define BR_HOLD_TIME (1*HZ)
- 
-+/* values as per ieee8021QBridgeFdbAgingTime */
-+#define BR_MIN_AGEING_TIME  (10 * HZ)
-+#define BR_MAX_AGEING_TIME  (1000000 * HZ)
-+
- #define BR_PORT_BITS	10
- #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
- #define BR_VLAN_BITMAP_LEN	BITS_TO_LONGS(VLAN_N_VID)
-@@ -345,6 +349,7 @@ static inline int br_is_root_bridge(const struct net_bridge *br)
- void br_dev_setup(struct net_device *dev);
- void br_dev_delete(struct net_device *dev, struct list_head *list);
- netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
-+int br_set_ageing_time(struct net_bridge *br, unsigned long val);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- 				       struct sk_buff *skb)
--- 
-2.1.0
+Previously, it was much more consistent, which I like better. And only
+because of the simple BUILD_BUG_ON()? :/
