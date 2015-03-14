@@ -1,47 +1,41 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next 1/2] bpf: allow extended BPF programs access
- skb fields
-Date: Fri, 13 Mar 2015 21:59:43 -0700
-Message-ID: <5503C03F.8020903@plumgrid.com>
-References: <1426273064-4837-1-git-send-email-ast@plumgrid.com> <1426273064-4837-2-git-send-email-ast@plumgrid.com> <550392F7.9040308@iogearbox.net> <550397B0.5070409@iogearbox.net> <5503981C.6000801@plumgrid.com> <55039A0D.20000@iogearbox.net> <55039C9D.6010602@plumgrid.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH] fix MSG_OOB test in caif_seqpkt_recvmsg()
+Date: Sat, 14 Mar 2015 05:22:21 +0000
+Message-ID: <20150314052221.GS29656@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55039C9D.6010602@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49971 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbbCNFWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 01:22:25 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/13/15 7:27 PM, Alexei Starovoitov wrote:
-> On 3/13/15 7:16 PM, Daniel Borkmann wrote:
->> On 03/14/2015 03:08 AM, Alexei Starovoitov wrote:
->>> On 3/13/15 7:06 PM, Daniel Borkmann wrote:
->>>> On 03/14/2015 02:46 AM, Daniel Borkmann wrote:
->>>> ...
->>>>> Previously, it was much more consistent, which I like better. And only
->>>>> because of the simple BUILD_BUG_ON()? :/
->>>>
->>>> Alternative is to move all of them into a central place, something like
->>>> in twsk_build_assert() or __mld2_query_bugs[].
->>>
->>> nope. that defeats the purpose of bug_on.
->>
->> Well, it doesn't. ;) It throws a build error thus the user is forced to
->> investigate that further.
->
-> according to this distorted logic all build_bug_on can be in one file
-> across the whole tree, since 'user is forced to investigate' ?!
+	It should be checking flags, not msg->msg_flags.  It's ->sendmsg()
+instances that need to look for that in ->msg_flags, ->recvmsg() ones
+(including the other ->recvmsg() instance in that file, as well as
+unix_dgram_recvmsg() this one claims to be imitating) check in flags.
+Braino had been introduced in commit dcda13 ("caif: Bugfix - use MSG_TRUNC
+in receive") back in 2010, so it goes quite a while back.
 
-also note that this case and twsk_build_assert are different.
-twsk_build_assert has no other choice then to have one function
-that covers logic in the whole file, whereas in this patch:
-+               BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, mark) != 4);
-+               *insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
-+                                     offsetof(struct sk_buff, mark));
-
-the build_bug_on protect the line directly below.
-Separating them just doesn't make sense at all.
+Cc: stable@vger.kernel.org # 2.6.35
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index 91aa225..1caa161 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -281,7 +281,7 @@ static int caif_seqpkt_recvmsg(struct socket *sock, struct msghdr *m,
+ 	int copylen;
+ 
+ 	ret = -EOPNOTSUPP;
+-	if (m->msg_flags&MSG_OOB)
++	if (flags & MSG_OOB)
+ 		goto read_error;
+ 
+ 	skb = skb_recv_datagram(sk, flags, 0 , &ret);
