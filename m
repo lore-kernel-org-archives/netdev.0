@@ -1,47 +1,32 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH] bridge: reset bridge mtu after deleting an interface
-Date: Fri, 13 Mar 2015 19:12:52 -0700
-Message-ID: <55039924.3050609@cumulusnetworks.com>
-References: <20150313140822.GA30448@oracle.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 1/2] bpf: allow extended BPF programs access
+ skb fields
+Date: Sat, 14 Mar 2015 03:16:45 +0100
+Message-ID: <55039A0D.20000@iogearbox.net>
+References: <1426273064-4837-1-git-send-email-ast@plumgrid.com> <1426273064-4837-2-git-send-email-ast@plumgrid.com> <550392F7.9040308@iogearbox.net> <550397B0.5070409@iogearbox.net> <5503981C.6000801@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35542 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbbCNCMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:12:54 -0400
-Received: by pabyw6 with SMTP id yw6so5433999pab.2
-        for <netdev@vger.kernel.org>; Fri, 13 Mar 2015 19:12:54 -0700 (PDT)
-In-Reply-To: <20150313140822.GA30448@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Graf <tgraf@suug.ch>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5503981C.6000801@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/13/15, 7:08 AM, Venkat Venkatsubra wrote:
-> On adding an interface br_add_if() sets the MTU to the min of
-> all the interfaces. Do the same thing on removing an interface too
-> in br_del_if.
+On 03/14/2015 03:08 AM, Alexei Starovoitov wrote:
+> On 3/13/15 7:06 PM, Daniel Borkmann wrote:
+>> On 03/14/2015 02:46 AM, Daniel Borkmann wrote:
+>> ...
+>>> Previously, it was much more consistent, which I like better. And only
+>>> because of the simple BUILD_BUG_ON()? :/
+>>
+>> Alternative is to move all of them into a central place, something like
+>> in twsk_build_assert() or __mld2_query_bugs[].
 >
-> Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-> ---
->   net/bridge/br_if.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index b087d27..1849d96 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -563,6 +563,8 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->   	 */
->   	del_nbp(p);
->   
-> +	dev_set_mtu(br->dev, br_min_mtu(br));
-> +
->   	spin_lock_bh(&br->lock);
->   	changed_addr = br_stp_recalculate_bridge_id(br);
->   	spin_unlock_bh(&br->lock);
-This looks good to me.
+> nope. that defeats the purpose of bug_on.
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Well, it doesn't. ;) It throws a build error thus the user is forced to
+investigate that further.
