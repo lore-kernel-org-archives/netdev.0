@@ -1,80 +1,76 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 5/6] rhashtable: Add rehash counter to bucket_table
-Date: Sat, 14 Mar 2015 13:57:24 +1100
-Message-ID: <E1YWcGS-0002oU-RF@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 4/6] rhashtable: Free bucket tables asynchronously after rehash
+Date: Sat, 14 Mar 2015 13:57:23 +1100
+Message-ID: <E1YWcGR-0002oD-Lm@gondolin.me.apana.org.au>
 References: <20150314025339.GA10585@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:36488 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:47053 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884AbbCNC52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:57:28 -0400
+	with ESMTP id S1751768AbbCNC51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 22:57:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a rehash counter to bucket_table to indicate
-the last bucket that has been rehashed.  This serves two purposes:
+There is in fact no need to wait for an RCU grace period in the
+rehash function, since all insertions are guaranteed to go into
+the new table through spin locks.
 
-1. Any bucket that has been rehashed can never gain a new object.
-2. If the rehash counter reaches the size of the table, the table
-will forever remain empty.
-
-This patch also downsizes bucket_table->size to an unsigned int
-since we do not support sizes greater than 32 bits yet.
+This patch uses call_rcu to free the old/rehashed table at our
+leisure.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |    4 +++-
- lib/rhashtable.c           |    1 +
- lib/test_rhashtable.c      |    2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+ include/linux/rhashtable.h |    2 ++
+ lib/rhashtable.c           |    9 ++++++---
+ 2 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index a0abddd..ed7562a 100644
+index 4192682..a0abddd 100644
 --- a/include/linux/rhashtable.h
 +++ b/include/linux/rhashtable.h
-@@ -49,6 +49,7 @@ struct rhash_head {
- /**
-  * struct bucket_table - Table of hash buckets
-  * @size: Number of hash buckets
-+ * @rehash: Current bucket being rehashed
-  * @hash_rnd: Random seed to fold into hash
-  * @shift: Current size (1 << shift)
+@@ -54,6 +54,7 @@ struct rhash_head {
   * @locks_mask: Mask to apply before accessing locks[]
-@@ -58,7 +59,8 @@ struct rhash_head {
+  * @locks: Array of spinlocks protecting individual buckets
+  * @walkers: List of active walkers
++ * @rcu: RCU structure for freeing the table
   * @buckets: size * hash buckets
   */
  struct bucket_table {
--	size_t			size;
-+	unsigned int		size;
-+	unsigned int		rehash;
- 	u32			hash_rnd;
- 	u32			shift;
+@@ -63,6 +64,7 @@ struct bucket_table {
  	unsigned int		locks_mask;
+ 	spinlock_t		*locks;
+ 	struct list_head	walkers;
++	struct rcu_head		rcu;
+ 
+ 	struct rhash_head __rcu	*buckets[] ____cacheline_aligned_in_smp;
+ };
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 36fb091..ff4ea17 100644
+index e55bbc8..36fb091 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -260,6 +260,7 @@ static void rhashtable_rehash_chain(struct rhashtable *ht, unsigned old_hash)
- 	spin_lock_bh(old_bucket_lock);
- 	while (!rhashtable_rehash_one(ht, old_hash))
- 		;
-+	old_tbl->rehash++;
- 	spin_unlock_bh(old_bucket_lock);
+@@ -141,6 +141,11 @@ static void bucket_table_free(const struct bucket_table *tbl)
+ 	kvfree(tbl);
  }
  
-diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
-index 67c7593..16974fd 100644
---- a/lib/test_rhashtable.c
-+++ b/lib/test_rhashtable.c
-@@ -80,7 +80,7 @@ static void test_bucket_stats(struct rhashtable *ht, bool quiet)
- 		rcu_cnt = cnt = 0;
++static void bucket_table_free_rcu(struct rcu_head *head)
++{
++	bucket_table_free(container_of(head, struct bucket_table, rcu));
++}
++
+ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+ 					       size_t nbuckets)
+ {
+@@ -288,9 +293,7 @@ static void rhashtable_rehash(struct rhashtable *ht,
+ 	 * table, and thus no references to the old table will
+ 	 * remain.
+ 	 */
+-	synchronize_rcu();
+-
+-	bucket_table_free(old_tbl);
++	call_rcu(&old_tbl->rcu, bucket_table_free_rcu);
+ }
  
- 		if (!quiet)
--			pr_info(" [%#4x/%zu]", i, tbl->size);
-+			pr_info(" [%#4x/%u]", i, tbl->size);
- 
- 		rht_for_each_entry_rcu(obj, pos, tbl, i, node) {
- 			cnt++;
+ /**
