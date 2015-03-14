@@ -1,91 +1,102 @@
-From: Steven Whitehouse <swhiteho@redhat.com>
-Subject: Re: [PATCH net-next] ax25: Stop using magic neighbour cache operations.
-Date: Sat, 14 Mar 2015 00:33:00 +0000
-Message-ID: <550381BC.7040001@redhat.com>
-References: <87lhjg9byo.fsf_-_@x220.int.ebiederm.org>	<20150302.164426.494515497595921630.davem@davemloft.net>	<874mq22imc.fsf_-_@x220.int.ebiederm.org>	<20150303.144509.1694022322984204895.davem@davemloft.net>	<87mw3tzv8u.fsf@x220.int.ebiederm.org> <54F82C9F.5050307@redhat.com> <87twxx7t5y.fsf@x220.int.ebiederm.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: linux-next: manual merge of the net-next tree with the vfs tree
+Date: Sat, 14 Mar 2015 00:43:21 +0000
+Message-ID: <20150314004321.GR29656@ZenIV.linux.org.uk>
+References: <20150313131543.7c050492@canb.auug.org.au>
+ <20150312.232426.1464986797003264151.davem@davemloft.net>
+ <20150313035609.GO29656@ZenIV.linux.org.uk>
+ <20150313153817.34510752@canb.auug.org.au>
+ <20150313163707.GP29656@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ralf@linux-mips.org, linux-hams@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53964 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818AbbCNAdK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Mar 2015 20:33:10 -0400
-In-Reply-To: <87twxx7t5y.fsf@x220.int.ebiederm.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49003 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849AbbCNAnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Mar 2015 20:43:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20150313163707.GP29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Mar 13, 2015 at 04:37:07PM +0000, Al Viro wrote:
+> On Fri, Mar 13, 2015 at 03:38:17PM +1100, Stephen Rothwell wrote:
+> 
+> > There is also a conflict with e9eab93cc2dc ("fs: don't allow to
+> > complete sync iocbs through aio_complete"), though it doesn't show up
+> > in the resolution since I I just used the next-next tree bits.  So a
+> > common branch containing that as well could be merged into both trees.
+> 
+> OK, for now I've done just that (vfs.git#iocb in never-rebase mode).
+> I still think that vfs.git#gadget ought to go into mainline; arguments
+> for the rest of #iocb are weaker and merging it into net-next would
+> suffice; as the matter of fact, I have pending stuff for net-next touching
+> the same area (further reduction of ->sendmsg()/->recvmsg() argument lists;
+> total_len is redundant); might as well deal with that when feeding that
+> to Dave...
 
-On 06/03/15 20:44, Eric W. Biederman wrote:
-> Steven Whitehouse <swhiteho@redhat.com> writes:
->
->> Hi,
->
->>> We can almost universally use the same procedures for generating
->>> link layer headers from neighbour table entries now.  I had hoped
->>> to optimized things by removing function pointers.
->>>
->>> The big hold out is DECnet that sets src_mac based on the DECnet source
->>> address.
->> That is a requirement of DECnet I'm afraid - DECnet does not have an exact
->> equivalent of ARP/ndisc and many hosts will refuse to communicate if the MAC
->> address is not the expected one based on the DECnet address. This is one bit of
->> DECnet that is being used (to the best of my knowledge) and working.
-> Having a mac address that matches the DECnet address completely makes
-> sense.  Sourcing packets with a different mac address than the devices
-> default mac address make sense.  This latter case doesn't usually happen
-> for IP packets but we force it with the macvlan driver for example.
-The history is that when DECnet was being written, it was not generally 
-reliable to have a different MAC to that of the ethernet card - it 
-worked for some cards, but by no means all of them. So it is something 
-that would be done slightly differently with modern cards.
+FWIW, trying to resurrect ->recvmsg() side of those patches (broken by
+the same 'remove iocb' series; sendmsg side also had been, but I've
+already finished that one), I've run into an interesting question.
+There seems to be a confusion about the flags we are passing.  Unlike
+sendmsg case, where we pass that in msg->msg_flags (and it's strictly an in
+argument), here we have _two_ ways for passing them in - msg->msg_flags and
+separate 'flags' argument.
 
->>> Which leads me to the conclusion that since DECnet has a different
->>> algorithm for setting the src_mac than everything else in the kernel
->>> DECnet neighbour table entries can not be used for nexthops for other
->>> protocols :(
->>>
->>> DECnet also abuses neigh->output to select by output device which kind
->>> of DECnet header to put on the packets.  But that is easily fixable.
->> One way to fix it would be to drop support for non-broadcast devices. We don't
->> have an implementation of DDCMP currently. Ethernet is the only working DECnet
->> device at the moment. PPP could also potentially work, with a bit of tweeking,
->> but strangely PPP is a broadcast device so far as DECnet is concerned,
-> What I wound up doing was just doing a shuffle of which function was in
-> the neigh->output method.  Which meant there was no need to disable any
-> of the current code.
->
-> That should fix interactions between DECnet and drivers like sch_teql
-> and the netfilter bridge code which after a packet has already been
-> output turn around and do:
->
-> 	dst = skb_dst(skb);
-> 	neigh = n = dst_neigh_lookup_skb(dst, skb);
->          if (dst->dev != dev)
->          	neigh = __neigh_lookup_errno(n->tbl, n->primary_key, dev);
-> 	neigh->output(neigh, skb);
->
-> Which I think if the DECnet code hit one of those code paths today would
-> result in double DECnet headers.  :(
->
-> When looking at the DECnet code there is a flag that enables phase3
-> support but I don't seeing it set anywhere.  Should DECnet phase3
-> support actually work?
->
-> Eric
+AFAICS, the picture looks so:
 
-Ok. That sounds reasonable to me. The phase 3 stuff is another stub 
-really... most of what is needed is there, but not all of it. Phase 3 is 
-basically the same as Phase IV but without areas and broadcast devices, 
-so in order to make Phase 3 devices reachable on a Phase IV network, the 
-Phase IV router has to add an area and forward the packet on, and remove 
-the area when sending to the Phase 3 node. However since we don't have 
-non-broadcast DECnet devices, there is no point in having Phase3 support 
-really. At least it is one area on which the spec is quite useful 
-though, as this is fairly well described,
+recvmsg(2): flags comes from syscall argument, with DONTWAIT possibly
+tacked on it.  ->msg_flags comes it as well - CMSG_COMPAT and CMSG_CLOEXEC
+bits.  On the way out, ->msg_flags sans CMSG_COMPAT is copied to userland.
+BTW, out of those two I would expect CMSG_COMPAT to be kept - after all,
+it is related to the layout of what ->msg_control ends up pointing to...
 
-Steve.
+recvmmsg(2): ditto
+
+read(2) et.al.: ->msg_flags and flags alike get 0 or DONTWAIT, depending on
+O_NONBLOCK state of file.  On the way out ->msg_flags is discarded.
+
+recvfrom(2): flags is done the same way as in recvmsg(2); ->msg_flags, AFAICS,
+is simply uninitialized.  Whatever had been on the stack.  On the way out
+->msg_flags is discarded.
+
+kernel-side callers of kernel_recvmsg(): varies.  flags is always explicitly
+given; ->msg_flags is sometimes equal to it, sometimes zero, sometimes
+uninitialized.  AFAICS, the value of ->msg_flags on the way out is discarded,
+except for three cases where we do further ->recvmsg on the same msghdr.
+
+Now, the instances of ->recvmsg(), AFAICS, almost never check ->msg_flags
+bits.  Exceptions are CMSG_COMPAT, CMSG_CLOEXEC and (in one case each)
+PEEK and TRUNC.  In one really odd case (AF_CAIF/SOCK_SEQPACKET) - OOB
+(as in "EOPNOTSUPP if it's set", very likely to have been cargo-culted
+from the sendmsg side of things).  PEEK one (in rxrpc_sendmsg()) is probably
+also bogus; might be misspelled 'flags & MSG_PEEK'...
+
+Places that check for CMSG_COMPAT and CMSG_CLOEXEC are only reached when
+->msg_control is non-NULL, which excludes recvfrom(2) and, AFAICS, those
+of kernel_recvmsg() callers that leave ->msg_flags uninitialized.
+
+The place that checks for TRUNC (rawv6_recvmsg()) looks like it assumes
+that ->msg_flags & MSG_TRUNC will be zero when it's called; relevant piece
+is
+        copied = skb->len;
+        if (copied > len) {
+                copied = len;
+                msg->msg_flags |= MSG_TRUNC;
+        }
+
+        if (skb_csum_unnecessary(skb)) {
+                err = skb_copy_datagram_msg(skb, 0, msg, copied);
+        } else if (msg->msg_flags&MSG_TRUNC) {
+                if (__skb_checksum_complete(skb))
+                        goto csum_copy_err;
+                err = skb_copy_datagram_msg(skb, 0, msg, copied);
+        } else {
+
+and it smells like it means to check for skb->len > len...
+
+If the above is true, all the places setting ->msg_flags to something non-zero
+on the way into kernel_recvmsg() seem to be cargo-culting.  Am I missing
+something subtle here?
