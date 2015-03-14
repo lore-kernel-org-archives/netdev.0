@@ -1,52 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: do not use slave MII bus for fixed PHYs
-Date: Sat, 14 Mar 2015 13:21:59 -0700
-Message-ID: <1426364519-13465-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
+Date: Sat, 14 Mar 2015 15:17:18 -0700
+Message-ID: <CAE4R7bCAfrJDMZMEKhurd2axe0vpo+peZt7DdUMKwWhtwNaMnw@mail.gmail.com>
+References: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: Siva Mannem <siva.mannem.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34761 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbbCNUWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 16:22:45 -0400
-Received: by pacwe9 with SMTP id we9so22377285pac.1
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 13:22:44 -0700 (PDT)
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:36243 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751986AbbCNWRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Mar 2015 18:17:19 -0400
+Received: by qgg60 with SMTP id 60so13579402qgg.3
+        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 15:17:18 -0700 (PDT)
+In-Reply-To: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit cd28a1a9baee7 ("net: dsa: fully divert PHY reads/writes if
-requested") introduced a check for particular PHYs that need to be
-accessed using the slave MII bus created by DSA, but this check was too
-inclusive. This would prevent fixed PHYs from being successfully
-registered because those should not go through the slave MII bus created
-by DSA.
+On Fri, Mar 13, 2015 at 6:40 PM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
+> This patch allows user to configure bridge's FDB ageing using
+> netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
+> as per ieee8021QBridgeFdbAgingTime.
+>
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+> ---
+> Changes in v2:
+>  - Added commit message.
+>  - Fix style problems reported by checkpatch.pl.
 
-Make sure we check that the PHY is not a fixed PHY to prevent that from
-happening.
 
-Fixes: cd28a1a9baee7 ("net: dsa: fully divert PHY reads/writes if requested")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Hi David,
+> +
+> +int br_set_ageing_time(struct net_bridge *br, unsigned long val)
+> +{
+> +       unsigned long t = clock_t_to_jiffies(val);
+> +
+> +       if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
+> +               return -ERANGE;
+> +
+> +       spin_lock_bh(&br->lock);
+> +       br->ageing_time = t;
 
-This change is only in net-next for now, thanks!
+I wonder if you need to call mod_timer(&br->gc_timer, jiffies) after
+adjusting the time, to make new ageing_time effective?  The worst-case
+scenario I'm thinking about is if the initial br->ageing_time is the
+max value (1000000 seconds) and the user changes it the min value (10
+seconds), will the original 1000000 seconds need to expire before the
+gc_timer is called again and reset to 10 seconds?
 
- net/dsa/slave.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 188b69773e70..6511552039d6 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -675,7 +675,8 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 		 * want to bind this device using the slave MII bus created by
- 		 * DSA to make that happen.
- 		 */
--		if (ret >= 0 && (ds->phys_mii_mask & (1 << ret))) {
-+		if (!phy_is_fixed && ret >= 0 &&
-+		    (ds->phys_mii_mask & (1 << ret))) {
- 			ret = dsa_slave_phy_connect(p, slave_dev, ret);
- 			if (ret)
- 				return ret;
--- 
-2.1.0
+> +       spin_unlock_bh(&br->lock);
+> +       return 0;
+> +}
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 8bc6b67..d80e802 100644
