@@ -1,90 +1,139 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next 5/5] netdev: remove ndo ops for switchdev
-Date: Sat, 14 Mar 2015 23:15:07 -0700
-Message-ID: <1426400107-6072-6-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next 2/5] switchdev: use new swdev ops
+Date: Sat, 14 Mar 2015 23:15:04 -0700
+Message-ID: <1426400107-6072-3-git-send-email-sfeldma@gmail.com>
 References: <1426400107-6072-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:35814 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbbCOGOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 02:14:21 -0400
-Received: by pdbop1 with SMTP id op1so25870638pdb.2
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 23:14:21 -0700 (PDT)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:35750 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbbCOGOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 02:14:16 -0400
+Received: by pdbop1 with SMTP id op1so25869409pdb.2
+        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 23:14:15 -0700 (PDT)
 In-Reply-To: <1426400107-6072-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
+Move swdev wrappers over to new swdev ops (from previous ndo ops).  No
+functional changes to the implementation.
+
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- include/linux/netdevice.h |   38 --------------------------------------
- 1 file changed, 38 deletions(-)
+ net/switchdev/switchdev.c |   42 +++++++++++++++++++++---------------------
+ 1 file changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9e8a2a9..dd1d069 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -768,8 +768,6 @@ struct netdev_phys_item_id {
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index b7a2313..c9bfa00 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -28,11 +28,11 @@
+ int netdev_switch_parent_id_get(struct net_device *dev,
+ 				struct netdev_phys_item_id *psid)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
++	const struct swdev_ops *ops = dev->swdev_ops;
  
--struct fib_info;
--
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -1024,23 +1022,6 @@ struct fib_info;
-  *	be otherwise expressed by feature flags. The check is called with
-  *	the set of features that the stack has calculated and it returns
-  *	those the driver believes to be appropriate.
-- *
-- * int (*ndo_switch_parent_id_get)(struct net_device *dev,
-- *				   struct netdev_phys_item_id *psid);
-- *	Called to get an ID of the switch chip this port is part of.
-- *	If driver implements this, it indicates that it represents a port
-- *	of a switch chip.
-- * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
-- *	Called to notify switch device port of bridge port STP
-- *	state change.
-- * int (*ndo_sw_parent_fib_ipv4_add)(struct net_device *dev, __be32 dst,
-- *				     int dst_len, struct fib_info *fi,
-- *				     u8 tos, u8 type, u32 nlflags, u32 tb_id);
-- *	Called to add/modify IPv4 route to switch device.
-- * int (*ndo_sw_parent_fib_ipv4_del)(struct net_device *dev, __be32 dst,
-- *				     int dst_len, struct fib_info *fi,
-- *				     u8 tos, u8 type, u32 tb_id);
-- *	Called to delete IPv4 route from switch device.
+-	if (!ops->ndo_switch_parent_id_get)
++	if (!ops || !ops->swdev_parent_id_get)
+ 		return -EOPNOTSUPP;
+-	return ops->ndo_switch_parent_id_get(dev, psid);
++	return ops->swdev_parent_id_get(dev, psid);
+ }
+ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+ 
+@@ -46,12 +46,12 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
   */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1197,25 +1178,6 @@ struct net_device_ops {
- 	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
- 						       struct net_device *dev,
- 						       netdev_features_t features);
--#ifdef CONFIG_NET_SWITCHDEV
--	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
--							    struct netdev_phys_item_id *psid);
--	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
--							      u8 state);
--	int			(*ndo_switch_fib_ipv4_add)(struct net_device *dev,
--							   __be32 dst,
--							   int dst_len,
--							   struct fib_info *fi,
--							   u8 tos, u8 type,
--							   u32 nlflags,
--							   u32 tb_id);
--	int			(*ndo_switch_fib_ipv4_del)(struct net_device *dev,
--							   __be32 dst,
--							   int dst_len,
--							   struct fib_info *fi,
--							   u8 tos, u8 type,
--							   u32 tb_id);
--#endif
- };
+ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
++	const struct swdev_ops *ops = dev->swdev_ops;
  
- /**
+-	if (!ops->ndo_switch_port_stp_update)
++	if (!ops || !ops->swdev_port_stp_update)
+ 		return -EOPNOTSUPP;
+-	WARN_ON(!ops->ndo_switch_parent_id_get);
+-	return ops->ndo_switch_port_stp_update(dev, state);
++	WARN_ON(!ops->swdev_parent_id_get);
++	return ops->swdev_port_stp_update(dev, state);
+ }
+ EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
+ 
+@@ -230,17 +230,17 @@ EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
+ 
+ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
++	const struct swdev_ops *ops = dev->swdev_ops;
+ 	struct net_device *lower_dev;
+ 	struct net_device *port_dev;
+ 	struct list_head *iter;
+ 
+ 	/* Recusively search down until we find a sw port dev.
+-	 * (A sw port dev supports ndo_switch_parent_id_get).
++	 * (A sw port dev supports swdev_parent_id_get).
+ 	 */
+ 
+ 	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
+-	    ops->ndo_switch_parent_id_get)
++	    ops && ops->swdev_parent_id_get)
+ 		return dev;
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+@@ -304,7 +304,7 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 			       u8 tos, u8 type, u32 nlflags, u32 tb_id)
+ {
+ 	struct net_device *dev;
+-	const struct net_device_ops *ops;
++	const struct swdev_ops *ops;
+ 	int err = 0;
+ 
+ 	/* Don't offload route if using custom ip rules or if
+@@ -322,12 +322,12 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 	dev = netdev_switch_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+-	ops = dev->netdev_ops;
++	ops = dev->swdev_ops;
+ 
+-	if (ops->ndo_switch_fib_ipv4_add) {
+-		err = ops->ndo_switch_fib_ipv4_add(dev, htonl(dst), dst_len,
+-						   fi, tos, type, nlflags,
+-						   tb_id);
++	if (ops->swdev_fib_ipv4_add) {
++		err = ops->swdev_fib_ipv4_add(dev, htonl(dst), dst_len,
++					      fi, tos, type, nlflags,
++					      tb_id);
+ 		if (!err)
+ 			fi->fib_flags |= RTNH_F_EXTERNAL;
+ 	}
+@@ -352,7 +352,7 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 			       u8 tos, u8 type, u32 tb_id)
+ {
+ 	struct net_device *dev;
+-	const struct net_device_ops *ops;
++	const struct swdev_ops *ops;
+ 	int err = 0;
+ 
+ 	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
+@@ -361,11 +361,11 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 	dev = netdev_switch_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+-	ops = dev->netdev_ops;
++	ops = dev->swdev_ops;
+ 
+-	if (ops->ndo_switch_fib_ipv4_del) {
+-		err = ops->ndo_switch_fib_ipv4_del(dev, htonl(dst), dst_len,
+-						   fi, tos, type, tb_id);
++	if (ops->swdev_fib_ipv4_del) {
++		err = ops->swdev_fib_ipv4_del(dev, htonl(dst), dst_len,
++					      fi, tos, type, tb_id);
+ 		if (!err)
+ 			fi->fib_flags &= ~RTNH_F_EXTERNAL;
+ 	}
 -- 
 1.7.10.4
