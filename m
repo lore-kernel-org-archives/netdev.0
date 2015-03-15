@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH iproute2] route: label externally offloaded routes
-Date: Sun, 15 Mar 2015 12:39:22 -0700
-Message-ID: <20150315123922.4c49291c@urahara>
+Date: Sun, 15 Mar 2015 12:41:17 -0700
+Message-ID: <20150315124117.57ecf595@urahara>
 References: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,12 +9,12 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jiri@resnulli.us
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:35132 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752097AbbCOTjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 15:39:20 -0400
-Received: by pdbop1 with SMTP id op1so37123302pdb.2
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 12:39:20 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35788 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751477AbbCOTlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 15:41:16 -0400
+Received: by pabyw6 with SMTP id yw6so42803536pab.2
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 12:41:16 -0700 (PDT)
 In-Reply-To: <1425795335-6416-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -43,4 +43,7 @@ sfeldma@gmail.com wrote:
 > 
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-Applied to net-next branch of iproute2
+
+All iproute2 commands should be invertable.
+If you show something you need to accept that as input.
+Please fix that.
