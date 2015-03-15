@@ -1,50 +1,86 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 0/3] Add max rate TXQ attribute
-Date: Sun, 15 Mar 2015 15:03:13 +0200
-Message-ID: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 3/3] net/mlx4_en: Add tx queue maxrate support
+Date: Sun, 15 Mar 2015 15:03:16 +0200
+Message-ID: <1426424596-3911-4-git-send-email-ogerlitz@mellanox.com>
+References: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:51855 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:51895 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751856AbbCONDe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Mar 2015 09:03:34 -0400
+	id S1752415AbbCONDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Mar 2015 09:03:41 -0400
+In-Reply-To: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ability to set a max-rate limitation for TX queues.
-The attribute name is maxrate and the units are Mbs, to make
-it similar to the existing max-rate limitation knobs (ETS and 
-SRIOV ndo calls).
+Add ndo_set_tx_maxrate support.
 
-Or.
+To support per tx queue maxrate limit, we use the update-qp firmware
+command to do run-time rate setting for the qp that serves this tx ring.
 
-changes from V1:
-  - addressed feedback from Dave 
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   29 ++++++++++++++++++++++++
+ 1 files changed, 29 insertions(+), 0 deletions(-)
 
-changes from V0:
-  - addressed feedback from Sergei
-
-
-
-John Fastabend (1):
-  net: Add max rate tx queue attribute
-
-Or Gerlitz (2):
-  net/mlx4_core: Add basic support for QP max-rate limiting
-  net/mlx4_en: Add tx queue maxrate support
-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   29 +++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   33 +++++++++-
- drivers/net/ethernet/mellanox/mlx4/fw.h            |    1 +
- drivers/net/ethernet/mellanox/mlx4/main.c          |    2 +
- drivers/net/ethernet/mellanox/mlx4/qp.c            |    5 ++
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    6 ++-
- include/linux/mlx4/device.h                        |   17 +++++
- include/linux/mlx4/qp.h                            |   14 +++-
- include/linux/netdevice.h                          |    9 +++
- net/core/net-sysfs.c                               |   67 ++++++++++++++++----
- 10 files changed, 165 insertions(+), 18 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index c59ed92..d8dc3f9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2379,6 +2379,33 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+ }
+ #endif
+ 
++int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[queue_index];
++	struct mlx4_update_qp_params params;
++	int err;
++
++	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT))
++		return -EOPNOTSUPP;
++
++	/* rate provided to us in Mbs, check if it fits into 12 bits, if not use Gbs */
++	if (maxrate >> 12) {
++		params.rate_unit = MLX4_QP_RATE_LIMIT_GBS;
++		params.rate_val  = maxrate / 1000;
++	} else if (maxrate) {
++		params.rate_unit = MLX4_QP_RATE_LIMIT_MBS;
++		params.rate_val  = maxrate;
++	} else { /* zero serves to revoke the QP rate-limitation */
++		params.rate_unit = 0;
++		params.rate_val  = 0;
++	}
++
++	err = mlx4_update_qp(priv->mdev->dev, tx_ring->qpn, MLX4_UPDATE_QP_RATE_LIMIT,
++			     &params);
++	return err;
++}
++
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -2410,6 +2437,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+ #endif
++	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
+ };
+ 
+ static const struct net_device_ops mlx4_netdev_ops_master = {
+@@ -2444,6 +2472,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+ #endif
++	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
+ };
+ 
+ struct mlx4_en_bond {
+-- 
+1.7.1
