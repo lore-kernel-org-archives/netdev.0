@@ -1,76 +1,163 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] man ip-netns: Notice about loose device when do 'del'
-Date: Sun, 15 Mar 2015 13:51:42 +0200
-Message-ID: <1426420302-13755-1-git-send-email-vadim4j@gmail.com>
-Cc: develop@kristov.de, Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 1/3] net: Add max rate tx queue attribute
+Date: Sun, 15 Mar 2015 15:03:14 +0200
+Message-ID: <1426424596-3911-2-git-send-email-ogerlitz@mellanox.com>
+References: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:33013 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751720AbbCOMDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 08:03:23 -0400
-Received: by ladw1 with SMTP id w1so19823232lad.0
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 05:03:21 -0700 (PDT)
+Received: from mailp.voltaire.com ([193.47.165.129]:51866 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751848AbbCONDe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Mar 2015 09:03:34 -0400
+In-Reply-To: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+This adds a tx_maxrate attribute to the tx queue sysfs entry allowing
+for max-rate limiting. Along with DCB-ETS and BQL this provides another
+knob to tune queue performance. The limit units are Mbps.
+
+By default it is disabled. To disable the rate limitation after it
+has been set for a queue, it should be set to zero.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
-v2:
-    Fixed wrong 'xargs' command - noticed by Christoph Schulz <develop@kristov.de>
+ include/linux/netdevice.h |    9 ++++++
+ net/core/net-sysfs.c      |   67 +++++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 64 insertions(+), 12 deletions(-)
 
- man/man8/ip-netns.8 | 25 ++++++++++++++++++++++---
- 1 file changed, 22 insertions(+), 3 deletions(-)
-
-diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
-index 28a9544..34c02b6 100644
---- a/man/man8/ip-netns.8
-+++ b/man/man8/ip-netns.8
-@@ -46,6 +46,9 @@ ip-netns \- process network namespace management
- A network namespace is logically another copy of the network stack,
- with its own routes, firewall rules, and network devices.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ddab1a2..0719307 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -587,6 +587,7 @@ struct netdev_queue {
+ #ifdef CONFIG_BQL
+ 	struct dql		dql;
+ #endif
++	unsigned long		tx_maxrate;
+ } ____cacheline_aligned_in_smp;
  
-+By default process inherites network namespace from its parent. Initially all
-+the processes shares the same default network namespace from the init process.
-+
- By convention a named network namespace is an object at
- .BR "/var/run/netns/" NAME
- that can be opened.  The file descriptor resulting from opening
-@@ -88,14 +91,30 @@ network namespace and assigns NAME.
- .sp
- If NAME is present in /var/run/netns it is umounted and the mount
- point is removed.  If this is the last user of the network namespace the
--network namespace will be freed, otherwise the network namespace
--persists until it has no more users.  ip netns delete may fail if
--the mount point is in use in another mount namespace.
-+network namespace will be freed and all physical devices will be moved to the
-+default one, otherwise the network namespace persists until it has no more
-+users. ip netns delete may fail if the mount point is in use in another mount
-+namespace.
+ static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
+@@ -1025,6 +1026,11 @@ struct fib_info;
+  *	the set of features that the stack has calculated and it returns
+  *	those the driver believes to be appropriate.
+  *
++ *	int (*ndo_set_tx_maxrate)(struct net_device *dev,
++				  int queue_index,
++				  u32 maxrate);
++ *	Called when a user wants to set a max-rate limitation of specific
++ *	TX queue.
+  * int (*ndo_switch_parent_id_get)(struct net_device *dev,
+  *				   struct netdev_phys_item_id *psid);
+  *	Called to get an ID of the switch chip this port is part of.
+@@ -1197,6 +1203,9 @@ struct net_device_ops {
+ 	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
+ 						       struct net_device *dev,
+ 						       netdev_features_t features);
++	int			(*ndo_set_tx_maxrate)(struct net_device *dev,
++						      int queue_index,
++						      u32 maxrate);
+ #ifdef CONFIG_NET_SWITCHDEV
+ 	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
+ 							    struct netdev_phys_item_id *psid);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index cf30620..7e58bd7 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -951,6 +951,60 @@ static ssize_t show_trans_timeout(struct netdev_queue *queue,
+ 	return sprintf(buf, "%lu", trans_timeout);
+ }
  
- If
- .B -all
- option was specified then all the network namespace names will be removed.
++#ifdef CONFIG_XPS
++static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
++{
++	struct net_device *dev = queue->dev;
++	int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++)
++		if (queue == &dev->_tx[i])
++			break;
++
++	BUG_ON(i >= dev->num_tx_queues);
++
++	return i;
++}
++
++static ssize_t show_tx_maxrate(struct netdev_queue *queue,
++			       struct netdev_queue_attribute *attribute,
++			       char *buf)
++{
++	return sprintf(buf, "%lu\n", queue->tx_maxrate);
++}
++
++static ssize_t set_tx_maxrate(struct netdev_queue *queue,
++			      struct netdev_queue_attribute *attribute,
++			      const char *buf, size_t len)
++{
++	struct net_device *dev = queue->dev;
++	int err, index = get_netdev_queue_index(queue);
++	u32 rate = 0;
++
++	err = kstrtou32(buf, 10, &rate);
++	if (err < 0)
++		return err;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	err = -EOPNOTSUPP;
++	if (dev->netdev_ops->ndo_set_tx_maxrate)
++		err = dev->netdev_ops->ndo_set_tx_maxrate(dev, index, rate);
++
++	rtnl_unlock();
++	if (!err) {
++		queue->tx_maxrate = rate;
++		return len;
++	}
++	return err;
++}
++
++static struct netdev_queue_attribute queue_tx_maxrate =
++	__ATTR(tx_maxrate, S_IRUGO | S_IWUSR,
++	       show_tx_maxrate, set_tx_maxrate);
++#endif
++
+ static struct netdev_queue_attribute queue_trans_timeout =
+ 	__ATTR(tx_timeout, S_IRUGO, show_trans_timeout, NULL);
  
-+It is possible to "loose" the physical device when it was moved to netns and
-+then this netns was deleted with a running process:
-+
-+    $ ip netns add net0
-+    $ ip link set dev eth0 netns net0
-+    $ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
-+    $ ip netns del net0
-+
-+and eth0 will appear in the default netns only after SOME_PROCESS_IN_BACKGROUND
-+will exit or will be killed. To prevent this the processes running in net0
-+should be killed before deleting the netns:
-+
-+    $ ip netns pids net0 | xargs kill
-+    $ ip netns del net0
-+
- .TP
- .B ip netns set NAME NETNSID - assign an id to a peer network namespace
- .sp
+@@ -1065,18 +1119,6 @@ static struct attribute_group dql_group = {
+ #endif /* CONFIG_BQL */
+ 
+ #ifdef CONFIG_XPS
+-static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
+-{
+-	struct net_device *dev = queue->dev;
+-	unsigned int i;
+-
+-	i = queue - dev->_tx;
+-	BUG_ON(i >= dev->num_tx_queues);
+-
+-	return i;
+-}
+-
+-
+ static ssize_t show_xps_map(struct netdev_queue *queue,
+ 			    struct netdev_queue_attribute *attribute, char *buf)
+ {
+@@ -1153,6 +1195,7 @@ static struct attribute *netdev_queue_default_attrs[] = {
+ 	&queue_trans_timeout.attr,
+ #ifdef CONFIG_XPS
+ 	&xps_cpus_attribute.attr,
++	&queue_tx_maxrate.attr,
+ #endif
+ 	NULL
+ };
 -- 
-2.3.1
+1.7.1
