@@ -1,77 +1,137 @@
-From: Linhaifeng <haifeng.lin@huawei.com>
-Subject: virtio-net: tx queue was stopped
-Date: Sun, 15 Mar 2015 14:50:27 +0800
-Message-ID: <55052BB3.2080705@huawei.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: iproute2 fails to work with certain device names
+Date: Sun, 15 Mar 2015 09:24:11 +0200
+Message-ID: <20150315072411.GA11071@angus-think.lan>
+References: <op.xvifrvrh5ica7l@skepsis.pre.is>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	lilijun <jerry.lilijun@huawei.com>,
-	"liuyongan@huawei.com" <liuyongan@huawei.com>,
-	"lixiao (H)" <lixiao91@huawei.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Leonhard Preis <leonhard@pre.is>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [119.145.14.65] ([119.145.14.65]:64510 "EHLO
-	szxga02-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058AbbCOGvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 02:51:19 -0400
+Received: from mail-la0-f43.google.com ([209.85.215.43]:36466 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbbCOHfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 03:35:50 -0400
+Received: by lamx15 with SMTP id x15so17683790lam.3
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 00:35:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <op.xvifrvrh5ica7l@skepsis.pre.is>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,Michael
+On Sun, Mar 15, 2015 at 12:05:45AM +0100, Leonhard Preis wrote:
+> Hi!
+>=20
+> iproute2=E2=80=99s ip utility fails to execute commands properly if o=
+ne specifies
+> any of the four device names h, he, hel, and help and only prints out=
+ usage
+> information.
+>=20
+> Expected behaviour for a non-existing device:
+>=20
+> % ip link show dev hello
+> :(
+> Device "hello" does not exist.
+>=20
+> Expected behaviour for an existing device:
+>=20
+> % ip link show dev lo
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN m=
+ode
+> DEFAULT group default
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>=20
+> Behaviour observed for both existing and absent devices called either=
+ h, he,
+> hel or help:
+>=20
+> % ip link show dev hel
+> :(
+> Usage: ip link add [link DEV] [ name ] NAME
+>                    [ txqueuelen PACKETS ]
+>                    [ address LLADDR ]
+>                    [ broadcast LLADDR ]
+>                    [ mtu MTU ] [index IDX ]
+>                    [ numtxqueues QUEUE_COUNT ]
+>                    [ numrxqueues QUEUE_COUNT ]
+>                    type TYPE [ ARGS ]
+>        ip link delete DEV type TYPE [ ARGS ]
+>=20
+>        ip link set { dev DEVICE | group DEVGROUP } [ { up | down } ]
+> 	                  [ arp { on | off } ]
+> 	                  [ dynamic { on | off } ]
+> 	                  [ multicast { on | off } ]
+> 	                  [ allmulticast { on | off } ]
+> 	                  [ promisc { on | off } ]
+> 	                  [ trailers { on | off } ]
+> 	                  [ txqueuelen PACKETS ]
+> 	                  [ name NEWNAME ]
+> 	                  [ address LLADDR ]
+> 	                  [ broadcast LLADDR ]
+> 	                  [ mtu MTU ]
+> 	                  [ netns PID ]
+> 	                  [ netns NAME ]
+> 			  [ alias NAME ]
+> 	                  [ vf NUM [ mac LLADDR ]
+> 				   [ vlan VLANID [ qos VLAN-QOS ] ]
+> 				   [ rate TXRATE ] ]
+> 				   [ spoofchk { on | off} ] ]
+> 				   [ state { auto | enable | disable} ] ]
+> 			  [ master DEVICE ]
+> 			  [ nomaster ]
+> 			  [ addrgenmode { eui64 | none } ]
+>        ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type =
+TYPE]
+>        ip link help [ TYPE ]
+>=20
+> TYPE :=3D { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |
+>           bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |
+>           gre | gretap | ip6gre | ip6gretap | vti | nlmon |
+>           bond_slave }
+>=20
+> I successfully reproduced this on Debian Wheezy (iproute2 version
+> 3.16.0-2~bpo70+1) and Arch Linux (iproute2 version 3.19.0-1).
+>=20
+> While the general origin of this problem seems quite clear, I=E2=80=99=
+m left to
+> wonder whether this is on purpose or not. Since I did not hit any oth=
+er
+> obstacles with the device name I chose I came to the conclusion that =
+this
+> may be a bug and it would be terrific if it could be fixed. For now I=
+=E2=80=99ll
+> perhaps simply change my device name - another l at the end will do t=
+he job.
+> ;)
+>=20
+> Please let me know if I could be of any further assistance or if this=
+ report
+> is missing vital information.
+>=20
+> Thank you!
+>=20
+> Cheers,
+> Leonhard
+>=20
+> PS: I read in another thread that this mailing list is the "bug track=
+er" for
+> iproute2. I hope that statement is still true. It was my best shot at=
+ the
+> correct bug tracker.
+>=20
+> --=20
+> Mit freundlichen Gr=C3=BC=C3=9Fen // Avec mes meilleures salutations =
+// Best Regards
+> Leonhard Preis
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I had tested the start_xmit function by the follow code found that the tx queue's state is stopped and can't send any packets anymore.
+Hi,
 
-static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-	... ...
+Would you be able to test the fix if I send a path in the email ?
 
-
-        capacity = 10;	//########## test code : force to call netif_stop_queue
-
-        if (capacity < 2+MAX_SKB_FRAGS) {
-                netif_stop_queue(dev);
-
-                if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
-                        /* More just got used, free them then recheck. */
-                        capacity += free_old_xmit_skbs(vi);
-                        dev_warn(&dev->dev, "free_old_xmit_skbs capacity =%d MAX_SKB_FRAGS=%d", capacity, MAX_SKB_FRAGS);
-
-                        capacity = 10;		//########## test code : force not to call  netif_start_queue
-
-                        if (capacity >= 2+MAX_SKB_FRAGS) {
-                                netif_start_queue(dev);
-                                virtqueue_disable_cb(vi->svq);
-                        } else {
-				//########## OTOH if often enter this branch tx queue maybe stopped.
-			}
-			
-                }
-
-		//########## Should we start queue here? I found that sometimes skb_xmit_done run before netif_stop_queue if this occurred the queue's state is
-		//########## stopped and have to reload virtio-net module to restore network.
-
-        }
-	
-}
-
-ping 9.62.1.2 -i 0.1
-64 bytes from 9.62.1.2: icmp_seq=19 ttl=64 time=0.115 ms
-64 bytes from 9.62.1.2: icmp_seq=20 ttl=64 time=0.101 ms
-64 bytes from 9.62.1.2: icmp_seq=21 ttl=64 time=0.094 ms
-64 bytes from 9.62.1.2: icmp_seq=22 ttl=64 time=0.098 ms
-64 bytes from 9.62.1.2: icmp_seq=23 ttl=64 time=0.097 ms
-64 bytes from 9.62.1.2: icmp_seq=24 ttl=64 time=0.095 ms
-64 bytes from 9.62.1.2: icmp_seq=25 ttl=64 time=0.095 ms
-....
-ping:  sendmsg:  No buffer space available
-ping:  sendmsg:  No buffer space available
-ping:  sendmsg:  No buffer space available
-ping:  sendmsg:  No buffer space available
-ping:  sendmsg:  No buffer space available
-ping:  sendmsg:  No buffer space available
-....
-
--- 
-Regards,
-Haifeng
+Thanks,
