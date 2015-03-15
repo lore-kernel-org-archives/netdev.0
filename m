@@ -1,37 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] Avoid signal race in arpd initialization.
-Date: Sun, 15 Mar 2015 12:25:15 -0700
-Message-ID: <20150315122515.1a164175@urahara>
-References: <20150311205845.GA23722@localhost>
+Subject: Re: [PATCH iproute2] tc class: Show class names from file
+Date: Sun, 15 Mar 2015 12:29:07 -0700
+Message-ID: <20150315122907.251a26c4@urahara>
+References: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Tobias Stoeckmann <tobias@stoeckmann.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:34655 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbbCOTZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 15:25:19 -0400
-Received: by pdbni2 with SMTP id ni2so36926450pdb.1
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 12:25:18 -0700 (PDT)
-In-Reply-To: <20150311205845.GA23722@localhost>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:34590 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751450AbbCOT3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 15:29:06 -0400
+Received: by pdbni2 with SMTP id ni2so36981771pdb.1
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 12:29:05 -0700 (PDT)
+In-Reply-To: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Mar 2015 21:58:45 +0100
-Tobias Stoeckmann <tobias@stoeckmann.org> wrote:
+On Tue,  3 Mar 2015 18:41:18 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> Signal handlers in arpd use siglongjmp() to return into main function
-> during polls. The environment for the jumps is set after the signal
-> handlers are installed. This leaves a small time frame in which an
-> uninitialized environment could be used for a siglongjmp() call, leading
-> to undefined behavior.
+> From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> While at it, define flag variables as sig_atomic_t instead of int.
+> It is possible to use class names from file /etc/iproute2/cls_names
+> which tc will use when showing class info:
+> 
+>     # tc/tc -nm class show dev lo
+> 	class htb 1:10 parent 1:1 leaf 10: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> 	class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb web#1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb voip#1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> 	class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> 	class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> 
+> or to specify via file path:
+> 
+>     # tc/tc -nm -cf /tmp/cls_names class show dev lo
+> 
+> Class names file contains simple "maj:min  name" structure:
+> 
+> 1:20    web
+> 1:40    voip
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-I understand, but this is such a corner case. And you made several
-other changes. Don't think it is worth doing this change.
-
-You would have to signal arpd in the very small window between
-the signal setup and the setjmp call.
+Applied, thanks
