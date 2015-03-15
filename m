@@ -1,120 +1,80 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 16 Mar 2015 13:04:47 +1100
-Message-ID: <20150316130447.329b3075@canb.auug.org.au>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: iwlwifi 4.0.0-rc3 kernel warning
+Date: Sun, 15 Mar 2015 16:47:34 -0700
+Message-ID: <55061A16.2080408@acm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/e7CNdLEZ_CQ.UaGfn_dajba"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sf1.bxl.stone.is ([87.238.167.36]:50946 "EHLO sf1.bxl.stone.is"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751793AbbCPCIB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Mar 2015 22:08:01 -0400
+Received: from smtprelay.1eurohost.com ([87.238.167.34])
+	by sf1.bxl.stone.is with esmtp (Exim 4.85)
+	(envelope-from <bvanassche@acm.org>)
+	id 1YXIFt-0005Gt-UA
+	for netdev@vger.kernel.org; Mon, 16 Mar 2015 00:47:40 +0100
+Received: from vz19.stone-is.net (vz19.stone-is.net [87.238.162.57])
+	by smtprelay.1eurohost.com (Postfix) with ESMTP id 853CD220A3C
+	for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 00:47:37 +0100 (CET)
+Received: from exp-402881.sandisk.com (unknown [12.236.17.3])
+	by vz19.stone-is.net (Postfix) with ESMTPSA id 6C83E88A6E
+	for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 00:47:38 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/e7CNdLEZ_CQ.UaGfn_dajba
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hello,
 
-Hi all,
+Has anyone else already seen the kernel warning below ? That warning
+was triggered while I was connected to a low-quality wifi network.
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/ipv4/inet_diag.c between commit c8e2c80d7ec0 ("inet_diag: fix
-possible overflow in inet_diag_dump_one_icsk()") from the net tree and
-commit a4458343ac59 ("inet_diag: factorize code in new
-inet_diag_msg_common_fill() helper") from the net-next tree.
+Thanks,
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+Bart.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc net/ipv4/inet_diag.c
-index 592aff37366b,ac7b5c909fe7..000000000000
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@@ -71,27 -66,39 +66,53 @@@ static void inet_diag_unlock_handler(co
-  	mutex_unlock(&inet_diag_table_mutex);
-  }
- =20
- +static size_t inet_sk_attr_size(void)
- +{
- +	return	  nla_total_size(sizeof(struct tcp_info))
- +		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
- +		+ nla_total_size(1) /* INET_DIAG_TOS */
- +		+ nla_total_size(1) /* INET_DIAG_TCLASS */
- +		+ nla_total_size(sizeof(struct inet_diag_meminfo))
- +		+ nla_total_size(sizeof(struct inet_diag_msg))
- +		+ nla_total_size(SK_MEMINFO_VARS * sizeof(u32))
- +		+ nla_total_size(TCP_CA_NAME_MAX)
- +		+ nla_total_size(sizeof(struct tcpvegas_info))
- +		+ 64;
- +}
- +
-+ static void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct soc=
-k *sk)
-+ {
-+ 	r->idiag_family =3D sk->sk_family;
-+=20
-+ 	r->id.idiag_sport =3D htons(sk->sk_num);
-+ 	r->id.idiag_dport =3D sk->sk_dport;
-+ 	r->id.idiag_if =3D sk->sk_bound_dev_if;
-+ 	sock_diag_save_cookie(sk, r->id.idiag_cookie);
-+=20
-+ #if IS_ENABLED(CONFIG_IPV6)
-+ 	if (sk->sk_family =3D=3D AF_INET6) {
-+ 		*(struct in6_addr *)r->id.idiag_src =3D sk->sk_v6_rcv_saddr;
-+ 		*(struct in6_addr *)r->id.idiag_dst =3D sk->sk_v6_daddr;
-+ 	} else
-+ #endif
-+ 	{
-+ 	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
-+ 	memset(&r->id.idiag_dst, 0, sizeof(r->id.idiag_dst));
-+=20
-+ 	r->id.idiag_src[0] =3D sk->sk_rcv_saddr;
-+ 	r->id.idiag_dst[0] =3D sk->sk_daddr;
-+ 	}
-+ }
-+=20
-  int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
-- 			      struct sk_buff *skb, struct inet_diag_req_v2 *req,
-- 			      struct user_namespace *user_ns,		      =09
-- 			      u32 portid, u32 seq, u16 nlmsg_flags,
-- 			      const struct nlmsghdr *unlh)
-+ 		      struct sk_buff *skb, const struct inet_diag_req_v2 *req,
-+ 		      struct user_namespace *user_ns,
-+ 		      u32 portid, u32 seq, u16 nlmsg_flags,
-+ 		      const struct nlmsghdr *unlh)
-  {
-  	const struct inet_sock *inet =3D inet_sk(sk);
-+ 	const struct inet_diag_handler *handler;
-+ 	int ext =3D req->idiag_ext;
-  	struct inet_diag_msg *r;
-  	struct nlmsghdr  *nlh;
-  	struct nlattr *attr;
-
---Sig_/e7CNdLEZ_CQ.UaGfn_dajba
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVBjpFAAoJEMDTa8Ir7ZwVN5kP/3w1eKyn6dmYSoRpu0N3ZGev
-v0hbu77whYCLB8U/ko1udNk7DnssmEb5MKAXnyCI9WB09/TGVrmnMCVEzqpoDOzc
-uNjVO08gQ9P4cKWvAf8+l6lP3dsJ+W4Ez5sFBZzOX9bvq02vQFb/aSHDHAq22qff
-tT7ratVEeGB9RFe1sPM5oY8GVjB5bpkvWQOkMejh3VtNsoC7v24dmRV3utk91STz
-7d1nrx3+cd9v0UkfkoRnNb07oMXcj9AtJlC67zGGfmLjKeMVQfKuANQKpwLPi4QA
-mJUkwDh3XxJYzoViZC5CcRJeptU8M8rOWyRGmhCCpST80kAbuuEOZ23X1Md7xNcX
-7LT1BhjZl62kXYtlowBDJfao3fayybMBrx/9+iWqGMNXIWBancVpKxBfEEx419mM
-ey7ArPEDwzCmj4vdE87FnJ8vzqDWJLKArdLcihOQpYmP/tCj5Tgx6yJqCmm+SNna
-OSYgH/CydN6POacEYeVeszHkHIcsOwbdwzSzO/YpfpmVCY1cIP8skRTabxA4sWLZ
-e8KadhVXH/W7prBcDwGqj6EWiDi3FzWZ6hV3AbR2J1q8AXLZ/3AteD2UOgnsNO9O
-nKCM8+0wgAvzyh5IO5FcBXf4i/LUssLwjLytPLN4kJC7SR9D9qPVPEIjHfVv8urr
-BdArsZRjh7pNnmeQfh8+
-=piLB
------END PGP SIGNATURE-----
-
---Sig_/e7CNdLEZ_CQ.UaGfn_dajba--
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 72 at drivers/net/wireless/iwlwifi/pcie/tx.c:1259 iwl_trans_pcie_txq_disable+0x139/0x170 [iwlwifi]()
+queue 16 not used
+Modules linked in:
+ fuse dm_crypt algif_skcipher af_alg loop xt_CHECKSUM iptable_mangle ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_nat_ipv4 nf_nat bridge stp llc af_packet nf_log_ipv6 xt_pkttype nf_log_ipv4 nf_log_common xt_LOG xt_limit arc4 iwlmvm ip6t_REJECT nf_reject_ipv6 xt_tcpudp nf_conntrack_ipv6 uvcvideo nf_defrag_ipv6 videobuf2_vmalloc videobuf2_memops videobuf2_core ip6table_raw mac80211 ipt_REJECT nf_reject_ipv4 iptable_raw snd_hda_codec_hdmi xt_CT iptable_filter snd_hda_codec_realtek snd_hda_codec_generic ip6table_mangle nf_conntrack_netbios_ns nf_conntrack_broadcast nf_conntrack_ipv4 nf_defrag_ipv4 ip_tables xt_conntrack nf_conntrack ip6table_filter ip6_tables bnep x_tables iwlwifi x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel snd_hda_intel snd_hda_controller kvm snd_hda_code
+ c
+ snd_hwdep cfg80211 snd_pcm btusb e1000e crct10dif_pclmul bluetooth dell_wmi sparse_keymap crc32_pclmul crc32c_intel ghash_clmulni_intel snd_timer aesni_intel dell_laptop aes_x86_64 snd glue_helper dcdbas lrw gf128mul sdhci_pci xhci_pci ablk_helper joydev ptp cryptd xhci_hcd lpc_ich rfkill serio_raw pcspkr pps_core shpchp mfd_core i2c_i801 soundcore thermal wmi battery i2c_hid i2c_designware_platform dell_smo8800 8250_dw processor i2c_designware_core ac dm_mod i915 i2c_algo_bit drm_kms_helper drm video sdhci_acpi sdhci mmc_core button sg
+CPU: 0 PID: 72 Comm: kworker/u8:3 Not tainted 4.0.0-rc3+ #1
+Hardware name: Dell Inc. Latitude E7440/03HFCG, BIOS A10 06/26/2014
+Workqueue: phy0 ieee80211_iface_work [mac80211]
+ ffffffffa0580160 ffff8800daa67868 ffffffff8162990e 0000000000000000
+ ffff8800daa678b8 ffff8800daa678a8 ffffffff81054bca ffff8800daa67888
+ ffff8800d1f1c000 0000000000000010 0000000000000010 000000000080a980
+Call Trace:
+ [<ffffffff8162990e>] dump_stack+0x4c/0x6e
+ [<ffffffff81054bca>] warn_slowpath_common+0x8a/0xc0
+ [<ffffffff81054c46>] warn_slowpath_fmt+0x46/0x50
+ [<ffffffffa0729cbd>] ? iwl_mvm_send_cmd_pdu_status+0x3d/0x50 [iwlmvm]
+ [<ffffffffa0571679>] iwl_trans_pcie_txq_disable+0x139/0x170 [iwlwifi]
+ [<ffffffffa072a5af>] iwl_mvm_disable_txq+0x7f/0xc0 [iwlmvm]
+ [<ffffffffa072faab>] iwl_mvm_sta_tx_agg_flush+0xfb/0x140 [iwlmvm]
+ [<ffffffff810add00>] ? rcu_barrier+0x20/0x20
+ [<ffffffffa0723342>] iwl_mvm_mac_ampdu_action+0xd2/0x220 [iwlmvm]
+ [<ffffffffa066133a>] ___ieee80211_stop_tx_ba_session+0x14a/0x520 [mac80211]
+ [<ffffffffa0661d77>] __ieee80211_stop_tx_ba_session+0x37/0x50 [mac80211]
+ [<ffffffffa065fff5>] ieee80211_sta_tear_down_BA_sessions+0x45/0x70 [mac80211]
+ [<ffffffffa065696c>] __sta_info_destroy_part1+0x3c/0x3a0 [mac80211]
+ [<ffffffff810add00>] ? rcu_barrier+0x20/0x20
+ [<ffffffffa0659a90>] __sta_info_flush+0x140/0x1b0 [mac80211]
+ [<ffffffffa069e036>] ieee80211_set_disassoc+0xb6/0x3a0 [mac80211]
+ [<ffffffffa069e355>] ieee80211_sta_connection_lost.isra.29+0x35/0x70 [mac80211]
+ [<ffffffffa06a0cd3>] ieee80211_sta_work+0x1d3/0x1120 [mac80211]
+ [<ffffffff8108806a>] ? dequeue_entity+0x11a/0x550
+ [<ffffffff810b617f>] ? mod_timer+0xef/0x1f0
+ [<ffffffffa0668228>] ieee80211_iface_work+0x3b8/0x440 [mac80211]
+ [<ffffffff8107712d>] ? finish_task_switch+0x5d/0x100
+ [<ffffffff8106c535>] process_one_work+0x145/0x440
+ [<ffffffff8106c951>] worker_thread+0x121/0x450
+ [<ffffffff8106c830>] ? process_one_work+0x440/0x440
+ [<ffffffff810719e9>] kthread+0xc9/0xe0
+ [<ffffffff81071920>] ? kthread_create_on_node+0x180/0x180
+ [<ffffffff81630108>] ret_from_fork+0x58/0x90
+ [<ffffffff81071920>] ? kthread_create_on_node+0x180/0x180
+---[ end trace 5bf7a4c8f7ead96b ]---
