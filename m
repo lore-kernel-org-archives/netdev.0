@@ -1,48 +1,39 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: Linux XIA - merge proposal
-Date: Sun, 15 Mar 2015 10:37:52 +0100
-Message-ID: <20150315093752.GA29005@kroah.com>
-References: <54F5EF6E.9090303@digirati.com.br>
- <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com>
- <550301B6.3090302@digirati.com.br>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [v1 PATCH 0/6] rhashtable: Fix two bugs caused by multiple rehash
+ preparation
+Date: Sun, 15 Mar 2015 21:10:04 +1100
+Message-ID: <20150315101004.GA21383@gondor.apana.org.au>
+References: <20150313095607.GA598@gondor.apana.org.au>
+ <20150314025339.GA10585@gondor.apana.org.au>
+ <20150315.013613.2034532005621627761.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Michel Machado <michel@digirati.com.br>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:45775 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751627AbbCOKKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 06:10:17 -0400
 Content-Disposition: inline
-In-Reply-To: <550301B6.3090302@digirati.com.br>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150315.013613.2034532005621627761.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 13, 2015 at 11:26:46AM -0400, Michel Machado wrote:
-> On 03/10/2015 01:01 PM, Bjorn Helgaas wrote:
-> > From my point of view (far outside the networking world and completely
-> >incompetent to judge the merits of XIA), this email seems like a
-> >reasonable starting point for a discussion, and I'm disappointed that
-> >it got shut down so fast.  It might not be in *exactly* the form
-> >people are looking for, but hey, it's an introductory email, and
-> >Michel seems open to constructive feedback.
-> 
->    Thank you for the support, Bjorn.
-> 
->    I've brainstormed with friends questions that could address the concerns
-> that haven't been voiced in this thread, and I answered those questions in
-> our FAQ page:
-> 
->    https://github.com/AltraMayor/XIA-for-Linux/wiki/FAQ
-> 
->    While I would like to have Linux XIA merged, I also don't want to become
-> importunate. So, if nobody else shows interest in this thread, I'm going to
-> leave it to rest.
+Hi Dave:
 
-But you have yet to actually post the code, why give up now, you haven't
-even tried.  A number of people have given you hints here as to what you
-should be doing / trying, to just run away without even attempting it
-seems quite odd and defeatist.
+While testing some new patches over the weekend I discovered a
+couple of bugs in the series that had just been merged.  These
+two patches fix them:
 
-good luck,
+1) A use-after-free in the walker that can cause crashes when
+walking during a rehash.
 
-greg k-h
+2) When a second rehash starts during a single rhashtable_remove
+call the remove may fail when it shouldn't.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
