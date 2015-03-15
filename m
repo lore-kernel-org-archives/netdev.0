@@ -1,50 +1,44 @@
-From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: [PATCH next] drivers: wireless: carl9170: shrink carl9170_tx_info
-Date: Sun, 15 Mar 2015 18:17:56 +0100
-Message-ID: <2002983.Zu6fLi5xz6@debian64>
-References: <1426261045-22373-1-git-send-email-fw@strlen.de> <1689955.Ikz24aORLX@debian64> <20150314175532.GH14761@breakpoint.cc>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 0/5] switchdev: add swdev ops
+Date: Sun, 15 Mar 2015 10:56:34 -0700
+Message-ID: <CAE4R7bCfzhmWznFQ_JsUfidCKbuT-rppjXRqpgOcd7uqw1h5FQ@mail.gmail.com>
+References: <1426400107-6072-1-git-send-email-sfeldma@gmail.com>
+	<20150315170355.GJ2043@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150314175532.GH14761-E0PNVn5OA6ohrxcnuTQ+TQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:36113 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbbCOR4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 13:56:34 -0400
+Received: by qgg60 with SMTP id 60so23753890qgg.3
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 10:56:34 -0700 (PDT)
+In-Reply-To: <20150315170355.GJ2043@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday, March 14, 2015 06:55:32 PM Florian Westphal wrote:
-> Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> wrote:
-> > On Friday, March 13, 2015 04:37:25 PM Florian Westphal wrote:
-> > > its embededded inside rate_driver_data of the ieee80211_tx_info struct,
-> > > which in turn is stored in skb->cb[].
-> > > 
-> > > In order to shrink cb, we need to shrink ieee80211_tx_info which means
-> > > to downsize all users first.
-> > > 
-> > > Alternatively, one might be able to remove kref but
-> > > its less intrusive/simpler to use u32 for timeout handling.
-> > > 
-> > > Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-> > > ---
-> > u32 jiffies... that's a lot of pointing (well not so much) and really 
-> > ugly casting (a lot). I guess it would be easier to just use a "per-queue"
-> > timeout watchdog like almost everybody else. This way, the driver will
-> > be ready for the next skb->cb shrink as well.
-> > 
-> > carl9170_tx_ampdu_timeout can be completely removed.
-> 
-> Maybe, but there is only so much I am willing to do with "compile
-> tested only" patches...
-well, reinventing jiffies_32 is just a ugly hack and not "intrusive/simpler"
-than removing kref here.
+On Sun, Mar 15, 2015 at 10:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Sun, Mar 15, 2015 at 07:15:02AM CET, sfeldma@gmail.com wrote:
+>>From: Scott Feldman <sfeldma@gmail.com>
+>>
+>>Per discussions at netconf, move switchdev ndo ops to a new swdev_ops to
+>>keep ndo namespace clean and maintain switchdev-related ops into one place.
+>>
+>>There are no functional changes here; just shuffling ops around for better
+>>organization.
+>
+> Hmm, I'm not sure this is the right approach. I think we do not need
+> only switchdev ops to be pushed out. There are many more ndos that could
+> be pushed out as well. What I'm thinking about is some more generic ndo
+> struct partitioning. Have to think about the actual implementation some more.
 
-Please try again. Don't worry about testing, I'm sure this is not a problem
-and someone will test the patches with the hw on 32-bit and 64-bit platforms.
+I couldn't see a way to make a more generic ndo struct without casting
+args to void * and back, or using a big overlay union.  I may be
+missing your idea; interested in what you come up with.
 
-Regards,
-  Christian
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In the meantime, can we go with this simple partitioning?
+
+-scott
