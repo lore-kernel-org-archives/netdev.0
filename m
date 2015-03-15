@@ -1,41 +1,56 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V2 0/3] Add max rate TXQ attribute
-Date: Sun, 15 Mar 2015 23:10:25 +0200
-Message-ID: <CAJ3xEMhg_CsCGA5_GkqTb0e=d=sSMJdbQG0gM8CoWvGP8PPGVw@mail.gmail.com>
-References: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
-	<CALx6S37qzKSJ8cWiCDmfHM=bRy67jup4YriMkL6tw9BUXCRi5Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/3] switchdev: support stp updates on
+ stacked netdevices
+Date: Sun, 15 Mar 2015 18:30:05 -0400 (EDT)
+Message-ID: <20150315.183005.358448761464513797.davem@davemloft.net>
+References: <5502E544.7030003@cumulusnetworks.com>
+	<20150313.123156.2118585119289960334.davem@davemloft.net>
+	<20150315165632.GF2043@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>, Ido Shamay <idos@mellanox.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:34692 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339AbbCOVK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 17:10:26 -0400
-Received: by oier21 with SMTP id r21so23208439oie.1
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 14:10:25 -0700 (PDT)
-In-Reply-To: <CALx6S37qzKSJ8cWiCDmfHM=bRy67jup4YriMkL6tw9BUXCRi5Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51213 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407AbbCOWaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 18:30:10 -0400
+In-Reply-To: <20150315165632.GF2043@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 15, 2015 at 7:08 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Sun, Mar 15, 2015 at 6:03 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->> Add the ability to set a max-rate limitation for TX queues.
->> The attribute name is maxrate and the units are Mbs, to make
->> it similar to the existing max-rate limitation knobs (ETS and
->> SRIOV ndo calls).
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sun, 15 Mar 2015 17:56:32 +0100
 
-> Guaranteed rate is often defined in conjunction with maximum rate. It
-> might be nice to add a parameter for that to the ndo function in
-> anticipation of someone supporting that also.
+> Fri, Mar 13, 2015 at 05:31:56PM CET, davem@davemloft.net wrote:
+>>From: roopa <roopa@cumulusnetworks.com>
+>>Date: Fri, 13 Mar 2015 06:25:24 -0700
+>>
+>>> David, if you mean not touch bond and team but have the switchdev
+>>> api do it transparently, yes, i had it that way initially.  And i do
+>>> liked it that way as well. But the feedback i received (during the
+>>> initial introduction of this for setlink/dellink) was to make it
+>>> explicit for each master.
+>>
+>>I think the concern is that we only want to do this for devices
+>>for which it is safe to "traverse" down like this.
+> 
+> Yes, that was my point. Also, some layered drivers might want to do some
+> individual magic, propagate on condition, etc. I think it is clearer
+> architecture. And also, you can see right away what is happening. By
+> doing the travelsal directly in switchdev code, that is in the shadow :/
 
-I see -- so do we really want both from day one...? if this is the
-case, I can add that to the ndo with the value of 0 means no limit for
-maxrate and no guarantee for minrate
+I think special behavior would be the exception rather than the norm,
+and we should code our interfaces for the common case.
 
-Or.
+This means we can add a per-device flag to avoid this logic if
+necessary.
+
+Notice how you use lots of words like "might", and I hate designing
+interfaces without hard explicit real word examples of the actual
+precise need.
+
+So don't use open ended reasons like that for justifying the design of
+our interfaces.
