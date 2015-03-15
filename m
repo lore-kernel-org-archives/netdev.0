@@ -1,8 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [v1 PATCH 2/14] rhashtable: Introduce max_size/min_size
-Date: Sun, 15 Mar 2015 18:12:02 +0300
-Message-ID: <5505A142.6020606@cogentembedded.com>
-References: <20150315104306.GA21999@gondor.apana.org.au> <E1YX61y-0005mR-MK@gondolin.me.apana.org.au>
+Subject: Re: [v1 PATCH 4/14] tipc: Use rhashtable max_size instead of max_shift
+Date: Sun, 15 Mar 2015 18:13:31 +0300
+Message-ID: <5505A19B.4030402@cogentembedded.com>
+References: <20150315104306.GA21999@gondor.apana.org.au> <E1YX620-0005n3-Uy@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,44 +10,43 @@ To: Herbert Xu <herbert@gondor.apana.org.au>,
 	David Miller <davem@davemloft.net>, tgraf@suug.ch,
 	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:35496 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752793AbbCOPMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 11:12:06 -0400
-Received: by lbcgn8 with SMTP id gn8so5919884lbc.2
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 08:12:05 -0700 (PDT)
-In-Reply-To: <E1YX61y-0005mR-MK@gondolin.me.apana.org.au>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:32948 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545AbbCOPNe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 11:13:34 -0400
+Received: by lbbzq9 with SMTP id zq9so16792590lbb.0
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 08:13:33 -0700 (PDT)
+In-Reply-To: <E1YX620-0005n3-Uy@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
 On 3/15/2015 1:44 PM, Herbert Xu wrote:
 
-> This patch adds the parameters max_size and min_size which are
-> meant to replace max_shift and min_shift.
+> This patch converts tipc to use rhashtable max_size instead of
+> the obsolete max_shift.
+
+    You're converting 'min_shift' to 'min_size' as well...
 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> ---
 
-[...]
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 4a99c0c..5101e18 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-[...]
-> @@ -872,7 +874,8 @@ EXPORT_SYMBOL_GPL(rhashtable_walk_stop);
->   static size_t rounded_hashtable_size(struct rhashtable_params *params)
->   {
->   	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
-> -		   1UL << params->min_shift);
-> +		   max(1UL << params->min_shift,
+>   net/tipc/socket.c |    4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
 
-    max_t(), perhaps?
-
-> +		       (unsigned long)params->min_size));
->   }
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+> index 934947f..64eb669 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -2361,8 +2361,8 @@ int tipc_sk_rht_init(struct net *net)
+>   		.key_offset = offsetof(struct tipc_sock, portid),
+>   		.key_len = sizeof(u32), /* portid */
+>   		.hashfn = jhash,
+> -		.max_shift = 20, /* 1M */
+> -		.min_shift = 8,  /* 256 */
+> +		.max_size = 1048576,
+> +		.min_size = 256,
+>   	};
 >
->   /**
-[...]
+>   	return rhashtable_init(&tn->sk_rht, &rht_params);
 
 WBR, Sergei
