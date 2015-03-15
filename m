@@ -1,77 +1,47 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: Re: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
-Date: Sun, 15 Mar 2015 09:48:24 +0530
-Message-ID: <CA+CtxLSNre0PSe6avkMsoLLsG53URz0ii1p9J_9XYrNP=6i9-Q@mail.gmail.com>
-References: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
-	<CAE4R7bCAfrJDMZMEKhurd2axe0vpo+peZt7DdUMKwWhtwNaMnw@mail.gmail.com>
-	<CA+CtxLQXOqO6FvB4=8YzXmUDDhEa1HmoNYbMyOwnOB=xBxZ4WQ@mail.gmail.com>
-	<CAE4R7bCfheBYqGaDA1-QmvYv+e1gK+daHqkg9i_hDoY+qNiG4g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V1 1/3] net: Add max rate tx queue attribute
+Date: Sun, 15 Mar 2015 01:07:27 -0400 (EDT)
+Message-ID: <20150315.010727.1396856705582316764.davem@davemloft.net>
+References: <1426150405-7904-1-git-send-email-ogerlitz@mellanox.com>
+	<1426150405-7904-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	amirv@mellanox.com, idos@mellanox.com, matanb@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:34325 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711AbbCOESZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 00:18:25 -0400
-Received: by wibg7 with SMTP id g7so12176856wib.1
-        for <netdev@vger.kernel.org>; Sat, 14 Mar 2015 21:18:24 -0700 (PDT)
-In-Reply-To: <CAE4R7bCfheBYqGaDA1-QmvYv+e1gK+daHqkg9i_hDoY+qNiG4g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38677 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbbCOFHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 01:07:33 -0400
+In-Reply-To: <1426150405-7904-2-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 15, 2015 at 6:46 AM, Scott Feldman <sfeldma@gmail.com> wrote:
-> On Sat, Mar 14, 2015 at 4:36 PM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
->> On Sun, Mar 15, 2015 at 3:47 AM, Scott Feldman <sfeldma@gmail.com> wrote:
->>> On Fri, Mar 13, 2015 at 6:40 PM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
->>>> This patch allows user to configure bridge's FDB ageing using
->>>> netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
->>>> as per ieee8021QBridgeFdbAgingTime.
->>>>
->>>> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
->>>> ---
->>>> Changes in v2:
->>>>  - Added commit message.
->>>>  - Fix style problems reported by checkpatch.pl.
->>>
->>>
->>>> +
->>>> +int br_set_ageing_time(struct net_bridge *br, unsigned long val)
->>>> +{
->>>> +       unsigned long t = clock_t_to_jiffies(val);
->>>> +
->>>> +       if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
->>>> +               return -ERANGE;
->>>> +
->>>> +       spin_lock_bh(&br->lock);
->>>> +       br->ageing_time = t;
->>>
->>> I wonder if you need to call mod_timer(&br->gc_timer, jiffies) after
->>> adjusting the time, to make new ageing_time effective?  The worst-case
->>> scenario I'm thinking about is if the initial br->ageing_time is the
->>> max value (1000000 seconds) and the user changes it the min value (10
->>> seconds), will the original 1000000 seconds need to expire before the
->>> gc_timer is called again and reset to 10 seconds?
->>>
->> Yes, the new ageing_time becomes effective only after the current timer expires.
->> The behavior when ageing_time is set via netlink  is similar to setting it using
->> sysfs and brctl. I want to keep the behavior same when the ageing_time is
->> configured using any of the existing mechanisms.
->
-> Right, looks like sysfs and brctl (ioctl) don't reset gc_timer, so
-> you're consistent there.  :)
->
-> Consistency is good.  What do you think about a new func that's called
-> from either of the three interfaces (sysfs, ioctl, netlink) that:
->
-> 1) validates range, like in your br_set_ageing_time() func.
-> 2) reset gc_timer if setting ageing_time to lower value
->
-> ?
-Agree. I will work on it.
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 12 Mar 2015 10:53:23 +0200
 
+> +	if (dev->netdev_ops->ndo_set_tx_maxrate) {
+> +		err = dev->netdev_ops->ndo_set_tx_maxrate(dev, index, rate);
+> +	} else {
+> +		rtnl_unlock();
+> +		return -EOPNOTSUPP;
+> +	}
+> +
+> +	rtnl_unlock();
+> +	if (!err) {
+> +		queue->tx_maxrate = rate;
+> +		return len;
+> +	}
 
--- 
-Regards,
-Siva Mannem.
+This is more succinctly expressed as:
+
+	err = -EOPNOTSUPP;
+	if (dev->netdev_ops->ndo_set_tx_maxrate) {
+		err = dev->netdev_ops->ndo_set_tx_maxrate(dev, index, rate);
+	if (!err) {
+		queue->tx_maxrate = rate;
+		return len;
+	}
+	return err;
