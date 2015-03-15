@@ -1,37 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v1 PATCH 5/14] test_rhashtable: Use rhashtable max_size instead of max_shift
-Date: Sun, 15 Mar 2015 21:44:30 +1100
-Message-ID: <E1YX622-0005nK-1e@gondolin.me.apana.org.au>
-References: <20150315104306.GA21999@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] isdn: icn: use strlcpy() when parsing setup options
+Date: Sun, 15 Mar 2015 13:48:03 +0300
+Message-ID: <20150315104803.GA20691@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:58985 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752315AbbCOKoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 06:44:34 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:37545 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbbCOKsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 06:48:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts tets_rhashtable to use rhashtable max_size
-instead of the obsolete max_shift.
+If you pass an invalid string here then you probably deserve the memory
+corruption, but it annoys static analysis tools so lets fix it.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
- lib/test_rhashtable.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
-index 16974fd..2bc403d 100644
---- a/lib/test_rhashtable.c
-+++ b/lib/test_rhashtable.c
-@@ -201,7 +201,7 @@ static int __init test_rht_init(void)
- 		.key_offset = offsetof(struct test_obj, value),
- 		.key_len = sizeof(int),
- 		.hashfn = jhash,
--		.max_shift = 1, /* we expand/shrink manually here */
-+		.max_size = 2, /* we expand/shrink manually here */
- 		.nulls_base = (3U << RHT_BASE_SHIFT),
- 	};
- 	int err;
+diff --git a/drivers/isdn/icn/icn.c b/drivers/isdn/icn/icn.c
+index 6a7447c..358a574 100644
+--- a/drivers/isdn/icn/icn.c
++++ b/drivers/isdn/icn/icn.c
+@@ -1609,7 +1609,7 @@ icn_setup(char *line)
+ 	if (ints[0] > 1)
+ 		membase = (unsigned long)ints[2];
+ 	if (str && *str) {
+-		strcpy(sid, str);
++		strlcpy(sid, str, sizeof(sid));
+ 		icn_id = sid;
+ 		if ((p = strchr(sid, ','))) {
+ 			*p++ = 0;
