@@ -1,160 +1,141 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Sun, 15 Mar 2015 17:27:05 +0900
-Message-ID: <55054259.30308@linux-ipv6.org>
-References: <1426105727-64654-1-git-send-email-netdev@emagii.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: virtio-net: tx queue was stopped
+Date: Sun, 15 Mar 2015 09:40:52 +0100
+Message-ID: <20150315080138-mutt-send-email-mst@redhat.com>
+References: <55052BB3.2080705@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: Ulf Samuelsson <ulf@emagii.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Ulf Samuelsson <netdev@emagii.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lilijun <jerry.lilijun@huawei.com>,
+	"liuyongan@huawei.com" <liuyongan@huawei.com>,
+	"lixiao (H)" <lixiao91@huawei.com>,
+	virtualization@lists.linux-foundation.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Linhaifeng <haifeng.lin@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46654 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751245AbbCOIgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 04:36:35 -0400
-In-Reply-To: <1426105727-64654-1-git-send-email-netdev@emagii.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38275 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751296AbbCOIkz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Mar 2015 04:40:55 -0400
+Content-Disposition: inline
+In-Reply-To: <55052BB3.2080705@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sun, Mar 15, 2015 at 02:50:27PM +0800, Linhaifeng wrote:
+> Hi,Michael
+> 
+> I had tested the start_xmit function by the follow code found that the tx queue's state is stopped and can't send any packets anymore.
 
-Ulf Samuelsson wrote:
-> From: Ulf Samuelsson <ulf@emagii.com>
-> 
-> The neighbour state is changed in the ARP timer handler.
-> If the state is changed to NUD_STALE, then the neighbour
-> entry becomes a candidate for garbage collection.
-> 
-> The garbage collection is handled by a "periodic work" routine.
-> 
-> When :
-> 
-> 	* noone refers to the entry
-> 	* the state is no longer valid (I.E: NUD_STALE).
-
-NUD_STALE is still valid.
-
-> 	* the timeout value has  been reached or state is FAILED
-> 
-> the "periodic work" routine will notify
-> the stack that the entry should be deleted.
-> 
-> A user application monitoring and controlling the neighbour table
-> using NETLINK may fail, if the "period work" routine is run
-> directly after the state has been changed to NUD_STALE,
-> but before the user application has had a chance to change
-> the state to something valid.
-> 
-> The "period work" routine will detect the NUD_STALE state
-> and if the timeout value has been reached, it will notify the stack
-> that the entry should be deleted.
-> 
-> The patch adds a check in the periodic work routine
-> which will skip test for garbage collection
-> unless a number of ticks has passed since the last time
-> the neighbour entry state was changed.
-> 
-> The feature is controlled through Kconfig
-> 
-> The featuree is enabled by setting ARP_GC_APPLY_GUARDBAND
-> The guardband time (in ticks) is set in ARP_GC_GUARDBAND
-> Default time is 100 ms if HZ_### is set.
-
-We have "lower limit" not to start releasing neighbour entries.
-Try increasing gc_thresh1.
-
---yoshfuji
+Why don't you Cc all maintainers on this email?
+Pls check the file MAINTAINERS for the full list.
+I added Cc for now.
 
 > 
-> Signed-off-by: Ulf Samuelsson <ulf@emagii.com>
-> ---
->  net/Kconfig          |   32 ++++++++++++++++++++++++++++++++
->  net/core/neighbour.c |   15 ++++++++++++---
->  2 files changed, 44 insertions(+), 3 deletions(-)
+> static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> {
+> 	... ...
 > 
-> diff --git a/net/Kconfig b/net/Kconfig
-> index 44dd578..099a5dd 100644
-> --- a/net/Kconfig
-> +++ b/net/Kconfig
-> @@ -77,6 +77,38 @@ config INET
->  	  Short answer: say Y.
->  
->  if INET
-> +
-> +#
-> +# Core Network configuration
-> +#
-> +
-> +config ARP_GC_APPLY_GUARDBAND
-> +	bool "IP: ARP: Avoid garbage collection directly after state change"
-> +	default n
-> +	---help---
-> +	  With this item selected, an entry in the neighbour table
-> +	  will not be garbage collected directly after the ARP state
-> +	  has changed to STALE of FAILED
-> +	  This allows an application program change the state to something valid
-> +	  before garbage colllection occurs.
-> +
-> +	  If unsure, say N.
-> +
-> +config ARP_GC_GUARDBAND
-> +	int "Guardband time on garbage collection"
-> +	depends on ARP_GC_APPLY_GUARDBAND
-> +	default 10 if HZ_100
-> +	default 25 if HZ_250
-> +	default 30 if HZ_300
-> +	default 100 if HZ_1000
-> +	default 100
-> +
-> +	---help---
-> +	  The number of ticks to delay garbage collection
-> +	  after the neighbour entry has been updated
-> +	  A delay of 100 ms is reasonable.
-> +	  With CONFIG_HZ = 250, this value should be 25
-> +
->  source "net/ipv4/Kconfig"
->  source "net/ipv6/Kconfig"
->  source "net/netlabel/Kconfig"
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 70fe9e1..194195d 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -786,13 +786,23 @@ static void neigh_periodic_work(struct work_struct *work)
->  
->  			state = n->nud_state;
->  			if (state & (NUD_PERMANENT | NUD_IN_TIMER)) {
-> -				write_unlock(&n->lock);
->  				goto next_elt;
->  			}
->  
->  			if (time_before(n->used, n->confirmed))
->  				n->used = n->confirmed;
->  
-> +#if defined(CONFIG_ARP_GC_APPLY_GUARDBAND)
-> +			/* Do not garbage collect directly after we
-> +			 * updated n->state to allow applications to
-> +			 * react to the event
-> +			 */
-> +			if (time_before(jiffies,
-> +					n->updated + CONFIG_ARP_GC_GUARDBAND)) {
-> +				goto next_elt;
-> +			}
-> +#endif
-> +
->  			if (atomic_read(&n->refcnt) == 1 &&
->  			    (state == NUD_FAILED ||
->  			     time_after(jiffies, n->used + NEIGH_VAR(n->parms, GC_STALETIME)))) {
-> @@ -802,9 +812,8 @@ static void neigh_periodic_work(struct work_struct *work)
->  				neigh_cleanup_and_release(n);
->  				continue;
->  			}
-> -			write_unlock(&n->lock);
-> -
->  next_elt:
-> +			write_unlock(&n->lock);
->  			np = &n->next;
->  		}
->  		/*
 > 
+>         capacity = 10;	//########## test code : force to call netif_stop_queue
+> 
+>         if (capacity < 2+MAX_SKB_FRAGS) {
+>                 netif_stop_queue(dev);
+
+So you changed code to make it think we are out of capacity, now it
+stops the queue.
+
+> 
+>                 if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+>                         /* More just got used, free them then recheck. */
+>                         capacity += free_old_xmit_skbs(vi);
+>                         dev_warn(&dev->dev, "free_old_xmit_skbs capacity =%d MAX_SKB_FRAGS=%d", capacity, MAX_SKB_FRAGS);
+> 
+>                         capacity = 10;		//########## test code : force not to call  netif_start_queue
+> 
+>                         if (capacity >= 2+MAX_SKB_FRAGS) {
+>                                 netif_start_queue(dev);
+>                                 virtqueue_disable_cb(vi->svq);
+>                         } else {
+> 				//########## OTOH if often enter this branch tx queue maybe stopped.
+> 			}
+
+and changed it here so it won't restart queue if host consumed
+all buffers.
+unsurprisingly this makes driver not work.
+
+
+> 			
+>                 }
+> 
+> 		//########## Should we start queue here? I found that sometimes skb_xmit_done run before netif_stop_queue if this occurred the queue's state is
+> 		//########## stopped and have to reload virtio-net module to restore network.
+
+With or without your changes?
+Is this the condition you describe?
+
+
+        if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
+
+---> at this point, skb_xmit_done runs. this does:
+        /* Suppress further interrupts. */
+        virtqueue_disable_cb(vq);
+
+        /* We were probably waiting for more output buffers. */
+        netif_wake_subqueue(vi->dev, vq2txq(vq));
+--->
+
+
+
+                netif_stop_subqueue(dev, qnum);
+
+---> queue is now stopped
+
+                if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+
+----> this re-enables interrupts, after an interrupt skb_xmit_done
+	will run again.
+
+                        /* More just got used, free them then recheck.
+ * */
+                        free_old_xmit_skbs(sq);
+                        if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
+                                netif_start_subqueue(dev, qnum);
+                                virtqueue_disable_cb(sq->vq);
+                        }
+                }
+        }
+
+
+I can't see a race condition from your description above.
+
+>         }
+> 	
+> }
+> 
+> ping 9.62.1.2 -i 0.1
+> 64 bytes from 9.62.1.2: icmp_seq=19 ttl=64 time=0.115 ms
+> 64 bytes from 9.62.1.2: icmp_seq=20 ttl=64 time=0.101 ms
+> 64 bytes from 9.62.1.2: icmp_seq=21 ttl=64 time=0.094 ms
+> 64 bytes from 9.62.1.2: icmp_seq=22 ttl=64 time=0.098 ms
+> 64 bytes from 9.62.1.2: icmp_seq=23 ttl=64 time=0.097 ms
+> 64 bytes from 9.62.1.2: icmp_seq=24 ttl=64 time=0.095 ms
+> 64 bytes from 9.62.1.2: icmp_seq=25 ttl=64 time=0.095 ms
+> ....
+> ping:  sendmsg:  No buffer space available
+> ping:  sendmsg:  No buffer space available
+> ping:  sendmsg:  No buffer space available
+> ping:  sendmsg:  No buffer space available
+> ping:  sendmsg:  No buffer space available
+> ping:  sendmsg:  No buffer space available
+> ....
+> 
+> -- 
+> Regards,
+> Haifeng
+
+I can't say what does your code-changing experiment show.
+It might be better to introduce delay by calling something like
+cpu_relax at specific points (maybe multiple times in a loop).
+
+-- 
+MST
