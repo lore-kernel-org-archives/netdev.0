@@ -1,38 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] ip netns: Fix rtnl error while print netns
- list
-Date: Sun, 15 Mar 2015 12:19:10 -0700
-Message-ID: <20150315121910.37b88950@urahara>
-References: <1425709858-25644-1-git-send-email-vadim4j@gmail.com>
+Subject: Re: [PATCH] Avoid signal race in arpd initialization.
+Date: Sun, 15 Mar 2015 12:25:15 -0700
+Message-ID: <20150315122515.1a164175@urahara>
+References: <20150311205845.GA23722@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Tobias Stoeckmann <tobias@stoeckmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34944 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752524AbbCOTTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 15:19:08 -0400
-Received: by pabyw6 with SMTP id yw6so42448162pab.2
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 12:19:07 -0700 (PDT)
-In-Reply-To: <1425709858-25644-1-git-send-email-vadim4j@gmail.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:34655 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751485AbbCOTZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 15:25:19 -0400
+Received: by pdbni2 with SMTP id ni2so36926450pdb.1
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 12:25:18 -0700 (PDT)
+In-Reply-To: <20150311205845.GA23722@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  7 Mar 2015 08:30:58 +0200
-Vadim Kochan <vadim4j@gmail.com> wrote:
+On Wed, 11 Mar 2015 21:58:45 +0100
+Tobias Stoeckmann <tobias@stoeckmann.org> wrote:
 
-> From: Vadim Kochan <vadim4j@gmail.com>
+> Signal handlers in arpd use siglongjmp() to return into main function
+> during polls. The environment for the jumps is set after the signal
+> handlers are installed. This leaves a small time frame in which an
+> uninitialized environment could be used for a siglongjmp() call, leading
+> to undefined behavior.
 > 
-> Observed on the Linux 3.18:
-> 
->     # ip netns
->     RTNETLINK answers: Operation not supported
->     net0
-> 
-> CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Fixes: d182ee1307c7 ("ipnetns: allow to get and set netns ids")
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> While at it, define flag variables as sig_atomic_t instead of int.
 
-Applied
+I understand, but this is such a corner case. And you made several
+other changes. Don't think it is worth doing this change.
+
+You would have to signal arpd in the very small window between
+the signal setup and the setjmp call.
