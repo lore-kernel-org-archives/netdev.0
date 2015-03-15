@@ -1,208 +1,59 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [PATCH iproute2] ip link: Do not show help if 'dev he' was specified
-Date: Sun, 15 Mar 2015 11:24:10 +0100
-Message-ID: <55055DCA.1090108@kristov.de>
-References: <1426406515-16171-1-git-send-email-vadim4j@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [v1 PATCH 0/14] rhashtable: Kill shift/Key netlink namespace/Merge
+ jhash
+Date: Sun, 15 Mar 2015 21:43:06 +1100
+Message-ID: <20150315104306.GA21999@gondor.apana.org.au>
+References: <20150313095607.GA598@gondor.apana.org.au>
+ <20150314025339.GA10585@gondor.apana.org.au>
+ <20150315.013613.2034532005621627761.davem@davemloft.net>
+ <20150315101004.GA21383@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: leonhard@pre.is
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server1137-han.de-nserver.de ([85.158.180.102]:57536 "EHLO
-	server1137-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751751AbbCOKYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 06:24:20 -0400
-In-Reply-To: <1426406515-16171-1-git-send-email-vadim4j@gmail.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:49715 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751721AbbCOKnO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 06:43:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20150315101004.GA21383@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hi Dave:
 
-On 15.03.2015 09:01, Vadim Kochan wrote:
-> From: Vadim Kochan <vadim4j@gmail.com>
-> 
-> Date: Sun, 15 Mar 2015 09:11:41 +0200
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> Reported-by: Leonhard Preis <leonhard@pre.is>
-> ---
->  ip/ipaddress.c | 3 +--
->  ip/iplink.c    | 6 ++----
->  2 files changed, 3 insertions(+), 6 deletions(-)
+This series of patches deal with some niggly bits that nevertheless
+need to be dealt with before we can move ahead.
 
-We use a similar patch at the fli4l router project, but we also modified other files (ip6tunnel.c, ipmaddr.c, ipmroute.c, ipneigh.c, iproute.c, iprule.c). I'm afraid the patch is based on iproute2 3.11.0, but it applies to 3.17.0 (the version we currently use).
+I was trying to squeeze bucket_table->rehash in by downsizing
+bucket_table->size, only to find that my spot had been taken
+over by bucket_table->shift.  Patches 1-6 kills shift and makes
+me feel better :)
 
-I attach the patch in the hope it will prove useful, perhaps as a base for a follow-up patch of yours.
+One of the things I want to do is limit the chain length.  However,
+certain users try to hash multiple objects with the same key.  This
+would obviously defeat any attempt to control the maximum chain
+length.  The only current offender using rhashtable is netlink and
+it really has no excuse to do this at all.
 
+Patches 7-10 resolves that problem.
 
-Best regards,
+Finally I saw that with every new rhashtable user we gained a copy
+of jhash as it's an inline function so every indirect reference to
+it results in another copy.  Patches 11-14 deal with this by making
+jhash (or jhash2 when applicable) the function to use when the user
+does not select a hash function.
 
-Christoph Schulz
+PS I'd love to kill the indirect call on the hash but I think
+you guys need something other than jhash for sockets.  Presumably
+they are not exposed to untrusted parties.  But I really wonder
+whether that is still the case given things like namespaces where
+even root may be untrusted.
 
--------- %< --------
-
-Signed-off-by: Christoph Schulz <develop@kristov.de>
----
-diff -urN iproute2-3.11.0.orig/ip/ip6tunnel.c iproute2-3.11.0/ip/ip6tunnel.c
---- iproute2-3.11.0.orig/ip/ip6tunnel.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/ip6tunnel.c	2013-12-03 20:34:45.000000000 +0100
-@@ -206,7 +206,7 @@
- 			if (strcmp(*argv, "name") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (p->name[0])
- 				duparg2("name", *argv);
-diff -urN iproute2-3.11.0.orig/ip/ipaddress.c iproute2-3.11.0/ip/ipaddress.c
---- iproute2-3.11.0.orig/ip/ipaddress.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/ipaddress.c	2013-12-03 20:34:45.000000000 +0100
-@@ -1128,7 +1128,7 @@
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (filter_dev)
- 				duparg2("dev", *argv);
-@@ -1336,7 +1336,7 @@
- 			if (strcmp(*argv, "local") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (local_len)
- 				duparg2("local", *argv);
-diff -urN iproute2-3.11.0.orig/ip/iplink.c iproute2-3.11.0/ip/iplink.c
---- iproute2-3.11.0.orig/ip/iplink.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/iplink.c	2013-12-03 20:34:45.000000000 +0100
-@@ -484,7 +484,7 @@
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (*dev)
- 				duparg2("dev", *argv);
-@@ -914,7 +914,7 @@
-                         if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (dev)
- 				duparg2("dev", *argv);
-diff -urN iproute2-3.11.0.orig/ip/ipmaddr.c iproute2-3.11.0/ip/ipmaddr.c
---- iproute2-3.11.0.orig/ip/ipmaddr.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/ipmaddr.c	2013-12-03 20:34:45.000000000 +0100
-@@ -257,7 +257,7 @@
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (filter.dev)
- 				duparg2("dev", *argv);
-@@ -298,7 +298,7 @@
- 			if (matches(*argv, "address") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			if (ifr.ifr_hwaddr.sa_data[0])
- 				duparg("address", *argv);
-diff -urN iproute2-3.11.0.orig/ip/ipmroute.c iproute2-3.11.0/ip/ipmroute.c
---- iproute2-3.11.0.orig/ip/ipmroute.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/ipmroute.c	2013-12-03 20:34:45.000000000 +0100
-@@ -222,7 +222,7 @@
- 			if (strcmp(*argv, "to") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			get_prefix(&filter.mdst, *argv, family);
- 		}
-diff -urN iproute2-3.11.0.orig/ip/ipneigh.c iproute2-3.11.0/ip/ipneigh.c
---- iproute2-3.11.0.orig/ip/ipneigh.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/ipneigh.c	2013-12-03 20:34:45.000000000 +0100
-@@ -142,7 +142,7 @@
- 			if (strcmp(*argv, "to") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0) {
-+			else if (matches(*argv, "help") == 0) {
- 				NEXT_ARG();
- 			}
- 			if (dst_ok)
-@@ -370,7 +370,7 @@
- 			if (strcmp(*argv, "to") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			get_prefix(&filter.pfx, *argv, filter.family);
- 			if (filter.family == AF_UNSPEC)
-diff -urN iproute2-3.11.0.orig/ip/iproute.c iproute2-3.11.0/ip/iproute.c
---- iproute2-3.11.0.orig/ip/iproute.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/iproute.c	2013-12-03 20:34:45.000000000 +0100
-@@ -951,10 +951,12 @@
- 			NEXT_ARG();
- 			d = *argv;
- 		} else {
-+			int has_to = 0;
- 			int type;
- 			inet_prefix dst;
- 
- 			if (strcmp(*argv, "to") == 0) {
-+				has_to = 1;
- 				NEXT_ARG();
- 			}
- 			if ((**argv < '0' || **argv > '9') &&
-@@ -963,7 +965,7 @@
- 				req.r.rtm_type = type;
- 			}
- 
--			if (matches(*argv, "help") == 0)
-+			if (!has_to && matches(*argv, "help") == 0)
- 				usage();
- 			if (dst_ok)
- 				duparg2("to", *argv);
-@@ -1414,8 +1416,6 @@
- 		} else if (matches(*argv, "from") == 0) {
- 			inet_prefix addr;
- 			NEXT_ARG();
--			if (matches(*argv, "help") == 0)
--				usage();
- 			from_ok = 1;
- 			get_prefix(&addr, *argv, req.r.rtm_family);
- 			if (req.r.rtm_family == AF_UNSPEC)
-@@ -1442,7 +1442,7 @@
- 			if (strcmp(*argv, "to") == 0) {
- 				NEXT_ARG();
- 			}
--			if (matches(*argv, "help") == 0)
-+			else if (matches(*argv, "help") == 0)
- 				usage();
- 			get_prefix(&addr, *argv, req.r.rtm_family);
- 			if (req.r.rtm_family == AF_UNSPEC)
-diff -urN iproute2-3.11.0.orig/ip/iprule.c iproute2-3.11.0/ip/iprule.c
---- iproute2-3.11.0.orig/ip/iprule.c	2013-09-03 17:23:03.000000000 +0200
-+++ iproute2-3.11.0/ip/iprule.c	2013-12-03 20:34:45.000000000 +0100
-@@ -331,7 +331,7 @@
- 			}
- 			if (matches(*argv, "help") == 0)
- 				usage();
--			else if (matches(*argv, "goto") == 0) {
-+			if (matches(*argv, "goto") == 0) {
- 				__u32 target;
- 				type = FR_ACT_GOTO;
- 				NEXT_ARG();
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
