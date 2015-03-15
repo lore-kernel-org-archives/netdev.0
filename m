@@ -1,70 +1,50 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next V2 0/3] Add max rate TXQ attribute
-Date: Sun, 15 Mar 2015 10:08:08 -0700
-Message-ID: <CALx6S37qzKSJ8cWiCDmfHM=bRy67jup4YriMkL6tw9BUXCRi5Q@mail.gmail.com>
-References: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
+From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: Re: [PATCH next] drivers: wireless: carl9170: shrink carl9170_tx_info
+Date: Sun, 15 Mar 2015 18:17:56 +0100
+Message-ID: <2002983.Zu6fLi5xz6@debian64>
+References: <1426261045-22373-1-git-send-email-fw@strlen.de> <1689955.Ikz24aORLX@debian64> <20150314175532.GH14761@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:33445 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467AbbCORIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Mar 2015 13:08:09 -0400
-Received: by iecvj10 with SMTP id vj10so149858695iec.0
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 10:08:08 -0700 (PDT)
-In-Reply-To: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150314175532.GH14761-E0PNVn5OA6ohrxcnuTQ+TQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 15, 2015 at 6:03 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Add the ability to set a max-rate limitation for TX queues.
-> The attribute name is maxrate and the units are Mbs, to make
-> it similar to the existing max-rate limitation knobs (ETS and
-> SRIOV ndo calls).
->
-Guaranteed rate is often defined in conjunction with maximum rate. It
-might be nice to add a parameter for that to the ndo function in
-anticipation of someone supporting that also.
+On Saturday, March 14, 2015 06:55:32 PM Florian Westphal wrote:
+> Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> wrote:
+> > On Friday, March 13, 2015 04:37:25 PM Florian Westphal wrote:
+> > > its embededded inside rate_driver_data of the ieee80211_tx_info struct,
+> > > which in turn is stored in skb->cb[].
+> > > 
+> > > In order to shrink cb, we need to shrink ieee80211_tx_info which means
+> > > to downsize all users first.
+> > > 
+> > > Alternatively, one might be able to remove kref but
+> > > its less intrusive/simpler to use u32 for timeout handling.
+> > > 
+> > > Signed-off-by: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
+> > > ---
+> > u32 jiffies... that's a lot of pointing (well not so much) and really 
+> > ugly casting (a lot). I guess it would be easier to just use a "per-queue"
+> > timeout watchdog like almost everybody else. This way, the driver will
+> > be ready for the next skb->cb shrink as well.
+> > 
+> > carl9170_tx_ampdu_timeout can be completely removed.
+> 
+> Maybe, but there is only so much I am willing to do with "compile
+> tested only" patches...
+well, reinventing jiffies_32 is just a ugly hack and not "intrusive/simpler"
+than removing kref here.
 
-Thanks,
-Tom
+Please try again. Don't worry about testing, I'm sure this is not a problem
+and someone will test the patches with the hw on 32-bit and 64-bit platforms.
 
-
-> Or.
->
-> changes from V1:
->   - addressed feedback from Dave
->
-> changes from V0:
->   - addressed feedback from Sergei
->
->
->
-> John Fastabend (1):
->   net: Add max rate tx queue attribute
->
-> Or Gerlitz (2):
->   net/mlx4_core: Add basic support for QP max-rate limiting
->   net/mlx4_en: Add tx queue maxrate support
->
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   29 +++++++++
->  drivers/net/ethernet/mellanox/mlx4/fw.c            |   33 +++++++++-
->  drivers/net/ethernet/mellanox/mlx4/fw.h            |    1 +
->  drivers/net/ethernet/mellanox/mlx4/main.c          |    2 +
->  drivers/net/ethernet/mellanox/mlx4/qp.c            |    5 ++
->  .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    6 ++-
->  include/linux/mlx4/device.h                        |   17 +++++
->  include/linux/mlx4/qp.h                            |   14 +++-
->  include/linux/netdevice.h                          |    9 +++
->  net/core/net-sysfs.c                               |   67 ++++++++++++++++----
->  10 files changed, 165 insertions(+), 18 deletions(-)
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+  Christian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
