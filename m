@@ -1,54 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v1 PATCH 0/14] rhashtable: Kill shift/Key netlink
- namespace/Merge jhash
-Date: Mon, 16 Mar 2015 00:01:13 -0400 (EDT)
-Message-ID: <20150316.000113.1803291537029624713.davem@davemloft.net>
-References: <20150315.013613.2034532005621627761.davem@davemloft.net>
-	<20150315101004.GA21383@gondor.apana.org.au>
-	<20150315104306.GA21999@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: herbert@gondor.apana.org.au
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v3 0/3] switchdev: add swdev ops
+Date: Sun, 15 Mar 2015 21:07:13 -0700
+Message-ID: <1426478836-60788-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+	simon.horman@netronome.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbbCPEBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 00:01:15 -0400
-In-Reply-To: <20150315104306.GA21999@gondor.apana.org.au>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:36497 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbbCPEG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 00:06:27 -0400
+Received: by pdbcz9 with SMTP id cz9so46091616pdb.3
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 21:06:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 15 Mar 2015 21:43:06 +1100
+From: Scott Feldman <sfeldma@gmail.com>
 
-> PS I'd love to kill the indirect call on the hash but I think
-> you guys need something other than jhash for sockets.  Presumably
-> they are not exposed to untrusted parties.  But I really wonder
-> whether that is still the case given things like namespaces where
-> even root may be untrusted.
+v3:
 
-In my opinion the biggest architectural fault of rhashtables is
-these damn callbacks, look at the assembler for a simple hash
-lookup, it's disgusting.
+ - Fix missing include for DSA build
 
-Two callbacks, _two_.
+v2:
 
-That also means the hash lookup can't be a leaf function, and we take
-two mispredicted indirect calls as well.  Not acceptable.
+ - Per Simon's review, squash some of the dependent commits into one to
+   make series git bisect safe.
 
-This is pure overhead from overengineering in my opinion and I'd much
-rather have code duplication than this.
+v1:
 
-We should have rhashtable_lookup_compare() be a macro, for which the
-caller provides the hash function and compare operation inline.
+Per discussions at netconf, move switchdev ndo ops to a new swdev_ops to
+keep ndo namespace clean and maintain switchdev-related ops into one place.
 
-Otherwise when we convert things like inet_hashtables.c to rhashtable
-it's going to be a regression that will definitely show up in
-microbenchmarks.
+There are no functional changes here; just shuffling ops around for better
+organization.
 
-So essentially I think the rhashtables interface to how the keys are
-described to the user is inside out.  rhashtable should just provide
-the outer-framework, and the user should provide the minute details of
-the key hashing and comparison in something that gets expanded inline.
+Scott Feldman (3):
+  switchdev: add swdev ops
+  switchdev: use new swdev ops
+  netdev: remove ndo ops for switchdev
+
+ drivers/net/ethernet/rocker/rocker.c |   64 +++++++++++++++++++---------------
+ include/linux/netdevice.h            |   41 ++--------------------
+ include/net/switchdev.h              |   38 ++++++++++++++++++++
+ net/dsa/slave.c                      |    9 +++--
+ net/switchdev/switchdev.c            |   42 +++++++++++-----------
+ 5 files changed, 105 insertions(+), 89 deletions(-)
+
+-- 
+1.7.10.4
