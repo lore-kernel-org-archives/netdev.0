@@ -1,38 +1,38 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 net-next] tcp_metrics: fix wrong lockdep annotations
-Date: Mon, 16 Mar 2015 22:27:49 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1503162213040.2343@ja.home.ssi.bg>
-References: <20150316113542.GA27127@paralelels.com>  <1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com> <1426515274.11398.209.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] dsa: change "select" to "depends on" for
+ NET_SWITCHDEV and for NET_DSA
+Date: Mon, 16 Mar 2015 16:31:13 -0400 (EDT)
+Message-ID: <20150316.163113.1481259045405592179.davem@davemloft.net>
+References: <1426505612-2144-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Vagin <avagin@parallels.com>,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, sfeldma@gmail.com,
+	rdunlap@infradead.org, alexei.starovoitov@gmail.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:55898 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933283AbbCPU3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Mar 2015 16:29:37 -0400
-In-Reply-To: <1426515274.11398.209.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37708 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933293AbbCPUbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:31:17 -0400
+In-Reply-To: <1426505612-2144-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 16 Mar 2015 12:33:32 +0100
 
-	Hello,
-
-On Mon, 16 Mar 2015, Eric Dumazet wrote:
-
-> From: Eric Dumazet <edumazet@google.com>
+> This would fix randconfig compile error:
+> net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
+> (.text+0xf7811): undefined reference to `fib_flush_external'
 > 
-> Changes in tcp_metric hash table are protected by tcp_metrics_lock
-> only, not by genl_mutex
+> Also it fixes following warnings:
+> warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+> 
+> warning: (NET_DSA_MV88E6060 && NET_DSA_MV88E6131 && NET_DSA_MV88E6123_61_65 && NET_DSA_MV88E6171 && NET_DSA_MV88E6352 && NET_DSA_BCM_SF2) selects NET_DSA which has unmet direct dependencies (NET && HAVE_NET_DSA && NET_SWITCHDEV)
+> 
+> Reported-by: Randy Dunlap <rdunlap@infradead.org>
+> Suggested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-	So, can we also use .parallel_ops = true in
-tcp_metrics_nl_family ? Looks like commands do not use
-genl_mutex in such case.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Applied, thanks.
