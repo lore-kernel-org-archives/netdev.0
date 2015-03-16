@@ -1,36 +1,41 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: XFRM messages explained?
-Date: Mon, 16 Mar 2015 14:01:51 -0600
-Message-ID: <550736AF.80500@redfish-solutions.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net): ipsec 2015-03-16
+Date: Mon, 16 Mar 2015 16:17:09 -0400 (EDT)
+Message-ID: <20150316.161709.445020712639772193.davem@davemloft.net>
+References: <1426488744-17104-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:32768 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932917AbbCPUNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:13:52 -0400
-Received: from eng-dhcp-123.vyatta.com (eng-dhcp-123.redfish-solutions.com [192.168.1.76])
-	(authenticated bits=0)
-	by mail.redfish-solutions.com (8.14.8/8.14.8) with ESMTP id t2GK1pOv005054
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 14:01:55 -0600
+Received: from shards.monkeyblade.net ([149.20.54.216]:37540 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752924AbbCPURM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:17:12 -0400
+In-Reply-To: <1426488744-17104-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 16 Mar 2015 07:52:21 +0100
 
-Is there a document (other than the kernel source) which documents the 
-format of XFRM messages and how/when they are generated?
+> 1) Fix the network header offset in _decode_session6
+>    when multiple IPv6 extension headers are present.
+>    From Hajime Tazaki.
+> 
+> 2) Fix an interfamily tunnel crash. We set outer mode
+>    protocol too early and may dispatch to the wrong
+>    address family. Move the setting of the outer mode
+>    protocol behind the last accessing of the inner mode
+>    to fix the crash.
+> 
+> 3) Most callers of xfrm_lookup() expect that dst_orig
+>    is released on error. But xfrm_lookup_route() may
+>    need dst_orig to handle certain error cases. So
+>    introduce a flag that tells what should be done in
+>    case of error. From Huaibin Wang.
+> 
+> Please pull or let me know if there are problems.
 
-I need to write a program that looks at XFRM messages from the kernel 
-(much the way that "ip xfrm monitor" does) and generates detailed 
-logging based on the events.
-
-Is there any document I could use?  Otherwise I'll have to grovel 
-through the kernel source and sift through the calling orders, etc.
-
-Thanks,
-
--Philip
+Pulled, thanks a lot.
