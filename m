@@ -1,147 +1,98 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH 2/3] rocker: add support for phys_port_name
-Date: Mon, 16 Mar 2015 09:46:57 -0600
-Message-ID: <1426520818-11198-2-git-send-email-dsahern@gmail.com>
-References: <1426520818-11198-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>, Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] tcp_metrics: fix wrong lockdep annotations
+Date: Mon, 16 Mar 2015 07:14:34 -0700
+Message-ID: <1426515274.11398.209.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150316113542.GA27127@paralelels.com>
+	 <1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
+To: Andrew Vagin <avagin@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:32902 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934892AbbCPPrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 11:47:19 -0400
-Received: by ignm3 with SMTP id m3so35179434ign.0
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 08:47:18 -0700 (PDT)
-In-Reply-To: <1426520818-11198-1-git-send-email-dsahern@gmail.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37399 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932513AbbCPOOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 10:14:36 -0400
+Received: by igcqo1 with SMTP id qo1so42770702igc.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 07:14:36 -0700 (PDT)
+In-Reply-To: <1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement the phys_port_name operation. Port names are pulled from the
-rocker hardware model in qemu and default to the qemu name + port id.
-e.g.,
+From: Eric Dumazet <edumazet@google.com>
 
-sw1p1: flags=4098<BROADCAST,MULTICAST>  mtu 1500
-        ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 0  bytes 0 (0.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+Changes in tcp_metric hash table are protected by tcp_metrics_lock
+only, not by genl_mutex
 
-where 'sw1' comes from the qemu command line -device rocker,name=sw1, and
-'p1' is port 1.
-
-Patch is adapted from Scott's phys_port_id patch.
-
-Signed-off-by: David Ahern <dsahern@gmail.com>
-Cc: Scott Feldman <sfeldma@gmail.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
+While we are at it use deref_locked() instead of rcu_dereference()
+in tcp_new() to avoid unnecessary barrier, as we hold tcp_metrics_lock
+as well.
+ 
+Reported-by: Andrew Vagin <avagin@parallels.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 098a697b497e ("tcp_metrics: Use a single hash table for all network namespaces.")
 ---
- drivers/net/ethernet/rocker/rocker.c | 58 ++++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/rocker/rocker.h |  1 +
- 2 files changed, 59 insertions(+)
+ net/ipv4/tcp_metrics.c |   20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index bc5f27aa3131..8de390499952 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -30,6 +30,7 @@
- #include <linux/if_vlan.h>
- #include <linux/if_bridge.h>
- #include <linux/bitops.h>
-+#include <linux/ctype.h>
- #include <net/switchdev.h>
- #include <net/rtnetlink.h>
- #include <net/ip_fib.h>
-@@ -1631,6 +1632,48 @@ rocker_cmd_get_port_settings_macaddr_proc(struct rocker *rocker,
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 366728cbee4a692394696f13e6aacf0331990eed..5bef3513af77afc8943d99a107f74155b9979aaa 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -152,6 +152,9 @@ static void tcpm_check_stamp(struct tcp_metrics_block *tm, struct dst_entry *dst
+ #define TCP_METRICS_RECLAIM_DEPTH	5
+ #define TCP_METRICS_RECLAIM_PTR		(struct tcp_metrics_block *) 0x1UL
+ 
++#define deref_locked(p)	\
++	rcu_dereference_protected(p, lockdep_is_held(&tcp_metrics_lock))
++
+ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 					  struct inetpeer_addr *saddr,
+ 					  struct inetpeer_addr *daddr,
+@@ -180,9 +183,9 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 	if (unlikely(reclaim)) {
+ 		struct tcp_metrics_block *oldest;
+ 
+-		oldest = rcu_dereference(tcp_metrics_hash[hash].chain);
+-		for (tm = rcu_dereference(oldest->tcpm_next); tm;
+-		     tm = rcu_dereference(tm->tcpm_next)) {
++		oldest = deref_locked(tcp_metrics_hash[hash].chain);
++		for (tm = deref_locked(oldest->tcpm_next); tm;
++		     tm = deref_locked(tm->tcpm_next)) {
+ 			if (time_before(tm->tcpm_stamp, oldest->tcpm_stamp))
+ 				oldest = tm;
+ 		}
+@@ -1040,12 +1043,6 @@ out_free:
+ 	return ret;
  }
  
- static int
-+rocker_cmd_get_port_settings_phys_name_proc(struct rocker *rocker,
-+					    struct rocker_port *rocker_port,
-+					    struct rocker_desc_info *desc_info,
-+					    void *priv)
-+{
-+	struct rocker_tlv *info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_MAX + 1];
-+	struct rocker_tlv *attrs[ROCKER_TLV_CMD_MAX + 1];
-+	struct netdev_phys_item_name *name = priv;
-+	struct rocker_tlv *attr;
-+	int i, j = 0, len;
-+	char *str;
-+
-+	rocker_tlv_parse_desc(attrs, ROCKER_TLV_CMD_MAX, desc_info);
-+	if (!attrs[ROCKER_TLV_CMD_INFO])
-+		return -EIO;
-+
-+	rocker_tlv_parse_nested(info_attrs, ROCKER_TLV_CMD_PORT_SETTINGS_MAX,
-+				attrs[ROCKER_TLV_CMD_INFO]);
-+	attr = info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_PHYS_NAME];
-+	if (!attr)
-+		return -EIO;
-+
-+	len = min_t(int, rocker_tlv_len(attr), sizeof(name->str) - 1);
-+	str = rocker_tlv_data(attr);
-+
-+	/* make sure name only contains alphanumeric characters */
-+	for (i = 0; i < len; ++i) {
-+		if (isalnum(str[i])) {
-+			name->str[j] = str[i];
-+			j++;
-+		}
-+	}
-+
-+	if (j == 0)
-+		return -EIO;
-+
-+	name->str[j] = '\0';
-+
-+	return 0;
-+}
-+
-+static int
- rocker_cmd_set_port_settings_ethtool_prep(struct rocker *rocker,
- 					  struct rocker_port *rocker_port,
- 					  struct rocker_desc_info *desc_info,
-@@ -4131,6 +4174,20 @@ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 				       rocker_port->brport_flags, mask);
- }
- 
-+static int rocker_port_get_phys_port_name(struct net_device *dev,
-+					  struct netdev_phys_item_name *name)
-+{
-+	struct rocker_port *rocker_port = netdev_priv(dev);
-+	int err;
-+
-+	err = rocker_cmd_exec(rocker_port->rocker, rocker_port,
-+			      rocker_cmd_get_port_settings_prep, NULL,
-+			      rocker_cmd_get_port_settings_phys_name_proc,
-+			      name, false);
-+
-+	return err ? -EOPNOTSUPP : 0;
-+}
-+
- static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_open			= rocker_port_open,
- 	.ndo_stop			= rocker_port_stop,
-@@ -4143,6 +4200,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_fdb_dump			= rocker_port_fdb_dump,
- 	.ndo_bridge_setlink		= rocker_port_bridge_setlink,
- 	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
-+	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
- };
- 
- /********************
-diff --git a/drivers/net/ethernet/rocker/rocker.h b/drivers/net/ethernet/rocker/rocker.h
-index 51e430d25138..a4e9591d7457 100644
---- a/drivers/net/ethernet/rocker/rocker.h
-+++ b/drivers/net/ethernet/rocker/rocker.h
-@@ -158,6 +158,7 @@ enum {
- 	ROCKER_TLV_CMD_PORT_SETTINGS_MACADDR,		/* binary */
- 	ROCKER_TLV_CMD_PORT_SETTINGS_MODE,		/* u8 */
- 	ROCKER_TLV_CMD_PORT_SETTINGS_LEARNING,		/* u8 */
-+	ROCKER_TLV_CMD_PORT_SETTINGS_PHYS_NAME,		/* binary */
- 
- 	__ROCKER_TLV_CMD_PORT_SETTINGS_MAX,
- 	ROCKER_TLV_CMD_PORT_SETTINGS_MAX =
--- 
-2.2.1
+-#define deref_locked_genl(p)	\
+-	rcu_dereference_protected(p, lockdep_genl_is_held() && \
+-				     lockdep_is_held(&tcp_metrics_lock))
+-
+-#define deref_genl(p)	rcu_dereference_protected(p, lockdep_genl_is_held())
+-
+ static void tcp_metrics_flush_all(struct net *net)
+ {
+ 	unsigned int max_rows = 1U << tcp_metrics_hash_log;
+@@ -1057,8 +1054,7 @@ static void tcp_metrics_flush_all(struct net *net)
+ 		struct tcp_metrics_block __rcu **pp;
+ 		spin_lock_bh(&tcp_metrics_lock);
+ 		pp = &hb->chain;
+-		for (tm = deref_locked_genl(*pp); tm;
+-		     tm = deref_locked_genl(*pp)) {
++		for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
+ 			if (net_eq(tm_net(tm), net)) {
+ 				*pp = tm->tcpm_next;
+ 				kfree_rcu(tm, rcu_head);
+@@ -1097,7 +1093,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	hb = tcp_metrics_hash + hash;
+ 	pp = &hb->chain;
+ 	spin_lock_bh(&tcp_metrics_lock);
+-	for (tm = deref_locked_genl(*pp); tm; tm = deref_locked_genl(*pp)) {
++	for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
+ 		if (addr_same(&tm->tcpm_daddr, &daddr) &&
+ 		    (!src || addr_same(&tm->tcpm_saddr, &saddr)) &&
+ 		    net_eq(tm_net(tm), net)) {
