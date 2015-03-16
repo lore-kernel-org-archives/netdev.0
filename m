@@ -1,43 +1,52 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: Stable inclusion request: recvmsg/sendmsg userspace regression
- fix
-Date: Mon, 16 Mar 2015 10:43:12 +0100
-Message-ID: <5506A5B0.4020301@suse.cz>
-References: <54CBA338.1000207@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Ani Sinha <ani@arista.com>, Stable Tree <stable@vger.kernel.org>
-To: Michal Marek <mmarek@suse.cz>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <54CBA338.1000207@suse.cz>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mark Einon <mark.einon@gmail.com>
+Subject: [PATCH iproute2 1/2] ip: Make uniform the use of synonyms list, show and lst
+Date: Mon, 16 Mar 2015 09:59:09 +0000
+Message-ID: <1426499950-6641-1-git-send-email-mark.einon@gmail.com>
+Cc: netdev@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:35356 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbbCPJ7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 05:59:25 -0400
+Received: by wibdy8 with SMTP id dy8so32922076wib.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 02:59:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2015, 04:28 PM, Michal Marek wrote:
-> Hi,
-> 
-> please include
-> 
-> commit 6a2a2b3ae0759843b22c929881cc184b00cc63ff
-> Author: Ani Sinha <ani@arista.com>
-> Date:   Mon Sep 8 14:49:59 2014 -0700
-> 
->     net:socket: set msg_namelen to 0 if msg_name is passed as NULL in
-> msghdr struct from userland.
-> 
-> to 3.14.y and older trees, since it fixes a userspace regression caused
-> by commit dbb490b9 ("net: socket: error on a negative msg_namelen"). The
-> patch applies cleanly to all trees down to 2.6.32.y.
+Where used in the ip tool, the 'show' option always has the synonyms
+'list' and 'lst', except for ip-token and ip-addrlabel, which are missing
+'lst'. Add this as a synonym for these commands.
 
-Hi,
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
+ ip/ipaddrlabel.c | 1 +
+ ip/iptoken.c     | 1 +
+ 2 files changed, 2 insertions(+)
 
-this was not in the last batch of fixes yet. David, do you have any
-plans with this one?
-
-thanks,
+diff --git a/ip/ipaddrlabel.c b/ip/ipaddrlabel.c
+index b34dd8b..f6a638b 100644
+--- a/ip/ipaddrlabel.c
++++ b/ip/ipaddrlabel.c
+@@ -248,6 +248,7 @@ int do_ipaddrlabel(int argc, char **argv)
+ 	if (argc < 1) {
+ 		return ipaddrlabel_list(0, NULL);
+ 	} else if (matches(argv[0], "list") == 0 ||
++		   matches(argv[0], "lst") == 0 ||
+ 		   matches(argv[0], "show") == 0) {
+ 		return ipaddrlabel_list(argc-1, argv+1);
+ 	} else if (matches(argv[0], "add") == 0) {
+diff --git a/ip/iptoken.c b/ip/iptoken.c
+index 5689c2e..655f160 100644
+--- a/ip/iptoken.c
++++ b/ip/iptoken.c
+@@ -195,6 +195,7 @@ int do_iptoken(int argc, char **argv)
+ 	if (argc < 1) {
+ 		return iptoken_list(0, NULL);
+ 	} else if (matches(argv[0], "list") == 0 ||
++		   matches(argv[0], "lst") == 0 ||
+ 		   matches(argv[0], "show") == 0) {
+ 		return iptoken_list(argc - 1, argv + 1);
+ 	} else if (matches(argv[0], "set") == 0 ||
 -- 
-js
-suse labs
+2.1.4
