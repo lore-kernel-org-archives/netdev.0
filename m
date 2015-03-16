@@ -1,259 +1,122 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] team: Notify state change on ports
-Date: Mon, 16 Mar 2015 10:21:32 +0100
-Message-ID: <20150316092132.GA2058@nanopsycho.orion>
-References: <1426176236-28255-1-git-send-email-jonas.johansson@gmail.com>
- <20150315165051.GE2043@nanopsycho.orion>
- <alpine.LNX.2.03.1503161007550.7948@hellgate.skynet>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken.
+ In 4.0.0-rc3
+Date: Mon, 16 Mar 2015 09:21:38 +0000
+Message-ID: <BLUPR03MB373A446E2D97992CA7AAA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <390621425930628@web28o.yandex.ru>
+ <3625951426018334@web26j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, monis@mellanox.com,
-	jonas.johansson@westermo.se
-To: Jonas Johansson <jonasj76@gmail.com>
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:36623 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752087AbbCPJVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 05:21:36 -0400
-Received: by wibg7 with SMTP id g7so32189435wib.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 02:21:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.03.1503161007550.7948@hellgate.skynet>
+Received: from mail-by2on0137.outbound.protection.outlook.com ([207.46.100.137]:34963
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751445AbbCPJVl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 05:21:41 -0400
+In-Reply-To: <3625951426018334@web26j.yandex.ru>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 16, 2015 at 10:09:12AM CET, jonasj76@gmail.com wrote:
->
->
->On Sun, 15 Mar 2015, Jiri Pirko wrote:
->
->>Thu, Mar 12, 2015 at 05:03:56PM CET, jonasj76@gmail.com wrote:
->>>From: Jonas Johansson <jonasj76@gmail.com>
->>>
->>>Use notifier chain to dispatch an event upon a change in port state. The event
->>>is dispatched with the notifier_bonding_info struct.
->>>The notifier_bonding_info struct was introduced to notify state change on
->>>bonding slaves (commit 61bd3857), so some fields are set to -1, due that the
->>>data is not available in team.
->>>
->>>Signed-off-by: Jonas Johansson <jonasj76@gmail.com>
->>>---
->>>This patch is just a step into introducing HW bonding support. In a previous
->>>(not applied) patchset [1], I added two (2) new ndo ops which was used to
->>>receive a port state change. This patch will instead use the same mechanism
->>>as introduced in [2] and [3] to notify a port state change.
->>>
->>>A state change on a port can be used by a switching device to e.g. load
->>>balance packets over the active ports. Due to that HW bonding isn't added to
->>>the kernel yet this patch may atm only be of use for [4] to use the team
->>>driver instead of the bonding driver. But I hope it will become useful as a
->>>first step to introduce HW bonding.
->>>
->>>[1] - [PATCH net-next 0/2] dsa: implement HW bonding'
->>>     http://marc.info/?l=linux-netdev&m=142442948421049&w=2
->>>[2] - net/core: Add event for a change in slave state'
->>>     commit: 61bd3857
->>>[3] - net/bonding: Move slave state changes to a helper function
->>>     commit: 69a2338e
->>>[4] - [PATCH 00/10] Add HA and LAG support to mlx4 RoCE and SRIOV services
->>>     http://marc.info/?l=linux-netdev&m=142309529514580&w=2
->>>
->>>drivers/net/team/team.c | 85 +++++++++++++++++++++++++++++++++++++++++++++++++
->>>include/linux/if_team.h | 10 ++++++
->>>2 files changed, 95 insertions(+)
->>>
->>>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->>>index a23319f..aef8120 100644
->>>--- a/drivers/net/team/team.c
->>>+++ b/drivers/net/team/team.c
->>>@@ -659,6 +659,86 @@ static void team_notify_peers_fini(struct team *team)
->>>	cancel_delayed_work_sync(&team->notify_peers.dw);
->>>}
->>>
->>>+/*********************
->>>+ * Port notification
->>>+ *********************/
->>>+
->>>+static void team_fill_ifbond(struct team *team, struct ifbond *info)
->>>+{
->>>+	info->bond_mode = -1;
->>>+	info->miimon = -1;
->>>+	info->num_slaves = team->en_port_count;
->>>+}
->>>+
->>>+static void team_fill_ifslave(struct team_port *port, struct ifslave *info)
->>>+{
->>>+	strcpy(info->slave_name, port->dev->name);
->>>+	info->link = port->state.linkup;
->>>+	if (team_port_enabled(port))
->>>+		info->state = BOND_STATE_ACTIVE;
->>>+	else
->>>+		info->state = BOND_STATE_BACKUP;
->>>+	info->link_failure_count = 0;
->>>+}
->>>+
->>>+static void team_notify_port_work(struct work_struct *work)
->>>+{
->>>+	struct team *team;
->>>+	struct team_port_notify *notify;
->>>+
->>>+	team = container_of(work, struct team, notify_ports.dw.work);
->>>+
->>>+	if (!rtnl_trylock()) {
->>>+		schedule_delayed_work(&team->notify_ports.dw, 0);
->>>+		return;
->>>+	}
->>>+	rcu_read_lock();
->>>+
->>>+	notify = list_first_or_null_rcu(&team->notify_ports.port_list,
->>>+					struct team_port_notify, list);
->>>+	if (!notify)
->>>+		goto unlock;
->>>+
->>>+	netdev_bonding_info_change(notify->dev, &notify->bonding_info);
->>
->>
->>I must say I don't like to see "bonding code" in team driver. Also this
->>code emulates bonding in team for nofitication consumer. How about to
->>make it more generic. Notifier consumer should not care if it is bonding
->>or team, it should receive generic info and act accordingly.
->>
->>So how about something like netdev_aggregation_change ?
->>
->>
->>
->The intentions of this patch (from my perspective) was to notify a hardware
->(switch device) of a aggregate member port change. So from this perspective,
->a switchdev callback should maybe be used instead
->(netdev_switch_port_lag_change).
+=46rom: =F0=C1=CE=CF=D7 =E1=CE=C4=D2=C5=CA <rockford@yandex.ru> Sent: W=
+ednesday, March 11, 2015 4:12 AM
+> To: Duan Fugang-B38611; netdev@vger.kernel.org; linux-arm-kernel
+> Subject: Re: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is
+> broken. In 4.0.0-rc3
+>=20
+> Hello!
+> Adding lakml to cc:
+>=20
+> > Commit 2b995f63987013bacde99168218f9c7b252bdcf1 in 4.0.0-rc3 introd=
+uces
+> a nasty bug in transmit, corrupting packets.
+> >
+> > To reproduce:
+> >
+> > $ dd if=3D/dev/zero of=3Dzeros bs=3D1M count=3D20 $ md5sum -b zeros
+> > 8f4e33f3dc3e414ff94e5fb6905cba8c *zeros
+> >
+> > This checksum is correct.
+> >
+> > Copy file "zeros" to another host with NFS, and it gets corrupted,
+> checksum is changed.
+> > File should be big, small amounts of transmit isn't affected.
+> >
+> > I use an i.MX6 Quad board.
+> >
+> > If this commit is reverted, all works fine.
+>=20
+> 3.19 works fine too.
+> And it is not random corruption, when copying all-zero file this is
+> received on NFS host:
+> $ hd zeros | head -16
+> 00000000  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+> |................|
+> *
+> 0052c0f0  00 00 00 00 00 00 00 00  1c f0 9f e5 1c f0 9f e5
+> |................|
+> 0052c100  1c f0 9f e5 1c f0 9f e5  1c f0 9f e5 1c f0 9f e5
+> |................|
+> 0052c110  1c f0 9f e5 1c f0 9f e5  1c f0 9f e5 74 fb 00 00
+> |............t...|
+> 0052c120  bc ff 93 00 c0 ff 93 00  c4 ff 93 00 c8 ff 93 00
+> |................|
+> 0052c130  cc ff 93 00 d0 ff 93 00  d4 ff 93 00 d8 ff 93 00
+> |................|
+> 0052c140  13 00 00 00 28 63 29 20  43 6f 70 79 72 69 67 68  |....(c)
+> Copyrigh|
+> 0052c150  74 20 32 30 30 37 2d 32  30 31 32 2c 20 46 72 65  |t 2007-2=
+012,
+> Fre|
+> 0052c160  65 73 63 61 6c 65 20 53  65 6d 69 63 6f 6e 64 75  |escale
+> Semicondu|
+> 0052c170  63 74 6f 72 2e 20 41 6c  6c 20 72 69 67 68 74 73  |ctor. Al=
+l
+> rights|
+> 0052c180  20 72 65 73 65 72 76 65  64 2e 00 00 dd 00 2c 41  |
+> reserved.....,A|
+> 0052c190  11 73 00 00 d3 74 00 00  3d 75 00 00 a9 78 00 00
+> |.s...t..=3Du...x..|
+> 0052c1a0  4f 78 00 00 75 77 00 00  07 76 00 00 c3 79 00 00
+> |Ox..uw...v...y..|
+> 0052c1b0  09 7a 00 00 75 7a 00 00  97 22 00 00 49 1f 00 00
+> |.z..uz..."..I...|
+> 0052c1c0  b9 21 00 00 ff 70 00 00  90 21 90 00 23 4a 52 f8
+> |.!...p...!..#JR.|
+>=20
+> Looks like zero page with vectors at beginning.
+> Freescale i.MX6 Quad-based Embedsky E9 board.
+>=20
+Hi,=20
 
-I agree, on the way down, use ops, on the way up, use notifier
+I try your case on i.MX6q sabresd board with net tree kernel.
+root@freescale ~$ uname -r
+4.0.0-rc3-11071-gf00bbd2
 
->
->To be consistent, a switchdev callback should maybe also be used when adding
->a port to an LAG. Today NETDEV_CHANGEUPPER can be used by a driver to
->accomplish this, but this will not 'pass through' switchdev, which might want
->to do or keep track of something.
->
->However, the approach above will result in two more ndo ops.
+With below test steps for 10 time, the zero file size range from 20M to=
+ 300M bytes,=20
+compare the md5sum checksum between i.MX6q and i.MX6q/PC host,  the che=
+cksum is the same.
 
-With switchdev ops pushed out into separate struct, I don't this adding
-couple more ndos is a problem.
+root@freescale ~$ rm zeros
+root@freescale ~$ dd if=3D/dev/zero of=3Dzeros bs=3D1M count=3D300
+300+0 records in
+300+0 records out
+314572800 bytes (300.0MB) copied, 1.811459 seconds, 165.6MB/s
+root@freescale ~$ md5sum -b zeros
+0d97a9cd8bbd7ce75a2a76bb06258915  zeros
+root@freescale ~$ cp zeros /mnt/nfs/ -f
+root@freescale ~$ rm zeros
+root@freescale ~$ cp /mnt/nfs/zeros ./
+root@freescale ~$ md5sum -b zeros
+0d97a9cd8bbd7ce75a2a76bb06258915  zeros
 
->
->Thoughts?
->
->>>+	dev_put(notify->dev);
->>>+	list_del_rcu(&notify->list);
->>>+	kfree(notify);
->>>+
->>>+	if (list_first_or_null_rcu(&team->notify_ports.port_list,
->>>+				   struct team_port_notify, list))
->>>+		schedule_delayed_work(&team->notify_ports.dw, msecs_to_jiffies(1));
->>>+unlock:
->>>+	rcu_read_unlock();
->>>+	rtnl_unlock();
->>>+}
->>>+
->>>+static void team_notify_port(struct team *team, struct team_port *port)
->>>+{
->>>+	struct team_port_notify *notify;
->>>+
->>>+	notify = kmalloc(sizeof(*notify), GFP_KERNEL);
->>>+	if (!notify)
->>>+		return;
->>>+
->>>+	dev_hold(port->dev);
->>>+	notify->dev = port->dev;
->>>+	team_fill_ifslave(port, &notify->bonding_info.slave);
->>>+	team_fill_ifbond(team, &notify->bonding_info.master);
->>>+
->>>+	list_add_tail_rcu(&notify->list, &team->notify_ports.port_list);
->>>+	schedule_delayed_work(&team->notify_ports.dw, 0);
->>>+}
->>>+
->>>+static void team_notify_port_init(struct team *team)
->>>+{
->>>+	INIT_LIST_HEAD(&team->notify_ports.port_list);
->>>+	INIT_DELAYED_WORK(&team->notify_ports.dw, team_notify_port_work);
->>>+}
->>>+
->>>+static void team_notify_port_fini(struct team *team)
->>>+{
->>>+	cancel_delayed_work_sync(&team->notify_ports.dw);
->>>+}
->>>
->>>/*******************************
->>> * Send multicast group rejoins
->>>@@ -932,6 +1012,7 @@ static void team_port_enable(struct team *team,
->>>		team->ops.port_enabled(team, port);
->>>	team_notify_peers(team);
->>>	team_mcast_rejoin(team);
->>>+	team_notify_port(team, port);
->>>}
->>>
->>>static void __reconstruct_port_hlist(struct team *team, int rm_index)
->>>@@ -963,6 +1044,7 @@ static void team_port_disable(struct team *team,
->>>	team_adjust_ops(team);
->>>	team_notify_peers(team);
->>>	team_mcast_rejoin(team);
->>>+	team_notify_port(team, port);
->>>}
->>>
->>>#define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
->>>@@ -1581,6 +1663,7 @@ static int team_init(struct net_device *dev)
->>>
->>>	team_notify_peers_init(team);
->>>	team_mcast_rejoin_init(team);
->>>+	team_notify_port_init(team);
->>>
->>>	err = team_options_register(team, team_options, ARRAY_SIZE(team_options));
->>>	if (err)
->>>@@ -1592,6 +1675,7 @@ static int team_init(struct net_device *dev)
->>>	return 0;
->>>
->>>err_options_register:
->>>+	team_notify_port_fini(team);
->>>	team_mcast_rejoin_fini(team);
->>>	team_notify_peers_fini(team);
->>>	team_queue_override_fini(team);
->>>@@ -1613,6 +1697,7 @@ static void team_uninit(struct net_device *dev)
->>>
->>>	__team_change_mode(team, NULL); /* cleanup */
->>>	__team_options_unregister(team, team_options, ARRAY_SIZE(team_options));
->>>+	team_notify_port_fini(team);
->>>	team_mcast_rejoin_fini(team);
->>>	team_notify_peers_fini(team);
->>>	team_queue_override_fini(team);
->>>diff --git a/include/linux/if_team.h b/include/linux/if_team.h
->>>index a6aa970..fc59e39 100644
->>>--- a/include/linux/if_team.h
->>>+++ b/include/linux/if_team.h
->>>@@ -28,6 +28,12 @@ struct team_pcpu_stats {
->>>
->>>struct team;
->>>
->>>+struct team_port_notify {
->>>+	struct list_head list; /* node in notify list */
->>>+	struct net_device *dev;
->>>+	struct netdev_bonding_info bonding_info;
->>>+};
->>>+
->>>struct team_port {
->>>	struct net_device *dev;
->>>	struct hlist_node hlist; /* node in enabled ports hash list */
->>>@@ -207,6 +213,10 @@ struct team {
->>>		atomic_t count_pending;
->>>		struct delayed_work dw;
->>>	} mcast_rejoin;
->>>+	struct {
->>>+		struct list_head port_list; /* list of ports to be notified */
->>>+		struct delayed_work dw;
->>>+	} notify_ports;
->>>	long mode_priv[TEAM_MODE_PRIV_LONGS];
->>>};
->>>
->>>--
->>>2.1.0
->>>
->>
+Do you have any lost for reproduce the issue ?
+
+
+Regards,
+Andy
