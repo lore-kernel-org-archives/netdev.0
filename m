@@ -1,42 +1,46 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/3] switchdev: support stp updates on stacked
- netdevices
-Date: Mon, 16 Mar 2015 08:09:59 -0700
-Message-ID: <5506F247.2020701@cumulusnetworks.com>
-References: <CAE4R7bCvFPE5nPBJ7r41-ZC6=5AUE=gQ7uTy4kTNTZf-xKraVg@mail.gmail.com> <20150315191722.GE3518@nanopsycho.orion> <CAE4R7bDaBQF8kD1Qi9EJ0pApfCEQeQ1z3DQuZjJXZw55NbmyMg@mail.gmail.com> <20150315.183312.401696632034773662.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net] bnx2x: fix encapsulation features on 57710/57711
+Date: Mon, 16 Mar 2015 16:15:59 +0100
+Message-ID: <1426518959-17883-1-git-send-email-mschmidt@redhat.com>
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	=?UTF-8?q?Eren=20T=C3=BCrkay?= <erent@skyatlas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35085 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933495AbbCPPKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 11:10:02 -0400
-Received: by pabyw6 with SMTP id yw6so67454429pab.2
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 08:10:01 -0700 (PDT)
-In-Reply-To: <20150315.183312.401696632034773662.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:56424 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932199AbbCPPQD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Mar 2015 11:16:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/15/15, 3:33 PM, David Miller wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> Date: Sun, 15 Mar 2015 13:03:06 -0700
->
->> I'm proposing a simple, permissive solution, with a provision for an
->> out on a case-by-case basis.  Right now I don't see any reason to
->> special case any middle driver; just let STP state propagate down to
->> the port device.
-> +1
-ok. That was the path i had taken initially (see for getlink/setlink):
-http://www.spinics.net/lists/netdev/msg313436.html
+E1x chips (57710, 57711(E)) have no support for encapsulation
+offload. bnx2x incorrectly advertises the support as available.
 
-I have resubmitted the patch with rollback to transparently following 
-lowerdevs.
-My version also does not follow lowerdevs if NETIF_F_HW_SWITCH_OFFLOAD 
-is not
-set. And this is set on bonds and teams if any one of their lowerdevs 
-have it currently.
+Setting of those features is conditional on "!CHIP_IS_E1x(bp)", but
+the bp struct is not initialized yet at this point and consequently
+any chip passes the check.
+The check must use the "chip_is_e1x" local variable instead to work
+correctly.
 
-thanks.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index bef750a090..996e215fc3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12769,7 +12769,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
+ 		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO |
+ 		NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
+-	if (!CHIP_IS_E1x(bp)) {
++	if (!chip_is_e1x) {
+ 		dev->hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
+ 				    NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
+ 		dev->hw_enc_features =
+-- 
+2.1.0
