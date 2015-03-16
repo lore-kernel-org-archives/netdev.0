@@ -1,35 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ip6_tunnel: fix error code when tunnel exists
-Date: Mon, 16 Mar 2015 16:34:13 -0400 (EDT)
-Message-ID: <20150316.163413.1468551206666732117.davem@davemloft.net>
-References: <20150313.123231.1641333637059823788.davem@davemloft.net>
-	<1426517765-4649-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2 net-next] rhashtable: Avoid calculating hash again to
+ unlock
+Date: Tue, 17 Mar 2015 07:48:36 +1100
+Message-ID: <20150316204836.GA6534@gondor.apana.org.au>
+References: <cover.1426494808.git.tgraf@suug.ch>
+ <cover.1426494808.git.tgraf@suug.ch>
+ <e66c2872d3182c2df12f5657903f19e8ffc1f0f0.1426494808.git.tgraf@suug.ch>
+ <20150316.162202.2166849044626317059.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, me@pierre-cheynier.net,
-	eric.dumazet@gmail.com, steffen.klassert@secunet.com
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37829 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbbCPUeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:34:17 -0400
-In-Reply-To: <1426517765-4649-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:41526 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933129AbbCPUsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:48:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20150316.162202.2166849044626317059.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon, 16 Mar 2015 15:56:05 +0100
+On Mon, Mar 16, 2015 at 04:22:02PM -0400, David Miller wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Mon, 16 Mar 2015 10:42:26 +0100
+> 
+> > Caching the lock pointer avoids having to hash on the object
+> > again to unlock the bucket locks.
+> > 
+> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> I'd like to hold off on this.
+> 
+> My understanding is that Herbert plans to expand the table size
+> synchonously during insert in emergency situations, and in that regime
+> some of these optimization won't be valid.
 
-> @@ -1445,7 +1445,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
->  		ip6_tnl_parm_from_user(&p1, &p);
->  		t = ip6_tnl_locate(net, &p1, cmd == SIOCADDTUNNEL);
->  		if (cmd == SIOCCHGTUNNEL) {
-> -			if (t != NULL) {
-> +			if (!IS_ERR(t)) {
->  				if (t->dev != dev) {
->  					err = -EEXIST;
->  					break;
+Actually this patch does not conflict with my multiple rehashing
+work (the final scheme I used only requires two locks) so please
+feel free to merge it and I will rebase my stuff.
 
-Please convert that last assignment to "err = PTR_ERR(t);", thanks.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
