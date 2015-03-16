@@ -1,110 +1,58 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] dsa: change "select" to "depends on" for NET_SWITCHDEV and for NET_DSA
-Date: Mon, 16 Mar 2015 12:33:32 +0100
-Message-ID: <1426505612-2144-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, sfeldma@gmail.com,
-	rdunlap@infradead.org, alexei.starovoitov@gmail.com
-To: netdev@vger.kernel.org
+From: Andrew Vagin <avagin@parallels.com>
+Subject: RE: [PATCH net-next 0/6] tcp_metrics: Network namespace bloat
+ reduction v3
+Date: Mon, 16 Mar 2015 14:35:44 +0300
+Message-ID: <20150316113542.GA27127@paralelels.com>
+Reply-To: <87y4n1xzco.fsf_-_@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="koi8-r"
+Cc: <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:37983 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbbCPLdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 07:33:38 -0400
-Received: by wifj2 with SMTP id j2so40665670wif.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 04:33:37 -0700 (PDT)
+Received: from relay.parallels.com ([195.214.232.42]:58924 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753331AbbCPLfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 07:35:52 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This would fix randconfig compile error:
-net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
-(.text+0xf7811): undefined reference to `fib_flush_external'
+Hello Eric,
 
-Also it fixes following warnings:
-warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
+We use deref_locked_genl(), but &genl_mutex isn't hold on this path.
 
-warning: (NET_DSA_MV88E6060 && NET_DSA_MV88E6131 && NET_DSA_MV88E6123_61_65 && NET_DSA_MV88E6171 && NET_DSA_MV88E6352 && NET_DSA_BCM_SF2) selects NET_DSA which has unmet direct dependencies (NET && HAVE_NET_DSA && NET_SWITCHDEV)
-
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Suggested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/dsa/Kconfig | 13 ++++++-------
- net/dsa/Kconfig         |  3 +--
- 2 files changed, 7 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 48e62a3..18550c7 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -7,7 +7,7 @@ config NET_DSA_MV88E6XXX
- 
- config NET_DSA_MV88E6060
- 	tristate "Marvell 88E6060 ethernet switch chip support"
--	select NET_DSA
-+	depends on NET_DSA
- 	select NET_DSA_TAG_TRAILER
- 	---help---
- 	  This enables support for the Marvell 88E6060 ethernet switch
-@@ -19,7 +19,7 @@ config NET_DSA_MV88E6XXX_NEED_PPU
- 
- config NET_DSA_MV88E6131
- 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
--	select NET_DSA
-+	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_MV88E6XXX_NEED_PPU
- 	select NET_DSA_TAG_DSA
-@@ -29,7 +29,7 @@ config NET_DSA_MV88E6131
- 
- config NET_DSA_MV88E6123_61_65
- 	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
--	select NET_DSA
-+	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_TAG_EDSA
- 	---help---
-@@ -38,7 +38,7 @@ config NET_DSA_MV88E6123_61_65
- 
- config NET_DSA_MV88E6171
- 	tristate "Marvell 88E6171/6172 ethernet switch chip support"
--	select NET_DSA
-+	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_TAG_EDSA
- 	---help---
-@@ -47,7 +47,7 @@ config NET_DSA_MV88E6171
- 
- config NET_DSA_MV88E6352
- 	tristate "Marvell 88E6176/88E6352 ethernet switch chip support"
--	select NET_DSA
-+	depends on NET_DSA
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_TAG_EDSA
- 	---help---
-@@ -56,8 +56,7 @@ config NET_DSA_MV88E6352
- 
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
--	depends on HAS_IOMEM
--	select NET_DSA
-+	depends on HAS_IOMEM && NET_DSA
- 	select NET_DSA_TAG_BRCM
- 	select FIXED_PHY
- 	select BCM7XXX_PHY
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index b45206e..9379a9c 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -6,9 +6,8 @@ config HAVE_NET_DSA
- 
- config NET_DSA
- 	tristate
--	depends on HAVE_NET_DSA
-+	depends on HAVE_NET_DSA && NET_SWITCHDEV
- 	select PHYLIB
--	select NET_SWITCHDEV
- 
- if NET_DSA
- 
--- 
-1.9.3
+[   13.215863] ===============================
+[   13.216562] [ INFO: suspicious RCU usage. ]
+[   13.217433] 4.0.0-rc3-next-20150316 #186 Not tainted
+[   13.218550] -------------------------------
+[   13.219496] net/ipv4/tcp_metrics.c:1060 suspicious rcu_dereference_protected() usage!
+[   13.221213] other info that might help us debug this:
+[   13.223050] rcu_scheduler_active = 1, debug_locks = 0
+[   13.224491] 4 locks held by kworker/u8:2/62:
+[   13.225461]  #0:  ("%s""netns"){.+.+.+}, at: [<ffffffff8109d9be>] process_one_work+0x15e/0x520
+[   13.227600]  #1:  (net_cleanup_work){+.+.+.}, at: [<ffffffff8109d9be>] process_one_work+0x15e/0x520
+[   13.229979]  #2:  (net_mutex){+.+.+.}, at: [<ffffffff8162cddc>] cleanup_net+0x8c/0x240
+[   13.231858]  #3:  (tcp_metrics_lock){+.....}, at: [<ffffffff816ac14c>] tcp_metrics_flush_all+0x4c/0x170
+[   13.234059] stack backtrace:
+[   13.234975] CPU: 2 PID: 62 Comm: kworker/u8:2 Not tainted 4.0.0-rc3-next-20150316 #186
+[   13.236689] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[   13.237972] Workqueue: netns cleanup_net
+[   13.238943]  0000000000000000 0000000002af7693 ffff880036d73c58 ffffffff8176a03d
+[   13.240746]  0000000000000000 ffff88011a4d8000 ffff880036d73c88 ffffffff810d2867
+[   13.242434]  ffff88011aa28000 ffff88011aa28000 ffff8800db620000 ffff8800db640000
+[   13.244104] Call Trace:
+[   13.244613]  [<ffffffff8176a03d>] dump_stack+0x45/0x57
+[   13.245693]  [<ffffffff810d2867>] lockdep_rcu_suspicious+0xe7/0x120
+[   13.247021]  [<ffffffff816ac264>] tcp_metrics_flush_all+0x164/0x170
+[   13.248346]  [<ffffffff816ac27e>] tcp_net_metrics_exit+0xe/0x10
+[   13.249619]  [<ffffffff8162bc49>] ops_exit_list.isra.4+0x39/0x60
+[   13.250842]  [<ffffffff8162ceb0>] cleanup_net+0x160/0x240
+[   13.251960]  [<ffffffff8109da2c>] process_one_work+0x1cc/0x520
+[   13.253142]  [<ffffffff8109d9be>] ? process_one_work+0x15e/0x520
+[   13.254411]  [<ffffffff8109e0db>] worker_thread+0x4b/0x470
+[   13.255591]  [<ffffffff8109e090>] ? rescuer_thread+0x310/0x310
+[   13.256753]  [<ffffffff8109e090>] ? rescuer_thread+0x310/0x310
+[   13.257922]  [<ffffffff810a3a43>] kthread+0xf3/0x110
+[   13.258948]  [<ffffffff810a3950>] ? kthread_create_on_node+0x240/0x240
+[   13.260240]  [<ffffffff81774023>] ret_from_fork+0x53/0xb0
+[   13.261272]  [<ffffffff810a3950>] ? kthread_create_on_node+0x240/0x240
