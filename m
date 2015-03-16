@@ -1,221 +1,72 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 3/5] inet_diag: allow sk_diag_fill() to handle request socks
-Date: Sun, 15 Mar 2015 21:12:14 -0700
-Message-ID: <1426479136-15645-4-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 4/5] inet: factorize sock_edemux()/sock_gen_put() code
+Date: Sun, 15 Mar 2015 21:12:15 -0700
+Message-ID: <1426479136-15645-5-git-send-email-edumazet@google.com>
 References: <1426479136-15645-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f73.google.com ([209.85.218.73]:33200 "EHLO
-	mail-oi0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbbCPEMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 00:12:37 -0400
-Received: by oiba3 with SMTP id a3so6155843oib.0
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 21:12:36 -0700 (PDT)
+Received: from mail-ig0-f202.google.com ([209.85.213.202]:34430 "EHLO
+	mail-ig0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751905AbbCPEMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 00:12:44 -0400
+Received: by igqa13 with SMTP id a13so2419644igq.1
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 21:12:43 -0700 (PDT)
 In-Reply-To: <1426479136-15645-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet_diag_fill_req() is renamed to inet_req_diag_fill()
-and moved up, so that it can be called fom sk_diag_fill()
-
-inet_diag_bc_sk() is ready to handle request socks.
-
-inet_twsk_diag_dump() is no longer needed.
+sock_edemux() is not used in fast path, and should
+really call sock_gen_put() to save some code.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/inet_diag.c | 120 +++++++++++++++++++++++----------------------------
- 1 file changed, 53 insertions(+), 67 deletions(-)
+ net/core/sock.c            | 15 ---------------
+ net/ipv4/inet_hashtables.c |  6 ++++++
+ 2 files changed, 6 insertions(+), 15 deletions(-)
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index ac7b5c909fe7..e7ba59038c8d 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -113,14 +113,13 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 		return -EMSGSIZE;
- 
- 	r = nlmsg_data(nlh);
--	BUG_ON((1 << sk->sk_state) & (TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV));
-+	BUG_ON(!sk_fullsock(sk));
- 
- 	inet_diag_msg_common_fill(r, sk);
- 	r->idiag_state = sk->sk_state;
- 	r->idiag_timer = 0;
- 	r->idiag_retrans = 0;
- 
--
- 	if (nla_put_u8(skb, INET_DIAG_SHUTDOWN, sk->sk_shutdown))
- 		goto errout;
- 
-@@ -229,7 +228,6 @@ static int inet_csk_diag_fill(struct sock *sk,
- 
- static int inet_twsk_diag_fill(struct sock *sk,
- 			       struct sk_buff *skb,
--			       const struct inet_diag_req_v2 *req,
- 			       u32 portid, u32 seq, u16 nlmsg_flags,
- 			       const struct nlmsghdr *unlh)
- {
-@@ -265,6 +263,39 @@ static int inet_twsk_diag_fill(struct sock *sk,
- 	return 0;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 4bc42efb3e40..a950b54248da 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1661,21 +1661,6 @@ void sock_efree(struct sk_buff *skb)
  }
+ EXPORT_SYMBOL(sock_efree);
  
-+static int inet_req_diag_fill(struct sock *sk, struct sk_buff *skb,
-+			      u32 portid, u32 seq, u16 nlmsg_flags,
-+			      const struct nlmsghdr *unlh)
+-#ifdef CONFIG_INET
+-void sock_edemux(struct sk_buff *skb)
+-{
+-	struct sock *sk = skb->sk;
+-
+-	if (sk->sk_state == TCP_TIME_WAIT)
+-		inet_twsk_put(inet_twsk(sk));
+-	else if (sk->sk_state == TCP_NEW_SYN_RECV)
+-		reqsk_put(inet_reqsk(sk));
+-	else
+-		sock_put(sk);
+-}
+-EXPORT_SYMBOL(sock_edemux);
+-#endif
+-
+ kuid_t sock_i_uid(struct sock *sk)
+ {
+ 	kuid_t uid;
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 64401a2fdd33..c28bca4cc15b 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -269,6 +269,12 @@ void sock_gen_put(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sock_gen_put);
+ 
++void sock_edemux(struct sk_buff *skb)
 +{
-+	struct inet_diag_msg *r;
-+	struct nlmsghdr *nlh;
-+	long tmo;
-+
-+	nlh = nlmsg_put(skb, portid, seq, unlh->nlmsg_type, sizeof(*r),
-+			nlmsg_flags);
-+	if (!nlh)
-+		return -EMSGSIZE;
-+
-+	r = nlmsg_data(nlh);
-+	inet_diag_msg_common_fill(r, sk);
-+	r->idiag_state = TCP_SYN_RECV;
-+	r->idiag_timer = 1;
-+	r->idiag_retrans = inet_reqsk(sk)->num_retrans;
-+
-+	BUILD_BUG_ON(offsetof(struct inet_request_sock, ir_cookie) !=
-+		     offsetof(struct sock, sk_cookie));
-+
-+	tmo = inet_reqsk(sk)->expires - jiffies;
-+	r->idiag_expires = (tmo >= 0) ? jiffies_to_msecs(tmo) : 0;
-+	r->idiag_rqueue	= 0;
-+	r->idiag_wqueue	= 0;
-+	r->idiag_uid	= 0;
-+	r->idiag_inode	= 0;
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
++	sock_gen_put(skb->sk);
 +}
++EXPORT_SYMBOL(sock_edemux);
 +
- static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 			const struct inet_diag_req_v2 *r,
- 			struct user_namespace *user_ns,
-@@ -272,9 +303,13 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 			const struct nlmsghdr *unlh)
- {
- 	if (sk->sk_state == TCP_TIME_WAIT)
--		return inet_twsk_diag_fill(sk, skb, r, portid, seq,
-+		return inet_twsk_diag_fill(sk, skb, portid, seq,
- 					   nlmsg_flags, unlh);
- 
-+	if (sk->sk_state == TCP_NEW_SYN_RECV)
-+		return inet_req_diag_fill(sk, skb, portid, seq,
-+					  nlmsg_flags, unlh);
-+
- 	return inet_csk_diag_fill(sk, skb, r, user_ns, portid, seq,
- 				  nlmsg_flags, unlh);
- }
-@@ -502,7 +537,7 @@ int inet_diag_bc_sk(const struct nlattr *bc, struct sock *sk)
- 	entry_fill_addrs(&entry, sk);
- 	entry.sport = inet->inet_num;
- 	entry.dport = ntohs(inet->inet_dport);
--	entry.userlocks = (sk->sk_state != TCP_TIME_WAIT) ? sk->sk_userlocks : 0;
-+	entry.userlocks = sk_fullsock(sk) ? sk->sk_userlocks : 0;
- 
- 	return inet_diag_bc_run(bc, &entry);
- }
-@@ -661,61 +696,6 @@ static void twsk_build_assert(void)
- #endif
- }
- 
--static int inet_twsk_diag_dump(struct sock *sk,
--			       struct sk_buff *skb,
--			       struct netlink_callback *cb,
--			       const struct inet_diag_req_v2 *r,
--			       const struct nlattr *bc)
--{
--	twsk_build_assert();
--
--	if (!inet_diag_bc_sk(bc, sk))
--		return 0;
--
--	return inet_twsk_diag_fill(sk, skb, r,
--				   NETLINK_CB(cb->skb).portid,
--				   cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
--}
--
--static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
--			      struct request_sock *req,
--			      struct user_namespace *user_ns,
--			      u32 portid, u32 seq,
--			      const struct nlmsghdr *unlh)
--{
--	const struct inet_request_sock *ireq = inet_rsk(req);
--	struct inet_diag_msg *r;
--	struct nlmsghdr *nlh;
--	long tmo;
--
--	nlh = nlmsg_put(skb, portid, seq, unlh->nlmsg_type, sizeof(*r),
--			NLM_F_MULTI);
--	if (!nlh)
--		return -EMSGSIZE;
--
--	r = nlmsg_data(nlh);
--	inet_diag_msg_common_fill(r, (struct sock *)ireq);
--	r->idiag_state = TCP_SYN_RECV;
--	r->idiag_timer = 1;
--	r->idiag_retrans = req->num_retrans;
--
--	BUILD_BUG_ON(offsetof(struct inet_request_sock, ir_cookie) !=
--		     offsetof(struct sock, sk_cookie));
--
--	tmo = req->expires - jiffies;
--	if (tmo < 0)
--		tmo = 0;
--
--	r->idiag_expires = jiffies_to_msecs(tmo);
--	r->idiag_rqueue = 0;
--	r->idiag_wqueue = 0;
--	r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
--	r->idiag_inode = 0;
--
--	nlmsg_end(skb, nlh);
--	return 0;
--}
--
- static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
- 			       struct netlink_callback *cb,
- 			       const struct inet_diag_req_v2 *r,
-@@ -769,10 +749,10 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
- 					continue;
- 			}
- 
--			err = inet_diag_fill_req(skb, sk, req,
--						 sk_user_ns(NETLINK_CB(cb->skb).sk),
-+			err = inet_req_diag_fill((struct sock *)req, skb,
- 						 NETLINK_CB(cb->skb).portid,
--						 cb->nlh->nlmsg_seq, cb->nlh);
-+						 cb->nlh->nlmsg_seq,
-+						 NLM_F_MULTI, cb->nlh);
- 			if (err < 0) {
- 				cb->args[3] = j + 1;
- 				cb->args[4] = reqnum;
-@@ -903,10 +883,16 @@ skip_listen_ht:
- 			if (r->id.idiag_dport != sk->sk_dport &&
- 			    r->id.idiag_dport)
- 				goto next_normal;
--			if (sk->sk_state == TCP_TIME_WAIT)
--				res = inet_twsk_diag_dump(sk, skb, cb, r, bc);
--			else
--				res = inet_csk_diag_dump(sk, skb, cb, r, bc);
-+			twsk_build_assert();
-+
-+			if (!inet_diag_bc_sk(bc, sk))
-+				goto next_normal;
-+
-+			res = sk_diag_fill(sk, skb, r,
-+					   sk_user_ns(NETLINK_CB(cb->skb).sk),
-+					   NETLINK_CB(cb->skb).portid,
-+					   cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+					   cb->nlh);
- 			if (res < 0) {
- 				spin_unlock_bh(lock);
- 				goto done;
+ struct sock *__inet_lookup_established(struct net *net,
+ 				  struct inet_hashinfo *hashinfo,
+ 				  const __be32 saddr, const __be16 sport,
 -- 
 2.2.0.rc0.207.ga3a616c
