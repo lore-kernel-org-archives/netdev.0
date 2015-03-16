@@ -1,45 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net-next] rhashtable: Avoid calculating hash again
- to unlock
-Date: Mon, 16 Mar 2015 17:15:00 -0400 (EDT)
-Message-ID: <20150316.171500.2219680403539914280.davem@davemloft.net>
-References: <e66c2872d3182c2df12f5657903f19e8ffc1f0f0.1426494808.git.tgraf@suug.ch>
-	<20150316.162202.2166849044626317059.davem@davemloft.net>
-	<20150316204836.GA6534@gondor.apana.org.au>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH iproute2 -next v2 2/2] tc: add eBPF support to f_bpf
+Date: Mon, 16 Mar 2015 14:23:34 -0700
+Message-ID: <550749D6.3070906@plumgrid.com>
+References: <cover.1426530729.git.daniel@iogearbox.net> <e6ccd2548197c60c0686dca78ae02fc604fde065.1426530729.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: jhs@mojatatu.com, jiri@resnulli.us, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38445 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932779AbbCPVPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 17:15:03 -0400
-In-Reply-To: <20150316204836.GA6534@gondor.apana.org.au>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:35268 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753234AbbCPVXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 17:23:36 -0400
+Received: by pdbop1 with SMTP id op1so69014848pdb.2
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 14:23:35 -0700 (PDT)
+In-Reply-To: <e6ccd2548197c60c0686dca78ae02fc604fde065.1426530729.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 17 Mar 2015 07:48:36 +1100
+On 3/16/15 11:37 AM, Daniel Borkmann wrote:
+> This work adds the tc frontend for kernel commit e2e9b6541dd4 ("cls_bpf:
+> add initial eBPF support for programmable classifiers").
+>
+> A C-like classifier program (f.e. see e2e9b6541dd4) is being compiled via
+> LLVM's eBPF backend into an ELF file, that is then being passed to tc. tc
+> then loads, if any, eBPF maps and eBPF opcodes (with fixed-up eBPF map file
+> descriptors) out of its dedicated sections, and via bpf(2) into the kernel
+> and then the resulting fd via netlink down to cls_bpf. cls_bpf allows for
+> annotations, currently, I've used the file name for that, so that the user
+> can easily identify his filter when dumping configurations back.
+>
+> Example usage:
+>
+>    clang -O2 -emit-llvm -c cls.c -o - | llc -march=bpf -filetype=obj -o cls.o
+>    tc filter add dev em1 parent 1: bpf run object-file cls.o classid x:y
+>
+>    tc filter show dev em1 [...]
+>    filter parent 1: protocol all pref 49152 bpf handle 0x1 flowid x:y cls.o
+>
+> I placed the parser bits derived from Alexei's kernel sample, into tc_bpf.c
+> as my next step is to also add the same support for BPF action, so we can
+> have a fully fledged eBPF classifier and action in tc.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-> On Mon, Mar 16, 2015 at 04:22:02PM -0400, David Miller wrote:
->> From: Thomas Graf <tgraf@suug.ch>
->> Date: Mon, 16 Mar 2015 10:42:26 +0100
->> 
->> > Caching the lock pointer avoids having to hash on the object
->> > again to unlock the bucket locks.
->> > 
->> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
->> 
->> I'd like to hold off on this.
->> 
->> My understanding is that Herbert plans to expand the table size
->> synchonously during insert in emergency situations, and in that regime
->> some of these optimization won't be valid.
-> 
-> Actually this patch does not conflict with my multiple rehashing
-> work (the final scheme I used only requires two locks) so please
-> feel free to merge it and I will rebase my stuff.
-
-Ok, done, thanks.
+looks good to me
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
