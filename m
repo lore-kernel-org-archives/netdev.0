@@ -1,279 +1,184 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 2/2] [v2] net/fsl: modify xgmac_mdio for little endian SoCs
-Date: Mon, 16 Mar 2015 18:56:29 +0800
-Message-ID: <1426503389-23228-1-git-send-email-shh.xie@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: virtio-net: tx queue was stopped
+Date: Mon, 16 Mar 2015 13:26:58 +0100
+Message-ID: <20150316132309-mutt-send-email-mst@redhat.com>
+References: <55052BB3.2080705@huawei.com>
+	<20150315080138-mutt-send-email-mst@redhat.com>
+	<5506A137.8050909@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0078.outbound.protection.outlook.com ([157.56.111.78]:35271
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751732AbbCPMDl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Mar 2015 08:03:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lilijun <jerry.lilijun@huawei.com>,
+	virtualization@lists.linux-foundation.org,
+	"liuyongan@huawei.com" <liuyongan@huawei.com>,
+	"lixiao \(H\)" <lixiao91@huawei.com>
+To: Linhaifeng <haifeng.lin@huawei.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <5506A137.8050909@huawei.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+On Mon, Mar 16, 2015 at 05:24:07PM +0800, Linhaifeng wrote:
+> 
+> 
+> On 2015/3/15 16:40, Michael S. Tsirkin wrote:
+> > On Sun, Mar 15, 2015 at 02:50:27PM +0800, Linhaifeng wrote:
+> >> Hi,Michael
+> >>
+> >> I had tested the start_xmit function by the follow code found that the tx queue's state is stopped and can't send any packets anymore.
+> > 
+> > Why don't you Cc all maintainers on this email?
+> > Pls check the file MAINTAINERS for the full list.
+> > I added Cc for now.
+> > 
+> 
+> Thank you.
+> 
+> >>
+> >> static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >> {
+> >> 	... ...
+> >>
+> >>
+> >>         capacity = 10;	//########## test code : force to call netif_stop_queue
+> >>
+> >>         if (capacity < 2+MAX_SKB_FRAGS) {
+> >>                 netif_stop_queue(dev);
+> > 
+> > So you changed code to make it think we are out of capacity, now it
+> > stops the queue.
+> > 
+> >>
+> >>                 if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+> >>                         /* More just got used, free them then recheck. */
+> >>                         capacity += free_old_xmit_skbs(vi);
+> >>                         dev_warn(&dev->dev, "free_old_xmit_skbs capacity =%d MAX_SKB_FRAGS=%d", capacity, MAX_SKB_FRAGS);
+> >>
+> >>                         capacity = 10;		//########## test code : force not to call  netif_start_queue
+> >>
+> >>                         if (capacity >= 2+MAX_SKB_FRAGS) {
+> >>                                 netif_start_queue(dev);
+> >>                                 virtqueue_disable_cb(vi->svq);
+> >>                         } else {
+> >> 				//########## OTOH if often enter this branch tx queue maybe stopped.
+> >> 			}
+> > 
+> > and changed it here so it won't restart queue if host consumed
+> > all buffers.
+> > unsurprisingly this makes driver not work.
+> > 
+> > 
+> >> 			
+> >>                 }
+> >>
+> >> 		//########## Should we start queue here? I found that sometimes skb_xmit_done run before netif_stop_queue if this occurred the queue's state is
+> >> 		//########## stopped and have to reload virtio-net module to restore network.
+> > 
+> > With or without your changes?
+> 
+> without
+> 
+> > Is this the condition you describe?
+> > 
+> > 
+> >         if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
+> > 
+> > ---> at this point, skb_xmit_done runs. this does:
+> >         /* Suppress further interrupts. */
+> >         virtqueue_disable_cb(vq);
+> > 
+> >         /* We were probably waiting for more output buffers. */
+> >         netif_wake_subqueue(vi->dev, vq2txq(vq));
+> > --->
+> > 
+> > 
+> > 
+> 
+> Because i use vhost-user(poll mode) with virtio_net so at this time vhost
+> had received all packets.
 
-MDIO controller on little endian Socs, e.g. ls2085a is similar to the
-controller on big endian Socs, but the MDIO access is little endian,
-we use I/O accessor function to handle endianness, so the driver can
-run on little endian Socs. A property "little-endian" is used
-in DTS to indicate the MDIO is little endian, if driver probes the
-property, driver will access MDIO in little endian, otherwise, driver
-works in big endian by default.
+Must likely a vhost-user bug then.
 
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-changes for v2:
-1. use "little-endian" which is documented in
-Documentation/devicetree/bindings/regmap/regmap.txt
-2. splitted bug fix into another patch.
+> >                 netif_stop_subqueue(dev, qnum);
+> > 
+> > ---> queue is now stopped
+> > 
+> >                 if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+> > 
+> > ----> this re-enables interrupts, after an interrupt skb_xmit_done
+> > 	will run again.
+> > 
+> 
+> Before netif_stop_subqueue called vhost had received all packets so virtio_net
+> will never receive any skb_xmit_done.
 
- drivers/net/ethernet/freescale/xgmac_mdio.c | 96 ++++++++++++++++++++---------
- 1 file changed, 68 insertions(+), 28 deletions(-)
+And completed them in the used ring?
+In that case virtqueue_enable_cb_delayed will return false,
+so we'll call free_old_xmit_skbs below, and restart ring.
 
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 5f691f2..cd40b68 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -46,17 +46,43 @@ struct tgec_mdio_controller {
- #define MDIO_DATA(x)		(x & 0xffff)
- #define MDIO_DATA_BSY		BIT(31)
- 
-+struct mdio_fsl_priv {
-+	struct	tgec_mdio_controller __iomem *mdio_base;
-+	bool	is_little_endian;
-+};
-+
-+static u32 xgmac_read32(void __iomem *regs,
-+			bool is_little_endian)
-+{
-+	if (is_little_endian)
-+		return ioread32(regs);
-+	else
-+		return ioread32be(regs);
-+}
-+
-+static void xgmac_write32(u32 value,
-+			  void __iomem *regs,
-+			  bool is_little_endian)
-+{
-+	if (is_little_endian)
-+		iowrite32(value, regs);
-+	else
-+		iowrite32be(value, regs);
-+}
-+
- /*
-  * Wait until the MDIO bus is free
-  */
- static int xgmac_wait_until_free(struct device *dev,
--				 struct tgec_mdio_controller __iomem *regs)
-+				 struct tgec_mdio_controller __iomem *regs,
-+				 bool is_little_endian)
- {
- 	unsigned int timeout;
- 
- 	/* Wait till the bus is free */
- 	timeout = TIMEOUT;
--	while ((ioread32be(&regs->mdio_stat) & MDIO_STAT_BSY) && timeout) {
-+	while ((xgmac_read32(&regs->mdio_stat, is_little_endian) &
-+		MDIO_STAT_BSY) && timeout) {
- 		cpu_relax();
- 		timeout--;
- 	}
-@@ -73,13 +99,15 @@ static int xgmac_wait_until_free(struct device *dev,
-  * Wait till the MDIO read or write operation is complete
-  */
- static int xgmac_wait_until_done(struct device *dev,
--				 struct tgec_mdio_controller __iomem *regs)
-+				 struct tgec_mdio_controller __iomem *regs,
-+				 bool is_little_endian)
- {
- 	unsigned int timeout;
- 
- 	/* Wait till the MDIO write is complete */
- 	timeout = TIMEOUT;
--	while ((ioread32be(&regs->mdio_stat) & MDIO_STAT_BSY) && timeout) {
-+	while ((xgmac_read32(&regs->mdio_stat, is_little_endian) &
-+		MDIO_STAT_BSY) && timeout) {
- 		cpu_relax();
- 		timeout--;
- 	}
-@@ -99,12 +127,14 @@ static int xgmac_wait_until_done(struct device *dev,
-  */
- static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 value)
- {
--	struct tgec_mdio_controller __iomem *regs = bus->priv;
-+	struct mdio_fsl_priv *priv = (struct mdio_fsl_priv *)bus->priv;
-+	struct tgec_mdio_controller __iomem *regs = priv->mdio_base;
- 	uint16_t dev_addr;
- 	u32 mdio_ctl, mdio_stat;
- 	int ret;
-+	bool endian = priv->is_little_endian;
- 
--	mdio_stat = ioread32be(&regs->mdio_stat);
-+	mdio_stat = xgmac_read32(&regs->mdio_stat, endian);
- 	if (regnum & MII_ADDR_C45) {
- 		/* Clause 45 (ie 10G) */
- 		dev_addr = (regnum >> 16) & 0x1f;
-@@ -115,29 +145,29 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
- 		mdio_stat &= ~MDIO_STAT_ENC;
- 	}
- 
--	iowrite32be(mdio_stat, &regs->mdio_stat);
-+	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs);
-+	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
- 	/* Set the port and dev addr */
- 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
--	iowrite32be(mdio_ctl, &regs->mdio_ctl);
-+	xgmac_write32(mdio_ctl, &regs->mdio_ctl, endian);
- 
- 	/* Set the register address */
- 	if (regnum & MII_ADDR_C45) {
--		iowrite32be(regnum & 0xffff, &regs->mdio_addr);
-+		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
- 
--		ret = xgmac_wait_until_free(&bus->dev, regs);
-+		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 		if (ret)
- 			return ret;
- 	}
- 
- 	/* Write the value to the register */
--	iowrite32be(MDIO_DATA(value), &regs->mdio_data);
-+	xgmac_write32(MDIO_DATA(value), &regs->mdio_data, endian);
- 
--	ret = xgmac_wait_until_done(&bus->dev, regs);
-+	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
-@@ -151,14 +181,16 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
-  */
- static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- {
--	struct tgec_mdio_controller __iomem *regs = bus->priv;
-+	struct mdio_fsl_priv *priv = (struct mdio_fsl_priv *)bus->priv;
-+	struct tgec_mdio_controller __iomem *regs = priv->mdio_base;
- 	uint16_t dev_addr;
- 	uint32_t mdio_stat;
- 	uint32_t mdio_ctl;
- 	uint16_t value;
- 	int ret;
-+	bool endian = priv->is_little_endian;
- 
--	mdio_stat = ioread32be(&regs->mdio_stat);
-+	mdio_stat = xgmac_read32(&regs->mdio_stat, endian);
- 	if (regnum & MII_ADDR_C45) {
- 		dev_addr = (regnum >> 16) & 0x1f;
- 		mdio_stat |= MDIO_STAT_ENC;
-@@ -167,41 +199,41 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- 		mdio_stat &= ~MDIO_STAT_ENC;
- 	}
- 
--	iowrite32be(mdio_stat, &regs->mdio_stat);
-+	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs);
-+	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
- 	/* Set the Port and Device Addrs */
- 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
--	iowrite32be(mdio_ctl, &regs->mdio_ctl);
-+	xgmac_write32(mdio_ctl, &regs->mdio_ctl, endian);
- 
- 	/* Set the register address */
- 	if (regnum & MII_ADDR_C45) {
--		iowrite32be(regnum & 0xffff, &regs->mdio_addr);
-+		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
- 
--		ret = xgmac_wait_until_free(&bus->dev, regs);
-+		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 		if (ret)
- 			return ret;
- 	}
- 
- 	/* Initiate the read */
--	iowrite32be(mdio_ctl | MDIO_CTL_READ, &regs->mdio_ctl);
-+	xgmac_write32(mdio_ctl | MDIO_CTL_READ, &regs->mdio_ctl, endian);
- 
--	ret = xgmac_wait_until_done(&bus->dev, regs);
-+	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
- 	/* Return all Fs if nothing was there */
--	if (ioread32be(&regs->mdio_stat) & MDIO_STAT_RD_ER) {
-+	if (xgmac_read32(&regs->mdio_stat, endian) & MDIO_STAT_RD_ER) {
- 		dev_err(&bus->dev,
- 			"Error while reading PHY%d reg at %d.%hhu\n",
- 			phy_id, dev_addr, regnum);
- 		return 0xffff;
- 	}
- 
--	value = ioread32be(&regs->mdio_data) & 0xffff;
-+	value = xgmac_read32(&regs->mdio_data, endian) & 0xffff;
- 	dev_dbg(&bus->dev, "read %04x\n", value);
- 
- 	return value;
-@@ -212,6 +244,7 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	struct device_node *np = pdev->dev.of_node;
- 	struct mii_bus *bus;
- 	struct resource res;
-+	struct mdio_fsl_priv *priv;
- 	int ret;
- 
- 	ret = of_address_to_resource(np, 0, &res);
-@@ -220,7 +253,7 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 		return ret;
- 	}
- 
--	bus = mdiobus_alloc();
-+	bus = mdiobus_alloc_size(sizeof(struct mdio_fsl_priv));
- 	if (!bus)
- 		return -ENOMEM;
- 
-@@ -231,12 +264,19 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%llx", (unsigned long long)res.start);
- 
- 	/* Set the PHY base address */
--	bus->priv = of_iomap(np, 0);
--	if (!bus->priv) {
-+	priv = bus->priv;
-+	priv->mdio_base = of_iomap(np, 0);
-+	if (!priv->mdio_base) {
- 		ret = -ENOMEM;
- 		goto err_ioremap;
- 	}
- 
-+	if (of_get_property(pdev->dev.of_node,
-+			    "little-endian", NULL))
-+		priv->is_little_endian = true;
-+	else
-+		priv->is_little_endian = false;
-+
- 	ret = of_mdiobus_register(bus, np);
- 	if (ret) {
- 		dev_err(&pdev->dev, "cannot register MDIO bus\n");
-@@ -248,7 +288,7 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	return 0;
- 
- err_registration:
--	iounmap(bus->priv);
-+	iounmap(priv->mdio_base);
- 
- err_ioremap:
- 	mdiobus_free(bus);
--- 
-1.8.4.1
+> If vhost is in poll mode should we need or not to stop tx queue?
+> Can i add a flag VHOST_F_POLL_MODE to support poll mode vhost(vhost-user)?
+
+Host just needs to be spec-compliant.
+It must send interrupts unless they are disabled.
+So this sounds like a VHOST_F_FIX_A_BUG to me. Just fix races in
+vhost-user code, and no need for extra flags.
+
+
+> >                         /* More just got used, free them then recheck.
+> >  * */
+> >                         free_old_xmit_skbs(sq);
+> >                         if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
+> >                                 netif_start_subqueue(dev, qnum);
+> >                                 virtqueue_disable_cb(sq->vq);
+> >                         }
+> >                 }
+> >         }
+> > 
+> > 
+> > I can't see a race condition from your description above.
+> > 
+> >>         }
+> >> 	
+> >> }
+> >>
+> >> ping 9.62.1.2 -i 0.1
+> >> 64 bytes from 9.62.1.2: icmp_seq=19 ttl=64 time=0.115 ms
+> >> 64 bytes from 9.62.1.2: icmp_seq=20 ttl=64 time=0.101 ms
+> >> 64 bytes from 9.62.1.2: icmp_seq=21 ttl=64 time=0.094 ms
+> >> 64 bytes from 9.62.1.2: icmp_seq=22 ttl=64 time=0.098 ms
+> >> 64 bytes from 9.62.1.2: icmp_seq=23 ttl=64 time=0.097 ms
+> >> 64 bytes from 9.62.1.2: icmp_seq=24 ttl=64 time=0.095 ms
+> >> 64 bytes from 9.62.1.2: icmp_seq=25 ttl=64 time=0.095 ms
+> >> ....
+> >> ping:  sendmsg:  No buffer space available
+> >> ping:  sendmsg:  No buffer space available
+> >> ping:  sendmsg:  No buffer space available
+> >> ping:  sendmsg:  No buffer space available
+> >> ping:  sendmsg:  No buffer space available
+> >> ping:  sendmsg:  No buffer space available
+> >> ....
+> >>
+> >> -- 
+> >> Regards,
+> >> Haifeng
+> > 
+> > I can't say what does your code-changing experiment show.
+> > It might be better to introduce delay by calling something like
+> > cpu_relax at specific points (maybe multiple times in a loop).
+> > 
+> 
+> 
+> 
+> -- 
+> Regards,
+> Haifeng
