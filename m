@@ -1,168 +1,188 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v2] ip6_tunnel: fix error code when tunnel exists
-Date: Mon, 16 Mar 2015 15:56:05 +0100
-Message-ID: <1426517765-4649-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20150313.123231.1641333637059823788.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, me@pierre-cheynier.net,
-	eric.dumazet@gmail.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] switchdev: call bridge setlink/dellink ndos recursively
+Date: Mon, 16 Mar 2015 15:22:54 +0100
+Message-ID: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@gmail.com, roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:33168 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933906AbbCPO4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 10:56:10 -0400
-In-Reply-To: <20150313.123231.1641333637059823788.davem@davemloft.net>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38227 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933264AbbCPOW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 10:22:59 -0400
+Received: by wifj2 with SMTP id j2so44918144wif.1
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 07:22:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit 2b0bb01b6edb, the kernel returns -ENOBUFS when user tries to add
-an existing tunnel with ioctl API:
-$ ip -6 tunnel add ip6tnl1 mode ip6ip6 dev eth1
-add tunnel "ip6tnl0" failed: No buffer space available
+There has been a discussion about if it's better to let masters to
+propagate call down themself or if its better just blindly go down and
+try to call ndo on every lower netdev. Turned out that more people (me
+not included) like the second option better.
 
-It's confusing, the right error is EEXIST.
+This patch changes bridge setlink/dellink in that direction.
+Sorry Roopa for forcing you to do it the way I liked initially.
 
-This patch also change a bit the code returned:
- - ENOBUFS -> ENOMEM
- - ENOENT -> ENODEV
-
-Fixes: 2b0bb01b6edb ("ip6_tunnel: Return an error when adding an existing tunnel.")
-CC: Steffen Klassert <steffen.klassert@secunet.com>
-Reported-by: Pierre Cheynier <me@pierre-cheynier.net>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/ipv6/ip6_tunnel.c | 33 +++++++++++++++++----------------
- 1 file changed, 17 insertions(+), 16 deletions(-)
+ drivers/net/bonding/bond_main.c |  2 --
+ drivers/net/team/team.c         |  2 --
+ include/net/switchdev.h         |  4 ---
+ net/switchdev/switchdev.c       | 78 ++++++++++-------------------------------
+ 4 files changed, 19 insertions(+), 67 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 266a264ec212..ddd94eca19b3 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -314,7 +314,7 @@ out:
-  *   Create tunnel matching given parameters.
-  *
-  * Return:
-- *   created tunnel or NULL
-+ *   created tunnel or error pointer
-  **/
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c026ce9..c1dce04 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4036,8 +4036,6 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_add_slave		= bond_enslave,
+ 	.ndo_del_slave		= bond_release,
+ 	.ndo_fix_features	= bond_fix_features,
+-	.ndo_bridge_setlink	= ndo_dflt_netdev_switch_port_bridge_setlink,
+-	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
+ };
  
- static struct ip6_tnl *ip6_tnl_create(struct net *net, struct __ip6_tnl_parm *p)
-@@ -322,7 +322,7 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct __ip6_tnl_parm *p)
- 	struct net_device *dev;
- 	struct ip6_tnl *t;
- 	char name[IFNAMSIZ];
--	int err;
-+	int err = -ENOMEM;
+ static const struct device_type bond_type = {
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index a23319f..dbd39b9 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1977,8 +1977,6 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_del_slave		= team_del_slave,
+ 	.ndo_fix_features	= team_fix_features,
+ 	.ndo_change_carrier     = team_change_carrier,
+-	.ndo_bridge_setlink     = ndo_dflt_netdev_switch_port_bridge_setlink,
+-	.ndo_bridge_dellink     = ndo_dflt_netdev_switch_port_bridge_dellink,
+ };
  
- 	if (p->name[0])
- 		strlcpy(name, p->name, IFNAMSIZ);
-@@ -348,7 +348,7 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct __ip6_tnl_parm *p)
- failed_free:
- 	ip6_dev_free(dev);
- failed:
--	return NULL;
-+	return ERR_PTR(err);
- }
- 
- /**
-@@ -362,7 +362,7 @@ failed:
-  *   tunnel device is created and registered for use.
-  *
-  * Return:
-- *   matching tunnel or NULL
-+ *   matching tunnel or error pointer
-  **/
- 
- static struct ip6_tnl *ip6_tnl_locate(struct net *net,
-@@ -380,13 +380,13 @@ static struct ip6_tnl *ip6_tnl_locate(struct net *net,
- 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
- 		    ipv6_addr_equal(remote, &t->parms.raddr)) {
- 			if (create)
--				return NULL;
-+				return ERR_PTR(-EEXIST);
- 
- 			return t;
- 		}
- 	}
- 	if (!create)
--		return NULL;
-+		return ERR_PTR(-ENODEV);
- 	return ip6_tnl_create(net, p);
- }
- 
-@@ -1420,7 +1420,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			}
- 			ip6_tnl_parm_from_user(&p1, &p);
- 			t = ip6_tnl_locate(net, &p1, 0);
--			if (t == NULL)
-+			if (IS_ERR(t))
- 				t = netdev_priv(dev);
- 		} else {
- 			memset(&p, 0, sizeof(p));
-@@ -1445,7 +1445,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		ip6_tnl_parm_from_user(&p1, &p);
- 		t = ip6_tnl_locate(net, &p1, cmd == SIOCADDTUNNEL);
- 		if (cmd == SIOCCHGTUNNEL) {
--			if (t != NULL) {
-+			if (!IS_ERR(t)) {
- 				if (t->dev != dev) {
- 					err = -EEXIST;
- 					break;
-@@ -1457,14 +1457,15 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			else
- 				err = ip6_tnl_update(t, &p1);
- 		}
--		if (t) {
-+		if (!IS_ERR(t)) {
- 			err = 0;
- 			ip6_tnl_parm_to_user(&p, &t->parms);
- 			if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
- 				err = -EFAULT;
- 
--		} else
--			err = (cmd == SIOCADDTUNNEL ? -ENOBUFS : -ENOENT);
-+		} else {
-+			err = PTR_ERR(t);
-+		}
- 		break;
- 	case SIOCDELTUNNEL:
- 		err = -EPERM;
-@@ -1478,7 +1479,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			err = -ENOENT;
- 			ip6_tnl_parm_from_user(&p1, &p);
- 			t = ip6_tnl_locate(net, &p1, 0);
--			if (t == NULL)
-+			if (IS_ERR(t))
- 				break;
- 			err = -EPERM;
- 			if (t->dev == ip6n->fb_tnl_dev)
-@@ -1672,12 +1673,13 @@ static int ip6_tnl_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[])
+ /***********************
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index e5de53f..489c5c0 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -86,10 +86,6 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
+ 				struct nlmsghdr *nlh, u16 flags);
+ int netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 				struct nlmsghdr *nlh, u16 flags);
+-int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+-					       struct nlmsghdr *nlh, u16 flags);
+-int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
+-					       struct nlmsghdr *nlh, u16 flags);
+ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 			       u8 tos, u8 type, u32 nlflags, u32 tb_id);
+ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index c9bfa00..ce494cd 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -132,14 +132,24 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
+ 				      struct nlmsghdr *nlh, u16 flags)
  {
- 	struct net *net = dev_net(dev);
--	struct ip6_tnl *nt;
-+	struct ip6_tnl *nt, *t;
+ 	const struct net_device_ops *ops = dev->netdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int err;
++	int ret = -EOPNOTSUPP;
  
- 	nt = netdev_priv(dev);
- 	ip6_tnl_netlink_parms(data, &nt->parms);
+ 	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+ 		return 0;
  
--	if (ip6_tnl_locate(net, &nt->parms, 0))
-+	t = ip6_tnl_locate(net, &nt->parms, 0);
-+	if (!IS_ERR(t))
- 		return -EEXIST;
+-	if (!ops->ndo_bridge_setlink)
+-		return -EOPNOTSUPP;
++	if (ops->ndo_bridge_setlink)
++		return ops->ndo_bridge_setlink(dev, nlh, flags);
++
++        netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
++		if (err && err != -EOPNOTSUPP)
++			ret = err;
++	}
++	return ret;
  
- 	return ip6_tnl_create2(dev);
-@@ -1697,8 +1699,7 @@ static int ip6_tnl_changelink(struct net_device *dev, struct nlattr *tb[],
- 	ip6_tnl_netlink_parms(data, &p);
+-	return ops->ndo_bridge_setlink(dev, nlh, flags);
+ }
+ EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
  
- 	t = ip6_tnl_locate(net, &p, 0);
+@@ -157,66 +167,16 @@ int netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 				      struct nlmsghdr *nlh, u16 flags)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -
--	if (t) {
-+	if (!IS_ERR(t)) {
- 		if (t->dev != dev)
- 			return -EEXIST;
- 	} else
+-	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+-		return 0;
+-
+-	if (!ops->ndo_bridge_dellink)
+-		return -EOPNOTSUPP;
+-
+-	return ops->ndo_bridge_dellink(dev, nlh, flags);
+-}
+-EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
+-
+-/**
+- *	ndo_dflt_netdev_switch_port_bridge_setlink - default ndo bridge setlink
+- *						     op for master devices
+- *
+- *	@dev: port device
+- *	@nlh: netlink msg with bridge port attributes
+- *	@flags: bridge setlink flags
+- *
+- *	Notify master device slaves of bridge port attributes
+- */
+-int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
+-					       struct nlmsghdr *nlh, u16 flags)
+-{
+ 	struct net_device *lower_dev;
+ 	struct list_head *iter;
+-	int ret = 0, err = 0;
++	int err;
++	int ret = -EOPNOTSUPP;
+ 
+ 	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+-		return ret;
+-
+-	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
+-		if (err && err != -EOPNOTSUPP)
+-			ret = err;
+-	}
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_setlink);
+-
+-/**
+- *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
+- *						     op for master devices
+- *
+- *	@dev: port device
+- *	@nlh: netlink msg with bridge port attributes
+- *	@flags: bridge dellink flags
+- *
+- *	Notify master device slaves of bridge port attribute deletes
+- */
+-int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+-					       struct nlmsghdr *nlh, u16 flags)
+-{
+-	struct net_device *lower_dev;
+-	struct list_head *iter;
+-	int ret = 0, err = 0;
++		return 0;
+ 
+-	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+-		return ret;
++	if (ops->ndo_bridge_dellink)
++		return ops->ndo_bridge_dellink(dev, nlh, flags);
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+ 		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
+@@ -226,7 +186,7 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
++EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
+ 
+ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ {
 -- 
-2.2.2
+1.9.3
