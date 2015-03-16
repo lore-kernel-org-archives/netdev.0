@@ -1,90 +1,45 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: [PATCH net-next v3 2/2] newly configured FDB ageing time becomes effective immediately
-Date: Mon, 16 Mar 2015 12:00:05 +0530
-Message-ID: <1426487405-9792-3-git-send-email-siva.mannem.lnx@gmail.com>
-References: <1426487405-9792-1-git-send-email-siva.mannem.lnx@gmail.com>
-Cc: sfeldma@gmail.com, Siva Mannem <siva.mannem.lnx@gmail.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 0/3] switchdev: support stp updates on
+ stacked netdevices
+Date: Mon, 16 Mar 2015 07:37:49 +0100
+Message-ID: <20150316063749.GA2032@nanopsycho.orion>
+References: <20150313.123156.2118585119289960334.davem@davemloft.net>
+ <CAE4R7bCvFPE5nPBJ7r41-ZC6=5AUE=gQ7uTy4kTNTZf-xKraVg@mail.gmail.com>
+ <20150315191722.GE3518@nanopsycho.orion>
+ <20150315.183213.1225773184212277874.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, roopa@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:36004 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751638AbbCPGad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 02:30:33 -0400
-Received: by pdbcz9 with SMTP id cz9so49291160pdb.3
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 23:30:32 -0700 (PDT)
-In-Reply-To: <1426487405-9792-1-git-send-email-siva.mannem.lnx@gmail.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:33499 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206AbbCPGhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 02:37:54 -0400
+Received: by wixw10 with SMTP id w10so24698273wix.0
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 23:37:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150315.183213.1225773184212277874.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch ensures that the newly configured FDB ageing time becomes effective
-immediately. It also makes the behavior consistent when the ageing_timer is set
-using any of the three existing mechanisms(sysfs, ioctl, netlink).
+Sun, Mar 15, 2015 at 11:32:13PM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Sun, 15 Mar 2015 20:17:22 +0100
+>
+>> Does that make sense? I think it is better just pick what we want to
+>> support now and implement it there. That makes things clearer and
+>> confusion-prone.
+>
+>You can't even say whether it makes sense or not, you yourself
+>even have to ask.
+>
+>Again, I don't want to design our interfaces for potential needs,
+>I want to design them for actually known needs.
+>
+>We'll deal with the discovered exceptions on an as-needed basis,
+>not from the beginning.
 
-Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
-Suggested-by: Scott Feldman <sfeldma@gmail.com>
----
- net/bridge/br_device.c   | 4 ++++
- net/bridge/br_ioctl.c    | 3 +--
- net/bridge/br_sysfs_br.c | 8 +-------
- 3 files changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 1a665aa..293a113 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -396,12 +396,16 @@ void br_dev_setup(struct net_device *dev)
- int br_set_ageing_time(struct net_bridge *br, unsigned long val)
- {
- 	unsigned long t = clock_t_to_jiffies(val);
-+	unsigned long old_ageing_time;
- 
- 	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
- 		return -ERANGE;
- 
- 	spin_lock_bh(&br->lock);
-+	old_ageing_time =  br->ageing_time;
- 	br->ageing_time = t;
-+	if (br->ageing_time < old_ageing_time)
-+		mod_timer(&br->gc_timer, jiffies);
- 	spin_unlock_bh(&br->lock);
- 	return 0;
- }
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index a9a4a1b..4f836e2 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -200,8 +200,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		br->ageing_time = clock_t_to_jiffies(args[1]);
--		return 0;
-+		return br_set_ageing_time(br, args[1]);
- 
- 	case BRCTL_GET_PORT_INFO:
- 	{
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 4c97fc5..1fc2857 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -100,17 +100,11 @@ static ssize_t ageing_time_show(struct device *d,
- 	return sprintf(buf, "%lu\n", jiffies_to_clock_t(br->ageing_time));
- }
- 
--static int set_ageing_time(struct net_bridge *br, unsigned long val)
--{
--	br->ageing_time = clock_t_to_jiffies(val);
--	return 0;
--}
--
- static ssize_t ageing_time_store(struct device *d,
- 				 struct device_attribute *attr,
- 				 const char *buf, size_t len)
- {
--	return store_bridge_parm(d, buf, len, set_ageing_time);
-+	return store_bridge_parm(d, buf, len, br_set_ageing_time);
- }
- static DEVICE_ATTR_RW(ageing_time);
- 
--- 
-2.1.0
+Fair enough...
