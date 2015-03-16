@@ -1,70 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] inet: Clean up inet_csk_wait_for_connect() vs. might_sleep()
-Date: Mon, 16 Mar 2015 12:19:24 -0700
-Message-ID: <1426533564.11398.229.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2 0/3] Add max rate TXQ attribute
+Date: Mon, 16 Mar 2015 15:50:20 -0400 (EDT)
+Message-ID: <20150316.155020.1838817631290149166.davem@davemloft.net>
+References: <1426424596-3911-1-git-send-email-ogerlitz@mellanox.com>
+	<CALx6S37qzKSJ8cWiCDmfHM=bRy67jup4YriMkL6tw9BUXCRi5Q@mail.gmail.com>
+	<CAJ3xEMhg_CsCGA5_GkqTb0e=d=sSMJdbQG0gM8CoWvGP8PPGVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tom@herbertland.com, ogerlitz@mellanox.com,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	amirv@mellanox.com, idos@mellanox.com
+To: gerlitz.or@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37211 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950AbbCPTu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 15:50:26 -0400
+In-Reply-To: <CAJ3xEMhg_CsCGA5_GkqTb0e=d=sSMJdbQG0gM8CoWvGP8PPGVw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Date: Sun, 15 Mar 2015 23:10:25 +0200
 
-I got the following trace with current net-next kernel :
+> On Sun, Mar 15, 2015 at 7:08 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Sun, Mar 15, 2015 at 6:03 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>>> Add the ability to set a max-rate limitation for TX queues.
+>>> The attribute name is maxrate and the units are Mbs, to make
+>>> it similar to the existing max-rate limitation knobs (ETS and
+>>> SRIOV ndo calls).
+> 
+>> Guaranteed rate is often defined in conjunction with maximum rate. It
+>> might be nice to add a parameter for that to the ndo function in
+>> anticipation of someone supporting that also.
+> 
+> I see -- so do we really want both from day one...? if this is the
+> case, I can add that to the ndo with the value of 0 means no limit for
+> maxrate and no guarantee for minrate
 
-[14723.885290] WARNING: CPU: 26 PID: 22658 at kernel/sched/core.c:7285 __might_sleep+0x89/0xa0()
-[14723.885325] do not call blocking ops when !TASK_RUNNING; state=1 set at [<ffffffff810e8734>] prepare_to_wait_exclusive+0x34/0xa0
-[14723.885355] CPU: 26 PID: 22658 Comm: netserver Not tainted 4.0.0-dbg-DEV #1379
-[14723.885359]  ffffffff81a223a8 ffff881fae9e7ca8 ffffffff81650b5d 0000000000000001
-[14723.885364]  ffff881fae9e7cf8 ffff881fae9e7ce8 ffffffff810a72e7 0000000000000000
-[14723.885367]  ffffffff81a57620 000000000000093a 0000000000000000 ffff881fae9e7e64
-[14723.885371] Call Trace:
-[14723.885377]  [<ffffffff81650b5d>] dump_stack+0x4c/0x65
-[14723.885382]  [<ffffffff810a72e7>] warn_slowpath_common+0x97/0xe0
-[14723.885386]  [<ffffffff810a73e6>] warn_slowpath_fmt+0x46/0x50
-[14723.885390]  [<ffffffff810f4c5d>] ? trace_hardirqs_on_caller+0x10d/0x1d0
-[14723.885393]  [<ffffffff810e8734>] ? prepare_to_wait_exclusive+0x34/0xa0
-[14723.885396]  [<ffffffff810e8734>] ? prepare_to_wait_exclusive+0x34/0xa0
-[14723.885399]  [<ffffffff810ccdc9>] __might_sleep+0x89/0xa0
-[14723.885403]  [<ffffffff81581846>] lock_sock_nested+0x36/0xb0
-[14723.885406]  [<ffffffff815829a3>] ? release_sock+0x173/0x1c0
-[14723.885411]  [<ffffffff815ea1f7>] inet_csk_accept+0x157/0x2a0
-[14723.885415]  [<ffffffff810e8900>] ? abort_exclusive_wait+0xc0/0xc0
-[14723.885419]  [<ffffffff8161b96d>] inet_accept+0x2d/0x150
-[14723.885424]  [<ffffffff8157db6f>] SYSC_accept4+0xff/0x210
-[14723.885428]  [<ffffffff8165a451>] ? retint_swapgs+0xe/0x44
-[14723.885431]  [<ffffffff810f4c5d>] ? trace_hardirqs_on_caller+0x10d/0x1d0
-[14723.885437]  [<ffffffff81369c0e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-[14723.885441]  [<ffffffff8157ef40>] SyS_accept+0x10/0x20
-[14723.885444]  [<ffffffff81659872>] system_call_fastpath+0x12/0x17
-[14723.885447] ---[ end trace ff74cd83355b1873 ]---
-
-In commit 26cabd31259ba43f68026ce3f62b78094124333f
-Peter added a sched_annotate_sleep() in sk_wait_event()
-
-Is the following patch needed as well ?
-
-Alternative would be to use sk_wait_event() from inet_csk_wait_for_connect()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/inet_connection_sock.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 14d02ea905b6..3e44b9b0b78e 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -268,6 +268,7 @@ static int inet_csk_wait_for_connect(struct sock *sk, long timeo)
- 		release_sock(sk);
- 		if (reqsk_queue_empty(&icsk->icsk_accept_queue))
- 			timeo = schedule_timeout(timeo);
-+		sched_annotate_sleep();
- 		lock_sock(sk);
- 		err = 0;
- 		if (!reqsk_queue_empty(&icsk->icsk_accept_queue))
+We can do this later.
