@@ -1,55 +1,44 @@
-From: Florian Westphal <fw@strlen.de>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 Subject: Re: [PATCH nf-next 0/8] netfilter: untangle bridge and bridge
  netfilter
-Date: Mon, 16 Mar 2015 14:41:15 +0100
-Message-ID: <20150316134115.GB1524@breakpoint.cc>
+Date: Mon, 16 Mar 2015 14:47:46 +0100
+Message-ID: <20150316134746.GA6701@salvia>
 References: <1425513160-496-1-git-send-email-fw@strlen.de>
  <20150309130253.GA6677@salvia>
  <20150309135910.GC1528@breakpoint.cc>
  <20150314090035.GA3561@salvia>
  <20150314111325.GG14761@breakpoint.cc>
  <20150316123854.GA5564@salvia>
+ <20150316130110.GA1524@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150316123854.GA5564@salvia>
+In-Reply-To: <20150316130110.GA1524@breakpoint.cc>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> I think the use of skb->cb introduces another dependency between
-> br_netfilter and the core, which is what we should avoid.  I still
-> have concerns regarding future extensibility issues that this may
-> introduce:
+On Mon, Mar 16, 2015 at 02:01:10PM +0100, Florian Westphal wrote:
+> We can store ifindexes of physin/physout and re-lookup, sure.
+> 
+> I'll start on the central storage infrastructure.
+> Do you want me to base it on the current patches i have or on plain
+> nf-next?
 
-One more thing (sorry, forgot to mention this).
-We CANNOT avoid dependency between br_netfilter and the core.
+Let me pick these first:
 
-Its just a matter of what this dependency looks like, and how
-much of a buren it is wrt. to maintenance and debugability.
+[-next,v2] netfilter: bridge: query conntrack about skb dnat
+[-next,resend] netfilter: bridge: remove BRNF_STATE_BRIDGED flag
 
-Currently the dependency is skb->nf_bridge pointer.
+This, I'll ping David to ack it:
 
-I proposed to replace this pointer with smaller state + place
-rest of info in skb->cb, with all the problems that this entails.
+[v2,nf-next,1/6] net: untangle ip_fragment and bridge netfilter
 
-Using your 'external table' will also require some interaction,
-I don't see how you'd remove entries from such table except some
-callback function sitting in kfree_skb path, so we'd have to replace
-current nf_bridge_put() call with something like
+The follow up patches, you please rebase upon the central storage
+idea. I like your small state machine idea instead of playing with
+flags and the new functions that encapsulate the save/restore mangling
+to keep IP/bridge happy.
 
-if (skb->nf_bridge_state && nf_bridge_info_destructor_hook)
-	nf_bridge_info_destructor_hook(skb);
-
-in kfree_skb.
-
-We'd also still need the refcounting and figure out a way to handle
-skb_clone properly (although I *think* we only have to care about those
-spots where the bridge clones skbs and don't need a generic solution).
-
-I admit that your proposal has less 'hidden' dependencies compared
-to skb->cb based solutions, though.
+Thanks.
