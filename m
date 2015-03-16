@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net-next] rhashtable: Annotate RCU locking of
- walkers
-Date: Mon, 16 Mar 2015 16:24:47 -0400 (EDT)
-Message-ID: <20150316.162447.1982455483366854663.davem@davemloft.net>
-References: <cover.1426494808.git.tgraf@suug.ch>
-	<cover.1426494808.git.tgraf@suug.ch>
-	<a04b70711ea826e6fa2ddf14369768ead310f59d.1426494808.git.tgraf@suug.ch>
+Subject: Re: [PATCH net-next] net: kernel socket should be released in
+ init_net namespace
+Date: Mon, 16 Mar 2015 16:25:25 -0400 (EDT)
+Message-ID: <20150316.162525.1854410790143179678.davem@davemloft.net>
+References: <1426501152-24764-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, edumazet@google.com, ebiederm@xmission.com
+To: ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37621 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37625 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932119AbbCPUYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:24:49 -0400
-In-Reply-To: <a04b70711ea826e6fa2ddf14369768ead310f59d.1426494808.git.tgraf@suug.ch>
+	with ESMTP id S1753384AbbCPUZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:25:27 -0400
+In-Reply-To: <1426501152-24764-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 16 Mar 2015 10:42:27 +0100
+From: Ying Xue <ying.xue@windriver.com>
+Date: Mon, 16 Mar 2015 18:19:12 +0800
 
-> Fixes the following sparse warnings:
+> Creating a kernel socket with sock_create_kern() happens in "init_net"
+> namespace, however, releasing it with sk_release_kernel() occurs in
+> the current namespace which may be different with "init_net" namespace.
+> Therefore, we should guarantee that the namespace in which a kernel
+> socket is created is same as the socket is created.
 > 
-> lib/rhashtable.c:767:5: warning: context imbalance in 'rhashtable_walk_start' - wrong count at exit
-> lib/rhashtable.c:849:6: warning: context imbalance in 'rhashtable_walk_stop' - unexpected unlock
-> 
-> Fixes: f2dba9c6ff0d ("rhashtable: Introduce rhashtable_walk_*")
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
 Applied, thanks.
