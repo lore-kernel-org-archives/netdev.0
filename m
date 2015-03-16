@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [v2] net/fsl: modify xgmac_mdio for little endian
- SoCs
-Date: Mon, 16 Mar 2015 16:28:09 -0400 (EDT)
-Message-ID: <20150316.162809.1507330201701233389.davem@davemloft.net>
-References: <1426503389-23228-1-git-send-email-shh.xie@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp_metrics: fix wrong lockdep annotations
+Date: Mon, 16 Mar 2015 16:32:38 -0400 (EDT)
+Message-ID: <20150316.163238.212681875092833561.davem@davemloft.net>
+References: <20150316113542.GA27127@paralelels.com>
+	<1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1426515274.11398.209.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shaohui.Xie@freescale.com
-To: shh.xie@gmail.com
+Cc: avagin@parallels.com, ebiederm@xmission.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37658 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37721 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933204AbbCPU2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:28:12 -0400
-In-Reply-To: <1426503389-23228-1-git-send-email-shh.xie@gmail.com>
+	with ESMTP id S1753807AbbCPUck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:32:40 -0400
+In-Reply-To: <1426515274.11398.209.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <shh.xie@gmail.com>
-Date: Mon, 16 Mar 2015 18:56:29 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 16 Mar 2015 07:14:34 -0700
 
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> MDIO controller on little endian Socs, e.g. ls2085a is similar to the
-> controller on big endian Socs, but the MDIO access is little endian,
-> we use I/O accessor function to handle endianness, so the driver can
-> run on little endian Socs. A property "little-endian" is used
-> in DTS to indicate the MDIO is little endian, if driver probes the
-> property, driver will access MDIO in little endian, otherwise, driver
-> works in big endian by default.
+> Changes in tcp_metric hash table are protected by tcp_metrics_lock
+> only, not by genl_mutex
 > 
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> ---
-> changes for v2:
-> 1. use "little-endian" which is documented in
-> Documentation/devicetree/bindings/regmap/regmap.txt
-> 2. splitted bug fix into another patch.
+> While we are at it use deref_locked() instead of rcu_dereference()
+> in tcp_new() to avoid unnecessary barrier, as we hold tcp_metrics_lock
+> as well.
+>  
+> Reported-by: Andrew Vagin <avagin@parallels.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 098a697b497e ("tcp_metrics: Use a single hash table for all network namespaces.")
 
-Also applied to net-next
+Applied, thanks Eric.
