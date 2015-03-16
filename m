@@ -1,218 +1,158 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next v2 1/2] misc: header rebase, add bpf.h
-Date: Mon, 16 Mar 2015 19:37:40 +0100
-Message-ID: <b12182fd70d2726e3878f512b3f4231a4049392d.1426530729.git.daniel@iogearbox.net>
-References: <cover.1426530729.git.daniel@iogearbox.net>
-Cc: jhs@mojatatu.com, jiri@resnulli.us, ast@plumgrid.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
+From: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>
+Subject: Re: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken. In 4.0.0-rc3
+Date: Mon, 16 Mar 2015 22:09:04 +0300
+Message-ID: <994171426532944__42801.5455873266$1426533273$gmane$org@web7m.yandex.ru>
+References: <390621425930628@web28o.yandex.ru>
+	 <3625951426018334@web26j.yandex.ru>
+	 <BLUPR03MB373A446E2D97992CA7AAA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+	 <726281426513068@web10o.yandex.ru> <BLUPR03MB3739B9C6E14A106CCAEBA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43557 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754802AbbCPShq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 14:37:46 -0400
-In-Reply-To: <cover.1426530729.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1426530729.git.daniel@iogearbox.net>
-References: <cover.1426530729.git.daniel@iogearbox.net>
+Received: from forward19m.cmail.yandex.net ([5.255.216.150]:37578 "EHLO
+	forward19m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752669AbbCPTOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 15:14:08 -0400
+In-Reply-To: <BLUPR03MB3739B9C6E14A106CCAEBA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Include the bpf.h uapi header file.
+Hi!
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/linux/bpf.h | 183 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 183 insertions(+)
- create mode 100644 include/linux/bpf.h
+16.03.2015, 17:01, "fugang.duan@freescale.com" <fugang.duan@freescale.c=
+om>:
+>>>
+>>> =9ADo you have any lost for reproduce the issue ?
+>> =9ACurrent net tree does not have this issue, it works fine. Thanks =
+to all.
+>>
+>> =9AFrom git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+>>
+>> =9Aapx@astra:~$ uname -r
+>> =9A4.0.0-rc3-00150-g10640d3-dirty
+>>
+>
+> I test the commit f00bbd2 that include the patch 2b995f63987.
+> But cannot reproduce your issue. Pls double confirm it in your board.
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-new file mode 100644
-index 0000000..54e816b
---- /dev/null
-+++ b/include/linux/bpf.h
-@@ -0,0 +1,183 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef __LINUX_BPF_H__
-+#define __LINUX_BPF_H__
+Confirmed that net-next is buggy.
+
+Client kernel version:
+apx@astra:~$ uname -r
+4.0.0-rc3-00875-gf00bbd2-dirty
+
+100M file of zeros on client:
+apx@astra:~$ ls -l zeros=20
+-rw-r--r-- 1 apx apx 104857600 =CD=C1=D2 10 22:33 zeros
+
+=46ile contents (ran on client host):
+apx@astra:~$ hd zeros=20
+00000000  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |..........=
+=2E.....|
+*
+06400000
+
+NFS server kernel version:
+apx@ct:~$ uname -r
+4.0.0-rc2-00480-g29e70e6
+
+100M file of zeros on client:
+apx@ct:~$ ls -l zeros=20
+-rw-r--r-- 1 apx apx 104857600 =CD=C1=D2 10 22:33 zeros
+
+=46ile contents (ran on server host):
+apx@ct:~$ hd zeros   =20
+00000000  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |..........=
+=2E.....|
+*
+001d4a80  1c f0 9f e5 1c f0 9f e5  1c f0 9f e5 1c f0 9f e5  |..........=
+=2E.....|
+*
+001d4aa0  1c f0 9f e5 74 fb 00 00  bc ff 93 00 c0 ff 93 00  |....t.....=
+=2E.....|
+001d4ab0  c4 ff 93 00 c8 ff 93 00  cc ff 93 00 d0 ff 93 00  |..........=
+=2E.....|
+001d4ac0  d4 ff 93 00 d8 ff 93 00  13 00 00 00 28 63 29 20  |..........=
+=2E.(c) |
+001d4ad0  43 6f 70 79 72 69 67 68  74 20 32 30 30 37 2d 32  |Copyright =
+2007-2|
+001d4ae0  30 31 32 2c 20 46 72 65  65 73 63 61 6c 65 20 53  |012, Frees=
+cale S|
+001d4af0  65 6d 69 63 6f 6e 64 75  63 74 6f 72 2e 20 41 6c  |emiconduct=
+or. Al|
+001d4b00  6c 20 72 69 67 68 74 73  20 72 65 73 65 72 76 65  |l rights r=
+eserve|
+001d4b10  64 2e 00 00 dd 00 2c 41  11 73 00 00 d3 74 00 00  |d.....,A.s=
+=2E..t..|
+001d4b20  3d 75 00 00 a9 78 00 00  4f 78 00 00 75 77 00 00  |=3Du...x..=
+Ox..uw..|
+001d4b30  07 76 00 00 c3 79 00 00  09 7a 00 00 75 7a 00 00  |.v...y...z=
+=2E.uz..|
+
+Any other client works fine with this server.
+And note that corruption is not random, it looks like a zero page (vect=
+ors at beginning),
+so somewhere pointer to data is corrupted (and set to zero(?)).
+This is repeated many times.
+
+I use an Embedsky E9 board: http://en.embedsky.com/product_info.php?cat=
+eid=3D169&id=3D169
+It is SabreSD-alike board with a fewer peripherials, and at network sid=
+e it has a different PHY,
+instead of Atheros it has a Realtek RTL8211E, and I have to initialize =
+it this way (board early fixup patch):
+
+--- a/arch/arm/mach-imx/mach-imx6q.c
++++ b/arch/arm/mach-imx/mach-imx6q.c
+@@ -166,6 +166,19 @@ static int ar8035_phy_fixup(struct phy_device *dev=
+)
+=20
+ #define PHY_ID_AR8035 0x004dd072
+=20
++static int rtl8211e_phy_fixup(struct phy_device *dev)
++{
++       phy_write(dev, 0x00, 0x3140);
++       msleep(10);
++       phy_write(dev, 0x00, 0x3340);
++       msleep(10);
 +
-+#include <linux/types.h>
-+#include <linux/bpf_common.h>
++       return 0;
++}
 +
-+/* Extended instruction set based on top of classic BPF */
++#define PHY_ID_RTL8211E 0x001cc915
++#define REALTEK_PHY_ID_MASK 0x001fffff
 +
-+/* instruction classes */
-+#define BPF_ALU64	0x07	/* alu mode in double word width */
-+
-+/* ld/ldx fields */
-+#define BPF_DW		0x18	/* double word */
-+#define BPF_XADD	0xc0	/* exclusive add */
-+
-+/* alu/jmp fields */
-+#define BPF_MOV		0xb0	/* mov reg to reg */
-+#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
-+
-+/* change endianness of a register */
-+#define BPF_END		0xd0	/* flags for endianness conversion: */
-+#define BPF_TO_LE	0x00	/* convert to little-endian */
-+#define BPF_TO_BE	0x08	/* convert to big-endian */
-+#define BPF_FROM_LE	BPF_TO_LE
-+#define BPF_FROM_BE	BPF_TO_BE
-+
-+#define BPF_JNE		0x50	/* jump != */
-+#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
-+#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
-+#define BPF_CALL	0x80	/* function call */
-+#define BPF_EXIT	0x90	/* function return */
-+
-+/* Register numbers */
-+enum {
-+	BPF_REG_0 = 0,
-+	BPF_REG_1,
-+	BPF_REG_2,
-+	BPF_REG_3,
-+	BPF_REG_4,
-+	BPF_REG_5,
-+	BPF_REG_6,
-+	BPF_REG_7,
-+	BPF_REG_8,
-+	BPF_REG_9,
-+	BPF_REG_10,
-+	__MAX_BPF_REG,
-+};
-+
-+/* BPF has 10 general purpose 64-bit registers and stack frame. */
-+#define MAX_BPF_REG	__MAX_BPF_REG
-+
-+struct bpf_insn {
-+	__u8	code;		/* opcode */
-+	__u8	dst_reg:4;	/* dest register */
-+	__u8	src_reg:4;	/* source register */
-+	__s16	off;		/* signed offset */
-+	__s32	imm;		/* signed immediate constant */
-+};
-+
-+/* BPF syscall commands */
-+enum bpf_cmd {
-+	/* create a map with given type and attributes
-+	 * fd = bpf(BPF_MAP_CREATE, union bpf_attr *, u32 size)
-+	 * returns fd or negative error
-+	 * map is deleted when fd is closed
-+	 */
-+	BPF_MAP_CREATE,
-+
-+	/* lookup key in a given map
-+	 * err = bpf(BPF_MAP_LOOKUP_ELEM, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key, attr->value
-+	 * returns zero and stores found elem into value
-+	 * or negative error
-+	 */
-+	BPF_MAP_LOOKUP_ELEM,
-+
-+	/* create or update key/value pair in a given map
-+	 * err = bpf(BPF_MAP_UPDATE_ELEM, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key, attr->value, attr->flags
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_UPDATE_ELEM,
-+
-+	/* find and delete elem by key in a given map
-+	 * err = bpf(BPF_MAP_DELETE_ELEM, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_DELETE_ELEM,
-+
-+	/* lookup key in a given map and return next key
-+	 * err = bpf(BPF_MAP_GET_NEXT_KEY, union bpf_attr *attr, u32 size)
-+	 * Using attr->map_fd, attr->key, attr->next_key
-+	 * returns zero and stores next key or negative error
-+	 */
-+	BPF_MAP_GET_NEXT_KEY,
-+
-+	/* verify and load eBPF program
-+	 * prog_fd = bpf(BPF_PROG_LOAD, union bpf_attr *attr, u32 size)
-+	 * Using attr->prog_type, attr->insns, attr->license
-+	 * returns fd or negative error
-+	 */
-+	BPF_PROG_LOAD,
-+};
-+
-+enum bpf_map_type {
-+	BPF_MAP_TYPE_UNSPEC,
-+	BPF_MAP_TYPE_HASH,
-+	BPF_MAP_TYPE_ARRAY,
-+};
-+
-+enum bpf_prog_type {
-+	BPF_PROG_TYPE_UNSPEC,
-+	BPF_PROG_TYPE_SOCKET_FILTER,
-+	BPF_PROG_TYPE_SCHED_CLS,
-+};
-+
-+#define BPF_PSEUDO_MAP_FD	1
-+
-+/* flags for BPF_MAP_UPDATE_ELEM command */
-+#define BPF_ANY		0 /* create new element or update existing */
-+#define BPF_NOEXIST	1 /* create new element if it didn't exist */
-+#define BPF_EXIST	2 /* update existing element */
-+
-+union bpf_attr {
-+	struct { /* anonymous struct used by BPF_MAP_CREATE command */
-+		__u32	map_type;	/* one of enum bpf_map_type */
-+		__u32	key_size;	/* size of key in bytes */
-+		__u32	value_size;	/* size of value in bytes */
-+		__u32	max_entries;	/* max number of entries in a map */
-+	};
-+
-+	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-+		__u32		map_fd;
-+		__aligned_u64	key;
-+		union {
-+			__aligned_u64 value;
-+			__aligned_u64 next_key;
-+		};
-+		__u64		flags;
-+	};
-+
-+	struct { /* anonymous struct used by BPF_PROG_LOAD command */
-+		__u32		prog_type;	/* one of enum bpf_prog_type */
-+		__u32		insn_cnt;
-+		__aligned_u64	insns;
-+		__aligned_u64	license;
-+		__u32		log_level;	/* verbosity level of verifier */
-+		__u32		log_size;	/* size of user buffer */
-+		__aligned_u64	log_buf;	/* user supplied buffer */
-+	};
-+} __attribute__((aligned(8)));
-+
-+/* integer value in 'imm' field of BPF_CALL instruction selects which helper
-+ * function eBPF program intends to call
-+ */
-+enum bpf_func_id {
-+	BPF_FUNC_unspec,
-+	BPF_FUNC_map_lookup_elem, /* void *map_lookup_elem(&map, &key) */
-+	BPF_FUNC_map_update_elem, /* int map_update_elem(&map, &key, &value, flags) */
-+	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
-+	BPF_FUNC_get_prandom_u32, /* u32 prandom_u32(void) */
-+	BPF_FUNC_get_smp_processor_id, /* u32 raw_smp_processor_id(void) */
-+	__BPF_FUNC_MAX_ID,
-+};
-+
-+/* user accessible mirror of in-kernel sk_buff.
-+ * new fields can only be added to the end of this structure
-+ */
-+struct __sk_buff {
-+	__u32 len;
-+	__u32 pkt_type;
-+	__u32 mark;
-+	__u32 queue_mapping;
-+};
-+
-+#endif /* __LINUX_BPF_H__ */
--- 
-1.9.3
+ static void __init imx6q_enet_phy_init(void)
+ {
+        if (IS_BUILTIN(CONFIG_PHYLIB)) {
+@@ -177,6 +190,8 @@ static void __init imx6q_enet_phy_init(void)
+                                ar8031_phy_fixup);
+                phy_register_fixup_for_uid(PHY_ID_AR8035, 0xffffffef,
+                                ar8035_phy_fixup);
++               phy_register_fixup_for_uid(PHY_ID_RTL8211E, REALTEK_PHY=
+_ID_MASK,
++                               rtl8211e_phy_fixup);
+        }
+ }
+
+(LAKML folks told me this should go somewhere in network driver, but no=
+w it is there)
+
+Without this there is no network at all, and I had ran this code for ye=
+ar without any glitch. 3.19 kernel works fine.
+(It causes "-dirty" in kernel version)
+And different phy initialization cannot cause a non-random stream corru=
+ption.
+
+I've found commit that produces a bug by looking a changes between 3.19=
+ (surely working)
+ and 4.0.0-rc3 (surely non-working) in freescale network driver.
+
+Hope this helps.
+
+--
+ =E1=CE=C4=D2=C5=CA
