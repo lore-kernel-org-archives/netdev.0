@@ -1,49 +1,59 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [linuxppc-release] [PATCH] net/fsl: modify xgmac_mdio for little
- endian SoCs
-Date: Mon, 16 Mar 2015 07:11:08 +0000
-Message-ID: <CY1PR03MB1486DA44A9C9A835A0FDAE92E2020@CY1PR03MB1486.namprd03.prod.outlook.com>
-References: <1426483371-3286-1-git-send-email-shh.xie@gmail.com>
- <55067EA9.7030303@Freescale.com>
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: Re: [PATCH net-next v2] Configure bridge FDB ageing time using netlink.
+Date: Mon, 16 Mar 2015 13:29:16 +0530
+Message-ID: <CA+CtxLR-mWy_R7P-YqQwT+R20dBr-8OicvTji5-vbtFa1vzarg@mail.gmail.com>
+References: <1426297229-21122-1-git-send-email-siva.mannem.lnx@gmail.com>
+	<20150315.221312.1089494260964314644.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Emilian Medve <Emilian.Medve@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0147.outbound.protection.outlook.com ([65.55.169.147]:57760
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750736AbbCPHnj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 03:43:39 -0400
-In-Reply-To: <55067EA9.7030303@Freescale.com>
-Content-Language: en-US
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:34003 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbbCPH7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 03:59:17 -0400
+Received: by wibg7 with SMTP id g7so25606582wib.1
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 00:59:16 -0700 (PDT)
+In-Reply-To: <20150315.221312.1089494260964314644.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On 03/16/2015 12:22 AM, shh.xie@gmail.com wrote:
-> > From: Shaohui Xie <Shaohui.Xie@freescale.com>
-> >
-> > MDIO controller on little endian Socs, e.g. ls2085a is similar to the
-> > controller on big endian Socs, but the MDIO access is little endian,
-> > we use I/O accessor function to handle endianness, so the driver can
-> > run on little endian Socs. A property "fsl,little-endian-mdio" is used
-> > in DTS to indicate the MDIO is little endian, if driver probes the
-> > property, driver will access MDIO in little endian.
-> 
-> Please use "{big,little}-endian" with "big-endian" being the default if
-> none is present. Please look at
-> Documentation/devicetree/bindings/regmap/regmap.txt and more then a dozen
-> FSL bindings already using this
-[S.H] OK. I'll align driver with the Doc.
+On Mon, Mar 16, 2015 at 7:43 AM, David Miller <davem@davemloft.net> wrote:
+> From: Siva Mannem <siva.mannem.lnx@gmail.com>
+> Date: Sat, 14 Mar 2015 07:10:29 +0530
+>
+>> This patch allows user to configure bridge's FDB ageing using
+>> netlink(for ex, iproute2). Allowed range is 10 seconds to 1000000 seconds
+>> as per ieee8021QBridgeFdbAgingTime.
+>>
+>> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+>
+> The behavior of br_changelink() leaves a lot to be desired, and this
+> change is making it worse.
+>
+> The range of the netlink attributes, the only thing that can cause
+> an error, should be validated for all attributes _first_.
+>
+I will check whether this can be achieved by adding the required range checks
+to br_validate(). Any side-effects with this approach?
 
-> 
-> > Also, fix a bug in xgmac_wait_until_done() which mdio_stat should be
-> > used instead of mdio_data when checking if busy bit is cleared.
-> 
-> Please split this into a separate patch
-[S.H] OK. 
+> Because right now you can have several values change state,
+> then the last one has a range error, and an error is returned
+> without rolling back the state.
+>
 
-Thank you!
-Shaohui
+> This is terrible.
+>
+> When this happens the user has not reliable way to figure out
+> that some of the state changes it requested happened, and
+> exactly which ones those were.
+>
+> If an error is thrown we _MUST_ not make any state changes to
+> the bridge whatsoever.
+
+
+
+-- 
+Regards,
+Siva Mannem.
