@@ -1,71 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp_metrics: fix wrong lockdep annotations
-Date: Mon, 16 Mar 2015 06:58:49 -0700
-Message-ID: <1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150316113542.GA27127@paralelels.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken.
+ In 4.0.0-rc3
+Date: Mon, 16 Mar 2015 14:01:12 +0000
+Message-ID: <BLUPR03MB3739B9C6E14A106CCAEBA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <390621425930628@web28o.yandex.ru>
+ <3625951426018334@web26j.yandex.ru>
+ <BLUPR03MB373A446E2D97992CA7AAA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+ <726281426513068@web10o.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Andrew Vagin <avagin@parallels.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:34618 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbbCPN6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 09:58:52 -0400
-Received: by igbue6 with SMTP id ue6so33054906igb.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 06:58:51 -0700 (PDT)
-In-Reply-To: <20150316113542.GA27127@paralelels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="koi8-r"
+Content-Transfer-Encoding: base64
+To: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, linux-arm-kernel
+ <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <726281426513068@web10o.yandex.ru>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-Changes in tcp_metric hash table are protected by tcp_metrics_lock
-only, not by genl_mutex
-
-Reported-by: Andrew Vagin <avagin@parallels.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 098a697b497e ("tcp_metrics: Use a single hash table for all network namespaces.")
----
- net/ipv4/tcp_metrics.c |   12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 366728cbee4a692394696f13e6aacf0331990eed..c7d34db9cfc99d85f6d21cf5bd7e718e80e404e7 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -1040,11 +1040,8 @@ out_free:
- 	return ret;
- }
- 
--#define deref_locked_genl(p)	\
--	rcu_dereference_protected(p, lockdep_genl_is_held() && \
--				     lockdep_is_held(&tcp_metrics_lock))
--
--#define deref_genl(p)	rcu_dereference_protected(p, lockdep_genl_is_held())
-+#define deref_locked(p)	\
-+	rcu_dereference_protected(p, lockdep_is_held(&tcp_metrics_lock))
- 
- static void tcp_metrics_flush_all(struct net *net)
- {
-@@ -1057,8 +1054,7 @@ static void tcp_metrics_flush_all(struct net *net)
- 		struct tcp_metrics_block __rcu **pp;
- 		spin_lock_bh(&tcp_metrics_lock);
- 		pp = &hb->chain;
--		for (tm = deref_locked_genl(*pp); tm;
--		     tm = deref_locked_genl(*pp)) {
-+		for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
- 			if (net_eq(tm_net(tm), net)) {
- 				*pp = tm->tcpm_next;
- 				kfree_rcu(tm, rcu_head);
-@@ -1097,7 +1093,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	hb = tcp_metrics_hash + hash;
- 	pp = &hb->chain;
- 	spin_lock_bh(&tcp_metrics_lock);
--	for (tm = deref_locked_genl(*pp); tm; tm = deref_locked_genl(*pp)) {
-+	for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
- 		if (addr_same(&tm->tcpm_daddr, &daddr) &&
- 		    (!src || addr_same(&tm->tcpm_saddr, &saddr)) &&
- 		    net_eq(tm_net(tm), net)) {
+RnJvbTog8MHOz9cg4c7E0sXKIDxyb2NrZm9yZEB5YW5kZXgucnU+IFNlbnQ6IE1vbmRheSwgTWFy
+Y2ggMTYsIDIwMTUgOTozOCBQTQo+IFRvOiBEdWFuIEZ1Z2FuZy1CMzg2MTE7IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc7IGxpbnV4LWFybS1rZXJuZWwKPiBTdWJqZWN0OiBSZTogQnVnIGluIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jLCBUWCBpcwo+IGJyb2tlbi4gSW4g
+NC4wLjAtcmMzCj4gCj4gSGkhCj4gCj4gMTYuMDMuMjAxNSwgMTI6MjEsICJmdWdhbmcuZHVhbkBm
+cmVlc2NhbGUuY29tIgo+IDxmdWdhbmcuZHVhbkBmcmVlc2NhbGUuY29tPjoKPiA+Cj4gPiBJIHRy
+eSB5b3VyIGNhc2Ugb24gaS5NWDZxIHNhYnJlc2QgYm9hcmQgd2l0aCBuZXQgdHJlZSBrZXJuZWwu
+Cj4gPiByb290QGZyZWVzY2FsZSB+JCB1bmFtZSAtcgo+ID4gNC4wLjAtcmMzLTExMDcxLWdmMDBi
+YmQyCj4gPgo+ID4gV2l0aCBiZWxvdyB0ZXN0IHN0ZXBzIGZvciAxMCB0aW1lLCB0aGUgemVybyBm
+aWxlIHNpemUgcmFuZ2UgZnJvbSAyME0KPiA+IHRvIDMwME0gYnl0ZXMsIGNvbXBhcmUgdGhlIG1k
+NXN1bSBjaGVja3N1bSBiZXR3ZWVuIGkuTVg2cSBhbmQgaS5NWDZxL1BDCj4gaG9zdCwgmnRoZSBj
+aGVja3N1bSBpcyB0aGUgc2FtZS4KPiA+Cj4gPiByb290QGZyZWVzY2FsZSB+JCBybSB6ZXJvcwo+
+ID4gcm9vdEBmcmVlc2NhbGUgfiQgZGQgaWY9L2Rldi96ZXJvIG9mPXplcm9zIGJzPTFNIGNvdW50
+PTMwMAo+ID4gMzAwKzAgcmVjb3JkcyBpbgo+ID4gMzAwKzAgcmVjb3JkcyBvdXQKPiA+IDMxNDU3
+MjgwMCBieXRlcyAoMzAwLjBNQikgY29waWVkLCAxLjgxMTQ1OSBzZWNvbmRzLCAxNjUuNk1CL3MK
+PiA+IHJvb3RAZnJlZXNjYWxlIH4kIG1kNXN1bSAtYiB6ZXJvcwo+ID4gMGQ5N2E5Y2Q4YmJkN2Nl
+NzVhMmE3NmJiMDYyNTg5MTUgmnplcm9zIHJvb3RAZnJlZXNjYWxlIH4kIGNwIHplcm9zCj4gPiAv
+bW50L25mcy8gLWYgcm9vdEBmcmVlc2NhbGUgfiQgcm0gemVyb3Mgcm9vdEBmcmVlc2NhbGUgfiQg
+Y3AKPiA+IC9tbnQvbmZzL3plcm9zIC4vIHJvb3RAZnJlZXNjYWxlIH4kIG1kNXN1bSAtYiB6ZXJv
+cwo+ID4gMGQ5N2E5Y2Q4YmJkN2NlNzVhMmE3NmJiMDYyNTg5MTUgmnplcm9zCj4gPgo+ID4gRG8g
+eW91IGhhdmUgYW55IGxvc3QgZm9yIHJlcHJvZHVjZSB0aGUgaXNzdWUgPwo+IAo+IEN1cnJlbnQg
+bmV0IHRyZWUgZG9lcyBub3QgaGF2ZSB0aGlzIGlzc3VlLCBpdCB3b3JrcyBmaW5lLiBUaGFua3Mg
+dG8gYWxsLgo+IAo+IEZyb20gZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJu
+ZWwvZ2l0L2RhdmVtL25ldC5naXQKPiAKPiBhcHhAYXN0cmE6fiQgdW5hbWUgLXIKPiA0LjAuMC1y
+YzMtMDAxNTAtZzEwNjQwZDMtZGlydHkKPiAKPiAKPiAtLQo+ICDhzsTSxcoKCkkgdGVzdCB0aGUg
+Y29tbWl0IGYwMGJiZDIgdGhhdCBpbmNsdWRlIHRoZSBwYXRjaCAyYjk5NWY2Mzk4Ny4KQnV0IGNh
+bm5vdCByZXByb2R1Y2UgeW91ciBpc3N1ZS4gUGxzIGRvdWJsZSBjb25maXJtIGl0IGluIHlvdXIg
+Ym9hcmQuCgpSZWdhcmRzLApBbmR5CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2Vy
+bmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1h
+bi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
