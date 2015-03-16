@@ -1,104 +1,68 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 v2] route: label externally offloaded routes
-Date: Mon, 16 Mar 2015 09:18:05 -0400
-Message-ID: <20150316131805.GF12614@gospo.home.greyhouse.net>
-References: <1426447894-41398-1-git-send-email-sfeldma@gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] tc class: Show class names from file
+Date: Mon, 16 Mar 2015 15:22:30 +0200
+Message-ID: <20150316132230.GA1100@angus-think.wlc.globallogic.com>
+References: <1425400878-7608-1-git-send-email-vadim4j@gmail.com>
+ <5505EFC4.1070403@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	jiri@resnulli.us, roopa@cumulusnetworks.com, tarbal@gmail.com,
-	linville@tuxdriver.com
-To: sfeldma@gmail.com
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:34641 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbCPNSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 09:18:10 -0400
-Received: by qgh62 with SMTP id 62so39226438qgh.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 06:18:09 -0700 (PDT)
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:33425 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752579AbbCPNeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 09:34:13 -0400
+Received: by lbbzq9 with SMTP id zq9so30815851lbb.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 06:34:12 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1426447894-41398-1-git-send-email-sfeldma@gmail.com>
+In-Reply-To: <5505EFC4.1070403@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 15, 2015 at 12:31:34PM -0700, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
+On Sun, Mar 15, 2015 at 09:47:00PM +0100, Daniel Borkmann wrote:
+> Hi Vadim,
 > 
-> v2:
+> On 03/03/2015 05:41 PM, Vadim Kochan wrote:
+> >From: Vadim Kochan <vadim4j@gmail.com>
+> >
+> >It is possible to use class names from file /etc/iproute2/cls_names
+> >which tc will use when showing class info:
+> >
+> >     # tc/tc -nm class show dev lo
+> >	class htb 1:10 parent 1:1 leaf 10: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> >	class htb 1:1 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> >	class htb web#1:20 parent 1:1 leaf 20: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> >	class htb 1:2 root rate 6Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> >	class htb 1:30 parent 1:1 leaf 30: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >	class htb voip#1:40 parent 1:2 leaf 40: prio 0 rate 5Mbit ceil 5Mbit burst 15Kb cburst 1600b
+> >	class htb 1:50 parent 1:2 leaf 50: prio 0 rate 3Mbit ceil 6Mbit burst 15Kb cburst 1599b
+> >	class htb 1:60 parent 1:2 leaf 60: prio 0 rate 1Kbit ceil 6Mbit burst 15Kb cburst 1599b
+> >
+> >or to specify via file path:
+> >
+> >     # tc/tc -nm -cf /tmp/cls_names class show dev lo
+> >
+> >Class names file contains simple "maj:min  name" structure:
+> >
+> >1:20    web
+> >1:40    voip
+> >
+> >Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 > 
-> No clear outcome on polling for choices of "external", "offload", "hw", or
-> "hardware".  Andy's concern about "external" being confusing for users is
-> valid.  So, I'm making executive decision to use "external_offload" for label,
-> as suggested by Jiri.
+> in your patch, there are a couple of malloc() calls in your db
+> creation, that you should check if they actually fail, see i.e.
+> db_names_alloc(). Would be good if you could follow-up with a fix.
+> 
+> Thanks,
+> Daniel
 
-This seems like quite a mouthful.  Just make it 'offload' or 'hardware'
-so the output of 'ip route show' isn't so long that it will frequently
-be longer than 80 chars.  Being longer than 80 chars is going to be
-irritating for _many_ users.
+Hi,
 
-> 
-> v1:
-> 
-> On ip route print dump, label externally offloaded routes with "external".
-> Offloaded routes are flagged with RTNH_F_EXTERNAL, a recent additon to
-> net-next.  For example:
-> 
-> $ ip route
-> default via 192.168.0.2 dev eth0
-> 11.0.0.0/30 dev swp1  proto kernel  scope link  src 11.0.0.2 external
-> 11.0.0.4/30 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
-> 11.0.0.8/30 dev swp2  proto kernel  scope link  src 11.0.0.10 external
-> 11.0.0.12/30 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
-> 12.0.0.2  proto zebra  metric 30 external
->         nexthop via 11.0.0.1  dev swp1 weight 1
->         nexthop via 11.0.0.9  dev swp2 weight 1
-> 12.0.0.3 via 11.0.0.1 dev swp1  proto zebra  metric 20 external
-> 12.0.0.4 via 11.0.0.9 dev swp2  proto zebra  metric 20 external
-> 192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.15
+Sure I will do.
 
-I understand why you did this the way you did (keeping the changelog the
-same with the only change being the parts listed in 'v2'), but could you
-change the new output to reflect the code change?  Readers of the git
-log would probably be confused by this.
+Also I was thinking about to get rid of this '-nm | -name' option and
+resolve class names by default if they are in /etc/iproute2/cls_names or
+specified by -cf option, what do you think ?
 
-(Sorry to debate such a simple patch, but this is the interface most will
-use so it seems like a good idea to make sure we are thinking about it
-in the proper context.  Healthy debate on the mailing-list seems like a
-great way to track the reason behind some of these decisions.)
-
-
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Acked-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/linux/rtnetlink.h |    1 +
->  ip/iproute.c              |    2 ++
->  2 files changed, 3 insertions(+)
-> 
-> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-> index 3eb7810..c74773c 100644
-> --- a/include/linux/rtnetlink.h
-> +++ b/include/linux/rtnetlink.h
-> @@ -332,6 +332,7 @@ struct rtnexthop {
->  #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
->  #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
->  #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
-> +#define RTNH_F_EXTERNAL		8	/* Route installed externally   */
->  
->  /* Macros to handle hexthops */
->  
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index b32025f..ffdf4f2 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -412,6 +412,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->  		fprintf(fp, "onlink ");
->  	if (r->rtm_flags & RTNH_F_PERVASIVE)
->  		fprintf(fp, "pervasive ");
-> +	if (r->rtm_flags & RTNH_F_EXTERNAL)
-> +		fprintf(fp, "external_offload ");
->  	if (r->rtm_flags & RTM_F_NOTIFY)
->  		fprintf(fp, "notify ");
->  	if (tb[RTA_MARK]) {
-> -- 
-> 1.7.10.4
-> 
+Regards,
