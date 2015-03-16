@@ -1,103 +1,249 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] ath10k: harmonize error case handling in ath10k_core_start
-Date: Mon, 16 Mar 2015 04:48:57 -0400
-Message-ID: <1426495737-18691-1-git-send-email-hofrat@osadl.org>
-Cc: Michal Kazior <michal.kazior@tieto.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicholas Mc Guire <hofrat@osadl.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonas Johansson <jonasj76@gmail.com>
+Subject: Re: [PATCH net-next] team: Notify state change on ports
+Date: Mon, 16 Mar 2015 10:09:12 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1503161007550.7948@hellgate.skynet>
+References: <1426176236-28255-1-git-send-email-jonas.johansson@gmail.com> <20150315165051.GE2043@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, monis@mellanox.com,
+	jonas.johansson@westermo.se
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:33773 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948AbbCPJNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 05:13:40 -0400
+Received: by ladw1 with SMTP id w1so34154524lad.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 02:13:39 -0700 (PDT)
+In-Reply-To: <20150315165051.GE2043@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All of the bringup/init functions called in ath10k_core_start return 0 
-on success and != 0 on failure. ath10k_wmi_wait_for_service_ready(),
-ath10k_wmi_wait_for_unified_ready() and their call sites were adjusted
-to fit this model.
-The return type of wait_for_completion_timeout is unsigned long not int so
-ath10k_wmi_wait_for_service_ready() and ath10k_wmi_wait_for_unified_ready()
-were fixed up accordingly.
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
 
-This was initially in two separate patches which were joined as suggested
-by Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> to ensure that it
-will not break bisection - thanks!
+On Sun, 15 Mar 2015, Jiri Pirko wrote:
 
-Patch was only compile test with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-CONFIG_ATH10K=m
+> Thu, Mar 12, 2015 at 05:03:56PM CET, jonasj76@gmail.com wrote:
+>> From: Jonas Johansson <jonasj76@gmail.com>
+>>
+>> Use notifier chain to dispatch an event upon a change in port state. The event
+>> is dispatched with the notifier_bonding_info struct.
+>> The notifier_bonding_info struct was introduced to notify state change on
+>> bonding slaves (commit 61bd3857), so some fields are set to -1, due that the
+>> data is not available in team.
+>>
+>> Signed-off-by: Jonas Johansson <jonasj76@gmail.com>
+>> ---
+>> This patch is just a step into introducing HW bonding support. In a previous
+>> (not applied) patchset [1], I added two (2) new ndo ops which was used to
+>> receive a port state change. This patch will instead use the same mechanism
+>> as introduced in [2] and [3] to notify a port state change.
+>>
+>> A state change on a port can be used by a switching device to e.g. load
+>> balance packets over the active ports. Due to that HW bonding isn't added to
+>> the kernel yet this patch may atm only be of use for [4] to use the team
+>> driver instead of the bonding driver. But I hope it will become useful as a
+>> first step to introduce HW bonding.
+>>
+>> [1] - [PATCH net-next 0/2] dsa: implement HW bonding'
+>>      http://marc.info/?l=linux-netdev&m=142442948421049&w=2
+>> [2] - net/core: Add event for a change in slave state'
+>>      commit: 61bd3857
+>> [3] - net/bonding: Move slave state changes to a helper function
+>>      commit: 69a2338e
+>> [4] - [PATCH 00/10] Add HA and LAG support to mlx4 RoCE and SRIOV services
+>>      http://marc.info/?l=linux-netdev&m=142309529514580&w=2
+>>
+>> drivers/net/team/team.c | 85 +++++++++++++++++++++++++++++++++++++++++++++++++
+>> include/linux/if_team.h | 10 ++++++
+>> 2 files changed, 95 insertions(+)
+>>
+>> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>> index a23319f..aef8120 100644
+>> --- a/drivers/net/team/team.c
+>> +++ b/drivers/net/team/team.c
+>> @@ -659,6 +659,86 @@ static void team_notify_peers_fini(struct team *team)
+>> 	cancel_delayed_work_sync(&team->notify_peers.dw);
+>> }
+>>
+>> +/*********************
+>> + * Port notification
+>> + *********************/
+>> +
+>> +static void team_fill_ifbond(struct team *team, struct ifbond *info)
+>> +{
+>> +	info->bond_mode = -1;
+>> +	info->miimon = -1;
+>> +	info->num_slaves = team->en_port_count;
+>> +}
+>> +
+>> +static void team_fill_ifslave(struct team_port *port, struct ifslave *info)
+>> +{
+>> +	strcpy(info->slave_name, port->dev->name);
+>> +	info->link = port->state.linkup;
+>> +	if (team_port_enabled(port))
+>> +		info->state = BOND_STATE_ACTIVE;
+>> +	else
+>> +		info->state = BOND_STATE_BACKUP;
+>> +	info->link_failure_count = 0;
+>> +}
+>> +
+>> +static void team_notify_port_work(struct work_struct *work)
+>> +{
+>> +	struct team *team;
+>> +	struct team_port_notify *notify;
+>> +
+>> +	team = container_of(work, struct team, notify_ports.dw.work);
+>> +
+>> +	if (!rtnl_trylock()) {
+>> +		schedule_delayed_work(&team->notify_ports.dw, 0);
+>> +		return;
+>> +	}
+>> +	rcu_read_lock();
+>> +
+>> +	notify = list_first_or_null_rcu(&team->notify_ports.port_list,
+>> +					struct team_port_notify, list);
+>> +	if (!notify)
+>> +		goto unlock;
+>> +
+>> +	netdev_bonding_info_change(notify->dev, &notify->bonding_info);
+>
+>
+> I must say I don't like to see "bonding code" in team driver. Also this
+> code emulates bonding in team for nofitication consumer. How about to
+> make it more generic. Notifier consumer should not care if it is bonding
+> or team, it should receive generic info and act accordingly.
+>
+> So how about something like netdev_aggregation_change ?
+>
+>
+>
+The intentions of this patch (from my perspective) was to notify a 
+hardware (switch device) of a aggregate member port change. So from this 
+perspective, a switchdev callback should maybe be used instead 
+(netdev_switch_port_lag_change).
 
-Patch is against 4.0-rc3 (localversion-next is -next-20150316)
+To be consistent, a switchdev callback should maybe also be used when 
+adding a port to an LAG. Today NETDEV_CHANGEUPPER can be used by a driver 
+to accomplish this, but this will not 'pass through' switchdev, which 
+might want to do or keep track of something.
 
- drivers/net/wireless/ath/ath10k/core.c |    6 ++----
- drivers/net/wireless/ath/ath10k/wmi.c  |   20 ++++++++++++--------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+However, the approach above will result in two more ndo ops.
 
-diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
-index c0e454b..e97069f 100644
---- a/drivers/net/wireless/ath/ath10k/core.c
-+++ b/drivers/net/wireless/ath/ath10k/core.c
-@@ -1080,9 +1080,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode)
- 
- 	if (mode == ATH10K_FIRMWARE_MODE_NORMAL) {
- 		status = ath10k_wmi_wait_for_service_ready(ar);
--		if (status <= 0) {
-+		if (status) {
- 			ath10k_warn(ar, "wmi service ready event not received");
--			status = -ETIMEDOUT;
- 			goto err_hif_stop;
- 		}
- 	}
-@@ -1098,9 +1097,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode)
- 	}
- 
- 	status = ath10k_wmi_wait_for_unified_ready(ar);
--	if (status <= 0) {
-+	if (status) {
- 		ath10k_err(ar, "wmi unified ready event not received\n");
--		status = -ETIMEDOUT;
- 		goto err_hif_stop;
- 	}
- 
-diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
-index c7ea77e..19ed27a 100644
---- a/drivers/net/wireless/ath/ath10k/wmi.c
-+++ b/drivers/net/wireless/ath/ath10k/wmi.c
-@@ -884,20 +884,24 @@ void ath10k_wmi_put_wmi_channel(struct wmi_channel *ch,
- 
- int ath10k_wmi_wait_for_service_ready(struct ath10k *ar)
- {
--	int ret;
-+	unsigned long time_left;
- 
--	ret = wait_for_completion_timeout(&ar->wmi.service_ready,
--					  WMI_SERVICE_READY_TIMEOUT_HZ);
--	return ret;
-+	time_left = wait_for_completion_timeout(&ar->wmi.service_ready,
-+						WMI_SERVICE_READY_TIMEOUT_HZ);
-+	if (!time_left)
-+		return -ETIMEDOUT;
-+	return 0;
- }
- 
- int ath10k_wmi_wait_for_unified_ready(struct ath10k *ar)
- {
--	int ret;
-+	unsigned long time_left;
- 
--	ret = wait_for_completion_timeout(&ar->wmi.unified_ready,
--					  WMI_UNIFIED_READY_TIMEOUT_HZ);
--	return ret;
-+	time_left = wait_for_completion_timeout(&ar->wmi.unified_ready,
-+						WMI_UNIFIED_READY_TIMEOUT_HZ);
-+	if (!time_left)
-+		return -ETIMEDOUT;
-+	return 0;
- }
- 
- struct sk_buff *ath10k_wmi_alloc_skb(struct ath10k *ar, u32 len)
--- 
-1.7.10.4
+Thoughts?
+
+>> +	dev_put(notify->dev);
+>> +	list_del_rcu(&notify->list);
+>> +	kfree(notify);
+>> +
+>> +	if (list_first_or_null_rcu(&team->notify_ports.port_list,
+>> +				   struct team_port_notify, list))
+>> +		schedule_delayed_work(&team->notify_ports.dw, msecs_to_jiffies(1));
+>> +unlock:
+>> +	rcu_read_unlock();
+>> +	rtnl_unlock();
+>> +}
+>> +
+>> +static void team_notify_port(struct team *team, struct team_port *port)
+>> +{
+>> +	struct team_port_notify *notify;
+>> +
+>> +	notify = kmalloc(sizeof(*notify), GFP_KERNEL);
+>> +	if (!notify)
+>> +		return;
+>> +
+>> +	dev_hold(port->dev);
+>> +	notify->dev = port->dev;
+>> +	team_fill_ifslave(port, &notify->bonding_info.slave);
+>> +	team_fill_ifbond(team, &notify->bonding_info.master);
+>> +
+>> +	list_add_tail_rcu(&notify->list, &team->notify_ports.port_list);
+>> +	schedule_delayed_work(&team->notify_ports.dw, 0);
+>> +}
+>> +
+>> +static void team_notify_port_init(struct team *team)
+>> +{
+>> +	INIT_LIST_HEAD(&team->notify_ports.port_list);
+>> +	INIT_DELAYED_WORK(&team->notify_ports.dw, team_notify_port_work);
+>> +}
+>> +
+>> +static void team_notify_port_fini(struct team *team)
+>> +{
+>> +	cancel_delayed_work_sync(&team->notify_ports.dw);
+>> +}
+>>
+>> /*******************************
+>>  * Send multicast group rejoins
+>> @@ -932,6 +1012,7 @@ static void team_port_enable(struct team *team,
+>> 		team->ops.port_enabled(team, port);
+>> 	team_notify_peers(team);
+>> 	team_mcast_rejoin(team);
+>> +	team_notify_port(team, port);
+>> }
+>>
+>> static void __reconstruct_port_hlist(struct team *team, int rm_index)
+>> @@ -963,6 +1044,7 @@ static void team_port_disable(struct team *team,
+>> 	team_adjust_ops(team);
+>> 	team_notify_peers(team);
+>> 	team_mcast_rejoin(team);
+>> +	team_notify_port(team, port);
+>> }
+>>
+>> #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
+>> @@ -1581,6 +1663,7 @@ static int team_init(struct net_device *dev)
+>>
+>> 	team_notify_peers_init(team);
+>> 	team_mcast_rejoin_init(team);
+>> +	team_notify_port_init(team);
+>>
+>> 	err = team_options_register(team, team_options, ARRAY_SIZE(team_options));
+>> 	if (err)
+>> @@ -1592,6 +1675,7 @@ static int team_init(struct net_device *dev)
+>> 	return 0;
+>>
+>> err_options_register:
+>> +	team_notify_port_fini(team);
+>> 	team_mcast_rejoin_fini(team);
+>> 	team_notify_peers_fini(team);
+>> 	team_queue_override_fini(team);
+>> @@ -1613,6 +1697,7 @@ static void team_uninit(struct net_device *dev)
+>>
+>> 	__team_change_mode(team, NULL); /* cleanup */
+>> 	__team_options_unregister(team, team_options, ARRAY_SIZE(team_options));
+>> +	team_notify_port_fini(team);
+>> 	team_mcast_rejoin_fini(team);
+>> 	team_notify_peers_fini(team);
+>> 	team_queue_override_fini(team);
+>> diff --git a/include/linux/if_team.h b/include/linux/if_team.h
+>> index a6aa970..fc59e39 100644
+>> --- a/include/linux/if_team.h
+>> +++ b/include/linux/if_team.h
+>> @@ -28,6 +28,12 @@ struct team_pcpu_stats {
+>>
+>> struct team;
+>>
+>> +struct team_port_notify {
+>> +	struct list_head list; /* node in notify list */
+>> +	struct net_device *dev;
+>> +	struct netdev_bonding_info bonding_info;
+>> +};
+>> +
+>> struct team_port {
+>> 	struct net_device *dev;
+>> 	struct hlist_node hlist; /* node in enabled ports hash list */
+>> @@ -207,6 +213,10 @@ struct team {
+>> 		atomic_t count_pending;
+>> 		struct delayed_work dw;
+>> 	} mcast_rejoin;
+>> +	struct {
+>> +		struct list_head port_list; /* list of ports to be notified */
+>> +		struct delayed_work dw;
+>> +	} notify_ports;
+>> 	long mode_priv[TEAM_MODE_PRIV_LONGS];
+>> };
+>>
+>> --
+>> 2.1.0
+>>
+>
