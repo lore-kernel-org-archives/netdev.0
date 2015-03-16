@@ -1,98 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp_metrics: fix wrong lockdep annotations
-Date: Mon, 16 Mar 2015 07:14:34 -0700
-Message-ID: <1426515274.11398.209.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150316113542.GA27127@paralelels.com>
-	 <1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pavel Simerda <psimerda@redhat.com>
+Subject: Re: iproute2 documentation
+Date: Mon, 16 Mar 2015 11:51:39 -0400 (EDT)
+Message-ID: <1079302826.2522473.1426521099764.JavaMail.zimbra@redhat.com>
+References: <1988820225.2425618.1426503091224.JavaMail.zimbra@redhat.com> <486332040.2425794.1426503272511.JavaMail.zimbra@redhat.com> <20150316153157.GF26326@kenyonralph.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Andrew Vagin <avagin@parallels.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Kenyon Ralph <kenyon@kenyonralph.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37399 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932513AbbCPOOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 10:14:36 -0400
-Received: by igcqo1 with SMTP id qo1so42770702igc.0
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 07:14:36 -0700 (PDT)
-In-Reply-To: <1426514329.11398.204.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx5-phx2.redhat.com ([209.132.183.37]:43509 "EHLO
+	mx5-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932637AbbCPPvn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 11:51:43 -0400
+In-Reply-To: <20150316153157.GF26326@kenyonralph.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+----- Original Message -----
+> From: "Kenyon Ralph" <kenyon@kenyonralph.com>
+> To: "Pavel Simerda" <psimerda@redhat.com>
+> Cc: "netdev" <netdev@vger.kernel.org>, "Stephen Hemminger" <stephen@networkplumber.org>
+> Sent: Monday, 16 March, 2015 4:31:57 PM
+> Subject: Re: iproute2 documentation
+> 
+> On 2015-03-16T06:54:32-0400, Pavel Simerda <psimerda@redhat.com> wrote:
+> > Hello,
+> > 
+> > I just stepped on your manpage commit that got apparently lost in history
+> > as
+> > the current manpage doesn't for example include the lifetime description.
+> > Let
+> > me know if I should prepare a new documentation patch for the current git
+> > master
+> > or you want to handle it yourself.
+> 
+> Not sure how this would get lost, but please go ahead and keep the
+> manpage up to date. I'm not a maintainer of it, I just saw that it was
+> lacking at the time and tried to fix it.
 
-Changes in tcp_metric hash table are protected by tcp_metrics_lock
-only, not by genl_mutex
+Thanks, I'll try to come up with something soon.
 
-While we are at it use deref_locked() instead of rcu_dereference()
-in tcp_new() to avoid unnecessary barrier, as we hold tcp_metrics_lock
-as well.
- 
-Reported-by: Andrew Vagin <avagin@parallels.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 098a697b497e ("tcp_metrics: Use a single hash table for all network namespaces.")
----
- net/ipv4/tcp_metrics.c |   20 ++++++++------------
- 1 file changed, 8 insertions(+), 12 deletions(-)
+Cheers,
 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 366728cbee4a692394696f13e6aacf0331990eed..5bef3513af77afc8943d99a107f74155b9979aaa 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -152,6 +152,9 @@ static void tcpm_check_stamp(struct tcp_metrics_block *tm, struct dst_entry *dst
- #define TCP_METRICS_RECLAIM_DEPTH	5
- #define TCP_METRICS_RECLAIM_PTR		(struct tcp_metrics_block *) 0x1UL
- 
-+#define deref_locked(p)	\
-+	rcu_dereference_protected(p, lockdep_is_held(&tcp_metrics_lock))
-+
- static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 					  struct inetpeer_addr *saddr,
- 					  struct inetpeer_addr *daddr,
-@@ -180,9 +183,9 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
- 	if (unlikely(reclaim)) {
- 		struct tcp_metrics_block *oldest;
- 
--		oldest = rcu_dereference(tcp_metrics_hash[hash].chain);
--		for (tm = rcu_dereference(oldest->tcpm_next); tm;
--		     tm = rcu_dereference(tm->tcpm_next)) {
-+		oldest = deref_locked(tcp_metrics_hash[hash].chain);
-+		for (tm = deref_locked(oldest->tcpm_next); tm;
-+		     tm = deref_locked(tm->tcpm_next)) {
- 			if (time_before(tm->tcpm_stamp, oldest->tcpm_stamp))
- 				oldest = tm;
- 		}
-@@ -1040,12 +1043,6 @@ out_free:
- 	return ret;
- }
- 
--#define deref_locked_genl(p)	\
--	rcu_dereference_protected(p, lockdep_genl_is_held() && \
--				     lockdep_is_held(&tcp_metrics_lock))
--
--#define deref_genl(p)	rcu_dereference_protected(p, lockdep_genl_is_held())
--
- static void tcp_metrics_flush_all(struct net *net)
- {
- 	unsigned int max_rows = 1U << tcp_metrics_hash_log;
-@@ -1057,8 +1054,7 @@ static void tcp_metrics_flush_all(struct net *net)
- 		struct tcp_metrics_block __rcu **pp;
- 		spin_lock_bh(&tcp_metrics_lock);
- 		pp = &hb->chain;
--		for (tm = deref_locked_genl(*pp); tm;
--		     tm = deref_locked_genl(*pp)) {
-+		for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
- 			if (net_eq(tm_net(tm), net)) {
- 				*pp = tm->tcpm_next;
- 				kfree_rcu(tm, rcu_head);
-@@ -1097,7 +1093,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	hb = tcp_metrics_hash + hash;
- 	pp = &hb->chain;
- 	spin_lock_bh(&tcp_metrics_lock);
--	for (tm = deref_locked_genl(*pp); tm; tm = deref_locked_genl(*pp)) {
-+	for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
- 		if (addr_same(&tm->tcpm_daddr, &daddr) &&
- 		    (!src || addr_same(&tm->tcpm_saddr, &saddr)) &&
- 		    net_eq(tm_net(tm), net)) {
+Pavel
+
+> > commit 43d29f782f12d6212ea3717a3a47b0036474a67c
+> > Author: Kenyon Ralph <kenyon@kenyonralph.com>
+> > Date:   Thu Mar 15 14:39:12 2012 -0700
+> > 
+> >     Update ip address manual page
+> >     
+> >     * update synopsis to match "ip address help" output
+> >     * specify IPv4, since "IP" is ambiguous
+> >     * remove deprecated site scope
+> >     * document lifetimes, home, and nodad
+> >     * update wording to make sense since page was split from the ip(8) page
+> >     * git rid of extra spaces
+> > 
+> > Cheers,
+> > 
+> > Pavel
+> 
+> --
+> Kenyon Ralph
+> 
