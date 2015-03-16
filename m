@@ -1,52 +1,45 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [next-queue 4/7] ixgbe: enable relaxed ordering for SPARC
-Date: Mon, 16 Mar 2015 11:49:49 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB01420@AcuExch.aculab.com>
-References: <1426291248-14739-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1426291248-14739-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: <shh.xie@gmail.com>
+Subject: [PATCH 1/2] [v2] net/fsl: fix a bug in xgmac_mdio
+Date: Mon, 16 Mar 2015 18:55:50 +0800
+Message-ID: <1426503350-23181-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"kernel-team@fb.com" <kernel-team@fb.com>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:55224 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750822AbbCPLu4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 07:50:56 -0400
-In-Reply-To: <1426291248-14739-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from mail-by2on0064.outbound.protection.outlook.com ([207.46.100.64]:48544
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751475AbbCPMDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Mar 2015 08:03:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher
-> This patch makes sure that relaxed ordering is not disabled when
-> on SPARC, where it helps with performance.
-...
->  static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
->  {
-> +#ifndef CONFIG_SPARC
->  	u32 regval;
->  	u32 i;
-> +#endif
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
 
-You'd be better off putting:
+There is a bug in xgmac_wait_until_done() which mdio_stat should be used
+instead of mdio_data when checking if busy bit is cleared.
 
-#ifndef CONFIG_SPARC
-#define IXGBE_DISABLE_RELAXED_ORDERING
-#endif
+Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+---
+changes for v2:
+splitted from http://patchwork.ozlabs.org/patch/450392/
 
-much higher up.
+ drivers/net/ethernet/freescale/xgmac_mdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Then replacing the #ifndef CONFIG_SPARC with #ifdef IXGBE_DISABLE_RELAXED_ORDERING
-in the file itself.
-
-Not that Dave M likes #if's in the body of functions.
-
-	David
+diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+index 3a83bc2..5f691f2 100644
+--- a/drivers/net/ethernet/freescale/xgmac_mdio.c
++++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+@@ -79,7 +79,7 @@ static int xgmac_wait_until_done(struct device *dev,
+ 
+ 	/* Wait till the MDIO write is complete */
+ 	timeout = TIMEOUT;
+-	while ((ioread32be(&regs->mdio_data) & MDIO_DATA_BSY) && timeout) {
++	while ((ioread32be(&regs->mdio_stat) & MDIO_STAT_BSY) && timeout) {
+ 		cpu_relax();
+ 		timeout--;
+ 	}
+-- 
+1.8.4.1
