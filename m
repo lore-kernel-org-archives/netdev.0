@@ -1,93 +1,87 @@
 From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: [PATCH net-next v4 2/3] newly configured FDB ageing time becomes effective immediately
-Date: Tue, 17 Mar 2015 04:32:43 +0530
-Message-ID: <80d2d6e6efcafd636712f8bf91c8f002d1d7692d.1426509272.git.siva.mannem.lnx@gmail.com>
+Subject: [PATCH net-next v4 3/3] Validate all netlink attributes and return error if any of the validation fails.
+Date: Tue, 17 Mar 2015 04:32:44 +0530
+Message-ID: <5269ddae1a0a164a488703654c9bb6e24845c637.1426509272.git.siva.mannem.lnx@gmail.com>
 References: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
 Cc: davem@davemloft.net, sfeldma@gmail.com,
 	Siva Mannem <siva.mannem.lnx@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34303 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964797AbbCPXDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 19:03:21 -0400
-Received: by pacwe9 with SMTP id we9so78201674pac.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 16:03:20 -0700 (PDT)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34907 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964797AbbCPXD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 19:03:29 -0400
+Received: by pabyw6 with SMTP id yw6so78244361pab.2
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 16:03:28 -0700 (PDT)
 In-Reply-To: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
 In-Reply-To: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
 References: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch ensures that the newly configured FDB ageing time becomes effective
-immediately. It also makes the behavior consistent when the ageing_timer is set 
-using any of the three existing mechanisms(sysfs, ioctl, netlink).
+This patch validates all netlink attributes and return error if any of the
+validation fails.
 
 Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
-Suggested-by: Scott Feldman <sfeldma@gmail.com>
+Suggested-by: David Miller <davem@davemloft.net>
 ---
- net/bridge/br_device.c   | 4 ++++
- net/bridge/br_ioctl.c    | 3 +--
- net/bridge/br_sysfs_br.c | 8 +-------
- 3 files changed, 6 insertions(+), 9 deletions(-)
+ net/bridge/br_netlink.c | 39 ++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 38 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 1a665aa..293a113 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -396,12 +396,16 @@ void br_dev_setup(struct net_device *dev)
- int br_set_ageing_time(struct net_bridge *br, unsigned long val)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index d80e802..0b18c0d 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -740,12 +740,49 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 			 struct nlattr *data[])
  {
- 	unsigned long t = clock_t_to_jiffies(val);
-+	unsigned long old_ageing_time;
+ 	struct net_bridge *br = netdev_priv(brdev);
+-	int err;
++	unsigned long forward_delay;
++	unsigned long hello_time;
++	unsigned long max_age;
++	unsigned long ageing_time;
++	u32 t;
++	int err = -ERANGE;
  
- 	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
- 		return -ERANGE;
+ 	if (!data)
+ 		return 0;
  
- 	spin_lock_bh(&br->lock);
-+	old_ageing_time =  br->ageing_time;
- 	br->ageing_time = t;
-+	if (br->ageing_time < old_ageing_time)
-+		mod_timer(&br->gc_timer, jiffies);
- 	spin_unlock_bh(&br->lock);
- 	return 0;
- }
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index a9a4a1b..4f836e2 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -200,8 +200,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		br->ageing_time = clock_t_to_jiffies(args[1]);
--		return 0;
-+		return br_set_ageing_time(br, args[1]);
- 
- 	case BRCTL_GET_PORT_INFO:
- 	{
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 4c97fc5..1fc2857 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -100,17 +100,11 @@ static ssize_t ageing_time_show(struct device *d,
- 	return sprintf(buf, "%lu\n", jiffies_to_clock_t(br->ageing_time));
- }
- 
--static int set_ageing_time(struct net_bridge *br, unsigned long val)
--{
--	br->ageing_time = clock_t_to_jiffies(val);
--	return 0;
--}
--
- static ssize_t ageing_time_store(struct device *d,
- 				 struct device_attribute *attr,
- 				 const char *buf, size_t len)
- {
--	return store_bridge_parm(d, buf, len, set_ageing_time);
-+	return store_bridge_parm(d, buf, len, br_set_ageing_time);
- }
- static DEVICE_ATTR_RW(ageing_time);
- 
+ 	if (data[IFLA_BR_FORWARD_DELAY]) {
++		t = nla_get_u32(data[IFLA_BR_FORWARD_DELAY]);
++		forward_delay = clock_t_to_jiffies(t);
++		if (forward_delay < BR_MIN_FORWARD_DELAY ||
++		    forward_delay > BR_MAX_FORWARD_DELAY)
++			return err;
++	}
++
++	if (data[IFLA_BR_HELLO_TIME]) {
++		t = nla_get_u32(data[IFLA_BR_HELLO_TIME]);
++		hello_time = clock_t_to_jiffies(t);
++		if (hello_time < BR_MIN_HELLO_TIME ||
++		    hello_time > BR_MAX_HELLO_TIME)
++			return err;
++	}
++
++	if (data[IFLA_BR_MAX_AGE]) {
++		t = nla_get_u32(data[IFLA_BR_MAX_AGE]);
++		max_age = clock_t_to_jiffies(t);
++		if (max_age < BR_MIN_MAX_AGE ||
++		    max_age > BR_MAX_MAX_AGE)
++			return err;
++	}
++
++	if (data[IFLA_BR_AGEING_TIME]) {
++		t = nla_get_u32(data[IFLA_BR_AGEING_TIME]);
++		ageing_time = clock_t_to_jiffies(t);
++		if (ageing_time < BR_MIN_AGEING_TIME ||
++		    ageing_time > BR_MAX_AGEING_TIME)
++			return err;
++	}
++
++	if (data[IFLA_BR_FORWARD_DELAY]) {
+ 		err = br_set_forward_delay(br, nla_get_u32(data[IFLA_BR_FORWARD_DELAY]));
+ 		if (err)
+ 			return err;
 -- 
 2.1.0
