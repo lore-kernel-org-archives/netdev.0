@@ -1,51 +1,49 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 -next 2/2] tc: add eBPF support to f_bpf
-Date: Mon, 16 Mar 2015 18:49:21 +0100
-Message-ID: <550717A1.2040805@iogearbox.net>
-References: <cover.1426525312.git.daniel@iogearbox.net> <f7e40a542ad415742037bab62ed2348f07ba4c94.1426525312.git.daniel@iogearbox.net> <550716BF.9030607@plumgrid.com>
+From: Madhu Challa <challa@noironetworks.com>
+Subject: Re: [PATCH iproute2 net-next 2/2] Enable configuring multicast group
+ join / leave at IP level.
+Date: Mon, 16 Mar 2015 10:59:47 -0700
+Message-ID: <CAN_zqfPPsZM9P6_WD6h2yrRHMajHac1xUeacsj_P-fTwugD7fg@mail.gmail.com>
+References: <1425493810-2537-1-git-send-email-challa@noironetworks.com>
+	<1425493810-2537-3-git-send-email-challa@noironetworks.com>
+	<20150315124317.6a01a542@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, jiri@resnulli.us, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>, stephen@networkplumber.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39850 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755797AbbCPRta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 13:49:30 -0400
-In-Reply-To: <550716BF.9030607@plumgrid.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35231 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932223AbbCPR7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 13:59:47 -0400
+Received: by pabyw6 with SMTP id yw6so71432715pab.2
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 10:59:47 -0700 (PDT)
+In-Reply-To: <20150315124317.6a01a542@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2015 06:45 PM, Alexei Starovoitov wrote:
-> On 3/16/15 10:10 AM, Daniel Borkmann wrote:
+On Sun, Mar 15, 2015 at 12:43 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed,  4 Mar 2015 10:30:10 -0800
+> Madhu Challa <challa@noironetworks.com> wrote:
 >
->> +
->> +/* ELF section names, etc (ABI) */
->> +#define ELF_SECTION_LICENSE    "license"
->> +#define ELF_SECTION_MAPS    "maps"
->> +#define ELF_SECTION_CLASSIFIER    "classifier"
->> +#define ELF_SECTION_ACTION    "action"
->> +
->> +#define ELF_MAX_MAPS        64
->> +#define ELF_MAX_LICENSE_LEN    128
->> +
->> +/* ELF map definition (ABI) */
->> +struct bpf_elf_map {
->> +    __u32 type;
->> +    __u32 size_key;
->> +    __u32 size_value;
->> +    __u32 max_elem;
->> +};
+>> Joining multicast group on ethernet level via "ip maddr" command would
+>> not work if we have an Ethernet switch that does igmp snooping since
+>> the switch would not replicate multicast packets on ports that did not
+>> have IGMP reports for the multicast addresses.
+>>
+>> Linux vxlan interfaces created via "ip link add vxlan" have the group option
+>> that enables then to do the required join.
+>>
+>> By extending ip address command with option "autojoin" we can get similar
+>> functionality for openvswitch vxlan interfaces as well as other tunneling
+>> mechanisms that need to receive multicast traffic.
+>>
+>> example:
+>> ip address add 224.1.1.10/24 dev eth5 autojoin
+>> ip address del 224.1.1.10/24 dev eth5
 >
-> I think people might freak out that the above section names and
-> the struct are a kernel ABI. It's obviously not.
-> Would be good to say that this is a present convention between
-> C program that describes tc classifier and tc elf reader
-> and it can change in the future.
+> Applied, but please update manual pages as well.
 
-Ohh, well, it's not a kernel ABI. I actually don't intend to change
-the section names either as we don't want to break tc users. I could
-imagine aliases if truly necessary.
+Thanks Stephen. Sure I will.
 
-I guess, I'll elaborate on the comment, sure.
+Thanks.
