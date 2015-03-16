@@ -1,68 +1,39 @@
-From: Pavel Simerda <psimerda@redhat.com>
-Subject: Re: iproute2 documentation
-Date: Mon, 16 Mar 2015 11:51:39 -0400 (EDT)
-Message-ID: <1079302826.2522473.1426521099764.JavaMail.zimbra@redhat.com>
-References: <1988820225.2425618.1426503091224.JavaMail.zimbra@redhat.com> <486332040.2425794.1426503272511.JavaMail.zimbra@redhat.com> <20150316153157.GF26326@kenyonralph.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [2/6] rtlwifi: Clean rtl_evm_db_to_percentage a bit
+Date: Mon, 16 Mar 2015 15:58:12 +0000 (UTC)
+Message-ID: <20150316155812.CFB66141BB1@smtp.codeaurora.org>
+References: <1426104209-6913-3-git-send-email-plaes@plaes.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Kenyon Ralph <kenyon@kenyonralph.com>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Priit Laes <plaes@plaes.org>
+To: Priit Laes <plaes@plaes.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx5-phx2.redhat.com ([209.132.183.37]:43509 "EHLO
-	mx5-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932637AbbCPPvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 11:51:43 -0400
-In-Reply-To: <20150316153157.GF26326@kenyonralph.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:37450 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935230AbbCPP6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 11:58:13 -0400
+In-Reply-To: <1426104209-6913-3-git-send-email-plaes@plaes.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
-> From: "Kenyon Ralph" <kenyon@kenyonralph.com>
-> To: "Pavel Simerda" <psimerda@redhat.com>
-> Cc: "netdev" <netdev@vger.kernel.org>, "Stephen Hemminger" <stephen@networkplumber.org>
-> Sent: Monday, 16 March, 2015 4:31:57 PM
-> Subject: Re: iproute2 documentation
-> 
-> On 2015-03-16T06:54:32-0400, Pavel Simerda <psimerda@redhat.com> wrote:
-> > Hello,
-> > 
-> > I just stepped on your manpage commit that got apparently lost in history
-> > as
-> > the current manpage doesn't for example include the lifetime description.
-> > Let
-> > me know if I should prepare a new documentation patch for the current git
-> > master
-> > or you want to handle it yourself.
-> 
-> Not sure how this would get lost, but please go ahead and keep the
-> manpage up to date. I'm not a maintainer of it, I just saw that it was
-> lacking at the time and tried to fix it.
 
-Thanks, I'll try to come up with something soon.
+> Signed-off-by: Priit Laes <plaes@plaes.org>
 
-Cheers,
+Thanks, 2 patches applied to wireless-drivers-next.git:
 
-Pavel
+54fb66d6fe98 rtlwifi: Clean rtl_evm_db_to_percentage a bit
+52f119ddea41 rtlwifi: No need to export rtl_evm_dbm_jaguar anymore
 
-> > commit 43d29f782f12d6212ea3717a3a47b0036474a67c
-> > Author: Kenyon Ralph <kenyon@kenyonralph.com>
-> > Date:   Thu Mar 15 14:39:12 2012 -0700
-> > 
-> >     Update ip address manual page
-> >     
-> >     * update synopsis to match "ip address help" output
-> >     * specify IPv4, since "IP" is ambiguous
-> >     * remove deprecated site scope
-> >     * document lifetimes, home, and nodad
-> >     * update wording to make sense since page was split from the ip(8) page
-> >     * git rid of extra spaces
-> > 
-> > Cheers,
-> > 
-> > Pavel
-> 
-> --
-> Kenyon Ralph
-> 
+3 patches skipped because of conflicts:
+
+[3/6] rtlwifi: Use common rtl_evm_db_to_percentage
+[5/6] rtlwifi: Use common rtl_signal_scale_mapping
+[6/6] rtlwifi: Rename rtl_translate_todbm to rtl_signalpower_todbm
+
+And patch 1 dropped due to comments.
+
+Kalle Valo
