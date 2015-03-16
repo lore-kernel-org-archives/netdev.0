@@ -1,91 +1,44 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 3/3] netdev: remove ndo ops for switchdev
-Date: Sun, 15 Mar 2015 21:07:16 -0700
-Message-ID: <1426478836-60788-4-git-send-email-sfeldma@gmail.com>
-References: <1426478836-60788-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
-	simon.horman@netronome.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/5] inet: tcp listener refactoring, part 10
+Date: Sun, 15 Mar 2015 21:12:11 -0700
+Message-ID: <1426479136-15645-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:33475 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750867AbbCPEGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 00:06:32 -0400
-Received: by pdnc3 with SMTP id c3so46103392pdn.0
-        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 21:06:31 -0700 (PDT)
-In-Reply-To: <1426478836-60788-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-yk0-f201.google.com ([209.85.160.201]:32840 "EHLO
+	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbbCPEMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 00:12:19 -0400
+Received: by ykp131 with SMTP id 131so5802046ykp.0
+        for <netdev@vger.kernel.org>; Sun, 15 Mar 2015 21:12:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+We are getting close to the point where request sockets will be hashed
+into generic hash table. Some followups are needed for netfilter and
+will be handled in next patch series.
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- include/linux/netdevice.h |   38 --------------------------------------
- 1 file changed, 38 deletions(-)
+Eric Dumazet (5):
+  net: add sk_fullsock() helper
+  inet: ip early demux should avoid request sockets
+  inet_diag: allow sk_diag_fill() to handle request socks
+  inet: factorize sock_edemux()/sock_gen_put() code
+  inet: add proper refcounting to request sock
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9e8a2a9..dd1d069 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -768,8 +768,6 @@ struct netdev_phys_item_id {
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
- 
--struct fib_info;
--
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -1024,23 +1022,6 @@ struct fib_info;
-  *	be otherwise expressed by feature flags. The check is called with
-  *	the set of features that the stack has calculated and it returns
-  *	those the driver believes to be appropriate.
-- *
-- * int (*ndo_switch_parent_id_get)(struct net_device *dev,
-- *				   struct netdev_phys_item_id *psid);
-- *	Called to get an ID of the switch chip this port is part of.
-- *	If driver implements this, it indicates that it represents a port
-- *	of a switch chip.
-- * int (*ndo_switch_port_stp_update)(struct net_device *dev, u8 state);
-- *	Called to notify switch device port of bridge port STP
-- *	state change.
-- * int (*ndo_sw_parent_fib_ipv4_add)(struct net_device *dev, __be32 dst,
-- *				     int dst_len, struct fib_info *fi,
-- *				     u8 tos, u8 type, u32 nlflags, u32 tb_id);
-- *	Called to add/modify IPv4 route to switch device.
-- * int (*ndo_sw_parent_fib_ipv4_del)(struct net_device *dev, __be32 dst,
-- *				     int dst_len, struct fib_info *fi,
-- *				     u8 tos, u8 type, u32 tb_id);
-- *	Called to delete IPv4 route from switch device.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1197,25 +1178,6 @@ struct net_device_ops {
- 	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
- 						       struct net_device *dev,
- 						       netdev_features_t features);
--#ifdef CONFIG_NET_SWITCHDEV
--	int			(*ndo_switch_parent_id_get)(struct net_device *dev,
--							    struct netdev_phys_item_id *psid);
--	int			(*ndo_switch_port_stp_update)(struct net_device *dev,
--							      u8 state);
--	int			(*ndo_switch_fib_ipv4_add)(struct net_device *dev,
--							   __be32 dst,
--							   int dst_len,
--							   struct fib_info *fi,
--							   u8 tos, u8 type,
--							   u32 nlflags,
--							   u32 tb_id);
--	int			(*ndo_switch_fib_ipv4_del)(struct net_device *dev,
--							   __be32 dst,
--							   int dst_len,
--							   struct fib_info *fi,
--							   u8 tos, u8 type,
--							   u32 tb_id);
--#endif
- };
- 
- /**
+ include/net/inet_connection_sock.h |   5 ++
+ include/net/inet_sock.h            |   5 ++
+ include/net/request_sock.h         |  13 ++--
+ include/net/sock.h                 |   9 +++
+ net/core/request_sock.c            |   4 +-
+ net/core/sock.c                    |  15 -----
+ net/ipv4/inet_connection_sock.c    |   8 +--
+ net/ipv4/inet_diag.c               | 120 ++++++++++++++++---------------------
+ net/ipv4/inet_hashtables.c         |   6 ++
+ net/ipv4/syncookies.c              |  10 ++--
+ net/ipv4/tcp_fastopen.c            |   2 +-
+ net/ipv4/tcp_ipv4.c                |   2 +-
+ net/ipv6/tcp_ipv6.c                |   2 +-
+ 13 files changed, 99 insertions(+), 102 deletions(-)
+
 -- 
-1.7.10.4
+2.2.0.rc0.207.ga3a616c
