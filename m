@@ -1,29 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2015-03-16
-Date: Mon, 16 Mar 2015 16:18:18 -0400 (EDT)
-Message-ID: <20150316.161818.1286819112010302982.davem@davemloft.net>
-References: <1426495437.1935.4.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2 net-next] rhashtable: Avoid calculating hash again
+ to unlock
+Date: Mon, 16 Mar 2015 16:22:02 -0400 (EDT)
+Message-ID: <20150316.162202.2166849044626317059.davem@davemloft.net>
+References: <cover.1426494808.git.tgraf@suug.ch>
+	<cover.1426494808.git.tgraf@suug.ch>
+	<e66c2872d3182c2df12f5657903f19e8ffc1f0f0.1426494808.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1426495437.1935.4.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37595 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753985AbbCPUWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 16:22:04 -0400
+In-Reply-To: <e66c2872d3182c2df12f5657903f19e8ffc1f0f0.1426494808.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Mon, 16 Mar 2015 09:43:57 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon, 16 Mar 2015 10:42:26 +0100
 
-> I meant to send you a pull request last week but then somehow that
-> slipped through the cracks. However, I've since gotten a number of CSA
-> (channel switch) related fixes that I've also included - see below.
+> Caching the lock pointer avoids having to hash on the object
+> again to unlock the bucket locks.
 > 
-> Let me know if there are any problems.
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Pulled, thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'd like to hold off on this.
+
+My understanding is that Herbert plans to expand the table size
+synchonously during insert in emergency situations, and in that regime
+some of these optimization won't be valid.
