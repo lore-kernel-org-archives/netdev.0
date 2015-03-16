@@ -1,46 +1,56 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net] bnx2x: fix encapsulation features on 57710/57711
-Date: Mon, 16 Mar 2015 16:15:59 +0100
-Message-ID: <1426518959-17883-1-git-send-email-mschmidt@redhat.com>
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	=?UTF-8?q?Eren=20T=C3=BCrkay?= <erent@skyatlas.com>
-To: netdev@vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next] switchdev: call bridge setlink/dellink ndos
+ recursively
+Date: Mon, 16 Mar 2015 08:21:03 -0700
+Message-ID: <5506F4DF.30700@cumulusnetworks.com>
+References: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56424 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932199AbbCPPQD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Mar 2015 11:16:03 -0400
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34369 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756325AbbCPPVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 11:21:06 -0400
+Received: by pacwe9 with SMTP id we9so67692622pac.1
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 08:21:06 -0700 (PDT)
+In-Reply-To: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-E1x chips (57710, 57711(E)) have no support for encapsulation
-offload. bnx2x incorrectly advertises the support as available.
+On 3/16/15, 7:22 AM, Jiri Pirko wrote:
+> There has been a discussion about if it's better to let masters to
+> propagate call down themself or if its better just blindly go down and
+> try to call ndo on every lower netdev. Turned out that more people (me
+> not included) like the second option better.
+>
+> This patch changes bridge setlink/dellink in that direction.
+> Sorry Roopa for forcing you to do it the way I liked initially.
+>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Setting of those features is conditional on "!CHIP_IS_E1x(bp)", but
-the bp struct is not initialized yet at this point and consequently
-any chip passes the check.
-The check must use the "chip_is_e1x" local variable instead to work
-correctly.
+no worries. thanks for submitting the patch Jiri.
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+One thing though (Which i also mentioned in one of the threads on this),
+the below command will not work with layered devices with the below patch.
+Because 'self' commands will directly try to find the switch port driver 
+from
+rtnetlink.c and they dont use the switch dev api.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index bef750a090..996e215fc3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12769,7 +12769,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
- 		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO |
- 		NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
--	if (!CHIP_IS_E1x(bp)) {
-+	if (!chip_is_e1x) {
- 		dev->hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
- 				    NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT;
- 		dev->hw_enc_features =
--- 
-2.1.0
+bridge link set dev bond0 learning off self
+
+
+The code that currently exists in the tree with bond and team supporting 
+the op
+will actually work.
+
+If you agree with the above, I can rethink how this can be made to work 
+with the 'self'
+indirection from rtnetlink.c and still use transparent lowerdev 
+traversal and resubmit.
+Or if you prefer to resubmit, you can.
+
+Thanks,
+Roopa
