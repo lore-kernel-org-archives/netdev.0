@@ -1,65 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] switchdev: call bridge setlink/dellink ndos
- recursively
-Date: Mon, 16 Mar 2015 18:37:27 +0100
-Message-ID: <20150316173727.GK2058@nanopsycho.orion>
-References: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
- <5506F4DF.30700@cumulusnetworks.com>
- <20150316163638.GI2058@nanopsycho.orion>
- <55070DB6.7020504@cumulusnetworks.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH iproute2 -next 2/2] tc: add eBPF support to f_bpf
+Date: Mon, 16 Mar 2015 10:45:35 -0700
+Message-ID: <550716BF.9030607@plumgrid.com>
+References: <cover.1426525312.git.daniel@iogearbox.net> <f7e40a542ad415742037bab62ed2348f07ba4c94.1426525312.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, jiri@resnulli.us, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:35880 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754638AbbCPRhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 13:37:31 -0400
-Received: by wgra20 with SMTP id a20so45992494wgr.3
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 10:37:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55070DB6.7020504@cumulusnetworks.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:37364 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbbCPRpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 13:45:39 -0400
+Received: by igcqo1 with SMTP id qo1so49422363igc.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 10:45:38 -0700 (PDT)
+In-Reply-To: <f7e40a542ad415742037bab62ed2348f07ba4c94.1426525312.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 16, 2015 at 06:07:02PM CET, roopa@cumulusnetworks.com wrote:
->On 3/16/15, 9:36 AM, Jiri Pirko wrote:
->>Mon, Mar 16, 2015 at 04:21:03PM CET, roopa@cumulusnetworks.com wrote:
->>>On 3/16/15, 7:22 AM, Jiri Pirko wrote:
->>>>There has been a discussion about if it's better to let masters to
->>>>propagate call down themself or if its better just blindly go down and
->>>>try to call ndo on every lower netdev. Turned out that more people (me
->>>>not included) like the second option better.
->>>>
->>>>This patch changes bridge setlink/dellink in that direction.
->>>>Sorry Roopa for forcing you to do it the way I liked initially.
->>>>
->>>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>no worries. thanks for submitting the patch Jiri.
->>>
->>>One thing though (Which i also mentioned in one of the threads on this),
->>>the below command will not work with layered devices with the below patch.
->>>Because 'self' commands will directly try to find the switch port driver from
->>>rtnetlink.c and they dont use the switch dev api.
->>>
->>>bridge link set dev bond0 learning off self
->>>
->>>
->>>The code that currently exists in the tree with bond and team supporting the
->>>op
->>>will actually work.
->>Hmm, interesting.
->>
->>DaveM, this might be a good argument for call propagation. What do you
->>think?
->>
->For the stp api, it is not...because stp is run in the bridge driver and
->always involves the switchdev api.
->
->lets hold on to in-tree getlink/setlink before we find a better way.
+On 3/16/15 10:10 AM, Daniel Borkmann wrote:
 
-Okay. Makes sense.
+> +
+> +/* ELF section names, etc (ABI) */
+> +#define ELF_SECTION_LICENSE	"license"
+> +#define ELF_SECTION_MAPS	"maps"
+> +#define ELF_SECTION_CLASSIFIER	"classifier"
+> +#define ELF_SECTION_ACTION	"action"
+> +
+> +#define ELF_MAX_MAPS		64
+> +#define ELF_MAX_LICENSE_LEN	128
+> +
+> +/* ELF map definition (ABI) */
+> +struct bpf_elf_map {
+> +	__u32 type;
+> +	__u32 size_key;
+> +	__u32 size_value;
+> +	__u32 max_elem;
+> +};
 
->
->my 2c
+I think people might freak out that the above section names and
+the struct are a kernel ABI. It's obviously not.
+Would be good to say that this is a present convention between
+C program that describes tc classifier and tc elf reader
+and it can change in the future.
