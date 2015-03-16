@@ -1,35 +1,66 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v1 PATCH 10/14] rhashtable: Rip out obsolete compare interface
-Date: Mon, 16 Mar 2015 09:35:10 +0000
-Message-ID: <20150316093510.GD10896@casper.infradead.org>
-References: <20150315104306.GA21999@gondor.apana.org.au>
- <E1YX627-0005oh-Le@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 1/2 net-next] rhashtable: Avoid calculating hash again to unlock
+Date: Mon, 16 Mar 2015 10:42:26 +0100
+Message-ID: <e66c2872d3182c2df12f5657903f19e8ffc1f0f0.1426494808.git.tgraf@suug.ch>
+References: <cover.1426494808.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41818 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:41856 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbbCPJfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 05:35:11 -0400
-Content-Disposition: inline
-In-Reply-To: <E1YX627-0005oh-Le@gondolin.me.apana.org.au>
+	with ESMTP id S1751170AbbCPJmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 05:42:31 -0400
+In-Reply-To: <cover.1426494808.git.tgraf@suug.ch>
+In-Reply-To: <cover.1426494808.git.tgraf@suug.ch>
+References: <cover.1426494808.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/15/15 at 09:44pm, Herbert Xu wrote:
-> Now that the only user of rhashtable_lookup_compare_insert and
-> rhashtable_lookup_compare (i.e., netlink) has switched over to
-> the new obj_hashfn based interface, we can rip them out safely.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Caching the lock pointer avoids having to hash on the object
+again to unlock the bucket locks.
 
-As pointed out in the previous patch, I think we should keep this
-API but convert it to a macro for inlining. rhashtable_lookup() would
-then just be a user of this macro.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ lib/rhashtable.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-It might even be worth to hardcode rhashtable_lookup() to jhash
-and require users which require a different hash function to
-use rhashtable_lookup_compare().
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index c523d3a..e396d7e 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -384,14 +384,16 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+ 	struct rhash_head *head;
+ 	bool no_resize_running;
+ 	unsigned hash;
++	spinlock_t *old_lock;
+ 	bool success = true;
+ 
+ 	rcu_read_lock();
+ 
+ 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
+ 	hash = head_hashfn(ht, old_tbl, obj);
++	old_lock = bucket_lock(old_tbl, hash);
+ 
+-	spin_lock_bh(bucket_lock(old_tbl, hash));
++	spin_lock_bh(old_lock);
+ 
+ 	/* Because we have already taken the bucket lock in old_tbl,
+ 	 * if we find that future_tbl is not yet visible then that
+@@ -428,13 +430,10 @@ static bool __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
+ 		schedule_work(&ht->run_work);
+ 
+ exit:
+-	if (tbl != old_tbl) {
+-		hash = head_hashfn(ht, tbl, obj);
++	if (tbl != old_tbl)
+ 		spin_unlock(bucket_lock(tbl, hash));
+-	}
+ 
+-	hash = head_hashfn(ht, old_tbl, obj);
+-	spin_unlock_bh(bucket_lock(old_tbl, hash));
++	spin_unlock_bh(old_lock);
+ 
+ 	rcu_read_unlock();
+ 
+-- 
+1.9.3
