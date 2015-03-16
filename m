@@ -1,48 +1,40 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next] switchdev: call bridge setlink/dellink ndos
- recursively
-Date: Mon, 16 Mar 2015 15:08:32 -0700
-Message-ID: <55075460.9040408@gmail.com>
-References: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
+From: philipp@redfish-solutions.com
+Subject: [PATCH] iproute2: Fix case of -o (oneline) broken in xfrm
+Date: Mon, 16 Mar 2015 16:06:49 -0600
+Message-ID: <20150316_220649_065662.philipp@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
-	roopa@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=usascii
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33804 "EHLO
-	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934456AbbCPWIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 18:08:43 -0400
-Received: by oier21 with SMTP id r21so50348454oie.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 15:08:42 -0700 (PDT)
-In-Reply-To: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:33255 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753677AbbCPWNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 18:13:52 -0400
+Received: from [192.168.1.10] (builder.redfish-solutions.com [192.168.1.10])
+	(authenticated bits=0)
+	by mail.redfish-solutions.com (8.14.8/8.14.8) with ESMTP id t2GM6nuI005655
+	for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 16:06:49 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2015 07:22 AM, Jiri Pirko wrote:
-> There has been a discussion about if it's better to let masters to
-> propagate call down themself or if its better just blindly go down and
-> try to call ndo on every lower netdev. Turned out that more people (me
-> not included) like the second option better.
->
-> This patch changes bridge setlink/dellink in that direction.
-> Sorry Roopa for forcing you to do it the way I liked initially.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Don't insert newline in -o mode; print mark as hex.
+    
+Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
+---
+ ip/ipxfrm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hi Jiri,
-
-I'm going to ask the dumb question here because it wasn't clear from
-the emails I could dredge up.
-
-Why do you want to do this? Can you add it to the commit message so
-in the future it is clear. Specifically what does it mean to propagate
-these calls down? Can you give a stacked example?
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index f55bff9..810a2bf 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -694,7 +694,7 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
+ 	if (tb[XFRMA_MARK]) {
+ 		struct rtattr *rta = tb[XFRMA_MARK];
+ 		struct xfrm_mark *m = (struct xfrm_mark *) RTA_DATA(rta);
+-		fprintf(fp, "\tmark %d/0x%x\n", m->v, m->m);
++		fprintf(fp, "\tmark %#x/%#x%s", m->v, m->m, _SL_);
+ 	}
+ 
+ 	if (tb[XFRMA_ALG_AUTH] && !tb[XFRMA_ALG_AUTH_TRUNC]) {
