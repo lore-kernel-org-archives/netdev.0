@@ -1,276 +1,67 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH] net/fsl: modify xgmac_mdio for little endian SoCs
-Date: Mon, 16 Mar 2015 13:22:51 +0800
-Message-ID: <1426483371-3286-1-git-send-email-shh.xie@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net): ipsec 2015-03-16
+Date: Mon, 16 Mar 2015 07:52:21 +0100
+Message-ID: <1426488744-17104-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0096.outbound.protection.outlook.com ([157.56.111.96]:48555
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750822AbbCPGuL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Mar 2015 02:50:11 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:57363 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750822AbbCPGxE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Mar 2015 02:53:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+1) Fix the network header offset in _decode_session6
+   when multiple IPv6 extension headers are present.
+   From Hajime Tazaki.
 
-MDIO controller on little endian Socs, e.g. ls2085a is similar to the
-controller on big endian Socs, but the MDIO access is little endian,
-we use I/O accessor function to handle endianness, so the driver can
-run on little endian Socs. A property "fsl,little-endian-mdio" is used
-in DTS to indicate the MDIO is little endian, if driver probes the
-property, driver will access MDIO in little endian.
+2) Fix an interfamily tunnel crash. We set outer mode
+   protocol too early and may dispatch to the wrong
+   address family. Move the setting of the outer mode
+   protocol behind the last accessing of the inner mode
+   to fix the crash.
 
-Also, fix a bug in xgmac_wait_until_done() which mdio_stat should be
-used instead of mdio_data when checking if busy bit is cleared.
+3) Most callers of xfrm_lookup() expect that dst_orig
+   is released on error. But xfrm_lookup_route() may
+   need dst_orig to handle certain error cases. So
+   introduce a flag that tells what should be done in
+   case of error. From Huaibin Wang.
 
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
- drivers/net/ethernet/freescale/xgmac_mdio.c | 96 ++++++++++++++++++++---------
- 1 file changed, 68 insertions(+), 28 deletions(-)
+Please pull or let me know if there are problems.
 
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 3a83bc2..82d720b 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -46,17 +46,43 @@ struct tgec_mdio_controller {
- #define MDIO_DATA(x)		(x & 0xffff)
- #define MDIO_DATA_BSY		BIT(31)
- 
-+struct mdio_fsl_priv {
-+	struct	tgec_mdio_controller __iomem *mdio_base;
-+	bool	is_little_endian;
-+};
-+
-+static u32 xgmac_read32(void __iomem *regs,
-+			bool is_little_endian)
-+{
-+	if (is_little_endian)
-+		return ioread32(regs);
-+	else
-+		return ioread32be(regs);
-+}
-+
-+static void xgmac_write32(u32 value,
-+			  void __iomem *regs,
-+			  bool is_little_endian)
-+{
-+	if (is_little_endian)
-+		iowrite32(value, regs);
-+	else
-+		iowrite32be(value, regs);
-+}
-+
- /*
-  * Wait until the MDIO bus is free
-  */
- static int xgmac_wait_until_free(struct device *dev,
--				 struct tgec_mdio_controller __iomem *regs)
-+				 struct tgec_mdio_controller __iomem *regs,
-+				 bool is_little_endian)
- {
- 	unsigned int timeout;
- 
- 	/* Wait till the bus is free */
- 	timeout = TIMEOUT;
--	while ((ioread32be(&regs->mdio_stat) & MDIO_STAT_BSY) && timeout) {
-+	while ((xgmac_read32(&regs->mdio_stat, is_little_endian) &
-+		MDIO_STAT_BSY) && timeout) {
- 		cpu_relax();
- 		timeout--;
- 	}
-@@ -73,13 +99,15 @@ static int xgmac_wait_until_free(struct device *dev,
-  * Wait till the MDIO read or write operation is complete
-  */
- static int xgmac_wait_until_done(struct device *dev,
--				 struct tgec_mdio_controller __iomem *regs)
-+				 struct tgec_mdio_controller __iomem *regs,
-+				 bool is_little_endian)
- {
- 	unsigned int timeout;
- 
- 	/* Wait till the MDIO write is complete */
- 	timeout = TIMEOUT;
--	while ((ioread32be(&regs->mdio_data) & MDIO_DATA_BSY) && timeout) {
-+	while ((xgmac_read32(&regs->mdio_stat, is_little_endian) &
-+		MDIO_DATA_BSY) && timeout) {
- 		cpu_relax();
- 		timeout--;
- 	}
-@@ -99,12 +127,14 @@ static int xgmac_wait_until_done(struct device *dev,
-  */
- static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 value)
- {
--	struct tgec_mdio_controller __iomem *regs = bus->priv;
-+	struct mdio_fsl_priv *priv = (struct mdio_fsl_priv *)bus->priv;
-+	struct tgec_mdio_controller __iomem *regs = priv->mdio_base;
- 	uint16_t dev_addr;
- 	u32 mdio_ctl, mdio_stat;
- 	int ret;
-+	bool endian = priv->is_little_endian;
- 
--	mdio_stat = ioread32be(&regs->mdio_stat);
-+	mdio_stat = xgmac_read32(&regs->mdio_stat, endian);
- 	if (regnum & MII_ADDR_C45) {
- 		/* Clause 45 (ie 10G) */
- 		dev_addr = (regnum >> 16) & 0x1f;
-@@ -115,29 +145,29 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
- 		mdio_stat &= ~MDIO_STAT_ENC;
- 	}
- 
--	iowrite32be(mdio_stat, &regs->mdio_stat);
-+	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs);
-+	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
- 	/* Set the port and dev addr */
- 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
--	iowrite32be(mdio_ctl, &regs->mdio_ctl);
-+	xgmac_write32(mdio_ctl, &regs->mdio_ctl, endian);
- 
- 	/* Set the register address */
- 	if (regnum & MII_ADDR_C45) {
--		iowrite32be(regnum & 0xffff, &regs->mdio_addr);
-+		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
- 
--		ret = xgmac_wait_until_free(&bus->dev, regs);
-+		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 		if (ret)
- 			return ret;
- 	}
- 
- 	/* Write the value to the register */
--	iowrite32be(MDIO_DATA(value), &regs->mdio_data);
-+	xgmac_write32(MDIO_DATA(value), &regs->mdio_data, endian);
- 
--	ret = xgmac_wait_until_done(&bus->dev, regs);
-+	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
-@@ -151,14 +181,16 @@ static int xgmac_mdio_write(struct mii_bus *bus, int phy_id, int regnum, u16 val
-  */
- static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- {
--	struct tgec_mdio_controller __iomem *regs = bus->priv;
-+	struct mdio_fsl_priv *priv = (struct mdio_fsl_priv *)bus->priv;
-+	struct tgec_mdio_controller __iomem *regs = priv->mdio_base;
- 	uint16_t dev_addr;
- 	uint32_t mdio_stat;
- 	uint32_t mdio_ctl;
- 	uint16_t value;
- 	int ret;
-+	bool endian = priv->is_little_endian;
- 
--	mdio_stat = ioread32be(&regs->mdio_stat);
-+	mdio_stat = xgmac_read32(&regs->mdio_stat, endian);
- 	if (regnum & MII_ADDR_C45) {
- 		dev_addr = (regnum >> 16) & 0x1f;
- 		mdio_stat |= MDIO_STAT_ENC;
-@@ -167,41 +199,41 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- 		mdio_stat &= ~MDIO_STAT_ENC;
- 	}
- 
--	iowrite32be(mdio_stat, &regs->mdio_stat);
-+	xgmac_write32(mdio_stat, &regs->mdio_stat, endian);
- 
--	ret = xgmac_wait_until_free(&bus->dev, regs);
-+	ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
- 	/* Set the Port and Device Addrs */
- 	mdio_ctl = MDIO_CTL_PORT_ADDR(phy_id) | MDIO_CTL_DEV_ADDR(dev_addr);
--	iowrite32be(mdio_ctl, &regs->mdio_ctl);
-+	xgmac_write32(mdio_ctl, &regs->mdio_ctl, endian);
- 
- 	/* Set the register address */
- 	if (regnum & MII_ADDR_C45) {
--		iowrite32be(regnum & 0xffff, &regs->mdio_addr);
-+		xgmac_write32(regnum & 0xffff, &regs->mdio_addr, endian);
- 
--		ret = xgmac_wait_until_free(&bus->dev, regs);
-+		ret = xgmac_wait_until_free(&bus->dev, regs, endian);
- 		if (ret)
- 			return ret;
- 	}
- 
- 	/* Initiate the read */
--	iowrite32be(mdio_ctl | MDIO_CTL_READ, &regs->mdio_ctl);
-+	xgmac_write32(mdio_ctl | MDIO_CTL_READ, &regs->mdio_ctl, endian);
- 
--	ret = xgmac_wait_until_done(&bus->dev, regs);
-+	ret = xgmac_wait_until_done(&bus->dev, regs, endian);
- 	if (ret)
- 		return ret;
- 
- 	/* Return all Fs if nothing was there */
--	if (ioread32be(&regs->mdio_stat) & MDIO_STAT_RD_ER) {
-+	if (xgmac_read32(&regs->mdio_stat, endian) & MDIO_STAT_RD_ER) {
- 		dev_err(&bus->dev,
- 			"Error while reading PHY%d reg at %d.%hhu\n",
- 			phy_id, dev_addr, regnum);
- 		return 0xffff;
- 	}
- 
--	value = ioread32be(&regs->mdio_data) & 0xffff;
-+	value = xgmac_read32(&regs->mdio_data, endian) & 0xffff;
- 	dev_dbg(&bus->dev, "read %04x\n", value);
- 
- 	return value;
-@@ -212,6 +244,7 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	struct device_node *np = pdev->dev.of_node;
- 	struct mii_bus *bus;
- 	struct resource res;
-+	struct mdio_fsl_priv *priv;
- 	int ret;
- 
- 	ret = of_address_to_resource(np, 0, &res);
-@@ -220,7 +253,7 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 		return ret;
- 	}
- 
--	bus = mdiobus_alloc();
-+	bus = mdiobus_alloc_size(sizeof(struct mdio_fsl_priv));
- 	if (!bus)
- 		return -ENOMEM;
- 
-@@ -231,12 +264,19 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%llx", (unsigned long long)res.start);
- 
- 	/* Set the PHY base address */
--	bus->priv = of_iomap(np, 0);
--	if (!bus->priv) {
-+	priv = bus->priv;
-+	priv->mdio_base = of_iomap(np, 0);
-+	if (!priv->mdio_base) {
- 		ret = -ENOMEM;
- 		goto err_ioremap;
- 	}
- 
-+	if (of_get_property(pdev->dev.of_node,
-+			    "fsl,little-endian-mdio", NULL))
-+		priv->is_little_endian = true;
-+	else
-+		priv->is_little_endian = false;
-+
- 	ret = of_mdiobus_register(bus, np);
- 	if (ret) {
- 		dev_err(&pdev->dev, "cannot register MDIO bus\n");
-@@ -248,7 +288,7 @@ static int xgmac_mdio_probe(struct platform_device *pdev)
- 	return 0;
- 
- err_registration:
--	iounmap(bus->priv);
-+	iounmap(priv->mdio_base);
- 
- err_ioremap:
- 	mdiobus_free(bus);
--- 
-1.8.4.1
+Thanks!
+
+The following changes since commit 59343cd7c4809cf7598789e1cd14563780ae4239:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-01-27 13:55:36 -0800)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
+
+for you to fetch changes up to ac37e2515c1a89c477459a2020b6bfdedabdb91b:
+
+  xfrm: release dst_orig in case of error in xfrm_lookup() (2015-02-12 07:10:56 +0100)
+
+----------------------------------------------------------------
+Hajime Tazaki (1):
+      xfrm6: Fix a offset value for network header in _decode_session6
+
+Steffen Klassert (1):
+      xfrm: Fix local error reporting crash with interfamily tunnels
+
+huaibin Wang (1):
+      xfrm: release dst_orig in case of error in xfrm_lookup()
+
+ include/net/dst.h       |  1 +
+ net/ipv4/xfrm4_output.c |  2 +-
+ net/ipv6/xfrm6_output.c |  2 +-
+ net/ipv6/xfrm6_policy.c |  1 +
+ net/xfrm/xfrm_policy.c  | 12 ++++++------
+ 5 files changed, 10 insertions(+), 8 deletions(-)
