@@ -1,40 +1,52 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 v2] route: label externally offloaded routes
-Date: Mon, 16 Mar 2015 06:46:29 -0700
-Message-ID: <5506DEB5.2030107@cumulusnetworks.com>
-References: <1426447894-41398-1-git-send-email-sfeldma@gmail.com> <20150316131805.GF12614@gospo.home.greyhouse.net>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: iptables problem upgrading kernel from 3.18.8 to 3.19.1
+Date: Mon, 16 Mar 2015 14:54:14 +0100
+Message-ID: <20150316135414.GA25978@kroah.com>
+References: <54FC2089.6080809@unsolicited.net>
+ <20150308175553.GA1528@breakpoint.cc>
+ <20150312.154756.1175332873553032640.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org, jiri@resnulli.us, tarbal@gmail.com,
-	linville@tuxdriver.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:33337 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754284AbbCPNqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 09:46:32 -0400
-Received: by pdnc3 with SMTP id c3so58874369pdn.0
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 06:46:31 -0700 (PDT)
-In-Reply-To: <20150316131805.GF12614@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, david@unsolicited.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pablo@netfilter.org,
+	stable@vger.kernel.org
+To: David Miller <davem@redhat.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150312.154756.1175332873553032640.davem@redhat.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/16/15, 6:18 AM, Andy Gospodarek wrote:
-> On Sun, Mar 15, 2015 at 12:31:34PM -0700, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> v2:
->>
->> No clear outcome on polling for choices of "external", "offload", "hw", or
->> "hardware".  Andy's concern about "external" being confusing for users is
->> valid.  So, I'm making executive decision to use "external_offload" for label,
->> as suggested by Jiri.
-> This seems like quite a mouthful.  Just make it 'offload' or 'hardware'
-> so the output of 'ip route show' isn't so long that it will frequently
-> be longer than 80 chars.  Being longer than 80 chars is going to be
-> irritating for _many_ users.
->
->
-+1
+On Thu, Mar 12, 2015 at 03:47:56PM -0400, David Miller wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Sun, 8 Mar 2015 18:55:53 +0100
+> 
+> > David R <david@unsolicited.net> wrote:
+> > 
+> > [ CC Pablo & stable@ ]
+> > 
+> >> I've just had an exception to my "uneventful kernel upgrade" monotony.
+> >> 
+> >> My boot scripts failed when setting up the firewall due to this :-
+> >> 
+> >>     xt_recent: hitcount (1) is larger than packets to be remembered (1)
+> >> for table xxxx
+> >> 
+> >> This is a completely straightforward
+> >> 
+> >>     iptables -A yyyy -j REJECT -p tcp --reject-with tcp-reset -m recent
+> >> --set --name xxxx --rsource
+> >> 
+> >> Looking at the history for xt_recent.c it looks like this was introduced
+> >> in abc86d0f99242b7f142b7cb8f90e30081dd3c256 but maybe corrected in
+> >> cef9ed86ed62eeffcd017882278bbece32001f86 ?
+> > 
+> > Right.  I would recommend to revert abc86d0f99242b7f142b7cb8f90e30081dd3c256
+> > in 3.19.y series rather than applying cef9ed86ed62, though.
+> 
+> Greg, please queue up a revert of abc86d0f99242b7f142b7cb8f90e30081dd3c256 for
+> 3.19.x -stable, if you haven't done so already.
+
+Now done, thanks.
+
+greg k-h
