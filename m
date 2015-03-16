@@ -1,78 +1,112 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next 0/8] netfilter: untangle bridge and bridge
- netfilter
-Date: Mon, 16 Mar 2015 13:38:54 +0100
-Message-ID: <20150316123854.GA5564@salvia>
-References: <1425513160-496-1-git-send-email-fw@strlen.de>
- <20150309130253.GA6677@salvia>
- <20150309135910.GC1528@breakpoint.cc>
- <20150314090035.GA3561@salvia>
- <20150314111325.GG14761@breakpoint.cc>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: [PATCH V2 0/1] neighbour: Support broadcast ARP in neighbor PROPE
+ state
+Date: Mon, 16 Mar 2015 13:39:47 +0100
+Message-ID: <5506CF13.5070501@ericsson.com>
+References: <1426143501-30827-1-git-send-email-Yanjun.Zhu@windriver.com> <20150312.152247.1607789216159086520.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150314111325.GG14761@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <brian.haley@hp.com>, <alexandre.dietsch@windriver.com>,
+	<clinton.slabbert@windriver.com>, <kuznet@ms2.inr.ac.ru>,
+	<jmorris@namei.org>, <kaber@trash.net>, <netdev@vger.kernel.org>
+To: David Miller <davem@redhat.com>, <Yanjun.Zhu@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:56586 "EHLO
+	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751430AbbCPMkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 08:40:00 -0400
+In-Reply-To: <20150312.152247.1607789216159086520.davem@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On 03/12/2015 08:22 PM, David Miller wrote:
+> Like Yoshifuji and others I agree that:
+>
+> 1) You can get working behavior by adjusting existing sysctls.
+>
+> 2) IPV4 ARP and IPV6 NDISC are not different in this regard.
+>
+> I'm really tired of all of these ARP hacks being submitted recently,
+> and I want people to think more deeply about what they are proposing
+> first.
+Which sysctls are you referring to?
 
-On Sat, Mar 14, 2015 at 12:13:25PM +0100, Florian Westphal wrote:
-> I think that currently it doesn't matter what solution we'll pick in the
-> end, I'd first like to send all my refactoring patches.
-> 
-> With those patches, it reduces the nf_bridge_info content that we need
-> to the physin and physout devices, plus a two-bit state in skb.
-> 
-> Then, if you still think that ->cb is too fragile I'd be happy to add
-> the lookup table method.  For the normal case of bridge forwarding, it
-> shouldn't be needed though, perhaps we could also use a hybrid approach,
-> cb-based fastpath for forwarding, lookup-table slowpath for dnat and
-> local delivery cases.
+As I can see it, there are three sysctls that control this.
 
-I think the use of skb->cb introduces another dependency between
-br_netfilter and the core, which is what we should avoid.  I still
-have concerns regarding future extensibility issues that this may
-introduce:
+ucast_solicit.
+mcast_solicit
+app_solicit.
 
-1) If we want to shrink the skb->cb in size, br_netfilter would limit
-   this shrink since we'll have to keep enough room for our internal
-   private information, even if most people will not need this.
+If you think any other sysctl is useful here, which one?
 
-2) If inet or qdisc private info size needs to be increased for
-   whatever reason, we may run out of space to keep the br_netfilter data
-   after it. And we cannot ask David to allow us to allocate more bytes
-   for skb->cb to resolve this.
+ From Documentation/networking/ip-sysctl.txt.
++++++++++++++
+app_solicit - INTEGER
+     The maximum number of probes to send to the user space ARP daemon
+     via netlink before dropping back to multicast probes (see
+     mcast_solicit).  Defaults to 0.
+----------------------------
+so that ain't it.
+If you disagree, what should the Documentation look like?
 
-I think we have to find some permanent solution to isolate this
-br_netfilter code as much as possible. Then, focus on providing a
-replacement including the minimal set of features for what most users
-are using br_netfilter, I would say:
+=============================================
+ From net/core/neighbour.c(timer_handler):
 
-* nfqueue support
-* transparent proxying
-* some simple way to perform stateless NAT (mangle mac and IP address
-  to place the packet in the right interface).
+     if ((neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) &&
+         atomic_read(&neigh->probes) >= neigh_max_probes(neigh)) {
+         neigh->nud_state = NUD_FAILED;
+         notify = 1;
+         neigh_invalidate(neigh);
+         goto out;
+     }
 
-so we can point them to nf_tables to progressively migrate to a better
-environment, the overall goal to me is to deprecate this br_netfilter
-thing.
+ From net/core/neighbour.c(neigh_max_probes):
+static __inline__ int neigh_max_probes(struct neighbour *n)
+{
+     struct neigh_parms *p = n->parms;
+     int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES);
+     if (!(n->nud_state & NUD_PROBE))
+         max_probes += NEIGH_VAR(p, MCAST_PROBES);
+     return max_probes;
+}
+=============================================
 
-I think we can use the per-cpu cache + global hashtable to look up for
-nf_bridge data (using skbuff as index). The forwarded traffic will
-find its nf_bridge info most of the time in the cache without having
-to follow the slow lookup path.
 
-> One other solution would be to use skb->cb but not store bridge device
-> pointers but the ifindexes instead (we currently don't hold any
-> device refcounts either so the current method isn't 100% safe either since
-> such device can be removed ...).
+If we simplify this when we are in NUD_PROBE state we see:
 
-Good catch, I think it would be great to start by fixing this problem
-first.
+=============================================
+     if (atomic_read(&neigh->probes) >= NEIGH_VAR(p, UCAST_PROBES) + 
+NEIGH_VAR(p, APP_PROBES)) {
+         neigh->nud_state = NUD_FAILED;
+         notify = 1;
+         neigh_invalidate(neigh);
+         goto out;
+     }
+=============================================
 
-Let me know,
-Thanks!
+Since APP_PROBES is 0, and according to documentation has nothing to do 
+with Broadcast:
+
+=============================================
+     if (atomic_read(&neigh->probes) >= NEIGH_VAR(p, UCAST_PROBES)) {
+         neigh->nud_state = NUD_FAILED;
+         notify = 1;
+         neigh_invalidate(neigh);
+         goto out;
+     }
+=============================================
+
+so we will send out "ucast_solicit" unikcast probes, and then we will 
+enter FAILED state.
+mcast_solicit is ignored when in NUD_PROBE state.
+
+"mcast_solicit" is only used when in NUD_INCOMPLETE state, and 
+broadcasts will never
+be sent out by the stack for an entry, once it is in NUD_REACHABLE for 
+the first time.
+
+I would be happy, if you can show me that I have misunderstood something.
+
+Best Regards,
+Ulf Samuelsson
