@@ -1,60 +1,50 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken.
- In 4.0.0-rc3
-Date: Mon, 16 Mar 2015 14:01:12 +0000
-Message-ID: <BLUPR03MB3739B9C6E14A106CCAEBA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <390621425930628@web28o.yandex.ru>
- <3625951426018334@web26j.yandex.ru>
- <BLUPR03MB373A446E2D97992CA7AAA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
- <726281426513068@web10o.yandex.ru>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] ath10k: match wait_for_completion_timeout return type
+Date: Mon, 16 Mar 2015 16:09:35 +0200
+Message-ID: <87a8zdowyo.fsf@kamboji.qca.qualcomm.com>
+References: <1426094076-10134-1-git-send-email-hofrat@osadl.org>
+	<87y4n0q1rq.fsf@kamboji.qca.qualcomm.com>
+	<20150313173405.GB9934@opentech.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Content-Transfer-Encoding: base64
-To: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, linux-arm-kernel
- <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <726281426513068@web10o.yandex.ru>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Nicholas Mc Guire <der.herr@hofr.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150313173405.GB9934@opentech.at> (Nicholas Mc Guire's message
+	of "Fri, 13 Mar 2015 18:34:05 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTog8MHOz9cg4c7E0sXKIDxyb2NrZm9yZEB5YW5kZXgucnU+IFNlbnQ6IE1vbmRheSwgTWFy
-Y2ggMTYsIDIwMTUgOTozOCBQTQo+IFRvOiBEdWFuIEZ1Z2FuZy1CMzg2MTE7IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IGxpbnV4LWFybS1rZXJuZWwKPiBTdWJqZWN0OiBSZTogQnVnIGluIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jLCBUWCBpcwo+IGJyb2tlbi4gSW4g
-NC4wLjAtcmMzCj4gCj4gSGkhCj4gCj4gMTYuMDMuMjAxNSwgMTI6MjEsICJmdWdhbmcuZHVhbkBm
-cmVlc2NhbGUuY29tIgo+IDxmdWdhbmcuZHVhbkBmcmVlc2NhbGUuY29tPjoKPiA+Cj4gPiBJIHRy
-eSB5b3VyIGNhc2Ugb24gaS5NWDZxIHNhYnJlc2QgYm9hcmQgd2l0aCBuZXQgdHJlZSBrZXJuZWwu
-Cj4gPiByb290QGZyZWVzY2FsZSB+JCB1bmFtZSAtcgo+ID4gNC4wLjAtcmMzLTExMDcxLWdmMDBi
-YmQyCj4gPgo+ID4gV2l0aCBiZWxvdyB0ZXN0IHN0ZXBzIGZvciAxMCB0aW1lLCB0aGUgemVybyBm
-aWxlIHNpemUgcmFuZ2UgZnJvbSAyME0KPiA+IHRvIDMwME0gYnl0ZXMsIGNvbXBhcmUgdGhlIG1k
-NXN1bSBjaGVja3N1bSBiZXR3ZWVuIGkuTVg2cSBhbmQgaS5NWDZxL1BDCj4gaG9zdCwgmnRoZSBj
-aGVja3N1bSBpcyB0aGUgc2FtZS4KPiA+Cj4gPiByb290QGZyZWVzY2FsZSB+JCBybSB6ZXJvcwo+
-ID4gcm9vdEBmcmVlc2NhbGUgfiQgZGQgaWY9L2Rldi96ZXJvIG9mPXplcm9zIGJzPTFNIGNvdW50
-PTMwMAo+ID4gMzAwKzAgcmVjb3JkcyBpbgo+ID4gMzAwKzAgcmVjb3JkcyBvdXQKPiA+IDMxNDU3
-MjgwMCBieXRlcyAoMzAwLjBNQikgY29waWVkLCAxLjgxMTQ1OSBzZWNvbmRzLCAxNjUuNk1CL3MK
-PiA+IHJvb3RAZnJlZXNjYWxlIH4kIG1kNXN1bSAtYiB6ZXJvcwo+ID4gMGQ5N2E5Y2Q4YmJkN2Nl
-NzVhMmE3NmJiMDYyNTg5MTUgmnplcm9zIHJvb3RAZnJlZXNjYWxlIH4kIGNwIHplcm9zCj4gPiAv
-bW50L25mcy8gLWYgcm9vdEBmcmVlc2NhbGUgfiQgcm0gemVyb3Mgcm9vdEBmcmVlc2NhbGUgfiQg
-Y3AKPiA+IC9tbnQvbmZzL3plcm9zIC4vIHJvb3RAZnJlZXNjYWxlIH4kIG1kNXN1bSAtYiB6ZXJv
-cwo+ID4gMGQ5N2E5Y2Q4YmJkN2NlNzVhMmE3NmJiMDYyNTg5MTUgmnplcm9zCj4gPgo+ID4gRG8g
-eW91IGhhdmUgYW55IGxvc3QgZm9yIHJlcHJvZHVjZSB0aGUgaXNzdWUgPwo+IAo+IEN1cnJlbnQg
-bmV0IHRyZWUgZG9lcyBub3QgaGF2ZSB0aGlzIGlzc3VlLCBpdCB3b3JrcyBmaW5lLiBUaGFua3Mg
-dG8gYWxsLgo+IAo+IEZyb20gZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJu
-ZWwvZ2l0L2RhdmVtL25ldC5naXQKPiAKPiBhcHhAYXN0cmE6fiQgdW5hbWUgLXIKPiA0LjAuMC1y
-YzMtMDAxNTAtZzEwNjQwZDMtZGlydHkKPiAKPiAKPiAtLQo+ICDhzsTSxcoKCkkgdGVzdCB0aGUg
-Y29tbWl0IGYwMGJiZDIgdGhhdCBpbmNsdWRlIHRoZSBwYXRjaCAyYjk5NWY2Mzk4Ny4KQnV0IGNh
-bm5vdCByZXByb2R1Y2UgeW91ciBpc3N1ZS4gUGxzIGRvdWJsZSBjb25maXJtIGl0IGluIHlvdXIg
-Ym9hcmQuCgpSZWdhcmRzLApBbmR5CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2Vy
-bmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1h
-bi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+Nicholas Mc Guire <der.herr@hofr.at> writes:
+
+> On Fri, 13 Mar 2015, Kalle Valo wrote:
+>
+>> Nicholas Mc Guire <hofrat@osadl.org> writes:
+>> 
+>> > Return type of wait_for_completion_timeout is unsigned long not int.
+>> > An appropriately named unsigned long is added and the assignments fixed up.
+>> >
+>> > Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+>> 
+>> Doesn't apply:
+>> 
+>> Applying: ath10k: match wait_for_completion_timeout return type
+>> fatal: sha1 information is lacking or useless (drivers/net/wireless/ath/ath10k/mac.c).
+>> Repository lacks necessary blobs to fall back on 3-way merge.
+>> Cannot fall back to three-way merge.
+>> Patch failed at 0001 ath10k: match wait_for_completion_timeout return type
+>>
+> sorry - no idea how I managed that - checking it.
+>
+> Will fix it up and repost.
+
+Did you use master branch from ath.git repository? ath10k is in quite
+active development so if you use something else there's a substantial
+risk that the patch will not apply.
+
+https://wireless.wiki.kernel.org/en/users/drivers/ath10k/sources
+
+-- 
+Kalle Valo
