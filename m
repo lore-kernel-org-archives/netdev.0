@@ -1,112 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] netfilter: Remove uses of seq_<foo> return values
-Date: Mon, 16 Mar 2015 11:25:17 -0700
-Message-ID: <1426530317.23897.27.camel@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2] ss: better 32bit support
+Date: Mon, 16 Mar 2015 11:29:14 -0700
+Message-ID: <1426530554.11398.219.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426006607.11398.5.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426360760.4173.101.camel@decadent.org.uk>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB017F6@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: 'Ben Hutchings' <ben@decadent.org.uk>,
+	Stephen Hemminger <shemming@brocade.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37757 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933967AbbCPS3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 14:29:16 -0400
+Received: by igcqo1 with SMTP id qo1so50699488igc.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 11:29:16 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB017F6@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The seq_printf/seq_puts/seq_putc return values, because they
-are frequently misused, will eventually be converted to void.
+On Mon, 2015-03-16 at 16:39 +0000, David Laight wrote:
 
-See: commit 1f33c41c03da ("seq_file: Rename seq_overflow() to
-     seq_has_overflowed() and make public")
+> I wondered if the code should be reading the value in the host's natural
+> endianness?
+> Then the code might be optimisable to:
+> 	return *(unsigned long long *)cookie;
 
-Miscellanea:
+This will trap on arches requesting 8 bytes alignment.
 
-o realign arguments
+Not all linux hosts run x86
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |  4 +++-
- net/netfilter/nf_conntrack_acct.c                     |  8 +++++---
- net/netfilter/nf_conntrack_expect.c                   |  4 +++-
- net/netfilter/nfnetlink_log.c                         | 12 +++++++-----
- 4 files changed, 18 insertions(+), 10 deletions(-)
+Look at rta_getattr_u64(), and you'll see that manipulating 64bit values
+in netlink requires a memcpy() because we have no 64bit alignment
+guarantee.
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-index a460a87..f0dfe92 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -300,7 +300,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
- 		    __nf_ct_l3proto_find(exp->tuple.src.l3num),
- 		    __nf_ct_l4proto_find(exp->tuple.src.l3num,
- 					 exp->tuple.dst.protonum));
--	return seq_putc(s, '\n');
-+	seq_putc(s, '\n');
-+
-+	return 0;
- }
- 
- static const struct seq_operations exp_seq_ops = {
-diff --git a/net/netfilter/nf_conntrack_acct.c b/net/netfilter/nf_conntrack_acct.c
-index a4b5e2a..45da11a 100644
---- a/net/netfilter/nf_conntrack_acct.c
-+++ b/net/netfilter/nf_conntrack_acct.c
-@@ -47,9 +47,11 @@ seq_print_acct(struct seq_file *s, const struct nf_conn *ct, int dir)
- 		return 0;
- 
- 	counter = acct->counter;
--	return seq_printf(s, "packets=%llu bytes=%llu ",
--			  (unsigned long long)atomic64_read(&counter[dir].packets),
--			  (unsigned long long)atomic64_read(&counter[dir].bytes));
-+	seq_printf(s, "packets=%llu bytes=%llu ",
-+		   (unsigned long long)atomic64_read(&counter[dir].packets),
-+		   (unsigned long long)atomic64_read(&counter[dir].bytes));
-+
-+	return 0;
- };
- EXPORT_SYMBOL_GPL(seq_print_acct);
- 
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 91a1837..7a17070 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -561,7 +561,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
- 				   helper->expect_policy[expect->class].name);
- 	}
- 
--	return seq_putc(s, '\n');
-+	seq_putc(s, '\n');
-+
-+	return 0;
- }
- 
- static const struct seq_operations exp_seq_ops = {
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 11d85b3..db5e3a8 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -998,11 +998,13 @@ static int seq_show(struct seq_file *s, void *v)
- {
- 	const struct nfulnl_instance *inst = v;
- 
--	return seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
--			  inst->group_num,
--			  inst->peer_portid, inst->qlen,
--			  inst->copy_mode, inst->copy_range,
--			  inst->flushtimeout, atomic_read(&inst->use));
-+	seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
-+		   inst->group_num,
-+		   inst->peer_portid, inst->qlen,
-+		   inst->copy_mode, inst->copy_range,
-+		   inst->flushtimeout, atomic_read(&inst->use));
-+
-+	return 0;
- }
- 
- static const struct seq_operations nful_seq_ops = {
+> which rather begs the question as to why cookie is uint32_t[2] instead of
+> uint64_t.
+> 
 
-
+This question comes too late, inet_diag was added years ago,
+and we must keep ABI compatibility forever.
