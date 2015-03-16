@@ -1,188 +1,206 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] switchdev: call bridge setlink/dellink ndos recursively
-Date: Mon, 16 Mar 2015 15:22:54 +0100
-Message-ID: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, sfeldma@gmail.com, roopa@cumulusnetworks.com
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: [PATCH iproute2] ip route: support RFC4191 router preference
+Date: Mon, 16 Mar 2015 16:01:47 +0100
+Message-ID: <1426518107-26461-1-git-send-email-lkundrak@v3.sk>
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	Lubomir Rintel <lkundrak@v3.sk>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:38227 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933264AbbCPOW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 10:22:59 -0400
-Received: by wifj2 with SMTP id j2so44918144wif.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 07:22:57 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:42576 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932555AbbCPPCA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Mar 2015 11:02:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There has been a discussion about if it's better to let masters to
-propagate call down themself or if its better just blindly go down and
-try to call ndo on every lower netdev. Turned out that more people (me
-not included) like the second option better.
+This allows querying and setting the route preference. It's usually set from
+the IPv6 Neighbor Discovery Router Advertisement messages.
 
-This patch changes bridge setlink/dellink in that direction.
-Sorry Roopa for forcing you to do it the way I liked initially.
+Introduced in "ipv6: expose RFC4191 route preference via rtnetlink", enqueued
+for Linux 4.1.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 ---
- drivers/net/bonding/bond_main.c |  2 --
- drivers/net/team/team.c         |  2 --
- include/net/switchdev.h         |  4 ---
- net/switchdev/switchdev.c       | 78 ++++++++++-------------------------------
- 4 files changed, 19 insertions(+), 67 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c026ce9..c1dce04 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4036,8 +4036,6 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_add_slave		= bond_enslave,
- 	.ndo_del_slave		= bond_release,
- 	.ndo_fix_features	= bond_fix_features,
--	.ndo_bridge_setlink	= ndo_dflt_netdev_switch_port_bridge_setlink,
--	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
- };
+This may need some discussion and changes: "pref" was previously accepted as 
+short for "preference" which is for some reason an alternative mnemonics for 
+"metric" or "priority." I, however, doubt anyone uses it and it does not seem
+to have been documented.
+
+Alternative spellings might be "rtpref" or "rt_pref"?
+
+ doc/ip-cref.tex           | 11 +++++++++++
+ include/linux/rtnetlink.h |  1 +
+ ip/iproute.c              | 35 ++++++++++++++++++++++++++++++++++-
+ man/man8/ip-route.8.in    | 28 ++++++++++++++++++++++++++++
+ 4 files changed, 74 insertions(+), 1 deletion(-)
+
+diff --git a/doc/ip-cref.tex b/doc/ip-cref.tex
+index e7a79a5..ea14795 100644
+--- a/doc/ip-cref.tex
++++ b/doc/ip-cref.tex
+@@ -1432,6 +1432,17 @@ database.
+ even if it does not match any interface prefix. One application of this
+ option may be found in~\cite{IP-TUNNELS}.
  
- static const struct device_type bond_type = {
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index a23319f..dbd39b9 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1977,8 +1977,6 @@ static const struct net_device_ops team_netdev_ops = {
- 	.ndo_del_slave		= team_del_slave,
- 	.ndo_fix_features	= team_fix_features,
- 	.ndo_change_carrier     = team_change_carrier,
--	.ndo_bridge_setlink     = ndo_dflt_netdev_switch_port_bridge_setlink,
--	.ndo_bridge_dellink     = ndo_dflt_netdev_switch_port_bridge_dellink,
- };
- 
- /***********************
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index e5de53f..489c5c0 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -86,10 +86,6 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
- 				struct nlmsghdr *nlh, u16 flags);
- int netdev_switch_port_bridge_dellink(struct net_device *dev,
- 				struct nlmsghdr *nlh, u16 flags);
--int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
--					       struct nlmsghdr *nlh, u16 flags);
--int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
--					       struct nlmsghdr *nlh, u16 flags);
- int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 			       u8 tos, u8 type, u32 nlflags, u32 tb_id);
- int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index c9bfa00..ce494cd 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -132,14 +132,24 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
- 				      struct nlmsghdr *nlh, u16 flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+	int err;
-+	int ret = -EOPNOTSUPP;
- 
- 	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
- 		return 0;
- 
--	if (!ops->ndo_bridge_setlink)
--		return -EOPNOTSUPP;
-+	if (ops->ndo_bridge_setlink)
-+		return ops->ndo_bridge_setlink(dev, nlh, flags);
++\item \verb|pref PREF|
 +
-+        netdev_for_each_lower_dev(dev, lower_dev, iter) {
-+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
-+		if (err && err != -EOPNOTSUPP)
-+			ret = err;
++--- the IPv6 route preference.
++\verb|PREF| PREF is a string specifying the route preference as defined in
++RFC4191 for Router Discovery messages. Namely:
++\begin{itemize}
++\item \verb|low| --- the route has a lowest priority.
++\item \verb|medium| --- the route has a default priority.
++\item \verb|high| --- the route has a highest priority.
++\end{itemize}
++
+ \end{itemize}
+ 
+ 
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 3eb7810..fb0f7ac 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -303,6 +303,7 @@ enum rtattr_type_t {
+ 	RTA_TABLE,
+ 	RTA_MARK,
+ 	RTA_MFC_STATS,
++	RTA_PREF,
+ 	__RTA_MAX
+ };
+ 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index b32025f..5a3a516 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -23,6 +23,7 @@
+ #include <netinet/ip.h>
+ #include <arpa/inet.h>
+ #include <linux/in_route.h>
++#include <linux/icmpv6.h>
+ #include <errno.h>
+ 
+ #include "rt_names.h"
+@@ -82,12 +83,14 @@ static void usage(void)
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ features FEATURES ] [ quickack BOOL ] [ congctl NAME ]\n");
++	fprintf(stderr, "           [ pref PREF ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+ 	fprintf(stderr, "SCOPE := [ host | link | global | NUMBER ]\n");
+ 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
+ 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
++	fprintf(stderr, "PREF := [ low | medium | high ]\n");
+ 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
+ 	fprintf(stderr, "BOOL := [1|0]\n");
+ 	fprintf(stderr, "FEATURES := ecn\n");
+@@ -629,6 +632,24 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			nh = RTNH_NEXT(nh);
+ 		}
+ 	}
++	if (tb[RTA_PREF]) {
++		unsigned int pref = rta_getattr_u8(tb[RTA_PREF]);
++		fprintf(fp, " pref ");
++
++		switch (pref) {
++		case ICMPV6_ROUTER_PREF_LOW:
++			fprintf(fp, "low");
++			break;
++		case ICMPV6_ROUTER_PREF_MEDIUM:
++			fprintf(fp, "medium");
++			break;
++		case ICMPV6_ROUTER_PREF_HIGH:
++			fprintf(fp, "high");
++			break;
++		default:
++			fprintf(fp, "%u", pref);
++		}
 +	}
-+	return ret;
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+ 	return 0;
+@@ -782,7 +803,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			req.r.rtm_tos = tos;
+ 		} else if (matches(*argv, "metric") == 0 ||
+ 			   matches(*argv, "priority") == 0 ||
+-			   matches(*argv, "preference") == 0) {
++			   strcmp(*argv, "preference") == 0) {
+ 			__u32 metric;
+ 			NEXT_ARG();
+ 			if (get_u32(&metric, *argv, 0))
+@@ -979,6 +1000,18 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			   strcmp(*argv, "oif") == 0) {
+ 			NEXT_ARG();
+ 			d = *argv;
++		} else if (matches(*argv, "pref") == 0) {
++			__u8 pref;
++			NEXT_ARG();
++			if (strcmp(*argv, "low") == 0)
++				pref = ICMPV6_ROUTER_PREF_LOW;
++			else if (strcmp(*argv, "medium") == 0)
++				pref = ICMPV6_ROUTER_PREF_MEDIUM;
++			else if (strcmp(*argv, "high") == 0)
++				pref = ICMPV6_ROUTER_PREF_HIGH;
++			else if (get_u8(&pref, *argv, 0))
++				invarg("\"pref\" value is invalid\n", *argv);
++			addattr8(&req.n, sizeof(req), RTA_PREF, pref);
+ 		} else {
+ 			int type;
+ 			inet_prefix dst;
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 2b1583d..e587fc1 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -119,6 +119,8 @@ replace " } "
+ .IR BOOL " ] [ "
+ .B  congctl
+ .IR NAME " ]"
++.B  pref
++.IR PREF " ]"
  
--	return ops->ndo_bridge_setlink(dev, nlh, flags);
- }
- EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
+ .ti -8
+ .IR TYPE " := [ "
+@@ -148,6 +150,10 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
+ .IR FEATURES " := [ "
+ .BR ecn " | ]"
  
-@@ -157,66 +167,16 @@ int netdev_switch_port_bridge_dellink(struct net_device *dev,
- 				      struct nlmsghdr *nlh, u16 flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
--
--	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return 0;
--
--	if (!ops->ndo_bridge_dellink)
--		return -EOPNOTSUPP;
--
--	return ops->ndo_bridge_dellink(dev, nlh, flags);
--}
--EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
--
--/**
-- *	ndo_dflt_netdev_switch_port_bridge_setlink - default ndo bridge setlink
-- *						     op for master devices
-- *
-- *	@dev: port device
-- *	@nlh: netlink msg with bridge port attributes
-- *	@flags: bridge setlink flags
-- *
-- *	Notify master device slaves of bridge port attributes
-- */
--int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
--					       struct nlmsghdr *nlh, u16 flags)
--{
- 	struct net_device *lower_dev;
- 	struct list_head *iter;
--	int ret = 0, err = 0;
-+	int err;
-+	int ret = -EOPNOTSUPP;
++.ti -8
++.IR PREF " := [ "
++.BR low " | " medium " | " high " ]"
++
  
- 	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return ret;
--
--	netdev_for_each_lower_dev(dev, lower_dev, iter) {
--		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
--		if (err && err != -EOPNOTSUPP)
--			ret = err;
--	}
--
--	return ret;
--}
--EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_setlink);
--
--/**
-- *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
-- *						     op for master devices
-- *
-- *	@dev: port device
-- *	@nlh: netlink msg with bridge port attributes
-- *	@flags: bridge dellink flags
-- *
-- *	Notify master device slaves of bridge port attribute deletes
-- */
--int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
--					       struct nlmsghdr *nlh, u16 flags)
--{
--	struct net_device *lower_dev;
--	struct list_head *iter;
--	int ret = 0, err = 0;
-+		return 0;
+ .SH DESCRIPTION
+ .B ip route
+@@ -551,6 +557,28 @@ to assign (or not to assign) protocol tags.
+ .B onlink
+ pretend that the nexthop is directly attached to this link,
+ even if it does not match any interface prefix.
++
++.TP
++.BI pref " PREF"
++the IPv6 route preference.
++.I PREF
++is a string specifying the route preference as defined in RFC4191 for Router
++Discovery messages. Namely:
++
++.in +8
++.B low
++- the route has a lowest priority
++.sp
++
++.B medium
++- the route has a default priority
++.sp
++
++.B high
++- the route has a highest priority
++.sp
++
++.in -8
+ .RE
  
--	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return ret;
-+	if (ops->ndo_bridge_dellink)
-+		return ops->ndo_bridge_dellink(dev, nlh, flags);
- 
- 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
- 		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
-@@ -226,7 +186,7 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
- 
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
-+EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
- 
- static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
- {
+ .TP
 -- 
-1.9.3
+2.1.0
