@@ -1,167 +1,110 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v1 PATCH 0/14] rhashtable: Kill shift/Key netlink
- namespace/Merge jhash
-Date: Mon, 16 Mar 2015 22:26:28 +1100
-Message-ID: <20150316112628.GA1373@gondor.apana.org.au>
-References: <20150316041805.GA28946@gondor.apana.org.au>
- <20150316.003049.1368221798557474722.davem@davemloft.net>
- <20150316043359.GA29124@gondor.apana.org.au>
- <20150316.004017.1903871383239941874.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] dsa: change "select" to "depends on" for NET_SWITCHDEV and for NET_DSA
+Date: Mon, 16 Mar 2015 12:33:32 +0100
+Message-ID: <1426505612-2144-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, sfeldma@gmail.com,
+	rdunlap@infradead.org, alexei.starovoitov@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:43886 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751399AbbCPL0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 07:26:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20150316.004017.1903871383239941874.davem@davemloft.net>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:37983 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbbCPLdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 07:33:38 -0400
+Received: by wifj2 with SMTP id j2so40665670wif.1
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 04:33:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 16, 2015 at 12:40:17AM -0400, David Miller wrote:
->
-> Patrick McHardy had mentioned to me his consternation about this issue
-> offhand the other week, and I've just failed to get around to bringing
-> it up :-)
+This would fix randconfig compile error:
+net/built-in.o: In function `netdev_switch_fib_ipv4_abort':
+(.text+0xf7811): undefined reference to `fib_flush_external'
 
-How about something like this? Compile tested only but at least
-it does inline correctly.
+Also it fixes following warnings:
+warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index c5104aa..79df647 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -42,6 +42,9 @@
- #define RHT_HASH_BITS		27
- #define RHT_BASE_SHIFT		RHT_HASH_BITS
- 
-+/* Base bits plus 1 bit for nulls marker */
-+#define RHT_HASH_RESERVED_SPACE	(RHT_BASE_BITS + 1)
-+
- struct rhash_head {
- 	struct rhash_head __rcu		*next;
- };
-@@ -172,6 +175,24 @@ static inline unsigned long rht_get_nulls_value(const struct rhash_head *ptr)
- 	return ((unsigned long) ptr) >> 1;
- }
- 
-+static void *rht_obj(const struct rhashtable *ht, const struct rhash_head *he)
-+{
-+	return (void *) he - ht->p.head_offset;
-+}
-+
-+static inline u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
-+{
-+	return (hash >> RHT_HASH_RESERVED_SPACE) & (tbl->size - 1);
-+}
-+
-+static inline u32 rht_key_hashfn(const struct bucket_table *tbl,
-+				 const void *key,
-+				 unsigned int key_len,
-+				 rht_hashfn_t hashfn)
-+{
-+	return rht_bucket_index(tbl, hashfn(key, key_len, tbl->hash_rnd));
-+}
-+
- #ifdef CONFIG_PROVE_LOCKING
- int lockdep_rht_mutex_is_held(struct rhashtable *ht);
- int lockdep_rht_bucket_is_held(const struct bucket_table *tbl, u32 hash);
-@@ -197,6 +218,7 @@ int rhashtable_expand(struct rhashtable *ht);
- int rhashtable_shrink(struct rhashtable *ht);
- 
- void *rhashtable_lookup(struct rhashtable *ht, const void *key);
-+void *rhashtable_lookup_slow(struct rhashtable *ht, const void *key);
- 
- int rhashtable_lookup_insert(struct rhashtable *ht, struct rhash_head *obj);
- int rhashtable_lookup_insert_key(struct rhashtable *ht,
-@@ -358,4 +380,30 @@ void rhashtable_destroy(struct rhashtable *ht);
- 	rht_for_each_entry_rcu_continue(tpos, pos, (tbl)->buckets[hash],\
- 					tbl, hash, member)
- 
-+static inline void *rhashtable_lookup_fast(struct rhashtable *ht,
-+					   const void *key,
-+					   unsigned int key_len,
-+					   rht_hashfn_t hashfn,
-+					   rht_obj_cmpfn_t obj_cmpfn)
-+{
-+	const struct bucket_table *tbl;
-+	struct rhash_head *he;
-+	u32 hash;
-+
-+	rcu_read_lock();
-+
-+	tbl = rht_dereference_rcu(ht->tbl, ht);
-+	hash = rht_key_hashfn(tbl, key, key_len, hashfn);
-+	rht_for_each_rcu(he, tbl, hash) {
-+		if (!obj_cmpfn(key, rht_obj(ht, he)))
-+			continue;
-+		rcu_read_unlock();
-+		return rht_obj(ht, he);
-+	}
-+
-+	rcu_read_unlock();
-+
-+	return rhashtable_lookup(ht, key);
-+}
-+
- #endif /* _LINUX_RHASHTABLE_H */
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index d22da74..7486e6a 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -33,9 +33,6 @@
- #define HASH_MIN_SIZE		4U
- #define BUCKET_LOCKS_PER_CPU   128UL
- 
--/* Base bits plus 1 bit for nulls marker */
--#define HASH_RESERVED_SPACE	(RHT_BASE_BITS + 1)
--
- /* The bucket lock is selected based on the hash and protects mutations
-  * on a group of hash buckets.
-  *
-@@ -54,21 +51,10 @@ static spinlock_t *bucket_lock(const struct bucket_table *tbl, u32 hash)
- 	return &tbl->locks[hash & tbl->locks_mask];
- }
- 
--static void *rht_obj(const struct rhashtable *ht, const struct rhash_head *he)
--{
--	return (void *) he - ht->p.head_offset;
--}
--
--static u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
--{
--	return (hash >> HASH_RESERVED_SPACE) & (tbl->size - 1);
--}
--
- static u32 key_hashfn(struct rhashtable *ht, const struct bucket_table *tbl,
- 		      const void *key)
- {
--	return rht_bucket_index(tbl, ht->p.hashfn(key, ht->hashfn_key_len,
--						  tbl->hash_rnd));
-+	return rht_key_hashfn(tbl, key, ht->p.key_len, ht->p.hashfn);
- }
- 
- static u32 head_hashfn(struct rhashtable *ht,
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index f521f35..4f225c7 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1000,7 +1000,7 @@ static struct sock *__netlink_lookup(struct netlink_table *table, u32 portid,
- 	struct netlink_compare_arg arg;
- 
- 	netlink_compare_arg_init(&arg, net, portid);
--	return rhashtable_lookup(&table->hash, &arg);
-+	return rhashtable_lookup_fast(&table->hash, &arg, netlink_compare_arg_len, jhash2, netlink_compare);
- }
- 
- static int __netlink_insert(struct netlink_table *table, struct sock *sk)
+warning: (NET_DSA_MV88E6060 && NET_DSA_MV88E6131 && NET_DSA_MV88E6123_61_65 && NET_DSA_MV88E6171 && NET_DSA_MV88E6352 && NET_DSA_BCM_SF2) selects NET_DSA which has unmet direct dependencies (NET && HAVE_NET_DSA && NET_SWITCHDEV)
 
-Cheers,
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Suggested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/dsa/Kconfig | 13 ++++++-------
+ net/dsa/Kconfig         |  3 +--
+ 2 files changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 48e62a3..18550c7 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -7,7 +7,7 @@ config NET_DSA_MV88E6XXX
+ 
+ config NET_DSA_MV88E6060
+ 	tristate "Marvell 88E6060 ethernet switch chip support"
+-	select NET_DSA
++	depends on NET_DSA
+ 	select NET_DSA_TAG_TRAILER
+ 	---help---
+ 	  This enables support for the Marvell 88E6060 ethernet switch
+@@ -19,7 +19,7 @@ config NET_DSA_MV88E6XXX_NEED_PPU
+ 
+ config NET_DSA_MV88E6131
+ 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
+-	select NET_DSA
++	depends on NET_DSA
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_MV88E6XXX_NEED_PPU
+ 	select NET_DSA_TAG_DSA
+@@ -29,7 +29,7 @@ config NET_DSA_MV88E6131
+ 
+ config NET_DSA_MV88E6123_61_65
+ 	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
+-	select NET_DSA
++	depends on NET_DSA
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_TAG_EDSA
+ 	---help---
+@@ -38,7 +38,7 @@ config NET_DSA_MV88E6123_61_65
+ 
+ config NET_DSA_MV88E6171
+ 	tristate "Marvell 88E6171/6172 ethernet switch chip support"
+-	select NET_DSA
++	depends on NET_DSA
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_TAG_EDSA
+ 	---help---
+@@ -47,7 +47,7 @@ config NET_DSA_MV88E6171
+ 
+ config NET_DSA_MV88E6352
+ 	tristate "Marvell 88E6176/88E6352 ethernet switch chip support"
+-	select NET_DSA
++	depends on NET_DSA
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_TAG_EDSA
+ 	---help---
+@@ -56,8 +56,7 @@ config NET_DSA_MV88E6352
+ 
+ config NET_DSA_BCM_SF2
+ 	tristate "Broadcom Starfighter 2 Ethernet switch support"
+-	depends on HAS_IOMEM
+-	select NET_DSA
++	depends on HAS_IOMEM && NET_DSA
+ 	select NET_DSA_TAG_BRCM
+ 	select FIXED_PHY
+ 	select BCM7XXX_PHY
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index b45206e..9379a9c 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -6,9 +6,8 @@ config HAVE_NET_DSA
+ 
+ config NET_DSA
+ 	tristate
+-	depends on HAVE_NET_DSA
++	depends on HAVE_NET_DSA && NET_SWITCHDEV
+ 	select PHYLIB
+-	select NET_SWITCHDEV
+ 
+ if NET_DSA
+ 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.3
