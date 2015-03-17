@@ -1,71 +1,140 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: Hardware support for foo over UDP?
-Date: Tue, 17 Mar 2015 12:08:46 -0700
-Message-ID: <CAEP_g=-WnC5yKm_dGsA9aj-6ZZEwoFs2YBMg28xpZzftAmh3fQ@mail.gmail.com>
-References: <CALx6S36bovfh_-oFo+PMag0Asato3qyAFdizteAFm9g4=YwFTw@mail.gmail.com>
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Subject: [PATCH RFC 00/11] introduce DPAA Ethernet driver
+Date: Tue, 17 Mar 2015 20:57:00 +0200
+Message-ID: <1426618620-15040-1-git-send-email-madalin.bucur@freescale.com>
+Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:36039 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753016AbbCQTJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 15:09:08 -0400
-Received: by mail-lb0-f175.google.com with SMTP id ds1so14024779lbc.3
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 12:09:07 -0700 (PDT)
-In-Reply-To: <CALx6S36bovfh_-oFo+PMag0Asato3qyAFdizteAFm9g4=YwFTw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Madalin Bucur <madalin.bucur@freescale.com>
+To: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 16, 2015 at 9:52 AM, Tom Herbert <tom@herbertland.com> wrote:
-> RSS is mostly solved by enabling RSS for UDP. IMO this should be
-> enabled by default in NICs that support it as the historical counter
-> argument is that this cause OOO for fragmented UDP packets seems to be
-> a lesser concern.
+This patch series introduces the Ethernet driver for the
+Freescale QorIQ Data Path Acceleration Architecture (DPAA).
+Together with the driver a managed version of alloc_percpu
+is provided that simplifies the release of percpu memory.
 
-I agree with this. Given that UDP is used for load balancing in
-ECMP/LAG there doesn't seem to be much benefit to not using at the
-host if any possible packet reordering has already occurred in the
-network.
+The Freescale DPAA architecture consists in a series of
+hardware blocks that support the Ethernet connectivity.
+the Ethernet driver depends upon the Peripheral Access
+Memory Unit (PAMU), Frame Manager (FMan), Queue Manager
+(QMan), Buffer Manager (BMan). Drivers for these blocks
+are currently in the kernel or in review.
 
-> TX-csum and RX-csum are made generic through NETIF_HW_CSUM and
-> CHECKSUM_UNNECESSARY; we've known this for a long time ;-). These will
-> work well to offload encapsulated transport checksums.  UDP
-> encapsulation also allows the opportunity to enable UDP checksum.
-> We're actually leveraging that to get good performance on legacy HW
-> using checksum-unnecessary conversion and remote checksum offload in
-> GUE and VXLAN. It does raise the possibility that someone may want to
-> explore HW offload of more than one checksum in a packet on transmit.
+The current set of RFC patches is meant to provide early
+access to the codebase and also provide context and aid
+the review of the FMan driver patches submitted by Igal
+Liberman:
 
-Things like remote checksum offload are nice when they can be used but
-are really more of a short term solution. Since it both requires
-changes to the protocol and can't be easily be computed by some types
-of devices, we'll still ultimately want the NIC to compute the
-checksum.
+[RFC,8/8] soc/fman: Add FMan MAC driver
+[RFC,7/8] soc/fman: Add FMan Port Support
+[RFC,6/8] soc/fman: Add FMan SP support
+[RFC,5/8] soc/fman: Add FMan MAC support
+[RFC,4/8] soc/fman: Add FMan Parser and Keygen support
+[RFC,3/8] soc/fman: Add FMan Real Time Clock support
+[RFC,2/8] soc/fman: Add Frame Manager support
+[RFC,1/8] soc/fman: Add FMan MURAM support
+[v2,11/11] soc/fman: Add the FMan SP FLIB
+[v2,10/11] soc/fman: Add the FMan RTC FLIB
+[v2,09/11] soc/fman: Add the FMan RTC FLIB header
+[v2,08/11] soc/fman: Add the FMan parser and KeyGen FLIB(s)
+[v2,07/11] soc/fman: Add the FMan parser and KeyGen FLIB headers
+[v2,06/11] soc/fman: Add the FMan MAC FLIB
+[v2,05/11] soc/fman: Add the FMan MAC FLIB headers
+[v2,04/11] soc/fman: Add the FMan port FLIB
+[v2,03/11] soc/fman: Add the FMan port FLIB headers
+[v2,02/11] soc/fman: Add the FMan FLIB
+[v2,01/11] soc/fman: Add the FMan FLIB headers
 
-I do know that people are planning on introducing NICs that can
-compute multiple checksums, although I don't believe that any are
-available yet.
+https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=Igal.Liberman&state=*
 
-> For LSO (TSO), the stack already demonstrates a generic solution for
-> segmentation with UDP encapsulation in GSO (__skb_udp_tunnel_segment).
-> Note that this code does not need to know the encapsulation protocol
-> or parse the packet to do GSO. As long we don't have any fields in the
-> encapsulation headers that need to be modified per segment, the bits
-> between the UDP header and the encapsulated L2/L3 header are just
-> copied per segment.
+These patches rely also on the Q/BMan drivers submitted by
+Emil Medve:
 
-I am happy with how this turned out as well.
+[RFC,v3,10/10] fsl_qman: Add HOTPLUG_CPU support
+[RFC,v3,09/10] fsl_bman: Add HOTPLUG_CPU support
+[RFC,v3,08/10] fsl_qman: Add debugfs support
+[RFC,v3,07/10] fsl_bman: Add debugfs support
+[RFC,v3,06/10] fsl_qman: Add self-tester
+[RFC,v3,05/10] fsl_bman: Add self-tester
+[RFC,v3,04/10] powerpc/mpc85xx: Add platform support for the Freescale DPAA QMan
+[RFC,v3,03/10] powerpc/mpc85xx: Add platform support for the Freescale DPAA BMan
+[RFC,v3,02/10] fsl_qman: Add drivers for the Freescale DPAA QMan
+[RFC,v3,01/10] fsl_bman: Add drivers for the Freescale DPAA BMan
 
-> LRO is the hardest offload to make generic, a device will need to
-> parse encapsulation which will also mean that the device needs to know
-> the port to encapsulation protocol mapping. I don't know if we can
-> find a better answer here but it might be worth some consideration.
+https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=Emil+Medve&state=*&q=RFC
 
-I have thought about this in the past and I also don't know of any
-better solution (and it also roughly mirrors what we have in
-software). I think this bit of protocol-awareness has minimal impact
-on the stack since the operation that is being performed across
-protocols is the same, it's just giving a hint as to which parser
-should be used by the NIC.
+The DPAA Ethernet driver is the result of the collaborative
+work of many individuals, to name a few:
+ Andy Fleming
+ Emil Medve
+ Kumar Gala
+ Ioana Radulescu
+ Bogdan Hamciuc
+ Madalin Bucur
+ Cristian Sovaiala
+ Marian Rotariu
+ Andrei Pistirica
+ Cristian Bercaru
+ 
+The current patch set is the result of a sustained clean-up
+and adaptation work on the QorIQ DPAA drivers released in
+the open source Freescale SDK. The SDK drivers differ as they
+offer support for advanced accelerations and other features
+that are not upstreamable. The SDK Ethernet driver is based
+on a different, non-upstreamable variant of the FMan driver.
+The short term goal is to provide basic Ethernet support in
+the vanilla kernel then to gradually increase the feature set. 
+
+The SDK documentation and source code, documentation for the
+DPAA hardware are available from the company website.
+
+Madalin Bucur (11):
+  devres: add devm_alloc_percpu()
+  dpaa_eth: add support for DPAA Ethernet
+  dpaa_eth: add PM ops
+  dpaa_eth: add configurable bpool thresholds
+  dpaa_eth: add support for S/G frames
+  dpaa_eth: add driver's Tx queue selection mechanism
+  dpaa_eth: add ethtool functionality
+  dpaa_eth: add sysfs exports
+  dpaa_eth: add debugfs counters
+  dpaa_eth: add debugfs entries
+  dpaa_eth: add trace points
+
+ Documentation/driver-model/devres.txt              |    4 +
+ drivers/base/devres.c                              |   63 +
+ drivers/net/ethernet/freescale/Kconfig             |    2 +
+ drivers/net/ethernet/freescale/Makefile            |    1 +
+ drivers/net/ethernet/freescale/dpaa/Kconfig        |   87 ++
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   18 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c |  273 ++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h |   43 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  992 ++++++++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  503 +++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  | 1387 ++++++++++++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |  130 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |  725 ++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  168 +++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   |  143 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  301 +++++
+ include/linux/device.h                             |   19 +
+ 17 files changed, 4859 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+
+-- 
+1.7.11.7
