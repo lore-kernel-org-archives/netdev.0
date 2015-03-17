@@ -1,34 +1,37 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] fix whitespace errors found by checkpatch.pl
-Date: Tue, 17 Mar 2015 15:21:12 -0400 (EDT)
-Message-ID: <20150317.152112.1902057116873296620.davem@redhat.com>
-References: <1426593287-18619-1-git-send-email-kmulvey@linux.com>
+Subject: Re: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
+Date: Tue, 17 Mar 2015 15:23:24 -0400 (EDT)
+Message-ID: <20150317.152324.744727347577991569.davem@redhat.com>
+References: <1426608145-14139-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, steffen.klassert@secunet.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kmulvey@linux.com
-To: kevin@kevinmulvey.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426593287-18619-1-git-send-email-kmulvey@linux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+	jasowang@redhat.com
+To: kys@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57828 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752789AbbCQTXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2015 15:23:35 -0400
+In-Reply-To: <1426608145-14139-1-git-send-email-kys@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Mulvey <kevin@kevinmulvey.net>
-Date: Tue, 17 Mar 2015 07:54:47 -0400
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Tue, 17 Mar 2015 09:02:25 -0700
 
-> make checkpatch happier by fixing some whitespace
-> in ip6_tunnel.c and ip6_vti.c
+> Take into consideration the xmit_more flag in skb to decide if we should
+> notify the host as we place packets in VMBUS.
 > 
-> Signed-off-by: Kevin Mulvey <kmulvey@linux.com>
+> The VMBUS API that would give us this control is already in Greg's tree, in this
+> patch-set, that API is exported so it can be used in the netvsc driver. Greg has
+> acked this export.
+> 
+> In this version of the patch-set, the patch to address the vmbus signalling
+> fix is not included here; that patch will be taken through Greg's tree.
+> I have also gotten rid of an unnecessary local variable in start_xmit()
+> function based on feedback from Jason Wang <jasowang@redhat.com>.
 
-Your Subject line should specify a subsystem prefix, followed by a colon
-character, indicating the area of the kernel where you are making
-changes.
-
-In this particular case, "ipv6: " would be an appropriate one to use.
-
-Otherwise in the shortlog, it is impossible to determine where a commit
-might be making changes.
+This patch set does not apply to net-next at all.
