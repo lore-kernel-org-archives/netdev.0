@@ -1,53 +1,69 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] inet: Clean up inet_csk_wait_for_connect() vs.
- might_sleep()
-Date: Tue, 17 Mar 2015 08:35:01 +0100
-Message-ID: <20150317073501.GP2896@worktop.programming.kicks-ass.net>
-References: <1426533564.11398.229.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: gs_usb: check for kzalloc allocation failure
+Date: Tue, 17 Mar 2015 09:04:52 +0100
+Message-ID: <5507E024.9090801@pengutronix.de>
+References: <1426545744-3317-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1426533564.11398.229.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx"
+Cc: linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1426545744-3317-1-git-send-email-colin.king@canonical.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 16, 2015 at 12:19:24PM -0700, Eric Dumazet wrote:
-> 
-> In commit 26cabd31259ba43f68026ce3f62b78094124333f
-> Peter added a sched_annotate_sleep() in sk_wait_event()
-> 
-> Is the following patch needed as well ?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Yes this is fine.
+On 03/16/2015 11:42 PM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>=20
+> smatch detected the following issue:
+> drivers/net/can/usb/gs_usb.c:904 gs_usb_probe() error:
+>    potential null dereference 'dev'.  (kzalloc returns null)
+>=20
+> Add a check for null return from kzalloc and return -ENOMEM
+>=20
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-If we had indeed gone through the schedule and got woken we'd have had
-TASK_RUNNING here, also when we retry the loop the prepare_to_wait call
-will (re)set the TASK_INTERRUPTIBLE state.
+Thanks, applied to can.
 
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Marc
 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/ipv4/inet_connection_sock.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> index 14d02ea905b6..3e44b9b0b78e 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -268,6 +268,7 @@ static int inet_csk_wait_for_connect(struct sock *sk, long timeo)
->  		release_sock(sk);
->  		if (reqsk_queue_empty(&icsk->icsk_accept_queue))
->  			timeo = schedule_timeout(timeo);
-> +		sched_annotate_sleep();
->  		lock_sock(sk);
->  		err = 0;
->  		if (!reqsk_queue_empty(&icsk->icsk_accept_queue))
-> 
-> 
-> 
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJVB+AnAAoJECte4hHFiupUzeQP/RVvTe265T4pUOQBTlO1zPFA
+p4rm1kG8dMl77A2LGNb5gCz6f6XtPiQNNqs/0aEpz0zpVEPby/KA+WdwrUmUllKM
+BYpu6SQeCRg6y8w3Y+zZEMz5KJti9re3+8RRKQudcrBisNdMOTiFZ/+O0AKZBAiS
+tcH8/GNCL93y1BgMA84oNmaUi3tdUiRutsEskeuHdgSA7Sk0RxcscBaI24doajTu
+CsfwMogEc76G3/wIddSv8tRr46gBmi1tafG7t/xgvezbQukX+4FpdhbIKgLVtawv
+EkyNm4KdXqEN2ec6OhCFKtag8ldbechtB5wHK9FBZI96paIfur72ZoxqBDcw0vQp
+XGw4n0/8UsuDH+5tjmkEgRuo9FScW5mDaNgBrZkP6LJIJ5H6esIWFZVe4nKukH2o
+Xfn4FVSYPctF1O3fXUeDJKv4EcPdg1zNAvG5X+my0NbtQ/EiNSwI+4cE/F1k7YbN
+io/51uTbTX3T7GUm1U1SJgzfQTLPBDm9rCXxF3YX2CbKnoYhoiPwpoZjrXWOEdeJ
+cnRtmLSvBl8hbybkYvMcf8C+RWJI7N5ldJe/IaAl0Rb74e2p/WS38yWhsNBdLT0E
+PMVsUEcQqiRHDhnYRf/izk7tnW+t6ZbJ7Nt5Q64oSugxQ7XVYPeNPFwufW263wbd
+7YgxIKktXJ1/ebzYBtfN
+=G0L8
+-----END PGP SIGNATURE-----
+
+--s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx--
