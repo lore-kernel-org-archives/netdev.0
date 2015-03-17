@@ -1,67 +1,62 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [v1 PATCH 1/14] rhashtable: Remove shift from bucket_table
-Date: Tue, 17 Mar 2015 13:06:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB02607@AcuExch.aculab.com>
-References: <20150315104306.GA21999@gondor.apana.org.au>
- <E1YX61x-0005m7-GV@gondolin.me.apana.org.au>
- <063D6719AE5E284EB5DD2968C1650D6D1CB024AB@AcuExch.aculab.com>
- <20150317105657.GE11089@casper.infradead.org>
- <20150317110041.GA11385@gondor.apana.org.au>
- <20150317112203.GG11089@casper.infradead.org>
- <20150317112726.GC11671@gondor.apana.org.au>
- <20150317115749.GJ17829@casper.infradead.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CB02567@AcuExch.aculab.com>
- <20150317122033.GA12612@gondor.apana.org.au>
- <20150317124012.GH11089@casper.infradead.org>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 v2] route: label externally offloaded routes
+Date: Tue, 17 Mar 2015 09:24:56 -0400
+Message-ID: <20150317132456.GG12614@gospo.home.greyhouse.net>
+References: <1426447894-41398-1-git-send-email-sfeldma@gmail.com>
+ <20150316131805.GF12614@gospo.home.greyhouse.net>
+ <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "'tgraf@suug.ch'" <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	=?utf-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jeff Kirsher <tarbal@gmail.com>,
+	John Linville <linville@tuxdriver.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:64983 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753161AbbCQNIG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 09:08:06 -0400
-In-Reply-To: <20150317124012.GH11089@casper.infradead.org>
-Content-Language: en-US
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:35261 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752520AbbCQNZB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 09:25:01 -0400
+Received: by ykfs63 with SMTP id s63so3589794ykf.2
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 06:25:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf
-> Sent: 17 March 2015 12:40
-...
-> I'm not claiming perfect hash functions and this is exactly why I
-> think average utilization is not an optimal growth criteria because
-> it gives very limited view into the actual chain lengths.
+On Mon, Mar 16, 2015 at 09:14:50PM -0700, Scott Feldman wrote:
+> On Mon, Mar 16, 2015 at 6:18 AM, Andy Gospodarek
+> <gospo@cumulusnetworks.com> wrote:
+> > On Sun, Mar 15, 2015 at 12:31:34PM -0700, sfeldma@gmail.com wrote:
+> >> From: Scott Feldman <sfeldma@gmail.com>
+> >>
+> >> v2:
+> >>
+> >> No clear outcome on polling for choices of "external", "offload", "hw", or
+> >> "hardware".  Andy's concern about "external" being confusing for users is
+> >> valid.  So, I'm making executive decision to use "external_offload" for label,
+> >> as suggested by Jiri.
+> >
+> > This seems like quite a mouthful.  Just make it 'offload' or 'hardware'
+> > so the output of 'ip route show' isn't so long that it will frequently
+> > be longer than 80 chars.  Being longer than 80 chars is going to be
+> > irritating for _many_ users.
+> 
+> Andy, since you have passion on this topic, would you mind taking it
+> from here to get consensus, and post an updated patch, if needed?
 
-If you assume that all the entries are being looked up equally
-often the interesting number ought to be the number of failed compares.
-So you want to sum 'length * (length - 1)/2' and compare against the
-total number of items (or the table size).
+Absolutely.  I felt bad responding with more complaints yesterday
+without proposing an alternative patch.
 
-> What you describe above is a 100% utilization scenario. Initially
-> we talked about 0.1% utilization and whether to resize & rehash if a
-> single chain has length > 4. My answer is: yes we should resize &
-> rehash or at least rehash in that case.
+I'll be happy to handle this -- it will elimininate at least one
+complainer!
 
-0.1% utilisation is about as realistic as 100%.
-50-75% is probably a reasonable limit.
-This will give some short chains.
 
-> My point here is that a chain length of 4 may be a serious
-> performance bottleneck already and that it might be worth to try
-> and detect bad hashing distribution and attempt to fix it at an
-> earlier stage while ruling out the possibility of endless rehashes.
+> I was about to suggest a new made-up work like "keroff" and someday
+> the new word is added to Websters .  Daddy, what's "keroff"?  Oh son,
+> that means "offloaded from kernel to external device".  Ya, actually,
+> that's my vote: keroff.
 
-If you have 4 items and they are all on one chain they I suspect that
-nothing you do will actually split them.
-
-OTOH if you have 1000 items and one chain of length 4 it really doesn't
-matter. Unless, of course, someone arranges to flood the last item with
-traffic - in which case you are going to lose anyway.
-
-	David
+Bless you!
