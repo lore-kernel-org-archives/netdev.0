@@ -1,56 +1,66 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: cfg80211: use msecs_to_jiffies for time conversion
-Date: Tue, 17 Mar 2015 17:04:20 +0100
-Message-ID: <55085084.4080204@broadcom.com>
-References: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Configuring synchronous ethernet with ethtool?
+Date: Tue, 17 Mar 2015 17:11:28 +0100
+Message-ID: <20150317161128.GA8793@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Daniel Kim <dekim@broadcom.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:34255 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753451AbbCQQLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 12:11:33 -0400
+Received: by wegp1 with SMTP id p1so11482113weg.1
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 09:11:32 -0700 (PDT)
+Received: from localhost.localdomain (88-117-31-137.adsl.highway.telekom.at. [88.117.31.137])
+        by mx.google.com with ESMTPSA id ax10sm20547980wjc.26.2015.03.17.09.11.30
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Tue, 17 Mar 2015 09:11:31 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/17/15 13:06, Nicholas Mc Guire wrote:
-> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
-> OK but msecs_to_jiffies(val) is the cleaner solution and handles all
-> corner cases correctly. This is a minor API consolidation only and
-> should make things more readable.
->
-> Patch was compile tested with x86_64_defconfig + CONFIG_BRCMFMAC=m
->
-> Patch is agianst 4.0-rc4 (localversion-next is -next-20150317)
+Dear list,
 
-It applies to wireless-drivers-next/master as well so
+I need to configure Synchronous Ethernet (SyncE) on a per-port basis
+for a current project.  So, I have been thinking about how best to
+implement SyncE.  My first idea is to make this into a new ethtool
+operation, but I would like to get some feedback about the direction.
 
-Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Nicholas Mc Guire<hofrat@osadl.org>
-> ---
->   drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
-> index 9b805c9..1996dc2 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
-> @@ -1110,7 +1110,7 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
->
->   	/* Arm scan timeout timer */
->   	mod_timer(&cfg->escan_timeout, jiffies +
-> -			WL_ESCAN_TIMER_INTERVAL_MS * HZ / 1000);
-> +		  msecs_to_jiffies(WL_ESCAN_TIMER_INTERVAL_MS));
->
->   	return 0;
->
+Apart from ITU-T G.8261, 8262, and 8264, which are not too helpful, I
+could hardly find any documentation at all about how SyncE is supposed
+to work.  My current understanding is limited to:
+
+* 100 Mbit
+
+  - Each link partner generates its own transmit clocks.
+
+  - There is at least one 100 Mbit PHY that allows using the recovered
+    clock from the link partner for the PHY's own transmit clock.
+    (SyncE slave mode)
+
+* 1000 Mbit
+
+  - With 1000 Mbit, only one of the link partners generates a
+    clock. The decision of which link partner becomes the clock master
+    is a normal part of the Gigabit protocol.
+
+  - One switch I have worked with has per-port bits that allow setting
+    MASTER/SLAVE and MANUAL/PREFERRED.  I am not sure what the
+    "preferred" modes does.
+
+So, my current idea is to have an ethtool option to set the SyncE mode
+to one of:
+
+- master (1000 Mbit only)
+- slave
+- none
+
+I am not sure whether the manual/preferred thing makes any sense.
+Maybe someone has insight into this?
+
+Thoughts?
+
+Thanks,
+Richard
