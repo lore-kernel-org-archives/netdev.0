@@ -1,57 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 2/2] tc class: Ignore if default class name file
- does not exist
-Date: Tue, 17 Mar 2015 18:34:06 +0100
-Message-ID: <5508658E.9050909@iogearbox.net>
-References: <1426611124-2295-1-git-send-email-vadim4j@gmail.com> <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 94991] New: TCP bug creates additional RTO in very
+ specific condition
+Date: Tue, 17 Mar 2015 13:44:43 -0400 (EDT)
+Message-ID: <20150317.134443.687799973483992041.davem@davemloft.net>
+References: <20150317083333.65b7af40@urahara>
+	<CADVnQy=HA1ZYSuOOzEZavGCZfOF5_L+ExtDoJCw7nzDCj9+M8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	matiasb@gmail.com, ycheng@google.com, edumazet@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38259 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933042AbbCQReJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 13:34:09 -0400
-In-Reply-To: <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50271 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602AbbCQRot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 13:44:49 -0400
+In-Reply-To: <CADVnQy=HA1ZYSuOOzEZavGCZfOF5_L+ExtDoJCw7nzDCj9+M8A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/17/2015 05:52 PM, Vadim Kochan wrote:
-...
-> Changed default class name file cls_names -> tc_cls.
+From: Neal Cardwell <ncardwell@google.com>
+Date: Tue, 17 Mar 2015 12:49:49 -0400
 
-Why that?
+> On Tue, Mar 17, 2015 at 11:33 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>> https://bugzilla.kernel.org/show_bug.cgi?id=94991
+>>             Bug ID: 94991
+>>            Summary: TCP bug creates additional RTO in very specific
+>>                     condition
+> 
+> Thanks for forwarding. I posted the following on the bug:
+> 
+> 2.6.32 is over 5 years old (Dec 2009). I suspect this bug is in the
+> old FRTO code that Yuchung removed when he rewrote FRTO from scratch
+> in 2013. Can you please test a newer version of the kernel (preferably
+> 3.19 but at least 3.12 or newer) to see if this bug is still around?
+> Thanks!
 
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> ---
->   tc/tc_util.c | 19 +++++++++++++++----
->   1 file changed, 15 insertions(+), 4 deletions(-)
->
-> diff --git a/tc/tc_util.c b/tc/tc_util.c
-> index feae439..5213e9e 100644
-> --- a/tc/tc_util.c
-> +++ b/tc/tc_util.c
-...
->   static struct db_names *cls_names = NULL;
->
-> -#define NAMES_DB "/etc/iproute2/cls_names"
-> +#define NAMES_DB "/etc/iproute2/tc_cls"
->
->   int cls_names_init(char *path)
->   {
-> -	cls_names = db_names_alloc(path ?: NAMES_DB);
-> -	if (!cls_names) {
-> -		fprintf(stderr, "Error while opening class names file\n");
-> +	int ret = -1;
-> +
-> +	cls_names = db_names_alloc();
-> +	if (!cls_names)
-> +		return -1;
-> +
-> +	ret = db_names_load(cls_names, path ?: NAMES_DB);
-> +	if (ret == -ENOENT && path) {
-> +		fprintf(stderr, "Can't open class names file: %s\n", path);
+Stephen, if you're processing networking bugzilla entries in the
+future, don't even forward 2.6.x based stuff to the list please.
 
-That would mean that existing users having a /etc/iproute2/cls_names
-file would suddenly not see class names anymore?
+Thanks.
