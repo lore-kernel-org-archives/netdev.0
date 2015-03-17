@@ -1,61 +1,65 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2 v2] route: label externally offloaded routes
-Date: Tue, 17 Mar 2015 08:01:54 +0100
-Message-ID: <20150317070154.GC2042@nanopsycho.orion>
-References: <1426447894-41398-1-git-send-email-sfeldma@gmail.com>
- <20150316131805.GF12614@gospo.home.greyhouse.net>
- <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
+Subject: Re: [patch net-next] switchdev: call bridge setlink/dellink ndos
+ recursively
+Date: Tue, 17 Mar 2015 08:05:39 +0100
+Message-ID: <20150317070539.GE2042@nanopsycho.orion>
+References: <1426515774-21038-1-git-send-email-jiri@resnulli.us>
+ <55075460.9040408@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jeff Kirsher <tarbal@gmail.com>,
-	John Linville <linville@tuxdriver.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
+	roopa@cumulusnetworks.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:36045 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751144AbbCQHB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 03:01:59 -0400
-Received: by wgra20 with SMTP id a20so722201wgr.3
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 00:01:58 -0700 (PDT)
+Received: from mail-we0-f175.google.com ([74.125.82.175]:36266 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbbCQHFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 03:05:43 -0400
+Received: by wetk59 with SMTP id k59so699705wet.3
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 00:05:41 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
+In-Reply-To: <55075460.9040408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Mar 17, 2015 at 05:14:50AM CET, sfeldma@gmail.com wrote:
->On Mon, Mar 16, 2015 at 6:18 AM, Andy Gospodarek
-><gospo@cumulusnetworks.com> wrote:
->> On Sun, Mar 15, 2015 at 12:31:34PM -0700, sfeldma@gmail.com wrote:
->>> From: Scott Feldman <sfeldma@gmail.com>
->>>
->>> v2:
->>>
->>> No clear outcome on polling for choices of "external", "offload", "hw", or
->>> "hardware".  Andy's concern about "external" being confusing for users is
->>> valid.  So, I'm making executive decision to use "external_offload" for label,
->>> as suggested by Jiri.
+Mon, Mar 16, 2015 at 11:08:32PM CET, john.fastabend@gmail.com wrote:
+>On 03/16/2015 07:22 AM, Jiri Pirko wrote:
+>>There has been a discussion about if it's better to let masters to
+>>propagate call down themself or if its better just blindly go down and
+>>try to call ndo on every lower netdev. Turned out that more people (me
+>>not included) like the second option better.
 >>
->> This seems like quite a mouthful.  Just make it 'offload' or 'hardware'
->> so the output of 'ip route show' isn't so long that it will frequently
->> be longer than 80 chars.  Being longer than 80 chars is going to be
->> irritating for _many_ users.
+>>This patch changes bridge setlink/dellink in that direction.
+>>Sorry Roopa for forcing you to do it the way I liked initially.
+>>
+>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 >
->Andy, since you have passion on this topic, would you mind taking it
->from here to get consensus, and post an updated patch, if needed?
+>Hi Jiri,
 >
->I was about to suggest a new made-up work like "keroff" and someday
->the new word is added to Websters .  Daddy, what's "keroff"?  Oh son,
->that means "offloaded from kernel to external device".  Ya, actually,
->that's my vote: keroff.
+>I'm going to ask the dumb question here because it wasn't clear from
+>the emails I could dredge up.
+>
+>Why do you want to do this? Can you add it to the commit message so
 
-I like it :)
+I don't want to do this. It just look like there has been a consensus
+that most of the people want this.
+
+>in the future it is clear. Specifically what does it mean to propagate
+>these calls down? Can you give a stacked example?
+
+Example of propagation of ndo call through stacked devices:
+
+dev->ops->ndo_bridge_setlink (team_ndo_bridge_setlink)
+		-> for_each_team_port(port_dev)
+			-> port_dev->ops->ndo_bridge_setlink(rocker_ndo_bridge_setlink)
+
+
+
+
 
 >
->("koff" was my first choice, but apparently that already has a
->not-so-nice meaning).
+>Thanks,
+>John
 >
->-scott
+>-- 
+>John Fastabend         Intel Corporation
