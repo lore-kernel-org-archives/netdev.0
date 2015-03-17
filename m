@@ -1,102 +1,114 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 5/6] tcp: move tcp_openreq_init() to tcp_input.c
-Date: Mon, 16 Mar 2015 21:06:19 -0700
-Message-ID: <1426565180-26844-6-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 6/6] tcp: uninline tcp_oow_rate_limited()
+Date: Mon, 16 Mar 2015 21:06:20 -0700
+Message-ID: <1426565180-26844-7-git-send-email-edumazet@google.com>
 References: <1426565180-26844-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:33908 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175AbbCQEG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 00:06:58 -0400
-Received: by pdev10 with SMTP id v10so12503000pde.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 21:06:58 -0700 (PDT)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:33418 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbbCQEHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 00:07:04 -0400
+Received: by pablj1 with SMTP id lj1so12493658pab.0
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 21:07:03 -0700 (PDT)
 In-Reply-To: <1426565180-26844-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This big helper is called once from tcp_conn_request(), there is no
-point having it in an include. Compiler will inline it anyway.
+tcp_oow_rate_limited() is hardly used in fast path, there is
+no point inlining it.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-of-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h    | 25 -------------------------
- net/ipv4/tcp_input.c | 25 +++++++++++++++++++++++++
- 2 files changed, 25 insertions(+), 25 deletions(-)
+ include/net/tcp.h    | 32 ++------------------------------
+ net/ipv4/tcp_input.c | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+), 30 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2e11e38205c2..9fe1d535cd6c 100644
+index 9fe1d535cd6c..5b29835b81d8 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1137,31 +1137,6 @@ static inline int tcp_full_space(const struct sock *sk)
- 	return tcp_win_from_space(sk->sk_rcvbuf);
+@@ -1216,36 +1216,8 @@ static inline bool tcp_paws_reject(const struct tcp_options_received *rx_opt,
+ 	return true;
  }
  
--static inline void tcp_openreq_init(struct request_sock *req,
--				    struct tcp_options_received *rx_opt,
--				    struct sk_buff *skb, struct sock *sk)
+-/* Return true if we're currently rate-limiting out-of-window ACKs and
+- * thus shouldn't send a dupack right now. We rate-limit dupacks in
+- * response to out-of-window SYNs or ACKs to mitigate ACK loops or DoS
+- * attacks that send repeated SYNs or ACKs for the same connection. To
+- * do this, we do not send a duplicate SYNACK or ACK if the remote
+- * endpoint is sending out-of-window SYNs or pure ACKs at a high rate.
+- */
+-static inline bool tcp_oow_rate_limited(struct net *net,
+-					const struct sk_buff *skb,
+-					int mib_idx, u32 *last_oow_ack_time)
 -{
--	struct inet_request_sock *ireq = inet_rsk(req);
+-	/* Data packets without SYNs are not likely part of an ACK loop. */
+-	if ((TCP_SKB_CB(skb)->seq != TCP_SKB_CB(skb)->end_seq) &&
+-	    !tcp_hdr(skb)->syn)
+-		goto not_rate_limited;
 -
--	req->rcv_wnd = 0;		/* So that tcp_send_synack() knows! */
--	req->cookie_ts = 0;
--	tcp_rsk(req)->rcv_isn = TCP_SKB_CB(skb)->seq;
--	tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
--	tcp_rsk(req)->snt_synack = tcp_time_stamp;
--	tcp_rsk(req)->last_oow_ack_time = 0;
--	req->mss = rx_opt->mss_clamp;
--	req->ts_recent = rx_opt->saw_tstamp ? rx_opt->rcv_tsval : 0;
--	ireq->tstamp_ok = rx_opt->tstamp_ok;
--	ireq->sack_ok = rx_opt->sack_ok;
--	ireq->snd_wscale = rx_opt->snd_wscale;
--	ireq->wscale_ok = rx_opt->wscale_ok;
--	ireq->acked = 0;
--	ireq->ecn_ok = 0;
--	ireq->ir_rmt_port = tcp_hdr(skb)->source;
--	ireq->ir_num = ntohs(tcp_hdr(skb)->dest);
--	ireq->ir_mark = inet_request_mark(sk, skb);
+-	if (*last_oow_ack_time) {
+-		s32 elapsed = (s32)(tcp_time_stamp - *last_oow_ack_time);
+-
+-		if (0 <= elapsed && elapsed < sysctl_tcp_invalid_ratelimit) {
+-			NET_INC_STATS_BH(net, mib_idx);
+-			return true;	/* rate-limited: don't send yet! */
+-		}
+-	}
+-
+-	*last_oow_ack_time = tcp_time_stamp;
+-
+-not_rate_limited:
+-	return false;	/* not rate-limited: go ahead, send dupack now! */
 -}
--
- extern void tcp_openreq_init_rwin(struct request_sock *req,
- 				  struct sock *sk, struct dst_entry *dst);
++bool tcp_oow_rate_limited(struct net *net, const struct sk_buff *skb,
++			  int mib_idx, u32 *last_oow_ack_time);
  
+ static inline void tcp_mib_init(struct net *net)
+ {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 717d437b6ce1..10d6bd93f229 100644
+index 10d6bd93f229..7257eb206c07 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -5912,6 +5912,31 @@ static void tcp_ecn_create_request(struct request_sock *req,
- 		inet_rsk(req)->ecn_ok = 1;
+@@ -3321,6 +3321,36 @@ static int tcp_ack_update_window(struct sock *sk, const struct sk_buff *skb, u32
+ 	return flag;
  }
  
-+static void tcp_openreq_init(struct request_sock *req,
-+			     const struct tcp_options_received *rx_opt,
-+			     struct sk_buff *skb, const struct sock *sk)
++/* Return true if we're currently rate-limiting out-of-window ACKs and
++ * thus shouldn't send a dupack right now. We rate-limit dupacks in
++ * response to out-of-window SYNs or ACKs to mitigate ACK loops or DoS
++ * attacks that send repeated SYNs or ACKs for the same connection. To
++ * do this, we do not send a duplicate SYNACK or ACK if the remote
++ * endpoint is sending out-of-window SYNs or pure ACKs at a high rate.
++ */
++bool tcp_oow_rate_limited(struct net *net, const struct sk_buff *skb,
++			  int mib_idx, u32 *last_oow_ack_time)
 +{
-+	struct inet_request_sock *ireq = inet_rsk(req);
++	/* Data packets without SYNs are not likely part of an ACK loop. */
++	if ((TCP_SKB_CB(skb)->seq != TCP_SKB_CB(skb)->end_seq) &&
++	    !tcp_hdr(skb)->syn)
++		goto not_rate_limited;
 +
-+	req->rcv_wnd = 0;		/* So that tcp_send_synack() knows! */
-+	req->cookie_ts = 0;
-+	tcp_rsk(req)->rcv_isn = TCP_SKB_CB(skb)->seq;
-+	tcp_rsk(req)->rcv_nxt = TCP_SKB_CB(skb)->seq + 1;
-+	tcp_rsk(req)->snt_synack = tcp_time_stamp;
-+	tcp_rsk(req)->last_oow_ack_time = 0;
-+	req->mss = rx_opt->mss_clamp;
-+	req->ts_recent = rx_opt->saw_tstamp ? rx_opt->rcv_tsval : 0;
-+	ireq->tstamp_ok = rx_opt->tstamp_ok;
-+	ireq->sack_ok = rx_opt->sack_ok;
-+	ireq->snd_wscale = rx_opt->snd_wscale;
-+	ireq->wscale_ok = rx_opt->wscale_ok;
-+	ireq->acked = 0;
-+	ireq->ecn_ok = 0;
-+	ireq->ir_rmt_port = tcp_hdr(skb)->source;
-+	ireq->ir_num = ntohs(tcp_hdr(skb)->dest);
-+	ireq->ir_mark = inet_request_mark(sk, skb);
++	if (*last_oow_ack_time) {
++		s32 elapsed = (s32)(tcp_time_stamp - *last_oow_ack_time);
++
++		if (0 <= elapsed && elapsed < sysctl_tcp_invalid_ratelimit) {
++			NET_INC_STATS_BH(net, mib_idx);
++			return true;	/* rate-limited: don't send yet! */
++		}
++	}
++
++	*last_oow_ack_time = tcp_time_stamp;
++
++not_rate_limited:
++	return false;	/* not rate-limited: go ahead, send dupack now! */
 +}
 +
- int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		     const struct tcp_request_sock_ops *af_ops,
- 		     struct sock *sk, struct sk_buff *skb)
+ /* RFC 5961 7 [ACK Throttling] */
+ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+ {
 -- 
 2.2.0.rc0.207.ga3a616c
