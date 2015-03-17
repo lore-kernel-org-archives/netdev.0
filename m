@@ -1,27 +1,50 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH 00/16 linux-next] drivers/net: constify of_device_id
- array
-Date: Tue, 17 Mar 2015 15:00:45 -0400 (EDT)
-Message-ID: <20150317.150045.2177571124929326883.davem@redhat.com>
-References: <1426617469-781-1-git-send-email-fabf@skynet.be>
+Subject: Re: [PATCH net v2] ip6_tunnel: fix error code when tunnel exists
+Date: Tue, 17 Mar 2015 15:02:01 -0400 (EDT)
+Message-ID: <20150317.150201.1177761498452343682.davem@redhat.com>
+References: <1426517765-4649-1-git-send-email-nicolas.dichtel@6wind.com>
+	<20150316.163413.1468551206666732117.davem@davemloft.net>
+	<5507E570.9050602@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, soren.brinkmann@xilinx.com,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	nios2-dev@lists.rocketboards.org, linuxppc-dev@lists.ozlabs.org,
-	linux-wireless@vger.kernel.org
-To: fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426617469-781-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, me@pierre-cheynier.net,
+	eric.dumazet@gmail.com, steffen.klassert@secunet.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36574 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753764AbbCQTCO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 15:02:14 -0400
+In-Reply-To: <5507E570.9050602@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Tue, 17 Mar 2015 19:37:31 +0100
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 17 Mar 2015 09:27:28 +0100
 
-> This small patchset adds const to of_device_id arrays in
-> drivers/net branch.
+> Le 16/03/2015 21:34, David Miller a =E9crit :
+>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> Date: Mon, 16 Mar 2015 15:56:05 +0100
+>>
+>>> @@ -1445,7 +1445,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct
+>>> ifreq *ifr, int cmd)
+>>>   		ip6_tnl_parm_from_user(&p1, &p);
+>>>   		t =3D ip6_tnl_locate(net, &p1, cmd =3D=3D SIOCADDTUNNEL);
+>>>   		if (cmd =3D=3D SIOCCHGTUNNEL) {
+>>> -			if (t !=3D NULL) {
+>>> +			if (!IS_ERR(t)) {
+>>>   				if (t->dev !=3D dev) {
+>>>   					err =3D -EEXIST;
+>>>   					break;
+>>
+>> Please convert that last assignment to "err =3D PTR_ERR(t);", thanks=
+=2E
+> It's not possible, the if() statement checks that 't' is *not* an
+> error.
+> And in this case, we report to the user that the tunnel already
+> exists.
 
-Series applied, thanks.
+My bad, thanks for explaining.
+
+Applied.
