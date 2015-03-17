@@ -1,48 +1,53 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V3 1/2 net-next] Drivers: hv: vmbus: Export the
- vmbus_sendpacket_pagebuffer_ctl()
-Date: Tue, 17 Mar 2015 09:02:46 -0700
-Message-ID: <1426608167-14180-1-git-send-email-kys@microsoft.com>
-References: <1426608145-14139-1-git-send-email-kys@microsoft.com>
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: iproute2: ip -force -batch does not continue on errors
+Date: Tue, 17 Mar 2015 16:07:08 +0100 (CET)
+Message-ID: <alpine.DEB.2.11.1503171550360.18888@aurora64.sdinet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1426608145-14139-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from blackhole.sdinet.de ([176.9.52.58]:53631 "EHLO mail.sdinet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752908AbbCQPOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Mar 2015 11:14:04 -0400
+Received: from aurora64.sdinet.de (aurora64.sdinet.de [193.103.159.64])
+	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	(Authenticated sender: haegar)
+	by mail.sdinet.de (bofa-smtpd) with ESMTPSA id 78FE12E80513
+	for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 16:07:15 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Export the vmbus_sendpacket_pagebuffer_ctl() interface. This interface
-will be used in the netvsc driver to optimize signalling the host.
+Hallo,
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/hv/channel.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Test szenario:
 
-diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
-index da53180..e58cdb7 100644
---- a/drivers/hv/channel.c
-+++ b/drivers/hv/channel.c
-@@ -710,6 +710,7 @@ int vmbus_sendpacket_pagebuffer_ctl(struct vmbus_channel *channel,
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(vmbus_sendpacket_pagebuffer_ctl);
- 
- /*
-  * vmbus_sendpacket_pagebuffer - Send a range of single-page buffer
+# cat b.txt
+route del 1.2.3.0/24 dev eth0
+route del 1.2.4.0/24 dev eth0
+route del 1.2.5.0/24 dev eth0
+route add 1.2.3.0/24 dev eth0
+
+# ip -force -batch b.txt
+RTNETLINK answers: No such process
+
+Expectation: The three route del commands may fail if the route does 
+not (yet) exist, and then (as I am using -force) the route add gets 
+executed.
+
+But instead the batch processing is aborted at the first failing "route 
+del" command, forcing me to execute ip once per route del instead of 
+using the batchmode.
+
+Tested mainly using iproute2 3.16.0, but the current git tree seems to 
+behave mostly the same, except that it only executes anything if I add 
+"-f inet" to the commandline, otherwise it rejects the first line with 
+'Error: an inet prefix is expected rather than "1.2.3.0/24".'
+
+c'ya
+sven-haegar
+
 -- 
-1.7.4.1
+Three may keep a secret, if two of them are dead.
+- Ben F.
