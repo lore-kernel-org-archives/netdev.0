@@ -1,42 +1,62 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH 1/3] net: add support for phys_port_name
-Date: Mon, 16 Mar 2015 21:29:37 -0600
-Message-ID: <55079FA1.3040604@gmail.com>
-References: <1426520818-11198-1-git-send-email-dsahern@gmail.com> <20150316160000.GD2058@nanopsycho.orion>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 3/3] Validate all netlink attributes and
+ return error if any of the validation fails.
+Date: Mon, 16 Mar 2015 20:53:53 -0700
+Message-ID: <CAE4R7bDFrE7HXxGBxDa1RD7VQTcUArqpoDJYJpBq_k0g1aavmg@mail.gmail.com>
+References: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
+	<5269ddae1a0a164a488703654c9bb6e24845c637.1426509272.git.siva.mannem.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Scott Feldman <sfeldma@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Siva Mannem <siva.mannem.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:34773 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbbCQD3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 23:29:38 -0400
-Received: by iecsl2 with SMTP id sl2so187862557iec.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 20:29:37 -0700 (PDT)
-In-Reply-To: <20150316160000.GD2058@nanopsycho.orion>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:34485 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbbCQDxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Mar 2015 23:53:53 -0400
+Received: by qcaz10 with SMTP id z10so63467218qca.1
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 20:53:53 -0700 (PDT)
+In-Reply-To: <5269ddae1a0a164a488703654c9bb6e24845c637.1426509272.git.siva.mannem.lnx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/16/15 10:00 AM, Jiri Pirko wrote:
->> @@ -1159,6 +1168,8 @@ struct net_device_ops {
->> 						      bool new_carrier);
->> 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
->> 							struct netdev_phys_item_id *ppid);
->> +	int			(*ndo_get_phys_port_name)(struct net_device *dev,
->> +							  struct netdev_phys_item_name *name);
+On Mon, Mar 16, 2015 at 4:02 PM, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
+> This patch validates all netlink attributes and return error if any of the
+> validation fails.
 >
-> I think that we do not need the structure. Just pass "char *name" for buffer
-> where to put the name and "size_t len" for len of the buffer. Have:
-> #define PORT_NAME_MAX_LEN 32
-> and have called to have "char name[PORT_NAME_MAX_LEN]"
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+> Suggested-by: David Miller <davem@davemloft.net>
+> ---
+>  net/bridge/br_netlink.c | 39 ++++++++++++++++++++++++++++++++++++++-
+>  1 file changed, 38 insertions(+), 1 deletion(-)
 >
-> Also, given that this is related to switches, won't it make sense to
-> push this into switchdev code?
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index d80e802..0b18c0d 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -740,12 +740,49 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+>                          struct nlattr *data[])
+>  {
+>         struct net_bridge *br = netdev_priv(brdev);
+> -       int err;
+> +       unsigned long forward_delay;
+> +       unsigned long hello_time;
+> +       unsigned long max_age;
+> +       unsigned long ageing_time;
+> +       u32 t;
+> +       int err = -ERANGE;
+>
+>         if (!data)
+>                 return 0;
+>
+>         if (data[IFLA_BR_FORWARD_DELAY]) {
+> +               t = nla_get_u32(data[IFLA_BR_FORWARD_DELAY]);
+> +               forward_delay = clock_t_to_jiffies(t);
+> +               if (forward_delay < BR_MIN_FORWARD_DELAY ||
+> +                   forward_delay > BR_MAX_FORWARD_DELAY)
+> +                       return err;
 
-
-BTW, in regards to the latter comment phys_port_name should stay with 
-phys_port_id which is currenly not a switchdev op.
-
-David
+Is there a way to avoiding duplicate range checking code by passing an
+extra arg to br_set_forward_delay(..., bool validate_only) and
+friends?
