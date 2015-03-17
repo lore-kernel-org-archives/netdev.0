@@ -1,74 +1,172 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 2/2] tc class: Ignore if default class name file does not exist
-Date: Tue, 17 Mar 2015 18:52:04 +0200
-Message-ID: <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 1/2] lib names: Split to db_names_alloc and db_names_load
+Date: Tue, 17 Mar 2015 18:52:03 +0200
+Message-ID: <1426611124-2295-2-git-send-email-vadim4j@gmail.com>
 References: <1426611124-2295-1-git-send-email-vadim4j@gmail.com>
 Cc: daniel@iogearbox.net, Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:36829 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932098AbbCQRD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 13:03:57 -0400
-Received: by lbcds1 with SMTP id ds1so11821458lbc.3
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 10:03:55 -0700 (PDT)
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:36794 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932324AbbCQRDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 13:03:54 -0400
+Received: by lbcds1 with SMTP id ds1so11820502lbc.3
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 10:03:53 -0700 (PDT)
 In-Reply-To: <1426611124-2295-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-If '-nm' specified then do not fail if there is no
-default class names file in /etc/iproute2.
-
-Changed default class name file cls_names -> tc_cls.
+Also added checking for malloc failing
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- tc/tc_util.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+ include/names.h |  3 ++-
+ lib/names.c     | 59 +++++++++++++++++++++++++++++++++++++++++----------------
+ 2 files changed, 45 insertions(+), 17 deletions(-)
 
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index feae439..5213e9e 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -21,6 +21,7 @@
- #include <arpa/inet.h>
+diff --git a/include/names.h b/include/names.h
+index 4123d0b..6fed581 100644
+--- a/include/names.h
++++ b/include/names.h
+@@ -16,7 +16,8 @@ struct db_names {
+ 	int max;
+ };
+ 
+-struct db_names *db_names_alloc(const char *path);
++struct db_names *db_names_alloc(void);
++int db_names_load(struct db_names *db, const char *path);
+ void db_names_free(struct db_names *db);
+ 
+ char *id_to_name(struct db_names *db, int id, char *name);
+diff --git a/lib/names.c b/lib/names.c
+index 93933f7..3b5b0b1 100644
+--- a/lib/names.c
++++ b/lib/names.c
+@@ -11,8 +11,10 @@
+ #include <stdio.h>
  #include <string.h>
- #include <math.h>
+ #include <stdlib.h>
 +#include <errno.h>
  
- #include "utils.h"
  #include "names.h"
-@@ -33,15 +34,25 @@
++#include "utils.h"
  
- static struct db_names *cls_names = NULL;
- 
--#define NAMES_DB "/etc/iproute2/cls_names"
-+#define NAMES_DB "/etc/iproute2/tc_cls"
- 
- int cls_names_init(char *path)
- {
--	cls_names = db_names_alloc(path ?: NAMES_DB);
--	if (!cls_names) {
--		fprintf(stderr, "Error while opening class names file\n");
-+	int ret = -1;
-+
-+	cls_names = db_names_alloc();
-+	if (!cls_names)
-+		return -1;
-+
-+	ret = db_names_load(cls_names, path ?: NAMES_DB);
-+	if (ret == -ENOENT && path) {
-+		fprintf(stderr, "Can't open class names file: %s\n", path);
- 		return -1;
- 	}
-+	if (ret) {
-+		db_names_free(cls_names);
-+		cls_names = NULL;
-+	}
- 
+ #define MAX_ENTRIES  256
+ #define NAME_MAX_LEN 512
+@@ -48,48 +50,65 @@ static int read_id_name(FILE *fp, int *id, char *name)
  	return 0;
  }
+ 
+-struct db_names *db_names_alloc(const char *path)
++struct db_names *db_names_alloc(void)
+ {
+ 	struct db_names *db;
+-	struct db_entry *entry;
+-	FILE *fp;
+-	int id;
+-	char namebuf[NAME_MAX_LEN] = {0};
+-	int ret;
+ 
+-	fp = fopen(path, "r");
+-	if (!fp) {
+-		fprintf(stderr, "Can't open file: %s\n", path);
++	db = malloc(sizeof(*db));
++	if (!db)
+ 		return NULL;
+-	}
+ 
+-	db = malloc(sizeof(*db));
+ 	memset(db, 0, sizeof(*db));
+ 
+ 	db->size = MAX_ENTRIES;
+ 	db->hash = malloc(sizeof(struct db_entry *) * db->size);
+ 	memset(db->hash, 0, sizeof(struct db_entry *) * db->size);
+ 
++	return db;
++}
++
++int db_names_load(struct db_names *db, const char *path)
++{
++	struct db_entry *entry;
++	FILE *fp;
++	int id;
++	char namebuf[NAME_MAX_LEN] = {0};
++	int ret = -1;
++
++	fp = fopen(path, "r");
++	if (!fp)
++		return -ENOENT;
++
+ 	while ((ret = read_id_name(fp, &id, &namebuf[0]))) {
+ 		if (ret == -1) {
+ 			fprintf(stderr, "Database %s is corrupted at %s\n",
+ 					path, namebuf);
+-			fclose(fp);
+-			return NULL;
++			goto Exit;
+ 		}
++		ret = -1;
+ 
+ 		if (id < 0)
+ 			continue;
+ 
+ 		entry = malloc(sizeof(*entry));
+-		entry->id   = id;
++		if (!entry)
++			goto Exit;
++
+ 		entry->name = strdup(namebuf);
++		if (!entry->name) {
++			free(entry);
++			goto Exit;
++		}
++
++		entry->id   = id;
+ 		entry->next = db->hash[id & (db->size - 1)];
+ 		db->hash[id & (db->size - 1)] = entry;
+ 	}
++	ret = 0;
+ 
++Exit:
+ 	fclose(fp);
+-	return db;
++	return ret;
+ }
+ 
+ void db_names_free(struct db_names *db)
+@@ -117,8 +136,12 @@ void db_names_free(struct db_names *db)
+ 
+ char *id_to_name(struct db_names *db, int id, char *name)
+ {
+-	struct db_entry *entry = db->hash[id & (db->size - 1)];
++	struct db_entry *entry;
++
++	if (!db)
++		return NULL;
+ 
++	entry = db->hash[id & (db->size - 1)];
+ 	while (entry && entry->id != id)
+ 		entry = entry->next;
+ 
+@@ -136,6 +159,9 @@ int name_to_id(struct db_names *db, int *id, const char *name)
+ 	struct db_entry *entry;
+ 	int i;
+ 
++	if (!db)
++		return -1;
++
+ 	if (db->cached && strcmp(db->cached->name, name) == 0) {
+ 		*id = db->cached->id;
+ 		return 0;
+@@ -145,6 +171,7 @@ int name_to_id(struct db_names *db, int *id, const char *name)
+ 		entry = db->hash[i];
+ 		while (entry && strcmp(entry->name, name))
+ 			entry = entry->next;
++
+ 		if (entry) {
+ 			db->cached = entry;
+ 			*id = entry->id;
 -- 
 2.3.1
