@@ -1,30 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 nf-next 1/6] net: untangle ip_fragment and bridge
- netfilter
-Date: Tue, 17 Mar 2015 13:12:50 -0400 (EDT)
-Message-ID: <20150317.131250.1794140944101735383.davem@davemloft.net>
-References: <20150316225545.GA4454@salvia>
-	<20150317.004224.595812379252826772.davem@davemloft.net>
-	<20150317101152.GB26394@breakpoint.cc>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 2/2] tc class: Ignore if default class name file
+ does not exist
+Date: Tue, 17 Mar 2015 18:34:06 +0100
+Message-ID: <5508658E.9050909@iogearbox.net>
+References: <1426611124-2295-1-git-send-email-vadim4j@gmail.com> <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, azhou@nicira.com
-To: fw@strlen.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150317101152.GB26394@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38259 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933042AbbCQReJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 13:34:09 -0400
+In-Reply-To: <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue, 17 Mar 2015 11:11:52 +0100
+On 03/17/2015 05:52 PM, Vadim Kochan wrote:
+...
+> Changed default class name file cls_names -> tc_cls.
 
-> And doing route lookups will break things for some people, we have zero
-> guarantee that a bridge has the needed routing information,
-> its valid to not even configure a default gateway on a bridge.
+Why that?
 
-Then without a proper route you absolutely cannot choose an
-appropriate MTU from which to perform fragmentation.
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+>   tc/tc_util.c | 19 +++++++++++++++----
+>   1 file changed, 15 insertions(+), 4 deletions(-)
+>
+> diff --git a/tc/tc_util.c b/tc/tc_util.c
+> index feae439..5213e9e 100644
+> --- a/tc/tc_util.c
+> +++ b/tc/tc_util.c
+...
+>   static struct db_names *cls_names = NULL;
+>
+> -#define NAMES_DB "/etc/iproute2/cls_names"
+> +#define NAMES_DB "/etc/iproute2/tc_cls"
+>
+>   int cls_names_init(char *path)
+>   {
+> -	cls_names = db_names_alloc(path ?: NAMES_DB);
+> -	if (!cls_names) {
+> -		fprintf(stderr, "Error while opening class names file\n");
+> +	int ret = -1;
+> +
+> +	cls_names = db_names_alloc();
+> +	if (!cls_names)
+> +		return -1;
+> +
+> +	ret = db_names_load(cls_names, path ?: NAMES_DB);
+> +	if (ret == -ENOENT && path) {
+> +		fprintf(stderr, "Can't open class names file: %s\n", path);
 
-Just accept that basic fact.
+That would mean that existing users having a /etc/iproute2/cls_names
+file would suddenly not see class names anymore?
