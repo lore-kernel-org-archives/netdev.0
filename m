@@ -1,61 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v1 PATCH 1/14] rhashtable: Remove shift from bucket_table
-Date: Tue, 17 Mar 2015 23:20:33 +1100
-Message-ID: <20150317122033.GA12612@gondor.apana.org.au>
-References: <20150315104306.GA21999@gondor.apana.org.au>
- <E1YX61x-0005m7-GV@gondolin.me.apana.org.au>
- <063D6719AE5E284EB5DD2968C1650D6D1CB024AB@AcuExch.aculab.com>
- <20150317105657.GE11089@casper.infradead.org>
- <20150317110041.GA11385@gondor.apana.org.au>
- <20150317112203.GG11089@casper.infradead.org>
- <20150317112726.GC11671@gondor.apana.org.au>
- <20150317115749.GJ17829@casper.infradead.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CB02567@AcuExch.aculab.com>
+From: Michel Machado <michel@digirati.com.br>
+Subject: Re: Linux XIA - merge proposal
+Date: Tue, 17 Mar 2015 08:25:44 -0400
+Message-ID: <55081D48.3000407@digirati.com.br>
+References: <54F5EF6E.9090303@digirati.com.br> <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com> <550301B6.3090302@digirati.com.br> <20150315093752.GA29005@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'tgraf@suug.ch'" <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:37600 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348AbbCQMVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 08:21:01 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB02567@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150315093752.GA29005@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 17, 2015 at 12:13:42PM +0000, David Laight wrote:
-> From: Thomas Graf 
-> > Sent: 17 March 2015 11:58
-> ...
-> > > Do you really want to double the table size when 0.1% of the buckets
-> > > have a chain length > 4 but still < 16?
-> > 
-> > If we constantly hit that bucket because we are handling just a few
-> > TCP flows it would be worth to double the size & rehash to avoid the
-> > additional cache misses of the linked list.
-> > 
-> > Although a limit of 4 would be too high. Ideally we should resize and
-> > rehash when we add the 2nd entry to a bucket to stay < 100% utilization.
-> > It seems likely though that we'll always have a bucket with >=2
-> > entries so we would end up constantly doubling and rehashing. This is
-> > the only thing that speaks for a table wide nelems counters in my
-> > opinion.
-> 
-> I think you are seriously overestimating the 'efficiency' of the hash function.
-> And not doing the 'birthday paradox' maths at all.
+On 03/15/2015 05:37 AM, Greg KH wrote:
+> On Fri, Mar 13, 2015 at 11:26:46AM -0400, Michel Machado wrote:
+>> On 03/10/2015 01:01 PM, Bjorn Helgaas wrote:
+>>>  From my point of view (far outside the networking world and completely
+>>> incompetent to judge the merits of XIA), this email seems like a
+>>> reasonable starting point for a discussion, and I'm disappointed that
+>>> it got shut down so fast.  It might not be in *exactly* the form
+>>> people are looking for, but hey, it's an introductory email, and
+>>> Michel seems open to constructive feedback.
+>>
+>>     Thank you for the support, Bjorn.
+>>
+>>     I've brainstormed with friends questions that could address the concerns
+>> that haven't been voiced in this thread, and I answered those questions in
+>> our FAQ page:
+>>
+>>     https://github.com/AltraMayor/XIA-for-Linux/wiki/FAQ
+>>
+>>     While I would like to have Linux XIA merged, I also don't want to become
+>> importunate. So, if nobody else shows interest in this thread, I'm going to
+>> leave it to rest.
+>
+> But you have yet to actually post the code, why give up now, you haven't
+> even tried.  A number of people have given you hints here as to what you
+> should be doing / trying, to just run away without even attempting it
+> seems quite odd and defeatist.
 
-Agreed.  Thomas, an easy test to do is to pump the integers from
-0 to 65535 into jhash, then mask it with 65535 and run sort |
-uniq -c | sort -n on it, I think you'll see what we're talking
-about.
+Hi Greg,
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+    After reading your e-mail, I realized that I hadn't really 
+understood the feedback that I've received. I'm going to follow your 
+advice. Figuring out how to break our codebase in series of patches is 
+going to take sometime, but I intend to get it moving.
+
+[ ]'s
+Michel Machado
