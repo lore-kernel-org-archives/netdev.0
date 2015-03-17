@@ -1,172 +1,74 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2 1/2] lib names: Split to db_names_alloc and db_names_load
-Date: Tue, 17 Mar 2015 22:15:41 +0200
-Message-ID: <1426623342-16470-2-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 2/2] tc class: Ignore if default class name file does not exist
+Date: Tue, 17 Mar 2015 22:15:42 +0200
+Message-ID: <1426623342-16470-3-git-send-email-vadim4j@gmail.com>
 References: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:34760 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753294AbbCQU13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 16:27:29 -0400
-Received: by lbbsy1 with SMTP id sy1so15742511lbb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 13:27:27 -0700 (PDT)
+Received: from mail-la0-f54.google.com ([209.85.215.54]:35183 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752392AbbCQU1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 16:27:31 -0400
+Received: by labjg1 with SMTP id jg1so19030065lab.2
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 13:27:29 -0700 (PDT)
 In-Reply-To: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vadim Kochan <vadim4j@gmail.com>
 
-Also added checking for malloc failing
+If '-nm' specified that do not fail if there is no
+default class names file in /etc/iproute2.
+
+Changed default class name file cls_names -> tc_cls.
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- include/names.h |  3 ++-
- lib/names.c     | 59 +++++++++++++++++++++++++++++++++++++++++----------------
- 2 files changed, 45 insertions(+), 17 deletions(-)
+ tc/tc_util.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/include/names.h b/include/names.h
-index 4123d0b..6fed581 100644
---- a/include/names.h
-+++ b/include/names.h
-@@ -16,7 +16,8 @@ struct db_names {
- 	int max;
- };
- 
--struct db_names *db_names_alloc(const char *path);
-+struct db_names *db_names_alloc(void);
-+int db_names_load(struct db_names *db, const char *path);
- void db_names_free(struct db_names *db);
- 
- char *id_to_name(struct db_names *db, int id, char *name);
-diff --git a/lib/names.c b/lib/names.c
-index 93933f7..3b5b0b1 100644
---- a/lib/names.c
-+++ b/lib/names.c
-@@ -11,8 +11,10 @@
- #include <stdio.h>
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index feae439..1d3153d 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -21,6 +21,7 @@
+ #include <arpa/inet.h>
  #include <string.h>
- #include <stdlib.h>
+ #include <math.h>
 +#include <errno.h>
  
+ #include "utils.h"
  #include "names.h"
-+#include "utils.h"
+@@ -33,15 +34,25 @@
  
- #define MAX_ENTRIES  256
- #define NAME_MAX_LEN 512
-@@ -48,48 +50,65 @@ static int read_id_name(FILE *fp, int *id, char *name)
- 	return 0;
- }
+ static struct db_names *cls_names = NULL;
  
--struct db_names *db_names_alloc(const char *path)
-+struct db_names *db_names_alloc(void)
+-#define NAMES_DB "/etc/iproute2/cls_names"
++#define NAMES_DB "/etc/iproute2/tc_cls"
+ 
+ int cls_names_init(char *path)
  {
- 	struct db_names *db;
--	struct db_entry *entry;
--	FILE *fp;
--	int id;
--	char namebuf[NAME_MAX_LEN] = {0};
--	int ret;
- 
--	fp = fopen(path, "r");
--	if (!fp) {
--		fprintf(stderr, "Can't open file: %s\n", path);
-+	db = malloc(sizeof(*db));
-+	if (!db)
- 		return NULL;
--	}
- 
--	db = malloc(sizeof(*db));
- 	memset(db, 0, sizeof(*db));
- 
- 	db->size = MAX_ENTRIES;
- 	db->hash = malloc(sizeof(struct db_entry *) * db->size);
- 	memset(db->hash, 0, sizeof(struct db_entry *) * db->size);
- 
-+	return db;
-+}
+-	cls_names = db_names_alloc(path ?: NAMES_DB);
+-	if (!cls_names) {
+-		fprintf(stderr, "Error while opening class names file\n");
++	int ret;
 +
-+int db_names_load(struct db_names *db, const char *path)
-+{
-+	struct db_entry *entry;
-+	FILE *fp;
-+	int id;
-+	char namebuf[NAME_MAX_LEN] = {0};
-+	int ret = -1;
-+
-+	fp = fopen(path, "r");
-+	if (!fp)
-+		return -ENOENT;
-+
- 	while ((ret = read_id_name(fp, &id, &namebuf[0]))) {
- 		if (ret == -1) {
- 			fprintf(stderr, "Database %s is corrupted at %s\n",
- 					path, namebuf);
--			fclose(fp);
--			return NULL;
-+			goto Exit;
- 		}
-+		ret = -1;
- 
- 		if (id < 0)
- 			continue;
- 
- 		entry = malloc(sizeof(*entry));
--		entry->id   = id;
-+		if (!entry)
-+			goto Exit;
-+
- 		entry->name = strdup(namebuf);
-+		if (!entry->name) {
-+			free(entry);
-+			goto Exit;
-+		}
-+
-+		entry->id   = id;
- 		entry->next = db->hash[id & (db->size - 1)];
- 		db->hash[id & (db->size - 1)] = entry;
- 	}
-+	ret = 0;
- 
-+Exit:
- 	fclose(fp);
--	return db;
-+	return ret;
- }
- 
- void db_names_free(struct db_names *db)
-@@ -117,8 +136,12 @@ void db_names_free(struct db_names *db)
- 
- char *id_to_name(struct db_names *db, int id, char *name)
- {
--	struct db_entry *entry = db->hash[id & (db->size - 1)];
-+	struct db_entry *entry;
-+
-+	if (!db)
-+		return NULL;
- 
-+	entry = db->hash[id & (db->size - 1)];
- 	while (entry && entry->id != id)
- 		entry = entry->next;
- 
-@@ -136,6 +159,9 @@ int name_to_id(struct db_names *db, int *id, const char *name)
- 	struct db_entry *entry;
- 	int i;
- 
-+	if (!db)
++	cls_names = db_names_alloc();
++	if (!cls_names)
 +		return -1;
 +
- 	if (db->cached && strcmp(db->cached->name, name) == 0) {
- 		*id = db->cached->id;
- 		return 0;
-@@ -145,6 +171,7 @@ int name_to_id(struct db_names *db, int *id, const char *name)
- 		entry = db->hash[i];
- 		while (entry && strcmp(entry->name, name))
- 			entry = entry->next;
-+
- 		if (entry) {
- 			db->cached = entry;
- 			*id = entry->id;
++	ret = db_names_load(cls_names, path ?: NAMES_DB);
++	if (ret == -ENOENT && path) {
++		fprintf(stderr, "Can't open class names file: %s\n", path);
+ 		return -1;
+ 	}
++	if (ret) {
++		db_names_free(cls_names);
++		cls_names = NULL;
++	}
+ 
+ 	return 0;
+ }
 -- 
 2.3.1
