@@ -1,69 +1,43 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: gs_usb: check for kzalloc allocation failure
-Date: Tue, 17 Mar 2015 09:04:52 +0100
-Message-ID: <5507E024.9090801@pengutronix.de>
-References: <1426545744-3317-1-git-send-email-colin.king@canonical.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net v2] ip6_tunnel: fix error code when tunnel exists
+Date: Tue, 17 Mar 2015 09:27:28 +0100
+Message-ID: <5507E570.9050602@6wind.com>
+References: <20150313.123231.1641333637059823788.davem@davemloft.net>	<1426517765-4649-1-git-send-email-nicolas.dichtel@6wind.com> <20150316.163413.1468551206666732117.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx"
-Cc: linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1426545744-3317-1-git-send-email-colin.king@canonical.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, me@pierre-cheynier.net,
+	eric.dumazet@gmail.com, steffen.klassert@secunet.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:34806 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbbCQI1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 04:27:31 -0400
+Received: by wibg7 with SMTP id g7so42887368wib.1
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 01:27:30 -0700 (PDT)
+In-Reply-To: <20150316.163413.1468551206666732117.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 03/16/2015 11:42 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->=20
-> smatch detected the following issue:
-> drivers/net/can/usb/gs_usb.c:904 gs_usb_probe() error:
->    potential null dereference 'dev'.  (kzalloc returns null)
->=20
-> Add a check for null return from kzalloc and return -ENOMEM
->=20
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-
-Thanks, applied to can.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJVB+AnAAoJECte4hHFiupUzeQP/RVvTe265T4pUOQBTlO1zPFA
-p4rm1kG8dMl77A2LGNb5gCz6f6XtPiQNNqs/0aEpz0zpVEPby/KA+WdwrUmUllKM
-BYpu6SQeCRg6y8w3Y+zZEMz5KJti9re3+8RRKQudcrBisNdMOTiFZ/+O0AKZBAiS
-tcH8/GNCL93y1BgMA84oNmaUi3tdUiRutsEskeuHdgSA7Sk0RxcscBaI24doajTu
-CsfwMogEc76G3/wIddSv8tRr46gBmi1tafG7t/xgvezbQukX+4FpdhbIKgLVtawv
-EkyNm4KdXqEN2ec6OhCFKtag8ldbechtB5wHK9FBZI96paIfur72ZoxqBDcw0vQp
-XGw4n0/8UsuDH+5tjmkEgRuo9FScW5mDaNgBrZkP6LJIJ5H6esIWFZVe4nKukH2o
-Xfn4FVSYPctF1O3fXUeDJKv4EcPdg1zNAvG5X+my0NbtQ/EiNSwI+4cE/F1k7YbN
-io/51uTbTX3T7GUm1U1SJgzfQTLPBDm9rCXxF3YX2CbKnoYhoiPwpoZjrXWOEdeJ
-cnRtmLSvBl8hbybkYvMcf8C+RWJI7N5ldJe/IaAl0Rb74e2p/WS38yWhsNBdLT0E
-PMVsUEcQqiRHDhnYRf/izk7tnW+t6ZbJ7Nt5Q64oSugxQ7XVYPeNPFwufW263wbd
-7YgxIKktXJ1/ebzYBtfN
-=G0L8
------END PGP SIGNATURE-----
-
---s3MnaLfVwgssoBh5Uf46kMQWD1mtOAXBx--
+Le 16/03/2015 21:34, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Mon, 16 Mar 2015 15:56:05 +0100
+>
+>> @@ -1445,7 +1445,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct i=
+freq *ifr, int cmd)
+>>   		ip6_tnl_parm_from_user(&p1, &p);
+>>   		t =3D ip6_tnl_locate(net, &p1, cmd =3D=3D SIOCADDTUNNEL);
+>>   		if (cmd =3D=3D SIOCCHGTUNNEL) {
+>> -			if (t !=3D NULL) {
+>> +			if (!IS_ERR(t)) {
+>>   				if (t->dev !=3D dev) {
+>>   					err =3D -EEXIST;
+>>   					break;
+>
+> Please convert that last assignment to "err =3D PTR_ERR(t);", thanks.
+It's not possible, the if() statement checks that 't' is *not* an error=
+=2E
+And in this case, we report to the user that the tunnel already exists.
