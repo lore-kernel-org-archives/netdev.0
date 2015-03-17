@@ -1,56 +1,46 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: Re: [PATCH net-next v4 3/3] Validate all netlink attributes and
- return error if any of the validation fails.
-Date: Tue, 17 Mar 2015 10:29:28 +0530
-Message-ID: <CA+CtxLRR1LiotUPk=Pi995+6PF8ys72Zx1xbAevX7CTF9H4u9g@mail.gmail.com>
-References: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
-	<5269ddae1a0a164a488703654c9bb6e24845c637.1426509272.git.siva.mannem.lnx@gmail.com>
-	<20150317.002427.1841301696338614194.davem@davemloft.net>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH v2 2/3] rocker: add support for phys_port_name
+Date: Mon, 16 Mar 2015 22:52:15 -0700
+Message-ID: <CAE4R7bCiOWm423uU=DEoFxJeRpBptM_kYWC9Mm2y_CmpfAK2pQ@mail.gmail.com>
+References: <1426562837-13126-1-git-send-email-dsahern@gmail.com>
+	<1426562837-13126-2-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Scott Feldman <sfeldma@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: Netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:33896 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbbCQE73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 00:59:29 -0400
-Received: by wegp1 with SMTP id p1so52327618weg.1
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 21:59:28 -0700 (PDT)
-In-Reply-To: <20150317.002427.1841301696338614194.davem@davemloft.net>
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:36397 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751525AbbCQFwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 01:52:16 -0400
+Received: by qcto4 with SMTP id o4so64711394qct.3
+        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 22:52:15 -0700 (PDT)
+In-Reply-To: <1426562837-13126-2-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 17, 2015 at 9:54 AM, David Miller <davem@davemloft.net> wrote:
-> From: Siva Mannem <siva.mannem.lnx@gmail.com>
-> Date: Tue, 17 Mar 2015 04:32:44 +0530
+On Mon, Mar 16, 2015 at 8:27 PM, David Ahern <dsahern@gmail.com> wrote:
+> Implement the phys_port_name operation. Port names are pulled from the
+> rocker hardware model in qemu and default to the qemu name + port id.
+> e.g.,
 >
->> This patch validates all netlink attributes and return error if any of the
->> validation fails.
->>
->> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
->> Suggested-by: David Miller <davem@davemloft.net>
+> sw1p1: flags=4098<BROADCAST,MULTICAST>  mtu 1500
+>         ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
+>         RX packets 0  bytes 0 (0.0 B)
+>         RX errors 0  dropped 0  overruns 0  frame 0
+>         TX packets 0  bytes 0 (0.0 B)
+>         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 >
-> You have to remove the range checking code from all the other
-> functions too.
+> where 'sw1' comes from the qemu command line -device rocker,name=sw1, and
+> 'p1' is port 1.
 >
-> Then no errors can be returned by them at all actually and that's an
-> really nice cleanup.
+> Patch is adapted from Scott's phys_port_id patch.
 >
-> Please don't make microscopic narrow changes like this, think about
-> the higher level implications and the things that are no longer
-> necessary as a result.
+> v2:
+> - updated per changes in prior patch requested by Jiri
 >
-> Thanks.
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> Cc: Scott Feldman <sfeldma@gmail.com>
+> Cc: Jiri Pirko <jiri@resnulli.us>
 
-These functions(br_set_forward_delay/hello_time/max_age/ageing_time)
-are also called from other places i.e old_dev_ioctl() and sysfs code. If
-range checking has to be removed from these functions, then the same
-has to be added in the path from where they are being invoked.
-
-As Scott mentioned,  these functions can be enhanced to take
-extra argument to avoid extra range checking happening in br_changelink()
-path. Is this approach ok?
--- 
-Regards,
-Siva Mannem.
+Acked-by: Scott Feldman <sfeldma@gmail.com>
