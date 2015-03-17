@@ -1,96 +1,172 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
-Date: Tue, 17 Mar 2015 20:07:10 +0000
-Message-ID: <BY2PR0301MB07111A928395465732E9F4F0A0030@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1426608145-14139-1-git-send-email-kys@microsoft.com>
- <20150317.152324.744727347577991569.davem@redhat.com>
- <BY2PR0301MB0711AB7E8E0432AD57E29908A0030@BY2PR0301MB0711.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: KY Srinivasan <kys@microsoft.com>, David Miller <davem@redhat.com>,
-	"Greg KH (gregkh@linuxfoundation.org)" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BY2PR0301MB0711AB7E8E0432AD57E29908A0030@BY2PR0301MB0711.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 1/2] lib names: Split to db_names_alloc and db_names_load
+Date: Tue, 17 Mar 2015 22:15:41 +0200
+Message-ID: <1426623342-16470-2-git-send-email-vadim4j@gmail.com>
+References: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:34760 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753294AbbCQU13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 16:27:29 -0400
+Received: by lbbsy1 with SMTP id sy1so15742511lbb.1
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 13:27:27 -0700 (PDT)
+In-Reply-To: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Vadim Kochan <vadim4j@gmail.com>
 
+Also added checking for malloc failing
 
-> -----Original Message-----
-> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On
-> Behalf Of KY Srinivasan
-> Sent: Tuesday, March 17, 2015 12:26 PM
-> To: David Miller
-> Cc: olaf@aepfle.de; netdev@vger.kernel.org; jasowang@redhat.com; linux-
-> kernel@vger.kernel.org; apw@canonical.com; devel@linuxdriverproject.org
-> Subject: RE: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
-> 
-> 
-> 
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@redhat.com]
-> > Sent: Tuesday, March 17, 2015 12:23 PM
-> > To: KY Srinivasan
-> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> > devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> > jasowang@redhat.com
-> > Subject: Re: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
-> >
-> > From: "K. Y. Srinivasan" <kys@microsoft.com>
-> > Date: Tue, 17 Mar 2015 09:02:25 -0700
-> >
-> > > Take into consideration the xmit_more flag in skb to decide if we should
-> > > notify the host as we place packets in VMBUS.
-> > >
-> > > The VMBUS API that would give us this control is already in Greg's tree, in
-> > this
-> > > patch-set, that API is exported so it can be used in the netvsc driver. Greg
-> > has
-> > > acked this export.
-> > >
-> > > In this version of the patch-set, the patch to address the vmbus signalling
-> > > fix is not included here; that patch will be taken through Greg's tree.
-> > > I have also gotten rid of an unnecessary local variable in start_xmit()
-> > > function based on feedback from Jason Wang <jasowang@redhat.com>.
-> >
-> > This patch set does not apply to net-next at all.
-> 
-> I will rebase this and send it.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ include/names.h |  3 ++-
+ lib/names.c     | 59 +++++++++++++++++++++++++++++++++++++++++----------------
+ 2 files changed, 45 insertions(+), 17 deletions(-)
 
-David,
-
-I pulled down the net-next tree and the issue is with the first patch:
-0001-Drivers-hv-vmbus-Export-the-vmbus_sendpacket_pagebuf.patch
-
-The net-next tree is not current with Greg's tree and this patch is on code that
-is in Greg's tree. This patch merely exports an API that is already in Greg's tree.
-Greg wanted me to take this patch through your tree since the only user
-of this functionality is the network driver. Any suggestions on how I should 
-proceed here.
-
-The second patch:
-0002-hyperv-Support-batched-notification.patch
-
-applies cleanly to your tree.
-
-Regards,
-
-K. Y
-
-
-> 
-> Thanks,
-> 
-> K. Y
-> _______________________________________________
-> devel mailing list
-> devel@linuxdriverproject.org
-> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+diff --git a/include/names.h b/include/names.h
+index 4123d0b..6fed581 100644
+--- a/include/names.h
++++ b/include/names.h
+@@ -16,7 +16,8 @@ struct db_names {
+ 	int max;
+ };
+ 
+-struct db_names *db_names_alloc(const char *path);
++struct db_names *db_names_alloc(void);
++int db_names_load(struct db_names *db, const char *path);
+ void db_names_free(struct db_names *db);
+ 
+ char *id_to_name(struct db_names *db, int id, char *name);
+diff --git a/lib/names.c b/lib/names.c
+index 93933f7..3b5b0b1 100644
+--- a/lib/names.c
++++ b/lib/names.c
+@@ -11,8 +11,10 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <stdlib.h>
++#include <errno.h>
+ 
+ #include "names.h"
++#include "utils.h"
+ 
+ #define MAX_ENTRIES  256
+ #define NAME_MAX_LEN 512
+@@ -48,48 +50,65 @@ static int read_id_name(FILE *fp, int *id, char *name)
+ 	return 0;
+ }
+ 
+-struct db_names *db_names_alloc(const char *path)
++struct db_names *db_names_alloc(void)
+ {
+ 	struct db_names *db;
+-	struct db_entry *entry;
+-	FILE *fp;
+-	int id;
+-	char namebuf[NAME_MAX_LEN] = {0};
+-	int ret;
+ 
+-	fp = fopen(path, "r");
+-	if (!fp) {
+-		fprintf(stderr, "Can't open file: %s\n", path);
++	db = malloc(sizeof(*db));
++	if (!db)
+ 		return NULL;
+-	}
+ 
+-	db = malloc(sizeof(*db));
+ 	memset(db, 0, sizeof(*db));
+ 
+ 	db->size = MAX_ENTRIES;
+ 	db->hash = malloc(sizeof(struct db_entry *) * db->size);
+ 	memset(db->hash, 0, sizeof(struct db_entry *) * db->size);
+ 
++	return db;
++}
++
++int db_names_load(struct db_names *db, const char *path)
++{
++	struct db_entry *entry;
++	FILE *fp;
++	int id;
++	char namebuf[NAME_MAX_LEN] = {0};
++	int ret = -1;
++
++	fp = fopen(path, "r");
++	if (!fp)
++		return -ENOENT;
++
+ 	while ((ret = read_id_name(fp, &id, &namebuf[0]))) {
+ 		if (ret == -1) {
+ 			fprintf(stderr, "Database %s is corrupted at %s\n",
+ 					path, namebuf);
+-			fclose(fp);
+-			return NULL;
++			goto Exit;
+ 		}
++		ret = -1;
+ 
+ 		if (id < 0)
+ 			continue;
+ 
+ 		entry = malloc(sizeof(*entry));
+-		entry->id   = id;
++		if (!entry)
++			goto Exit;
++
+ 		entry->name = strdup(namebuf);
++		if (!entry->name) {
++			free(entry);
++			goto Exit;
++		}
++
++		entry->id   = id;
+ 		entry->next = db->hash[id & (db->size - 1)];
+ 		db->hash[id & (db->size - 1)] = entry;
+ 	}
++	ret = 0;
+ 
++Exit:
+ 	fclose(fp);
+-	return db;
++	return ret;
+ }
+ 
+ void db_names_free(struct db_names *db)
+@@ -117,8 +136,12 @@ void db_names_free(struct db_names *db)
+ 
+ char *id_to_name(struct db_names *db, int id, char *name)
+ {
+-	struct db_entry *entry = db->hash[id & (db->size - 1)];
++	struct db_entry *entry;
++
++	if (!db)
++		return NULL;
+ 
++	entry = db->hash[id & (db->size - 1)];
+ 	while (entry && entry->id != id)
+ 		entry = entry->next;
+ 
+@@ -136,6 +159,9 @@ int name_to_id(struct db_names *db, int *id, const char *name)
+ 	struct db_entry *entry;
+ 	int i;
+ 
++	if (!db)
++		return -1;
++
+ 	if (db->cached && strcmp(db->cached->name, name) == 0) {
+ 		*id = db->cached->id;
+ 		return 0;
+@@ -145,6 +171,7 @@ int name_to_id(struct db_names *db, int *id, const char *name)
+ 		entry = db->hash[i];
+ 		while (entry && strcmp(entry->name, name))
+ 			entry = entry->next;
++
+ 		if (entry) {
+ 			db->cached = entry;
+ 			*id = entry->id;
+-- 
+2.3.1
