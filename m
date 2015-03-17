@@ -1,112 +1,98 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Tue, 17 Mar 2015 07:31:18 -0700
-Message-ID: <55083AB6.4060003@intel.com>
-References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com> <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com> <20150309064043.GB2053@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com> <20150309160754.GA2169@nanopsycho.lan> <E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com> <20150310063926.GA1995@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com> <20150310082817.GC1995@nanopsycho.orion> <550752BA.5040702@gmail.com> <20150317070046.GB2042@nanopsycho.orion>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2] tc class: Don't fail if there is no default
+ names file
+Date: Tue, 17 Mar 2015 15:32:39 +0100
+Message-ID: <55083B07.2000307@iogearbox.net>
+References: <1426599666-8968-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>
+To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31509 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752493AbbCQObk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2015 10:31:40 -0400
-In-Reply-To: <20150317070046.GB2042@nanopsycho.orion>
+Received: from www62.your-server.de ([213.133.104.62]:50732 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752658AbbCQOcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 10:32:41 -0400
+In-Reply-To: <1426599666-8968-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/17/2015 12:00 AM, Jiri Pirko wrote:
-> Mon, Mar 16, 2015 at 11:01:30PM CET, john.fastabend@gmail.com wrote:
->> [...]
->>
->>>
->>>> If this position is accepted, it would be best to enforce it, possibly in
->>>> rtnl_bridge_setlink().
->>>> My recollection is that others asked to preserve use-cases where SELF flag
->>>> is used for targeting port devices directly without using a bridge device.
->>>
->>> I know it is possible, and it is incorrect and hacky. But it is part of
->>> user api :/ I think we should not abuse this more in the future and
->>> rather make the api correct and use that.
->>>
->>
->> Working my way through my backlog of email sorry for the days delay.
->>
->> Jiri, are you suggesting it is incorrect to configure the hardware L2
->> independent of bridge device? There is absolutely use cases for this.
->>
->> The case being we want the hardware to do L2 learning via fdb and then
->> when flows get 'trapped' into software we want to handle them
->> differently. Possibly send them onto a specific application for logging.
-> 
-> Yes, but that can be done in transparent way, exposing hw ports, having
-> them in bridge/ovs/whatever. Same as we do with rocker.
-> 
+On 03/17/2015 02:41 PM, Vadim Kochan wrote:
+> From: Vadim Kochan <vadim4j@gmail.com>
+>
+> Added the following changes in one patch:
+>
+> 1) Split db_names_init into alloc & load funcs
+>
+> 2) Added checks for out of memory with new alloc helpers
+>
+> 3) Ignore if there is no default class names file
+>
+> 3) Changed default class names path cls_names -> tc_cls
+>
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+...
+> diff --git a/lib/utils.c b/lib/utils.c
+> index 9cda268..d119a69 100644
+> --- a/lib/utils.c
+> +++ b/lib/utils.c
+> @@ -904,3 +904,29 @@ char *int_to_str(int val, char *buf)
+>   	sprintf(buf, "%d", val);
+>   	return buf;
+>   }
+> +
+> +void *xmalloc(size_t size)
+> +{
+> +	void *ptr = malloc(size);
+> +	if (!ptr)
+> +		fprintf(stderr, "xmalloc: Out of memory\n");
+> +
+> +	return ptr;
+> +}
+> +
+> +void xfree(void *ptr)
+> +{
+> +	if (!ptr)
+> +		fprintf(stderr, "xfree: ptr is NULL\n");
+> +	else
+> +		free(ptr);
+> +}
+> +
+> +char *xstrdup(char *str)
+> +{
+> +	char *ptr = strdup(str);
+> +	if (!ptr)
+> +		fprintf(stderr, "xstrdup: Out of memory\n");
+> +
+> +	return ptr;
+> +}
 
-My point is you don't want a bridge in software at all. So I don't
-understand the "transparent" way. In this case you want to configure
-the hardware to do l2 bridge and put the ports in some other objects
-for simplicity consider a OVS instance in software. In this model
-the ports are attached to the software OVS and we do not want to
-"transparently" offload any of OVS to hardware.
+When you add xmalloc and friends, the expectation is rather
+different then what you've implemented : i.e. xmalloc dies
+in case the allocation fails, so that xmalloc() et al users
+don't have to care about the NULL check.
 
-Also ports can not be in both an OVS instance and bridge instance.
+Simple example:
 
-                  +----+----+
-                  |   OVS   |      <- netdevs mapped to sw ovs, not offoaded
-                  +----+----+
-                     |    |
-                   sw0p1 sw0p2     <- netdev representing hardware ports
-                     |    |
-             +----+----+----+---+
-             |    L2 hw bridge  |  <- l2 hardware bridge managed via netlink
-             +----+----+----+---+
+void *xmalloc(size_t size)
+{
+	void *ptr;
 
-In many cases it doesn't make any sense to fall back to software.
-You can't have a 100Gbps links "falling" back onto the kernel datapath.
-And in these environments having ports attached to a "transparent" bridge
-breaks. Worse the management CPU is usually something light, its not
-typically a quad socket top of line CPU where you might have a chance.
+	ptr = malloc(size);
+	if (unlikely(ptr == NULL))
+		panic("xmalloc: out of memory (allocating %zu bytes)\n",
+		      size);
 
-Nothing is broke at the moment because we have the "self" flag. I'm
-responding to you "incorrect and hacky" comment. Similarly we are
-going to need a flag for L3 that puts the rule in hardware or fails.
-Just like L2 we can't have L3 being sent into software its not a
-viable fallback path in many use cases. And doing it "transparently"
-so that the controlling agent is unaware it is offloaded makes it
-difficult to manage the system. I think the "transparent" model only
-works for smallish devices, home routers and the likes.
+	return ptr;
+}
 
-Thanks,
-.John
+For a more elaborate example, you can also have a look at git,
+e.g. wrapper.c +84, but a simpler form is sufficient here.
 
->>
->> I'm at a loss around what use "really" running the bridge in software
->> is. There shouldn't be packets traversing the software path and if they
->> are being sent onto software I really can't think of any use case I
->> would want to run them through the software bridge. More likely I want
->> to run OVS or some equivalent controller-based software to forward them
->> "specially" to the correct software/controller/port.
->>
->> My current use case is L2/L3 on the hardware, OVS and applications in
->> software. I don't think this is broken or hacky. This means no bridge
->> in software but programming the L2 bridge in hardware.
->>
->> .John
->>
->>
->> -- 
->> John Fastabend         Intel Corporation
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I think there are two possible ways forward: either use normal
+malloc() and check for NULL, or you could add in a different set
+xmalloc() et al, and convert also other users from iproute2 that
+don't have an error recovery, iow do abort() or the like.
+
+Other than that, would be good if you split up this patch into
+a set.
