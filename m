@@ -1,78 +1,61 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Tue, 17 Mar 2015 08:00:46 +0100
-Message-ID: <20150317070046.GB2042@nanopsycho.orion>
-References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com>
- <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
- <20150309064043.GB2053@nanopsycho.orion>
- <E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com>
- <20150309160754.GA2169@nanopsycho.lan>
- <E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com>
- <20150310063926.GA1995@nanopsycho.orion>
- <E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com>
- <20150310082817.GC1995@nanopsycho.orion>
- <550752BA.5040702@gmail.com>
+Subject: Re: [PATCH iproute2 v2] route: label externally offloaded routes
+Date: Tue, 17 Mar 2015 08:01:54 +0100
+Message-ID: <20150317070154.GC2042@nanopsycho.orion>
+References: <1426447894-41398-1-git-send-email-sfeldma@gmail.com>
+ <20150316131805.GF12614@gospo.home.greyhouse.net>
+ <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Arad, Ronen" <ronen.arad@intel.com>,
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
 	Netdev <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
 	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
+	Jeff Kirsher <tarbal@gmail.com>,
+	John Linville <linville@tuxdriver.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:34176 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751144AbbCQHAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 03:00:49 -0400
-Received: by wegp1 with SMTP id p1so675627weg.1
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 00:00:48 -0700 (PDT)
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:36045 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751144AbbCQHB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 03:01:59 -0400
+Received: by wgra20 with SMTP id a20so722201wgr.3
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 00:01:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <550752BA.5040702@gmail.com>
+In-Reply-To: <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 16, 2015 at 11:01:30PM CET, john.fastabend@gmail.com wrote:
->[...]
->
+Tue, Mar 17, 2015 at 05:14:50AM CET, sfeldma@gmail.com wrote:
+>On Mon, Mar 16, 2015 at 6:18 AM, Andy Gospodarek
+><gospo@cumulusnetworks.com> wrote:
+>> On Sun, Mar 15, 2015 at 12:31:34PM -0700, sfeldma@gmail.com wrote:
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> v2:
+>>>
+>>> No clear outcome on polling for choices of "external", "offload", "hw", or
+>>> "hardware".  Andy's concern about "external" being confusing for users is
+>>> valid.  So, I'm making executive decision to use "external_offload" for label,
+>>> as suggested by Jiri.
 >>
->>>If this position is accepted, it would be best to enforce it, possibly in
->>>rtnl_bridge_setlink().
->>>My recollection is that others asked to preserve use-cases where SELF flag
->>>is used for targeting port devices directly without using a bridge device.
->>
->>I know it is possible, and it is incorrect and hacky. But it is part of
->>user api :/ I think we should not abuse this more in the future and
->>rather make the api correct and use that.
->>
+>> This seems like quite a mouthful.  Just make it 'offload' or 'hardware'
+>> so the output of 'ip route show' isn't so long that it will frequently
+>> be longer than 80 chars.  Being longer than 80 chars is going to be
+>> irritating for _many_ users.
 >
->Working my way through my backlog of email sorry for the days delay.
+>Andy, since you have passion on this topic, would you mind taking it
+>from here to get consensus, and post an updated patch, if needed?
 >
->Jiri, are you suggesting it is incorrect to configure the hardware L2
->independent of bridge device? There is absolutely use cases for this.
->
->The case being we want the hardware to do L2 learning via fdb and then
->when flows get 'trapped' into software we want to handle them
->differently. Possibly send them onto a specific application for logging.
+>I was about to suggest a new made-up work like "keroff" and someday
+>the new word is added to Websters .  Daddy, what's "keroff"?  Oh son,
+>that means "offloaded from kernel to external device".  Ya, actually,
+>that's my vote: keroff.
 
-Yes, but that can be done in transparent way, exposing hw ports, having
-them in bridge/ovs/whatever. Same as we do with rocker.
+I like it :)
 
 >
->I'm at a loss around what use "really" running the bridge in software
->is. There shouldn't be packets traversing the software path and if they
->are being sent onto software I really can't think of any use case I
->would want to run them through the software bridge. More likely I want
->to run OVS or some equivalent controller-based software to forward them
->"specially" to the correct software/controller/port.
+>("koff" was my first choice, but apparently that already has a
+>not-so-nice meaning).
 >
->My current use case is L2/L3 on the hardware, OVS and applications in
->software. I don't think this is broken or hacky. This means no bridge
->in software but programming the L2 bridge in hardware.
->
->.John
->
->
->-- 
->John Fastabend         Intel Corporation
+>-scott
