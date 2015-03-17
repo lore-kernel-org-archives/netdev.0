@@ -1,78 +1,96 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH iproute2 2/2] tc class: Ignore if default class name file
- does not exist
-Date: Tue, 17 Mar 2015 22:48:48 +0300
-Message-ID: <55088520.6030805@cogentembedded.com>
-References: <1426611124-2295-1-git-send-email-vadim4j@gmail.com> <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
+Date: Tue, 17 Mar 2015 20:07:10 +0000
+Message-ID: <BY2PR0301MB07111A928395465732E9F4F0A0030@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <1426608145-14139-1-git-send-email-kys@microsoft.com>
+ <20150317.152324.744727347577991569.davem@redhat.com>
+ <BY2PR0301MB0711AB7E8E0432AD57E29908A0030@BY2PR0301MB0711.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:36416 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbCQTsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 15:48:52 -0400
-Received: by lbcds1 with SMTP id ds1so15031457lbc.3
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 12:48:51 -0700 (PDT)
-In-Reply-To: <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: KY Srinivasan <kys@microsoft.com>, David Miller <davem@redhat.com>,
+	"Greg KH (gregkh@linuxfoundation.org)" <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BY2PR0301MB0711AB7E8E0432AD57E29908A0030@BY2PR0301MB0711.namprd03.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
 
-On 03/17/2015 07:52 PM, Vadim Kochan wrote:
 
-> From: Vadim Kochan <vadim4j@gmail.com>
+> -----Original Message-----
+> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On
+> Behalf Of KY Srinivasan
+> Sent: Tuesday, March 17, 2015 12:26 PM
+> To: David Miller
+> Cc: olaf@aepfle.de; netdev@vger.kernel.org; jasowang@redhat.com; linux-
+> kernel@vger.kernel.org; apw@canonical.com; devel@linuxdriverproject.org
+> Subject: RE: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
+> 
+> 
+> 
+> > -----Original Message-----
+> > From: David Miller [mailto:davem@redhat.com]
+> > Sent: Tuesday, March 17, 2015 12:23 PM
+> > To: KY Srinivasan
+> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> > devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> > jasowang@redhat.com
+> > Subject: Re: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
+> >
+> > From: "K. Y. Srinivasan" <kys@microsoft.com>
+> > Date: Tue, 17 Mar 2015 09:02:25 -0700
+> >
+> > > Take into consideration the xmit_more flag in skb to decide if we should
+> > > notify the host as we place packets in VMBUS.
+> > >
+> > > The VMBUS API that would give us this control is already in Greg's tree, in
+> > this
+> > > patch-set, that API is exported so it can be used in the netvsc driver. Greg
+> > has
+> > > acked this export.
+> > >
+> > > In this version of the patch-set, the patch to address the vmbus signalling
+> > > fix is not included here; that patch will be taken through Greg's tree.
+> > > I have also gotten rid of an unnecessary local variable in start_xmit()
+> > > function based on feedback from Jason Wang <jasowang@redhat.com>.
+> >
+> > This patch set does not apply to net-next at all.
+> 
+> I will rebase this and send it.
 
-> If '-nm' specified then do not fail if there is no
-> default class names file in /etc/iproute2.
+David,
 
-> Changed default class name file cls_names -> tc_cls.
+I pulled down the net-next tree and the issue is with the first patch:
+0001-Drivers-hv-vmbus-Export-the-vmbus_sendpacket_pagebuf.patch
 
-> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> ---
->   tc/tc_util.c | 19 +++++++++++++++----
->   1 file changed, 15 insertions(+), 4 deletions(-)
+The net-next tree is not current with Greg's tree and this patch is on code that
+is in Greg's tree. This patch merely exports an API that is already in Greg's tree.
+Greg wanted me to take this patch through your tree since the only user
+of this functionality is the network driver. Any suggestions on how I should 
+proceed here.
 
-> diff --git a/tc/tc_util.c b/tc/tc_util.c
-> index feae439..5213e9e 100644
-> --- a/tc/tc_util.c
-> +++ b/tc/tc_util.c
-[...]
-> @@ -33,15 +34,25 @@
->
->   static struct db_names *cls_names = NULL;
->
-> -#define NAMES_DB "/etc/iproute2/cls_names"
-> +#define NAMES_DB "/etc/iproute2/tc_cls"
->
->   int cls_names_init(char *path)
->   {
-> -	cls_names = db_names_alloc(path ?: NAMES_DB);
-> -	if (!cls_names) {
-> -		fprintf(stderr, "Error while opening class names file\n");
-> +	int ret = -1;
+The second patch:
+0002-hyperv-Support-batched-notification.patch
 
-    Pointless initializer.
+applies cleanly to your tree.
 
-> +
-> +	cls_names = db_names_alloc();
-> +	if (!cls_names)
-> +		return -1;
-> +
-> +	ret = db_names_load(cls_names, path ?: NAMES_DB);
-> +	if (ret == -ENOENT && path) {
-> +		fprintf(stderr, "Can't open class names file: %s\n", path);
->   		return -1;
->   	}
-> +	if (ret) {
-> +		db_names_free(cls_names);
-> +		cls_names = NULL;
-> +	}
->
->   	return 0;
->   }
+Regards,
 
-WBR, Sergei
+K. Y
+
+
+> 
+> Thanks,
+> 
+> K. Y
+> _______________________________________________
+> devel mailing list
+> devel@linuxdriverproject.org
+> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
