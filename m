@@ -1,68 +1,70 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] act_bpf: allow non-default TC_ACT opcodes as BPF
- exec outcome
-Date: Tue, 17 Mar 2015 23:27:53 +0100
-Message-ID: <20150317222753.GA2169@nanopsycho.orion>
-References: <98364de656ad8034f008999121f57940af767b93.1426619298.git.daniel@iogearbox.net>
+From: Lukas Erlacher <erlacher@in.tum.de>
+Subject: No SO_BUSY_POLL for UDP?
+Date: Tue, 17 Mar 2015 23:26:27 +0100
+Message-ID: <5508AA13.3030401@in.tum.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34107 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932366AbbCQW15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 18:27:57 -0400
-Received: by wibg7 with SMTP id g7so54138931wib.1
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 15:27:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <98364de656ad8034f008999121f57940af767b93.1426619298.git.daniel@iogearbox.net>
+Received: from mail-out1.informatik.tu-muenchen.de ([131.159.0.8]:42874 "EHLO
+	mail-out1.informatik.tu-muenchen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932730AbbCQWee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 18:34:34 -0400
+Received: (Authenticated sender: erlacher)
+	by mail.in.tum.de (Postfix) with ESMTPSA id 7236A2400EB
+	for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 23:26:29 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Mar 17, 2015 at 08:25:57PM CET, daniel@iogearbox.net wrote:
->Revisiting commit d23b8ad8ab23 ("tc: add BPF based action") with regards
->to eBPF support, I was thinking that it might be better to improve
->return semantics from a BPF program invoked through BPF_PROG_RUN().
->
->Currently, in case filter_res is 0, we overwrite the default action
->opcode with TC_ACT_SHOT. A default action opcode configured through tc's
->m_bpf can be: TC_ACT_RECLASSIFY, TC_ACT_PIPE, TC_ACT_SHOT, TC_ACT_UNSPEC,
->TC_ACT_OK.
->
->In cls_bpf, we have the possibility to overwrite the default class
->associated with the classifier in case filter_res is _not_ 0xffffffff
->(-1).
->
->That allows us to fold multiple [e]BPF programs into a single one, where
->they would otherwise need to be defined as a separate classifier with
->its own classid, needlessly redoing parsing work, etc.
->
->Similarly, we could do better in act_bpf: Since above TC_ACT* opcodes
->are exported to UAPI anyway, we reuse them for return-code-to-tc-opcode
->mapping, where we would allow above possibilities. Thus, like in cls_bpf,
->a filter_res of 0xffffffff (-1) means that the configured _default_ action
->is used. Any unkown return code from the BPF program would fail in
->tcf_bpf() with TC_ACT_UNSPEC.
->
->Should we one day want to make use of TC_ACT_STOLEN or TC_ACT_QUEUED,
->which both have the same semantics, we have the option to either use
->that as a default action (filter_res of 0xffffffff) or non-default BPF
->return code.
->
->All that will allow us to transparently use tcf_bpf() for both BPF
->flavours.
->
->Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->Cc: Jiri Pirko <jiri@resnulli.us>
->Cc: Alexei Starovoitov <ast@plumgrid.com>
->Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->---
-> Note, act_bpf has not been officially released with 4.0, so we can
-> still address it.
+Hello netdev,
 
-Thanks for taking care of this Daniel
+I am trying to benchmark SO_BUSY_POLL and it appears not to be functioning with UDP.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+I have been trying with netperf as well as with a small udp echo server and a load generator; I am trying to reproduce the Intel benchmarks[1] so I am using X520 NICs with rx-usecs set to 100.
+
+Performing TCP_RR netperf test with /proc/sys/net/core/busy_{read,poll} set to 0 produces this:
+
+> root@klaipeda ~/MoonGen (git)-[master] # netperf -H 192.168.1.2,udpv4 -t TCP_RR -l 5
+> MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.1.2 () port 0 AF_INET : demo : first burst 0
+> Local /Remote
+> Socket Size   Request  Resp.   Elapsed  Trans.
+> Send   Recv   Size     Size    Time     Rate
+> bytes  Bytes  bytes    bytes   secs.    per sec
+>
+> 16384  87380  1        1       5.00     9762.51
+
+With busy_* set to 50 produces this:
+
+> root@klaipeda ~/MoonGen (git)-[master] # netperf -H 192.168.1.2,udpv4 -t TCP_RR -l 5
+> MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.1.2 () port 0 AF_INET : demo : first burst 0
+> Local /Remote
+> Socket Size   Request  Resp.   Elapsed  Trans.
+> Send   Recv   Size     Size    Time     Rate
+> bytes  Bytes  bytes    bytes   secs.    per sec
+>
+> 16384  87380  1        1       5.00     42127.63
+> 16384  87380
+
+ From that I conclude that the system manages 9700 round-trips per second without busy poll set and 42127 with busy poll enabled. So, busy polling works with TCP.
+
+However, no matter what busy_* is set to, UDP_RR produces this:
+
+> root@klaipeda ~/MoonGen (git)-[master] # netperf -H 192.168.1.2,udpv4 -t UDP_RR -l 5
+> MIGRATED UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.1.2 () port 0 AF_INET : demo : first burst 0
+> Local /Remote
+> Socket Size   Request  Resp.   Elapsed  Trans.
+> Send   Recv   Size     Size    Time     Rate
+> bytes  Bytes  bytes    bytes   secs.    per sec
+>
+> 212992 212992 1        1       5.00     9763.20
+> 212992 212992
+
+Around 9700 round-trips per second no matter the busy_poll setting.
+
+The Intel whitepaper on busy polling[1] shows a UDP benchmark, so I am assuming that busy polling should be available for UDP sockets. Is this a regression or was the feature intentionally removed? As best I can tell the behaviour is identical on kernels 3.11, 3.16 and 3.19, but on 3.11 and 3.16 I have only tested it with my custom udp echo server.
+
+Best regards,
+Lukas Erlacher
+
+[1] http://www.intel.in/content/dam/www/public/us/en/documents/white-papers/open-source-kernel-enhancements-paper.pdf
