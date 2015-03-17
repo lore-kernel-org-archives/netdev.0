@@ -1,63 +1,64 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2 nf-next 1/6] net: untangle ip_fragment and bridge
- netfilter
-Date: Tue, 17 Mar 2015 21:40:28 +0100
-Message-ID: <20150317204028.GC26394@breakpoint.cc>
-References: <20150316225545.GA4454@salvia>
- <20150317.004224.595812379252826772.davem@davemloft.net>
- <20150317101152.GB26394@breakpoint.cc>
- <20150317.131250.1794140944101735383.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Possible bug in tc tool or kernel
+Date: Tue, 17 Mar 2015 13:42:54 -0700
+Message-ID: <CAHA+R7O__y1_czX74Ga1RSU-x8X0hUhs2Z01=vo37QUVkNniKQ@mail.gmail.com>
+References: <5507FA88.60303@eqv.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, azhou@nicira.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150317.131250.1794140944101735383.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: =?UTF-8?B?0KHQvtC70L7QstGM0LXQsiDQodC10YDQs9C10Lk=?= <sol@eqv.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:33769 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753567AbbCQUmz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 16:42:55 -0400
+Received: by iecvj10 with SMTP id vj10so22243938iec.0
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 13:42:54 -0700 (PDT)
+In-Reply-To: <5507FA88.60303@eqv.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Tue, 17 Mar 2015 11:11:52 +0100
-> 
-> > And doing route lookups will break things for some people, we have zero
-> > guarantee that a bridge has the needed routing information,
-> > its valid to not even configure a default gateway on a bridge.
-> 
-> Then without a proper route you absolutely cannot choose an
-> appropriate MTU from which to perform fragmentation.
+On Tue, Mar 17, 2015 at 2:57 AM, =D0=A1=D0=BE=D0=BB=D0=BE=D0=B2=D1=8C=D0=
+=B5=D0=B2 =D0=A1=D0=B5=D1=80=D0=B3=D0=B5=D0=B9 <sol@eqv.ru> wrote:
+> Hi!
+>
+> I'm sol sorry, but English in not my native language.
+>
+> After upgrade kernel  tc lost some u32 filters
+>
+> example: where is a "match ip dst 10.10.0.0/24" entries?
+>
 
-Just to clarify, this ip_fragment call is done only for frames that
-are forwarded by the bridge, i.e. not routed.
+Can you check if the following commit fixes your problem?
 
-All interfaces have the same MTU.
+It is already merged in stable kernel, you probably need to
+wait for a newer Fedora kernel release if it has included it.
 
-So why would we need to chose an MTU different than the device
-mtu, or larger than the largest reassembled packet?
+commit b057df24a7536cce6c372efe9d0e3d1558afedf4
+Author: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communications.fr>
+Date:   Tue Feb 3 19:05:18 2015 +0100
 
-Ideally, the bridge would re-create the original fragments it received
-on 1:1 basis to make it fully transparent, and to make the bridge behave
-as if it would not do the defrag layering violations in the first place.
+    cls_api.c: Fix dumping of non-existing actions' stats.
 
-> Just accept that basic fact.
+    In tcf_exts_dump_stats(), ensure that exts->actions is not empty be=
+fore
+    accessing the first element of that list and calling tcf_action_cop=
+y_stats()
+    on it.  This fixes some random segvs when adding filters of type
+"basic" with
+    no particular action.
 
-For a router I'd agree, but, then again, we're a bridge.  Normally we
-would not fragment at all.  The bridge defragmentation should not be
-observable by external entity.  No increase, no decrease of mtu, 1:1
-fragment passthrough illusion.
+    This also fixes the dumping of those "no-action" filters, which mor=
+e often
+    than not made calls to tcf_action_copy_stats() fail and consequentl=
+y netlink
+    attributes added by the caller to be removed by a call to nla_nest_=
+cancel().
 
-I can leave ip_fragment alone and, when skb->nf_bridge goes away,
-just replace
-
-#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
-        if (skb->nf_bridge)
-	      mtu -= nf_bridge_mtu_reduction(skb);
-#endif
-and
-
-ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, nf_bridge_pad(skb));
-
-With a functionally equivalent "solution".
-But I'd really prefer to move these kludges out of the ip stack for good.
+    Fixes: 33be62715991 ("net_sched: act: use standard struct list_head=
+")
+    Signed-off-by: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communic=
+ations.fr>
+    Acked-by: Cong Wang <cwang@twopensource.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
