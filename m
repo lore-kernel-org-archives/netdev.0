@@ -1,41 +1,31 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a
- modern way"
-Date: Tue, 17 Mar 2015 15:05:20 -0400 (EDT)
-Message-ID: <20150317.150520.62518083516614772.davem@redhat.com>
-References: <87egpl8w5q.fsf@free.fr>
-	<20150219.162213.557240575455109795.davem@davemloft.net>
-	<878uew8xfe.fsf@free.fr>
+From: David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] bpf: allow BPF programs access 'protocol' and
+ 'vlan_tci' fields
+Date: Tue, 17 Mar 2015 15:06:48 -0400 (EDT)
+Message-ID: <20150317.150648.1979518663453994007.davem@redhat.com>
+References: <1426554362-29991-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linus.walleij@linaro.org, nico@fluxnic.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: robert.jarzmik@free.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <878uew8xfe.fsf@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1426554362-29991-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Date: Mon, 16 Mar 2015 22:06:13 +0100
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Mon, 16 Mar 2015 18:06:02 -0700
 
-> David Miller <davem@davemloft.net> writes:
+> as a follow on to patch 70006af95515 ("bpf: allow eBPF access skb fields")
+> this patch allows 'protocol' and 'vlan_tci' fields to be accessible
+> from extended BPF programs.
 > 
->> From: Robert Jarzmik <robert.jarzmik@free.fr>
->> Date: Thu, 19 Feb 2015 21:48:49 +0100
->>
->>> Linus has submitted the patch [1]. I'll be watching carefully until -rc4 that
->>> this is applied. If it's not, I'll reping you to apply this revert. Until then,
->>> you can forget about it, I'll do the follow-up.
->>> 
->>> Does that plan sound good to you ?
->>
->> It sounds good to me.
+> The usage of 'protocol', 'vlan_present' and 'vlan_tci' fields is the same as
+> corresponding SKF_AD_PROTOCOL, SKF_AD_VLAN_TAG_PRESENT and SKF_AD_VLAN_TAG
+> accesses in classic BPF.
 > 
-> Hi David,
-> 
-> Unfortunately Linus's patch didn't make it upstream. Therefore I'll ask you to
-> apply the revert, which is reminded in [1].
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 
-Revert applied, thanks.
+Applied, thanks.
