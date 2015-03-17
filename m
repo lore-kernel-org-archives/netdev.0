@@ -1,56 +1,68 @@
-From: Keyur Chudgar <kchudgar@apm.com>
-Subject: [PATCH v1 1/3] Documentation: dtb: Add port-id field for APM X-Gene
- ethernet
-Date: Tue, 17 Mar 2015 11:27:11 -0700
-Message-ID: <1426616833-9671-2-git-send-email-kchudgar@apm.com>
-References: <1426616833-9671-1-git-send-email-kchudgar@apm.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 2/2] tc class: Ignore if default class name file
+ does not exist
+Date: Tue, 17 Mar 2015 20:21:37 +0200
+Message-ID: <20150317182137.GA1056@angus-think.lan>
+References: <1426611124-2295-1-git-send-email-vadim4j@gmail.com>
+ <1426611124-2295-3-git-send-email-vadim4j@gmail.com>
+ <5508658E.9050909@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Keyur Chudgar <kchudgar@apm.com>, patches@apm.com,
- linux-arm-kernel@lists.infradead.org,
- Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net,
-	netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1426616833-9671-1-git-send-email-kchudgar@apm.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:35224 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752679AbbCQSdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 14:33:22 -0400
+Received: by lbcgn8 with SMTP id gn8so13600100lbc.2
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 11:33:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5508658E.9050909@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 2 ++
- 1 file changed, 2 insertions(+)
+On Tue, Mar 17, 2015 at 06:34:06PM +0100, Daniel Borkmann wrote:
+> On 03/17/2015 05:52 PM, Vadim Kochan wrote:
+> ...
+> >Changed default class name file cls_names -> tc_cls.
+> 
+> Why that?
+> 
 
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-index 6151999..dc7961b 100644
---- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -15,6 +15,7 @@ Required properties for all the ethernet interfaces:
-   - "ring_csr": Descriptor ring control and status register address space
-   - "ring_cmd": Descriptor ring command register address space
- - interrupts: Ethernet main interrupt
-+- port-id: Port number (0 or 1)
- - clocks: Reference to the clock entry.
- - local-mac-address: MAC address assigned to this device
- - phy-connection-type: Interface type between ethernet device and PHY device
-@@ -49,6 +50,7 @@ Example:
- 		      <0x0 0X10000000 0x0 0X200>;
- 		reg-names = "enet_csr", "ring_csr", "ring_cmd";
- 		interrupts = <0x0 0x3c 0x4>;
-+		port-id = <0>;
- 		clocks = <&menetclk 0>;
- 		local-mac-address = [00 01 73 00 00 01];
- 		phy-connection-type = "rgmii";
--- 
-1.9.1
+tc_cls seems better and shorter.
+
+> >Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> >---
+> >  tc/tc_util.c | 19 +++++++++++++++----
+> >  1 file changed, 15 insertions(+), 4 deletions(-)
+> >
+> >diff --git a/tc/tc_util.c b/tc/tc_util.c
+> >index feae439..5213e9e 100644
+> >--- a/tc/tc_util.c
+> >+++ b/tc/tc_util.c
+> ...
+> >  static struct db_names *cls_names = NULL;
+> >
+> >-#define NAMES_DB "/etc/iproute2/cls_names"
+> >+#define NAMES_DB "/etc/iproute2/tc_cls"
+> >
+> >  int cls_names_init(char *path)
+> >  {
+> >-	cls_names = db_names_alloc(path ?: NAMES_DB);
+> >-	if (!cls_names) {
+> >-		fprintf(stderr, "Error while opening class names file\n");
+> >+	int ret = -1;
+> >+
+> >+	cls_names = db_names_alloc();
+> >+	if (!cls_names)
+> >+		return -1;
+> >+
+> >+	ret = db_names_load(cls_names, path ?: NAMES_DB);
+> >+	if (ret == -ENOENT && path) {
+> >+		fprintf(stderr, "Can't open class names file: %s\n", path);
+> 
+> That would mean that existing users having a /etc/iproute2/cls_names
+> file would suddenly not see class names anymore?
+
+Hm, but that was added few days ago.
