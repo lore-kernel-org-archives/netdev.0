@@ -1,46 +1,37 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 02/16 linux-next] Altera TSE: constify of_device_id array
-Date: Tue, 17 Mar 2015 19:37:33 +0100
-Message-ID: <1426617469-781-3-git-send-email-fabf@skynet.be>
-References: <1426617469-781-1-git-send-email-fabf@skynet.be>
-Cc: davem@davemloft.net, Fabian Frederick <fabf@skynet.be>,
-	Vince Bridgers <vbridger@opensource.altera.com>,
-	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426617469-781-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 1/3] net: add support for phys_port_name
+Date: Tue, 17 Mar 2015 11:54:00 -0700
+Message-ID: <55087848.3030109@gmail.com>
+References: <1426606258-13466-1-git-send-email-dsahern@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
+	jiri@resnulli.us, sfeldma@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:35052 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753407AbbCQSyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 14:54:39 -0400
+Received: by pabyw6 with SMTP id yw6so17449746pab.2
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 11:54:39 -0700 (PDT)
+In-Reply-To: <1426606258-13466-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-of_device_id is always used as const.
-(See driver.of_match_table and open firmware functions)
+On 17/03/15 08:30, David Ahern wrote:
+> Similar to port id allow netdevices to specify port names and export
+> the name via sysfs. Drivers can implement the netdevice operation to
+> assist udev in having sane default names for the devices using the
+> rule:
+> 
+> $ cat /etc/udev/rules.d/80-net-setup-link.rules
+> SUBSYSTEM=="net", ACTION=="add", ATTR{phys_port_name}!="",
+> NAME="$attr{phys_port_name}"
+> 
+> Use of phys_name versus phys_id was suggested-by Jiri Pirko.
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- drivers/net/ethernet/altera/altera_tse_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-index fd9296a..79ea358 100644
---- a/drivers/net/ethernet/altera/altera_tse_main.c
-+++ b/drivers/net/ethernet/altera/altera_tse_main.c
-@@ -89,7 +89,7 @@ MODULE_PARM_DESC(dma_tx_num, "Number of descriptors in the TX list");
- 
- #define TXQUEUESTOP_THRESHHOLD	2
- 
--static struct of_device_id altera_tse_ids[];
-+static const struct of_device_id altera_tse_ids[];
- 
- static inline u32 tse_tx_avail(struct altera_tse_private *priv)
- {
-@@ -1576,7 +1576,7 @@ static const struct altera_dmaops altera_dtype_msgdma = {
- 	.start_rxdma = msgdma_start_rxdma,
- };
- 
--static struct of_device_id altera_tse_ids[] = {
-+static const struct of_device_id altera_tse_ids[] = {
- 	{ .compatible = "altr,tse-msgdma-1.0", .data = &altera_dtype_msgdma, },
- 	{ .compatible = "altr,tse-1.0", .data = &altera_dtype_sgdma, },
- 	{ .compatible = "ALTR,tse-1.0", .data = &altera_dtype_sgdma, },
+Can you also include a documentation update to
+Documentation/ABI/testing/sysfs-class-net? Thanks!
 -- 
-2.1.0
+Florian
