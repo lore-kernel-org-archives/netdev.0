@@ -1,68 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v4 2/3] newly configured FDB ageing time becomes
- effective immediately
-Date: Tue, 17 Mar 2015 17:41:47 +0300
-Message-ID: <55083D2B.4050604@cogentembedded.com>
-References: <cover.1426509272.git.siva.mannem.lnx@gmail.com> <80d2d6e6efcafd636712f8bf91c8f002d1d7692d.1426509272.git.siva.mannem.lnx@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sfeldma@gmail.com
-To: Siva Mannem <siva.mannem.lnx@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:33780 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681AbbCQOlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 10:41:51 -0400
-Received: by ladw1 with SMTP id w1so10508013lad.0
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 07:41:49 -0700 (PDT)
-In-Reply-To: <80d2d6e6efcafd636712f8bf91c8f002d1d7692d.1426509272.git.siva.mannem.lnx@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V3 0/2 net-next] hyperv: Enable batched notification
+Date: Tue, 17 Mar 2015 09:02:25 -0700
+Message-ID: <1426608145-14139-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Take into consideration the xmit_more flag in skb to decide if we should
+notify the host as we place packets in VMBUS.
 
-On 3/17/2015 2:02 AM, Siva Mannem wrote:
+The VMBUS API that would give us this control is already in Greg's tree, in this
+patch-set, that API is exported so it can be used in the netvsc driver. Greg has
+acked this export.
 
-> This patch ensures that the newly configured FDB ageing time becomes effective
-> immediately. It also makes the behavior consistent when the ageing_timer is set
-> using any of the three existing mechanisms(sysfs, ioctl, netlink).
+In this version of the patch-set, the patch to address the vmbus signalling
+fix is not included here; that patch will be taken through Greg's tree.
+I have also gotten rid of an unnecessary local variable in start_xmit()
+function based on feedback from Jason Wang <jasowang@redhat.com>.
 
-> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
-> Suggested-by: Scott Feldman <sfeldma@gmail.com>
-> ---
->   net/bridge/br_device.c   | 4 ++++
->   net/bridge/br_ioctl.c    | 3 +--
->   net/bridge/br_sysfs_br.c | 8 +-------
->   3 files changed, 6 insertions(+), 9 deletions(-)
+K. Y. Srinivasan (2):
+  Drivers: hv: vmbus: Export the vmbus_sendpacket_pagebuffer_ctl()
+  hyperv: Support batched notification
 
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index 1a665aa..293a113 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -396,12 +396,16 @@ void br_dev_setup(struct net_device *dev)
->   int br_set_ageing_time(struct net_bridge *br, unsigned long val)
->   {
->   	unsigned long t = clock_t_to_jiffies(val);
-> +	unsigned long old_ageing_time;
->
->   	if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
->   		return -ERANGE;
->
->   	spin_lock_bh(&br->lock);
-> +	old_ageing_time =  br->ageing_time;
+ drivers/hv/channel.c              |    1 +
+ drivers/net/hyperv/hyperv_net.h   |    2 +-
+ drivers/net/hyperv/netvsc.c       |   14 +++++++++-----
+ drivers/net/hyperv/netvsc_drv.c   |    2 +-
+ drivers/net/hyperv/rndis_filter.c |    2 +-
+ 5 files changed, 13 insertions(+), 8 deletions(-)
 
-    One space is enough after '='...
-
->   	br->ageing_time = t;
-> +	if (br->ageing_time < old_ageing_time)
-
-    Isn't it enough to compare just 't' instead of 'br->ageing_time'?
-
-> +		mod_timer(&br->gc_timer, jiffies);
->   	spin_unlock_bh(&br->lock);
->   	return 0;
->   }
-[...]
-
-WBR, Sergei
+-- 
+1.7.4.1
