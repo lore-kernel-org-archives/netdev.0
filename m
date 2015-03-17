@@ -1,82 +1,67 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4] switchdev: fix stp update API to work with
- layered netdevices
-Date: Tue, 17 Mar 2015 05:42:23 -0700
-Message-ID: <5508212F.9090006@cumulusnetworks.com>
-References: <1426527159-8039-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bDSUaUvhQQ5jHFSU9bJ8fQt1O=2jzi_NjipiqQ-hRUbzQ@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [v1 PATCH 1/14] rhashtable: Remove shift from bucket_table
+Date: Tue, 17 Mar 2015 13:06:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB02607@AcuExch.aculab.com>
+References: <20150315104306.GA21999@gondor.apana.org.au>
+ <E1YX61x-0005m7-GV@gondolin.me.apana.org.au>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB024AB@AcuExch.aculab.com>
+ <20150317105657.GE11089@casper.infradead.org>
+ <20150317110041.GA11385@gondor.apana.org.au>
+ <20150317112203.GG11089@casper.infradead.org>
+ <20150317112726.GC11671@gondor.apana.org.au>
+ <20150317115749.GJ17829@casper.infradead.org>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB02567@AcuExch.aculab.com>
+ <20150317122033.GA12612@gondor.apana.org.au>
+ <20150317124012.GH11089@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "'tgraf@suug.ch'" <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:33931 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206AbbCQMmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 08:42:24 -0400
-Received: by pdbni2 with SMTP id ni2so8800167pdb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 05:42:24 -0700 (PDT)
-In-Reply-To: <CAE4R7bDSUaUvhQQ5jHFSU9bJ8fQt1O=2jzi_NjipiqQ-hRUbzQ@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.181]:64983 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753161AbbCQNIG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 09:08:06 -0400
+In-Reply-To: <20150317124012.GH11089@casper.infradead.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/16/15, 11:10 PM, Scott Feldman wrote:
-> On Mon, Mar 16, 2015 at 10:32 AM,  <roopa@cumulusnetworks.com> wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> make it same as the netdev_switch_port_bridge_setlink/dellink
->> api (ie traverse lowerdevs to get to the switch port).
->>
->> removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
->> direct bridge ports can be stacked netdevices (like bonds
->> and team of switch ports) which may not imeplement this ndo.
->>
->> v2 to v3:
->>          - remove changes to bond and team. Bring back the
->>          transparently following lowerdevs like i initially
->>          had for setlink/getlink
->>          (http://www.spinics.net/lists/netdev/msg313436.html)
->>          dave and scott feldman also seem to prefer it be that
->>          way and move to non-transparent way of doing things
->>          if we see a problem down the lane.
->>
->> v3 to v4:
->>          - fix ret initialization
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>   net/switchdev/switchdev.c |   20 ++++++++++++++++----
->>   1 file changed, 16 insertions(+), 4 deletions(-)
->>
->> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->> index c9bfa00..e593b59 100644
->> --- a/net/switchdev/switchdev.c
->> +++ b/net/switchdev/switchdev.c
->> @@ -47,11 +47,23 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
->>   int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
->>   {
->>          const struct swdev_ops *ops = dev->swdev_ops;
->> +       struct net_device *lower_dev;
->> +       struct list_head *iter;
->> +       int ret = -EOPNOTSUPP, err;
->>
->> -       if (!ops || !ops->swdev_port_stp_update)
->> -               return -EOPNOTSUPP;
->> -       WARN_ON(!ops->swdev_parent_id_get);
->> -       return ops->swdev_port_stp_update(dev, state);
->> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
->> +               return ret;
-> I would drop the NETIF_F_HW_SWITCH_OFFLOAD check.  It's not telling
-> you anything more than the next test for ops->swdev_port_stp_update.
+From: Thomas Graf
+> Sent: 17 March 2015 12:40
+...
+> I'm not claiming perfect hash functions and this is exactly why I
+> think average utilization is not an optimal growth criteria because
+> it gives very limited view into the actual chain lengths.
 
-This was mainly to avoid lowerdev walk where you know that the dev does 
-not have the feature.
-example: the bond carries this feature flag  if any of its slaves have it.
-The lowerdev walk can be stopped at the bond.
+If you assume that all the entries are being looked up equally
+often the interesting number ought to be the number of failed compares.
+So you want to sum 'length * (length - 1)/2' and compare against the
+total number of items (or the table size).
 
-I don't mind removing the check, if you prefer that.
+> What you describe above is a 100% utilization scenario. Initially
+> we talked about 0.1% utilization and whether to resize & rehash if a
+> single chain has length > 4. My answer is: yes we should resize &
+> rehash or at least rehash in that case.
 
-thanks,
-Roopa
+0.1% utilisation is about as realistic as 100%.
+50-75% is probably a reasonable limit.
+This will give some short chains.
+
+> My point here is that a chain length of 4 may be a serious
+> performance bottleneck already and that it might be worth to try
+> and detect bad hashing distribution and attempt to fix it at an
+> earlier stage while ruling out the possibility of endless rehashes.
+
+If you have 4 items and they are all on one chain they I suspect that
+nothing you do will actually split them.
+
+OTOH if you have 1000 items and one chain of length 4 it really doesn't
+matter. Unless, of course, someone arranges to flood the last item with
+traffic - in which case you are going to lose anyway.
+
+	David
