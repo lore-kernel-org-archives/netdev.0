@@ -1,70 +1,62 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net] act_bpf: allow non-default TC_ACT opcodes as BPF
- exec outcome
-Date: Tue, 17 Mar 2015 15:16:12 -0700
-Message-ID: <5508A7AC.1090903@plumgrid.com>
-References: <98364de656ad8034f008999121f57940af767b93.1426619298.git.daniel@iogearbox.net> <CAHA+R7PhYvs2hPgQ1Rj+UjWdASsQq759_8o8125-mvmOKJzWKA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] brcmfmac: cfg80211: use msecs_to_jiffies for time
+ conversion
+Date: Tue, 17 Mar 2015 05:42:39 -0700
+Message-ID: <1426596159.23897.61.camel@perches.com>
+References: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <cwang@twopensource.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <hofrat@osadl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:34991 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753350AbbCQWQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 18:16:08 -0400
-Received: by pdbop1 with SMTP id op1so22060729pdb.2
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 15:16:08 -0700 (PDT)
-In-Reply-To: <CAHA+R7PhYvs2hPgQ1Rj+UjWdASsQq759_8o8125-mvmOKJzWKA@mail.gmail.com>
+Received: from smtprelay0092.hostedemail.com ([216.40.44.92]:60014 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932268AbbCQW2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 18:28:17 -0400
+In-Reply-To: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/17/15 2:53 PM, Cong Wang wrote:
-> On Tue, Mar 17, 2015 at 12:25 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> Revisiting commit d23b8ad8ab23 ("tc: add BPF based action") with regards
->> to eBPF support, I was thinking that it might be better to improve
->> return semantics from a BPF program invoked through BPF_PROG_RUN().
->>
->> Currently, in case filter_res is 0, we overwrite the default action
->> opcode with TC_ACT_SHOT. A default action opcode configured through tc's
->> m_bpf can be: TC_ACT_RECLASSIFY, TC_ACT_PIPE, TC_ACT_SHOT, TC_ACT_UNSPEC,
->> TC_ACT_OK.
->>
->> In cls_bpf, we have the possibility to overwrite the default class
->> associated with the classifier in case filter_res is _not_ 0xffffffff
->> (-1).
->>
->> That allows us to fold multiple [e]BPF programs into a single one, where
->> they would otherwise need to be defined as a separate classifier with
->> its own classid, needlessly redoing parsing work, etc.
->>
->> Similarly, we could do better in act_bpf: Since above TC_ACT* opcodes
->> are exported to UAPI anyway, we reuse them for return-code-to-tc-opcode
->> mapping, where we would allow above possibilities. Thus, like in cls_bpf,
->> a filter_res of 0xffffffff (-1) means that the configured _default_ action
->> is used. Any unkown return code from the BPF program would fail in
->> tcf_bpf() with TC_ACT_UNSPEC.
->>
->
-> So you allow bpf bytecode to override the action code specified
-> in cmdline, I doubt this is user-friendly since if I run different
-> bytecode I would see different behaviors even if I specify the same
-> action in cmdline. Allowing cmdline to override bytecode makes
-> more sense to me.
->
-> A even cleaner solution is not to override either of them, that is
-> either bytecode or cmdline fully controls the action code.
->
+On Tue, 2015-03-17 at 08:06 -0400, Nicholas Mc Guire wrote:
+> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
+> OK but msecs_to_jiffies(val) is the cleaner solution and handles all
+> corner cases correctly. This is a minor API consolidation only and
+> should make things more readable.
 
-There was ambiguity in priority. Whether program decides
-the action or default/fallback action taken from command line...
-This patch is trying to make both of them useful by saying
-that program result has higher priority than 'default/fallback' action.
-To avoid priorities we can drop command line action and just
-let program decide. But that is less flexible. I think default
-action is useful too. The user can have one program that returns
-act_unspec and fine tune it via command line by changing default action.
+Hi Nicholas
+
+These API consolidation changes now always have a function
+call when the compiler may have previously been able to
+optimize out the "constant * HZ / 1000" calculation.
+
+Perhaps the [um]secs_to_jiffies calls should be indirected
+with yet another static inline with a __builtin_constant_p()
+test so that the function calls can again be avoided when
+possible.
+
+(and a trivial style note)
+
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
+[]
+> @@ -1110,7 +1110,7 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
+>  
+>  	/* Arm scan timeout timer */
+>  	mod_timer(&cfg->escan_timeout, jiffies +
+> -			WL_ESCAN_TIMER_INTERVAL_MS * HZ / 1000);
+> +		  msecs_to_jiffies(WL_ESCAN_TIMER_INTERVAL_MS));
+
+It may be nicer to keep the arithmetic on one line
+
+ 	mod_timer(&cfg->escan_timeout,
+		  jiffies + msecs_to_jiffies(WL_ESCAN_TIMER_INTERVAL_MS));
