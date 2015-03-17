@@ -1,38 +1,41 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] inet: Clean up inet_csk_wait_for_connect() vs.
- might_sleep()
-Date: Tue, 17 Mar 2015 15:04:27 -0400 (EDT)
-Message-ID: <20150317.150427.1040329549515743280.davem@redhat.com>
-References: <1426533564.11398.229.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a
+ modern way"
+Date: Tue, 17 Mar 2015 15:05:20 -0400 (EDT)
+Message-ID: <20150317.150520.62518083516614772.davem@redhat.com>
+References: <87egpl8w5q.fsf@free.fr>
+	<20150219.162213.557240575455109795.davem@davemloft.net>
+	<878uew8xfe.fsf@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, netdev@vger.kernel.org,
+Cc: linus.walleij@linaro.org, nico@fluxnic.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16619 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752789AbbCQTEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Mar 2015 15:04:53 -0400
-In-Reply-To: <1426533564.11398.229.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <878uew8xfe.fsf@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 16 Mar 2015 12:19:24 -0700
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Mon, 16 Mar 2015 22:06:13 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> David Miller <davem@davemloft.net> writes:
 > 
-> I got the following trace with current net-next kernel :
- ...
-> In commit 26cabd31259ba43f68026ce3f62b78094124333f
-> Peter added a sched_annotate_sleep() in sk_wait_event()
+>> From: Robert Jarzmik <robert.jarzmik@free.fr>
+>> Date: Thu, 19 Feb 2015 21:48:49 +0100
+>>
+>>> Linus has submitted the patch [1]. I'll be watching carefully until -rc4 that
+>>> this is applied. If it's not, I'll reping you to apply this revert. Until then,
+>>> you can forget about it, I'll do the follow-up.
+>>> 
+>>> Does that plan sound good to you ?
+>>
+>> It sounds good to me.
 > 
-> Is the following patch needed as well ?
+> Hi David,
 > 
-> Alternative would be to use sk_wait_event() from inet_csk_wait_for_connect()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Unfortunately Linus's patch didn't make it upstream. Therefore I'll ask you to
+> apply the revert, which is reminded in [1].
 
-Applied, thanks.
+Revert applied, thanks.
