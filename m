@@ -1,55 +1,42 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH iproute2 v2] route: label externally offloaded routes
-Date: Mon, 16 Mar 2015 21:14:50 -0700
-Message-ID: <CAE4R7bC7JPPL2ak0e=qUs3YGhdt81tq1v66+4pDy-bFERXnUyw@mail.gmail.com>
-References: <1426447894-41398-1-git-send-email-sfeldma@gmail.com>
-	<20150316131805.GF12614@gospo.home.greyhouse.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 3/3] Validate all netlink attributes and
+ return error if any of the validation fails.
+Date: Tue, 17 Mar 2015 00:24:27 -0400 (EDT)
+Message-ID: <20150317.002427.1841301696338614194.davem@davemloft.net>
+References: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
+	<cover.1426509272.git.siva.mannem.lnx@gmail.com>
+	<5269ddae1a0a164a488703654c9bb6e24845c637.1426509272.git.siva.mannem.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jeff Kirsher <tarbal@gmail.com>,
-	John Linville <linville@tuxdriver.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sfeldma@gmail.com
+To: siva.mannem.lnx@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:36547 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbbCQEOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 00:14:50 -0400
-Received: by qcto4 with SMTP id o4so63645723qct.3
-        for <netdev@vger.kernel.org>; Mon, 16 Mar 2015 21:14:50 -0700 (PDT)
-In-Reply-To: <20150316131805.GF12614@gospo.home.greyhouse.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42605 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191AbbCQEYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 00:24:31 -0400
+In-Reply-To: <5269ddae1a0a164a488703654c9bb6e24845c637.1426509272.git.siva.mannem.lnx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 16, 2015 at 6:18 AM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> On Sun, Mar 15, 2015 at 12:31:34PM -0700, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> v2:
->>
->> No clear outcome on polling for choices of "external", "offload", "hw", or
->> "hardware".  Andy's concern about "external" being confusing for users is
->> valid.  So, I'm making executive decision to use "external_offload" for label,
->> as suggested by Jiri.
->
-> This seems like quite a mouthful.  Just make it 'offload' or 'hardware'
-> so the output of 'ip route show' isn't so long that it will frequently
-> be longer than 80 chars.  Being longer than 80 chars is going to be
-> irritating for _many_ users.
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Date: Tue, 17 Mar 2015 04:32:44 +0530
 
-Andy, since you have passion on this topic, would you mind taking it
-from here to get consensus, and post an updated patch, if needed?
+> This patch validates all netlink attributes and return error if any of the
+> validation fails.
+> 
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+> Suggested-by: David Miller <davem@davemloft.net>
 
-I was about to suggest a new made-up work like "keroff" and someday
-the new word is added to Websters .  Daddy, what's "keroff"?  Oh son,
-that means "offloaded from kernel to external device".  Ya, actually,
-that's my vote: keroff.
+You have to remove the range checking code from all the other
+functions too.
 
-("koff" was my first choice, but apparently that already has a
-not-so-nice meaning).
+Then no errors can be returned by them at all actually and that's an
+really nice cleanup.
 
--scott
+Please don't make microscopic narrow changes like this, think about
+the higher level implications and the things that are no longer
+necessary as a result.
+
+Thanks.
