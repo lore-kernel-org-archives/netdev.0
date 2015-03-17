@@ -1,30 +1,32 @@
-From: "tgraf@suug.ch" <tgraf@suug.ch>
-Subject: Re: [v1 PATCH 1/14] rhashtable: Remove shift from bucket_table
-Date: Tue, 17 Mar 2015 11:22:03 +0000
-Message-ID: <20150317112203.GG11089@casper.infradead.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [v1 PATCH 1/14] rhashtable: Remove shift from bucket_table
+Date: Tue, 17 Mar 2015 11:22:44 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB02510@AcuExch.aculab.com>
 References: <20150315104306.GA21999@gondor.apana.org.au>
  <E1YX61x-0005m7-GV@gondolin.me.apana.org.au>
  <063D6719AE5E284EB5DD2968C1650D6D1CB024AB@AcuExch.aculab.com>
  <20150317105657.GE11089@casper.infradead.org>
  <20150317110041.GA11385@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
+	"tgraf@suug.ch" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:48304 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932107AbbCQLWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 07:22:05 -0400
-Content-Disposition: inline
+Received: from smtp-out6.electric.net ([192.162.217.181]:59841 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932358AbbCQLYA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 07:24:00 -0400
 In-Reply-To: <20150317110041.GA11385@gondor.apana.org.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/17/15 at 10:00pm, Herbert Xu wrote:
+From: Herbert Xu
+> Sent: 17 March 2015 11:01
 > On Tue, Mar 17, 2015 at 10:56:57AM +0000, tgraf@suug.ch wrote:
 > >
 > > Given the discussions, the grow decision will likely change to
@@ -36,15 +38,10 @@ On 03/17/15 at 10:00pm, Herbert Xu wrote:
 > 
 > The reason is that the maximum (not average) chain length actually
 > grows with the hash table size, even at 75% utilisation.
-> 
-> So unless we want ever decreasing utilisation as the table grows,
-> we have to cope with a few chains with many elements.  The limit
-> I'm currently using is 16 which shouldn't be hit even if you had
-> a 2^32 table (which you currently cannot).
 
-Not sure I understand the downside of a bucket length based grow
-decision with optional forced rehashing plus synchroneous table
-realloc if we hit a 2nd watermark as you proposed earlier. Shouldn't
-we consider deterministic lookup and insert behaviour more important
-than overall table utilization? Given the rehashing, the grow decision
-should not be attackable.
+That doesn't surprise me.
+
+But won't the rehashed table be just as likely to have a long list?
+So you are likely to get an immediate rehash?
+
+	David
