@@ -1,74 +1,42 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2 2/2] tc class: Ignore if default class name file does not exist
-Date: Tue, 17 Mar 2015 22:15:42 +0200
-Message-ID: <1426623342-16470-3-git-send-email-vadim4j@gmail.com>
-References: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 0/2] tc class names: Ignore if default file does not exist
+Date: Tue, 17 Mar 2015 22:15:40 +0200
+Message-ID: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:35183 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392AbbCQU1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 16:27:31 -0400
-Received: by labjg1 with SMTP id jg1so19030065lab.2
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 13:27:29 -0700 (PDT)
-In-Reply-To: <1426623342-16470-1-git-send-email-vadim4j@gmail.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:35371 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752679AbbCQU12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 16:27:28 -0400
+Received: by lbcgn8 with SMTP id gn8so15715360lbc.2
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 13:27:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+1) Split lib/names.c:db_names_alloc to 2 funcs for
+    allocate and load names from file. Also added checking for malloc
+    failing.
 
-If '-nm' specified that do not fail if there is no
-default class names file in /etc/iproute2.
+2) Ignore if default class names file does not exist if '-nm' option
+    was specified, so it will be possible to create alias:
 
-Changed default class name file cls_names -> tc_cls.
+        alias tc='tc -nm'
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- tc/tc_util.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+    Changed default class name file cls_names -> tc_cls.
 
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index feae439..1d3153d 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -21,6 +21,7 @@
- #include <arpa/inet.h>
- #include <string.h>
- #include <math.h>
-+#include <errno.h>
- 
- #include "utils.h"
- #include "names.h"
-@@ -33,15 +34,25 @@
- 
- static struct db_names *cls_names = NULL;
- 
--#define NAMES_DB "/etc/iproute2/cls_names"
-+#define NAMES_DB "/etc/iproute2/tc_cls"
- 
- int cls_names_init(char *path)
- {
--	cls_names = db_names_alloc(path ?: NAMES_DB);
--	if (!cls_names) {
--		fprintf(stderr, "Error while opening class names file\n");
-+	int ret;
-+
-+	cls_names = db_names_alloc();
-+	if (!cls_names)
-+		return -1;
-+
-+	ret = db_names_load(cls_names, path ?: NAMES_DB);
-+	if (ret == -ENOENT && path) {
-+		fprintf(stderr, "Can't open class names file: %s\n", path);
- 		return -1;
- 	}
-+	if (ret) {
-+		db_names_free(cls_names);
-+		cls_names = NULL;
-+	}
- 
- 	return 0;
- }
+v2:
+    Get rid of pointless 'ret' initialization
+    in tc/tc_util.c - noticed by Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+Vadim Kochan (2):
+  lib names: Split to db_names_alloc and db_names_load
+  tc class: Ignore if default class name file does not exist
+
+ include/names.h |  3 ++-
+ lib/names.c     | 59 +++++++++++++++++++++++++++++++++++++++++----------------
+ tc/tc_util.c    | 19 +++++++++++++++----
+ 3 files changed, 60 insertions(+), 21 deletions(-)
+
 -- 
 2.3.1
