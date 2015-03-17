@@ -1,52 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v3 2/3] rocker: add support for phys_port_name
-Date: Tue, 17 Mar 2015 16:55:55 +0100
-Message-ID: <20150317155555.GF2036@nanopsycho.lan>
-References: <1426606258-13466-1-git-send-email-dsahern@gmail.com>
- <1426606258-13466-2-git-send-email-dsahern@gmail.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: cfg80211: use msecs_to_jiffies for time conversion
+Date: Tue, 17 Mar 2015 17:04:20 +0100
+Message-ID: <55085084.4080204@broadcom.com>
+References: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sfeldma@gmail.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:34950 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753930AbbCQPz7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 11:55:59 -0400
-Received: by wibdy8 with SMTP id dy8so66944211wib.0
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 08:55:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1426606258-13466-2-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Brett Rudley <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Daniel Kim <dekim@broadcom.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Nicholas Mc Guire <hofrat@osadl.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Mar 17, 2015 at 04:30:57PM CET, dsahern@gmail.com wrote:
->Implement the phys_port_name operation. Port names are pulled from the
->rocker hardware model in qemu and default to the qemu name + port id.
->e.g.,
+On 03/17/15 13:06, Nicholas Mc Guire wrote:
+> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
+> OK but msecs_to_jiffies(val) is the cleaner solution and handles all
+> corner cases correctly. This is a minor API consolidation only and
+> should make things more readable.
 >
->sw1p1: flags=4098<BROADCAST,MULTICAST>  mtu 1500
->        ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->        RX packets 0  bytes 0 (0.0 B)
->        RX errors 0  dropped 0  overruns 0  frame 0
->        TX packets 0  bytes 0 (0.0 B)
->        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+> Patch was compile tested with x86_64_defconfig + CONFIG_BRCMFMAC=m
 >
->where 'sw1' comes from the qemu command line -device rocker,name=sw1, and
->'p1' is port 1.
->
->Patch is adapted from Scott's phys_port_id patch.
->
->v3:
->- updated per comments from Jiri and Philip regarding len type and
->  initializations
->
->v2:
->- updated per changes in prior patch requested by Jiri
->
->Signed-off-by: David Ahern <dsahern@gmail.com>
->Acked-by: Scott Feldman <sfeldma@gmail.com>
->Cc: Jiri Pirko <jiri@resnulli.us>
+> Patch is agianst 4.0-rc4 (localversion-next is -next-20150317)
 
+It applies to wireless-drivers-next/master as well so
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Nicholas Mc Guire<hofrat@osadl.org>
+> ---
+>   drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
+> index 9b805c9..1996dc2 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c
+> @@ -1110,7 +1110,7 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
+>
+>   	/* Arm scan timeout timer */
+>   	mod_timer(&cfg->escan_timeout, jiffies +
+> -			WL_ESCAN_TIMER_INTERVAL_MS * HZ / 1000);
+> +		  msecs_to_jiffies(WL_ESCAN_TIMER_INTERVAL_MS));
+>
+>   	return 0;
+>
