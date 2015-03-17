@@ -1,14 +1,14 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 11/16 linux-next] net: phy: constify of_device_id array
-Date: Tue, 17 Mar 2015 19:40:23 +0100
-Message-ID: <1426617628-937-2-git-send-email-fabf@skynet.be>
+Subject: [PATCH 02/16 linux-next] Altera TSE: constify of_device_id array
+Date: Tue, 17 Mar 2015 19:37:33 +0100
+Message-ID: <1426617469-781-3-git-send-email-fabf@skynet.be>
 References: <1426617469-781-1-git-send-email-fabf@skynet.be>
- <1426617628-937-1-git-send-email-fabf@skynet.be>
 Cc: davem@davemloft.net, Fabian Frederick <fabf@skynet.be>,
-	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+	Vince Bridgers <vbridger@opensource.altera.com>,
+	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426617628-937-1-git-send-email-fabf@skynet.be>
+In-Reply-To: <1426617469-781-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -17,77 +17,30 @@ of_device_id is always used as const.
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/phy/mdio-bcm-unimac.c  | 2 +-
- drivers/net/phy/mdio-gpio.c        | 2 +-
- drivers/net/phy/mdio-mux-gpio.c    | 2 +-
- drivers/net/phy/mdio-mux-mmioreg.c | 2 +-
- drivers/net/phy/mdio-octeon.c      | 2 +-
- 5 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/altera/altera_tse_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/mdio-bcm-unimac.c b/drivers/net/phy/mdio-bcm-unimac.c
-index 6deac6d..414fdf1 100644
---- a/drivers/net/phy/mdio-bcm-unimac.c
-+++ b/drivers/net/phy/mdio-bcm-unimac.c
-@@ -187,7 +187,7 @@ static int unimac_mdio_remove(struct platform_device *pdev)
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index fd9296a..79ea358 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -89,7 +89,7 @@ MODULE_PARM_DESC(dma_tx_num, "Number of descriptors in the TX list");
  
--static struct of_device_id unimac_mdio_ids[] = {
-+static const struct of_device_id unimac_mdio_ids[] = {
- 	{ .compatible = "brcm,genet-mdio-v4", },
- 	{ .compatible = "brcm,genet-mdio-v3", },
- 	{ .compatible = "brcm,genet-mdio-v2", },
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 0a0578a..49ce7ec 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -249,7 +249,7 @@ static int mdio_gpio_remove(struct platform_device *pdev)
- 	return 0;
- }
+ #define TXQUEUESTOP_THRESHHOLD	2
  
--static struct of_device_id mdio_gpio_of_match[] = {
-+static const struct of_device_id mdio_gpio_of_match[] = {
- 	{ .compatible = "virtual,mdio-gpio", },
- 	{ /* sentinel */ }
+-static struct of_device_id altera_tse_ids[];
++static const struct of_device_id altera_tse_ids[];
+ 
+ static inline u32 tse_tx_avail(struct altera_tse_private *priv)
+ {
+@@ -1576,7 +1576,7 @@ static const struct altera_dmaops altera_dtype_msgdma = {
+ 	.start_rxdma = msgdma_start_rxdma,
  };
-diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
-index 320eb15..1a87a58 100644
---- a/drivers/net/phy/mdio-mux-gpio.c
-+++ b/drivers/net/phy/mdio-mux-gpio.c
-@@ -99,7 +99,7 @@ static int mdio_mux_gpio_remove(struct platform_device *pdev)
- 	return 0;
- }
  
--static struct of_device_id mdio_mux_gpio_match[] = {
-+static const struct of_device_id mdio_mux_gpio_match[] = {
- 	{
- 		.compatible = "mdio-mux-gpio",
- 	},
-diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
-index 0aa985c..2377c13 100644
---- a/drivers/net/phy/mdio-mux-mmioreg.c
-+++ b/drivers/net/phy/mdio-mux-mmioreg.c
-@@ -145,7 +145,7 @@ static int mdio_mux_mmioreg_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--static struct of_device_id mdio_mux_mmioreg_match[] = {
-+static const struct of_device_id mdio_mux_mmioreg_match[] = {
- 	{
- 		.compatible = "mdio-mux-mmioreg",
- 	},
-diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
-index c810524..c838ad6 100644
---- a/drivers/net/phy/mdio-octeon.c
-+++ b/drivers/net/phy/mdio-octeon.c
-@@ -252,7 +252,7 @@ static int octeon_mdiobus_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--static struct of_device_id octeon_mdiobus_match[] = {
-+static const struct of_device_id octeon_mdiobus_match[] = {
- 	{
- 		.compatible = "cavium,octeon-3860-mdio",
- 	},
+-static struct of_device_id altera_tse_ids[] = {
++static const struct of_device_id altera_tse_ids[] = {
+ 	{ .compatible = "altr,tse-msgdma-1.0", .data = &altera_dtype_msgdma, },
+ 	{ .compatible = "altr,tse-1.0", .data = &altera_dtype_sgdma, },
+ 	{ .compatible = "ALTR,tse-1.0", .data = &altera_dtype_sgdma, },
 -- 
 2.1.0
