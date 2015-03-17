@@ -1,69 +1,49 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2 nf-next 1/6] net: untangle ip_fragment and bridge
- netfilter
-Date: Tue, 17 Mar 2015 11:11:52 +0100
-Message-ID: <20150317101152.GB26394@breakpoint.cc>
-References: <1426179925-18220-1-git-send-email-fw@strlen.de>
- <1426179925-18220-2-git-send-email-fw@strlen.de>
- <20150316225545.GA4454@salvia>
- <20150317.004224.595812379252826772.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, fw@strlen.de, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, azhou@nicira.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150317.004224.595812379252826772.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] netdevice.h: fix ndo_bridge_* comments
+Date: Tue, 17 Mar 2015 11:16:00 +0100
+Message-ID: <1426587360-5368-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34328 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770AbbCQKQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 06:16:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> Specifically it needs to stop pretending it can do full on IP
-> operations like fragmentation without the full necessary context.
-> 
-> That full necessary context being a physical destination device,
-> and a proper IP route.
-> 
-> It means that all of the MTU calculations miss everything done
-> by the ipv4 routing layer, all of the settings made by the user
-> via sysctl_ip_fwd_use_pmtu, etc.
+The argument 'flags' was missing in ndo_bridge_setlink().
+ndo_bridge_dellink() was missing.
 
-Perhaps, but I have a hard time defining wheter a bridge should
-use something like sysctl_ip_fwd_use_pmtu or not.
+Fixes: 407af3299ef1 ("bridge: Add netlink interface to configure vlans on bridge ports")
+Fixes: add511b38266 ("bridge: add flags argument to ndo_bridge_setlink and ndo_bridge_dellink")
+CC: Vlad Yasevich <vyasevic@redhat.com>
+CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/linux/netdevice.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-And doing route lookups will break things for some people, we have zero
-guarantee that a bridge has the needed routing information,
-its valid to not even configure a default gateway on a bridge.
-
-We could alter defragmentation to provide the size of the largest
-fragment seen unconditionally, and use that.
-
-But I honestly think this patch is the best we can do to at least
-don't have the IP stack deal with this crap.
-
-> So I think bridge netfilter needs to seriously look up a real
-> route and do things properly like the rest of the networking
-> stack does when it wants to fragment ipv4 packets.
-
-Sure, I can investigate doing this.
-
-However, I don't believe that this is fixable given that we might not
-have any routing tables; also; we allowed things like transparent PPPOE
-and VLAN header stripping.
-
-ip_fragment shouldn't have to deal with increased LL space, as it does now,
-and I don't see any way to fix that except adding that extra ll size argument
-and having br_netfilter set it.
-
-If you disagree, whats your suggested solution to get rid
-of the br_netfilter inline helpers?
-
-Kill support for vlan/pppoe header stripping?
-Add route lookup but keep current behaviour as fallback in case we don't
-find route?
-
-I wouldn't object to doing that, but I'm reasonably sure it will break
-existing setups.
-
-Thanks!
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 429d1790a27e..dcf6ec27739b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -965,9 +965,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	Used to add FDB entries to dump requests. Implementers should add
+  *	entries to skb and update idx with the number of entries.
+  *
+- * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh)
++ * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh,
++ *			     u16 flags)
+  * int (*ndo_bridge_getlink)(struct sk_buff *skb, u32 pid, u32 seq,
+  *			     struct net_device *dev, u32 filter_mask)
++ * int (*ndo_bridge_dellink)(struct net_device *dev, struct nlmsghdr *nlh,
++ *			     u16 flags);
+  *
+  * int (*ndo_change_carrier)(struct net_device *dev, bool new_carrier);
+  *	Called to change device carrier. Soft-devices (like dummy, team, etc)
+-- 
+2.2.2
