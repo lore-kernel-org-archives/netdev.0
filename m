@@ -1,51 +1,61 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: iproute2: ip -force -batch does not continue on errors
-Date: Tue, 17 Mar 2015 08:17:14 -0700
-Message-ID: <5508457A.7070405@cumulusnetworks.com>
-References: <alpine.DEB.2.11.1503171550360.18888@aurora64.sdinet.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sven-Haegar Koch <haegar@sdinet.de>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH 3/3] iproute2: Add support for phys_port_name
+Date: Tue, 17 Mar 2015 09:30:58 -0600
+Message-ID: <1426606258-13466-3-git-send-email-dsahern@gmail.com>
+References: <1426606258-13466-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org, jiri@resnulli.us, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:32971 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752493AbbCQPRQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 11:17:16 -0400
-Received: by pdnc3 with SMTP id c3so12378349pdn.0
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 08:17:15 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.11.1503171550360.18888@aurora64.sdinet.de>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37038 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753459AbbCQPbU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 11:31:20 -0400
+Received: by igcqo1 with SMTP id qo1so15346823igc.0
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 08:31:19 -0700 (PDT)
+In-Reply-To: <1426606258-13466-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/17/15, 8:07 AM, Sven-Haegar Koch wrote:
-> Hallo,
->
-> Test szenario:
->
-> # cat b.txt
-> route del 1.2.3.0/24 dev eth0
-> route del 1.2.4.0/24 dev eth0
-> route del 1.2.5.0/24 dev eth0
-> route add 1.2.3.0/24 dev eth0
->
-> # ip -force -batch b.txt
-> RTNETLINK answers: No such process
->
-> Expectation: The three route del commands may fail if the route does
-> not (yet) exist, and then (as I am using -force) the route add gets
-> executed.
->
-> But instead the batch processing is aborted at the first failing "route
-> del" command, forcing me to execute ip once per route del instead of
-> using the batchmode.
->
-> Tested mainly using iproute2 3.16.0, but the current git tree seems to
-> behave mostly the same, except that it only executes anything if I add
-> "-f inet" to the commandline, otherwise it rejects the first line with
-> 'Error: an inet prefix is expected rather than "1.2.3.0/24".'
->
+Display phys_port_name attribute if returned:
 
-I have run into this as well, I have a patch that fixes this. Will post 
-it today...
+./ip link show sw1p1
+4: sw1p1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop port name sw1p1 state DOWN mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:12:35:01 brd ff:ff:ff:ff:ff:ff
+
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+Cc: Scott Feldman <sfeldma@gmail.com>
+
+---
+ include/linux/if_link.h | 1 +
+ ip/ipaddress.c          | 3 +++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 3450c3fbdc65..c5ee8c91b1c6 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -147,6 +147,7 @@ enum {
+ 	IFLA_CARRIER_CHANGES,
+ 	IFLA_PHYS_SWITCH_ID,
+ 	IFLA_LINK_NETNSID,
++	IFLA_PHYS_PORT_NAME,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 99a6ab5977e3..9e65015b7a48 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -645,6 +645,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 				      b1, sizeof(b1)));
+ 	}
+ 
++	if (tb[IFLA_PHYS_PORT_NAME])
++		fprintf(fp, "port name %s ", rta_getattr_str(tb[IFLA_PHYS_PORT_NAME]));
++
+ 	if (tb[IFLA_OPERSTATE])
+ 		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
+ 
+-- 
+2.2.1
