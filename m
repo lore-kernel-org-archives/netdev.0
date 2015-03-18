@@ -1,33 +1,74 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 0/6] rhashtable: Kill redundant shift parameter
-Date: Wed, 18 Mar 2015 20:00:30 +1100
-Message-ID: <20150318090030.GA22108@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+Subject: [v2 PATCH 1/6] rhashtable: Remove shift from bucket_table
+Date: Wed, 18 Mar 2015 20:01:15 +1100
+Message-ID: <E1YY9ql-0005lr-Fw@gondolin.me.apana.org.au>
+References: <20150315104306.GA21999@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:47027 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:57363 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbbCRJAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 05:00:41 -0400
-Content-Disposition: inline
+	with ESMTP id S1755013AbbCRJBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 05:01:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+Keeping both size and shift is silly.  We only need one.
 
-I was trying to squeeze bucket_table->rehash in by downsizing
-bucket_table->size, only to find that my spot had been taken
-over by bucket_table->shift.  These patches kill shift and makes
-me feel better :)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-v2 corrects the typo in the test_rhashtable changelog and also
-notes the min_shift parameter in the tipc patch changelog.
+ include/linux/rhashtable.h |    2 --
+ lib/rhashtable.c           |    5 ++---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 1695378..f16e856 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -51,7 +51,6 @@ struct rhash_head {
+  * @size: Number of hash buckets
+  * @rehash: Current bucket being rehashed
+  * @hash_rnd: Random seed to fold into hash
+- * @shift: Current size (1 << shift)
+  * @locks_mask: Mask to apply before accessing locks[]
+  * @locks: Array of spinlocks protecting individual buckets
+  * @walkers: List of active walkers
+@@ -63,7 +62,6 @@ struct bucket_table {
+ 	unsigned int		size;
+ 	unsigned int		rehash;
+ 	u32			hash_rnd;
+-	u32			shift;
+ 	unsigned int		locks_mask;
+ 	spinlock_t		*locks;
+ 	struct list_head	walkers;
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 09a7ada..0974003 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -162,7 +162,6 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
+ 		return NULL;
+ 
+ 	tbl->size = nbuckets;
+-	tbl->shift = ilog2(nbuckets);
+ 
+ 	if (alloc_bucket_locks(ht, tbl) < 0) {
+ 		bucket_table_free(tbl);
+@@ -189,7 +188,7 @@ static bool rht_grow_above_75(const struct rhashtable *ht,
+ {
+ 	/* Expand table when exceeding 75% load */
+ 	return atomic_read(&ht->nelems) > (tbl->size / 4 * 3) &&
+-	       (!ht->p.max_shift || tbl->shift < ht->p.max_shift);
++	       (!ht->p.max_shift || tbl->size < (1 << ht->p.max_shift));
+ }
+ 
+ /**
+@@ -202,7 +201,7 @@ static bool rht_shrink_below_30(const struct rhashtable *ht,
+ {
+ 	/* Shrink table beneath 30% load */
+ 	return atomic_read(&ht->nelems) < (tbl->size * 3 / 10) &&
+-	       tbl->shift > ht->p.min_shift;
++	       tbl->size > (1 << ht->p.min_shift);
+ }
+ 
+ static int rhashtable_rehash_one(struct rhashtable *ht, unsigned old_hash)
