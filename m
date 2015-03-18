@@ -1,34 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 PATCH 0/6] rhashtable: Kill redundant shift parameter
-Date: Wed, 18 Mar 2015 12:47:27 -0400 (EDT)
-Message-ID: <20150318.124727.1903690096349156464.davem@davemloft.net>
-References: <20150318090030.GA22108@gondor.apana.org.au>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [v2 PATCH 2/6] rhashtable: Introduce max_size/min_size
+Date: Wed, 18 Mar 2015 16:51:44 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB039DA@AcuExch.aculab.com>
+References: <20150315104306.GA21999@gondor.apana.org.au>
+ <E1YY9qm-0005mA-Jy@gondolin.me.apana.org.au>
+ <20150318105528.GO17829@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: 'Thomas Graf' <tgraf@suug.ch>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35476 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932844AbbCRQra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 12:47:30 -0400
-In-Reply-To: <20150318090030.GA22108@gondor.apana.org.au>
+Received: from smtp-out4.electric.net ([192.162.216.181]:64980 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933166AbbCRQxJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 12:53:09 -0400
+In-Reply-To: <20150318105528.GO17829@casper.infradead.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 18 Mar 2015 20:00:30 +1100
-
-> I was trying to squeeze bucket_table->rehash in by downsizing
-> bucket_table->size, only to find that my spot had been taken
-> over by bucket_table->shift.  These patches kill shift and makes
-> me feel better :)
+From: Thomas Graf
+> On 03/18/15 at 08:01pm, Herbert Xu wrote:
+> > @@ -935,6 +938,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+> >
+> >  	params->min_shift = max_t(size_t, params->min_shift,
+> >  				  ilog2(HASH_MIN_SIZE));
+> > +	params->min_size = max(params->min_size, HASH_MIN_SIZE);
+> >
+> >  	if (params->nelem_hint)
+> >  		size = rounded_hashtable_size(params);
 > 
-> v2 corrects the typo in the test_rhashtable changelog and also
-> notes the min_shift parameter in the tipc patch changelog.
+> The only change I would add on top is to ensure that min_size
+> and max_size are a power of two as otherwise the table size
+> used will end up being greater or smaller than specified.
 
-I guess once you get OCD with something, it stands no chance of
-surviving :-)
+I'd just make sure that 'something sensible' happens if they aren't.
 
-Looks great, series applied, thanks!
+You don't really want to error the table creation if some sysctl (etc)
+that control the sizes isn't a power of 2.
+
+	David
