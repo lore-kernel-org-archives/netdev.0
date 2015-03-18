@@ -1,46 +1,213 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH iproute2] lib utils: fix family during af_bit_len calculation
-Date: Tue, 17 Mar 2015 19:18:28 -0700
-Message-ID: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, vadim4j@gmail.com
-To: stephen@networkplumber.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v4 1/3] net: add support for phys_port_name
+Date: Tue, 17 Mar 2015 20:23:15 -0600
+Message-ID: <1426645397-15284-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org, jiri@resnulli.us, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36808 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963AbbCRCSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 22:18:34 -0400
-Received: by pdbcz9 with SMTP id cz9so27463337pdb.3
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 19:18:34 -0700 (PDT)
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:33501 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754316AbbCRCXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 22:23:35 -0400
+Received: by iecvj10 with SMTP id vj10so27915533iec.0
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 19:23:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Similar to port id allow netdevices to specify port names and export
+the name via sysfs. Drivers can implement the netdevice operation to
+assist udev in having sane default names for the devices using the
+rule:
 
-commit f3a2ddc124e0 ("lib utils: Use helpers to get AF bit/byte len")
-used a wrong family or family of zero in the default case
-during af_bit_len calculation causing ip route commands to
-fail with below error
+$ cat /etc/udev/rules.d/80-net-setup-link.rules
+SUBSYSTEM=="net", ACTION=="add", ATTR{phys_port_name}!="",
+NAME="$attr{phys_port_name}"
 
-Error: an inet prefix is expected rather than "10.0.2.14/24".
+Use of phys_name versus phys_id was suggested-by Jiri Pirko.
 
-Reported-by: Sven-Haegar Koch <haegar@sdinet.de>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+Acked-by: Scott Feldman <sfeldma@gmail.com>
 ---
- lib/utils.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+v4:
+- updated documentation per Florian's request
 
-diff --git a/lib/utils.c b/lib/utils.c
-index 9cda268..0d08a86 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -477,7 +477,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
+v3:
+- changed length from int to size_t, variable name from buf to name per
+  Jiri's comment
+
+v2:
+- replaced netdev_phys_item_name with buffer and length per Jiri's comment
+
+ Documentation/ABI/testing/sysfs-class-net |  8 ++++++++
+ include/linux/netdevice.h                 |  4 ++++
+ include/uapi/linux/if_link.h              |  1 +
+ net/core/dev.c                            | 18 ++++++++++++++++++
+ net/core/net-sysfs.c                      | 23 +++++++++++++++++++++++
+ net/core/rtnetlink.c                      | 21 +++++++++++++++++++++
+ 6 files changed, 75 insertions(+)
+
+diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
+index beb8ec4dabbc..5ecfd72ba684 100644
+--- a/Documentation/ABI/testing/sysfs-class-net
++++ b/Documentation/ABI/testing/sysfs-class-net
+@@ -188,6 +188,14 @@ Contact:	netdev@vger.kernel.org
+ 		Indicates the interface unique physical port identifier within
+ 		the NIC, as a string.
  
- 	err = get_addr_1(dst, arg, family);
- 	if (err == 0) {
--		dst->bitlen = af_bit_len(family);
-+		dst->bitlen = af_bit_len(dst->family);
++What:		/sys/class/net/<iface>/phys_port_name
++Date:		March 2015
++KernelVersion:	4.0
++Contact:	netdev@vger.kernel.org
++Description:
++		Indicates the interface physical port name within the NIC,
++		as a string.
++
+ What:		/sys/class/net/<iface>/speed
+ Date:		October 2009
+ KernelVersion:	2.6.33
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index dd1d069758be..52b519b408e6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1159,6 +1159,8 @@ struct net_device_ops {
+ 						      bool new_carrier);
+ 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+ 							struct netdev_phys_item_id *ppid);
++	int			(*ndo_get_phys_port_name)(struct net_device *dev,
++							  char *name, size_t len);
+ 	void			(*ndo_add_vxlan_port)(struct  net_device *dev,
+ 						      sa_family_t sa_family,
+ 						      __be16 port);
+@@ -2939,6 +2941,8 @@ int dev_set_mac_address(struct net_device *, struct sockaddr *);
+ int dev_change_carrier(struct net_device *, bool new_carrier);
+ int dev_get_phys_port_id(struct net_device *dev,
+ 			 struct netdev_phys_item_id *ppid);
++int dev_get_phys_port_name(struct net_device *dev,
++			   char *name, size_t len);
+ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 756436e1ce89..7158fd00a109 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -147,6 +147,7 @@ enum {
+ 	IFLA_CARRIER_CHANGES,
+ 	IFLA_PHYS_SWITCH_ID,
+ 	IFLA_LINK_NETNSID,
++	IFLA_PHYS_PORT_NAME,
+ 	__IFLA_MAX
+ };
  
- 		if (slash) {
- 			if (get_netmask(&plen, slash+1, 0)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 39fe369b46ad..a1f24151db5b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5912,6 +5912,24 @@ int dev_get_phys_port_id(struct net_device *dev,
+ EXPORT_SYMBOL(dev_get_phys_port_id);
+ 
+ /**
++ *	dev_get_phys_port_name - Get device physical port name
++ *	@dev: device
++ *	@name: port name
++ *
++ *	Get device physical port name
++ */
++int dev_get_phys_port_name(struct net_device *dev,
++			   char *name, size_t len)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if (!ops->ndo_get_phys_port_name)
++		return -EOPNOTSUPP;
++	return ops->ndo_get_phys_port_name(dev, name, len);
++}
++EXPORT_SYMBOL(dev_get_phys_port_name);
++
++/**
+  *	dev_new_index	-	allocate an ifindex
+  *	@net: the applicable net namespace
+  *
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index cf30620a88e1..b2a673870c4b 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -418,6 +418,28 @@ static ssize_t phys_port_id_show(struct device *dev,
+ }
+ static DEVICE_ATTR_RO(phys_port_id);
+ 
++static ssize_t phys_port_name_show(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	struct net_device *netdev = to_net_dev(dev);
++	ssize_t ret = -EINVAL;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	if (dev_isalive(netdev)) {
++		char name[IFNAMSIZ];
++
++		ret = dev_get_phys_port_name(netdev, name, sizeof(name));
++		if (!ret)
++			ret = sprintf(buf, "%s\n", name);
++	}
++	rtnl_unlock();
++
++	return ret;
++}
++static DEVICE_ATTR_RO(phys_port_name);
++
+ static ssize_t phys_switch_id_show(struct device *dev,
+ 				   struct device_attribute *attr, char *buf)
+ {
+@@ -465,6 +487,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_tx_queue_len.attr,
+ 	&dev_attr_gro_flush_timeout.attr,
+ 	&dev_attr_phys_port_id.attr,
++	&dev_attr_phys_port_name.attr,
+ 	&dev_attr_phys_switch_id.attr,
+ 	NULL,
+ };
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 25b4b5d23485..6abe634c666c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -982,6 +982,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_phys_port_name_fill(struct sk_buff *skb, struct net_device *dev)
++{
++	char name[IFNAMSIZ];
++	int err;
++
++	err = dev_get_phys_port_name(dev, name, sizeof(name));
++	if (err) {
++		if (err == -EOPNOTSUPP)
++			return 0;
++		return err;
++	}
++
++	if (nla_put(skb, IFLA_PHYS_PORT_NAME, strlen(name), name))
++		return -EMSGSIZE;
++
++	return 0;
++}
++
+ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	int err;
+@@ -1072,6 +1090,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_phys_port_id_fill(skb, dev))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_phys_port_name_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	if (rtnl_phys_switch_id_fill(skb, dev))
+ 		goto nla_put_failure;
+ 
 -- 
-1.7.10.4
+2.2.1
