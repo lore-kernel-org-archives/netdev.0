@@ -1,64 +1,63 @@
 From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH net-next 3/4] ipv4: Use probe_size to check write queue
- data length
-Date: Wed, 18 Mar 2015 08:41:58 -0400
-Message-ID: <CABrhC0kBjm+qRRpeLugR2Dyc=XXrC5CWxW8_LecbPbbLpe5bkQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 2/4] ipv4: Correct two conditions checking when
+ buildig nskb
+Date: Wed, 18 Mar 2015 08:44:08 -0400
+Message-ID: <CABrhC0mYu0GVvtvzX_yLwF=_ZQ9eeLKqsqcCKs3MPC1Mb8GY8w@mail.gmail.com>
 References: <1425978986-8512-1-git-send-email-fan.du@intel.com>
-	<1425978986-8512-4-git-send-email-fan.du@intel.com>
-	<CABrhC0=+c1XpVZZpRyhrFJmUwdf1mp1RtWUh+jV-Mg3GXDAqwQ@mail.gmail.com>
-	<5508D6C1.2020302@gmail.com>
+	<1425978986-8512-3-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fan Du <fan.du@intel.com>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Fan Du <fengyuleidian0615@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Fan Du <fengyuleidian0615@gmail.com>
+To: Fan Du <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:34192 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756452AbbCRMmA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 08:42:00 -0400
-Received: by lagg8 with SMTP id g8so34832856lag.1
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 05:41:58 -0700 (PDT)
-In-Reply-To: <5508D6C1.2020302@gmail.com>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:35317 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932949AbbCRMoK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 08:44:10 -0400
+Received: by labjg1 with SMTP id jg1so34854503lab.2
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 05:44:08 -0700 (PDT)
+In-Reply-To: <1425978986-8512-3-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 17, 2015 at 9:37 PM, Fan Du <fengyuleidian0615@gmail.com> w=
-rote:
-> =E4=BA=8E 2015=E5=B9=B403=E6=9C=8810=E6=97=A5 20:26, John Heffner =E5=
-=86=99=E9=81=93:
->>
->> NACK.  From RFC4821:
->>
->>     In addition, the timely loss detection algorithms in most protoc=
-ols
->>     have pre-conditions that SHOULD be satisfied before sending a pr=
-obe.
->>     For example, TCP Fast Retransmit is not robust unless there are
->>     sufficient segments following a probe; that is, the sender SHOUL=
-D
->>     have enough data queued and sufficient receiver window to send t=
-he
->>     probe plus at least Tcprexmtthresh [RFC2760] additional segments=
-=2E
->>     This restriction may inhibit probing in some protocol states, su=
-ch as
->>     too close to the end of a connection, or when the window is too
->>     small.
->>
+On Tue, Mar 10, 2015 at 5:16 AM, Fan Du <fan.du@intel.com> wrote:
+> When traversing write queue to build 'nskb', the size of 'copy'
+> could only be equal or smaller than skb->len.
 >
-> Thanks for pointing this out for me.
+> And as we need exactly 'probe_size' bytes data for 'nskb', thus
+> break condition could only be len == probe_size.
 >
-> My limit understanding is the extra segments is used to trigger fast
-> retransmit,
-> and the conditions is the count of duplicate ack. Then why needs an e=
-xtra
-> one more
-> segment here besides 'reordering' segment to trigger this?
+> Signed-off-by: Fan Du <fan.du@intel.com>
+> ---
+>  net/ipv4/tcp_output.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 >
-> size_needed =3D probe_size + (tp->reordering + 1) * tp->mss_cache;
->                                             ^^^
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 5a73ad5..79977d1 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1954,7 +1954,7 @@ static int tcp_mtu_probe(struct sock *sk)
+>                                                             skb_put(nskb, copy),
+>                                                             copy, nskb->csum);
+>
+> -               if (skb->len <= copy) {
+> +               if (skb->len == copy) {
+>                         /* We've eaten all the data from this skb.
+>                          * Throw it away. */
+>                         TCP_SKB_CB(nskb)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags;
+> @@ -1977,7 +1977,7 @@ static int tcp_mtu_probe(struct sock *sk)
+>
+>                 len += copy;
+>
+> -               if (len >= probe_size)
+> +               if (len == probe_size)
+>                         break;
+>         }
+>         tcp_init_tso_segs(sk, nskb, nskb->len);
+> --
+> 1.7.1
+>
 
-I can't recall a particular reason for the plus one.  It may be
-unnecessarily conservative.
+This is called "defensive programming." ;-)
