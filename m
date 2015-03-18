@@ -1,59 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] act_bpf: allow non-default TC_ACT opcodes as BPF
- exec outcome
-Date: Tue, 17 Mar 2015 22:15:42 -0400 (EDT)
-Message-ID: <20150317.221542.2280059970610472155.davem@davemloft.net>
-References: <98364de656ad8034f008999121f57940af767b93.1426619298.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, ast@plumgrid.com,
-	jhs@mojatatu.com
-To: daniel@iogearbox.net
+From: roopa@cumulusnetworks.com
+Subject: [PATCH iproute2] lib utils: fix family during af_bit_len calculation
+Date: Tue, 17 Mar 2015 19:18:28 -0700
+Message-ID: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, vadim4j@gmail.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55541 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963AbbCRCPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 22:15:44 -0400
-In-Reply-To: <98364de656ad8034f008999121f57940af767b93.1426619298.git.daniel@iogearbox.net>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36808 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752963AbbCRCSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 22:18:34 -0400
+Received: by pdbcz9 with SMTP id cz9so27463337pdb.3
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 19:18:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Tue, 17 Mar 2015 20:25:57 +0100
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> Revisiting commit d23b8ad8ab23 ("tc: add BPF based action") with regards
-> to eBPF support, I was thinking that it might be better to improve
-> return semantics from a BPF program invoked through BPF_PROG_RUN().
-> 
-> Currently, in case filter_res is 0, we overwrite the default action
-> opcode with TC_ACT_SHOT. A default action opcode configured through tc's
-> m_bpf can be: TC_ACT_RECLASSIFY, TC_ACT_PIPE, TC_ACT_SHOT, TC_ACT_UNSPEC,
-> TC_ACT_OK.
-> 
-> In cls_bpf, we have the possibility to overwrite the default class
-> associated with the classifier in case filter_res is _not_ 0xffffffff
-> (-1).
-> 
-> That allows us to fold multiple [e]BPF programs into a single one, where
-> they would otherwise need to be defined as a separate classifier with
-> its own classid, needlessly redoing parsing work, etc.
-> 
-> Similarly, we could do better in act_bpf: Since above TC_ACT* opcodes
-> are exported to UAPI anyway, we reuse them for return-code-to-tc-opcode
-> mapping, where we would allow above possibilities. Thus, like in cls_bpf,
-> a filter_res of 0xffffffff (-1) means that the configured _default_ action
-> is used. Any unkown return code from the BPF program would fail in
-> tcf_bpf() with TC_ACT_UNSPEC.
-> 
-> Should we one day want to make use of TC_ACT_STOLEN or TC_ACT_QUEUED,
-> which both have the same semantics, we have the option to either use
-> that as a default action (filter_res of 0xffffffff) or non-default BPF
-> return code.
-> 
-> All that will allow us to transparently use tcf_bpf() for both BPF
-> flavours.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+commit f3a2ddc124e0 ("lib utils: Use helpers to get AF bit/byte len")
+used a wrong family or family of zero in the default case
+during af_bit_len calculation causing ip route commands to
+fail with below error
 
-Applied, thanks Daniel.
+Error: an inet prefix is expected rather than "10.0.2.14/24".
+
+Reported-by: Sven-Haegar Koch <haegar@sdinet.de>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ lib/utils.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/utils.c b/lib/utils.c
+index 9cda268..0d08a86 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -477,7 +477,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
+ 
+ 	err = get_addr_1(dst, arg, family);
+ 	if (err == 0) {
+-		dst->bitlen = af_bit_len(family);
++		dst->bitlen = af_bit_len(dst->family);
+ 
+ 		if (slash) {
+ 			if (get_netmask(&plen, slash+1, 0)
+-- 
+1.7.10.4
