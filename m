@@ -1,67 +1,189 @@
-From: Fan Du <fengyuleidian0615@gmail.com>
-Subject: Re: [PATCH net-next 3/4] ipv4: Use probe_size to check write queue
- data length
-Date: Wed, 18 Mar 2015 09:37:05 +0800
-Message-ID: <5508D6C1.2020302@gmail.com>
-References: <1425978986-8512-1-git-send-email-fan.du@intel.com> <1425978986-8512-4-git-send-email-fan.du@intel.com> <CABrhC0=+c1XpVZZpRyhrFJmUwdf1mp1RtWUh+jV-Mg3GXDAqwQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fan Du <fan.du@intel.com>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: John Heffner <johnwheffner@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 6/6] inet: fix request sock refcounting
+Date: Tue, 17 Mar 2015 18:32:31 -0700
+Message-ID: <1426642351-26098-7-git-send-email-edumazet@google.com>
+References: <1426642351-26098-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34281 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932214AbbCRBm3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 21:42:29 -0400
-Received: by pacwe9 with SMTP id we9so26406408pac.1
-        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 18:42:28 -0700 (PDT)
-In-Reply-To: <CABrhC0=+c1XpVZZpRyhrFJmUwdf1mp1RtWUh+jV-Mg3GXDAqwQ@mail.gmail.com>
+Received: from mail-qg0-f73.google.com ([209.85.192.73]:33418 "EHLO
+	mail-qg0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753778AbbCRBnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Mar 2015 21:43:07 -0400
+Received: by qgdz107 with SMTP id z107so1021164qgd.0
+        for <netdev@vger.kernel.org>; Tue, 17 Mar 2015 18:43:06 -0700 (PDT)
+In-Reply-To: <1426642351-26098-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2015=E5=B9=B403=E6=9C=8810=E6=97=A5 20:26, John Heffner =E5=86=
-=99=E9=81=93:
-> NACK.  From RFC4821:
->
->     In addition, the timely loss detection algorithms in most protoco=
-ls
->     have pre-conditions that SHOULD be satisfied before sending a pro=
-be.
->     For example, TCP Fast Retransmit is not robust unless there are
->     sufficient segments following a probe; that is, the sender SHOULD
->     have enough data queued and sufficient receiver window to send th=
-e
->     probe plus at least Tcprexmtthresh [RFC2760] additional segments.
->     This restriction may inhibit probing in some protocol states, suc=
-h as
->     too close to the end of a connection, or when the window is too
->     small.
->
+While testing last patch series, I found req sock refcounting was wrong.
 
-Thanks for pointing this out for me.
+We must set skc_refcnt to 1 for all request socks added in hashes,
+but also on request sockets created by FastOpen or syncookies.
 
-My limit understanding is the extra segments is used to trigger fast re=
-transmit,
-and the conditions is the count of duplicate ack. Then why needs an ext=
-ra one more
-segment here besides 'reordering' segment to trigger this?
+It is tricky because we need to defer this initialization so that
+future RCU lookups do not try to take a refcount on a not yet
+fully initialized request socket.
 
-size_needed =3D probe_size + (tp->reordering + 1) * tp->mss_cache;
-                                             ^^^
-btw, any comments for the rest of patches?
+Also get rid of ireq_refcnt alias.
 
---=20
-=E5=A4=A9=E4=B8=8B=E8=8B=B1=E9=9B=84=E5=87=BA=E6=88=91=E8=BE=88=EF=BC=8C=
-=E4=B8=80=E5=85=A5=E6=B1=9F=E6=B9=96=E5=B2=81=E6=9C=88=E5=82=AC=E3=80=82
-=E9=B8=BF=E5=9B=BE=E9=9C=B8=E4=B8=9A=E8=B0=88=E7=AC=91=E9=97=B4=EF=BC=8C=
-=E4=B8=8D=E8=83=9C=E4=BA=BA=E7=94=9F=E4=B8=80=E5=9C=BA=E9=86=89=E3=80=82
-=E6=8F=90=E5=89=91=E8=B7=A8=E9=AA=91=E6=8C=A5=E9=AC=BC=E9=9B=A8=EF=BC=8C=
-=E7=99=BD=E9=AA=A8=E5=A6=82=E5=B1=B1=E9=B8=9F=E6=83=8A=E9=A3=9E=E3=80=82
-=E5=B0=98=E4=B8=96=E5=A6=82=E6=BD=AE=E4=BA=BA=E5=A6=82=E6=B0=B4=EF=BC=8C=
-=E5=8F=AA=E5=8F=B9=E6=B1=9F=E6=B9=96=E5=87=A0=E4=BA=BA=E5=9B=9E=E3=80=82
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 13854e5a6046 ("inet: add proper refcounting to request sock")
+---
+ include/net/inet_connection_sock.h |  5 -----
+ include/net/inet_sock.h            |  1 -
+ include/net/request_sock.h         | 12 ++++++++++++
+ net/ipv4/syncookies.c              | 11 ++++++-----
+ net/ipv4/tcp_fastopen.c            |  1 +
+ net/ipv4/tcp_input.c               |  4 ----
+ net/ipv6/syncookies.c              |  7 ++++---
+ 7 files changed, 23 insertions(+), 18 deletions(-)
 
-=E6=9D=A5=EF=BC=8C=E5=B9=B2=E4=BA=86=E8=BF=99=E7=A2=97=E9=85=92=EF=BC=8C=
-=E6=8E=A5=E7=9D=80=E8=A7=A3BUG!
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index 191feec60205..b9a6b0a94cc6 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -275,11 +275,6 @@ static inline void inet_csk_reqsk_queue_add(struct sock *sk,
+ 					    struct sock *child)
+ {
+ 	reqsk_queue_add(&inet_csk(sk)->icsk_accept_queue, req, sk, child);
+-	/* before letting lookups find us, make sure all req fields
+-	 * are committed to memory.
+-	 */
+-	smp_wmb();
+-	atomic_set(&req->rsk_refcnt, 1);
+ }
+ 
+ void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 6fec7343070f..b6c3737da4e9 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -81,7 +81,6 @@ struct inet_request_sock {
+ #define ir_cookie		req.__req_common.skc_cookie
+ #define ireq_net		req.__req_common.skc_net
+ #define ireq_state		req.__req_common.skc_state
+-#define ireq_refcnt		req.__req_common.skc_refcnt
+ #define ireq_family		req.__req_common.skc_family
+ 
+ 	kmemcheck_bitfield_begin(flags);
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 723d1cbdf20e..3da166d99c09 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -77,6 +77,11 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
+ 		req->rsk_ops = ops;
+ 		sock_hold(sk_listener);
+ 		req->rsk_listener = sk_listener;
++
++		/* Following is temporary. It is coupled with debugging
++		 * helpers in reqsk_put() & reqsk_free()
++		 */
++		atomic_set(&req->rsk_refcnt, 0);
+ 	}
+ 	return req;
+ }
+@@ -292,9 +297,16 @@ static inline void reqsk_queue_hash_req(struct request_sock_queue *queue,
+ 	req->sk = NULL;
+ 	req->dl_next = lopt->syn_table[hash];
+ 
++	/* before letting lookups find us, make sure all req fields
++	 * are committed to memory and refcnt initialized.
++	 */
++	smp_wmb();
++	atomic_set(&req->rsk_refcnt, 1);
++
+ 	write_lock(&queue->syn_wait_lock);
+ 	lopt->syn_table[hash] = req;
+ 	write_unlock(&queue->syn_wait_lock);
++
+ }
+ 
+ #endif /* _REQUEST_SOCK_H */
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 574b67765a06..34e755403715 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -227,11 +227,12 @@ static struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 	struct sock *child;
+ 
+ 	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
+-	if (child)
++	if (child) {
++		atomic_set(&req->rsk_refcnt, 1);
+ 		inet_csk_reqsk_queue_add(sk, req, child);
+-	else
++	} else {
+ 		reqsk_free(req);
+-
++	}
+ 	return child;
+ }
+ 
+@@ -356,7 +357,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	ireq->opt = tcp_v4_save_options(skb);
+ 
+ 	if (security_inet_conn_request(sk, skb, req)) {
+-		reqsk_put(req);
++		reqsk_free(req);
+ 		goto out;
+ 	}
+ 
+@@ -377,7 +378,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	security_req_classify_flow(req, flowi4_to_flowi(&fl4));
+ 	rt = ip_route_output_key(sock_net(sk), &fl4);
+ 	if (IS_ERR(rt)) {
+-		reqsk_put(req);
++		reqsk_free(req);
+ 		goto out;
+ 	}
+ 
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 186fd394ec0a..82e375a0cbcf 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -169,6 +169,7 @@ static bool tcp_fastopen_create_child(struct sock *sk,
+ 	inet_csk_reset_xmit_timer(child, ICSK_TIME_RETRANS,
+ 				  TCP_TIMEOUT_INIT, TCP_RTO_MAX);
+ 
++	atomic_set(&req->rsk_refcnt, 1);
+ 	/* Add the child socket directly into the accept queue */
+ 	inet_csk_reqsk_queue_add(sk, req, child);
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a94ddb96fc85..1dfbaee3554e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5981,10 +5981,6 @@ struct request_sock *inet_reqsk_alloc(const struct request_sock_ops *ops,
+ 		ireq->ireq_state = TCP_NEW_SYN_RECV;
+ 		write_pnet(&ireq->ireq_net, sock_net(sk_listener));
+ 
+-		/* Following is temporary. It is coupled with debugging
+-		 * helpers in reqsk_put() & reqsk_free()
+-		 */
+-		atomic_set(&ireq->ireq_refcnt, 0);
+ 	}
+ 
+ 	return req;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 1ef0c926ce9d..da5823e5e5a7 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -49,11 +49,12 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+ 	struct sock *child;
+ 
+ 	child = icsk->icsk_af_ops->syn_recv_sock(sk, skb, req, dst);
+-	if (child)
++	if (child) {
++		atomic_set(&req->rsk_refcnt, 1);
+ 		inet_csk_reqsk_queue_add(sk, req, child);
+-	else
++	} else {
+ 		reqsk_free(req);
+-
++	}
+ 	return child;
+ }
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
