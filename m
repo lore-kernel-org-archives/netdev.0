@@ -1,28 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V3 0/3] Add max rate TXQ attribute
-Date: Wed, 18 Mar 2015 14:57:57 -0400 (EDT)
-Message-ID: <20150318.145757.1969543543208545499.davem@davemloft.net>
-References: <1426683455-24243-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH v2 net] bnx2x: Fix statistics locking scheme
+Date: Wed, 18 Mar 2015 15:10:59 -0400 (EDT)
+Message-ID: <20150318.151059.979411313448939306.davem@davemloft.net>
+References: <1426688042-20315-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36921 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37082 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754591AbbCRS6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 14:58:00 -0400
-In-Reply-To: <1426683455-24243-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1756194AbbCRTLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 15:11:03 -0400
+In-Reply-To: <1426688042-20315-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 18 Mar 2015 14:57:32 +0200
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Wed, 18 Mar 2015 16:14:02 +0200
 
-> Add the ability to set a max-rate limitation for TX queues.
-> The attribute name is maxrate and the units are Mbs, to make
-> it similar to the existing max-rate limitation knobs (ETS and 
-> SRIOV ndo calls).
+> +int bnx2x_stats_safe_exec(struct bnx2x *bp,
+> +			  void (func_to_exec)(void *cookie),
+> +			  void *cookie)
+ ...
+> +	if (bp->stats_pending) {
+> +		BNX2X_ERR("Failed to wait for stats pending to clear\n");
+> +		return -EBUSY;
 
-Series applied, thanks.
+Buggy, this returns with the stats_lock still held.
+
+In my humble opinion, you are putting very little care and effort into
+this bug fix.
+
+Also I disagree with your timeout logic.
+
+I suspect that the real reason these timeouts are present, is that
+the locking hierarchy is uncertain.
+
+Nothing really should create the situation those trylocks seem to
+be dealing with.
