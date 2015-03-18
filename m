@@ -1,74 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 1/6] rhashtable: Remove shift from bucket_table
-Date: Wed, 18 Mar 2015 20:01:15 +1100
-Message-ID: <E1YY9ql-0005lr-Fw@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 4/6] tipc: Use rhashtable max/min_size instead of max/min_shift
+Date: Wed, 18 Mar 2015 20:01:18 +1100
+Message-ID: <E1YY9qo-0005mi-Qf@gondolin.me.apana.org.au>
 References: <20150315104306.GA21999@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, tgraf@suug.ch,
 	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:57363 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:60059 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755013AbbCRJBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 05:01:20 -0400
+	with ESMTP id S1755013AbbCRJBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 05:01:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keeping both size and shift is silly.  We only need one.
+This patch converts tipc to use rhashtable max/min_size instead of
+the obsolete max/min_shift.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |    2 --
- lib/rhashtable.c           |    5 ++---
- 2 files changed, 2 insertions(+), 5 deletions(-)
+ net/tipc/socket.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 1695378..f16e856 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -51,7 +51,6 @@ struct rhash_head {
-  * @size: Number of hash buckets
-  * @rehash: Current bucket being rehashed
-  * @hash_rnd: Random seed to fold into hash
-- * @shift: Current size (1 << shift)
-  * @locks_mask: Mask to apply before accessing locks[]
-  * @locks: Array of spinlocks protecting individual buckets
-  * @walkers: List of active walkers
-@@ -63,7 +62,6 @@ struct bucket_table {
- 	unsigned int		size;
- 	unsigned int		rehash;
- 	u32			hash_rnd;
--	u32			shift;
- 	unsigned int		locks_mask;
- 	spinlock_t		*locks;
- 	struct list_head	walkers;
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 09a7ada..0974003 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -162,7 +162,6 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
- 		return NULL;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 813847d..d7a6c10 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -2286,8 +2286,8 @@ int tipc_sk_rht_init(struct net *net)
+ 		.key_offset = offsetof(struct tipc_sock, portid),
+ 		.key_len = sizeof(u32), /* portid */
+ 		.hashfn = jhash,
+-		.max_shift = 20, /* 1M */
+-		.min_shift = 8,  /* 256 */
++		.max_size = 1048576,
++		.min_size = 256,
+ 	};
  
- 	tbl->size = nbuckets;
--	tbl->shift = ilog2(nbuckets);
- 
- 	if (alloc_bucket_locks(ht, tbl) < 0) {
- 		bucket_table_free(tbl);
-@@ -189,7 +188,7 @@ static bool rht_grow_above_75(const struct rhashtable *ht,
- {
- 	/* Expand table when exceeding 75% load */
- 	return atomic_read(&ht->nelems) > (tbl->size / 4 * 3) &&
--	       (!ht->p.max_shift || tbl->shift < ht->p.max_shift);
-+	       (!ht->p.max_shift || tbl->size < (1 << ht->p.max_shift));
- }
- 
- /**
-@@ -202,7 +201,7 @@ static bool rht_shrink_below_30(const struct rhashtable *ht,
- {
- 	/* Shrink table beneath 30% load */
- 	return atomic_read(&ht->nelems) < (tbl->size * 3 / 10) &&
--	       tbl->shift > ht->p.min_shift;
-+	       tbl->size > (1 << ht->p.min_shift);
- }
- 
- static int rhashtable_rehash_one(struct rhashtable *ht, unsigned old_hash)
+ 	return rhashtable_init(&tn->sk_rht, &rht_params);
