@@ -1,54 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v1 PATCH 1/14] rhashtable: Remove shift from bucket_table
-Date: Wed, 18 Mar 2015 21:12:10 +1100
-Message-ID: <20150318101209.GA23236@gondor.apana.org.au>
-References: <20150317112203.GG11089@casper.infradead.org>
- <20150317112726.GC11671@gondor.apana.org.au>
- <20150317115749.GJ17829@casper.infradead.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CB02567@AcuExch.aculab.com>
- <20150317122033.GA12612@gondor.apana.org.au>
- <20150317124012.GH11089@casper.infradead.org>
- <20150317215638.GA16776@gondor.apana.org.au>
- <20150318095102.GL17829@casper.infradead.org>
- <20150318095516.GA22634@gondor.apana.org.au>
- <20150318100812.GM17829@casper.infradead.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH iproute2] tc: m_bpf: fix next arg selection after tc
+ opcode
+Date: Wed, 18 Mar 2015 11:13:33 +0100
+Message-ID: <20150318101333.GD1992@nanopsycho.orion>
+References: <1af5314868a14e738b049319dc2c21102134bc9b.1426669396.git.daniel@iogearbox.net>
+ <20150318100023.GC1992@nanopsycho.orion>
+ <55094D4E.4070101@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "'tgraf@suug.ch'" <tgraf@suug.ch>
+Cc: stephen@networkplumber.org, jhs@mojatatu.com,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:56092 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755427AbbCRKMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 06:12:34 -0400
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:33588 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755588AbbCRKNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 06:13:36 -0400
+Received: by wgbcc7 with SMTP id cc7so30818244wgb.0
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 03:13:35 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20150318100812.GM17829@casper.infradead.org>
+In-Reply-To: <55094D4E.4070101@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 18, 2015 at 10:08:12AM +0000, 'tgraf@suug.ch' wrote:
+Wed, Mar 18, 2015 at 11:02:54AM CET, daniel@iogearbox.net wrote:
+>On 03/18/2015 11:00 AM, Jiri Pirko wrote:
+>>Wed, Mar 18, 2015 at 10:13:34AM CET, daniel@iogearbox.net wrote:
+>>>Next argument after the tc opcode/verdict is optional, using NEXT_ARG()
+>>>requires to have another argument after that one otherwise tc will bail
+>>>out. Therefore, we need to advance to the next argument manually as done
+>>>elsewhere.
+>>>
+>>>Fixes: 86ab59a6660f ("tc: add support for BPF based actions")
+>>>Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>>
+>>Thanks for fixing this Daniel.
 >
-> With this fixed up I can see what you mean. So if we are
-> to only do a chain length based decision, the limit would
-> have to grow together with the table size.
+>Thanks & sorry I forgot to put you in Cc, I realized that too late.
 
-All we could just use a flat limit of 16 since our maximum table
-size is 2^32 (actually a bit less) and 16 should be plenty for
-that.
+It happens, don't worry about that :)
 
-Remember this limit is only there to detect when somebody has
-stolen our secret is trying to DoS us.  So if we can keep them
-under 16 per-bucket it should be sufficient to defeat any attack.
-
-Of course I will also add a patch to limit the number of elements
-to the table size (so maximum utilisation is 100%).  This will come
-after we allow insertions to fail.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>
+>Lack of coffee. ;)
