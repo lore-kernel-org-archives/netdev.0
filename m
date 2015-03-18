@@ -1,63 +1,202 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH net-next 2/4] ipv4: Correct two conditions checking when
- buildig nskb
-Date: Wed, 18 Mar 2015 08:44:08 -0400
-Message-ID: <CABrhC0mYu0GVvtvzX_yLwF=_ZQ9eeLKqsqcCKs3MPC1Mb8GY8w@mail.gmail.com>
-References: <1425978986-8512-1-git-send-email-fan.du@intel.com>
-	<1425978986-8512-3-git-send-email-fan.du@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Fan Du <fengyuleidian0615@gmail.com>
-To: Fan Du <fan.du@intel.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V3 1/3] net: Add max rate tx queue attribute
+Date: Wed, 18 Mar 2015 14:57:33 +0200
+Message-ID: <1426683455-24243-2-git-send-email-ogerlitz@mellanox.com>
+References: <1426683455-24243-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:35317 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932949AbbCRMoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 08:44:10 -0400
-Received: by labjg1 with SMTP id jg1so34854503lab.2
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 05:44:08 -0700 (PDT)
-In-Reply-To: <1425978986-8512-3-git-send-email-fan.du@intel.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:38195 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755734AbbCRM5n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2015 08:57:43 -0400
+In-Reply-To: <1426683455-24243-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 10, 2015 at 5:16 AM, Fan Du <fan.du@intel.com> wrote:
-> When traversing write queue to build 'nskb', the size of 'copy'
-> could only be equal or smaller than skb->len.
->
-> And as we need exactly 'probe_size' bytes data for 'nskb', thus
-> break condition could only be len == probe_size.
->
-> Signed-off-by: Fan Du <fan.du@intel.com>
-> ---
->  net/ipv4/tcp_output.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 5a73ad5..79977d1 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1954,7 +1954,7 @@ static int tcp_mtu_probe(struct sock *sk)
->                                                             skb_put(nskb, copy),
->                                                             copy, nskb->csum);
->
-> -               if (skb->len <= copy) {
-> +               if (skb->len == copy) {
->                         /* We've eaten all the data from this skb.
->                          * Throw it away. */
->                         TCP_SKB_CB(nskb)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags;
-> @@ -1977,7 +1977,7 @@ static int tcp_mtu_probe(struct sock *sk)
->
->                 len += copy;
->
-> -               if (len >= probe_size)
-> +               if (len == probe_size)
->                         break;
->         }
->         tcp_init_tso_segs(sk, nskb, nskb->len);
-> --
-> 1.7.1
->
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This is called "defensive programming." ;-)
+This adds a tx_maxrate attribute to the tx queue sysfs entry allowing
+for max-rate limiting. Along with DCB-ETS and BQL this provides another
+knob to tune queue performance. The limit units are Mbps.
+
+By default it is disabled. To disable the rate limitation after it
+has been set for a queue, it should be set to zero.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ Documentation/ABI/testing/sysfs-class-net-queues |    8 +++
+ Documentation/networking/scaling.txt             |    9 +++
+ include/linux/netdevice.h                        |    8 +++
+ net/core/net-sysfs.c                             |   67 ++++++++++++++++++----
+ 4 files changed, 80 insertions(+), 12 deletions(-)
+
+diff --git a/Documentation/ABI/testing/sysfs-class-net-queues b/Documentation/ABI/testing/sysfs-class-net-queues
+index 5e9aeb9..0c0df91 100644
+--- a/Documentation/ABI/testing/sysfs-class-net-queues
++++ b/Documentation/ABI/testing/sysfs-class-net-queues
+@@ -24,6 +24,14 @@ Description:
+ 		Indicates the number of transmit timeout events seen by this
+ 		network interface transmit queue.
+ 
++What:		/sys/class/<iface>/queues/tx-<queue>/tx_maxrate
++Date:		March 2015
++KernelVersion:	4.1
++Contact:	netdev@vger.kernel.org
++Description:
++		A Mbps max-rate set for the queue, a value of zero means disabled,
++		default is disabled.
++
+ What:		/sys/class/<iface>/queues/tx-<queue>/xps_cpus
+ Date:		November 2010
+ KernelVersion:	2.6.38
+diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+index 99ca40e..cbfac09 100644
+--- a/Documentation/networking/scaling.txt
++++ b/Documentation/networking/scaling.txt
+@@ -421,6 +421,15 @@ best CPUs to share a given queue are probably those that share the cache
+ with the CPU that processes transmit completions for that queue
+ (transmit interrupts).
+ 
++Per TX Queue rate limitation:
++=============================
++
++These are rate-limitation mechanisms implemented by HW, where currently
++a max-rate attribute is supported, by setting a Mbps value to
++
++/sys/class/net/<dev>/queues/tx-<n>/tx_maxrate
++
++A value of zero means disabled, and this is the default.
+ 
+ Further Information
+ ===================
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index dd1d069..76c5de4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -587,6 +587,7 @@ struct netdev_queue {
+ #ifdef CONFIG_BQL
+ 	struct dql		dql;
+ #endif
++	unsigned long		tx_maxrate;
+ } ____cacheline_aligned_in_smp;
+ 
+ static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
+@@ -1022,6 +1023,10 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	be otherwise expressed by feature flags. The check is called with
+  *	the set of features that the stack has calculated and it returns
+  *	those the driver believes to be appropriate.
++ * int (*ndo_set_tx_maxrate)(struct net_device *dev,
++ *			     int queue_index, u32 maxrate);
++ *	Called when a user wants to set a max-rate limitation of specific
++ *	TX queue.
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1178,6 +1183,9 @@ struct net_device_ops {
+ 	netdev_features_t	(*ndo_features_check) (struct sk_buff *skb,
+ 						       struct net_device *dev,
+ 						       netdev_features_t features);
++	int			(*ndo_set_tx_maxrate)(struct net_device *dev,
++						      int queue_index,
++						      u32 maxrate);
+ };
+ 
+ /**
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index cf30620..7e58bd7 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -951,6 +951,60 @@ static ssize_t show_trans_timeout(struct netdev_queue *queue,
+ 	return sprintf(buf, "%lu", trans_timeout);
+ }
+ 
++#ifdef CONFIG_XPS
++static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
++{
++	struct net_device *dev = queue->dev;
++	int i;
++
++	for (i = 0; i < dev->num_tx_queues; i++)
++		if (queue == &dev->_tx[i])
++			break;
++
++	BUG_ON(i >= dev->num_tx_queues);
++
++	return i;
++}
++
++static ssize_t show_tx_maxrate(struct netdev_queue *queue,
++			       struct netdev_queue_attribute *attribute,
++			       char *buf)
++{
++	return sprintf(buf, "%lu\n", queue->tx_maxrate);
++}
++
++static ssize_t set_tx_maxrate(struct netdev_queue *queue,
++			      struct netdev_queue_attribute *attribute,
++			      const char *buf, size_t len)
++{
++	struct net_device *dev = queue->dev;
++	int err, index = get_netdev_queue_index(queue);
++	u32 rate = 0;
++
++	err = kstrtou32(buf, 10, &rate);
++	if (err < 0)
++		return err;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	err = -EOPNOTSUPP;
++	if (dev->netdev_ops->ndo_set_tx_maxrate)
++		err = dev->netdev_ops->ndo_set_tx_maxrate(dev, index, rate);
++
++	rtnl_unlock();
++	if (!err) {
++		queue->tx_maxrate = rate;
++		return len;
++	}
++	return err;
++}
++
++static struct netdev_queue_attribute queue_tx_maxrate =
++	__ATTR(tx_maxrate, S_IRUGO | S_IWUSR,
++	       show_tx_maxrate, set_tx_maxrate);
++#endif
++
+ static struct netdev_queue_attribute queue_trans_timeout =
+ 	__ATTR(tx_timeout, S_IRUGO, show_trans_timeout, NULL);
+ 
+@@ -1065,18 +1119,6 @@ static struct attribute_group dql_group = {
+ #endif /* CONFIG_BQL */
+ 
+ #ifdef CONFIG_XPS
+-static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
+-{
+-	struct net_device *dev = queue->dev;
+-	unsigned int i;
+-
+-	i = queue - dev->_tx;
+-	BUG_ON(i >= dev->num_tx_queues);
+-
+-	return i;
+-}
+-
+-
+ static ssize_t show_xps_map(struct netdev_queue *queue,
+ 			    struct netdev_queue_attribute *attribute, char *buf)
+ {
+@@ -1153,6 +1195,7 @@ static struct attribute *netdev_queue_default_attrs[] = {
+ 	&queue_trans_timeout.attr,
+ #ifdef CONFIG_XPS
+ 	&xps_cpus_attribute.attr,
++	&queue_tx_maxrate.attr,
+ #endif
+ 	NULL
+ };
+-- 
+1.7.1
