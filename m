@@ -1,76 +1,76 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 09/16 linux-next] net: xilinx: constify of_device_id array
-Date: Wed, 18 Mar 2015 07:50:10 +0100
-Message-ID: <BY2FFO11FD004365A4A4A7796DC551DCFE2000@BY2FFO11FD004.protection.gbl>
-References: <1426617469-781-1-git-send-email-fabf@skynet.be>
- <1426617469-781-10-git-send-email-fabf@skynet.be>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: cfg80211: use msecs_to_jiffies for time
+ conversion
+Date: Wed, 18 Mar 2015 00:30:56 -0700
+Message-ID: <1426663856.10043.15.camel@perches.com>
+References: <1426593972-17652-1-git-send-email-hofrat@osadl.org>
+	 <1426596159.23897.61.camel@perches.com>
+	 <20150318064439.GA25924@opentech.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, Michal Simek <michal.simek@xilinx.com>,
-	=?windows-1252?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Fabian Frederick <fabf@skynet.be>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426617469-781-10-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>,
+	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Daniel Kim <dekim-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Nicholas Mc Guire <der.herr-kA1LtwSENNE@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150318064439.GA25924-AxMHDufBahDk7+2FdBfRIA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/17/2015 07:37 PM, Fabian Frederick wrote:
-> of_device_id is always used as const.
-> (See driver.of_match_table and open firmware functions)
-> 
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
->  drivers/net/ethernet/xilinx/ll_temac_main.c       | 2 +-
->  drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 2 +-
->  drivers/net/ethernet/xilinx/xilinx_emaclite.c     | 2 +-
->  3 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-> index dbcbf0c..690a4c3 100644
-> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-> @@ -1157,7 +1157,7 @@ static int temac_of_remove(struct platform_device *op)
->  	return 0;
->  }
->  
-> -static struct of_device_id temac_of_match[] = {
-> +static const struct of_device_id temac_of_match[] = {
->  	{ .compatible = "xlnx,xps-ll-temac-1.01.b", },
->  	{ .compatible = "xlnx,xps-ll-temac-2.00.a", },
->  	{ .compatible = "xlnx,xps-ll-temac-2.02.a", },
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> index a6d2860..28b7e7d 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-> @@ -48,7 +48,7 @@
->  #define AXIENET_REGS_N		32
->  
->  /* Match table for of_platform binding */
-> -static struct of_device_id axienet_of_match[] = {
-> +static const struct of_device_id axienet_of_match[] = {
->  	{ .compatible = "xlnx,axi-ethernet-1.00.a", },
->  	{ .compatible = "xlnx,axi-ethernet-1.01.a", },
->  	{ .compatible = "xlnx,axi-ethernet-2.01.a", },
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> index 9d4ce38..2111b91 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> @@ -1231,7 +1231,7 @@ static struct net_device_ops xemaclite_netdev_ops = {
->  };
->  
->  /* Match table for OF platform binding */
-> -static struct of_device_id xemaclite_of_match[] = {
-> +static const struct of_device_id xemaclite_of_match[] = {
->  	{ .compatible = "xlnx,opb-ethernetlite-1.01.a", },
->  	{ .compatible = "xlnx,opb-ethernetlite-1.01.b", },
->  	{ .compatible = "xlnx,xps-ethernetlite-1.00.a", },
-> 
+On Wed, 2015-03-18 at 07:44 +0100, Nicholas Mc Guire wrote:
+> On Tue, 17 Mar 2015, Joe Perches wrote:
+> > On Tue, 2015-03-17 at 08:06 -0400, Nicholas Mc Guire wrote:
+> > > Converting milliseconds to jiffies by "val * HZ / 1000" is technically
+> > > OK but msecs_to_jiffies(val) is the cleaner solution and handles all
+> > > corner cases correctly. This is a minor API consolidation only and
+> > > should make things more readable.
 
-Acked-by: Michal Simek <michal.simek@xilinx.com>
+> > These API consolidation changes now always have a function
+> > call when the compiler may have previously been able to
+> > optimize out the "constant * HZ / 1000" calculation.
+> >
+> > Perhaps the [um]secs_to_jiffies calls should be indirected
+> > with yet another static inline with a __builtin_constant_p()
+> > test so that the function calls can again be avoided when
+> > possible.
+> 
+> will give it a try 
 
-Thanks,
-Michal
+OK, thanks.
+
+The tricky bit seems to be the movement of
+the Makefile for kernel/time/timeconst.h.
+
+  BC      kernel/time/timeconst.h
+
+as include/linux/time.h would need these
+calculated #defines
+
+#define MSEC_TO_HZ_MUL32	U64_C(0x80000000)
+#define MSEC_TO_HZ_ADJ32	U64_C(0x0)
+#define MSEC_TO_HZ_SHR32	31
+
+and the usec ones too.
+
+That created file would have to be moved from
+kernel/time/Makefile to some other location
+that could be in the normal include path like
+include/linux/timeconst.h so that it can be
+used by include/linux/time.h
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
