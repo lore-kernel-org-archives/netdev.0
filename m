@@ -1,57 +1,174 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH 11/13] can: at91_can: use endian agnostic IO accessors
-Date: Wed, 18 Mar 2015 15:53:10 +0000
-Message-ID: <1426693992-31163-12-git-send-email-ben.dooks@codethink.co.uk>
-References: <1426693992-31163-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: linux-kernel@lists.codethink.co.uk,
-	linux-arm-kernel@lists.infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:32884 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754998AbbCRPxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 11:53:51 -0400
-In-Reply-To: <1426693992-31163-1-git-send-email-ben.dooks@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Imre Palik <imrep.amz@gmail.com>
+Subject: Re: [RFC PATCH] xen-netback: making the bandwidth limiter runtime
+ settable
+Date: Wed, 18 Mar 2015 17:21:08 +0100
+Message-ID: <5509A5F4.2010402@gmail.com>
+References: <1426251065-24279-1-git-send-email-imrep.amz@gmail.com> <20150317111749.GC27314@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Palik, Imre" <imrep@amazon.de>,
+	Anthony Liguori <aliguori@amazon.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150317111749.GC27314@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change __raw accesors to  endian agnostic versions to allow the driver
-to work properly on big endian systems.
+On 03/17/15 12:17, Wei Liu wrote:
+> On Fri, Mar 13, 2015 at 01:51:05PM +0100, Imre Palik wrote:
+>> From: "Palik, Imre" <imrep@amazon.de>
+>>
+>> With the current netback, the bandwidth limiter's parameters are only
+>> settable during vif setup time.  This patch register a watch on them, and
+>> thus makes them runtime changeable.
+>>
+>> When the watch fires, the timer is reset.  The timer's mutex is used for
+>> fencing the change.
+>>
+> 
+> I think this is a valid idea.  Just that this commit message is not
+> complete. It doesn't describe everything this patch does.
+> 
+>> Cc: Anthony Liguori <aliguori@amazon.com>
+>> Signed-off-by: Imre Palik <imrep@amazon.de>
+>> ---
+> [...]
+>>  	queue->rx_queue_max = XENVIF_RX_QUEUE_BYTES;
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index cab9f52..bcc1880 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -641,7 +641,7 @@ static void tx_add_credit(struct xenvif_queue *queue)
+>>  	queue->remaining_credit = min(max_credit, max_burst);
+>>  }
+>>  
+>> -static void tx_credit_callback(unsigned long data)
+>> +void xenvif_tx_credit_callback(unsigned long data)
+> 
+> Please keep this function static.
 
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
---
-CC: Wolfgang Grandegger <wg@grandegger.com>
-CC: Marc Kleine-Budde <mkl@pengutronix.de>
-CC: linux-can@vger.kernel.org
-CC: netdev@vger.kernel.org
-CC: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/can/at91_can.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The trouble with that, is that now I am initialising credit_timeout.function in
+drivers/net/xen-netback/interface.c .
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index eeb4b8b..f4e40aa 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -291,13 +291,13 @@ static inline unsigned int get_tx_echo_mb(const struct at91_priv *priv)
- 
- static inline u32 at91_read(const struct at91_priv *priv, enum at91_reg reg)
- {
--	return __raw_readl(priv->reg_base + reg);
-+	return readl_relaxed(priv->reg_base + reg);
- }
- 
- static inline void at91_write(const struct at91_priv *priv, enum at91_reg reg,
- 		u32 value)
- {
--	__raw_writel(value, priv->reg_base + reg);
-+	writel_relaxed(value, priv->reg_base + reg);
- }
- 
- static inline void set_mb_mode_prio(const struct at91_priv *priv,
--- 
-2.1.4
+The reason for the change is that mod_timer_pending() hits a BUG() if
+the timeout function is not initialised.
+
+> 
+> And say in the commit message you change tx_credit_callback to a better
+> name.
+> 
+>>  {
+>>  	struct xenvif_queue *queue = (struct xenvif_queue *)data;
+>>  	tx_add_credit(queue);
+>> @@ -1170,7 +1170,7 @@ static bool tx_credit_exceeded(struct xenvif_queue *queue, unsigned size)
+>>  		queue->credit_timeout.data     =
+>>  			(unsigned long)queue;
+>>  		queue->credit_timeout.function =
+>> -			tx_credit_callback;
+>> +			xenvif_tx_credit_callback;
+>>  		mod_timer(&queue->credit_timeout,
+>>  			  next_credit);
+> [...]
+>> @@ -594,13 +597,9 @@ static void xen_net_read_rate(struct xenbus_device *dev,
+>>  	unsigned long b, u;
+>>  	char *ratestr;
+>>  
+>> -	/* Default to unlimited bandwidth. */
+>> -	*bytes = ~0UL;
+>> -	*usec = 0;
+>> -
+>>  	ratestr = xenbus_read(XBT_NIL, dev->nodename, "rate", NULL);
+>>  	if (IS_ERR(ratestr))
+>> -		return;
+>> +		goto reset;
+>>  
+>>  	s = ratestr;
+>>  	b = simple_strtoul(s, &e, 10);
+>> @@ -612,15 +611,21 @@ static void xen_net_read_rate(struct xenbus_device *dev,
+>>  	if ((s == e) || (*e != '\0'))
+>>  		goto fail;
+>>  
+>> +	kfree(ratestr);
+>> +
+>>  	*bytes = b;
+>>  	*usec = u;
+>>  
+>> -	kfree(ratestr);
+>>  	return;
+>>  
+>> - fail:
+>> +fail:
+>>  	pr_warn("Failed to parse network rate limit. Traffic unlimited.\n");
+>>  	kfree(ratestr);
+>> +
+>> +reset:
+>> +	/* Default to unlimited bandwidth. */
+>> +	*bytes = ~0UL;
+>> +	*usec = 0;
+>>  }
+>>  
+> 
+> Any reason you modify this function? It is still doing the exact same
+> thing, right?
+
+These changes made sense before the channel support, but not anymore.
+I will roll them back.
+
+> 
+>>  static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
+>> @@ -645,6 +650,59 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
+>>  	return 0;
+>>  }
+>>  
+>> +static void xen_net_rate_changed(struct xenbus_watch *watch,
+>> +				const char **vec, unsigned int len)
+>> +{
+>> +	struct xenvif *vif = container_of(watch, struct xenvif, credit_watch);
+>> +	struct xenbus_device *dev = xenvif_to_xenbus_device(vif);
+>> +	unsigned long   credit_bytes;
+>> +	unsigned long   credit_usec;
+>> +	unsigned int queue_index;
+>> +
+>> +	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
+>> +	for (queue_index = 0; queue_index < vif->num_queues; queue_index++) {
+>> +		struct xenvif_queue *queue = &vif->queues[queue_index];
+>> +
+>> +		queue->credit_bytes = credit_bytes;
+>> +		queue->credit_usec = credit_usec;
+>> +		if (!mod_timer_pending(&queue->credit_timeout, jiffies) &&
+>> +			queue->remaining_credit > queue->credit_bytes) {
+>> +			queue->remaining_credit = queue->credit_bytes;
+>> +		}
+>> +	}
+>> +}
+>> +
+>> +static int xen_register_watchers(struct xenbus_device *dev, struct xenvif *vif)
+>> +{
+>> +	int err = 0;
+>> +	char *node;
+>> +	unsigned maxlen = strlen(dev->nodename) + sizeof("/rate");
+>> +
+>> +	node = kmalloc(maxlen, GFP_KERNEL);
+>> +	if (!node)
+>> +		return -ENOMEM;
+>> +	sprintf(node, "%s/rate", dev->nodename);
+> 
+> Please use snprintf. (Though I can see using sprintf is fine here but I
+> want the code to be a bit future proof.)
+> 
+>> +	vif->credit_watch.node = node;
+>> +	vif->credit_watch.callback = xen_net_rate_changed;
+>> +	err = register_xenbus_watch(&vif->credit_watch);
+>> +	if (err) {
+>> +		pr_err("Failed to set watcher %s\n", vif->credit_watch.node);
+>> +		kfree(node);
+>> +		vif->credit_watch.node = 0;
+>> +		vif->credit_watch.callback = 0;
+> 
+> Please use NULL here.
+> 
+> Wei.
+> 
