@@ -1,137 +1,103 @@
-From: Bandan Das <bsd@redhat.com>
-Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
-Date: Wed, 18 Mar 2015 11:24:14 -0400
-Message-ID: <jpgk2yewcpt.fsf@redhat.com>
-References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
-	<jpg8uf2ghln.fsf@redhat.com>
-	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
-	<jpgtwxpvk5x.fsf@redhat.com>
-	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>
-	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
-	<jpg1tko7qwb.fsf@redhat.com>
-	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
-	<jpglhiw4tal.fsf@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Wed, 18 Mar 2015 08:24:55 -0700
+Message-ID: <550998C7.7080108@gmail.com>
+References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com> <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com> <20150309064043.GB2053@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com> <20150309160754.GA2169@nanopsycho.lan> <E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com> <20150310063926.GA1995@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com> <20150310082817.GC1995@nanopsycho.orion> <550752BA.5040702@gmail.com> <20150317070046.GB2042@nanopsycho.orion> <55083AB6.4060003@intel.com> <55088E2C.5000405@cumulusnetworks.com> <5508C3EA.80009@intel.com> <55091B4C.7090507@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alex Williamson <alex.williamson@redhat.com>,
-	QEMU Developers <qemu-devel@nongnu.org>,
-	kvm-devel <kvm@vger.kernel.org>,
-	Stefan Assmann <sassmann@redhat.com>, netdev@vger.kernel.org
-To: jacob jacob <opstkusr@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:36263 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbbCRPZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 11:25:28 -0400
+Received: by obdfc2 with SMTP id fc2so34438635obd.3
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 08:25:27 -0700 (PDT)
+In-Reply-To: <55091B4C.7090507@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Ccing netdev and Stefan]
-Bandan Das <bsd@redhat.com> writes:
+[...]
 
-> jacob jacob <opstkusr@gmail.com> writes:
+>> So what about a vlan device?
+> Our main focus has always been devices which use the in-kernel bridge
+> driver. We have been testing this with mainly vlan
+> filtering bridge. But yes, vlan and vxlan devices will need to be
+> supported in the stacked netdevice case.
+> And that's why the initial proposal was to transparently traverse the
+> stacked netdevs and we are trying to bring that back in this thread.
 >
->> On Mon, Mar 16, 2015 at 2:12 PM, Bandan Das <bsd@redhat.com> wrote:
->>> jacob jacob <opstkusr@gmail.com> writes:
->>>
->>>> I also see the following in dmesg in the VM.
->>>>
->>>> [    0.095758] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
->>>> [    0.096006] acpi PNP0A03:00: ACPI _OSC support notification failed,
->>>> disabling PCIe ASPM
->>>> [    0.096915] acpi PNP0A03:00: Unable to request _OSC control (_OSC
->>>> support mask: 0x08)
->>> IIRC, For OSC control, after BIOS is done with (whatever initialization
->>> it needs to do), it clears a bit so that the OS can take over. This message,
->>> you are getting is a sign of a bug in the BIOS (usually). But I don't
->>> know if this is related to your problem. Does "dmesg | grep -e DMAR -e IOMMU"
->>> give anything useful ?
+>> In this case the software viewpoint is different then the hardware
+>> viewpoint so is it correct to pass the configuration down like this?
+>
+> We just want bridge port config passed down to the switch driver.
+>
+
+Sure thought about it some more and I can't see any cases that break.
+But it is a change in the model from the normal software case.
+
+>> Also what if the bond device
+>> is a LAG, is it correct to passthrough like this?
+> hmm...I don't think it matters. We are just trying to get to the switch
+> driver.
+
+Came to the same conclusion, it doesn't seem to matter it is different
+though.
+
 >>
->> Do not see anything useful in the output..
->
-> Ok, Thanks. Can you please post the output as well ?
->
->>>> [    0.097072] acpi PNP0A03:00: fail to add MMCONFIG information,
->>>> can't access extended PCI configuration space under this bridge.
->>>>
->>>> Does this indicate any issue related to PCI passthrough?
->>>>
->>>> Would really appreciate any input on how to bebug this further.
->>>
->>> Did you get a chance to try a newer kernel ?
->> Currently am using 3.18.7-200.fc21.x86_64 which is pretty recent.
->> Are you suggesting trying the newer kernel just on the host? (or VM too?)
-> Both preferably to 3.19. But it's just a wild guess. I saw i40e related fixes,
-> particularly "i40e: fix un-necessary Tx hangs" in 3.19-rc5. This is not exactly
-> what you are seeing but I was still wondering if it could help.
+>> Thanks for the clarification I guess I need to work through some
+>> examples to convince myself
+>> this works. I'm guessing you (or someone) already did this and I'm
+>> just late to the game.
+>>
+> For cases where we use the in-kernel bridge driver, yes it is tested for
+> passing down bridge port attributes that is
+> different than the in-kernel bridge attributes (example learning).
 
-Actually, Stefan suggests that support for this card is still sketchy
-and your best bet is to try out net-next
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+Yep, I've tested it here as well this is good.
 
-Also, could you please post more information about your hardware setup
-(chipset/processor/firmware version on the card etc) ?
-
-Thanks,
-Bandan
-
-> Meanwhile, I am trying to get hold of a card myself to try and reproduce
-> it at my end.
 >
-> Thanks,
-> Bandan
+> I am not sure how this would be and what other issues you will hit if
+> you are planning to bypass the kernel and directly go to the switch
+> driver for all l2 and l3 in the stacked netdevice case. For l3, its
+> better to use the in-kernel route fib offload mechanism which was
+> recently submitted by scott feldman.
 >
->>>> On Fri, Mar 13, 2015 at 10:08 AM, jacob jacob <opstkusr@gmail.com> wrote:
->>>>>> So, it could be the i40e driver then ? Because IIUC, VFs use a separate
->>>>>> driver. Just to rule out the possibility that there might be some driver fixes that
->>>>>> could help with this, it might be a good idea to try a 3.19 or later upstream
->>>>>> kernel.
->>>>>>
->>>>>
->>>>> I tried with the latest DPDK release too (dpdk-1.8.0) and see the same issue.
->>>>> As mentioned earlier, i do not see any issues at all when running
->>>>> tests using either i40e or dpdk on the host itself.
->>>>> This is the reason why i am suspecting if it is anything to do with KVM/libvirt.
->>>>> Both with regular PCI passthrough and VF passthrough i see issues. It
->>>>> is always pointing to some issue with packet transmission. Receive
->>>>> seems to work ok.
->>>>>
->>>>>
->>>>> On Thu, Mar 12, 2015 at 8:02 PM, Bandan Das <bsd@redhat.com> wrote:
->>>>>> jacob jacob <opstkusr@gmail.com> writes:
->>>>>>
->>>>>>> On Thu, Mar 12, 2015 at 3:07 PM, Bandan Das <bsd@redhat.com> wrote:
->>>>>>>> jacob jacob <opstkusr@gmail.com> writes:
->>>>>>>>
->>>>>>>>>  Hi,
->>>>>>>>>
->>>>>>>>>  Seeing failures when trying to do PCI passthrough of Intel XL710 40G
->>>>>>>>> interface to KVM vm.
->>>>>>>>>      0a:00.1 Ethernet controller: Intel Corporation Ethernet
->>>>>>>>> Controller XL710 for 40GbE QSFP+ (rev 01)
->>>>>>>>
->>>>>>>> You are assigning the PF right ? Does assigning VFs work or it's
->>>>>>>> the same behavior ?
->>>>>>>
->>>>>>> Yes.Assigning VFs worked ok.But this had other issues while bringing down VMs.
->>>>>>> Interested in finding out if PCI passthrough of 40G intel XL710
->>>>>>> interface is qualified in some specific kernel/kvm release.
->>>>>>
->>>>>> So, it could be the i40e driver then ? Because IIUC, VFs use a separate
->>>>>> driver. Just to rule out the possibility that there might be some driver fixes that
->>>>>> could help with this, it might be a good idea to try a 3.19 or later upstream
->>>>>> kernel.
->>>>>>
->>>>>>>>> From dmesg on host:
->>>>>>>>>
->>>>>>>>>> [80326.559674] kvm: zapping shadow pages for mmio generation wraparound
->>>>>>>>>> [80327.271191] kvm [175994]: vcpu0 unhandled rdmsr: 0x1c9
->>>>>>>>>> [80327.271689] kvm [175994]: vcpu0 unhandled rdmsr: 0x1a6
->>>>>>>>>> [80327.272201] kvm [175994]: vcpu0 unhandled rdmsr: 0x1a7
->>>>>>>>>> [80327.272681] kvm [175994]: vcpu0 unhandled rdmsr: 0x3f6
->>>>>>>>>> [80327.376186] kvm [175994]: vcpu0 unhandled rdmsr: 0x606
->>>>>>>>
->>>>>>>> These are harmless and are related to unimplemented PMU msrs,
->>>>>>>> not VFIO.
->>>>>>>>
->>>>>>>> Bandan
->>>>>>> --
->>>>>>> To unsubscribe from this list: send the line "unsubscribe kvm" in
->>>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Why? I saw the patched and liked it but noted that the existing policy
+wont actually work for real networks. Its a good start. My proposal
+is to add a flag to l3 to similarly fail to load a rule if it can't
+be pushed at hardware same as l2.
+
+I'm getting off the topic of this thread I guess but I'm not
+bypassing anything IMO. I want to configure the hardware datapath and I
+want to configure the software datapath. For devices with 10, 40,
+100Gbps links dropping traffic into the software datapath is not a
+viable option in many cases. Traffic will degrade, packets will be
+dropped and with 100's or 1000's of these switches managing a network
+that some times jumps into software or worse on a single path through
+the network might be in software on one hop and in hardware in the next
+is not manageable.
+
+When a packet hits the software datapath it is the exception case I want
+to handle it as an exception. It also got into the software datapath
+because I had a "trap" action in hardware to send it up to software. So
+having the software/hardware datapaths mirror each other isn't really
+useful at least on the devices I work on. For small home routers and
+other types of systems it makes some sense. Perhaps you can even manage
+10Gpbs ports like this if you are careful but I really don't see how you
+throw a set of 100Gbps links up to kernel datapath running on a
+smallish CPU.
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
