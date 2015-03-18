@@ -1,79 +1,56 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 3/4] IB/mlx4: Saturate RoCE port PMA counters in case of overflow
-Date: Wed, 18 Mar 2015 16:24:52 +0200
-Message-ID: <1426688693-18980-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 4/4] net/mlx4_en: Set statistics bitmap at port init
+Date: Wed, 18 Mar 2015 16:24:53 +0200
+Message-ID: <1426688693-18980-5-git-send-email-ogerlitz@mellanox.com>
 References: <1426688693-18980-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Hadar Har-Zion <hadarh@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:46655 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:46662 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750729AbbCROZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Mar 2015 10:25:27 -0400
+	id S1750916AbbCROZa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Mar 2015 10:25:30 -0400
 In-Reply-To: <1426688693-18980-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Majd Dibbiny <majd@mellanox.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-For RoCE ports, we set the u32 PMA values based on u64 HCA counters. In case of
-overflow, according to the IB spec, we have to saturate a counter to its
-max value, do that.
+Port statistics bitmap will now be initialized at port init.  Even before
+starting the port, statistics are visible to the user and must be properly masked.
 
-Fixes: c37791349cc7 ('IB/mlx4: Support PMA counters for IBoE')
-Signed-off-by: Majd Dibbiny <majd@mellanox.com>
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/mad.c |   23 +++++++++++++++++++----
- 1 files changed, 19 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
-index c761971..40850f1 100644
---- a/drivers/infiniband/hw/mlx4/mad.c
-+++ b/drivers/infiniband/hw/mlx4/mad.c
-@@ -64,6 +64,17 @@ enum {
- #define GUID_TBL_BLK_NUM_ENTRIES 8
- #define GUID_TBL_BLK_SIZE (GUID_TBL_ENTRY_SIZE * GUID_TBL_BLK_NUM_ENTRIES)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 2a210c4..ebce5bb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1698,8 +1698,6 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	/* Schedule multicast task to populate multicast list */
+ 	queue_work(mdev->workqueue, &priv->rx_mode_task);
  
-+#define MAX_BE32 0xffffffffULL
-+#define MAX_BE16 0xffffUL
-+
-+/* Counters should be saturate once they reach their maximum value */
-+#define ASSIGN_32BIT_COUNTER(counter, value) do {\
-+	if ((value) > MAX_BE32)			 \
-+		counter = cpu_to_be32(MAX_BE32); \
-+	else					 \
-+		counter = cpu_to_be32(value);	 \
-+} while (0)
-+
- struct mlx4_mad_rcv_buf {
- 	struct ib_grh grh;
- 	u8 payload[256];
-@@ -806,10 +817,14 @@ static int ib_process_mad(struct ib_device *ibdev, int mad_flags, u8 port_num,
- static void edit_counter(struct mlx4_counter *cnt,
- 					struct ib_pma_portcounters *pma_cnt)
- {
--	pma_cnt->port_xmit_data = cpu_to_be32((be64_to_cpu(cnt->tx_bytes)>>2));
--	pma_cnt->port_rcv_data  = cpu_to_be32((be64_to_cpu(cnt->rx_bytes)>>2));
--	pma_cnt->port_xmit_packets = cpu_to_be32(be64_to_cpu(cnt->tx_frames));
--	pma_cnt->port_rcv_packets  = cpu_to_be32(be64_to_cpu(cnt->rx_frames));
-+	ASSIGN_32BIT_COUNTER(pma_cnt->port_xmit_data,
-+			     (be64_to_cpu(cnt->tx_bytes) >> 2));
-+	ASSIGN_32BIT_COUNTER(pma_cnt->port_rcv_data,
-+			     (be64_to_cpu(cnt->rx_bytes) >> 2));
-+	ASSIGN_32BIT_COUNTER(pma_cnt->port_xmit_packets,
-+			     be64_to_cpu(cnt->tx_frames));
-+	ASSIGN_32BIT_COUNTER(pma_cnt->port_rcv_packets,
-+			     be64_to_cpu(cnt->rx_frames));
- }
+-	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
+-
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	if (priv->mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+ 		vxlan_get_rx_port(dev);
+@@ -2853,6 +2851,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 		queue_delayed_work(mdev->workqueue, &priv->service_task,
+ 				   SERVICE_TASK_DELAY);
  
- static int iboe_process_mad(struct ib_device *ibdev, int mad_flags, u8 port_num,
++	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
++
+ 	return 0;
+ 
+ out:
 -- 
 1.7.1
