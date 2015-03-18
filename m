@@ -1,37 +1,57 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: iproute2: ss - Disable stderr messages by default
-Date: Wed, 18 Mar 2015 17:38:41 +0200
-Message-ID: <20150318153841.GA1469@angus-think.wlc.globallogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH 11/13] can: at91_can: use endian agnostic IO accessors
+Date: Wed, 18 Mar 2015 15:53:10 +0000
+Message-ID: <1426693992-31163-12-git-send-email-ben.dooks@codethink.co.uk>
+References: <1426693992-31163-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: linux-kernel@lists.codethink.co.uk,
+	linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:32906 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbbCRPu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 11:50:26 -0400
-Received: by lbnq5 with SMTP id q5so4697454lbn.0
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 08:50:25 -0700 (PDT)
-Received: from angus-think.wlc.globallogic.com ([195.234.75.250])
-        by mx.google.com with ESMTPSA id n12sm3459053lbg.31.2015.03.18.08.50.24
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 18 Mar 2015 08:50:24 -0700 (PDT)
-Content-Disposition: inline
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:32884 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754998AbbCRPxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 11:53:51 -0400
+In-Reply-To: <1426693992-31163-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Change __raw accesors to  endian agnostic versions to allow the driver
+to work properly on big endian systems.
 
-If use latest ss on older kernel (for example 3.0) there will be
-RTNL errors printed and ss will use stats info from /proc because
-kernel does not support some diag features. So would not it better
-to do not print RTNL errors by default but only when special option was
-specified - for example '-E' ?
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+--
+CC: Wolfgang Grandegger <wg@grandegger.com>
+CC: Marc Kleine-Budde <mkl@pengutronix.de>
+CC: linux-can@vger.kernel.org
+CC: netdev@vger.kernel.org
+CC: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/can/at91_can.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Or at least add to man page that user can export PROC_ROOT variable to
-ss to use /proc by default.
-
-What do you think?
-
-Thanks,
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index eeb4b8b..f4e40aa 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -291,13 +291,13 @@ static inline unsigned int get_tx_echo_mb(const struct at91_priv *priv)
+ 
+ static inline u32 at91_read(const struct at91_priv *priv, enum at91_reg reg)
+ {
+-	return __raw_readl(priv->reg_base + reg);
++	return readl_relaxed(priv->reg_base + reg);
+ }
+ 
+ static inline void at91_write(const struct at91_priv *priv, enum at91_reg reg,
+ 		u32 value)
+ {
+-	__raw_writel(value, priv->reg_base + reg);
++	writel_relaxed(value, priv->reg_base + reg);
+ }
+ 
+ static inline void set_mb_mode_prio(const struct at91_priv *priv,
+-- 
+2.1.4
