@@ -1,92 +1,87 @@
-From: Oded Gabbay <oded.gabbay@amd.com>
-Subject: Re: Linux XIA - merge proposal
-Date: Wed, 18 Mar 2015 12:27:30 +0200
-Message-ID: <55095312.5080802@amd.com>
-References: <54F5EF6E.9090303@digirati.com.br>
- <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com>
- <550301B6.3090302@digirati.com.br> <20150315093752.GA29005@kroah.com>
- <55081D48.3000407@digirati.com.br>
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: Re: [PATCH net-next v4 2/3] newly configured FDB ageing time becomes
+ effective immediately
+Date: Wed, 18 Mar 2015 17:06:05 +0530
+Message-ID: <CA+CtxLQEt+tXk-jMxtBr3=-Y3pzZ+gLcUqgaxovtFH2QCTRu4A@mail.gmail.com>
+References: <cover.1426509272.git.siva.mannem.lnx@gmail.com>
+	<80d2d6e6efcafd636712f8bf91c8f002d1d7692d.1426509272.git.siva.mannem.lnx@gmail.com>
+	<55083D2B.4050604@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Michel Machado <michel@digirati.com.br>,
-	Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55081D48.3000407@digirati.com.br>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:36743 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755663AbbCRLgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 07:36:06 -0400
+Received: by wgra20 with SMTP id a20so32603276wgr.3
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 04:36:05 -0700 (PDT)
+In-Reply-To: <55083D2B.4050604@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 03/17/2015 02:25 PM, Michel Machado wrote:
-> On 03/15/2015 05:37 AM, Greg KH wrote:
->> On Fri, Mar 13, 2015 at 11:26:46AM -0400, Michel Machado wrote:
->>> On 03/10/2015 01:01 PM, Bjorn Helgaas wrote:
->>>>  From my point of view (far outside the networking world and completely
->>>> incompetent to judge the merits of XIA), this email seems like a
->>>> reasonable starting point for a discussion, and I'm disappointed that
->>>> it got shut down so fast.  It might not be in *exactly* the form
->>>> people are looking for, but hey, it's an introductory email, and
->>>> Michel seems open to constructive feedback.
->>>
->>>     Thank you for the support, Bjorn.
->>>
->>>     I've brainstormed with friends questions that could address the
->>> concerns
->>> that haven't been voiced in this thread, and I answered those
->>> questions in
->>> our FAQ page:
->>>
->>>     https://github.com/AltraMayor/XIA-for-Linux/wiki/FAQ
->>>
->>>     While I would like to have Linux XIA merged, I also don't want to
->>> become
->>> importunate. So, if nobody else shows interest in this thread, I'm
->>> going to
->>> leave it to rest.
+On Tue, Mar 17, 2015 at 8:11 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 3/17/2015 2:02 AM, Siva Mannem wrote:
+>
+>> This patch ensures that the newly configured FDB ageing time becomes
+>> effective
+>> immediately. It also makes the behavior consistent when the ageing_timer
+>> is set
+>> using any of the three existing mechanisms(sysfs, ioctl, netlink).
+>
+>
+>> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+>> Suggested-by: Scott Feldman <sfeldma@gmail.com>
+>> ---
+>>   net/bridge/br_device.c   | 4 ++++
+>>   net/bridge/br_ioctl.c    | 3 +--
+>>   net/bridge/br_sysfs_br.c | 8 +-------
+>>   3 files changed, 6 insertions(+), 9 deletions(-)
+>
+>
+>> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+>> index 1a665aa..293a113 100644
+>> --- a/net/bridge/br_device.c
+>> +++ b/net/bridge/br_device.c
+>> @@ -396,12 +396,16 @@ void br_dev_setup(struct net_device *dev)
+>>   int br_set_ageing_time(struct net_bridge *br, unsigned long val)
+>>   {
+>>         unsigned long t = clock_t_to_jiffies(val);
+>> +       unsigned long old_ageing_time;
 >>
->> But you have yet to actually post the code, why give up now, you haven't
->> even tried.  A number of people have given you hints here as to what you
->> should be doing / trying, to just run away without even attempting it
->> seems quite odd and defeatist.
+>>         if (t < BR_MIN_AGEING_TIME || t > BR_MAX_AGEING_TIME)
+>>                 return -ERANGE;
+>>
+>>         spin_lock_bh(&br->lock);
+>> +       old_ageing_time =  br->ageing_time;
 >
-> Hi Greg,
 >
->     After reading your e-mail, I realized that I hadn't really
-> understood the feedback that I've received. I'm going to follow your
-> advice. Figuring out how to break our codebase in series of patches is
-> going to take sometime, but I intend to get it moving.
+>    One space is enough after '='...
 >
-> [ ]'s
-> Michel Machado
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+>>         br->ageing_time = t;
+>> +       if (br->ageing_time < old_ageing_time)
+>
+>
+>    Isn't it enough to compare just 't' instead of 'br->ageing_time'?
+>
+>> +               mod_timer(&br->gc_timer, jiffies);
+>>         spin_unlock_bh(&br->lock);
+>>         return 0;
+>>   }
+>
+> [...]
+>
+> WBR, Sergei
+>
+Yep. Will address them in next version.
+Thanks.
 
-Hi Michel,
-If you want an example of how to break a fairly medium+ 
-code-base/driver, I believe amdkfd is a good example. Originally, I had 
-dumped 80+ patches, but after getting some flames & help from drm devs, 
-I rearranged them into a nicely 25 patches:
-
-1. Several patches that implements helper functions in other drivers 
-(mm, iommu, radeon)
-2. Patch to add IOCTL definitions (kfd_ioctl.h)
-3. Patch to add skeleton code base of driver
-4. Several patches that add different modules in the amdkfd driver
-5. Several patches that implement the IOCTLs in the amdkfd drivers
-
-See this link for the final set that was merged into 3.19-rc1: 
-http://cgit.freedesktop.org/~gabbayo/linux/?h=amdkfd-v6
-
-Take a look from commit "Merge branch 'drm-next-3.19'  to the HEAD of 
-the log.
-
-If you need additional advice, you can contact me.
-
-	Oded
+-- 
+Regards,
+Siva Mannem.
