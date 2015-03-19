@@ -1,97 +1,73 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [3.13.y-ckt stable] Patch "lib/checksum.c: fix carry in csum_tcpudp_nofold" has been added to staging queue
-Date: Thu, 19 Mar 2015 15:29:25 -0700
-Message-ID: <1426804165-1913-1-git-send-email-kamal@canonical.com>
-Cc: Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kamal Mostafa <kamal@canonical.com>,
-	kernel-team@lists.ubuntu.com
-To: karl beldan <karl.beldan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] rhashtable: Round up/down min/max_size to ensure we
+ respect limit
+Date: Thu, 19 Mar 2015 22:31:13 +0000
+Message-ID: <20150319223113.GD4190@casper.infradead.org>
+References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
+ <20150319.152450.1573636653085091157.davem@davemloft.net>
+ <20150319194608.GA27962@casper.infradead.org>
+ <20150319210239.GB9601@gondor.apana.org.au>
+ <20150319211546.GA4190@casper.infradead.org>
+ <20150319214933.GA11937@gondor.apana.org.au>
+ <20150319220248.GA12428@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:35408 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750967AbbCSWbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 18:31:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20150319220248.GA12428@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a note to let you know that I have just added a patch titled
+Round up min_size respectively round down max_size to the next power
+of two to make sure we always respect the limit specified by the
+user. This is required because we compare the table size against the
+limit before we expand or shrink.
 
-    lib/checksum.c: fix carry in csum_tcpudp_nofold
+Also fixes a minor bug where we modified min_size in the params
+provided instead of the copy stored in struct rhashtable.
 
-to the linux-3.13.y-queue branch of the 3.13.y-ckt extended stable tree 
-which can be found at:
-
- http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.13.y-queue
-
-This patch is scheduled to be released in version 3.13.11-ckt17.
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 3.13.y-ckt tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Kamal
-
-------
-
->From 8dc49a45f52d6335d8c4952e1bd3e07cd08f0a2d Mon Sep 17 00:00:00 2001
-From: karl beldan <karl.beldan@gmail.com>
-Date: Wed, 28 Jan 2015 10:58:11 +0100
-Subject: lib/checksum.c: fix carry in csum_tcpudp_nofold
-
-commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
-
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
-
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- lib/checksum.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+Herbert: I'm fine with either approach. I figured you expected the
+user to take care of this, hence the added warning. This is perfectly
+fine with me me as well.
 
-diff --git a/lib/checksum.c b/lib/checksum.c
-index 129775e..fcf3894 100644
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
- 	return x;
- }
+ lib/rhashtable.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5f8fe3e..e75c48d 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -933,8 +933,6 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	if (params->nulls_base && params->nulls_base < (1U << RHT_BASE_SHIFT))
+ 		return -EINVAL;
+ 
+-	params->min_size = max(params->min_size, HASH_MIN_SIZE);
+-
+ 	if (params->nelem_hint)
+ 		size = rounded_hashtable_size(params);
+ 
+@@ -942,6 +940,14 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	mutex_init(&ht->mutex);
+ 	memcpy(&ht->p, params, sizeof(*params));
+ 
++	if (params->min_size)
++		ht->p.min_size = roundup_pow_of_two(params->min_size);
 +
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
---
-1.9.1
++	if (params->max_size)
++		ht->p.max_size = rounddown_pow_of_two(params->max_size);
++
++	ht->p.min_size = max(params->min_size, HASH_MIN_SIZE);
++
+ 	if (params->locks_mul)
+ 		ht->p.locks_mul = roundup_pow_of_two(params->locks_mul);
+ 	else
+-- 
+1.9.3
