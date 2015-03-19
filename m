@@ -1,8 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 01/10] amd-xgbe-phy: Use phydev advertising field
- vs supported
-Date: Thu, 19 Mar 2015 12:12:31 -0500
-Message-ID: <20150319171231.26446.80022.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 07/10] amd-xgbe: Remove Tx coalescing
+Date: Thu, 19 Mar 2015 12:13:07 -0500
+Message-ID: <20150319171307.26446.6050.stgit@tlendack-t1.amdoffice.net>
 References: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,177 +9,165 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0111.outbound.protection.outlook.com ([157.56.110.111]:15200
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0109.outbound.protection.outlook.com ([65.55.169.109]:18995
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030280AbbCSRMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 13:12:38 -0400
+	id S1755132AbbCSRNN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 13:13:13 -0400
 In-Reply-To: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With ethtool being able to control what is advertised, the advertising
-field is what should be used for priming the auto-negotiation registers
-and for various other checks, instead of the supported field.
+The Tx coalescing support in the driver was a software implementation
+for something lacking in the hardware. Using hrtimers, the idea was to
+trigger a timer interrupt after having queued a packet for transmit.
+Unfortunately, as the timer value was lowered, the timer expired before
+the hardware actually did the transmit and so it was racey and resulted
+in unnecessary interrupts.
 
-Also, move the initial setting of the supported and advertising fields
-into the probe function so that they are not reset each time the device
-is brought up, thus allowing the user to set as desired before bringing
-the device up.
+Remove the Tx coalescing support and hrtimer and replace with a Tx timer
+that is used as a reclaim timer in case of inactivity.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/phy/amd-xgbe-phy.c |   77 ++++++++++++++++++++--------------------
- 1 file changed, 38 insertions(+), 39 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |    7 +++----
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |   16 +++++-----------
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    6 ++----
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    4 ++--
+ 4 files changed, 12 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
-index 32efbd4..acb4449 100644
---- a/drivers/net/phy/amd-xgbe-phy.c
-+++ b/drivers/net/phy/amd-xgbe-phy.c
-@@ -932,8 +932,8 @@ static enum amd_xgbe_phy_an amd_xgbe_an_incompat_link(struct phy_device *phydev)
- 	if (amd_xgbe_phy_in_kr_mode(phydev)) {
- 		priv->kr_state = AMD_XGBE_RX_ERROR;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index e165d06..80dd7a9 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1367,12 +1367,11 @@ static void xgbe_tx_start_xmit(struct xgbe_channel *channel,
+ 	XGMAC_DMA_IOWRITE(channel, DMA_CH_TDTR_LO,
+ 			  lower_32_bits(rdata->rdesc_dma));
  
--		if (!(phydev->supported & SUPPORTED_1000baseKX_Full) &&
--		    !(phydev->supported & SUPPORTED_2500baseX_Full))
-+		if (!(phydev->advertising & SUPPORTED_1000baseKX_Full) &&
-+		    !(phydev->advertising & SUPPORTED_2500baseX_Full))
- 			return AMD_XGBE_AN_NO_LINK;
- 
- 		if (priv->kx_state != AMD_XGBE_RX_BPA)
-@@ -941,7 +941,7 @@ static enum amd_xgbe_phy_an amd_xgbe_an_incompat_link(struct phy_device *phydev)
- 	} else {
- 		priv->kx_state = AMD_XGBE_RX_ERROR;
- 
--		if (!(phydev->supported & SUPPORTED_10000baseKR_Full))
-+		if (!(phydev->advertising & SUPPORTED_10000baseKR_Full))
- 			return AMD_XGBE_AN_NO_LINK;
- 
- 		if (priv->kr_state != AMD_XGBE_RX_BPA)
-@@ -1101,7 +1101,7 @@ static int amd_xgbe_an_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->supported & SUPPORTED_10000baseR_FEC)
-+	if (phydev->advertising & SUPPORTED_10000baseR_FEC)
- 		ret |= 0xc000;
- 	else
- 		ret &= ~0xc000;
-@@ -1113,13 +1113,13 @@ static int amd_xgbe_an_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->supported & SUPPORTED_10000baseKR_Full)
-+	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
- 		ret |= 0x80;
- 	else
- 		ret &= ~0x80;
- 
--	if ((phydev->supported & SUPPORTED_1000baseKX_Full) ||
--	    (phydev->supported & SUPPORTED_2500baseX_Full))
-+	if ((phydev->advertising & SUPPORTED_1000baseKX_Full) ||
-+	    (phydev->advertising & SUPPORTED_2500baseX_Full))
- 		ret |= 0x20;
- 	else
- 		ret &= ~0x20;
-@@ -1131,12 +1131,12 @@ static int amd_xgbe_an_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->supported & SUPPORTED_Pause)
-+	if (phydev->advertising & SUPPORTED_Pause)
- 		ret |= 0x400;
- 	else
- 		ret &= ~0x400;
- 
--	if (phydev->supported & SUPPORTED_Asym_Pause)
-+	if (phydev->advertising & SUPPORTED_Asym_Pause)
- 		ret |= 0x800;
- 	else
- 		ret &= ~0x800;
-@@ -1212,38 +1212,14 @@ static int amd_xgbe_phy_config_init(struct phy_device *phydev)
- 		priv->an_irq_allocated = 1;
+-	/* Start the Tx coalescing timer */
++	/* Start the Tx timer */
+ 	if (pdata->tx_usecs && !channel->tx_timer_active) {
+ 		channel->tx_timer_active = 1;
+-		hrtimer_start(&channel->tx_timer,
+-			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
+-			      HRTIMER_MODE_REL);
++		mod_timer(&channel->tx_timer,
++			  jiffies + usecs_to_jiffies(pdata->tx_usecs));
  	}
  
--	ret = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_FEC_ABILITY);
--	if (ret < 0)
--		return ret;
--	priv->fec_ability = ret & XGBE_PHY_FEC_MASK;
--
--	/* Initialize supported features */
--	phydev->supported = SUPPORTED_Autoneg;
--	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--	phydev->supported |= SUPPORTED_Backplane;
--	phydev->supported |= SUPPORTED_10000baseKR_Full;
--	switch (priv->speed_set) {
--	case AMD_XGBE_PHY_SPEEDSET_1000_10000:
--		phydev->supported |= SUPPORTED_1000baseKX_Full;
--		break;
--	case AMD_XGBE_PHY_SPEEDSET_2500_10000:
--		phydev->supported |= SUPPORTED_2500baseX_Full;
--		break;
--	}
--
--	if (priv->fec_ability & XGBE_PHY_FEC_ENABLE)
--		phydev->supported |= SUPPORTED_10000baseR_FEC;
--
--	phydev->advertising = phydev->supported;
--
- 	/* Set initial mode - call the mode setting routines
- 	 * directly to insure we are properly configured
- 	 */
--	if (phydev->supported & SUPPORTED_10000baseKR_Full)
-+	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
- 		ret = amd_xgbe_phy_xgmii_mode(phydev);
--	else if (phydev->supported & SUPPORTED_1000baseKX_Full)
-+	else if (phydev->advertising & SUPPORTED_1000baseKX_Full)
- 		ret = amd_xgbe_phy_gmii_mode(phydev);
--	else if (phydev->supported & SUPPORTED_2500baseX_Full)
-+	else if (phydev->advertising & SUPPORTED_2500baseX_Full)
- 		ret = amd_xgbe_phy_gmii_2500_mode(phydev);
- 	else
- 		ret = -EINVAL;
-@@ -1315,10 +1291,10 @@ static int __amd_xgbe_phy_config_aneg(struct phy_device *phydev)
- 	disable_irq(priv->an_irq);
+ 	ring->tx.xmit_more = 0;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index abaf092..b78914b 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -411,11 +411,9 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
  
- 	/* Start auto-negotiation in a supported mode */
--	if (phydev->supported & SUPPORTED_10000baseKR_Full)
-+	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
- 		ret = amd_xgbe_phy_set_mode(phydev, AMD_XGBE_MODE_KR);
--	else if ((phydev->supported & SUPPORTED_1000baseKX_Full) ||
--		 (phydev->supported & SUPPORTED_2500baseX_Full))
-+	else if ((phydev->advertising & SUPPORTED_1000baseKX_Full) ||
-+		 (phydev->advertising & SUPPORTED_2500baseX_Full))
- 		ret = amd_xgbe_phy_set_mode(phydev, AMD_XGBE_MODE_KX);
- 	else
- 		ret = -EINVAL;
-@@ -1746,6 +1722,29 @@ static int amd_xgbe_phy_probe(struct phy_device *phydev)
- 		       sizeof(priv->serdes_dfe_tap_ena));
+-static enum hrtimer_restart xgbe_tx_timer(struct hrtimer *timer)
++static void xgbe_tx_timer(unsigned long data)
+ {
+-	struct xgbe_channel *channel = container_of(timer,
+-						    struct xgbe_channel,
+-						    tx_timer);
++	struct xgbe_channel *channel = (struct xgbe_channel *)data;
+ 	struct xgbe_prv_data *pdata = channel->pdata;
+ 	struct napi_struct *napi;
+ 
+@@ -437,8 +435,6 @@ static enum hrtimer_restart xgbe_tx_timer(struct hrtimer *timer)
+ 	channel->tx_timer_active = 0;
+ 
+ 	DBGPR("<--xgbe_tx_timer\n");
+-
+-	return HRTIMER_NORESTART;
+ }
+ 
+ static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
+@@ -454,9 +450,8 @@ static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
+ 			break;
+ 
+ 		DBGPR("  %s adding tx timer\n", channel->name);
+-		hrtimer_init(&channel->tx_timer, CLOCK_MONOTONIC,
+-			     HRTIMER_MODE_REL);
+-		channel->tx_timer.function = xgbe_tx_timer;
++		setup_timer(&channel->tx_timer, xgbe_tx_timer,
++			    (unsigned long)channel);
  	}
  
-+	/* Initialize supported features */
-+	phydev->supported = SUPPORTED_Autoneg;
-+	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+	phydev->supported |= SUPPORTED_Backplane;
-+	phydev->supported |= SUPPORTED_10000baseKR_Full;
-+	switch (priv->speed_set) {
-+	case AMD_XGBE_PHY_SPEEDSET_1000_10000:
-+		phydev->supported |= SUPPORTED_1000baseKX_Full;
-+		break;
-+	case AMD_XGBE_PHY_SPEEDSET_2500_10000:
-+		phydev->supported |= SUPPORTED_2500baseX_Full;
-+		break;
-+	}
-+
-+	ret = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_FEC_ABILITY);
-+	if (ret < 0)
-+		return ret;
-+	priv->fec_ability = ret & XGBE_PHY_FEC_MASK;
-+	if (priv->fec_ability & XGBE_PHY_FEC_ENABLE)
-+		phydev->supported |= SUPPORTED_10000baseR_FEC;
-+
-+	phydev->advertising = phydev->supported;
-+
- 	phydev->priv = priv;
+ 	DBGPR("<--xgbe_init_tx_timers\n");
+@@ -475,8 +470,7 @@ static void xgbe_stop_tx_timers(struct xgbe_prv_data *pdata)
+ 			break;
  
- 	if (!priv->adev || acpi_disabled)
+ 		DBGPR("  %s deleting tx timer\n", channel->name);
+-		channel->tx_timer_active = 0;
+-		hrtimer_cancel(&channel->tx_timer);
++		del_timer_sync(&channel->tx_timer);
+ 	}
+ 
+ 	DBGPR("<--xgbe_stop_tx_timers\n");
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 43e5571..376d6a5 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -388,7 +388,6 @@ static int xgbe_get_coalesce(struct net_device *netdev,
+ 	ec->rx_coalesce_usecs = hw_if->riwt_to_usec(pdata, riwt);
+ 	ec->rx_max_coalesced_frames = pdata->rx_frames;
+ 
+-	ec->tx_coalesce_usecs = pdata->tx_usecs;
+ 	ec->tx_max_coalesced_frames = pdata->tx_frames;
+ 
+ 	DBGPR("<--xgbe_get_coalesce\n");
+@@ -402,13 +401,14 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
+ 	unsigned int rx_frames, rx_riwt, rx_usecs;
+-	unsigned int tx_frames, tx_usecs;
++	unsigned int tx_frames;
+ 
+ 	DBGPR("-->xgbe_set_coalesce\n");
+ 
+ 	/* Check for not supported parameters  */
+ 	if ((ec->rx_coalesce_usecs_irq) ||
+ 	    (ec->rx_max_coalesced_frames_irq) ||
++	    (ec->tx_coalesce_usecs) ||
+ 	    (ec->tx_coalesce_usecs_irq) ||
+ 	    (ec->tx_max_coalesced_frames_irq) ||
+ 	    (ec->stats_block_coalesce_usecs) ||
+@@ -457,7 +457,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
+ 
+-	tx_usecs = ec->tx_coalesce_usecs;
+ 	tx_frames = ec->tx_max_coalesced_frames;
+ 
+ 	/* Check the bounds of values for Tx */
+@@ -471,7 +470,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	pdata->rx_frames = rx_frames;
+ 	hw_if->config_rx_coalesce(pdata);
+ 
+-	pdata->tx_usecs = tx_usecs;
+ 	pdata->tx_frames = tx_frames;
+ 	hw_if->config_tx_coalesce(pdata);
+ 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index bfe11fb..72b8f27 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -222,7 +222,7 @@
+ 	 ((_idx) & ((_ring)->rdesc_count - 1)))
+ 
+ /* Default coalescing parameters */
+-#define XGMAC_INIT_DMA_TX_USECS		50
++#define XGMAC_INIT_DMA_TX_USECS		1000
+ #define XGMAC_INIT_DMA_TX_FRAMES	25
+ 
+ #define XGMAC_MAX_DMA_RIWT		0xff
+@@ -410,7 +410,7 @@ struct xgbe_channel {
+ 	unsigned int saved_ier;
+ 
+ 	unsigned int tx_timer_active;
+-	struct hrtimer tx_timer;
++	struct timer_list tx_timer;
+ 
+ 	struct xgbe_ring *tx_ring;
+ 	struct xgbe_ring *rx_ring;
