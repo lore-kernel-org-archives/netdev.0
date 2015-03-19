@@ -1,71 +1,38 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 11/13] can: at91_can: use endian agnostic IO accessors
-Date: Thu, 19 Mar 2015 17:47:26 +0100
-Message-ID: <550AFD9E.60801@atmel.com>
-References: <1426693992-31163-1-git-send-email-ben.dooks@codethink.co.uk> <1426693992-31163-12-git-send-email-ben.dooks@codethink.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@lists.codethink.co.uk>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	<netdev@vger.kernel.org>
-To: Ben Dooks <ben.dooks@codethink.co.uk>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	<linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1426693992-31163-12-git-send-email-ben.dooks@codethink.co.uk>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 0/2] Add Device ID and make device ID table const
+Date: Thu, 19 Mar 2015 22:27:34 +0530
+Message-ID: <1426784256-5689-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	swise@opengridcomputing.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:9644 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751202AbbCSQwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 12:52:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 18/03/2015 16:53, Ben Dooks a =E9crit :
-> Change __raw accesors to  endian agnostic versions to allow the drive=
-r
-> to work properly on big endian systems.
->=20
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> --
-> CC: Wolfgang Grandegger <wg@grandegger.com>
-> CC: Marc Kleine-Budde <mkl@pengutronix.de>
-> CC: linux-can@vger.kernel.org
-> CC: netdev@vger.kernel.org
-> CC: Nicolas Ferre <nicolas.ferre@atmel.com>
+Hi
 
-Sure!
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+This patch series adds new device ID and makes device ID table const 
 
-Thanks, bye.
+The patches series is created against 'net-next' tree.
+And includes patches on cxgb4 and csiostor driver.
 
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
 
-> ---
->  drivers/net/can/at91_can.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-> index eeb4b8b..f4e40aa 100644
-> --- a/drivers/net/can/at91_can.c
-> +++ b/drivers/net/can/at91_can.c
-> @@ -291,13 +291,13 @@ static inline unsigned int get_tx_echo_mb(const=
- struct at91_priv *priv)
-> =20
->  static inline u32 at91_read(const struct at91_priv *priv, enum at91_=
-reg reg)
->  {
-> -	return __raw_readl(priv->reg_base + reg);
-> +	return readl_relaxed(priv->reg_base + reg);
->  }
-> =20
->  static inline void at91_write(const struct at91_priv *priv, enum at9=
-1_reg reg,
->  		u32 value)
->  {
-> -	__raw_writel(value, priv->reg_base + reg);
-> +	writel_relaxed(value, priv->reg_base + reg);
->  }
-> =20
->  static inline void set_mb_mode_prio(const struct at91_priv *priv,
->=20
+Thanks
 
+Hariprasad Shenai (2):
+  cxgb4: Add device ID for new adapter
+  cxgb4/cxgb4vf/csiostor: Make PCI Device ID Tables be "const"
 
---=20
-Nicolas Ferre
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h |    5 +----
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    2 +-
+ drivers/scsi/csiostor/csio_init.c                  |    2 +-
+ 4 files changed, 4 insertions(+), 7 deletions(-)
