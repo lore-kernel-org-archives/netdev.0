@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 04/10] amd-xgbe: Clarify output message about
- queues
-Date: Thu, 19 Mar 2015 15:08:32 -0500
-Message-ID: <20150319200832.28321.15364.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 02/10] amd-xgbe-phy: Use the phy_driver flags
+ field
+Date: Thu, 19 Mar 2015 15:08:20 -0500
+Message-ID: <20150319200820.28321.72184.stgit@tlendack-t1.amdoffice.net>
 References: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,45 +10,47 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0131.outbound.protection.outlook.com ([207.46.100.131]:36160
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0136.outbound.protection.outlook.com ([157.56.110.136]:5905
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751310AbbCSUIh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 16:08:37 -0400
+	id S1751415AbbCSUIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 16:08:25 -0400
 In-Reply-To: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clarify that the queues referred to in a message when the device is
-brought up are hardware queues and not necessarily related to the
-Linux network queues.
+Remove the setting of the transceiver type when retrieving the device
+settings using ethtool and instead set the transceiver type in the
+phy_driver structure flags field. Change the transceiver type to be
+internal, also.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    1 -
+ drivers/net/phy/amd-xgbe-phy.c               |    1 +
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 400757b..29137c9 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2004,7 +2004,8 @@ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
- 	for (i = 0; i < pdata->tx_q_count; i++)
- 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo_size);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index ebf4893..43e5571 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -291,7 +291,6 @@ static int xgbe_get_settings(struct net_device *netdev,
+ 		return -ENODEV;
  
--	netdev_notice(pdata->netdev, "%d Tx queues, %d byte fifo per queue\n",
-+	netdev_notice(pdata->netdev,
-+		      "%d Tx hardware queues, %d byte fifo per queue\n",
- 		      pdata->tx_q_count, ((fifo_size + 1) * 256));
- }
+ 	ret = phy_ethtool_gset(pdata->phydev, cmd);
+-	cmd->transceiver = XCVR_EXTERNAL;
  
-@@ -2019,7 +2020,8 @@ static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
- 	for (i = 0; i < pdata->rx_q_count; i++)
- 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo_size);
+ 	DBGPR("<--xgbe_get_settings\n");
  
--	netdev_notice(pdata->netdev, "%d Rx queues, %d byte fifo per queue\n",
-+	netdev_notice(pdata->netdev,
-+		      "%d Rx hardware queues, %d byte fifo per queue\n",
- 		      pdata->rx_q_count, ((fifo_size + 1) * 256));
- }
- 
+diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
+index acb4449..4b95caf 100644
+--- a/drivers/net/phy/amd-xgbe-phy.c
++++ b/drivers/net/phy/amd-xgbe-phy.c
+@@ -1816,6 +1816,7 @@ static struct phy_driver amd_xgbe_phy_driver[] = {
+ 		.phy_id_mask		= XGBE_PHY_MASK,
+ 		.name			= "AMD XGBE PHY",
+ 		.features		= 0,
++		.flags			= PHY_IS_INTERNAL,
+ 		.probe			= amd_xgbe_phy_probe,
+ 		.remove			= amd_xgbe_phy_remove,
+ 		.soft_reset		= amd_xgbe_phy_soft_reset,
