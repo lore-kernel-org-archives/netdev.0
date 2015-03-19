@@ -1,7 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 07/10] amd-xgbe: Remove Tx coalescing
-Date: Thu, 19 Mar 2015 12:13:07 -0500
-Message-ID: <20150319171307.26446.6050.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 08/10] amd-xgbe: Fix Rx coalescing reporting
+Date: Thu, 19 Mar 2015 12:13:13 -0500
+Message-ID: <20150319171313.26446.7561.stgit@tlendack-t1.amdoffice.net>
 References: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,165 +9,100 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0109.outbound.protection.outlook.com ([65.55.169.109]:18995
+Received: from mail-bl2on0103.outbound.protection.outlook.com ([65.55.169.103]:52000
 	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755132AbbCSRNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 13:13:13 -0400
+	id S1755631AbbCSRNU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 13:13:20 -0400
 In-Reply-To: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Tx coalescing support in the driver was a software implementation
-for something lacking in the hardware. Using hrtimers, the idea was to
-trigger a timer interrupt after having queued a packet for transmit.
-Unfortunately, as the timer value was lowered, the timer expired before
-the hardware actually did the transmit and so it was racey and resulted
-in unnecessary interrupts.
-
-Remove the Tx coalescing support and hrtimer and replace with a Tx timer
-that is used as a reclaim timer in case of inactivity.
+The Rx coalescing value is internally converted from usecs to a value
+that the hardware can use. When reporting the Rx coalescing value, this
+internal value is converted back to usecs. During the conversion from
+and back to usecs some rounding occurs. So, for example, when setting an
+Rx usec of 30, it will be reported as 29. Fix this reporting issue by
+keeping the original usec value and using that during reporting.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |    7 +++----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |   16 +++++-----------
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    6 ++----
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    4 ++--
- 4 files changed, 12 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |    1 +
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   12 +++++-------
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    1 +
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index e165d06..80dd7a9 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1367,12 +1367,11 @@ static void xgbe_tx_start_xmit(struct xgbe_channel *channel,
- 	XGMAC_DMA_IOWRITE(channel, DMA_CH_TDTR_LO,
- 			  lower_32_bits(rdata->rdesc_dma));
- 
--	/* Start the Tx coalescing timer */
-+	/* Start the Tx timer */
- 	if (pdata->tx_usecs && !channel->tx_timer_active) {
- 		channel->tx_timer_active = 1;
--		hrtimer_start(&channel->tx_timer,
--			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
--			      HRTIMER_MODE_REL);
-+		mod_timer(&channel->tx_timer,
-+			  jiffies + usecs_to_jiffies(pdata->tx_usecs));
- 	}
- 
- 	ring->tx.xmit_more = 0;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index abaf092..b78914b 100644
+index b78914b..2927d7c 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -411,11 +411,9 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
- 	return IRQ_HANDLED;
- }
+@@ -700,6 +700,7 @@ void xgbe_init_rx_coalesce(struct xgbe_prv_data *pdata)
+ 	DBGPR("-->xgbe_init_rx_coalesce\n");
  
--static enum hrtimer_restart xgbe_tx_timer(struct hrtimer *timer)
-+static void xgbe_tx_timer(unsigned long data)
- {
--	struct xgbe_channel *channel = container_of(timer,
--						    struct xgbe_channel,
--						    tx_timer);
-+	struct xgbe_channel *channel = (struct xgbe_channel *)data;
- 	struct xgbe_prv_data *pdata = channel->pdata;
- 	struct napi_struct *napi;
+ 	pdata->rx_riwt = hw_if->usec_to_riwt(pdata, XGMAC_INIT_DMA_RX_USECS);
++	pdata->rx_usecs = XGMAC_INIT_DMA_RX_USECS;
+ 	pdata->rx_frames = XGMAC_INIT_DMA_RX_FRAMES;
  
-@@ -437,8 +435,6 @@ static enum hrtimer_restart xgbe_tx_timer(struct hrtimer *timer)
- 	channel->tx_timer_active = 0;
- 
- 	DBGPR("<--xgbe_tx_timer\n");
--
--	return HRTIMER_NORESTART;
- }
- 
- static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
-@@ -454,9 +450,8 @@ static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
- 			break;
- 
- 		DBGPR("  %s adding tx timer\n", channel->name);
--		hrtimer_init(&channel->tx_timer, CLOCK_MONOTONIC,
--			     HRTIMER_MODE_REL);
--		channel->tx_timer.function = xgbe_tx_timer;
-+		setup_timer(&channel->tx_timer, xgbe_tx_timer,
-+			    (unsigned long)channel);
- 	}
- 
- 	DBGPR("<--xgbe_init_tx_timers\n");
-@@ -475,8 +470,7 @@ static void xgbe_stop_tx_timers(struct xgbe_prv_data *pdata)
- 			break;
- 
- 		DBGPR("  %s deleting tx timer\n", channel->name);
--		channel->tx_timer_active = 0;
--		hrtimer_cancel(&channel->tx_timer);
-+		del_timer_sync(&channel->tx_timer);
- 	}
- 
- 	DBGPR("<--xgbe_stop_tx_timers\n");
+ 	hw_if->config_rx_coalesce(pdata);
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 43e5571..376d6a5 100644
+index 376d6a5..b4f6eaa 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -388,7 +388,6 @@ static int xgbe_get_coalesce(struct net_device *netdev,
- 	ec->rx_coalesce_usecs = hw_if->riwt_to_usec(pdata, riwt);
+@@ -377,15 +377,12 @@ static int xgbe_get_coalesce(struct net_device *netdev,
+ 			     struct ethtool_coalesce *ec)
+ {
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+-	struct xgbe_hw_if *hw_if = &pdata->hw_if;
+-	unsigned int riwt;
+ 
+ 	DBGPR("-->xgbe_get_coalesce\n");
+ 
+ 	memset(ec, 0, sizeof(struct ethtool_coalesce));
+ 
+-	riwt = pdata->rx_riwt;
+-	ec->rx_coalesce_usecs = hw_if->riwt_to_usec(pdata, riwt);
++	ec->rx_coalesce_usecs = pdata->rx_usecs;
  	ec->rx_max_coalesced_frames = pdata->rx_frames;
  
--	ec->tx_coalesce_usecs = pdata->tx_usecs;
  	ec->tx_max_coalesced_frames = pdata->tx_frames;
- 
- 	DBGPR("<--xgbe_get_coalesce\n");
-@@ -402,13 +401,14 @@ static int xgbe_set_coalesce(struct net_device *netdev,
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
- 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
- 	unsigned int rx_frames, rx_riwt, rx_usecs;
--	unsigned int tx_frames, tx_usecs;
-+	unsigned int tx_frames;
- 
- 	DBGPR("-->xgbe_set_coalesce\n");
- 
- 	/* Check for not supported parameters  */
- 	if ((ec->rx_coalesce_usecs_irq) ||
- 	    (ec->rx_max_coalesced_frames_irq) ||
-+	    (ec->tx_coalesce_usecs) ||
- 	    (ec->tx_coalesce_usecs_irq) ||
- 	    (ec->tx_max_coalesced_frames_irq) ||
- 	    (ec->stats_block_coalesce_usecs) ||
-@@ -457,7 +457,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
- 		return -EINVAL;
+@@ -438,17 +435,17 @@ static int xgbe_set_coalesce(struct net_device *netdev,
  	}
  
--	tx_usecs = ec->tx_coalesce_usecs;
- 	tx_frames = ec->tx_max_coalesced_frames;
+ 	rx_riwt = hw_if->usec_to_riwt(pdata, ec->rx_coalesce_usecs);
++	rx_usecs = ec->rx_coalesce_usecs;
+ 	rx_frames = ec->rx_max_coalesced_frames;
  
- 	/* Check the bounds of values for Tx */
-@@ -471,7 +470,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	/* Use smallest possible value if conversion resulted in zero */
+-	if (ec->rx_coalesce_usecs && !rx_riwt)
++	if (rx_usecs && !rx_riwt)
+ 		rx_riwt = 1;
+ 
+ 	/* Check the bounds of values for Rx */
+ 	if (rx_riwt > XGMAC_MAX_DMA_RIWT) {
+-		rx_usecs = hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT);
+ 		netdev_alert(netdev, "rx-usec is limited to %d usecs\n",
+-			     rx_usecs);
++			     hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT));
+ 		return -EINVAL;
+ 	}
+ 	if (rx_frames > pdata->rx_desc_count) {
+@@ -467,6 +464,7 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	}
+ 
+ 	pdata->rx_riwt = rx_riwt;
++	pdata->rx_usecs = rx_usecs;
  	pdata->rx_frames = rx_frames;
  	hw_if->config_rx_coalesce(pdata);
  
--	pdata->tx_usecs = tx_usecs;
- 	pdata->tx_frames = tx_frames;
- 	hw_if->config_tx_coalesce(pdata);
- 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index bfe11fb..72b8f27 100644
+index 72b8f27..dd74242 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -222,7 +222,7 @@
- 	 ((_idx) & ((_ring)->rdesc_count - 1)))
+@@ -716,6 +716,7 @@ struct xgbe_prv_data {
  
- /* Default coalescing parameters */
--#define XGMAC_INIT_DMA_TX_USECS		50
-+#define XGMAC_INIT_DMA_TX_USECS		1000
- #define XGMAC_INIT_DMA_TX_FRAMES	25
+ 	/* Rx coalescing settings */
+ 	unsigned int rx_riwt;
++	unsigned int rx_usecs;
+ 	unsigned int rx_frames;
  
- #define XGMAC_MAX_DMA_RIWT		0xff
-@@ -410,7 +410,7 @@ struct xgbe_channel {
- 	unsigned int saved_ier;
- 
- 	unsigned int tx_timer_active;
--	struct hrtimer tx_timer;
-+	struct timer_list tx_timer;
- 
- 	struct xgbe_ring *tx_ring;
- 	struct xgbe_ring *rx_ring;
+ 	/* Current Rx buffer size */
