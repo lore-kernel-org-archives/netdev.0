@@ -1,7 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 08/10] amd-xgbe: Fix Rx coalescing reporting
-Date: Thu, 19 Mar 2015 12:13:13 -0500
-Message-ID: <20150319171313.26446.7561.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 04/10] amd-xgbe: Clarify output message about queues
+Date: Thu, 19 Mar 2015 12:12:49 -0500
+Message-ID: <20150319171249.26446.23336.stgit@tlendack-t1.amdoffice.net>
 References: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,100 +9,45 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0103.outbound.protection.outlook.com ([65.55.169.103]:52000
+Received: from mail-bl2on0120.outbound.protection.outlook.com ([65.55.169.120]:48793
 	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755631AbbCSRNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 13:13:20 -0400
+	id S1753120AbbCSR1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 13:27:13 -0400
 In-Reply-To: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Rx coalescing value is internally converted from usecs to a value
-that the hardware can use. When reporting the Rx coalescing value, this
-internal value is converted back to usecs. During the conversion from
-and back to usecs some rounding occurs. So, for example, when setting an
-Rx usec of 30, it will be reported as 29. Fix this reporting issue by
-keeping the original usec value and using that during reporting.
+Clarify that the queues referred to in a message when the device is
+brought up are hardware queues and not necessarily related to the
+Linux network queues.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |    1 +
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   12 +++++-------
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    1 +
- 3 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index b78914b..2927d7c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -700,6 +700,7 @@ void xgbe_init_rx_coalesce(struct xgbe_prv_data *pdata)
- 	DBGPR("-->xgbe_init_rx_coalesce\n");
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 400757b..29137c9 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2004,7 +2004,8 @@ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
+ 	for (i = 0; i < pdata->tx_q_count; i++)
+ 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo_size);
  
- 	pdata->rx_riwt = hw_if->usec_to_riwt(pdata, XGMAC_INIT_DMA_RX_USECS);
-+	pdata->rx_usecs = XGMAC_INIT_DMA_RX_USECS;
- 	pdata->rx_frames = XGMAC_INIT_DMA_RX_FRAMES;
+-	netdev_notice(pdata->netdev, "%d Tx queues, %d byte fifo per queue\n",
++	netdev_notice(pdata->netdev,
++		      "%d Tx hardware queues, %d byte fifo per queue\n",
+ 		      pdata->tx_q_count, ((fifo_size + 1) * 256));
+ }
  
- 	hw_if->config_rx_coalesce(pdata);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 376d6a5..b4f6eaa 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -377,15 +377,12 @@ static int xgbe_get_coalesce(struct net_device *netdev,
- 			     struct ethtool_coalesce *ec)
- {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
--	struct xgbe_hw_if *hw_if = &pdata->hw_if;
--	unsigned int riwt;
+@@ -2019,7 +2020,8 @@ static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
+ 	for (i = 0; i < pdata->rx_q_count; i++)
+ 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo_size);
  
- 	DBGPR("-->xgbe_get_coalesce\n");
+-	netdev_notice(pdata->netdev, "%d Rx queues, %d byte fifo per queue\n",
++	netdev_notice(pdata->netdev,
++		      "%d Rx hardware queues, %d byte fifo per queue\n",
+ 		      pdata->rx_q_count, ((fifo_size + 1) * 256));
+ }
  
- 	memset(ec, 0, sizeof(struct ethtool_coalesce));
- 
--	riwt = pdata->rx_riwt;
--	ec->rx_coalesce_usecs = hw_if->riwt_to_usec(pdata, riwt);
-+	ec->rx_coalesce_usecs = pdata->rx_usecs;
- 	ec->rx_max_coalesced_frames = pdata->rx_frames;
- 
- 	ec->tx_max_coalesced_frames = pdata->tx_frames;
-@@ -438,17 +435,17 @@ static int xgbe_set_coalesce(struct net_device *netdev,
- 	}
- 
- 	rx_riwt = hw_if->usec_to_riwt(pdata, ec->rx_coalesce_usecs);
-+	rx_usecs = ec->rx_coalesce_usecs;
- 	rx_frames = ec->rx_max_coalesced_frames;
- 
- 	/* Use smallest possible value if conversion resulted in zero */
--	if (ec->rx_coalesce_usecs && !rx_riwt)
-+	if (rx_usecs && !rx_riwt)
- 		rx_riwt = 1;
- 
- 	/* Check the bounds of values for Rx */
- 	if (rx_riwt > XGMAC_MAX_DMA_RIWT) {
--		rx_usecs = hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT);
- 		netdev_alert(netdev, "rx-usec is limited to %d usecs\n",
--			     rx_usecs);
-+			     hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT));
- 		return -EINVAL;
- 	}
- 	if (rx_frames > pdata->rx_desc_count) {
-@@ -467,6 +464,7 @@ static int xgbe_set_coalesce(struct net_device *netdev,
- 	}
- 
- 	pdata->rx_riwt = rx_riwt;
-+	pdata->rx_usecs = rx_usecs;
- 	pdata->rx_frames = rx_frames;
- 	hw_if->config_rx_coalesce(pdata);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 72b8f27..dd74242 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -716,6 +716,7 @@ struct xgbe_prv_data {
- 
- 	/* Rx coalescing settings */
- 	unsigned int rx_riwt;
-+	unsigned int rx_usecs;
- 	unsigned int rx_frames;
- 
- 	/* Current Rx buffer size */
