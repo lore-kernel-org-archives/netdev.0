@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2015-03-19
-Date: Thu, 19 Mar 2015 15:18:34 -0400 (EDT)
-Message-ID: <20150319.151834.2088377056972130352.davem@davemloft.net>
-References: <20150319145626.GA19462@t440s.P-661HNU-F1>
+Subject: Re: [PATCH net-next] rhashtable: Warn if min_size or max_size are
+ not a power of two
+Date: Thu, 19 Mar 2015 15:24:50 -0400 (EDT)
+Message-ID: <20150319.152450.1573636653085091157.davem@davemloft.net>
+References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: johan.hedberg@gmail.com
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49424 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49496 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbbCSTSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 15:18:37 -0400
-In-Reply-To: <20150319145626.GA19462@t440s.P-661HNU-F1>
+	with ESMTP id S1751140AbbCSTYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 15:24:53 -0400
+In-Reply-To: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Thu, 19 Mar 2015 16:56:26 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 19 Mar 2015 17:34:39 +0100
 
-> This wont the last 4.1 bluetooth-next pull request, but we've piled up
-> enough patches in less than a week that I wanted to save you from a
-> single huge "last-minute" pull somewhere closer to the merge window.
+> The current code correctly limits table size to the next power of two.
+> This check is solely to catch programming errors.
 > 
-> The main changes are:
-> 
->  - Simultaneous LE & BR/EDR discovery support for HW that can do it
->  - Complete LE OOB pairing support
->  - More fine-grained mgmt-command access control (normal user can now do
->    harmless read-only operations).
->  - Added RF power amplifier support in cc2520 ieee802154 driver
->  - Some cleanups/fixes in ieee802154 code
-> 
-> Please let me know if there are any issues pulling. Thanks.
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+ ...
+> +		roundup_pow_of_two(params->min_size) != params->min_size);
 
-Pulled, thanks Johan.
+Please use "!is_power_of_two()", thanks.
