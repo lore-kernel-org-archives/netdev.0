@@ -1,59 +1,40 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v2 10/10] amd-xgbe: Rework the Rx path SKB allocation
-Date: Thu, 19 Mar 2015 15:54:24 -0500
-Message-ID: <550B3780.4080302@amd.com>
-References: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
-	<20150319200908.28321.60118.stgit@tlendack-t1.amdoffice.net>
- <20150319.162000.938727994480466006.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v2] rhashtable: Warn if min_size or max_size are
+ not a power of two
+Date: Fri, 20 Mar 2015 08:02:39 +1100
+Message-ID: <20150319210239.GB9601@gondor.apana.org.au>
+References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
+ <20150319.152450.1573636653085091157.davem@davemloft.net>
+ <20150319194608.GA27962@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0121.outbound.protection.outlook.com ([65.55.169.121]:24928
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750925AbbCSUya (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 16:54:30 -0400
-In-Reply-To: <20150319.162000.938727994480466006.davem@davemloft.net>
+Received: from ringil.hengli.com.au ([178.18.16.133]:35555 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbbCSVCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:02:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20150319194608.GA27962@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2015 03:20 PM, David Miller wrote:
-> From: Tom Lendacky <thomas.lendacky@amd.com>
-> Date: Thu, 19 Mar 2015 15:09:08 -0500
->
->> When the driver creates an SKB it currently only copies the header
->> buffer data (which can be just the header if split header processing
->> succeeded or header plus data if split header processing did not
->> succeed) into the SKB. The receive buffer data is always added as a
->> frag, even if it could fit in the SKB. As part of SKB creation, inline
->> the receive buffer data if it will fit in the the SKB, otherwise add it
->> as a frag during SKB creation.
->>
->> Also, Update the code to trigger off of the first/last descriptor
->> indicators and remove the incomplete indicator.
->>
->> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->
-> I do not understand the motivation for this, could you explain?
->
-> The less copying you do the better, just having the headers in the
-> linear area is the most optimal situation, and have all the data
-> in page frag references.
->
+On Thu, Mar 19, 2015 at 07:46:08PM +0000, Thomas Graf wrote:
+> The current code correctly limits table size to the next power of two.
+> This check is solely to catch programming errors.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-I was trying to make the Rx path more logical from a first / last
-descriptor point of view.  If it's the first descriptor allocate the
-SKB, otherwise add the data as a frag. Compared to the current code:
-check for null skb pointer, allocate the SKB and if there's data left
-add it as a frag.
+I don't see the point of this.  A maximum size of 3 says that
+the table size should never exceed 3 which makes perfect sense.
+And our current code will respect that.
 
-I could keep the first / last descriptor methodology and in the
-xgbe_create_skb routine avoid the second copy and just always add the
-other buffer as a frag. That will eliminate the extra copying. Would
-that be ok or would you prefer that I just drop this patch?
+So why force it to be a power of 2 just because our table sizes
+happen to be powers of 2?
 
-Thanks,
-Tom
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
