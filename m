@@ -1,35 +1,75 @@
-From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: [PATCH] mac802154: fix typo in header guard
-Date: Thu, 19 Mar 2015 21:23:40 +0800
-Message-ID: <1426771420-29979-1-git-send-email-nicolas.iooss_linux@m4x.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-To: alex.aring@gmail.com, linux-wpan@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Thu, 19 Mar 2015 06:29:53 -0700
+Message-ID: <550ACF51.20005@cumulusnetworks.com>
+References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com> <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com> <20150309064043.GB2053@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com> <20150309160754.GA2169@nanopsycho.lan> <E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com> <20150310063926.GA1995@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com> <20150310082817.GC1995@nanopsycho.orion> <550752BA.5040702@gmail.com> <20150317070046.GB2042@nanopsycho.orion> <55083AB6.4060003@intel.com> <55088E2C.5000405@cumulusnetworks.com> <5508C3EA.80009@intel.com> <55091B4C.7090507@cumulusnetworks.com> <550998C7.7080108@gmail.com> <CAE4R7bB2GC3_vMvKAcYie1SP0xB9hm-himzP_
+ BGHX5B2gZKisw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36079 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbbCSN3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 09:29:55 -0400
+Received: by padcy3 with SMTP id cy3so75793839pad.3
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 06:29:55 -0700 (PDT)
+In-Reply-To: <CAE4R7bB2GC3_vMvKAcYie1SP0xB9hm-himzP_BGHX5B2gZKisw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Fixes: b6eea9ca354a ("mac802154: introduce driver-ops header")
----
- net/mac802154/driver-ops.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 3/18/15, 10:49 PM, Scott Feldman wrote:
+> On Wed, Mar 18, 2015 at 8:24 AM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> [...]
+>>> I am not sure how this would be and what other issues you will hit if
+>>> you are planning to bypass the kernel and directly go to the switch
+>>> driver for all l2 and l3 in the stacked netdevice case. For l3, its
+>>> better to use the in-kernel route fib offload mechanism which was
+>>> recently submitted by scott feldman.
+>>>
+>> Why? I saw the patched and liked it but noted that the existing policy
+>> wont actually work for real networks. Its a good start. My proposal
+>> is to add a flag to l3 to similarly fail to load a rule if it can't
+>> be pushed at hardware same as l2.
+> RIght, what we have is a start to get the basic plumbing in place.
+> Agreed, the current would be inadequate for a real switch that can't
+> handle a software fallback.
+>
+> Maybe the next step is to not flush hw of all routes on failure to add
+> the Nth one, but rather just fail the Nth completely (don't install in
+> hw or sw and return err to user).  This would keep the switch alive,
+> but now moves a decision to the user.  The user must decide what to do
+> with the failed Nth route.
+I would prefer this. The routing daemon probably already has policies to 
+handle routes
+  that don't get installed in the FIB (It should not really care if the 
+FIB is hardware accelerated or not).
 
-diff --git a/net/mac802154/driver-ops.h b/net/mac802154/driver-ops.h
-index 98180a9fff4a..a0533357b9ea 100644
---- a/net/mac802154/driver-ops.h
-+++ b/net/mac802154/driver-ops.h
-@@ -1,4 +1,4 @@
--#ifndef __MAC802154_DRVIER_OPS
-+#ifndef __MAC802154_DRIVER_OPS
- #define __MAC802154_DRIVER_OPS
- 
- #include <linux/types.h>
-@@ -220,4 +220,4 @@ drv_set_promiscuous_mode(struct ieee802154_local *local, bool on)
- 	return local->ops->set_promiscuous_mode(&local->hw, on);
- }
- 
--#endif /* __MAC802154_DRVIER_OPS */
-+#endif /* __MAC802154_DRIVER_OPS */
--- 
-2.3.3
+>
+> We also added the netlink flag RTNH_F_EXTERNAL to mark routes
+> offloaded to hardware, but the marking is only done internally now, by
+> the kernel.  What I'm hoping is we can use that same flag in the
+> user's netlink msg to work like you describe: if user requests
+> RTNH_F_EXTERNAL, and it can't be loaded into hw, don't load into sw.
+> Or something like that.  Again, punting the decision on what to do
+> next to the user.
+yes, however this requires change in userspace (routing daemon) to 
+explicitly set this flag.
+It definitely can be optional IMO for people who need it (maybe JohnF)
+>
+> This part of the discussion should probably move to a new thread;
+> maybe someone brave can propose a patch to move us to the next level?
+>
+ack, I will try and get to it this week, unless somebody beats me to it.
+
+Thanks,
+Roopa
