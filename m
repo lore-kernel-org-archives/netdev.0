@@ -1,65 +1,44 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH] tipc: fix build issue when building without IPv6
-Date: Thu, 19 Mar 2015 12:13:43 -0300
-Message-ID: <1426778023-27486-1-git-send-email-marcelo.leitner@gmail.com>
-Cc: tipc-discussion@lists.sourceforge.net, erik.hugne@ericsson.com
-To: richard.alpe@ericsson.com, jon.maloy@ericsson.com,
-	ying.xue@windriver.com, netdev@vger.kernel.org
+From: Steven Barth <cyrus@openwrt.org>
+Subject: [PATCH] ipv6: fix backtracking for throw routes
+Date: Thu, 19 Mar 2015 16:16:04 +0100
+Message-ID: <1426778164-4286-1-git-send-email-cyrus@openwrt.org>
+Cc: Steven Barth <cyrus@openwrt.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33020 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750994AbbCSPOK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 11:14:10 -0400
+Received: from mail.core-networks.de ([82.96.72.7]:48001 "EHLO
+	mail.core-networks.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756AbbCSPRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 11:17:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can't directly call ipv6_sock_mc_join() but should use the stub
-instead and protect it around IS_ENABLED.
+for throw routes to trigger evaluation of other policy rules
+EAGAIN needs to be propagated up to fib_rules_lookup
+similar to how its done for IPv4
 
-Fixes: d0f91938bede ("tipc: add ip/udp media type")
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+A simple testcase for verification is:
+
+ip -6 rule add lookup 33333 priority 33333
+ip -6 route add throw 2001:db8::1
+ip -6 route add 2001:db8::1 via fe80::1 dev wlan0 table 33333
+ip route get 2001:db8::1
+
+Signed-off-by: Steven Barth <cyrus@openwrt.org>
 ---
- net/tipc/udp_media.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/ipv6/fib6_rules.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 04836dd70c2bb79906307ec40e0cbd7b2589978e..e64634062aff3633bd91064567fe7a914bd6df32 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -44,6 +44,7 @@
- #include <net/sock.h>
- #include <net/ip.h>
- #include <net/udp_tunnel.h>
-+#include <net/addrconf.h>
- #include <linux/tipc_netlink.h>
- #include "core.h"
- #include "bearer.h"
-@@ -247,10 +248,13 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
- 		mreqn.imr_multiaddr = remote->ipv4;
- 		mreqn.imr_ifindex = ub->ifindex;
- 		err = ip_mc_join_group(sk, &mreqn);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	} else {
- 		if (!ipv6_addr_is_multicast(&remote->ipv6))
- 			return 0;
--		err = ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
-+		err = ipv6_stub->ipv6_sock_mc_join(sk, ub->ifindex,
-+						   &remote->ipv6);
-+#endif
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index b4d5e1d..27ca796 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -104,6 +104,7 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+ 				goto again;
+ 			flp6->saddr = saddr;
+ 		}
++		err = rt->dst.error;
+ 		goto out;
  	}
- 	return err;
- }
-@@ -387,6 +391,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	tuncfg.encap_destroy = NULL;
- 	setup_udp_tunnel_sock(net, ub->ubsock, &tuncfg);
- 
-+	/* At this point, IPv6 module should have been loaded in
-+	 * udp_sock_create/sock_create_kern().
-+	 */
-+	BUG_ON(!ipv6_stub);
-+
- 	if (enable_mcast(ub, remote))
- 		goto err;
- 	return 0;
+ again:
 -- 
-2.1.0
+2.1.4
