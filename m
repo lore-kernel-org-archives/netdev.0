@@ -1,41 +1,103 @@
-From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
-Date: Thu, 19 Mar 2015 10:04:41 +0100
-Message-ID: <2229059.jMQaty1Zsb@pcimr>
-References: <1521782.cXqN30N6pA@pcimr> <CACRpkdZdiV8tt6ixcwpafr3eQCB4Kesh1XcKyyYaZToLunhVpw@mail.gmail.com>
+From: Matt Grant <matt@mattgrant.net.nz>
+Subject: Re: [PATCH net] ipv6: skip __ipv6_select_ident when there is no
+ skb_dst
+Date: Thu, 19 Mar 2015 22:39:50 +1300
+Message-ID: <1426757990.10267.3.camel@mattgrant.net.nz>
+References: <1426686735-6129-1-git-send-email-sd@queasysnail.net>
+	 <550985DA.3070703@redhat.com> <20150318141529.GD1743@kria>
+	 <55098AE7.2020404@redhat.com> <20150318143644.GE1743@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <CACRpkdZdiV8tt6ixcwpafr3eQCB4Kesh1XcKyyYaZToLunhVpw@mail.gmail.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 254.102.124.202.static.netspeed.net.nz ([202.124.102.254]:60463
+	"EHLO mx.anathoth.net" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750928AbbCSJtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 05:49:11 -0400
+In-Reply-To: <20150318143644.GE1743@kria>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping?
+Hi!
 
-On Thursday 05 March 2015 09:58:00 Linus Walleij wrote:
-> On Wed, Feb 11, 2015 at 5:28 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+This fixes hard lock on 3.19.2 as well. Without it, machine drops dead -
+hard locks - pretty quickly after boot.
+
+Will try 4.0-rc4 tomorrow.  4.0-rc3 had same hard crash issues.
+
+Get it out there, this is a IPv6 network Packet of Death!  We need
+3.19.3 ASAP I think.  
+
+I'll try and see if I can get a network trace of the cause on Saturday.
+
+Regards,
+
+Matt
+
+On Wed, 2015-03-18 at 15:36 +0100, Sabrina Dubroca wrote:
+> 2015-03-18, 10:25:43 -0400, Vlad Yasevich wrote:
+> > On 03/18/2015 10:15 AM, Sabrina Dubroca wrote:
+> > > 2015-03-18, 10:04:10 -0400, Vlad Yasevich wrote:
+> > >> On 03/18/2015 09:52 AM, Sabrina Dubroca wrote:
+> > >>> Matt Grant reported frequent crashes in ipv6_select_ident when
+> > >>> udp6_ufo_fragment is called from openvswitch on a skb that doesn't
+> > >>> have a dst_entry set.
+> > >>>
+> > >>> Skip __ipv6_select_ident in case of a NULL rt.
+> > >>>
+> > >>> Fixes: 0508c07f5e0c ("ipv6: Select fragment id during UFO segmentation if not set.")
+> > >>> Cc: Vladislav Yasevich <vyasevic@redhat.com>
+> > >>> Reported-by: Matt Grant <matt@mattgrant.net.nz>
+> > >>> Tested-by: Matt Grant <matt@mattgrant.net.nz>
+> > >>> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > >>> ---
+> > >> [...]
+> > >>
+> > >> Hi Sabrina
+> > >>
+> > >> This would result in us using id 0 which is not what we want to do.
+> > >>
+> > >> In this case, udp6_ufo_fragment() should be calling ipv6_proxy_select_ident() so that
+> > >> the fragment id is properly generated.
+> > > 
+> > > Hi Vlad,
+> > > 
+> > > So, instead, something like this?  Or do you want to use
+> > > ipv6_proxy_select_ident even when we have a skb_dst?
+> > > 
+> > 
+> > Yes, this is what I was thinking...
+> > 
+> > -vlad
 > 
-> > Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
-> > disposing of GPIO descriptors.
-> >
-> > Cc: David Miller <davem@davemloft.net>
-> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> Okay, so:
 > 
-> This looks good to me, but I need David's ACK before I can
-> merge it through the GPIO tree.
+> diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+> index ab889bb16b3c..be2c0ba82c85 100644
+> --- a/net/ipv6/udp_offload.c
+> +++ b/net/ipv6/udp_offload.c
+> @@ -112,11 +112,9 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+>  		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+>  		fptr->nexthdr = nexthdr;
+>  		fptr->reserved = 0;
+> -		if (skb_shinfo(skb)->ip6_frag_id)
+> -			fptr->identification = skb_shinfo(skb)->ip6_frag_id;
+> -		else
+> -			ipv6_select_ident(fptr,
+> -					  (struct rt6_info *)skb_dst(skb));
+> +		if (!skb_shinfo(skb)->ip6_frag_id)
+> +			ipv6_proxy_select_ident(skb);
+> +		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
+>  
+>  		/* Fragment the skb. ipv6 header and the remaining fields of the
+>  		 * fragment header are updated in ipv6_gso_segment()
 > 
-> David: is this OK with you?
-> 
-> Yours,
-> Linus Walleij
 > 
 
+-- 
+Matt Grant,  Debian and Linux Systems Administration and Consulting
+Mobile: 021 0267 0578
+Email: matt@mattgrant.net.nz
