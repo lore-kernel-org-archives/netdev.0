@@ -1,93 +1,79 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH 4/4] ptp/ixp46x:Replace timespec with ktime_t in ptp_ixp46x.c
-Date: Thu, 19 Mar 2015 13:45:09 +0800
-Message-ID: <1426743909-24335-5-git-send-email-baolin.wang@linaro.org>
-References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john.stultz@linaro.com, tglx@linutronix.de, arnd@linaro.org,
-	baolin.wang@linaro.org
-To: richardcochran@gmail.com
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
+ setlink handler
+Date: Wed, 18 Mar 2015 22:49:23 -0700
+Message-ID: <CAE4R7bB2GC3_vMvKAcYie1SP0xB9hm-himzP_BGHX5B2gZKisw@mail.gmail.com>
+References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com>
+	<CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
+	<20150309064043.GB2053@nanopsycho.orion>
+	<E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com>
+	<20150309160754.GA2169@nanopsycho.lan>
+	<E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com>
+	<20150310063926.GA1995@nanopsycho.orion>
+	<E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com>
+	<20150310082817.GC1995@nanopsycho.orion>
+	<550752BA.5040702@gmail.com>
+	<20150317070046.GB2042@nanopsycho.orion>
+	<55083AB6.4060003@intel.com>
+	<55088E2C.5000405@cumulusnetworks.com>
+	<5508C3EA.80009@intel.com>
+	<55091B4C.7090507@cumulusnetworks.com>
+	<550998C7.7080108@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: roopa <roopa@cumulusnetworks.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33823 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753015AbbCSFqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 01:46:46 -0400
-Received: by pdbni2 with SMTP id ni2so65733799pdb.1
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 22:46:45 -0700 (PDT)
-In-Reply-To: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:33393 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbbCSFtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 01:49:24 -0400
+Received: by qcbjx9 with SMTP id jx9so19370044qcb.0
+        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 22:49:23 -0700 (PDT)
+In-Reply-To: <550998C7.7080108@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the 32-bit time type (timespec) to the 64-bit one
-(ktime_t), since 32-bit time types will break in the year 2038.
+On Wed, Mar 18, 2015 at 8:24 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> [...]
 
-This patch implements the getktime/setktime interfaces with
-"ktime_t" type, and removes the gettime/settime interfaces with
-"timespec" type in ptp_ixp46x.c file.
+>> I am not sure how this would be and what other issues you will hit if
+>> you are planning to bypass the kernel and directly go to the switch
+>> driver for all l2 and l3 in the stacked netdevice case. For l3, its
+>> better to use the in-kernel route fib offload mechanism which was
+>> recently submitted by scott feldman.
+>>
+>
+> Why? I saw the patched and liked it but noted that the existing policy
+> wont actually work for real networks. Its a good start. My proposal
+> is to add a flag to l3 to similarly fail to load a rule if it can't
+> be pushed at hardware same as l2.
 
-Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
----
- drivers/ptp/ptp_ixp46x.c |   21 ++++++---------------
- 1 file changed, 6 insertions(+), 15 deletions(-)
+RIght, what we have is a start to get the basic plumbing in place.
+Agreed, the current would be inadequate for a real switch that can't
+handle a software fallback.
 
-diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
-index 604d340..102b673 100644
---- a/drivers/ptp/ptp_ixp46x.c
-+++ b/drivers/ptp/ptp_ixp46x.c
-@@ -175,39 +175,30 @@ static int ptp_ixp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return 0;
- }
- 
--static int ptp_ixp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int ptp_ixp_getktime(struct ptp_clock_info *ptp, ktime_t *kt)
- {
--	u64 ns;
--	u32 remainder;
- 	unsigned long flags;
- 	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
- 	struct ixp46x_ts_regs *regs = ixp_clock->regs;
- 
- 	spin_lock_irqsave(&register_lock, flags);
- 
--	ns = ixp_systime_read(regs);
-+	*kt = ns_to_ktime(ixp_systime_read(regs));
- 
- 	spin_unlock_irqrestore(&register_lock, flags);
- 
--	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
--	ts->tv_nsec = remainder;
- 	return 0;
- }
- 
--static int ptp_ixp_settime(struct ptp_clock_info *ptp,
--			   const struct timespec *ts)
-+static int ptp_ixp_setktime(struct ptp_clock_info *ptp, ktime_t kt)
- {
--	u64 ns;
- 	unsigned long flags;
- 	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
- 	struct ixp46x_ts_regs *regs = ixp_clock->regs;
- 
--	ns = ts->tv_sec * 1000000000ULL;
--	ns += ts->tv_nsec;
--
- 	spin_lock_irqsave(&register_lock, flags);
- 
--	ixp_systime_write(regs, ns);
-+	ixp_systime_write(regs, ktime_to_ns(kt));
- 
- 	spin_unlock_irqrestore(&register_lock, flags);
- 
-@@ -248,8 +239,8 @@ static struct ptp_clock_info ptp_ixp_caps = {
- 	.pps		= 0,
- 	.adjfreq	= ptp_ixp_adjfreq,
- 	.adjtime	= ptp_ixp_adjtime,
--	.gettime	= ptp_ixp_gettime,
--	.settime	= ptp_ixp_settime,
-+	.getktime	= ptp_ixp_getktime,
-+	.setktime	= ptp_ixp_setktime,
- 	.enable		= ptp_ixp_enable,
- };
- 
--- 
-1.7.9.5
+Maybe the next step is to not flush hw of all routes on failure to add
+the Nth one, but rather just fail the Nth completely (don't install in
+hw or sw and return err to user).  This would keep the switch alive,
+but now moves a decision to the user.  The user must decide what to do
+with the failed Nth route.
+
+We also added the netlink flag RTNH_F_EXTERNAL to mark routes
+offloaded to hardware, but the marking is only done internally now, by
+the kernel.  What I'm hoping is we can use that same flag in the
+user's netlink msg to work like you describe: if user requests
+RTNH_F_EXTERNAL, and it can't be loaded into hw, don't load into sw.
+Or something like that.  Again, punting the decision on what to do
+next to the user.
+
+This part of the discussion should probably move to a new thread;
+maybe someone brave can propose a patch to move us to the next level?
+
+-scott
