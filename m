@@ -1,124 +1,58 @@
-From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: [PATCH V2 0/1] neighbour: Support broadcast ARP in neighbor PROPE
- state
-Date: Thu, 19 Mar 2015 13:52:02 +0800
-Message-ID: <550A6402.4000406@windriver.com>
-References: <1426143501-30827-1-git-send-email-Yanjun.Zhu@windriver.com> <20150312.152247.1607789216159086520.davem@redhat.com> <5506CF13.5070501@ericsson.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH v2 net] bnx2x: Fix statistics locking scheme
+Date: Thu, 19 Mar 2015 07:26:25 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63C1401F@avmb3.qlogic.org>
+References: <1426688042-20315-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <20150318.151059.979411313448939306.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <brian.haley@hp.com>, <alexandre.dietsch@windriver.com>,
-	<clinton.slabbert@windriver.com>, <kuznet@ms2.inr.ac.ru>,
-	<jmorris@namei.org>, <kaber@trash.net>, <netdev@vger.kernel.org>
-To: Ulf Samuelsson <ulf.samuelsson@ericsson.com>,
-	David Miller <davem@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:45214 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852AbbCSFwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 01:52:31 -0400
-In-Reply-To: <5506CF13.5070501@ericsson.com>
+Received: from avcashub2.qlogic.com ([198.70.193.116]:43960 "EHLO
+	avcashub1.qlogic.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750940AbbCSH01 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 03:26:27 -0400
+In-Reply-To: <20150318.151059.979411313448939306.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2015 08:39 PM, Ulf Samuelsson wrote:
-> On 03/12/2015 08:22 PM, David Miller wrote:
->> Like Yoshifuji and others I agree that:
->>
->> 1) You can get working behavior by adjusting existing sysctls.
->>
->> 2) IPV4 ARP and IPV6 NDISC are not different in this regard.
->>
->> I'm really tired of all of these ARP hacks being submitted recently,
->> and I want people to think more deeply about what they are proposing
->> first.
-> Which sysctls are you referring to?
->
-> As I can see it, there are three sysctls that control this.
->
-> ucast_solicit.
-> mcast_solicit
-> app_solicit.
->
-> If you think any other sysctl is useful here, which one?
->
-> From Documentation/networking/ip-sysctl.txt.
-> +++++++++++++
-> app_solicit - INTEGER
->     The maximum number of probes to send to the user space ARP daemon
->     via netlink before dropping back to multicast probes (see
->     mcast_solicit).  Defaults to 0.
-> ----------------------------
-> so that ain't it.
-> If you disagree, what should the Documentation look like?
->
-> =============================================
-> From net/core/neighbour.c(timer_handler):
->
->     if ((neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) &&
->         atomic_read(&neigh->probes) >= neigh_max_probes(neigh)) {
->         neigh->nud_state = NUD_FAILED;
->         notify = 1;
->         neigh_invalidate(neigh);
->         goto out;
->     }
->
-> From net/core/neighbour.c(neigh_max_probes):
-> static __inline__ int neigh_max_probes(struct neighbour *n)
-> {
->     struct neigh_parms *p = n->parms;
->     int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, 
-> APP_PROBES);
->     if (!(n->nud_state & NUD_PROBE))
->         max_probes += NEIGH_VAR(p, MCAST_PROBES);
->     return max_probes;
-> }
-> =============================================
->
->
-> If we simplify this when we are in NUD_PROBE state we see:
->
-> =============================================
->     if (atomic_read(&neigh->probes) >= NEIGH_VAR(p, UCAST_PROBES) + 
-> NEIGH_VAR(p, APP_PROBES)) {
->         neigh->nud_state = NUD_FAILED;
->         notify = 1;
->         neigh_invalidate(neigh);
->         goto out;
->     }
-> =============================================
->
-> Since APP_PROBES is 0, and according to documentation has nothing to 
-> do with Broadcast:
->
-> =============================================
->     if (atomic_read(&neigh->probes) >= NEIGH_VAR(p, UCAST_PROBES)) {
->         neigh->nud_state = NUD_FAILED;
->         notify = 1;
->         neigh_invalidate(neigh);
->         goto out;
->     }
-> =============================================
->
-> so we will send out "ucast_solicit" unikcast probes, and then we will 
-> enter FAILED state.
-> mcast_solicit is ignored when in NUD_PROBE state.
-Yes. I agree with you. That is why I add the bcast_probe here.
+> > +int bnx2x_stats_safe_exec(struct bnx2x *bp,
+> > +			  void (func_to_exec)(void *cookie),
+> > +			  void *cookie)
+>  ...
+> > +	if (bp->stats_pending) {
+> > +		BNX2X_ERR("Failed to wait for stats pending to clear\n");
+> > +		return -EBUSY;
+> 
+> Buggy, this returns with the stats_lock still held.
 
->
-> "mcast_solicit" is only used when in NUD_INCOMPLETE state, and 
-> broadcasts will never
-> be sent out by the stack for an entry, once it is in NUD_REACHABLE for 
-> the first time.
-We can see this in "Figure 26-13. Transitions among NUD states" of 
-Understanding Linux Network Internals.
+Ouch; You're right - I'll fix it.
 
-Zhu Yanjun
->
-> I would be happy, if you can show me that I have misunderstood something.
->
-> Best Regards,
-> Ulf Samuelsson
->
->
->
+> 
+> In my humble opinion, you are putting very little care and effort into this bug fix.
+
+Well, we've put quite a bit in the logic behind it; But you're probably right
+About the effort put into v2.
+
+> Also I disagree with your timeout logic.
+> 
+> I suspect that the real reason these timeouts are present, is that the locking
+> hierarchy is uncertain.
+> 
+> Nothing really should create the situation those trylocks seem to be dealing
+> with.
+
+Actually, you're probably right in the assumption - I have a feeling that due to
+the races in the previous implementation, there was lack of confidence in the
+general process.
+According to my current analysis there shouldn't be any real need for the limit
+on time, since there are no limitless loops taking place while the locks are being
+held [at most, HW/FW is asserted and nothing happens; But it still should take
+only a couple of mili-seconds].
+The only reason I've left this was to leave the implementation close as I can to
+original [which used that locking mechanism] given that it's intended to `net'.
+Do you prefer I simply switch over into using a regular mutex?
