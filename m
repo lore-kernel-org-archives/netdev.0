@@ -1,79 +1,124 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Wed, 18 Mar 2015 22:49:23 -0700
-Message-ID: <CAE4R7bB2GC3_vMvKAcYie1SP0xB9hm-himzP_BGHX5B2gZKisw@mail.gmail.com>
-References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com>
-	<CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com>
-	<20150309064043.GB2053@nanopsycho.orion>
-	<E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com>
-	<20150309160754.GA2169@nanopsycho.lan>
-	<E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com>
-	<20150310063926.GA1995@nanopsycho.orion>
-	<E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com>
-	<20150310082817.GC1995@nanopsycho.orion>
-	<550752BA.5040702@gmail.com>
-	<20150317070046.GB2042@nanopsycho.orion>
-	<55083AB6.4060003@intel.com>
-	<55088E2C.5000405@cumulusnetworks.com>
-	<5508C3EA.80009@intel.com>
-	<55091B4C.7090507@cumulusnetworks.com>
-	<550998C7.7080108@gmail.com>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: [PATCH V2 0/1] neighbour: Support broadcast ARP in neighbor PROPE
+ state
+Date: Thu, 19 Mar 2015 13:52:02 +0800
+Message-ID: <550A6402.4000406@windriver.com>
+References: <1426143501-30827-1-git-send-email-Yanjun.Zhu@windriver.com> <20150312.152247.1607789216159086520.davem@redhat.com> <5506CF13.5070501@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: roopa <roopa@cumulusnetworks.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <brian.haley@hp.com>, <alexandre.dietsch@windriver.com>,
+	<clinton.slabbert@windriver.com>, <kuznet@ms2.inr.ac.ru>,
+	<jmorris@namei.org>, <kaber@trash.net>, <netdev@vger.kernel.org>
+To: Ulf Samuelsson <ulf.samuelsson@ericsson.com>,
+	David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:33393 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbbCSFtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 01:49:24 -0400
-Received: by qcbjx9 with SMTP id jx9so19370044qcb.0
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 22:49:23 -0700 (PDT)
-In-Reply-To: <550998C7.7080108@gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:45214 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750852AbbCSFwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 01:52:31 -0400
+In-Reply-To: <5506CF13.5070501@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 18, 2015 at 8:24 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> [...]
-
->> I am not sure how this would be and what other issues you will hit if
->> you are planning to bypass the kernel and directly go to the switch
->> driver for all l2 and l3 in the stacked netdevice case. For l3, its
->> better to use the in-kernel route fib offload mechanism which was
->> recently submitted by scott feldman.
+On 03/16/2015 08:39 PM, Ulf Samuelsson wrote:
+> On 03/12/2015 08:22 PM, David Miller wrote:
+>> Like Yoshifuji and others I agree that:
 >>
+>> 1) You can get working behavior by adjusting existing sysctls.
+>>
+>> 2) IPV4 ARP and IPV6 NDISC are not different in this regard.
+>>
+>> I'm really tired of all of these ARP hacks being submitted recently,
+>> and I want people to think more deeply about what they are proposing
+>> first.
+> Which sysctls are you referring to?
 >
-> Why? I saw the patched and liked it but noted that the existing policy
-> wont actually work for real networks. Its a good start. My proposal
-> is to add a flag to l3 to similarly fail to load a rule if it can't
-> be pushed at hardware same as l2.
+> As I can see it, there are three sysctls that control this.
+>
+> ucast_solicit.
+> mcast_solicit
+> app_solicit.
+>
+> If you think any other sysctl is useful here, which one?
+>
+> From Documentation/networking/ip-sysctl.txt.
+> +++++++++++++
+> app_solicit - INTEGER
+>     The maximum number of probes to send to the user space ARP daemon
+>     via netlink before dropping back to multicast probes (see
+>     mcast_solicit).  Defaults to 0.
+> ----------------------------
+> so that ain't it.
+> If you disagree, what should the Documentation look like?
+>
+> =============================================
+> From net/core/neighbour.c(timer_handler):
+>
+>     if ((neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) &&
+>         atomic_read(&neigh->probes) >= neigh_max_probes(neigh)) {
+>         neigh->nud_state = NUD_FAILED;
+>         notify = 1;
+>         neigh_invalidate(neigh);
+>         goto out;
+>     }
+>
+> From net/core/neighbour.c(neigh_max_probes):
+> static __inline__ int neigh_max_probes(struct neighbour *n)
+> {
+>     struct neigh_parms *p = n->parms;
+>     int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, 
+> APP_PROBES);
+>     if (!(n->nud_state & NUD_PROBE))
+>         max_probes += NEIGH_VAR(p, MCAST_PROBES);
+>     return max_probes;
+> }
+> =============================================
+>
+>
+> If we simplify this when we are in NUD_PROBE state we see:
+>
+> =============================================
+>     if (atomic_read(&neigh->probes) >= NEIGH_VAR(p, UCAST_PROBES) + 
+> NEIGH_VAR(p, APP_PROBES)) {
+>         neigh->nud_state = NUD_FAILED;
+>         notify = 1;
+>         neigh_invalidate(neigh);
+>         goto out;
+>     }
+> =============================================
+>
+> Since APP_PROBES is 0, and according to documentation has nothing to 
+> do with Broadcast:
+>
+> =============================================
+>     if (atomic_read(&neigh->probes) >= NEIGH_VAR(p, UCAST_PROBES)) {
+>         neigh->nud_state = NUD_FAILED;
+>         notify = 1;
+>         neigh_invalidate(neigh);
+>         goto out;
+>     }
+> =============================================
+>
+> so we will send out "ucast_solicit" unikcast probes, and then we will 
+> enter FAILED state.
+> mcast_solicit is ignored when in NUD_PROBE state.
+Yes. I agree with you. That is why I add the bcast_probe here.
 
-RIght, what we have is a start to get the basic plumbing in place.
-Agreed, the current would be inadequate for a real switch that can't
-handle a software fallback.
+>
+> "mcast_solicit" is only used when in NUD_INCOMPLETE state, and 
+> broadcasts will never
+> be sent out by the stack for an entry, once it is in NUD_REACHABLE for 
+> the first time.
+We can see this in "Figure 26-13. Transitions among NUD states" of 
+Understanding Linux Network Internals.
 
-Maybe the next step is to not flush hw of all routes on failure to add
-the Nth one, but rather just fail the Nth completely (don't install in
-hw or sw and return err to user).  This would keep the switch alive,
-but now moves a decision to the user.  The user must decide what to do
-with the failed Nth route.
-
-We also added the netlink flag RTNH_F_EXTERNAL to mark routes
-offloaded to hardware, but the marking is only done internally now, by
-the kernel.  What I'm hoping is we can use that same flag in the
-user's netlink msg to work like you describe: if user requests
-RTNH_F_EXTERNAL, and it can't be loaded into hw, don't load into sw.
-Or something like that.  Again, punting the decision on what to do
-next to the user.
-
-This part of the discussion should probably move to a new thread;
-maybe someone brave can propose a patch to move us to the next level?
-
--scott
+Zhu Yanjun
+>
+> I would be happy, if you can show me that I have misunderstood something.
+>
+> Best Regards,
+> Ulf Samuelsson
+>
+>
+>
