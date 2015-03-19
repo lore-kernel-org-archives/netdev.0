@@ -1,37 +1,50 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v7 tip 5/8] samples: bpf: simple non-portable kprobe filter
- example
-Date: Thu, 19 Mar 2015 08:53:07 -0700
-Message-ID: <550AF0E3.1060406@plumgrid.com>
-References: <1426542584-9406-1-git-send-email-ast@plumgrid.com>	<1426542584-9406-6-git-send-email-ast@plumgrid.com> <20150319115055.70e98cb8@gandalf.local.home>
+Subject: Re: [PATCH net-next v2] filter: introduce SKF_AD_VLAN_TPID BPF extension
+Date: Thu, 19 Mar 2015 09:08:35 -0700
+Message-ID: <550AF483.8040202@plumgrid.com>
+References: <1426763414-10091-1-git-send-email-msekleta@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
+Cc: Jiri Pirko <jpirko@redhat.com>, Ralf Baechle <ralf@linux-mips.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36753 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752711AbbCSPxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 11:53:07 -0400
-Received: by igbud6 with SMTP id ud6so28181177igb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 08:53:06 -0700 (PDT)
-In-Reply-To: <20150319115055.70e98cb8@gandalf.local.home>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34201 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbbCSQIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 12:08:34 -0400
+Received: by igcau2 with SMTP id au2so13542574igc.1
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 09:08:34 -0700 (PDT)
+In-Reply-To: <1426763414-10091-1-git-send-email-msekleta@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/19/15 8:50 AM, Steven Rostedt wrote:
+On 3/19/15 4:10 AM, Michal Sekletar wrote:
+> If vlan offloading takes place then vlan header is removed from frame
+> and its contents, both vlan_tci and vlan_proto, is available to userspace via
+> TPACKET interface. However, only vlan_tci can be used in BPF filters.
 >
-> I'm not going to review the sample code, as I'm a bit strapped for
-> time, and that's more userspace oriented anyway. I'm much more concerned
-> that the kernel modifications are correct.
+> This commit introduces new BPF extension. It makes possible to load value of
+> vlan_proto (vlan TPID) to register A.
 
-sure. thanks a lot for thorough review!
+Agree with the idea, though we need to decide whether to do ntohs on
+vlan_proto or not. Since right now your patch makes it consistent
+on different architectures.
+
+For arch where extended BPF jit is available the following:
+ > +	case SKF_AD_OFF + SKF_AD_VLAN_TPID:
+...
+ > +		/* A = ntohs(A) [emitting a nop or swap16] */
+ > +		*insn = BPF_ENDIAN(BPF_FROM_BE, BPF_REG_A, 16);
+
+will make sure that it's doing ntohs,
+whereas arm JIT is doing normal 16-bit load.
+ppc can be both big and little, so PPC_LHZ_OFFS is incorrect.
+
+Since it's a new field, I think it makes sense not to do ntohs at all.
+Let bpf programs do htons(PROTO_CONSTANT), since it can be done at
+compile time instead of run-time.
