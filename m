@@ -1,89 +1,71 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [PATCH v1 net-next] tuntap: convert to 64-bit interface statistics
-Date: Thu, 19 Mar 2015 17:50:33 -0400
-Message-ID: <550B44A9.5020402@cumulusnetworks.com>
-References: <1426794689-29943-1-git-send-email-jtoppins@cumulusnetworks.com> <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 10/10] amd-xgbe: Rework the Rx path SKB
+ allocation
+Date: Thu, 19 Mar 2015 17:51:07 -0400 (EDT)
+Message-ID: <20150319.175107.1317700631160353748.davem@davemloft.net>
+References: <20150319200908.28321.60118.stgit@tlendack-t1.amdoffice.net>
+	<20150319.162000.938727994480466006.davem@davemloft.net>
+	<550B3780.4080302@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Curt Brune <curt@cumulusnetworks.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33326 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCSVuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:50:35 -0400
-Received: by qgfa8 with SMTP id a8so78055958qgf.0
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 14:50:35 -0700 (PDT)
-In-Reply-To: <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51055 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbbCSVvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:51:12 -0400
+In-Reply-To: <550B3780.4080302@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/19/15 5:38 PM, Eric Dumazet wrote:
-> On Thu, 2015-03-19 at 12:51 -0700, Jonathan Toppins wrote:
->> Signed-off-by: Curt Brune <curt@cumulusnetworks.com>
->> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
->> ---
->>   drivers/net/tun.c |   54 ++++++++++++++++++++++++++++++++++++++++++-----------
->>   1 file changed, 43 insertions(+), 11 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index b96b94c..be8941a 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -65,6 +65,7 @@
->>   #include <linux/nsproxy.h>
->>   #include <linux/virtio_net.h>
->>   #include <linux/rcupdate.h>
->> +#include <linux/u64_stats_sync.h>
->>   #include <net/net_namespace.h>
->>   #include <net/netns/generic.h>
->>   #include <net/rtnetlink.h>
->> @@ -204,6 +205,9 @@ struct tun_struct {
->>   	struct list_head disabled;
->>   	void *security;
->>   	u32 flow_count;
->> +	spinlock_t			stat_lock;
->> +	struct u64_stats_sync		stat_sync;
->> +	struct rtnl_link_stats64	stats64;
->>   };
->>
->>   static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
->> @@ -751,6 +755,16 @@ static int tun_net_close(struct net_device *dev)
->>   	return 0;
->>   }
->>
->> +static __always_inline void tun_stat64_inc(struct tun_struct *tun, u64 *stat,
->> +					   size_t val)
->> +{
->> +	spin_lock_bh(&tun->stat_lock);
->> +	u64_stats_update_begin(&tun->stat_sync);
->> +	(*stat) += val;
->> +	u64_stats_update_end(&tun->stat_sync);
->> +	spin_unlock_bh(&tun->stat_lock);
->> +}
->
-> Ouch, one spin_lock_bh() ? Really ?
->
->> -	tun->dev->stats.tx_packets++;
->> -	tun->dev->stats.tx_bytes += skb->len + vlan_hlen;
->> +	tun_stat64_inc(tun, &tun->stats64.tx_packets, 1);
->> +	tun_stat64_inc(tun, &tun->stats64.tx_bytes, skb->len + vlan_hlen);
->
->
-> So you take this spinlock twice ?
->
-> Sorry, this is not good.
->
-Hi Eric, thanks for the review.
-Would something like the following be preferable?
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Thu, 19 Mar 2015 15:54:24 -0500
 
-	spin_lock_bh(&tun->stat_lock);
-	u64_stats_update_begin(&tun->stat_sync);
-	&tun->stats64.tx_packets++;
-	&tun->stats64.tx_bytes += skb->len + vlan_hlen;
-	u64_stats_update_end(&tun->stat_sync);
-	spin_unlock_bh(&tun->stat_lock);
+> On 03/19/2015 03:20 PM, David Miller wrote:
+>> From: Tom Lendacky <thomas.lendacky@amd.com>
+>> Date: Thu, 19 Mar 2015 15:09:08 -0500
+>>
+>>> When the driver creates an SKB it currently only copies the header
+>>> buffer data (which can be just the header if split header processing
+>>> succeeded or header plus data if split header processing did not
+>>> succeed) into the SKB. The receive buffer data is always added as a
+>>> frag, even if it could fit in the SKB. As part of SKB creation, inline
+>>> the receive buffer data if it will fit in the the SKB, otherwise add
+>>> it
+>>> as a frag during SKB creation.
+>>>
+>>> Also, Update the code to trigger off of the first/last descriptor
+>>> indicators and remove the incomplete indicator.
+>>>
+>>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+>>
+>> I do not understand the motivation for this, could you explain?
+>>
+>> The less copying you do the better, just having the headers in the
+>> linear area is the most optimal situation, and have all the data
+>> in page frag references.
+>>
+> 
+> I was trying to make the Rx path more logical from a first / last
+> descriptor point of view.  If it's the first descriptor allocate the
+> SKB, otherwise add the data as a frag. Compared to the current code:
+> check for null skb pointer, allocate the SKB and if there's data left
+> add it as a frag.
+> 
+> I could keep the first / last descriptor methodology and in the
+> xgbe_create_skb routine avoid the second copy and just always add the
+> other buffer as a frag. That will eliminate the extra copying. Would
+> that be ok or would you prefer that I just drop this patch?
 
--Jon
+The point is, the data might not even be touched by the cpu so copying
+it into the linear SKB data area could be a complete waste of cpu
+cycles.
+
+Only the headers will be touched by the cpu in the packet processing
+paths.
+
+And when we copy the packet data into userspace, that might even occur
+on another cpu, so the data will just thrash between the individual
+cpu's caches.
