@@ -1,161 +1,93 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v7 tip 4/8] tracing: allow BPF programs to call
- bpf_trace_printk()
-Date: Thu, 19 Mar 2015 11:29:31 -0400
-Message-ID: <20150319112931.14f3569b@gandalf.local.home>
-References: <1426542584-9406-1-git-send-email-ast@plumgrid.com>
-	<1426542584-9406-5-git-send-email-ast@plumgrid.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH 2/2] af_packet: pass checksum validation status to the user
+Date: Thu, 19 Mar 2015 11:29:32 -0400
+Message-ID: <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
+References: <1426752102-12786-1-git-send-email-al.drozdov@gmail.com> <1426752102-12786-2-git-send-email-al.drozdov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1426542584-9406-5-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Alexander Drozdov <al.drozdov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426752102-12786-2-git-send-email-al.drozdov@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Mar 2015 14:49:40 -0700
-Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+On Thu, Mar 19, 2015 at 4:01 AM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
+> Introduce TP_STATUS_CSUM_VALID tp_status flag to tell the
+> af_packet user that at least the transport header checksum
+> has been already validated.
 
-> Debugging of BPF programs needs some form of printk from the program,
-> so let programs call limited trace_printk() with %d %u %x %p modifiers only.
-> 
-> Similar to kernel modules, during program load verifier checks whether program
-> is calling bpf_trace_printk() and if so, kernel allocates trace_printk buffers
-> and emits big 'this is debug only' banner.
-> 
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+This changes the interface slightly. Processes should be treating
+this previously unused bit as reserved and other flags have
+been added to the bitmap in this manner as well, so this should
+then be safe here, too.
+
+> For now, the flag may be set for incoming packets only.
+
+Why? You cannot change the semantics of the flag afterwards.
+Better to support both directions from the start.
+
+> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
 > ---
->  include/uapi/linux/bpf.h |    1 +
->  kernel/trace/bpf_trace.c |   68 ++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 69 insertions(+)
-> 
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 101e509d1001..4095f3d9a716 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -166,6 +166,7 @@ enum bpf_func_id {
->  	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
->  	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
->  	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
-> +	BPF_FUNC_trace_printk,    /* int bpf_trace_printk(const char *fmt, int fmt_size, ...) */
->  	__BPF_FUNC_MAX_ID,
->  };
->  
-> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> index 74eb6abda6a1..a22763a4d2e2 100644
-> --- a/kernel/trace/bpf_trace.c
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -62,6 +62,60 @@ static u64 bpf_ktime_get_ns(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
->  	return ktime_get_mono_fast_ns();
->  }
->  
-> +/* limited trace_printk()
-> + * only %d %u %x %ld %lu %lx %lld %llu %llx %p conversion specifiers allowed
-> + */
-> +static u64 bpf_trace_printk(u64 r1, u64 fmt_size, u64 r3, u64 r4, u64 r5)
-> +{
-> +	char *fmt = (char *) (long) r1;
-> +	int fmt_cnt = 0;
-> +	bool mod_l[3] = {};
-> +	int i;
+>  include/uapi/linux/if_packet.h | 1 +
+>  net/packet/af_packet.c         | 9 +++++++++
+>  2 files changed, 10 insertions(+)
+>
+> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+> index da2d668..053bd10 100644
+> --- a/include/uapi/linux/if_packet.h
+> +++ b/include/uapi/linux/if_packet.h
+> @@ -99,6 +99,7 @@ struct tpacket_auxdata {
+>  #define TP_STATUS_VLAN_VALID           (1 << 4) /* auxdata has valid tp_vlan_tci */
+>  #define TP_STATUS_BLK_TMO              (1 << 5)
+>  #define TP_STATUS_VLAN_TPID_VALID      (1 << 6) /* auxdata has valid tp_vlan_tpid */
+> +#define TP_STATUS_CSUM_VALID           (1 << 7)
+>
+>  /* Tx ring - header status */
+>  #define TP_STATUS_AVAILABLE          0
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 6ecf8dd..3f09dda 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1918,6 +1918,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>
+>         if (skb->ip_summed == CHECKSUM_PARTIAL)
+>                 status |= TP_STATUS_CSUMNOTREADY;
+> +       else if (skb->pkt_type != PACKET_OUTGOING &&
+> +                (skb->ip_summed == CHECKSUM_COMPLETE ||
+> +                 skb_csum_unnecessary(skb)))
+> +               status |= TP_STATUS_CSUM_VALID;
+>
+>         if (snaplen > res)
+>                 snaplen = res;
+> @@ -3015,6 +3019,11 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+>                 aux.tp_status = TP_STATUS_USER;
+>                 if (skb->ip_summed == CHECKSUM_PARTIAL)
+>                         aux.tp_status |= TP_STATUS_CSUMNOTREADY;
+> +               else if (skb->pkt_type != PACKET_OUTGOING &&
+> +                        (skb->ip_summed == CHECKSUM_COMPLETE ||
+> +                         skb_csum_unnecessary(skb)))
+> +                       aux.tp_status |= TP_STATUS_CSUM_VALID;
 > +
-> +	/* bpf_check() guarantees that fmt points to bpf program stack and
-> +	 * fmt_size bytes of it were initialized by bpf program
-> +	 */
-> +	if (fmt[fmt_size - 1] != 0)
-> +		return -EINVAL;
-> +
-> +	/* check format string for allowed specifiers */
-> +	for (i = 0; i < fmt_size; i++)
 
-Even though there's only a single "if" statement after the "for", it is
-usually considered proper to add the brackets if the next line is
-complex (more than one line). Which it is in this case.
+These two sections are near duplicates. I'd move the entire status
+initialization, including existing TP_STATUS_USER and
+TP_STATUS_CSUMNOTREADY fields to a helper function.
 
+It's a bit unfortunately that we have to use an extra bit to add a signal
+that is a near inverse of the existing TP_STATUS_CSUMNOTREADY
+(bar CHECKSUM_NONE). I do not immediately see a better way,
+either, though. And tp_status has plenty room at 32 bits.
 
-> +		if (fmt[i] == '%') {
-> +			if (fmt_cnt >= 3)
-> +				return -EINVAL;
-> +			i++;
-> +			if (i >= fmt_size)
-> +				return -EINVAL;
-> +
-> +			if (fmt[i] == 'l') {
-> +				mod_l[fmt_cnt] = true;
-> +				i++;
-> +				if (i >= fmt_size)
-> +					return -EINVAL;
-> +			} else if (fmt[i] == 'p') {
-> +				mod_l[fmt_cnt] = true;
-> +				fmt_cnt++;
-
-So you also allow pointer conversions like "%pS" and "%pF"?
-
-> +				continue;
-> +			}
-> +
-> +			if (fmt[i] == 'l') {
-> +				mod_l[fmt_cnt] = true;
-> +				i++;
-> +				if (i >= fmt_size)
-> +					return -EINVAL;
-> +			}
-> +
-> +			if (fmt[i] != 'd' && fmt[i] != 'u' && fmt[i] != 'x')
-> +				return -EINVAL;
-> +			fmt_cnt++;
-> +		}
-> +
-> +	return __trace_printk(1/* fake ip will not be printed */, fmt,
-> +			      mod_l[0] ? r3 : (u32) r3,
-> +			      mod_l[1] ? r4 : (u32) r4,
-> +			      mod_l[2] ? r5 : (u32) r5);
-
-Does the above work on 32 bit machines? as "%ld" would be (u32), but
-here you are passing in u64.
-
--- Steve
-
-> +}
-> +
->  static struct bpf_func_proto kprobe_prog_funcs[] = {
->  	[BPF_FUNC_probe_read] = {
->  		.func = bpf_probe_read,
-> @@ -76,6 +130,13 @@ static struct bpf_func_proto kprobe_prog_funcs[] = {
->  		.gpl_only = true,
->  		.ret_type = RET_INTEGER,
->  	},
-> +	[BPF_FUNC_trace_printk] = {
-> +		.func = bpf_trace_printk,
-> +		.gpl_only = true,
-> +		.ret_type = RET_INTEGER,
-> +		.arg1_type = ARG_PTR_TO_STACK,
-> +		.arg2_type = ARG_CONST_STACK_SIZE,
-> +	},
->  };
->  
->  static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
-> @@ -90,6 +151,13 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
->  	default:
->  		if (func_id < 0 || func_id >= ARRAY_SIZE(kprobe_prog_funcs))
->  			return NULL;
-> +
-> +		if (func_id == BPF_FUNC_trace_printk)
-> +			/* this program might be calling bpf_trace_printk,
-> +			 * so allocate per-cpu printk buffers
-> +			 */
-> +			trace_printk_init_buffers();
-> +
->  		return &kprobe_prog_funcs[func_id];
->  	}
->  }
+>                 aux.tp_len = PACKET_SKB_CB(skb)->origlen;
+>                 aux.tp_snaplen = skb->len;
+>                 aux.tp_mac = 0;
+> --
+> 1.9.1
+>
