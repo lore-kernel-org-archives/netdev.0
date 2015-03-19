@@ -1,56 +1,36 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: [PATCH net-next 2/2] net: neighbour: Document
- {mcast,ucast}_solicit, mcast_resolicit.
-Date: Thu, 19 Mar 2015 22:42:04 +0900 (JST)
-Message-ID: <20150319.224204.580319871687930153.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH] mac802154: fix typo in header guard
+Date: Thu, 19 Mar 2015 14:46:26 +0100
+Message-ID: <1426772786.23529.4.camel@x220>
+References: <1426771420-29979-1-git-send-email-nicolas.iooss_linux@m4x.org>
+	 <20150319133724.GA14436@omega>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Yanjun.Zhu@windriver.com, ulf.samuelsson@ericsson.com
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og102.obsmtp.com ([64.18.2.157]:49059 "HELO
-	exprod7og102.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755233AbbCSNmI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 09:42:08 -0400
-Received: by mail-pa0-f46.google.com with SMTP id cy3so76057895pad.3
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 06:42:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, marcel@holtmann.org
+To: Alexander Aring <alex.aring@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150319133724.GA14436@omega>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
----
- Documentation/networking/ip-sysctl.txt | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+On Thu, 2015-03-19 at 14:37 +0100, Alexander Aring wrote:
+> On Thu, Mar 19, 2015 at 09:23:40PM +0800, Nicolas Iooss wrote:
+> > Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+> > Fixes: b6eea9ca354a ("mac802154: introduce driver-ops header")
+> 
+> Acked-by: Alexander Aring <alex.aring@gmail.com>
+> 
+> can you please queue this into bluetooth-next or even bluetooth?
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 4412f69..6c07c2b 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1126,11 +1126,23 @@ arp_accept - BOOLEAN
- 	gratuitous arp frame, the arp table will be updated regardless
- 	if this setting is on or off.
- 
-+mcast_solicit - INTEGER
-+	The maximum number of multicast probes in INCOMPLETE state,
-+	when the associated hardware address is unknown.  Defaults
-+	to 3.
-+
-+ucast_solicit - INTEGER
-+	The maximum number of unicast probes in PROBE state, when
-+	the hardware address is being reconfirmed.  Defaults to 3.
- 
- app_solicit - INTEGER
- 	The maximum number of probes to send to the user space ARP daemon
- 	via netlink before dropping back to multicast probes (see
--	mcast_solicit).  Defaults to 0.
-+	mcast_resolicit).  Defaults to 0.
-+
-+mcast_resolicit - INTEGER
-+	The maximum number of multicast probes after unicast and
-+	app probes in PROBE state.  Defaults to 0.
- 
- disable_policy - BOOLEAN
- 	Disable IPSEC policy (SPD) for this interface
--- 
-1.9.1
+Is the Fixes: tag needed?
+
+mac802154.ko builds fine on my machine. There's also no error or warning
+included in the commit explanation. So it seems this is just a typo fix,
+not something that should be sent to stable too. Or did I miss something
+non-obvious?
+
+
+Paul Bolle
