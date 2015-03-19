@@ -1,87 +1,97 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v2 10/10] amd-xgbe: Rework the Rx path SKB allocation
-Date: Thu, 19 Mar 2015 17:07:40 -0500
-Message-ID: <550B48AC.5030007@amd.com>
-References: <20150319200908.28321.60118.stgit@tlendack-t1.amdoffice.net>
-	<20150319.162000.938727994480466006.davem@davemloft.net>
-	<550B3780.4080302@amd.com>
- <20150319.175107.1317700631160353748.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0112.outbound.protection.outlook.com ([207.46.100.112]:49046
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750734AbbCSWHr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 18:07:47 -0400
-In-Reply-To: <20150319.175107.1317700631160353748.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: [3.13.y-ckt stable] Patch "lib/checksum.c: fix carry in csum_tcpudp_nofold" has been added to staging queue
+Date: Thu, 19 Mar 2015 15:29:25 -0700
+Message-ID: <1426804165-1913-1-git-send-email-kamal@canonical.com>
+Cc: Karl Beldan <karl.beldan@rivierawaves.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kamal Mostafa <kamal@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: karl beldan <karl.beldan@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/19/2015 04:51 PM, David Miller wrote:
-> From: Tom Lendacky <thomas.lendacky@amd.com>
-> Date: Thu, 19 Mar 2015 15:54:24 -0500
->
->> On 03/19/2015 03:20 PM, David Miller wrote:
->>> From: Tom Lendacky <thomas.lendacky@amd.com>
->>> Date: Thu, 19 Mar 2015 15:09:08 -0500
->>>
->>>> When the driver creates an SKB it currently only copies the header
->>>> buffer data (which can be just the header if split header processing
->>>> succeeded or header plus data if split header processing did not
->>>> succeed) into the SKB. The receive buffer data is always added as a
->>>> frag, even if it could fit in the SKB. As part of SKB creation, inline
->>>> the receive buffer data if it will fit in the the SKB, otherwise add
->>>> it
->>>> as a frag during SKB creation.
->>>>
->>>> Also, Update the code to trigger off of the first/last descriptor
->>>> indicators and remove the incomplete indicator.
->>>>
->>>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->>>
->>> I do not understand the motivation for this, could you explain?
->>>
->>> The less copying you do the better, just having the headers in the
->>> linear area is the most optimal situation, and have all the data
->>> in page frag references.
->>>
->>
->> I was trying to make the Rx path more logical from a first / last
->> descriptor point of view.  If it's the first descriptor allocate the
->> SKB, otherwise add the data as a frag. Compared to the current code:
->> check for null skb pointer, allocate the SKB and if there's data left
->> add it as a frag.
->>
->> I could keep the first / last descriptor methodology and in the
->> xgbe_create_skb routine avoid the second copy and just always add the
->> other buffer as a frag. That will eliminate the extra copying. Would
->> that be ok or would you prefer that I just drop this patch?
->
-> The point is, the data might not even be touched by the cpu so copying
-> it into the linear SKB data area could be a complete waste of cpu
-> cycles.
+This is a note to let you know that I have just added a patch titled
 
-I understood that point, sorry if I wasn't clear.  I'd would remove the
-copying of the data and just always add it as a frag in xgbe_create_skb
-routine so that only the headers are in the linear area.  What I'd like
-to do though is keep the overall changes of how I determine when to
-call the xgbe_create_skb routine so that it appears a bit cleaner,
-more logical.  The net effect is that the behavior of the code would
-remain the same (headers in the linear area, data as frags), but I feel
-it reads better and is easier to understand.
+    lib/checksum.c: fix carry in csum_tcpudp_nofold
 
-Thanks,
-Tom
+to the linux-3.13.y-queue branch of the 3.13.y-ckt extended stable tree 
+which can be found at:
 
->
-> Only the headers will be touched by the cpu in the packet processing
-> paths.
->
-> And when we copy the packet data into userspace, that might even occur
-> on another cpu, so the data will just thrash between the individual
-> cpu's caches.
->
+ http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.13.y-queue
+
+This patch is scheduled to be released in version 3.13.11-ckt17.
+
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 3.13.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Kamal
+
+------
+
+>From 8dc49a45f52d6335d8c4952e1bd3e07cd08f0a2d Mon Sep 17 00:00:00 2001
+From: karl beldan <karl.beldan@gmail.com>
+Date: Wed, 28 Jan 2015 10:58:11 +0100
+Subject: lib/checksum.c: fix carry in csum_tcpudp_nofold
+
+commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
+
+The carry from the 64->32bits folding was dropped, e.g with:
+saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
+csum_tcpudp_nofold returned 0 instead of 1.
+
+Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Mike Frysinger <vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+---
+ lib/checksum.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/lib/checksum.c b/lib/checksum.c
+index 129775e..fcf3894 100644
+--- a/lib/checksum.c
++++ b/lib/checksum.c
+@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
+ 	return x;
+ }
+
++static inline u32 from64to32(u64 x)
++{
++	/* add up 32-bit and 32-bit for 32+c bit */
++	x = (x & 0xffffffff) + (x >> 32);
++	/* add up carry.. */
++	x = (x & 0xffffffff) + (x >> 32);
++	return (u32)x;
++}
++
+ static unsigned int do_csum(const unsigned char *buff, int len)
+ {
+ 	int odd;
+@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
+ #else
+ 	s += (proto + len) << 8;
+ #endif
+-	s += (s >> 32);
+-	return (__force __wsum)s;
++	return (__force __wsum)from64to32(s);
+ }
+ EXPORT_SYMBOL(csum_tcpudp_nofold);
+ #endif
+--
+1.9.1
