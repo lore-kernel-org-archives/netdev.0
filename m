@@ -1,7 +1,7 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next 4/5] mpls: Per-device enabling of packet forwarding
-Date: Thu, 19 Mar 2015 21:32:51 +0000
-Message-ID: <1426800772-22378-5-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next 5/5] mpls: Allow payload type to be associated with label routes
+Date: Thu, 19 Mar 2015 21:32:52 +0000
+Message-ID: <1426800772-22378-6-git-send-email-rshearma@brocade.com>
 References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,266 +9,193 @@ Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:32728 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750932AbbCSVen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:34:43 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:56790 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750940AbbCSVey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:34:54 -0400
 In-Reply-To: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An MPLS network is a single trust domain where the edges must be in
-control of what labels make their way into the core. The simplest way
-of ensuring for the edge device to always impose the labels, and not
-allow forward labeled traffic from untrusted neighbours. This is
-achieved by allowing a per-device configuration of whether MPLS
-traffic received over that interface should be forwarded or not.
+RFC 4182 s2 states that if an IPv4 Explicit NULL label is the only
+label on the stack, then after popping the resulting packet must be
+treated as a IPv4 packet and forwarded based on the IPv4 header. The
+same is true for IPv6 Explicit NULL with an IPv6 packet following.
 
-To be secure by default, MPLS is now intially disabled on all
-interfaces (except the loopback) until explicitly enabled and no
-global option is provided to change the default. Whilst this differs
-from other protocols (e.g. IPv6), network operators are used to
-explicitly enabling MPLS forwarding on interfaces, and with the number
-of links to the MPLS core typically fairly low this doesn't present
-too much of a burden on operators.
+Therefore, when installing the IPv4/IPv6 Explicit NULL label routes,
+add an attribute that specifies the expected payload type for use at
+forwarding time for determining the type of the encapsulated packet
+instead of inspecting the first nibble of the packet.
 
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- Documentation/networking/mpls-sysctl.txt |   9 +++
- include/linux/netdevice.h                |   4 ++
- net/mpls/af_mpls.c                       | 115 ++++++++++++++++++++++++++++++-
- net/mpls/internal.h                      |   6 ++
- 4 files changed, 133 insertions(+), 1 deletion(-)
+ net/mpls/af_mpls.c | 87 ++++++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 55 insertions(+), 32 deletions(-)
 
-diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
-index 639ddf0..f48772c 100644
---- a/Documentation/networking/mpls-sysctl.txt
-+++ b/Documentation/networking/mpls-sysctl.txt
-@@ -18,3 +18,12 @@ platform_labels - INTEGER
- 
- 	Possible values: 0 - 1048575
- 	Default: 0
-+
-+conf/<interface>/forwarding - BOOL
-+	Forward packets received on this interface.
-+
-+	If disabled, packets will be discarded without further
-+	processing.
-+
-+	0 - disabled (default)
-+	not 0 - enabled
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 76951c5..ee4ca06 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -60,6 +60,7 @@ struct phy_device;
- struct wireless_dev;
- /* 802.15.4 specific */
- struct wpan_dev;
-+struct mpls_dev;
- 
- void netdev_set_default_ethtool_ops(struct net_device *dev,
- 				    const struct ethtool_ops *ops);
-@@ -1615,6 +1616,9 @@ struct net_device {
- 	void			*ax25_ptr;
- 	struct wireless_dev	*ieee80211_ptr;
- 	struct wpan_dev		*ieee802154_ptr;
-+#if IS_ENABLED(CONFIG_MPLS_ROUTING)
-+	struct mpls_dev __rcu	*mpls_ptr;
-+#endif
- 
- /*
-  * Cache lines mostly used on receive path (including eth_type_trans())
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index e3586a7..14c7e76 100644
+index 14c7e76..653bae1 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -54,6 +54,11 @@ static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned index)
- 	return rt;
- }
+@@ -23,13 +23,20 @@
+ /* This maximum ha length copied from the definition of struct neighbour */
+ #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
  
-+static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
-+{
-+	return rcu_dereference_rtnl(dev->mpls_ptr);
-+}
-+
- static bool mpls_output_possible(const struct net_device *dev)
- {
- 	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
-@@ -137,6 +142,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
- 	struct mpls_route *rt;
- 	struct mpls_entry_decoded dec;
- 	struct net_device *out_dev;
-+	struct mpls_dev *mdev;
- 	unsigned int hh_len;
- 	unsigned int new_header_size;
- 	unsigned int mtu;
-@@ -144,6 +150,10 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
- 
- 	/* Careful this entire function runs inside of an rcu critical section */
- 
-+	mdev = mpls_dev_get(dev);
-+	if (!mdev || !mdev->fwd_enabled)
-+		goto drop;
-+
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto drop;
- 
-@@ -440,10 +450,96 @@ errout:
- 	return err;
- }
- 
-+#define MPLS_PERDEV_SYSCTL_OFFSET(field)	\
-+	(&((struct mpls_dev *)0)->field)
-+
-+static const struct ctl_table mpls_dev_table[] = {
-+	{
-+		.procname	= "forwarding",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+		.data		= MPLS_PERDEV_SYSCTL_OFFSET(fwd_enabled),
-+	},
-+	{ }
++enum mpls_payload_type {
++	MPT_UNSPEC, /* IPv4 or IPv6 */
++	MPT_IPV4,
++	MPT_IPV6,
 +};
 +
-+static int mpls_dev_sysctl_register(struct net_device *dev,
-+				    struct mpls_dev *mdev)
-+{
-+	char path[sizeof("net/mpls/conf/") + IFNAMSIZ];
-+	struct ctl_table *table;
-+	int i;
-+
-+	table = kmemdup(&mpls_dev_table, sizeof(mpls_dev_table), GFP_KERNEL);
-+	if (!table)
-+		goto out;
-+
-+	/* Table data contains only offsets relative to the base of
-+	 * the mdev at this point, so make them absolute.
-+	 */
-+	for (i = 0; i < ARRAY_SIZE(mpls_dev_table); i++)
-+		table[i].data = (char *)mdev + (uintptr_t)table[i].data;
-+
-+	snprintf(path, sizeof(path), "net/mpls/conf/%s", dev->name);
-+
-+	mdev->sysctl = register_net_sysctl(dev_net(dev), path, table);
-+	if (!mdev->sysctl)
-+		goto free;
-+
-+	return 0;
-+
-+free:
-+	kfree(table);
-+out:
-+	return -ENOBUFS;
-+}
-+
-+static void mpls_dev_sysctl_unregister(struct mpls_dev *mdev)
-+{
-+	struct ctl_table *table;
-+
-+	table = mdev->sysctl->ctl_table_arg;
-+	unregister_net_sysctl_table(mdev->sysctl);
-+	kfree(table);
-+}
-+
-+static struct mpls_dev *mpls_add_dev(struct net_device *dev)
-+{
-+	struct mpls_dev *mdev;
-+	int err = -ENOMEM;
-+
-+	ASSERT_RTNL();
-+
-+	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
-+	if (!mdev)
-+		return ERR_PTR(err);
-+
-+	/* Enable MPLS by default on loopback devices, since this
-+	 * doesn't represent a security boundary and is required for the
-+	 * lookup of inner labels for LSPs terminating on this router.
-+	 */
-+	if (dev->flags & IFF_LOOPBACK)
-+		mdev->fwd_enabled = 1;
-+
-+	err = mpls_dev_sysctl_register(dev, mdev);
-+	if (err)
-+		goto free;
-+
-+	rcu_assign_pointer(dev->mpls_ptr, mdev);
-+
-+	return mdev;
-+
-+free:
-+	kfree(mdev);
-+	return ERR_PTR(err);
-+}
-+
- static void mpls_ifdown(struct net_device *dev)
- {
- 	struct mpls_route __rcu **platform_label;
- 	struct net *net = dev_net(dev);
-+	struct mpls_dev *mdev;
- 	unsigned index;
+ struct mpls_route { /* next hop label forwarding entry */
+ 	struct net_device __rcu *rt_dev;
+ 	struct rcu_head		rt_rcu;
+ 	u32			rt_label[MAX_NEW_LABELS];
+ 	u8			rt_protocol; /* routing protocol that set this entry */
+ 	u8                      rt_unlabeled : 1;
+-	u8			rt_labels : 7;
++	u8                      rt_payload_type : 3;
++	u8			rt_labels : 4;
+ 	u8			rt_via_alen;
+ 	u8			rt_via_table;
+ 	u8			rt_via[0];
+@@ -87,19 +94,24 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ 	return true;
+ }
  
- 	platform_label = rtnl_dereference(net->mpls.platform_label);
-@@ -455,14 +551,31 @@ static void mpls_ifdown(struct net_device *dev)
- 			continue;
- 		rt->rt_dev = NULL;
+-static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+-			struct mpls_entry_decoded dec)
++static enum mpls_payload_type mpls_pkt_determine_af(struct sk_buff *skb)
+ {
+-	/* RFC4385 and RFC5586 encode other packets in mpls such that
+-	 * they don't conflict with the ip version number, making
+-	 * decoding by examining the ip version correct in everything
+-	 * except for the strangest cases.
+-	 *
+-	 * The strange cases if we choose to support them will require
+-	 * manual configuration.
+-	 */
+-	struct iphdr *hdr4;
+-	bool success = true;
++	struct iphdr *hdr4 = ip_hdr(skb);
++
++	switch (hdr4->version) {
++	case 4:
++		return MPT_IPV4;
++	case 6:
++		return MPT_IPV6;
++	}
++
++	return MPT_UNSPEC;
++}
++
++static bool mpls_bos_egress(struct mpls_route *rt, struct sk_buff *skb,
++			    struct mpls_entry_decoded dec)
++{
++	enum mpls_payload_type payload_type;
+ 
+ 	/* The IPv4 code below accesses through the IPv4 header
+ 	 * checksum, which is 12 bytes into the packet.
+@@ -114,24 +126,31 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 	if (!pskb_may_pull(skb, 12))
+ 		return false;
+ 
+-	/* Use ip_hdr to find the ip protocol version */
+-	hdr4 = ip_hdr(skb);
+-	if (hdr4->version == 4) {
++	payload_type = rt->rt_payload_type;
++	if (payload_type == MPT_UNSPEC)
++		payload_type = mpls_pkt_determine_af(skb);
++
++	switch (payload_type) {
++	case MPT_IPV4: {
++		struct iphdr *hdr4 = ip_hdr(skb);
+ 		skb->protocol = htons(ETH_P_IP);
+ 		csum_replace2(&hdr4->check,
+ 			      htons(hdr4->ttl << 8),
+ 			      htons(dec.ttl << 8));
+ 		hdr4->ttl = dec.ttl;
++		return true;
  	}
-+
-+	mdev = mpls_dev_get(dev);
-+	if (!mdev)
-+		return;
-+
-+	mpls_dev_sysctl_unregister(mdev);
-+
-+	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
-+
-+	kfree(mdev);
- }
- 
- static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
- 			   void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct mpls_dev *mdev;
- 
- 	switch(event) {
-+	case NETDEV_REGISTER:
-+		mdev = mpls_add_dev(dev);
-+		if (IS_ERR(mdev))
-+			return notifier_from_errno(PTR_ERR(mdev));
+-	else if (hdr4->version == 6) {
++	case MPT_IPV6: {
+ 		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		hdr6->hop_limit = dec.ttl;
++		return true;
+ 	}
+-	else
+-		/* version 0 and version 1 are used by pseudo wires */
+-		success = false;
+-	return success;
++	case MPT_UNSPEC:
 +		break;
++	}
 +
- 	case NETDEV_UNREGISTER:
- 		mpls_ifdown(dev);
- 		break;
-@@ -924,7 +1037,7 @@ static int mpls_platform_labels(struct ctl_table *table, int write,
- 	return ret;
++	return false;
  }
  
--static struct ctl_table mpls_table[] = {
-+static const struct ctl_table mpls_table[] = {
- 	{
- 		.procname	= "platform_labels",
- 		.data		= NULL,
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index d06dff9..b839f5c 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -23,6 +23,12 @@ struct mpls_entry_decoded {
- 	u8 bos;
+ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+@@ -210,7 +229,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	skb->protocol = htons(ETH_P_MPLS_UC);
+ 
+ 	if (unlikely(!new_header_size && dec.bos)) {
+-		if (!mpls_egress(rt, skb, dec))
++		if (!mpls_bos_egress(rt, skb, dec))
+ 			goto drop;
+ 	} else if (rt->rt_unlabeled) {
+ 		/* Labeled traffic destined to unlabeled peer should
+@@ -253,16 +272,17 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
  };
  
-+struct mpls_dev {
-+	int			fwd_enabled;
-+
-+	struct ctl_table_header *sysctl;
-+};
-+
- struct sk_buff;
+ struct mpls_route_config {
+-	u32		rc_protocol;
+-	u32		rc_ifindex;
+-	u16		rc_via_table;
+-	u16		rc_via_alen;
+-	u8		rc_via[MAX_VIA_ALEN];
+-	u32		rc_label;
+-	u32		rc_output_labels;
+-	u32		rc_output_label[MAX_NEW_LABELS];
+-	u32		rc_nlflags;
+-	struct nl_info	rc_nlinfo;
++	u32			rc_protocol;
++	u32			rc_ifindex;
++	u16			rc_via_table;
++	u16			rc_via_alen;
++	u8			rc_via[MAX_VIA_ALEN];
++	u32			rc_label;
++	u32			rc_output_labels;
++	u32			rc_output_label[MAX_NEW_LABELS];
++	u32			rc_nlflags;
++	enum mpls_payload_type	rc_payload_type;
++	struct nl_info		rc_nlinfo;
+ };
  
- static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
+ static struct mpls_route *mpls_rt_alloc(size_t alen)
+@@ -413,6 +433,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 	}
+ 	rt->rt_protocol = cfg->rc_protocol;
+ 	RCU_INIT_POINTER(rt->rt_dev, dev);
++	rt->rt_payload_type = cfg->rc_payload_type;
+ 	rt->rt_via_table = cfg->rc_via_table;
+ 	memcpy(rt->rt_via, cfg->rc_via, cfg->rc_via_alen);
+ 
+@@ -948,6 +969,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 			goto nort0;
+ 		RCU_INIT_POINTER(rt0->rt_dev, lo);
+ 		rt0->rt_protocol = RTPROT_KERNEL;
++		rt0->rt_payload_type = MPT_IPV4;
+ 		rt0->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
+@@ -958,6 +980,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 			goto nort2;
+ 		RCU_INIT_POINTER(rt2->rt_dev, lo);
+ 		rt2->rt_protocol = RTPROT_KERNEL;
++		rt2->rt_payload_type = MPT_IPV6;
+ 		rt2->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
 -- 
 2.1.4
