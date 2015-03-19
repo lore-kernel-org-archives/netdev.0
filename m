@@ -1,39 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "net: cx82310_eth: use common match macro"
-Date: Thu, 19 Mar 2015 12:27:38 -0400 (EDT)
-Message-ID: <20150319.122738.693681731967137389.davem@davemloft.net>
-References: <1426716061-20953-1-git-send-email-linux@rainbow-software.org>
-	<87y4mtcs8l.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux@rainbow-software.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bjorn@mork.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87y4mtcs8l.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] rhashtable: Warn if min_size or max_size are not a power of two
+Date: Thu, 19 Mar 2015 17:34:39 +0100
+Message-ID: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:33582 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753307AbbCSQeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 12:34:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 19 Mar 2015 09:21:30 +0100
+The current code correctly limits table size to the next power of two.
+This check is solely to catch programming errors.
 
-> Ondrej Zary <linux@rainbow-software.org> writes:
->=20
->> This reverts commit 11ad714b98f6d9ca0067568442afe3e70eb94845 because
->> it breaks cx82310_eth.
->>
->> The custom USB_DEVICE_CLASS macro matches
->> bDeviceClass, bDeviceSubClass and bDeviceProtocol
->> but the common USB_DEVICE_AND_INTERFACE_INFO matches
->> bInterfaceClass, bInterfaceSubClass and bInterfaceProtocol instead, =
-which are
->> not specified.
->=20
-> Ouch.  What ever made me do that? Thanks a lot for fixing it!
->=20
-> This bug was introduced as long ago as v3.7, so the fix should go int=
-o
-> every currently maintained stable branch since that.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ lib/rhashtable.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Queued up for -stable, thanks.
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5f8fe3e..ad218d6 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -933,6 +933,11 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	if (params->nulls_base && params->nulls_base < (1U << RHT_BASE_SHIFT))
+ 		return -EINVAL;
+ 
++	WARN_ON(params->min_size &&
++		roundup_pow_of_two(params->min_size) != params->min_size);
++	WARN_ON(params->max_size &&
++		roundup_pow_of_two(params->max_size) != params->max_size);
++
+ 	params->min_size = max(params->min_size, HASH_MIN_SIZE);
+ 
+ 	if (params->nelem_hint)
+-- 
+1.9.3
