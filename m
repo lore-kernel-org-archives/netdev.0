@@ -1,72 +1,84 @@
 From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces with "ktime_t" type
-Date: Thu, 19 Mar 2015 13:45:07 +0800
-Message-ID: <1426743909-24335-3-git-send-email-baolin.wang@linaro.org>
+Subject: [PATCH 3/4] ptp/pch:Replace timespec with ktime_t in ptp_pch.c
+Date: Thu, 19 Mar 2015 13:45:08 +0800
+Message-ID: <1426743909-24335-4-git-send-email-baolin.wang@linaro.org>
 References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	john.stultz@linaro.com, tglx@linutronix.de, arnd@linaro.org,
 	baolin.wang@linaro.org
 To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:36331 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829AbbCSFqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 01:46:34 -0400
-Received: by pdbcz9 with SMTP id cz9so65606179pdb.3
-        for <netdev@vger.kernel.org>; Wed, 18 Mar 2015 22:46:34 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch introduces another two options to get/set time with "ktime_t"
-type in ptp clock operation.
+This patch changes the 32-bit time type (timespec) to the 64-bit one
+(ktime_t), since 32-bit time types will break in the year 2038.
 
-Original code will set/get time through the settime/gettime interfaces
-with "timespec" type, that will cause break issue in year 2038. And now
-introducing the new setktime/getktime interfaces with "ktime_t" type to
-use firstly.
+This patch implements the getktime/setktime interfaces with
+"ktime_t" type, and removed the gettime/settime interfaces with
+"timespec" type in ptp_pch.c file.
 
 Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
 ---
- drivers/ptp/ptp_clock.c |   20 ++++++++++++++++++--
- 1 file changed, 18 insertions(+), 2 deletions(-)
+ drivers/ptp/ptp_pch.c |   21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index 296b0ec..46425ad 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -106,14 +106,30 @@ static int ptp_clock_getres(struct posix_clock *pc, struct timespec *tp)
- 
- static int ptp_clock_settime(struct posix_clock *pc, const struct timespec *tp)
- {
-+	ktime_t kt;
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	return ptp->info->settime(ptp->info, tp);
-+
-+	if (ptp->info->setktime) {
-+		kt = timespec_to_ktime(*tp);
-+		return ptp->info->setktime(ptp->info, kt);
-+	} else {
-+		return ptp->info->settime(ptp->info, tp);
-+	}
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 2554872..c759225 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -449,36 +449,27 @@ static int ptp_pch_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
  }
  
- static int ptp_clock_gettime(struct posix_clock *pc, struct timespec *tp)
+-static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int ptp_pch_getktime(struct ptp_clock_info *ptp, ktime_t *kt)
  {
-+	ktime_t kt;
-+	int ret;
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	return ptp->info->gettime(ptp->info, tp);
-+
-+	if (ptp->info->getktime) {
-+		ret = ptp->info->getktime(ptp->info, &kt);
-+		*tp = ktime_to_timespec(kt);
-+		return ret;
-+	} else {
-+		return ptp->info->gettime(ptp->info, tp);
-+	}
+-	u64 ns;
+-	u32 remainder;
+ 	unsigned long flags;
+ 	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
+ 	struct pch_ts_regs __iomem *regs = pch_dev->regs;
+ 
+ 	spin_lock_irqsave(&pch_dev->register_lock, flags);
+-	ns = pch_systime_read(regs);
++	*kt = ns_to_ktime(pch_systime_read(regs));
+ 	spin_unlock_irqrestore(&pch_dev->register_lock, flags);
+ 
+-	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
+-	ts->tv_nsec = remainder;
+ 	return 0;
  }
  
- static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
+-static int ptp_pch_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *ts)
++static int ptp_pch_setktime(struct ptp_clock_info *ptp, ktime_t kt)
+ {
+-	u64 ns;
+ 	unsigned long flags;
+ 	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
+ 	struct pch_ts_regs __iomem *regs = pch_dev->regs;
+ 
+-	ns = ts->tv_sec * 1000000000ULL;
+-	ns += ts->tv_nsec;
+-
+ 	spin_lock_irqsave(&pch_dev->register_lock, flags);
+-	pch_systime_write(regs, ns);
++	pch_systime_write(regs, ktime_to_ns(kt));
+ 	spin_unlock_irqrestore(&pch_dev->register_lock, flags);
+ 
+ 	return 0;
+@@ -518,8 +509,8 @@ static struct ptp_clock_info ptp_pch_caps = {
+ 	.pps		= 0,
+ 	.adjfreq	= ptp_pch_adjfreq,
+ 	.adjtime	= ptp_pch_adjtime,
+-	.gettime	= ptp_pch_gettime,
+-	.settime	= ptp_pch_settime,
++	.getktime	= ptp_pch_getktime,
++	.setktime	= ptp_pch_setktime,
+ 	.enable		= ptp_pch_enable,
+ };
+ 
 -- 
 1.7.9.5
