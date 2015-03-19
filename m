@@ -1,7 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 08/10] amd-xgbe: Fix Rx coalescing reporting
-Date: Thu, 19 Mar 2015 15:08:56 -0500
-Message-ID: <20150319200856.28321.49879.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 03/10] amd-xgbe-phy: Provide support for
+ auto-negotiation timeout
+Date: Thu, 19 Mar 2015 15:08:26 -0500
+Message-ID: <20150319200826.28321.19581.stgit@tlendack-t1.amdoffice.net>
 References: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,100 +10,89 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0114.outbound.protection.outlook.com ([207.46.100.114]:33353
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0110.outbound.protection.outlook.com ([65.55.169.110]:43456
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750967AbbCSUJC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 16:09:02 -0400
+	id S1751310AbbCSUIc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 16:08:32 -0400
 In-Reply-To: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Rx coalescing value is internally converted from usecs to a value
-that the hardware can use. When reporting the Rx coalescing value, this
-internal value is converted back to usecs. During the conversion from
-and back to usecs some rounding occurs. So, for example, when setting an
-Rx usec of 30, it will be reported as 29. Fix this reporting issue by
-keeping the original usec value and using that during reporting.
+Currently, there is no interrupt code that indicates auto-negotiation
+has timed out. If the auto-negotiation has timed out then the start of
+a new auto-negotiation will begin again with a new base page being
+received. The state machine could be in a state that is not expecting
+this interrupt code which results in an error during auto-negotiation.
+
+Update the code to timestamp when the auto-negotiation starts.  Should
+another page received interrupt code occur before auto-negotiation has
+completed but after the auto-negotiation timeout, then reset the state
+machine to allow the auto-negotiation to continue.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |    1 +
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   12 +++++-------
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    1 +
- 3 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/phy/amd-xgbe-phy.c |   20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 122a631..fc362be 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -702,6 +702,7 @@ void xgbe_init_rx_coalesce(struct xgbe_prv_data *pdata)
- 	DBGPR("-->xgbe_init_rx_coalesce\n");
+diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
+index 4b95caf..823b316 100644
+--- a/drivers/net/phy/amd-xgbe-phy.c
++++ b/drivers/net/phy/amd-xgbe-phy.c
+@@ -78,6 +78,7 @@
+ #include <linux/bitops.h>
+ #include <linux/property.h>
+ #include <linux/acpi.h>
++#include <linux/time.h>
  
- 	pdata->rx_riwt = hw_if->usec_to_riwt(pdata, XGMAC_INIT_DMA_RX_USECS);
-+	pdata->rx_usecs = XGMAC_INIT_DMA_RX_USECS;
- 	pdata->rx_frames = XGMAC_INIT_DMA_RX_FRAMES;
+ MODULE_AUTHOR("Tom Lendacky <thomas.lendacky@amd.com>");
+ MODULE_LICENSE("Dual BSD/GPL");
+@@ -100,6 +101,8 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
+ #define XGBE_PHY_SPEED_2500		1
+ #define XGBE_PHY_SPEED_10000		2
  
- 	hw_if->config_rx_coalesce(pdata);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 376d6a5..b4f6eaa 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -377,15 +377,12 @@ static int xgbe_get_coalesce(struct net_device *netdev,
- 			     struct ethtool_coalesce *ec)
++#define XGBE_AN_NS_TIMEOUT		(500 * NSEC_PER_MSEC)	/* 500 ms */
++
+ #define XGBE_AN_INT_CMPLT		0x01
+ #define XGBE_AN_INC_LINK		0x02
+ #define XGBE_AN_PG_RCV			0x04
+@@ -434,6 +437,7 @@ struct amd_xgbe_phy_priv {
+ 	unsigned int an_supported;
+ 	unsigned int parallel_detect;
+ 	unsigned int fec_ability;
++	struct timespec64 an_start;
+ 
+ 	unsigned int lpm_ctrl;		/* CTRL1 for resume */
+ };
+@@ -902,8 +906,23 @@ static enum amd_xgbe_phy_an amd_xgbe_an_page_received(struct phy_device *phydev)
  {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
--	struct xgbe_hw_if *hw_if = &pdata->hw_if;
--	unsigned int riwt;
+ 	struct amd_xgbe_phy_priv *priv = phydev->priv;
+ 	enum amd_xgbe_phy_rx *state;
++	struct timespec64 rcv_time, diff_time;
+ 	int ret;
  
- 	DBGPR("-->xgbe_get_coalesce\n");
++	getnstimeofday64(&rcv_time);
++	if (!timespec64_to_ns(&priv->an_start)) {
++		priv->an_start = rcv_time;
++	} else {
++		diff_time = timespec64_sub(rcv_time, priv->an_start);
++		if (timespec64_to_ns(&diff_time) > XGBE_AN_NS_TIMEOUT) {
++			/* Auto-negotiation timed out, reset state */
++			priv->kr_state = AMD_XGBE_RX_BPA;
++			priv->kx_state = AMD_XGBE_RX_BPA;
++
++			priv->an_start = rcv_time;
++		}
++	}
++
+ 	state = amd_xgbe_phy_in_kr_mode(phydev) ? &priv->kr_state
+ 						: &priv->kx_state;
  
- 	memset(ec, 0, sizeof(struct ethtool_coalesce));
- 
--	riwt = pdata->rx_riwt;
--	ec->rx_coalesce_usecs = hw_if->riwt_to_usec(pdata, riwt);
-+	ec->rx_coalesce_usecs = pdata->rx_usecs;
- 	ec->rx_max_coalesced_frames = pdata->rx_frames;
- 
- 	ec->tx_max_coalesced_frames = pdata->tx_frames;
-@@ -438,17 +435,17 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+@@ -1078,6 +1097,7 @@ again:
+ 		priv->an_state = AMD_XGBE_AN_READY;
+ 		priv->kr_state = AMD_XGBE_RX_BPA;
+ 		priv->kx_state = AMD_XGBE_RX_BPA;
++		priv->an_start = ns_to_timespec64(0);
  	}
  
- 	rx_riwt = hw_if->usec_to_riwt(pdata, ec->rx_coalesce_usecs);
-+	rx_usecs = ec->rx_coalesce_usecs;
- 	rx_frames = ec->rx_max_coalesced_frames;
- 
- 	/* Use smallest possible value if conversion resulted in zero */
--	if (ec->rx_coalesce_usecs && !rx_riwt)
-+	if (rx_usecs && !rx_riwt)
- 		rx_riwt = 1;
- 
- 	/* Check the bounds of values for Rx */
- 	if (rx_riwt > XGMAC_MAX_DMA_RIWT) {
--		rx_usecs = hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT);
- 		netdev_alert(netdev, "rx-usec is limited to %d usecs\n",
--			     rx_usecs);
-+			     hw_if->riwt_to_usec(pdata, XGMAC_MAX_DMA_RIWT));
- 		return -EINVAL;
- 	}
- 	if (rx_frames > pdata->rx_desc_count) {
-@@ -467,6 +464,7 @@ static int xgbe_set_coalesce(struct net_device *netdev,
- 	}
- 
- 	pdata->rx_riwt = rx_riwt;
-+	pdata->rx_usecs = rx_usecs;
- 	pdata->rx_frames = rx_frames;
- 	hw_if->config_rx_coalesce(pdata);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 72b8f27..dd74242 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -716,6 +716,7 @@ struct xgbe_prv_data {
- 
- 	/* Rx coalescing settings */
- 	unsigned int rx_riwt;
-+	unsigned int rx_usecs;
- 	unsigned int rx_frames;
- 
- 	/* Current Rx buffer size */
+ 	if (cur_state != priv->an_state)
