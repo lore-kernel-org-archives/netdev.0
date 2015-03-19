@@ -1,109 +1,46 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: Re: [PATCH 2/2] af_packet: pass checksum validation status to the
- user
-Date: Thu, 19 Mar 2015 21:08:36 +0300
-Message-ID: <550B10A4.60500@gmail.com>
-References: <1426752102-12786-1-git-send-email-al.drozdov@gmail.com> <1426752102-12786-2-git-send-email-al.drozdov@gmail.com> <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH v2 net-next 1/4] net: socket: add support for async
+ operations
+Date: Thu, 19 Mar 2015 18:13:25 +0000
+Message-ID: <20150319181325.GQ29656@ZenIV.linux.org.uk>
+References: <20150316161508.16418.23674.stgit@tstruk-mobl1>
+ <20150316161514.16418.67336.stgit@tstruk-mobl1>
+ <20150319162024.GO29656@ZenIV.linux.org.uk>
+ <550B0AB4.2060507@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-aio@kvack.org,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	ying.xue@windriver.com, bcrl@kvack.org,
+	linux-fsdevel@vger.kernel.org, hch@lst.de,
+	linux-crypto@vger.kernel.org
+To: Tadeusz Struk <tadeusz.struk@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:55546 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753410AbbCSSNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 14:13:33 -0400
+Content-Disposition: inline
+In-Reply-To: <550B0AB4.2060507@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Mar 2015 11:29:32 -0400, Willem de Bruijn <willemb@google.com> wrote:
-> On Thu, Mar 19, 2015 at 4:01 AM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
->> Introduce TP_STATUS_CSUM_VALID tp_status flag to tell the
->> af_packet user that at least the transport header checksum
->> has been already validated.
-> This changes the interface slightly. Processes should be treating
-> this previously unused bit as reserved and other flags have
-> been added to the bitmap in this manner as well, so this should
-> then be safe here, too.
->
->> For now, the flag may be set for incoming packets only.
-> Why?
-I can't figure out how af_packet could get that the outgoing
-packet's checksum has been validated. "Checksumming on
-output" from skbuff.h tells that skb->ip_summed should
-equal to CHECKSUM_NONE in that case, but that is not true
-for me (in my tests, skb->ip_summed ==
-CHECKSUM_UNNECESSARY for forwarded packets in some
-cases).
+On Thu, Mar 19, 2015 at 10:43:16AM -0700, Tadeusz Struk wrote:
+> On 03/19/2015 09:20 AM, Al Viro wrote:
+> > is completely pointless.  Just have sock_read_iter() and sock_write_iter()
+> > check if your new methods are present and use those if those are.
+> > 
+> 
+> Ok, that will work for me too.
+> 
+> > What's more, I'm not at all sure that you want to pass iocb that way -
+> > kernel-side msghdr isn't tied to userland one anymore, so we might as well
+> > stash a pointer to iocb into it.  Voila - no new methods needed at all.
+> 
+> Good point, so what do you prefer - to add iocd to msghdr or to call the new
+> methods from sock_read_iter() and sock_write_iter()?
+> Either way is good for me.
 
-> You cannot change the semantics of the flag afterwards.
-
-I think the semantics of the flag won't be changed if one set the flag
-for outgoing packets. If the flag is not set (for any directions)
-then that is not mean that the packet checksum is invalid. The user just can then
-checksum the packet by itself. So, the user may check the flag for any packet
-right now.
-
-> Better to support both directions from the start.
->
->> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
->> ---
->>   include/uapi/linux/if_packet.h | 1 +
->>   net/packet/af_packet.c         | 9 +++++++++
->>   2 files changed, 10 insertions(+)
->>
->> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
->> index da2d668..053bd10 100644
->> --- a/include/uapi/linux/if_packet.h
->> +++ b/include/uapi/linux/if_packet.h
->> @@ -99,6 +99,7 @@ struct tpacket_auxdata {
->>   #define TP_STATUS_VLAN_VALID           (1 << 4) /* auxdata has valid tp_vlan_tci */
->>   #define TP_STATUS_BLK_TMO              (1 << 5)
->>   #define TP_STATUS_VLAN_TPID_VALID      (1 << 6) /* auxdata has valid tp_vlan_tpid */
->> +#define TP_STATUS_CSUM_VALID           (1 << 7)
->>
->>   /* Tx ring - header status */
->>   #define TP_STATUS_AVAILABLE          0
->> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->> index 6ecf8dd..3f09dda 100644
->> --- a/net/packet/af_packet.c
->> +++ b/net/packet/af_packet.c
->> @@ -1918,6 +1918,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->>
->>          if (skb->ip_summed == CHECKSUM_PARTIAL)
->>                  status |= TP_STATUS_CSUMNOTREADY;
->> +       else if (skb->pkt_type != PACKET_OUTGOING &&
->> +                (skb->ip_summed == CHECKSUM_COMPLETE ||
->> +                 skb_csum_unnecessary(skb)))
->> +               status |= TP_STATUS_CSUM_VALID;
->>
->>          if (snaplen > res)
->>                  snaplen = res;
->> @@ -3015,6 +3019,11 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
->>                  aux.tp_status = TP_STATUS_USER;
->>                  if (skb->ip_summed == CHECKSUM_PARTIAL)
->>                          aux.tp_status |= TP_STATUS_CSUMNOTREADY;
->> +               else if (skb->pkt_type != PACKET_OUTGOING &&
->> +                        (skb->ip_summed == CHECKSUM_COMPLETE ||
->> +                         skb_csum_unnecessary(skb)))
->> +                       aux.tp_status |= TP_STATUS_CSUM_VALID;
->> +
-> These two sections are near duplicates. I'd move the entire status
-> initialization, including existing TP_STATUS_USER and
-> TP_STATUS_CSUMNOTREADY fields to a helper function.
->
-> It's a bit unfortunately that we have to use an extra bit to add a signal
-> that is a near inverse of the existing TP_STATUS_CSUMNOTREADY
-> (bar CHECKSUM_NONE). I do not immediately see a better way,
-> either, though. And tp_status has plenty room at 32 bits.
->
->>                  aux.tp_len = PACKET_SKB_CB(skb)->origlen;
->>                  aux.tp_snaplen = skb->len;
->>                  aux.tp_mac = 0;
->> --
->> 1.9.1
->>
+I'd probably add msg_iocb to the end of struct msghdr and explicitly zero it in
+copy_msghdr_from_user() and get_compat_msghdr(), but you are asking the wrong
+guy - that sort of choices in net/* falls on davem, not me.
