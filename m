@@ -1,93 +1,75 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH 2/2] af_packet: pass checksum validation status to the user
-Date: Thu, 19 Mar 2015 11:29:32 -0400
-Message-ID: <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
-References: <1426752102-12786-1-git-send-email-al.drozdov@gmail.com> <1426752102-12786-2-git-send-email-al.drozdov@gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v7 tip 2/8] tracing: attach BPF programs to kprobes
+Date: Thu, 19 Mar 2015 08:33:24 -0700
+Message-ID: <550AEC44.3060107@plumgrid.com>
+References: <1426542584-9406-1-git-send-email-ast@plumgrid.com>	<1426542584-9406-3-git-send-email-ast@plumgrid.com> <20150319110742.7dc9473d@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Alexander Drozdov <al.drozdov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426752102-12786-2-git-send-email-al.drozdov@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150319110742.7dc9473d-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 19, 2015 at 4:01 AM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
-> Introduce TP_STATUS_CSUM_VALID tp_status flag to tell the
-> af_packet user that at least the transport header checksum
-> has been already validated.
-
-This changes the interface slightly. Processes should be treating
-this previously unused bit as reserved and other flags have
-been added to the bitmap in this manner as well, so this should
-then be safe here, too.
-
-> For now, the flag may be set for incoming packets only.
-
-Why? You cannot change the semantics of the flag afterwards.
-Better to support both directions from the start.
-
-> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
-> ---
->  include/uapi/linux/if_packet.h | 1 +
->  net/packet/af_packet.c         | 9 +++++++++
->  2 files changed, 10 insertions(+)
+On 3/19/15 8:07 AM, Steven Rostedt wrote:
+>>   struct trace_print_flags {
+>>   	unsigned long		mask;
+>> @@ -252,6 +253,7 @@ enum {
+>>   	TRACE_EVENT_FL_WAS_ENABLED_BIT,
+>>   	TRACE_EVENT_FL_USE_CALL_FILTER_BIT,
+>>   	TRACE_EVENT_FL_TRACEPOINT_BIT,
+>> +	TRACE_EVENT_FL_KPROBE_BIT,
 >
-> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-> index da2d668..053bd10 100644
-> --- a/include/uapi/linux/if_packet.h
-> +++ b/include/uapi/linux/if_packet.h
-> @@ -99,6 +99,7 @@ struct tpacket_auxdata {
->  #define TP_STATUS_VLAN_VALID           (1 << 4) /* auxdata has valid tp_vlan_tci */
->  #define TP_STATUS_BLK_TMO              (1 << 5)
->  #define TP_STATUS_VLAN_TPID_VALID      (1 << 6) /* auxdata has valid tp_vlan_tpid */
-> +#define TP_STATUS_CSUM_VALID           (1 << 7)
->
->  /* Tx ring - header status */
->  #define TP_STATUS_AVAILABLE          0
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 6ecf8dd..3f09dda 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1918,6 +1918,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->
->         if (skb->ip_summed == CHECKSUM_PARTIAL)
->                 status |= TP_STATUS_CSUMNOTREADY;
-> +       else if (skb->pkt_type != PACKET_OUTGOING &&
-> +                (skb->ip_summed == CHECKSUM_COMPLETE ||
-> +                 skb_csum_unnecessary(skb)))
-> +               status |= TP_STATUS_CSUM_VALID;
->
->         if (snaplen > res)
->                 snaplen = res;
-> @@ -3015,6 +3019,11 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
->                 aux.tp_status = TP_STATUS_USER;
->                 if (skb->ip_summed == CHECKSUM_PARTIAL)
->                         aux.tp_status |= TP_STATUS_CSUMNOTREADY;
-> +               else if (skb->pkt_type != PACKET_OUTGOING &&
-> +                        (skb->ip_summed == CHECKSUM_COMPLETE ||
-> +                         skb_csum_unnecessary(skb)))
-> +                       aux.tp_status |= TP_STATUS_CSUM_VALID;
-> +
+> I think this should be broken up into two patches. One that adds the
+> KPROBE_BIT flag to kprobe events, and the other that adds the bpf
+> program.
 
-These two sections are near duplicates. I'd move the entire status
-initialization, including existing TP_STATUS_USER and
-TP_STATUS_CSUMNOTREADY fields to a helper function.
+sure. will do.
 
-It's a bit unfortunately that we have to use an extra bit to add a signal
-that is a near inverse of the existing TP_STATUS_CSUMNOTREADY
-(bar CHECKSUM_NONE). I do not immediately see a better way,
-either, though. And tp_status has plenty room at 32 bits.
-
->                 aux.tp_len = PACKET_SKB_CB(skb)->origlen;
->                 aux.tp_snaplen = skb->len;
->                 aux.tp_mac = 0;
-> --
-> 1.9.1
 >
+> There should be kerneldoc comments above this function.
+>
+>> +unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
+
+ok.
+
+>> +	per_cpu(bpf_prog_active, cpu)--;
+>
+> Hmm, as cpu == smp_processor_id(), you should be using
+> __this_cpu_inc_return(), and __this_cpu_dec().
+
+yeah. picked a wrong place to copy paste from.
+will do. good point.
+
+>
+> Why not just make kprobe_prog_funcs[] = {
+> 	[BPF_FUNC_map_lookup_elem] = &bpf_map_lookup_elem_proto,
+> 	[BPF_FUNC_map_update_elem] = &bpf_map_update_elem_proto,
+> 	[BPF_FUNC_map_delete_elem] = &bpf_map_delete_elem_proto,
+> 	[BPF_FUNC_probe_read] = &kprobe_prog_proto,
+>
+> And define kprobe_prog_proto separately.
+>
+> And then you don't need the switch statement, you could just use the
+> if (func_id < 0 || func_id >= ARRAY_SIZE(kprobe_prog_funcs))
+> 	return kprobe_prog_funcs[func_id];
+>
+> I think there's several advantages to my approach. One, is that you are
+> not wasting memory with empty objects in the array. Also, if the array
+> gets out of sync with the enum, it would be possible to return an empty
+> object. That is, &kprobe_prog_funcs[out_of_sync_func_id], would not be
+> NULL if in the future someone added an enum before BPF_FUNC_probe_read,
+> and the func_id passed in is that enum.
+
+yes! There will be gaps in func_ids, so that would have
+been a bug. Thanks for catching it!
