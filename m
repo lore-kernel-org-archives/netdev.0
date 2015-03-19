@@ -1,36 +1,109 @@
-From: Sven-Haegar Koch <haegar@sdinet.de>
-Subject: Re: [PATCH iproute2] fix ip -force -batch to continue on errors
-Date: Thu, 19 Mar 2015 18:58:41 +0100 (CET)
-Message-ID: <alpine.DEB.2.11.1503191857360.13144@aurora64.sdinet.de>
-References: <1426645592-4002-1-git-send-email-roopa@cumulusnetworks.com>
+From: Alexander Drozdov <al.drozdov@gmail.com>
+Subject: Re: [PATCH 2/2] af_packet: pass checksum validation status to the
+ user
+Date: Thu, 19 Mar 2015 21:08:36 +0300
+Message-ID: <550B10A4.60500@gmail.com>
+References: <1426752102-12786-1-git-send-email-al.drozdov@gmail.com> <1426752102-12786-2-git-send-email-al.drozdov@gmail.com> <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from blackhole.sdinet.de ([176.9.52.58]:54907 "EHLO mail.sdinet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752931AbbCSR6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 13:58:49 -0400
-In-Reply-To: <1426645592-4002-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Mar 2015, roopa@cumulusnetworks.com wrote:
+On Thu, 19 Mar 2015 11:29:32 -0400, Willem de Bruijn <willemb@google.com> wrote:
+> On Thu, Mar 19, 2015 at 4:01 AM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
+>> Introduce TP_STATUS_CSUM_VALID tp_status flag to tell the
+>> af_packet user that at least the transport header checksum
+>> has been already validated.
+> This changes the interface slightly. Processes should be treating
+> this previously unused bit as reserved and other flags have
+> been added to the bitmap in this manner as well, so this should
+> then be safe here, too.
+>
+>> For now, the flag may be set for incoming packets only.
+> Why?
+I can't figure out how af_packet could get that the outgoing
+packet's checksum has been validated. "Checksumming on
+output" from skbuff.h tells that skb->ip_summed should
+equal to CHECKSUM_NONE in that case, but that is not true
+for me (in my tests, skb->ip_summed ==
+CHECKSUM_UNNECESSARY for forwarded packets in some
+cases).
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch replaces exits with returns in several
-> iproute2 commands. This fixes `ip -batch -force`
-> to not exit but continue on errors.
+> You cannot change the semantics of the flag afterwards.
 
-Thanks a lot!
-Slight rejects adding it to Debian's iproute2 3.16.0-2, but after 
-fixing them up works great!
+I think the semantics of the flag won't be changed if one set the flag
+for outgoing packets. If the flag is not set (for any directions)
+then that is not mean that the packet checksum is invalid. The user just can then
+checksum the packet by itself. So, the user may check the flag for any packet
+right now.
 
-c'ya
-sven-haegar
-
--- 
-Three may keep a secret, if two of them are dead.
-- Ben F.
+> Better to support both directions from the start.
+>
+>> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+>> ---
+>>   include/uapi/linux/if_packet.h | 1 +
+>>   net/packet/af_packet.c         | 9 +++++++++
+>>   2 files changed, 10 insertions(+)
+>>
+>> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+>> index da2d668..053bd10 100644
+>> --- a/include/uapi/linux/if_packet.h
+>> +++ b/include/uapi/linux/if_packet.h
+>> @@ -99,6 +99,7 @@ struct tpacket_auxdata {
+>>   #define TP_STATUS_VLAN_VALID           (1 << 4) /* auxdata has valid tp_vlan_tci */
+>>   #define TP_STATUS_BLK_TMO              (1 << 5)
+>>   #define TP_STATUS_VLAN_TPID_VALID      (1 << 6) /* auxdata has valid tp_vlan_tpid */
+>> +#define TP_STATUS_CSUM_VALID           (1 << 7)
+>>
+>>   /* Tx ring - header status */
+>>   #define TP_STATUS_AVAILABLE          0
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 6ecf8dd..3f09dda 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -1918,6 +1918,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>>
+>>          if (skb->ip_summed == CHECKSUM_PARTIAL)
+>>                  status |= TP_STATUS_CSUMNOTREADY;
+>> +       else if (skb->pkt_type != PACKET_OUTGOING &&
+>> +                (skb->ip_summed == CHECKSUM_COMPLETE ||
+>> +                 skb_csum_unnecessary(skb)))
+>> +               status |= TP_STATUS_CSUM_VALID;
+>>
+>>          if (snaplen > res)
+>>                  snaplen = res;
+>> @@ -3015,6 +3019,11 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+>>                  aux.tp_status = TP_STATUS_USER;
+>>                  if (skb->ip_summed == CHECKSUM_PARTIAL)
+>>                          aux.tp_status |= TP_STATUS_CSUMNOTREADY;
+>> +               else if (skb->pkt_type != PACKET_OUTGOING &&
+>> +                        (skb->ip_summed == CHECKSUM_COMPLETE ||
+>> +                         skb_csum_unnecessary(skb)))
+>> +                       aux.tp_status |= TP_STATUS_CSUM_VALID;
+>> +
+> These two sections are near duplicates. I'd move the entire status
+> initialization, including existing TP_STATUS_USER and
+> TP_STATUS_CSUMNOTREADY fields to a helper function.
+>
+> It's a bit unfortunately that we have to use an extra bit to add a signal
+> that is a near inverse of the existing TP_STATUS_CSUMNOTREADY
+> (bar CHECKSUM_NONE). I do not immediately see a better way,
+> either, though. And tp_status has plenty room at 32 bits.
+>
+>>                  aux.tp_len = PACKET_SKB_CB(skb)->origlen;
+>>                  aux.tp_snaplen = skb->len;
+>>                  aux.tp_mac = 0;
+>> --
+>> 1.9.1
+>>
