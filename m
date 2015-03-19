@@ -1,45 +1,42 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] bridge: drop reference to unused option
- embedded from manpage
-Date: Thu, 19 Mar 2015 12:14:22 -0400
-Message-ID: <20150319161419.GA20295@gospo.home.greyhouse.net>
-References: <1426606450-30133-1-git-send-email-gospo@cumulusnetworks.com>
- <5508CC3B.3040306@lab.ntt.co.jp>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH v2 net-next 1/4] net: socket: add support for async
+ operations
+Date: Thu, 19 Mar 2015 16:20:24 +0000
+Message-ID: <20150319162024.GO29656@ZenIV.linux.org.uk>
+References: <20150316161508.16418.23674.stgit@tstruk-mobl1>
+ <20150316161514.16418.67336.stgit@tstruk-mobl1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: davem@davemloft.net, linux-aio@kvack.org,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	ying.xue@windriver.com, bcrl@kvack.org,
+	linux-fsdevel@vger.kernel.org, hch@lst.de,
+	linux-crypto@vger.kernel.org
+To: Tadeusz Struk <tadeusz.struk@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:34488 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751366AbbCSQOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 12:14:30 -0400
-Received: by qcaz10 with SMTP id z10so70590663qca.1
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 09:14:29 -0700 (PDT)
+Received: from zeniv.linux.org.uk ([195.92.253.2]:55276 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755127AbbCSQUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 12:20:35 -0400
 Content-Disposition: inline
-In-Reply-To: <5508CC3B.3040306@lab.ntt.co.jp>
+In-Reply-To: <20150316161514.16418.67336.stgit@tstruk-mobl1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 18, 2015 at 09:52:11AM +0900, Toshiaki Makita wrote:
-> On 2015/03/18 0:34, Andy Gospodarek wrote:
-> > While looking at the manpage, I noticed a reference to 'embedded' that was
-> > added by this commit:
-> > 
-> > 	commit d611682a8c8f28205158e6d3a7d5e2d01db022cc
-> > 	Author: John Fastabend <john.r.fastabend@intel.com>
-> > 	Date:   Thu Sep 13 23:50:36 2012 -0700
-> > 
-> > 	    iproute2: bridge: finish removing replace option in man pages
-> > 
-> > I no longer see any reference to the 'embedded' option in any c- or h-files, so
-> > it seems worthwhile to remove.
-> 
-> Actually, in addition, "master" option is missing.
-> Also, the current explanation of "self" looks incorrect and appropriate
-> for "master".
-> 
-> I wondered if you could fix them together with this... or I will do later.
-> 
+On Mon, Mar 16, 2015 at 09:15:14AM -0700, Tadeusz Struk wrote:
+> Add support for async operations.
 
-Good idea, but I would prefer the suggested change as another patch.
+NAK.  For the same reason as the last time - 
+
+> +static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
+> +			     unsigned long nr_segs, loff_t loff);
+> +static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
+> +			      unsigned long nr_segs, loff_t loff);
+> +
+
+is completely pointless.  Just have sock_read_iter() and sock_write_iter()
+check if your new methods are present and use those if those are.
+
+What's more, I'm not at all sure that you want to pass iocb that way -
+kernel-side msghdr isn't tied to userland one anymore, so we might as well
+stash a pointer to iocb into it.  Voila - no new methods needed at all.
