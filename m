@@ -1,34 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Add Device ID and make device ID table
- const
-Date: Thu, 19 Mar 2015 15:30:51 -0400 (EDT)
-Message-ID: <20150319.153051.2040627991324515848.davem@davemloft.net>
-References: <1426784256-5689-1-git-send-email-hariprasad@chelsio.com>
+From: Tadeusz Struk <tadeusz.struk@intel.com>
+Subject: [PATCH v3 net-next 0/3] Add support for async socket operations
+Date: Thu, 19 Mar 2015 12:31:19 -0700
+Message-ID: <20150319193118.11500.10463.stgit@tstruk-mobl1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com,
-	swise@opengridcomputing.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbbCSTaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 15:30:55 -0400
-In-Reply-To: <1426784256-5689-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-aio@kvack.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
+	viro@ZenIV.linux.org.uk, linux-fsdevel@vger.kernel.org, hch@lst.de,
+	linux-crypto@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Thu, 19 Mar 2015 22:27:34 +0530
+After the iocb parameter has been removed from sendmsg() and recvmsg() ops
+the socket layer, and the network stack no longer support async operations.
+This patch set adds support for asynchronous operations on sockets back.
 
-> This patch series adds new device ID and makes device ID table const
-> 
-> The patches series is created against 'net-next' tree.  And includes
-> patches on cxgb4 and csiostor driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly
-> review the change and let us know in case of any review comments.
+Changes in v3:
+* As sugested by Al Viro instead of adding new functions aio_sendmsg
+  and aio_recvmsg, added a ptr to iocb into the kernel-side msghdr structure.
+  This way no change to aio.c is required.
 
-This looks fine, series applied, thanks.
+Changes in v2:
+* removed redundant total_size param from aio_sendmsg and aio_recvmsg functions
+
+--
+Tadeusz Struk (3):
+      net: socket: add support for async operations
+      crypto: af_alg - Allow to link sgl
+      crypto: algif - change algif_skcipher to be asynchronous
+
+
+ crypto/af_alg.c         |   18 +++-
+ crypto/algif_skcipher.c |  233 ++++++++++++++++++++++++++++++++++++++++++++++-
+ include/crypto/if_alg.h |    4 +
+ include/linux/socket.h  |    1 
+ net/compat.c            |    2 
+ net/socket.c            |    8 +-
+ 6 files changed, 251 insertions(+), 15 deletions(-)
+
+-- 
