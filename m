@@ -1,41 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next v2] rhashtable: Warn if min_size or max_size are
- not a power of two
-Date: Fri, 20 Mar 2015 08:49:33 +1100
-Message-ID: <20150319214933.GA11937@gondor.apana.org.au>
-References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
- <20150319.152450.1573636653085091157.davem@davemloft.net>
- <20150319194608.GA27962@casper.infradead.org>
- <20150319210239.GB9601@gondor.apana.org.au>
- <20150319211546.GA4190@casper.infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: rps: fix data stall after hotplug
+Date: Thu, 19 Mar 2015 14:50:39 -0700
+Message-ID: <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:45199 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776AbbCSVti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:49:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20150319211546.GA4190@casper.infradead.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:36200 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbCSVui (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:50:38 -0400
+Received: by igbud6 with SMTP id ud6so37601064igb.1
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 14:50:37 -0700 (PDT)
+In-Reply-To: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2015 at 09:15:46PM +0000, Thomas Graf wrote:
->
-> rht_grow_above_75() checks the old table size:
+On Thu, 2015-03-19 at 19:54 +0000, subashab@codeaurora.org wrote:
+> When RPS is enabled, IPI is triggered to enqueue the
+> backlog NAPI to the poll list. If the CPU is hotplugged
+> after the NAPI_STATE_SCHED bit is set on
+> enqueue_to_backlog but before the IPI is delivered
+> successfully, the poll list does not have the backlog
+> NAPI queued. As a consequence of this, dev_cpu_callback
+> does not clear the NAPI_STATE_SCHED bit on hotplug.
+> Since NAPI_STATE_SCHED is set even after the cpu comes
+> back up, packets get enqueued onto the input packet queue
+> but are never processed since the IPI will not be triggered.
 > 
-> (!ht->p.max_size || tbl->size < ht->p.max_size);
+> This patch handles this race by unconditionally resetting
+> the NAPI state for the backlog NAPI on the offline CPU.
 > 
-> If you specify max_size = 3, it grows the table to tbl->size = 4.
-> This can be avoided if max_size is a power of two.
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> ---
+>  net/core/dev.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 6f561de..61d9579 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -7119,12 +7119,11 @@ static int dev_cpu_callback(struct notifier_block
+> *nfb,
+>  							    poll_list);
+> 
+>  		list_del_init(&napi->poll_list);
+> -		if (napi->poll == process_backlog)
+> -			napi->state = 0;
+> -		else
+> +		if (napi->poll != process_backlog)
+>  			____napi_schedule(sd, napi);
+>  	}
+> 
+> +	oldsd->backlog.state = 0;
+>  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+>  	local_irq_enable();
 
-OK let's fix the test then.  The easiest way would be to round
-max_size up to the next power of 2.
+Are you seeing this race on x86 ?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If IPI are not reliable on your arch, I am guessing you should fix them.
+
+Otherwise, even without hotplug you'll have hangs.
