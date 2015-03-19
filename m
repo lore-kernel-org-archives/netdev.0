@@ -1,36 +1,41 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [jkirsher-next-queue:dev-queue 828/842]
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c:2382:5: sparse: symbol
- 'mlx4_en_set_tx_maxrate' was not declared. Should it be static?
-Date: Thu, 19 Mar 2015 08:51:27 +0800
-Message-ID: <201503190816.FI64cKgW%fengguang.wu@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] inet: tcp listener refactoring, part 13
+Date: Wed, 18 Mar 2015 22:01:08 -0400 (EDT)
+Message-ID: <20150318.220108.729418866702247151.davem@davemloft.net>
+References: <1426712738-23395-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, Ido Shamay <idos@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41124 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150AbbCSCBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 22:01:12 -0400
+In-Reply-To: <1426712738-23395-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git dev-queue
-head:   ec59d04e8f5223083fdfb6124e8f087c1a4c5ec2
-commit: c10e4fc6c45616dbadb8ccee189e2c09fb8f056f [828/842] net/mlx4_en: Add tx queue maxrate support
-reproduce:
-  # apt-get install sparse
-  git checkout c10e4fc6c45616dbadb8ccee189e2c09fb8f056f
-  make ARCH=x86_64 allmodconfig
-  make C=1 CF=-D__CHECK_ENDIAN__
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed, 18 Mar 2015 14:05:32 -0700
 
+> inet_hash functions are in a bad state : Too much IPv6/IPv4 copy/pasting.
+> 
+> Lets refactor a bit.
+> 
+> Idea is that we do not want to have an equivalent of inet_csk(sk)->icsk_af_ops
+> for request socks in order to be able to use the right variant.
+> 
+> In this patch series, I started to let IPv6/IPv4 converge to common helpers.
+> 
+> Idea is to use ipv6_addr_set_v4mapped() even for AF_INET sockets, so that
+> we can test
+>        if (sk->sk_family == AF_INET6 &&
+>            !ipv6_addr_v4mapped(&sk->sk_v6_daddr))
+> to tell if we deal with an IPv6 socket, or IPv4 one, at least in slow paths.
+> 
+> Ideally, we could save 8 bytes per struct sock_common, if we
+> alias skc_daddr & skc_rcv_saddr to skc_v6_daddr[3]/skc_v6_rcv_saddr[3].
 
-sparse warnings: (new ones prefixed by >>)
-
->> drivers/net/ethernet/mellanox/mlx4/en_netdev.c:2382:5: sparse: symbol 'mlx4_en_set_tx_maxrate' was not declared. Should it be static?
-
-Please review and possibly fold the followup patch.
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-http://lists.01.org/mailman/listinfo/kbuild                 Intel Corporation
+Looks good, applied, thanks Eric.
