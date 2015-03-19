@@ -1,217 +1,146 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: [PATCH v2 5/5] crypto: talitos: Add software backlog queue
- handling
-Date: Thu, 19 Mar 2015 13:38:16 -0500
-Message-ID: <20150319133816.4d05e820bd1af1b0613f7b6c@freescale.com>
-References: <1425388897-5434-1-git-send-email-mort@bork.org>
-	<1425388897-5434-6-git-send-email-mort@bork.org>
-	<20150303182332.546523088b5891a776880c0f@freescale.com>
-	<5506AA4B.303@freescale.com>
-	<20150316191935.81f89e0dafebbbe76ffcb0c0@freescale.com>
-	<55086B5F.9080906@freescale.com>
-	<20150317170319.1e4cd2b1d1450b442a3b3b36@freescale.com>
-	<550AF1C9.9090500@freescale.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH 2/2] af_packet: pass checksum validation status to the user
+Date: Thu, 19 Mar 2015 14:50:03 -0400
+Message-ID: <CA+FuTSeJH22uVJcZ6eAxau_ng4LdqLfVSRGYna_pi4pxr1Oz_A@mail.gmail.com>
+References: <1426752102-12786-1-git-send-email-al.drozdov@gmail.com>
+ <1426752102-12786-2-git-send-email-al.drozdov@gmail.com> <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com>
+ <550B10A4.60500@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Martin Hicks <mort@bork.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	<linuxppc-dev@lists.ozlabs.org>, <linux-crypto@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Horia =?UTF-8?B?R2VhbnTEgw==?= <horia.geanta@freescale.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <550AF1C9.9090500@freescale.com>
-Sender: linux-crypto-owner@vger.kernel.org
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>, tom@herbertland.com
+To: Alexander Drozdov <al.drozdov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <550B10A4.60500@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Mar 2015 17:56:57 +0200
-Horia Geant=C4=83 <horia.geanta@freescale.com> wrote:
+On Thu, Mar 19, 2015 at 2:08 PM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
+> On Thu, 19 Mar 2015 11:29:32 -0400, Willem de Bruijn <willemb@google.com>
+> wrote:
+>>
+>> On Thu, Mar 19, 2015 at 4:01 AM, Alexander Drozdov <al.drozdov@gmail.com>
+>> wrote:
+>>>
+>>> Introduce TP_STATUS_CSUM_VALID tp_status flag to tell the
+>>> af_packet user that at least the transport header checksum
+>>> has been already validated.
+>>
+>> This changes the interface slightly. Processes should be treating
+>> this previously unused bit as reserved and other flags have
+>> been added to the bitmap in this manner as well, so this should
+>> then be safe here, too.
+>>
+>>> For now, the flag may be set for incoming packets only.
+>>
+>> Why?
+>
+> I can't figure out how af_packet could get that the outgoing
+> packet's checksum has been validated. "Checksumming on
+> output" from skbuff.h tells that skb->ip_summed should
+> equal to CHECKSUM_NONE in that case,
 
-> On 3/18/2015 12:03 AM, Kim Phillips wrote:
-> > On Tue, 17 Mar 2015 19:58:55 +0200
-> > Horia Geant=C4=83 <horia.geanta@freescale.com> wrote:
-> >=20
-> >> On 3/17/2015 2:19 AM, Kim Phillips wrote:
-> >>> On Mon, 16 Mar 2015 12:02:51 +0200
-> >>> Horia Geant=C4=83 <horia.geanta@freescale.com> wrote:
-> >>>
-> >>>> On 3/4/2015 2:23 AM, Kim Phillips wrote:
-> >>>>> Only potential problem is getting the crypto API to set the GFP=
-_DMA
-> >>>>> flag in the allocation request, but presumably a
-> >>>>> CRYPTO_TFM_REQ_DMA crt_flag can be made to handle that.
-> >>>>
-> >>>> Seems there are quite a few places that do not use the
-> >>>> {aead,ablkcipher_ahash}_request_alloc() API to allocate crypto r=
-equests.
-> >>>> Among them, IPsec and dm-crypt.
-> >>>> I've looked at the code and I don't think it can be converted to=
- use
-> >>>> crypto API.
-> >>>
-> >>> why not?
-> >>
-> >> It would imply having 2 memory allocations, one for crypto request=
- and
-> >> the other for the rest of the data bundled with the request (for I=
-Psec
-> >> that would be ESN + space for IV + sg entries for authenticated-on=
-ly
-> >> data and sk_buff extension, if needed).
-> >>
-> >> Trying to have a single allocation by making ESN, IV etc. part of =
-the
-> >> request private context requires modifying tfm.reqsize on the fly.
-> >> This won't work without adding some kind of locking for the tfm.
-> >=20
-> > can't a common minimum tfm.reqsize be co-established up front, at
-> > least for the fast path?
->=20
-> Indeed, for IPsec at tfm allocation time - esp_init_state() -
-> tfm.reqsize could be increased to account for what is known for a giv=
-en
-> flow: ESN, IV and asg (S/G entries for authenticated-only data).
-> The layout would be:
-> aead request (fixed part)
-> private ctx of backend algorithm
-> seq_no_hi (if ESN)
-> IV
-> asg
-> sg <-- S/G table for skb_to_sgvec; how many entries is the question
->=20
-> Do you have a suggestion for how many S/G entries to preallocate for
-> representing the sk_buff data to be encrypted?
-> An ancient esp4.c used ESP_NUM_FAST_SG, set to 4.
-> Btw, currently maximum number of fragments supported by the net stack
-> (MAX_SKB_FRAGS) is 16 or more.
->=20
-> >>>> This means that the CRYPTO_TFM_REQ_DMA would be visible to all o=
-f these
-> >>>> places. Some of the maintainers do not agree, as you've seen.
-> >>>
-> >>> would modifying the crypto API to either have a different
-> >>> *_request_alloc() API, and/or adding calls to negotiate the GFP m=
-ask
-> >>> between crypto users and drivers, e.g., get/set_gfp_mask, work?
-> >>
-> >> I think what DaveM asked for was the change to be transparent.
-> >>
-> >> Besides converting to *_request_alloc(), seems that all other opti=
-ons
-> >> require some extra awareness from the user.
-> >> Could you elaborate on the idea above?
-> >=20
-> > was merely suggesting communicating GFP flags anonymously across th=
-e
-> > API, i.e., GFP_DMA wouldn't appear in user code.
->=20
-> Meaning user would have to get_gfp_mask before allocating a crypto
-> request - i.e. instead of kmalloc(..., GFP_ATOMIC) to have
-> kmalloc(GFP_ATOMIC | get_gfp_mask(aead))?
->=20
-> >>>> An alternative would be for talitos to use the page allocator to=
- get 1 /
-> >>>> 2 pages at probe time (4 channels x 32 entries/channel x 64B/des=
-criptor
-> >>>> =3D 8 kB), dma_map_page the area and manage it internally for ta=
-litos_desc
-> >>>> hw descriptors.
-> >>>> What do you think?
-> >>>
-> >>> There's a comment in esp_alloc_tmp(): "Use spare space in skb for
-> >>> this where possible," which is ideally where we'd want to be (esp=
-=2E
-> >>
-> >> Ok, I'll check that. But note the "where possible" - finding room =
-in the
-> >> skb to avoid the allocation won't always be the case, and then we'=
-re
-> >> back to square one.
->=20
-> So the skb cb is out of the question, being too small (48B).
-> Any idea what was the intention of the "TODO" - maybe to use the
-> tailroom in the skb data area?
->=20
-> >>> because that memory could already be DMA-able).  Your above
-> >>> suggestion would be in the opposite direction of that.
-> >>
-> >> The proposal:
-> >> -removes dma (un)mapping on the fast path
-> >=20
-> > sure, but at the expense of additional complexity.
->=20
-> Right, there's no free lunch. But it's cheaper.
->=20
-> >> -avoids requesting dma mappable memory for more than it's actually
-> >> needed (CRYPTO_TFM_REQ_DMA forces entire request to be mappable, n=
-ot
-> >> only its private context)
-> >=20
-> > compared to the payload?  Plus, we have plenty of DMA space these
-> > days.
-> >=20
-> >> -for caam it has the added benefit of speeding the below search fo=
-r the
-> >> offending descriptor in the SW ring from O(n) to O(1):
-> >> for (i =3D 0; CIRC_CNT(head, tail + i, JOBR_DEPTH) >=3D 1; i++) {
-> >> 	sw_idx =3D (tail + i) & (JOBR_DEPTH - 1);
-> >>
-> >> 	if (jrp->outring[hw_idx].desc =3D=3D
-> >> 	    jrp->entinfo[sw_idx].desc_addr_dma)
-> >> 		break; /* found */
-> >> }
-> >> (drivers/crypto/caam/jr.c - caam_dequeue)
-> >=20
-> > how?  The job ring h/w will still be spitting things out
-> > out-of-order.
->=20
-> jrp->outring[hw_idx].desc bus address can be used to find the sw_idx =
-in
-> O(1):
->=20
-> dma_addr_t desc_base =3D dma_map_page(alloc_page(GFP_DMA),...);
-> [...]
-> sw_idx =3D (desc_base - jrp->outring[hw_idx].desc) / JD_SIZE;
->=20
-> JD_SIZE would be 16 words (64B) - 13 words used for the h/w job
-> descriptor, 3 words can be used for smth. else.
-> Basically all JDs would be filled at a 64B-aligned offset in the memo=
-ry
-> page.
+CHECKSUM_UNNECESSARY is a valid flag on the outgoing
+path according to that documentation. And, indeed, I also see
+no checksum scrubbing on forwarding paths in practice (but I
+may be wrong there, only took a quick glance).
 
-that assumes a linear mapping, which is a wrong assumption to make.
+> but that is not true for me (in my tests, skb->ip_summed ==
+> CHECKSUM_UNNECESSARY for forwarded packets in some
+> cases).
 
-I also think you don't know how many times that loop above executes
-in practice.
+When you disable hardware checksum offload and generate
+packets locally, you do see the expected CHECKSUM_NONE
+value?
 
-> > Plus, like I said, it's taking the problem in the wrong direction:
-> > we need to strive to merge the allocation and mapping with the uppe=
-r
-> > layers as much as possible.
->=20
-> IMHO propagating the GFP_DMA from backend crypto implementations to
-> crypto API users doesn't seem feasable.
+>> You cannot change the semantics of the flag afterwards.
+>
+>
+> I think the semantics of the flag won't be changed if one set the flag
+> for outgoing packets. If the flag is not set (for any directions)
+> then that is not mean that the packet checksum is invalid. The user just can
+> then
+> checksum the packet by itself. So, the user may check the flag for any
+> packet
+> right now.
 
-should be.
+I see. So it is a hint. Okay. It would be nice if it behaves as
+expected in as many cases as possible from the outset. This
+would include PACKET_OUTGOING and CHECKSUM_NONE.
 
-> It's error-prone to audit all places that allocate crypto requests w/=
-out
-> using *_request_alloc API.
-
-why is it error-prone?
-
-> And even if all these places would be identified:
-> -in some cases there's some heavy rework involved
-
-so?
-
-> -more places might show up in the future and there's no way to detect=
- them
-
-let them worry about that.
-
-I leave the rest for netdev.
-
-Kim
+Please also note the flag and semantics in
+Documentation/networking/packet_mmap.txt
+>
+>
+>> Better to support both directions from the start.
+>>
+>>> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+>>> ---
+>>>   include/uapi/linux/if_packet.h | 1 +
+>>>   net/packet/af_packet.c         | 9 +++++++++
+>>>   2 files changed, 10 insertions(+)
+>>>
+>>> diff --git a/include/uapi/linux/if_packet.h
+>>> b/include/uapi/linux/if_packet.h
+>>> index da2d668..053bd10 100644
+>>> --- a/include/uapi/linux/if_packet.h
+>>> +++ b/include/uapi/linux/if_packet.h
+>>> @@ -99,6 +99,7 @@ struct tpacket_auxdata {
+>>>   #define TP_STATUS_VLAN_VALID           (1 << 4) /* auxdata has valid
+>>> tp_vlan_tci */
+>>>   #define TP_STATUS_BLK_TMO              (1 << 5)
+>>>   #define TP_STATUS_VLAN_TPID_VALID      (1 << 6) /* auxdata has valid
+>>> tp_vlan_tpid */
+>>> +#define TP_STATUS_CSUM_VALID           (1 << 7)
+>>>
+>>>   /* Tx ring - header status */
+>>>   #define TP_STATUS_AVAILABLE          0
+>>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>>> index 6ecf8dd..3f09dda 100644
+>>> --- a/net/packet/af_packet.c
+>>> +++ b/net/packet/af_packet.c
+>>> @@ -1918,6 +1918,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct
+>>> net_device *dev,
+>>>
+>>>          if (skb->ip_summed == CHECKSUM_PARTIAL)
+>>>                  status |= TP_STATUS_CSUMNOTREADY;
+>>> +       else if (skb->pkt_type != PACKET_OUTGOING &&
+>>> +                (skb->ip_summed == CHECKSUM_COMPLETE ||
+>>> +                 skb_csum_unnecessary(skb)))
+>>> +               status |= TP_STATUS_CSUM_VALID;
+>>>
+>>>          if (snaplen > res)
+>>>                  snaplen = res;
+>>> @@ -3015,6 +3019,11 @@ static int packet_recvmsg(struct kiocb *iocb,
+>>> struct socket *sock,
+>>>                  aux.tp_status = TP_STATUS_USER;
+>>>                  if (skb->ip_summed == CHECKSUM_PARTIAL)
+>>>                          aux.tp_status |= TP_STATUS_CSUMNOTREADY;
+>>> +               else if (skb->pkt_type != PACKET_OUTGOING &&
+>>> +                        (skb->ip_summed == CHECKSUM_COMPLETE ||
+>>> +                         skb_csum_unnecessary(skb)))
+>>> +                       aux.tp_status |= TP_STATUS_CSUM_VALID;
+>>> +
+>>
+>> These two sections are near duplicates. I'd move the entire status
+>> initialization, including existing TP_STATUS_USER and
+>> TP_STATUS_CSUMNOTREADY fields to a helper function.
+>>
+>> It's a bit unfortunately that we have to use an extra bit to add a signal
+>> that is a near inverse of the existing TP_STATUS_CSUMNOTREADY
+>> (bar CHECKSUM_NONE). I do not immediately see a better way,
+>> either, though. And tp_status has plenty room at 32 bits.
+>>
+>>>                  aux.tp_len = PACKET_SKB_CB(skb)->origlen;
+>>>                  aux.tp_snaplen = skb->len;
+>>>                  aux.tp_mac = 0;
+>>> --
+>>> 1.9.1
+>>>
+>
+>
