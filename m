@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 03/10] amd-xgbe-phy: Provide support for
- auto-negotiation timeout
-Date: Thu, 19 Mar 2015 15:08:26 -0500
-Message-ID: <20150319200826.28321.19581.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 06/10] amd-xgbe: Set DMA mask based on hardware
+ register value
+Date: Thu, 19 Mar 2015 15:08:44 -0500
+Message-ID: <20150319200844.28321.8042.stgit@tlendack-t1.amdoffice.net>
 References: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,89 +10,120 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0110.outbound.protection.outlook.com ([65.55.169.110]:43456
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1bon0136.outbound.protection.outlook.com ([157.56.111.136]:62307
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751310AbbCSUIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 16:08:32 -0400
+	id S1751503AbbCSUIt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 16:08:49 -0400
 In-Reply-To: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, there is no interrupt code that indicates auto-negotiation
-has timed out. If the auto-negotiation has timed out then the start of
-a new auto-negotiation will begin again with a new base page being
-received. The state machine could be in a state that is not expecting
-this interrupt code which results in an error during auto-negotiation.
-
-Update the code to timestamp when the auto-negotiation starts.  Should
-another page received interrupt code occur before auto-negotiation has
-completed but after the auto-negotiation timeout, then reset the state
-machine to allow the auto-negotiation to continue.
+The hardware supplies a value that indicates the DMA range that it
+is capable of using. Use this value rather than hard-coding it in
+the driver.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/phy/amd-xgbe-phy.c |   20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |    2 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |   16 ++++++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c   |   19 ++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |    1 +
+ 4 files changed, 29 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
-index 4b95caf..823b316 100644
---- a/drivers/net/phy/amd-xgbe-phy.c
-+++ b/drivers/net/phy/amd-xgbe-phy.c
-@@ -78,6 +78,7 @@
- #include <linux/bitops.h>
- #include <linux/property.h>
- #include <linux/acpi.h>
-+#include <linux/time.h>
- 
- MODULE_AUTHOR("Tom Lendacky <thomas.lendacky@amd.com>");
- MODULE_LICENSE("Dual BSD/GPL");
-@@ -100,6 +101,8 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
- #define XGBE_PHY_SPEED_2500		1
- #define XGBE_PHY_SPEED_10000		2
- 
-+#define XGBE_AN_NS_TIMEOUT		(500 * NSEC_PER_MSEC)	/* 500 ms */
-+
- #define XGBE_AN_INT_CMPLT		0x01
- #define XGBE_AN_INC_LINK		0x02
- #define XGBE_AN_PG_RCV			0x04
-@@ -434,6 +437,7 @@ struct amd_xgbe_phy_priv {
- 	unsigned int an_supported;
- 	unsigned int parallel_detect;
- 	unsigned int fec_ability;
-+	struct timespec64 an_start;
- 
- 	unsigned int lpm_ctrl;		/* CTRL1 for resume */
- };
-@@ -902,8 +906,23 @@ static enum amd_xgbe_phy_an amd_xgbe_an_page_received(struct phy_device *phydev)
- {
- 	struct amd_xgbe_phy_priv *priv = phydev->priv;
- 	enum amd_xgbe_phy_rx *state;
-+	struct timespec64 rcv_time, diff_time;
- 	int ret;
- 
-+	getnstimeofday64(&rcv_time);
-+	if (!timespec64_to_ns(&priv->an_start)) {
-+		priv->an_start = rcv_time;
-+	} else {
-+		diff_time = timespec64_sub(rcv_time, priv->an_start);
-+		if (timespec64_to_ns(&diff_time) > XGBE_AN_NS_TIMEOUT) {
-+			/* Auto-negotiation timed out, reset state */
-+			priv->kr_state = AMD_XGBE_RX_BPA;
-+			priv->kx_state = AMD_XGBE_RX_BPA;
-+
-+			priv->an_start = rcv_time;
-+		}
-+	}
-+
- 	state = amd_xgbe_phy_in_kr_mode(phydev) ? &priv->kr_state
- 						: &priv->kx_state;
- 
-@@ -1078,6 +1097,7 @@ again:
- 		priv->an_state = AMD_XGBE_AN_READY;
- 		priv->kr_state = AMD_XGBE_RX_BPA;
- 		priv->kx_state = AMD_XGBE_RX_BPA;
-+		priv->an_start = ns_to_timespec64(0);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index 29a0927..34c28aa 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -365,6 +365,8 @@
+ #define MAC_HWF0R_TXCOESEL_WIDTH	1
+ #define MAC_HWF0R_VLHASH_INDEX		4
+ #define MAC_HWF0R_VLHASH_WIDTH		1
++#define MAC_HWF1R_ADDR64_INDEX		14
++#define MAC_HWF1R_ADDR64_WIDTH		2
+ #define MAC_HWF1R_ADVTHWORD_INDEX	13
+ #define MAC_HWF1R_ADVTHWORD_WIDTH	1
+ #define MAC_HWF1R_DBGMEMA_INDEX		19
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 8635c94..ef4625e 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -519,6 +519,7 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 						RXFIFOSIZE);
+ 	hw_feat->tx_fifo_size  = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R,
+ 						TXFIFOSIZE);
++	hw_feat->dma_width     = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, ADDR64);
+ 	hw_feat->dcb           = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, DCBEN);
+ 	hw_feat->sph           = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, SPHEN);
+ 	hw_feat->tso           = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, TSOEN);
+@@ -553,6 +554,21 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 		break;
  	}
  
- 	if (cur_state != priv->an_state)
++	/* Translate the address width setting into actual number */
++	switch (hw_feat->dma_width) {
++	case 0:
++		hw_feat->dma_width = 32;
++		break;
++	case 1:
++		hw_feat->dma_width = 40;
++		break;
++	case 2:
++		hw_feat->dma_width = 48;
++		break;
++	default:
++		hw_feat->dma_width = 32;
++	}
++
+ 	/* The Queue, Channel and TC counts are zero based so increment them
+ 	 * to get the actual number
+ 	 */
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 32dd651..2e4c22d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -374,15 +374,6 @@ static int xgbe_probe(struct platform_device *pdev)
+ 		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
+ 	}
+ 
+-	/* Set the DMA mask */
+-	if (!dev->dma_mask)
+-		dev->dma_mask = &dev->coherent_dma_mask;
+-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
+-	if (ret) {
+-		dev_err(dev, "dma_set_mask_and_coherent failed\n");
+-		goto err_io;
+-	}
+-
+ 	/* Get the device interrupt */
+ 	ret = platform_get_irq(pdev, 0);
+ 	if (ret < 0) {
+@@ -409,6 +400,16 @@ static int xgbe_probe(struct platform_device *pdev)
+ 	/* Set default configuration data */
+ 	xgbe_default_config(pdata);
+ 
++	/* Set the DMA mask */
++	if (!dev->dma_mask)
++		dev->dma_mask = &dev->coherent_dma_mask;
++	ret = dma_set_mask_and_coherent(dev,
++					DMA_BIT_MASK(pdata->hw_feat.dma_width));
++	if (ret) {
++		dev_err(dev, "dma_set_mask_and_coherent failed\n");
++		goto err_io;
++	}
++
+ 	/* Calculate the number of Tx and Rx rings to be created
+ 	 *  -Tx (DMA) Channels map 1-to-1 to Tx Queues so set
+ 	 *   the number of Tx queues to the number of Tx channels
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index 1eea3e5..bfe11fb 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -632,6 +632,7 @@ struct xgbe_hw_features {
+ 	unsigned int rx_fifo_size;	/* MTL Receive FIFO Size */
+ 	unsigned int tx_fifo_size;	/* MTL Transmit FIFO Size */
+ 	unsigned int adv_ts_hi;		/* Advance Timestamping High Word */
++	unsigned int dma_width;		/* DMA width */
+ 	unsigned int dcb;		/* DCB Feature */
+ 	unsigned int sph;		/* Split Header Feature */
+ 	unsigned int tso;		/* TCP Segmentation Offload */
