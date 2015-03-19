@@ -1,7 +1,7 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next 3/5] mpls: Differentiate implicit-null and unlabeled neighbours
-Date: Thu, 19 Mar 2015 21:32:50 +0000
-Message-ID: <1426800772-22378-4-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next 2/5] mpls: Remove incorrect PHP comment
+Date: Thu, 19 Mar 2015 21:32:49 +0000
+Message-ID: <1426800772-22378-3-git-send-email-rshearma@brocade.com>
 References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,80 +9,35 @@ Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:1101 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39219 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750932AbbCSVel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:34:41 -0400
+	by vger.kernel.org with ESMTP id S1750940AbbCSVeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:34:44 -0400
 In-Reply-To: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The control plane can advertise labels for neighbours that don't have
-an outgoing label. RFC 3032 s3.22 states that either the remaining
-labels should be popped (if the control plane can determine that it's
-safe to do so, which in light of MPLS-VPN, RFC 4364, is never the case
-now) or that the packet should be discarded.
-
-Therefore, if the peer is unlabeled and the last label wasn't popped
-then drop the packet. The peer being unlabeled is signalled by an
-empty label stack. However, implicit-null still needs to be supported
-(i.e. penultimate hop popping) where the incoming label is popped and
-no labels are put on and the packet can still go out labeled with the
-unpopped part of the stack. This is achieved by the control plane
-specifying a label stack consisting of the single special
-implicit-null value.
+Popping the last label on the stack does not necessarily imply
+performing penultimate hop popping. There is no reason why this
+couldn't be the last hop in the network, so remove the comment.
 
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- net/mpls/af_mpls.c | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ net/mpls/af_mpls.c | 1 -
+ 1 file changed, 1 deletion(-)
 
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index bf3459a..e3586a7 100644
+index 0d6763a..bf3459a 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -28,7 +28,8 @@ struct mpls_route { /* next hop label forwarding entry */
- 	struct rcu_head		rt_rcu;
- 	u32			rt_label[MAX_NEW_LABELS];
- 	u8			rt_protocol; /* routing protocol that set this entry */
--	u8			rt_labels;
-+	u8                      rt_unlabeled : 1;
-+	u8			rt_labels : 7;
- 	u8			rt_via_alen;
- 	u8			rt_via_table;
- 	u8			rt_via[0];
-@@ -201,6 +202,11 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+@@ -199,7 +199,6 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	skb->protocol = htons(ETH_P_MPLS_UC);
+ 
  	if (unlikely(!new_header_size && dec.bos)) {
+-		/* Penultimate hop popping */
  		if (!mpls_egress(rt, skb, dec))
  			goto drop;
-+	} else if (rt->rt_unlabeled) {
-+		/* Labeled traffic destined to unlabeled peer should
-+		 * be discarded
-+		 */
-+		goto drop;
  	} else {
- 		bool bos;
- 		int i;
-@@ -385,9 +391,16 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 	if (!rt)
- 		goto errout;
- 
--	rt->rt_labels = cfg->rc_output_labels;
--	for (i = 0; i < rt->rt_labels; i++)
--		rt->rt_label[i] = cfg->rc_output_label[i];
-+	if (cfg->rc_output_labels == 1 &&
-+	    cfg->rc_output_label[0] == LABEL_IMPLICIT_NULL) {
-+		rt->rt_labels = 0;
-+	} else {
-+		rt->rt_labels = cfg->rc_output_labels;
-+		for (i = 0; i < rt->rt_labels; i++)
-+			rt->rt_label[i] = cfg->rc_output_label[i];
-+		if (!rt->rt_labels)
-+			rt->rt_unlabeled = true;
-+	}
- 	rt->rt_protocol = cfg->rc_protocol;
- 	RCU_INIT_POINTER(rt->rt_dev, dev);
- 	rt->rt_via_table = cfg->rc_via_table;
 -- 
 2.1.4
