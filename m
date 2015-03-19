@@ -1,47 +1,64 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next v2] rhashtable: Warn if min_size or max_size are not
- a power of two
-Date: Thu, 19 Mar 2015 19:46:08 +0000
-Message-ID: <20150319194608.GA27962@casper.infradead.org>
-References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
- <20150319.152450.1573636653085091157.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2] tipc: fix build issue when building without IPv6
+Date: Thu, 19 Mar 2015 16:47:58 -0300
+Message-ID: <1426794478-5469-1-git-send-email-marcelo.leitner@gmail.com>
+References: <20150319.150433.850095478975909930.davem@davemloft.net>
+Cc: tipc-discussion@lists.sourceforge.net, erik.hugne@ericsson.com
+To: richard.alpe@ericsson.com, jon.maloy@ericsson.com,
+	ying.xue@windriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34708 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbbCSTqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 15:46:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20150319.152450.1573636653085091157.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:44326 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750896AbbCSTsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 15:48:46 -0400
+In-Reply-To: <20150319.150433.850095478975909930.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code correctly limits table size to the next power of two.
-This check is solely to catch programming errors.
+We can't directly call ipv6_sock_mc_join() but should use the stub
+instead and protect it around IS_ENABLED.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Fixes: d0f91938bede ("tipc: add ip/udp media type")
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
-v2: use is_power_of_2() instead of roundup_pow_of_two()
 
- lib/rhashtable.c | 3 +++
- 1 file changed, 3 insertions(+)
+Notes:
+    The BUG_ON I had placed is completelly unnecessary:
+    - with IPV6=n, the code it was trying to protect won't exist
+    - if the module load fails, the socket creation a bit above
+      enable_mcast() call will return an error and it will bail out
+      before reaching that code.
+    And thus, just removed in this v2.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5f8fe3e..5474507 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -933,6 +933,9 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	if (params->nulls_base && params->nulls_base < (1U << RHT_BASE_SHIFT))
- 		return -EINVAL;
- 
-+	WARN_ON(params->min_size && !is_power_of_2(params->min_size));
-+	WARN_ON(params->max_size && !is_power_of_2(params->max_size));
-+
- 	params->min_size = max(params->min_size, HASH_MIN_SIZE);
- 
- 	if (params->nelem_hint)
+ net/tipc/udp_media.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+index 04836dd70c2bb79906307ec40e0cbd7b2589978e..ac89101e5d1b62165cbdb070d9f4bebe287fc583 100644
+--- a/net/tipc/udp_media.c
++++ b/net/tipc/udp_media.c
+@@ -44,6 +44,7 @@
+ #include <net/sock.h>
+ #include <net/ip.h>
+ #include <net/udp_tunnel.h>
++#include <net/addrconf.h>
+ #include <linux/tipc_netlink.h>
+ #include "core.h"
+ #include "bearer.h"
+@@ -247,10 +248,13 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
+ 		mreqn.imr_multiaddr = remote->ipv4;
+ 		mreqn.imr_ifindex = ub->ifindex;
+ 		err = ip_mc_join_group(sk, &mreqn);
++#if IS_ENABLED(CONFIG_IPV6)
+ 	} else {
+ 		if (!ipv6_addr_is_multicast(&remote->ipv6))
+ 			return 0;
+-		err = ipv6_sock_mc_join(sk, ub->ifindex, &remote->ipv6);
++		err = ipv6_stub->ipv6_sock_mc_join(sk, ub->ifindex,
++						   &remote->ipv6);
++#endif
+ 	}
+ 	return err;
+ }
 -- 
-1.9.3
+2.1.0
