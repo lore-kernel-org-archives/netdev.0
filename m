@@ -1,83 +1,51 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next] rocker: check for BRIDGE_FLAGS_SELF in bridge
- setlink handler
-Date: Thu, 19 Mar 2015 06:59:17 -0700
-Message-ID: <550AD635.8040502@intel.com>
-References: <CAE4R7bDrhnK_a9dvyMqSJkGgod6AM=HDE6CAKkG_RnjuDxB2-Q@mail.gmail.com> <CAJieiUhHdXOZjWkb4s_GviLwzq5Gct-1o8xv8b-JeM46S4e-dg@mail.gmail.com> <20150309064043.GB2053@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E6A8D@ORSMSX101.amr.corp.intel.com> <20150309160754.GA2169@nanopsycho.lan> <E4CD12F19ABA0C4D8729E087A761DC35067E6EF0@ORSMSX101.amr.corp.intel.com> <20150310063926.GA1995@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067E7016@ORSMSX101.amr.corp.intel.com> <20150310082817.GC1995@nanopsycho.orion> <550752BA.5040702@gmail.com> <20150317070046.GB2042@nanopsycho.orion> <55083AB6.4060003@intel.com> <55088E2C.5000405@cumulusnetworks.com> <5508C3EA.80009@intel.com> <55091B4C.7090507@cumulusnetworks.com> <550998C7.7080108@gmail.com> <CAE4R7bB2GC3_vMvKAcYie1SP0xB9hm-himzP_
- BGHX5B2gZKisw@mail.gmail.com> <550ACF51.20005@cumulusnetworks.com>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: Re: [PATCH] mac802154: fix typo in header guard
+Date: Thu, 19 Mar 2015 21:59:47 +0800
+Message-ID: <550AD653.4050306@m4x.org>
+References: <1426771420-29979-1-git-send-email-nicolas.iooss_linux@m4x.org>	 <20150319133724.GA14436@omega> <1426772786.23529.4.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: roopa <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
+Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, marcel@holtmann.org
+To: Paul Bolle <pebolle@tiscali.nl>,
+	Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:56301 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755657AbbCSN7a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 09:59:30 -0400
-In-Reply-To: <550ACF51.20005@cumulusnetworks.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33334 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687AbbCSN7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 09:59:51 -0400
+In-Reply-To: <1426772786.23529.4.camel@x220>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2015 06:29 AM, roopa wrote:
-> On 3/18/15, 10:49 PM, Scott Feldman wrote:
->> On Wed, Mar 18, 2015 at 8:24 AM, John Fastabend
->> <john.fastabend@gmail.com> wrote:
->>> [...]
->>>> I am not sure how this would be and what other issues you will hit if
->>>> you are planning to bypass the kernel and directly go to the switch
->>>> driver for all l2 and l3 in the stacked netdevice case. For l3, its
->>>> better to use the in-kernel route fib offload mechanism which was
->>>> recently submitted by scott feldman.
->>>>
->>> Why? I saw the patched and liked it but noted that the existing policy
->>> wont actually work for real networks. Its a good start. My proposal
->>> is to add a flag to l3 to similarly fail to load a rule if it can't
->>> be pushed at hardware same as l2.
->> RIght, what we have is a start to get the basic plumbing in place.
->> Agreed, the current would be inadequate for a real switch that can't
->> handle a software fallback.
+On 03/19/2015 09:46 PM, Paul Bolle wrote:
+> On Thu, 2015-03-19 at 14:37 +0100, Alexander Aring wrote:
+>> On Thu, Mar 19, 2015 at 09:23:40PM +0800, Nicolas Iooss wrote:
+>>> Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+>>> Fixes: b6eea9ca354a ("mac802154: introduce driver-ops header")
 >>
->> Maybe the next step is to not flush hw of all routes on failure to add
->> the Nth one, but rather just fail the Nth completely (don't install in
->> hw or sw and return err to user).  This would keep the switch alive,
->> but now moves a decision to the user.  The user must decide what to do
->> with the failed Nth route.
-> I would prefer this. The routing daemon probably already has policies to handle routes
->  that don't get installed in the FIB (It should not really care if the FIB is hardware accelerated or not).
-> 
-
-+1 this works for me as well.
-
+>> Acked-by: Alexander Aring <alex.aring@gmail.com>
 >>
->> We also added the netlink flag RTNH_F_EXTERNAL to mark routes
->> offloaded to hardware, but the marking is only done internally now, by
->> the kernel.  What I'm hoping is we can use that same flag in the
->> user's netlink msg to work like you describe: if user requests
->> RTNH_F_EXTERNAL, and it can't be loaded into hw, don't load into sw.
->> Or something like that.  Again, punting the decision on what to do
->> next to the user.
-> yes, however this requires change in userspace (routing daemon) to explicitly set this flag.
-> It definitely can be optional IMO for people who need it (maybe JohnF)
-
-Yes it would be helpful for some software but I think getting the above
-case working first seems to be the right approach to me.
-
->>
->> This part of the discussion should probably move to a new thread;
->> maybe someone brave can propose a patch to move us to the next level?
->>
-> ack, I will try and get to it this week, unless somebody beats me to it.
+>> can you please queue this into bluetooth-next or even bluetooth?
 > 
-
-Thanks.
-
-> Thanks,
-> Roopa
+> Is the Fixes: tag needed?
 > 
-> 
+> mac802154.ko builds fine on my machine. There's also no error or warning
+> included in the commit explanation. So it seems this is just a typo fix,
+> not something that should be sent to stable too. Or did I miss something
+> non-obvious?
+
+No, you didn't miss anything.  It is only a fix for a typo I found while
+testing LLVMLinux (clang warns about such typos with -Wheader-guard).
+
+I added a Fixes: tag because it is easier to remove it afterwards that
+to search for a commit when adding it.  I think this patch should not be
+sent to stable@, and feel free to remove the tag if for you it means
+"forward to stable@" (Documentation/SubmittingPatches is not clear about
+whether a Fixes tag should be only used for real bugs or if it also
+applies to compiler warnings).
+
+Thanks for your quick replies.
+
+Nicolas
