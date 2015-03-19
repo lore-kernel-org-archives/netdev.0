@@ -1,78 +1,50 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [PATCH 3.13.y-ckt 67/80] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Thu, 19 Mar 2015 15:35:55 -0700
-Message-ID: <1426804568-2907-68-git-send-email-kamal@canonical.com>
-References: <1426804568-2907-1-git-send-email-kamal@canonical.com>
-Cc: Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kamal Mostafa <kamal@canonical.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426804568-2907-1-git-send-email-kamal@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] rhashtable: Round up/down min/max_size to
+ ensure we respect limit
+Date: Fri, 20 Mar 2015 09:41:49 +1100
+Message-ID: <20150319224149.GA12641@gondor.apana.org.au>
+References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
+ <20150319.152450.1573636653085091157.davem@davemloft.net>
+ <20150319194608.GA27962@casper.infradead.org>
+ <20150319210239.GB9601@gondor.apana.org.au>
+ <20150319211546.GA4190@casper.infradead.org>
+ <20150319214933.GA11937@gondor.apana.org.au>
+ <20150319220248.GA12428@gondor.apana.org.au>
+ <20150319223113.GD4190@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:39746 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619AbbCSWlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 18:41:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20150319223113.GD4190@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.13.11-ckt17 -stable review patch.  If anyone has any objections, please let me know.
+On Thu, Mar 19, 2015 at 10:31:13PM +0000, Thomas Graf wrote:
+> Round up min_size respectively round down max_size to the next power
+> of two to make sure we always respect the limit specified by the
+> user. This is required because we compare the table size against the
+> limit before we expand or shrink.
+> 
+> Also fixes a minor bug where we modified min_size in the params
+> provided instead of the copy stored in struct rhashtable.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-------------------
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-From: karl beldan <karl.beldan@gmail.com>
+> ---
+> Herbert: I'm fine with either approach. I figured you expected the
+> user to take care of this, hence the added warning. This is perfectly
+> fine with me me as well.
 
-commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
-
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
-
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
----
- lib/checksum.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/lib/checksum.c b/lib/checksum.c
-index 129775e..fcf3894 100644
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
- 	return x;
- }
- 
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
-+
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
+Thanks for fixing this.
 -- 
-1.9.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
