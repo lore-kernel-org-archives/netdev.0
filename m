@@ -1,48 +1,41 @@
-From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: Re: [PATCH] net: ethernet: pcnet32: Setup the SRAM and NOUFLO on
- Am79C97{3,5}
-Date: Thu, 19 Mar 2015 08:37:05 +0000
-Message-ID: <20150319083704.GA31322@mchandras-linux.le.imgtec.org>
-References: <1426709407-16033-1-git-send-email-markos.chandras@imgtec.com>
- <1426730854.1840.23.camel@Lunix2.home>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: Re: [PATCH v5 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Thu, 19 Mar 2015 10:04:41 +0100
+Message-ID: <2229059.jMQaty1Zsb@pcimr>
+References: <1521782.cXqN30N6pA@pcimr> <CACRpkdZdiV8tt6ixcwpafr3eQCB4Kesh1XcKyyYaZToLunhVpw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Cc: <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>,
-	<stable@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Don Fry <pcnet32@frontier.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1426730854.1840.23.camel@Lunix2.home>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <CACRpkdZdiV8tt6ixcwpafr3eQCB4Kesh1XcKyyYaZToLunhVpw@mail.gmail.com>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Don,
+Ping?
 
-On Wed, Mar 18, 2015 at 07:07:34PM -0700, Don Fry wrote:
-> One little change to the comment is needed.  See below
+On Thursday 05 March 2015 09:58:00 Linus Walleij wrote:
+> On Wed, Feb 11, 2015 at 5:28 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
 > 
-> Don
+> > Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
+> > disposing of GPIO descriptors.
+> >
+> > Cc: David Miller <davem@davemloft.net>
+> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
 > 
-> On Wed, 2015-03-18 at 20:10 +0000, Markos Chandras wrote:
-> > +	if (sram) {
-> > +		/*
-> > +		 * The SRAM is being configured in two steps. First we
-> > +		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
-> > +		 * to the datasheet, each bit corresponds to a 512-byte
-> > +		 * page so we can have at most 24 pages. The SRAM_SIZE
-> > +		 * corresponds holds the value of the upper 8 bits of
-> > +		 * the 16-bit SRAM size. The low 8-bits start at 0x00
-> > +		 * and end at 0xff. So the address range is from 0x0000
-> > +		 * up to 0x17ff. Therefore, the SRAM_SIZE is set to 0x17.
-> > +		 * The next step is to set the BCR24:SRAM_BND midway through
-> > +		 * so the Tx and Rx buffers can share the SRAM equally.
-> > +		 */
+> This looks good to me, but I need David's ACK before I can
+> merge it through the GPIO tree.
 > 
-> The comment specifies BCR24 but the code is changing BCR26 which matches
-> the documentation.  Please correct the comment to avoid confusion.
+> David: is this OK with you?
+> 
+> Yours,
+> Linus Walleij
 > 
 
-Ah good catch. I will fix it and send a v2.
-
--- 
-markos
