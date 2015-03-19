@@ -1,32 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tipc: fix build issue when building without IPv6
-Date: Thu, 19 Mar 2015 16:06:58 -0400 (EDT)
-Message-ID: <20150319.160658.1294624225284354605.davem@davemloft.net>
-References: <20150319.150433.850095478975909930.davem@davemloft.net>
-	<1426794478-5469-1-git-send-email-marcelo.leitner@gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v2 00/10] amd-xgbe: AMD XGBE driver updates
+ 2015-03-19
+Date: Thu, 19 Mar 2015 15:08:08 -0500
+Message-ID: <20150319200808.28321.37307.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: richard.alpe@ericsson.com, jon.maloy@ericsson.com,
-	ying.xue@windriver.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, erik.hugne@ericsson.com
-To: marcelo.leitner@gmail.com
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49994 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115AbbCSUHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 16:07:05 -0400
-In-Reply-To: <1426794478-5469-1-git-send-email-marcelo.leitner@gmail.com>
+Received: from mail-by2on0122.outbound.protection.outlook.com ([207.46.100.122]:19637
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751310AbbCSUIO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 16:08:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Thu, 19 Mar 2015 16:47:58 -0300
+The following series of patches includes functional updates and changes
+to the driver.
 
-> We can't directly call ipv6_sock_mc_join() but should use the stub
-> instead and protect it around IS_ENABLED.
-> 
-> Fixes: d0f91938bede ("tipc: add ip/udp media type")
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+- Use the phydev->advertising field instead of the phydev->supported
+  field when configuring for auto-negotiation, etc.
+- Use the phy_driver flags field for setting the transceiver type
+  instead of hardcoding it in the ethtool support.
+- Provide an auto-negotiation timeout check
+- Clarify the Tx/Rx queue information messages
+- Use the new DMA memory barrier operations
+- Set the device DMA mask based on what the hardware reports
+- Remove the software implementation of Tx coalescing
+- Fix the reporting of the Rx coalescing value
+- Use napi_alloc_skb when allocating an SKB in softirq
+- Rework the Rx path SKB allocation to make it cleaner and be able
+  to possibly inline more data
 
-This works better, applied, thanks.
+This patch series is based on net-next.
+
+---
+
+Changes from v1:
+- Default to 32-bit DMA width (minimum supported) if hardware returns
+  an unexpected DMA width value
+
+Tom Lendacky (10):
+      amd-xgbe-phy: Use phydev advertising field vs supported
+      amd-xgbe-phy: Use the phy_driver flags field
+      amd-xgbe-phy: Provide support for auto-negotiation timeout
+      amd-xgbe: Clarify output message about queues
+      amd-xgbe: Use the new DMA memory barriers where appropriate
+      amd-xgbe: Set DMA mask based on hardware register value
+      amd-xgbe: Remove Tx coalescing
+      amd-xgbe: Fix Rx coalescing reporting
+      amd-xgbe: Use napi_alloc_skb when allocating skb in softirq
+      amd-xgbe: Rework the Rx path SKB allocation
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h  |   16 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c    |    2 
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   45 +++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |  124 +++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   19 +---
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   19 ++--
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    8 +-
+ drivers/net/phy/amd-xgbe-phy.c               |   98 ++++++++++++---------
+ 8 files changed, 197 insertions(+), 134 deletions(-)
+
+-- 
+Tom Lendacky
