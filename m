@@ -1,66 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: rps: fix data stall after hotplug
-Date: Thu, 19 Mar 2015 14:50:39 -0700
-Message-ID: <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH v1 net-next] tuntap: convert to 64-bit interface statistics
+Date: Thu, 19 Mar 2015 17:50:33 -0400
+Message-ID: <550B44A9.5020402@cumulusnetworks.com>
+References: <1426794689-29943-1-git-send-email-jtoppins@cumulusnetworks.com> <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Curt Brune <curt@cumulusnetworks.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:36200 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCSVui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:50:38 -0400
-Received: by igbud6 with SMTP id ud6so37601064igb.1
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 14:50:37 -0700 (PDT)
-In-Reply-To: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:33326 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbCSVuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:50:35 -0400
+Received: by qgfa8 with SMTP id a8so78055958qgf.0
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 14:50:35 -0700 (PDT)
+In-Reply-To: <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-19 at 19:54 +0000, subashab@codeaurora.org wrote:
-> When RPS is enabled, IPI is triggered to enqueue the
-> backlog NAPI to the poll list. If the CPU is hotplugged
-> after the NAPI_STATE_SCHED bit is set on
-> enqueue_to_backlog but before the IPI is delivered
-> successfully, the poll list does not have the backlog
-> NAPI queued. As a consequence of this, dev_cpu_callback
-> does not clear the NAPI_STATE_SCHED bit on hotplug.
-> Since NAPI_STATE_SCHED is set even after the cpu comes
-> back up, packets get enqueued onto the input packet queue
-> but are never processed since the IPI will not be triggered.
-> 
-> This patch handles this race by unconditionally resetting
-> the NAPI state for the backlog NAPI on the offline CPU.
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> ---
->  net/core/dev.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6f561de..61d9579 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7119,12 +7119,11 @@ static int dev_cpu_callback(struct notifier_block
-> *nfb,
->  							    poll_list);
-> 
->  		list_del_init(&napi->poll_list);
-> -		if (napi->poll == process_backlog)
-> -			napi->state = 0;
-> -		else
-> +		if (napi->poll != process_backlog)
->  			____napi_schedule(sd, napi);
->  	}
-> 
-> +	oldsd->backlog.state = 0;
->  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
->  	local_irq_enable();
+On 3/19/15 5:38 PM, Eric Dumazet wrote:
+> On Thu, 2015-03-19 at 12:51 -0700, Jonathan Toppins wrote:
+>> Signed-off-by: Curt Brune <curt@cumulusnetworks.com>
+>> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+>> ---
+>>   drivers/net/tun.c |   54 ++++++++++++++++++++++++++++++++++++++++++-----------
+>>   1 file changed, 43 insertions(+), 11 deletions(-)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index b96b94c..be8941a 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -65,6 +65,7 @@
+>>   #include <linux/nsproxy.h>
+>>   #include <linux/virtio_net.h>
+>>   #include <linux/rcupdate.h>
+>> +#include <linux/u64_stats_sync.h>
+>>   #include <net/net_namespace.h>
+>>   #include <net/netns/generic.h>
+>>   #include <net/rtnetlink.h>
+>> @@ -204,6 +205,9 @@ struct tun_struct {
+>>   	struct list_head disabled;
+>>   	void *security;
+>>   	u32 flow_count;
+>> +	spinlock_t			stat_lock;
+>> +	struct u64_stats_sync		stat_sync;
+>> +	struct rtnl_link_stats64	stats64;
+>>   };
+>>
+>>   static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
+>> @@ -751,6 +755,16 @@ static int tun_net_close(struct net_device *dev)
+>>   	return 0;
+>>   }
+>>
+>> +static __always_inline void tun_stat64_inc(struct tun_struct *tun, u64 *stat,
+>> +					   size_t val)
+>> +{
+>> +	spin_lock_bh(&tun->stat_lock);
+>> +	u64_stats_update_begin(&tun->stat_sync);
+>> +	(*stat) += val;
+>> +	u64_stats_update_end(&tun->stat_sync);
+>> +	spin_unlock_bh(&tun->stat_lock);
+>> +}
+>
+> Ouch, one spin_lock_bh() ? Really ?
+>
+>> -	tun->dev->stats.tx_packets++;
+>> -	tun->dev->stats.tx_bytes += skb->len + vlan_hlen;
+>> +	tun_stat64_inc(tun, &tun->stats64.tx_packets, 1);
+>> +	tun_stat64_inc(tun, &tun->stats64.tx_bytes, skb->len + vlan_hlen);
+>
+>
+> So you take this spinlock twice ?
+>
+> Sorry, this is not good.
+>
+Hi Eric, thanks for the review.
+Would something like the following be preferable?
 
-Are you seeing this race on x86 ?
+	spin_lock_bh(&tun->stat_lock);
+	u64_stats_update_begin(&tun->stat_sync);
+	&tun->stats64.tx_packets++;
+	&tun->stats64.tx_bytes += skb->len + vlan_hlen;
+	u64_stats_update_end(&tun->stat_sync);
+	spin_unlock_bh(&tun->stat_lock);
 
-If IPI are not reliable on your arch, I am guessing you should fix them.
-
-Otherwise, even without hotplug you'll have hangs.
+-Jon
