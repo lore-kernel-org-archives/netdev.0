@@ -1,141 +1,105 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v2 3/3] tipc: add support for
-	connect() on dgram/rdm sockets
-Date: Thu, 19 Mar 2015 09:02:19 +0100
-Message-ID: <1426752139-31519-4-git-send-email-erik.hugne@ericsson.com>
-References: <1426752139-31519-1-git-send-email-erik.hugne@ericsson.com>
+From: Stefan Assmann <sassmann@redhat.com>
+Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
+Date: Thu, 19 Mar 2015 09:15:47 +0100
+Message-ID: <550A85B3.4070703@redhat.com>
+References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>	<jpg8uf2ghln.fsf@redhat.com>	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>	<jpgtwxpvk5x.fsf@redhat.com>	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>	<jpg1tko7qwb.fsf@redhat.com>	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>	<jpglhiw4tal.fsf@redhat.com>	<jpgk2yewcpt.fsf@redhat.com>	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com> <CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <richard.alpe@ericsson.com>, <jon.maloy@ericsson.com>,
-	<ying.xue@windriver.com>, <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1426752139-31519-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Bandan Das <bsd@redhat.com>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	QEMU Developers <qemu-devel@nongnu.org>,
+	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@intel.com>,
+	jacob jacob <opstkusr@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44825 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750852AbbCSIPy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 04:15:54 -0400
+In-Reply-To: <CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On 18.03.2015 23:06, Shannon Nelson wrote:
+> On Wed, Mar 18, 2015 at 3:01 PM, Shannon Nelson
+> <shannon.nelson@intel.com> wrote:
+>>
+>>
+>> On Wed, Mar 18, 2015 at 8:40 AM, jacob jacob <opstkusr@gmail.com> wrote:
+>>>
+>>> On Wed, Mar 18, 2015 at 11:24 AM, Bandan Das <bsd@redhat.com> wrote:
+>>>>
+>>>> Actually, Stefan suggests that support for this card is still sketchy
+>>>> and your best bet is to try out net-next
+>>>> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+>>>>
+>>>> Also, could you please post more information about your hardware setup
+>>>> (chipset/processor/firmware version on the card etc) ?
+>>>
+>>> Host CPU : Model name:            Intel(R) Xeon(R) CPU E5-2630 v2 @ 2.60GHz
+>>>
+>>> Manufacturer Part Number:  XL710QDA1BLK
+>>> Ethernet controller: Intel Corporation Ethernet Controller XL710 for
+>>> 40GbE QSFP+ (rev 01)
+>>>  #ethtool -i enp9s0
+>>> driver: i40e
+>>> version: 1.2.6-k
+>>> firmware-version: f4.22 a1.1 n04.24 e800013fd
+>>> bus-info: 0000:09:00.0
+>>> supports-statistics: yes
+>>> supports-test: yes
+>>> supports-eeprom-access: yes
+>>> supports-register-dump: yes
+>>> supports-priv-flags: no
+>>>
+> 
+> Jacob,
+> 
+> It looks like you're using a NIC with the e800013fd firmware from last
+> summer, and from a separate message that you saw these issues with
+> both the 1.2.2-k and the 1.2.37 version drivers.  I suggest the next
+> step would be to update the NIC firmware as there are some performance
+> and stability updates available that deal with similar issues.  Please
+> see the Intel Networking support webpage at
+> https://downloadcenter.intel.com/download/24769 and look for the
+> NVMUpdatePackage.zip.  This should take care of several of the things
+> Stefan might describe as "sketchy" :-).
 
-Following the example of ip4_datagram_connect, we store the
-address in the socket structure for dgram/rdm sockets and use
-that as the default destination for subsequent send() calls.
-It is allowed to connect to any address types, and the behaviour
-of send() will be the same as a normal sendto() with this address
-provided. Binding to an AF_UNSPEC address clears the association.
+Interesting, the following might explain why my XL710 feels a bit
+sketchy then. ;-)
+# ethtool -i p4p1
+driver: i40e
+version: 1.2.37-k
+firmware-version: f4.22.26225 a1.1 n4.24 e12ef
+Looks like the firmware on this NIC is even older.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 38 ++++++++++++++++++++++++--------------
- 1 file changed, 24 insertions(+), 14 deletions(-)
+I tried to update the firmware with nvmupdate64e and the first thing I
+noticed is that you cannot update the firmware even with todays linux
+git. The tool errors out because it cannot access the NVM. Only with a
+recent net-next kernel I was able to update the firmware.
+ethtool -i p4p1
+driver: i40e
+version: 1.2.37-k
+firmware-version: f4.33.31377 a1.2 n4.42 e1932
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index b6295c0..20b4f10 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -74,6 +74,7 @@
-  * @link_cong: non-zero if owner must sleep because of link congestion
-  * @sent_unacked: # messages sent by socket, and not yet acked by peer
-  * @rcv_unacked: # messages read by user, but not yet acked back to peer
-+ * @remote: 'connected' peer for dgram/rdm
-  * @node: hash table node
-  * @rcu: rcu struct for tipc_sock
-  */
-@@ -96,6 +97,7 @@ struct tipc_sock {
- 	bool link_cong;
- 	uint sent_unacked;
- 	uint rcv_unacked;
-+	struct sockaddr_tipc remote;
- 	struct rhash_head node;
- 	struct rcu_head rcu;
- };
-@@ -854,22 +856,23 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 	u32 dnode, dport;
- 	struct sk_buff_head *pktchain = &sk->sk_write_queue;
- 	struct sk_buff *skb;
--	struct tipc_name_seq *seq = &dest->addr.nameseq;
-+	struct tipc_name_seq *seq;
- 	struct iov_iter save;
- 	u32 mtu;
- 	long timeo;
- 	int rc;
- 
--	if (unlikely(!dest))
--		return -EDESTADDRREQ;
--
--	if (unlikely((m->msg_namelen < sizeof(*dest)) ||
--		     (dest->family != AF_TIPC)))
--		return -EINVAL;
--
- 	if (dsz > TIPC_MAX_USER_MSG_SIZE)
- 		return -EMSGSIZE;
--
-+	if (unlikely(!dest)) {
-+		if (tsk->connected && sock->state == SS_READY)
-+			dest = &tsk->remote;
-+		else
-+			return -EDESTADDRREQ;
-+	} else if (unlikely(m->msg_namelen < sizeof(*dest)) ||
-+		   dest->family != AF_TIPC) {
-+		return -EINVAL;
-+	}
- 	if (unlikely(sock->state != SS_READY)) {
- 		if (sock->state == SS_LISTENING)
- 			return -EPIPE;
-@@ -882,7 +885,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 			tsk->conn_instance = dest->addr.name.name.instance;
- 		}
- 	}
--
-+	seq = &dest->addr.nameseq;
- 	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
- 
- 	if (dest->addrtype == TIPC_ADDR_MCAST) {
-@@ -1833,17 +1836,24 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
- 			int destlen, int flags)
- {
- 	struct sock *sk = sock->sk;
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct sockaddr_tipc *dst = (struct sockaddr_tipc *)dest;
- 	struct msghdr m = {NULL,};
--	long timeout = (flags & O_NONBLOCK) ? 0 : tipc_sk(sk)->conn_timeout;
-+	long timeout = (flags & O_NONBLOCK) ? 0 : tsk->conn_timeout;
- 	socket_state previous;
--	int res;
-+	int res = 0;
- 
- 	lock_sock(sk);
- 
--	/* For now, TIPC does not allow use of connect() with DGRAM/RDM types */
-+	/* DGRAM/RDM connect(), just save the destaddr */
- 	if (sock->state == SS_READY) {
--		res = -EOPNOTSUPP;
-+		if (dst->family == AF_UNSPEC) {
-+			memset(&tsk->remote, 0, sizeof(struct sockaddr_tipc));
-+			tsk->connected = 0;
-+		} else {
-+			memcpy(&tsk->remote, dest, destlen);
-+			tsk->connected = 1;
-+		}
- 		goto exit;
- 	}
- 
--- 
-2.1.4
+However during the update I got a lot of errors in dmesg.
+[  301.796664] i40e 0000:82:00.0: ARQ Error: Unknown event 0x0702 received
+[  301.893933] i40e 0000:82:00.0: ARQ Error: Unknown event 0x0703 received
+[  302.005223] i40e 0000:82:00.0: ARQ Error: Unknown event 0x0703 received
+[...]
+[  387.884635] i40e 0000:82:00.0: ARQ Error: Unknown event 0x0703 received
+[  387.896862] i40e 0000:82:00.0: ARQ Overflow Error detected
+[  387.902995] i40e 0000:82:00.0: ARQ Error: Unknown event 0x0703 received
+[...]
+[  391.583799] i40e 0000:82:00.0: NVMUpdate write failed err=-53 status=0x0 errno=-16 module=70 offset=0x0 size=2
+[  391.714217] i40e 0000:82:00.0: NVMUpdate write failed err=-53 status=0x0 errno=-16 module=70 offset=0x0 size=2
+[  391.842656] i40e 0000:82:00.0: NVMUpdate write failed err=-53 status=0x0 errno=-16 module=70 offset=0x0 size=2
+[  391.973080] i40e 0000:82:00.0: NVMUpdate write failed err=-53 status=0x0 errno=-16 module=70 offset=0x0 size=2
+[  392.107586] i40e 0000:82:00.0: NVMUpdate write failed err=-53 status=0x0 errno=-16 module=70 offset=0x0 size=2
+[  392.244140] i40e 0000:82:00.0: NVMUpdate write failed err=-53 status=0x0 errno=-16 module=70 offset=0x0 size=2
+[  392.373966] i40e 0000:82:00.0: ARQ Error: Unknown event 0x0703 received
 
+Not sure if that flash was actually successful or not.
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+  Stefan
