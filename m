@@ -1,8 +1,7 @@
 From: jacob jacob <opstkusr@gmail.com>
-Subject: Re: PCI passthrough of 40G ethernet interface
-	(Openstack/KVM)
-Date: Thu, 19 Mar 2015 10:00:12 -0400
-Message-ID: <CA+AkT2ghP5KggJ0scV64ui5hJVgWEwK09CSoQa14R_i+ajjq+A@mail.gmail.com>
+Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
+Date: Thu, 19 Mar 2015 10:04:48 -0400
+Message-ID: <CA+AkT2hJcHBcTzyONosrd82dD1m3-ML1_doS=tjBFoAPdnTmaw@mail.gmail.com>
 References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
 	<jpg8uf2ghln.fsf@redhat.com>
 	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
@@ -11,33 +10,30 @@ References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
 	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
 	<jpg1tko7qwb.fsf@redhat.com>
 	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
-	<jpglhiw4tal.fsf@redhat.com> <jpgk2yewcpt.fsf@redhat.com>
+	<jpglhiw4tal.fsf@redhat.com>
+	<jpgk2yewcpt.fsf@redhat.com>
 	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>
 	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>
 	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
 	<550A85B3.4070703@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org,
-	Shannon Nelson <shannon.nelson@intel.com>,
+Cc: Shannon Nelson <shannon.nelson@intel.com>,
+	Bandan Das <bsd@redhat.com>,
 	Alex Williamson <alex.williamson@redhat.com>,
-	QEMU Developers <qemu-devel@nongnu.org>, Bandan Das <bsd@redhat.com>
+	QEMU Developers <qemu-devel@nongnu.org>,
+	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
 To: Stefan Assmann <sassmann@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <550A85B3.4070703@redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was going to try this on fedora 21...now not very sure if that makes
-much sense..
+Hi Stefan,
+have you been able to get PCI passthrough working without any issues
+after the upgrade?
+Thanks
+Jacob
 
 On Thu, Mar 19, 2015 at 4:15 AM, Stefan Assmann <sassmann@redhat.com> wrote:
 > On 18.03.2015 23:06, Shannon Nelson wrote:
