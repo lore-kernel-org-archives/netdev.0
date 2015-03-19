@@ -1,50 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] rhashtable: Round up/down min/max_size to
- ensure we respect limit
-Date: Fri, 20 Mar 2015 09:41:49 +1100
-Message-ID: <20150319224149.GA12641@gondor.apana.org.au>
-References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
- <20150319.152450.1573636653085091157.davem@davemloft.net>
- <20150319194608.GA27962@casper.infradead.org>
- <20150319210239.GB9601@gondor.apana.org.au>
- <20150319211546.GA4190@casper.infradead.org>
- <20150319214933.GA11937@gondor.apana.org.au>
- <20150319220248.GA12428@gondor.apana.org.au>
- <20150319223113.GD4190@casper.infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1 net-next] tuntap: convert to 64-bit interface
+ statistics
+Date: Thu, 19 Mar 2015 15:56:04 -0700
+Message-ID: <1426805764.25985.18.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426794689-29943-1-git-send-email-jtoppins@cumulusnetworks.com>
+	 <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <550B4619.6020203@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Curt Brune <curt@cumulusnetworks.com>
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:39746 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619AbbCSWlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 18:41:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20150319223113.GD4190@casper.infradead.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:33006 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752648AbbCSW4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 18:56:03 -0400
+Received: by iecvj10 with SMTP id vj10so79771338iec.0
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 15:56:03 -0700 (PDT)
+In-Reply-To: <550B4619.6020203@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2015 at 10:31:13PM +0000, Thomas Graf wrote:
-> Round up min_size respectively round down max_size to the next power
-> of two to make sure we always respect the limit specified by the
-> user. This is required because we compare the table size against the
-> limit before we expand or shrink.
-> 
-> Also fixes a minor bug where we modified min_size in the params
-> provided instead of the copy stored in struct rhashtable.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Thu, 2015-03-19 at 17:56 -0400, Jonathan Toppins wrote:
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> ---
-> Herbert: I'm fine with either approach. I figured you expected the
-> user to take care of this, hence the added warning. This is perfectly
-> fine with me me as well.
+> Or are you suggesting per-cpu counters would be preferred which would 
+> possibly eliminate the need for this lock?
 
-Thanks for fixing this.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Might be overkill for a device that is probably used by one cpu,
+considering you defined a full  struct rtnl_link_stats64, instead of the
+fields that are really handled. 
