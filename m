@@ -1,103 +1,64 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V3 2/2 net-next] hyperv: Support batched notification
-Date: Thu, 19 Mar 2015 16:53:57 +0000
-Message-ID: <BY2PR0301MB07114336B35924D353108197A0010@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1426608145-14139-1-git-send-email-kys@microsoft.com>
-	<1426608167-14180-1-git-send-email-kys@microsoft.com>
-	<1426608167-14180-2-git-send-email-kys@microsoft.com>
- <1426648122.5207.0@smtp.corp.redhat.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next 00/10] amd-xgbe: AMD XGBE driver updates 2015-03-19
+Date: Thu, 19 Mar 2015 12:12:25 -0500
+Message-ID: <20150319171225.26446.36048.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>
-To: Jason Wang <jasowang@redhat.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0124.outbound.protection.outlook.com ([65.55.169.124]:44873
+Received: from mail-bl2on0122.outbound.protection.outlook.com ([65.55.169.122]:53824
 	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752788AbbCSQyB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Mar 2015 12:54:01 -0400
-In-Reply-To: <1426648122.5207.0@smtp.corp.redhat.com>
-Content-Language: en-US
+	id S964916AbbCSRMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Mar 2015 13:12:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmFzb24gV2FuZyBbbWFp
-bHRvOmphc293YW5nQHJlZGhhdC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE1hcmNoIDE3LCAyMDE1
-IDg6MDkgUE0NCj4gVG86IEtZIFNyaW5pdmFzYW4NCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3Jn
-OyBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnOyBvbGFmQGFlcGZsZS5kZTsNCj4gYXB3QGNh
-bm9uaWNhbC5jb207IEtZIFNyaW5pdmFzYW4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBWMyAyLzIg
-bmV0LW5leHRdIGh5cGVydjogU3VwcG9ydCBiYXRjaGVkIG5vdGlmaWNhdGlvbg0KPiANCj4gDQo+
-IA0KPiBPbiBXZWQsIE1hciAxOCwgMjAxNSBhdCAxMjowMiBBTSwgSy4gWS4gU3Jpbml2YXNhbiA8
-a3lzQG1pY3Jvc29mdC5jb20+DQo+IHdyb3RlOg0KPiA+IE9wdGltaXplIG5vdGlmeWluZyB0aGUg
-aG9zdCBieSBkZWZlcnJpbmcgbm90aWZpY2F0aW9uIHVudGlsIHRoZXJlDQo+ID4gYXJlIG5vIG1v
-cmUgcGFja2V0cyB0byBiZSBzZW50LiBUaGlzIHdpbGwgaGVscCBpbiBiYXRjaGluZyB0aGUNCj4g
-PiByZXF1ZXN0cw0KPiA+IG9uIHRoZSBob3N0Lg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogSy4g
-WS4gU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5jb20+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMv
-bmV0L2h5cGVydi9oeXBlcnZfbmV0LmggICB8ICAgIDIgKy0NCj4gPiAgZHJpdmVycy9uZXQvaHlw
-ZXJ2L25ldHZzYy5jICAgICAgIHwgICAxNCArKysrKysrKystLS0tLQ0KPiA+ICBkcml2ZXJzL25l
-dC9oeXBlcnYvbmV0dnNjX2Rydi5jICAgfCAgICAyICstDQo+ID4gIGRyaXZlcnMvbmV0L2h5cGVy
-di9ybmRpc19maWx0ZXIuYyB8ICAgIDIgKy0NCj4gPiAgNCBmaWxlcyBjaGFuZ2VkLCAxMiBpbnNl
-cnRpb25zKCspLCA4IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L2h5cGVydi9oeXBlcnZfbmV0LmgNCj4gPiBiL2RyaXZlcnMvbmV0L2h5cGVydi9oeXBlcnZf
-bmV0LmgNCj4gPiBpbmRleCA0ODE1ODQzLi4zZmQ5ODk2IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZl
-cnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmgNCj4gPiArKysgYi9kcml2ZXJzL25ldC9oeXBlcnYv
-aHlwZXJ2X25ldC5oDQo+ID4gQEAgLTE4NCw3ICsxODQsNyBAQCBzdHJ1Y3Qgcm5kaXNfZGV2aWNl
-IHsNCj4gPiAgaW50IG5ldHZzY19kZXZpY2VfYWRkKHN0cnVjdCBodl9kZXZpY2UgKmRldmljZSwg
-dm9pZA0KPiA+ICphZGRpdGlvbmFsX2luZm8pOw0KPiA+ICBpbnQgbmV0dnNjX2RldmljZV9yZW1v
-dmUoc3RydWN0IGh2X2RldmljZSAqZGV2aWNlKTsNCj4gPiAgaW50IG5ldHZzY19zZW5kKHN0cnVj
-dCBodl9kZXZpY2UgKmRldmljZSwNCj4gPiAtCQlzdHJ1Y3QgaHZfbmV0dnNjX3BhY2tldCAqcGFj
-a2V0KTsNCj4gPiArCQlzdHJ1Y3QgaHZfbmV0dnNjX3BhY2tldCAqcGFja2V0LCBib29sIGtpY2tf
-cSk7DQo+ID4gIHZvaWQgbmV0dnNjX2xpbmtzdGF0dXNfY2FsbGJhY2soc3RydWN0IGh2X2Rldmlj
-ZSAqZGV2aWNlX29iaiwNCj4gPiAgCQkJCXN0cnVjdCBybmRpc19tZXNzYWdlICpyZXNwKTsNCj4g
-PiAgaW50IG5ldHZzY19yZWN2X2NhbGxiYWNrKHN0cnVjdCBodl9kZXZpY2UgKmRldmljZV9vYmos
-DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2MuYyBiL2RyaXZlcnMv
-bmV0L2h5cGVydi9uZXR2c2MuYw0KPiA+IGluZGV4IDIwOGViMDUuLjkwMDNiOTQgMTAwNjQ0DQo+
-ID4gLS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jDQo+ID4gKysrIGIvZHJpdmVycy9u
-ZXQvaHlwZXJ2L25ldHZzYy5jDQo+ID4gQEAgLTcwNyw3ICs3MDcsNyBAQCBzdGF0aWMgdTMyIG5l
-dHZzY19jb3B5X3RvX3NlbmRfYnVmKHN0cnVjdA0KPiA+IG5ldHZzY19kZXZpY2UgKm5ldF9kZXZp
-Y2UsDQo+ID4gIH0NCj4gPg0KPiA+ICBpbnQgbmV0dnNjX3NlbmQoc3RydWN0IGh2X2RldmljZSAq
-ZGV2aWNlLA0KPiA+IC0JCQlzdHJ1Y3QgaHZfbmV0dnNjX3BhY2tldCAqcGFja2V0KQ0KPiA+ICsJ
-CQlzdHJ1Y3QgaHZfbmV0dnNjX3BhY2tldCAqcGFja2V0LCBib29sIGtpY2tfcSkNCj4gPiAgew0K
-PiA+ICAJc3RydWN0IG5ldHZzY19kZXZpY2UgKm5ldF9kZXZpY2U7DQo+ID4gIAlpbnQgcmV0ID0g
-MDsNCj4gPiBAQCAtNzE5LDYgKzcxOSw3IEBAIGludCBuZXR2c2Nfc2VuZChzdHJ1Y3QgaHZfZGV2
-aWNlICpkZXZpY2UsDQo+ID4gIAl1MzIgbXNnX3NpemUgPSAwOw0KPiA+ICAJc3RydWN0IHNrX2J1
-ZmYgKnNrYiA9IE5VTEw7DQo+ID4gIAl1MTYgcV9pZHggPSBwYWNrZXQtPnFfaWR4Ow0KPiA+ICsJ
-dTMyIHZtYnVzX2ZsYWdzID0NCj4gVk1CVVNfREFUQV9QQUNLRVRfRkxBR19DT01QTEVUSU9OX1JF
-UVVFU1RFRDsNCj4gPg0KPiA+DQo+ID4gIAluZXRfZGV2aWNlID0gZ2V0X291dGJvdW5kX25ldF9k
-ZXZpY2UoZGV2aWNlKTsNCj4gPiBAQCAtNzY4LDE4ICs3NjksMjEgQEAgaW50IG5ldHZzY19zZW5k
-KHN0cnVjdCBodl9kZXZpY2UgKmRldmljZSwNCj4gPiAgCQlyZXR1cm4gLUVOT0RFVjsNCj4gPg0K
-PiA+ICAJaWYgKHBhY2tldC0+cGFnZV9idWZfY250KSB7DQo+ID4gLQkJcmV0ID0gdm1idXNfc2Vu
-ZHBhY2tldF9wYWdlYnVmZmVyKG91dF9jaGFubmVsLA0KPiA+ICsJCXJldCA9IHZtYnVzX3NlbmRw
-YWNrZXRfcGFnZWJ1ZmZlcl9jdGwob3V0X2NoYW5uZWwsDQo+ID4gIAkJCQkJCSAgcGFja2V0LT5w
-YWdlX2J1ZiwNCj4gPiAgCQkJCQkJICBwYWNrZXQtPnBhZ2VfYnVmX2NudCwNCj4gPiAgCQkJCQkJ
-ICAmc2VuZE1lc3NhZ2UsDQo+ID4gIAkJCQkJCSAgc2l6ZW9mKHN0cnVjdA0KPiBudnNwX21lc3Nh
-Z2UpLA0KPiA+IC0JCQkJCQkgIHJlcV9pZCk7DQo+ID4gKwkJCQkJCSAgcmVxX2lkLA0KPiA+ICsJ
-CQkJCQkgIHZtYnVzX2ZsYWdzLA0KPiA+ICsJCQkJCQkgIGtpY2tfcSk7DQo+ID4gIAl9IGVsc2Ug
-ew0KPiA+IC0JCXJldCA9IHZtYnVzX3NlbmRwYWNrZXQob3V0X2NoYW5uZWwsICZzZW5kTWVzc2Fn
-ZSwNCj4gPiArCQlyZXQgPSB2bWJ1c19zZW5kcGFja2V0X2N0bChvdXRfY2hhbm5lbCwgJnNlbmRN
-ZXNzYWdlLA0KPiA+ICAJCQkJc2l6ZW9mKHN0cnVjdCBudnNwX21lc3NhZ2UpLA0KPiA+ICAJCQkJ
-cmVxX2lkLA0KPiA+ICAJCQkJVk1fUEtUX0RBVEFfSU5CQU5ELA0KPiA+IC0NCj4gCVZNQlVTX0RB
-VEFfUEFDS0VUX0ZMQUdfQ09NUExFVElPTl9SRVFVRVNURUQpOw0KPiA+ICsJCQkJdm1idXNfZmxh
-Z3MsDQo+ID4gKwkJCQlraWNrX3EpOw0KPiA+ICAJfQ0KPiA+DQo+ID4gIAlpZiAocmV0ID09IDAp
-IHsNCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiA+
-IGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiA+IGluZGV4IGEwNmJkNjYuLmVh
-ZTU4ZGIgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0K
-PiA+ICsrKyBiL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMNCj4gPiBAQCAtNTU2LDcg
-KzU1Niw3IEBAIGRvX3NlbmQ6DQo+ID4gIAlwYWNrZXQtPnBhZ2VfYnVmX2NudCA9IGluaXRfcGFn
-ZV9hcnJheShybmRpc19tc2csDQo+IHJuZGlzX21zZ19zaXplLA0KPiA+ICAJCQkJCXNrYiwgJnBh
-Y2tldC0+cGFnZV9idWZbMF0pOw0KPiA+DQo+ID4gLQlyZXQgPSBuZXR2c2Nfc2VuZChuZXRfZGV2
-aWNlX2N0eC0+ZGV2aWNlX2N0eCwgcGFja2V0KTsNCj4gPiArCXJldCA9IG5ldHZzY19zZW5kKG5l
-dF9kZXZpY2VfY3R4LT5kZXZpY2VfY3R4LCBwYWNrZXQsDQo+ID4gIXNrYi0+eG1pdF9tb3JlKTsN
-Cj4gPg0KPiANCj4gTG9va3MgbGlrZSB0aGUgaXNzdWUgb2YgVjIgc3RpbGwgdGhlcmUgKEUuZyB3
-ZSBuZWVkIHRvIGtpY2sgd2hlbg0KPiBodl9yaW5nYnVmZmVyX3dyaXRlKCkgcmV0dXJucyAtRUFH
-QUlOPw0KDQpKYXNvbiwgdGhpcyBpc3N1ZSB3aWxsIGJlIGhhbmRsZWQgaW4gdGhlIGxvd2VyIGxh
-eWVyLiBJIGhhdmUgYWxyZWFkeSBzdWJtaXR0ZWQgYSBwYXRjaCB0byB0aGUgdm1idXMNCkRyaXZl
-ciB0aGF0IGNvcnJlY3RseSBzaWduYWxzIHRoZSBob3N0IHdoZW4gRUFHQUlOIGlzIGVuY291bnRl
-cmVkLg0KDQpSZWdhcmRzLA0KDQpLLiBZDQoNCg==
+The following series of patches includes functional updates and changes
+to the driver.
+
+- Use the phydev->advertising field instead of the phydev->supported
+  field when configuring for auto-negotiation, etc.
+- Use the phy_driver flags field for setting the transceiver type
+  instead of hardcoding it in the ethtool support.
+- Provide an auto-negotiation timeout check
+- Clarify the Tx/Rx queue information messages
+- Use the new DMA memory barrier operations
+- Set the device DMA mask based on what the hardware reports
+- Remove the software implementation of Tx coalescing
+- Fix the reporting of the Rx coalescing value
+- Use napi_alloc_skb when allocating an SKB in softirq
+- Rework the Rx path SKB allocation to make it cleaner and be able
+  to possibly inline more data
+
+This patch series is based on net-next.
+
+---
+
+Tom Lendacky (10):
+      amd-xgbe-phy: Use phydev advertising field vs supported
+      amd-xgbe-phy: Use the phy_driver flags field
+      amd-xgbe-phy: Provide support for auto-negotiation timeout
+      amd-xgbe: Clarify output message about queues
+      amd-xgbe: Use the new DMA memory barriers where appropriate
+      amd-xgbe: Set DMA mask based on hardware register value
+      amd-xgbe: Remove Tx coalescing
+      amd-xgbe: Fix Rx coalescing reporting
+      amd-xgbe: Use napi_alloc_skb when allocating skb in softirq
+      amd-xgbe: Rework the Rx path SKB allocation
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h  |   16 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c    |    2 
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   45 ++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |  122 +++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   19 +---
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   19 ++--
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    8 +-
+ drivers/net/phy/amd-xgbe-phy.c               |   98 +++++++++++++--------
+ 8 files changed, 195 insertions(+), 134 deletions(-)
+
+-- 
+Tom Lendacky
