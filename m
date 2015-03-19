@@ -1,34 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] i40e: add NVM update events to AQ clean
-Date: Thu, 19 Mar 2015 17:52:26 -0400 (EDT)
-Message-ID: <20150319.175226.1895412928993469692.davem@davemloft.net>
-References: <1426800721-23007-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: jacob jacob <opstkusr@gmail.com>
+Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
+Date: Thu, 19 Mar 2015 17:53:52 -0400
+Message-ID: <CA+AkT2hYLu8aC2sRnmqyzLdrN7pncTL5ELxg_+OxCg9ZqQvpeQ@mail.gmail.com>
+References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
+	<jpg8uf2ghln.fsf@redhat.com>
+	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
+	<jpgtwxpvk5x.fsf@redhat.com>
+	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>
+	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
+	<jpg1tko7qwb.fsf@redhat.com>
+	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
+	<jpglhiw4tal.fsf@redhat.com>
+	<jpgk2yewcpt.fsf@redhat.com>
+	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>
+	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>
+	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
+	<550A85B3.4070703@redhat.com>
+	<CA+AkT2gHKtz2bKSf2FB+3+XkDidBnUDQSZy_KPb1y-MG+QnSiw@mail.gmail.com>
+	<CAP-MU4MTf+kRvvBZYDdsJbDjA1ATe-4zuBCKoCyKpboB9+cD6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shannon.nelson@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Stefan Assmann <sassmann@redhat.com>, Bandan Das <bsd@redhat.com>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	QEMU Developers <qemu-devel@nongnu.org>,
+	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51074 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbbCSVw2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:52:28 -0400
-In-Reply-To: <1426800721-23007-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:37929 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751034AbbCSVxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:53:54 -0400
+In-Reply-To: <CAP-MU4MTf+kRvvBZYDdsJbDjA1ATe-4zuBCKoCyKpboB9+cD6g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 19 Mar 2015 14:32:01 -0700
+On Thu, Mar 19, 2015 at 5:42 PM, Shannon Nelson
+<shannon.nelson@intel.com> wrote:
+> On Thu, Mar 19, 2015 at 2:04 PM, jacob jacob <opstkusr@gmail.com> wrote:
+>> I have updated to latest firmware and still no luck.
+>
+> [...]
+>
+>> [   61.554132] i40e 0000:00:06.0 eth2: the driver failed to link
+>> because an unqualified module was detected.     <<<<<<<<<<<<<<<<<<<<
+>> [   61.555331] IPv6: ADDRCONF(NETDEV_UP): eth2: link is not ready
+>>
+>
+> So I assume you're getting traffic on the other port and it doesn't
+> complain about "unqualified module"?  Does the problem move if you
+> swap the cables?  The usual problem here is a QSFP connector that
+> isn't compatible with the NIC.  I don't have a pointer handy to the
+> official list, but you should be able to get that from your NIC
+> supplier.
 
-> From: Shannon Nelson <shannon.nelson@intel.com>
-> 
-> Quit complaining about a couple of events that we actually expect to see
-> during an NVM update.
-> 
-> Reported-by: Stefan Assmann <sassmann@redhat.com>
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Tested-by: Jim Young <james.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+No. That is not the case.
 
-Applied, thanks Jeff.
+The traffic counters are for the dpdk test run which uses igb_uio driver.
+
+As i mentioned earlier, have tried all combinations of cable, pci slot
+, card etc to isolate any hw issues.
