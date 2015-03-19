@@ -1,59 +1,52 @@
-From: subashab@codeaurora.org
-Subject: [PATCH] net: rps: fix data stall after hotplug
-Date: Thu, 19 Mar 2015 19:54:46 -0000
-Message-ID: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
+From: Philip Prindeville <philipp@redfish-solutions.com>
+Subject: [PATCH v2] iproute2: Fix -o (oneline) being broken in xfrm & correct mark radix
+Date: Thu, 19 Mar 2015 13:54:28 -0600
+Message-ID: <20150319_195428_022337.philipp@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7BIT
-Cc: eric.dumazet@gmail.com, therbert@google.com
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Alexy Kuznetsov <kuznet@ms2.inr.ac.ru>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:50349 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777AbbCSTyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 15:54:47 -0400
+Received: from mail.redfish-solutions.com ([66.232.79.143]:50072 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750787AbbCSTyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 15:54:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When RPS is enabled, IPI is triggered to enqueue the
-backlog NAPI to the poll list. If the CPU is hotplugged
-after the NAPI_STATE_SCHED bit is set on
-enqueue_to_backlog but before the IPI is delivered
-successfully, the poll list does not have the backlog
-NAPI queued. As a consequence of this, dev_cpu_callback
-does not clear the NAPI_STATE_SCHED bit on hotplug.
-Since NAPI_STATE_SCHED is set even after the cpu comes
-back up, packets get enqueued onto the input packet queue
-but are never processed since the IPI will not be triggered.
+Don't insert newline in -o (oneline) mode; print mark as hex.
 
-This patch handles this race by unconditionally resetting
-the NAPI state for the backlog NAPI on the offline CPU.
+Oneline mode is supposed to force all output to be on oneline and
+machine-parsable, but this isn't the case for "ip xfrm" as shown:
 
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+% ip -o xfrm monitor
+...
+src 0.0.0.0/0 dst 0.0.0.0/0 \   dir out priority 2051 ptype main \  mark -1879048191/0xffffffff
+    tmpl src 203.0.130.10 dst 198.51.130.30\        proto esp reqid 16384 mode tunnel\
+...
+
+as that's 2 lines, not one. Also, the "mark" is shown in signed
+decimal, but the mask is in hex. This is confusing: let's use
+hex for both.
+
+Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
 ---
- net/core/dev.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ ip/ipxfrm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6f561de..61d9579 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7119,12 +7119,11 @@ static int dev_cpu_callback(struct notifier_block
-*nfb,
- 							    poll_list);
-
- 		list_del_init(&napi->poll_list);
--		if (napi->poll == process_backlog)
--			napi->state = 0;
--		else
-+		if (napi->poll != process_backlog)
- 			____napi_schedule(sd, napi);
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index 659fa6b6457996cfc2a1beca1b6a8db11492c6d2..95f91a537759f90a07832537c92969d46d8a2921 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -689,7 +689,8 @@ void xfrm_xfrma_print(struct rtattr *tb[], __u16 family,
+ 	if (tb[XFRMA_MARK]) {
+ 		struct rtattr *rta = tb[XFRMA_MARK];
+ 		struct xfrm_mark *m = (struct xfrm_mark *) RTA_DATA(rta);
+-		fprintf(fp, "\tmark %d/0x%x\n", m->v, m->m);
++		fprintf(fp, "\tmark %#x/%#x", m->v, m->m);
++		fprintf(fp, "%s", _SL_);
  	}
-
-+	oldsd->backlog.state = 0;
- 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
- 	local_irq_enable();
-
---
-The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
- a Linux Foundation Collaborative Project
+ 
+ 	if (tb[XFRMA_ALG_AUTH] && !tb[XFRMA_ALG_AUTH_TRUNC]) {
