@@ -1,49 +1,41 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
-Date: Thu, 19 Mar 2015 14:42:17 -0700
-Message-ID: <CAP-MU4MTf+kRvvBZYDdsJbDjA1ATe-4zuBCKoCyKpboB9+cD6g@mail.gmail.com>
-References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
-	<jpg8uf2ghln.fsf@redhat.com>
-	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
-	<jpgtwxpvk5x.fsf@redhat.com>
-	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>
-	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
-	<jpg1tko7qwb.fsf@redhat.com>
-	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
-	<jpglhiw4tal.fsf@redhat.com>
-	<jpgk2yewcpt.fsf@redhat.com>
-	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>
-	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>
-	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
-	<550A85B3.4070703@redhat.com>
-	<CA+AkT2gHKtz2bKSf2FB+3+XkDidBnUDQSZy_KPb1y-MG+QnSiw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v2] rhashtable: Warn if min_size or max_size are
+ not a power of two
+Date: Fri, 20 Mar 2015 08:49:33 +1100
+Message-ID: <20150319214933.GA11937@gondor.apana.org.au>
+References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
+ <20150319.152450.1573636653085091157.davem@davemloft.net>
+ <20150319194608.GA27962@casper.infradead.org>
+ <20150319210239.GB9601@gondor.apana.org.au>
+ <20150319211546.GA4190@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stefan Assmann <sassmann@redhat.com>, Bandan Das <bsd@redhat.com>,
-	Alex Williamson <alex.williamson@redhat.com>,
-	QEMU Developers <qemu-devel@nongnu.org>,
-	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: jacob jacob <opstkusr@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CA+AkT2gHKtz2bKSf2FB+3+XkDidBnUDQSZy_KPb1y-MG+QnSiw@mail.gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:45199 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750776AbbCSVti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:49:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20150319211546.GA4190@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2015 at 2:04 PM, jacob jacob <opstkusr@gmail.com> wrote:
-> I have updated to latest firmware and still no luck.
-
-[...]
-
-> [   61.554132] i40e 0000:00:06.0 eth2: the driver failed to link
-> because an unqualified module was detected.     <<<<<<<<<<<<<<<<<<<<
-> [   61.555331] IPv6: ADDRCONF(NETDEV_UP): eth2: link is not ready
+On Thu, Mar 19, 2015 at 09:15:46PM +0000, Thomas Graf wrote:
 >
+> rht_grow_above_75() checks the old table size:
+> 
+> (!ht->p.max_size || tbl->size < ht->p.max_size);
+> 
+> If you specify max_size = 3, it grows the table to tbl->size = 4.
+> This can be avoided if max_size is a power of two.
 
-So I assume you're getting traffic on the other port and it doesn't
-complain about "unqualified module"?  Does the problem move if you
-swap the cables?  The usual problem here is a QSFP connector that
-isn't compatible with the NIC.  I don't have a pointer handy to the
-official list, but you should be able to get that from your NIC
-supplier.
+OK let's fix the test then.  The easiest way would be to round
+max_size up to the next power of 2.
 
-sln
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
