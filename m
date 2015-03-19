@@ -1,84 +1,35 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [PATCH v1 net-next] tuntap: convert to 64-bit interface statistics
-Date: Thu, 19 Mar 2015 17:56:41 -0400
-Message-ID: <550B4619.6020203@cumulusnetworks.com>
-References: <1426794689-29943-1-git-send-email-jtoppins@cumulusnetworks.com> <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next v2] rhashtable: Warn if min_size or max_size are
+ not a power of two
+Date: Fri, 20 Mar 2015 09:02:48 +1100
+Message-ID: <20150319220248.GA12428@gondor.apana.org.au>
+References: <29119e13cd16d4a98b4ed6806bec2683943bcd5f.1426782799.git.tgraf@suug.ch>
+ <20150319.152450.1573636653085091157.davem@davemloft.net>
+ <20150319194608.GA27962@casper.infradead.org>
+ <20150319210239.GB9601@gondor.apana.org.au>
+ <20150319211546.GA4190@casper.infradead.org>
+ <20150319214933.GA11937@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Curt Brune <curt@cumulusnetworks.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:36191 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731AbbCSV4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 17:56:43 -0400
-Received: by qcto4 with SMTP id o4so79048621qct.3
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 14:56:42 -0700 (PDT)
-In-Reply-To: <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:36835 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbbCSWCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 18:02:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20150319214933.GA11937@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/19/15 5:38 PM, Eric Dumazet wrote:
-> On Thu, 2015-03-19 at 12:51 -0700, Jonathan Toppins wrote:
->> Signed-off-by: Curt Brune <curt@cumulusnetworks.com>
->> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
->> ---
->>   drivers/net/tun.c |   54 ++++++++++++++++++++++++++++++++++++++++++-----------
->>   1 file changed, 43 insertions(+), 11 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index b96b94c..be8941a 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -65,6 +65,7 @@
->>   #include <linux/nsproxy.h>
->>   #include <linux/virtio_net.h>
->>   #include <linux/rcupdate.h>
->> +#include <linux/u64_stats_sync.h>
->>   #include <net/net_namespace.h>
->>   #include <net/netns/generic.h>
->>   #include <net/rtnetlink.h>
->> @@ -204,6 +205,9 @@ struct tun_struct {
->>   	struct list_head disabled;
->>   	void *security;
->>   	u32 flow_count;
->> +	spinlock_t			stat_lock;
->> +	struct u64_stats_sync		stat_sync;
->> +	struct rtnl_link_stats64	stats64;
->>   };
->>
->>   static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
->> @@ -751,6 +755,16 @@ static int tun_net_close(struct net_device *dev)
->>   	return 0;
->>   }
->>
->> +static __always_inline void tun_stat64_inc(struct tun_struct *tun, u64 *stat,
->> +					   size_t val)
->> +{
->> +	spin_lock_bh(&tun->stat_lock);
->> +	u64_stats_update_begin(&tun->stat_sync);
->> +	(*stat) += val;
->> +	u64_stats_update_end(&tun->stat_sync);
->> +	spin_unlock_bh(&tun->stat_lock);
->> +}
+On Fri, Mar 20, 2015 at 08:49:33AM +1100, Herbert Xu wrote:
 >
-> Ouch, one spin_lock_bh() ? Really ?
+> OK let's fix the test then.  The easiest way would be to round
+> max_size up to the next power of 2.
 
-Or are you suggesting per-cpu counters would be preferred which would 
-possibly eliminate the need for this lock?
-
->
->> -	tun->dev->stats.tx_packets++;
->> -	tun->dev->stats.tx_bytes += skb->len + vlan_hlen;
->> +	tun_stat64_inc(tun, &tun->stats64.tx_packets, 1);
->> +	tun_stat64_inc(tun, &tun->stats64.tx_bytes, skb->len + vlan_hlen);
->
->
-> So you take this spinlock twice ?
->
-> Sorry, this is not good.
->
->
->
+s/up/down/
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
