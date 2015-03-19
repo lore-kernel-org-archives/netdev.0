@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/3] rocker: add support for phys_port_name
-Date: Wed, 18 Mar 2015 22:30:56 -0400 (EDT)
-Message-ID: <20150318.223056.206466873437715947.davem@davemloft.net>
-References: <1426645397-15284-1-git-send-email-dsahern@gmail.com>
-	<1426645397-15284-2-git-send-email-dsahern@gmail.com>
+Subject: Re: [PATCH] Revert "net: cx82310_eth: use common match macro"
+Date: Wed, 18 Mar 2015 22:38:40 -0400 (EDT)
+Message-ID: <20150318.223840.2031144211289934113.davem@davemloft.net>
+References: <1426716061-20953-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, sfeldma@gmail.com
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41399 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbbCSCa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Mar 2015 22:30:58 -0400
-In-Reply-To: <1426645397-15284-2-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bjorn@mork.no, linux-kernel@vger.kernel.org
+To: linux@rainbow-software.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426716061-20953-1-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Tue, 17 Mar 2015 20:23:16 -0600
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Wed, 18 Mar 2015 23:01:01 +0100
 
-> Implement the phys_port_name operation. Port names are pulled from the
-> rocker hardware model in qemu and default to the qemu name + port id.
-> e.g.,
+> This reverts commit 11ad714b98f6d9ca0067568442afe3e70eb94845 because
+> it breaks cx82310_eth.
 > 
-> sw1p1: flags=4098<BROADCAST,MULTICAST>  mtu 1500
->         ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->         RX packets 0  bytes 0 (0.0 B)
->         RX errors 0  dropped 0  overruns 0  frame 0
->         TX packets 0  bytes 0 (0.0 B)
->         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+> The custom USB_DEVICE_CLASS macro matches
+> bDeviceClass, bDeviceSubClass and bDeviceProtocol
+> but the common USB_DEVICE_AND_INTERFACE_INFO matches
+> bInterfaceClass, bInterfaceSubClass and bInterfaceProtocol instead, which are
+> not specified.
 > 
-> where 'sw1' comes from the qemu command line -device rocker,name=sw1, and
-> 'p1' is port 1.
-> 
-> Patch is adapted from Scott's phys_port_id patch.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> Acked-by: Scott Feldman <sfeldma@gmail.com>
-> Acked-by: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-Applied to net-next.
+Applied, thank you.
