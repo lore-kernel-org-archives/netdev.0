@@ -1,49 +1,176 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 2/2] act_bpf: add initial eBPF support for actions
-Date: Fri, 20 Mar 2015 14:21:51 -0700
-Message-ID: <550C8F6F.9050403@plumgrid.com>
-References: <cover.1426859241.git.daniel@iogearbox.net> <6fcca3889ace4f7f090470e50a001aca721bd0d9.1426859241.git.daniel@iogearbox.net>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v8 tip 5/9] tracing: allow BPF programs to call
+ bpf_trace_printk()
+Date: Fri, 20 Mar 2015 17:22:19 -0400
+Message-ID: <20150320172219.45ff7157@gandalf.local.home>
+References: <1426816787-5001-1-git-send-email-ast@plumgrid.com>
+	<1426816787-5001-6-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35971 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbbCTVVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:21:53 -0400
-Received: by padcy3 with SMTP id cy3so120308186pad.3
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:21:53 -0700 (PDT)
-In-Reply-To: <6fcca3889ace4f7f090470e50a001aca721bd0d9.1426859241.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426816787-5001-6-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/20/15 7:11 AM, Daniel Borkmann wrote:
-> This work extends the "classic" BPF programmable tc action by extending
-> its scope also to native eBPF code!
->
-> Together with commit e2e9b6541dd4 ("cls_bpf: add initial eBPF support
-> for programmable classifiers") this adds the facility to implement fully
-> flexible classifier and actions for tc that can be implemented in a C
-> subset in user space, "safely" loaded into the kernel, and being run in
-> native speed when JITed.
->
-> Also, since eBPF maps can be shared between eBPF programs, it offers the
-> possibility that cls_bpf and act_bpf can share data 1) between themselves
-> and 2) between user space applications. That means that, f.e. customized
-> runtime statistics can be collected in user space, but also more importantly
-> classifier and action behaviour could be altered based on map input from
-> the user space application.
->
-> For the remaining details on the workflow and integration, see the cls_bpf
-> commit e2e9b6541dd4. Preliminary iproute2 part can be found under [1].
->
->    [1] http://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=ebpf-act
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Jiri Pirko <jiri@resnulli.us>
+On Thu, 19 Mar 2015 18:59:43 -0700
+Alexei Starovoitov <ast@plumgrid.com> wrote:
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> Debugging of BPF programs needs some form of printk from the program,
+> so let programs call limited trace_printk() with %d %u %x %p modifiers only.
+> 
+> Similar to kernel modules, during program load verifier checks whether program
+> is calling bpf_trace_printk() and if so, kernel allocates trace_printk buffers
+> and emits big 'this is debug only' banner.
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>  include/uapi/linux/bpf.h |    1 +
+>  kernel/trace/bpf_trace.c |   75 ++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 76 insertions(+)
+> 
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 238c6883877b..cc47ef41076a 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -166,6 +166,7 @@ enum bpf_func_id {
+>  	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
+>  	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
+>  	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
+> +	BPF_FUNC_trace_printk,    /* int bpf_trace_printk(const char *fmt, int fmt_size, ...) */
+>  	__BPF_FUNC_MAX_ID,
+>  };
+>  
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index 769c577a1fc8..d5b6284edd75 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -10,6 +10,7 @@
+>  #include <linux/bpf.h>
+>  #include <linux/filter.h>
+>  #include <linux/uaccess.h>
+> +#include <linux/ctype.h>
+>  #include "trace.h"
+>  
+>  static DEFINE_PER_CPU(int, bpf_prog_active);
+> @@ -83,6 +84,72 @@ static const struct bpf_func_proto bpf_ktime_get_ns_proto = {
+>  	.ret_type = RET_INTEGER,
+>  };
+>  
+> +/* limited trace_printk()
+> + * only %d %u %x %ld %lu %lx %lld %llu %llx %p conversion specifiers allowed
+> + */
+
+Ah! Again, don't contaminate the rest of the kernel with net comment
+styles! :-)
+
+I change my comment style when I submit net patches. So patches that go
+into tracing must conform to the tracing style.
+
+> +static u64 bpf_trace_printk(u64 r1, u64 fmt_size, u64 r3, u64 r4, u64 r5)
+> +{
+> +	char *fmt = (char *) (long) r1;
+> +	int mod[3] = {};
+> +	int fmt_cnt = 0;
+> +	int i;
+> +
+> +	/* bpf_check()->check_func_arg()->check_stack_boundary()
+
+It spreads like a disease!
+
+> +	 * guarantees that fmt points to bpf program stack,
+> +	 * fmt_size bytes of it were initialized and fmt_size > 0
+> +	 */
+> +	if (fmt[--fmt_size] != 0)
+> +		return -EINVAL;
+> +
+> +	/* check format string for allowed specifiers */
+> +	for (i = 0; i < fmt_size; i++) {
+> +		if ((!isprint(fmt[i]) && !isspace(fmt[i])) || !isascii(fmt[i]))
+> +			return -EINVAL;
+> +
+> +		if (fmt[i] != '%')
+> +			continue;
+> +
+> +		if (fmt_cnt >= 3)
+> +			return -EINVAL;
+> +
+> +		/* fmt[i] != 0 && fmt[last] == 0, so we can access fmt[i + 1] */
+> +		i++;
+> +		if (fmt[i] == 'l') {
+> +			mod[fmt_cnt]++;
+> +			i++;
+> +		} else if (fmt[i] == 'p') {
+> +			mod[fmt_cnt]++;
+> +			i++;
+> +			if (!isspace(fmt[i]) && fmt[i] != 0)
+
+I wonder if we should allow punctuation here too? None alpha-numeric
+characters?
+
+> +				return -EINVAL;
+> +			fmt_cnt++;
+> +			continue;
+> +		}
+> +
+> +		if (fmt[i] == 'l') {
+> +			mod[fmt_cnt]++;
+> +			i++;
+> +		}
+> +
+> +		if (fmt[i] != 'd' && fmt[i] != 'u' && fmt[i] != 'x')
+> +			return -EINVAL;
+> +		fmt_cnt++;
+> +	}
+> +
+> +	return __trace_printk(1/* fake ip will not be printed */, fmt,
+> +			      mod[0] == 2 ? r3 : mod[0] == 1 ? (long) r3 : (u32) r3,
+> +			      mod[1] == 2 ? r4 : mod[1] == 1 ? (long) r4 : (u32) r4,
+> +			      mod[2] == 2 ? r5 : mod[2] == 1 ? (long) r5 : (u32) r5);
+
+Nice trick.
+
+Except for the net-contaminated-comments, the rest looks good.
+
+Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
+
+-- Steve
+
+> +}
+> +
+> +static const struct bpf_func_proto bpf_trace_printk_proto = {
+> +	.func = bpf_trace_printk,
+> +	.gpl_only = true,
+> +	.ret_type = RET_INTEGER,
+> +	.arg1_type = ARG_PTR_TO_STACK,
+> +	.arg2_type = ARG_CONST_STACK_SIZE,
+> +};
+> +
+>  static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
+>  {
+>  	switch (func_id) {
+> @@ -96,6 +163,14 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
+>  		return &bpf_probe_read_proto;
+>  	case BPF_FUNC_ktime_get_ns:
+>  		return &bpf_ktime_get_ns_proto;
+> +
+> +	case BPF_FUNC_trace_printk:
+> +		/* this program might be calling bpf_trace_printk,
+> +		 * so allocate per-cpu printk buffers
+> +		 */
+> +		trace_printk_init_buffers();
+> +
+> +		return &bpf_trace_printk_proto;
+>  	default:
+>  		return NULL;
+>  	}
