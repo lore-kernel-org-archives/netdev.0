@@ -1,123 +1,142 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
- packets
-Date: Fri, 20 Mar 2015 16:12:19 -0700
-Message-ID: <550CA953.40106@cumulusnetworks.com>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <550C54BC.4040509@intel.com> <550C8B07.4010308@cumulusnetworks.com> <550C8FBD.2000903@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net,
-	sfeldma@gmail.com, jiri@resnulli.us, ronen.arad@intel.com,
-	netdev@vger.kernel.org, Wilson Kok <wkok@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36551 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242AbbCTXMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 19:12:23 -0400
-Received: by padcy3 with SMTP id cy3so122606100pad.3
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 16:12:23 -0700 (PDT)
-In-Reply-To: <550C8FBD.2000903@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v9 tip 0/9] tracing: attach eBPF programs to kprobes
+Date: Fri, 20 Mar 2015 16:30:01 -0700
+Message-ID: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/20/15, 2:23 PM, John Fastabend wrote:
-> On 03/20/2015 02:03 PM, roopa wrote:
->> On 3/20/15, 10:11 AM, John Fastabend wrote:
->>> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
->>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>
->>>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
->>>> there is a need to not re-forward frames that have already been
->>>> forwarded in hardware.
->>>>
->>>> Typically these are broadcast or multicast frames forwarded by the
->>>> hardware to multiple destination ports including sending a copy of
->>>> the packet to the cpu (kernel e.g. an arp broadcast).
->>>> The bridge driver will try to forward the packet again, resulting in
->>>> two copies of the same packet.
->>>>
->>>> These packets can also come up to the kernel for logging when they hit
->>>> a LOG acl rule in hardware. In such cases, you do want the packet
->>>> to go through the bridge netfilter hooks. Hence, this patch adds the
->>>> required checks just before the packet is being xmited.
->>>>
->>>> v2:
->>>>     - Add a new hw_fwded flag in skbuff to indicate that the packet
->>>>     is already hardware forwarded. Switch driver will set this flag.
->>>>     I have been trying to avoid having this flag in the skb
->>>>     and thats why this patch has been in my tree for long. Cant think
->>>>     of other better alternatives. Suggestions are welcome. I have put
->>>>     this under CONFIG_NET_SWITCHDEV to minimize the impact.
->>>>
->>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>>> ---
->>> Interesting. I completely avoid this problem by not instantiating a
->>> software bridge ;)
->>>   When these pkts come up the stack I either use a
->>> raw socket to capture them, put a 'tc' ingress rule to do something,
->>> or have OVS handle them in some special way.
->>> It seems to me that this
->>> is where the sw/hw model starts to break when you have these magic
->>> bits to handle the packets differently.
->>
->>   In-kernel bridge driver is proven very useful for us to run stp,
->> or recently igmp reports (dont know the details here) etc in software.
->> I wonder how you handle these. If you don't use the in-kernel bridge
->> driver, I suspect you down the lane you will end-up having to 
->> duplicate a
->> lot of things that bridge driver already does in your switch driver.
->
-> I think that code is in need of some serious love before it is usable. I
-> actually don't know who is using STP anymore if anyone. I suspect
-> everyone is using their own agents. I know Stephen had RSTP code for
-> awhile. 
-we run stp in userspace but also allow stp to run in kernel.
-But the stp in userspace always work with the bridge in the kernel AFAIK.
-We also use igmp in the bridge driver. I am guessing Stephens userspace 
-RSTP also needs
-a linux bridge to be created to work with.
-> Anyways it all runs in userspace and doesn't depend on the sw
-> bridge. I think it is a better model to run the control protocols in
-> userspace like this. I'm not an expert though, maybe Stephen will chime
-> in.
+Hi Ingo,
 
-I agree with pushing control protocols to userspace. But they do work
-with or use netdevices created in the kernel (eg team daemon in userspace
-needs team net-devices).
+I think it's good to go.
+Patch 1 is already in net-next. Patch 3 depends on it.
+I'm assuming it's not going to be a problem during merge window.
+Patch 3 will have a minor conflict in uapi/linux/bpf.h in linux-next,
+since net-next has added new lines to the bpf_prog_type and bpf_func_id enums.
+I'm assuming it's not a problem either.
 
-and stephen can confirm on RSTP.
-I know one of the userspace open source mstp daemons we use works with the
-linux bridge device.
+V8->V9:
+- fixed comment style and allowed ispunct after %p
+- added Steven's Reviewed-by. Thanks Steven!
 
->
->>>
->>> How do you know to set the skb bit? Do you have some indicator in the
->>> descriptor? I don't have any good way to learn this on my hardware. But
->>> I can assume if it reached the CPU it was because of some explicit 
->>> rule.
->>
->> Right now we tag all packets except for some igmp frames so that they
->> get handled by software (in kernel bridge driver).
->> (But the igmp frames check is a bit of a hack right now). We don't use
->> it today, but, the sdk
->> can give us some details about the reason the packet was sent to CPU (It
->> possibly gets it from the descriptor).
->>
->
-> hmm I agree with Scott then it seems like if your just tagging every
-> packet (or nearly every packet) you can turn forwarding off at the
-> port layer. then we save the bit in the skb for something else. 
-I am all for saving the bit in the skb if I can. I will look at scotts 
-flag a bit more.
-My earlier patch on this subject has also been a user settable flag on 
-the bridge
-port.
+V7->V8:
+- split addition of kprobe flag into separate patch
+- switched to __this_cpu_inc in now documented trace_call_bpf()
+- converted array into standalone bpf_func_proto and switch statement
+  (this apporach looks cleanest, especially considering patch 5)
+- refactored patch 5 bpf_trace_printk to do strict checking
 
-> And I
-> guess if you turn forwarding off at the port layer and have the control
-> traffic handled by a userspace agent there is no need for the software
-> bridge which is my case. Just my opinion though.
+V6->V7:
+- rebase and remove confusing _notrace suffix from preempt_disable/enable
+  everything else unchanged
+
+V5->V6:
+- added simple recursion check to trace_call_bpf()
+- added tracex4 example that does kmem_cache_alloc/free tracking.
+  It remembers every allocated object in a map and user space periodically
+  prints a set of old objects. With more work in can be made into
+  simple kmemleak detector.
+  It was used as a test of recursive kmalloc/kfree: attached to
+  kprobe/__kmalloc and let program to call kmalloc again.
+
+V4->V5:
+- switched to ktime_get_mono_fast_ns() as suggested by Peter
+- in libbpf.c fixed zero init of 'union bpf_attr' padding
+- fresh rebase on tip/master
+
+V3 discussion:
+https://lkml.org/lkml/2015/2/9/738
+
+V3->V4:
+- since the boundary of stable ABI in bpf+tracepoints is not clear yet,
+  I've dropped them for now.
+- bpf+syscalls are ok from stable ABI point of view, but bpf+seccomp
+  would want to do very similar analysis of syscalls, so I've dropped
+  them as well to take time and define common bpf+syscalls and bpf+seccomp
+  infra in the future.
+- so only bpf+kprobes left. kprobes by definition is not a stable ABI,
+  so bpf+kprobe is not stable ABI either. To stress on that point added
+  kernel version attribute that user space must pass along with the program
+  and kernel will reject programs when version code doesn't match.
+  So bpf+kprobe is very similar to kernel modules, but unlike modules
+  version check is not used for safety, but for enforcing 'non-ABI-ness'.
+  (version check doesn't apply to bpf+sockets which are stable)
+
+Programs are attached to kprobe events via API:
+
+prog_fd = bpf_prog_load(...);
+struct perf_event_attr attr = {
+  .type = PERF_TYPE_TRACEPOINT,
+  .config = event_id, /* ID of just created kprobe event */
+};
+event_fd = perf_event_open(&attr,...);
+ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
+
+Next step is to prototype TCP stack instrumentation (like web10g) using
+bpf+kprobe, but without adding any new code tcp stack.
+Though kprobes are slow comparing to tracepoints, they are good enough
+for prototyping and trace_marker/debug_tracepoint ideas can accelerate
+them in the future.
+
+Alexei Starovoitov (8):
+  tracing: add kprobe flag
+  tracing: attach BPF programs to kprobes
+  tracing: allow BPF programs to call bpf_ktime_get_ns()
+  tracing: allow BPF programs to call bpf_trace_printk()
+  samples: bpf: simple non-portable kprobe filter example
+  samples: bpf: counting example for kfree_skb and write syscall
+  samples: bpf: IO latency analysis (iosnoop/heatmap)
+  samples: bpf: kmem_alloc/free tracker
+
+Daniel Borkmann (1):
+  bpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
+
+ include/linux/bpf.h             |   20 +++-
+ include/linux/ftrace_event.h    |   14 +++
+ include/uapi/linux/bpf.h        |    5 +
+ include/uapi/linux/perf_event.h |    1 +
+ kernel/bpf/syscall.c            |    7 +-
+ kernel/events/core.c            |   59 +++++++++++
+ kernel/trace/Makefile           |    1 +
+ kernel/trace/bpf_trace.c        |  222 +++++++++++++++++++++++++++++++++++++++
+ kernel/trace/trace_kprobe.c     |   10 +-
+ samples/bpf/Makefile            |   16 +++
+ samples/bpf/bpf_helpers.h       |    6 ++
+ samples/bpf/bpf_load.c          |  125 ++++++++++++++++++++--
+ samples/bpf/bpf_load.h          |    3 +
+ samples/bpf/libbpf.c            |   14 ++-
+ samples/bpf/libbpf.h            |    5 +-
+ samples/bpf/sock_example.c      |    2 +-
+ samples/bpf/test_verifier.c     |    2 +-
+ samples/bpf/tracex1_kern.c      |   50 +++++++++
+ samples/bpf/tracex1_user.c      |   25 +++++
+ samples/bpf/tracex2_kern.c      |   86 +++++++++++++++
+ samples/bpf/tracex2_user.c      |   95 +++++++++++++++++
+ samples/bpf/tracex3_kern.c      |   89 ++++++++++++++++
+ samples/bpf/tracex3_user.c      |  150 ++++++++++++++++++++++++++
+ samples/bpf/tracex4_kern.c      |   54 ++++++++++
+ samples/bpf/tracex4_user.c      |   69 ++++++++++++
+ 25 files changed, 1112 insertions(+), 18 deletions(-)
+ create mode 100644 kernel/trace/bpf_trace.c
+ create mode 100644 samples/bpf/tracex1_kern.c
+ create mode 100644 samples/bpf/tracex1_user.c
+ create mode 100644 samples/bpf/tracex2_kern.c
+ create mode 100644 samples/bpf/tracex2_user.c
+ create mode 100644 samples/bpf/tracex3_kern.c
+ create mode 100644 samples/bpf/tracex3_user.c
+ create mode 100644 samples/bpf/tracex4_kern.c
+ create mode 100644 samples/bpf/tracex4_user.c
+
+-- 
+1.7.9.5
