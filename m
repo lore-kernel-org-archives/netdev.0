@@ -1,226 +1,301 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v9 tip 9/9] samples: bpf: kmem_alloc/free tracker
-Date: Fri, 20 Mar 2015 16:30:10 -0700
-Message-ID: <1426894210-27441-10-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v9 tip 7/9] samples: bpf: counting example for kfree_skb and write syscall
+Date: Fri, 20 Mar 2015 16:30:08 -0700
+Message-ID: <1426894210-27441-8-git-send-email-ast@plumgrid.com>
 References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1426894210-27441-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One bpf program attaches to kmem_cache_alloc_node() and remembers all allocated
-objects in the map.
-Another program attaches to kmem_cache_free() and deletes corresponding
-object from the map.
+this example has two probes in one C file that attach to different kprove events
+and use two different maps.
 
-User space walks the map every second and prints any objects which are
-older than 1 second.
+1st probe is x64 specific equivalent of dropmon. It attaches to kfree_skb,
+retrevies 'ip' address of kfree_skb() caller and counts number of packet drops
+at that 'ip' address. User space prints 'location - count' map every second.
+
+2nd probe attaches to kprobe:sys_write and computes a histogram of different
+write sizes
 
 Usage:
-$ sudo tracex4
+$ sudo tracex2
+location 0xffffffff81695995 count 1
+location 0xffffffff816d0da9 count 2
 
-Then start few long living processes. The tracex4 will print:
+location 0xffffffff81695995 count 2
+location 0xffffffff816d0da9 count 2
 
-obj 0xffff880465928000 is 13sec old was allocated at ip ffffffff8105dc32
-obj 0xffff88043181c280 is 13sec old was allocated at ip ffffffff8105dc32
-obj 0xffff880465848000 is  8sec old was allocated at ip ffffffff8105dc32
-obj 0xffff8804338bc280 is 15sec old was allocated at ip ffffffff8105dc32
+location 0xffffffff81695995 count 3
+location 0xffffffff816d0da9 count 2
 
-$ addr2line -fispe vmlinux ffffffff8105dc32
-do_fork at fork.c:1665
+557145+0 records in
+557145+0 records out
+285258240 bytes (285 MB) copied, 1.02379 s, 279 MB/s
+           syscall write() stats
+     byte_size       : count     distribution
+       1 -> 1        : 3        |                                      |
+       2 -> 3        : 0        |                                      |
+       4 -> 7        : 0        |                                      |
+       8 -> 15       : 0        |                                      |
+      16 -> 31       : 2        |                                      |
+      32 -> 63       : 3        |                                      |
+      64 -> 127      : 1        |                                      |
+     128 -> 255      : 1        |                                      |
+     256 -> 511      : 0        |                                      |
+     512 -> 1023     : 1118968  |************************************* |
 
-As soon as processes exit the memory is reclaimed and tracex4 prints nothing.
+Ctrl-C at any time. Kernel will auto cleanup maps and programs
 
-Similar experiment can be done with __kmalloc/kfree pair.
+$ addr2line -ape ./bld_x64/vmlinux 0xffffffff81695995 0xffffffff816d0da9
+0xffffffff81695995: ./bld_x64/../net/ipv4/icmp.c:1038
+0xffffffff816d0da9: ./bld_x64/../net/unix/af_unix.c:1231
 
-Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/Makefile       |    4 +++
- samples/bpf/tracex4_kern.c |   54 ++++++++++++++++++++++++++++++++++
- samples/bpf/tracex4_user.c |   69 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 127 insertions(+)
- create mode 100644 samples/bpf/tracex4_kern.c
- create mode 100644 samples/bpf/tracex4_user.c
+ samples/bpf/Makefile       |    4 ++
+ samples/bpf/tracex2_kern.c |   86 +++++++++++++++++++++++++++++++++++++++
+ samples/bpf/tracex2_user.c |   95 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 185 insertions(+)
+ create mode 100644 samples/bpf/tracex2_kern.c
+ create mode 100644 samples/bpf/tracex2_user.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index dcd850546d52..fe98fb226e6e 100644
+index 51f6f01e5a3a..6dd272143733 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -9,6 +9,7 @@ hostprogs-y += sockex2
+@@ -7,6 +7,7 @@ hostprogs-y += sock_example
+ hostprogs-y += sockex1
+ hostprogs-y += sockex2
  hostprogs-y += tracex1
- hostprogs-y += tracex2
- hostprogs-y += tracex3
-+hostprogs-y += tracex4
++hostprogs-y += tracex2
  
  test_verifier-objs := test_verifier.o libbpf.o
  test_maps-objs := test_maps.o libbpf.o
-@@ -18,6 +19,7 @@ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
+@@ -14,12 +15,14 @@ sock_example-objs := sock_example.o libbpf.o
+ sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
+ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
  tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
- tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
- tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
-+tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
++tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
  
  # Tell kbuild to always build the programs
  always := $(hostprogs-y)
-@@ -26,6 +28,7 @@ always += sockex2_kern.o
+ always += sockex1_kern.o
+ always += sockex2_kern.o
  always += tracex1_kern.o
- always += tracex2_kern.o
- always += tracex3_kern.o
-+always += tracex4_kern.o
++always += tracex2_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  
-@@ -35,6 +38,7 @@ HOSTLOADLIBES_sockex2 += -lelf
+@@ -27,6 +30,7 @@ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+ HOSTLOADLIBES_sockex1 += -lelf
+ HOSTLOADLIBES_sockex2 += -lelf
  HOSTLOADLIBES_tracex1 += -lelf
- HOSTLOADLIBES_tracex2 += -lelf
- HOSTLOADLIBES_tracex3 += -lelf
-+HOSTLOADLIBES_tracex4 += -lelf -lrt
++HOSTLOADLIBES_tracex2 += -lelf
  
  # point this to your LLVM backend with bpf support
  LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
-diff --git a/samples/bpf/tracex4_kern.c b/samples/bpf/tracex4_kern.c
+diff --git a/samples/bpf/tracex2_kern.c b/samples/bpf/tracex2_kern.c
 new file mode 100644
-index 000000000000..5754e21caf3b
+index 000000000000..334348335795
 --- /dev/null
-+++ b/samples/bpf/tracex4_kern.c
-@@ -0,0 +1,54 @@
-+/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
++++ b/samples/bpf/tracex2_kern.c
+@@ -0,0 +1,86 @@
++/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
 + */
-+#include <linux/ptrace.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
 +#include <linux/version.h>
 +#include <uapi/linux/bpf.h>
 +#include "bpf_helpers.h"
 +
-+struct pair {
-+	u64 val;
-+	u64 ip;
-+};
-+
 +struct bpf_map_def SEC("maps") my_map = {
 +	.type = BPF_MAP_TYPE_HASH,
 +	.key_size = sizeof(long),
-+	.value_size = sizeof(struct pair),
-+	.max_entries = 1000000,
++	.value_size = sizeof(long),
++	.max_entries = 1024,
 +};
 +
 +/* kprobe is NOT a stable ABI
 + * This bpf+kprobe example can stop working any time.
 + */
-+SEC("kprobe/kmem_cache_free")
-+int bpf_prog1(struct pt_regs *ctx)
++SEC("kprobe/kfree_skb")
++int bpf_prog2(struct pt_regs *ctx)
 +{
-+	long ptr = ctx->si;
++	long loc = 0;
++	long init_val = 1;
++	long *value;
 +
-+	bpf_map_delete_elem(&my_map, &ptr);
++	/* x64 specific: read ip of kfree_skb caller.
++	 * non-portable version of __builtin_return_address(0)
++	 */
++	bpf_probe_read(&loc, sizeof(loc), (void *)ctx->sp);
++
++	value = bpf_map_lookup_elem(&my_map, &loc);
++	if (value)
++		*value += 1;
++	else
++		bpf_map_update_elem(&my_map, &loc, &init_val, BPF_ANY);
 +	return 0;
 +}
 +
-+SEC("kretprobe/kmem_cache_alloc_node")
-+int bpf_prog2(struct pt_regs *ctx)
++static unsigned int log2(unsigned int v)
 +{
-+	long ptr = ctx->ax;
-+	long ip = 0;
++	unsigned int r;
++	unsigned int shift;
 +
-+	/* get ip address of kmem_cache_alloc_node() caller */
-+	bpf_probe_read(&ip, sizeof(ip), (void *)(ctx->bp + sizeof(ip)));
++	r = (v > 0xFFFF) << 4; v >>= r;
++	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
++	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
++	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
++	r |= (v >> 1);
++	return r;
++}
 +
-+	struct pair v = {
-+		.val = bpf_ktime_get_ns(),
-+		.ip = ip,
-+	};
++static unsigned int log2l(unsigned long v)
++{
++	unsigned int hi = v >> 32;
++	if (hi)
++		return log2(hi) + 32;
++	else
++		return log2(v);
++}
 +
-+	bpf_map_update_elem(&my_map, &ptr, &v, BPF_ANY);
++struct bpf_map_def SEC("maps") my_hist_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 64,
++};
++
++SEC("kprobe/sys_write")
++int bpf_prog3(struct pt_regs *ctx)
++{
++	long write_size = ctx->dx; /* arg3 */
++	long init_val = 1;
++	long *value;
++	u32 index = log2l(write_size);
++
++	value = bpf_map_lookup_elem(&my_hist_map, &index);
++	if (value)
++		__sync_fetch_and_add(value, 1);
 +	return 0;
 +}
 +char _license[] SEC("license") = "GPL";
 +u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/tracex4_user.c b/samples/bpf/tracex4_user.c
+diff --git a/samples/bpf/tracex2_user.c b/samples/bpf/tracex2_user.c
 new file mode 100644
-index 000000000000..bc4a3bdea6ed
+index 000000000000..91b8d0896fbb
 --- /dev/null
-+++ b/samples/bpf/tracex4_user.c
-@@ -0,0 +1,69 @@
-+/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
++++ b/samples/bpf/tracex2_user.c
+@@ -0,0 +1,95 @@
 +#include <stdio.h>
++#include <unistd.h>
 +#include <stdlib.h>
 +#include <signal.h>
-+#include <unistd.h>
-+#include <stdbool.h>
-+#include <string.h>
-+#include <time.h>
 +#include <linux/bpf.h>
 +#include "libbpf.h"
 +#include "bpf_load.h"
 +
-+struct pair {
-+	long long val;
-+	__u64 ip;
-+};
++#define MAX_INDEX	64
++#define MAX_STARS	38
 +
-+static __u64 time_get_ns(void)
++static void stars(char *str, long val, long max, int width)
 +{
-+	struct timespec ts;
++	int i;
 +
-+	clock_gettime(CLOCK_MONOTONIC, &ts);
-+	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
++	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
++		str[i] = '*';
++	if (val > max)
++		str[i - 1] = '+';
++	str[i] = '\0';
 +}
 +
-+static void print_old_objects(int fd)
++static void print_hist(int fd)
 +{
-+	long long val = time_get_ns();
-+	__u64 key, next_key;
-+	struct pair v;
++	int key;
++	long value;
++	long data[MAX_INDEX] = {};
++	char starstr[MAX_STARS];
++	int i;
++	int max_ind = -1;
++	long max_value = 0;
 +
-+	key = write(1, "\e[1;1H\e[2J", 12); /* clear screen */
-+
-+	key = -1;
-+	while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
-+		bpf_lookup_elem(map_fd[0], &next_key, &v);
-+		key = next_key;
-+		if (val - v.val < 1000000000ll)
-+			/* object was allocated more then 1 sec ago */
-+			continue;
-+		printf("obj 0x%llx is %2lldsec old was allocated at ip %llx\n",
-+		       next_key, (val - v.val) / 1000000000ll, v.ip);
++	for (key = 0; key < MAX_INDEX; key++) {
++		bpf_lookup_elem(fd, &key, &value);
++		data[key] = value;
++		if (value && key > max_ind)
++			max_ind = key;
++		if (value > max_value)
++			max_value = value;
 +	}
++
++	printf("           syscall write() stats\n");
++	printf("     byte_size       : count     distribution\n");
++	for (i = 1; i <= max_ind + 1; i++) {
++		stars(starstr, data[i - 1], max_value, MAX_STARS);
++		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
++		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
++		       MAX_STARS, starstr);
++	}
++}
++static void int_exit(int sig)
++{
++	print_hist(map_fd[1]);
++	exit(0);
 +}
 +
 +int main(int ac, char **argv)
 +{
 +	char filename[256];
++	long key, next_key, value;
++	FILE *f;
 +	int i;
 +
 +	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	signal(SIGINT, int_exit);
++
++	/* start 'ping' in the background to have some kfree_skb events */
++	f = popen("ping -c5 localhost", "r");
++	(void) f;
++
++	/* start 'dd' in the background to have plenty of 'write' syscalls */
++	f = popen("dd if=/dev/zero of=/dev/null count=5000000", "r");
++	(void) f;
 +
 +	if (load_bpf_file(filename)) {
 +		printf("%s", bpf_log_buf);
 +		return 1;
 +	}
 +
-+	for (i = 0; ; i++) {
-+		print_old_objects(map_fd[1]);
++	for (i = 0; i < 5; i++) {
++		key = 0;
++		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
++			bpf_lookup_elem(map_fd[0], &next_key, &value);
++			printf("location 0x%lx count %ld\n", next_key, value);
++			key = next_key;
++		}
++		if (key)
++			printf("\n");
 +		sleep(1);
 +	}
++	print_hist(map_fd[1]);
 +
 +	return 0;
 +}
