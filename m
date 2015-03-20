@@ -1,261 +1,72 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH 1/3] be2net: Prevent VFs from enabling VLAN promiscuous mode
-Date: Fri, 20 Mar 2015 06:28:23 -0400
-Message-ID: <1426847305-23008-2-git-send-email-sathya.perla@emulex.com>
-References: <1426847305-23008-1-git-send-email-sathya.perla@emulex.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [v1 PATCH 7/14] netfilter: Use rhashtable_lookup instead of
+ lookup_compare
+Date: Fri, 20 Mar 2015 10:27:01 +0000
+Message-ID: <20150320102701.GA28736@acer.localdomain>
+References: <20150315104306.GA21999@gondor.apana.org.au>
+ <E1YX624-0005ns-CB@gondolin.me.apana.org.au>
+ <20150316082842.GA10896@casper.infradead.org>
+ <20150316091415.GA31089@gondor.apana.org.au>
+ <20150316111345.GA22070@acer.localdomain>
+ <20150320085509.GA16748@gondor.apana.org.au>
+ <20150320092216.GE21258@acer.localdomain>
+ <20150320092703.GA17081@gondor.apana.org.au>
+ <20150320095908.GG21258@acer.localdomain>
+ <20150320101603.GA17662@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:49488 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbbCTKZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:25:22 -0400
-In-Reply-To: <1426847305-23008-1-git-send-email-sathya.perla@emulex.com>
+Received: from stinky.trash.net ([213.144.137.162]:35373 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751458AbbCTK1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:27:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20150320101603.GA17662@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+On 20.03, Herbert Xu wrote:
+> On Fri, Mar 20, 2015 at 09:59:09AM +0000, Patrick McHardy wrote:
+> >
+> > Regarding the chain length as trigger - I'm sorry, but this doesn't work
+> > for us. I don't see why you would have to look at chain length. That
+> > implies that you don't trust your hash function - why not fix that
+> > instead?
+> 
+> Any hash function can be attacked.  That's why we need to be able
+> to rehash it.  And the best way to decide when to rehash is based
+> on chain length (otherwise you'd waste time rehashing periodically
+> like we used to do).  With name spaces these days anyone could be
+> an adversary.
 
-Currently, a PF does not restrict its VF interface from enabling vlan
-promiscuous mode. This breaks vlan isolation when a vlan
-(transparent tagging) is configured on a VF.
+We already had this discussion. I strongly do not believe this is
+the right way to fix namespace problems. There are millions of ways
+of creating CPU intensive workloads. You need to be able to put
+bounds on the entire namespace. Fixing individual spots will not
+solve that problem.
 
-This patch fixes this problem by disabling the vlan promisc capability
-for VFs.
+> Besides, putting multiple objects with the same key into a hash
+> table defeats the whole point of hashing.
 
-Reported-by: Yoann Juet <veilletechno-irts@univ-nantes.fr>
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |  1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |  3 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h |  2 +-
- drivers/net/ethernet/emulex/benet/be_main.c | 98 ++++++++++++++++++++++-------
- 4 files changed, 80 insertions(+), 24 deletions(-)
+They exist only for (very) short periods of time. Its simply not a
+problem in our case. We could even put hard bounds on them, meaning
+an element will at most exist twice during that period.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 27de37a..92eb0c8 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -354,6 +354,7 @@ struct be_vf_cfg {
- 	u16 vlan_tag;
- 	u32 tx_rate;
- 	u32 plink_tracking;
-+	u32 privileges;
- };
- 
- enum vf_state {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 36916cf..3e894f4 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1918,7 +1918,7 @@ int be_cmd_modify_eqd(struct be_adapter *adapter, struct be_set_eqd *set_eqd,
- 
- /* Uses sycnhronous mcc */
- int be_cmd_vlan_config(struct be_adapter *adapter, u32 if_id, u16 *vtag_array,
--		       u32 num)
-+		       u32 num, u32 domain)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_vlan_config *req;
-@@ -1936,6 +1936,7 @@ int be_cmd_vlan_config(struct be_adapter *adapter, u32 if_id, u16 *vtag_array,
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 			       OPCODE_COMMON_NTWK_VLAN_CONFIG, sizeof(*req),
- 			       wrb, NULL);
-+	req->hdr.domain = domain;
- 
- 	req->interface_id = if_id;
- 	req->untagged = BE_IF_FLAGS_UNTAGGED & be_if_cap_flags(adapter) ? 1 : 0;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index db761e8e..a7634a3 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -2256,7 +2256,7 @@ int lancer_cmd_get_pport_stats(struct be_adapter *adapter,
- int be_cmd_get_fw_ver(struct be_adapter *adapter);
- int be_cmd_modify_eqd(struct be_adapter *adapter, struct be_set_eqd *, int num);
- int be_cmd_vlan_config(struct be_adapter *adapter, u32 if_id, u16 *vtag_array,
--		       u32 num);
-+		       u32 num, u32 domain);
- int be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 status);
- int be_cmd_set_flow_control(struct be_adapter *adapter, u32 tx_fc, u32 rx_fc);
- int be_cmd_get_flow_control(struct be_adapter *adapter, u32 *tx_fc, u32 *rx_fc);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 0a81685..eb2bed9 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1171,7 +1171,7 @@ static int be_vid_config(struct be_adapter *adapter)
- 	for_each_set_bit(i, adapter->vids, VLAN_N_VID)
- 		vids[num++] = cpu_to_le16(i);
- 
--	status = be_cmd_vlan_config(adapter, adapter->if_handle, vids, num);
-+	status = be_cmd_vlan_config(adapter, adapter->if_handle, vids, num, 0);
- 	if (status) {
- 		dev_err(dev, "Setting HW VLAN filtering failed\n");
- 		/* Set to VLAN promisc mode as setting VLAN filter failed */
-@@ -1380,11 +1380,67 @@ static int be_get_vf_config(struct net_device *netdev, int vf,
- 	return 0;
- }
- 
-+static int be_set_vf_tvt(struct be_adapter *adapter, int vf, u16 vlan)
-+{
-+	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
-+	u16 vids[BE_NUM_VLANS_SUPPORTED];
-+	int vf_if_id = vf_cfg->if_handle;
-+	int status;
-+
-+	/* Enable Transparent VLAN Tagging */
-+	status = be_cmd_set_hsw_config(adapter, vlan, vf + 1, vf_if_id, 0);
-+	if (status)
-+		return status;
-+
-+	/* Clear pre-programmed VLAN filters on VF if any, if TVT is enabled */
-+	vids[0] = 0;
-+	status = be_cmd_vlan_config(adapter, vf_if_id, vids, 1, vf + 1);
-+	if (!status)
-+		dev_info(&adapter->pdev->dev,
-+			 "Cleared guest VLANs on VF%d", vf);
-+
-+	/* After TVT is enabled, disallow VFs to program VLAN filters */
-+	if (vf_cfg->privileges & BE_PRIV_FILTMGMT) {
-+		status = be_cmd_set_fn_privileges(adapter, vf_cfg->privileges &
-+						  ~BE_PRIV_FILTMGMT, vf + 1);
-+		if (!status)
-+			vf_cfg->privileges &= ~BE_PRIV_FILTMGMT;
-+	}
-+	return 0;
-+}
-+
-+static int be_clear_vf_tvt(struct be_adapter *adapter, int vf)
-+{
-+	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
-+	struct device *dev = &adapter->pdev->dev;
-+	int status;
-+
-+	/* Reset Transparent VLAN Tagging. */
-+	status = be_cmd_set_hsw_config(adapter, BE_RESET_VLAN_TAG_ID, vf + 1,
-+				       vf_cfg->if_handle, 0);
-+	if (status)
-+		return status;
-+
-+	/* Allow VFs to program VLAN filtering */
-+	if (!(vf_cfg->privileges & BE_PRIV_FILTMGMT)) {
-+		status = be_cmd_set_fn_privileges(adapter, vf_cfg->privileges |
-+						  BE_PRIV_FILTMGMT, vf + 1);
-+		if (!status) {
-+			vf_cfg->privileges |= BE_PRIV_FILTMGMT;
-+			dev_info(dev, "VF%d: FILTMGMT priv enabled", vf);
-+		}
-+	}
-+
-+	dev_info(dev,
-+		 "Disable/re-enable i/f in VM to clear Transparent VLAN tag");
-+	return 0;
-+}
-+
- static int be_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
--	int status = 0;
-+	int status;
- 
- 	if (!sriov_enabled(adapter))
- 		return -EPERM;
-@@ -1394,24 +1450,19 @@ static int be_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
- 
- 	if (vlan || qos) {
- 		vlan |= qos << VLAN_PRIO_SHIFT;
--		if (vf_cfg->vlan_tag != vlan)
--			status = be_cmd_set_hsw_config(adapter, vlan, vf + 1,
--						       vf_cfg->if_handle, 0);
-+		status = be_set_vf_tvt(adapter, vf, vlan);
- 	} else {
--		/* Reset Transparent Vlan Tagging. */
--		status = be_cmd_set_hsw_config(adapter, BE_RESET_VLAN_TAG_ID,
--					       vf + 1, vf_cfg->if_handle, 0);
-+		status = be_clear_vf_tvt(adapter, vf);
- 	}
- 
- 	if (status) {
- 		dev_err(&adapter->pdev->dev,
--			"VLAN %d config on VF %d failed : %#x\n", vlan,
--			vf, status);
-+			"VLAN %d config on VF %d failed : %#x\n", vlan, vf,
-+			status);
- 		return be_cmd_status(status);
- 	}
- 
- 	vf_cfg->vlan_tag = vlan;
--
- 	return 0;
- }
- 
-@@ -3339,7 +3390,6 @@ static int be_if_create(struct be_adapter *adapter, u32 *if_handle,
- 			u32 cap_flags, u32 vf)
- {
- 	u32 en_flags;
--	int status;
- 
- 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
- 		   BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS |
-@@ -3347,10 +3397,7 @@ static int be_if_create(struct be_adapter *adapter, u32 *if_handle,
- 
- 	en_flags &= cap_flags;
- 
--	status = be_cmd_if_create(adapter, cap_flags, en_flags,
--				  if_handle, vf);
--
--	return status;
-+	return be_cmd_if_create(adapter, cap_flags, en_flags, if_handle, vf);
- }
- 
- static int be_vfs_if_create(struct be_adapter *adapter)
-@@ -3368,8 +3415,13 @@ static int be_vfs_if_create(struct be_adapter *adapter)
- 		if (!BE3_chip(adapter)) {
- 			status = be_cmd_get_profile_config(adapter, &res,
- 							   vf + 1);
--			if (!status)
-+			if (!status) {
- 				cap_flags = res.if_cap_flags;
-+				/* Prevent VFs from enabling VLAN promiscuous
-+				 * mode
-+				 */
-+				cap_flags &= ~BE_IF_FLAGS_VLAN_PROMISCUOUS;
-+			}
- 		}
- 
- 		status = be_if_create(adapter, &vf_cfg->if_handle,
-@@ -3403,7 +3455,6 @@ static int be_vf_setup(struct be_adapter *adapter)
- 	struct device *dev = &adapter->pdev->dev;
- 	struct be_vf_cfg *vf_cfg;
- 	int status, old_vfs, vf;
--	u32 privileges;
- 
- 	old_vfs = pci_num_vf(adapter->pdev);
- 
-@@ -3433,15 +3484,18 @@ static int be_vf_setup(struct be_adapter *adapter)
- 
- 	for_all_vfs(adapter, vf_cfg, vf) {
- 		/* Allow VFs to programs MAC/VLAN filters */
--		status = be_cmd_get_fn_privileges(adapter, &privileges, vf + 1);
--		if (!status && !(privileges & BE_PRIV_FILTMGMT)) {
-+		status = be_cmd_get_fn_privileges(adapter, &vf_cfg->privileges,
-+						  vf + 1);
-+		if (!status && !(vf_cfg->privileges & BE_PRIV_FILTMGMT)) {
- 			status = be_cmd_set_fn_privileges(adapter,
--							  privileges |
-+							  vf_cfg->privileges |
- 							  BE_PRIV_FILTMGMT,
- 							  vf + 1);
--			if (!status)
-+			if (!status) {
-+				vf_cfg->privileges |= BE_PRIV_FILTMGMT;
- 				dev_info(dev, "VF%d has FILTMGMT privilege\n",
- 					 vf);
-+			}
- 		}
- 
- 		/* Allow full available bandwidth */
--- 
-2.2.0
+> > > Of course many hash table users need to be able to keep multiple
+> > > objects under the same key.  My suggestion would be to allocate
+> > > your own linked list and have the linked list be the object that
+> > > is inserted into the hash table.
+> > 
+> > That would require a huge amount of extra memory per element and having
+> > millions of them is not unrealistic for our use case.
+> 
+> You should be able to do it with just 8 extra bytes per unique
+> hash table key.
+
+That's something 25% more memory usage for us in common cases. We try
+very hard to keep the active memory size small. I don't want to waste
+that amount of memory just for the very short periods while transactions
+are unconfirmed.
