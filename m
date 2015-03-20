@@ -1,53 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: cgroup matches in INPUT chain
-Date: Fri, 20 Mar 2015 21:18:28 +0100
-Message-ID: <550C8094.5000508@iogearbox.net>
-References: <550B1852.2020209@zonque.org> <20150319185807.GA3845@breakpoint.cc> <550C2753.9020608@zonque.org> <20150320161111.GA11498@breakpoint.cc> <550C4901.4070001@zonque.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] act_bpf update
+Date: Fri, 20 Mar 2015 16:22:52 -0400 (EDT)
+Message-ID: <20150320.162252.977628965847070194.davem@davemloft.net>
+References: <cover.1426859241.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Perevalov <a.perevalov@samsung.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Mack <daniel@zonque.org>, Florian Westphal <fw@strlen.de>
+Cc: jiri@resnulli.us, ast@plumgrid.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60784 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbbCTUSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:18:38 -0400
-In-Reply-To: <550C4901.4070001@zonque.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38149 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150AbbCTUWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:22:54 -0400
+In-Reply-To: <cover.1426859241.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2015 05:21 PM, Daniel Mack wrote:
-> On 03/20/2015 05:11 PM, Florian Westphal wrote:
->> Daniel Mack <daniel@zonque.org> wrote:
->>> In my simple test setup, when skbs are dequeued by process_backlog(),
->>> they have skb->_skb_refdst set, and hence ip_rcv_finish() does not call
->>> into early_demux() prior to iterating the INPUT chain:
->>
->> Yes, because we already have a route set.
->>
->> Are we talking about loopback?
->
-> I'm testing this on the lookback device, but I've seen similar behavior
-> on external interfaces too. However, I fail to see a pattern in that.
->
->> What are you trying to do?
->
-> Basically, I have a simple server that listens to a TCP port, accepts a
-> connection, writes out a short string and closes the connection again.
-> The process is put into a netcls cgroup controller, and a classid is
-> assigned to it, and I'm trying catch all traffic sent to it (regardless
-> of the interface in use) with a netfilter rule.
->
-> However, that doesn't work, because under the described circumstances,
-> the match callback of the cgroup netfilter module is always called with
-> an skb that has no sk set.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 20 Mar 2015 15:11:10 +0100
 
-Thanks for the report Daniel. I see the same here, so let me look
-closer into it on Monday and get back to you. Looks like commit
-a00e76349f3564bb is not sufficient.
+> This set adds native eBPF support also to act_bpf and thus covers tc
+> with eBPF in the classifier *and* action part.
+> 
+> A link to iproute2 preview has been provided in patch 2 and the code
+> will be pushed out after Stephen has processed the classifier part
+> and helper bits for tc.
+> 
+> This set depends on ced585c83b27 ("act_bpf: allow non-default TC_ACT
+> opcodes as BPF exec outcome"), so a net into net-next merge would be
+> required first. Hope that's fine by you, Dave. ;)
+> 
+> Thanks a lot!
 
-Cheers,
-Daniel
+Even with that commit, which is in net-next now, this series does
+not apply without rejects.
+
+Please respin.
