@@ -1,40 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rhashtable: Round up/down min/max_size to
- ensure we respect limit
-Date: Thu, 19 Mar 2015 21:02:46 -0400 (EDT)
-Message-ID: <20150319.210246.835966531852513271.davem@davemloft.net>
-References: <20150319214933.GA11937@gondor.apana.org.au>
-	<20150319220248.GA12428@gondor.apana.org.au>
-	<20150319223113.GD4190@casper.infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1 net-next] tuntap: convert to 64-bit interface
+ statistics
+Date: Thu, 19 Mar 2015 18:04:17 -0700
+Message-ID: <1426813457.25985.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426794689-29943-1-git-send-email-jtoppins@cumulusnetworks.com>
+	 <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <550B4619.6020203@cumulusnetworks.com>
+	 <1426805764.25985.18.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <550B6124.7070001@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Curt Brune <curt@cumulusnetworks.com>
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55490 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbbCTBCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 21:02:51 -0400
-In-Reply-To: <20150319223113.GD4190@casper.infradead.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:33118 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750731AbbCTBER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 21:04:17 -0400
+Received: by ignm3 with SMTP id m3so21076294ign.0
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 18:04:16 -0700 (PDT)
+In-Reply-To: <550B6124.7070001@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 19 Mar 2015 22:31:13 +0000
-
-> Round up min_size respectively round down max_size to the next power
-> of two to make sure we always respect the limit specified by the
-> user. This is required because we compare the table size against the
-> limit before we expand or shrink.
+On Thu, 2015-03-19 at 19:52 -0400, Jonathan Toppins wrote:
+> On 3/19/15 6:56 PM, Eric Dumazet wrote:
+> > On Thu, 2015-03-19 at 17:56 -0400, Jonathan Toppins wrote:
+> >
+> >
+> >> Or are you suggesting per-cpu counters would be preferred which would
+> >> possibly eliminate the need for this lock?
+> >
+> > Might be overkill for a device that is probably used by one cpu,
+> > considering you defined a full  struct rtnl_link_stats64, instead of the
+> > fields that are really handled.
+> >
 > 
-> Also fixes a minor bug where we modified min_size in the params
-> provided instead of the copy stored in struct rhashtable.
+> Ok. So summarizing for v2, so far; eliminating the back-to-back lock -> 
+> release -> lock -> release is preferred (I agree with this).
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
-> Herbert: I'm fine with either approach. I figured you expected the
-> user to take care of this, hence the added warning. This is perfectly
-> fine with me me as well.
+> It still seems like you are not a huge fan of the additional lock, 
+> should I hold off on sending v2 for a day, so we can ponder alternatives?
 
-Applied, thanks a lot.
+It seems you need a lock only in RX, for 2 vars only.
+(rx_packets & rx_bytes)
+
+error counters are generally OK with unsigned long, nobody will complain
+of possible concurrent non atomic updates.
+
+So maybe percpu var for these 16 bytes would be OK.
