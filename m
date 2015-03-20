@@ -1,48 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: rps: fix data stall after hotplug
-Date: Fri, 20 Mar 2015 04:50:39 -0700
-Message-ID: <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
-	 <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v1 PATCH 2/7] rhashtable: Allow hash/comparison functions to be
+ inlined
+Date: Fri, 20 Mar 2015 23:02:28 +1100
+Message-ID: <20150320120228.GA18736@gondor.apana.org.au>
+References: <20150320105421.GA18148@gondor.apana.org.au>
+ <E1YYubs-0004l5-Dt@gondolin.me.apana.org.au>
+ <20150320112041.GF28736@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:33419 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCTLuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 07:50:37 -0400
-Received: by iecvj10 with SMTP id vj10so90579553iec.0
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 04:50:36 -0700 (PDT)
-In-Reply-To: <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:59376 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764AbbCTMCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 08:02:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20150320112041.GF28736@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-19 at 14:50 -0700, Eric Dumazet wrote:
+On Fri, Mar 20, 2015 at 11:20:42AM +0000, Patrick McHardy wrote:
+>
+> I haven't checked in detail yet whether this still satisfies what
+> we need in nftables, just a minor comment below:
 
-> Are you seeing this race on x86 ?
+AFAIK I have done nothing to break multiple keys as yet and
+the comparison function is still there, just embedded into the
+params structure.
+
+> > +struct rhashtable_compare_arg {
+> > +	struct rhashtable *ht;
+> > +	const void *key;
+> > +};
 > 
-> If IPI are not reliable on your arch, I am guessing you should fix them.
-> 
-> Otherwise, even without hotplug you'll have hangs.
+> I found it a bit odd in the old interface that elementary data
+> such as the key for comparision is encapsulated into a structure
+> instead of passed as a function argument. Is there a reason
+> for not passing both as arguments so we can at least avoid the
+> encapsulation for the common case?
 
-Please try instead this patch :
+I don't have any objections against changing it but it could
+be done outside of this particular patch-set.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5d43e010ef870a6ab92895297fe18d6e6a03593a..baa4bff9a6fbe0d77d7921865c038060cb5efffd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4320,9 +4320,8 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
- 		while (remsd) {
- 			struct softnet_data *next = remsd->rps_ipi_next;
- 
--			if (cpu_online(remsd->cpu))
--				smp_call_function_single_async(remsd->cpu,
--							   &remsd->csd);
-+			smp_call_function_single_async(remsd->cpu,
-+						       &remsd->csd);
- 			remsd = next;
- 		}
- 	} else
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
