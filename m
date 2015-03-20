@@ -1,52 +1,63 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: cgroup matches in INPUT chain
-Date: Fri, 20 Mar 2015 17:21:21 +0100
-Message-ID: <550C4901.4070001@zonque.org>
-References: <550B1852.2020209@zonque.org> <20150319185807.GA3845@breakpoint.cc> <550C2753.9020608@zonque.org> <20150320161111.GA11498@breakpoint.cc>
+From: subashab@codeaurora.org
+Subject: Re: [PATCH] net: rps: fix data stall after hotplug
+Date: Fri, 20 Mar 2015 16:40:15 -0000
+Message-ID: <b25a45de2cb43bbcfcaa84634d74533e.squirrel@www.codeaurora.org>
+References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
+    <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
+    <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Alexey Perevalov <a.perevalov@samsung.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:43732 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751159AbbCTQVY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 12:21:24 -0400
-In-Reply-To: <20150320161111.GA11498@breakpoint.cc>
+Received: from smtp.codeaurora.org ([198.145.29.96]:53389 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940AbbCTQkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 12:40:16 -0400
+In-Reply-To: <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2015 05:11 PM, Florian Westphal wrote:
-> Daniel Mack <daniel@zonque.org> wrote:
->> In my simple test setup, when skbs are dequeued by process_backlog(),
->> they have skb->_skb_refdst set, and hence ip_rcv_finish() does not call
->> into early_demux() prior to iterating the INPUT chain:
-> 
-> Yes, because we already have a route set.
-> 
-> Are we talking about loopback?
+> On Thu, 2015-03-19 at 14:50 -0700, Eric Dumazet wrote:
+>
+>> Are you seeing this race on x86 ?
+>>
+>> If IPI are not reliable on your arch, I am guessing you should fix them.
+>>
+>> Otherwise, even without hotplug you'll have hangs.
+>
+> Please try instead this patch :
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index
+> 5d43e010ef870a6ab92895297fe18d6e6a03593a..baa4bff9a6fbe0d77d7921865c038060cb5efffd
+> 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4320,9 +4320,8 @@ static void net_rps_action_and_irq_enable(struct
+> softnet_data *sd)
+>  		while (remsd) {
+>  			struct softnet_data *next = remsd->rps_ipi_next;
+>
+> -			if (cpu_online(remsd->cpu))
+> -				smp_call_function_single_async(remsd->cpu,
+> -							   &remsd->csd);
+> +			smp_call_function_single_async(remsd->cpu,
+> +						       &remsd->csd);
+>  			remsd = next;
+>  		}
+>  	} else
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+Thanks for the patch Eric. We are seeing this race on ARM.
+I will try this and update.
 
-I'm testing this on the lookback device, but I've seen similar behavior
-on external interfaces too. However, I fail to see a pattern in that.
-
-> What are you trying to do?
-
-Basically, I have a simple server that listens to a TCP port, accepts a
-connection, writes out a short string and closes the connection again.
-The process is put into a netcls cgroup controller, and a classid is
-assigned to it, and I'm trying catch all traffic sent to it (regardless
-of the interface in use) with a netfilter rule.
-
-However, that doesn't work, because under the described circumstances,
-the match callback of the cgroup netfilter module is always called with
-an skb that has no sk set.
-
-
-Thanks for your help!
-
-
-Daniel
+--
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+ a Linux Foundation Collaborative Project
