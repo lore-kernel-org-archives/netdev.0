@@ -1,57 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net-next:master 925/931] include/linux/rhashtable.h:522:13:
- error: 'EEXIST' undeclared
-Date: Sat, 21 Mar 2015 08:32:51 +1100
-Message-ID: <20150320213251.GD23301@gondor.apana.org.au>
-References: <201503210420.crMKxZr4%fengguang.wu@intel.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
+ packets
+Date: Fri, 20 Mar 2015 14:36:51 -0700
+Message-ID: <550C92F3.50302@cumulusnetworks.com>
+References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <20150320.163655.474336751434677390.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, jiri@resnulli.us, ronen.arad@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:44571 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751090AbbCTVdB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:33:01 -0400
-Content-Disposition: inline
-In-Reply-To: <201503210420.crMKxZr4%fengguang.wu@intel.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:32811 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150AbbCTVg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:36:56 -0400
+Received: by pdnc3 with SMTP id c3so119965002pdn.0
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:36:55 -0700 (PDT)
+In-Reply-To: <20150320.163655.474336751434677390.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 21, 2015 at 04:49:22AM +0800, kbuild test robot wrote:
+On 3/20/15, 1:36 PM, David Miller wrote:
+> From: roopa@cumulusnetworks.com
+> Date: Fri, 20 Mar 2015 09:58:34 -0700
 >
-> All error/warnings:
-> 
->    In file included from net/tipc/socket.c:37:0:
->    include/linux/rhashtable.h: In function '__rhashtable_insert_fast':
-> >> include/linux/rhashtable.h:522:13: error: 'EEXIST' undeclared (first use in this function)
->      int err = -EEXIST;
+>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
+>> there is a need to not re-forward frames that have already been
+>> forwarded in hardware.
+> It's impossible to validate this without seeing a use case where
+> the device marks packets appropriately in order to trigger this
+> new code.
+>
+> And as John said, some devices may not even be able to do that.
+agreed, and that's why I am still sending this patch as RFC and not
+for inclusion right away.
 
-Thanks for the report, this should fix it:
+since we have discussed this problem multiple times in switchdev meetings,
+the intent of this RFC is to see get the code out and also see if rocker 
+or any other in-kernel
+driver can use it.
 
----8<---
-rhashtable: Fix undeclared EEXIST build error on ia64
-
-We need to include linux/errno.h in rhashtable.h since it doesn't
-always get included otherwise.
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index e5b76cf..18a6488 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -18,6 +18,7 @@
- #define _LINUX_RHASHTABLE_H
- 
- #include <linux/compiler.h>
-+#include <linux/errno.h>
- #include <linux/list_nulls.h>
- #include <linux/workqueue.h>
- #include <linux/mutex.h>
-
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+thanks,
+Roopa
