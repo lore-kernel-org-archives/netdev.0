@@ -1,163 +1,196 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: Re: [PATCH 2/2] af_packet: pass checksum validation status to the
- user
-Date: Fri, 20 Mar 2015 09:46:07 +0300
-Message-ID: <550BC22F.6090007@gmail.com>
-References: <1426752102-12786-1-git-send-email-al.drozdov@gmail.com> <1426752102-12786-2-git-send-email-al.drozdov@gmail.com> <CA+FuTSe1+_VjxwT3Zj=ZWb6HVS=Ww98egSR8s9usuOT3QZpbFA@mail.gmail.com> <550B10A4.60500@gmail.com> <CA+FuTSeJH22uVJcZ6eAxau_ng4LdqLfVSRGYna_pi4pxr1Oz_A@mail.gmail.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: Re: [PATCH v3] ixgbe: make VLAN filter conditional
+Date: Fri, 20 Mar 2015 07:35:51 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E6593F@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E555F3@BPXM14GP.gisp.nec.co.jp>
+	<54FFABE7.4090704@redhat.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E5765D@BPXM14GP.gisp.nec.co.jp>
+	<5501B60D.6030304@redhat.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E5F0CA@BPXM14GP.gisp.nec.co.jp>
+	<5506F745.3010206@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>, tom@herbertland.com
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:34176 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbbCTGq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 02:46:29 -0400
-In-Reply-To: <CA+FuTSeJH22uVJcZ6eAxau_ng4LdqLfVSRGYna_pi4pxr1Oz_A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <5506F745.3010206@redhat.com>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+> On 03/16/2015 05:33 AM, Hiroshi Shimamoto wrote:
+> >> On 03/11/2015 10:58 PM, Hiroshi Shimamoto wrote:
+> >>>> On 03/10/2015 05:59 PM, Hiroshi Shimamoto wrote:
+> >>>>> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> >>>>>
+> >>>>> Disable hardware VLAN filtering if netdev->features VLAN flag is dropped.
+> >>>>>
+> >>>>> In SR-IOV case, there is a use case which needs to disable VLAN filter.
+> >>>>> For example, we need to make a network function with VF in virtualized
+> >>>>> environment. That network function may be a software switch, a router
+> >>>>> or etc. It means that that network function will be an end point which
+> >>>>> terminates many VLANs.
+> >>>>>
+> >>>>> In the current implementation, VLAN filtering always be turned on and
+> >>>>> VF can receive only 63 VLANs. It means that only 63 VLANs can be terminated
+> >>>>> in one NIC.
+> >>>> Technically it is 4096 VLANs that can be terminated in one NIC, only 63
+> >>>> VLANs can be routed to VFs/VMDq pools though.  The PF receives all VLAN
+> >>>> traffic that isn't routed to a specific VF, but does pass the VFTA
+> >>>> registers.
+> >>> Right, my explanation was not accurate.
+> >>> >From the hardware limitation, there are 64 entries in the shared VLAN filter.
+> >>> That means that only 64 VLANs can be used per port.
+> >>>
+> >>> Our requirement is that we want to use VLANs without limitation in VF.
+> >>> Currently there is only this way, disabling VLAN filter, I could find.
+> >> The problem is that unlike multicast promiscuous option that was
+> >> supported by the hardware there is nothing to limit this to any one VF.
+> >> So if you enable this feature you are not only allowing that one VF to
+> >> ignore the VLAN filter rules, but you are disabling them for the PF and
+> >> all VFs at once.
+> > I'm afraid that I could not explain what we want.
+> > We want to use 4k VLANs in a VM which has VF.
+> >
+> > I understand that when HW VLAN filter is disabled, all VFs and the PF loses
+> > this functionality.
+> >
+> >>>>> On the other hand disabling HW VLAN filtering causes a SECURITY issue
+> >>>>> that each VF can receive all VLAN packets. That means that a VF can see
+> >>>>> any packet which is sent to other VF.
+> >>>> It is worse than that.  Now you also receive all broadcast packets on
+> >>>> all VFs.  It means that any of your systems could be buried in traffic
+> >>>> with a simple ping flood since it will multiply each frame by the number
+> >>>> of VFs you have enabled.
+> >>> Is that VLAN filtering specific?
+> >>> I understood that broadcast/multicast packets copied to VFs.
+> >>> But I couldn't imagine the case each VF has and uses different VLAN.
+> >> VLANs are used for isolation, that is kind of the point of a VLAN. So
+> >> for example if you had a multi-tenant data center you might use VLANs to
+> >> separate the systems that belong to each tenant.  This way it appears
+> >> that they are off in their own little cloud and not affecting one
+> >> another.  With VLANs disabled you strip that option away and as a result
+> >> you end up with each VF being able to see all of the broadcast/multicast
+> >> traffic from every other VF.
+> > On the other hand, ixgbe chip can only have 64 VLANs and 64 VFs at most.
+> > That means I think few number of VLANs can be used in each VF and some VLANs
+> > or untagged VLAN may be shared among VFs, then there is broadcast/multicast
+> > storm possibility already, that is just my feeling.
+> 
+> The idea is to only share VLANs between any given customer.  So for
+> example if you have 63 VFs (upper limit for ixgbe as I recall), and 5
+> customers you would typically break this up into 5 VLANs where each
+> customer is assigned one VLAN to isolate their network from the others.
+> As a result one customer couldn't send a broadcast storm to the others.
+> 
+> > By the way, I think, there is another possibility of DoS by requesting much
+> > number of VLANs from VF. That causes that later VFs cannot have their VLAN
+> > because there are only 64 VLAN entries.
+> > The first VM creates 64 VLANs that id 1-64, then start the second VM and the
+> > second one fails to have requesting VLAN id 65 because there is no room.
+> 
+> This isn't really a DoS, this is a configuration problem.  I would
+> classify that as a "don't shoot yourself in the foot" type scenerio.
+> You could also argue that only supporting 63 VFs is a DoS using that
+> same style of logic.
+> 
+> The 64 VLANs can be shared between the PF and all VFs so if the
+> administrator wants to assign 63 VLANs to the first VF, and have the
+> rest use some variation on those 63 VLANs that is also an option. The
+> admin has control over the VF ability to request VLANs, if they assign
+> an administrative VLAN (one of the things you disabled and didn't return
+> an error for in your patch) then the VF can no longer request its own VLANs.
+
+It looks we have to manage the network and trust a guest.
+If we can do that, I think we can also manage VLAN filter turned off network.
+Prevent to make broadcast storm by operation same as prevent to use VLANs.
+freely in guest
+
+I know I have to take care not to break existing functionality.
+
+> 
+> >>> By the way, I wonder there is no one who is worried about this VLAN limitation.
+> >>>
+> >>>
+> >>> thanks,
+> >>> Hiroshi
+> >> I believe that your use case if very unique.  Specifically things like
+> >> VLANs are supposed to be in place to allow for isolation of networks.
+> > I'm not sure why our use case is so unique.
+> > Implementing router function, gateway and etc. could use much VLANs.
+> > 64 VLANs must be too small for those applications.
+> > I just bring such application into VM and want to use SR-IOV for performance.
+> 
+> This gets at the heart of the issue.  Few would ever advice using a VF
+> for a router function, and even then they would likely keep it within
+> the confines of a few VLANs.  The issue is that the resources for a VF
+> are limited an you only have a few queues to work with unless you are
+> using something such as DPDK.  Same thing goes for a bridge/switch since
+> a VF cannot really support promiscuous mode. This is functionality that
+> should really only be handled by the PF, or within the switching
+> function of the NIC.  What you may want to do instead would be to direct
+> assign the PF function of the NIC, not a VF.  The problem is that the
+> way you are using it will make the PF and all of the other VFs pretty
+> much unusable since you will likely be seeing frames duplicated to all
+> of the devices.
+
+I understand the limitation of hardware. But I'd like to enable such functionality
+by disabling HW VLAN filter. With strictly managed the network, it should work.
+
+> 
+> > Usually an administrator of VM can use VLANs and ixgbevf seems to allow to
+> > use VLAN as the administrator wants. But the hardware limitation of VLAN
+> > filtering makes us to use VLAN harder in virtualized environment.
+> >
+> > thanks,
+> > Hiroshi
+> 
+> The issue is that you are using SR-IOV in a case where it is likely not
+> a good solution.  By enabling the features you have, you have made it so
+> that you won't be able to use any of the other VFs without completely
+> disregarding security and/or performance.  The solution doesn't really
+> scale.
+> 
+> I would recommend testing your patches with small (64B)
+> multicast/broadcast packets if you need to see for yourself.  The
+> problem is you are going to end up saturating the entire PCIe link with
+> just one port and it shouldn't take very much to do it.  For example if
+> you have the PF and 7 VF functions enabled I would suspect you won't be
+> able to get past 1Gb/s per function just because the frame replication
+> will be so great.
+
+I guess it's better to see what does happen in such a scenario.
+In current our case and testing, it works well enough.
+
+thanks,
+Hiroshi
+
+> 
+> - Alex
 
 
-On 19.03.2015 21:50:03 +0300 Willem de Bruijn wrote:
-> On Thu, Mar 19, 2015 at 2:08 PM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
->> On Thu, 19 Mar 2015 11:29:32 -0400, Willem de Bruijn <willemb@google.com>
->> wrote:
->>>
->>> On Thu, Mar 19, 2015 at 4:01 AM, Alexander Drozdov <al.drozdov@gmail.com>
->>> wrote:
->>>>
->>>> Introduce TP_STATUS_CSUM_VALID tp_status flag to tell the
->>>> af_packet user that at least the transport header checksum
->>>> has been already validated.
->>>
->>> This changes the interface slightly. Processes should be treating
->>> this previously unused bit as reserved and other flags have
->>> been added to the bitmap in this manner as well, so this should
->>> then be safe here, too.
->>>
->>>> For now, the flag may be set for incoming packets only.
->>>
->>> Why?
->>
->> I can't figure out how af_packet could get that the outgoing
->> packet's checksum has been validated. "Checksumming on
->> output" from skbuff.h tells that skb->ip_summed should
->> equal to CHECKSUM_NONE in that case,
->
-> CHECKSUM_UNNECESSARY is a valid flag on the outgoing
-> path according to that documentation. And, indeed, I also see
-> no checksum scrubbing on forwarding paths in practice (but I
-> may be wrong there, only took a quick glance).
->
->> but that is not true for me (in my tests, skb->ip_summed ==
->> CHECKSUM_UNNECESSARY for forwarded packets in some
->> cases).
->
-> When you disable hardware checksum offload and generate
-> packets locally, you do see the expected CHECKSUM_NONE
-> value?
-
-Yes, I do, but see below.
-
->>> You cannot change the semantics of the flag afterwards.
->>
->>
->> I think the semantics of the flag won't be changed if one set the flag
->> for outgoing packets. If the flag is not set (for any directions)
->> then that is not mean that the packet checksum is invalid. The user just can
->> then
->> checksum the packet by itself. So, the user may check the flag for any
->> packet
->> right now.
->
-> I see. So it is a hint. Okay. It would be nice if it behaves as
-> expected in as many cases as possible from the outset. This
-> would include PACKET_OUTGOING and CHECKSUM_NONE.
-
-I've just done some testing, and I've found that packets generated by
-'nping --badsum' (socket(PF_INET, SOCK_RAW, IPPROTO_RAW)) have CHECKSUM_NONE
-when they are viewed by af_packet. I've used rather old Linux kernel
-for the tests, but isn't that a reason to not set TP_STATUS_CSUM_VALID for
-outgoing packets right now?
-
-> Please also note the flag and semantics in
-> Documentation/networking/packet_mmap.txt
-
-I'll do it and I'll resend the patches with the note.
-
->>
->>
->>> Better to support both directions from the start.
->>>
->>>> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
->>>> ---
->>>>    include/uapi/linux/if_packet.h | 1 +
->>>>    net/packet/af_packet.c         | 9 +++++++++
->>>>    2 files changed, 10 insertions(+)
->>>>
->>>> diff --git a/include/uapi/linux/if_packet.h
->>>> b/include/uapi/linux/if_packet.h
->>>> index da2d668..053bd10 100644
->>>> --- a/include/uapi/linux/if_packet.h
->>>> +++ b/include/uapi/linux/if_packet.h
->>>> @@ -99,6 +99,7 @@ struct tpacket_auxdata {
->>>>    #define TP_STATUS_VLAN_VALID           (1 << 4) /* auxdata has valid
->>>> tp_vlan_tci */
->>>>    #define TP_STATUS_BLK_TMO              (1 << 5)
->>>>    #define TP_STATUS_VLAN_TPID_VALID      (1 << 6) /* auxdata has valid
->>>> tp_vlan_tpid */
->>>> +#define TP_STATUS_CSUM_VALID           (1 << 7)
->>>>
->>>>    /* Tx ring - header status */
->>>>    #define TP_STATUS_AVAILABLE          0
->>>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->>>> index 6ecf8dd..3f09dda 100644
->>>> --- a/net/packet/af_packet.c
->>>> +++ b/net/packet/af_packet.c
->>>> @@ -1918,6 +1918,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct
->>>> net_device *dev,
->>>>
->>>>           if (skb->ip_summed == CHECKSUM_PARTIAL)
->>>>                   status |= TP_STATUS_CSUMNOTREADY;
->>>> +       else if (skb->pkt_type != PACKET_OUTGOING &&
->>>> +                (skb->ip_summed == CHECKSUM_COMPLETE ||
->>>> +                 skb_csum_unnecessary(skb)))
->>>> +               status |= TP_STATUS_CSUM_VALID;
->>>>
->>>>           if (snaplen > res)
->>>>                   snaplen = res;
->>>> @@ -3015,6 +3019,11 @@ static int packet_recvmsg(struct kiocb *iocb,
->>>> struct socket *sock,
->>>>                   aux.tp_status = TP_STATUS_USER;
->>>>                   if (skb->ip_summed == CHECKSUM_PARTIAL)
->>>>                           aux.tp_status |= TP_STATUS_CSUMNOTREADY;
->>>> +               else if (skb->pkt_type != PACKET_OUTGOING &&
->>>> +                        (skb->ip_summed == CHECKSUM_COMPLETE ||
->>>> +                         skb_csum_unnecessary(skb)))
->>>> +                       aux.tp_status |= TP_STATUS_CSUM_VALID;
->>>> +
->>>
->>> These two sections are near duplicates. I'd move the entire status
->>> initialization, including existing TP_STATUS_USER and
->>> TP_STATUS_CSUMNOTREADY fields to a helper function.
->>>
->>> It's a bit unfortunately that we have to use an extra bit to add a signal
->>> that is a near inverse of the existing TP_STATUS_CSUMNOTREADY
->>> (bar CHECKSUM_NONE). I do not immediately see a better way,
->>> either, though. And tp_status has plenty room at 32 bits.
->>>
->>>>                   aux.tp_len = PACKET_SKB_CB(skb)->origlen;
->>>>                   aux.tp_snaplen = skb->len;
->>>>                   aux.tp_mac = 0;
->>>> --
->>>> 1.9.1
->>>>
->>
->>
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
