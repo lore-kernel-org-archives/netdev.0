@@ -1,53 +1,70 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: [PATCH] net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour
-Date: Fri, 20 Mar 2015 16:48:13 +0000
-Message-ID: <1426870093-7616-1-git-send-email-catalin.marinas@arm.com>
-Cc: linux-kernel@vger.kernel.org, Will Deacon <will.deacon@arm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v3 0/9] amd-xgbe: AMD XGBE driver updates 2015-03-19
+Date: Fri, 20 Mar 2015 11:49:36 -0500
+Message-ID: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0129.outbound.protection.outlook.com ([65.55.169.129]:33024
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750997AbbCTQtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 12:49:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit db31c55a6fb2 (net: clamp ->msg_namelen instead of returning an
-error) introduced the clamping of msg_namelen when the unsigned value
-was larger than sizeof(struct sockaddr_storage). This caused a
-msg_namelen of -1 to be valid. The native code was subsequently fixed by
-commit dbb490b96584 (net: socket: error on a negative msg_namelen).
+The following series of patches includes functional updates and changes
+to the driver.
 
-In addition, the native code sets msg_namelen to 0 when msg_name is
-NULL. This was done in commit (6a2a2b3ae075 net:socket: set msg_namelen
-to 0 if msg_name is passed as NULL in msghdr struct from userland) and
-subsequently updated by 08adb7dabd48 (fold verify_iovec() into
-copy_msghdr_from_user()).
+- Use the phydev->advertising field instead of the phydev->supported
+  field when configuring for auto-negotiation, etc.
+- Use the phy_driver flags field for setting the transceiver type
+  instead of hardcoding it in the ethtool support.
+- Provide an auto-negotiation timeout check
+- Clarify the Tx/Rx queue information messages
+- Use the new DMA memory barrier operations
+- Set the device DMA mask based on what the hardware reports
+- Remove the software implementation of Tx coalescing
+- Fix the reporting of the Rx coalescing value
+- Use napi_alloc_skb when allocating an SKB in softirq
 
-This patch brings the get_compat_msghdr() in line with
-copy_msghdr_from_user().
+This patch series is based on net-next.
 
-Fixes: db31c55a6fb2 (net: clamp ->msg_namelen instead of returning an error)
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
 ---
- net/compat.c | 7 +++++++
- 1 file changed, 7 insertions(+)
 
-diff --git a/net/compat.c b/net/compat.c
-index 94d3d5e97883..f7bd286a8280 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -49,6 +49,13 @@ ssize_t get_compat_msghdr(struct msghdr *kmsg,
- 	    __get_user(kmsg->msg_controllen, &umsg->msg_controllen) ||
- 	    __get_user(kmsg->msg_flags, &umsg->msg_flags))
- 		return -EFAULT;
-+
-+	if (!uaddr)
-+		kmsg->msg_namelen = 0;
-+
-+	if (kmsg->msg_namelen < 0)
-+		return -EINVAL;
-+
- 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
- 		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
- 	kmsg->msg_control = compat_ptr(tmp3);
+Changes from v2:
+- Use jiffies instead of timespec for the auto-negotiation timeout check
+- Remove the Rx path SKB allocation re-work patch since we should only
+  inline the headers and the current code guards better against any
+  hardware bugs
+
+Changes from v1:
+- Default to 32-bit DMA width (minimum supported) if hardware returns
+  an unexpected DMA width value
+
+Tom Lendacky (9):
+      amd-xgbe-phy: Use phydev advertising field vs supported
+      amd-xgbe-phy: Use the phy_driver flags field
+      amd-xgbe-phy: Provide support for auto-negotiation timeout
+      amd-xgbe: Clarify output message about queues
+      amd-xgbe: Use the new DMA memory barriers where appropriate
+      amd-xgbe: Set DMA mask based on hardware register value
+      amd-xgbe: Remove Tx coalescing
+      amd-xgbe: Fix Rx coalescing reporting
+      amd-xgbe: Use napi_alloc_skb when allocating skb in softirq
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h  |    2 +
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   28 ++++---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |   45 ++++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   19 ++---
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   19 +++--
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    6 +-
+ drivers/net/phy/amd-xgbe-phy.c               |   98 ++++++++++++++++----------
+ 7 files changed, 127 insertions(+), 90 deletions(-)
+
+-- 
+Tom Lendacky
