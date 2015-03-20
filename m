@@ -1,42 +1,45 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Fri, 20 Mar 2015 23:04:54 +0100
-Message-ID: <20150320220454.GA31769@lunn.ch>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com>
- <550C54BC.4040509@intel.com>
- <550C8B07.4010308@cumulusnetworks.com>
- <550C8FBD.2000903@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v1 PATCH 7/14] netfilter: Use rhashtable_lookup instead of
+ lookup_compare
+Date: Sat, 21 Mar 2015 09:10:21 +1100
+Message-ID: <20150320221021.GA24140@gondor.apana.org.au>
+References: <20150320085509.GA16748@gondor.apana.org.au>
+ <20150320092216.GE21258@acer.localdomain>
+ <20150320092703.GA17081@gondor.apana.org.au>
+ <20150320095908.GG21258@acer.localdomain>
+ <20150320101603.GA17662@gondor.apana.org.au>
+ <20150320102701.GA28736@acer.localdomain>
+ <20150320214712.GA23963@gondor.apana.org.au>
+ <20150320215612.GA566@casper.infradead.org>
+ <20150320215756.GA24045@gondor.apana.org.au>
+ <20150320220751.GB566@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: roopa <roopa@cumulusnetworks.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us,
-	ronen.arad@intel.com, netdev@vger.kernel.org,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53846 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751251AbbCTWIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 18:08:36 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:43438 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbbCTWK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 18:10:28 -0400
 Content-Disposition: inline
-In-Reply-To: <550C8FBD.2000903@gmail.com>
+In-Reply-To: <20150320220751.GB566@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >  In-kernel bridge driver is proven very useful for us to run stp,
-> >or recently igmp reports (dont know the details here) etc in software.
-> >I wonder how you handle these. If you don't use the in-kernel bridge
-> >driver, I suspect you down the lane you will end-up having to duplicate a
-> >lot of things that bridge driver already does in your switch driver.
-> 
-> I think that code is in need of some serious love before it is usable. I
-> actually don't know who is using STP anymore if anyone.
+On Fri, Mar 20, 2015 at 10:07:51PM +0000, Thomas Graf wrote:
+>
+> Attack by whom? If I read the nft_set code correctly then the only
+> way to add to an nft_set is via nfnetlink which requires
+> CAP_NET_ADMIN. My understanding was that the chain length based
+> growth is to counter hash seed attacks.
 
-We are using STP for the DSA switches. It is a good minimum to start
-with, for these little switches with only a small number of ports, and
-use in home WiFi routers etc.
+You cannot trust root in a namespace.
 
-    Andrew
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
