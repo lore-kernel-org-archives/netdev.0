@@ -1,45 +1,58 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
- packets
-Date: Fri, 20 Mar 2015 14:36:51 -0700
-Message-ID: <550C92F3.50302@cumulusnetworks.com>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <20150320.163655.474336751434677390.davem@davemloft.net>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v8 tip 3/9] tracing: attach BPF programs to kprobes
+Date: Fri, 20 Mar 2015 14:38:40 -0700
+Message-ID: <550C9360.7060207@plumgrid.com>
+References: <1426816787-5001-1-git-send-email-ast@plumgrid.com>	<1426816787-5001-4-git-send-email-ast@plumgrid.com> <20150320170907.388d8c33@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jiri@resnulli.us, ronen.arad@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:32811 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbbCTVg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:36:56 -0400
-Received: by pdnc3 with SMTP id c3so119965002pdn.0
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:36:55 -0700 (PDT)
-In-Reply-To: <20150320.163655.474336751434677390.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150320170907.388d8c33-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/20/15, 1:36 PM, David Miller wrote:
-> From: roopa@cumulusnetworks.com
-> Date: Fri, 20 Mar 2015 09:58:34 -0700
+On 3/20/15 2:09 PM, Steven Rostedt wrote:
 >
->> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
->> there is a need to not re-forward frames that have already been
->> forwarded in hardware.
-> It's impossible to validate this without seeing a use case where
-> the device marks packets appropriately in order to trigger this
-> new code.
+>> +/**
+>> + * trace_call_bpf - invoke BPF program
+>> + * @prog - BPF program
+>> + * @ctx - opaque context pointer
+>> + *
+>> + * kprobe handlers execute BPF programs via this helper.
+>> + * Can be used from static tracepoints in the future.
 >
-> And as John said, some devices may not even be able to do that.
-agreed, and that's why I am still sending this patch as RFC and not
-for inclusion right away.
+> Should also state what the expected return values are. What does a
+> return of "1" mean?
 
-since we have discussed this problem multiple times in switchdev meetings,
-the intent of this RFC is to see get the code out and also see if rocker 
-or any other in-kernel
-driver can use it.
+In earlier versions of this set I had detailed description of return
+values from bpf program, somehow it got lost after all the revisions.
+Will re-add.
 
-thanks,
-Roopa
+
+> You are no longer in the net/ world. The rest of the Linux coding style
+> is:
+>
+> 	/*
+> 	 * multi line comments
+> 	 */
+>
+> Only DaveM gets away with that format ;-)
+
+:)
+since bpf was born in the net/ world all comments are in that style.
+When it moved into kernel/bpf/ we've decided to keep net/ style in there
+as well, but for this file I don't mind using !net style ;)
+
+> Reviewed-by: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+
+Thanks a lot. Will respin.
