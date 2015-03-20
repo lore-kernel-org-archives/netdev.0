@@ -1,58 +1,54 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces
- with "ktime_t" type
-Date: Fri, 20 Mar 2015 17:49:51 +0100
-Message-ID: <20150320164951.GA25334@localhost.localdomain>
-References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
- <CAMz4kuKyDFCqd-LfoSKJf+tkXdzzLwtPJdp-nF6NbKU8W5HHpQ@mail.gmail.com>
- <20150320062603.GC4417@localhost.localdomain>
- <201503201443.42672.arnd@linaro.org>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v3 4/9] amd-xgbe: Clarify output message about
+ queues
+Date: Fri, 20 Mar 2015 11:50:10 -0500
+Message-ID: <20150320165010.13799.37023.stgit@tlendack-t1.amdoffice.net>
+References: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baolin Wang <baolin.wang@linaro.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.com>,
-	tglx@linutronix.de
-To: Arnd Bergmann <arnd@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201503201443.42672.arnd@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0128.outbound.protection.outlook.com ([207.46.100.128]:31328
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751969AbbCTQuP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 12:50:15 -0400
+In-Reply-To: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 20, 2015 at 02:43:42PM +0100, Arnd Bergmann wrote:
-> Doing gettime separately from settime would be rather silly here, so trying
-> to avoid the conditional would mean doing a single large patch across all
-> drivers.
+Clarify that the queues referred to in a message when the device is
+brought up are hardware queues and not necessarily related to the
+Linux network queues.
 
-There is really no need for any dancing around here.  There are
-seventeen users total.
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-  drivers/net/ethernet/adi/bfin_mac.c
-  drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-  drivers/net/ethernet/broadcom/tg3.h
-  drivers/net/ethernet/freescale/fec_ptp.c
-  drivers/net/ethernet/freescale/gianfar_ptp.c
-  drivers/net/ethernet/intel/e1000e/ptp.c
-  drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-  drivers/net/ethernet/intel/i40e/i40e_ptp.c
-  drivers/net/ethernet/intel/igb/igb_ptp.c
-  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-  drivers/net/ethernet/mellanox/mlx4/en_clock.c
-  drivers/net/ethernet/sfc/ptp.c
-  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-  drivers/net/ethernet/ti/cpts.c
-  drivers/net/ethernet/tile/tilegx.c
-  drivers/net/phy/dp83640.c
-
-Instead of changing to ktime_t, just use timespec64 instead.  That
-way, each change will be a couple of lines per file.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 400757b..29137c9 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2004,7 +2004,8 @@ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
+ 	for (i = 0; i < pdata->tx_q_count; i++)
+ 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo_size);
  
-> I do agree however that we should merge the entire series at once so
-> we end up with a reasonable state afterwards, and we only need the conditional
-> in order to have a bisectable git history.
-
-It is still bisectable with one or two patches.
-
-Thanks,
-Richard
+-	netdev_notice(pdata->netdev, "%d Tx queues, %d byte fifo per queue\n",
++	netdev_notice(pdata->netdev,
++		      "%d Tx hardware queues, %d byte fifo per queue\n",
+ 		      pdata->tx_q_count, ((fifo_size + 1) * 256));
+ }
+ 
+@@ -2019,7 +2020,8 @@ static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
+ 	for (i = 0; i < pdata->rx_q_count; i++)
+ 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo_size);
+ 
+-	netdev_notice(pdata->netdev, "%d Rx queues, %d byte fifo per queue\n",
++	netdev_notice(pdata->netdev,
++		      "%d Rx hardware queues, %d byte fifo per queue\n",
+ 		      pdata->rx_q_count, ((fifo_size + 1) * 256));
+ }
+ 
