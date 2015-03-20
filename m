@@ -1,77 +1,164 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v1 PATCH 1/7] rhashtable: Make rhashtable_init params argument const
-Date: Fri, 20 Mar 2015 21:56:59 +1100
-Message-ID: <E1YYubr-0004km-9d@gondolin.me.apana.org.au>
+Subject: [v1 PATCH 4/7] netfilter: Convert nft_hash to inlined rhashtable
+Date: Fri, 20 Mar 2015 21:57:02 +1100
+Message-ID: <E1YYubu-0004ld-Op@gondolin.me.apana.org.au>
 References: <20150320105421.GA18148@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	Thomas Graf <tgraf@suug.ch>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:45322 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:48019 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbbCTK5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:57:13 -0400
+	with ESMTP id S1751085AbbCTK5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:57:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch marks the rhashtable_init params argument const as
-there is no reason to modify it since we will always make a copy
-of it in the rhashtable.
+This patch converts nft_hash to the inlined rhashtable interface.
 
-This patch also fixes a bug where we don't actually round up the
-value of min_size unless it is less than HASH_MIN_SIZE.
+This patch also replaces the call to rhashtable_lookup_compare with
+a straight rhashtable_lookup_fast because it's simply doing a memcmp
+(in fact nft_hash_lookup already uses memcmp instead of nft_data_cmp).
+
+Furthermore, the compare function is only meant to compare, it is not
+supposed to have side-effects.  The current side-effect code can
+simply be moved into the nft_hash_get.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |    3 ++-
- lib/rhashtable.c           |    7 ++++---
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ net/netfilter/nft_hash.c |   70 +++++++++++++++++++----------------------------
+ 1 file changed, 29 insertions(+), 41 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 99425f2..c85363c 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -181,7 +181,8 @@ static inline int lockdep_rht_bucket_is_held(const struct bucket_table *tbl,
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index c82df0a..4585c57 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -29,6 +29,8 @@ struct nft_hash_elem {
+ 	struct nft_data			data[];
+ };
+ 
++static const struct rhashtable_params nft_hash_params;
++
+ static bool nft_hash_lookup(const struct nft_set *set,
+ 			    const struct nft_data *key,
+ 			    struct nft_data *data)
+@@ -36,7 +38,7 @@ static bool nft_hash_lookup(const struct nft_set *set,
+ 	struct rhashtable *priv = nft_set_priv(set);
+ 	const struct nft_hash_elem *he;
+ 
+-	he = rhashtable_lookup(priv, key);
++	he = rhashtable_lookup_fast(priv, key, nft_hash_params);
+ 	if (he && set->flags & NFT_SET_MAP)
+ 		nft_data_copy(data, he->data);
+ 
+@@ -49,6 +51,7 @@ static int nft_hash_insert(const struct nft_set *set,
+ 	struct rhashtable *priv = nft_set_priv(set);
+ 	struct nft_hash_elem *he;
+ 	unsigned int size;
++	int err;
+ 
+ 	if (elem->flags != 0)
+ 		return -EINVAL;
+@@ -65,9 +68,11 @@ static int nft_hash_insert(const struct nft_set *set,
+ 	if (set->flags & NFT_SET_MAP)
+ 		nft_data_copy(he->data, &elem->data);
+ 
+-	rhashtable_insert(priv, &he->node);
++	err = rhashtable_insert_fast(priv, &he->node, nft_hash_params);
++	if (err)
++		kfree(he);
+ 
+-	return 0;
++	return err;
  }
- #endif /* CONFIG_PROVE_LOCKING */
  
--int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params);
-+int rhashtable_init(struct rhashtable *ht,
-+		    const struct rhashtable_params *params);
+ static void nft_hash_elem_destroy(const struct nft_set *set,
+@@ -84,46 +89,26 @@ static void nft_hash_remove(const struct nft_set *set,
+ {
+ 	struct rhashtable *priv = nft_set_priv(set);
  
- void rhashtable_insert(struct rhashtable *ht, struct rhash_head *node);
- bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *node);
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index e75c48d..e0a9d59 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -870,7 +870,7 @@ out:
+-	rhashtable_remove(priv, elem->cookie);
++	rhashtable_remove_fast(priv, elem->cookie, nft_hash_params);
+ 	synchronize_rcu();
+ 	kfree(elem->cookie);
  }
- EXPORT_SYMBOL_GPL(rhashtable_walk_stop);
  
--static size_t rounded_hashtable_size(struct rhashtable_params *params)
-+static size_t rounded_hashtable_size(const struct rhashtable_params *params)
+-struct nft_compare_arg {
+-	const struct nft_set *set;
+-	struct nft_set_elem *elem;
+-};
+-
+-static bool nft_hash_compare(void *ptr, void *arg)
+-{
+-	struct nft_hash_elem *he = ptr;
+-	struct nft_compare_arg *x = arg;
+-
+-	if (!nft_data_cmp(&he->key, &x->elem->key, x->set->klen)) {
+-		x->elem->cookie = he;
+-		x->elem->flags = 0;
+-		if (x->set->flags & NFT_SET_MAP)
+-			nft_data_copy(&x->elem->data, he->data);
+-
+-		return true;
+-	}
+-
+-	return false;
+-}
+-
+ static int nft_hash_get(const struct nft_set *set, struct nft_set_elem *elem)
  {
- 	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
- 		   (unsigned long)params->min_size);
-@@ -919,7 +919,8 @@ static size_t rounded_hashtable_size(struct rhashtable_params *params)
-  *	.obj_hashfn = my_hash_fn,
-  * };
-  */
--int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
-+int rhashtable_init(struct rhashtable *ht,
-+		    const struct rhashtable_params *params)
+ 	struct rhashtable *priv = nft_set_priv(set);
+-	struct nft_compare_arg arg = {
+-		.set = set,
+-		.elem = elem,
+-	};
++	struct nft_hash_elem *he;
++
++	he = rhashtable_lookup_fast(priv, &elem->key, nft_hash_params);
++	if (!he)
++		return -ENOENT;
+ 
+-	if (rhashtable_lookup_compare(priv, &elem->key,
+-				      &nft_hash_compare, &arg))
+-		return 0;
++	elem->cookie = he;
++	elem->flags = 0;
++	if (set->flags & NFT_SET_MAP)
++		nft_data_copy(&elem->data, he->data);
+ 
+-	return -ENOENT;
++	return 0;
+ }
+ 
+ static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
+@@ -181,18 +166,21 @@ static unsigned int nft_hash_privsize(const struct nlattr * const nla[])
+ 	return sizeof(struct rhashtable);
+ }
+ 
++static const struct rhashtable_params nft_hash_params = {
++	.head_offset = offsetof(struct nft_hash_elem, node),
++	.key_offset = offsetof(struct nft_hash_elem, key),
++	.hashfn = jhash,
++};
++
+ static int nft_hash_init(const struct nft_set *set,
+ 			 const struct nft_set_desc *desc,
+ 			 const struct nlattr * const tb[])
  {
- 	struct bucket_table *tbl;
- 	size_t size;
-@@ -946,7 +947,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	if (params->max_size)
- 		ht->p.max_size = rounddown_pow_of_two(params->max_size);
+ 	struct rhashtable *priv = nft_set_priv(set);
+-	struct rhashtable_params params = {
+-		.nelem_hint = desc->size ? : NFT_HASH_ELEMENT_HINT,
+-		.head_offset = offsetof(struct nft_hash_elem, node),
+-		.key_offset = offsetof(struct nft_hash_elem, key),
+-		.key_len = set->klen,
+-		.hashfn = jhash,
+-	};
++	struct rhashtable_params params = nft_hash_params;
++
++	params.nelem_hint = desc->size ?: NFT_HASH_ELEMENT_HINT;
++	params.key_len = set->klen;
  
--	ht->p.min_size = max(params->min_size, HASH_MIN_SIZE);
-+	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
- 
- 	if (params->locks_mul)
- 		ht->p.locks_mul = roundup_pow_of_two(params->locks_mul);
+ 	return rhashtable_init(priv, &params);
+ }
