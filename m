@@ -1,63 +1,73 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 3/5] net: netcp: select davinci_mdio driver by default
-Date: Fri, 20 Mar 2015 16:11:23 -0400
-Message-ID: <1426882285-4873-4-git-send-email-m-karicheri2@ti.com>
-References: <1426882285-4873-1-git-send-email-m-karicheri2@ti.com>
+From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH net-next 0/5] NetCP: Add support for version 1.5
+Date: Fri, 20 Mar 2015 16:11:20 -0400
+Message-ID: <1426882285-4873-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Murali Karicheri <m-karicheri2@ti.com>,
-	WingMan Kwok <w-kwok2@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Christoph Jaeger <cj@linux.com>,
-	Lokesh Vutla <lokeshvutla@ti.com>,
-	Markus Pargmann <mpa@pengutronix.de>,
-	Kumar Gala <galak@codeaurora.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Rob Herring <robh+dt@kernel.org>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426882285-4873-1-git-send-email-m-karicheri2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+	"Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+	Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	Lokesh Vutla <lokeshvutla-l0cyMroinI0@public.gmane.org>,
+	Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Keystone netcp driver re-uses davinci mdio driver. So enable it
-by default for keystone netcp driver.
+NetCP 1.5 is used in newer K2 SoCs from Texas Instruments
+such as K2E, K2L etc. This patch series add support for Ethss
+driver for this version of NetCP. While at it, fix couple of
+bugs in the original driver.
 
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Mugunthan V N <mugunthanvnm@ti.com>
-CC: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-CC: Grygorii Strashko <grygorii.strashko@ti.com>
-CC: Christoph Jaeger <cj@linux.com>
-CC: Lokesh Vutla <lokeshvutla@ti.com>
-CC: Markus Pargmann <mpa@pengutronix.de>
-CC: Kumar Gala <galak@codeaurora.org>
-CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
-CC: Mark Rutland <mark.rutland@arm.com>
-CC: Pawel Moll <pawel.moll@arm.com>
-CC: Rob Herring <robh+dt@kernel.org>
----
- drivers/net/ethernet/ti/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+One of the earlier patch "net: netcp: select davinci_mdio driver
+by default" is folded onto this series.
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index f6a7109..631e0af 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -88,6 +88,7 @@ config TI_CPTS
- config TI_KEYSTONE_NETCP
- 	tristate "TI Keystone NETCP Core Support"
- 	select TI_CPSW_ALE
-+	select TI_DAVINCI_MDIO
- 	depends on OF
- 	depends on KEYSTONE_NAVIGATOR_DMA && KEYSTONE_NAVIGATOR_QMSS
- 	---help---
+Please review and let me know your comments.
+
+Thanks 
+
+CC: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+CC: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+CC: "Lad, Prabhakar" <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+CC: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+CC: Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+CC: Lokesh Vutla <lokeshvutla-l0cyMroinI0@public.gmane.org>
+CC: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+CC: Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+CC: Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>
+CC: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+CC: Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>
+CC: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+
+Murali Karicheri (4):
+  net: netcp: fix forward port number usage for 10G ethss
+  net: netcp: use separate reg region for individual ethss modules
+  net: netcp: select davinci_mdio driver by default
+  net: netcp: enclose macros in parentheses
+
+WingMan Kwok (1):
+  net: netcp: ethss: enhancement to support NetCP 1.5 ethss
+
+ .../devicetree/bindings/net/keystone-netcp.txt     |   34 +-
+ drivers/net/ethernet/ti/Kconfig                    |    1 +
+ drivers/net/ethernet/ti/netcp.h                    |    5 +-
+ drivers/net/ethernet/ti/netcp_core.c               |   23 +-
+ drivers/net/ethernet/ti/netcp_ethss.c              | 1581 ++++++++++++++++----
+ 5 files changed, 1303 insertions(+), 341 deletions(-)
+
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
