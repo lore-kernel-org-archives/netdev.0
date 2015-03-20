@@ -1,84 +1,53 @@
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/3] net: introduce IFF_PROTO_DOWN flag.
-Date: Fri, 20 Mar 2015 09:45:51 -0700
-Message-ID: <CACcJQnRBE4sU6HNvALNdNvr8H-QSo6f41qBXPyTg1qKnmehDPw@mail.gmail.com>
-References: <1426864318-25132-1-git-send-email-anuradhak@cumulusnetworks.com>
-	<CAADnVQKyOA7QADk9KOz_-ZFO+WJs2bbRsXZyXXr0sWag4jpOBw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:35783 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbbCTQpw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 12:45:52 -0400
-Received: by yhim52 with SMTP id m52so14029688yhi.2
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 09:45:51 -0700 (PDT)
-In-Reply-To: <CAADnVQKyOA7QADk9KOz_-ZFO+WJs2bbRsXZyXXr0sWag4jpOBw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: [PATCH] net: compat: Update get_compat_msghdr() to match copy_msghdr_from_user() behaviour
+Date: Fri, 20 Mar 2015 16:48:13 +0000
+Message-ID: <1426870093-7616-1-git-send-email-catalin.marinas@arm.com>
+Cc: linux-kernel@vger.kernel.org, Will Deacon <will.deacon@arm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 20, 2015 at 9:13 AM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Fri, Mar 20, 2015 at 8:11 AM,  <anuradhak@cumulusnetworks.com> wro=
-te:
->> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
->>
->> Applications can detect errors in the network that would require
->> disabling the device independent of the admin state. In the presence=
- of
->> these errors traffic could be black holed or looped resulting in a
->> network meltdown. Clearing the IFF_UP flag for error disabling the
->> device can be problematic because -
->>
->> 1. The administrator cannot distinguish between a user space daemon=E2=
-=80=99s
->> error-disable and a regular device disable.
->> 2. Applications can monitor the error state and enable the device on=
-ce
->> the error is removed. If IFF_UP is used for this purpose the applica=
-tion
->> may end up enabling a device that the administrator has intentionall=
-y
->> disabled for other reasons. This could result in network changes not
->> expected by the admin.
->>
->
-> Both reasons look like workaround for user space issues.
-> Just keep this fake-down state in userspace.
-> What's the point pushing it to kernel?
+Commit db31c55a6fb2 (net: clamp ->msg_namelen instead of returning an
+error) introduced the clamping of msg_namelen when the unsigned value
+was larger than sizeof(struct sockaddr_storage). This caused a
+msg_namelen of -1 to be valid. The native code was subsequently fixed by
+commit dbb490b96584 (net: socket: error on a negative msg_namelen).
 
-Applications can deal with IFF_UP being cleared and they can certainly
-clear IFF_UP as well on detecting errors. However an application
-cannot know the reason for the !IFF_UP notification. So if an
-application detected a device error being cleared it would have to
-unconditionally enable the device as a part of recovery handling
-thereby ignoring the administrator=E2=80=99s request to keep the device
-disabled. Separating error-disable (IFF_PROTO_DOWN) from admin-disable
-(!IFF_UP) lets the administrator have a say in keeping a device
-disabled.
+In addition, the native code sets msg_namelen to 0 when msg_name is
+NULL. This was done in commit (6a2a2b3ae075 net:socket: set msg_namelen
+to 0 if msg_name is passed as NULL in msghdr struct from userland) and
+subsequently updated by 08adb7dabd48 (fold verify_iovec() into
+copy_msghdr_from_user()).
 
-> looking at 3rd patch:
-> + * @IF_LINK_PROTO_DOWN_MLAG: proto_down by a multi-chassis LAG appli=
-cation.
-> + * @IF_LINK_PROTO_DOWN_STP: proto_down by an STP application.
->
-> so there will be new flag for every application that cannot deal with
-> normal down?
+This patch brings the get_compat_msghdr() in line with
+copy_msghdr_from_user().
 
-These applications can clear the error state independent of each
-other. Say for e.g.  both STP-BPDU guard and MLAG error-disabled a
-device. When the MLAG split-brain error is resolved the MLAG
-application could clear IFF_PROTO_DOWN but the BPDU guard error would
-still exist. This will create problem windows that could aggressively
-affect the network.
+Fixes: db31c55a6fb2 (net: clamp ->msg_namelen instead of returning an error)
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+ net/compat.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-New bits only need to be added if there are new errors that need to be
-cleared independent of other applications that can error-disable a
-device.
+diff --git a/net/compat.c b/net/compat.c
+index 94d3d5e97883..f7bd286a8280 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -49,6 +49,13 @@ ssize_t get_compat_msghdr(struct msghdr *kmsg,
+ 	    __get_user(kmsg->msg_controllen, &umsg->msg_controllen) ||
+ 	    __get_user(kmsg->msg_flags, &umsg->msg_flags))
+ 		return -EFAULT;
++
++	if (!uaddr)
++		kmsg->msg_namelen = 0;
++
++	if (kmsg->msg_namelen < 0)
++		return -EINVAL;
++
+ 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+ 		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
+ 	kmsg->msg_control = compat_ptr(tmp3);
