@@ -1,72 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v1 PATCH 7/14] netfilter: Use rhashtable_lookup instead of
- lookup_compare
-Date: Fri, 20 Mar 2015 10:27:01 +0000
-Message-ID: <20150320102701.GA28736@acer.localdomain>
-References: <20150315104306.GA21999@gondor.apana.org.au>
- <E1YX624-0005ns-CB@gondolin.me.apana.org.au>
- <20150316082842.GA10896@casper.infradead.org>
- <20150316091415.GA31089@gondor.apana.org.au>
- <20150316111345.GA22070@acer.localdomain>
- <20150320085509.GA16748@gondor.apana.org.au>
- <20150320092216.GE21258@acer.localdomain>
- <20150320092703.GA17081@gondor.apana.org.au>
- <20150320095908.GG21258@acer.localdomain>
- <20150320101603.GA17662@gondor.apana.org.au>
+From: Michal Sekletar <msekleta@redhat.com>
+Subject: Re: [PATCH net-next v2] filter: introduce SKF_AD_VLAN_TPID BPF
+ extension
+Date: Fri, 20 Mar 2015 11:27:18 +0100
+Message-ID: <20150320102718.GB30812@morgoth.brq.redhat.com>
+References: <1426763414-10091-1-git-send-email-msekleta@redhat.com>
+ <550AF483.8040202@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35373 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751458AbbCTK1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:27:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:53435 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751426AbbCTK1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 06:27:50 -0400
 Content-Disposition: inline
-In-Reply-To: <20150320101603.GA17662@gondor.apana.org.au>
+In-Reply-To: <550AF483.8040202@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.03, Herbert Xu wrote:
-> On Fri, Mar 20, 2015 at 09:59:09AM +0000, Patrick McHardy wrote:
+On Thu, Mar 19, 2015 at 09:08:35AM -0700, Alexei Starovoitov wrote:
+> On 3/19/15 4:10 AM, Michal Sekletar wrote:
+> >If vlan offloading takes place then vlan header is removed from frame
+> >and its contents, both vlan_tci and vlan_proto, is available to userspace via
+> >TPACKET interface. However, only vlan_tci can be used in BPF filters.
 > >
-> > Regarding the chain length as trigger - I'm sorry, but this doesn't work
-> > for us. I don't see why you would have to look at chain length. That
-> > implies that you don't trust your hash function - why not fix that
-> > instead?
+> >This commit introduces new BPF extension. It makes possible to load value of
+> >vlan_proto (vlan TPID) to register A.
 > 
-> Any hash function can be attacked.  That's why we need to be able
-> to rehash it.  And the best way to decide when to rehash is based
-> on chain length (otherwise you'd waste time rehashing periodically
-> like we used to do).  With name spaces these days anyone could be
-> an adversary.
-
-We already had this discussion. I strongly do not believe this is
-the right way to fix namespace problems. There are millions of ways
-of creating CPU intensive workloads. You need to be able to put
-bounds on the entire namespace. Fixing individual spots will not
-solve that problem.
-
-> Besides, putting multiple objects with the same key into a hash
-> table defeats the whole point of hashing.
-
-They exist only for (very) short periods of time. Its simply not a
-problem in our case. We could even put hard bounds on them, meaning
-an element will at most exist twice during that period.
-
-> > > Of course many hash table users need to be able to keep multiple
-> > > objects under the same key.  My suggestion would be to allocate
-> > > your own linked list and have the linked list be the object that
-> > > is inserted into the hash table.
-> > 
-> > That would require a huge amount of extra memory per element and having
-> > millions of them is not unrealistic for our use case.
+> Agree with the idea, though we need to decide whether to do ntohs on
+> vlan_proto or not. Since right now your patch makes it consistent
+> on different architectures.
 > 
-> You should be able to do it with just 8 extra bytes per unique
-> hash table key.
+> For arch where extended BPF jit is available the following:
+> > +	case SKF_AD_OFF + SKF_AD_VLAN_TPID:
+> ...
+> > +		/* A = ntohs(A) [emitting a nop or swap16] */
+> > +		*insn = BPF_ENDIAN(BPF_FROM_BE, BPF_REG_A, 16);
+> 
+> will make sure that it's doing ntohs,
+> whereas arm JIT is doing normal 16-bit load.
+> ppc can be both big and little, so PPC_LHZ_OFFS is incorrect.
+> 
+> Since it's a new field, I think it makes sense not to do ntohs at all.
+> Let bpf programs do htons(PROTO_CONSTANT), since it can be done at
+> compile time instead of run-time.
 
-That's something 25% more memory usage for us in common cases. We try
-very hard to keep the active memory size small. I don't want to waste
-that amount of memory just for the very short periods while transactions
-are unconfirmed.
+Doing htons is not needed for vlan_tci thus I wanted to avoid surprise for
+users. But of course I'll do whatever you think is the best.
+
+Also in v3 I will leave out all the jit bits. Once non-jit bits are merged then
+I will be sending separate patches for the rest.
+
+Hope that makes sense,
+
+Michal
+
+> 
