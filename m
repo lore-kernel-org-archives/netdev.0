@@ -1,79 +1,108 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
- packets
-Date: Fri, 20 Mar 2015 14:03:03 -0700
-Message-ID: <550C8B07.4010308@cumulusnetworks.com>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <550C54BC.4040509@intel.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v8 tip 3/9] tracing: attach BPF programs to kprobes
+Date: Fri, 20 Mar 2015 17:09:07 -0400
+Message-ID: <20150320170907.388d8c33@gandalf.local.home>
+References: <1426816787-5001-1-git-send-email-ast@plumgrid.com>
+	<1426816787-5001-4-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us,
-	ronen.arad@intel.com, netdev@vger.kernel.org,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33039 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCTVDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:03:06 -0400
-Received: by pabxg6 with SMTP id xg6so107134998pab.0
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:03:05 -0700 (PDT)
-In-Reply-To: <550C54BC.4040509@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426816787-5001-4-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/20/15, 10:11 AM, John Fastabend wrote:
-> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
->> there is a need to not re-forward frames that have already been
->> forwarded in hardware.
->>
->> Typically these are broadcast or multicast frames forwarded by the
->> hardware to multiple destination ports including sending a copy of
->> the packet to the cpu (kernel e.g. an arp broadcast).
->> The bridge driver will try to forward the packet again, resulting in
->> two copies of the same packet.
->>
->> These packets can also come up to the kernel for logging when they hit
->> a LOG acl rule in hardware. In such cases, you do want the packet
->> to go through the bridge netfilter hooks. Hence, this patch adds the
->> required checks just before the packet is being xmited.
->>
->> v2:
->> 	- Add a new hw_fwded flag in skbuff to indicate that the packet
->> 	is already hardware forwarded. Switch driver will set this flag.
->> 	I have been trying to avoid having this flag in the skb
->> 	and thats why this patch has been in my tree for long. Cant think
->> 	of other better alternatives. Suggestions are welcome. I have put
->> 	this under CONFIG_NET_SWITCHDEV to minimize the impact.
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->> ---
-> Interesting. I completely avoid this problem by not instantiating a
-> software bridge ;)
->   When these pkts come up the stack I either use a
-> raw socket to capture them, put a 'tc' ingress rule to do something,
-> or have OVS handle them in some special way.
-> It seems to me that this
-> is where the sw/hw model starts to break when you have these magic
-> bits to handle the packets differently.
+On Thu, 19 Mar 2015 18:59:41 -0700
+Alexei Starovoitov <ast@plumgrid.com> wrote:
 
-  In-kernel bridge driver is proven very useful for us to run stp,
-or recently igmp reports (dont know the details here) etc in software.
-I wonder how you handle these. If you don't use the in-kernel bridge
-driver, I suspect you down the lane you will end-up having to duplicate a
-lot of things that bridge driver already does in your switch driver.
->
-> How do you know to set the skb bit? Do you have some indicator in the
-> descriptor? I don't have any good way to learn this on my hardware. But
-> I can assume if it reached the CPU it was because of some explicit rule.
+Some nits...
 
-Right now we tag all packets except for some igmp frames so that they 
-get handled by software (in kernel bridge driver).
-(But the igmp frames check is a bit of a hack right now). We don't use 
-it today, but, the sdk
-can give us some details about the reason the packet was sent to CPU (It 
-possibly gets it from the descriptor).
+
+
+> --- /dev/null
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -0,0 +1,123 @@
+> +/* Copyright (c) 2011-2015 PLUMgrid, http://plumgrid.com
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of version 2 of the GNU General Public
+> + * License as published by the Free Software Foundation.
+> + */
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/slab.h>
+> +#include <linux/bpf.h>
+> +#include <linux/filter.h>
+> +#include <linux/uaccess.h>
+> +#include "trace.h"
+> +
+> +static DEFINE_PER_CPU(int, bpf_prog_active);
+> +
+> +/**
+> + * trace_call_bpf - invoke BPF program
+> + * @prog - BPF program
+> + * @ctx - opaque context pointer
+> + *
+> + * kprobe handlers execute BPF programs via this helper.
+> + * Can be used from static tracepoints in the future.
+
+Should also state what the expected return values are. What does a
+return of "1" mean?
+
+> + */
+> +unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
+> +{
+> +	unsigned int ret;
+> +
+> +	if (in_nmi()) /* not supported yet */
+> +		return 1;
+> +
+> +	preempt_disable();
+> +
+> +	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1)) {
+> +		/* since some bpf program is already running on this cpu,
+
+You are no longer in the net/ world. The rest of the Linux coding style
+is:
+
+	/*
+	 * multi line comments
+	 */
+
+Only DaveM gets away with that format ;-)
+
+> +		 * don't call into another bpf program (same or different)
+> +		 * and don't send kprobe event into ring-buffer,
+> +		 * so return zero here
+> +		 */
+> +		ret = 0;
+> +		goto out;
+> +	}
+> +
+> +	rcu_read_lock();
+> +	ret = BPF_PROG_RUN(prog, ctx);
+> +	rcu_read_unlock();
+> +
+> + out:
+> +	__this_cpu_dec(bpf_prog_active);
+> +	preempt_enable();
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(trace_call_bpf);
+
+The rest looks fine. For that..
+
+Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
+
+-- Steve
