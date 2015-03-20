@@ -1,53 +1,168 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v1 net-next] tuntap: convert to 64-bit interface
- statistics
-Date: Thu, 19 Mar 2015 18:04:17 -0700
-Message-ID: <1426813457.25985.24.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426794689-29943-1-git-send-email-jtoppins@cumulusnetworks.com>
-	 <1426801109.25985.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <550B4619.6020203@cumulusnetworks.com>
-	 <1426805764.25985.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <550B6124.7070001@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Curt Brune <curt@cumulusnetworks.com>
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:33118 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731AbbCTBER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 21:04:17 -0400
-Received: by ignm3 with SMTP id m3so21076294ign.0
-        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 18:04:16 -0700 (PDT)
-In-Reply-To: <550B6124.7070001@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v8 tip 0/9] tracing: attach eBPF programs to kprobes
+Date: Thu, 19 Mar 2015 18:59:38 -0700
+Message-ID: <1426816787-5001-1-git-send-email-ast@plumgrid.com>
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-03-19 at 19:52 -0400, Jonathan Toppins wrote:
-> On 3/19/15 6:56 PM, Eric Dumazet wrote:
-> > On Thu, 2015-03-19 at 17:56 -0400, Jonathan Toppins wrote:
-> >
-> >
-> >> Or are you suggesting per-cpu counters would be preferred which would
-> >> possibly eliminate the need for this lock?
-> >
-> > Might be overkill for a device that is probably used by one cpu,
-> > considering you defined a full  struct rtnl_link_stats64, instead of the
-> > fields that are really handled.
-> >
-> 
-> Ok. So summarizing for v2, so far; eliminating the back-to-back lock -> 
-> release -> lock -> release is preferred (I agree with this).
-> 
-> It still seems like you are not a huge fan of the additional lock, 
-> should I hold off on sending v2 for a day, so we can ponder alternatives?
+Hi Steven,
 
-It seems you need a lock only in RX, for 2 vars only.
-(rx_packets & rx_bytes)
+while I have your attention please take another look :)
 
-error counters are generally OK with unsigned long, nobody will complain
-of possible concurrent non atomic updates.
+V7->V8:
+- split addition of kprobe flag into separate patch
+- switched to __this_cpu_inc in now documented trace_call_bpf()
+- converted array into standalone bpf_func_proto and switch statement
+  (this apporach looks cleanest, especially considering patch 5)
+- refactored patch 5 bpf_trace_printk to do strict checking
 
-So maybe percpu var for these 16 bytes would be OK.
+V6->V7:
+- rebase and remove confusing _notrace suffix from preempt_disable/enable
+  everything else unchanged
+
+V5->V6:
+- added simple recursion check to trace_call_bpf()
+- added tracex4 example that does kmem_cache_alloc/free tracking.
+  It remembers every allocated object in a map and user space periodically
+  prints a set of old objects. With more work in can be made into
+  simple kmemleak detector.
+  It was used as a test of recursive kmalloc/kfree: attached to
+  kprobe/__kmalloc and let program to call kmalloc again.
+
+V4->V5:
+- switched to ktime_get_mono_fast_ns() as suggested by Peter
+- in libbpf.c fixed zero init of 'union bpf_attr' padding
+- fresh rebase on tip/master
+
+This is targeting 'tip' tree, since most of the changes are perf_event related.
+There will be a small conflict between net-next and tip, since they both
+add new bpf_prog_type (BPF_PROG_TYPE_SCHED_CLS and BPF_PROG_TYPE_KPROBE).
+
+V3 discussion:
+https://lkml.org/lkml/2015/2/9/738
+
+V3->V4:
+- since the boundary of stable ABI in bpf+tracepoints is not clear yet,
+  I've dropped them for now.
+- bpf+syscalls are ok from stable ABI point of view, but bpf+seccomp
+  would want to do very similar analysis of syscalls, so I've dropped
+  them as well to take time and define common bpf+syscalls and bpf+seccomp
+  infra in the future.
+- so only bpf+kprobes left. kprobes by definition is not a stable ABI,
+  so bpf+kprobe is not stable ABI either. To stress on that point added
+  kernel version attribute that user space must pass along with the program
+  and kernel will reject programs when version code doesn't match.
+  So bpf+kprobe is very similar to kernel modules, but unlike modules
+  version check is not used for safety, but for enforcing 'non-ABI-ness'.
+  (version check doesn't apply to bpf+sockets which are stable)
+
+Patch 1 is in net-next and needs to be in tip too, since patch 2 depends on it.
+
+Patch 2 actually adds bpf+kprobe infra:
+programs receive 'struct pt_regs' on input and can walk data structures
+using bpf_probe_read() helper which is a wrapper of probe_kernel_read()
+
+Programs are attached to kprobe events via API:
+
+prog_fd = bpf_prog_load(...);
+struct perf_event_attr attr = {
+  .type = PERF_TYPE_TRACEPOINT,
+  .config = event_id, /* ID of just created kprobe event */
+};
+event_fd = perf_event_open(&attr,...);
+ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
+
+Patch 3 adds bpf_ktime_get_ns() helper function, so that bpf programs can
+measure time delta between events to compute disk io latency, etc.
+
+Patch 4 adds bpf_trace_printk() helper that is used to debug programs.
+When bpf verifier sees that program is calling bpf_trace_printk() it inits
+trace_printk buffers which emits nasty 'this is debug only' banner.
+That's exactly what we want. bpf_trace_printk() is for debugging only.
+
+Patch 5 sample code that shows how to use bpf_probe_read/bpf_trace_printk
+
+Patch 6 sample code - combination of kfree_skb and sys_write tracing.
+
+Patch 7 sample code that computes disk io latency and prints it as 'heatmap'
+
+Interesting bit is that patch 6 has log2() function implemented in C
+and patch 7 has another log2() function using different algorithm in C.
+In the future if 'log2' usage becomes common, we can add it as in-kernel
+helper function, but for now bpf programs can implement them on bpf side.
+
+Another interesting bit from patch 7 is that it does approximation of
+floating point log10(X)*10 using integer arithmetic, which demonstrates
+the power of C->BPF vs traditional tracing language alternatives,
+where one would need to introduce new helper functions to add functionality,
+whereas bpf can just implement such things in C as part of the program.
+
+Next step is to prototype TCP stack instrumentation (like web10g) using
+bpf+kprobe, but without adding any new code tcp stack.
+Though kprobes are slow comparing to tracepoints, they are good enough
+for prototyping and trace_marker/debug_tracepoint ideas can accelerate
+them in the future.
+
+Alexei Starovoitov (8):
+  tracing: add kprobe flag
+  tracing: attach BPF programs to kprobes
+  tracing: allow BPF programs to call bpf_ktime_get_ns()
+  tracing: allow BPF programs to call bpf_trace_printk()
+  samples: bpf: simple non-portable kprobe filter example
+  samples: bpf: counting example for kfree_skb and write syscall
+  samples: bpf: IO latency analysis (iosnoop/heatmap)
+  samples: bpf: kmem_alloc/free tracker
+
+Daniel Borkmann (1):
+  bpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
+
+ include/linux/bpf.h             |   20 +++-
+ include/linux/ftrace_event.h    |   14 +++
+ include/uapi/linux/bpf.h        |    5 +
+ include/uapi/linux/perf_event.h |    1 +
+ kernel/bpf/syscall.c            |    7 +-
+ kernel/events/core.c            |   59 +++++++++++
+ kernel/trace/Makefile           |    1 +
+ kernel/trace/bpf_trace.c        |  212 +++++++++++++++++++++++++++++++++++++++
+ kernel/trace/trace_kprobe.c     |   10 +-
+ samples/bpf/Makefile            |   16 +++
+ samples/bpf/bpf_helpers.h       |    6 ++
+ samples/bpf/bpf_load.c          |  125 +++++++++++++++++++++--
+ samples/bpf/bpf_load.h          |    3 +
+ samples/bpf/libbpf.c            |   14 ++-
+ samples/bpf/libbpf.h            |    5 +-
+ samples/bpf/sock_example.c      |    2 +-
+ samples/bpf/test_verifier.c     |    2 +-
+ samples/bpf/tracex1_kern.c      |   50 +++++++++
+ samples/bpf/tracex1_user.c      |   25 +++++
+ samples/bpf/tracex2_kern.c      |   86 ++++++++++++++++
+ samples/bpf/tracex2_user.c      |   95 ++++++++++++++++++
+ samples/bpf/tracex3_kern.c      |   89 ++++++++++++++++
+ samples/bpf/tracex3_user.c      |  150 +++++++++++++++++++++++++++
+ samples/bpf/tracex4_kern.c      |   54 ++++++++++
+ samples/bpf/tracex4_user.c      |   69 +++++++++++++
+ 25 files changed, 1102 insertions(+), 18 deletions(-)
+ create mode 100644 kernel/trace/bpf_trace.c
+ create mode 100644 samples/bpf/tracex1_kern.c
+ create mode 100644 samples/bpf/tracex1_user.c
+ create mode 100644 samples/bpf/tracex2_kern.c
+ create mode 100644 samples/bpf/tracex2_user.c
+ create mode 100644 samples/bpf/tracex3_kern.c
+ create mode 100644 samples/bpf/tracex3_user.c
+ create mode 100644 samples/bpf/tracex4_kern.c
+ create mode 100644 samples/bpf/tracex4_user.c
+
+-- 
+1.7.9.5
