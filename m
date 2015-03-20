@@ -1,61 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 0/2] act_bpf update
-Date: Fri, 20 Mar 2015 22:10:36 +0100
-Message-ID: <550C8CCC.7060901@iogearbox.net>
-References: <cover.1426859241.git.daniel@iogearbox.net> <20150320.162252.977628965847070194.davem@davemloft.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 1/2] ebpf: add sched_act_type and map it to sk_filter's
+ verifier ops
+Date: Fri, 20 Mar 2015 14:11:58 -0700
+Message-ID: <550C8D1E.6070502@plumgrid.com>
+References: <cover.1426859241.git.daniel@iogearbox.net> <3f1f15c00b7dd9899035696eef924b23a008afc2.1426859241.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, ast@plumgrid.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: jiri@resnulli.us, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36928 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbbCTVKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:10:39 -0400
-In-Reply-To: <20150320.162252.977628965847070194.davem@davemloft.net>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35900 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157AbbCTVMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:12:07 -0400
+Received: by padcy3 with SMTP id cy3so120099244pad.3
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:12:07 -0700 (PDT)
+In-Reply-To: <3f1f15c00b7dd9899035696eef924b23a008afc2.1426859241.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-On 03/20/2015 09:22 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Fri, 20 Mar 2015 15:11:10 +0100
+On 3/20/15 7:11 AM, Daniel Borkmann wrote:
+> In order to prepare eBPF support for tc action, we need to add
+> sched_act_type, so that the eBPF verifier is aware of what helper
+> function act_bpf may use, that it can load skb data and read out
+> currently available skb fields.
 >
->> This set adds native eBPF support also to act_bpf and thus covers tc
->> with eBPF in the classifier *and* action part.
->>
->> A link to iproute2 preview has been provided in patch 2 and the code
->> will be pushed out after Stephen has processed the classifier part
->> and helper bits for tc.
->>
->> This set depends on ced585c83b27 ("act_bpf: allow non-default TC_ACT
->> opcodes as BPF exec outcome"), so a net into net-next merge would be
->> required first. Hope that's fine by you, Dave. ;)
->>
->> Thanks a lot!
+> This is bascially analogous to 96be4325f443 ("ebpf: add sched_cls_type
+> and map it to sk_filter's verifier ops").
 >
-> Even with that commit, which is in net-next now, this series does
-> not apply without rejects.
+> BPF_PROG_TYPE_SCHED_CLS and BPF_PROG_TYPE_SCHED_ACT need to be
+> separate since both will have a different set of functionality in
+> future (classifier vs action), thus we won't run into ABI troubles
+> when the point in time comes to diverge functionality from the
+> classifier.
 >
-> Please respin.
+> The future plan for act_bpf would be that it will be able to write
+> into skb->data and alter selected fields mirrored in struct __sk_buff.
+>
+> For an initial support, it's sufficient to map it to sk_filter_ops.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Jiri Pirko <jiri@resnulli.us>
 
-So my HEAD is at latest net-next commit b4c11cb437fdb34b ("Merge branch
-'amd-xgbe-next'"):
-
-   $ git cherry-pick ced585c83b27deca427c606a34dd3eaa6b96d82b
-   [ebpf-act 1b8dfa9] act_bpf: allow non-default TC_ACT opcodes as BPF exec outcome
-    1 file changed, 28 insertions(+), 8 deletions(-)
-   $ git am 0001-ebpf-add-sched_act_type-and-map-it-to-sk_filter-s-ve.patch
-   Applying: ebpf: add sched_act_type and map it to sk_filter's verifier ops
-   $ git am 0002-act_bpf-add-initial-eBPF-support-for-actions.patch
-   Applying: act_bpf: add initial eBPF support for actions
-   $
-
-The dependency mentioned in the cover letter is on net commit ced585c83b27
-("act_bpf: allow non-default TC_ACT opcodes as BPF exec outcome"). On my
-side that applies fine, hm.
-
-Thanks,
-Daniel
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
