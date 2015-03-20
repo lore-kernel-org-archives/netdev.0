@@ -1,54 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v1 PATCH 2/7] rhashtable: Allow hash/comparison functions to be
- inlined
-Date: Fri, 20 Mar 2015 12:06:32 +0000
-Message-ID: <20150320120632.GJ28736@acer.localdomain>
-References: <20150320105421.GA18148@gondor.apana.org.au>
- <E1YYubs-0004l5-Dt@gondolin.me.apana.org.au>
- <20150320112041.GF28736@acer.localdomain>
- <20150320120228.GA18736@gondor.apana.org.au>
+From: Jonas Johansson <jonasj76@gmail.com>
+Subject: Using a waiting MDIO does not go well with a spinlocked bridge
+Date: Fri, 20 Mar 2015 13:22:46 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: stephen@networkplumber.org, f.fainelli@gmail.com, jiri@resnulli.us,
+	sfeldma@gmail.com, jonasj76@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36087 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbbCTMGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 08:06:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20150320120228.GA18736@gondor.apana.org.au>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:34856 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219AbbCTM1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 08:27:23 -0400
+Received: by labjg1 with SMTP id jg1so85708176lab.2
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 05:27:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.03, Herbert Xu wrote:
-> On Fri, Mar 20, 2015 at 11:20:42AM +0000, Patrick McHardy wrote:
-> >
-> > I haven't checked in detail yet whether this still satisfies what
-> > we need in nftables, just a minor comment below:
-> 
-> AFAIK I have done nothing to break multiple keys as yet and
-> the comparison function is still there, just embedded into the
-> params structure.
+The bridge code will sometimes hold a spinlock and the code following 
+must therefore be atomic. If using a MDIO call which uses a wait/sleep in 
+this contex, the kernel will not be very happy.
 
-Yep, seems fine on a quick skim, but it will take until tonight before
-I can have a closer look.
+I'm using a switch device and wants to flush its FDB when the linux bridge 
+FDB is flushed. I've implemented some hooks for this task.
+In short:
+      bridge    - br_fdb_flush() & br_fdb_delete_by_port
+   -> switchdev - switch_flush()
+   -> dsa       - slave_flush()
+   -> mv88e6xxx - mv88_flush()
 
-> > > +struct rhashtable_compare_arg {
-> > > +	struct rhashtable *ht;
-> > > +	const void *key;
-> > > +};
-> > 
-> > I found it a bit odd in the old interface that elementary data
-> > such as the key for comparision is encapsulated into a structure
-> > instead of passed as a function argument. Is there a reason
-> > for not passing both as arguments so we can at least avoid the
-> > encapsulation for the common case?
-> 
-> I don't have any objections against changing it but it could
-> be done outside of this particular patch-set.
+So, when a bridge port is flushed via e.g. sysfs, the mv88_flush() 
+function will at the end be called. The mv88_flush() will use MDIO calls 
+to set the proper registers and flush the device. But, due to that 
+the MDIO on my platform uses wait_for_completion() and a spinlock is held 
+(in this case in brport_store()) the process will not go very well.
 
-Absolutely. Just thought I mention it since you already touched all
-relevant parts.
+The only possible solutions that came into my mind is:
+  1) Let mv88_flush() schedule a work queue to take care of the flush
+     later on.
+  2) Change the MDIO implementation to use polling.
+  3) Dont use spinlock in bridge code.
+
+1) Using this approach the the atomic part is missed, i.e. the switch 
+device isn't guaranteed to be flushed after the command has been issued. 
+And, if a FDB entry is added (atomic) to the switch device immediately 
+after the flush command, there will not be defined if the entry will be 
+added before or after the flush occurs. To solve this, all (FDB) 
+operations must be added to a work queue to assure that they are executed 
+in the right order.
+
+2) This will result in unsued CPU cycles.
+
+3) Havent looked into this, but probably a lot of work.
+
+Any ideas?
