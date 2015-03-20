@@ -1,108 +1,61 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v8 tip 3/9] tracing: attach BPF programs to kprobes
-Date: Fri, 20 Mar 2015 17:09:07 -0400
-Message-ID: <20150320170907.388d8c33@gandalf.local.home>
-References: <1426816787-5001-1-git-send-email-ast@plumgrid.com>
-	<1426816787-5001-4-git-send-email-ast@plumgrid.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 0/2] act_bpf update
+Date: Fri, 20 Mar 2015 22:10:36 +0100
+Message-ID: <550C8CCC.7060901@iogearbox.net>
+References: <cover.1426859241.git.daniel@iogearbox.net> <20150320.162252.977628965847070194.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426816787-5001-4-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jiri@resnulli.us, ast@plumgrid.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:36928 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751286AbbCTVKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:10:39 -0400
+In-Reply-To: <20150320.162252.977628965847070194.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Mar 2015 18:59:41 -0700
-Alexei Starovoitov <ast@plumgrid.com> wrote:
+Hi Dave,
 
-Some nits...
+On 03/20/2015 09:22 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Fri, 20 Mar 2015 15:11:10 +0100
+>
+>> This set adds native eBPF support also to act_bpf and thus covers tc
+>> with eBPF in the classifier *and* action part.
+>>
+>> A link to iproute2 preview has been provided in patch 2 and the code
+>> will be pushed out after Stephen has processed the classifier part
+>> and helper bits for tc.
+>>
+>> This set depends on ced585c83b27 ("act_bpf: allow non-default TC_ACT
+>> opcodes as BPF exec outcome"), so a net into net-next merge would be
+>> required first. Hope that's fine by you, Dave. ;)
+>>
+>> Thanks a lot!
+>
+> Even with that commit, which is in net-next now, this series does
+> not apply without rejects.
+>
+> Please respin.
 
+So my HEAD is at latest net-next commit b4c11cb437fdb34b ("Merge branch
+'amd-xgbe-next'"):
 
+   $ git cherry-pick ced585c83b27deca427c606a34dd3eaa6b96d82b
+   [ebpf-act 1b8dfa9] act_bpf: allow non-default TC_ACT opcodes as BPF exec outcome
+    1 file changed, 28 insertions(+), 8 deletions(-)
+   $ git am 0001-ebpf-add-sched_act_type-and-map-it-to-sk_filter-s-ve.patch
+   Applying: ebpf: add sched_act_type and map it to sk_filter's verifier ops
+   $ git am 0002-act_bpf-add-initial-eBPF-support-for-actions.patch
+   Applying: act_bpf: add initial eBPF support for actions
+   $
 
-> --- /dev/null
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -0,0 +1,123 @@
-> +/* Copyright (c) 2011-2015 PLUMgrid, http://plumgrid.com
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of version 2 of the GNU General Public
-> + * License as published by the Free Software Foundation.
-> + */
-> +#include <linux/kernel.h>
-> +#include <linux/types.h>
-> +#include <linux/slab.h>
-> +#include <linux/bpf.h>
-> +#include <linux/filter.h>
-> +#include <linux/uaccess.h>
-> +#include "trace.h"
-> +
-> +static DEFINE_PER_CPU(int, bpf_prog_active);
-> +
-> +/**
-> + * trace_call_bpf - invoke BPF program
-> + * @prog - BPF program
-> + * @ctx - opaque context pointer
-> + *
-> + * kprobe handlers execute BPF programs via this helper.
-> + * Can be used from static tracepoints in the future.
+The dependency mentioned in the cover letter is on net commit ced585c83b27
+("act_bpf: allow non-default TC_ACT opcodes as BPF exec outcome"). On my
+side that applies fine, hm.
 
-Should also state what the expected return values are. What does a
-return of "1" mean?
-
-> + */
-> +unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
-> +{
-> +	unsigned int ret;
-> +
-> +	if (in_nmi()) /* not supported yet */
-> +		return 1;
-> +
-> +	preempt_disable();
-> +
-> +	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1)) {
-> +		/* since some bpf program is already running on this cpu,
-
-You are no longer in the net/ world. The rest of the Linux coding style
-is:
-
-	/*
-	 * multi line comments
-	 */
-
-Only DaveM gets away with that format ;-)
-
-> +		 * don't call into another bpf program (same or different)
-> +		 * and don't send kprobe event into ring-buffer,
-> +		 * so return zero here
-> +		 */
-> +		ret = 0;
-> +		goto out;
-> +	}
-> +
-> +	rcu_read_lock();
-> +	ret = BPF_PROG_RUN(prog, ctx);
-> +	rcu_read_unlock();
-> +
-> + out:
-> +	__this_cpu_dec(bpf_prog_active);
-> +	preempt_enable();
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(trace_call_bpf);
-
-The rest looks fine. For that..
-
-Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
-
--- Steve
+Thanks,
+Daniel
