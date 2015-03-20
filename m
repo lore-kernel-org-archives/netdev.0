@@ -1,64 +1,56 @@
-From: Michal Sekletar <msekleta@redhat.com>
-Subject: Re: [PATCH net-next v2] filter: introduce SKF_AD_VLAN_TPID BPF
- extension
-Date: Fri, 20 Mar 2015 11:27:18 +0100
-Message-ID: <20150320102718.GB30812@morgoth.brq.redhat.com>
-References: <1426763414-10091-1-git-send-email-msekleta@redhat.com>
- <550AF483.8040202@plumgrid.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [v1 PATCH 0/7] rhashtable: Introduce inlined interface
+Date: Fri, 20 Mar 2015 21:54:21 +1100
+Message-ID: <20150320105421.GA18148@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexei Starovoitov <ast@plumgrid.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53435 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751426AbbCTK1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 06:27:50 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:53346 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782AbbCTKyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:54:31 -0400
 Content-Disposition: inline
-In-Reply-To: <550AF483.8040202@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 19, 2015 at 09:08:35AM -0700, Alexei Starovoitov wrote:
-> On 3/19/15 4:10 AM, Michal Sekletar wrote:
-> >If vlan offloading takes place then vlan header is removed from frame
-> >and its contents, both vlan_tci and vlan_proto, is available to userspace via
-> >TPACKET interface. However, only vlan_tci can be used in BPF filters.
-> >
-> >This commit introduces new BPF extension. It makes possible to load value of
-> >vlan_proto (vlan TPID) to register A.
-> 
-> Agree with the idea, though we need to decide whether to do ntohs on
-> vlan_proto or not. Since right now your patch makes it consistent
-> on different architectures.
-> 
-> For arch where extended BPF jit is available the following:
-> > +	case SKF_AD_OFF + SKF_AD_VLAN_TPID:
-> ...
-> > +		/* A = ntohs(A) [emitting a nop or swap16] */
-> > +		*insn = BPF_ENDIAN(BPF_FROM_BE, BPF_REG_A, 16);
-> 
-> will make sure that it's doing ntohs,
-> whereas arm JIT is doing normal 16-bit load.
-> ppc can be both big and little, so PPC_LHZ_OFFS is incorrect.
-> 
-> Since it's a new field, I think it makes sense not to do ntohs at all.
-> Let bpf programs do htons(PROTO_CONSTANT), since it can be done at
-> compile time instead of run-time.
+Hi:
 
-Doing htons is not needed for vlan_tci thus I wanted to avoid surprise for
-users. But of course I'll do whatever you think is the best.
+This series of patches introduces the inlined rhashtable interface.
 
-Also in v3 I will leave out all the jit bits. Once non-jit bits are merged then
-I will be sending separate patches for the rest.
+The idea is to make all the function pointers visible to the compiler
+by providing the rhashtable_params structure explicitly to each
+inline rhashtable function.  For example, instead of doing
 
-Hope that makes sense,
+	obj = rhashtable_lookup(ht, key);
 
-Michal
+you would now do
 
-> 
+	obj = rhashtable_lookup_fast(ht, key, params);
+
+Where params is the same data that you would give to rhashtable_init.
+In particular, within rhashtable.c itself we would simply supply
+ht->p.
+
+So to convert users over, you simply have to make params globally
+accessible, e.g., by placing it in a static const variable, which
+can then be used at each inlined call site, as well as by the
+rhashtable_init call.
+
+The only ticky bit is that some users (i.e., netfilter) has a
+dynamic key length.  This is dealt with by using params.key_len
+in the inline functions when it is non-zero, and otherwise falling
+back on ht->p.key_len.
+
+Note that I've only tested this on one compiler, gcc 4.7.2.  So
+please test this with your compilers as well and make sure that
+the code is actually inlined without indirect function calls.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
