@@ -1,42 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
- packets
-Date: Fri, 20 Mar 2015 16:43:21 -0700
-Message-ID: <550CB099.1030000@gmail.com>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <20150320.163655.474336751434677390.davem@davemloft.net> <550C92F3.50302@cumulusnetworks.com> <20150320220946.GB31769@lunn.ch>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] switchdev: add swdev ops
+Date: Fri, 20 Mar 2015 16:58:23 -0700
+Message-ID: <CAE4R7bA8xndMw4Pdpj1S-CEf3z4hF56Bu1eU8PrEccCZn+BMpQ@mail.gmail.com>
+References: <1426470321-48669-1-git-send-email-sfeldma@gmail.com>
+	<1426470321-48669-2-git-send-email-sfeldma@gmail.com>
+	<1426892453.32382.12.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sfeldma@gmail.com,
-	jiri@resnulli.us, ronen.arad@intel.com, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>, roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:33209 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbbCTXoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 19:44:03 -0400
-Received: by pdnc3 with SMTP id c3so122446240pdn.0
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 16:44:02 -0700 (PDT)
-In-Reply-To: <20150320220946.GB31769@lunn.ch>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:36157 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281AbbCTX6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 19:58:23 -0400
+Received: by qgez102 with SMTP id z102so17500976qge.3
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 16:58:23 -0700 (PDT)
+In-Reply-To: <1426892453.32382.12.camel@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/03/15 15:09, Andrew Lunn wrote:
->> since we have discussed this problem multiple times in switchdev meetings,
->> the intent of this RFC is to see get the code out and also see if
->> rocker or any other in-kernel
->> driver can use it.
-> 
-> The Marvell switches in DSA don't have any way to mark packets why
-> they where forwarded towards the host. So i don't see how we could use
-> this feature with these chips.
+On Fri, Mar 20, 2015 at 4:00 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> On Sun, 2015-03-15 at 18:45 -0700, sfeldma@gmail.com wrote:
+> [...]
+>> +/**
+>> + * struct switchdev_ops - switchdev operations
+>> + *
+>> + * int (*swdev_parent_id_get)(struct net_device *dev,
+>> + *                         struct netdev_phys_item_id *psid);
+>> + *   Called to get an ID of the switch chip this port is part of.
+>> + *   If driver implements this, it indicates that it represents a port
+>> + *   of a switch chip.
+>> + *
+>> + * int (*swdev_port_stp_update)(struct net_device *dev, u8 state);
+>> + *   Called to notify switch device port of bridge port STP
+>> + *   state change.
+>> + *
+>> + * int (*swdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+>> + *                        int dst_len, struct fib_info *fi,
+>> + *                        u8 tos, u8 type, u32 nlflags, u32 tb_id);
+>> + *   Called to add/modify IPv4 route to switch device.
+>> + *
+>> + * int (*swdev_fib_ipv4_del)(struct net_device *dev, __be32 dst,
+>> + *                        int dst_len, struct fib_info *fi,
+>> + *                        u8 tos, u8 type, u32 tb_id);
+>> + *   Called to delete IPv4 route from switch device.
+> [...]
+>
+> This isn't correct kernel-doc syntax.
 
-FWIW, the Broadcom tag format has a reason code which tells you why the
-packet was forwarded, which you will typically enable plus the
-corresponding protocol snooping (IGMP, MLD, ARP, DHCP etc...) to know
-what to do. For these kinds of switches it would not be too hard to
-discard such packets because you know why you got them in the first place.
+It was a cut-and-paste from netdevice.h.  Give me an example of
+correct syntax, and I'll fix these.
 
-Is it true just for the "old" DSA format and not for e.g: EDSA?
--- 
-Florian
+-scott
