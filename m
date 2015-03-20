@@ -1,164 +1,97 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v1 PATCH 4/7] netfilter: Convert nft_hash to inlined rhashtable
-Date: Fri, 20 Mar 2015 21:57:02 +1100
-Message-ID: <E1YYubu-0004ld-Op@gondolin.me.apana.org.au>
+Subject: [v1 PATCH 6/7] tipc: Use inlined rhashtable interface
+Date: Fri, 20 Mar 2015 21:57:05 +1100
+Message-ID: <E1YYubx-0004mC-6y@gondolin.me.apana.org.au>
 References: <20150320105421.GA18148@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	Thomas Graf <tgraf@suug.ch>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:48019 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:50479 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbbCTK5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:57:15 -0400
+	with ESMTP id S1751332AbbCTK5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 06:57:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts nft_hash to the inlined rhashtable interface.
-
-This patch also replaces the call to rhashtable_lookup_compare with
-a straight rhashtable_lookup_fast because it's simply doing a memcmp
-(in fact nft_hash_lookup already uses memcmp instead of nft_data_cmp).
-
-Furthermore, the compare function is only meant to compare, it is not
-supposed to have side-effects.  The current side-effect code can
-simply be moved into the nft_hash_get.
+This patch converts tipc to the inlined rhashtable interface.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/netfilter/nft_hash.c |   70 +++++++++++++++++++----------------------------
- 1 file changed, 29 insertions(+), 41 deletions(-)
+ net/tipc/socket.c |   32 ++++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
 
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index c82df0a..4585c57 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -29,6 +29,8 @@ struct nft_hash_elem {
- 	struct nft_data			data[];
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index c03a3d3..73c2f51 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -133,6 +133,8 @@ static const struct nla_policy tipc_nl_sock_policy[TIPC_NLA_SOCK_MAX + 1] = {
+ 	[TIPC_NLA_SOCK_HAS_PUBL]	= { .type = NLA_FLAG }
  };
  
-+static const struct rhashtable_params nft_hash_params;
++static const struct rhashtable_params tsk_rht_params;
 +
- static bool nft_hash_lookup(const struct nft_set *set,
- 			    const struct nft_data *key,
- 			    struct nft_data *data)
-@@ -36,7 +38,7 @@ static bool nft_hash_lookup(const struct nft_set *set,
- 	struct rhashtable *priv = nft_set_priv(set);
- 	const struct nft_hash_elem *he;
+ /*
+  * Revised TIPC socket locking policy:
+  *
+@@ -2245,7 +2247,7 @@ static struct tipc_sock *tipc_sk_lookup(struct net *net, u32 portid)
+ 	struct tipc_sock *tsk;
  
--	he = rhashtable_lookup(priv, key);
-+	he = rhashtable_lookup_fast(priv, key, nft_hash_params);
- 	if (he && set->flags & NFT_SET_MAP)
- 		nft_data_copy(data, he->data);
+ 	rcu_read_lock();
+-	tsk = rhashtable_lookup(&tn->sk_rht, &portid);
++	tsk = rhashtable_lookup_fast(&tn->sk_rht, &portid, tsk_rht_params);
+ 	if (tsk)
+ 		sock_hold(&tsk->sk);
+ 	rcu_read_unlock();
+@@ -2267,7 +2269,8 @@ static int tipc_sk_insert(struct tipc_sock *tsk)
+ 			portid = TIPC_MIN_PORT;
+ 		tsk->portid = portid;
+ 		sock_hold(&tsk->sk);
+-		if (rhashtable_lookup_insert(&tn->sk_rht, &tsk->node))
++		if (!rhashtable_lookup_insert_fast(&tn->sk_rht, &tsk->node,
++						   tsk_rht_params))
+ 			return 0;
+ 		sock_put(&tsk->sk);
+ 	}
+@@ -2280,26 +2283,27 @@ static void tipc_sk_remove(struct tipc_sock *tsk)
+ 	struct sock *sk = &tsk->sk;
+ 	struct tipc_net *tn = net_generic(sock_net(sk), tipc_net_id);
  
-@@ -49,6 +51,7 @@ static int nft_hash_insert(const struct nft_set *set,
- 	struct rhashtable *priv = nft_set_priv(set);
- 	struct nft_hash_elem *he;
- 	unsigned int size;
-+	int err;
- 
- 	if (elem->flags != 0)
- 		return -EINVAL;
-@@ -65,9 +68,11 @@ static int nft_hash_insert(const struct nft_set *set,
- 	if (set->flags & NFT_SET_MAP)
- 		nft_data_copy(he->data, &elem->data);
- 
--	rhashtable_insert(priv, &he->node);
-+	err = rhashtable_insert_fast(priv, &he->node, nft_hash_params);
-+	if (err)
-+		kfree(he);
- 
--	return 0;
-+	return err;
+-	if (rhashtable_remove(&tn->sk_rht, &tsk->node)) {
++	if (!rhashtable_remove_fast(&tn->sk_rht, &tsk->node, tsk_rht_params)) {
+ 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
  }
  
- static void nft_hash_elem_destroy(const struct nft_set *set,
-@@ -84,46 +89,26 @@ static void nft_hash_remove(const struct nft_set *set,
- {
- 	struct rhashtable *priv = nft_set_priv(set);
- 
--	rhashtable_remove(priv, elem->cookie);
-+	rhashtable_remove_fast(priv, elem->cookie, nft_hash_params);
- 	synchronize_rcu();
- 	kfree(elem->cookie);
- }
- 
--struct nft_compare_arg {
--	const struct nft_set *set;
--	struct nft_set_elem *elem;
--};
--
--static bool nft_hash_compare(void *ptr, void *arg)
--{
--	struct nft_hash_elem *he = ptr;
--	struct nft_compare_arg *x = arg;
--
--	if (!nft_data_cmp(&he->key, &x->elem->key, x->set->klen)) {
--		x->elem->cookie = he;
--		x->elem->flags = 0;
--		if (x->set->flags & NFT_SET_MAP)
--			nft_data_copy(&x->elem->data, he->data);
--
--		return true;
--	}
--
--	return false;
--}
--
- static int nft_hash_get(const struct nft_set *set, struct nft_set_elem *elem)
- {
- 	struct rhashtable *priv = nft_set_priv(set);
--	struct nft_compare_arg arg = {
--		.set = set,
--		.elem = elem,
--	};
-+	struct nft_hash_elem *he;
-+
-+	he = rhashtable_lookup_fast(priv, &elem->key, nft_hash_params);
-+	if (!he)
-+		return -ENOENT;
- 
--	if (rhashtable_lookup_compare(priv, &elem->key,
--				      &nft_hash_compare, &arg))
--		return 0;
-+	elem->cookie = he;
-+	elem->flags = 0;
-+	if (set->flags & NFT_SET_MAP)
-+		nft_data_copy(&elem->data, he->data);
- 
--	return -ENOENT;
-+	return 0;
- }
- 
- static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
-@@ -181,18 +166,21 @@ static unsigned int nft_hash_privsize(const struct nlattr * const nla[])
- 	return sizeof(struct rhashtable);
- }
- 
-+static const struct rhashtable_params nft_hash_params = {
-+	.head_offset = offsetof(struct nft_hash_elem, node),
-+	.key_offset = offsetof(struct nft_hash_elem, key),
++static const struct rhashtable_params tsk_rht_params = {
++	.nelem_hint = 192,
++	.head_offset = offsetof(struct tipc_sock, node),
++	.key_offset = offsetof(struct tipc_sock, portid),
++	.key_len = sizeof(u32), /* portid */
 +	.hashfn = jhash,
++	.max_size = 1048576,
++	.min_size = 256,
 +};
 +
- static int nft_hash_init(const struct nft_set *set,
- 			 const struct nft_set_desc *desc,
- 			 const struct nlattr * const tb[])
+ int tipc_sk_rht_init(struct net *net)
  {
- 	struct rhashtable *priv = nft_set_priv(set);
--	struct rhashtable_params params = {
--		.nelem_hint = desc->size ? : NFT_HASH_ELEMENT_HINT,
--		.head_offset = offsetof(struct nft_hash_elem, node),
--		.key_offset = offsetof(struct nft_hash_elem, key),
--		.key_len = set->klen,
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct rhashtable_params rht_params = {
+-		.nelem_hint = 192,
+-		.head_offset = offsetof(struct tipc_sock, node),
+-		.key_offset = offsetof(struct tipc_sock, portid),
+-		.key_len = sizeof(u32), /* portid */
 -		.hashfn = jhash,
+-		.max_size = 1048576,
+-		.min_size = 256,
 -	};
-+	struct rhashtable_params params = nft_hash_params;
+-
+-	return rhashtable_init(&tn->sk_rht, &rht_params);
 +
-+	params.nelem_hint = desc->size ?: NFT_HASH_ELEMENT_HINT;
-+	params.key_len = set->klen;
- 
- 	return rhashtable_init(priv, &params);
++	return rhashtable_init(&tn->sk_rht, &tsk_rht_params);
  }
+ 
+ void tipc_sk_rht_destroy(struct net *net)
