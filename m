@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: introduce IFF_PROTO_DOWN flag.
-Date: Fri, 20 Mar 2015 16:31:54 -0400 (EDT)
-Message-ID: <20150320.163154.1895376895384654433.davem@davemloft.net>
-References: <1426864318-25132-1-git-send-email-anuradhak@cumulusnetworks.com>
-	<CAADnVQKyOA7QADk9KOz_-ZFO+WJs2bbRsXZyXXr0sWag4jpOBw@mail.gmail.com>
+Subject: Re: [PATCH] net: compat: Update get_compat_msghdr() to match
+ copy_msghdr_from_user() behaviour
+Date: Fri, 20 Mar 2015 16:32:17 -0400 (EDT)
+Message-ID: <20150320.163217.1133959916107908748.davem@davemloft.net>
+References: <1426870093-7616-1-git-send-email-catalin.marinas@arm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: anuradhak@cumulusnetworks.com, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
-To: alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38258 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999AbbCTUb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:31:56 -0400
-In-Reply-To: <CAADnVQKyOA7QADk9KOz_-ZFO+WJs2bbRsXZyXXr0sWag4jpOBw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	will.deacon@arm.com, dan.carpenter@oracle.com
+To: catalin.marinas@arm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426870093-7616-1-git-send-email-catalin.marinas@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Fri, 20 Mar 2015 09:13:56 -0700
+From: Catalin Marinas <catalin.marinas@arm.com>
+Date: Fri, 20 Mar 2015 16:48:13 +0000
 
-> Both reasons look like workaround for user space issues.
-> Just keep this fake-down state in userspace.
+> Commit db31c55a6fb2 (net: clamp ->msg_namelen instead of returning an
+> error) introduced the clamping of msg_namelen when the unsigned value
+> was larger than sizeof(struct sockaddr_storage). This caused a
+> msg_namelen of -1 to be valid. The native code was subsequently fixed by
+> commit dbb490b96584 (net: socket: error on a negative msg_namelen).
+> 
+> In addition, the native code sets msg_namelen to 0 when msg_name is
+> NULL. This was done in commit (6a2a2b3ae075 net:socket: set msg_namelen
+> to 0 if msg_name is passed as NULL in msghdr struct from userland) and
+> subsequently updated by 08adb7dabd48 (fold verify_iovec() into
+> copy_msghdr_from_user()).
+> 
+> This patch brings the get_compat_msghdr() in line with
+> copy_msghdr_from_user().
+> 
+> Fixes: db31c55a6fb2 (net: clamp ->msg_namelen instead of returning an error)
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
 
-+1
-
-> so there will be new flag for every application that cannot deal with
-> normal down?
-
-+1 +1 +1
+Applied and queued up for -stable, thanks.
