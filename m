@@ -1,152 +1,110 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v9 tip 5/9] tracing: allow BPF programs to call bpf_trace_printk()
-Date: Fri, 20 Mar 2015 16:30:06 -0700
-Message-ID: <1426894210-27441-6-git-send-email-ast@plumgrid.com>
-References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1426894210-27441-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
+ packets
+Date: Fri, 20 Mar 2015 16:30:31 -0700
+Message-ID: <550CAD97.3000404@cumulusnetworks.com>
+References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <550C54BC.4040509@intel.com> <CAE4R7bCC=VZerEfVRfn=NmQvE9bwQ-KGo7v77ghHOLAR5p5hwg@mail.gmail.com> <550C99DD.3090007@cumulusnetworks.com> <CAE4R7bBd8TeNCiXdOL9en-FfuTqqn==UYvAxHHD8BYHuFCiWBw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34274 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751861AbbCTXad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 19:30:33 -0400
+Received: by pacwe9 with SMTP id we9so123038189pac.1
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 16:30:33 -0700 (PDT)
+In-Reply-To: <CAE4R7bBd8TeNCiXdOL9en-FfuTqqn==UYvAxHHD8BYHuFCiWBw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Debugging of BPF programs needs some form of printk from the program,
-so let programs call limited trace_printk() with %d %u %x %p modifiers only.
+On 3/20/15, 3:37 PM, Scott Feldman wrote:
+> On Fri, Mar 20, 2015 at 3:06 PM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 3/20/15, 11:13 AM, Scott Feldman wrote:
+>>> On Fri, Mar 20, 2015 at 10:11 AM, John Fastabend
+>>> <john.r.fastabend@intel.com> wrote:
+>>>> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
+>>>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>>>
+>>>>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
+>>>>> there is a need to not re-forward frames that have already been
+>>>>> forwarded in hardware.
+>>>>>
+>>>>> Typically these are broadcast or multicast frames forwarded by the
+>>>>> hardware to multiple destination ports including sending a copy of
+>>>>> the packet to the cpu (kernel e.g. an arp broadcast).
+>>>>> The bridge driver will try to forward the packet again, resulting in
+>>>>> two copies of the same packet.
+>>>>>
+>>>>> These packets can also come up to the kernel for logging when they hit
+>>>>> a LOG acl rule in hardware. In such cases, you do want the packet
+>>>>> to go through the bridge netfilter hooks. Hence, this patch adds the
+>>>>> required checks just before the packet is being xmited.
+>>>>>
+>>>>> v2:
+>>>>>         - Add a new hw_fwded flag in skbuff to indicate that the packet
+>>>>>         is already hardware forwarded. Switch driver will set this flag.
+>>>>>         I have been trying to avoid having this flag in the skb
+>>>>>         and thats why this patch has been in my tree for long. Cant think
+>>>>>         of other better alternatives. Suggestions are welcome. I have put
+>>>>>         this under CONFIG_NET_SWITCHDEV to minimize the impact.
+>>>>>
+>>>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>> ---
+>>>> Interesting. I completely avoid this problem by not instantiating a
+>>>> software bridge ;) When these pkts come up the stack I either use a
+>>>> raw socket to capture them, put a 'tc' ingress rule to do something,
+>>>> or have OVS handle them in some special way. It seems to me that this
+>>>> is where the sw/hw model starts to break when you have these magic
+>>>> bits to handle the packets differently.
+>>>>
+>>>> How do you know to set the skb bit? Do you have some indicator in the
+>>>> descriptor? I don't have any good way to learn this on my hardware. But
+>>>> I can assume if it reached the CPU it was because of some explicit rule.
+>>> I was wondering that also, since there was no example.
+>>>
+>>> This features seems like it belongs in the bridge.
+>> yes, it does, the check today is really in the bridge.
+>>> We already have
+>>> BR_FLOOD to indicate whether unknown unicast traffic is flooded to a
+>>> bridge port.  Can we add another BR_FLOOD_BCAST (or some name) for
+>>> this new feature?  You would set/clear this flag on the bridge
+>>> (master) port.  The default is set.  And now:
+>>>
+>>> - #define BR_AUTO_MASK          (BR_FLOOD | BR_LEARNING)
+>>> + #define BR_AUTO_MASK          (BR_FLOOD | BR_FLOOD_BCAST | BR_LEARNING)
+>>>
+>>> Does this work for your use-case, Roopa?
+>> Note my first RFC patch, sort of did this:
+>> https://marc.info/?l=linux-netdev&m=142147999420017&w=2
+>>
+>> But there are open things there as listed in the comment and also in the
+>> subsequent
+>> discussion on the thread.
+>>
+>> We discussed this flag before and i think it does not allow the case where
+>> hw switch ports are  bridged with non-hw ports.
+> I went back and read the thread just to remind me what the pros/cons
+> where.  I think the mixed case isn't a concern since this
+> BR_FLOOD_BCAST check is made on egress to the bridge port.  So only
+> clear BR_FLOOD_BCAST on hw switch ports (if hw did the flood already
+> amongst its ports), and leave it set for non-hw-ports.   It seems the
+> patch should mostly be a clone of how BR_FLOOD is handled.  Is there
+> more to it?
+That may work.  But, we have recently moved igmp handling to software in 
+kernel
+and i was trying to make this work for that case. I am going to try what 
+you suggest
+  by finding a work around for the igmp case.
 
-Similar to kernel modules, during program load verifier checks whether program
-is calling bpf_trace_printk() and if so, kernel allocates trace_printk buffers
-and emits big 'this is debug only' banner.
+I will get back to you.
 
-Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Reviewed-by: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
----
- include/uapi/linux/bpf.h |    1 +
- kernel/trace/bpf_trace.c |   78 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 79 insertions(+)
-
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 238c6883877b..cc47ef41076a 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -166,6 +166,7 @@ enum bpf_func_id {
- 	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
- 	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
- 	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
-+	BPF_FUNC_trace_printk,    /* int bpf_trace_printk(const char *fmt, int fmt_size, ...) */
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 96371fa2aad9..60a0741569fe 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -10,6 +10,7 @@
- #include <linux/bpf.h>
- #include <linux/filter.h>
- #include <linux/uaccess.h>
-+#include <linux/ctype.h>
- #include "trace.h"
- 
- static DEFINE_PER_CPU(int, bpf_prog_active);
-@@ -90,6 +91,74 @@ static const struct bpf_func_proto bpf_ktime_get_ns_proto = {
- 	.ret_type = RET_INTEGER,
- };
- 
-+/*
-+ * limited trace_printk()
-+ * only %d %u %x %ld %lu %lx %lld %llu %llx %p conversion specifiers allowed
-+ */
-+static u64 bpf_trace_printk(u64 r1, u64 fmt_size, u64 r3, u64 r4, u64 r5)
-+{
-+	char *fmt = (char *) (long) r1;
-+	int mod[3] = {};
-+	int fmt_cnt = 0;
-+	int i;
-+
-+	/*
-+	 * bpf_check()->check_func_arg()->check_stack_boundary()
-+	 * guarantees that fmt points to bpf program stack,
-+	 * fmt_size bytes of it were initialized and fmt_size > 0
-+	 */
-+	if (fmt[--fmt_size] != 0)
-+		return -EINVAL;
-+
-+	/* check format string for allowed specifiers */
-+	for (i = 0; i < fmt_size; i++) {
-+		if ((!isprint(fmt[i]) && !isspace(fmt[i])) || !isascii(fmt[i]))
-+			return -EINVAL;
-+
-+		if (fmt[i] != '%')
-+			continue;
-+
-+		if (fmt_cnt >= 3)
-+			return -EINVAL;
-+
-+		/* fmt[i] != 0 && fmt[last] == 0, so we can access fmt[i + 1] */
-+		i++;
-+		if (fmt[i] == 'l') {
-+			mod[fmt_cnt]++;
-+			i++;
-+		} else if (fmt[i] == 'p') {
-+			mod[fmt_cnt]++;
-+			i++;
-+			if (!isspace(fmt[i]) && !ispunct(fmt[i]) && fmt[i] != 0)
-+				return -EINVAL;
-+			fmt_cnt++;
-+			continue;
-+		}
-+
-+		if (fmt[i] == 'l') {
-+			mod[fmt_cnt]++;
-+			i++;
-+		}
-+
-+		if (fmt[i] != 'd' && fmt[i] != 'u' && fmt[i] != 'x')
-+			return -EINVAL;
-+		fmt_cnt++;
-+	}
-+
-+	return __trace_printk(1/* fake ip will not be printed */, fmt,
-+			      mod[0] == 2 ? r3 : mod[0] == 1 ? (long) r3 : (u32) r3,
-+			      mod[1] == 2 ? r4 : mod[1] == 1 ? (long) r4 : (u32) r4,
-+			      mod[2] == 2 ? r5 : mod[2] == 1 ? (long) r5 : (u32) r5);
-+}
-+
-+static const struct bpf_func_proto bpf_trace_printk_proto = {
-+	.func = bpf_trace_printk,
-+	.gpl_only = true,
-+	.ret_type = RET_INTEGER,
-+	.arg1_type = ARG_PTR_TO_STACK,
-+	.arg2_type = ARG_CONST_STACK_SIZE,
-+};
-+
- static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -103,6 +172,15 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
- 		return &bpf_probe_read_proto;
- 	case BPF_FUNC_ktime_get_ns:
- 		return &bpf_ktime_get_ns_proto;
-+
-+	case BPF_FUNC_trace_printk:
-+		/*
-+		 * this program might be calling bpf_trace_printk,
-+		 * so allocate per-cpu printk buffers
-+		 */
-+		trace_printk_init_buffers();
-+
-+		return &bpf_trace_printk_proto;
- 	default:
- 		return NULL;
- 	}
--- 
-1.7.9.5
+Thanks!
+-Roopa
