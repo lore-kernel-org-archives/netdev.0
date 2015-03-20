@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bonding: ban stacked bonding support
-Date: Fri, 20 Mar 2015 16:38:45 -0400 (EDT)
-Message-ID: <20150320.163845.164991966900600650.davem@davemloft.net>
-References: <22754.1424474040@famine>
-	<20150320174308.GA2005@p183.telecom.by>
-	<20150320174638.GA2053@p183.telecom.by>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: cgroup matches in INPUT chain
+Date: Fri, 20 Mar 2015 13:55:11 -0700
+Message-ID: <CAHA+R7MrL4kW5W=1LZFzXzkb1zWUxHRXHwjjnksScWF1ZMHswQ@mail.gmail.com>
+References: <550B1852.2020209@zonque.org>
+	<20150319185807.GA3845@breakpoint.cc>
+	<550C2753.9020608@zonque.org>
+	<20150320161111.GA11498@breakpoint.cc>
+	<550C4901.4070001@zonque.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	jay.vosburgh@canonical.com
-To: adobriyan@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexey Perevalov <a.perevalov@samsung.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38344 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCTUir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:38:47 -0400
-In-Reply-To: <20150320174638.GA2053@p183.telecom.by>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:33424 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbbCTUzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:55:12 -0400
+Received: by ignm3 with SMTP id m3so3055592ign.0
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 13:55:11 -0700 (PDT)
+In-Reply-To: <550C4901.4070001@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Fri, 20 Mar 2015 20:46:38 +0300
+On Fri, Mar 20, 2015 at 9:21 AM, Daniel Mack <daniel@zonque.org> wrote:
+> On 03/20/2015 05:11 PM, Florian Westphal wrote:
+>> Daniel Mack <daniel@zonque.org> wrote:
+>>> In my simple test setup, when skbs are dequeued by process_backlog(),
+>>> they have skb->_skb_refdst set, and hence ip_rcv_finish() does not call
+>>> into early_demux() prior to iterating the INPUT chain:
+>>
+>> Yes, because we already have a route set.
+>>
+>> Are we talking about loopback?
+>
+> I'm testing this on the lookback device, but I've seen similar behavior
+> on external interfaces too. However, I fail to see a pattern in that.
+>
 
-> If you add bonding master as a slave, and then release it,
-> it will no longer be an IFF_BONDING creating problems like described at
-> https://bugzilla.kernel.org/show_bug.cgi?id=89541
-> 
-> 	echo +bond1 >/sys/class/net/bonding_masters
-> 	echo 1 >/sys/class/net/bond1/bonding/mode
-> 	echo +bond2 >/sys/class/net/bonding_masters
-> 	echo +bond2 >/sys/class/net/bond1/bonding/slaves
-> 	echo -bond2 >/sys/class/net/bond1/bonding/slaves
-> 	echo -bond2 >/sys/class/net/bonding_masters
-> 
-> 	cat /proc/net/bonding/bond2	# should not exist
-> 		[oops]
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Loopback is special because the skb->dst is kept across TX and RX.
 
-I feel like this has been brought up before and it was stated that
-some people are actually using things like this.
-
-I could be mistaken.
+How possible is your external interface sets dst for the packets?
+Are you using a tunnel device or you have some other setup you didn't mention?
