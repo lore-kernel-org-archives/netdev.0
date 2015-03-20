@@ -1,29 +1,31 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH v3 net-next 0/3] Add support for async socket operations
-Date: Fri, 20 Mar 2015 07:45:38 +0100
-Message-ID: <20150320064538.GA626@lst.de>
-References: <20150319193118.11500.10463.stgit@tstruk-mobl1> <20150319195105.GS29656@ZenIV.linux.org.uk>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rt2x00: add new rt2800usb device DWA 130
+Date: Fri, 20 Mar 2015 06:45:53 +0000 (UTC)
+Message-ID: <20150320064553.0B6B2140C40@smtp.codeaurora.org>
+References: <1426528792-992-1-git-send-email-sbranden@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tadeusz Struk <tadeusz.struk@intel.com>, davem@davemloft.net,
-	linux-aio@kvack.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
-	linux-fsdevel@vger.kernel.org, hch@lst.de,
-	linux-crypto@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.211]:57362 "EHLO newverein.lst.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750801AbbCTGpm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 02:45:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20150319195105.GS29656@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <bcm-kernel-feedback-list@broadcom.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-wireless@vger.kernel.org>, <users@rt2x00.serialmonkey.com>,
+	Scott Branden <sbranden@broadcom.com>,
+	Pieter Truter <ptruter@broadcom.com>
+To: Scott Branden <sbranden@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1426528792-992-1-git-send-email-sbranden@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 19, 2015 at 07:51:05PM +0000, Al Viro wrote:
-> I think I can live with that.  Christoph, do you have any objections to
-> that series?
 
-Patch 1 looks fine to me which is probably what you care for.  I didn't have
-time to look into the other two.
+> Add the USB Id to link the D-Link DWA 130 USB Wifi adapter
+> to the rt2830 driver.
+> 
+> Signed-off-by: Scott Branden <sbranden@broadcom.com>
+> Signed-off-by: Pieter Truter <ptruter@broadcom.com>
+
+Thanks, applied to wireless-drivers-next.git.
+
+Kalle Valo
