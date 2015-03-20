@@ -1,29 +1,43 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v1 PATCH 7/7] rhashtable: Rip out obsolete out-of-line interface
-Date: Fri, 20 Mar 2015 20:25:16 +0000
-Message-ID: <20150320202516.GA27511@casper.infradead.org>
-References: <20150320105421.GA18148@gondor.apana.org.au>
- <E1YYuby-0004mT-AN@gondolin.me.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: introduce IFF_PROTO_DOWN flag.
+Date: Fri, 20 Mar 2015 16:28:19 -0400 (EDT)
+Message-ID: <20150320.162819.1225364903839854931.davem@davemloft.net>
+References: <1426864318-25132-1-git-send-email-anuradhak@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com
+To: anuradhak@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41897 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045AbbCTUZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:25:18 -0400
-Content-Disposition: inline
-In-Reply-To: <E1YYuby-0004mT-AN@gondolin.me.apana.org.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38200 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751090AbbCTU2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 16:28:21 -0400
+In-Reply-To: <1426864318-25132-1-git-send-email-anuradhak@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/15 at 09:57pm, Herbert Xu wrote:
-> Now that all rhashtable users have been converted over to the
-> inline interface, this patch removes the unused out-of-line
-> interface.
+From: anuradhak@cumulusnetworks.com
+Date: Fri, 20 Mar 2015 08:11:55 -0700
 
-Any reason to keep the _fast() suffix if we only keep the inline
-variants anyway?
+> Applications can detect errors in the network that would require
+> disabling the device independent of the admin state.
+
+I hate changes like this.
+
+The only reason it exists, is because you don't want to put together
+the infrastructure and framework necessary for applications managing
+this state in userspace to _work_ _together_.  So you make it a kernel
+problem.
+
+UP/DOWN is a boolean state, that's not changing.
+
+So you need to design your stuff such that one entity takes all of the
+collective decisions together and calculates the final up/down state,
+and then asks the kernel to do that.
+
+Nothing is more bullshit than having someone ask the kernel to up the
+interface and the thing doesn't come up because of this auxiliary
+crap.  That's broken and nobody is going to expect nor be happy with
+that behavior.
