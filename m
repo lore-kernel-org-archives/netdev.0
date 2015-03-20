@@ -1,114 +1,40 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 1/5] mpls: Use definition for reserved label checks
-Date: Thu, 19 Mar 2015 19:41:11 -0500
-Message-ID: <87lhisfql4.fsf@x220.int.ebiederm.org>
-References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
-	<1426800772-22378-2-git-send-email-rshearma@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] rhashtable: Round up/down min/max_size to
+ ensure we respect limit
+Date: Thu, 19 Mar 2015 21:02:46 -0400 (EDT)
+Message-ID: <20150319.210246.835966531852513271.davem@davemloft.net>
+References: <20150319214933.GA11937@gondor.apana.org.au>
+	<20150319220248.GA12428@gondor.apana.org.au>
+	<20150319223113.GD4190@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:36630 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbbCTAo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 20:44:59 -0400
-In-Reply-To: <1426800772-22378-2-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Thu, 19 Mar 2015 21:32:48 +0000")
+Received: from shards.monkeyblade.net ([149.20.54.216]:55490 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbbCTBCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 21:02:51 -0400
+In-Reply-To: <20150319223113.GD4190@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 19 Mar 2015 22:31:13 +0000
 
-> In multiple locations there are checks for whether the label in hand
-> is a reserved label or not using the arbritray value of 16. Factor
-> this out into a #define for better maintainability and for
-> documentation.
->
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> Round up min_size respectively round down max_size to the next power
+> of two to make sure we always respect the limit specified by the
+> user. This is required because we compare the table size against the
+> limit before we expand or shrink.
+> 
+> Also fixes a minor bug where we modified min_size in the params
+> provided instead of the copy stored in struct rhashtable.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 > ---
->  net/mpls/af_mpls.c  | 20 ++++++++++----------
->  net/mpls/internal.h |  1 +
->  2 files changed, 11 insertions(+), 10 deletions(-)
->
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index db8a2ea..0d6763a 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -276,7 +276,7 @@ static void mpls_notify_route(struct net *net, unsigned index,
->  	struct mpls_route *rt = new ? new : old;
->  	unsigned nlm_flags = (old && new) ? NLM_F_REPLACE : 0;
->  	/* Ignore reserved labels for now */
-> -	if (rt && (index >= 16))
-> +	if (rt && (index >= LABEL_FIRST_UNRESERVED))
->  		rtmsg_lfib(event, index, rt, nlh, net, portid, nlm_flags);
->  }
->  
-> @@ -310,7 +310,7 @@ static unsigned find_free_label(struct net *net)
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
->  	platform_labels = net->mpls.platform_labels;
-> -	for (index = 16; index < platform_labels; index++) {
-> +	for (index = LABEL_FIRST_UNRESERVED; index < platform_labels; index++) {
->  		if (!rtnl_dereference(platform_label[index]))
->  			return index;
->  	}
-> @@ -335,8 +335,8 @@ static int mpls_route_add(struct mpls_route_config *cfg)
->  		index = find_free_label(net);
->  	}
->  
-> -	/* The first 16 labels are reserved, and may not be set */
-> -	if (index < 16)
-> +	/* Reserved labels may not be set */
-> +	if (index < LABEL_FIRST_UNRESERVED)
->  		goto errout;
->  
->  	/* The full 20 bit range may not be supported. */
-> @@ -413,8 +413,8 @@ static int mpls_route_del(struct mpls_route_config *cfg)
->  
->  	index = cfg->rc_label;
->  
-> -	/* The first 16 labels are reserved, and may not be removed */
-> -	if (index < 16)
-> +	/* Reserved labels may not be removed */
-> +	if (index < LABEL_FIRST_UNRESERVED)
->  		goto errout;
->  
->  	/* The full 20 bit range may not be supported */
-> @@ -610,8 +610,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->  					   &cfg->rc_label))
->  				goto errout;
->  
-> -			/* The first 16 labels are reserved, and may not be set */
-> -			if (cfg->rc_label < 16)
-> +			/* Reserved labels may not be set */
-> +			if (cfg->rc_label < LABEL_FIRST_UNRESERVED)
->  				goto errout;
->  
->  			break;
-> @@ -736,8 +736,8 @@ static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
->  	ASSERT_RTNL();
->  
->  	index = cb->args[0];
-> -	if (index < 16)
-> -		index = 16;
-> +	if (index < LABEL_FIRST_UNRESERVED)
-> +		index = LABEL_FIRST_UNRESERVED;
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
->  	platform_labels = net->mpls.platform_labels;
-> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-> index fb6de92..d06dff9 100644
-> --- a/net/mpls/internal.h
-> +++ b/net/mpls/internal.h
-> @@ -9,6 +9,7 @@
->  #define LABEL_GAL			13 /* RFC5586 */
->  #define LABEL_OAM_ALERT			14 /* RFC3429 */
->  #define LABEL_EXTENSION			15 /* RFC7274 */
-> +#define LABEL_FIRST_UNRESERVED		16 /* RFC7274 */
+> Herbert: I'm fine with either approach. I figured you expected the
+> user to take care of this, hence the added warning. This is perfectly
+> fine with me me as well.
 
-This should reference RFC3032 not RFC7274 as RFC3032 is what defines
-the first 16 labels as reserved.
-
-Eric
+Applied, thanks a lot.
