@@ -1,116 +1,83 @@
 From: Scott Feldman <sfeldma@gmail.com>
 Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
  forwarded packets
-Date: Fri, 20 Mar 2015 11:03:42 -0700
-Message-ID: <CAE4R7bCXTB0eZdyT9+a2FbJvy4K7QHpRzR4WvRGMryE-QZN8zQ@mail.gmail.com>
+Date: Fri, 20 Mar 2015 11:13:31 -0700
+Message-ID: <CAE4R7bCC=VZerEfVRfn=NmQvE9bwQ-KGo7v77ghHOLAR5p5hwg@mail.gmail.com>
 References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com>
+	<550C54BC.4040509@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
 	"Arad, Ronen" <ronen.arad@intel.com>,
 	Netdev <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:36604 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164AbbCTSDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 14:03:43 -0400
-Received: by qgez102 with SMTP id z102so10427269qge.3
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 11:03:42 -0700 (PDT)
-In-Reply-To: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:36574 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751402AbbCTSNb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 14:13:31 -0400
+Received: by qcto4 with SMTP id o4so100168493qct.3
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 11:13:31 -0700 (PDT)
+In-Reply-To: <550C54BC.4040509@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 20, 2015 at 9:58 AM,  <roopa@cumulusnetworks.com> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Fri, Mar 20, 2015 at 10:11 AM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
+>> there is a need to not re-forward frames that have already been
+>> forwarded in hardware.
+>>
+>> Typically these are broadcast or multicast frames forwarded by the
+>> hardware to multiple destination ports including sending a copy of
+>> the packet to the cpu (kernel e.g. an arp broadcast).
+>> The bridge driver will try to forward the packet again, resulting in
+>> two copies of the same packet.
+>>
+>> These packets can also come up to the kernel for logging when they hit
+>> a LOG acl rule in hardware. In such cases, you do want the packet
+>> to go through the bridge netfilter hooks. Hence, this patch adds the
+>> required checks just before the packet is being xmited.
+>>
+>> v2:
+>>       - Add a new hw_fwded flag in skbuff to indicate that the packet
+>>       is already hardware forwarded. Switch driver will set this flag.
+>>       I have been trying to avoid having this flag in the skb
+>>       and thats why this patch has been in my tree for long. Cant think
+>>       of other better alternatives. Suggestions are welcome. I have put
+>>       this under CONFIG_NET_SWITCHDEV to minimize the impact.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> ---
 >
-> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
-> there is a need to not re-forward frames that have already been
-> forwarded in hardware.
+> Interesting. I completely avoid this problem by not instantiating a
+> software bridge ;) When these pkts come up the stack I either use a
+> raw socket to capture them, put a 'tc' ingress rule to do something,
+> or have OVS handle them in some special way. It seems to me that this
+> is where the sw/hw model starts to break when you have these magic
+> bits to handle the packets differently.
 >
-> Typically these are broadcast or multicast frames forwarded by the
-> hardware to multiple destination ports including sending a copy of
-> the packet to the cpu (kernel e.g. an arp broadcast).
-> The bridge driver will try to forward the packet again, resulting in
-> two copies of the same packet.
->
-> These packets can also come up to the kernel for logging when they hit
-> a LOG acl rule in hardware. In such cases, you do want the packet
-> to go through the bridge netfilter hooks. Hence, this patch adds the
-> required checks just before the packet is being xmited.
->
-> v2:
->         - Add a new hw_fwded flag in skbuff to indicate that the packet
->         is already hardware forwarded. Switch driver will set this flag.
->         I have been trying to avoid having this flag in the skb
->         and thats why this patch has been in my tree for long. Cant think
->         of other better alternatives. Suggestions are welcome. I have put
->         this under CONFIG_NET_SWITCHDEV to minimize the impact.
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> ---
->  include/linux/skbuff.h  |    7 +++++--
->  net/bridge/br_forward.c |   11 +++++++++++
->  2 files changed, 16 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index bba1330..1973b5c 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -560,8 +560,11 @@ struct sk_buff {
->                                 fclone:2,
->                                 peeked:1,
->                                 head_frag:1,
-> -                               xmit_more:1;
-> -       /* one bit hole */
-> +                               xmit_more:1,
-> +#ifdef CONFIG_NET_SWITCHDEV
-> +                               hw_fwded:1;
-> +#endif
-> +       /* one bit hole if CONFIG_NET_SWITCHDEV not defined */
+> How do you know to set the skb bit? Do you have some indicator in the
+> descriptor? I don't have any good way to learn this on my hardware. But
+> I can assume if it reached the CPU it was because of some explicit rule.
 
-Did you want this flag not copied in __copy_skb_header()?  Seems those
-flags are special cased.  There is room for a bit here:
+I was wondering that also, since there was no example.
 
-#ifdef CONFIG_IPV6_NDISC_NODETYPE
-        __u8                    ndisc_nodetype:2;
-#endif
-        __u8                    ipvs_property:1;
-        __u8                    inner_protocol_type:1;
-        __u8                    remcsum_offload:1;
-        /* 3 or 5 bit hole */
-         <<<<<<<<
+This features seems like it belongs in the bridge.  We already have
+BR_FLOOD to indicate whether unknown unicast traffic is flooded to a
+bridge port.  Can we add another BR_FLOOD_BCAST (or some name) for
+this new feature?  You would set/clear this flag on the bridge
+(master) port.  The default is set.  And now:
 
->         kmemcheck_bitfield_end(flags1);
->
->         /* fields enclosed in headers_start/headers_end are copied
-> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-> index 3304a54..b60b96e 100644
-> --- a/net/bridge/br_forward.c
-> +++ b/net/bridge/br_forward.c
-> @@ -37,6 +37,17 @@ static inline int should_deliver(const struct net_bridge_port *p,
->
->  int br_dev_queue_push_xmit(struct sk_buff *skb)
->  {
-> +
-> +#ifdef CONFIG_NET_SWITCHDEV
-> +       /* If skb is already hw forwarded and the port being forwarded
-> +        * to is a switch port, dont reforward
-> +        */
-> +       if (skb->hw_fwded && (skb->dev->features & NETIF_F_HW_SWITCH_OFFLOAD)) {
+- #define BR_AUTO_MASK          (BR_FLOOD | BR_LEARNING)
++ #define BR_AUTO_MASK          (BR_FLOOD | BR_FLOOD_BCAST | BR_LEARNING)
 
-The  check for skb->dev->features & NETIF_F_HW_SWITCH_OFFLOAD is redundant.
+Does this work for your use-case, Roopa?
 
-> +               kfree_skb(skb);
-> +               return 0;
-> +       }
-> +
-> +#endif
->         if (!is_skb_forwardable(skb->dev, skb)) {
->                 kfree_skb(skb);
->         } else {
-> --
-> 1.7.10.4
->
+-scott
