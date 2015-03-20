@@ -1,105 +1,64 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v2 10/10] amd-xgbe: Rework the Rx path SKB allocation
-Date: Fri, 20 Mar 2015 08:16:41 -0500
-Message-ID: <550C1DB9.6000608@amd.com>
-References: <20150319200908.28321.60118.stgit@tlendack-t1.amdoffice.net>
-	<20150319.162000.938727994480466006.davem@davemloft.net>
-	<550B3780.4080302@amd.com>
- <20150319.175107.1317700631160353748.davem@davemloft.net>
- <550B48AC.5030007@amd.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Using a waiting MDIO does not go well with a spinlocked bridge
+Date: Fri, 20 Mar 2015 14:16:22 +0100
+Message-ID: <20150320131622.GC9179@lunn.ch>
+References: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	f.fainelli@gmail.com, jiri@resnulli.us, sfeldma@gmail.com
+To: Jonas Johansson <jonasj76@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0121.outbound.protection.outlook.com ([207.46.100.121]:50208
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750852AbbCTNQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 09:16:45 -0400
-In-Reply-To: <550B48AC.5030007@amd.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:53454 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751182AbbCTNT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 09:19:57 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2015 05:07 PM, Tom Lendacky wrote:
-> On 03/19/2015 04:51 PM, David Miller wrote:
->> From: Tom Lendacky <thomas.lendacky@amd.com>
->> Date: Thu, 19 Mar 2015 15:54:24 -0500
->>
->>> On 03/19/2015 03:20 PM, David Miller wrote:
->>>> From: Tom Lendacky <thomas.lendacky@amd.com>
->>>> Date: Thu, 19 Mar 2015 15:09:08 -0500
->>>>
->>>>> When the driver creates an SKB it currently only copies the header
->>>>> buffer data (which can be just the header if split header processing
->>>>> succeeded or header plus data if split header processing did not
->>>>> succeed) into the SKB. The receive buffer data is always added as a
->>>>> frag, even if it could fit in the SKB. As part of SKB creation, inline
->>>>> the receive buffer data if it will fit in the the SKB, otherwise add
->>>>> it
->>>>> as a frag during SKB creation.
->>>>>
->>>>> Also, Update the code to trigger off of the first/last descriptor
->>>>> indicators and remove the incomplete indicator.
->>>>>
->>>>> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
->>>>
->>>> I do not understand the motivation for this, could you explain?
->>>>
->>>> The less copying you do the better, just having the headers in the
->>>> linear area is the most optimal situation, and have all the data
->>>> in page frag references.
->>>>
->>>
->>> I was trying to make the Rx path more logical from a first / last
->>> descriptor point of view.  If it's the first descriptor allocate the
->>> SKB, otherwise add the data as a frag. Compared to the current code:
->>> check for null skb pointer, allocate the SKB and if there's data left
->>> add it as a frag.
->>>
->>> I could keep the first / last descriptor methodology and in the
->>> xgbe_create_skb routine avoid the second copy and just always add the
->>> other buffer as a frag. That will eliminate the extra copying. Would
->>> that be ok or would you prefer that I just drop this patch?
->>
->> The point is, the data might not even be touched by the cpu so copying
->> it into the linear SKB data area could be a complete waste of cpu
->> cycles.
->
-> I understood that point, sorry if I wasn't clear.  I'd would remove the
-> copying of the data and just always add it as a frag in xgbe_create_skb
-> routine so that only the headers are in the linear area.  What I'd like
-> to do though is keep the overall changes of how I determine when to
-> call the xgbe_create_skb routine so that it appears a bit cleaner,
-> more logical.  The net effect is that the behavior of the code would
-> remain the same (headers in the linear area, data as frags), but I feel
-> it reads better and is easier to understand.
+On Fri, Mar 20, 2015 at 01:22:46PM +0100, Jonas Johansson wrote:
+> The bridge code will sometimes hold a spinlock and the code
+> following must therefore be atomic. If using a MDIO call which uses
+> a wait/sleep in this contex, the kernel will not be very happy.
+> 
+> I'm using a switch device and wants to flush its FDB when the linux
+> bridge FDB is flushed. I've implemented some hooks for this task.
+> In short:
+>      bridge    - br_fdb_flush() & br_fdb_delete_by_port
+>   -> switchdev - switch_flush()
+>   -> dsa       - slave_flush()
+>   -> mv88e6xxx - mv88_flush()
 
-Actually, going back to the comment you made from one of the other
-patches about programming defensively, I believe the current code is
-safer since it will check for a NULL skb pointer and allocate one vs
-this patch assuming the first descriptor bit will be set. Should the
-hardware have a bug and not set that bit then the driver would try to
-add a frag using a NULL skb pointer. I'm going to drop this patch in
-the next version of the series I send out.
+Hi Jonas
 
-Thanks,
-Tom
+Have you seen the patches from Guenter Roeck implementing hardware
+bridging? There should be a new version coming out soon.
 
->
-> Thanks,
-> Tom
->
->>
->> Only the headers will be touched by the cpu in the packet processing
->> paths.
->>
->> And when we copy the packet data into userspace, that might even occur
->> on another cpu, so the data will just thrash between the individual
->> cpu's caches.
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> So, when a bridge port is flushed via e.g. sysfs, the mv88_flush()
+> function will at the end be called. The mv88_flush() will use MDIO
+> calls to set the proper registers and flush the device. But, due to
+> that the MDIO on my platform uses wait_for_completion() and a
+> spinlock is held (in this case in brport_store()) the process will
+> not go very well.
+
+Ah, not good. We have a number of mutex in the mv88x6xxx code, one of
+which is used with fdb operations..
+ 
+> The only possible solutions that came into my mind is:
+>  1) Let mv88_flush() schedule a work queue to take care of the flush
+>     later on.
+>  2) Change the MDIO implementation to use polling.
+
+I don't think these is feasible. The MDIO bus could be a gpio
+bit-banging interface. It is hard to guarantee that the GPIO code will
+not sleep.
+
+>  3) Dont use spinlock in bridge code.
+
+This would be my preference, but i've no idea how much work it is.  We
+should audit the bridge code and document in what context operations
+on the switch are called.
+
+   Andrew
