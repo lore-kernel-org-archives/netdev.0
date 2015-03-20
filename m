@@ -1,8 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v3 6/9] amd-xgbe: Set DMA mask based on hardware
- register value
-Date: Fri, 20 Mar 2015 11:50:22 -0500
-Message-ID: <20150320165022.13799.61146.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v3 7/9] amd-xgbe: Remove Tx coalescing
+Date: Fri, 20 Mar 2015 11:50:28 -0500
+Message-ID: <20150320165028.13799.29483.stgit@tlendack-t1.amdoffice.net>
 References: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,120 +9,165 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0146.outbound.protection.outlook.com ([157.56.110.146]:45888
+Received: from mail-bn1bon0143.outbound.protection.outlook.com ([157.56.111.143]:12000
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752036AbbCTQua (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 12:50:30 -0400
+	id S1752108AbbCTQuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 12:50:35 -0400
 In-Reply-To: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware supplies a value that indicates the DMA range that it
-is capable of using. Use this value rather than hard-coding it in
-the driver.
+The Tx coalescing support in the driver was a software implementation
+for something lacking in the hardware. Using hrtimers, the idea was to
+trigger a timer interrupt after having queued a packet for transmit.
+Unfortunately, as the timer value was lowered, the timer expired before
+the hardware actually did the transmit and so it was racey and resulted
+in unnecessary interrupts.
+
+Remove the Tx coalescing support and hrtimer and replace with a Tx timer
+that is used as a reclaim timer in case of inactivity.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |    2 ++
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |   16 ++++++++++++++++
- drivers/net/ethernet/amd/xgbe/xgbe-main.c   |   19 ++++++++++---------
- drivers/net/ethernet/amd/xgbe/xgbe.h        |    1 +
- 4 files changed, 29 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |    7 +++----
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |   16 +++++-----------
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    6 ++----
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    4 ++--
+ 4 files changed, 12 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index 29a0927..34c28aa 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -365,6 +365,8 @@
- #define MAC_HWF0R_TXCOESEL_WIDTH	1
- #define MAC_HWF0R_VLHASH_INDEX		4
- #define MAC_HWF0R_VLHASH_WIDTH		1
-+#define MAC_HWF1R_ADDR64_INDEX		14
-+#define MAC_HWF1R_ADDR64_WIDTH		2
- #define MAC_HWF1R_ADVTHWORD_INDEX	13
- #define MAC_HWF1R_ADVTHWORD_WIDTH	1
- #define MAC_HWF1R_DBGMEMA_INDEX		19
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index e165d06..80dd7a9 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1367,12 +1367,11 @@ static void xgbe_tx_start_xmit(struct xgbe_channel *channel,
+ 	XGMAC_DMA_IOWRITE(channel, DMA_CH_TDTR_LO,
+ 			  lower_32_bits(rdata->rdesc_dma));
+ 
+-	/* Start the Tx coalescing timer */
++	/* Start the Tx timer */
+ 	if (pdata->tx_usecs && !channel->tx_timer_active) {
+ 		channel->tx_timer_active = 1;
+-		hrtimer_start(&channel->tx_timer,
+-			      ktime_set(0, pdata->tx_usecs * NSEC_PER_USEC),
+-			      HRTIMER_MODE_REL);
++		mod_timer(&channel->tx_timer,
++			  jiffies + usecs_to_jiffies(pdata->tx_usecs));
+ 	}
+ 
+ 	ring->tx.xmit_more = 0;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 8635c94..ef4625e 100644
+index ef4625e..122a631 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -519,6 +519,7 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
- 						RXFIFOSIZE);
- 	hw_feat->tx_fifo_size  = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R,
- 						TXFIFOSIZE);
-+	hw_feat->dma_width     = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, ADDR64);
- 	hw_feat->dcb           = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, DCBEN);
- 	hw_feat->sph           = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, SPHEN);
- 	hw_feat->tso           = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R, TSOEN);
-@@ -553,6 +554,21 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
- 		break;
- 	}
+@@ -411,11 +411,9 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
  
-+	/* Translate the address width setting into actual number */
-+	switch (hw_feat->dma_width) {
-+	case 0:
-+		hw_feat->dma_width = 32;
-+		break;
-+	case 1:
-+		hw_feat->dma_width = 40;
-+		break;
-+	case 2:
-+		hw_feat->dma_width = 48;
-+		break;
-+	default:
-+		hw_feat->dma_width = 32;
-+	}
-+
- 	/* The Queue, Channel and TC counts are zero based so increment them
- 	 * to get the actual number
- 	 */
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 32dd651..2e4c22d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -374,15 +374,6 @@ static int xgbe_probe(struct platform_device *pdev)
- 		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
- 	}
+-static enum hrtimer_restart xgbe_tx_timer(struct hrtimer *timer)
++static void xgbe_tx_timer(unsigned long data)
+ {
+-	struct xgbe_channel *channel = container_of(timer,
+-						    struct xgbe_channel,
+-						    tx_timer);
++	struct xgbe_channel *channel = (struct xgbe_channel *)data;
+ 	struct xgbe_prv_data *pdata = channel->pdata;
+ 	struct napi_struct *napi;
  
--	/* Set the DMA mask */
--	if (!dev->dma_mask)
--		dev->dma_mask = &dev->coherent_dma_mask;
--	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
--	if (ret) {
--		dev_err(dev, "dma_set_mask_and_coherent failed\n");
--		goto err_io;
--	}
+@@ -437,8 +435,6 @@ static enum hrtimer_restart xgbe_tx_timer(struct hrtimer *timer)
+ 	channel->tx_timer_active = 0;
+ 
+ 	DBGPR("<--xgbe_tx_timer\n");
 -
- 	/* Get the device interrupt */
- 	ret = platform_get_irq(pdev, 0);
- 	if (ret < 0) {
-@@ -409,6 +400,16 @@ static int xgbe_probe(struct platform_device *pdev)
- 	/* Set default configuration data */
- 	xgbe_default_config(pdata);
+-	return HRTIMER_NORESTART;
+ }
  
-+	/* Set the DMA mask */
-+	if (!dev->dma_mask)
-+		dev->dma_mask = &dev->coherent_dma_mask;
-+	ret = dma_set_mask_and_coherent(dev,
-+					DMA_BIT_MASK(pdata->hw_feat.dma_width));
-+	if (ret) {
-+		dev_err(dev, "dma_set_mask_and_coherent failed\n");
-+		goto err_io;
-+	}
-+
- 	/* Calculate the number of Tx and Rx rings to be created
- 	 *  -Tx (DMA) Channels map 1-to-1 to Tx Queues so set
- 	 *   the number of Tx queues to the number of Tx channels
+ static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
+@@ -454,9 +450,8 @@ static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
+ 			break;
+ 
+ 		DBGPR("  %s adding tx timer\n", channel->name);
+-		hrtimer_init(&channel->tx_timer, CLOCK_MONOTONIC,
+-			     HRTIMER_MODE_REL);
+-		channel->tx_timer.function = xgbe_tx_timer;
++		setup_timer(&channel->tx_timer, xgbe_tx_timer,
++			    (unsigned long)channel);
+ 	}
+ 
+ 	DBGPR("<--xgbe_init_tx_timers\n");
+@@ -475,8 +470,7 @@ static void xgbe_stop_tx_timers(struct xgbe_prv_data *pdata)
+ 			break;
+ 
+ 		DBGPR("  %s deleting tx timer\n", channel->name);
+-		channel->tx_timer_active = 0;
+-		hrtimer_cancel(&channel->tx_timer);
++		del_timer_sync(&channel->tx_timer);
+ 	}
+ 
+ 	DBGPR("<--xgbe_stop_tx_timers\n");
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 43e5571..376d6a5 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -388,7 +388,6 @@ static int xgbe_get_coalesce(struct net_device *netdev,
+ 	ec->rx_coalesce_usecs = hw_if->riwt_to_usec(pdata, riwt);
+ 	ec->rx_max_coalesced_frames = pdata->rx_frames;
+ 
+-	ec->tx_coalesce_usecs = pdata->tx_usecs;
+ 	ec->tx_max_coalesced_frames = pdata->tx_frames;
+ 
+ 	DBGPR("<--xgbe_get_coalesce\n");
+@@ -402,13 +401,14 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
+ 	unsigned int rx_frames, rx_riwt, rx_usecs;
+-	unsigned int tx_frames, tx_usecs;
++	unsigned int tx_frames;
+ 
+ 	DBGPR("-->xgbe_set_coalesce\n");
+ 
+ 	/* Check for not supported parameters  */
+ 	if ((ec->rx_coalesce_usecs_irq) ||
+ 	    (ec->rx_max_coalesced_frames_irq) ||
++	    (ec->tx_coalesce_usecs) ||
+ 	    (ec->tx_coalesce_usecs_irq) ||
+ 	    (ec->tx_max_coalesced_frames_irq) ||
+ 	    (ec->stats_block_coalesce_usecs) ||
+@@ -457,7 +457,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
+ 
+-	tx_usecs = ec->tx_coalesce_usecs;
+ 	tx_frames = ec->tx_max_coalesced_frames;
+ 
+ 	/* Check the bounds of values for Tx */
+@@ -471,7 +470,6 @@ static int xgbe_set_coalesce(struct net_device *netdev,
+ 	pdata->rx_frames = rx_frames;
+ 	hw_if->config_rx_coalesce(pdata);
+ 
+-	pdata->tx_usecs = tx_usecs;
+ 	pdata->tx_frames = tx_frames;
+ 	hw_if->config_tx_coalesce(pdata);
+ 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 1eea3e5..bfe11fb 100644
+index bfe11fb..72b8f27 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -632,6 +632,7 @@ struct xgbe_hw_features {
- 	unsigned int rx_fifo_size;	/* MTL Receive FIFO Size */
- 	unsigned int tx_fifo_size;	/* MTL Transmit FIFO Size */
- 	unsigned int adv_ts_hi;		/* Advance Timestamping High Word */
-+	unsigned int dma_width;		/* DMA width */
- 	unsigned int dcb;		/* DCB Feature */
- 	unsigned int sph;		/* Split Header Feature */
- 	unsigned int tso;		/* TCP Segmentation Offload */
+@@ -222,7 +222,7 @@
+ 	 ((_idx) & ((_ring)->rdesc_count - 1)))
+ 
+ /* Default coalescing parameters */
+-#define XGMAC_INIT_DMA_TX_USECS		50
++#define XGMAC_INIT_DMA_TX_USECS		1000
+ #define XGMAC_INIT_DMA_TX_FRAMES	25
+ 
+ #define XGMAC_MAX_DMA_RIWT		0xff
+@@ -410,7 +410,7 @@ struct xgbe_channel {
+ 	unsigned int saved_ier;
+ 
+ 	unsigned int tx_timer_active;
+-	struct hrtimer tx_timer;
++	struct timer_list tx_timer;
+ 
+ 	struct xgbe_ring *tx_ring;
+ 	struct xgbe_ring *rx_ring;
