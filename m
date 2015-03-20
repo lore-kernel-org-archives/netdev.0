@@ -1,110 +1,89 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next v2] ipv6: invert join/leave anycast  rtnl/socket locking order
-Date: Fri, 20 Mar 2015 11:37:17 -0300
-Message-ID: <1426862237-18597-1-git-send-email-marcelo.leitner@gmail.com>
-References: <550C2DA0.6050809@cogentembedded.com>
-Cc: hannes@stressinduktion.org, sergei.shtylyov@cogentembedded.com
-To: netdev@vger.kernel.org
+From: anuradhak@cumulusnetworks.com
+Subject: =?UTF-8?q?=5BPATCH=20net-next=200/3=5D=20net=3A=20introduce=20IFF=5FPROTO=5FDOWN=20flag=2E?=
+Date: Fri, 20 Mar 2015 08:11:55 -0700
+Message-ID: <1426864318-25132-1-git-send-email-anuradhak@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
+	anuradhak@cumulusnetworks.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44171 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751562AbbCTOhc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 10:37:32 -0400
-In-Reply-To: <550C2DA0.6050809@cogentembedded.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:36579 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966AbbCTPMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 11:12:06 -0400
+Received: by pdbcz9 with SMTP id cz9so111236939pdb.3
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 08:12:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit baf606d9c9b1 ("ipv4,ipv6: grab rtnl before locking the socket")
-missed to update two setsockopt options, IPV6_JOIN_ANYCAST and
-IPV6_LEAVE_ANYCAST, causing a lock inverstion regarding to the updated ones.
+=46rom: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-As ipv6_sock_ac_join and ipv6_sock_ac_leave are only called from
-do_ipv6_setsockopt, we are good to just move the rtnl lock upper.
+Applications can detect errors in the network that would require
+disabling the device independent of the admin state. In the presence of
+these errors traffic could be black holed or looped resulting in a
+network meltdown. Clearing the IFF_UP flag for error disabling the
+device can be problematic because -
 
-Fixes: baf606d9c9b1 ("ipv4,ipv6: grab rtnl before locking the socket")
-Reported-by: Ying Huang <ying.huang@intel.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
+1. The administrator cannot distinguish between a user space daemon=E2=80=
+=99s
+error-disable and a regular device disable.
+2. Applications can monitor the error state and enable the device once
+the error is removed. If IFF_UP is used for this purpose the applicatio=
+n
+may end up enabling a device that the administrator has intentionally
+disabled for other reasons. This could result in network changes not
+expected by the admin.
 
-Notes:
-    v2:
-      removed {} that aren't needed anymore, as pointed by Sergei
+To avoid these problems this patch adds a distinct IFF_PROTO_DOWN flag
+for error disabling a device.
 
- net/ipv6/anycast.c       | 12 +++++-------
- net/ipv6/ipv6_sockglue.c |  2 ++
- 2 files changed, 7 insertions(+), 7 deletions(-)
+This patch introduces a netdevice proto_down field to allow multiple
+applications to disable a device independent of each other. This field
+is a bitmap with two defined protocols currently, MLAG and STP. Bits
+can be added in the future to define other protocols that may need to
+disable the device. If any of the bits in the proto_down field are set
+an oper DOWN is done on the device by setting IFF_PROTO_DOWN.
 
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index baf2742d1ec47ee1b9cf62d087afb8b7d7195921..9e6b0ee563f090d0607f9805d3d2d8c00f787c07 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -60,6 +60,8 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	int	ishost = !net->ipv6.devconf_all->forwarding;
- 	int	err = 0;
- 
-+	ASSERT_RTNL();
-+
- 	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 		return -EPERM;
- 	if (ipv6_addr_is_multicast(addr))
-@@ -73,7 +75,6 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	pac->acl_next = NULL;
- 	pac->acl_addr = *addr;
- 
--	rtnl_lock();
- 	if (ifindex == 0) {
- 		struct rt6_info *rt;
- 
-@@ -130,7 +131,6 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	}
- 
- error:
--	rtnl_unlock();
- 	if (pac)
- 		sock_kfree_s(sk, pac, sizeof(*pac));
- 	return err;
-@@ -146,7 +146,8 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	struct ipv6_ac_socklist *pac, *prev_pac;
- 	struct net *net = sock_net(sk);
- 
--	rtnl_lock();
-+	ASSERT_RTNL();
-+
- 	prev_pac = NULL;
- 	for (pac = np->ipv6_ac_list; pac; pac = pac->acl_next) {
- 		if ((ifindex == 0 || pac->acl_ifindex == ifindex) &&
-@@ -154,10 +155,8 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 			break;
- 		prev_pac = pac;
- 	}
--	if (!pac) {
--		rtnl_unlock();
-+	if (!pac)
- 		return -ENOENT;
--	}
- 	if (prev_pac)
- 		prev_pac->acl_next = pac->acl_next;
- 	else
-@@ -166,7 +165,6 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	dev = __dev_get_by_index(net, pac->acl_ifindex);
- 	if (dev)
- 		ipv6_dev_ac_dec(dev, &pac->acl_addr);
--	rtnl_unlock();
- 
- 	sock_kfree_s(sk, pac, sizeof(*pac));
- 	return 0;
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index cc5883791bac1b32e4bbf9c36ee30f4d078b7dde..9b2cb144423004a02d61373338f3216b6a955043 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -122,6 +122,8 @@ static bool setsockopt_needs_rtnl(int optname)
- 	switch (optname) {
- 	case IPV6_ADD_MEMBERSHIP:
- 	case IPV6_DROP_MEMBERSHIP:
-+	case IPV6_JOIN_ANYCAST:
-+	case IPV6_LEAVE_ANYCAST:
- 	case MCAST_JOIN_GROUP:
- 	case MCAST_LEAVE_GROUP:
- 	case MCAST_JOIN_SOURCE_GROUP:
--- 
-2.1.0
+IFF_PROTO_DOWN is a netdevice flag that is used to control the oper
+state and also used for notifying drivers that a protocol has disabled
+the device. Switch drivers could use the IFF_PROTO_DOWN flag to further
+handle the error condition; for e.g. they could carrier down the device
+allowing directly connected switches to quickly learn about the error
+state and stop forwarding traffic to this device.
+
+STP applications can use the proto_down control to implement BPDU guard
+functionality which requires shutting down access ports on detecting
+rogue switches that could take over as the root bridge.
+
+MLAG applications can use the proto_down control to hold devices down
+on the secondary switch on detecting a split-brain situation between th=
+e
+MLAG-peers.
+
+Anuradha Karuppiah (3):
+  net core: Add support for netdevice proto_down.
+  virtio net: Handle proto_down state by setting the carrier off.
+  ip link: Config and display device proto_down bits.
+
+Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+
+ drivers/net/virtio_net.c     |   78 ++++++++++++++++++++++++++++++++++=
++++++---
+ include/linux/netdevice.h    |    3 ++
+ include/uapi/linux/if.h      |   29 +++++++++++++++-
+ include/uapi/linux/if_link.h |    9 +++++
+ net/8021q/vlan_dev.c         |    3 +-
+ net/core/dev.c               |   36 +++++++++++++++++++
+ net/core/link_watch.c        |    2 +-
+ net/core/net-sysfs.c         |    2 ++
+ net/core/rtnetlink.c         |   21 ++++++++++++
+ 9 files changed, 176 insertions(+), 7 deletions(-)
+
+--=20
+1.7.10.4
