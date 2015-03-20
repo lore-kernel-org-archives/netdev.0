@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v3 9/9] amd-xgbe: Use napi_alloc_skb when
- allocating skb in softirq
-Date: Fri, 20 Mar 2015 11:50:41 -0500
-Message-ID: <20150320165041.13799.86206.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v3 5/9] amd-xgbe: Use the new DMA memory barriers
+ where appropriate
+Date: Fri, 20 Mar 2015 11:50:16 -0500
+Message-ID: <20150320165016.13799.49326.stgit@tlendack-t1.amdoffice.net>
 References: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,52 +10,109 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0127.outbound.protection.outlook.com ([65.55.169.127]:10620
+Received: from mail-bl2on0133.outbound.protection.outlook.com ([65.55.169.133]:54272
 	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751704AbbCTQur (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 12:50:47 -0400
+	id S1751516AbbCTQuV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 12:50:21 -0400
 In-Reply-To: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the napi_alloc_skb function to allocate an skb when running within
-the softirq context to avoid calls to local_irq_save/restore.
+Use the new lighter weight memory barriers when working with the device
+descriptors.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   15 +++++++++------
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    5 ++++-
+ 2 files changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index fc362be..347fe24 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1821,16 +1821,15 @@ static void xgbe_rx_refresh(struct xgbe_channel *channel)
- 			  lower_32_bits(rdata->rdesc_dma));
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 29137c9..e165d06 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1068,7 +1068,7 @@ static void xgbe_tx_desc_reset(struct xgbe_ring_data *rdata)
+ 	rdesc->desc3 = 0;
+ 
+ 	/* Make sure ownership is written to the descriptor */
+-	wmb();
++	dma_wmb();
  }
  
--static struct sk_buff *xgbe_create_skb(struct xgbe_prv_data *pdata,
-+static struct sk_buff *xgbe_create_skb(struct napi_struct *napi,
- 				       struct xgbe_ring_data *rdata,
- 				       unsigned int *len)
- {
--	struct net_device *netdev = pdata->netdev;
- 	struct sk_buff *skb;
- 	u8 *packet;
- 	unsigned int copy_len;
+ static void xgbe_tx_desc_init(struct xgbe_channel *channel)
+@@ -1124,12 +1124,12 @@ static void xgbe_rx_desc_reset(struct xgbe_ring_data *rdata)
+ 	 * is written to the descriptor(s) before setting the OWN bit
+ 	 * for the descriptor
+ 	 */
+-	wmb();
++	dma_wmb();
  
--	skb = netdev_alloc_skb_ip_align(netdev, rdata->rx.hdr.dma_len);
-+	skb = napi_alloc_skb(napi, rdata->rx.hdr.dma_len);
- 	if (!skb)
- 		return NULL;
+ 	XGMAC_SET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, OWN, 1);
  
-@@ -2000,7 +1999,7 @@ read_again:
- 							rdata->rx.hdr.dma_len,
- 							DMA_FROM_DEVICE);
+ 	/* Make sure ownership is written to the descriptor */
+-	wmb();
++	dma_wmb();
+ }
  
--				skb = xgbe_create_skb(pdata, rdata, &put_len);
-+				skb = xgbe_create_skb(napi, rdata, &put_len);
- 				if (!skb) {
- 					error = 1;
- 					goto skip_data;
+ static void xgbe_rx_desc_init(struct xgbe_channel *channel)
+@@ -1358,6 +1358,9 @@ static void xgbe_tx_start_xmit(struct xgbe_channel *channel,
+ 	struct xgbe_prv_data *pdata = channel->pdata;
+ 	struct xgbe_ring_data *rdata;
+ 
++	/* Make sure everything is written before the register write */
++	wmb();
++
+ 	/* Issue a poll command to Tx DMA by writing address
+ 	 * of next immediate free descriptor */
+ 	rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
+@@ -1565,7 +1568,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	 * is written to the descriptor(s) before setting the OWN bit
+ 	 * for the first descriptor
+ 	 */
+-	wmb();
++	dma_wmb();
+ 
+ 	/* Set OWN bit for the first descriptor */
+ 	rdata = XGBE_GET_DESC_DATA(ring, start_index);
+@@ -1577,7 +1580,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ #endif
+ 
+ 	/* Make sure ownership is written to the descriptor */
+-	wmb();
++	dma_wmb();
+ 
+ 	ring->cur = cur_index + 1;
+ 	if (!packet->skb->xmit_more ||
+@@ -1613,7 +1616,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 		return 1;
+ 
+ 	/* Make sure descriptor fields are read after reading the OWN bit */
+-	rmb();
++	dma_rmb();
+ 
+ #ifdef XGMAC_ENABLE_RX_DESC_DUMP
+ 	xgbe_dump_rx_desc(ring, rdesc, ring->cur);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 885b02b..8635c94 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1800,6 +1800,9 @@ static void xgbe_rx_refresh(struct xgbe_channel *channel)
+ 		ring->dirty++;
+ 	}
+ 
++	/* Make sure everything is written before the register write */
++	wmb();
++
+ 	/* Update the Rx Tail Pointer Register with address of
+ 	 * the last cleaned entry */
+ 	rdata = XGBE_GET_DESC_DATA(ring, ring->dirty - 1);
+@@ -1863,7 +1866,7 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
+ 
+ 		/* Make sure descriptor fields are read after reading the OWN
+ 		 * bit */
+-		rmb();
++		dma_rmb();
+ 
+ #ifdef XGMAC_ENABLE_TX_DESC_DUMP
+ 		xgbe_dump_tx_desc(ring, ring->dirty, 1, 0);
