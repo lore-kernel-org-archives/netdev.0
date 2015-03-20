@@ -1,7 +1,7 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 4/5] net: netcp: enclose macros in parentheses
-Date: Fri, 20 Mar 2015 16:11:24 -0400
-Message-ID: <1426882285-4873-5-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH net-next 1/5] net: netcp: fix forward port number usage for 10G ethss
+Date: Fri, 20 Mar 2015 16:11:21 -0400
+Message-ID: <1426882285-4873-2-git-send-email-m-karicheri2@ti.com>
 References: <1426882285-4873-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -26,11 +26,15 @@ In-Reply-To: <1426882285-4873-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix following checkpatch error. It seems to have passed checkpatch
-last time when original code was introduced.
+10G switch requires forward port number in the taginfo field,
+where as it should be in packet_info field for necp 1.4 Ethss. So
+fill this value correctly in the knav dma descriptor.
 
- ERROR: Macros with complex values should be enclosed in parentheses
- #172: FILE: drivers/net/ethernet/ti/netcp_ethss.c:869:
+Also rename dma_psflags field in struct netcp_tx_pipe to switch_to_port
+as it contain no flag, but the switch port number for forwarding the
+packet. Add a flag to hold the new flag,  SWITCH_TO_PORT_IN_TAGINFO which
+will be set for 10G. This can also used in the future for other flags for
+the tx_pipe.
 
 Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
@@ -46,562 +50,107 @@ CC: Ian Campbell <ijc+devicetree@hellion.org.uk>
 CC: Mark Rutland <mark.rutland@arm.com>
 CC: Pawel Moll <pawel.moll@arm.com>
 CC: Rob Herring <robh+dt@kernel.org>
-
 ---
- drivers/net/ethernet/ti/netcp_ethss.c |  523 +++++++++++++++++----------------
- 1 file changed, 272 insertions(+), 251 deletions(-)
+ drivers/net/ethernet/ti/netcp.h       |    5 ++++-
+ drivers/net/ethernet/ti/netcp_core.c  |   23 +++++++++++++++--------
+ drivers/net/ethernet/ti/netcp_ethss.c |   14 ++++++++++----
+ 3 files changed, 29 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
+index 906e9bc..bbacf5c 100644
+--- a/drivers/net/ethernet/ti/netcp.h
++++ b/drivers/net/ethernet/ti/netcp.h
+@@ -41,7 +41,10 @@ struct netcp_tx_pipe {
+ 	struct netcp_device	*netcp_device;
+ 	void			*dma_queue;
+ 	unsigned int		dma_queue_id;
+-	u8			dma_psflags;
++	/* To port for packet forwarded to switch. Used only by ethss */
++	u8			switch_to_port;
++#define	SWITCH_TO_PORT_IN_TAGINFO	BIT(0)
++	u8			flags;
+ 	void			*dma_channel;
+ 	const char		*dma_chan_name;
+ };
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index a31a8c3..d867636 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1098,9 +1098,9 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 	struct netcp_tx_pipe *tx_pipe = NULL;
+ 	struct netcp_hook_list *tx_hook;
+ 	struct netcp_packet p_info;
+-	u32 packet_info = 0;
+ 	unsigned int dma_sz;
+ 	dma_addr_t dma;
++	u32 tmp = 0;
+ 	int ret = 0;
+ 
+ 	p_info.netcp = netcp;
+@@ -1140,20 +1140,27 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
+ 		memmove(p_info.psdata, p_info.psdata + p_info.psdata_len,
+ 			p_info.psdata_len);
+ 		set_words(psdata, p_info.psdata_len, psdata);
+-		packet_info |=
+-			(p_info.psdata_len & KNAV_DMA_DESC_PSLEN_MASK) <<
++		tmp |= (p_info.psdata_len & KNAV_DMA_DESC_PSLEN_MASK) <<
+ 			KNAV_DMA_DESC_PSLEN_SHIFT;
+ 	}
+ 
+-	packet_info |= KNAV_DMA_DESC_HAS_EPIB |
++	tmp |= KNAV_DMA_DESC_HAS_EPIB |
+ 		((netcp->tx_compl_qid & KNAV_DMA_DESC_RETQ_MASK) <<
+-		KNAV_DMA_DESC_RETQ_SHIFT) |
+-		((tx_pipe->dma_psflags & KNAV_DMA_DESC_PSFLAG_MASK) <<
+-		KNAV_DMA_DESC_PSFLAG_SHIFT);
++		KNAV_DMA_DESC_RETQ_SHIFT);
+ 
+-	set_words(&packet_info, 1, &desc->packet_info);
++	if (!(tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO)) {
++		tmp |= ((tx_pipe->switch_to_port & KNAV_DMA_DESC_PSFLAG_MASK) <<
++			KNAV_DMA_DESC_PSFLAG_SHIFT);
++	}
++
++	set_words(&tmp, 1, &desc->packet_info);
+ 	set_words((u32 *)&skb, 1, &desc->pad[0]);
+ 
++	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
++		tmp = tx_pipe->switch_to_port;
++		set_words((u32 *)&tmp, 1, &desc->tag_info);
++	}
++
+ 	/* submit packet descriptor */
+ 	ret = knav_pool_desc_map(netcp->tx_pool, desc, sizeof(*desc), &dma,
+ 				 &dma_sz);
 diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 42592b8..f8f3be3 100644
+index 84f5ce5..2be90a5 100644
 --- a/drivers/net/ethernet/ti/netcp_ethss.c
 +++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -482,275 +482,296 @@ struct netcp_ethtool_stat {
- 	int offset;
- };
+@@ -1472,15 +1472,21 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
+ 		GBE_MAJOR_VERSION(reg), GBE_MINOR_VERSION(reg),
+ 		GBE_RTL_VERSION(reg), GBE_IDENT(reg));
  
--#define GBE_STATSA_INFO(field)		"GBE_A:"#field, GBE_STATSA_MODULE,\
--				FIELD_SIZEOF(struct gbe_hw_stats, field), \
--				offsetof(struct gbe_hw_stats, field)
-+#define GBE_STATSA_INFO(field)						\
-+{									\
-+	"GBE_A:"#field, GBE_STATSA_MODULE,				\
-+	FIELD_SIZEOF(struct gbe_hw_stats, field),			\
-+	offsetof(struct gbe_hw_stats, field)				\
-+}
++	/* For 10G use directed to port */
++	if (gbe_dev->ss_version == XGBE_SS_VERSION_10)
++		gbe_intf->tx_pipe.flags = SWITCH_TO_PORT_IN_TAGINFO;
++
+ 	if (gbe_dev->enable_ale)
+-		gbe_intf->tx_pipe.dma_psflags = 0;
++		gbe_intf->tx_pipe.switch_to_port = 0;
+ 	else
+-		gbe_intf->tx_pipe.dma_psflags = port_num;
++		gbe_intf->tx_pipe.switch_to_port = port_num;
  
--#define GBE_STATSB_INFO(field)		"GBE_B:"#field, GBE_STATSB_MODULE,\
--				FIELD_SIZEOF(struct gbe_hw_stats, field), \
--				offsetof(struct gbe_hw_stats, field)
-+#define GBE_STATSB_INFO(field)						\
-+{									\
-+	"GBE_B:"#field, GBE_STATSB_MODULE,				\
-+	FIELD_SIZEOF(struct gbe_hw_stats, field),			\
-+	offsetof(struct gbe_hw_stats, field)				\
-+}
+-	dev_dbg(gbe_dev->dev, "opened TX channel %s: %p with psflags %d\n",
++	dev_dbg(gbe_dev->dev,
++		"opened TX channel %s: %p with to port %d, flags %d\n",
+ 		gbe_intf->tx_pipe.dma_chan_name,
+ 		gbe_intf->tx_pipe.dma_channel,
+-		gbe_intf->tx_pipe.dma_psflags);
++		gbe_intf->tx_pipe.switch_to_port,
++		gbe_intf->tx_pipe.flags);
  
--#define GBE_STATSC_INFO(field)		"GBE_C:"#field, GBE_STATSC_MODULE,\
--				FIELD_SIZEOF(struct gbe_hw_stats, field), \
--				offsetof(struct gbe_hw_stats, field)
-+#define GBE_STATSC_INFO(field)						\
-+{									\
-+	"GBE_C:"#field, GBE_STATSC_MODULE,				\
-+	FIELD_SIZEOF(struct gbe_hw_stats, field),			\
-+	offsetof(struct gbe_hw_stats, field)				\
-+}
+ 	gbe_slave_stop(gbe_intf);
  
--#define GBE_STATSD_INFO(field)		"GBE_D:"#field, GBE_STATSD_MODULE,\
--				FIELD_SIZEOF(struct gbe_hw_stats, field), \
--				offsetof(struct gbe_hw_stats, field)
-+#define GBE_STATSD_INFO(field)						\
-+{									\
-+	"GBE_D:"#field, GBE_STATSD_MODULE,				\
-+	FIELD_SIZEOF(struct gbe_hw_stats, field),			\
-+	offsetof(struct gbe_hw_stats, field)				\
-+}
- 
- static const struct netcp_ethtool_stat gbe13_et_stats[] = {
- 	/* GBE module A */
--	{GBE_STATSA_INFO(rx_good_frames)},
--	{GBE_STATSA_INFO(rx_broadcast_frames)},
--	{GBE_STATSA_INFO(rx_multicast_frames)},
--	{GBE_STATSA_INFO(rx_pause_frames)},
--	{GBE_STATSA_INFO(rx_crc_errors)},
--	{GBE_STATSA_INFO(rx_align_code_errors)},
--	{GBE_STATSA_INFO(rx_oversized_frames)},
--	{GBE_STATSA_INFO(rx_jabber_frames)},
--	{GBE_STATSA_INFO(rx_undersized_frames)},
--	{GBE_STATSA_INFO(rx_fragments)},
--	{GBE_STATSA_INFO(rx_bytes)},
--	{GBE_STATSA_INFO(tx_good_frames)},
--	{GBE_STATSA_INFO(tx_broadcast_frames)},
--	{GBE_STATSA_INFO(tx_multicast_frames)},
--	{GBE_STATSA_INFO(tx_pause_frames)},
--	{GBE_STATSA_INFO(tx_deferred_frames)},
--	{GBE_STATSA_INFO(tx_collision_frames)},
--	{GBE_STATSA_INFO(tx_single_coll_frames)},
--	{GBE_STATSA_INFO(tx_mult_coll_frames)},
--	{GBE_STATSA_INFO(tx_excessive_collisions)},
--	{GBE_STATSA_INFO(tx_late_collisions)},
--	{GBE_STATSA_INFO(tx_underrun)},
--	{GBE_STATSA_INFO(tx_carrier_sense_errors)},
--	{GBE_STATSA_INFO(tx_bytes)},
--	{GBE_STATSA_INFO(tx_64byte_frames)},
--	{GBE_STATSA_INFO(tx_65_to_127byte_frames)},
--	{GBE_STATSA_INFO(tx_128_to_255byte_frames)},
--	{GBE_STATSA_INFO(tx_256_to_511byte_frames)},
--	{GBE_STATSA_INFO(tx_512_to_1023byte_frames)},
--	{GBE_STATSA_INFO(tx_1024byte_frames)},
--	{GBE_STATSA_INFO(net_bytes)},
--	{GBE_STATSA_INFO(rx_sof_overruns)},
--	{GBE_STATSA_INFO(rx_mof_overruns)},
--	{GBE_STATSA_INFO(rx_dma_overruns)},
-+	GBE_STATSA_INFO(rx_good_frames),
-+	GBE_STATSA_INFO(rx_broadcast_frames),
-+	GBE_STATSA_INFO(rx_multicast_frames),
-+	GBE_STATSA_INFO(rx_pause_frames),
-+	GBE_STATSA_INFO(rx_crc_errors),
-+	GBE_STATSA_INFO(rx_align_code_errors),
-+	GBE_STATSA_INFO(rx_oversized_frames),
-+	GBE_STATSA_INFO(rx_jabber_frames),
-+	GBE_STATSA_INFO(rx_undersized_frames),
-+	GBE_STATSA_INFO(rx_fragments),
-+	GBE_STATSA_INFO(rx_bytes),
-+	GBE_STATSA_INFO(tx_good_frames),
-+	GBE_STATSA_INFO(tx_broadcast_frames),
-+	GBE_STATSA_INFO(tx_multicast_frames),
-+	GBE_STATSA_INFO(tx_pause_frames),
-+	GBE_STATSA_INFO(tx_deferred_frames),
-+	GBE_STATSA_INFO(tx_collision_frames),
-+	GBE_STATSA_INFO(tx_single_coll_frames),
-+	GBE_STATSA_INFO(tx_mult_coll_frames),
-+	GBE_STATSA_INFO(tx_excessive_collisions),
-+	GBE_STATSA_INFO(tx_late_collisions),
-+	GBE_STATSA_INFO(tx_underrun),
-+	GBE_STATSA_INFO(tx_carrier_sense_errors),
-+	GBE_STATSA_INFO(tx_bytes),
-+	GBE_STATSA_INFO(tx_64byte_frames),
-+	GBE_STATSA_INFO(tx_65_to_127byte_frames),
-+	GBE_STATSA_INFO(tx_128_to_255byte_frames),
-+	GBE_STATSA_INFO(tx_256_to_511byte_frames),
-+	GBE_STATSA_INFO(tx_512_to_1023byte_frames),
-+	GBE_STATSA_INFO(tx_1024byte_frames),
-+	GBE_STATSA_INFO(net_bytes),
-+	GBE_STATSA_INFO(rx_sof_overruns),
-+	GBE_STATSA_INFO(rx_mof_overruns),
-+	GBE_STATSA_INFO(rx_dma_overruns),
- 	/* GBE module B */
--	{GBE_STATSB_INFO(rx_good_frames)},
--	{GBE_STATSB_INFO(rx_broadcast_frames)},
--	{GBE_STATSB_INFO(rx_multicast_frames)},
--	{GBE_STATSB_INFO(rx_pause_frames)},
--	{GBE_STATSB_INFO(rx_crc_errors)},
--	{GBE_STATSB_INFO(rx_align_code_errors)},
--	{GBE_STATSB_INFO(rx_oversized_frames)},
--	{GBE_STATSB_INFO(rx_jabber_frames)},
--	{GBE_STATSB_INFO(rx_undersized_frames)},
--	{GBE_STATSB_INFO(rx_fragments)},
--	{GBE_STATSB_INFO(rx_bytes)},
--	{GBE_STATSB_INFO(tx_good_frames)},
--	{GBE_STATSB_INFO(tx_broadcast_frames)},
--	{GBE_STATSB_INFO(tx_multicast_frames)},
--	{GBE_STATSB_INFO(tx_pause_frames)},
--	{GBE_STATSB_INFO(tx_deferred_frames)},
--	{GBE_STATSB_INFO(tx_collision_frames)},
--	{GBE_STATSB_INFO(tx_single_coll_frames)},
--	{GBE_STATSB_INFO(tx_mult_coll_frames)},
--	{GBE_STATSB_INFO(tx_excessive_collisions)},
--	{GBE_STATSB_INFO(tx_late_collisions)},
--	{GBE_STATSB_INFO(tx_underrun)},
--	{GBE_STATSB_INFO(tx_carrier_sense_errors)},
--	{GBE_STATSB_INFO(tx_bytes)},
--	{GBE_STATSB_INFO(tx_64byte_frames)},
--	{GBE_STATSB_INFO(tx_65_to_127byte_frames)},
--	{GBE_STATSB_INFO(tx_128_to_255byte_frames)},
--	{GBE_STATSB_INFO(tx_256_to_511byte_frames)},
--	{GBE_STATSB_INFO(tx_512_to_1023byte_frames)},
--	{GBE_STATSB_INFO(tx_1024byte_frames)},
--	{GBE_STATSB_INFO(net_bytes)},
--	{GBE_STATSB_INFO(rx_sof_overruns)},
--	{GBE_STATSB_INFO(rx_mof_overruns)},
--	{GBE_STATSB_INFO(rx_dma_overruns)},
-+	GBE_STATSB_INFO(rx_good_frames),
-+	GBE_STATSB_INFO(rx_broadcast_frames),
-+	GBE_STATSB_INFO(rx_multicast_frames),
-+	GBE_STATSB_INFO(rx_pause_frames),
-+	GBE_STATSB_INFO(rx_crc_errors),
-+	GBE_STATSB_INFO(rx_align_code_errors),
-+	GBE_STATSB_INFO(rx_oversized_frames),
-+	GBE_STATSB_INFO(rx_jabber_frames),
-+	GBE_STATSB_INFO(rx_undersized_frames),
-+	GBE_STATSB_INFO(rx_fragments),
-+	GBE_STATSB_INFO(rx_bytes),
-+	GBE_STATSB_INFO(tx_good_frames),
-+	GBE_STATSB_INFO(tx_broadcast_frames),
-+	GBE_STATSB_INFO(tx_multicast_frames),
-+	GBE_STATSB_INFO(tx_pause_frames),
-+	GBE_STATSB_INFO(tx_deferred_frames),
-+	GBE_STATSB_INFO(tx_collision_frames),
-+	GBE_STATSB_INFO(tx_single_coll_frames),
-+	GBE_STATSB_INFO(tx_mult_coll_frames),
-+	GBE_STATSB_INFO(tx_excessive_collisions),
-+	GBE_STATSB_INFO(tx_late_collisions),
-+	GBE_STATSB_INFO(tx_underrun),
-+	GBE_STATSB_INFO(tx_carrier_sense_errors),
-+	GBE_STATSB_INFO(tx_bytes),
-+	GBE_STATSB_INFO(tx_64byte_frames),
-+	GBE_STATSB_INFO(tx_65_to_127byte_frames),
-+	GBE_STATSB_INFO(tx_128_to_255byte_frames),
-+	GBE_STATSB_INFO(tx_256_to_511byte_frames),
-+	GBE_STATSB_INFO(tx_512_to_1023byte_frames),
-+	GBE_STATSB_INFO(tx_1024byte_frames),
-+	GBE_STATSB_INFO(net_bytes),
-+	GBE_STATSB_INFO(rx_sof_overruns),
-+	GBE_STATSB_INFO(rx_mof_overruns),
-+	GBE_STATSB_INFO(rx_dma_overruns),
- 	/* GBE module C */
--	{GBE_STATSC_INFO(rx_good_frames)},
--	{GBE_STATSC_INFO(rx_broadcast_frames)},
--	{GBE_STATSC_INFO(rx_multicast_frames)},
--	{GBE_STATSC_INFO(rx_pause_frames)},
--	{GBE_STATSC_INFO(rx_crc_errors)},
--	{GBE_STATSC_INFO(rx_align_code_errors)},
--	{GBE_STATSC_INFO(rx_oversized_frames)},
--	{GBE_STATSC_INFO(rx_jabber_frames)},
--	{GBE_STATSC_INFO(rx_undersized_frames)},
--	{GBE_STATSC_INFO(rx_fragments)},
--	{GBE_STATSC_INFO(rx_bytes)},
--	{GBE_STATSC_INFO(tx_good_frames)},
--	{GBE_STATSC_INFO(tx_broadcast_frames)},
--	{GBE_STATSC_INFO(tx_multicast_frames)},
--	{GBE_STATSC_INFO(tx_pause_frames)},
--	{GBE_STATSC_INFO(tx_deferred_frames)},
--	{GBE_STATSC_INFO(tx_collision_frames)},
--	{GBE_STATSC_INFO(tx_single_coll_frames)},
--	{GBE_STATSC_INFO(tx_mult_coll_frames)},
--	{GBE_STATSC_INFO(tx_excessive_collisions)},
--	{GBE_STATSC_INFO(tx_late_collisions)},
--	{GBE_STATSC_INFO(tx_underrun)},
--	{GBE_STATSC_INFO(tx_carrier_sense_errors)},
--	{GBE_STATSC_INFO(tx_bytes)},
--	{GBE_STATSC_INFO(tx_64byte_frames)},
--	{GBE_STATSC_INFO(tx_65_to_127byte_frames)},
--	{GBE_STATSC_INFO(tx_128_to_255byte_frames)},
--	{GBE_STATSC_INFO(tx_256_to_511byte_frames)},
--	{GBE_STATSC_INFO(tx_512_to_1023byte_frames)},
--	{GBE_STATSC_INFO(tx_1024byte_frames)},
--	{GBE_STATSC_INFO(net_bytes)},
--	{GBE_STATSC_INFO(rx_sof_overruns)},
--	{GBE_STATSC_INFO(rx_mof_overruns)},
--	{GBE_STATSC_INFO(rx_dma_overruns)},
-+	GBE_STATSC_INFO(rx_good_frames),
-+	GBE_STATSC_INFO(rx_broadcast_frames),
-+	GBE_STATSC_INFO(rx_multicast_frames),
-+	GBE_STATSC_INFO(rx_pause_frames),
-+	GBE_STATSC_INFO(rx_crc_errors),
-+	GBE_STATSC_INFO(rx_align_code_errors),
-+	GBE_STATSC_INFO(rx_oversized_frames),
-+	GBE_STATSC_INFO(rx_jabber_frames),
-+	GBE_STATSC_INFO(rx_undersized_frames),
-+	GBE_STATSC_INFO(rx_fragments),
-+	GBE_STATSC_INFO(rx_bytes),
-+	GBE_STATSC_INFO(tx_good_frames),
-+	GBE_STATSC_INFO(tx_broadcast_frames),
-+	GBE_STATSC_INFO(tx_multicast_frames),
-+	GBE_STATSC_INFO(tx_pause_frames),
-+	GBE_STATSC_INFO(tx_deferred_frames),
-+	GBE_STATSC_INFO(tx_collision_frames),
-+	GBE_STATSC_INFO(tx_single_coll_frames),
-+	GBE_STATSC_INFO(tx_mult_coll_frames),
-+	GBE_STATSC_INFO(tx_excessive_collisions),
-+	GBE_STATSC_INFO(tx_late_collisions),
-+	GBE_STATSC_INFO(tx_underrun),
-+	GBE_STATSC_INFO(tx_carrier_sense_errors),
-+	GBE_STATSC_INFO(tx_bytes),
-+	GBE_STATSC_INFO(tx_64byte_frames),
-+	GBE_STATSC_INFO(tx_65_to_127byte_frames),
-+	GBE_STATSC_INFO(tx_128_to_255byte_frames),
-+	GBE_STATSC_INFO(tx_256_to_511byte_frames),
-+	GBE_STATSC_INFO(tx_512_to_1023byte_frames),
-+	GBE_STATSC_INFO(tx_1024byte_frames),
-+	GBE_STATSC_INFO(net_bytes),
-+	GBE_STATSC_INFO(rx_sof_overruns),
-+	GBE_STATSC_INFO(rx_mof_overruns),
-+	GBE_STATSC_INFO(rx_dma_overruns),
- 	/* GBE module D */
--	{GBE_STATSD_INFO(rx_good_frames)},
--	{GBE_STATSD_INFO(rx_broadcast_frames)},
--	{GBE_STATSD_INFO(rx_multicast_frames)},
--	{GBE_STATSD_INFO(rx_pause_frames)},
--	{GBE_STATSD_INFO(rx_crc_errors)},
--	{GBE_STATSD_INFO(rx_align_code_errors)},
--	{GBE_STATSD_INFO(rx_oversized_frames)},
--	{GBE_STATSD_INFO(rx_jabber_frames)},
--	{GBE_STATSD_INFO(rx_undersized_frames)},
--	{GBE_STATSD_INFO(rx_fragments)},
--	{GBE_STATSD_INFO(rx_bytes)},
--	{GBE_STATSD_INFO(tx_good_frames)},
--	{GBE_STATSD_INFO(tx_broadcast_frames)},
--	{GBE_STATSD_INFO(tx_multicast_frames)},
--	{GBE_STATSD_INFO(tx_pause_frames)},
--	{GBE_STATSD_INFO(tx_deferred_frames)},
--	{GBE_STATSD_INFO(tx_collision_frames)},
--	{GBE_STATSD_INFO(tx_single_coll_frames)},
--	{GBE_STATSD_INFO(tx_mult_coll_frames)},
--	{GBE_STATSD_INFO(tx_excessive_collisions)},
--	{GBE_STATSD_INFO(tx_late_collisions)},
--	{GBE_STATSD_INFO(tx_underrun)},
--	{GBE_STATSD_INFO(tx_carrier_sense_errors)},
--	{GBE_STATSD_INFO(tx_bytes)},
--	{GBE_STATSD_INFO(tx_64byte_frames)},
--	{GBE_STATSD_INFO(tx_65_to_127byte_frames)},
--	{GBE_STATSD_INFO(tx_128_to_255byte_frames)},
--	{GBE_STATSD_INFO(tx_256_to_511byte_frames)},
--	{GBE_STATSD_INFO(tx_512_to_1023byte_frames)},
--	{GBE_STATSD_INFO(tx_1024byte_frames)},
--	{GBE_STATSD_INFO(net_bytes)},
--	{GBE_STATSD_INFO(rx_sof_overruns)},
--	{GBE_STATSD_INFO(rx_mof_overruns)},
--	{GBE_STATSD_INFO(rx_dma_overruns)},
-+	GBE_STATSD_INFO(rx_good_frames),
-+	GBE_STATSD_INFO(rx_broadcast_frames),
-+	GBE_STATSD_INFO(rx_multicast_frames),
-+	GBE_STATSD_INFO(rx_pause_frames),
-+	GBE_STATSD_INFO(rx_crc_errors),
-+	GBE_STATSD_INFO(rx_align_code_errors),
-+	GBE_STATSD_INFO(rx_oversized_frames),
-+	GBE_STATSD_INFO(rx_jabber_frames),
-+	GBE_STATSD_INFO(rx_undersized_frames),
-+	GBE_STATSD_INFO(rx_fragments),
-+	GBE_STATSD_INFO(rx_bytes),
-+	GBE_STATSD_INFO(tx_good_frames),
-+	GBE_STATSD_INFO(tx_broadcast_frames),
-+	GBE_STATSD_INFO(tx_multicast_frames),
-+	GBE_STATSD_INFO(tx_pause_frames),
-+	GBE_STATSD_INFO(tx_deferred_frames),
-+	GBE_STATSD_INFO(tx_collision_frames),
-+	GBE_STATSD_INFO(tx_single_coll_frames),
-+	GBE_STATSD_INFO(tx_mult_coll_frames),
-+	GBE_STATSD_INFO(tx_excessive_collisions),
-+	GBE_STATSD_INFO(tx_late_collisions),
-+	GBE_STATSD_INFO(tx_underrun),
-+	GBE_STATSD_INFO(tx_carrier_sense_errors),
-+	GBE_STATSD_INFO(tx_bytes),
-+	GBE_STATSD_INFO(tx_64byte_frames),
-+	GBE_STATSD_INFO(tx_65_to_127byte_frames),
-+	GBE_STATSD_INFO(tx_128_to_255byte_frames),
-+	GBE_STATSD_INFO(tx_256_to_511byte_frames),
-+	GBE_STATSD_INFO(tx_512_to_1023byte_frames),
-+	GBE_STATSD_INFO(tx_1024byte_frames),
-+	GBE_STATSD_INFO(net_bytes),
-+	GBE_STATSD_INFO(rx_sof_overruns),
-+	GBE_STATSD_INFO(rx_mof_overruns),
-+	GBE_STATSD_INFO(rx_dma_overruns),
- };
- 
--#define XGBE_STATS0_INFO(field)	"GBE_0:"#field, XGBE_STATS0_MODULE, \
--				FIELD_SIZEOF(struct xgbe_hw_stats, field), \
--				offsetof(struct xgbe_hw_stats, field)
-+#define XGBE_STATS0_INFO(field)				\
-+{							\
-+	"GBE_0:"#field, XGBE_STATS0_MODULE,		\
-+	FIELD_SIZEOF(struct xgbe_hw_stats, field),	\
-+	offsetof(struct xgbe_hw_stats, field)		\
-+}
- 
--#define XGBE_STATS1_INFO(field)	"GBE_1:"#field, XGBE_STATS1_MODULE, \
--				FIELD_SIZEOF(struct xgbe_hw_stats, field), \
--				offsetof(struct xgbe_hw_stats, field)
-+#define XGBE_STATS1_INFO(field)				\
-+{							\
-+	"GBE_1:"#field, XGBE_STATS1_MODULE,		\
-+	FIELD_SIZEOF(struct xgbe_hw_stats, field),	\
-+	offsetof(struct xgbe_hw_stats, field)		\
-+}
- 
--#define XGBE_STATS2_INFO(field)	"GBE_2:"#field, XGBE_STATS2_MODULE, \
--				FIELD_SIZEOF(struct xgbe_hw_stats, field), \
--				offsetof(struct xgbe_hw_stats, field)
-+#define XGBE_STATS2_INFO(field)				\
-+{							\
-+	"GBE_2:"#field, XGBE_STATS2_MODULE,		\
-+	FIELD_SIZEOF(struct xgbe_hw_stats, field),	\
-+	offsetof(struct xgbe_hw_stats, field)		\
-+}
- 
- static const struct netcp_ethtool_stat xgbe10_et_stats[] = {
- 	/* GBE module 0 */
--	{XGBE_STATS0_INFO(rx_good_frames)},
--	{XGBE_STATS0_INFO(rx_broadcast_frames)},
--	{XGBE_STATS0_INFO(rx_multicast_frames)},
--	{XGBE_STATS0_INFO(rx_oversized_frames)},
--	{XGBE_STATS0_INFO(rx_undersized_frames)},
--	{XGBE_STATS0_INFO(overrun_type4)},
--	{XGBE_STATS0_INFO(overrun_type5)},
--	{XGBE_STATS0_INFO(rx_bytes)},
--	{XGBE_STATS0_INFO(tx_good_frames)},
--	{XGBE_STATS0_INFO(tx_broadcast_frames)},
--	{XGBE_STATS0_INFO(tx_multicast_frames)},
--	{XGBE_STATS0_INFO(tx_bytes)},
--	{XGBE_STATS0_INFO(tx_64byte_frames)},
--	{XGBE_STATS0_INFO(tx_65_to_127byte_frames)},
--	{XGBE_STATS0_INFO(tx_128_to_255byte_frames)},
--	{XGBE_STATS0_INFO(tx_256_to_511byte_frames)},
--	{XGBE_STATS0_INFO(tx_512_to_1023byte_frames)},
--	{XGBE_STATS0_INFO(tx_1024byte_frames)},
--	{XGBE_STATS0_INFO(net_bytes)},
--	{XGBE_STATS0_INFO(rx_sof_overruns)},
--	{XGBE_STATS0_INFO(rx_mof_overruns)},
--	{XGBE_STATS0_INFO(rx_dma_overruns)},
-+	XGBE_STATS0_INFO(rx_good_frames),
-+	XGBE_STATS0_INFO(rx_broadcast_frames),
-+	XGBE_STATS0_INFO(rx_multicast_frames),
-+	XGBE_STATS0_INFO(rx_oversized_frames),
-+	XGBE_STATS0_INFO(rx_undersized_frames),
-+	XGBE_STATS0_INFO(overrun_type4),
-+	XGBE_STATS0_INFO(overrun_type5),
-+	XGBE_STATS0_INFO(rx_bytes),
-+	XGBE_STATS0_INFO(tx_good_frames),
-+	XGBE_STATS0_INFO(tx_broadcast_frames),
-+	XGBE_STATS0_INFO(tx_multicast_frames),
-+	XGBE_STATS0_INFO(tx_bytes),
-+	XGBE_STATS0_INFO(tx_64byte_frames),
-+	XGBE_STATS0_INFO(tx_65_to_127byte_frames),
-+	XGBE_STATS0_INFO(tx_128_to_255byte_frames),
-+	XGBE_STATS0_INFO(tx_256_to_511byte_frames),
-+	XGBE_STATS0_INFO(tx_512_to_1023byte_frames),
-+	XGBE_STATS0_INFO(tx_1024byte_frames),
-+	XGBE_STATS0_INFO(net_bytes),
-+	XGBE_STATS0_INFO(rx_sof_overruns),
-+	XGBE_STATS0_INFO(rx_mof_overruns),
-+	XGBE_STATS0_INFO(rx_dma_overruns),
- 	/* XGBE module 1 */
--	{XGBE_STATS1_INFO(rx_good_frames)},
--	{XGBE_STATS1_INFO(rx_broadcast_frames)},
--	{XGBE_STATS1_INFO(rx_multicast_frames)},
--	{XGBE_STATS1_INFO(rx_pause_frames)},
--	{XGBE_STATS1_INFO(rx_crc_errors)},
--	{XGBE_STATS1_INFO(rx_align_code_errors)},
--	{XGBE_STATS1_INFO(rx_oversized_frames)},
--	{XGBE_STATS1_INFO(rx_jabber_frames)},
--	{XGBE_STATS1_INFO(rx_undersized_frames)},
--	{XGBE_STATS1_INFO(rx_fragments)},
--	{XGBE_STATS1_INFO(overrun_type4)},
--	{XGBE_STATS1_INFO(overrun_type5)},
--	{XGBE_STATS1_INFO(rx_bytes)},
--	{XGBE_STATS1_INFO(tx_good_frames)},
--	{XGBE_STATS1_INFO(tx_broadcast_frames)},
--	{XGBE_STATS1_INFO(tx_multicast_frames)},
--	{XGBE_STATS1_INFO(tx_pause_frames)},
--	{XGBE_STATS1_INFO(tx_deferred_frames)},
--	{XGBE_STATS1_INFO(tx_collision_frames)},
--	{XGBE_STATS1_INFO(tx_single_coll_frames)},
--	{XGBE_STATS1_INFO(tx_mult_coll_frames)},
--	{XGBE_STATS1_INFO(tx_excessive_collisions)},
--	{XGBE_STATS1_INFO(tx_late_collisions)},
--	{XGBE_STATS1_INFO(tx_underrun)},
--	{XGBE_STATS1_INFO(tx_carrier_sense_errors)},
--	{XGBE_STATS1_INFO(tx_bytes)},
--	{XGBE_STATS1_INFO(tx_64byte_frames)},
--	{XGBE_STATS1_INFO(tx_65_to_127byte_frames)},
--	{XGBE_STATS1_INFO(tx_128_to_255byte_frames)},
--	{XGBE_STATS1_INFO(tx_256_to_511byte_frames)},
--	{XGBE_STATS1_INFO(tx_512_to_1023byte_frames)},
--	{XGBE_STATS1_INFO(tx_1024byte_frames)},
--	{XGBE_STATS1_INFO(net_bytes)},
--	{XGBE_STATS1_INFO(rx_sof_overruns)},
--	{XGBE_STATS1_INFO(rx_mof_overruns)},
--	{XGBE_STATS1_INFO(rx_dma_overruns)},
-+	XGBE_STATS1_INFO(rx_good_frames),
-+	XGBE_STATS1_INFO(rx_broadcast_frames),
-+	XGBE_STATS1_INFO(rx_multicast_frames),
-+	XGBE_STATS1_INFO(rx_pause_frames),
-+	XGBE_STATS1_INFO(rx_crc_errors),
-+	XGBE_STATS1_INFO(rx_align_code_errors),
-+	XGBE_STATS1_INFO(rx_oversized_frames),
-+	XGBE_STATS1_INFO(rx_jabber_frames),
-+	XGBE_STATS1_INFO(rx_undersized_frames),
-+	XGBE_STATS1_INFO(rx_fragments),
-+	XGBE_STATS1_INFO(overrun_type4),
-+	XGBE_STATS1_INFO(overrun_type5),
-+	XGBE_STATS1_INFO(rx_bytes),
-+	XGBE_STATS1_INFO(tx_good_frames),
-+	XGBE_STATS1_INFO(tx_broadcast_frames),
-+	XGBE_STATS1_INFO(tx_multicast_frames),
-+	XGBE_STATS1_INFO(tx_pause_frames),
-+	XGBE_STATS1_INFO(tx_deferred_frames),
-+	XGBE_STATS1_INFO(tx_collision_frames),
-+	XGBE_STATS1_INFO(tx_single_coll_frames),
-+	XGBE_STATS1_INFO(tx_mult_coll_frames),
-+	XGBE_STATS1_INFO(tx_excessive_collisions),
-+	XGBE_STATS1_INFO(tx_late_collisions),
-+	XGBE_STATS1_INFO(tx_underrun),
-+	XGBE_STATS1_INFO(tx_carrier_sense_errors),
-+	XGBE_STATS1_INFO(tx_bytes),
-+	XGBE_STATS1_INFO(tx_64byte_frames),
-+	XGBE_STATS1_INFO(tx_65_to_127byte_frames),
-+	XGBE_STATS1_INFO(tx_128_to_255byte_frames),
-+	XGBE_STATS1_INFO(tx_256_to_511byte_frames),
-+	XGBE_STATS1_INFO(tx_512_to_1023byte_frames),
-+	XGBE_STATS1_INFO(tx_1024byte_frames),
-+	XGBE_STATS1_INFO(net_bytes),
-+	XGBE_STATS1_INFO(rx_sof_overruns),
-+	XGBE_STATS1_INFO(rx_mof_overruns),
-+	XGBE_STATS1_INFO(rx_dma_overruns),
- 	/* XGBE module 2 */
--	{XGBE_STATS2_INFO(rx_good_frames)},
--	{XGBE_STATS2_INFO(rx_broadcast_frames)},
--	{XGBE_STATS2_INFO(rx_multicast_frames)},
--	{XGBE_STATS2_INFO(rx_pause_frames)},
--	{XGBE_STATS2_INFO(rx_crc_errors)},
--	{XGBE_STATS2_INFO(rx_align_code_errors)},
--	{XGBE_STATS2_INFO(rx_oversized_frames)},
--	{XGBE_STATS2_INFO(rx_jabber_frames)},
--	{XGBE_STATS2_INFO(rx_undersized_frames)},
--	{XGBE_STATS2_INFO(rx_fragments)},
--	{XGBE_STATS2_INFO(overrun_type4)},
--	{XGBE_STATS2_INFO(overrun_type5)},
--	{XGBE_STATS2_INFO(rx_bytes)},
--	{XGBE_STATS2_INFO(tx_good_frames)},
--	{XGBE_STATS2_INFO(tx_broadcast_frames)},
--	{XGBE_STATS2_INFO(tx_multicast_frames)},
--	{XGBE_STATS2_INFO(tx_pause_frames)},
--	{XGBE_STATS2_INFO(tx_deferred_frames)},
--	{XGBE_STATS2_INFO(tx_collision_frames)},
--	{XGBE_STATS2_INFO(tx_single_coll_frames)},
--	{XGBE_STATS2_INFO(tx_mult_coll_frames)},
--	{XGBE_STATS2_INFO(tx_excessive_collisions)},
--	{XGBE_STATS2_INFO(tx_late_collisions)},
--	{XGBE_STATS2_INFO(tx_underrun)},
--	{XGBE_STATS2_INFO(tx_carrier_sense_errors)},
--	{XGBE_STATS2_INFO(tx_bytes)},
--	{XGBE_STATS2_INFO(tx_64byte_frames)},
--	{XGBE_STATS2_INFO(tx_65_to_127byte_frames)},
--	{XGBE_STATS2_INFO(tx_128_to_255byte_frames)},
--	{XGBE_STATS2_INFO(tx_256_to_511byte_frames)},
--	{XGBE_STATS2_INFO(tx_512_to_1023byte_frames)},
--	{XGBE_STATS2_INFO(tx_1024byte_frames)},
--	{XGBE_STATS2_INFO(net_bytes)},
--	{XGBE_STATS2_INFO(rx_sof_overruns)},
--	{XGBE_STATS2_INFO(rx_mof_overruns)},
--	{XGBE_STATS2_INFO(rx_dma_overruns)},
-+	XGBE_STATS2_INFO(rx_good_frames),
-+	XGBE_STATS2_INFO(rx_broadcast_frames),
-+	XGBE_STATS2_INFO(rx_multicast_frames),
-+	XGBE_STATS2_INFO(rx_pause_frames),
-+	XGBE_STATS2_INFO(rx_crc_errors),
-+	XGBE_STATS2_INFO(rx_align_code_errors),
-+	XGBE_STATS2_INFO(rx_oversized_frames),
-+	XGBE_STATS2_INFO(rx_jabber_frames),
-+	XGBE_STATS2_INFO(rx_undersized_frames),
-+	XGBE_STATS2_INFO(rx_fragments),
-+	XGBE_STATS2_INFO(overrun_type4),
-+	XGBE_STATS2_INFO(overrun_type5),
-+	XGBE_STATS2_INFO(rx_bytes),
-+	XGBE_STATS2_INFO(tx_good_frames),
-+	XGBE_STATS2_INFO(tx_broadcast_frames),
-+	XGBE_STATS2_INFO(tx_multicast_frames),
-+	XGBE_STATS2_INFO(tx_pause_frames),
-+	XGBE_STATS2_INFO(tx_deferred_frames),
-+	XGBE_STATS2_INFO(tx_collision_frames),
-+	XGBE_STATS2_INFO(tx_single_coll_frames),
-+	XGBE_STATS2_INFO(tx_mult_coll_frames),
-+	XGBE_STATS2_INFO(tx_excessive_collisions),
-+	XGBE_STATS2_INFO(tx_late_collisions),
-+	XGBE_STATS2_INFO(tx_underrun),
-+	XGBE_STATS2_INFO(tx_carrier_sense_errors),
-+	XGBE_STATS2_INFO(tx_bytes),
-+	XGBE_STATS2_INFO(tx_64byte_frames),
-+	XGBE_STATS2_INFO(tx_65_to_127byte_frames),
-+	XGBE_STATS2_INFO(tx_128_to_255byte_frames),
-+	XGBE_STATS2_INFO(tx_256_to_511byte_frames),
-+	XGBE_STATS2_INFO(tx_512_to_1023byte_frames),
-+	XGBE_STATS2_INFO(tx_1024byte_frames),
-+	XGBE_STATS2_INFO(net_bytes),
-+	XGBE_STATS2_INFO(rx_sof_overruns),
-+	XGBE_STATS2_INFO(rx_mof_overruns),
-+	XGBE_STATS2_INFO(rx_dma_overruns),
- };
- 
- #define for_each_intf(i, priv) \
 -- 
 1.7.9.5
