@@ -1,176 +1,108 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v8 tip 5/9] tracing: allow BPF programs to call
- bpf_trace_printk()
-Date: Fri, 20 Mar 2015 17:22:19 -0400
-Message-ID: <20150320172219.45ff7157@gandalf.local.home>
-References: <1426816787-5001-1-git-send-email-ast@plumgrid.com>
-	<1426816787-5001-6-git-send-email-ast@plumgrid.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
+ packets
+Date: Fri, 20 Mar 2015 14:23:09 -0700
+Message-ID: <550C8FBD.2000903@gmail.com>
+References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <550C54BC.4040509@intel.com> <550C8B07.4010308@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426816787-5001-6-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net,
+	sfeldma@gmail.com, jiri@resnulli.us, ronen.arad@intel.com,
+	netdev@vger.kernel.org, Wilson Kok <wkok@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:33026 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522AbbCTVX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:23:28 -0400
+Received: by obcxo2 with SMTP id xo2so87301125obc.0
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:23:28 -0700 (PDT)
+In-Reply-To: <550C8B07.4010308@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Mar 2015 18:59:43 -0700
-Alexei Starovoitov <ast@plumgrid.com> wrote:
+On 03/20/2015 02:03 PM, roopa wrote:
+> On 3/20/15, 10:11 AM, John Fastabend wrote:
+>> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
+>>> there is a need to not re-forward frames that have already been
+>>> forwarded in hardware.
+>>>
+>>> Typically these are broadcast or multicast frames forwarded by the
+>>> hardware to multiple destination ports including sending a copy of
+>>> the packet to the cpu (kernel e.g. an arp broadcast).
+>>> The bridge driver will try to forward the packet again, resulting in
+>>> two copies of the same packet.
+>>>
+>>> These packets can also come up to the kernel for logging when they hit
+>>> a LOG acl rule in hardware. In such cases, you do want the packet
+>>> to go through the bridge netfilter hooks. Hence, this patch adds the
+>>> required checks just before the packet is being xmited.
+>>>
+>>> v2:
+>>>     - Add a new hw_fwded flag in skbuff to indicate that the packet
+>>>     is already hardware forwarded. Switch driver will set this flag.
+>>>     I have been trying to avoid having this flag in the skb
+>>>     and thats why this patch has been in my tree for long. Cant think
+>>>     of other better alternatives. Suggestions are welcome. I have put
+>>>     this under CONFIG_NET_SWITCHDEV to minimize the impact.
+>>>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>> ---
+>> Interesting. I completely avoid this problem by not instantiating a
+>> software bridge ;)
+>>   When these pkts come up the stack I either use a
+>> raw socket to capture them, put a 'tc' ingress rule to do something,
+>> or have OVS handle them in some special way.
+>> It seems to me that this
+>> is where the sw/hw model starts to break when you have these magic
+>> bits to handle the packets differently.
+>
+>   In-kernel bridge driver is proven very useful for us to run stp,
+> or recently igmp reports (dont know the details here) etc in software.
+> I wonder how you handle these. If you don't use the in-kernel bridge
+> driver, I suspect you down the lane you will end-up having to duplicate a
+> lot of things that bridge driver already does in your switch driver.
 
-> Debugging of BPF programs needs some form of printk from the program,
-> so let programs call limited trace_printk() with %d %u %x %p modifiers only.
-> 
-> Similar to kernel modules, during program load verifier checks whether program
-> is calling bpf_trace_printk() and if so, kernel allocates trace_printk buffers
-> and emits big 'this is debug only' banner.
-> 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->  include/uapi/linux/bpf.h |    1 +
->  kernel/trace/bpf_trace.c |   75 ++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 76 insertions(+)
-> 
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 238c6883877b..cc47ef41076a 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -166,6 +166,7 @@ enum bpf_func_id {
->  	BPF_FUNC_map_delete_elem, /* int map_delete_elem(&map, &key) */
->  	BPF_FUNC_probe_read,      /* int bpf_probe_read(void *dst, int size, void *src) */
->  	BPF_FUNC_ktime_get_ns,    /* u64 bpf_ktime_get_ns(void) */
-> +	BPF_FUNC_trace_printk,    /* int bpf_trace_printk(const char *fmt, int fmt_size, ...) */
->  	__BPF_FUNC_MAX_ID,
->  };
->  
-> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> index 769c577a1fc8..d5b6284edd75 100644
-> --- a/kernel/trace/bpf_trace.c
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -10,6 +10,7 @@
->  #include <linux/bpf.h>
->  #include <linux/filter.h>
->  #include <linux/uaccess.h>
-> +#include <linux/ctype.h>
->  #include "trace.h"
->  
->  static DEFINE_PER_CPU(int, bpf_prog_active);
-> @@ -83,6 +84,72 @@ static const struct bpf_func_proto bpf_ktime_get_ns_proto = {
->  	.ret_type = RET_INTEGER,
->  };
->  
-> +/* limited trace_printk()
-> + * only %d %u %x %ld %lu %lx %lld %llu %llx %p conversion specifiers allowed
-> + */
+I think that code is in need of some serious love before it is usable. I
+actually don't know who is using STP anymore if anyone. I suspect
+everyone is using their own agents. I know Stephen had RSTP code for
+awhile. Anyways it all runs in userspace and doesn't depend on the sw
+bridge. I think it is a better model to run the control protocols in
+userspace like this. I'm not an expert though, maybe Stephen will chime
+in.
 
-Ah! Again, don't contaminate the rest of the kernel with net comment
-styles! :-)
+>>
+>> How do you know to set the skb bit? Do you have some indicator in the
+>> descriptor? I don't have any good way to learn this on my hardware. But
+>> I can assume if it reached the CPU it was because of some explicit rule.
+>
+> Right now we tag all packets except for some igmp frames so that they
+> get handled by software (in kernel bridge driver).
+> (But the igmp frames check is a bit of a hack right now). We don't use
+> it today, but, the sdk
+> can give us some details about the reason the packet was sent to CPU (It
+> possibly gets it from the descriptor).
+>
 
-I change my comment style when I submit net patches. So patches that go
-into tracing must conform to the tracing style.
+hmm I agree with Scott then it seems like if your just tagging every
+packet (or nearly every packet) you can turn forwarding off at the
+port layer. then we save the bit in the skb for something else. And I
+guess if you turn forwarding off at the port layer and have the control
+traffic handled by a userspace agent there is no need for the software
+bridge which is my case. Just my opinion though.
 
-> +static u64 bpf_trace_printk(u64 r1, u64 fmt_size, u64 r3, u64 r4, u64 r5)
-> +{
-> +	char *fmt = (char *) (long) r1;
-> +	int mod[3] = {};
-> +	int fmt_cnt = 0;
-> +	int i;
-> +
-> +	/* bpf_check()->check_func_arg()->check_stack_boundary()
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-It spreads like a disease!
 
-> +	 * guarantees that fmt points to bpf program stack,
-> +	 * fmt_size bytes of it were initialized and fmt_size > 0
-> +	 */
-> +	if (fmt[--fmt_size] != 0)
-> +		return -EINVAL;
-> +
-> +	/* check format string for allowed specifiers */
-> +	for (i = 0; i < fmt_size; i++) {
-> +		if ((!isprint(fmt[i]) && !isspace(fmt[i])) || !isascii(fmt[i]))
-> +			return -EINVAL;
-> +
-> +		if (fmt[i] != '%')
-> +			continue;
-> +
-> +		if (fmt_cnt >= 3)
-> +			return -EINVAL;
-> +
-> +		/* fmt[i] != 0 && fmt[last] == 0, so we can access fmt[i + 1] */
-> +		i++;
-> +		if (fmt[i] == 'l') {
-> +			mod[fmt_cnt]++;
-> +			i++;
-> +		} else if (fmt[i] == 'p') {
-> +			mod[fmt_cnt]++;
-> +			i++;
-> +			if (!isspace(fmt[i]) && fmt[i] != 0)
-
-I wonder if we should allow punctuation here too? None alpha-numeric
-characters?
-
-> +				return -EINVAL;
-> +			fmt_cnt++;
-> +			continue;
-> +		}
-> +
-> +		if (fmt[i] == 'l') {
-> +			mod[fmt_cnt]++;
-> +			i++;
-> +		}
-> +
-> +		if (fmt[i] != 'd' && fmt[i] != 'u' && fmt[i] != 'x')
-> +			return -EINVAL;
-> +		fmt_cnt++;
-> +	}
-> +
-> +	return __trace_printk(1/* fake ip will not be printed */, fmt,
-> +			      mod[0] == 2 ? r3 : mod[0] == 1 ? (long) r3 : (u32) r3,
-> +			      mod[1] == 2 ? r4 : mod[1] == 1 ? (long) r4 : (u32) r4,
-> +			      mod[2] == 2 ? r5 : mod[2] == 1 ? (long) r5 : (u32) r5);
-
-Nice trick.
-
-Except for the net-contaminated-comments, the rest looks good.
-
-Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
-
--- Steve
-
-> +}
-> +
-> +static const struct bpf_func_proto bpf_trace_printk_proto = {
-> +	.func = bpf_trace_printk,
-> +	.gpl_only = true,
-> +	.ret_type = RET_INTEGER,
-> +	.arg1_type = ARG_PTR_TO_STACK,
-> +	.arg2_type = ARG_CONST_STACK_SIZE,
-> +};
-> +
->  static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
->  {
->  	switch (func_id) {
-> @@ -96,6 +163,14 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
->  		return &bpf_probe_read_proto;
->  	case BPF_FUNC_ktime_get_ns:
->  		return &bpf_ktime_get_ns_proto;
-> +
-> +	case BPF_FUNC_trace_printk:
-> +		/* this program might be calling bpf_trace_printk,
-> +		 * so allocate per-cpu printk buffers
-> +		 */
-> +		trace_printk_init_buffers();
-> +
-> +		return &bpf_trace_printk_proto;
->  	default:
->  		return NULL;
->  	}
+-- 
+John Fastabend         Intel Corporation
