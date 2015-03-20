@@ -1,40 +1,29 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces
- with "ktime_t" type
-Date: Fri, 20 Mar 2015 07:26:03 +0100
-Message-ID: <20150320062603.GC4417@localhost.localdomain>
-References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
- <1426743909-24335-3-git-send-email-baolin.wang@linaro.org>
- <20150319075416.GB4568@localhost.localdomain>
- <CAMz4kuKyDFCqd-LfoSKJf+tkXdzzLwtPJdp-nF6NbKU8W5HHpQ@mail.gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH v3 net-next 0/3] Add support for async socket operations
+Date: Fri, 20 Mar 2015 07:45:38 +0100
+Message-ID: <20150320064538.GA626@lst.de>
+References: <20150319193118.11500.10463.stgit@tstruk-mobl1> <20150319195105.GS29656@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	John Stultz <john.stultz@linaro.com>, tglx@linutronix.de,
-	Arnd Bergmann <arnd@linaro.org>
-To: Baolin Wang <baolin.wang@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Tadeusz Struk <tadeusz.struk@intel.com>, davem@davemloft.net,
+	linux-aio@kvack.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
+	linux-fsdevel@vger.kernel.org, hch@lst.de,
+	linux-crypto@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from verein.lst.de ([213.95.11.211]:57362 "EHLO newverein.lst.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750801AbbCTGpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 02:45:42 -0400
 Content-Disposition: inline
-In-Reply-To: <CAMz4kuKyDFCqd-LfoSKJf+tkXdzzLwtPJdp-nF6NbKU8W5HHpQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150319195105.GS29656@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 20, 2015 at 09:54:05AM +0800, Baolin Wang wrote:
-> Next patch series will contain all of the drivers which need to be changed.
-> But i think the conditional in ptp_clock.c can still in there.
+On Thu, Mar 19, 2015 at 07:51:05PM +0000, Al Viro wrote:
+> I think I can live with that.  Christoph, do you have any objections to
+> that series?
 
-Why?
-
-> Because our plan is once all the drivers are converted, i will remove the
-> conditional, along with the original function pointer.
-> Is that OK? Thanks!
-
-I want to avoid a patch series that introduces something, only to
-remove it later on.  Sometimes you have to do that way for a complex
-transformation, but this case is rather simple.
-
-You can change the gettime signature in one patch, and the settime in
-a second patch.
-
-Thanks,
-Richard
+Patch 1 looks fine to me which is probably what you care for.  I didn't have
+time to look into the other two.
