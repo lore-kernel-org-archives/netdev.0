@@ -1,186 +1,58 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v3 1/9] amd-xgbe-phy: Use phydev advertising field
- vs supported
-Date: Fri, 20 Mar 2015 11:49:42 -0500
-Message-ID: <20150320164942.13799.63065.stgit@tlendack-t1.amdoffice.net>
-References: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces
+ with "ktime_t" type
+Date: Fri, 20 Mar 2015 17:49:51 +0100
+Message-ID: <20150320164951.GA25334@localhost.localdomain>
+References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
+ <CAMz4kuKyDFCqd-LfoSKJf+tkXdzzLwtPJdp-nF6NbKU8W5HHpQ@mail.gmail.com>
+ <20150320062603.GC4417@localhost.localdomain>
+ <201503201443.42672.arnd@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0122.outbound.protection.outlook.com ([65.55.169.122]:37120
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751585AbbCTQtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 12:49:53 -0400
-In-Reply-To: <20150320164936.13799.13796.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Baolin Wang <baolin.wang@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.com>,
+	tglx@linutronix.de
+To: Arnd Bergmann <arnd@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201503201443.42672.arnd@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With ethtool being able to control what is advertised, the advertising
-field is what should be used for priming the auto-negotiation registers
-and for various other checks, instead of the supported field.
+On Fri, Mar 20, 2015 at 02:43:42PM +0100, Arnd Bergmann wrote:
+> Doing gettime separately from settime would be rather silly here, so trying
+> to avoid the conditional would mean doing a single large patch across all
+> drivers.
 
-Also, move the initial setting of the supported and advertising fields
-into the probe function so that they are not reset each time the device
-is brought up, thus allowing the user to set as desired before bringing
-the device up.
+There is really no need for any dancing around here.  There are
+seventeen users total.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/phy/amd-xgbe-phy.c |   77 ++++++++++++++++++++--------------------
- 1 file changed, 38 insertions(+), 39 deletions(-)
+  drivers/net/ethernet/adi/bfin_mac.c
+  drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
+  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+  drivers/net/ethernet/broadcom/tg3.h
+  drivers/net/ethernet/freescale/fec_ptp.c
+  drivers/net/ethernet/freescale/gianfar_ptp.c
+  drivers/net/ethernet/intel/e1000e/ptp.c
+  drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
+  drivers/net/ethernet/intel/i40e/i40e_ptp.c
+  drivers/net/ethernet/intel/igb/igb_ptp.c
+  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+  drivers/net/ethernet/mellanox/mlx4/en_clock.c
+  drivers/net/ethernet/sfc/ptp.c
+  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+  drivers/net/ethernet/ti/cpts.c
+  drivers/net/ethernet/tile/tilegx.c
+  drivers/net/phy/dp83640.c
 
-diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
-index 32efbd4..acb4449 100644
---- a/drivers/net/phy/amd-xgbe-phy.c
-+++ b/drivers/net/phy/amd-xgbe-phy.c
-@@ -932,8 +932,8 @@ static enum amd_xgbe_phy_an amd_xgbe_an_incompat_link(struct phy_device *phydev)
- 	if (amd_xgbe_phy_in_kr_mode(phydev)) {
- 		priv->kr_state = AMD_XGBE_RX_ERROR;
+Instead of changing to ktime_t, just use timespec64 instead.  That
+way, each change will be a couple of lines per file.
  
--		if (!(phydev->supported & SUPPORTED_1000baseKX_Full) &&
--		    !(phydev->supported & SUPPORTED_2500baseX_Full))
-+		if (!(phydev->advertising & SUPPORTED_1000baseKX_Full) &&
-+		    !(phydev->advertising & SUPPORTED_2500baseX_Full))
- 			return AMD_XGBE_AN_NO_LINK;
- 
- 		if (priv->kx_state != AMD_XGBE_RX_BPA)
-@@ -941,7 +941,7 @@ static enum amd_xgbe_phy_an amd_xgbe_an_incompat_link(struct phy_device *phydev)
- 	} else {
- 		priv->kx_state = AMD_XGBE_RX_ERROR;
- 
--		if (!(phydev->supported & SUPPORTED_10000baseKR_Full))
-+		if (!(phydev->advertising & SUPPORTED_10000baseKR_Full))
- 			return AMD_XGBE_AN_NO_LINK;
- 
- 		if (priv->kr_state != AMD_XGBE_RX_BPA)
-@@ -1101,7 +1101,7 @@ static int amd_xgbe_an_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->supported & SUPPORTED_10000baseR_FEC)
-+	if (phydev->advertising & SUPPORTED_10000baseR_FEC)
- 		ret |= 0xc000;
- 	else
- 		ret &= ~0xc000;
-@@ -1113,13 +1113,13 @@ static int amd_xgbe_an_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->supported & SUPPORTED_10000baseKR_Full)
-+	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
- 		ret |= 0x80;
- 	else
- 		ret &= ~0x80;
- 
--	if ((phydev->supported & SUPPORTED_1000baseKX_Full) ||
--	    (phydev->supported & SUPPORTED_2500baseX_Full))
-+	if ((phydev->advertising & SUPPORTED_1000baseKX_Full) ||
-+	    (phydev->advertising & SUPPORTED_2500baseX_Full))
- 		ret |= 0x20;
- 	else
- 		ret &= ~0x20;
-@@ -1131,12 +1131,12 @@ static int amd_xgbe_an_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
- 
--	if (phydev->supported & SUPPORTED_Pause)
-+	if (phydev->advertising & SUPPORTED_Pause)
- 		ret |= 0x400;
- 	else
- 		ret &= ~0x400;
- 
--	if (phydev->supported & SUPPORTED_Asym_Pause)
-+	if (phydev->advertising & SUPPORTED_Asym_Pause)
- 		ret |= 0x800;
- 	else
- 		ret &= ~0x800;
-@@ -1212,38 +1212,14 @@ static int amd_xgbe_phy_config_init(struct phy_device *phydev)
- 		priv->an_irq_allocated = 1;
- 	}
- 
--	ret = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_FEC_ABILITY);
--	if (ret < 0)
--		return ret;
--	priv->fec_ability = ret & XGBE_PHY_FEC_MASK;
--
--	/* Initialize supported features */
--	phydev->supported = SUPPORTED_Autoneg;
--	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--	phydev->supported |= SUPPORTED_Backplane;
--	phydev->supported |= SUPPORTED_10000baseKR_Full;
--	switch (priv->speed_set) {
--	case AMD_XGBE_PHY_SPEEDSET_1000_10000:
--		phydev->supported |= SUPPORTED_1000baseKX_Full;
--		break;
--	case AMD_XGBE_PHY_SPEEDSET_2500_10000:
--		phydev->supported |= SUPPORTED_2500baseX_Full;
--		break;
--	}
--
--	if (priv->fec_ability & XGBE_PHY_FEC_ENABLE)
--		phydev->supported |= SUPPORTED_10000baseR_FEC;
--
--	phydev->advertising = phydev->supported;
--
- 	/* Set initial mode - call the mode setting routines
- 	 * directly to insure we are properly configured
- 	 */
--	if (phydev->supported & SUPPORTED_10000baseKR_Full)
-+	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
- 		ret = amd_xgbe_phy_xgmii_mode(phydev);
--	else if (phydev->supported & SUPPORTED_1000baseKX_Full)
-+	else if (phydev->advertising & SUPPORTED_1000baseKX_Full)
- 		ret = amd_xgbe_phy_gmii_mode(phydev);
--	else if (phydev->supported & SUPPORTED_2500baseX_Full)
-+	else if (phydev->advertising & SUPPORTED_2500baseX_Full)
- 		ret = amd_xgbe_phy_gmii_2500_mode(phydev);
- 	else
- 		ret = -EINVAL;
-@@ -1315,10 +1291,10 @@ static int __amd_xgbe_phy_config_aneg(struct phy_device *phydev)
- 	disable_irq(priv->an_irq);
- 
- 	/* Start auto-negotiation in a supported mode */
--	if (phydev->supported & SUPPORTED_10000baseKR_Full)
-+	if (phydev->advertising & SUPPORTED_10000baseKR_Full)
- 		ret = amd_xgbe_phy_set_mode(phydev, AMD_XGBE_MODE_KR);
--	else if ((phydev->supported & SUPPORTED_1000baseKX_Full) ||
--		 (phydev->supported & SUPPORTED_2500baseX_Full))
-+	else if ((phydev->advertising & SUPPORTED_1000baseKX_Full) ||
-+		 (phydev->advertising & SUPPORTED_2500baseX_Full))
- 		ret = amd_xgbe_phy_set_mode(phydev, AMD_XGBE_MODE_KX);
- 	else
- 		ret = -EINVAL;
-@@ -1746,6 +1722,29 @@ static int amd_xgbe_phy_probe(struct phy_device *phydev)
- 		       sizeof(priv->serdes_dfe_tap_ena));
- 	}
- 
-+	/* Initialize supported features */
-+	phydev->supported = SUPPORTED_Autoneg;
-+	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+	phydev->supported |= SUPPORTED_Backplane;
-+	phydev->supported |= SUPPORTED_10000baseKR_Full;
-+	switch (priv->speed_set) {
-+	case AMD_XGBE_PHY_SPEEDSET_1000_10000:
-+		phydev->supported |= SUPPORTED_1000baseKX_Full;
-+		break;
-+	case AMD_XGBE_PHY_SPEEDSET_2500_10000:
-+		phydev->supported |= SUPPORTED_2500baseX_Full;
-+		break;
-+	}
-+
-+	ret = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_FEC_ABILITY);
-+	if (ret < 0)
-+		return ret;
-+	priv->fec_ability = ret & XGBE_PHY_FEC_MASK;
-+	if (priv->fec_ability & XGBE_PHY_FEC_ENABLE)
-+		phydev->supported |= SUPPORTED_10000baseR_FEC;
-+
-+	phydev->advertising = phydev->supported;
-+
- 	phydev->priv = priv;
- 
- 	if (!priv->adev || acpi_disabled)
+> I do agree however that we should merge the entire series at once so
+> we end up with a reasonable state afterwards, and we only need the conditional
+> in order to have a bisectable git history.
+
+It is still bisectable with one or two patches.
+
+Thanks,
+Richard
