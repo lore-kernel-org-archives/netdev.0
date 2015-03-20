@@ -1,85 +1,90 @@
-From: Michel Machado <michel@digirati.com.br>
-Subject: Re: Linux XIA - merge proposal
-Date: Fri, 20 Mar 2015 14:46:05 -0400
-Message-ID: <550C6AED.10909@digirati.com.br>
-References: <54F5EF6E.9090303@digirati.com.br> <CAErSpo6hUHYXrdB0+1WysD=AMuX3eawqSokTngR4s2tmmuakqA@mail.gmail.com> <550301B6.3090302@digirati.com.br> <20150315093752.GA29005@kroah.com> <55081D48.3000407@digirati.com.br> <55095312.5080802@amd.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 0/3] net: introduce IFF_PROTO_DOWN flag.
+Date: Fri, 20 Mar 2015 11:50:44 -0700
+Message-ID: <CAADnVQL=4UUs495s7Ddcs53nctj_bLiXUCHdPfcTxTXecBO0NA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Oded Gabbay <oded.gabbay@amd.com>,
-	Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55095312.5080802@amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:34331 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbbCTSvF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 14:51:05 -0400
+Received: by qgh62 with SMTP id 62so100978402qgh.1
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 11:51:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/18/2015 06:27 AM, Oded Gabbay wrote:
- > Hi Michel,
- > If you want an example of how to break a fairly medium+
- > code-base/driver, I believe amdkfd is a good example. Originally, I had
- > dumped 80+ patches, but after getting some flames & help from drm devs,
- > I rearranged them into a nicely 25 patches:
- >
- > 1. Several patches that implements helper functions in other drivers
- > (mm, iommu, radeon)
- > 2. Patch to add IOCTL definitions (kfd_ioctl.h)
- > 3. Patch to add skeleton code base of driver
- > 4. Several patches that add different modules in the amdkfd driver
- > 5. Several patches that implement the IOCTLs in the amdkfd drivers
- >
- > See this link for the final set that was merged into 3.19-rc1:
- > http://cgit.freedesktop.org/~gabbayo/linux/?h=amdkfd-v6
- >
- > Take a look from commit "Merge branch 'drm-next-3.19'  to the HEAD of
- > the log.
- >
- > If you need additional advice, you can contact me.
- >
- >      Oded
+On Fri, Mar 20, 2015 at 9:45 AM, Anuradha Karuppiah
+<anuradhak@cumulusnetworks.com> wrote:
+> On Fri, Mar 20, 2015 at 9:13 AM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+>> On Fri, Mar 20, 2015 at 8:11 AM,  <anuradhak@cumulusnetworks.com> wr=
+ote:
+>>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>>
+>>> Applications can detect errors in the network that would require
+>>> disabling the device independent of the admin state. In the presenc=
+e of
+>>> these errors traffic could be black holed or looped resulting in a
+>>> network meltdown. Clearing the IFF_UP flag for error disabling the
+>>> device can be problematic because -
+>>>
+>>> 1. The administrator cannot distinguish between a user space daemon=
+=E2=80=99s
+>>> error-disable and a regular device disable.
+>>> 2. Applications can monitor the error state and enable the device o=
+nce
+>>> the error is removed. If IFF_UP is used for this purpose the applic=
+ation
+>>> may end up enabling a device that the administrator has intentional=
+ly
+>>> disabled for other reasons. This could result in network changes no=
+t
+>>> expected by the admin.
+>>>
+>>
+>> Both reasons look like workaround for user space issues.
+>> Just keep this fake-down state in userspace.
+>> What's the point pushing it to kernel?
+>
+> Applications can deal with IFF_UP being cleared and they can certainl=
+y
+> clear IFF_UP as well on detecting errors. However an application
+> cannot know the reason for the !IFF_UP notification. So if an
+> application detected a device error being cleared it would have to
+> unconditionally enable the device as a part of recovery handling
+> thereby ignoring the administrator=E2=80=99s request to keep the devi=
+ce
+> disabled. Separating error-disable (IFF_PROTO_DOWN) from admin-disabl=
+e
+> (!IFF_UP) lets the administrator have a say in keeping a device
+> disabled.
+>
+>> looking at 3rd patch:
+>> + * @IF_LINK_PROTO_DOWN_MLAG: proto_down by a multi-chassis LAG appl=
+ication.
+>> + * @IF_LINK_PROTO_DOWN_STP: proto_down by an STP application.
+>>
+>> so there will be new flag for every application that cannot deal wit=
+h
+>> normal down?
+>
+> These applications can clear the error state independent of each
+> other. Say for e.g.  both STP-BPDU guard and MLAG error-disabled a
+> device. When the MLAG split-brain error is resolved the MLAG
+> application could clear IFF_PROTO_DOWN but the BPDU guard error would
+> still exist. This will create problem windows that could aggressively
+> affect the network.
+>
 
-Hi Oded,
-
-    Thank you for your example. After thinking on how to get our 
-repository as a set of patches, it became clear that I have to start 
-with a new repository and gradually move the code from our current 
-repository to this new one. Because the commits of the current 
-repository follows how we arrived where we are now, and this makes the 
-goal of only reviewing the final code harder.
-
-    I'm going to take advantage that Linux XIA is broken down into 
-kernel modules, and have a serie of patches for each module. With the 
-exception of the core module, on which all other modules depend, all 
-modules don't have dependencies between them. The problem I'm running 
-into with this approach is that some patches will be large. For example, 
-the core module has these files:
-
-$ wc net/xia/*.c
-    744   2246  15523 net/xia/dag.c
-    897   2378  23006 net/xia/fib.c
-    360    931   8240 net/xia/fib_frontend.c
-     72    169   1486 net/xia/locktbl.c
-    106    259   2116 net/xia/main.c
-    281    858   7241 net/xia/output.c
-   1471   4573  37952 net/xia/route.c
-    598   1579  13783 net/xia/socket.c
-    109    305   2852 net/xia/vxidty.c
-   4638  13298 112199 total
-
-    I can try to break these large patches into smaller ones, but this 
-would likely break code coherence since each module is supposed to 
-self-contained. My understanding is that you created skeletons to 
-gradually fill them in to address similar issue, but I'm not sure how to 
-do it in my case.
-
-    I'll keep pounding on this task. Any advice is more than welcome.
-
-    By the way, the new repository will be based on David Miller's -next 
-networking tree:
-
-http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
-
-[ ]'s
-Michel Machado
+if I understand this correctly you have implementation of
+stp-bpdu guard in user space instead of bridge stp core and
+that is causing these issues. If you move this feature into
+the kernel you won't have to add this special down state, right?
