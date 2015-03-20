@@ -1,103 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
- packets
-Date: Fri, 20 Mar 2015 11:30:01 -0700
-Message-ID: <550C6729.5060706@gmail.com>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <550C54BC.4040509@intel.com> <CAE4R7bCC=VZerEfVRfn=NmQvE9bwQ-KGo7v77ghHOLAR5p5hwg@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: Using a waiting MDIO does not go well with a spinlocked bridge
+Date: Fri, 20 Mar 2015 11:46:47 -0700
+Message-ID: <CAE4R7bA4pzSrZfn1W198kMKnYeJEofLsrgPzq_8xJR7KjCewPg@mail.gmail.com>
+References: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Jonas Johansson <jonasj76@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:34687 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbbCTSaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 14:30:18 -0400
-Received: by obbgg8 with SMTP id gg8so84193314obb.1
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 11:30:18 -0700 (PDT)
-In-Reply-To: <CAE4R7bCC=VZerEfVRfn=NmQvE9bwQ-KGo7v77ghHOLAR5p5hwg@mail.gmail.com>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:34089 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157AbbCTSqs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 14:46:48 -0400
+Received: by qgh62 with SMTP id 62so100873374qgh.1
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 11:46:48 -0700 (PDT)
+In-Reply-To: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2015 11:13 AM, Scott Feldman wrote:
-> On Fri, Mar 20, 2015 at 10:11 AM, John Fastabend
-> <john.r.fastabend@intel.com> wrote:
->> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
->>> there is a need to not re-forward frames that have already been
->>> forwarded in hardware.
->>>
->>> Typically these are broadcast or multicast frames forwarded by the
->>> hardware to multiple destination ports including sending a copy of
->>> the packet to the cpu (kernel e.g. an arp broadcast).
->>> The bridge driver will try to forward the packet again, resulting in
->>> two copies of the same packet.
->>>
->>> These packets can also come up to the kernel for logging when they hit
->>> a LOG acl rule in hardware. In such cases, you do want the packet
->>> to go through the bridge netfilter hooks. Hence, this patch adds the
->>> required checks just before the packet is being xmited.
->>>
->>> v2:
->>>        - Add a new hw_fwded flag in skbuff to indicate that the packet
->>>        is already hardware forwarded. Switch driver will set this flag.
->>>        I have been trying to avoid having this flag in the skb
->>>        and thats why this patch has been in my tree for long. Cant think
->>>        of other better alternatives. Suggestions are welcome. I have put
->>>        this under CONFIG_NET_SWITCHDEV to minimize the impact.
->>>
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>> ---
->>
->> Interesting. I completely avoid this problem by not instantiating a
->> software bridge ;) When these pkts come up the stack I either use a
->> raw socket to capture them, put a 'tc' ingress rule to do something,
->> or have OVS handle them in some special way. It seems to me that this
->> is where the sw/hw model starts to break when you have these magic
->> bits to handle the packets differently.
->>
->> How do you know to set the skb bit? Do you have some indicator in the
->> descriptor? I don't have any good way to learn this on my hardware. But
->> I can assume if it reached the CPU it was because of some explicit rule.
+On Fri, Mar 20, 2015 at 5:22 AM, Jonas Johansson <jonasj76@gmail.com> wrote:
+> The bridge code will sometimes hold a spinlock and the code following must
+> therefore be atomic. If using a MDIO call which uses a wait/sleep in this
+> contex, the kernel will not be very happy.
 >
-> I was wondering that also, since there was no example.
->
-> This features seems like it belongs in the bridge.  We already have
-> BR_FLOOD to indicate whether unknown unicast traffic is flooded to a
-> bridge port.  Can we add another BR_FLOOD_BCAST (or some name) for
-> this new feature?  You would set/clear this flag on the bridge
-> (master) port.  The default is set.  And now:
->
-> - #define BR_AUTO_MASK          (BR_FLOOD | BR_LEARNING)
-> + #define BR_AUTO_MASK          (BR_FLOOD | BR_FLOOD_BCAST | BR_LEARNING)
->
-> Does this work for your use-case, Roopa?
+> I'm using a switch device and wants to flush its FDB when the linux bridge
+> FDB is flushed. I've implemented some hooks for this task.
+> In short:
+>      bridge    - br_fdb_flush() & br_fdb_delete_by_port
+>   -> switchdev - switch_flush()
+>   -> dsa       - slave_flush()
+>   -> mv88e6xxx - mv88_flush()
 
-I'm probably being a bit dense but I can't think of a case where I would
-want pkts forwarded back to the hardware. If you could explain a bit
-more why this would be useful that would help me at least. Maybe a flag
-to disable forwarding on the port would work. Perhaps using the
-BR_STATE_* bits would be good enough?
-
-.John
-
->
-> -scott
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+I think we need to hook switchdev in fdb_delete(), then it'll get
+called from flush and ageing out operations, rather than adding a new
+switch_flush().  But, that's an aside for your main issue that the
+bridge will hold a spinlock for most (all?) FDB delete operations.  I
+don't see a way around relaxing that, on the bridge side, since it's
+doing things like walking lists while deleting list elements.  So that
+means the call into switchdev will be spinlocked, so switchdev driver
+needs to deal with that.  Scheduling to work queue is one option, as
+you mention, if FDB delete can't be done under the spinlock.
 
 
--- 
-John Fastabend         Intel Corporation
+> So, when a bridge port is flushed via e.g. sysfs, the mv88_flush() function
+> will at the end be called. The mv88_flush() will use MDIO calls to set the
+> proper registers and flush the device. But, due to that the MDIO on my
+> platform uses wait_for_completion() and a spinlock is held (in this case in
+> brport_store()) the process will not go very well.
+>
+> The only possible solutions that came into my mind is:
+>  1) Let mv88_flush() schedule a work queue to take care of the flush
+>     later on.
+>  2) Change the MDIO implementation to use polling.
+>  3) Dont use spinlock in bridge code.
+>
+> 1) Using this approach the the atomic part is missed, i.e. the switch device
+> isn't guaranteed to be flushed after the command has been issued. And, if a
+> FDB entry is added (atomic) to the switch device immediately after the flush
+> command, there will not be defined if the entry will be added before or
+> after the flush occurs. To solve this, all (FDB) operations must be added to
+> a work queue to assure that they are executed in the right order.
+
+We would loose the FDB add results if added to work queue.  On add,
+you could check work queue delete list for entry, and if there, remove
+from work queue list.
+
+>
+> 2) This will result in unsued CPU cycles.
+>
+> 3) Havent looked into this, but probably a lot of work.
+
+Can of worms...wouldn't recommend that option.
+
+> Any ideas?
