@@ -1,68 +1,79 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH v2] bonding: ban stacked bonding support
-Date: Fri, 20 Mar 2015 14:02:17 -0700
-Message-ID: <28755.1426885337@famine>
-References: <22754.1424474040@famine> <20150320174308.GA2005@p183.telecom.by> <20150320174638.GA2053@p183.telecom.by> <20150320.163845.164991966900600650.davem@davemloft.net>
-Cc: adobriyan@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
+ packets
+Date: Fri, 20 Mar 2015 14:03:03 -0700
+Message-ID: <550C8B07.4010308@cumulusnetworks.com>
+References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com> <550C54BC.4040509@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us,
+	ronen.arad@intel.com, netdev@vger.kernel.org,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:52025 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCTVCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:02:23 -0400
-In-reply-to: <20150320.163845.164991966900600650.davem@davemloft.net>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33039 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbCTVDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 17:03:06 -0400
+Received: by pabxg6 with SMTP id xg6so107134998pab.0
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 14:03:05 -0700 (PDT)
+In-Reply-To: <550C54BC.4040509@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+On 3/20/15, 10:11 AM, John Fastabend wrote:
+> On 03/20/2015 09:58 AM, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> On a Linux bridge with bridge forwarding offloaded to switch ASIC,
+>> there is a need to not re-forward frames that have already been
+>> forwarded in hardware.
+>>
+>> Typically these are broadcast or multicast frames forwarded by the
+>> hardware to multiple destination ports including sending a copy of
+>> the packet to the cpu (kernel e.g. an arp broadcast).
+>> The bridge driver will try to forward the packet again, resulting in
+>> two copies of the same packet.
+>>
+>> These packets can also come up to the kernel for logging when they hit
+>> a LOG acl rule in hardware. In such cases, you do want the packet
+>> to go through the bridge netfilter hooks. Hence, this patch adds the
+>> required checks just before the packet is being xmited.
+>>
+>> v2:
+>> 	- Add a new hw_fwded flag in skbuff to indicate that the packet
+>> 	is already hardware forwarded. Switch driver will set this flag.
+>> 	I have been trying to avoid having this flag in the skb
+>> 	and thats why this patch has been in my tree for long. Cant think
+>> 	of other better alternatives. Suggestions are welcome. I have put
+>> 	this under CONFIG_NET_SWITCHDEV to minimize the impact.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> ---
+> Interesting. I completely avoid this problem by not instantiating a
+> software bridge ;)
+>   When these pkts come up the stack I either use a
+> raw socket to capture them, put a 'tc' ingress rule to do something,
+> or have OVS handle them in some special way.
+> It seems to me that this
+> is where the sw/hw model starts to break when you have these magic
+> bits to handle the packets differently.
 
->From: Alexey Dobriyan <adobriyan@gmail.com>
->Date: Fri, 20 Mar 2015 20:46:38 +0300
+  In-kernel bridge driver is proven very useful for us to run stp,
+or recently igmp reports (dont know the details here) etc in software.
+I wonder how you handle these. If you don't use the in-kernel bridge
+driver, I suspect you down the lane you will end-up having to duplicate a
+lot of things that bridge driver already does in your switch driver.
 >
->> If you add bonding master as a slave, and then release it,
->> it will no longer be an IFF_BONDING creating problems like described at
->> https://bugzilla.kernel.org/show_bug.cgi?id=89541
->> 
->> 	echo +bond1 >/sys/class/net/bonding_masters
->> 	echo 1 >/sys/class/net/bond1/bonding/mode
->> 	echo +bond2 >/sys/class/net/bonding_masters
->> 	echo +bond2 >/sys/class/net/bond1/bonding/slaves
->> 	echo -bond2 >/sys/class/net/bond1/bonding/slaves
->> 	echo -bond2 >/sys/class/net/bonding_masters
->> 
->> 	cat /proc/net/bonding/bond2	# should not exist
->> 		[oops]
->> 
->> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
->
->I feel like this has been brought up before and it was stated that
->some people are actually using things like this.
->
->I could be mistaken.
+> How do you know to set the skb bit? Do you have some indicator in the
+> descriptor? I don't have any good way to learn this on my hardware. But
+> I can assume if it reached the CPU it was because of some explicit rule.
 
-	I don't think you are.  I did a bit of checking after the
-discussion last month and found a few relatively recent statements that
-people were nesting bonds and it was apparently working, e.g.,
-
-http://www.alexwitherspoon.com/debian-nested-bonded-interfaces/
-
-	which, ironically, is exactly the case that would benefit from
-not nesting the bonds, as 802.3ad would handle multiple aggregators
-itself.
-
-	However, there is also this discussion
-
-http://lists.openwall.net/netdev/2011/01/22/66
-
-	from netdev in 2011 that states that the ingress path of nested
-bonds does not work, at least for the case described.  Perhaps some
-configurations work and some don't.
-
-	Let me see if I can run a quick test and see if this actually
-works for me...
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Right now we tag all packets except for some igmp frames so that they 
+get handled by software (in kernel bridge driver).
+(But the igmp frames check is a bit of a hack right now). We don't use 
+it today, but, the sdk
+can give us some details about the reason the packet was sent to CPU (It 
+possibly gets it from the descriptor).
