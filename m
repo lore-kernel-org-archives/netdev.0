@@ -1,59 +1,80 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH v2] tipc: fix build issue when building without IPv6
-Date: Fri, 20 Mar 2015 10:09:26 +0800
-Message-ID: <550B8156.3020400@windriver.com>
-References: <20150319.150433.850095478975909930.davem@davemloft.net>	<1426794478-5469-1-git-send-email-marcelo.leitner@gmail.com> <20150319.160658.1294624225284354605.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <richard.alpe@ericsson.com>, <jon.maloy@ericsson.com>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<erik.hugne@ericsson.com>
-To: David Miller <davem@davemloft.net>, <marcelo.leitner@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 3/3] net: increase sk_[max_]ack_backlog
+Date: Thu, 19 Mar 2015 19:04:21 -0700
+Message-ID: <1426817061-21421-4-git-send-email-edumazet@google.com>
+References: <1426817061-21421-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:60990 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCTCJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 22:09:57 -0400
-In-Reply-To: <20150319.160658.1294624225284354605.davem@davemloft.net>
+Received: from mail-yk0-f201.google.com ([209.85.160.201]:34012 "EHLO
+	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965AbbCTCMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Mar 2015 22:12:54 -0400
+Received: by ykq142 with SMTP id 142so3435747ykq.1
+        for <netdev@vger.kernel.org>; Thu, 19 Mar 2015 19:12:53 -0700 (PDT)
+In-Reply-To: <1426817061-21421-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2015 04:06 AM, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Thu, 19 Mar 2015 16:47:58 -0300
-> 
->> We can't directly call ipv6_sock_mc_join() but should use the stub
->> instead and protect it around IS_ENABLED.
->>
->> Fixes: d0f91938bede ("tipc: add ip/udp media type")
->> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> 
+sk_ack_backlog & sk_max_ack_backlog were 16bit fields, meaning
+listen() backlog was limited to 65535.
 
-Sorry, this patch doesn't work at all especially when IPV6=m and TIPC=y. For
-example, when we use the combination of the kernel config options, error appears
-like:
+It is time to increase the width to allow much bigger backlog,
+if admins change /proc/sys/net/core/somaxconn &
+/proc/sys/net/ipv4/tcp_max_syn_backlog default values.
 
-net/built-in.o: In function `tipc_udp_send_msg':
-/home/ying/work/tipc/tipc2.0/net-next-2.6-debug/net/tipc/udp_media.c:196:
-undefined reference to `ip6_dst_lookup'
-make: *** [vmlinux] Error 1
+Tested:
 
-Instead, I ever tried to fix the issue several days ago. Please refer to the thread:
+echo 5000000 >/proc/sys/net/core/somaxconn
+echo 5000000 >/proc/sys/net/ipv4/tcp_max_syn_backlog
 
-https://patchwork.ozlabs.org/patch/448836/
+Ran a SYNFLOOD test against a listener using listen(fd, 5000000)
 
-According to the suggestion David gave lastly, we should separate the UDP media
-as an independent module, make TIPC_MEDIA_UDP depend on (IPV6 || IPV6=n), and
-mark TIPC_MEDIA_UDP tristate. Now I am busy doing this following the proposal.
+myhost~# grep request_sock_TCP /proc/slabinfo
+request_sock_TCP  4185642 4411940    304   13    1 : tunables   54   27    8 : slabdata 339380 339380      0
 
-Regards,
-Ying
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/sock.h         | 4 ++--
+ net/core/sysctl_net_core.c | 2 --
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-> This works better, applied, thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index e0360f5a53e9..3f9b8ce56948 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -405,8 +405,8 @@ struct sock {
+ 	rwlock_t		sk_callback_lock;
+ 	int			sk_err,
+ 				sk_err_soft;
+-	unsigned short		sk_ack_backlog;
+-	unsigned short		sk_max_ack_backlog;
++	u32			sk_ack_backlog;
++	u32			sk_max_ack_backlog;
+ 	__u32			sk_priority;
+ #if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
+ 	__u32			sk_cgrp_prioidx;
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 433424804284..e1c85db5216f 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -24,7 +24,6 @@
+ 
+ static int zero = 0;
+ static int one = 1;
+-static int ushort_max = USHRT_MAX;
+ 
+ static int net_msg_warn;	/* Unused, but still a sysctl */
+ 
+@@ -401,7 +400,6 @@ static struct ctl_table netns_core_table[] = {
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.extra1		= &zero,
+-		.extra2		= &ushort_max,
+ 		.proc_handler	= proc_dointvec_minmax
+ 	},
+ 	{ }
+-- 
+2.2.0.rc0.207.ga3a616c
