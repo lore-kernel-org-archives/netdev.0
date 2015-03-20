@@ -1,36 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][net-next] rhashtable: ensure that ht->p.min_size is
- round up to the power of two
-Date: Fri, 20 Mar 2015 19:49:47 +1100
-Message-ID: <20150320084947.GA16659@gondor.apana.org.au>
-References: <1426839237-10345-1-git-send-email-rongqing.li@windriver.com>
+Subject: Re: [v1 PATCH 7/14] netfilter: Use rhashtable_lookup instead of
+ lookup_compare
+Date: Fri, 20 Mar 2015 19:55:09 +1100
+Message-ID: <20150320085509.GA16748@gondor.apana.org.au>
+References: <20150315104306.GA21999@gondor.apana.org.au>
+ <E1YX624-0005ns-CB@gondolin.me.apana.org.au>
+ <20150316082842.GA10896@casper.infradead.org>
+ <20150316091415.GA31089@gondor.apana.org.au>
+ <20150316111345.GA22070@acer.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: rongqing.li@windriver.com
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:33988 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:45541 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCTIt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 04:49:59 -0400
+	with ESMTP id S1751644AbbCTIzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 04:55:22 -0400
 Content-Disposition: inline
-In-Reply-To: <1426839237-10345-1-git-send-email-rongqing.li@windriver.com>
+In-Reply-To: <20150316111345.GA22070@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 20, 2015 at 04:13:57PM +0800, rongqing.li@windriver.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> ht->p.min_size will be reset to params->min_size, which has been set
-> to the params->min_size round up of the power of two, should be kept
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+On Mon, Mar 16, 2015 at 11:13:46AM +0000, Patrick McHardy wrote:
+>
+> An upcoming patchset will add transaction support to sets, which needs
+> the callback. So please leave it for know since it will only cause
+> unnecessary churn.
 
-Thanks for the patch but I've already fixed this in my tree which
-I will post soon and I'd like to avoid having to rebase it yet
-again for something as trivial as this.
+Patrick, can you explain what you mean by the callback?
+
+Thanks,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
