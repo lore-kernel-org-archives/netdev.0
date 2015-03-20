@@ -1,50 +1,40 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH RFC] wimax/i2400m: fixup completion handling for
-	resetting a device
-Date: Fri, 20 Mar 2015 08:47:05 +0100
-Message-ID: <20150320074705.GB21852@opentech.at>
-References: <1426585774-24204-1-git-send-email-hofrat@osadl.org> <55096FA1.9030908@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55096FA1.9030908@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: rongqing.li@windriver.com
+Subject: [PATCH][net-next] rhashtable: ensure that ht->p.min_size is round up to the power of two
+Date: Fri, 20 Mar 2015 16:13:57 +0800
+Message-ID: <1426839237-10345-1-git-send-email-rongqing.li@windriver.com>
+To: netdev@vger.kernel.org, tgraf@suug.ch, herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:55379 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132AbbCTIPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 04:15:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Mar 2015, Sergei Shtylyov wrote:
+From: Li RongQing <roy.qing.li@gmail.com>
 
-> Hello.
->
-> On 3/17/2015 12:49 PM, Nicholas Mc Guire wrote:
->
->> wait_for_completion_timeout return 0 (timeout) or >=1 (completion) so the check
->> for > 0 in the else branch is always true and can be dropped. The comment seems
->> misleading as it is always going to pass the result up.
->
->> The sync of the completion access with __i2400m_dev_reset_handle (which checks
->> for   if (i2400m->reset_ctx)   could race if i2400m_reset() returns negative so
->> the resetting of i2400m->reset_ctx == NULL is moved to the out: path.
->
->> As wait_for_completion_timeout returns unsigned long not int, an appropriately
->> named variable of type unsigned long is added and assignments fixed up.
->
->    Don't try to do several things in one patch.
->
-normaly yes - this was marked as RFC and if I had split it up into
-3 patches it would be hard to see how it fits together without
-actually applying them.
+ht->p.min_size will be reset to params->min_size, which has been set
+to the params->min_size round up of the power of two, should be kept
 
-The intent was to get feedback notably on moving i2400m->reset_ctx == NULL
-and if dropping the (I think missleading) comment about negative return is ok
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ lib/rhashtable.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Should this be in seperate patches even as RFC ?
-Once that is clarified it will go out as 3 patchs.
-
-thx!
-hofrat
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index e75c48d..fda169b 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -946,7 +946,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	if (params->max_size)
+ 		ht->p.max_size = rounddown_pow_of_two(params->max_size);
+ 
+-	ht->p.min_size = max(params->min_size, HASH_MIN_SIZE);
++	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
+ 
+ 	if (params->locks_mul)
+ 		ht->p.locks_mul = roundup_pow_of_two(params->locks_mul);
+-- 
+2.1.0
