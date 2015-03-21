@@ -1,68 +1,33 @@
-From: Joe Harvell <joe.harvell@tekcomms.com>
-Subject: [PATCH] iproute2: fix broken get_prefix_1
-Date: Sat, 21 Mar 2015 12:46:02 -0500
-Message-ID: <550DAE5A.2050303@tekcomms.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	Vadim Kochan <vadim4j@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0113.outbound.protection.outlook.com ([65.55.169.113]:23139
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751453AbbCUSB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2015 14:01:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrei Maresu <andreimaresu@gmail.com>
+Subject: [PATCH] Net: ethernet: rocker: fixed a space coding style issue
+Date: Sat, 21 Mar 2015 20:02:40 +0200
+Message-ID: <1426960960-31552-1-git-send-email-andreimaresu@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrei Maresu <andreimaresu@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixes bug that causes a basic 'ip addr add' command to fail address due 
-to the address prefix is incorrectly determined to be invalid.
+Fixed a space coding style issue found by checkpatch.pl in rocker.c
 
-I assume master must have some new change because this fix was needed 
-for a basic 'ip addr add 10.0.3.1/24 dev dumbo label foo' command I 
-pased in.  In this case, 'family' passed into get_addr_1 two lines above 
-is zero, causing get_addr_1 to detect the family from the address and 
-populate the result in the family field in dst.  But then instead of 
-passing in the result, family (still 0) is passed in to af_bit_len. 
-Without my change, the above command complains that 10.0.3.1/24 is not 
-an address prefix.  With the change it works fine as expected.
+Signed-off-by: Andrei Maresu <andreimaresu@gmail.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The following changes since commit 4612d04d6b8f07274bd5d0688f717ccc189499ad:
-
-   tc class: Show class names from file (2015-03-15 12:27:40 -0700)
-
-are available in the git repository at:
-
-   git@github.com:jharvell/iproute2.git fix-broken-get_prefix_1
-
-for you to fetch changes up to 50d23ac0379cc1371f1096a4c84d8c1573c0a00a:
-
-   Signed-off-by: Joe Harvell <joe.harvell@tekcomms.com> Tested-by: Joe 
-Harvell <joe.harvell@tekcomms.com> (2015-03-21 12:35:15 -0500)
-
-----------------------------------------------------------------
-Joe Harvell (2):
-       Fixing obvious error of passing in the wrong variable for the 
-family parameter     of af_bit_len.
-       Signed-off-by: Joe Harvell <joe.harvell@tekcomms.com>     
-Tested-by: Joe Harvell <joe.harvell@tekcomms.com>
-
-  lib/utils.c | 2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/lib/utils.c b/lib/utils.c
-index 9cda268..0d08a86 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -477,7 +477,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int 
-family)
-
-         err = get_addr_1(dst, arg, family);
-         if (err == 0) {
--               dst->bitlen = af_bit_len(family);
-+               dst->bitlen = af_bit_len(dst->family);
-
-                 if (slash) {
-                         if (get_netmask(&plen, slash+1, 0)
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 9fb6948..d364b12 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -812,7 +812,7 @@ static void *rocker_desc_cookie_ptr_get(struct rocker_desc_info *desc_info)
+ static void rocker_desc_cookie_ptr_set(struct rocker_desc_info *desc_info,
+ 				       void *ptr)
+ {
+-	desc_info->desc->cookie = (uintptr_t) ptr;
++	desc_info->desc->cookie = (uintptr_t)ptr;
+ }
+ 
+ static struct rocker_desc_info *
+-- 
+1.9.1
