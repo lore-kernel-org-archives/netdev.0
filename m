@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 19/22] ptp: dp83640: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 21:59:49 +0100
-Message-ID: <6287198aadfe808c393db90db94bce2500fbbfba.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 18/22] ptp: tilegx: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 21:59:48 +0100
+Message-ID: <73f0fb1696e83d372ec97b608234f7b385e2b7a5.1426970294.git.richardcochran@gmail.com>
 References: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,60 +31,65 @@ In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This device stores the number of seconds in a 32 bit register.  So
-more work is needed on this driver before the year 2038 comes around.
+This driver calls code (via gxio_mpipe_get/set_timestamp) that makes
+the assumption that the tv_sec field is 64 bits wide.  So apparently
+this driver is 64 bit only.  So maybe this driver and device are ready
+for 2038, but maybe not.
 
-Compile tested only.
+Not even compile tested.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/phy/dp83640.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/tile/tilegx.c |   16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index e22e602..1a88235 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -427,7 +427,8 @@ static int ptp_dp83640_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return err;
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index bea8cd2..614ea83 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -838,24 +838,28 @@ static int ptp_mpipe_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return ret;
  }
  
--static int ptp_dp83640_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int ptp_dp83640_gettime(struct ptp_clock_info *ptp,
-+			       struct timespec64 *ts)
+-static int ptp_mpipe_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int ptp_mpipe_gettime(struct ptp_clock_info *ptp,
++			     struct timespec64 *ts64)
  {
- 	struct dp83640_clock *clock =
- 		container_of(ptp, struct dp83640_clock, caps);
-@@ -452,16 +453,17 @@ static int ptp_dp83640_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ 	int ret = 0;
+ 	struct mpipe_data *md = container_of(ptp, struct mpipe_data, caps);
++	struct timespec ts;
+ 	mutex_lock(&md->ptp_lock);
+-	if (gxio_mpipe_get_timestamp(&md->context, ts))
++	if (gxio_mpipe_get_timestamp(&md->context, &ts))
+ 		ret = -EBUSY;
+ 	mutex_unlock(&md->ptp_lock);
++	*ts64 = timespec_to_timespec64(ts);
+ 	return ret;
  }
  
- static int ptp_dp83640_settime(struct ptp_clock_info *ptp,
--			       const struct timespec *ts)
-+			       const struct timespec64 *ts64)
+ static int ptp_mpipe_settime(struct ptp_clock_info *ptp,
+-			     const struct timespec *ts)
++			     const struct timespec64 *ts64)
  {
- 	struct dp83640_clock *clock =
- 		container_of(ptp, struct dp83640_clock, caps);
- 	struct phy_device *phydev = clock->chosen->phydev;
+ 	int ret = 0;
 +	struct timespec ts = timespec64_to_timespec(*ts64);
- 	int err;
+ 	struct mpipe_data *md = container_of(ptp, struct mpipe_data, caps);
+ 	mutex_lock(&md->ptp_lock);
+-	if (gxio_mpipe_set_timestamp(&md->context, ts))
++	if (gxio_mpipe_set_timestamp(&md->context, &ts))
+ 		ret = -EBUSY;
+ 	mutex_unlock(&md->ptp_lock);
+ 	return ret;
+@@ -876,8 +880,8 @@ static struct ptp_clock_info ptp_mpipe_caps = {
+ 	.pps		= 0,
+ 	.adjfreq	= ptp_mpipe_adjfreq,
+ 	.adjtime	= ptp_mpipe_adjtime,
+-	.gettime	= ptp_mpipe_gettime,
+-	.settime	= ptp_mpipe_settime,
++	.gettime64	= ptp_mpipe_gettime,
++	.settime64	= ptp_mpipe_settime,
+ 	.enable		= ptp_mpipe_enable,
+ };
  
- 	mutex_lock(&clock->extreg_lock);
- 
--	err = tdr_write(1, phydev, ts, PTP_LOAD_CLK);
-+	err = tdr_write(1, phydev, &ts, PTP_LOAD_CLK);
- 
- 	mutex_unlock(&clock->extreg_lock);
- 
-@@ -998,8 +1000,8 @@ static void dp83640_clock_init(struct dp83640_clock *clock, struct mii_bus *bus)
- 	clock->caps.pps		= 0;
- 	clock->caps.adjfreq	= ptp_dp83640_adjfreq;
- 	clock->caps.adjtime	= ptp_dp83640_adjtime;
--	clock->caps.gettime	= ptp_dp83640_gettime;
--	clock->caps.settime	= ptp_dp83640_settime;
-+	clock->caps.gettime64	= ptp_dp83640_gettime;
-+	clock->caps.settime64	= ptp_dp83640_settime;
- 	clock->caps.enable	= ptp_dp83640_enable;
- 	clock->caps.verify	= ptp_dp83640_verify;
- 	/*
 -- 
 1.7.10.4
