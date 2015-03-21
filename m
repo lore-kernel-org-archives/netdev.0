@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 10/22] ptp: fm10k: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 21:59:40 +0100
-Message-ID: <8a413dfce70840750f59958ac8c304a693f517f3.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 08/22] ptp: gianfar: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 21:59:38 +0100
+Message-ID: <847422212558973030233507b18bcc91166a7b3b.1426970294.git.richardcochran@gmail.com>
 References: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,60 +31,65 @@ In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The device appears to use a 64 bit nanoseconds register, and so with
-this patch the driver should be ready for the year 2038.
-
-Compile tested only.
+The device features a 64 bit nanoseconds register, and so with this
+patch the driver is ready for the year 2038.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ptp.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/gianfar_ptp.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c b/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-index d966044..02008e9 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-@@ -285,7 +285,7 @@ static int fm10k_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index 77353366..04265a7 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -322,7 +322,8 @@ static int ptp_gianfar_adjtime(struct ptp_clock_info *ptp, s64 delta)
  	return 0;
  }
  
--static int fm10k_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int fm10k_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+-static int ptp_gianfar_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int ptp_gianfar_gettime(struct ptp_clock_info *ptp,
++			       struct timespec64 *ts)
  {
- 	struct fm10k_intfc *interface;
- 	unsigned long flags;
-@@ -297,17 +297,17 @@ static int fm10k_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
- 	now = fm10k_systime_read(interface) + interface->ptp_adjust;
- 	read_unlock_irqrestore(&interface->systime_lock, flags);
- 
--	*ts = ns_to_timespec(now);
-+	*ts = ns_to_timespec64(now);
- 
- 	return 0;
+ 	u64 ns;
+ 	u32 remainder;
+@@ -341,7 +342,7 @@ static int ptp_gianfar_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
  }
  
- static int fm10k_ptp_settime(struct ptp_clock_info *ptp,
--			     const struct timespec *ts)
-+			     const struct timespec64 *ts)
+ static int ptp_gianfar_settime(struct ptp_clock_info *ptp,
+-			       const struct timespec *ts)
++			       const struct timespec64 *ts)
  {
- 	struct fm10k_intfc *interface;
+ 	u64 ns;
  	unsigned long flags;
--	u64 ns = timespec_to_ns(ts);
-+	u64 ns = timespec64_to_ns(ts);
+@@ -418,8 +419,8 @@ static struct ptp_clock_info ptp_gianfar_caps = {
+ 	.pps		= 1,
+ 	.adjfreq	= ptp_gianfar_adjfreq,
+ 	.adjtime	= ptp_gianfar_adjtime,
+-	.gettime	= ptp_gianfar_gettime,
+-	.settime	= ptp_gianfar_settime,
++	.gettime64	= ptp_gianfar_gettime,
++	.settime64	= ptp_gianfar_settime,
+ 	.enable		= ptp_gianfar_enable,
+ };
  
- 	interface = container_of(ptp, struct fm10k_intfc, ptp_caps);
+@@ -440,7 +441,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ {
+ 	struct device_node *node = dev->dev.of_node;
+ 	struct etsects *etsects;
+-	struct timespec now;
++	struct timespec64 now;
+ 	int err = -ENOMEM;
+ 	u32 tmr_ctrl;
+ 	unsigned long flags;
+@@ -495,7 +496,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ 		pr_err("ioremap ptp registers failed\n");
+ 		goto no_ioremap;
+ 	}
+-	getnstimeofday(&now);
++	getnstimeofday64(&now);
+ 	ptp_gianfar_settime(&etsects->caps, &now);
  
-@@ -419,8 +419,8 @@ void fm10k_ptp_register(struct fm10k_intfc *interface)
- 	ptp_caps->max_adj	= 976562;
- 	ptp_caps->adjfreq	= fm10k_ptp_adjfreq;
- 	ptp_caps->adjtime	= fm10k_ptp_adjtime;
--	ptp_caps->gettime	= fm10k_ptp_gettime;
--	ptp_caps->settime	= fm10k_ptp_settime;
-+	ptp_caps->gettime64	= fm10k_ptp_gettime;
-+	ptp_caps->settime64	= fm10k_ptp_settime;
- 
- 	/* provide pins if BAR4 is accessible */
- 	if (interface->sw_addr) {
+ 	tmr_ctrl =
 -- 
 1.7.10.4
