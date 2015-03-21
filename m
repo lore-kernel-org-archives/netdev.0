@@ -1,76 +1,50 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v5] switchdev: fix stp update API to work with layered netdevices
-Date: Fri, 20 Mar 2015 22:20:32 -0700
-Message-ID: <1426915232-17544-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [v1 PATCH 7/14] netfilter: Use rhashtable_lookup instead of
+ lookup_compare
+Date: Sat, 21 Mar 2015 05:23:26 +0000
+Message-ID: <20150321052325.GA24466@acer.localdomain>
+References: <20150316082842.GA10896@casper.infradead.org>
+ <20150316091415.GA31089@gondor.apana.org.au>
+ <20150316111345.GA22070@acer.localdomain>
+ <20150320085509.GA16748@gondor.apana.org.au>
+ <20150320092216.GE21258@acer.localdomain>
+ <20150320092703.GA17081@gondor.apana.org.au>
+ <20150320095908.GG21258@acer.localdomain>
+ <20150320101603.GA17662@gondor.apana.org.au>
+ <20150320102701.GA28736@acer.localdomain>
+ <20150320214712.GA23963@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:35164 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbbCUFUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 01:20:39 -0400
-Received: by pdbop1 with SMTP id op1so128216229pdb.2
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 22:20:39 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:43339 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951AbbCUFXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 01:23:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20150320214712.GA23963@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 21.03, Herbert Xu wrote:
+> On Fri, Mar 20, 2015 at 10:27:01AM +0000, Patrick McHardy wrote:
+> > On 20.03, Herbert Xu wrote:
+> >
+> > > Any hash function can be attacked.  That's why we need to be able
+> > > to rehash it.  And the best way to decide when to rehash is based
+> > > on chain length (otherwise you'd waste time rehashing periodically
+> > > like we used to do).  With name spaces these days anyone could be
+> > > an adversary.
+> > 
+> > We already had this discussion. I strongly do not believe this is
+> > the right way to fix namespace problems. There are millions of ways
+> > of creating CPU intensive workloads. You need to be able to put
+> > bounds on the entire namespace. Fixing individual spots will not
+> > solve that problem.
+> 
+> A CPU intensive workload that can be rescheduled is completely
+> different from one that is running under spin lock with BH disabled.
 
-make it same as the netdev_switch_port_bridge_setlink/dellink
-api (ie traverse lowerdevs to get to the switch port).
-
-removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
-direct bridge ports can be stacked netdevices (like bonds
-and team of switch ports) which may not implement this ndo.
-
-v2 to v3:
-	- remove changes to bond and team. Bring back the
-	transparently following lowerdevs like i initially
-	had for setlink/getlink
-	(http://www.spinics.net/lists/netdev/msg313436.html)
-	dave and scott feldman also seem to prefer it be that
-	way and move to non-transparent way of doing things
-	if we see a problem down the lane.
-
-v3 to v4:
-	- fix ret initialization
-
-v4 to v5:
-	- return err on first failure (scott feldman)
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/switchdev/switchdev.c |   17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
-
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index c9bfa00..7d7b487 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -47,11 +47,20 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
- int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
- {
- 	const struct swdev_ops *ops = dev->swdev_ops;
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+	int ret;
- 
--	if (!ops || !ops->swdev_port_stp_update)
--		return -EOPNOTSUPP;
--	WARN_ON(!ops->swdev_parent_id_get);
--	return ops->swdev_port_stp_update(dev, state);
-+	if (ops && ops->swdev_port_stp_update)
-+		return ops->swdev_port_stp_update(dev, state);
-+
-+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-+		ret = netdev_switch_port_stp_update(lower_dev, state);
-+		if (ret && ret != -EOPNOTSUPP)
-+			return ret;
-+	}
-+
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
- 
--- 
-1.7.10.4
+Sure, that's what I actually meant of course.
