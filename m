@@ -1,53 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/5][pull request] Intel Wired LAN Driver Updates 2015-03-20
-Date: Fri, 20 Mar 2015 17:57:40 -0700
-Message-ID: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 3/5] e1000e: NVM write protect access removed from SPT HW
+Date: Fri, 20 Mar 2015 17:57:43 -0700
+Message-ID: <1426899465-15789-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Yanir Lubetkin <yanirx.lubetkin@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Kristen Carlson Accardi <kristen@linux.intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:50519 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:52848 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752911AbbCUA56 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752916AbbCUA56 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Mar 2015 20:57:58 -0400
+In-Reply-To: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgb, e1000e, igb and igbvf.
+From: Yanir Lubetkin <yanirx.lubetkin@intel.com>
 
-Eliezer and Todd provide patches to fix a potential issue found during code
-inspection.  When bringing down an interface netif_carrier_off() should
-be one of the first things we do, since this will prevent the stack from
-queueing more packets to this interface.
+The call to e1000e_write_protect_nvm_ich8lan() is no longer supported by HW.
+Access to these registers causes a system freeze in A step hardware and is
+ignored in B step hardware. This function must not be called in hardware
+newer than LPT.
 
-Yanir provides a fix for e1000e that was found in validating i219,
-where the call to e1000e_write_protect_nvm_ich8lan() is no longer
-supported in newer hardware.  Access to these registers causes a
-system freeze in early steppings and is ignored in later steppings.
+CC: Kristen Carlson Accardi <kristen@linux.intel.com>
+Signed-off-by: Yanir Lubetkin <yanirx.lubetkin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-The following are changes since commit f6877fcf229b4e3d396cbd5199e040b4ea1362eb:
-  Merge branch 'ebpf-next'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-master
-
-Eliezer Tamir (2):
-  ixgb: call netif_carrier_off early on down
-  e1000e: call netif_carrier_off early on down
-
-Todd Fujinaka (2):
-  igb: use netif_carrier_off earlier when bringing if down
-  igbvf: use netif_carrier_off earlier when bringing if down
-
-Yanir Lubetkin (1):
-  e1000e: NVM write protect access removed from SPT HW
-
- drivers/net/ethernet/intel/e1000e/netdev.c  | 7 ++++---
- drivers/net/ethernet/intel/igb/igb_main.c   | 4 +---
- drivers/net/ethernet/intel/igbvf/netdev.c   | 3 +--
- drivers/net/ethernet/intel/ixgb/ixgb_main.c | 3 ++-
- 4 files changed, 8 insertions(+), 9 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 8c95fb8..4e56c31 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6874,7 +6874,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_hw_init;
+ 
+ 	if ((adapter->flags & FLAG_IS_ICH) &&
+-	    (adapter->flags & FLAG_READ_ONLY_NVM))
++	    (adapter->flags & FLAG_READ_ONLY_NVM) &&
++	    (hw->mac.type < e1000_pch_spt))
+ 		e1000e_write_protect_nvm_ich8lan(&adapter->hw);
+ 
+ 	hw->mac.ops.get_bus_info(&adapter->hw);
 -- 
 1.9.3
