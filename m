@@ -1,58 +1,36 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] net: dsa: make NET_DSA manually selectable from the config
-Date: Fri, 20 Mar 2015 18:37:43 -0700
-Message-ID: <550CCB67.5010008@roeck-us.net>
-References: <1426901463-31913-1-git-send-email-mathieu@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] Revert "selinux: add a skb_owned_by() hook"
+Date: Fri, 20 Mar 2015 21:39:09 -0400 (EDT)
+Message-ID: <20150320.213909.2296919036071226673.davem@davemloft.net>
+References: <1426896919-23036-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Mathieu Olivari <mathieu@codeaurora.org>, davem@davemloft.net,
-	f.fainelli@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426901463-31913-1-git-send-email-mathieu@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40956 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbbCUBjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:39:13 -0400
+In-Reply-To: <1426896919-23036-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2015 06:31 PM, Mathieu Olivari wrote:
-> Change bd76a116707bd2381da36cf7c3183df11293f1d6 made all DSA drivers
-> depend on NET_DSA rather than selecting them. However, as the only way
-> to select this option was to actually select a driver, it made DSA
-> impossible to enable at all.
->
-> This patch adds an explicit entry which the user will have to enable
-> prior selecting a driver.
->
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri, 20 Mar 2015 17:15:19 -0700
 
-Fixes: bd76a116707b ("dsa: change "select" to "depends on" for NET_SWITCHDEV and for NET_DSA")
+> This reverts commit ca10b9e9a8ca7342ee07065289cbe74ac128c169.
+> 
+> No longer needed after commit eb8895debe1baba41fcb62c78a16f0c63c21662a
+> ("tcp: tcp_make_synack() should use sock_wmalloc")
+> 
+> When under SYNFLOOD, we build lot of SYNACK and hit false sharing
+> because of multiple modifications done on sk_listener->sk_wmem_alloc
+> 
+> Since tcp_make_synack() uses sock_wmalloc(), there is no need
+> to call skb_set_owner_w() again, as this adds two atomic operations.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> Signed-off-by: Mathieu Olivari <mathieu@codeaurora.org>
-
-Andrew found the same problem yesterday and was about to submit
-the same patch...
-
-Reviewed-by: Guenter Roeck <linux@roeck-us.net>
-
-> ---
->   net/dsa/Kconfig | 5 ++++-
->   1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> index 087e654..4f3cce1 100644
-> --- a/net/dsa/Kconfig
-> +++ b/net/dsa/Kconfig
-> @@ -5,9 +5,12 @@ config HAVE_NET_DSA
->   # Drivers must select NET_DSA and the appropriate tagging format
->
->   config NET_DSA
-> -	tristate
-> +	tristate "Distributed Switch Architecture"
->   	depends on HAVE_NET_DSA && NET_SWITCHDEV
->   	select PHYLIB
-> +	---help---
-> +	  Say Y if you want to enable support for the hardware switches supported
-> +	  by the Distributed Switch Architecture.
->
->   if NET_DSA
->
->
+Applied.
