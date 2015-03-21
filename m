@@ -1,46 +1,54 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2] filter: introduce SKF_AD_VLAN_TPID BPF extension
-Date: Sat, 21 Mar 2015 08:41:17 -0700
-Message-ID: <550D911D.9070604@plumgrid.com>
-References: <1426763414-10091-1-git-send-email-msekleta@redhat.com> <550AF483.8040202@plumgrid.com> <20150320102718.GB30812@morgoth.brq.redhat.com> <550CD62C.7080105@plumgrid.com> <550D3EBF.4000907@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Michal Sekletar <msekleta@redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH 0/18] net: dsa: HW bridging, EEE support
+Date: Sat, 21 Mar 2015 08:46:37 -0700
+Message-ID: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38315 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbbCUPlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 11:41:18 -0400
-Received: by igbqf9 with SMTP id qf9so9856603igb.1
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 08:41:17 -0700 (PDT)
-In-Reply-To: <550D3EBF.4000907@iogearbox.net>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:39943 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409AbbCUPrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 11:47:06 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YZLc6-0000u6-GQ
+	for netdev@vger.kernel.org; Sat, 21 Mar 2015 15:47:04 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/21/15 2:49 AM, Daniel Borkmann wrote:
-> On 03/21/2015 03:23 AM, Alexei Starovoitov wrote:
->> On 3/20/15 3:27 AM, Michal Sekletar wrote:
->>> On Thu, Mar 19, 2015 at 09:08:35AM -0700, Alexei Starovoitov wrote:
->>>> Since it's a new field, I think it makes sense not to do ntohs at all.
->>>> Let bpf programs do htons(PROTO_CONSTANT), since it can be done at
->>>> compile time instead of run-time.
->>>
->>> Doing htons is not needed for vlan_tci thus I wanted to avoid
->>> surprise for
->>> users. But of course I'll do whatever you think is the best.
->>
->> ok. then let's not add ntohs for vlan_tpid
->
-> Why? What speaks against handling this the exact same way as we
-> do now with skb->protocol?
+Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
+for HW bridging support, without adding the code itself. For the most part
+this factors out common port initialization code. There is no functional
+change except for patch 3, which disables the message port bit for the
+CPU port to prevent packet duplication if HW bridging is configured.
 
-hmm. I think you miss read it. It's exactly the same way as
-skb->protocol for extended. No point doing it differently for classic.
+Patch 8 adds the infrastructure for hardware bridging support to the
+mv88e6xxx code.
+
+Patch 9 wires the MV88E6352 driver to support hardware bridging.
+
+Patches 10 to 12 add support for ndo_fdb functions to the dsa subsystem, and
+wire up the MV88E6352 driver to support those functions.
+
+Patches 13 to 16 add EEE support and HW bridging support to the mv88e6171
+driver. This set of patches is from Andrew, applied on top of the first
+set of patches.
+
+Patch 17 and 18 add HW bridging support to the mv88e6131 driver. This code
+is untested and therefore marked RFT.
+
+The series applies to net-next as of 3/20/2015.
+
+Thanks a lot to Andrew Lunn for testing and valuable feedback.
+
+---
+Changes from RFT:
+- Various bug fixes
+  - Fixed packet duplication seen when HW bridging is enabled
+- Cleanup; use more defines and restructure patches
+- Added ndo_fdb functions
+- New patches adding support for HW bridging and EEE support
+  to the mv88e6171 driver.
