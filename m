@@ -1,86 +1,37 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 02/23] ptp: use the 64 bit gettime method for the SYS_OFFSET ioctl.
-Date: Sat, 21 Mar 2015 22:39:20 +0100
-Message-ID: <614890e5bb7c29b027fcecf3efc7d7fdf935735c.1426973658.git.richardcochran@gmail.com>
-References: <cover.1426973658.git.richardcochran@gmail.com>
-Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Arnd Bergmann <arnd@linaro.org>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorense
-To: <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/4] bonding work-queues, try_rtnl() &
+ notifications
+Date: Sat, 21 Mar 2015 18:17:00 -0400 (EDT)
+Message-ID: <20150321.181700.1162404019090592599.davem@davemloft.net>
+References: <1426916355-18289-1-git-send-email-maheshb@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	nikolay@redhat.com, maze@google.com, netdev@vger.kernel.org,
+	edumazet@google.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:34186 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862AbbCUVjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:39:51 -0400
-In-Reply-To: <cover.1426973658.git.richardcochran@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41192 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751403AbbCUWRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 18:17:13 -0400
+In-Reply-To: <1426916355-18289-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the code to use the new method whenever implemented by
-the PHC driver.
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Fri, 20 Mar 2015 22:39:15 -0700
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/ptp/ptp_chardev.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+> This patch series tries to address the issue discovered in various work-
+> queues and the way these handlers deal with the RTNL. Especially for 
+> notification handling. If RTNL can not be acquired, these handlers ignore
+> sending notifications and just re-arm the timer. This could be very 
+> problematic if the re-arm timer has larger value (e.g. in minutes).
 
-diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-index f8a7609..95bcf15 100644
---- a/drivers/ptp/ptp_chardev.c
-+++ b/drivers/ptp/ptp_chardev.c
-@@ -124,7 +124,8 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
- 	struct ptp_clock_info *ops = ptp->info;
- 	struct ptp_clock_time *pct;
--	struct timespec ts;
-+	struct timespec64 ts;
-+	struct timespec t2;
- 	int enable, err = 0;
- 	unsigned int i, pin_index;
- 
-@@ -197,16 +198,21 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		}
- 		pct = &sysoff->ts[0];
- 		for (i = 0; i < sysoff->n_samples; i++) {
--			getnstimeofday(&ts);
-+			getnstimeofday64(&ts);
- 			pct->sec = ts.tv_sec;
- 			pct->nsec = ts.tv_nsec;
- 			pct++;
--			ptp->info->gettime(ptp->info, &ts);
-+			if (ptp->info->gettime64) {
-+				ptp->info->gettime64(ptp->info, &ts);
-+			} else {
-+				ptp->info->gettime(ptp->info, &t2);
-+				ts = timespec_to_timespec64(t2);
-+			}
- 			pct->sec = ts.tv_sec;
- 			pct->nsec = ts.tv_nsec;
- 			pct++;
- 		}
--		getnstimeofday(&ts);
-+		getnstimeofday64(&ts);
- 		pct->sec = ts.tv_sec;
- 		pct->nsec = ts.tv_nsec;
- 		if (copy_to_user((void __user *)arg, sysoff, sizeof(*sysoff)))
--- 
-1.7.10.4
+I already made it very clear how I want this kind of problem solved.
+
+Make the person holding the RTNL semaphore do the notification work
+for you.
+
+All of this deferral stuff is error prone and sloppy.
