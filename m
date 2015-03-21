@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 04/23] ptp: blackfin: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 22:39:22 +0100
-Message-ID: <d60e40f5c008cf85a764f958d5b692f167cd05ba.1426973658.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V2 07/23] ptp: tg3: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 22:39:25 +0100
+Message-ID: <62908b9961a197b46ea337ef8746501f3fd2ca64.1426973658.git.richardcochran@gmail.com>
 References: <cover.1426973658.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,50 +26,62 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:33271 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826AbbCUVkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:40:03 -0400
 In-Reply-To: <cover.1426973658.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The device uses 64 bit nanoseconds register, and so with this patch the
-driver is ready for the year 2038.
+The device appears to use a 64 bit nanoseconds register, and so with
+this patch the driver should be ready for the year 2038.
+
+Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/adi/bfin_mac.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index ec20611..0c37aef 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -983,7 +983,7 @@ static int bfin_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 22b33da..d02d19b 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6217,7 +6217,7 @@ static int tg3_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  	return 0;
  }
  
--static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+-static int tg3_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int tg3_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
  	u64 ns;
  	u32 remainder;
-@@ -1003,7 +1003,7 @@ static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+@@ -6235,12 +6235,12 @@ static int tg3_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
  }
  
- static int bfin_ptp_settime(struct ptp_clock_info *ptp,
+ static int tg3_ptp_settime(struct ptp_clock_info *ptp,
 -			   const struct timespec *ts)
 +			   const struct timespec64 *ts)
  {
  	u64 ns;
- 	unsigned long flags;
-@@ -1039,8 +1039,8 @@ static struct ptp_clock_info bfin_ptp_caps = {
+ 	struct tg3 *tp = container_of(ptp, struct tg3, ptp_info);
+ 
+-	ns = timespec_to_ns(ts);
++	ns = timespec64_to_ns(ts);
+ 
+ 	tg3_full_lock(tp, 0);
+ 	tg3_refclk_write(tp, ns);
+@@ -6320,8 +6320,8 @@ static const struct ptp_clock_info tg3_ptp_caps = {
  	.pps		= 0,
- 	.adjfreq	= bfin_ptp_adjfreq,
- 	.adjtime	= bfin_ptp_adjtime,
--	.gettime	= bfin_ptp_gettime,
--	.settime	= bfin_ptp_settime,
-+	.gettime64	= bfin_ptp_gettime,
-+	.settime64	= bfin_ptp_settime,
- 	.enable		= bfin_ptp_enable,
+ 	.adjfreq	= tg3_ptp_adjfreq,
+ 	.adjtime	= tg3_ptp_adjtime,
+-	.gettime	= tg3_ptp_gettime,
+-	.settime	= tg3_ptp_settime,
++	.gettime64	= tg3_ptp_gettime,
++	.settime64	= tg3_ptp_settime,
+ 	.enable		= tg3_ptp_enable,
  };
  
 -- 
