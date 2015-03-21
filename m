@@ -1,7 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 01/18] net: dsa: mv88e6xxx: Factor out common initialization code
-Date: Sat, 21 Mar 2015 08:46:38 -0700
-Message-ID: <1426952815-4642-2-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 06/18] net: dsa: mv88e6123_61_65: Use common port configuration
+Date: Sat, 21 Mar 2015 08:46:43 -0700
+Message-ID: <1426952815-4642-7-git-send-email-linux@roeck-us.net>
 References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -9,131 +9,66 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:39952 "EHLO
+Received: from bh-25.webhostbox.net ([208.91.199.152]:40249 "EHLO
 	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444AbbCUPrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 11:47:07 -0400
+	with ESMTP id S1751731AbbCUPrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 11:47:39 -0400
 Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
 	(envelope-from <linux@roeck-us.net>)
-	id 1YZLc9-0000yM-QB
-	for netdev@vger.kernel.org; Sat, 21 Mar 2015 15:47:06 +0000
+	id 1YZLcg-0001Tn-CR
+	for netdev@vger.kernel.org; Sat, 21 Mar 2015 15:47:38 +0000
 In-Reply-To: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Code used and needed in mv886xxx.c should be initialized there as well,
-so factor it out from the individual initialization files.
+This will simplify adding offloaded bridge support later on.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/dsa/mv88e6123_61_65.c |  7 +++----
- drivers/net/dsa/mv88e6171.c       |  8 +++-----
- drivers/net/dsa/mv88e6352.c       |  7 ++++---
- drivers/net/dsa/mv88e6xxx.c       | 11 +++++++++++
- drivers/net/dsa/mv88e6xxx.h       |  1 +
- 5 files changed, 22 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6123_61_65.c | 24 +-----------------------
+ 1 file changed, 1 insertion(+), 23 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index e9c736e..6ebe570 100644
+index 6ebe570..2d7e1ff 100644
 --- a/drivers/net/dsa/mv88e6123_61_65.c
 +++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -293,13 +293,12 @@ static int mv88e6123_61_65_setup_port(struct dsa_switch *ds, int p)
+@@ -222,28 +222,6 @@ static int mv88e6123_61_65_setup_port(struct dsa_switch *ds, int p)
+ 		val |= 0x000c;
+ 	REG_WRITE(addr, 0x04, val);
+ 
+-	/* Port Control 1: disable trunking.  Also, if this is the
+-	 * CPU port, enable learn messages to be sent to this port.
+-	 */
+-	REG_WRITE(addr, 0x05, dsa_is_cpu_port(ds, p) ? 0x8000 : 0x0000);
+-
+-	/* Port based VLAN map: give each port its own address
+-	 * database, allow the CPU port to talk to each of the 'real'
+-	 * ports, and allow each of the 'real' ports to only talk to
+-	 * the upstream port.
+-	 */
+-	val = (p & 0xf) << 12;
+-	if (dsa_is_cpu_port(ds, p))
+-		val |= ds->phys_port_mask;
+-	else
+-		val |= 1 << dsa_upstream_port(ds);
+-	REG_WRITE(addr, 0x06, val);
+-
+-	/* Default VLAN ID and priority: don't set a default VLAN
+-	 * ID, and set the default packet priority to zero.
+-	 */
+-	REG_WRITE(addr, 0x07, 0x0000);
+-
+ 	/* Port Control 2: don't force a good FCS, set the maximum
+ 	 * frame size to 10240 bytes, don't let the switch add or
+ 	 * strip 802.1q tags, don't discard tagged or untagged frames
+@@ -288,7 +266,7 @@ static int mv88e6123_61_65_setup_port(struct dsa_switch *ds, int p)
+ 	 */
+ 	REG_WRITE(addr, 0x19, 0x7654);
+ 
+-	return 0;
++	return mv88e6xxx_setup_port_common(ds, p);
+ }
  
  static int mv88e6123_61_65_setup(struct dsa_switch *ds)
- {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i;
- 	int ret;
- 
--	mutex_init(&ps->smi_mutex);
--	mutex_init(&ps->stats_mutex);
--	mutex_init(&ps->phy_mutex);
-+	ret = mv88e6xxx_setup_common(ds);
-+	if (ret < 0)
-+		return ret;
- 
- 	ret = mv88e6123_61_65_switch_reset(ds);
- 	if (ret < 0)
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 9808c86..2f6662c 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -292,12 +292,12 @@ static int mv88e6171_setup_port(struct dsa_switch *ds, int p)
- 
- static int mv88e6171_setup(struct dsa_switch *ds)
- {
--	struct mv88e6xxx_priv_state *ps = (void *)(ds + 1);
- 	int i;
- 	int ret;
- 
--	mutex_init(&ps->smi_mutex);
--	mutex_init(&ps->stats_mutex);
-+	ret = mv88e6xxx_setup_common(ds);
-+	if (ret < 0)
-+		return ret;
- 
- 	ret = mv88e6171_switch_reset(ds);
- 	if (ret < 0)
-@@ -318,8 +318,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
- 			return ret;
- 	}
- 
--	mutex_init(&ps->phy_mutex);
--
- 	return 0;
- }
- 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 7bc5998..75cf9e1 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -385,9 +385,10 @@ static int mv88e6352_setup(struct dsa_switch *ds)
- 	int ret;
- 	int i;
- 
--	mutex_init(&ps->smi_mutex);
--	mutex_init(&ps->stats_mutex);
--	mutex_init(&ps->phy_mutex);
-+	ret = mv88e6xxx_setup_common(ds);
-+	if (ret < 0)
-+		return ret;
-+
- 	mutex_init(&ps->eeprom_mutex);
- 
- 	ps->id = REG_READ(REG_PORT(0), 0x03) & 0xfff0;
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index c18ffc9..6496beb 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -700,6 +700,17 @@ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
-+int mv88e6xxx_setup_common(struct dsa_switch *ds)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+
-+	mutex_init(&ps->smi_mutex);
-+	mutex_init(&ps->stats_mutex);
-+	mutex_init(&ps->phy_mutex);
-+
-+	return 0;
-+}
-+
- static int __init mv88e6xxx_init(void)
- {
- #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 5fd42ce..a02d95a 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -57,6 +57,7 @@ struct mv88e6xxx_hw_stat {
- 	int reg;
- };
- 
-+int mv88e6xxx_setup_common(struct dsa_switch *ds);
- int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg);
- int mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg);
- int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
 -- 
 2.1.0
