@@ -1,50 +1,78 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v9 tip 3/9] tracing: attach BPF programs to kprobes
-Date: Sat, 21 Mar 2015 09:02:54 -0700
-Message-ID: <550D962E.7010400@plumgrid.com>
-References: <1426894210-27441-1-git-send-email-ast@plumgrid.com> <1426894210-27441-4-git-send-email-ast@plumgrid.com> <550D60C2.8010502@hitachi.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces
+ with "ktime_t" type
+Date: Sat, 21 Mar 2015 17:52:03 +0100
+Message-ID: <20150321165203.GA14320@localhost.localdomain>
+References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
+ <201503201443.42672.arnd@linaro.org>
+ <20150320164951.GA25334@localhost.localdomain>
+ <201503210216.41497.arnd@linaro.org>
+ <20150321072407.GA4701@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Baolin Wang <baolin.wang@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.com>,
+	tglx@linutronix.de
+To: Arnd Bergmann <arnd@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <550D60C2.8010502@hitachi.com>
+Content-Disposition: inline
+In-Reply-To: <20150321072407.GA4701@netboy>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/21/15 5:14 AM, Masami Hiramatsu wrote:
-> (2015/03/21 8:30), Alexei Starovoitov wrote:
->>
->> Note, kprobes are _not_ a stable kernel ABI, so bpf programs attached to
->> kprobes must be recompiled for every kernel version and user must supply correct
->> LINUX_VERSION_CODE in attr.kern_version during bpf_prog_load() call.
->>
+On Sat, Mar 21, 2015 at 08:24:09AM +0100, Richard Cochran wrote:
 > 
-> Would you mean that the ABI of kprobe-based BPF programs? Kprobe API/ABIs
-> (register_kprobe() etc.) are stable, but the code who use kprobes certainly
-> depends the kernel binary by design. So, if you meant it, BPF programs must
-> be recompiled for every kernel binaries (including configuration changes,
-> not only its version).
+> I disagree with the approach presented here.  The problem at hand is
+> the 2038 issue.  Let's fix that first, in the easiest way, with the
+> least churn, namely by using timespec64 in place of timespec.  Once
+> that is done, we can change over to ktime_t, if and when the need
+> arises.
 
-yes. I mainly meant that bpf+kprobe programs must be recompiled
-for every kernel binary.
-But you're incorrect saying that register_kprobe API is stable.
-It's equally kernel dependent.
-register_kprobe(struct kprobe *p) is export_gpl, but it takes
-kernel internal 'struct kprobe' and it's not declared in uapi header.
-Prototype of kprobe_handler_t is also kernel internal, so whoever
-is using kprobes must recompile their code every time.
-If we want, we can change register_kprobe function name to something
-else. Just like kernel modules cannot expect that exported symbols
-will stay around from version to version. We don't care when we
-break out of tree modules.
+Just for laughs, I hacked up the change from timespec to timespec64,
+to get an idea of the dimension.  The diffstat:
+
+  drivers/net/ethernet/adi/bfin_mac.c              |    4 ++--
+  drivers/net/ethernet/amd/xgbe/xgbe-ptp.c         |    8 ++++----
+  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+  drivers/net/ethernet/broadcom/tg3.c              |    6 +++---
+  drivers/net/ethernet/freescale/fec_ptp.c         |    4 ++--
+  drivers/net/ethernet/freescale/gianfar_ptp.c     |    8 ++++----
+  drivers/net/ethernet/intel/e1000e/ptp.c          |   10 +++++-----
+  drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |    8 ++++----
+  drivers/net/ethernet/intel/i40e/i40e_ptp.c       |   16 ++++++++++------
+  drivers/net/ethernet/intel/igb/igb_ptp.c         |   22 +++++++++++++---------
+  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |    6 +++---
+  drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    6 +++---
+  drivers/net/ethernet/sfc/ptp.c                   |   18 +++++++++---------
+  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    4 ++--
+  drivers/net/ethernet/ti/cpts.c                   |    8 ++++----
+  drivers/net/ethernet/tile/tilegx.c               |   11 +++++++----
+  drivers/net/phy/dp83640.c                        |    7 ++++---
+  drivers/ptp/ptp_chardev.c                        |    6 +++---
+  drivers/ptp/ptp_ixp46x.c                         |    4 ++--
+  drivers/ptp/ptp_pch.c                            |    4 ++--
+  include/linux/ptp_clock_kernel.h                 |    4 ++--
+  21 files changed, 90 insertions(+), 78 deletions(-)
+
+compares favorably with Baolin's
+
+  5 files changed, 50 insertions(+), 41 deletions(-)
+
+considering he adapted only two drivers out of nineteen.
+
+This exercise showed me that we really do need to convert the drivers
+one by one.  Some of these drivers have 2038 issues at the hardware
+level, for example because the register level representation lacks the
+needed range.  Fixing the PHC API won't solve those problems.
+
+I want flag these drivers now, so that they can be fixed later on.
+Already I had been thinking about how to fix the phyter, which has a
+32 seconds counter.  The solution I came up with will also help some
+of the other drivers, so it will become part of the core.  However,
+for that to work, I really do want to keep the timespec64
+representation.
+
+I'll reformat my changes into a proper series, to show what I mean...
+ 
+Thanks,
+Richard
