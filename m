@@ -1,100 +1,98 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] cx82310_eth: wait for firmware to become ready
-Date: Sat, 21 Mar 2015 11:29:37 +0100
-Message-ID: <1426933777-19260-1-git-send-email-linux@rainbow-software.org>
-Cc: Kernel development list <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH iproute2] man ip-netns: Fix syntax in default ns
+ process, indent's
+Date: Sat, 21 Mar 2015 10:54:23 +0000
+Message-ID: <1426935263.32382.33.camel@decadent.org.uk>
+References: <1426915962-17112-1-git-send-email-vadim4j@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-3CzuYxyo9cWzezo9eRFw"
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51142 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751250AbbCUKyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 06:54:36 -0400
+In-Reply-To: <1426915962-17112-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the device is powered up, some (older) firmware versions fail to work
-properly if we send commands before the boot is complete (everything is OK
-when the device is hot-plugged). The firmware indicates its ready status by
-putting the link up.
-Newer firmwares delay the first command so they don't suffer from this problem.
-They also report the link being always up.
 
-Wait for firmware to become ready (link up) before sending any commands and/or
-data.
+--=-3CzuYxyo9cWzezo9eRFw
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This also allows lowering CMD_TIMEOUT value to a reasonable time.
+On Sat, 2015-03-21 at 07:32 +0200, Vadim Kochan wrote:
+> From: Vadim Kochan <vadim4j@gmail.com>
+>=20
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+>  man/man8/ip-netns.8 | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
+> index d496675..fe885db 100644
+> --- a/man/man8/ip-netns.8
+> +++ b/man/man8/ip-netns.8
+> @@ -46,7 +46,7 @@ ip-netns \- process network namespace management
+>  A network namespace is logically another copy of the network stack,
+>  with its own routes, firewall rules, and network devices.
+> =20
+> -By default process inherits network namespace from its parent. Initially=
+ all
+> +By default a process inherits network namespace from its parent. Initial=
+ly all
+>  the processes share the same default network namespace from the init pro=
+cess.
+> =20
+>  By convention a named network namespace is an object at
+> @@ -103,10 +103,12 @@ option was specified then all the network namespace=
+ names will be removed.
+>  It is possible to lose the physical device when it was moved to netns an=
+d
+>  then this netns was deleted with a running process:
+> =20
+> +.RS
+>      $ ip netns add net0
+>      $ ip link set dev eth0 netns net0
+>      $ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
+>      $ ip netns del net0
+> +.RE
 
-Tested with 4.1.0.9 (old) and 4.1.0.30 (new) firmware versions.
+You should delete the leading spaces as well.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
----
- drivers/net/usb/cx82310_eth.c |   30 ++++++++++++++++++++++++------
- 1 file changed, 24 insertions(+), 6 deletions(-)
+Ben.
 
-diff --git a/drivers/net/usb/cx82310_eth.c b/drivers/net/usb/cx82310_eth.c
-index fe48f4c..1762ad3 100644
---- a/drivers/net/usb/cx82310_eth.c
-+++ b/drivers/net/usb/cx82310_eth.c
-@@ -46,8 +46,7 @@ enum cx82310_status {
- };
- 
- #define CMD_PACKET_SIZE	64
--/* first command after power on can take around 8 seconds */
--#define CMD_TIMEOUT	15000
-+#define CMD_TIMEOUT	100
- #define CMD_REPLY_RETRY 5
- 
- #define CX82310_MTU	1514
-@@ -78,8 +77,9 @@ static int cx82310_cmd(struct usbnet *dev, enum cx82310_cmd cmd, bool reply,
- 	ret = usb_bulk_msg(udev, usb_sndbulkpipe(udev, CMD_EP), buf,
- 			   CMD_PACKET_SIZE, &actual_len, CMD_TIMEOUT);
- 	if (ret < 0) {
--		dev_err(&dev->udev->dev, "send command %#x: error %d\n",
--			cmd, ret);
-+		if (cmd != CMD_GET_LINK_STATUS)
-+			dev_err(&dev->udev->dev, "send command %#x: error %d\n",
-+				cmd, ret);
- 		goto end;
- 	}
- 
-@@ -90,8 +90,10 @@ static int cx82310_cmd(struct usbnet *dev, enum cx82310_cmd cmd, bool reply,
- 					   buf, CMD_PACKET_SIZE, &actual_len,
- 					   CMD_TIMEOUT);
- 			if (ret < 0) {
--				dev_err(&dev->udev->dev,
--					"reply receive error %d\n", ret);
-+				if (cmd != CMD_GET_LINK_STATUS)
-+					dev_err(&dev->udev->dev,
-+						"reply receive error %d\n",
-+						ret);
- 				goto end;
- 			}
- 			if (actual_len > 0)
-@@ -134,6 +136,8 @@ static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
- 	int ret;
- 	char buf[15];
- 	struct usb_device *udev = dev->udev;
-+	u8 link[3];
-+	int timeout = 50;
- 
- 	/* avoid ADSL modems - continue only if iProduct is "USB NET CARD" */
- 	if (usb_string(udev, udev->descriptor.iProduct, buf, sizeof(buf)) > 0
-@@ -160,6 +164,20 @@ static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
- 	if (!dev->partial_data)
- 		return -ENOMEM;
- 
-+	/* wait for firmware to become ready (indicated by the link being up) */
-+	while (--timeout) {
-+		ret = cx82310_cmd(dev, CMD_GET_LINK_STATUS, true, NULL, 0,
-+				  link, sizeof(link));
-+		/* the command can time out during boot - it's not an error */
-+		if (!ret && link[0] == 1 && link[2] == 1)
-+			break;
-+		msleep(500);
-+	};
-+	if (!timeout) {
-+		dev_err(&udev->dev, "firmware not ready in time\n");
-+		return -ETIMEDOUT;
-+	}
-+
- 	/* enable ethernet mode (?) */
- 	ret = cx82310_cmd(dev, CMD_ETHERNET_MODE, true, "\x01", 1, NULL, 0);
- 	if (ret) {
--- 
-Ondrej Zary
+>  and eth0 will appear in the default netns only after SOME_PROCESS_IN_BAC=
+KGROUND
+>  will exit or will be killed. To prevent this the processes running in ne=
+t0
+
+--=20
+Ben Hutchings
+If you seem to know what you are doing, you'll be given more to do.
+
+--=-3CzuYxyo9cWzezo9eRFw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVQ1N5Oe/yOyVhhEJAQqf+xAArRGcfz+XhqPz0WNMxtcWGhFcGYE4vicG
+1KNL0vVoDRWe6vzhG4q3+jAxwc/6rgYWbfZLcELfsxYJZ2+aXRvnP5VPhKt2RM8g
+huW5Ow5LljQEWHGEZQNU4Z718nhTKF418zdp/coI+2TvnQMGRNuUhyUWXa/UMFN2
+rhSl2fRl1uH3PKdlCMEn9MlCPgeIgyrXvBRdZyrgBNTtO5ZGZMkMFSMokufLaKKX
+11OUi2cndP5Hm6Vxm/311BmuxEhBgh/zl3qbcYjQpAnDKCP8iFe7wToPmhzGbyjb
+sPw+l4HXaMRU4Yq18+vOX7XlK5loHPAtkbxtGU68yrBRqbNzykKlC6Jixa6xjH+1
+zuZ02YrIEXXvPgfYNDiO3udVg7LVUvKqXGiU2YzJdRFzE83dQWqkgYxKYlSd5YVR
+JrtsofpIdhWnqmv2KcPQiQTERsziLgiHdahpBdGUrOVAkNhRylv+5CpoLdC/V3rw
+NOdrYEEh2GMxT/X+B8sA/b3zESBsVvUMXgx+mM+3ornKzgnA3Xidxez/sfwyxvu6
+sikLgP4JABrzNGf8K3V2wJAFfXeNkM01DfUMlZtsiL1u/1v+hrwrao/QagxQcPsK
+6SSO/qVk/LticPBxzM0FR4IerX4DYDWgMgpKlICY8n9Uun5/3DTOmxDE8gXOnbGx
+3qpiIxmiXkQ=
+=GLU3
+-----END PGP SIGNATURE-----
+
+--=-3CzuYxyo9cWzezo9eRFw--
