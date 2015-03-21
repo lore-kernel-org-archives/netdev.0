@@ -1,56 +1,34 @@
-From: Guenter Roeck <linux@roeck-us.net>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH 0/18] net: dsa: HW bridging, EEE support
-Date: Sat, 21 Mar 2015 16:12:30 -0700
-Message-ID: <550DFADE.1080209@roeck-us.net>
-References: <1426952815-4642-1-git-send-email-linux@roeck-us.net> <20150321.184817.575148530596089433.davem@davemloft.net>
+Date: Sun, 22 Mar 2015 00:26:33 +0100
+Message-ID: <20150321232633.GA15025@lunn.ch>
+References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
+ <20150321.184817.575148530596089433.davem@davemloft.net>
+ <550DFADE.1080209@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	f.fainelli@gmail.com, linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150321.184817.575148530596089433.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <550DFADE.1080209@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/21/2015 03:48 PM, David Miller wrote:
-> From: Guenter Roeck <linux@roeck-us.net>
-> Date: Sat, 21 Mar 2015 08:46:37 -0700
->
->> Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
->> for HW bridging support, without adding the code itself. For the most part
->> this factors out common port initialization code. There is no functional
->> change except for patch 3, which disables the message port bit for the
->> CPU port to prevent packet duplication if HW bridging is configured.
->>
->> Patch 8 adds the infrastructure for hardware bridging support to the
->> mv88e6xxx code.
->>
->> Patch 9 wires the MV88E6352 driver to support hardware bridging.
->>
->> Patches 10 to 12 add support for ndo_fdb functions to the dsa subsystem, and
->> wire up the MV88E6352 driver to support those functions.
->>
->> Patches 13 to 16 add EEE support and HW bridging support to the mv88e6171
->> driver. This set of patches is from Andrew, applied on top of the first
->> set of patches.
->>
->> Patch 17 and 18 add HW bridging support to the mv88e6131 driver. This code
->> is untested and therefore marked RFT.
->>
->> The series applies to net-next as of 3/20/2015.
->>
->> Thanks a lot to Andrew Lunn for testing and valuable feedback.
->
-> Generally this series looks good.
->
-> But this driver would be so much easier to read and understand if it
-> used mnemonics instead of constants for the register offsets.
->
+> >But this driver would be so much easier to read and understand if it
+> >used mnemonics instead of constants for the register offsets.
+> >
+> 
+> Yes, agreed. It is on the to-do list. Should we be more aggressive ?
+> Since I'll have to resubmit anyway, we could start by adding defines
+> for all constants used in this patch set, not just some of them.
 
-Yes, agreed. It is on the to-do list. Should we be more aggressive ?
-Since I'll have to resubmit anyway, we could start by adding defines
-for all constants used in this patch set, not just some of them.
+It may make more sense to remove a lot of the duplicate code first.  I
+have patches which centralises all the switch reset and PHY access. It
+should also be possible to centralise the statistics code. At a rough
+guess, that is going to remove 50% of each driver. Quite a bit of the
+remainder can also be centralised, but there is where the drivers
+actually start to differ, and so will take more effort.
 
-Guenter
+	 Andrew
