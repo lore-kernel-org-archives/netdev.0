@@ -1,55 +1,92 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [v1 PATCH 7/14] netfilter: Use rhashtable_lookup instead of
- lookup_compare
-Date: Sat, 21 Mar 2015 05:25:36 +0000
-Message-ID: <20150321052535.GB24466@acer.localdomain>
-References: <20150320101603.GA17662@gondor.apana.org.au>
- <20150320102701.GA28736@acer.localdomain>
- <20150320214712.GA23963@gondor.apana.org.au>
- <20150320215612.GA566@casper.infradead.org>
- <20150320215756.GA24045@gondor.apana.org.au>
- <20150320220751.GB566@casper.infradead.org>
- <20150320221021.GA24140@gondor.apana.org.au>
- <20150320222311.GC566@casper.infradead.org>
- <20150320222530.GA24309@gondor.apana.org.au>
- <20150320223613.GD566@casper.infradead.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v5] switchdev: fix stp update API to work with
+ layered netdevices
+Date: Fri, 20 Mar 2015 22:35:09 -0700
+Message-ID: <CAE4R7bBWvMY9=bZj4tV35NDJxh8bR3Vafknm5c7S0KvcDUV4NA@mail.gmail.com>
+References: <1426915232-17544-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43359 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951AbbCUFZk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 01:25:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20150320223613.GD566@casper.infradead.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:34356 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751809AbbCUFfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 01:35:09 -0400
+Received: by qgh62 with SMTP id 62so110240917qgh.1
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 22:35:09 -0700 (PDT)
+In-Reply-To: <1426915232-17544-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.03, Thomas Graf wrote:
-> On 03/21/15 at 09:25am, Herbert Xu wrote:
-> > On Fri, Mar 20, 2015 at 10:23:11PM +0000, Thomas Graf wrote:
-> > > 
-> > > He might as well just run for (;;) to burn cycles in his namespace.
-> > > If you give away virtualized local privileges you better be ready
-> > > to restrict the resources consumed. 
-> > 
-> > Please reread the first email that you replied to, let me quote:
-> > 
-> > 	A CPU intensive workload that can be rescheduled is
-> > 	completely different from one that is running under spin
-> > 	lock with BH disabled.
-> 
-> We have countless ways to create linear list of things like classifiers,
-> qdiscs, multicast memberships, net_devices, fib_rules, etc. All taking
-> spin locks or write locks. Most of them with BH disabled. Some at
-> least use hashtables with most of them fixed size.
+On Fri, Mar 20, 2015 at 10:20 PM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> make it same as the netdev_switch_port_bridge_setlink/dellink
+> api (ie traverse lowerdevs to get to the switch port).
+>
+> removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
+> direct bridge ports can be stacked netdevices (like bonds
+> and team of switch ports) which may not implement this ndo.
+>
+> v2 to v3:
+>         - remove changes to bond and team. Bring back the
+>         transparently following lowerdevs like i initially
+>         had for setlink/getlink
+>         (http://www.spinics.net/lists/netdev/msg313436.html)
+>         dave and scott feldman also seem to prefer it be that
+>         way and move to non-transparent way of doing things
+>         if we see a problem down the lane.
+>
+> v3 to v4:
+>         - fix ret initialization
+>
+> v4 to v5:
+>         - return err on first failure (scott feldman)
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  net/switchdev/switchdev.c |   17 +++++++++++++----
+>  1 file changed, 13 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+> index c9bfa00..7d7b487 100644
+> --- a/net/switchdev/switchdev.c
+> +++ b/net/switchdev/switchdev.c
+> @@ -47,11 +47,20 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+>  int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+>  {
+>         const struct swdev_ops *ops = dev->swdev_ops;
+> +       struct net_device *lower_dev;
+> +       struct list_head *iter;
+> +       int ret;
 
-That's my point. Its impossible to fix this by restricting data
-structures, this just removes a valid use case.
+Use "err" rather than "ret"....to be consistent with rest of switchdev code.
 
-> I don't want to downplay this but do you *really* want to run
-> untrusted workloads with CAP_NET_ADMIN privileges?
+>
+> -       if (!ops || !ops->swdev_port_stp_update)
+> -               return -EOPNOTSUPP;
+> -       WARN_ON(!ops->swdev_parent_id_get);
+> -       return ops->swdev_port_stp_update(dev, state);
+> +       if (ops && ops->swdev_port_stp_update)
+> +               return ops->swdev_port_stp_update(dev, state);
+> +
+> +       netdev_for_each_lower_dev(dev, lower_dev, iter) {
+> +               ret = netdev_switch_port_stp_update(lower_dev, state);
+> +               if (ret && ret != -EOPNOTSUPP)
+> +                       return ret;
+> +       }
+> +
+> +       return 0;
+
+Return err and initialize err to -EOPNOTSUPP.
+
+The way you have it, you're claiming success for the case where there
+is no op and no lower devs...be consistent with same func when
+CONFIG_NET_SWITCHDEV is not defined.
+
+Sorry for being pedantic, but why not be consistent with the surrounding code?
+
+-scott
