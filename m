@@ -1,63 +1,60 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next] switchdev: kernel-doc cleanup on swithdev ops
-Date: Fri, 20 Mar 2015 17:42:46 -0700
-Message-ID: <1426898566-13974-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, ben@decadent.org.uk
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/5] ixgb: call netif_carrier_off early on down
+Date: Fri, 20 Mar 2015 17:57:41 -0700
+Message-ID: <1426899465-15789-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:36583 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490AbbCUAlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 20:41:49 -0400
-Received: by pdbcz9 with SMTP id cz9so123290763pdb.3
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 17:41:49 -0700 (PDT)
+Received: from mga14.intel.com ([192.55.52.115]:50519 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752909AbbCUA55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Mar 2015 20:57:57 -0400
+In-Reply-To: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 
-Suggested-by: Ben Hutchings <ben@decadent.org.uk>
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+When bringing down an interface netif_carrier_off() should be
+one the first things we do, since this will prevent the stack
+from queuing more packets to this interface.
+This operation is very fast, and should make the device behave
+much nicer when trying to bring down an interface under load.
+
+Also, this would Do The Right Thing (TM) if this device has some
+sort of fail-over teaming and redirect traffic to the other IF.
+
+Move netif_carrier_off as early as possible.
+
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/net/switchdev.h |   23 +++++++----------------
- 1 file changed, 7 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index e5de53f..d2e69ee 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -19,25 +19,16 @@ struct fib_info;
- /**
-  * struct switchdev_ops - switchdev operations
-  *
-- * int (*swdev_parent_id_get)(struct net_device *dev,
-- *			      struct netdev_phys_item_id *psid);
-- *	Called to get an ID of the switch chip this port is part of.
-- *	If driver implements this, it indicates that it represents a port
-- *	of a switch chip.
-+ * @swdev_parent_id_get: Called to get an ID of the switch chip this port
-+ *   is part of.  If driver implements this, it indicates that it
-+ *   represents a port of a switch chip.
-  *
-- * int (*swdev_port_stp_update)(struct net_device *dev, u8 state);
-- *	Called to notify switch device port of bridge port STP
-- *	state change.
-+ * @swdev_port_stp_update: Called to notify switch device port of bridge
-+ *   port STP state change.
-  *
-- * int (*swdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
-- *			     int dst_len, struct fib_info *fi,
-- *			     u8 tos, u8 type, u32 nlflags, u32 tb_id);
-- *	Called to add/modify IPv4 route to switch device.
-+ * @swdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
-  *
-- * int (*swdev_fib_ipv4_del)(struct net_device *dev, __be32 dst,
-- *			     int dst_len, struct fib_info *fi,
-- *			     u8 tos, u8 type, u32 tb_id);
-- *	Called to delete IPv4 route from switch device.
-+ * @swdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
-  */
- struct swdev_ops {
- 	int	(*swdev_parent_id_get)(struct net_device *dev,
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index 11a1bdb..31f9145 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -285,6 +285,8 @@ ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog)
+ 	/* prevent the interrupt handler from restarting watchdog */
+ 	set_bit(__IXGB_DOWN, &adapter->flags);
+ 
++	netif_carrier_off(netdev);
++
+ 	napi_disable(&adapter->napi);
+ 	/* waiting for NAPI to complete can re-enable interrupts */
+ 	ixgb_irq_disable(adapter);
+@@ -298,7 +300,6 @@ ixgb_down(struct ixgb_adapter *adapter, bool kill_watchdog)
+ 
+ 	adapter->link_speed = 0;
+ 	adapter->link_duplex = 0;
+-	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+ 
+ 	ixgb_reset(adapter);
 -- 
-1.7.10.4
+1.9.3
