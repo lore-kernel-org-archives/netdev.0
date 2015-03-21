@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 05/23] ptp: xgbe: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 22:39:23 +0100
-Message-ID: <259bd72ac91bdb761b569e825f3099426aaedad8.1426973658.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V2 03/23] ptp: use the 64 bit get/set time methods for the posix clock.
+Date: Sat, 21 Mar 2015 22:39:21 +0100
+Message-ID: <bec65650e57830a9ed0cbb1d454eeca0a39cc7b1.1426973658.git.richardcochran@gmail.com>
 References: <cover.1426973658.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,73 +26,53 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:38228 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611AbbCUVj6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:39:58 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1426973658.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This driver's clock is implemented using a timecounter, and so with
-this patch the driver is ready for the year 2038.
-
-Compile tested only.
+This patch changes the posix clock code to prefer the new methods
+whenever they are implemented by the PHC drivers.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-ptp.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/ptp/ptp_clock.c |   19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-index f326178..b03e4f5 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
-@@ -179,7 +179,7 @@ static int xgbe_adjtime(struct ptp_clock_info *info, s64 delta)
- 	return 0;
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index 296b0ec..df50d5e 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -107,13 +107,28 @@ static int ptp_clock_getres(struct posix_clock *pc, struct timespec *tp)
+ static int ptp_clock_settime(struct posix_clock *pc, const struct timespec *tp)
+ {
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+-	return ptp->info->settime(ptp->info, tp);
++	struct timespec64 ts = timespec_to_timespec64(*tp);
++
++	return  ptp->info->settime64 ?
++		ptp->info->settime64(ptp->info, &ts) :
++		ptp->info->settime(ptp->info, tp);
  }
  
--static int xgbe_gettime(struct ptp_clock_info *info, struct timespec *ts)
-+static int xgbe_gettime(struct ptp_clock_info *info, struct timespec64 *ts)
+ static int ptp_clock_gettime(struct posix_clock *pc, struct timespec *tp)
  {
- 	struct xgbe_prv_data *pdata = container_of(info,
- 						   struct xgbe_prv_data,
-@@ -193,12 +193,13 @@ static int xgbe_gettime(struct ptp_clock_info *info, struct timespec *ts)
- 
- 	spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
- 
--	*ts = ns_to_timespec(nsec);
-+	*ts = ns_to_timespec64(nsec);
- 
- 	return 0;
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+-	return ptp->info->gettime(ptp->info, tp);
++	struct timespec64 ts;
++	int err;
++
++	if (ptp->info->gettime64) {
++		err = ptp->info->gettime64(ptp->info, &ts);
++		if (!err)
++			*tp = timespec64_to_timespec(ts);
++	} else {
++		err = ptp->info->gettime(ptp->info, tp);
++	}
++
++	return err;
  }
  
--static int xgbe_settime(struct ptp_clock_info *info, const struct timespec *ts)
-+static int xgbe_settime(struct ptp_clock_info *info,
-+			const struct timespec64 *ts)
- {
- 	struct xgbe_prv_data *pdata = container_of(info,
- 						   struct xgbe_prv_data,
-@@ -206,7 +207,7 @@ static int xgbe_settime(struct ptp_clock_info *info, const struct timespec *ts)
- 	unsigned long flags;
- 	u64 nsec;
- 
--	nsec = timespec_to_ns(ts);
-+	nsec = timespec64_to_ns(ts);
- 
- 	spin_lock_irqsave(&pdata->tstamp_lock, flags);
- 
-@@ -236,8 +237,8 @@ void xgbe_ptp_register(struct xgbe_prv_data *pdata)
- 	info->max_adj = pdata->ptpclk_rate;
- 	info->adjfreq = xgbe_adjfreq;
- 	info->adjtime = xgbe_adjtime;
--	info->gettime = xgbe_gettime;
--	info->settime = xgbe_settime;
-+	info->gettime64 = xgbe_gettime;
-+	info->settime64 = xgbe_settime;
- 	info->enable = xgbe_enable;
- 
- 	clock = ptp_clock_register(info, pdata->dev);
+ static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
 -- 
 1.7.10.4
