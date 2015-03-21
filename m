@@ -1,78 +1,80 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces
- with "ktime_t" type
-Date: Sat, 21 Mar 2015 17:52:03 +0100
-Message-ID: <20150321165203.GA14320@localhost.localdomain>
-References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
- <201503201443.42672.arnd@linaro.org>
- <20150320164951.GA25334@localhost.localdomain>
- <201503210216.41497.arnd@linaro.org>
- <20150321072407.GA4701@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baolin Wang <baolin.wang@linaro.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.com>,
-	tglx@linutronix.de
-To: Arnd Bergmann <arnd@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150321072407.GA4701@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next v6] switchdev: fix stp update API to work with layered netdevices
+Date: Sat, 21 Mar 2015 10:27:28 -0700
+Message-ID: <1426958848-2781-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36752 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474AbbCUR1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 13:27:34 -0400
+Received: by pdbcz9 with SMTP id cz9so140041050pdb.3
+        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 10:27:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 21, 2015 at 08:24:09AM +0100, Richard Cochran wrote:
-> 
-> I disagree with the approach presented here.  The problem at hand is
-> the 2038 issue.  Let's fix that first, in the easiest way, with the
-> least churn, namely by using timespec64 in place of timespec.  Once
-> that is done, we can change over to ktime_t, if and when the need
-> arises.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Just for laughs, I hacked up the change from timespec to timespec64,
-to get an idea of the dimension.  The diffstat:
+make it same as the netdev_switch_port_bridge_setlink/dellink
+api (ie traverse lowerdevs to get to the switch port).
 
-  drivers/net/ethernet/adi/bfin_mac.c              |    4 ++--
-  drivers/net/ethernet/amd/xgbe/xgbe-ptp.c         |    8 ++++----
-  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
-  drivers/net/ethernet/broadcom/tg3.c              |    6 +++---
-  drivers/net/ethernet/freescale/fec_ptp.c         |    4 ++--
-  drivers/net/ethernet/freescale/gianfar_ptp.c     |    8 ++++----
-  drivers/net/ethernet/intel/e1000e/ptp.c          |   10 +++++-----
-  drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |    8 ++++----
-  drivers/net/ethernet/intel/i40e/i40e_ptp.c       |   16 ++++++++++------
-  drivers/net/ethernet/intel/igb/igb_ptp.c         |   22 +++++++++++++---------
-  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |    6 +++---
-  drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    6 +++---
-  drivers/net/ethernet/sfc/ptp.c                   |   18 +++++++++---------
-  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    4 ++--
-  drivers/net/ethernet/ti/cpts.c                   |    8 ++++----
-  drivers/net/ethernet/tile/tilegx.c               |   11 +++++++----
-  drivers/net/phy/dp83640.c                        |    7 ++++---
-  drivers/ptp/ptp_chardev.c                        |    6 +++---
-  drivers/ptp/ptp_ixp46x.c                         |    4 ++--
-  drivers/ptp/ptp_pch.c                            |    4 ++--
-  include/linux/ptp_clock_kernel.h                 |    4 ++--
-  21 files changed, 90 insertions(+), 78 deletions(-)
+removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
+direct bridge ports can be stacked netdevices (like bonds
+and team of switch ports) which may not implement this ndo.
 
-compares favorably with Baolin's
+v2 to v3:
+	- remove changes to bond and team. Bring back the
+	transparently following lowerdevs like i initially
+	had for setlink/getlink
+	(http://www.spinics.net/lists/netdev/msg313436.html)
+	dave and scott feldman also seem to prefer it be that
+	way and move to non-transparent way of doing things
+	if we see a problem down the lane.
 
-  5 files changed, 50 insertions(+), 41 deletions(-)
+v3 to v4:
+	- fix ret initialization
 
-considering he adapted only two drivers out of nineteen.
+v4 to v5:
+	- return err on first failure (scott feldman)
 
-This exercise showed me that we really do need to convert the drivers
-one by one.  Some of these drivers have 2038 issues at the hardware
-level, for example because the register level representation lacks the
-needed range.  Fixing the PHC API won't solve those problems.
+v5 to v6:
+	- change variable name (err) and initialize to
+	-EOPNOTSUPP (scott feldman).
 
-I want flag these drivers now, so that they can be fixed later on.
-Already I had been thinking about how to fix the phyter, which has a
-32 seconds counter.  The solution I came up with will also help some
-of the other drivers, so it will become part of the core.  However,
-for that to work, I really do want to keep the timespec64
-representation.
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/switchdev/switchdev.c |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-I'll reformat my changes into a proper series, to show what I mean...
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index c9bfa00..46568b8 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -47,11 +47,20 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+ {
+ 	const struct swdev_ops *ops = dev->swdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int err = -EOPNOTSUPP;
  
-Thanks,
-Richard
+-	if (!ops || !ops->swdev_port_stp_update)
+-		return -EOPNOTSUPP;
+-	WARN_ON(!ops->swdev_parent_id_get);
+-	return ops->swdev_port_stp_update(dev, state);
++	if (ops && ops->swdev_port_stp_update)
++		return ops->swdev_port_stp_update(dev, state);
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = netdev_switch_port_stp_update(lower_dev, state);
++		if (err && err != -EOPNOTSUPP)
++			return err;
++	}
++
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
+ 
+-- 
+1.7.10.4
