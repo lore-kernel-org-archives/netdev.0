@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 00/22] ptp: get ready for 2038
-Date: Sat, 21 Mar 2015 21:59:30 +0100
-Message-ID: <cover.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 07/22] ptp: fec: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 21:59:37 +0100
+Message-ID: <3c2fcc229dda1307b1f18119dd83c1af851774f7.1426970294.git.richardcochran@gmail.com>
+References: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
 	Arnd Bergmann <arnd@linaro.org>,
@@ -26,80 +27,52 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series converts the core driver methods of the PTP Hardware Clock
-(PHC) subsystem to use the 64 bit version of the timespec structure,
-making the core API ready for the year 2038.
+This driver's clock is implemented using a timecounter, and so with
+this patch the driver is ready for the year 2038.
 
-In addition, I reviewed how each driver and device represents the time
-value at the hardware register level.  Most of the drivers are ready,
-but a few will need some work before the year 2038, as shown:
+Compile tested only.
 
-   Patch   Driver
-   ------------------------------------------------
-   12      drivers/net/ethernet/intel/igb/igb_ptp.c
-   15 ?    drivers/net/ethernet/sfc/ptp.c
-   16      drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-   18 ?    drivers/net/ethernet/tile/tilegx.c
-   19      drivers/net/phy/dp83640.c
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/ethernet/freescale/fec_ptp.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-The commit log message documents how each driver is ready or why it is
-not ready.  For patches 15 and 18, I could not easily find out the
-hardware representation of the time value, so I would ask the
-maintainers for a review.
-
-Thanks,
-Richard
-
-Richard Cochran (22):
-  ptp: introduce get/set time methods with explicit 64 bit seconds.
-  ptp: use the 64 bit gettime method for the SYS_OFFSET ioctl.
-  ptp: blackfin: convert to the 64 bit get/set time methods.
-  ptp: xgbe: convert to the 64 bit get/set time methods.
-  ptp: bnx2x: convert to the 64 bit get/set time methods.
-  ptp: tg3: convert to the 64 bit get/set time methods.
-  ptp: fec: convert to the 64 bit get/set time methods.
-  ptp: gianfar: convert to the 64 bit get/set time methods.
-  ptp: e1000e: convert to the 64 bit get/set time methods.
-  ptp: fm10k: convert to the 64 bit get/set time methods.
-  ptp: i40e: convert to the 64 bit get/set time methods.
-  ptp: igb: convert to the 64 bit get/set time methods.
-  ptp: ixgbe: convert to the 64 bit get/set time methods.
-  ptp: mlx4: convert to the 64 bit get/set time methods.
-  ptp: sfc: convert to the 64 bit get/set time methods.
-  ptp: stmmac: convert to the 64 bit get/set time methods.
-  ptp: cpts: convert to the 64 bit get/set time methods.
-  ptp: tilegx: convert to the 64 bit get/set time methods.
-  ptp: dp83640: convert to the 64 bit get/set time methods.
-  ptp: ixp46x: convert to the 64 bit get/set time methods.
-  ptp: pch: convert to the 64 bit get/set time methods.
-  ptp: remove 32 bit get/set methods.
-
- drivers/net/ethernet/adi/bfin_mac.c              |    8 ++---
- drivers/net/ethernet/amd/xgbe/xgbe-ptp.c         |   13 +++----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8 ++---
- drivers/net/ethernet/broadcom/tg3.c              |   10 +++---
- drivers/net/ethernet/freescale/fec_ptp.c         |    8 ++---
- drivers/net/ethernet/freescale/gianfar_ptp.c     |   13 +++----
- drivers/net/ethernet/intel/e1000e/ptp.c          |   16 ++++-----
- drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |   12 +++----
- drivers/net/ethernet/intel/i40e/i40e_ptp.c       |   26 +++++++-------
- drivers/net/ethernet/intel/igb/igb_ptp.c         |   41 +++++++++++-----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |   14 ++++----
- drivers/net/ethernet/mellanox/mlx4/en_clock.c    |   11 +++---
- drivers/net/ethernet/sfc/ptp.c                   |   22 ++++++------
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    8 ++---
- drivers/net/ethernet/ti/cpts.c                   |   12 +++----
- drivers/net/ethernet/tile/tilegx.c               |   16 +++++----
- drivers/net/phy/dp83640.c                        |   12 ++++---
- drivers/ptp/ptp_chardev.c                        |    8 ++---
- drivers/ptp/ptp_clock.c                          |   12 +++++--
- drivers/ptp/ptp_ixp46x.c                         |    8 ++---
- drivers/ptp/ptp_pch.c                            |    8 ++---
- include/linux/ptp_clock_kernel.h                 |   12 +++----
- 22 files changed, 158 insertions(+), 140 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 4585895..b833993 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -390,7 +390,7 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+  * read the timecounter and return the correct value on ns,
+  * after converting it into a struct timespec.
+  */
+-static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+ {
+ 	struct fec_enet_private *adapter =
+ 	    container_of(ptp, struct fec_enet_private, ptp_caps);
+@@ -417,7 +417,7 @@ static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+  * wall timer value.
+  */
+ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *ts)
++			   const struct timespec64 *ts)
+ {
+ 	struct fec_enet_private *fep =
+ 	    container_of(ptp, struct fec_enet_private, ptp_caps);
+@@ -584,8 +584,8 @@ void fec_ptp_init(struct platform_device *pdev)
+ 	fep->ptp_caps.pps = 1;
+ 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
+ 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
+-	fep->ptp_caps.gettime = fec_ptp_gettime;
+-	fep->ptp_caps.settime = fec_ptp_settime;
++	fep->ptp_caps.gettime64 = fec_ptp_gettime;
++	fep->ptp_caps.settime64 = fec_ptp_settime;
+ 	fep->ptp_caps.enable = fec_ptp_enable;
+ 
+ 	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
 -- 
 1.7.10.4
