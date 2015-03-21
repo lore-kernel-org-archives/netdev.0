@@ -1,64 +1,60 @@
-From: Hyong-Youb Kim <hkim@cspi.com>
-Subject: Re: [PATCH v1 21/47] ethernet: myri10ge: use arch_phys_wc_add()
-Date: Sat, 21 Mar 2015 16:08:00 +0900
-Message-ID: <20150321070759.GB8766@gtest01.arcus>
-References: <1426893517-2511-1-git-send-email-mcgrof@do-not-panic.com>
- <1426893517-2511-22-git-send-email-mcgrof@do-not-panic.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces
+ with "ktime_t" type
+Date: Sat, 21 Mar 2015 08:24:09 +0100
+Message-ID: <20150321072407.GA4701@netboy>
+References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org>
+ <201503201443.42672.arnd@linaro.org>
+ <20150320164951.GA25334@localhost.localdomain>
+ <201503210216.41497.arnd@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <luto@amacapital.net>, <mingo@redhat.com>, <tglx@linutronix.de>,
-	<hpa@zytor.com>, <jgross@suse.com>, <JBeulich@suse.com>,
-	<bp@suse.de>, <suresh.b.siddha@intel.com>,
-	<venkatesh.pallipadi@intel.com>, <airlied@redhat.com>,
-	<linux-kernel@vger.kernel.org>, <linux-fbdev@vger.kernel.org>,
-	<x86@kernel.org>, <xen-devel@lists.xenproject.org>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>, Ingo Molnar <mingo@elte.hu>,
-	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Hyong-Youb Kim <hykim@myri.com>, <netdev@vger.kernel.org>,
-	Antonino Daplas <adaplas@gmail.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0144.outbound.protection.outlook.com ([157.55.234.144]:15437
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751132AbbCUHW6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Mar 2015 03:22:58 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Baolin Wang <baolin.wang@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.com>,
+	tglx@linutronix.de
+To: Arnd Bergmann <arnd@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1426893517-2511-22-git-send-email-mcgrof@do-not-panic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <201503210216.41497.arnd@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 20, 2015 at 04:18:11PM -0700, Luis R. Rodriguez wrote:
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> 
-> This driver already uses ioremap_wc() on the same range
-> so when write-combining is available that will be used
-> instead.
-> 
-[...]
-> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-[...]
-> @@ -1984,7 +1979,6 @@ myri10ge_get_ethtool_stats(struct net_device *netdev,
->  		data[i] = ((u64 *)&link_stats)[i];
->  
->  	data[i++] = (unsigned int)mgp->tx_boundary;
-> -	data[i++] = (unsigned int)mgp->wc_enabled;
->  	data[i++] = (unsigned int)mgp->pdev->irq;
->  	data[i++] = (unsigned int)mgp->msi_enabled;
->  	data[i++] = (unsigned int)mgp->msix_enabled;
+On Sat, Mar 21, 2015 at 02:16:41AM +0100, Arnd Bergmann wrote:
+> This was the first idea, but it seems a bit silly when all the drivers
+> use a 64-bit nanosecond value just like ktime_t.
 
-You would have to delete "WC from myri10ge_gstrings_main_stats too.
-Something like below.  Thanks.
+Not true of all drivers.  In fact, the most capable devices (phyter
+and i210) have a split representation.
 
-@@ -1905,7 +1905,7 @@ static const char myri10ge_gstrings_main_stats[][ETH_GSTRING_LEN] = {
- 	"tx_aborted_errors", "tx_carrier_errors", "tx_fifo_errors",
- 	"tx_heartbeat_errors", "tx_window_errors",
- 	/* device-specific stats */
--	"tx_boundary", "WC", "irq", "MSI", "MSIX",
-+	"tx_boundary", "irq", "MSI", "MSIX",
- 	"read_dma_bw_MBs", "write_dma_bw_MBs", "read_write_dma_bw_MBs",
- 	"serial_number", "watchdog_resets",
- #ifdef CONFIG_MYRI10GE_DCA
+> While both of the
+> current users require a timespec at the moment, it's possible that
+> there would one day be a third user that actually can make sense of
+> a ktime_t, and then we'd avoid the expensive back-and-forth conversion.
+
+Speculative, and has nothing to do with the 2038 issue.  Let us solve
+that problem first.
+ 
+> For now, using ktime_t in the interface merely simplifies the drivers
+> by moving the conversion into the subsystem,
+
+Right now we have 17 drivers, tested and debugged, that perform the
+conversion for the particular hardware correctly.  Who is going to
+test all of the "unconverted" code?  Baolin?
+
+> but it is not any more
+> or less efficient than the previous method.
+
+Right, so no point in changing it.
+
+> Of course, but it would be rather bad style.
+
+Introducing useless code just to remove it again is also bad style.
+
+I disagree with the approach presented here.  The problem at hand is
+the 2038 issue.  Let's fix that first, in the easiest way, with the
+least churn, namely by using timespec64 in place of timespec.  Once
+that is done, we can change over to ktime_t, if and when the need
+arises.
+
+Thanks,
+Richard
