@@ -1,8 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 01/22] ptp: introduce get/set time methods with explicit 64 bit seconds.
-Date: Sat, 21 Mar 2015 21:59:31 +0100
-Message-ID: <bf9d2da410f97686ebedbb233d01fbb5dad39db5.1426970294.git.richardcochran@gmail.com>
-References: <cover.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 00/22] ptp: get ready for 2038
+Date: Sat, 21 Mar 2015 21:59:30 +0100
+Message-ID: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
 	Arnd Bergmann <arnd@linaro.org>,
@@ -26,57 +25,81 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:38284 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbbCUVAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:00:00 -0400
-In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Converting the PHC drivers over to the new methods is one step along the
-way to making them ready for 2038.  Once all the drivers are up to date,
-then the old methods will be removed.
+This series converts the core driver methods of the PTP Hardware Clock
+(PHC) subsystem to use the 64 bit version of the timespec structure,
+making the core API ready for the year 2038.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- include/linux/ptp_clock_kernel.h |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+In addition, I reviewed how each driver and device represents the time
+value at the hardware register level.  Most of the drivers are ready,
+but a few will need some work before the year 2038, as shown:
 
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index 0d8ff3f..7d6f8e6 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -64,12 +64,18 @@ struct ptp_clock_request {
-  * @adjtime:  Shifts the time of the hardware clock.
-  *            parameter delta: Desired change in nanoseconds.
-  *
-- * @gettime:  Reads the current time from the hardware clock.
-+ * @gettime:  Reads the current time from the hardware clock. (deprecated)
-  *            parameter ts: Holds the result.
-  *
-- * @settime:  Set the current time on the hardware clock.
-+ * @settime:  Set the current time on the hardware clock. (deprecated)
-  *            parameter ts: Time value to set.
-  *
-+ * @gettime64:  Reads the current time from the hardware clock.
-+ *              parameter ts: Holds the result.
-+ *
-+ * @settime64:  Set the current time on the hardware clock.
-+ *              parameter ts: Time value to set.
-+ *
-  * @enable:   Request driver to enable or disable an ancillary feature.
-  *            parameter request: Desired resource to enable or disable.
-  *            parameter on: Caller passes one to enable or zero to disable.
-@@ -106,6 +112,8 @@ struct ptp_clock_info {
- 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
- 	int (*gettime)(struct ptp_clock_info *ptp, struct timespec *ts);
- 	int (*settime)(struct ptp_clock_info *ptp, const struct timespec *ts);
-+	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
-+	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
- 	int (*enable)(struct ptp_clock_info *ptp,
- 		      struct ptp_clock_request *request, int on);
- 	int (*verify)(struct ptp_clock_info *ptp, unsigned int pin,
+   Patch   Driver
+   ------------------------------------------------
+   12      drivers/net/ethernet/intel/igb/igb_ptp.c
+   15 ?    drivers/net/ethernet/sfc/ptp.c
+   16      drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+   18 ?    drivers/net/ethernet/tile/tilegx.c
+   19      drivers/net/phy/dp83640.c
+
+The commit log message documents how each driver is ready or why it is
+not ready.  For patches 15 and 18, I could not easily find out the
+hardware representation of the time value, so I would ask the
+maintainers for a review.
+
+Thanks,
+Richard
+
+Richard Cochran (22):
+  ptp: introduce get/set time methods with explicit 64 bit seconds.
+  ptp: use the 64 bit gettime method for the SYS_OFFSET ioctl.
+  ptp: blackfin: convert to the 64 bit get/set time methods.
+  ptp: xgbe: convert to the 64 bit get/set time methods.
+  ptp: bnx2x: convert to the 64 bit get/set time methods.
+  ptp: tg3: convert to the 64 bit get/set time methods.
+  ptp: fec: convert to the 64 bit get/set time methods.
+  ptp: gianfar: convert to the 64 bit get/set time methods.
+  ptp: e1000e: convert to the 64 bit get/set time methods.
+  ptp: fm10k: convert to the 64 bit get/set time methods.
+  ptp: i40e: convert to the 64 bit get/set time methods.
+  ptp: igb: convert to the 64 bit get/set time methods.
+  ptp: ixgbe: convert to the 64 bit get/set time methods.
+  ptp: mlx4: convert to the 64 bit get/set time methods.
+  ptp: sfc: convert to the 64 bit get/set time methods.
+  ptp: stmmac: convert to the 64 bit get/set time methods.
+  ptp: cpts: convert to the 64 bit get/set time methods.
+  ptp: tilegx: convert to the 64 bit get/set time methods.
+  ptp: dp83640: convert to the 64 bit get/set time methods.
+  ptp: ixp46x: convert to the 64 bit get/set time methods.
+  ptp: pch: convert to the 64 bit get/set time methods.
+  ptp: remove 32 bit get/set methods.
+
+ drivers/net/ethernet/adi/bfin_mac.c              |    8 ++---
+ drivers/net/ethernet/amd/xgbe/xgbe-ptp.c         |   13 +++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8 ++---
+ drivers/net/ethernet/broadcom/tg3.c              |   10 +++---
+ drivers/net/ethernet/freescale/fec_ptp.c         |    8 ++---
+ drivers/net/ethernet/freescale/gianfar_ptp.c     |   13 +++----
+ drivers/net/ethernet/intel/e1000e/ptp.c          |   16 ++++-----
+ drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |   12 +++----
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c       |   26 +++++++-------
+ drivers/net/ethernet/intel/igb/igb_ptp.c         |   41 +++++++++++-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |   14 ++++----
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c    |   11 +++---
+ drivers/net/ethernet/sfc/ptp.c                   |   22 ++++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    8 ++---
+ drivers/net/ethernet/ti/cpts.c                   |   12 +++----
+ drivers/net/ethernet/tile/tilegx.c               |   16 +++++----
+ drivers/net/phy/dp83640.c                        |   12 ++++---
+ drivers/ptp/ptp_chardev.c                        |    8 ++---
+ drivers/ptp/ptp_clock.c                          |   12 +++++--
+ drivers/ptp/ptp_ixp46x.c                         |    8 ++---
+ drivers/ptp/ptp_pch.c                            |    8 ++---
+ include/linux/ptp_clock_kernel.h                 |   12 +++----
+ 22 files changed, 158 insertions(+), 140 deletions(-)
+
 -- 
 1.7.10.4
