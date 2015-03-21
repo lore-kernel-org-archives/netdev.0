@@ -1,219 +1,79 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 11/18] net: dsa: mv88e6xxx: Add support for fdb_add, fdb_del, and fdb_getnext
-Date: Sat, 21 Mar 2015 08:46:48 -0700
-Message-ID: <1426952815-4642-12-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 15/18] net: dsa: mv88e6171: Add EEE support to the mv88e6172
+Date: Sat, 21 Mar 2015 08:46:52 -0700
+Message-ID: <1426952815-4642-16-git-send-email-linux@roeck-us.net>
 References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:40400 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbbCUPsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 11:48:05 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YZLd6-0001nf-N7
+	for netdev@vger.kernel.org; Sat, 21 Mar 2015 15:48:04 +0000
 In-Reply-To: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No vlan support at this time.
+From: Andrew Lunn <andrew@lunn.ch>
 
+The mv88e6172 has support for EEE. Check for the product ID and call
+the common code if applicable.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/dsa/mv88e6xxx.c | 136 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  22 +++++++
- 2 files changed, 158 insertions(+)
+ drivers/net/dsa/mv88e6171.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 17aa74f..0388022 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <linux/delay.h>
-+#include <linux/etherdevice.h>
- #include <linux/if_bridge.h>
- #include <linux/jiffies.h>
- #include <linux/list.h>
-@@ -953,6 +954,141 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
- 	return 0;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 54ebfed..e1700cd 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -390,6 +390,28 @@ static int mv88e6171_get_sset_count(struct dsa_switch *ds)
+ 	return ARRAY_SIZE(mv88e6171_hw_stats);
  }
  
-+static int __mv88e6xxx_write_addr(struct dsa_switch *ds,
-+				  const unsigned char *addr)
-+{
-+	int i, ret;
-+
-+	for (i = 0; i < 3; i++) {
-+		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x0d + i,
-+					(addr[i * 2] << 8) | addr[i * 2 + 1]);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int __mv88e6xxx_read_addr(struct dsa_switch *ds, unsigned char *addr)
-+{
-+	int i, ret;
-+
-+	for (i = 0; i < 3; i++) {
-+		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, 0x0d + i);
-+		if (ret < 0)
-+			return ret;
-+		addr[i * 2] = ret >> 8;
-+		addr[i * 2 + 1] = ret & 0xff;
-+	}
-+
-+	return 0;
-+}
-+
-+static int __mv88e6xxx_port_fdb_cmd(struct dsa_switch *ds, int port,
-+				    const unsigned char *addr, int state)
++static int mv88e6171_get_eee(struct dsa_switch *ds, int port,
++			     struct ethtool_eee *e)
 +{
 +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u8 fid = ps->fid[port];
-+	int ret;
 +
-+	ret = _mv88e6xxx_atu_wait(ds);
-+	if (ret < 0)
-+		return ret;
++	if (ps->id == ID_6172)
++		return mv88e6xxx_get_eee(ds, port, e);
 +
-+	ret = __mv88e6xxx_write_addr(ds, addr);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x0c,
-+				   (0x10 << port) | state);
-+	if (ret)
-+		return ret;
-+
-+	ret = _mv88e6xxx_atu_cmd(ds, fid, ATU_CMD_LOAD_FID);
-+
-+	return ret;
++	return -EOPNOTSUPP;
 +}
 +
-+int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
-+			   const unsigned char *addr, u16 vid)
-+{
-+	int state = is_multicast_ether_addr(addr) ?
-+					FDB_STATE_MC_STATIC : FDB_STATE_STATIC;
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->smi_mutex);
-+	ret = __mv88e6xxx_port_fdb_cmd(ds, port, addr, state);
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
-+}
-+
-+int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
-+			   const unsigned char *addr, u16 vid)
++static int mv88e6171_set_eee(struct dsa_switch *ds, int port,
++			     struct phy_device *phydev, struct ethtool_eee *e)
 +{
 +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
 +
-+	mutex_lock(&ps->smi_mutex);
-+	ret = __mv88e6xxx_port_fdb_cmd(ds, port, addr, FDB_STATE_UNUSED);
-+	mutex_unlock(&ps->smi_mutex);
++	if (ps->id == ID_6172)
++		return mv88e6xxx_set_eee(ds, port, phydev, e);
 +
-+	return ret;
++	return -EOPNOTSUPP;
 +}
 +
-+static int __mv88e6xxx_port_getnext(struct dsa_switch *ds, int port,
-+				    unsigned char *addr, bool *is_static)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u8 fid = ps->fid[port];
-+	int ret, state;
-+
-+	ret = _mv88e6xxx_atu_wait(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = __mv88e6xxx_write_addr(ds, addr);
-+	if (ret < 0)
-+		return ret;
-+
-+	do {
-+		ret = _mv88e6xxx_atu_cmd(ds, fid, ATU_CMD_GETNEXT_FID);
-+		if (ret < 0)
-+			return ret;
-+
-+		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, 0x0c);
-+		if (ret < 0)
-+			return ret;
-+		state = ret & FDB_STATE_MASK;
-+		if (state == FDB_STATE_UNUSED)
-+			return -ENOENT;
-+	} while (!(((ret >> 4) & 0xff) & (1 << port)));
-+
-+	ret = __mv88e6xxx_read_addr(ds, addr);
-+	if (ret < 0)
-+		return ret;
-+
-+	*is_static = state == (is_multicast_ether_addr(addr) ?
-+			       FDB_STATE_MC_STATIC : FDB_STATE_STATIC);
-+
-+	return 0;
-+}
-+
-+/* get next entry for port */
-+int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
-+			       unsigned char *addr, bool *is_static)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	int ret;
-+
-+	mutex_lock(&ps->smi_mutex);
-+	ret = __mv88e6xxx_port_getnext(ds, port, addr, is_static);
-+	mutex_unlock(&ps->smi_mutex);
-+
-+	return ret;
-+}
-+
- static void mv88e6xxx_bridge_work(struct work_struct *work)
- {
- 	struct mv88e6xxx_priv_state *ps;
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 8e215eb..48ecefc 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -29,6 +29,22 @@
- #define PSTATE_LEARNING		0x02
- #define PSTATE_FORWARDING	0x03
- 
-+/* ATU commands */
-+
-+#define ATU_BUSY			0x8000
-+
-+#define ATU_CMD_LOAD_FID		(ATU_BUSY | 0x3000)
-+#define ATU_CMD_GETNEXT_FID		(ATU_BUSY | 0x4000)
-+#define ATU_CMD_FLUSH_NONSTATIC_FID	(ATU_BUSY | 0x6000)
-+
-+/* FDB states */
-+
-+#define FDB_STATE_MASK			0x0f
-+
-+#define FDB_STATE_UNUSED		0x00
-+#define FDB_STATE_MC_STATIC		0x07	/* static multicast */
-+#define FDB_STATE_STATIC		0x0e	/* static unicast */
-+
- struct mv88e6xxx_priv_state {
- 	/* When using multi-chip addressing, this mutex protects
- 	 * access to the indirect access registers.  (In single-chip
-@@ -121,6 +137,12 @@ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- int mv88e6xxx_join_bridge(struct dsa_switch *ds, int port, u32 br_port_mask);
- int mv88e6xxx_leave_bridge(struct dsa_switch *ds, int port, u32 br_port_mask);
- int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
-+int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
-+			   const unsigned char *addr, u16 vid);
-+int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
-+			   const unsigned char *addr, u16 vid);
-+int mv88e6xxx_port_fdb_getnext(struct dsa_switch *ds, int port,
-+			       unsigned char *addr, bool *is_static);
- 
- extern struct dsa_switch_driver mv88e6131_switch_driver;
- extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
+ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+@@ -402,6 +424,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.get_strings		= mv88e6171_get_strings,
+ 	.get_ethtool_stats	= mv88e6171_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6171_get_sset_count,
++	.set_eee		= mv88e6171_set_eee,
++	.get_eee		= mv88e6171_get_eee,
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp               = mv88e6xxx_get_temp,
+ #endif
 -- 
 2.1.0
