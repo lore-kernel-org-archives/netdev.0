@@ -1,60 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link
-Date: Fri, 20 Mar 2015 18:15:11 -0700
-Message-ID: <1426900511.25985.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <201503210110.48980.wrosner@tirnet.de>
+From: Arnd Bergmann <arnd@linaro.org>
+Subject: Re: [PATCH 2/4] ptp/clcok:Introduce the setktime/getktime interfaces with "ktime_t" type
+Date: Sat, 21 Mar 2015 02:16:41 +0100
+Message-ID: <201503210216.41497.arnd@linaro.org>
+References: <1426743909-24335-1-git-send-email-baolin.wang@linaro.org> <201503201443.42672.arnd@linaro.org> <20150320164951.GA25334@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Wolfgang Rosner <wrosner@tirnet.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:34193 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723AbbCUBPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:15:14 -0400
-Received: by igcau2 with SMTP id au2so1663210igc.1
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 18:15:13 -0700 (PDT)
-In-Reply-To: <201503210110.48980.wrosner@tirnet.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Baolin Wang <baolin.wang@linaro.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, John Stultz <john.stultz@linaro.com>,
+	tglx@linutronix.de
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150320164951.GA25334@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2015-03-21 at 01:10 +0100, Wolfgang Rosner wrote:
-> Hello, 
+On Friday 20 March 2015, Richard Cochran wrote:
+> Instead of changing to ktime_t, just use timespec64 instead.  That
+> way, each change will be a couple of lines per file.
+
+This was the first idea, but it seems a bit silly when all the drivers
+use a 64-bit nanosecond value just like ktime_t. While both of the
+current users require a timespec at the moment, it's possible that
+there would one day be a third user that actually can make sense of
+a ktime_t, and then we'd avoid the expensive back-and-forth conversion.
+
+For now, using ktime_t in the interface merely simplifies the drivers
+by moving the conversion into the subsystem, but it is not any more
+or less efficient than the previous method.
+
+> > I do agree however that we should merge the entire series at once so
+> > we end up with a reasonable state afterwards, and we only need the conditional
+> > in order to have a bisectable git history.
 > 
-> Im trying to configure a beowulf style cluster based on venerable HP blade 
-> server hardware.
-> I configured 6 parallel GBit vlans between 16 blade nodes and a gateway server 
-> with teql link aggregation.
-> 
-> After lots of tuning, nearly everything runs fine (i.e. > 5,5 GBit/s iperf 
-> transfer rate, which is 95 % of theoretical limit), but one bottleneck 
-> remains left:
-> 
-> From gateway to blade nodes, I get only half of full rate if I use only a 
-> single iperf process / single TCP link. 
-> With 2 or more iperf in parallel, transfer rate is OK.
-> 
-> I don't see this bottleneck in the other direction, nor in the links between 
-> the blade nodes: 
-> there I have always > 5,5 GBit, even for a single process.
-> 
-> Is there just a some simple tuning paramter I overlooked, or do I have to dig 
-> for a deeper cause?
+> It is still bisectable with one or two patches.
 
-What linux version runs on sender ?
+Of course, but it would be rather bad style.
 
-Could you send output of :
-
-nstat >/dev/null
-iperf -c 192.168.130.225
-nstat
-
-Also, please send ss output while iperf is running as in :
-
-(please use a recent ss command, found in iproute2 package :
-https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/  
-so that it outputs the reordering level)
-
-iperf -c 192.168.130.225 &
-ss -temoi dst 192.168.130.225
+	Arnd
