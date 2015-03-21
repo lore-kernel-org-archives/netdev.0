@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] bgmac: allow enabling on ARCH_BCM_5301X
-Date: Fri, 20 Mar 2015 21:45:26 -0400 (EDT)
-Message-ID: <20150320.214526.1735926445172050077.davem@davemloft.net>
-References: <1426889672-4969-1-git-send-email-zajec5@gmail.com>
-	<1426889672-4969-2-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: neighbour: Document
+ {mcast,ucast}_solicit, mcast_resolicit.
+Date: Fri, 20 Mar 2015 21:48:03 -0400 (EDT)
+Message-ID: <20150320.214803.985642927563364822.davem@davemloft.net>
+References: <20150319.224204.580319871687930153.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Yanjun.Zhu@windriver.com,
+	ulf.samuelsson@ericsson.com
+To: hideaki.yoshifuji@miraclelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41014 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41026 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753036AbbCUBp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:45:27 -0400
-In-Reply-To: <1426889672-4969-2-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1751281AbbCUBsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:48:04 -0400
+In-Reply-To: <20150319.224204.580319871687930153.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Fri, 20 Mar 2015 23:14:32 +0100
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Date: Thu, 19 Mar 2015 22:42:04 +0900 (JST)
 
-> Home routers based on ARM SoCs like BCM4708 also have bcma bus with c=
-ore
-> supported by bgmac.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
 
 Also applied to net-next, thanks.
