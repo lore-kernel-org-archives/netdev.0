@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 17/22] ptp: cpts: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 21:59:47 +0100
-Message-ID: <bbd5157f3a28afab7d70e6f5d033979ae50ac247.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 16/22] ptp: stmmac: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 21:59:46 +0100
+Message-ID: <70017df3e012f5ca8ba1812956e08e885cb6d2b8.1426970294.git.richardcochran@gmail.com>
 References: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,67 +26,57 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:34389 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752032AbbCUVAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:00:38 -0400
 In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This driver's clock is implemented using a timecounter, and so with
-this patch the driver is ready for the year 2038.
+This device stores the number of seconds in a 32 bit register.  So
+more work is needed on this driver before the year 2038 comes around.
 
 Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/cpts.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index fbe42cb..074b636 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -167,7 +167,7 @@ static int cpts_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return 0;
- }
- 
--static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+index c5ee79d8..172f318 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+@@ -105,7 +105,7 @@ static int stmmac_adjust_time(struct ptp_clock_info *ptp, s64 delta)
+  * Description: this function will read the current time from the
+  * hardware clock and store it in @ts.
+  */
+-static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
++static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	u64 ns;
- 	u32 remainder;
-@@ -185,7 +185,7 @@ static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
- }
- 
- static int cpts_ptp_settime(struct ptp_clock_info *ptp,
--			    const struct timespec *ts)
-+			    const struct timespec64 *ts)
+ 	struct stmmac_priv *priv =
+ 	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
+@@ -135,7 +135,7 @@ static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
+  * hardware clock.
+  */
+ static int stmmac_set_time(struct ptp_clock_info *ptp,
+-			   const struct timespec *ts)
++			   const struct timespec64 *ts)
  {
- 	u64 ns;
- 	unsigned long flags;
-@@ -216,20 +216,20 @@ static struct ptp_clock_info cpts_info = {
- 	.pps		= 0,
- 	.adjfreq	= cpts_ptp_adjfreq,
- 	.adjtime	= cpts_ptp_adjtime,
--	.gettime	= cpts_ptp_gettime,
--	.settime	= cpts_ptp_settime,
-+	.gettime64	= cpts_ptp_gettime,
-+	.settime64	= cpts_ptp_settime,
- 	.enable		= cpts_ptp_enable,
+ 	struct stmmac_priv *priv =
+ 	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
+@@ -168,8 +168,8 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
+ 	.pps = 0,
+ 	.adjfreq = stmmac_adjust_freq,
+ 	.adjtime = stmmac_adjust_time,
+-	.gettime = stmmac_get_time,
+-	.settime = stmmac_set_time,
++	.gettime64 = stmmac_get_time,
++	.settime64 = stmmac_set_time,
+ 	.enable = stmmac_enable,
  };
- 
- static void cpts_overflow_check(struct work_struct *work)
- {
--	struct timespec ts;
-+	struct timespec64 ts;
- 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
- 
- 	cpts_write32(cpts, CPTS_EN, control);
- 	cpts_write32(cpts, TS_PEND_EN, int_enable);
- 	cpts_ptp_gettime(&cpts->info, &ts);
--	pr_debug("cpts overflow check at %ld.%09lu\n", ts.tv_sec, ts.tv_nsec);
-+	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
- 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
- }
  
 -- 
 1.7.10.4
