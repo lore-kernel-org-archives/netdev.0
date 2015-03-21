@@ -1,58 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/5] igb: use netif_carrier_off earlier when bringing if down
-Date: Fri, 20 Mar 2015 17:57:44 -0700
-Message-ID: <1426899465-15789-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link
+Date: Fri, 20 Mar 2015 18:15:11 -0700
+Message-ID: <1426900511.25985.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <201503210110.48980.wrosner@tirnet.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Wolfgang Rosner <wrosner@tirnet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:50519 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752919AbbCUA57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Mar 2015 20:57:59 -0400
-In-Reply-To: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:34193 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752723AbbCUBPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:15:14 -0400
+Received: by igcau2 with SMTP id au2so1663210igc.1
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 18:15:13 -0700 (PDT)
+In-Reply-To: <201503210110.48980.wrosner@tirnet.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+On Sat, 2015-03-21 at 01:10 +0100, Wolfgang Rosner wrote:
+> Hello, 
+> 
+> Im trying to configure a beowulf style cluster based on venerable HP blade 
+> server hardware.
+> I configured 6 parallel GBit vlans between 16 blade nodes and a gateway server 
+> with teql link aggregation.
+> 
+> After lots of tuning, nearly everything runs fine (i.e. > 5,5 GBit/s iperf 
+> transfer rate, which is 95 % of theoretical limit), but one bottleneck 
+> remains left:
+> 
+> From gateway to blade nodes, I get only half of full rate if I use only a 
+> single iperf process / single TCP link. 
+> With 2 or more iperf in parallel, transfer rate is OK.
+> 
+> I don't see this bottleneck in the other direction, nor in the links between 
+> the blade nodes: 
+> there I have always > 5,5 GBit, even for a single process.
+> 
+> Is there just a some simple tuning paramter I overlooked, or do I have to dig 
+> for a deeper cause?
 
-Use netif_carrier_off() first, since that will prevent the stack from
-queuing more packets to this IF. This operation is fast, and should
-behave much nicer when trying to bring down an interface under load.
+What linux version runs on sender ?
 
-Reported-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Could you send output of :
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index f366b3b..0e07545 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1776,6 +1776,7 @@ void igb_down(struct igb_adapter *adapter)
- 	wr32(E1000_RCTL, rctl & ~E1000_RCTL_EN);
- 	/* flush and sleep below */
- 
-+	netif_carrier_off(netdev);
- 	netif_tx_stop_all_queues(netdev);
- 
- 	/* disable transmits in the hardware */
-@@ -1797,12 +1798,9 @@ void igb_down(struct igb_adapter *adapter)
- 		}
- 	}
- 
--
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
- 
--	netif_carrier_off(netdev);
--
- 	/* record the stats before reset*/
- 	spin_lock(&adapter->stats64_lock);
- 	igb_update_stats(adapter, &adapter->stats64);
--- 
-1.9.3
+nstat >/dev/null
+iperf -c 192.168.130.225
+nstat
+
+Also, please send ss output while iperf is running as in :
+
+(please use a recent ss command, found in iproute2 package :
+https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/  
+so that it outputs the reordering level)
+
+iperf -c 192.168.130.225 &
+ss -temoi dst 192.168.130.225
