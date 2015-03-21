@@ -1,80 +1,68 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v6] switchdev: fix stp update API to work with layered netdevices
-Date: Sat, 21 Mar 2015 10:27:28 -0700
-Message-ID: <1426958848-2781-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us
+From: Joe Harvell <joe.harvell@tekcomms.com>
+Subject: [PATCH] iproute2: fix broken get_prefix_1
+Date: Sat, 21 Mar 2015 12:46:02 -0500
+Message-ID: <550DAE5A.2050303@tekcomms.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	Vadim Kochan <vadim4j@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36752 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751474AbbCUR1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 13:27:34 -0400
-Received: by pdbcz9 with SMTP id cz9so140041050pdb.3
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 10:27:34 -0700 (PDT)
+Received: from mail-bl2on0113.outbound.protection.outlook.com ([65.55.169.113]:23139
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751453AbbCUSB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Mar 2015 14:01:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Fixes bug that causes a basic 'ip addr add' command to fail address due 
+to the address prefix is incorrectly determined to be invalid.
 
-make it same as the netdev_switch_port_bridge_setlink/dellink
-api (ie traverse lowerdevs to get to the switch port).
+I assume master must have some new change because this fix was needed 
+for a basic 'ip addr add 10.0.3.1/24 dev dumbo label foo' command I 
+pased in.  In this case, 'family' passed into get_addr_1 two lines above 
+is zero, causing get_addr_1 to detect the family from the address and 
+populate the result in the family field in dst.  But then instead of 
+passing in the result, family (still 0) is passed in to af_bit_len. 
+Without my change, the above command complains that 10.0.3.1/24 is not 
+an address prefix.  With the change it works fine as expected.
 
-removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
-direct bridge ports can be stacked netdevices (like bonds
-and team of switch ports) which may not implement this ndo.
+The following changes since commit 4612d04d6b8f07274bd5d0688f717ccc189499ad:
 
-v2 to v3:
-	- remove changes to bond and team. Bring back the
-	transparently following lowerdevs like i initially
-	had for setlink/getlink
-	(http://www.spinics.net/lists/netdev/msg313436.html)
-	dave and scott feldman also seem to prefer it be that
-	way and move to non-transparent way of doing things
-	if we see a problem down the lane.
+   tc class: Show class names from file (2015-03-15 12:27:40 -0700)
 
-v3 to v4:
-	- fix ret initialization
+are available in the git repository at:
 
-v4 to v5:
-	- return err on first failure (scott feldman)
+   git@github.com:jharvell/iproute2.git fix-broken-get_prefix_1
 
-v5 to v6:
-	- change variable name (err) and initialize to
-	-EOPNOTSUPP (scott feldman).
+for you to fetch changes up to 50d23ac0379cc1371f1096a4c84d8c1573c0a00a:
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/switchdev/switchdev.c |   17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+   Signed-off-by: Joe Harvell <joe.harvell@tekcomms.com> Tested-by: Joe 
+Harvell <joe.harvell@tekcomms.com> (2015-03-21 12:35:15 -0500)
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index c9bfa00..46568b8 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -47,11 +47,20 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
- int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
- {
- 	const struct swdev_ops *ops = dev->swdev_ops;
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+	int err = -EOPNOTSUPP;
- 
--	if (!ops || !ops->swdev_port_stp_update)
--		return -EOPNOTSUPP;
--	WARN_ON(!ops->swdev_parent_id_get);
--	return ops->swdev_port_stp_update(dev, state);
-+	if (ops && ops->swdev_port_stp_update)
-+		return ops->swdev_port_stp_update(dev, state);
-+
-+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-+		err = netdev_switch_port_stp_update(lower_dev, state);
-+		if (err && err != -EOPNOTSUPP)
-+			return err;
-+	}
-+
-+	return err;
- }
- EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
- 
--- 
-1.7.10.4
+----------------------------------------------------------------
+Joe Harvell (2):
+       Fixing obvious error of passing in the wrong variable for the 
+family parameter     of af_bit_len.
+       Signed-off-by: Joe Harvell <joe.harvell@tekcomms.com>     
+Tested-by: Joe Harvell <joe.harvell@tekcomms.com>
+
+  lib/utils.c | 2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/utils.c b/lib/utils.c
+index 9cda268..0d08a86 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -477,7 +477,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int 
+family)
+
+         err = get_addr_1(dst, arg, family);
+         if (err == 0) {
+-               dst->bitlen = af_bit_len(family);
++               dst->bitlen = af_bit_len(dst->family);
+
+                 if (slash) {
+                         if (get_netmask(&plen, slash+1, 0)
