@@ -1,59 +1,79 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: contributions to iproute2
-Date: Sat, 21 Mar 2015 08:25:37 +0200
-Message-ID: <20150321062537.GA23505@angus-think.lan>
-References: <ec4611159b474e158079d8d528e71030@BRMWP-EXMB11.corp.brocade.com>
- <20150320160819.1477223d@uryu.home.lan>
- <550CF00C.2090309@dogpad.tk>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: Using a waiting MDIO does not go well with a spinlocked bridge
+Date: Fri, 20 Mar 2015 23:37:35 -0700
+Message-ID: <20150321063735.GB29867@roeck-us.net>
+References: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet>
+ <20150320131622.GC9179@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>
-To: Joe Harvell <jharvell@dogpad.tk>
+Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
+	stephen@networkplumber.org, f.fainelli@gmail.com, jiri@resnulli.us,
+	sfeldma@gmail.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:32795 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbbCUGhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 02:37:23 -0400
-Received: by wgbcc7 with SMTP id cc7so105802001wgb.0
-        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 23:37:22 -0700 (PDT)
+Received: from bh-25.webhostbox.net ([208.91.199.152]:47682 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037AbbCUGhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 02:37:50 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YZD2c-002fhV-1K
+	for netdev@vger.kernel.org; Sat, 21 Mar 2015 06:37:50 +0000
 Content-Disposition: inline
-In-Reply-To: <550CF00C.2090309@dogpad.tk>
+In-Reply-To: <20150320131622.GC9179@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 20, 2015 at 11:14:04PM -0500, Joe Harvell wrote:
-> Thanks, Stephen.
+On Fri, Mar 20, 2015 at 02:16:22PM +0100, Andrew Lunn wrote:
+> On Fri, Mar 20, 2015 at 01:22:46PM +0100, Jonas Johansson wrote:
+> > The bridge code will sometimes hold a spinlock and the code
+> > following must therefore be atomic. If using a MDIO call which uses
+> > a wait/sleep in this contex, the kernel will not be very happy.
+> > 
+> > I'm using a switch device and wants to flush its FDB when the linux
+> > bridge FDB is flushed. I've implemented some hooks for this task.
+> > In short:
+> >      bridge    - br_fdb_flush() & br_fdb_delete_by_port
+> >   -> switchdev - switch_flush()
+> >   -> dsa       - slave_flush()
+> >   -> mv88e6xxx - mv88_flush()
 > 
-> The bugfix is attached as fix-broken-get_prefix_1.diff with the following
-> commit log:
+> Hi Jonas
 > 
-> commit 415464c94a62cfaa9c5ba493e45ce24a58d2118a
-> Author: Joe Harvell <joe.harvell@tekcomms.com>
-> Date:   Fri Mar 20 15:08:51 2015 -0500
+> Have you seen the patches from Guenter Roeck implementing hardware
+> bridging? There should be a new version coming out soon.
 > 
->      Fixing obvious error of passing in the wrong variable for the family
-> parameter
->      of af_bit_len.
+> > So, when a bridge port is flushed via e.g. sysfs, the mv88_flush()
+> > function will at the end be called. The mv88_flush() will use MDIO
+> > calls to set the proper registers and flush the device. But, due to
+> > that the MDIO on my platform uses wait_for_completion() and a
+> > spinlock is held (in this case in brport_store()) the process will
+> > not go very well.
 > 
-> I assume master must have some new change because this fix was needed for a
-> basic 'ip addr add 10.0.3.1/24 dev dumbo label foo' command I pased in.  In
-> this case, 'family' passed into get_addr_1 two lines above is zero, causing
-> get_addr_1 to detect the family from the address and populate the result in
-> the family field in dst.  But then instead of passing in the result, family
-> (still 0) is passed in to af_bit_len. Without my change, the above command
-> complains that 10.0.3.1/24 is not an address prefix.  With the change it
-> works fine as expected.
+> Ah, not good. We have a number of mutex in the mv88x6xxx code, one of
+> which is used with fdb operations..
+>  
+The mutexes in the mv88x6xxx don't matter, really. There is also the
+mdio bus mutex which would kill us anyway.
+
+Handling port state changes is already implemented with a workqueue
+in my code because of the spinlock problem. I use that same workqueue
+in my (not submitted) patch to flush the fdb.
+
+Guenter
+
+> > The only possible solutions that came into my mind is:
+> >  1) Let mv88_flush() schedule a work queue to take care of the flush
+> >     later on.
+> >  2) Change the MDIO implementation to use polling.
 > 
-Hi,
-
-Thanks for catching it, this is a serious issue.
-
-Does not the diff should be ?
-
--               dst->bitlen = af_bit_len(family);
-+               dst->bitlen = af_bit_len(dst->family);
-
-Also you can use 'git send-email' to send separate patchs as email,
-instead of attaching them.
-
-Regards,
+> I don't think these is feasible. The MDIO bus could be a gpio
+> bit-banging interface. It is hard to guarantee that the GPIO code will
+> not sleep.
+> 
+> >  3) Dont use spinlock in bridge code.
+> 
+> This would be my preference, but i've no idea how much work it is.  We
+> should audit the bridge code and document in what context operations
+> on the switch are called.
+>
