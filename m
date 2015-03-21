@@ -1,146 +1,157 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH v1 21/47] ethernet: myri10ge: use arch_phys_wc_add()
-Date: Fri, 20 Mar 2015 16:18:11 -0700
-Message-ID: <1426893517-2511-22-git-send-email-mcgrof@do-not-panic.com>
-References: <1426893517-2511-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: linux-kernel@vger.kernel.org, linux-fbdev@vger.kernel.org,
-	x86@kernel.org, xen-devel@lists.xenproject.org,
-	"Luis R. Rodriguez" <mcgrof@suse.com>, Ingo Molnar <mingo@elte.hu>,
-	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
-	Antonino Daplas <adaplas@gmail.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>
-To: luto@amacapital.net, mingo@redhat.com, tglx@linutronix.de,
-	hpa@zytor.com, jgross@suse.com, JBeulich@suse.com, bp@suse.de,
-	suresh.b.siddha@intel.com, venkatesh.pallipadi@intel.com,
-	airlied@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1426893517-2511-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next] Revert "selinux: add a skb_owned_by() hook"
+Date: Fri, 20 Mar 2015 17:15:19 -0700
+Message-ID: <1426896919-23036-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:33574 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751874AbbCUAPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 20:15:23 -0400
+Received: by iecrl12 with SMTP id rl12so200538iec.0
+        for <netdev@vger.kernel.org>; Fri, 20 Mar 2015 17:15:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
+This reverts commit ca10b9e9a8ca7342ee07065289cbe74ac128c169.
 
-This driver already uses ioremap_wc() on the same range
-so when write-combining is available that will be used
-instead.
+No longer needed after commit eb8895debe1baba41fcb62c78a16f0c63c21662a
+("tcp: tcp_make_synack() should use sock_wmalloc")
 
-Cc: Andy Lutomirski <luto@amacapital.net>
-Cc: Suresh Siddha <suresh.b.siddha@intel.com>
-Cc: Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Juergen Gross <jgross@suse.com>
-Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
-Cc: Hyong-Youb Kim <hykim@myri.com>
-Cc: netdev@vger.kernel.org
-Cc: Juergen Gross <jgross@suse.com>
-Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
-Cc: Andy Lutomirski <luto@amacapital.net>
-Cc: Dave Airlie <airlied@redhat.com>
-Cc: Antonino Daplas <adaplas@gmail.com>
-Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+When under SYNFLOOD, we build lot of SYNACK and hit false sharing
+because of multiple modifications done on sk_listener->sk_wmem_alloc
+
+Since tcp_make_synack() uses sock_wmalloc(), there is no need
+to call skb_set_owner_w() again, as this adds two atomic operations.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 36 ++++++------------------
- 1 file changed, 8 insertions(+), 28 deletions(-)
+ include/linux/security.h | 8 --------
+ net/ipv4/tcp_output.c    | 1 -
+ security/capability.c    | 6 ------
+ security/security.c      | 5 -----
+ security/selinux/hooks.c | 7 -------
+ 5 files changed, 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 1412f5a..01e4069 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -69,11 +69,7 @@
- #include <net/ip.h>
- #include <net/tcp.h>
- #include <asm/byteorder.h>
--#include <asm/io.h>
- #include <asm/processor.h>
--#ifdef CONFIG_MTRR
--#include <asm/mtrr.h>
--#endif
- #include <net/busy_poll.h>
+diff --git a/include/linux/security.h b/include/linux/security.h
+index a1b7dbd127ff..25a079a7c3b3 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -1716,7 +1716,6 @@ struct security_operations {
+ 	int (*tun_dev_attach_queue) (void *security);
+ 	int (*tun_dev_attach) (struct sock *sk, void *security);
+ 	int (*tun_dev_open) (void *security);
+-	void (*skb_owned_by) (struct sk_buff *skb, struct sock *sk);
+ #endif	/* CONFIG_SECURITY_NETWORK */
  
- #include "myri10ge_mcp.h"
-@@ -242,8 +238,7 @@ struct myri10ge_priv {
- 	unsigned int rdma_tags_available;
- 	int intr_coal_delay;
- 	__be32 __iomem *intr_coal_delay_ptr;
--	int mtrr;
--	int wc_enabled;
-+	int wc_cookie;
- 	int down_cnt;
- 	wait_queue_head_t down_wq;
- 	struct work_struct watchdog_work;
-@@ -1984,7 +1979,6 @@ myri10ge_get_ethtool_stats(struct net_device *netdev,
- 		data[i] = ((u64 *)&link_stats)[i];
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -2735,8 +2734,6 @@ int security_tun_dev_attach_queue(void *security);
+ int security_tun_dev_attach(struct sock *sk, void *security);
+ int security_tun_dev_open(void *security);
  
- 	data[i++] = (unsigned int)mgp->tx_boundary;
--	data[i++] = (unsigned int)mgp->wc_enabled;
- 	data[i++] = (unsigned int)mgp->pdev->irq;
- 	data[i++] = (unsigned int)mgp->msi_enabled;
- 	data[i++] = (unsigned int)mgp->msix_enabled;
-@@ -4040,14 +4034,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	mgp->board_span = pci_resource_len(pdev, 0);
- 	mgp->iomem_base = pci_resource_start(pdev, 0);
--	mgp->mtrr = -1;
--	mgp->wc_enabled = 0;
--#ifdef CONFIG_MTRR
--	mgp->mtrr = mtrr_add(mgp->iomem_base, mgp->board_span,
--			     MTRR_TYPE_WRCOMB, 1);
--	if (mgp->mtrr >= 0)
--		mgp->wc_enabled = 1;
--#endif
-+	mgp->wc_cookie = arch_phys_wc_add(mgp->iomem_base, mgp->board_span);
- 	mgp->sram = ioremap_wc(mgp->iomem_base, mgp->board_span);
- 	if (mgp->sram == NULL) {
- 		dev_err(&pdev->dev, "ioremap failed for %ld bytes at 0x%lx\n",
-@@ -4146,14 +4133,14 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto abort_with_state;
- 	}
- 	if (mgp->msix_enabled)
--		dev_info(dev, "%d MSI-X IRQs, tx bndry %d, fw %s, WC %s\n",
-+		dev_info(dev, "%d MSI-X IRQs, tx bndry %d, fw %s, MTRR %s, WC Enabled\n",
- 			 mgp->num_slices, mgp->tx_boundary, mgp->fw_name,
--			 (mgp->wc_enabled ? "Enabled" : "Disabled"));
-+			 (mgp->wc_cookie > 0 ? "Enabled" : "Disabled"));
- 	else
--		dev_info(dev, "%s IRQ %d, tx bndry %d, fw %s, WC %s\n",
-+		dev_info(dev, "%s IRQ %d, tx bndry %d, fw %s, MTRR %s, WC Enabled\n",
- 			 mgp->msi_enabled ? "MSI" : "xPIC",
- 			 pdev->irq, mgp->tx_boundary, mgp->fw_name,
--			 (mgp->wc_enabled ? "Enabled" : "Disabled"));
-+			 (mgp->wc_cookie > 0 ? "Enabled" : "Disabled"));
- 
- 	board_number++;
- 	return 0;
-@@ -4175,10 +4162,7 @@ abort_with_ioremap:
- 	iounmap(mgp->sram);
- 
- abort_with_mtrr:
--#ifdef CONFIG_MTRR
--	if (mgp->mtrr >= 0)
--		mtrr_del(mgp->mtrr, mgp->iomem_base, mgp->board_span);
--#endif
-+	arch_phys_wc_del(mgp->wc_cookie);
- 	dma_free_coherent(&pdev->dev, sizeof(*mgp->cmd),
- 			  mgp->cmd, mgp->cmd_bus);
- 
-@@ -4220,11 +4204,7 @@ static void myri10ge_remove(struct pci_dev *pdev)
- 	pci_restore_state(pdev);
- 
- 	iounmap(mgp->sram);
+-void security_skb_owned_by(struct sk_buff *skb, struct sock *sk);
 -
--#ifdef CONFIG_MTRR
--	if (mgp->mtrr >= 0)
--		mtrr_del(mgp->mtrr, mgp->iomem_base, mgp->board_span);
--#endif
-+	arch_phys_wc_del(mgp->wc_cookie);
- 	myri10ge_free_slices(mgp);
- 	kfree(mgp->msix_vectors);
- 	dma_free_coherent(&pdev->dev, sizeof(*mgp->cmd),
+ #else	/* CONFIG_SECURITY_NETWORK */
+ static inline int security_unix_stream_connect(struct sock *sock,
+ 					       struct sock *other,
+@@ -2928,11 +2925,6 @@ static inline int security_tun_dev_open(void *security)
+ {
+ 	return 0;
+ }
+-
+-static inline void security_skb_owned_by(struct sk_buff *skb, struct sock *sk)
+-{
+-}
+-
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c2f0f6065cb1..18474088c3d0 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2926,7 +2926,6 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	skb_reserve(skb, MAX_TCP_HEADER);
+ 
+ 	skb_dst_set(skb, dst);
+-	security_skb_owned_by(skb, sk);
+ 
+ 	mss = dst_metric_advmss(dst);
+ 	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < mss)
+diff --git a/security/capability.c b/security/capability.c
+index 070dd46f62f4..58a1600c149b 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -776,11 +776,6 @@ static int cap_tun_dev_open(void *security)
+ {
+ 	return 0;
+ }
+-
+-static void cap_skb_owned_by(struct sk_buff *skb, struct sock *sk)
+-{
+-}
+-
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -1134,7 +1129,6 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, tun_dev_open);
+ 	set_to_cap_if_null(ops, tun_dev_attach_queue);
+ 	set_to_cap_if_null(ops, tun_dev_attach);
+-	set_to_cap_if_null(ops, skb_owned_by);
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ 	set_to_cap_if_null(ops, xfrm_policy_alloc_security);
+diff --git a/security/security.c b/security/security.c
+index e81d5bbe7363..1f475aa53288 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1359,11 +1359,6 @@ int security_tun_dev_open(void *security)
+ }
+ EXPORT_SYMBOL(security_tun_dev_open);
+ 
+-void security_skb_owned_by(struct sk_buff *skb, struct sock *sk)
+-{
+-	security_ops->skb_owned_by(skb, sk);
+-}
+-
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 4d1a54190388..edc66de39f2e 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -51,7 +51,6 @@
+ #include <linux/tty.h>
+ #include <net/icmp.h>
+ #include <net/ip.h>		/* for local_port_range[] */
+-#include <net/sock.h>
+ #include <net/tcp.h>		/* struct or_callable used in sock_rcv_skb */
+ #include <net/inet_connection_sock.h>
+ #include <net/net_namespace.h>
+@@ -4652,11 +4651,6 @@ static void selinux_inet_conn_established(struct sock *sk, struct sk_buff *skb)
+ 	selinux_skb_peerlbl_sid(skb, family, &sksec->peer_sid);
+ }
+ 
+-static void selinux_skb_owned_by(struct sk_buff *skb, struct sock *sk)
+-{
+-	skb_set_owner_w(skb, sk);
+-}
+-
+ static int selinux_secmark_relabel_packet(u32 sid)
+ {
+ 	const struct task_security_struct *__tsec;
+@@ -6041,7 +6035,6 @@ static struct security_operations selinux_ops = {
+ 	.tun_dev_attach_queue =		selinux_tun_dev_attach_queue,
+ 	.tun_dev_attach =		selinux_tun_dev_attach,
+ 	.tun_dev_open =			selinux_tun_dev_open,
+-	.skb_owned_by =			selinux_skb_owned_by,
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ 	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
 -- 
-2.3.2.209.gd67f9d5.dirty
+2.2.0.rc0.207.ga3a616c
