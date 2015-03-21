@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 03/23] ptp: use the 64 bit get/set time methods for the posix clock.
-Date: Sat, 21 Mar 2015 22:39:21 +0100
-Message-ID: <bec65650e57830a9ed0cbb1d454eeca0a39cc7b1.1426973658.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V2 02/23] ptp: use the 64 bit gettime method for the SYS_OFFSET ioctl.
+Date: Sat, 21 Mar 2015 22:39:20 +0100
+Message-ID: <614890e5bb7c29b027fcecf3efc7d7fdf935735c.1426973658.git.richardcochran@gmail.com>
 References: <cover.1426973658.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,53 +26,61 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:34186 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbbCUVjv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:39:51 -0400
 In-Reply-To: <cover.1426973658.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch changes the posix clock code to prefer the new methods
-whenever they are implemented by the PHC drivers.
+This patch changes the code to use the new method whenever implemented by
+the PHC driver.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/ptp/ptp_clock.c |   19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ drivers/ptp/ptp_chardev.c |   14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index 296b0ec..df50d5e 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -107,13 +107,28 @@ static int ptp_clock_getres(struct posix_clock *pc, struct timespec *tp)
- static int ptp_clock_settime(struct posix_clock *pc, const struct timespec *tp)
- {
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index f8a7609..95bcf15 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -124,7 +124,8 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
  	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	return ptp->info->settime(ptp->info, tp);
-+	struct timespec64 ts = timespec_to_timespec64(*tp);
-+
-+	return  ptp->info->settime64 ?
-+		ptp->info->settime64(ptp->info, &ts) :
-+		ptp->info->settime(ptp->info, tp);
- }
- 
- static int ptp_clock_gettime(struct posix_clock *pc, struct timespec *tp)
- {
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	return ptp->info->gettime(ptp->info, tp);
+ 	struct ptp_clock_info *ops = ptp->info;
+ 	struct ptp_clock_time *pct;
+-	struct timespec ts;
 +	struct timespec64 ts;
-+	int err;
-+
-+	if (ptp->info->gettime64) {
-+		err = ptp->info->gettime64(ptp->info, &ts);
-+		if (!err)
-+			*tp = timespec64_to_timespec(ts);
-+	} else {
-+		err = ptp->info->gettime(ptp->info, tp);
-+	}
-+
-+	return err;
- }
++	struct timespec t2;
+ 	int enable, err = 0;
+ 	unsigned int i, pin_index;
  
- static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
+@@ -197,16 +198,21 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		}
+ 		pct = &sysoff->ts[0];
+ 		for (i = 0; i < sysoff->n_samples; i++) {
+-			getnstimeofday(&ts);
++			getnstimeofday64(&ts);
+ 			pct->sec = ts.tv_sec;
+ 			pct->nsec = ts.tv_nsec;
+ 			pct++;
+-			ptp->info->gettime(ptp->info, &ts);
++			if (ptp->info->gettime64) {
++				ptp->info->gettime64(ptp->info, &ts);
++			} else {
++				ptp->info->gettime(ptp->info, &t2);
++				ts = timespec_to_timespec64(t2);
++			}
+ 			pct->sec = ts.tv_sec;
+ 			pct->nsec = ts.tv_nsec;
+ 			pct++;
+ 		}
+-		getnstimeofday(&ts);
++		getnstimeofday64(&ts);
+ 		pct->sec = ts.tv_sec;
+ 		pct->nsec = ts.tv_nsec;
+ 		if (copy_to_user((void __user *)arg, sysoff, sizeof(*sysoff)))
 -- 
 1.7.10.4
