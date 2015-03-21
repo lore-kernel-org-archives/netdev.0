@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 21/22] ptp: pch: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 21:59:51 +0100
-Message-ID: <534371c9d3ae8cbc27ebdea97bd4eda5cdbae477.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 19/22] ptp: dp83640: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 21:59:49 +0100
+Message-ID: <6287198aadfe808c393db90db94bce2500fbbfba.1426970294.git.richardcochran@gmail.com>
 References: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,58 +26,65 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:37946 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbbCUVAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:00:51 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The device has a 64 bit clock register, where each clock tick is 32
-nanoseconds, and so with this patch the driver is ready for the year
-2038.
+This device stores the number of seconds in a 32 bit register.  So
+more work is needed on this driver before the year 2038 comes around.
 
 Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/ptp/ptp_pch.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/phy/dp83640.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 2554872..3aa22ae 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -449,7 +449,7 @@ static int ptp_pch_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return 0;
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index e22e602..1a88235 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -427,7 +427,8 @@ static int ptp_dp83640_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return err;
  }
  
--static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+-static int ptp_dp83640_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int ptp_dp83640_gettime(struct ptp_clock_info *ptp,
++			       struct timespec64 *ts)
  {
- 	u64 ns;
- 	u32 remainder;
-@@ -467,7 +467,7 @@ static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ 	struct dp83640_clock *clock =
+ 		container_of(ptp, struct dp83640_clock, caps);
+@@ -452,16 +453,17 @@ static int ptp_dp83640_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
  }
  
- static int ptp_pch_settime(struct ptp_clock_info *ptp,
--			   const struct timespec *ts)
-+			   const struct timespec64 *ts)
+ static int ptp_dp83640_settime(struct ptp_clock_info *ptp,
+-			       const struct timespec *ts)
++			       const struct timespec64 *ts64)
  {
- 	u64 ns;
- 	unsigned long flags;
-@@ -518,8 +518,8 @@ static struct ptp_clock_info ptp_pch_caps = {
- 	.pps		= 0,
- 	.adjfreq	= ptp_pch_adjfreq,
- 	.adjtime	= ptp_pch_adjtime,
--	.gettime	= ptp_pch_gettime,
--	.settime	= ptp_pch_settime,
-+	.gettime64	= ptp_pch_gettime,
-+	.settime64	= ptp_pch_settime,
- 	.enable		= ptp_pch_enable,
- };
+ 	struct dp83640_clock *clock =
+ 		container_of(ptp, struct dp83640_clock, caps);
+ 	struct phy_device *phydev = clock->chosen->phydev;
++	struct timespec ts = timespec64_to_timespec(*ts64);
+ 	int err;
  
+ 	mutex_lock(&clock->extreg_lock);
+ 
+-	err = tdr_write(1, phydev, ts, PTP_LOAD_CLK);
++	err = tdr_write(1, phydev, &ts, PTP_LOAD_CLK);
+ 
+ 	mutex_unlock(&clock->extreg_lock);
+ 
+@@ -998,8 +1000,8 @@ static void dp83640_clock_init(struct dp83640_clock *clock, struct mii_bus *bus)
+ 	clock->caps.pps		= 0;
+ 	clock->caps.adjfreq	= ptp_dp83640_adjfreq;
+ 	clock->caps.adjtime	= ptp_dp83640_adjtime;
+-	clock->caps.gettime	= ptp_dp83640_gettime;
+-	clock->caps.settime	= ptp_dp83640_settime;
++	clock->caps.gettime64	= ptp_dp83640_gettime;
++	clock->caps.settime64	= ptp_dp83640_settime;
+ 	clock->caps.enable	= ptp_dp83640_enable;
+ 	clock->caps.verify	= ptp_dp83640_verify;
+ 	/*
 -- 
 1.7.10.4
