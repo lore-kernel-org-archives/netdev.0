@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 10/23] ptp: e1000e: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 22:39:28 +0100
-Message-ID: <74f7b65f7a61b0e9cedbce380b2931357a4a154a.1426973658.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V2 06/23] ptp: bnx2x: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 22:39:24 +0100
+Message-ID: <d975eca6e7a897b9e74790a0eaf728ccafaa9e17.1426973658.git.richardcochran@gmail.com>
 References: <cover.1426973658.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -38,64 +38,41 @@ Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/e1000e/ptp.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index 1490f1e..b747a3e 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -106,7 +106,7 @@ static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
-  * Read the timecounter and return the correct value in ns after converting
-  * it into a struct timespec.
-  **/
--static int e1000e_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int e1000e_phc_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 9677431..765667c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13278,7 +13278,7 @@ static int bnx2x_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
+ }
+ 
+-static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
- 						     ptp_clock_info);
-@@ -133,14 +133,14 @@ static int e1000e_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-  * wall timer value.
-  **/
- static int e1000e_phc_settime(struct ptp_clock_info *ptp,
--			      const struct timespec *ts)
-+			      const struct timespec64 *ts)
- {
- 	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
- 						     ptp_clock_info);
- 	unsigned long flags;
+ 	struct bnx2x *bp = container_of(ptp, struct bnx2x, ptp_clock_info);
  	u64 ns;
+@@ -13295,7 +13295,7 @@ static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ }
  
--	ns = timespec_to_ns(ts);
-+	ns = timespec64_to_ns(ts);
+ static int bnx2x_ptp_settime(struct ptp_clock_info *ptp,
+-			     const struct timespec *ts)
++			     const struct timespec64 *ts)
+ {
+ 	struct bnx2x *bp = container_of(ptp, struct bnx2x, ptp_clock_info);
+ 	u64 ns;
+@@ -13333,8 +13333,8 @@ static void bnx2x_register_phc(struct bnx2x *bp)
+ 	bp->ptp_clock_info.pps = 0;
+ 	bp->ptp_clock_info.adjfreq = bnx2x_ptp_adjfreq;
+ 	bp->ptp_clock_info.adjtime = bnx2x_ptp_adjtime;
+-	bp->ptp_clock_info.gettime = bnx2x_ptp_gettime;
+-	bp->ptp_clock_info.settime = bnx2x_ptp_settime;
++	bp->ptp_clock_info.gettime64 = bnx2x_ptp_gettime;
++	bp->ptp_clock_info.settime64 = bnx2x_ptp_settime;
+ 	bp->ptp_clock_info.enable = bnx2x_ptp_enable;
  
- 	/* reset the timecounter */
- 	spin_lock_irqsave(&adapter->systim_lock, flags);
-@@ -171,11 +171,11 @@ static void e1000e_systim_overflow_work(struct work_struct *work)
- 	struct e1000_adapter *adapter = container_of(work, struct e1000_adapter,
- 						     systim_overflow_work.work);
- 	struct e1000_hw *hw = &adapter->hw;
--	struct timespec ts;
-+	struct timespec64 ts;
- 
--	adapter->ptp_clock_info.gettime(&adapter->ptp_clock_info, &ts);
-+	adapter->ptp_clock_info.gettime64(&adapter->ptp_clock_info, &ts);
- 
--	e_dbg("SYSTIM overflow check at %ld.%09lu\n", ts.tv_sec, ts.tv_nsec);
-+	e_dbg("SYSTIM overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
- 
- 	schedule_delayed_work(&adapter->systim_overflow_work,
- 			      E1000_SYSTIM_OVERFLOW_PERIOD);
-@@ -190,8 +190,8 @@ static const struct ptp_clock_info e1000e_ptp_clock_info = {
- 	.pps		= 0,
- 	.adjfreq	= e1000e_phc_adjfreq,
- 	.adjtime	= e1000e_phc_adjtime,
--	.gettime	= e1000e_phc_gettime,
--	.settime	= e1000e_phc_settime,
-+	.gettime64	= e1000e_phc_gettime,
-+	.settime64	= e1000e_phc_settime,
- 	.enable		= e1000e_phc_enable,
- };
- 
+ 	bp->ptp_clock = ptp_clock_register(&bp->ptp_clock_info, &bp->pdev->dev);
 -- 
 1.7.10.4
