@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 08/23] ptp: fec: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 22:39:26 +0100
-Message-ID: <36d66eb5c6f94b01b6b27aa61a819e818f03ecca.1426973658.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V2 05/23] ptp: xgbe: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 22:39:23 +0100
+Message-ID: <259bd72ac91bdb761b569e825f3099426aaedad8.1426973658.git.richardcochran@gmail.com>
 References: <cover.1426973658.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,10 +26,14 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorense
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38228 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751611AbbCUVj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 17:39:58 -0400
 In-Reply-To: <cover.1426973658.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This driver's clock is implemented using a timecounter, and so with
 this patch the driver is ready for the year 2038.
@@ -38,41 +42,57 @@ Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_ptp.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-ptp.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 4585895..b833993 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -390,7 +390,7 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-  * read the timecounter and return the correct value on ns,
-  * after converting it into a struct timespec.
-  */
--static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
- {
- 	struct fec_enet_private *adapter =
- 	    container_of(ptp, struct fec_enet_private, ptp_caps);
-@@ -417,7 +417,7 @@ static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-  * wall timer value.
-  */
- static int fec_ptp_settime(struct ptp_clock_info *ptp,
--			   const struct timespec *ts)
-+			   const struct timespec64 *ts)
- {
- 	struct fec_enet_private *fep =
- 	    container_of(ptp, struct fec_enet_private, ptp_caps);
-@@ -584,8 +584,8 @@ void fec_ptp_init(struct platform_device *pdev)
- 	fep->ptp_caps.pps = 1;
- 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
- 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
--	fep->ptp_caps.gettime = fec_ptp_gettime;
--	fep->ptp_caps.settime = fec_ptp_settime;
-+	fep->ptp_caps.gettime64 = fec_ptp_gettime;
-+	fep->ptp_caps.settime64 = fec_ptp_settime;
- 	fep->ptp_caps.enable = fec_ptp_enable;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
+index f326178..b03e4f5 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
+@@ -179,7 +179,7 @@ static int xgbe_adjtime(struct ptp_clock_info *info, s64 delta)
+ 	return 0;
+ }
  
- 	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
+-static int xgbe_gettime(struct ptp_clock_info *info, struct timespec *ts)
++static int xgbe_gettime(struct ptp_clock_info *info, struct timespec64 *ts)
+ {
+ 	struct xgbe_prv_data *pdata = container_of(info,
+ 						   struct xgbe_prv_data,
+@@ -193,12 +193,13 @@ static int xgbe_gettime(struct ptp_clock_info *info, struct timespec *ts)
+ 
+ 	spin_unlock_irqrestore(&pdata->tstamp_lock, flags);
+ 
+-	*ts = ns_to_timespec(nsec);
++	*ts = ns_to_timespec64(nsec);
+ 
+ 	return 0;
+ }
+ 
+-static int xgbe_settime(struct ptp_clock_info *info, const struct timespec *ts)
++static int xgbe_settime(struct ptp_clock_info *info,
++			const struct timespec64 *ts)
+ {
+ 	struct xgbe_prv_data *pdata = container_of(info,
+ 						   struct xgbe_prv_data,
+@@ -206,7 +207,7 @@ static int xgbe_settime(struct ptp_clock_info *info, const struct timespec *ts)
+ 	unsigned long flags;
+ 	u64 nsec;
+ 
+-	nsec = timespec_to_ns(ts);
++	nsec = timespec64_to_ns(ts);
+ 
+ 	spin_lock_irqsave(&pdata->tstamp_lock, flags);
+ 
+@@ -236,8 +237,8 @@ void xgbe_ptp_register(struct xgbe_prv_data *pdata)
+ 	info->max_adj = pdata->ptpclk_rate;
+ 	info->adjfreq = xgbe_adjfreq;
+ 	info->adjtime = xgbe_adjtime;
+-	info->gettime = xgbe_gettime;
+-	info->settime = xgbe_settime;
++	info->gettime64 = xgbe_gettime;
++	info->settime64 = xgbe_settime;
+ 	info->enable = xgbe_enable;
+ 
+ 	clock = ptp_clock_register(info, pdata->dev);
 -- 
 1.7.10.4
