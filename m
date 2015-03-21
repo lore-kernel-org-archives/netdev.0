@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V2 11/23] ptp: fm10k: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 22:39:29 +0100
-Message-ID: <7aecc297d47f7ff5b05362e6a9fa0ae8c5eb5d4a.1426973658.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V2 16/23] ptp: sfc: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 22:39:34 +0100
+Message-ID: <36da5b5add3f5a2005b6fc7b0cb068d6d7f9a4e8.1426973658.git.richardcochran@gmail.com>
 References: <cover.1426973658.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,60 +31,88 @@ In-Reply-To: <cover.1426973658.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The device appears to use a 64 bit nanoseconds register, and so with
-this patch the driver should be ready for the year 2038.
+This patch changes the driver to use the newer API.
+
+Depending on how the hardware represents a time value, this driver may
+or may not yet be ready for the year 2038.
 
 Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ptp.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/sfc/ptp.c |   22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c b/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-index d966044..02008e9 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
-@@ -285,7 +285,7 @@ static int fm10k_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index 6b861e3..a2e9aee 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -323,9 +323,9 @@ struct efx_ptp_data {
+ 
+ static int efx_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta);
+ static int efx_phc_adjtime(struct ptp_clock_info *ptp, s64 delta);
+-static int efx_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts);
++static int efx_phc_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts);
+ static int efx_phc_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *e_ts);
++			   const struct timespec64 *e_ts);
+ static int efx_phc_enable(struct ptp_clock_info *ptp,
+ 			  struct ptp_clock_request *request, int on);
+ 
+@@ -1198,8 +1198,8 @@ static const struct ptp_clock_info efx_phc_clock_info = {
+ 	.pps		= 1,
+ 	.adjfreq	= efx_phc_adjfreq,
+ 	.adjtime	= efx_phc_adjtime,
+-	.gettime	= efx_phc_gettime,
+-	.settime	= efx_phc_settime,
++	.gettime64	= efx_phc_gettime,
++	.settime64	= efx_phc_settime,
+ 	.enable		= efx_phc_enable,
+ };
+ 
+@@ -1837,7 +1837,7 @@ static int efx_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 			    NULL, 0, NULL);
+ }
+ 
+-static int efx_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int efx_phc_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+ {
+ 	struct efx_ptp_data *ptp_data = container_of(ptp,
+ 						     struct efx_ptp_data,
+@@ -1859,28 +1859,28 @@ static int efx_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ 	kt = ptp_data->nic_to_kernel_time(
+ 		MCDI_DWORD(outbuf, PTP_OUT_READ_NIC_TIME_MAJOR),
+ 		MCDI_DWORD(outbuf, PTP_OUT_READ_NIC_TIME_MINOR), 0);
+-	*ts = ktime_to_timespec(kt);
++	*ts = ktime_to_timespec64(kt);
  	return 0;
  }
  
--static int fm10k_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int fm10k_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+ static int efx_phc_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *e_ts)
++			   const struct timespec64 *e_ts)
  {
- 	struct fm10k_intfc *interface;
- 	unsigned long flags;
-@@ -297,17 +297,17 @@ static int fm10k_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
- 	now = fm10k_systime_read(interface) + interface->ptp_adjust;
- 	read_unlock_irqrestore(&interface->systime_lock, flags);
+ 	/* Get the current NIC time, efx_phc_gettime.
+ 	 * Subtract from the desired time to get the offset
+ 	 * call efx_phc_adjtime with the offset
+ 	 */
+ 	int rc;
+-	struct timespec time_now;
+-	struct timespec delta;
++	struct timespec64 time_now;
++	struct timespec64 delta;
  
--	*ts = ns_to_timespec(now);
-+	*ts = ns_to_timespec64(now);
+ 	rc = efx_phc_gettime(ptp, &time_now);
+ 	if (rc != 0)
+ 		return rc;
  
- 	return 0;
- }
+-	delta = timespec_sub(*e_ts, time_now);
++	delta = timespec64_sub(*e_ts, time_now);
  
- static int fm10k_ptp_settime(struct ptp_clock_info *ptp,
--			     const struct timespec *ts)
-+			     const struct timespec64 *ts)
- {
- 	struct fm10k_intfc *interface;
- 	unsigned long flags;
--	u64 ns = timespec_to_ns(ts);
-+	u64 ns = timespec64_to_ns(ts);
+-	rc = efx_phc_adjtime(ptp, timespec_to_ns(&delta));
++	rc = efx_phc_adjtime(ptp, timespec64_to_ns(&delta));
+ 	if (rc != 0)
+ 		return rc;
  
- 	interface = container_of(ptp, struct fm10k_intfc, ptp_caps);
- 
-@@ -419,8 +419,8 @@ void fm10k_ptp_register(struct fm10k_intfc *interface)
- 	ptp_caps->max_adj	= 976562;
- 	ptp_caps->adjfreq	= fm10k_ptp_adjfreq;
- 	ptp_caps->adjtime	= fm10k_ptp_adjtime;
--	ptp_caps->gettime	= fm10k_ptp_gettime;
--	ptp_caps->settime	= fm10k_ptp_settime;
-+	ptp_caps->gettime64	= fm10k_ptp_gettime;
-+	ptp_caps->settime64	= fm10k_ptp_settime;
- 
- 	/* provide pins if BAR4 is accessible */
- 	if (interface->sw_addr) {
 -- 
 1.7.10.4
