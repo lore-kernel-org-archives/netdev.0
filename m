@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/5][pull request] Intel Wired LAN Driver Updates
- 2015-03-20
-Date: Fri, 20 Mar 2015 21:41:02 -0400 (EDT)
-Message-ID: <20150320.214102.118150337215691503.davem@davemloft.net>
-References: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/2] bgmac: register fixed PHY for ARM BCM470X /
+ BCM5301X chipsets
+Date: Fri, 20 Mar 2015 21:45:17 -0400 (EDT)
+Message-ID: <20150320.214517.2203024451897882941.davem@davemloft.net>
+References: <1426889672-4969-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hauke@hauke-m.de
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40981 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41008 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752940AbbCUBlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:41:04 -0400
-In-Reply-To: <1426899465-15789-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1752978AbbCUBpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Mar 2015 21:45:19 -0400
+In-Reply-To: <1426889672-4969-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 20 Mar 2015 17:57:40 -0700
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Fri, 20 Mar 2015 23:14:31 +0100
 
-> This series contains updates to ixgb, e1000e, igb and igbvf.
-> 
-> Eliezer and Todd provide patches to fix a potential issue found during code
-> inspection.  When bringing down an interface netif_carrier_off() should
-> be one of the first things we do, since this will prevent the stack from
-> queueing more packets to this interface.
-> 
-> Yanir provides a fix for e1000e that was found in validating i219,
-> where the call to e1000e_write_protect_nvm_ich8lan() is no longer
-> supported in newer hardware.  Access to these registers causes a
-> system freeze in early steppings and is ignored in later steppings.
+> On ARM SoCs with bgmac Ethernet hardware we don't have any normal PHY=
+=2E
+> There is always a switch attached but it's not even controlled over M=
+DIO
+> like in case of MIPS devices.
+> We need a fixed PHY to be able to send/receive packets from the switc=
+h.
+>=20
+> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
 
-Looks good, pulled, thanks Jeff.
+Applied to net-next.
