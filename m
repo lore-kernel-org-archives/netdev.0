@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [RFC net-next 07/22] ptp: fec: convert to the 64 bit get/set time methods.
-Date: Sat, 21 Mar 2015 21:59:37 +0100
-Message-ID: <3c2fcc229dda1307b1f18119dd83c1af851774f7.1426970294.git.richardcochran@gmail.com>
+Subject: [RFC net-next 03/22] ptp: blackfin: convert to the 64 bit get/set time methods.
+Date: Sat, 21 Mar 2015 21:59:33 +0100
+Message-ID: <5539c580c4a888368eb264acedf0172c691642c1.1426970294.git.richardcochran@gmail.com>
 References: <cover.1426970294.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,48 +31,46 @@ In-Reply-To: <cover.1426970294.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This driver's clock is implemented using a timecounter, and so with
-this patch the driver is ready for the year 2038.
-
-Compile tested only.
+The device uses 64 bit nanoseconds register, and so with this patch the
+driver is ready for the year 2038.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_ptp.c |    8 ++++----
+ drivers/net/ethernet/adi/bfin_mac.c |    8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 4585895..b833993 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -390,7 +390,7 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-  * read the timecounter and return the correct value on ns,
-  * after converting it into a struct timespec.
-  */
--static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index ec20611..0c37aef 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -983,7 +983,7 @@ static int bfin_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
+ }
+ 
+-static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	struct fec_enet_private *adapter =
- 	    container_of(ptp, struct fec_enet_private, ptp_caps);
-@@ -417,7 +417,7 @@ static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-  * wall timer value.
-  */
- static int fec_ptp_settime(struct ptp_clock_info *ptp,
+ 	u64 ns;
+ 	u32 remainder;
+@@ -1003,7 +1003,7 @@ static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ }
+ 
+ static int bfin_ptp_settime(struct ptp_clock_info *ptp,
 -			   const struct timespec *ts)
 +			   const struct timespec64 *ts)
  {
- 	struct fec_enet_private *fep =
- 	    container_of(ptp, struct fec_enet_private, ptp_caps);
-@@ -584,8 +584,8 @@ void fec_ptp_init(struct platform_device *pdev)
- 	fep->ptp_caps.pps = 1;
- 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
- 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
--	fep->ptp_caps.gettime = fec_ptp_gettime;
--	fep->ptp_caps.settime = fec_ptp_settime;
-+	fep->ptp_caps.gettime64 = fec_ptp_gettime;
-+	fep->ptp_caps.settime64 = fec_ptp_settime;
- 	fep->ptp_caps.enable = fec_ptp_enable;
+ 	u64 ns;
+ 	unsigned long flags;
+@@ -1039,8 +1039,8 @@ static struct ptp_clock_info bfin_ptp_caps = {
+ 	.pps		= 0,
+ 	.adjfreq	= bfin_ptp_adjfreq,
+ 	.adjtime	= bfin_ptp_adjtime,
+-	.gettime	= bfin_ptp_gettime,
+-	.settime	= bfin_ptp_settime,
++	.gettime64	= bfin_ptp_gettime,
++	.settime64	= bfin_ptp_settime,
+ 	.enable		= bfin_ptp_enable,
+ };
  
- 	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
 -- 
 1.7.10.4
