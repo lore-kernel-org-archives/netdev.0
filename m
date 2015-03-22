@@ -1,53 +1,82 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] rhashtable: provide len to obj_hashfn
-Date: Sun, 22 Mar 2015 07:31:09 +0000
-Message-ID: <20150322073108.GA7910@acer.localdomain>
-References: <1426952290-18962-1-git-send-email-kaber@trash.net>
- <1426952290-18962-2-git-send-email-kaber@trash.net>
- <20150321230618.GB31869@gondor.apana.org.au>
- <20150322044746.GA31192@acer.localdomain>
- <20150322072202.GA2125@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [v1 PATCH 0/10] rhashtable: Multiple rehashing
+Date: Sun, 22 Mar 2015 18:53:00 +1100
+Message-ID: <20150322075300.GA2441@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, davem@davemloft.net, tgraf@suug.ch,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51497 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751597AbbCVHbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 03:31:14 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:37822 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751326AbbCVHxX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 03:53:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20150322072202.GA2125@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22.03, Herbert Xu wrote:
-> On Sun, Mar 22, 2015 at 04:47:47AM +0000, Patrick McHardy wrote:
-> >
-> > Correct, the set extensions are added on demand and contain an offset
-> > for every extension type. The offset is usually not, but may be
-> > different for different elements.
-> > 
-> > Embedding the offset is not something I want to do. Again, this stuff
-> > is meant to be as compact as possible and it serves no purpose at all.
-> > What is the problem with using these callbacks?
-> 
-> Maybe I'm not seeing everything but from this patch and what
-> you sent me last time ([PATCH 0/9 WIP] nf_tables: set extensions
-> and dynamic updates) it appears that NFT_SET_EXT_KEY is always
-> present so if you always added it first to the template it would
-> be at a fixed offset, no?
+Hi:
 
-That's true so far, however I have a trie set implementation queued up
-that will make this optional. For nft_hash, sure, it will always be
-present, wouldn't make much sense otherwise :)
+This series introduces multiple rehashing.
 
-The offset is currently fixed, however that's not something that is
-guaranteed by the implementation but purely by how the code is
-arranged. It would be somewhat fragile to rely on this.
+Recall that the original implementation in br_multicast used
+two list pointers per hash node and therefore is limited to at
+most one rehash at a time since you need one list pointer for
+the old table and one for the new table.
 
-> But whatever, I don't really care about this so go ahead and add
-> the key length to obj_hash.
+Thanks to Josh Triplett's suggestion of using a single list pointer
+we're no longer limited by that.  So it is perfectly OK to have
+an arbitrary number of tables in existence at any one time.
 
-Thanks for the review!
+The reader and removal simply has to walk from the oldest table
+to the newest table in order not to miss anything.  Insertion
+without lookup are just as easy as we simply go to the last table
+that we can find and add the entry there.
+
+However, insertion with uniqueness lookup is more complicated
+because we need to ensure that two simultaneous insertions of the
+same key do not both succeed.  To achieve this, all insertions
+including those without lookups are required to obtain the bucket
+lock from the oldest hash table that is still alive.  This is
+determined by having the rehasher (there is only one rehashing
+thread in the system) keep a pointer of where it is up to.  If
+a bucket has already been rehashed then it is dead, i.e., there
+cannot be any more insertions to it, otherwise it is considered
+alive.  This guarantees that the same key cannot be inserted
+in two different tables in parallel.
+
+Patch 1 is actually a bug fix for the walker.
+
+Patch 2-6 eliminates unnecessary out-of-line copies of jhash.
+
+Patch 7 disables automatic shrinking so now shrinking is only
+possible if requested by the user.
+
+Patch 8 introduces multiple rehashing.  This means that if we
+decide to grow then we will grow regardless of whether the previous
+one has finished.  However, this is still asynchronous meaning
+that if insertions come fast enough we may still end up with a
+table that is overutilised.
+
+Patch 9 adds support for GFP_ATOMIC allocations of struct bucket_table.
+
+Finally patch 10 enables immediate rehashing.  This is done either
+when the table reaches 100% utilisation, or when the chain length
+exceeds 16 (the latter can be disabled on request, e.g., for
+nft_hash.
+
+With these patches the system should no longer have any trouble
+dealing with fast insertions on a small table.  In the worst
+case you end up with a list of tables that's log N in length
+while the rehasher catches up.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
