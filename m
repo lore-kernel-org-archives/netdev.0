@@ -1,62 +1,81 @@
-From: Arnd Bergmann <arnd@linaro.org>
-Subject: Re: [PATCH net-next V2 20/23] ptp: dp83640: convert to the 64 bit get/set time methods.
-Date: Sun, 22 Mar 2015 18:48:02 +0100
-Message-ID: <201503221848.02226.arnd@linaro.org>
-References: <cover.1426973658.git.richardcochran@gmail.com> <201503220336.31836.arnd@linaro.org> <20150322072935.GB4254@localhost.localdomain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 1/4] bonding: Handle notifications during
+ work-queue processing gracefully
+Date: Sun, 22 Mar 2015 20:53:27 +0300
+Message-ID: <550F0197.70800@cogentembedded.com>
+References: <1426916361-18328-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Stefan =?iso-8859-1?q?S=F8rensen?=
-	<stefan.sorensen@spectrali
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150322072935.GB4254@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:36759 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800AbbCVRxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 13:53:30 -0400
+Received: by labe2 with SMTP id e2so43508499lab.3
+        for <netdev@vger.kernel.org>; Sun, 22 Mar 2015 10:53:29 -0700 (PDT)
+In-Reply-To: <1426916361-18328-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 22 March 2015, Richard Cochran wrote:
-> On Sun, Mar 22, 2015 at 03:36:31AM +0100, Arnd Bergmann wrote:
-> > On Saturday 21 March 2015, Richard Cochran wrote:
-> > >         mutex_lock(&clock->extreg_lock);
-> > >  
-> > > -       err = tdr_write(1, phydev, ts, PTP_LOAD_CLK);
-> > > +       err = tdr_write(1, phydev, &ts, PTP_LOAD_CLK);
-> > >  
-> > >         mutex_unlock(&clock->extreg_lock);
-> > 
-> > I don't see the change to the tdr_write() function that changes the 
-> > argument from 'struct timespec ts' to 'struct timespec64 *', so this
-> > looks wrong to me.
-> 
-> There is a 'ts64' parameter, converted to 'ts' beforehand.
-> 
+Hello.
 
-Ok, got it. The code looks correct then, though I'd like to see the use
-of 'timespec' pushed out as far as possible. How about changing the
-type for tdr_write() as well here?
+On 3/21/2015 8:39 AM, Mahesh Bandewar wrote:
 
-tdr_write() itself should be fine until 2106, as it writes an unsigned number,
-but it's probably good to document that inside of that function.
+> RTNL is required for sending notifications and if rtnl can not be
+> acquired, current code skips sending notification. This is especially
+> bad if the monitoring values selected are large.
 
-	Arnd
+> This patch adds a bitmask and uses a bit per such work-queue and attempts
+> to reschedule the work (aggressively) until notifications are sent out and
+> then resumes the regular cycle.
+
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>   include/net/bonding.h | 19 +++++++++++++++++++
+>   1 file changed, 19 insertions(+)
+
+> diff --git a/include/net/bonding.h b/include/net/bonding.h
+> index 0ac45b4f7f2a..fede3ab4bbcf 100644
+> --- a/include/net/bonding.h
+> +++ b/include/net/bonding.h
+[...]
+> @@ -259,6 +260,24 @@ struct bond_vlan_tag {
+>   	unsigned short	vlan_id;
+>   };
+>
+> +typedef enum {
+> +	BOND_MII_NOTIF = 0,
+> +	BOND_ARP_NOTIF,
+> +	BOND_AD_NOTIF,
+> +} bond_notif_pending_t;
+> +
+> +static inline bool bond_get_notif_pending(struct bonding *bond,
+> +					  bond_notif_pending_t bit)
+> +{
+> +	return !!test_and_clear_bit(bit, &bond->notif_work_mask);
+> +}
+> +
+> +static inline void bond_set_notif_pending(struct bonding *bond,
+> +					  bond_notif_pending_t bit)
+> +{
+> +		set_bit(bit, &bond->notif_work_mask);
+
+    One tab to many here. :-)
+
+> +}
+> +
+>   /**
+>    * Returns NULL if the net_device does not belong to any of the bond's slaves
+>    *
+
+WBR, Sergei
