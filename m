@@ -1,60 +1,63 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v2 2/5] mpls: Remove incorrect PHP comment
-Date: Sun, 22 Mar 2015 14:12:59 -0500
-Message-ID: <87fv8wals4.fsf@x220.int.ebiederm.org>
-References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-3-git-send-email-rshearma@brocade.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: nft 0.4, crash on list
+Date: Sun, 22 Mar 2015 20:29:00 +0100
+Message-ID: <20150322192900.GA14885@salvia>
+References: <fded527361344541342afa2478b5ca9a@visp.net.lb>
+ <74645ce188ee403b5ffcf2303046f694@visp.net.lb>
+ <a457f2eac526c6fe6e6f80634358d587@visp.net.lb>
+ <20150322053313.GA16931@acer.localdomain>
+ <d029673de6d7994d231a4a37df763951@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:51726 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751748AbbCVTQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 15:16:48 -0400
-In-Reply-To: <1426866170-28739-3-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Fri, 20 Mar 2015 15:42:47 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, stable@vger.kernel.org
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <d029673de6d7994d231a4a37df763951@visp.net.lb>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Robert Shearman <rshearma@brocade.com> writes:
-
-> Popping the last label on the stack does not necessarily imply
-> performing penultimate hop popping. There is no reason why this
-> couldn't be the last hop in the network, so remove the comment.
-
-So this change I will disagree with.
-
-What the code implements is Penultimate hop popping.  Even if you send
-the packets over loopback that is what the code is doing.
-
-This is relevant because I think the code may actually be wrong in the
-local reception case.  By preforming penultimate hop popping and
-receving the code on loopback I think this code allows bypassing
-iptables rules that apply to incoming ip packets.  Certainly there is a
-loss of information as to which hardware interface the packet came in on
-that it may be desirable to correct.
-
-Eric
-
-
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
->  net/mpls/af_mpls.c | 1 -
->  1 file changed, 1 deletion(-)
+On Sun, Mar 22, 2015 at 10:05:10AM +0200, Denys Fedoryshchenko wrote:
+> On 2015-03-22 07:33, Patrick McHardy wrote:
+> >On 22.03, Denys Fedoryshchenko wrote:
+> >>Sorry for noise, seems git version working fine!
+> >
+> >Still this shouldn't be happening. Just to confirm, you were using an
+> >unpatched kernel and by git you mean nftables git?
 >
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index 0d6763a..bf3459a 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -199,7 +199,6 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->  	skb->protocol = htons(ETH_P_MPLS_UC);
->  
->  	if (unlikely(!new_header_size && dec.bos)) {
-> -		/* Penultimate hop popping */
->  		if (!mpls_egress(rt, skb, dec))
->  			goto drop;
->  	} else {
+> Yes, correct. I tested on 3.18.8 and 3.19.2 vanilla kernels (x86_64).
+> On nftables 0.4 it does crash, on nftables git it doesn't.
+
+I sent this fix to -stable by March 10th but this doesn't show up in
+3.18.x and 3.19.x yet.
+
+[ upstream commit 02263db00b6cb98701332aa257c07ca549c2324b ]
+
+We have several problems in this path:
+
+1) There is a use-after-free when removing individual elements from
+   the commit path.
+
+2) We have to uninit() the data part of the element from the abort
+   path to avoid a chain refcount leak.
+
+3) We have to check for set->flags to see if there's a mapping,
+instead
+   of the element flags.
+
+4) We have to check for !(flags & NFT_SET_ELEM_INTERVAL_END) to skip
+   elements that are part of the interval that have no data part, so
+   they don't need to be uninit().
+
+Cc: <stable@vger.kernel.org> # 3.18.x
+Cc: <stable@vger.kernel.org> # 3.19.x
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+> >>On 2015-03-22 00:49, Denys Fedoryshchenko wrote:
+> >>>Additionally, if i will do "nft flush table mangle" , with this table
+> >>>added i will get this:
+> >>>[   42.800078] ------------[ cut here ]------------
+> >>>[   42.800092] WARNING: CPU: 3 PID: 2868 at
+> >>>net/netfilter/nf_tables_api.c:4122 nft_data_uninit+0x35/0x50
+> >>>[nf_tables]()
