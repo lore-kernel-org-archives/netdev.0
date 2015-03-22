@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v1 PATCH 3/10] rhashtable: Allow hashfn to be unset
-Date: Sun, 22 Mar 2015 18:53:46 +1100
-Message-ID: <E1YZahe-0000hs-4V@gondolin.me.apana.org.au>
+Subject: [v1 PATCH 10/10] rhashtable: Add immediate rehash during insertion
+Date: Sun, 22 Mar 2015 18:53:53 +1100
+Message-ID: <E1YZahl-0000jn-V5@gondolin.me.apana.org.au>
 References: <20150322075300.GA2441@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -11,141 +11,236 @@ To: "David S. Miller" <davem@davemloft.net>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:47022 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:56274 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751481AbbCVHyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 03:54:08 -0400
+	with ESMTP id S1751789AbbCVHyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 03:54:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since every current rhashtable user uses jhash as their hash
-function, the fact that jhash is an inline function causes each
-user to generate a copy of its code.
+This patch reintroduces immediate rehash during insertion.  If
+we find during insertion that the table is full or the chain
+length exceeds a set limit (currently 16 but may be disabled
+with insecure_elasticity) then we will force an immediate rehash.
+The rehash will contain an expansion if the table utilisation
+exceeds 75%.
 
-This function provides a solution to this problem by allowing
-hashfn to be unset.  In which case rhashtable will automatically
-set it to jhash.  Furthermore, if the key length is a multiple
-of 4, we will switch over to jhash2.
+If this rehash fails then the insertion will fail.  Otherwise the
+insertion will be reattempted in the new hash table.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |   33 +++++++++++++++++++++++++++------
- lib/rhashtable.c           |   17 ++++++++++++++++-
- 2 files changed, 43 insertions(+), 7 deletions(-)
+ include/linux/rhashtable.h |   32 +++++++++++++++-----
+ lib/rhashtable.c           |   71 ++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 95 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 287b609..2a98b95 100644
+index cba22d8..c19cf89 100644
 --- a/include/linux/rhashtable.h
 +++ b/include/linux/rhashtable.h
-@@ -19,6 +19,7 @@
- 
- #include <linux/compiler.h>
- #include <linux/errno.h>
-+#include <linux/jhash.h>
- #include <linux/list_nulls.h>
- #include <linux/workqueue.h>
- #include <linux/mutex.h>
-@@ -103,7 +104,7 @@ struct rhashtable;
+@@ -103,6 +103,7 @@ struct rhashtable;
+  * @max_size: Maximum size while expanding
   * @min_size: Minimum size while shrinking
   * @nulls_base: Base value to generate nulls marker
++ * @insecure_elasticity: Set to true to disable chain length checks
   * @locks_mul: Number of bucket locks to allocate per cpu (default: 128)
-- * @hashfn: Function to hash key
-+ * @hashfn: Hash function (default: jhash2 if !(key_len % 4), or jhash)
+  * @hashfn: Hash function (default: jhash2 if !(key_len % 4), or jhash)
   * @obj_hashfn: Function to hash object
-  * @obj_cmpfn: Function to compare key with object
-  */
-@@ -125,6 +126,7 @@ struct rhashtable_params {
-  * struct rhashtable - Hash table handle
+@@ -116,6 +117,7 @@ struct rhashtable_params {
+ 	unsigned int		max_size;
+ 	unsigned int		min_size;
+ 	u32			nulls_base;
++	bool			insecure_elasticity;
+ 	size_t			locks_mul;
+ 	rht_hashfn_t		hashfn;
+ 	rht_obj_hashfn_t	obj_hashfn;
+@@ -127,6 +129,7 @@ struct rhashtable_params {
   * @tbl: Bucket table
   * @nelems: Number of elements in table
-+ * @key_len: Key length for hashfn
+  * @key_len: Key length for hashfn
++ * @elasticity: Maximum chain length before rehash
   * @p: Configuration parameters
   * @run_work: Deferred worker to expand/shrink asynchronously
   * @mutex: Mutex to protect current/future table swapping
-@@ -134,6 +136,7 @@ struct rhashtable {
- 	struct bucket_table __rcu	*tbl;
+@@ -137,6 +140,7 @@ struct rhashtable {
  	atomic_t			nelems;
  	bool                            being_destroyed;
-+	unsigned int			key_len;
+ 	unsigned int			key_len;
++	unsigned int			elasticity;
  	struct rhashtable_params	p;
  	struct work_struct		run_work;
  	struct mutex                    mutex;
-@@ -199,12 +202,30 @@ static inline unsigned int rht_key_hashfn(
- 	struct rhashtable *ht, const struct bucket_table *tbl,
- 	const void *key, const struct rhashtable_params params)
- {
--	unsigned key_len = __builtin_constant_p(params.key_len) ?
--			   (params.key_len ?: ht->p.key_len) :
--			   params.key_len;
-+	unsigned hash;
-+
-+	if (!__builtin_constant_p(params.key_len))
-+		hash = ht->p.hashfn(key, ht->key_len, tbl->hash_rnd);
-+	else if (params.key_len) {
-+		unsigned key_len = params.key_len;
-+
-+		if (params.hashfn)
-+			hash = params.hashfn(key, key_len, tbl->hash_rnd);
-+		else if (key_len & (sizeof(u32) - 1))
-+			hash = jhash(key, key_len, tbl->hash_rnd);
-+		else
-+			hash = jhash2(key, key_len / sizeof(u32),
-+				      tbl->hash_rnd);
-+	} else {
-+		unsigned key_len = ht->p.key_len;
-+
-+		if (params.hashfn)
-+			hash = params.hashfn(key, key_len, tbl->hash_rnd);
-+		else
-+			hash = jhash(key, key_len, tbl->hash_rnd);
-+	}
- 
--	return rht_bucket_index(tbl, params.hashfn(key, key_len,
--						   tbl->hash_rnd));
-+	return rht_bucket_index(tbl, hash);
+@@ -252,6 +256,17 @@ static inline bool rht_grow_above_75(const struct rhashtable *ht,
+ 	       (!ht->p.max_size || tbl->size < ht->p.max_size);
  }
  
- static inline unsigned int rht_head_hashfn(
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 618a3f0..798f01d 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -532,6 +532,11 @@ static size_t rounded_hashtable_size(const struct rhashtable_params *params)
- 		   (unsigned long)params->min_size);
- }
- 
-+static u32 rhashtable_jhash2(const void *key, u32 length, u32 seed)
++/**
++ * rht_grow_above_100 - returns true if nelems > table-size
++ * @ht:		hash table
++ * @tbl:	current table
++ */
++static inline bool rht_grow_above_100(const struct rhashtable *ht,
++				      const struct bucket_table *tbl)
 +{
-+	return jhash2(key, length, seed);
++	return atomic_read(&ht->nelems) > tbl->size;
 +}
 +
- /**
-  * rhashtable_init - initialize a new hash table
-  * @ht:		hash table to be initialized
-@@ -583,7 +588,7 @@ int rhashtable_init(struct rhashtable *ht,
+ /* The bucket lock is selected based on the hash and protects mutations
+  * on a group of hash buckets.
+  *
+@@ -517,11 +532,12 @@ static inline int __rhashtable_insert_fast(
+ 		.ht = ht,
+ 		.key = key,
+ 	};
+-	int err = -EEXIST;
+ 	struct bucket_table *tbl, *new_tbl;
+ 	struct rhash_head *head;
+ 	spinlock_t *lock;
++	unsigned elasticity;
+ 	unsigned hash;
++	int err;
  
- 	size = HASH_DEFAULT_SIZE;
+ 	rcu_read_lock();
  
--	if ((!(params->key_len && params->hashfn) && !params->obj_hashfn) ||
-+	if ((!params->key_len && !params->obj_hashfn) ||
- 	    (params->obj_hashfn && !params->obj_cmpfn))
- 		return -EINVAL;
+@@ -543,22 +559,24 @@ static inline int __rhashtable_insert_fast(
+ 	}
  
-@@ -610,6 +615,16 @@ int rhashtable_init(struct rhashtable *ht,
- 	else
- 		ht->p.locks_mul = BUCKET_LOCKS_PER_CPU;
+ 	new_tbl = rht_dereference_rcu(tbl->future_tbl, ht);
+-	if (unlikely(new_tbl)) {
++	if (unlikely(new_tbl || rht_grow_above_100(ht, tbl))) {
++slow_path:
+ 		err = rhashtable_insert_slow(ht, key, obj, new_tbl);
+ 		goto out;
+ 	}
  
-+	ht->key_len = ht->p.key_len;
-+	if (!params->hashfn) {
-+		ht->p.hashfn = jhash;
+-	if (!key)
+-		goto skip_lookup;
+-
++	err = -EEXIST;
++	elasticity = ht->elasticity;
+ 	rht_for_each(head, tbl, hash) {
+-		if (unlikely(!(params.obj_cmpfn ?
++		if (key &&
++		    unlikely(!(params.obj_cmpfn ?
+ 			       params.obj_cmpfn(&arg, rht_obj(ht, head)) :
+ 			       rhashtable_compare(&arg, rht_obj(ht, head)))))
+ 			goto out;
++		if (!--elasticity)
++			goto slow_path;
+ 	}
+ 
+-skip_lookup:
+ 	err = 0;
+ 
+ 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 59078ed..6494b2e 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -364,21 +364,80 @@ unlock:
+ 		schedule_work(&ht->run_work);
+ }
+ 
++static bool rhashtable_check_elasticity(struct rhashtable *ht,
++					struct bucket_table *tbl,
++					unsigned hash)
++{
++	unsigned elasticity = ht->elasticity;
++	struct rhash_head *head;
 +
-+		if (!(ht->key_len & (sizeof(u32) - 1))) {
-+			ht->key_len /= sizeof(u32);
-+			ht->p.hashfn = rhashtable_jhash2;
-+		}
++	rht_for_each(head, tbl, hash)
++		if (!--elasticity)
++			return true;
++
++	return false;
++}
++
++int rhashtable_expand_or_rehash(struct rhashtable *ht,
++				struct bucket_table *tbl)
++{
++	struct bucket_table *old_tbl;
++	struct bucket_table *new_tbl;
++	unsigned int size;
++	int err;
++
++	old_tbl = rht_dereference_rcu(ht->tbl, ht);
++	if (!tbl)
++		tbl = rhashtable_last_table(ht, old_tbl);
++
++	size = tbl->size;
++
++	if (rht_grow_above_75(ht, tbl))
++		size *= 2;
++	/* More than two rehashes (not resizes) detected. */
++	else if (WARN_ON(old_tbl != tbl && old_tbl->size == size))
++		return -EBUSY;
++
++	new_tbl = bucket_table_alloc(ht, size, GFP_ATOMIC);
++	if (new_tbl == NULL)
++		return -ENOMEM;
++
++	err = rhashtable_rehash_attach(ht, tbl, new_tbl);
++	if (err) {
++		bucket_table_free(new_tbl);
++		if (err == -EEXIST)
++			err = 0;
++	} else
++		schedule_work(&ht->run_work);
++
++	return err;
++}
++
+ int rhashtable_insert_slow(struct rhashtable *ht, const void *key,
+ 			   struct rhash_head *obj,
+ 			   struct bucket_table *tbl)
+ {
+ 	struct rhash_head *head;
+ 	unsigned hash;
+-	int err = -EEXIST;
++	int err;
++
++	if (!tbl)
++		goto rehash;
+ 
++restart:
+ 	tbl = rhashtable_last_table(ht, tbl);
+ 	hash = head_hashfn(ht, tbl, obj);
+ 	spin_lock_nested(rht_bucket_lock(tbl, hash), SINGLE_DEPTH_NESTING);
+ 
++	err = -EEXIST;
+ 	if (key && rhashtable_lookup_fast(ht, key, ht->p))
+ 		goto exit;
+ 
++	err = -EAGAIN;
++	if (rhashtable_check_elasticity(ht, tbl, hash) ||
++	    rht_grow_above_100(ht, tbl))
++		goto exit;
++
+ 	err = 0;
+ 
+ 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
+@@ -391,6 +450,13 @@ int rhashtable_insert_slow(struct rhashtable *ht, const void *key,
+ 
+ exit:
+ 	spin_unlock(rht_bucket_lock(tbl, hash));
++ 
++	if (err == -EAGAIN) {
++rehash:
++		err = rhashtable_expand_or_rehash(ht, tbl);
++		if (!err)
++			goto restart;
 +	}
+ 
+ 	return err;
+ }
+@@ -667,6 +733,9 @@ int rhashtable_init(struct rhashtable *ht,
+ 
+ 	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
+ 
++	if (!params->insecure_elasticity)
++		ht->elasticity = 16;
 +
- 	tbl = bucket_table_alloc(ht, size);
- 	if (tbl == NULL)
- 		return -ENOMEM;
+ 	if (params->locks_mul)
+ 		ht->p.locks_mul = roundup_pow_of_two(params->locks_mul);
+ 	else
