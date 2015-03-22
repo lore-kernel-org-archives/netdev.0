@@ -1,56 +1,41 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/6] netfilter: Zero the tuple in nfnl_cthelper_parse_tuple()
-Date: Sun, 22 Mar 2015 19:46:33 +0100
-Message-ID: <1427049998-5665-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] netfilter: xt_TPROXY: fix invflags check in tproxy_tg6_check()
+Date: Sun, 22 Mar 2015 19:46:37 +0100
+Message-ID: <1427049998-5665-6-git-send-email-pablo@netfilter.org>
 References: <1427049998-5665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33402 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751889AbbCVSmu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Mar 2015 14:42:50 -0400
 In-Reply-To: <1427049998-5665-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Wilson <iwilson@brocade.com>
+We have to check for IP6T_INV_PROTO in invflags, instead of flags.
 
-nfnl_cthelper_parse_tuple() is called from nfnl_cthelper_new(),
-nfnl_cthelper_get() and nfnl_cthelper_del().  In each case they pass
-a pointer to an nf_conntrack_tuple data structure local variable:
-
-    struct nf_conntrack_tuple tuple;
-    ...
-    ret = nfnl_cthelper_parse_tuple(&tuple, tb[NFCTH_TUPLE]);
-
-The problem is that this local variable is not initialized, and
-nfnl_cthelper_parse_tuple() only initializes two fields: src.l3num and
-dst.protonum.  This leaves all other fields with undefined values
-based on whatever is on the stack:
-
-    tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
-    tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
-
-The symptom observed was that when the rpc and tns helpers were added
-then traffic to port 1536 was being sent to user-space.
-
-Signed-off-by: Ian Wilson <iwilson@brocade.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Acked-by: Balazs Scheidler <bazsi@balabit.hu>
 ---
- net/netfilter/nfnetlink_cthelper.c |    3 +++
- 1 file changed, 3 insertions(+)
+ net/netfilter/xt_TPROXY.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index a5599fc..54330fb 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -77,6 +77,9 @@ nfnl_cthelper_parse_tuple(struct nf_conntrack_tuple *tuple,
- 	if (!tb[NFCTH_TUPLE_L3PROTONUM] || !tb[NFCTH_TUPLE_L4PROTONUM])
- 		return -EINVAL;
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index ef8a926..50e1e5a 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -513,8 +513,8 @@ static int tproxy_tg6_check(const struct xt_tgchk_param *par)
+ {
+ 	const struct ip6t_ip6 *i = par->entryinfo;
  
-+	/* Not all fields are initialized so first zero the tuple */
-+	memset(tuple, 0, sizeof(struct nf_conntrack_tuple));
-+
- 	tuple->src.l3num = ntohs(nla_get_be16(tb[NFCTH_TUPLE_L3PROTONUM]));
- 	tuple->dst.protonum = nla_get_u8(tb[NFCTH_TUPLE_L4PROTONUM]);
+-	if ((i->proto == IPPROTO_TCP || i->proto == IPPROTO_UDP)
+-	    && !(i->flags & IP6T_INV_PROTO))
++	if ((i->proto == IPPROTO_TCP || i->proto == IPPROTO_UDP) &&
++	    !(i->invflags & IP6T_INV_PROTO))
+ 		return 0;
  
+ 	pr_info("Can be used only in combination with "
 -- 
 1.7.10.4
-
