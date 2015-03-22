@@ -1,47 +1,60 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/7] can: gs_usb: check for kzalloc allocation failure
-Date: Sun, 22 Mar 2015 20:13:34 +0100
-Message-ID: <1427051618-28318-4-git-send-email-mkl@pengutronix.de>
-References: <1427051618-28318-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Colin Ian King <colin.king@canonical.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v2 2/5] mpls: Remove incorrect PHP comment
+Date: Sun, 22 Mar 2015 14:12:59 -0500
+Message-ID: <87fv8wals4.fsf@x220.int.ebiederm.org>
+References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
+	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1426866170-28739-3-git-send-email-rshearma@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:38544 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887AbbCVTNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 15:13:45 -0400
-In-Reply-To: <1427051618-28318-1-git-send-email-mkl@pengutronix.de>
+Received: from out03.mta.xmission.com ([166.70.13.233]:51726 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751748AbbCVTQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 15:16:48 -0400
+In-Reply-To: <1426866170-28739-3-git-send-email-rshearma@brocade.com> (Robert
+	Shearman's message of "Fri, 20 Mar 2015 15:42:47 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Robert Shearman <rshearma@brocade.com> writes:
 
-smatch detected the following issue:
-drivers/net/can/usb/gs_usb.c:904 gs_usb_probe() error:
-   potential null dereference 'dev'.  (kzalloc returns null)
+> Popping the last label on the stack does not necessarily imply
+> performing penultimate hop popping. There is no reason why this
+> couldn't be the last hop in the network, so remove the comment.
 
-Add a check for null return from kzalloc and return -ENOMEM
+So this change I will disagree with.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/gs_usb.c | 2 ++
- 1 file changed, 2 insertions(+)
+What the code implements is Penultimate hop popping.  Even if you send
+the packets over loopback that is what the code is doing.
 
-diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
-index 009acc8641fc..8b4d3e6875eb 100644
---- a/drivers/net/can/usb/gs_usb.c
-+++ b/drivers/net/can/usb/gs_usb.c
-@@ -901,6 +901,8 @@ static int gs_usb_probe(struct usb_interface *intf, const struct usb_device_id *
- 	}
- 
- 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-+	if (!dev)
-+		return -ENOMEM;
- 	init_usb_anchor(&dev->rx_submitted);
- 
- 	atomic_set(&dev->active_channels, 0);
--- 
-2.1.4
+This is relevant because I think the code may actually be wrong in the
+local reception case.  By preforming penultimate hop popping and
+receving the code on loopback I think this code allows bypassing
+iptables rules that apply to incoming ip packets.  Certainly there is a
+loss of information as to which hardware interface the packet came in on
+that it may be desirable to correct.
+
+Eric
+
+
+> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> ---
+>  net/mpls/af_mpls.c | 1 -
+>  1 file changed, 1 deletion(-)
+>
+> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+> index 0d6763a..bf3459a 100644
+> --- a/net/mpls/af_mpls.c
+> +++ b/net/mpls/af_mpls.c
+> @@ -199,7 +199,6 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>  	skb->protocol = htons(ETH_P_MPLS_UC);
+>  
+>  	if (unlikely(!new_header_size && dec.bos)) {
+> -		/* Penultimate hop popping */
+>  		if (!mpls_egress(rt, skb, dec))
+>  			goto drop;
+>  	} else {
