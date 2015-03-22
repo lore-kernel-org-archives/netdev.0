@@ -1,70 +1,47 @@
-From: Priit Laes <plaes@plaes.org>
-Subject: [PATCH v2 3/4] rtlwifi: Rename rtl_translate_todbm to rtl_signalpower_todbm
-Date: Sun, 22 Mar 2015 15:35:19 +0200
-Message-ID: <1427031320-10913-4-git-send-email-plaes@plaes.org>
-References: <1427031320-10913-1-git-send-email-plaes@plaes.org>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Joe Perches <joe@perches.com>, Priit Laes <plaes@plaes.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plaes.org ([188.166.43.21]:54671 "EHLO plaes.org"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751769AbbCVNgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Mar 2015 09:36:08 -0400
-In-Reply-To: <1427031320-10913-1-git-send-email-plaes@plaes.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Priit Laes <plaes-q/aMd4JkU83YtjvyW6yDsg@public.gmane.org>
+Subject: [PATCH v2 0/4] rtlwifi: Use common functions for driver stats
+Date: Sun, 22 Mar 2015 15:35:16 +0200
+Message-ID: <1427031320-10913-1-git-send-email-plaes@plaes.org>
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Priit Laes <plaes-q/aMd4JkU83YtjvyW6yDsg@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Priit Laes <plaes@plaes.org>
----
- drivers/net/wireless/rtlwifi/stats.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+Hi all,
 
-diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
-index 9ebeb6e..4cce472 100644
---- a/drivers/net/wireless/rtlwifi/stats.c
-+++ b/drivers/net/wireless/rtlwifi/stats.c
-@@ -48,14 +48,9 @@ u8 rtl_evm_db_to_percentage(char value)
- }
- EXPORT_SYMBOL(rtl_evm_db_to_percentage);
- 
--static long rtl_translate_todbm(struct ieee80211_hw *hw,
--			 u8 signal_strength_index)
-+static long rtl_signalpower_todbm(u8 signal_strength_index)
- {
--	long signal_power;
--
--	signal_power = (long)((signal_strength_index + 1) >> 1);
--	signal_power -= 95;
--	return signal_power;
-+	return (long)((signal_strength_index + 1) >> 1) - 95;
- }
- 
- long rtl_signal_scale_mapping(long currsig)
-@@ -93,7 +88,7 @@ static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct rtl_phy *rtlphy = &(rtlpriv->phy);
- 	u8 rfpath;
--	u32 last_rssi, tmpval;
-+	u32 last_rssi;
- 
- 	if (!pstatus->packet_toself && !pstatus->packet_beacon)
- 		return;
-@@ -112,10 +107,9 @@ static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
- 	    pstatus->signalstrength;
- 	if (rtlpriv->stats.ui_rssi.index >= PHY_RSSI_SLID_WIN_MAX)
- 		rtlpriv->stats.ui_rssi.index = 0;
--	tmpval = rtlpriv->stats.ui_rssi.total_val /
--		rtlpriv->stats.ui_rssi.total_num;
--	rtlpriv->stats.signal_strength = rtl_translate_todbm(hw,
--		(u8) tmpval);
-+	rtlpriv->stats.signal_strength = rtl_signalpower_todbm(
-+		(u8)rtlpriv->stats.ui_rssi.total_val /
-+			rtlpriv->stats.ui_rssi.total_num);
- 	pstatus->rssi = rtlpriv->stats.signal_strength;
- 
- 	if (pstatus->is_cck)
+This is a small fixup to unify make the drivers use common helper
+functions for driver statistics.
+
+There are no functional changes since the first posting, except dropping
+patches already applied and addressing the comments by Joe Perches.
+
+Priit Laes (4):
+  rtlwifi: Use common rtl_evm_db_to_percentage
+  rtlwifi: Use common rtl_signal_scale_mapping
+  rtlwifi: Rename rtl_translate_todbm to rtl_signalpower_todbm
+  rtlwifi: Use common rtl_query_rxpwrpercentage function
+
+ drivers/net/wireless/rtlwifi/rtl8188ee/trx.c |  8 ++--
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c | 70 ++--------------------------
+ drivers/net/wireless/rtlwifi/rtl8192cu/mac.c | 67 +++-----------------------
+ drivers/net/wireless/rtlwifi/rtl8192de/trx.c | 68 ++++-----------------------
+ drivers/net/wireless/rtlwifi/rtl8192ee/trx.c |  8 ++--
+ drivers/net/wireless/rtlwifi/rtl8192se/trx.c |  8 ++--
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c |  8 ++--
+ drivers/net/wireless/rtlwifi/rtl8723be/trx.c |  8 ++--
+ drivers/net/wireless/rtlwifi/rtl8821ae/trx.c |  8 ++--
+ drivers/net/wireless/rtlwifi/stats.c         | 27 +++++------
+ drivers/net/wireless/rtlwifi/stats.h         |  2 +-
+ 11 files changed, 55 insertions(+), 227 deletions(-)
+
 -- 
 2.3.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
