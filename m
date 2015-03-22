@@ -1,32 +1,37 @@
-From: THEEDE Jason <jtheede@iom.int>
-Subject: (unknown)
-Date: Sun, 22 Mar 2015 21:36:54 +0000
-Message-ID: <D38666C839DC944BBF9E179BD119A03134F5998C@MNLEXMBX02.as.iom.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/18] net: dsa: mv88e6xxx: Add Hardware bridging
+ support
+Date: Sun, 22 Mar 2015 18:24:07 -0400 (EDT)
+Message-ID: <20150322.182407.1915654260904903040.davem@davemloft.net>
+References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
+	<1426952815-4642-9-git-send-email-linux@roeck-us.net>
+	<20150322200600.GD15025@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mnlmailgw.iom.int ([202.173.4.102]:49822 "EHLO
-	mnlsmtpgw02.iom.int" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751854AbbCVWJa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 18:09:30 -0400
-Subject: 
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@roeck-us.net, netdev@vger.kernel.org, f.fainelli@gmail.com,
+	linux-kernel@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150322200600.GD15025@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sun, 22 Mar 2015 21:06:00 +0100
 
+> Hi Guenter
+> 
+>> +static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, int fid, u16 cmd)
+>> +{
+>> +	int ret;
+>> +
+>> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x01, fid);
+>> +	if (ret < 0)
+>> +		return ret;
+> 
+> Please could you check this. I think register 0x01 here is wrong. I
+> think you want 0x0b, the ATU Operations register?
 
-
-Compliments of the day,
-
-Are you a business man or woman? Do you need funds to start up your own business? Do you need loan to settle your debt or pay off your bills or start a nice business? Do you need funds to finance your project? We Offers guaranteed loan services of any amount and to any part of the world for (Individuals, Companies, Realtor and Corporate Bodies) at our superb interest rate of 3%. For application and more information send replies to the following E-mail address: 
-unileverfinance001@hotmail.com
-
-Thanks, 
-Mr. Johnson Magma
-
-=================
-
-The information contained in this electronic message and any attachments are intended for specific individuals or entities, and may be confidential, proprietary or privileged. If you are not the intended recipient, please notify the sender immediately, delete this message and do not disclose, distribute or copy it to any third party or otherwise use this message. The content of this message does not necessarily reflect the official position of the International Organization for Migration (IOM) unless specifically stated. Electronic messages are not secure or error free and may contain viruses or may be delayed, and the sender is not liable for any of these occurrences.
+Just want to mention that register mnenomics would have made this
+bug more obvious :-)
