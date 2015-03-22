@@ -1,53 +1,51 @@
-From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v9 tip 5/9] tracing: allow BPF programs to call
- bpf_trace_printk()
-Date: Sun, 22 Mar 2015 12:10:40 +0100
-Message-ID: <20150322111040.GA18695@gmail.com>
-References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
- <1426894210-27441-6-git-send-email-ast@plumgrid.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: arp_hash
+Date: Sun, 22 Mar 2015 22:42:04 +1100
+Message-ID: <20150322114204.GA5010@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Roland Dreier <roland@purestorage.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:36252 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbbCVLmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 07:42:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1426894210-27441-6-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Dave:
 
-* Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+While googling I found the 2011 discussion on changing the arp_hash
+function.  I must say that I'm not really impressed by the new
+function that replaced jhash :)
 
-> +static const struct bpf_func_proto bpf_trace_printk_proto = {
-> +	.func = bpf_trace_printk,
-> +	.gpl_only = true,
-> +	.ret_type = RET_INTEGER,
-> +	.arg1_type = ARG_PTR_TO_STACK,
-> +	.arg2_type = ARG_CONST_STACK_SIZE,
-> +};
+	u32 key = *(const u32 *)pkey;
+	u32 val = key ^ hash32_ptr(dev);
 
-A nit, please align such initializations vertically, for more 
-readability:
+	return val * hash_rnd[0];
 
-static const struct bpf_func_proto bpf_trace_printk_proto = {
-	.func		= bpf_trace_printk,
-	.gpl_only	= true,
-	.ret_type	= RET_INTEGER,
-	.arg1_type	= ARG_PTR_TO_STACK,
-	.arg2_type	= ARG_CONST_STACK_SIZE,
-};
+Here pkey is the IP address (controllable by the attacker).  It
+gets xored with the device pointer hash, which on x86-64 looks
+like (0xffffffff ^ ptr) where ptr is a 32-bit value.  As ptr
+must be aligned to at least 8 bytes (I think 16 is probably required
+but I haven't checked), that means the bottom three bits of ptr
+are 000 and hence the bottom three bits of hash32_ptr(dev) are
+always 111.
 
-(this applies to other patches as well.)
+So the attacker just has to use only addresses with the bottom
+3 bits set to 111 and voila, the bottom three bits of val are
+always 000.  So you've just cut down your search space by a factor
+of 8.  If my assumption above of the 16-byte alignment is correct
+then you can cut it down by a factor of 16.
 
-Thanks,
+If the attacker can somehow get the pointer value of the device
+then all is lost since they could set any number of the low bits
+of val to zero.
 
-	Ingo
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
