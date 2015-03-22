@@ -1,161 +1,152 @@
 From: anuradhak@cumulusnetworks.com
-Subject: [PATCH iproute2 v2 3/3] ip link: Config and display IFF_PROTO_DOWN flag.
-Date: Sat, 21 Mar 2015 21:06:58 -0700
-Message-ID: <1426997218-27313-4-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: [PATCH net-next v2 2/3] virtio net: Handle proto_down state by setting the carrier off.
+Date: Sat, 21 Mar 2015 21:06:57 -0700
+Message-ID: <1426997218-27313-3-git-send-email-anuradhak@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
 	anuradhak@cumulusnetworks.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34491 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751441AbbCVEHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 00:07:10 -0400
-Received: by pacwe9 with SMTP id we9so152875881pac.1
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 21:07:09 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:32784 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbbCVEHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 00:07:09 -0400
+Received: by pabxg6 with SMTP id xg6so140055924pab.0
+        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 21:07:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-This patch adds support to set and disaplay the IFF_PROTO_DOWN flag. One
-example user space application setting this flag is a multi-chassis LAG
-application to handle split-brain situation on peer-link failure.
-
-Example:
-root@net-next:~# ip link set eth0 protodown on
-root@net-next:~# ip link show eth0
-3: eth0: <NO-CARRIER,BROADCAST,MULTICAST,UP,PROTO_DOWN> mtu 1500 qdisc pfifo_fas
-t state DOWN mode DEFAULT group default qlen 1000
-    link/ether 00:01:00:00:06:ee brd ff:ff:ff:ff:ff:ff
-root@net-next:~# ip link set eth0 protodown off
-root@net-next:~# ip link show eth0
-3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mo
-de DEFAULT group default qlen 1000
-    link/ether 00:01:00:00:06:ee brd ff:ff:ff:ff:ff:ff
-root@net-next:~#
+Applications such as MLAG can detect errors in the network which results
+in IFF_PROTO_DOWN being set. This patch adds support for handling
+proto_down for virtio drivers by turning off the carrier and stopping
+netif processing.
 
 Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 ---
- include/linux/if.h    |    4 ++++
- ip/ipaddress.c        |    1 +
- ip/iplink.c           |   19 +++++++++++++++++++
- man/man8/ip-link.8.in |    8 ++++++++
- 4 files changed, 32 insertions(+)
+ drivers/net/virtio_net.c |   78 +++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 74 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index a55a9e0..8018883 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -66,6 +66,8 @@
-  * @IFF_LOWER_UP: driver signals L1 up. Volatile.
-  * @IFF_DORMANT: driver signals dormant. Volatile.
-  * @IFF_ECHO: echo sent packets. Volatile.
-+ * @IFF_PROTO_DOWN: protocol is down on the interface. Can be toggeled
-+ *	through sysfs.
-  */
- enum net_device_flags {
- 	IFF_UP				= 1<<0,  /* sysfs */
-@@ -87,6 +89,7 @@ enum net_device_flags {
- 	IFF_LOWER_UP			= 1<<16, /* __volatile__ */
- 	IFF_DORMANT			= 1<<17, /* __volatile__ */
- 	IFF_ECHO			= 1<<18, /* __volatile__ */
-+	IFF_PROTO_DOWN			= 1<<19, /* sysfs */
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f1ff366..e396bf4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -767,6 +767,15 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
+ 	return received;
+ }
+ 
++static inline bool is_virtnet_up(struct virtnet_info *vi)
++{
++	if ((vi->status & VIRTIO_NET_S_LINK_UP) &&
++	    !(vi->dev->flags & IFF_PROTO_DOWN))
++		return true;
++
++	return false;
++}
++
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ /* must be called with local_bh_disable()d */
+ static int virtnet_busy_poll(struct napi_struct *napi)
+@@ -776,7 +785,7 @@ static int virtnet_busy_poll(struct napi_struct *napi)
+ 	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	int r, received = 0, budget = 4;
+ 
+-	if (!(vi->status & VIRTIO_NET_S_LINK_UP))
++	if (!is_virtnet_up(vi))
+ 		return LL_FLUSH_FAILED;
+ 
+ 	if (!napi_schedule_prep(napi))
+@@ -1428,7 +1437,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
+ 
+ 	vi->status = v;
+ 
+-	if (vi->status & VIRTIO_NET_S_LINK_UP) {
++	if (is_virtnet_up(vi)) {
+ 		netif_carrier_on(vi->dev);
+ 		netif_tx_wake_all_queues(vi->dev);
+ 	} else {
+@@ -1878,7 +1887,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		schedule_work(&vi->config_work);
+ 	} else {
+ 		vi->status = VIRTIO_NET_S_LINK_UP;
+-		netif_carrier_on(dev);
++		if (is_virtnet_up(vi))
++			netif_carrier_on(dev);
+ 	}
+ 
+ 	pr_debug("virtnet: registered device %s with %d RX and TX vq's\n",
+@@ -2027,7 +2037,67 @@ static struct virtio_driver virtio_net_driver = {
+ #endif
  };
  
- #define IFF_UP				IFF_UP
-@@ -108,6 +111,7 @@ enum net_device_flags {
- #define IFF_LOWER_UP			IFF_LOWER_UP
- #define IFF_DORMANT			IFF_DORMANT
- #define IFF_ECHO			IFF_ECHO
-+#define IFF_PROTO_DOWN			IFF_PROTO_DOWN
- 
- #define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
- 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 99a6ab5..bd58846 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -119,6 +119,7 @@ static void print_link_flags(FILE *fp, unsigned flags, unsigned mdown)
- 	_PF(LOWER_UP);
- 	_PF(DORMANT);
- 	_PF(ECHO);
-+	_PF(PROTO_DOWN);
- #undef _PF
- 	if (flags)
- 		fprintf(fp, "%x", flags);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 5893ee4..283a290 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -64,6 +64,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                  [ multicast { on | off } ]\n");
- 	fprintf(stderr, "	                  [ allmulticast { on | off } ]\n");
- 	fprintf(stderr, "	                  [ promisc { on | off } ]\n");
-+	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
- 	fprintf(stderr, "	                  [ trailers { on | off } ]\n");
- 	fprintf(stderr, "	                  [ txqueuelen PACKETS ]\n");
- 	fprintf(stderr, "	                  [ name NEWNAME ]\n");
-@@ -494,6 +495,15 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				req->i.ifi_flags |= IFF_NOARP;
- 			} else
- 				return on_off("noarp", *argv);
-+		} else if (strcmp(*argv, "protodown") == 0) {
-+			NEXT_ARG();
-+			req->i.ifi_change |= IFF_PROTO_DOWN;
-+			if (strcmp(*argv, "on") == 0) {
-+				req->i.ifi_flags |= IFF_PROTO_DOWN;
-+			} else if (strcmp(*argv, "off") == 0) {
-+				req->i.ifi_flags &= ~IFF_PROTO_DOWN;
-+			} else
-+				return on_off("protodown", *argv);
- 		} else if (strcmp(*argv, "vf") == 0) {
- 			struct rtattr *vflist;
- 			NEXT_ARG();
-@@ -1076,6 +1086,15 @@ static int do_set(int argc, char **argv)
- 				flags |= IFF_NOARP;
- 			} else
- 				return on_off("noarp", *argv);
-+		} else if (strcmp(*argv, "protodown") == 0) {
-+			NEXT_ARG();
-+			mask |= IFF_PROTO_DOWN;
-+			if (strcmp(*argv, "on") == 0) {
-+				flags |= IFF_PROTO_DOWN;
-+			} else if (strcmp(*argv, "off") == 0) {
-+				flags &= ~IFF_PROTO_DOWN;
-+			} else
-+				return on_off("protodown", *argv);
- 		} else if (matches(*argv, "dynamic") == 0) {
- 			NEXT_ARG();
- 			mask |= IFF_DYNAMIC;
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 9bbf2d3..529e217 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -93,6 +93,8 @@ ip-link \- network device configuration
- .br
- .BR multicast " { " on " | " off " } |"
- .br
-+.BR protodown " { " on " | " off " } |"
-+.br
- .B  txqueuelen
- .IR PACKETS " |"
- .br
-@@ -622,6 +624,12 @@ change the
- flag on the device.
- 
- .TP
-+.BR "protodown on " or " protodown off"
-+change the
-+.B PROTODOWN
-+flag on the device.
+-module_virtio_driver(virtio_net_driver);
++/* virtio_netdev_event: handle netdev notifier chain events. */
++static int virtio_netdev_event(struct notifier_block *this,
++			       unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct virtnet_info *vi;
 +
-+.TP
- .BR "dynamic on " or " dynamic off"
- change the
- .B DYNAMIC
++	if (dev->netdev_ops != &virtnet_netdev)
++		return NOTIFY_DONE;
++
++	vi = netdev_priv(dev);
++
++	switch (event) {
++	case NETDEV_CHANGE:
++		/* carrier state needs to be updated based on changes to
++		 * proto_down state
++		 */
++		if (is_virtnet_up(vi)) {
++			if (!netif_carrier_ok(dev)) {
++				netif_carrier_on(dev);
++				netif_tx_wake_all_queues(vi->dev);
++			}
++		} else {
++			if (netif_carrier_ok(dev)) {
++				netif_carrier_off(dev);
++				netif_tx_stop_all_queues(dev);
++			}
++		}
++		break;
++	default:
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block virtio_netdev_notifier = {
++	.notifier_call = virtio_netdev_event,
++};
++
++static int __init init(void)
++{
++	int ret;
++
++	ret = register_virtio_driver(&virtio_net_driver);
++	if (ret)
++		goto done;
++
++	register_netdevice_notifier(&virtio_netdev_notifier);
++
++done:
++	return ret;
++}
++module_init(init);
++
++static void __exit fini(void)
++{
++	unregister_netdevice_notifier(&virtio_netdev_notifier);
++	unregister_virtio_driver(&virtio_net_driver);
++}
++module_exit(fini);
+ 
+ MODULE_DEVICE_TABLE(virtio, id_table);
+ MODULE_DESCRIPTION("Virtio network driver");
 -- 
 1.7.10.4
