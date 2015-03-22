@@ -1,42 +1,53 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v2 PATCH 2/10] rhashtable: Eliminate unnecessary branch in
- rht_key_hashfn
-Date: Sun, 22 Mar 2015 11:07:55 +0000
-Message-ID: <20150322110755.GC1185@casper.infradead.org>
-References: <20150322080330.GA3416@gondor.apana.org.au>
- <E1YZarY-0000ur-2v@gondolin.me.apana.org.au>
+From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v9 tip 5/9] tracing: allow BPF programs to call
+ bpf_trace_printk()
+Date: Sun, 22 Mar 2015 12:10:40 +0100
+Message-ID: <20150322111040.GA18695@gmail.com>
+References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
+ <1426894210-27441-6-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50020 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbbCVLH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 07:07:57 -0400
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <E1YZarY-0000ur-2v@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1426894210-27441-6-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/22/15 at 07:04pm, Herbert Xu wrote:
-> When rht_key_hashfn is called from rhashtable itself and params
-> is equal to ht->p, there is no point in checking params.key_len
-> and falling back to ht->p.key_len.
-> 
-> For some reason gcc couldn't figure out that params is the same
-> as ht->p.  So let's help it by only checking params.key_len when
-> it's a constant.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-A comment to document this gcc hack would be nice as it's not
-obvious from just reading the code. Shouldn't hold up this series
-though.
+* Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+> +static const struct bpf_func_proto bpf_trace_printk_proto = {
+> +	.func = bpf_trace_printk,
+> +	.gpl_only = true,
+> +	.ret_type = RET_INTEGER,
+> +	.arg1_type = ARG_PTR_TO_STACK,
+> +	.arg2_type = ARG_CONST_STACK_SIZE,
+> +};
+
+A nit, please align such initializations vertically, for more 
+readability:
+
+static const struct bpf_func_proto bpf_trace_printk_proto = {
+	.func		= bpf_trace_printk,
+	.gpl_only	= true,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_STACK,
+	.arg2_type	= ARG_CONST_STACK_SIZE,
+};
+
+(this applies to other patches as well.)
+
+Thanks,
+
+	Ingo
