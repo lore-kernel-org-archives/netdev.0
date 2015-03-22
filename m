@@ -1,115 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v2 1/5] mpls: Use definition for reserved label checks
-Date: Sun, 22 Mar 2015 14:09:44 -0500
-Message-ID: <87sicwalxj.fsf@x220.int.ebiederm.org>
-References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-2-git-send-email-rshearma@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 6/7] can: flexcan: fix bus-off error state handling.
+Date: Sun, 22 Mar 2015 20:13:37 +0100
+Message-ID: <1427051618-28318-7-git-send-email-mkl@pengutronix.de>
+References: <1427051618-28318-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, Andri Yngvason <andri.yngvason@marel.com>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:38609 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905AbbCVTNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 15:13:34 -0400
-In-Reply-To: <1426866170-28739-2-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Fri, 20 Mar 2015 15:42:46 +0000")
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:38561 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751997AbbCVTNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 15:13:47 -0400
+In-Reply-To: <1427051618-28318-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+From: Andri Yngvason <andri.yngvason@marel.com>
 
-> In multiple locations there are checks for whether the label in hand
-> is a reserved label or not using the arbritray value of 16. Factor
-> this out into a #define for better maintainability and for
-> documentation.
+Making sure that the bus-off state gets passed to can_change_state().
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Andri Yngvason <andri.yngvason@marel.com>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/flexcan.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
->  net/mpls/af_mpls.c  | 20 ++++++++++----------
->  net/mpls/internal.h |  1 +
->  2 files changed, 11 insertions(+), 10 deletions(-)
->
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index db8a2ea..0d6763a 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -276,7 +276,7 @@ static void mpls_notify_route(struct net *net, unsigned index,
->  	struct mpls_route *rt = new ? new : old;
->  	unsigned nlm_flags = (old && new) ? NLM_F_REPLACE : 0;
->  	/* Ignore reserved labels for now */
-> -	if (rt && (index >= 16))
-> +	if (rt && (index >= LABEL_FIRST_UNRESERVED))
->  		rtmsg_lfib(event, index, rt, nlh, net, portid, nlm_flags);
->  }
->  
-> @@ -310,7 +310,7 @@ static unsigned find_free_label(struct net *net)
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
->  	platform_labels = net->mpls.platform_labels;
-> -	for (index = 16; index < platform_labels; index++) {
-> +	for (index = LABEL_FIRST_UNRESERVED; index < platform_labels; index++) {
->  		if (!rtnl_dereference(platform_label[index]))
->  			return index;
->  	}
-> @@ -335,8 +335,8 @@ static int mpls_route_add(struct mpls_route_config *cfg)
->  		index = find_free_label(net);
->  	}
->  
-> -	/* The first 16 labels are reserved, and may not be set */
-> -	if (index < 16)
-> +	/* Reserved labels may not be set */
-> +	if (index < LABEL_FIRST_UNRESERVED)
->  		goto errout;
->  
->  	/* The full 20 bit range may not be supported. */
-> @@ -413,8 +413,8 @@ static int mpls_route_del(struct mpls_route_config *cfg)
->  
->  	index = cfg->rc_label;
->  
-> -	/* The first 16 labels are reserved, and may not be removed */
-> -	if (index < 16)
-> +	/* Reserved labels may not be removed */
-> +	if (index < LABEL_FIRST_UNRESERVED)
->  		goto errout;
->  
->  	/* The full 20 bit range may not be supported */
-> @@ -610,8 +610,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
->  					   &cfg->rc_label))
->  				goto errout;
->  
-> -			/* The first 16 labels are reserved, and may not be set */
-> -			if (cfg->rc_label < 16)
-> +			/* Reserved labels may not be set */
-> +			if (cfg->rc_label < LABEL_FIRST_UNRESERVED)
->  				goto errout;
->  
->  			break;
-> @@ -736,8 +736,8 @@ static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
->  	ASSERT_RTNL();
->  
->  	index = cb->args[0];
-> -	if (index < 16)
-> -		index = 16;
-> +	if (index < LABEL_FIRST_UNRESERVED)
-> +		index = LABEL_FIRST_UNRESERVED;
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
->  	platform_labels = net->mpls.platform_labels;
-> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-> index fb6de92..5732283 100644
-> --- a/net/mpls/internal.h
-> +++ b/net/mpls/internal.h
-> @@ -9,6 +9,7 @@
->  #define LABEL_GAL			13 /* RFC5586 */
->  #define LABEL_OAM_ALERT			14 /* RFC3429 */
->  #define LABEL_EXTENSION			15 /* RFC7274 */
-> +#define LABEL_FIRST_UNRESERVED		16 /* RFC3032 */
->  
->  
->  struct mpls_shim_hdr {
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index 80c46ad4cee4..ee944ae6bb96 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -592,13 +592,12 @@ static int flexcan_poll_state(struct net_device *dev, u32 reg_esr)
+ 		rx_state = unlikely(reg_esr & FLEXCAN_ESR_RX_WRN) ?
+ 			   CAN_STATE_ERROR_WARNING : CAN_STATE_ERROR_ACTIVE;
+ 		new_state = max(tx_state, rx_state);
+-	} else if (unlikely(flt == FLEXCAN_ESR_FLT_CONF_PASSIVE)) {
++	} else {
+ 		__flexcan_get_berr_counter(dev, &bec);
+-		new_state = CAN_STATE_ERROR_PASSIVE;
++		new_state = flt == FLEXCAN_ESR_FLT_CONF_PASSIVE ?
++			    CAN_STATE_ERROR_PASSIVE : CAN_STATE_BUS_OFF;
+ 		rx_state = bec.rxerr >= bec.txerr ? new_state : 0;
+ 		tx_state = bec.rxerr <= bec.txerr ? new_state : 0;
+-	} else {
+-		new_state = CAN_STATE_BUS_OFF;
+ 	}
+ 
+ 	/* state hasn't changed */
+-- 
+2.1.4
