@@ -1,9 +1,11 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
-Date: Sun, 22 Mar 2015 12:17:55 +0000
-Message-ID: <20150322121755.GH1185@casper.infradead.org>
+Subject: Re: [v2 PATCH 3/10] rhashtable: Allow hashfn to be unset
+Date: Sun, 22 Mar 2015 12:32:57 +0000
+Message-ID: <20150322123257.GI1185@casper.infradead.org>
 References: <20150322080330.GA3416@gondor.apana.org.au>
- <E1YZard-0000wE-Se@gondolin.me.apana.org.au>
+ <E1YZarZ-0000v8-7e@gondolin.me.apana.org.au>
+ <20150322115505.GD1185@casper.infradead.org>
+ <20150322120415.GA5238@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -14,55 +16,67 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50259 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:50304 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669AbbCVMR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 08:17:57 -0400
+	with ESMTP id S1751454AbbCVMc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 08:32:59 -0400
 Content-Disposition: inline
-In-Reply-To: <E1YZard-0000wE-Se@gondolin.me.apana.org.au>
+In-Reply-To: <20150322120415.GA5238@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/22/15 at 07:04pm, Herbert Xu wrote:
-> Automatic shrinking is dangerous because it provides an easy
-> way for an adversary to cause us to do unnecessary work.  Thus
-> making the resizable hashtable a poor data structure.
+On 03/22/15 at 11:04pm, Herbert Xu wrote:
+> On Sun, Mar 22, 2015 at 11:55:05AM +0000, Thomas Graf wrote:
+> > On 03/22/15 at 07:04pm, Herbert Xu wrote:
+> > > @@ -134,6 +136,7 @@ struct rhashtable {
+> > >  	struct bucket_table __rcu	*tbl;
+> > >  	atomic_t			nelems;
+> > >  	bool                            being_destroyed;
+> > > +	unsigned int			key_len;
+> > 
+> > Why is this needed? It looks like you're always initializing this
+> > with ht->p.key_len
 > 
-> This patch disables automatic shrinking but retains a manual
-> shrink function for those cases where insertions and removals
-> are overseen by a trusted entity, e.g., nft_hash.
+> It's ht->p.key_len/4 if we use jhash2.
 
-This is misleading. I agree that unconditional shrinking is dangerous.
-Shrinking was an optional feature disabled by default before. The
-inlining enabled it by default for all users. What is the benefit of
-requiring this logic outside of rhashtable over just adding a flag to
-enable shrinking at 30% utilization?
+Sure but why not just store key_len/4 in ht->p.key_len then if you
+opt in to jhash2() in rhashtable_init()?
 
-> The shrink function will now also shrink to fit rather than halve
-> the size of the table.
+> > > +	if (!__builtin_constant_p(params.key_len))
+> > > +		hash = ht->p.hashfn(key, ht->key_len, tbl->hash_rnd);
+> > 
+> > I don't understand this. It looks like you only consider
+> > params->key_len if it's constant.
+> 
+> If params->key_len is not constant, then params == ht->p.
 
-I like this part a lot
+I must be missing something obvious. Who guarantees that? I can see
+that's true for the current callers but what prevents anybody from
+using rhashtable_lookup_fast() with a key length not known at compile
+time and pass it as rhashtable_params?
 
->  int rhashtable_shrink(struct rhashtable *ht)
->  {
-> -	struct bucket_table *new_tbl, *old_tbl = rht_dereference(ht->tbl, ht);
-> +	unsigned size = roundup_pow_of_two(atomic_read(&ht->nelems) * 4 / 3);
+> > > +	else if (params.key_len) {
+> > > +		unsigned key_len = params.key_len;
+> > > +
+> > > +		if (params.hashfn)
+> > > +			hash = params.hashfn(key, key_len, tbl->hash_rnd);
+> > > +		else if (key_len & (sizeof(u32) - 1))
+> > > +			hash = jhash(key, key_len, tbl->hash_rnd);
+> > > +		else
+> > > +			hash = jhash2(key, key_len / sizeof(u32),
+> > > +				      tbl->hash_rnd);
+> > > +	} else {
+> > > +		unsigned key_len = ht->p.key_len;
+> > > +
+> > > +		if (params.hashfn)
+> > > +			hash = params.hashfn(key, key_len, tbl->hash_rnd);
+> > > +		else
+> > > +			hash = jhash(key, key_len, tbl->hash_rnd);
+> > 
+> > Why don't we opt-in to jhash2 in this case?
+> 
+> Because if key_len == 0 it means that key_len is not known at
+> compile-time.
 
-If rhashtable_shrink() is called near the 75% border it will cause an
-immediate expansion again. Maybe make this * 3 / 2 so we shrink near
-30% utilization as before?
-
-> +	struct bucket_table *new_tbl;
-> +	struct bucket_table *tbl;
-> +	int err;
->  
-> -	ASSERT_RHT_MUTEX(ht);
-> +	if (size < ht->p.min_size)
-> +		size = ht->p.min_size;
-
-We should only shrink if size < old_tbl->size
-
-> -	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2);
-> +	new_tbl = bucket_table_alloc(ht, size);
->  	if (new_tbl == NULL)
->  		return -ENOMEM;
+I still don't get this. Why do we fall back to jhash2() if
+params.key_len is set but not if only ht->p.key_len is set?
