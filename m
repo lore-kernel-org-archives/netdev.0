@@ -1,288 +1,50 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v2 4/5] mpls: Per-device enabling of packet forwarding
-Date: Sun, 22 Mar 2015 15:02:56 -0500
-Message-ID: <87iods7qbz.fsf@x220.int.ebiederm.org>
-References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-5-git-send-email-rshearma@brocade.com>
+From: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>
+Subject: Re: Bug in drivers/net/ethernet/freescale/fec_main.c,
+ TX is broken. In 4.0.0-rc3
+Date: Sun, 22 Mar 2015 23:08:01 +0300
+Message-ID: <8321261427054881@web25h.yandex.ru>
+References: <390621425930628@web28o.yandex.ru>
+ <3625951426018334@web26j.yandex.ru>
+ <BLUPR03MB373A446E2D97992CA7AAA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+ <726281426513068@web10o.yandex.ru>
+ <BLUPR03MB3739B9C6E14A106CCAEBA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
+ <994171426532944@web7m.yandex.ru>
+ <20150321205359.GM8656@n2100.arm.linux.org.uk>
+ <CAOMZO5BnPQTFoBRr4EGH24_yZZAY6NJmVFg4WeiJcTqrYqki5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:43673 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751748AbbCVUGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 16:06:46 -0400
-In-Reply-To: <1426866170-28739-5-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Fri, 20 Mar 2015 15:42:49 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="koi8-r"
+Content-Transfer-Encoding: base64
+Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Fabio Estevam <festevam@gmail.com>,
+ Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAOMZO5BnPQTFoBRr4EGH24_yZZAY6NJmVFg4WeiJcTqrYqki5A@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Robert Shearman <rshearma@brocade.com> writes:
-
-> An MPLS network is a single trust domain where the edges must be in
-> control of what labels make their way into the core. The simplest way
-> of ensuring for the edge device to always impose the labels, and not
-> allow forward labeled traffic from untrusted neighbours. This is
-> achieved by allowing a per-device configuration of whether MPLS
-> traffic received over that interface should be forwarded or not.
->
-> To be secure by default, MPLS is now intially disabled on all
-> interfaces (except the loopback) until explicitly enabled and no
-> global option is provided to change the default. Whilst this differs
-> from other protocols (e.g. IPv6), network operators are used to
-> explicitly enabling MPLS forwarding on interfaces, and with the number
-> of links to the MPLS core typically fairly low this doesn't present
-> too much of a burden on operators.
-
-Overall this patch looks like the correct direction to go.
-
-And a default disable is the right way to go for new features, that way
-even if the code is compiled in people don't get surprised by new
-behavior when they upgrade kernels.
-
-It would be very nice if the check for ARPHRD types was moved from
-mpls_route_add to mpls_add_dev.  Which would save memory and complexity
-when mpls is not supported on a network device type.
-
-Eric
-
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
-> ---
->  Documentation/networking/mpls-sysctl.txt |   9 +++
->  include/linux/netdevice.h                |   4 ++
->  net/mpls/af_mpls.c                       | 115 ++++++++++++++++++++++++++++++-
->  net/mpls/internal.h                      |   6 ++
->  4 files changed, 133 insertions(+), 1 deletion(-)
->
-> diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
-> index 639ddf0..f48772c 100644
-> --- a/Documentation/networking/mpls-sysctl.txt
-> +++ b/Documentation/networking/mpls-sysctl.txt
-> @@ -18,3 +18,12 @@ platform_labels - INTEGER
->  
->  	Possible values: 0 - 1048575
->  	Default: 0
-> +
-> +conf/<interface>/forwarding - BOOL
-> +	Forward packets received on this interface.
-> +
-> +	If disabled, packets will be discarded without further
-> +	processing.
-> +
-> +	0 - disabled (default)
-> +	not 0 - enabled
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 76951c5..ee4ca06 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -60,6 +60,7 @@ struct phy_device;
->  struct wireless_dev;
->  /* 802.15.4 specific */
->  struct wpan_dev;
-> +struct mpls_dev;
->  
->  void netdev_set_default_ethtool_ops(struct net_device *dev,
->  				    const struct ethtool_ops *ops);
-> @@ -1615,6 +1616,9 @@ struct net_device {
->  	void			*ax25_ptr;
->  	struct wireless_dev	*ieee80211_ptr;
->  	struct wpan_dev		*ieee802154_ptr;
-> +#if IS_ENABLED(CONFIG_MPLS_ROUTING)
-> +	struct mpls_dev __rcu	*mpls_ptr;
-> +#endif
->  
->  /*
->   * Cache lines mostly used on receive path (including eth_type_trans())
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index e3586a7..14c7e76 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -54,6 +54,11 @@ static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned index)
->  	return rt;
->  }
->  
-> +static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
-> +{
-> +	return rcu_dereference_rtnl(dev->mpls_ptr);
-> +}
-> +
->  static bool mpls_output_possible(const struct net_device *dev)
->  {
->  	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
-> @@ -137,6 +142,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->  	struct mpls_route *rt;
->  	struct mpls_entry_decoded dec;
->  	struct net_device *out_dev;
-> +	struct mpls_dev *mdev;
->  	unsigned int hh_len;
->  	unsigned int new_header_size;
->  	unsigned int mtu;
-> @@ -144,6 +150,10 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->  
->  	/* Careful this entire function runs inside of an rcu critical section */
->  
-> +	mdev = mpls_dev_get(dev);
-> +	if (!mdev || !mdev->fwd_enabled)
-> +		goto drop;
-> +
->  	if (skb->pkt_type != PACKET_HOST)
->  		goto drop;
->  
-> @@ -440,10 +450,96 @@ errout:
->  	return err;
->  }
->  
-> +#define MPLS_PERDEV_SYSCTL_OFFSET(field)	\
-> +	(&((struct mpls_dev *)0)->field)
-> +
-> +static const struct ctl_table mpls_dev_table[] = {
-> +	{
-> +		.procname	= "forwarding",
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +		.data		= MPLS_PERDEV_SYSCTL_OFFSET(fwd_enabled),
-> +	},
-> +	{ }
-> +};
-> +
-> +static int mpls_dev_sysctl_register(struct net_device *dev,
-> +				    struct mpls_dev *mdev)
-> +{
-> +	char path[sizeof("net/mpls/conf/") + IFNAMSIZ];
-> +	struct ctl_table *table;
-> +	int i;
-> +
-> +	table = kmemdup(&mpls_dev_table, sizeof(mpls_dev_table), GFP_KERNEL);
-> +	if (!table)
-> +		goto out;
-> +
-> +	/* Table data contains only offsets relative to the base of
-> +	 * the mdev at this point, so make them absolute.
-> +	 */
-> +	for (i = 0; i < ARRAY_SIZE(mpls_dev_table); i++)
-> +		table[i].data = (char *)mdev + (uintptr_t)table[i].data;
-> +
-> +	snprintf(path, sizeof(path), "net/mpls/conf/%s", dev->name);
-> +
-> +	mdev->sysctl = register_net_sysctl(dev_net(dev), path, table);
-> +	if (!mdev->sysctl)
-> +		goto free;
-> +
-> +	return 0;
-> +
-> +free:
-> +	kfree(table);
-> +out:
-> +	return -ENOBUFS;
-> +}
-> +
-> +static void mpls_dev_sysctl_unregister(struct mpls_dev *mdev)
-> +{
-> +	struct ctl_table *table;
-> +
-> +	table = mdev->sysctl->ctl_table_arg;
-> +	unregister_net_sysctl_table(mdev->sysctl);
-> +	kfree(table);
-> +}
-> +
-> +static struct mpls_dev *mpls_add_dev(struct net_device *dev)
-> +{
-> +	struct mpls_dev *mdev;
-> +	int err = -ENOMEM;
-> +
-> +	ASSERT_RTNL();
-> +
-> +	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
-> +	if (!mdev)
-> +		return ERR_PTR(err);
-> +
-> +	/* Enable MPLS by default on loopback devices, since this
-> +	 * doesn't represent a security boundary and is required for the
-> +	 * lookup of inner labels for LSPs terminating on this router.
-> +	 */
-> +	if (dev->flags & IFF_LOOPBACK)
-> +		mdev->fwd_enabled = 1;
-> +
-> +	err = mpls_dev_sysctl_register(dev, mdev);
-> +	if (err)
-> +		goto free;
-> +
-> +	rcu_assign_pointer(dev->mpls_ptr, mdev);
-> +
-> +	return mdev;
-> +
-> +free:
-> +	kfree(mdev);
-> +	return ERR_PTR(err);
-> +}
-> +
->  static void mpls_ifdown(struct net_device *dev)
->  {
->  	struct mpls_route __rcu **platform_label;
->  	struct net *net = dev_net(dev);
-> +	struct mpls_dev *mdev;
->  	unsigned index;
->  
->  	platform_label = rtnl_dereference(net->mpls.platform_label);
-> @@ -455,14 +551,31 @@ static void mpls_ifdown(struct net_device *dev)
->  			continue;
->  		rt->rt_dev = NULL;
->  	}
-> +
-> +	mdev = mpls_dev_get(dev);
-> +	if (!mdev)
-> +		return;
-> +
-> +	mpls_dev_sysctl_unregister(mdev);
-> +
-> +	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
-> +
-> +	kfree(mdev);
->  }
->  
->  static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
->  			   void *ptr)
->  {
->  	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-> +	struct mpls_dev *mdev;
->  
->  	switch(event) {
-> +	case NETDEV_REGISTER:
-> +		mdev = mpls_add_dev(dev);
-> +		if (IS_ERR(mdev))
-> +			return notifier_from_errno(PTR_ERR(mdev));
-> +		break;
-> +
->  	case NETDEV_UNREGISTER:
->  		mpls_ifdown(dev);
->  		break;
-> @@ -924,7 +1037,7 @@ static int mpls_platform_labels(struct ctl_table *table, int write,
->  	return ret;
->  }
->  
-> -static struct ctl_table mpls_table[] = {
-> +static const struct ctl_table mpls_table[] = {
->  	{
->  		.procname	= "platform_labels",
->  		.data		= NULL,
-> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-> index 5732283..e676a43 100644
-> --- a/net/mpls/internal.h
-> +++ b/net/mpls/internal.h
-> @@ -23,6 +23,12 @@ struct mpls_entry_decoded {
->  	u8 bos;
->  };
->  
-> +struct mpls_dev {
-> +	int			fwd_enabled;
-> +
-> +	struct ctl_table_header *sysctl;
-> +};
-> +
->  struct sk_buff;
->  
->  static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
+SGkhCgoyMi4wMy4yMDE1LCAwMTozNSwgIkZhYmlvIEVzdGV2YW0iIDxmZXN0ZXZhbUBnbWFpbC5j
+b20+Ogo+IEhpIFJ1c3NlbGwsCj4KPiBPbiBTYXQsIE1hciAyMSwgMjAxNSBhdCA1OjUzIFBNLCBS
+dXNzZWxsIEtpbmcgLSBBUk0gTGludXgKPiA8bGludXhAYXJtLmxpbnV4Lm9yZy51az4gd3JvdGU6
+Cj4+IJpHaXZlbiB0aGF0IHRoaXMgYnVnIGNhbiBzZXJpb3VzbHkgc2NyZXcgZGF0YSB1cCBpbiB1
+bmRldGVjdGFibGUgd2F5cyAoVENQCj4+IJpjaGVja3N1bXMgZG9uJ3Qgc2F2ZSB5b3UsIGJlY2F1
+c2UgdGhlIEZFQyBnZW5lcmF0ZXMgdGhlbSBvbiB0aGUgZGF0YSB3aGljaAo+PiCaaXQgcmVhZCBm
+cm9tIG1lbW9yeSwgZXZlbiBpZiBpdCBoYXBwZW5lZCB0byByZWFkIHRoZSBkYXRhIGZyb20gdGhl
+IFNvQydzCj4+IJpib290IFJPTSkgd2UgZG8gbmVlZCB0byBnZXQgdGhpcyBmaXhlZCBBU0FQLgo+
+Cj4gQ3VycmVudCBtYWlubGluZSBoYXMgMmI5OTVmNjM5ODcwMTMgcmV2ZXJ0ZWQsIHNvIDQuMC1y
+YzUgd2lsbCBub3QgaGF2ZQo+IHRoaXMgY29ycnVwdGlvbiBwcm9ibGVtLgoKSSd2ZSB0ZXN0ZWQg
+d2l0aCBjdXJyZW50IG1haW5saW5lIGFuZCB3aXRoIG1haW5saW5lKzJiOTk1ZjYzOTg3MDEzIGNv
+bW1pdCB3aXRoIFJ1c3NlbGwncwpmaXggYW5kIGl0IGJvdGggd29ya3MgZmluZSwgd2l0aG91dCBj
+b3JydXB0aW9uLgoKLS0KIOHOxNLFygoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtl
+cm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxt
+YW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
