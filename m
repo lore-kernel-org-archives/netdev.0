@@ -1,43 +1,45 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 08/18] net: dsa: mv88e6xxx: Add Hardware bridging support
-Date: Sun, 22 Mar 2015 15:45:35 -0700
-Message-ID: <550F460F.8060705@roeck-us.net>
-References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>	<1426952815-4642-9-git-send-email-linux@roeck-us.net>	<20150322200600.GD15025@lunn.ch> <20150322.182407.1915654260904903040.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: arp_hash
+Date: Mon, 23 Mar 2015 09:51:04 +1100
+Message-ID: <20150322225104.GA8853@gondor.apana.org.au>
+References: <20150322114204.GA5010@gondor.apana.org.au>
+ <1427028981.25985.48.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150322215612.GA8274@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150322.182407.1915654260904903040.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Roland Dreier <roland@purestorage.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:55880 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbbCVWvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 18:51:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20150322215612.GA8274@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/22/2015 03:24 PM, David Miller wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Sun, 22 Mar 2015 21:06:00 +0100
->
->> Hi Guenter
->>
->>> +static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, int fid, u16 cmd)
->>> +{
->>> +	int ret;
->>> +
->>> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x01, fid);
->>> +	if (ret < 0)
->>> +		return ret;
->>
->> Please could you check this. I think register 0x01 here is wrong. I
->> think you want 0x0b, the ATU Operations register?
->
-> Just want to mention that register mnenomics would have made this
-> bug more obvious :-)
->
+On Mon, Mar 23, 2015 at 08:56:12AM +1100, Herbert Xu wrote:
+> On Sun, Mar 22, 2015 at 05:56:21AM -0700, Eric Dumazet wrote:
+> > On Sun, 2015-03-22 at 22:42 +1100, Herbert Xu wrote:
+> > > 
+> > > While googling I found the 2011 discussion on changing the arp_hash
+> > > function.  I must say that I'm not really impressed by the new
+> > > function that replaced jhash :)
+> > > 
+> > > 	u32 key = *(const u32 *)pkey;
+> > > 	u32 val = key ^ hash32_ptr(dev);
+> > > 
+> > > 	return val * hash_rnd[0];
+> 
+> In fact this function is worse than I thought.  Because the IP
 
-Andrew is working on introducing those definitions, which is how he
-found the problem. It is not a bug per se, though, since the register
-definition changed across chip generations. The code works fine for
-the chips we tested it with (6171, 6172, and 6352).
+OK I'm wrong because net/core/neighbour.c uses only the high-order
+bits of the hash.
 
-Guenter
+Sorry for the noise.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
