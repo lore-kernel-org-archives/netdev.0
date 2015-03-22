@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] bonding work-queues, try_rtnl() &
- notifications
-Date: Sat, 21 Mar 2015 22:36:37 -0400 (EDT)
-Message-ID: <20150321.223637.2214520794734249959.davem@davemloft.net>
-References: <CAF2d9jhMz4Y1ye_ofkgvXyxUJEpNnLrFjMJhHQXKbf6MSS-OVg@mail.gmail.com>
-	<20150321.221631.908834228517236497.davem@davemloft.net>
-	<CANP3RGeVhFMSvToY7nTu06+eYyscJyHS=uEswnH9Wh=UNfMscQ@mail.gmail.com>
+From: Arnd Bergmann <arnd@linaro.org>
+Subject: Re: [PATCH net-next V2 20/23] ptp: dp83640: convert to the 64 bit get/set time methods.
+Date: Sun, 22 Mar 2015 03:36:31 +0100
+Message-ID: <201503220336.31836.arnd@linaro.org>
+References: <cover.1426973658.git.richardcochran@gmail.com> <55b6ec7c2e0c72a79762748981fad2ce2497f22d.1426973658.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: maheshb@google.com, j.vosburgh@gmail.com, andy@greyhouse.net,
-	vfalico@gmail.com, nikolay@redhat.com, netdev@vger.kernel.org,
-	edumazet@google.com
-To: maze@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42575 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751481AbbCVCgj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 22:36:39 -0400
-In-Reply-To: <CANP3RGeVhFMSvToY7nTu06+eYyscJyHS=uEswnH9Wh=UNfMscQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Stefan =?iso-8859-15?q?S=F8rensen?=
+	<stefan.sorensen@spectral
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55b6ec7c2e0c72a79762748981fad2ce2497f22d.1426973658.git.richardcochran@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Maciej =AFenczykowski <maze@google.com>
-Date: Sat, 21 Mar 2015 19:23:51 -0700
+On Saturday 21 March 2015, Richard Cochran wrote:
+>         mutex_lock(&clock->extreg_lock);
+>  
+> -       err = tdr_write(1, phydev, ts, PTP_LOAD_CLK);
+> +       err = tdr_write(1, phydev, &ts, PTP_LOAD_CLK);
+>  
+>         mutex_unlock(&clock->extreg_lock);
 
->> Someone has to do the work, and if the rtnl-owner does it we do not
->> incur all of the overhead the resubmission entails.
->=20
-> Are you suggesting:
-> - adding a global queue of (function pointer, long arg)
-> - changing rtnl_unlock to iterate through the queue calling
-> function(arg) before it actually releases the rtnl lock
-> ?
+I don't see the change to the tdr_write() function that changes the 
+argument from 'struct timespec ts' to 'struct timespec64 *', so this
+looks wrong to me.
 
-Something like that.
-
-> I guess at that point you could even have a generic method
->=20
-> void asynch_call_under_rtnl(function, arg) {
->   rtnl_callback_add_to_queue(function,arg)
->   if (rtnl_try_lock())
->     rtnl_unlock();
-> }
-
-Right.
+	Arnd
