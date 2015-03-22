@@ -1,28 +1,34 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/2] rhashtable: provide len to obj_hashfn
-Date: Sun, 22 Mar 2015 10:39:51 +0000
-Message-ID: <20150322103951.GA1185@casper.infradead.org>
-References: <1426952290-18962-1-git-send-email-kaber@trash.net>
- <1426952290-18962-2-git-send-email-kaber@trash.net>
+Subject: Re: [v2 PATCH 1/10] rhashtable: Add barrier to ensure we see new
+ tables in walker
+Date: Sun, 22 Mar 2015 10:47:43 +0000
+Message-ID: <20150322104743.GB1185@casper.infradead.org>
+References: <20150322080330.GA3416@gondor.apana.org.au>
+ <E1YZarW-0000uY-W0@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, davem@davemloft.net,
-	herbert@gondor.apana.org.au, netfilter-devel@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:49943 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539AbbCVKrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 06:47:45 -0400
 Content-Disposition: inline
-In-Reply-To: <1426952290-18962-2-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <E1YZarW-0000uY-W0@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/21/15 at 03:38pm, Patrick McHardy wrote:
-> nftables sets will be converted to use so called setextensions, moving
-> the key to a non-fixed position. To hash it, the obj_hashfn must be used,
-> however it so far doesn't receive the length parameter.
+On 03/22/15 at 07:03pm, Herbert Xu wrote:
+> The walker is a lockless reader so it too needs an smp_rmb before
+> reading the future_tbl field in order to see any new tables that
+> may contain elements that we should have walked over.
 > 
-> Pass the key length to obj_hashfn() and convert existing users.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Acked-by: Thomas Graf <tgraf@suug.ch>
