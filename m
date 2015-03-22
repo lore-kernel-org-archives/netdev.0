@@ -1,63 +1,79 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH v2 0/4] rtlwifi: Use common functions for driver stats
-Date: Sun, 22 Mar 2015 11:27:51 -0500
-Message-ID: <550EED87.8010008@lwfinger.net>
-References: <1427031320-10913-1-git-send-email-plaes@plaes.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link
+Date: Sun, 22 Mar 2015 09:54:54 -0700
+Message-ID: <1427043294.25985.52.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <201503210110.48980.wrosner@tirnet.de>
+	 <201503220912.39912.wrosner@tirnet.de>
+	 <1427020159.25985.43.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <201503221614.47994.wrosner@tirnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Joe Perches <joe@perches.com>
-To: Priit Laes <plaes@plaes.org>, Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Wolfgang Rosner <wrosner@tirnet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:34819 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751626AbbCVQ1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 12:27:54 -0400
-In-Reply-To: <1427031320-10913-1-git-send-email-plaes@plaes.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:36784 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671AbbCVQy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 12:54:57 -0400
+Received: by igbud6 with SMTP id ud6so24455398igb.1
+        for <netdev@vger.kernel.org>; Sun, 22 Mar 2015 09:54:56 -0700 (PDT)
+In-Reply-To: <201503221614.47994.wrosner@tirnet.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/22/2015 08:35 AM, Priit Laes wrote:
-> Hi all,
->
-> This is a small fixup to unify make the drivers use common helper
-> functions for driver statistics.
->
-> There are no functional changes since the first posting, except dropp=
-ing
-> patches already applied and addressing the comments by Joe Perches.
+On Sun, 2015-03-22 at 16:14 +0100, Wolfgang Rosner wrote:
 
-Are there patches that are required before these work? Applying these f=
-our=20
-results in the following build errors:
+> Agree. 
+> This is why I considered it as a bug.
+> 
+> But just a sideline, not my main problem.
+> And maybe it is even related to my build environment.
+> Or to the fact that I call it with full path. or whatever....
+> 
+> I don't know whether this repo you pointed me
+> https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/  
+> is a bleeding edge developer fork, that is expected to show such fluctuations, 
+> or a should-be-stable mainstream one, where such behaviur is not supposed to 
+> occur. 
+> 
+> So if for you, there is reason to worry on this issue, we can try to debug 
+> into it. Let me know, and give me instructions for tests, if required.
+> 
+> 
+> 
+> 
+> 
+> However, from my perspective, I'd prefer to return to my real problem:
+> 	"One way TCP bottleneck over 6 x Gbit tecl aggregated link"
+> 
+> If you got lost in the flood of netdev list (I just subscribed, and am really 
+> overwhelmed...), I don't mind to send you the info again and even remove the 
+> superfluous lines manually for you - see below.
+> 
+> Do these figure tell you a story?
+> Any hint where to look for a bottleneck?
+> Presumaly related to some per-TCP-connection ressource?
+> 
 
-drivers/net/wireless/rtlwifi/rtl8192de/trx.c: In function=20
-=91_rtl92de_query_rxphystatus=92:
-drivers/net/wireless/rtlwifi/rtl8192de/trx.c:132:3: error: implicit dec=
-laration=20
-of function =91rtl_query_rxpwrpercentage=92 [-Werror=3Dimplicit-functio=
-n-declaration]
-    pwdb_all =3D rtl_query_rxpwrpercentage(rx_pwr_all);
-    ^
-drivers/net/wireless/rtlwifi/rtl8192de/trx.c:192:4: error: implicit dec=
-laration=20
-of function =91rtl_evm_db_to_percentage=92 [-Werror=3Dimplicit-function=
--declaration]
-     evm =3D rtl_evm_db_to_percentage(p_drvinfo->rxevm[i]);
-     ^
-drivers/net/wireless/rtlwifi/rtl8192de/trx.c:204:4: error: implicit dec=
-laration=20
-of function =91rtl_signal_scale_mapping=92 [-Werror=3Dimplicit-function=
--declaration]
-     (u8)(rtl_signal_scale_mapping(pwdb_all));
-     ^
-cc1: some warnings being treated as errors
-scripts/Makefile.build:258: recipe for target=20
-'drivers/net/wireless/rtlwifi/rtl8192de/trx.o' failed
+I see nothing wrong but a single retransmit.
 
-I cannot find any patches that created common routines in rtlwifi.
 
-Larry
+You might be bitten by tcp_metric cache.
+
+check /proc/sys/net/ipv4/tcp_no_metrics_save
+
+(set it to 0, and flush tcp metric cache :
+
+echo 0 >/proc/sys/net/ipv4/tcp_no_metrics_save
+ip tcp_metrics flush
+
+
+Also, not clear why you use jumbo frames with 1Gbit NIC (do not do that,
+really), and it seems TSO is disabled on your NIC(s) ????
+
+
+for dev in eth0 eth1 eth2 eth3 ....
+do
+ ethtool -k $dev
+done
