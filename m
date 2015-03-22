@@ -1,100 +1,76 @@
-From: Bernhard Thaler <bernhard.thaler@wvnet.at>
-Subject: [RFC 1/1] bridge: relax BR_GROUPFWD_RESTRICTED to forward
-	LLDP frames
-Date: Sun, 22 Mar 2015 23:24:11 +0100
-Message-ID: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Bernhard Thaler <bernhard.thaler@wvnet.at>
-To: stephen@networkplumber.org,
-	davem@davemloft.net
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 08/18] net: dsa: mv88e6xxx: Add Hardware bridging support
+Date: Sun, 22 Mar 2015 15:39:20 -0700
+Message-ID: <550F4498.9040203@roeck-us.net>
+References: <1426952815-4642-1-git-send-email-linux@roeck-us.net> <1426952815-4642-9-git-send-email-linux@roeck-us.net> <20150322200600.GD15025@lunn.ch> <550F29FD.7050509@roeck-us.net> <20150322205957.GF15025@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150322205957.GF15025@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
-/sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
-some IEEE 802.1D Table 7-10 Reserved addresses:
+On 03/22/2015 01:59 PM, Andrew Lunn wrote:
+> On Sun, Mar 22, 2015 at 01:45:49PM -0700, Guenter Roeck wrote:
+>> On 03/22/2015 01:06 PM, Andrew Lunn wrote:
+>>> Hi Guenter
+>>>
+>>>> +static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, int fid, u16 cmd)
+>>>> +{
+>>>> +	int ret;
+>>>> +
+>>>> +	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x01, fid);
+>>>> +	if (ret < 0)
+>>>> +		return ret;
+>>>
+>>> Please could you check this. I think register 0x01 here is wrong. I
+>>> think you want 0x0b, the ATU Operations register?
+>>>
+>> The ATU operation is initiated below (and does write to register 0x0b).
+>> Register 0x01 is FID[11..0] for ATU, which is what we want to write here.
+>
+> http://lxr.free-electrons.com/source/drivers/net/dsa/mv88e6xxx.c#L156
+>
+> 156 int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
+> 157 {
+> 158         REG_WRITE(REG_GLOBAL, 0x01, (addr[0] << 8) | addr[1]);
+> 159         REG_WRITE(REG_GLOBAL, 0x02, (addr[2] << 8) | addr[3]);
+> 160         REG_WRITE(REG_GLOBAL, 0x03, (addr[4] << 8) | addr[5]);
+> 161
+> 162         return 0;
+> 163 }
+>
+> So maybe the meaning of these registers has changed between different
+> versions of the chips? Only 6131 uses mv88e6xxx_set_addr_direct, all
+> the others use indirect method. So maybe the 6131 is going to need
+> something different here in _mv88e6xxx_atu_cmd()?
+>
 
-	(MAC Control) 802.3		01-80-C2-00-00-01
-	(Link Aggregation) 802.3	01-80-C2-00-00-02
-	802.1AB LLDP			01-80-C2-00-00-0E
+Good catch. You are so right, the meaning of this register has changed.
 
-Relax BR_GROUPFWD_RESTRICTED to at least forward LLDP frames and document
-group_fwd_mask.
+a) 6165, 6171, 6172, 6176, 6240, 6532
+b) 6060, 6152, 6155, 6182, 6185
 
-e.g.
-   echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
-allows to forward LLDP frames.
+		(a)		(b)
+Global 0x01	ATU FID		Switch mac address bytes 0 & 1
+Global 0x0a	Age time	Age time, FID (DBNum) bit 4..7
+Global 0x0b	ATU cmd		ATU cmd, FID (DBNum) bit 0..3
+Global2 0x0d	Switch mac add	undefined / unused
 
-Tested on a simple bridge setup with two interfaces. Setting group_fwd_mask
-as described above lets crafted LLDP frames traverse bridge.
+I don't know about the 6095 and the 6131, but I assume those chips
+are similar to the the chips listed in (b) above.
 
-Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
----
-v1
-* this version only removes LLDP restriction from BR_GROUPFWD_RESTRICTED
-* adds documentation of /sys/class/net/brX/bridge/group_fwd_mask
+So the HW bridging code as written won't work for the switches in
+group (b), meaning I need to drop the related patches for now.
+Guess we need to wait for someone who can test the code with that chip
+before releasing it.
 
-(v0)
-* initial version "bridge: remove BR_GROUPFWD_RESTRICTED for arbitrary
-                   forwarding of reserved addresses"
+That also means that we'll have to move the list of switch IDs into
+mv88e6xxx.h to be able to use it where needed (such as in mv88e6xxx_atu_cmd).
 
- Documentation/ABI/testing/sysfs-class-net |   19 +++++++++++++++++++
- net/bridge/br_private.h                   |    4 ++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
-index 5ecfd72..668604f 100644
---- a/Documentation/ABI/testing/sysfs-class-net
-+++ b/Documentation/ABI/testing/sysfs-class-net
-@@ -39,6 +39,25 @@ Description:
- 		Format is a string, e.g: 00:11:22:33:44:55 for an Ethernet MAC
- 		address.
- 
-+What:		/sys/class/net/<bridge iface>/bridge/group_fwd_mask
-+Date:		January 2012
-+KernelVersion:	3.2
-+Contact:	netdev@vger.kernel.org
-+Description:
-+		Bitmask to allow forwarding of link local frames with address
-+		01-80-C2-00-00-0X on a bridge device. Only values that set bits
-+		not matching BR_GROUPFWD_RESTRICTED in net/bridge/br_private.h
-+		allowed.
-+		Default value 0 does not forward any link local frames.
-+
-+		Restricted bits:
-+		0: 01-80-C2-00-00-00 Bridge Group Address used for STP
-+		1: 01-80-C2-00-00-01 (MAC Control) 802.3 used for MAC PAUSE
-+		2: 01-80-C2-00-00-02 (Link Aggregation) 802.3ad
-+
-+		Any values not setting these bits can be used. Take special
-+		care when forwarding control frames e.g. 802.1X-PAE or LLDP.
-+
- What:		/sys/class/net/<iface>/broadcast
- Date:		April 2005
- KernelVersion:	2.6.12
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b46fa0c..ef8ef3f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -33,8 +33,8 @@
- 
- /* Control of forwarding link local multicast */
- #define BR_GROUPFWD_DEFAULT	0
--/* Don't allow forwarding control protocols like STP and LLDP */
--#define BR_GROUPFWD_RESTRICTED	0x4007u
-+/* Don't allow forwarding of control protocols like STP, MAC PAUSE and LACP */
-+#define BR_GROUPFWD_RESTRICTED	0x0007u
- /* The Nearest Customer Bridge Group Address, 01-80-C2-00-00-[00,0B,0C,0D,0F] */
- #define BR_GROUPFWD_8021AD	0xB801u
- 
--- 
-1.7.10.4
+Guenter
