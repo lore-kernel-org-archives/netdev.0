@@ -1,57 +1,31 @@
-From: Arnd Bergmann <arnd@linaro.org>
-Subject: Re: [PATCH net-next V2 04/23] ptp: blackfin: convert to the 64 bit get/set time methods.
-Date: Sun, 22 Mar 2015 03:28:46 +0100
-Message-ID: <201503220328.46415.arnd@linaro.org>
-References: <cover.1426973658.git.richardcochran@gmail.com> <d60e40f5c008cf85a764f958d5b692f167cd05ba.1426973658.git.richardcochran@gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 0/18] net: dsa: HW bridging, EEE support
+Date: Sat, 21 Mar 2015 19:31:19 -0700
+Message-ID: <550E2977.3070500@roeck-us.net>
+References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>	<20150321.184817.575148530596089433.davem@davemloft.net>	<550DFADE.1080209@roeck-us.net> <20150321.221450.2007372852150941507.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Stefan =?iso-8859-15?q?S=F8rensen?=
-	<stefan.sorensen@spectral
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:56778 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751468AbbCVC36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 22:29:58 -0400
-In-Reply-To: <d60e40f5c008cf85a764f958d5b692f167cd05ba.1426973658.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150321.221450.2007372852150941507.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 21 March 2015, Richard Cochran wrote:
-> -static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-> +static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
->  {
->         u64 ns;
->         u32 remainder;
+On 03/21/2015 07:14 PM, David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Sat, 21 Mar 2015 16:12:30 -0700
+>
+>> Yes, agreed. It is on the to-do list. Should we be more aggressive ?
+>> Since I'll have to resubmit anyway, we could start by adding defines
+>> for all constants used in this patch set, not just some of them.
+>
+> As long as you'll really take care of this afterwards, you can take
+> care of the defines after this series is integrated.
+>
+Definitely. But I agree with Andrew, I would prefer to do it
+after this and Andrew's next set of patches has been accepted.
 
-I think it would be good to replace the open-coded 
-
-        ns = ts->tv_sec * 1000000000ULL;
-        ns += ts->tv_nsec;
-
-here with a call to ns_to_timespec64(), here and in other drivers that you
-are already touching.
-
-	Arnd
+Guenter
