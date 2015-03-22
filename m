@@ -1,127 +1,81 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v2 3/5] mpls: Differentiate implicit-null and unlabeled neighbours
-Date: Sun, 22 Mar 2015 16:06:01 -0500
-Message-ID: <87h9tc4u9y.fsf@x220.int.ebiederm.org>
-References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
-	<1426866170-28739-4-git-send-email-rshearma@brocade.com>
-	<87fv8w95ir.fsf@x220.int.ebiederm.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v2 PATCH 3/10] rhashtable: Allow hashfn to be unset
+Date: Mon, 23 Mar 2015 08:12:41 +1100
+Message-ID: <20150322211241.GA7925@gondor.apana.org.au>
+References: <20150322080330.GA3416@gondor.apana.org.au>
+ <E1YZarZ-0000v8-7e@gondolin.me.apana.org.au>
+ <20150322115505.GD1185@casper.infradead.org>
+ <20150322120415.GA5238@gondor.apana.org.au>
+ <20150322123257.GI1185@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47257 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751794AbbCVVJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 17:09:51 -0400
-In-Reply-To: <87fv8w95ir.fsf@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Sun, 22 Mar 2015 14:49:32 -0500")
+Received: from ringil.hengli.com.au ([178.18.16.133]:51992 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751794AbbCVVNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 17:13:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20150322123257.GI1185@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+On Sun, Mar 22, 2015 at 12:32:57PM +0000, Thomas Graf wrote:
+> On 03/22/15 at 11:04pm, Herbert Xu wrote:
+> > On Sun, Mar 22, 2015 at 11:55:05AM +0000, Thomas Graf wrote:
+> > > On 03/22/15 at 07:04pm, Herbert Xu wrote:
+> > > > @@ -134,6 +136,7 @@ struct rhashtable {
+> > > >  	struct bucket_table __rcu	*tbl;
+> > > >  	atomic_t			nelems;
+> > > >  	bool                            being_destroyed;
+> > > > +	unsigned int			key_len;
+> > > 
+> > > Why is this needed? It looks like you're always initializing this
+> > > with ht->p.key_len
+> > 
+> > It's ht->p.key_len/4 if we use jhash2.
+> 
+> Sure but why not just store key_len/4 in ht->p.key_len then if you
+> opt in to jhash2() in rhashtable_init()?
 
-> Robert Shearman <rshearma@brocade.com> writes:
->
->> The control plane can advertise labels for neighbours that don't have
->> an outgoing label. RFC 3032 s3.22 states that either the remaining
->> labels should be popped (if the control plane can determine that it's
->> safe to do so, which in light of MPLS-VPN, RFC 4364, is never the case
->> now) or that the packet should be discarded.
->
-> I can not figure out what you are referring to.  There is no section 3.2
-> in RFC3022.
+Because that breaks rhashtable_compare/memcmp.
 
-I have found it.  That is is RFC3021 Section 3.22.  This is something
-the code already does.  If the label can not be looked up with
-mpls_route_input_rcu the packet is dropped.
+> 
+> > > > +	if (!__builtin_constant_p(params.key_len))
+> > > > +		hash = ht->p.hashfn(key, ht->key_len, tbl->hash_rnd);
+> > > 
+> > > I don't understand this. It looks like you only consider
+> > > params->key_len if it's constant.
+> > 
+> > If params->key_len is not constant, then params == ht->p.
+> 
+> I must be missing something obvious. Who guarantees that? I can see
+> that's true for the current callers but what prevents anybody from
+> using rhashtable_lookup_fast() with a key length not known at compile
+> time and pass it as rhashtable_params?
 
-Beyond that I believe the rest of my comments still stand.  If you want
-to do this explicitly some form of explicit blackhole route needs to be
-supported.  Either just allowing a route to be configured with no output
-device or an explicit RTN_BLACKHOLE route.
+They shouldn't be doing that.  The whole point of this function
+is to have it inlined so all external callers of it should be
+supplying a constant parameter.  We could add a __ variant that
+is only called by rhashtable if you like so we can enforce this
+in rhashtable_lookup_fast.
 
->> Therefore, if the peer is unlabeled and the last label wasn't popped
->> then drop the packet. The peer being unlabeled is signalled by an
->> empty label stack. However, implicit-null still needs to be supported
->> (i.e. penultimate hop popping) where the incoming label is popped and
->> no labels are put on and the packet can still go out labeled with the
->> unpopped part of the stack. This is achieved by the control plane
->> specifying a label stack consisting of the single special
->> implicit-null value.
->
-> As I understand it you want to handle the case for a label for which
-> there is no next hop, and the packet should be black-holed.
->
-> In struct mpls_route such routes are currently represented by routes
-> that have no network device.  And in rtnetlink should be represented
-> with routes of type RTN_BLACKHOLE which I do not currently support
-> parsing.  But that should be simple enough to correc.t
->
-> With respect to Implicit NULL it should be an error to accept a route
-> that has an RTA_NEWDST that includes an implicit NULL.
->
-> The rtnetlink is not ldp nor should it have ldp semantics and be made
-> complicated by those semantics.
->
-> The semantics of RTA_NEWDST are the labels to push on after the top most
-> label has been popped off.  I see no reason to include other mechanisms
-> into that processing when it is easy enough to add or tweak other
-> attributes to have those semantics.
->
-> Certainly it is not something that I think is worth special casing on
-> the fast path in mpls_forward.
->
->> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
->> Signed-off-by: Robert Shearman <rshearma@brocade.com>
->> ---
->>  net/mpls/af_mpls.c | 21 +++++++++++++++++----
->>  1 file changed, 17 insertions(+), 4 deletions(-)
->>
->> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->> index bf3459a..e3586a7 100644
->> --- a/net/mpls/af_mpls.c
->> +++ b/net/mpls/af_mpls.c
->> @@ -28,7 +28,8 @@ struct mpls_route { /* next hop label forwarding entry */
->>  	struct rcu_head		rt_rcu;
->>  	u32			rt_label[MAX_NEW_LABELS];
->>  	u8			rt_protocol; /* routing protocol that set this entry */
->> -	u8			rt_labels;
->> +	u8                      rt_unlabeled : 1;
->> +	u8			rt_labels : 7;
->>  	u8			rt_via_alen;
->>  	u8			rt_via_table;
->>  	u8			rt_via[0];
->> @@ -201,6 +202,11 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->>  	if (unlikely(!new_header_size && dec.bos)) {
->>  		if (!mpls_egress(rt, skb, dec))
->>  			goto drop;
->> +	} else if (rt->rt_unlabeled) {
->> +		/* Labeled traffic destined to unlabeled peer should
->> +		 * be discarded
->> +		 */
->> +		goto drop;
->>  	} else {
->>  		bool bos;
->>  		int i;
->> @@ -385,9 +391,16 @@ static int mpls_route_add(struct mpls_route_config *cfg)
->>  	if (!rt)
->>  		goto errout;
->>  
->> -	rt->rt_labels = cfg->rc_output_labels;
->> -	for (i = 0; i < rt->rt_labels; i++)
->> -		rt->rt_label[i] = cfg->rc_output_label[i];
->> +	if (cfg->rc_output_labels == 1 &&
->> +	    cfg->rc_output_label[0] == LABEL_IMPLICIT_NULL) {
->> +		rt->rt_labels = 0;
->> +	} else {
->> +		rt->rt_labels = cfg->rc_output_labels;
->> +		for (i = 0; i < rt->rt_labels; i++)
->> +			rt->rt_label[i] = cfg->rc_output_label[i];
->> +		if (!rt->rt_labels)
->> +			rt->rt_unlabeled = true;
->> +	}
->>  	rt->rt_protocol = cfg->rc_protocol;
->>  	RCU_INIT_POINTER(rt->rt_dev, dev);
->>  	rt->rt_via_table = cfg->rc_via_table;
+> I still don't get this. Why do we fall back to jhash2() if
+> params.key_len is set but not if only ht->p.key_len is set?
+
+Because if params.key_len is not set then we have no idea whether
+we should use jhash or jhash2 because ht->p.key_len cannot be
+known at compile time.  This is only used by netfilter currently
+as it has a key-length set at run-time.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
