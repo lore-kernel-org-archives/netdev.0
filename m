@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v1 PATCH 7/10] rhashtable: Disable automatic shrinking
-Date: Sun, 22 Mar 2015 18:53:50 +1100
-Message-ID: <E1YZahi-0000iy-Ke@gondolin.me.apana.org.au>
+Subject: [v1 PATCH 3/10] rhashtable: Allow hashfn to be unset
+Date: Sun, 22 Mar 2015 18:53:46 +1100
+Message-ID: <E1YZahe-0000hs-4V@gondolin.me.apana.org.au>
 References: <20150322075300.GA2441@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	Thomas Graf <tgraf@suug.ch>,
@@ -11,164 +11,141 @@ To: "David S. Miller" <davem@davemloft.net>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:46954 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:47022 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700AbbCVHyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 03:54:12 -0400
+	with ESMTP id S1751481AbbCVHyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 03:54:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Automatic shrinking is dangerous because it provides an easy
-way for an adversary to cause us to do unnecessary work.  Thus
-making the resizable hashtable a poor data structure.
+Since every current rhashtable user uses jhash as their hash
+function, the fact that jhash is an inline function causes each
+user to generate a copy of its code.
 
-This patch disables automatic shrinking but retains a manual
-shrink function for those cases where insertions and removals
-are overseen by a trusted entity, e.g., nft_hash.
-
-The shrink function will now also shrink to fit rather than halve
-the size of the table.
+This function provides a solution to this problem by allowing
+hashfn to be unset.  In which case rhashtable will automatically
+set it to jhash.  Furthermore, if the key length is a multiple
+of 4, we will switch over to jhash2.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |   15 ---------------
- lib/rhashtable.c           |   44 ++++++++++++++++++++++++++++++--------------
- lib/test_rhashtable.c      |   16 ++++++----------
- 3 files changed, 36 insertions(+), 39 deletions(-)
+ include/linux/rhashtable.h |   33 +++++++++++++++++++++++++++------
+ lib/rhashtable.c           |   17 ++++++++++++++++-
+ 2 files changed, 43 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 2a98b95..44aa579 100644
+index 287b609..2a98b95 100644
 --- a/include/linux/rhashtable.h
 +++ b/include/linux/rhashtable.h
-@@ -252,19 +252,6 @@ static inline bool rht_grow_above_75(const struct rhashtable *ht,
- 	       (!ht->p.max_size || tbl->size < ht->p.max_size);
+@@ -19,6 +19,7 @@
+ 
+ #include <linux/compiler.h>
+ #include <linux/errno.h>
++#include <linux/jhash.h>
+ #include <linux/list_nulls.h>
+ #include <linux/workqueue.h>
+ #include <linux/mutex.h>
+@@ -103,7 +104,7 @@ struct rhashtable;
+  * @min_size: Minimum size while shrinking
+  * @nulls_base: Base value to generate nulls marker
+  * @locks_mul: Number of bucket locks to allocate per cpu (default: 128)
+- * @hashfn: Function to hash key
++ * @hashfn: Hash function (default: jhash2 if !(key_len % 4), or jhash)
+  * @obj_hashfn: Function to hash object
+  * @obj_cmpfn: Function to compare key with object
+  */
+@@ -125,6 +126,7 @@ struct rhashtable_params {
+  * struct rhashtable - Hash table handle
+  * @tbl: Bucket table
+  * @nelems: Number of elements in table
++ * @key_len: Key length for hashfn
+  * @p: Configuration parameters
+  * @run_work: Deferred worker to expand/shrink asynchronously
+  * @mutex: Mutex to protect current/future table swapping
+@@ -134,6 +136,7 @@ struct rhashtable {
+ 	struct bucket_table __rcu	*tbl;
+ 	atomic_t			nelems;
+ 	bool                            being_destroyed;
++	unsigned int			key_len;
+ 	struct rhashtable_params	p;
+ 	struct work_struct		run_work;
+ 	struct mutex                    mutex;
+@@ -199,12 +202,30 @@ static inline unsigned int rht_key_hashfn(
+ 	struct rhashtable *ht, const struct bucket_table *tbl,
+ 	const void *key, const struct rhashtable_params params)
+ {
+-	unsigned key_len = __builtin_constant_p(params.key_len) ?
+-			   (params.key_len ?: ht->p.key_len) :
+-			   params.key_len;
++	unsigned hash;
++
++	if (!__builtin_constant_p(params.key_len))
++		hash = ht->p.hashfn(key, ht->key_len, tbl->hash_rnd);
++	else if (params.key_len) {
++		unsigned key_len = params.key_len;
++
++		if (params.hashfn)
++			hash = params.hashfn(key, key_len, tbl->hash_rnd);
++		else if (key_len & (sizeof(u32) - 1))
++			hash = jhash(key, key_len, tbl->hash_rnd);
++		else
++			hash = jhash2(key, key_len / sizeof(u32),
++				      tbl->hash_rnd);
++	} else {
++		unsigned key_len = ht->p.key_len;
++
++		if (params.hashfn)
++			hash = params.hashfn(key, key_len, tbl->hash_rnd);
++		else
++			hash = jhash(key, key_len, tbl->hash_rnd);
++	}
+ 
+-	return rht_bucket_index(tbl, params.hashfn(key, key_len,
+-						   tbl->hash_rnd));
++	return rht_bucket_index(tbl, hash);
  }
  
--/**
-- * rht_shrink_below_30 - returns true if nelems < 0.3 * table-size
-- * @ht:		hash table
-- * @tbl:	current table
-- */
--static inline bool rht_shrink_below_30(const struct rhashtable *ht,
--				       const struct bucket_table *tbl)
--{
--	/* Shrink table beneath 30% load */
--	return atomic_read(&ht->nelems) < (tbl->size * 3 / 10) &&
--	       tbl->size > ht->p.min_size;
--}
--
- /* The bucket lock is selected based on the hash and protects mutations
-  * on a group of hash buckets.
-  *
-@@ -745,8 +732,6 @@ static inline int rhashtable_remove_fast(
- 		goto out;
- 
- 	atomic_dec(&ht->nelems);
--	if (rht_shrink_below_30(ht, tbl))
--		schedule_work(&ht->run_work);
- 
- out:
- 	rcu_read_unlock();
+ static inline unsigned int rht_head_hashfn(
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 798f01d..08a6123 100644
+index 618a3f0..798f01d 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -261,30 +261,48 @@ EXPORT_SYMBOL_GPL(rhashtable_expand);
-  * rhashtable_shrink - Shrink hash table while allowing concurrent lookups
-  * @ht:		the hash table to shrink
-  *
-- * This function may only be called in a context where it is safe to call
-- * synchronize_rcu(), e.g. not within a rcu_read_lock() section.
-- *
-- * The caller must ensure that no concurrent resizing occurs by holding
-- * ht->mutex.
-- *
-- * The caller must ensure that no concurrent table mutations take place.
-- * It is however valid to have concurrent lookups if they are RCU protected.
-+ * This function shrinks the hash table to fit, i.e., the smallest
-+ * size would not cause it to expand right away automatically.
-  *
-  * It is valid to have concurrent insertions and deletions protected by per
-  * bucket locks or concurrent RCU protected lookups and traversals.
-  */
- int rhashtable_shrink(struct rhashtable *ht)
- {
--	struct bucket_table *new_tbl, *old_tbl = rht_dereference(ht->tbl, ht);
-+	unsigned size = roundup_pow_of_two(atomic_read(&ht->nelems) * 4 / 3);
-+	struct bucket_table *new_tbl;
-+	struct bucket_table *tbl;
-+	int err;
+@@ -532,6 +532,11 @@ static size_t rounded_hashtable_size(const struct rhashtable_params *params)
+ 		   (unsigned long)params->min_size);
+ }
  
--	ASSERT_RHT_MUTEX(ht);
-+	if (size < ht->p.min_size)
-+		size = ht->p.min_size;
++static u32 rhashtable_jhash2(const void *key, u32 length, u32 seed)
++{
++	return jhash2(key, length, seed);
++}
++
+ /**
+  * rhashtable_init - initialize a new hash table
+  * @ht:		hash table to be initialized
+@@ -583,7 +588,7 @@ int rhashtable_init(struct rhashtable *ht,
  
--	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2);
-+	new_tbl = bucket_table_alloc(ht, size);
- 	if (new_tbl == NULL)
+ 	size = HASH_DEFAULT_SIZE;
+ 
+-	if ((!(params->key_len && params->hashfn) && !params->obj_hashfn) ||
++	if ((!params->key_len && !params->obj_hashfn) ||
+ 	    (params->obj_hashfn && !params->obj_cmpfn))
+ 		return -EINVAL;
+ 
+@@ -610,6 +615,16 @@ int rhashtable_init(struct rhashtable *ht,
+ 	else
+ 		ht->p.locks_mul = BUCKET_LOCKS_PER_CPU;
+ 
++	ht->key_len = ht->p.key_len;
++	if (!params->hashfn) {
++		ht->p.hashfn = jhash;
++
++		if (!(ht->key_len & (sizeof(u32) - 1))) {
++			ht->key_len /= sizeof(u32);
++			ht->p.hashfn = rhashtable_jhash2;
++		}
++	}
++
+ 	tbl = bucket_table_alloc(ht, size);
+ 	if (tbl == NULL)
  		return -ENOMEM;
- 
-+	err = -EEXIST;
-+
-+	mutex_lock(&ht->mutex);
-+	tbl = rht_dereference(ht->tbl, ht);
-+	if (rht_dereference(tbl->future_tbl, ht))
-+		goto out_free_tbl;
-+
-+	err = 0;
-+	if (tbl->size <= size)
-+		goto out_free_tbl;
-+
- 	rhashtable_rehash(ht, new_tbl);
--	return 0;
-+
-+	mutex_unlock(&ht->mutex);
-+
-+out:
-+	return err;
-+
-+out_free_tbl:
-+	mutex_unlock(&ht->mutex);
-+	bucket_table_free(new_tbl);
-+	goto out;
- }
- EXPORT_SYMBOL_GPL(rhashtable_shrink);
- 
-@@ -302,8 +320,6 @@ static void rht_deferred_worker(struct work_struct *work)
- 
- 	if (rht_grow_above_75(ht, tbl))
- 		rhashtable_expand(ht);
--	else if (rht_shrink_below_30(ht, tbl))
--		rhashtable_shrink(ht);
- unlock:
- 	mutex_unlock(&ht->mutex);
- }
-diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
-index a2ba6ad..0ceb332 100644
---- a/lib/test_rhashtable.c
-+++ b/lib/test_rhashtable.c
-@@ -167,17 +167,13 @@ static int __init test_rhashtable(struct rhashtable *ht)
- 		rcu_read_unlock();
- 	}
- 
--	for (i = 0; i < TEST_NEXPANDS; i++) {
--		pr_info("  Table shrinkage iteration %u...\n", i);
--		mutex_lock(&ht->mutex);
--		rhashtable_shrink(ht);
--		mutex_unlock(&ht->mutex);
-+	pr_info("  Table shrinkage...\n");
-+	rhashtable_shrink(ht);
- 
--		rcu_read_lock();
--		pr_info("  Verifying lookups...\n");
--		test_rht_lookup(ht);
--		rcu_read_unlock();
--	}
-+	rcu_read_lock();
-+	pr_info("  Verifying lookups...\n");
-+	test_rht_lookup(ht);
-+	rcu_read_unlock();
- 
- 	rcu_read_lock();
- 	test_bucket_stats(ht, true);
