@@ -1,46 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
-Date: Sun, 22 Mar 2015 13:06:30 +0000
-Message-ID: <20150322130630.GA16023@casper.infradead.org>
-References: <20150322080330.GA3416@gondor.apana.org.au>
- <E1YZard-0000wE-Se@gondolin.me.apana.org.au>
- <20150322121755.GH1185@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Priit Laes <plaes@plaes.org>
+Subject: [PATCH v2 3/4] rtlwifi: Rename rtl_translate_todbm to rtl_signalpower_todbm
+Date: Sun, 22 Mar 2015 15:35:19 +0200
+Message-ID: <1427031320-10913-4-git-send-email-plaes@plaes.org>
+References: <1427031320-10913-1-git-send-email-plaes@plaes.org>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Joe Perches <joe@perches.com>, Priit Laes <plaes@plaes.org>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50402 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751661AbbCVNGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 09:06:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20150322121755.GH1185@casper.infradead.org>
+Received: from plaes.org ([188.166.43.21]:54671 "EHLO plaes.org"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751769AbbCVNgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Mar 2015 09:36:08 -0400
+In-Reply-To: <1427031320-10913-1-git-send-email-plaes@plaes.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/22/15 at 12:17pm, Thomas Graf wrote:
-> On 03/22/15 at 07:04pm, Herbert Xu wrote:
-> > +	struct bucket_table *new_tbl;
-> > +	struct bucket_table *tbl;
-> > +	int err;
-> >  
-> > -	ASSERT_RHT_MUTEX(ht);
-> > +	if (size < ht->p.min_size)
-> > +		size = ht->p.min_size;
-> 
-> We should only shrink if size < old_tbl->size
+Signed-off-by: Priit Laes <plaes@plaes.org>
+---
+ drivers/net/wireless/rtlwifi/stats.c | 18 ++++++------------
+ 1 file changed, 6 insertions(+), 12 deletions(-)
 
-I found the check further down. Any particular reason why check
-after allocation and then free again? Why do you want to avoid
-the allocation inside the mutex?
-
-> > -	new_tbl = bucket_table_alloc(ht, old_tbl->size / 2);
-> > +	new_tbl = bucket_table_alloc(ht, size);
-> >  	if (new_tbl == NULL)
-> >  		return -ENOMEM;
+diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
+index 9ebeb6e..4cce472 100644
+--- a/drivers/net/wireless/rtlwifi/stats.c
++++ b/drivers/net/wireless/rtlwifi/stats.c
+@@ -48,14 +48,9 @@ u8 rtl_evm_db_to_percentage(char value)
+ }
+ EXPORT_SYMBOL(rtl_evm_db_to_percentage);
+ 
+-static long rtl_translate_todbm(struct ieee80211_hw *hw,
+-			 u8 signal_strength_index)
++static long rtl_signalpower_todbm(u8 signal_strength_index)
+ {
+-	long signal_power;
+-
+-	signal_power = (long)((signal_strength_index + 1) >> 1);
+-	signal_power -= 95;
+-	return signal_power;
++	return (long)((signal_strength_index + 1) >> 1) - 95;
+ }
+ 
+ long rtl_signal_scale_mapping(long currsig)
+@@ -93,7 +88,7 @@ static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+ 	u8 rfpath;
+-	u32 last_rssi, tmpval;
++	u32 last_rssi;
+ 
+ 	if (!pstatus->packet_toself && !pstatus->packet_beacon)
+ 		return;
+@@ -112,10 +107,9 @@ static void rtl_process_ui_rssi(struct ieee80211_hw *hw,
+ 	    pstatus->signalstrength;
+ 	if (rtlpriv->stats.ui_rssi.index >= PHY_RSSI_SLID_WIN_MAX)
+ 		rtlpriv->stats.ui_rssi.index = 0;
+-	tmpval = rtlpriv->stats.ui_rssi.total_val /
+-		rtlpriv->stats.ui_rssi.total_num;
+-	rtlpriv->stats.signal_strength = rtl_translate_todbm(hw,
+-		(u8) tmpval);
++	rtlpriv->stats.signal_strength = rtl_signalpower_todbm(
++		(u8)rtlpriv->stats.ui_rssi.total_val /
++			rtlpriv->stats.ui_rssi.total_num);
+ 	pstatus->rssi = rtlpriv->stats.signal_strength;
+ 
+ 	if (pstatus->is_cck)
+-- 
+2.3.3
