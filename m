@@ -1,76 +1,145 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: nft 0.4, crash on list
-Date: Sun, 22 Mar 2015 19:29:45 +0000
-Message-ID: <20150322192944.GO7910@acer.localdomain>
-References: <fded527361344541342afa2478b5ca9a@visp.net.lb>
- <74645ce188ee403b5ffcf2303046f694@visp.net.lb>
- <a457f2eac526c6fe6e6f80634358d587@visp.net.lb>
- <20150322053313.GA16931@acer.localdomain>
- <d029673de6d7994d231a4a37df763951@visp.net.lb>
- <20150322192900.GA14885@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
-	Netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150322192900.GA14885@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v10 tip 0/9] tracing: attach eBPF programs to kprobes
+Date: Sun, 22 Mar 2015 12:39:01 -0700
+Message-ID: <1427053150-32213-1-git-send-email-ast@plumgrid.com>
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 22.03, Pablo Neira Ayuso wrote:
-> On Sun, Mar 22, 2015 at 10:05:10AM +0200, Denys Fedoryshchenko wrote:
-> > On 2015-03-22 07:33, Patrick McHardy wrote:
-> > >On 22.03, Denys Fedoryshchenko wrote:
-> > >>Sorry for noise, seems git version working fine!
-> > >
-> > >Still this shouldn't be happening. Just to confirm, you were using an
-> > >unpatched kernel and by git you mean nftables git?
-> >
-> > Yes, correct. I tested on 3.18.8 and 3.19.2 vanilla kernels (x86_64).
-> > On nftables 0.4 it does crash, on nftables git it doesn't.
-> 
-> I sent this fix to -stable by March 10th but this doesn't show up in
-> 3.18.x and 3.19.x yet.
-> 
-> [ upstream commit 02263db00b6cb98701332aa257c07ca549c2324b ]
+Hi Ingo,
 
-I think this is actually a different problem. We're using set->dtype
-for uninit of the element's data, but unless it's NFT_DATA_VERDICT,
-its holding the user encoding of the type.
+Patch 1 is already in net-next. Patch 3 depends on it.
+I'm assuming it's not going to be a problem during merge window.
+Patch 3 will have a minor conflict in uapi/linux/bpf.h in linux-next,
+since net-next has added new lines to the bpf_prog_type and bpf_func_id enums.
+I'm assuming it's not a problem either.
 
-Basically all the types except NFT_DATA_RESERVED_MASK map to
-NFT_DATA_VALUE, and it seems we're not properly handling it in
-that path.
+V9->V10:
+- prettified formatting of struct intializers in kernel
+- added Masami's Reviewed-by. Thanks Masami!
 
-> 
-> We have several problems in this path:
-> 
-> 1) There is a use-after-free when removing individual elements from
->    the commit path.
-> 
-> 2) We have to uninit() the data part of the element from the abort
->    path to avoid a chain refcount leak.
-> 
-> 3) We have to check for set->flags to see if there's a mapping,
-> instead
->    of the element flags.
-> 
-> 4) We have to check for !(flags & NFT_SET_ELEM_INTERVAL_END) to skip
->    elements that are part of the interval that have no data part, so
->    they don't need to be uninit().
-> 
-> Cc: <stable@vger.kernel.org> # 3.18.x
-> Cc: <stable@vger.kernel.org> # 3.19.x
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> > >>On 2015-03-22 00:49, Denys Fedoryshchenko wrote:
-> > >>>Additionally, if i will do "nft flush table mangle" , with this table
-> > >>>added i will get this:
-> > >>>[   42.800078] ------------[ cut here ]------------
-> > >>>[   42.800092] WARNING: CPU: 3 PID: 2868 at
-> > >>>net/netfilter/nf_tables_api.c:4122 nft_data_uninit+0x35/0x50
-> > >>>[nf_tables]()
-> 
+V8->V9:
+- fixed comment style and allowed ispunct after %p
+- added Steven's Reviewed-by. Thanks Steven!
+
+V7->V8:
+- split addition of kprobe flag into separate patch
+- switched to __this_cpu_inc in now documented trace_call_bpf()
+- converted array into standalone bpf_func_proto and switch statement
+  (this apporach looks cleanest, especially considering patch 5)
+- refactored patch 5 bpf_trace_printk to do strict checking
+
+V6->V7:
+- rebase and remove confusing _notrace suffix from preempt_disable/enable
+  everything else unchanged
+
+V5->V6:
+- added simple recursion check to trace_call_bpf()
+- added tracex4 example that does kmem_cache_alloc/free tracking.
+  It remembers every allocated object in a map and user space periodically
+  prints a set of old objects. With more work in can be made into
+  simple kmemleak detector.
+  It was used as a test of recursive kmalloc/kfree: attached to
+  kprobe/__kmalloc and let program to call kmalloc again.
+
+V4->V5:
+- switched to ktime_get_mono_fast_ns() as suggested by Peter
+- in libbpf.c fixed zero init of 'union bpf_attr' padding
+- fresh rebase on tip/master
+
+V3 discussion:
+https://lkml.org/lkml/2015/2/9/738
+
+V3->V4:
+- since the boundary of stable ABI in bpf+tracepoints is not clear yet,
+  I've dropped them for now.
+- bpf+syscalls are ok from stable ABI point of view, but bpf+seccomp
+  would want to do very similar analysis of syscalls, so I've dropped
+  them as well to take time and define common bpf+syscalls and bpf+seccomp
+  infra in the future.
+- so only bpf+kprobes left. kprobes by definition is not a stable ABI,
+  so bpf+kprobe is not stable ABI either. To stress on that point added
+  kernel version attribute that user space must pass along with the program
+  and kernel will reject programs when version code doesn't match.
+  So bpf+kprobe is very similar to kernel modules, but unlike modules
+  version check is not used for safety, but for enforcing 'non-ABI-ness'.
+  (version check doesn't apply to bpf+sockets which are stable)
+
+Programs are attached to kprobe events via API:
+
+prog_fd = bpf_prog_load(...);
+struct perf_event_attr attr = {
+  .type = PERF_TYPE_TRACEPOINT,
+  .config = event_id, /* ID of just created kprobe event */
+};
+event_fd = perf_event_open(&attr,...);
+ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
+
+Next step is to prototype TCP stack instrumentation (like web10g) using
+bpf+kprobe, but without adding any new code tcp stack.
+Though kprobes are slow comparing to tracepoints, they are good enough
+for prototyping and trace_marker/debug_tracepoint ideas can accelerate
+them in the future.
+
+Alexei Starovoitov (8):
+  tracing: add kprobe flag
+  tracing: attach BPF programs to kprobes
+  tracing: allow BPF programs to call bpf_ktime_get_ns()
+  tracing: allow BPF programs to call bpf_trace_printk()
+  samples: bpf: simple non-portable kprobe filter example
+  samples: bpf: counting example for kfree_skb and write syscall
+  samples: bpf: IO latency analysis (iosnoop/heatmap)
+  samples: bpf: kmem_alloc/free tracker
+
+Daniel Borkmann (1):
+  bpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
+
+ include/linux/bpf.h             |   20 +++-
+ include/linux/ftrace_event.h    |   14 +++
+ include/uapi/linux/bpf.h        |    5 +
+ include/uapi/linux/perf_event.h |    1 +
+ kernel/bpf/syscall.c            |    7 +-
+ kernel/events/core.c            |   59 +++++++++++
+ kernel/trace/Makefile           |    1 +
+ kernel/trace/bpf_trace.c        |  222 +++++++++++++++++++++++++++++++++++++++
+ kernel/trace/trace_kprobe.c     |   10 +-
+ samples/bpf/Makefile            |   16 +++
+ samples/bpf/bpf_helpers.h       |    6 ++
+ samples/bpf/bpf_load.c          |  125 ++++++++++++++++++++--
+ samples/bpf/bpf_load.h          |    3 +
+ samples/bpf/libbpf.c            |   14 ++-
+ samples/bpf/libbpf.h            |    5 +-
+ samples/bpf/sock_example.c      |    2 +-
+ samples/bpf/test_verifier.c     |    2 +-
+ samples/bpf/tracex1_kern.c      |   50 +++++++++
+ samples/bpf/tracex1_user.c      |   25 +++++
+ samples/bpf/tracex2_kern.c      |   86 +++++++++++++++
+ samples/bpf/tracex2_user.c      |   95 +++++++++++++++++
+ samples/bpf/tracex3_kern.c      |   89 ++++++++++++++++
+ samples/bpf/tracex3_user.c      |  150 ++++++++++++++++++++++++++
+ samples/bpf/tracex4_kern.c      |   54 ++++++++++
+ samples/bpf/tracex4_user.c      |   69 ++++++++++++
+ 25 files changed, 1112 insertions(+), 18 deletions(-)
+ create mode 100644 kernel/trace/bpf_trace.c
+ create mode 100644 samples/bpf/tracex1_kern.c
+ create mode 100644 samples/bpf/tracex1_user.c
+ create mode 100644 samples/bpf/tracex2_kern.c
+ create mode 100644 samples/bpf/tracex2_user.c
+ create mode 100644 samples/bpf/tracex3_kern.c
+ create mode 100644 samples/bpf/tracex3_user.c
+ create mode 100644 samples/bpf/tracex4_kern.c
+ create mode 100644 samples/bpf/tracex4_user.c
+
+-- 
+1.7.9.5
