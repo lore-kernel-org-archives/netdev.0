@@ -1,41 +1,45 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: arp_hash
-Date: Mon, 23 Mar 2015 10:08:48 +1100
-Message-ID: <20150322230848.GA8989@gondor.apana.org.au>
+Date: Mon, 23 Mar 2015 10:22:42 +1100
+Message-ID: <20150322232242.GA9105@gondor.apana.org.au>
 References: <20150322114204.GA5010@gondor.apana.org.au>
  <1427028981.25985.48.camel@edumazet-glaptop2.roam.corp.google.com>
  <20150322215612.GA8274@gondor.apana.org.au>
- <20150322.185850.927485035002538859.davem@davemloft.net>
+ <20150322225104.GA8853@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	roland@purestorage.com
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Roland Dreier <roland@purestorage.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:52053 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:40576 "EHLO
 	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905AbbCVXIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 19:08:52 -0400
+	with ESMTP id S1751980AbbCVXWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 19:22:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20150322.185850.927485035002538859.davem@davemloft.net>
+In-Reply-To: <20150322225104.GA8853@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 22, 2015 at 06:58:50PM -0400, David Miller wrote:
->
-> But I do not agree with the idea that it is in any way possible to
-> stop someone with root access on the physical network from crudding up
-> our ARP hash tables.
+On Mon, Mar 23, 2015 at 09:51:04AM +1100, Herbert Xu wrote:
+> 
+> OK I'm wrong because net/core/neighbour.c uses only the high-order
+> bits of the hash.
 
-But you don't need root access to exploit the neighbour hash
-table.  You just need a sufficiently large (e.g., /16) route
-to a network and anybody on the system can then generate traffic
-to it.
+Unfortunately even the high-order bits are too predictable:
 
-Granted these days hardly anybody on IPv4 would have such a route
-but if you do then the hash table makes you exposed.
+10.0.0.128	0xbd78b1f2
+10.0.0.64	0xfd78b1f2
+10.0.0.192	0x7d78b1f2
+10.0.0.32	0x9d78b1f2
+...
+10.0.0.63	0xd078b1f2
+10.0.0.191	0x5078b1f2
+10.0.0.127	0x9078b1f2
+10.0.0.255	0x1078b1f2
+10.0.1.0	0x60bdb1f2
 
-And for IPv6 everybody is potentially exposed.
+As you can see there is a bit-to-bit correspondence.
 
 Cheers,
 -- 
