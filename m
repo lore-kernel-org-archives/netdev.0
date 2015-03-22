@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/18] net: dsa: HW bridging, EEE support
-Date: Sat, 21 Mar 2015 22:14:50 -0400 (EDT)
-Message-ID: <20150321.221450.2007372852150941507.davem@davemloft.net>
-References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
-	<20150321.184817.575148530596089433.davem@davemloft.net>
-	<550DFADE.1080209@roeck-us.net>
+Subject: Re: [PATCH net-next v2 0/4] bonding work-queues, try_rtnl() &
+ notifications
+Date: Sat, 21 Mar 2015 22:16:31 -0400 (EDT)
+Message-ID: <20150321.221631.908834228517236497.davem@davemloft.net>
+References: <1426916355-18289-1-git-send-email-maheshb@google.com>
+	<20150321.181700.1162404019090592599.davem@davemloft.net>
+	<CAF2d9jhMz4Y1ye_ofkgvXyxUJEpNnLrFjMJhHQXKbf6MSS-OVg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: linux@roeck-us.net
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	nikolay@redhat.com, maze@google.com, netdev@vger.kernel.org,
+	edumazet@google.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42469 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42479 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbbCVCOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 22:14:55 -0400
-In-Reply-To: <550DFADE.1080209@roeck-us.net>
+	with ESMTP id S1751691AbbCVCQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 22:16:33 -0400
+In-Reply-To: <CAF2d9jhMz4Y1ye_ofkgvXyxUJEpNnLrFjMJhHQXKbf6MSS-OVg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Sat, 21 Mar 2015 16:12:30 -0700
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Sat, 21 Mar 2015 19:01:29 -0700
 
-> Yes, agreed. It is on the to-do list. Should we be more aggressive ?
-> Since I'll have to resubmit anyway, we could start by adding defines
-> for all constants used in this patch set, not just some of them.
+> I think you missed my earlier reply to your message. In summary, the
+> notification deferral is 1ms which should not cause any trashing;
+> more over with that suggested approach the rtnl-owner will have to
+> do your job and will be subjected to the latencies which may be
+> undesirable.
 
-As long as you'll really take care of this afterwards, you can take
-care of the defines after this series is integrated.
+Someone has to do the work, and if the rtnl-owner does it we do not
+incur all of the overhead the resubmission entails.
+
+> OTOH this patch series is not adding any new deferral work, but just
+> making it bug-free.
+
+It's continuing a bad approach to the problem.
