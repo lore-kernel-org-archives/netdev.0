@@ -1,52 +1,31 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next v2 0/4] bonding work-queues, try_rtnl() & notifications
-Date: Sat, 21 Mar 2015 19:04:16 -0700
-Message-ID: <CAF2d9jhng-A=sYzhy=KX0xMVFDj+jF9W7mkkZYyaLncvgv=ZTQ@mail.gmail.com>
-References: <1426916355-18289-1-git-send-email-maheshb@google.com> <20150321.181700.1162404019090592599.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/18] net: dsa: HW bridging, EEE support
+Date: Sat, 21 Mar 2015 22:14:50 -0400 (EDT)
+Message-ID: <20150321.221450.2007372852150941507.davem@davemloft.net>
+References: <1426952815-4642-1-git-send-email-linux@roeck-us.net>
+	<20150321.184817.575148530596089433.davem@davemloft.net>
+	<550DFADE.1080209@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-	nikolay@redhat.com,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:33737 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbbCVCEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 22:04:37 -0400
-Received: by oifl3 with SMTP id l3so87613736oif.0
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 19:04:36 -0700 (PDT)
-In-Reply-To: <20150321.181700.1162404019090592599.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42469 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265AbbCVCOz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 22:14:55 -0400
+In-Reply-To: <550DFADE.1080209@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 21, 2015 at 3:17 PM, David Miller <davem@davemloft.net> wrote:
->
-> From: Mahesh Bandewar <maheshb@google.com>
-> Date: Fri, 20 Mar 2015 22:39:15 -0700
->
-> > This patch series tries to address the issue discovered in various work-
-> > queues and the way these handlers deal with the RTNL. Especially for
-> > notification handling. If RTNL can not be acquired, these handlers ignore
-> > sending notifications and just re-arm the timer. This could be very
-> > problematic if the re-arm timer has larger value (e.g. in minutes).
->
-> I already made it very clear how I want this kind of problem solved.
->
-> Make the person holding the RTNL semaphore do the notification work
-> for you.
->
-> All of this deferral stuff is error prone and sloppy.
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Sat, 21 Mar 2015 16:12:30 -0700
 
-I think you missed my earlier reply to your message. In summary, the
-notification deferral is 1ms which should not cause any trashing; more
-over with that suggested approach the rtnl-owner will have to do your
-job and will be subjected to the latencies which may be undesirable.
+> Yes, agreed. It is on the to-do list. Should we be more aggressive ?
+> Since I'll have to resubmit anyway, we could start by adding defines
+> for all constants used in this patch set, not just some of them.
 
-OTOH this patch series is not adding any new deferral work, but just
-making it bug-free.
-
-Thanks,
---mahesh..
+As long as you'll really take care of this afterwards, you can take
+care of the defines after this series is integrated.
