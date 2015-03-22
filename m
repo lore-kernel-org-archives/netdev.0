@@ -1,10 +1,10 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v2 PATCH 1/10] rhashtable: Add barrier to ensure we see new
- tables in walker
-Date: Sun, 22 Mar 2015 10:47:43 +0000
-Message-ID: <20150322104743.GB1185@casper.infradead.org>
+Subject: Re: [v2 PATCH 2/10] rhashtable: Eliminate unnecessary branch in
+ rht_key_hashfn
+Date: Sun, 22 Mar 2015 11:07:55 +0000
+Message-ID: <20150322110755.GC1185@casper.infradead.org>
 References: <20150322080330.GA3416@gondor.apana.org.au>
- <E1YZarW-0000uY-W0@gondolin.me.apana.org.au>
+ <E1YZarY-0000ur-2v@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -15,20 +15,28 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49943 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:50020 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539AbbCVKrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 06:47:45 -0400
+	with ESMTP id S1751263AbbCVLH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 07:07:57 -0400
 Content-Disposition: inline
-In-Reply-To: <E1YZarW-0000uY-W0@gondolin.me.apana.org.au>
+In-Reply-To: <E1YZarY-0000ur-2v@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/22/15 at 07:03pm, Herbert Xu wrote:
-> The walker is a lockless reader so it too needs an smp_rmb before
-> reading the future_tbl field in order to see any new tables that
-> may contain elements that we should have walked over.
+On 03/22/15 at 07:04pm, Herbert Xu wrote:
+> When rht_key_hashfn is called from rhashtable itself and params
+> is equal to ht->p, there is no point in checking params.key_len
+> and falling back to ht->p.key_len.
+> 
+> For some reason gcc couldn't figure out that params is the same
+> as ht->p.  So let's help it by only checking params.key_len when
+> it's a constant.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+A comment to document this gcc hack would be nice as it's not
+obvious from just reading the code. Shouldn't hold up this series
+though.
 
 Acked-by: Thomas Graf <tgraf@suug.ch>
