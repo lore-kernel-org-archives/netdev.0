@@ -1,63 +1,63 @@
-From: Royal Finance and Loan Company <postmaster@agricom.co.jp>
-Subject: loan offer @3% intrest rate
-Date: Sun, 22 Mar 2015 23:33:35 +0800
-Message-ID: <b96a3773-1b1d-4053-a625-095762a3d0d3__345.494497060095$1427039386$gmane$org@AC-EX1.tokyo.icn-net.co.jp>
-Reply-To: <johniannuzzi22@hotmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH v2 0/4] rtlwifi: Use common functions for driver stats
+Date: Sun, 22 Mar 2015 11:27:51 -0500
+Message-ID: <550EED87.8010008@lwfinger.net>
+References: <1427031320-10913-1-git-send-email-plaes@plaes.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <postmaster@agricom.co.jp>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Joe Perches <joe@perches.com>
+To: Priit Laes <plaes@plaes.org>, Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sg1hn0253.outbound.protection.outlook.com ([134.170.132.253]:40286
-	"EHLO APAC01-SG1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751671AbbCVPtL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 11:49:11 -0400
-Content-Description: Mail message body
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:34819 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751626AbbCVQ1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 12:27:54 -0400
+In-Reply-To: <1427031320-10913-1-git-send-email-plaes@plaes.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good day,
+On 03/22/2015 08:35 AM, Priit Laes wrote:
+> Hi all,
+>
+> This is a small fixup to unify make the drivers use common helper
+> functions for driver statistics.
+>
+> There are no functional changes since the first posting, except dropp=
+ing
+> patches already applied and addressing the comments by Joe Perches.
 
-Welcome to Royal Finance Loan Company a financial refuge and hope to pe=
-ople in Need based in malaysia. Are you in need of adequate financing a=
-nd do not know how to go about it? Are you wallowing in debts or watchi=
-ng a sick relative die due to lack of financial assistance? Are you in =
-need of adequate financing to give your family that well deserved vacat=
-ion ?
+Are there patches that are required before these work? Applying these f=
+our=20
+results in the following build errors:
 
-We are financial builders and gives out no credit check loans to all ra=
-nging from personal,commercial,business,venture,start up,consolidation,
-refinance and all form of loans with our amounts ranging from $3,500 to=
- $350,000,000.00 with a fixed and very low interest rate of 3% on an an=
-nual basis if intrested fillout borrower information attached bellow.
+drivers/net/wireless/rtlwifi/rtl8192de/trx.c: In function=20
+=91_rtl92de_query_rxphystatus=92:
+drivers/net/wireless/rtlwifi/rtl8192de/trx.c:132:3: error: implicit dec=
+laration=20
+of function =91rtl_query_rxpwrpercentage=92 [-Werror=3Dimplicit-functio=
+n-declaration]
+    pwdb_all =3D rtl_query_rxpwrpercentage(rx_pwr_all);
+    ^
+drivers/net/wireless/rtlwifi/rtl8192de/trx.c:192:4: error: implicit dec=
+laration=20
+of function =91rtl_evm_db_to_percentage=92 [-Werror=3Dimplicit-function=
+-declaration]
+     evm =3D rtl_evm_db_to_percentage(p_drvinfo->rxevm[i]);
+     ^
+drivers/net/wireless/rtlwifi/rtl8192de/trx.c:204:4: error: implicit dec=
+laration=20
+of function =91rtl_signal_scale_mapping=92 [-Werror=3Dimplicit-function=
+-declaration]
+     (u8)(rtl_signal_scale_mapping(pwdb_all));
+     ^
+cc1: some warnings being treated as errors
+scripts/Makefile.build:258: recipe for target=20
+'drivers/net/wireless/rtlwifi/rtl8192de/trx.o' failed
 
-personal borrower=E2=80=99s information which is thus stated below
+I cannot find any patches that created common routines in rtlwifi.
 
-1.Names-----------------------
-2.Address------------------------------
-3.City-------------------------
-4.State--------------------------
-5.Country-----------------------------
-6.Telephone Number------------------------
-7.Fax Number--------------------------
-8.Occupation-------------------------------
-9.Income-----------------------------------
-10.Loan Amount---------------------------
-11. Loan Duration-------------------------
-12.Purpose of Loan-------------------------
-
-Apply for loan today at 3% interest rate.send application if intrested =
-to
-johniannuzzi2@hotmail.com
-
-
-BEST REGARD,
-Mr.John Iannuzzi.
-Chief Executive Officer (CEO)
-Royal Finance and Loan Company (ALC)
-Email johniannuzzi2@hotmail.com
-
----
-This email has been checked for viruses by Avast antivirus software.
-http://www.avast.com
+Larry
