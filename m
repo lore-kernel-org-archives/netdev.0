@@ -1,8 +1,8 @@
 From: Arnd Bergmann <arnd@linaro.org>
-Subject: Re: [PATCH net-next V2 20/23] ptp: dp83640: convert to the 64 bit get/set time methods.
-Date: Sun, 22 Mar 2015 03:36:31 +0100
-Message-ID: <201503220336.31836.arnd@linaro.org>
-References: <cover.1426973658.git.richardcochran@gmail.com> <55b6ec7c2e0c72a79762748981fad2ce2497f22d.1426973658.git.richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V2 13/23] ptp: igb: convert to the 64 bit get/set time methods.
+Date: Sun, 22 Mar 2015 03:40:16 +0100
+Message-ID: <201503220340.16405.arnd@linaro.org>
+References: <cover.1426973658.git.richardcochran@gmail.com> <c63a73eca6e75dc82990266ba2e787b58b684721.1426973658.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-15"
@@ -31,20 +31,30 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	<stefan.sorensen@spectral
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55b6ec7c2e0c72a79762748981fad2ce2497f22d.1426973658.git.richardcochran@gmail.com>
+In-Reply-To: <c63a73eca6e75dc82990266ba2e787b58b684721.1426973658.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Saturday 21 March 2015, Richard Cochran wrote:
->         mutex_lock(&clock->extreg_lock);
+> @@ -269,13 +270,13 @@ static int igb_ptp_adjtime_i210(struct ptp_clock_info *ptp, s64 delta)
+>         struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+>                                                ptp_caps);
+>         unsigned long flags;
+> -       struct timespec now, then = ns_to_timespec(delta);
+> +       struct timespec64 now, then = ns_to_timespec64(delta);
 >  
-> -       err = tdr_write(1, phydev, ts, PTP_LOAD_CLK);
-> +       err = tdr_write(1, phydev, &ts, PTP_LOAD_CLK);
+>         spin_lock_irqsave(&igb->tmreg_lock, flags);
 >  
->         mutex_unlock(&clock->extreg_lock);
+>         igb_ptp_read_i210(igb, &now);
+> -       now = timespec_add(now, then);
+> -       igb_ptp_write_i210(igb, (const struct timespec *)&now);
+> +       now = timespec64_add(now, then);
+> +       igb_ptp_write_i210(igb, (const struct timespec64 *)&now);
+>  
+>         spin_unlock_irqrestore(&igb->tmreg_lock, flags);
+>  
 
-I don't see the change to the tdr_write() function that changes the 
-argument from 'struct timespec ts' to 'struct timespec64 *', so this
-looks wrong to me.
+This is one of the functions that would actually become more efficient if
+the argument type gets changed to ktime_t.
 
 	Arnd
