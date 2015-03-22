@@ -1,55 +1,53 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v6] switchdev: fix stp update API to work with
- layered netdevices
-Date: Sat, 21 Mar 2015 20:21:08 -0700
-Message-ID: <CAE4R7bDt2JM_ZXTrqq9Hz3ZDJbfb1=_06b8LftE-3-BBsONp_Q@mail.gmail.com>
-References: <1426958848-2781-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: anuradhak@cumulusnetworks.com
+Subject: [PATCH net-next v2 0/3] net: introduce IFF_PROTO_DOWN flag.
+Date: Sat, 21 Mar 2015 21:06:55 -0700
+Message-ID: <1426997218-27313-1-git-send-email-anuradhak@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
+	anuradhak@cumulusnetworks.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:36075 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736AbbCVDVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Mar 2015 23:21:09 -0400
-Received: by qgez102 with SMTP id z102so33667868qge.3
-        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 20:21:08 -0700 (PDT)
-In-Reply-To: <1426958848-2781-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:34288 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbbCVEHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 00:07:06 -0400
+Received: by pdbni2 with SMTP id ni2so150182732pdb.1
+        for <netdev@vger.kernel.org>; Sat, 21 Mar 2015 21:07:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 21, 2015 at 10:27 AM,  <roopa@cumulusnetworks.com> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> make it same as the netdev_switch_port_bridge_setlink/dellink
-> api (ie traverse lowerdevs to get to the switch port).
->
-> removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
-> direct bridge ports can be stacked netdevices (like bonds
-> and team of switch ports) which may not implement this ndo.
->
-> v2 to v3:
->         - remove changes to bond and team. Bring back the
->         transparently following lowerdevs like i initially
->         had for setlink/getlink
->         (http://www.spinics.net/lists/netdev/msg313436.html)
->         dave and scott feldman also seem to prefer it be that
->         way and move to non-transparent way of doing things
->         if we see a problem down the lane.
->
-> v3 to v4:
->         - fix ret initialization
->
-> v4 to v5:
->         - return err on first failure (scott feldman)
->
-> v5 to v6:
->         - change variable name (err) and initialize to
->         -EOPNOTSUPP (scott feldman).
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-Acked-by: Scott Feldman <sfeldma@gmail.com>
+User space daemons can detect errors in the network that need to be
+notified to the netdev drivers. Drivers can react to this error state
+by stopping processing and turning off the carrier.
+
+One such use case is the multi-chassis LAG application. When a split
+brain situation is detected between the MLAG peers the secondary MLAG
+switch typically stops processing on its MLAG enabled devices. Doing
+that helps close traffic black-hole/loop windows quickly.
+
+This series includes a patch for virtio net driver showing a sample
+driver handling of the proto down flag
+
+IFF_PROTO_DOWN doesn't interfere with the device admin state. It is
+similar to the dormant mode/state that allows applications control of
+the operational state as defined by RFC2863.
+
+v1 to v2:
+    Based on Dave's suggestion I have moved out aggregating of error
+    bits across applications to an user space framework. This patch now
+    simply notifies an aggregated error bit to drivers enabling them
+    to handle the error gracefully.
+
+Anuradha Karuppiah (2):
+  net core: Add IFF_PROTO_DOWN support.
+  virtio net: Handle proto_down state by setting the carrier off.
+
+ drivers/net/virtio_net.c |   78 +++++++++++++++++++++++++++++++++++++++++++---
+ include/uapi/linux/if.h  |    4 +++
+ net/core/dev.c           |    2 +-
+ 3 files changed, 79 insertions(+), 5 deletions(-)
+
+-- 
+1.7.10.4
