@@ -1,57 +1,93 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 0/8] tcp listener refactoring part 15
-Date: Sun, 22 Mar 2015 10:22:17 -0700
-Message-ID: <1427044945-32608-1-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 3/8] inet: remove some sk_listener dependencies
+Date: Sun, 22 Mar 2015 10:22:20 -0700
+Message-ID: <1427044945-32608-4-git-send-email-edumazet@google.com>
+References: <1427044945-32608-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:33072 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795AbbCVRWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 13:22:31 -0400
-Received: by yhoc41 with SMTP id c41so6107744yho.0
-        for <netdev@vger.kernel.org>; Sun, 22 Mar 2015 10:22:30 -0700 (PDT)
+Received: from mail-ig0-f201.google.com ([209.85.213.201]:33077 "EHLO
+	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795AbbCVRWx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 13:22:53 -0400
+Received: by igjz20 with SMTP id z20so2068269igj.0
+        for <netdev@vger.kernel.org>; Sun, 22 Mar 2015 10:22:52 -0700 (PDT)
+In-Reply-To: <1427044945-32608-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am trying to make the final patch pushing request socks into ehash
-as small as possible. In this patch series, I made various adjustments
-for the SYNACK generation, allowing me to reach 1 Mpps SYNACK in my
-stress test (still hitting LISTENER spinlock of course, and the syn_wait
-spinlock)
+listener can be source of false sharing. request sock has some
+useful information like : ireq->ir_iif, ireq->ir_num, ireq->ireq_net
 
-I also converted the ICMP handlers a bit ahead of time :
+This patch does not solve the major problem of having to read
+sk->sk_protocol which is sharing a cache line with sk->sk_wmem_alloc.
+(This same field is read later in ip_build_and_send_pkt())
 
-They no longer need to get the LISTENER socket, and can use
-only a lookup in ehash table. No big deal if we ignore ICMP
-for requests socks before the final steps.
+One idea would be to move sk_protocol close to sk_family
+(using 8 bits instead of 16 for sk_family seems enough)
 
-Eric Dumazet (8):
-  inet: cache listen_sock_qlen() and read rskq_defer_accept once
-  inet: remove sk_listener parameter from syn_ack_timeout()
-  inet: remove some sk_listener dependencies
-  net: convert syn_wait_lock to a spinlock
-  ipv4: tcp: handle ICMP messages on TCP_NEW_SYN_RECV request sockets
-  ipv6: tcp: handle ICMP messages on TCP_NEW_SYN_RECV request sockets
-  ipv4: dccp: handle ICMP messages on DCCP_NEW_SYN_RECV request sockets
-  ipv6: dccp: handle ICMP messages on DCCP_NEW_SYN_RECV request sockets
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inet_connection_sock.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
- include/linux/dccp.h             |  4 +-
- include/net/request_sock.h       | 14 ++-----
- include/net/tcp.h                |  3 +-
- net/core/request_sock.c          | 14 +++----
- net/dccp/dccp.h                  |  1 +
- net/dccp/ipv4.c                  | 72 +++++++++++++++++------------------
- net/dccp/ipv6.c                  | 41 ++++----------------
- net/ipv4/inet_connection_sock.c  | 47 ++++++++++++-----------
- net/ipv4/inet_diag.c             |  4 +-
- net/ipv4/tcp_ipv4.c              | 81 ++++++++++++++++++++--------------------
- net/ipv4/tcp_timer.c             |  8 ++--
- net/ipv6/inet6_connection_sock.c |  4 +-
- net/ipv6/tcp_ipv6.c              | 47 ++++++-----------------
- 13 files changed, 146 insertions(+), 194 deletions(-)
-
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index a12b973164d0..711ab143d4cb 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -403,18 +403,17 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
+ 				     struct flowi4 *fl4,
+ 				     const struct request_sock *req)
+ {
+-	struct rtable *rt;
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+-	struct ip_options_rcu *opt = inet_rsk(req)->opt;
+-	struct net *net = sock_net(sk);
+-	int flags = inet_sk_flowi_flags(sk);
++	struct net *net = read_pnet(&ireq->ireq_net);
++	struct ip_options_rcu *opt = ireq->opt;
++	struct rtable *rt;
+ 
+-	flowi4_init_output(fl4, sk->sk_bound_dev_if, ireq->ir_mark,
++	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
+ 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+-			   sk->sk_protocol,
+-			   flags,
++			   sk->sk_protocol, inet_sk_flowi_flags(sk),
+ 			   (opt && opt->opt.srr) ? opt->opt.faddr : ireq->ir_rmt_addr,
+-			   ireq->ir_loc_addr, ireq->ir_rmt_port, inet_sk(sk)->inet_sport);
++			   ireq->ir_loc_addr, ireq->ir_rmt_port,
++			   htons(ireq->ir_num));
+ 	security_req_classify_flow(req, flowi4_to_flowi(fl4));
+ 	rt = ip_route_output_flow(net, fl4, sk);
+ 	if (IS_ERR(rt))
+@@ -436,9 +435,9 @@ struct dst_entry *inet_csk_route_child_sock(struct sock *sk,
+ 					    const struct request_sock *req)
+ {
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
++	struct net *net = read_pnet(&ireq->ireq_net);
+ 	struct inet_sock *newinet = inet_sk(newsk);
+ 	struct ip_options_rcu *opt;
+-	struct net *net = sock_net(sk);
+ 	struct flowi4 *fl4;
+ 	struct rtable *rt;
+ 
+@@ -446,11 +445,12 @@ struct dst_entry *inet_csk_route_child_sock(struct sock *sk,
+ 
+ 	rcu_read_lock();
+ 	opt = rcu_dereference(newinet->inet_opt);
+-	flowi4_init_output(fl4, sk->sk_bound_dev_if, inet_rsk(req)->ir_mark,
++	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
+ 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+ 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
+ 			   (opt && opt->opt.srr) ? opt->opt.faddr : ireq->ir_rmt_addr,
+-			   ireq->ir_loc_addr, ireq->ir_rmt_port, inet_sk(sk)->inet_sport);
++			   ireq->ir_loc_addr, ireq->ir_rmt_port,
++			   htons(ireq->ir_num));
+ 	security_req_classify_flow(req, flowi4_to_flowi(fl4));
+ 	rt = ip_route_output_flow(net, fl4, sk);
+ 	if (IS_ERR(rt))
 -- 
 2.2.0.rc0.207.ga3a616c
