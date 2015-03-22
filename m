@@ -1,51 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 5/10] tipc: Use default rhashtable hashfn
-Date: Sun, 22 Mar 2015 19:04:03 +1100
-Message-ID: <E1YZarb-0000vg-Ii@gondolin.me.apana.org.au>
-References: <20150322080330.GA3416@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: nft 0.4, crash on list
+Date: Sun, 22 Mar 2015 10:05:10 +0200
+Message-ID: <d029673de6d7994d231a4a37df763951@visp.net.lb>
+References: <fded527361344541342afa2478b5ca9a@visp.net.lb>
+ <74645ce188ee403b5ffcf2303046f694@visp.net.lb>
+ <a457f2eac526c6fe6e6f80634358d587@visp.net.lb>
+ <20150322053313.GA16931@acer.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>, Pablo <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:58628 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbbCVIEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 04:04:24 -0400
+Received: from hosting.visp.net.lb ([194.146.153.11]:43206 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880AbbCVIFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 04:05:14 -0400
+Received: from hosting.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id 3207948022D
+	for <netdev@vger.kernel.org>; Sun, 22 Mar 2015 10:05:11 +0200 (EET)
+In-Reply-To: <20150322053313.GA16931@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the explicit jhash value for the hashfn parameter
-of rhashtable.  The default is now jhash so removing the setting
-makes no difference apart from making one less copy of jhash in
-the kernel.
+On 2015-03-22 07:33, Patrick McHardy wrote:
+> On 22.03, Denys Fedoryshchenko wrote:
+>> Sorry for noise, seems git version working fine!
+> 
+> Still this shouldn't be happening. Just to confirm, you were using an
+> unpatched kernel and by git you mean nftables git?
+Yes, correct. I tested on 3.18.8 and 3.19.2 vanilla kernels (x86_64).
+On nftables 0.4 it does crash, on nftables git it doesn't.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- net/tipc/socket.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 73c2f51..6dd5bd9 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -35,7 +35,6 @@
-  */
- 
- #include <linux/rhashtable.h>
--#include <linux/jhash.h>
- #include "core.h"
- #include "name_table.h"
- #include "node.h"
-@@ -2294,7 +2293,6 @@ static const struct rhashtable_params tsk_rht_params = {
- 	.head_offset = offsetof(struct tipc_sock, node),
- 	.key_offset = offsetof(struct tipc_sock, portid),
- 	.key_len = sizeof(u32), /* portid */
--	.hashfn = jhash,
- 	.max_size = 1048576,
- 	.min_size = 256,
- };
+> 
+> 
+>> On 2015-03-22 00:49, Denys Fedoryshchenko wrote:
+>> >Additionally, if i will do "nft flush table mangle" , with this table
+>> >added i will get this:
+>> >[   42.800078] ------------[ cut here ]------------
+>> >[   42.800092] WARNING: CPU: 3 PID: 2868 at
+>> >net/netfilter/nf_tables_api.c:4122 nft_data_uninit+0x35/0x50
+>> >[nf_tables]()
