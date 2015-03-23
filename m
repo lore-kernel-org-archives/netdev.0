@@ -1,68 +1,61 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/8] netfilter: nft_rbtree: fix locking
-Date: Mon, 23 Mar 2015 12:36:22 +0100
-Message-ID: <1427110584-5190-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/8] netfilter: nf_tables: consolidate error path of nf_tables_newtable()
+Date: Mon, 23 Mar 2015 12:36:20 +0100
+Message-ID: <1427110584-5190-5-git-send-email-pablo@netfilter.org>
 References: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60112 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752207AbbCWLci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 07:32:38 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-
-Fix a race condition and unnecessary locking:
-
-* the root rb_node must only be accessed under the lock in nft_rbtree_lookup()
-* the lock is not needed in lookup functions in netlink context
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_rbtree.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/netfilter/nf_tables_api.c |   20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
-index 46214f2..2c75361 100644
---- a/net/netfilter/nft_rbtree.c
-+++ b/net/netfilter/nft_rbtree.c
-@@ -37,10 +37,11 @@ static bool nft_rbtree_lookup(const struct nft_set *set,
- {
- 	const struct nft_rbtree *priv = nft_set_priv(set);
- 	const struct nft_rbtree_elem *rbe, *interval = NULL;
--	const struct rb_node *parent = priv->root.rb_node;
-+	const struct rb_node *parent;
- 	int d;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index ea51833..a072d87 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -687,11 +687,10 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
+ 	if (!try_module_get(afi->owner))
+ 		return -EAFNOSUPPORT;
  
- 	spin_lock_bh(&nft_rbtree_lock);
-+	parent = priv->root.rb_node;
- 	while (parent != NULL) {
- 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
++	err = -ENOMEM;
+ 	table = kzalloc(sizeof(*table), GFP_KERNEL);
+-	if (table == NULL) {
+-		module_put(afi->owner);
+-		return -ENOMEM;
+-	}
++	if (table == NULL)
++		goto err1;
  
-@@ -158,7 +159,6 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
- 	struct nft_rbtree_elem *rbe;
- 	int d;
+ 	nla_strlcpy(table->name, name, NFT_TABLE_MAXNAMELEN);
+ 	INIT_LIST_HEAD(&table->chains);
+@@ -700,13 +699,16 @@ static int nf_tables_newtable(struct sock *nlsk, struct sk_buff *skb,
  
--	spin_lock_bh(&nft_rbtree_lock);
- 	while (parent != NULL) {
- 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
- 
-@@ -173,11 +173,9 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
- 			    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
- 				nft_data_copy(&elem->data, rbe->data);
- 			elem->flags = rbe->flags;
--			spin_unlock_bh(&nft_rbtree_lock);
- 			return 0;
- 		}
- 	}
--	spin_unlock_bh(&nft_rbtree_lock);
- 	return -ENOENT;
+ 	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
+ 	err = nft_trans_table_add(&ctx, NFT_MSG_NEWTABLE);
+-	if (err < 0) {
+-		kfree(table);
+-		module_put(afi->owner);
+-		return err;
+-	}
++	if (err < 0)
++		goto err2;
++
+ 	list_add_tail_rcu(&table->list, &afi->tables);
+ 	return 0;
++err2:
++	kfree(table);
++err1:
++	module_put(afi->owner);
++	return err;
  }
  
+ static int nft_flush_table(struct nft_ctx *ctx)
 -- 
 1.7.10.4
+
