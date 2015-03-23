@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Move the comment about unsettable
- socket-level options to default clause and update its reference.
-Date: Mon, 23 Mar 2015 16:55:41 -0400 (EDT)
-Message-ID: <20150323.165541.1457861247015573488.davem@davemloft.net>
-References: <550FD70D.9080500@miraclelinux.com>
+Subject: Re: [PATCH net-next 1/3] bgmac: fix descriptor frame start/end
+ definitions
+Date: Mon, 23 Mar 2015 16:56:43 -0400 (EDT)
+Message-ID: <20150323.165643.1793038542557642338.davem@davemloft.net>
+References: <1427110537-18091-1-git-send-email-nbd@openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: hideaki.yoshifuji@miraclelinux.com
+Cc: netdev@vger.kernel.org, zajec5@gmail.com, hauke@hauke-m.de
+To: nbd@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58222 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58230 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752508AbbCWUzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:55:43 -0400
-In-Reply-To: <550FD70D.9080500@miraclelinux.com>
+	with ESMTP id S1752557AbbCWU4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:56:46 -0400
+In-Reply-To: <1427110537-18091-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki/吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
-Date: Mon, 23 Mar 2015 18:04:13 +0900
+From: Felix Fietkau <nbd@openwrt.org>
+Date: Mon, 23 Mar 2015 12:35:35 +0100
 
-> We implement the SO_SNDLOWAT etc not to be settable and return
-> ENOPROTOOPT per 1003.1g 7.  Move the comment to appropriate
-> position and update the reference.
+> The start-of-frame and end-of-frame bits were accidentally swapped.
+> In the current code it does not make any difference, since they are
+> always used together.
 > 
-> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 
-Applied, thank you.
+Applied.
