@@ -1,29 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] isdn/gigaset: restructure modem response parser
-Date: Mon, 23 Mar 2015 16:47:54 -0400 (EDT)
-Message-ID: <20150323.164754.87431057495721293.davem@davemloft.net>
-References: <cover.1426964840.git.tilman@imap.cc>
+Subject: Re: [PATCH net-next v2 2/3] virtio net: Handle proto_down state by
+ setting the carrier off.
+Date: Mon, 23 Mar 2015 16:50:01 -0400 (EDT)
+Message-ID: <20150323.165001.2063467454200119106.davem@davemloft.net>
+References: <1426997218-27313-3-git-send-email-anuradhak@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hjlipp@web.de, isdn@linux-pingi.de,
-	isdn4linux@listserv.isdn4linux.de
-To: tilman@imap.cc
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com
+To: anuradhak@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58151 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58175 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbbCWUr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:47:56 -0400
-In-Reply-To: <cover.1426964840.git.tilman@imap.cc>
+	with ESMTP id S1752512AbbCWUuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:50:04 -0400
+In-Reply-To: <1426997218-27313-3-git-send-email-anuradhak@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sat, 21 Mar 2015 20:15:32 +0100 (CET)
+From: anuradhak@cumulusnetworks.com
+Date: Sat, 21 Mar 2015 21:06:57 -0700
 
-> This series of patches restructures the Gigaset ISDN driver's
-> modem response parser to improve code readability and conform
-> better to the device's specification and actual behaviour.
-> Could you please merge these through net-next?
+> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> 
+> Applications such as MLAG can detect errors in the network which results
+> in IFF_PROTO_DOWN being set. This patch adds support for handling
+> proto_down for virtio drivers by turning off the carrier and stopping
+> netif processing.
+> 
+> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 
-Series applied to net-next, thanks.
+I really don't like the idea that there are potentially many drivers
+that will not have to add this kind of new code.
+
+This doesn't scale when you have dozens of software devices of various
+types, and several hundred physical hardware networking drivers.
