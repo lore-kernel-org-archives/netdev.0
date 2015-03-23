@@ -1,47 +1,93 @@
-From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v10 tip 5/9] tracing: allow BPF programs to call
- bpf_trace_printk()
-Date: Mon, 23 Mar 2015 13:07:53 +0100
-Message-ID: <20150323120753.GA22560@gmail.com>
-References: <1427053150-32213-1-git-send-email-ast@plumgrid.com>
- <1427053150-32213-6-git-send-email-ast@plumgrid.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CB07731@AcuExch.aculab.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 23 Mar 2015 13:47:23 +0100
+Message-ID: <20150323124723.GA6740@salvia>
+References: <20150323140841.0b807b95@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: 'Alexei Starovoitov' <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB07731-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20150323140841.0b807b95@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> wrote:
-
-> From: Alexei Starovoitov
-> > Debugging of BPF programs needs some form of printk from the program,
-> > so let programs call limited trace_printk() with %d %u %x %p modifiers only.
+On Mon, Mar 23, 2015 at 02:08:41PM +1100, Stephen Rothwell wrote:
+> Hi all,
 > 
-> Should anyone be allowed to use BPF programs to determine the kernel
-> addresses of any items?
-> Looks as though it is leaking kernel addresses to userspace.
-> Note that the problem is with the arguments, not the format string.
+> Today's linux-next merge of the net-next tree got a conflict in
+> net/netfilter/nf_tables_core.c between commit 4017a7ee693d ("netfilter:
+> restore rule tracing via nfnetlink_log") from the net tree and commit
+> 01ef16c2dd2e ("netfilter: nf_tables: minor tracing cleanups") from the
+> net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-All of these are privileged operations - inherent if you are trying to 
-debug the kernel.
+This looks good, thanks for adressing this conflict Stephen.
 
-Thanks,
-
-	Ingo
+> -- 
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+> 
+> diff --cc net/netfilter/nf_tables_core.c
+> index 2d298dccb6dd,77165bf023f3..000000000000
+> --- a/net/netfilter/nf_tables_core.c
+> +++ b/net/netfilter/nf_tables_core.c
+> @@@ -21,6 -21,48 +21,48 @@@
+>   #include <net/netfilter/nf_tables.h>
+>   #include <net/netfilter/nf_log.h>
+>   
+> + enum nft_trace {
+> + 	NFT_TRACE_RULE,
+> + 	NFT_TRACE_RETURN,
+> + 	NFT_TRACE_POLICY,
+> + };
+> + 
+> + static const char *const comments[] = {
+> + 	[NFT_TRACE_RULE]	= "rule",
+> + 	[NFT_TRACE_RETURN]	= "return",
+> + 	[NFT_TRACE_POLICY]	= "policy",
+> + };
+> + 
+> + static struct nf_loginfo trace_loginfo = {
+> + 	.type = NF_LOG_TYPE_LOG,
+> + 	.u = {
+> + 		.log = {
+> + 			.level = 4,
+> + 			.logflags = NF_LOG_MASK,
+> + 	        },
+> + 	},
+> + };
+> + 
+> + static void __nft_trace_packet(const struct nft_pktinfo *pkt,
+> + 			       const struct nft_chain *chain,
+> + 			       int rulenum, enum nft_trace type)
+> + {
+> + 	struct net *net = dev_net(pkt->in ? pkt->in : pkt->out);
+> + 
+>  -	nf_log_packet(net, pkt->xt.family, pkt->ops->hooknum, pkt->skb, pkt->in,
+>  -		      pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
+>  -		      chain->table->name, chain->name, comments[type],
+>  -		      rulenum);
+> ++	nf_log_trace(net, pkt->xt.family, pkt->ops->hooknum, pkt->skb, pkt->in,
+> ++		     pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
+> ++		     chain->table->name, chain->name, comments[type],
+> ++		     rulenum);
+> + }
+> + 
+> + static inline void nft_trace_packet(const struct nft_pktinfo *pkt,
+> + 				    const struct nft_chain *chain,
+> + 				    int rulenum, enum nft_trace type)
+> + {
+> + 	if (unlikely(pkt->skb->nf_trace))
+> + 		__nft_trace_packet(pkt, chain, rulenum, type);
+> + }
+> + 
+>   static void nft_cmp_fast_eval(const struct nft_expr *expr,
+>   			      struct nft_data data[NFT_REG_MAX + 1])
+>   {
