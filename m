@@ -1,53 +1,69 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] net: remove never used forwarding_accel_ops pointer from net_device
-Date: Mon, 23 Mar 2015 18:40:02 +0100
-Message-ID: <73a15123e8cbe6771ac6659ba39e17b3ea84975c.1427131748.git.hannes@stressinduktion.org>
-Cc: John Fastabend <john.r.fastabend@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:48206 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752573AbbCWRkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:40:08 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id A2D932064C
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 13:40:05 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v9 tip 8/9] samples: bpf: IO latency analysis (iosnoop/heatmap)
+Date: Mon, 23 Mar 2015 10:41:21 -0700
+Message-ID: <55105041.5090400@plumgrid.com>
+References: <1426894210-27441-1-git-send-email-ast@plumgrid.com> <1426894210-27441-9-git-send-email-ast@plumgrid.com> <20150323074028.GE25184@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150323074028.GE25184@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-Hi John,
+On 3/23/15 12:40 AM, Ingo Molnar wrote:
+>
+> * Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+>> BPF C program attaches to blk_mq_start_request/blk_update_request kprobe events
+>> to calculate IO latency.
+>
+>   ...
+>
+>> +/* kprobe is NOT a stable ABI
+>> + * This bpf+kprobe example can stop working any time.
+>> + */
+>> +SEC("kprobe/blk_mq_start_request")
+>> +int bpf_prog1(struct pt_regs *ctx)
+>> +{
+>> +	long rq = ctx->di;
+>> +	u64 val = bpf_ktime_get_ns();
+>> +
+>> +	bpf_map_update_elem(&my_map, &rq, &val, BPF_ANY);
+>> +	return 0;
+>> +}
+>
+> So just to make sure the original BPF instrumentation model is still
+> upheld: no matter in what way the kernel changes, neither the kprobe,
+> nor the BPF program can ever crash or corrupt the kernel, assuming the
+> kprobes, perf and BPF subsystem has no bugs, correct?
 
-I guess it slipped in by accident?
+yes. of course. That was always #1 requirement.
 
-Bye,
-Hannes
+> So 'stops working' here means that the instrumentation data might not
+> be reliable if kernel internal interfaces change - but it won't ever
+> make the kernel unreliable in any fashion. Right?
 
+yes. of course.
 
- include/linux/netdevice.h | 2 --
- 1 file changed, 2 deletions(-)
+The only situations where it can 'stop working':
+- in-kernel blk_mq_start_request function is renamed, so kprobe cannot 
+find it and cannot attach.
+- arguments to blk_mq_start_request change. Then ctx->di can be 
+meaningless and using it as key into map is useless.
+- whole logic of blk_mq_start_request/blk_update_request pair changes.
+then this sample code won't be measuring any useful io latency.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5ae69e7..08c4ab3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1342,7 +1342,6 @@ enum netdev_priv_flags {
-  *	@netdev_ops:	Includes several pointers to callbacks,
-  *			if one wants to override the ndo_*() functions
-  *	@ethtool_ops:	Management operations
-- *	@fwd_ops:	Management operations
-  *	@header_ops:	Includes callbacks for creating,parsing,caching,etc
-  *			of Layer 2 headers.
-  *
-@@ -1551,7 +1550,6 @@ struct net_device {
- #endif
- 	const struct net_device_ops *netdev_ops;
- 	const struct ethtool_ops *ethtool_ops;
--	const struct forwarding_accel_ops *fwd_ops;
- #ifdef CONFIG_NET_SWITCHDEV
- 	const struct swdev_ops *swdev_ops;
- #endif
--- 
-2.1.0
+In all cases kernel will never crash (barring bugs in bpf, kprobe 
+subsystems).
