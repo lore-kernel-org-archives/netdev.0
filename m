@@ -1,69 +1,48 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v9 tip 8/9] samples: bpf: IO latency analysis (iosnoop/heatmap)
-Date: Mon, 23 Mar 2015 10:41:21 -0700
-Message-ID: <55105041.5090400@plumgrid.com>
-References: <1426894210-27441-1-git-send-email-ast@plumgrid.com> <1426894210-27441-9-git-send-email-ast@plumgrid.com> <20150323074028.GE25184@gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v10 tip 5/9] tracing: allow BPF programs to call bpf_trace_printk()
+Date: Mon, 23 Mar 2015 10:50:09 -0700
+Message-ID: <55105251.6070807@plumgrid.com>
+References: <1427053150-32213-1-git-send-email-ast@plumgrid.com> <1427053150-32213-6-git-send-email-ast@plumgrid.com> <063D6719AE5E284EB5DD2968C1650D6D1CB07731@AcuExch.aculab.com> <20150323120753.GA22560@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150323074028.GE25184@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150323120753.GA22560-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 3/23/15 12:40 AM, Ingo Molnar wrote:
+On 3/23/15 5:07 AM, Ingo Molnar wrote:
 >
-> * Alexei Starovoitov <ast@plumgrid.com> wrote:
+> * David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> wrote:
 >
->> BPF C program attaches to blk_mq_start_request/blk_update_request kprobe events
->> to calculate IO latency.
+>> From: Alexei Starovoitov
+>>> Debugging of BPF programs needs some form of printk from the program,
+>>> so let programs call limited trace_printk() with %d %u %x %p modifiers only.
+>>
+>> Should anyone be allowed to use BPF programs to determine the kernel
+>> addresses of any items?
+>> Looks as though it is leaking kernel addresses to userspace.
+>> Note that the problem is with the arguments, not the format string.
 >
->   ...
->
->> +/* kprobe is NOT a stable ABI
->> + * This bpf+kprobe example can stop working any time.
->> + */
->> +SEC("kprobe/blk_mq_start_request")
->> +int bpf_prog1(struct pt_regs *ctx)
->> +{
->> +	long rq = ctx->di;
->> +	u64 val = bpf_ktime_get_ns();
->> +
->> +	bpf_map_update_elem(&my_map, &rq, &val, BPF_ANY);
->> +	return 0;
->> +}
->
-> So just to make sure the original BPF instrumentation model is still
-> upheld: no matter in what way the kernel changes, neither the kprobe,
-> nor the BPF program can ever crash or corrupt the kernel, assuming the
-> kprobes, perf and BPF subsystem has no bugs, correct?
+> All of these are privileged operations - inherent if you are trying to
+> debug the kernel.
 
-yes. of course. That was always #1 requirement.
+yep.
 
-> So 'stops working' here means that the instrumentation data might not
-> be reliable if kernel internal interfaces change - but it won't ever
-> make the kernel unreliable in any fashion. Right?
-
-yes. of course.
-
-The only situations where it can 'stop working':
-- in-kernel blk_mq_start_request function is renamed, so kprobe cannot 
-find it and cannot attach.
-- arguments to blk_mq_start_request change. Then ctx->di can be 
-meaningless and using it as key into map is useless.
-- whole logic of blk_mq_start_request/blk_update_request pair changes.
-then this sample code won't be measuring any useful io latency.
-
-In all cases kernel will never crash (barring bugs in bpf, kprobe 
-subsystems).
+There is a plan to add 'pointer leak detector' to bpf verifier and
+'constant blinding' pass, so in the future we may let unprivileged
+users load programs. seccomp will be first such user. But it will
+take long time.
