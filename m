@@ -1,257 +1,59 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v2 5/5] mpls: Allow payload type to be associated
- with label routes
-Date: Mon, 23 Mar 2015 14:02:49 +0000
-Message-ID: <55101D09.2000306@brocade.com>
-References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>	<1426866170-28739-1-git-send-email-rshearma@brocade.com>	<1426866170-28739-6-git-send-email-rshearma@brocade.com> <87sicw4up6.fsf@x220.int.ebiederm.org>
+From: Joe Harvell <joe.harvell@tekcomms.com>
+Subject: Re: [PATCH] iproute2: enhance addr label validation
+Date: Mon, 23 Mar 2015 09:02:47 -0500
+Message-ID: <55101D07.6090301@tekcomms.com>
+References: <550DD13D.90009@tekcomms.com>
+ <20150323011522.GB20755@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: <netdev@vger.kernel.org>, Stephen Hemminger <shemming@brocade.com>,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:25519 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752113AbbCWODI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 10:03:08 -0400
-In-Reply-To: <87sicw4up6.fsf@x220.int.ebiederm.org>
+Received: from mail-bn1on0134.outbound.protection.outlook.com ([157.56.110.134]:53792
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751873AbbCWOEU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 10:04:20 -0400
+In-Reply-To: <20150323011522.GB20755@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/03/15 20:56, Eric W. Biederman wrote:
-> Robert Shearman <rshearma@brocade.com> writes:
+
+> Hi Joe,
 >
->> RFC 4182 s2 states that if an IPv4 Explicit NULL label is the only
->> label on the stack, then after popping the resulting packet must be
->> treated as a IPv4 packet and forwarded based on the IPv4 header. The
->> same is true for IPv6 Explicit NULL with an IPv6 packet following.
->>
->> Therefore, when installing the IPv4/IPv6 Explicit NULL label routes,
->> add an attribute that specifies the expected payload type for use at
->> forwarding time for determining the type of the encapsulated packet
->> instead of inspecting the first nibble of the packet.
+> On Sat, Mar 21, 2015 at 03:14:53PM -0500, Joe Harvell wrote:
+>> The ip addr command today rejects address labels that would break
+>> ifconfig.  However, it allows some labels which still break it. Enhance
+>> enforcement to reject all known incompatible labels, and allow the
+>> existing -force option to allow someone to use a label even if it is not
+>> ifconfig compatible
+> I am concerned this will break existing users who are relying on setting
+> labels that would now be rejected without using -force.
 >
-> So this patch is not wrong.  And it at a practical level it is a good
-> idea to enforce ipv4 when the ipv4 explicit null label is present
-> and similarly with ipv6.
->
-> I do have some quibbles.
->
-> First I want to point out that in RFC3032 section 2.2 talks about using
-> a label in combination of with the packets contents to figure out the
-> type of packet that is being transmitted.  IPv4 and IPv6 do count as a
-> set of network layer protocols that can be distinguished by inspection
-> of the network layer header.
+[snip]
 
-I'm confused why you feel this is a quibble. This patch allows this case 
-and even documents that this can be done:
+Simon,
 
- >> +	MPT_UNSPEC, /* IPv4 or IPv6 */
+Good point.  I propose the following:
 
-I haven't added any warnings or barriers to using this even with it 
-being orthogonal to the direction all the other known MPLS stacks have 
-gone in, as we discussed in a previous thread.
+When a label is specified without -force, and that label begins with the 
+interface
+name but is followed by something other than a colon, accept the label 
+but emit
+a warning message indicating this label is incompatible with ifconfig 
+and that later
+versions of the 'ip address' command may reject it.  This message can 
+also indicate
+that -force can be specified to explicitly indicate a label that is non 
+ifconfig compatible
+is desired.
 
-> Changing mpls_egress to mpls_bos_egress bothers me a little, because it
-> seems redundant.  But I can see an argument for that name change.
->
-> I think it would be cleaner if we set MPT_IPV4 = 4 and MPT_IPV6 = 6.
-> which would remove a switch statement mpls_pkt_determine_af.
+At some point in the future, the behavior could then be changed to 
+reject such labels.
 
-Ok.
+What do you think?
 
-> You delete my big fat comment referring people to how packets are
-> encoded in mpls.  That seems unfortunate, because it can be easy to get
-> lost in the MPLS rfcs, and I am certain someone will want to do more
-> than support IPv4 and IPv6.
-
-Yes, I deleted the comment because it refers to determining the type of 
-packet using the first nibble for the pseudo-wire with control-word 
-case, which as we discussed in a previous thread is contrary to the 
-intention of the author of the RFC draft that defines it. I can 
-certainly keep the references to the RFCs around though.
-
->
-> Given the number of pseudo wire types I do believe that 3 bits is going
-> to be too small to encode everything going forward.
-
-I can steal another bit from the number of labels if you'd prefer, but 
-if you're suggesting moving this out to a full 8-bit field then I don't 
-see the need to over-engineer this and use more memory given that this 
-can easily be changed going forward.
-
-Thanks,
-Rob
-
->
->> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
->> Signed-off-by: Robert Shearman <rshearma@brocade.com>
->> ---
->>   net/mpls/af_mpls.c | 87 ++++++++++++++++++++++++++++++++++--------------------
->>   1 file changed, 55 insertions(+), 32 deletions(-)
->>
->> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->> index 14c7e76..653bae1 100644
->> --- a/net/mpls/af_mpls.c
->> +++ b/net/mpls/af_mpls.c
->> @@ -23,13 +23,20 @@
->>   /* This maximum ha length copied from the definition of struct neighbour */
->>   #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
->>
->> +enum mpls_payload_type {
->> +	MPT_UNSPEC, /* IPv4 or IPv6 */
->> +	MPT_IPV4,
->> +	MPT_IPV6,
->> +};
->> +
->>   struct mpls_route { /* next hop label forwarding entry */
->>   	struct net_device __rcu *rt_dev;
->>   	struct rcu_head		rt_rcu;
->>   	u32			rt_label[MAX_NEW_LABELS];
->>   	u8			rt_protocol; /* routing protocol that set this entry */
->>   	u8                      rt_unlabeled : 1;
->> -	u8			rt_labels : 7;
->> +	u8                      rt_payload_type : 3;
->> +	u8			rt_labels : 4;
->>   	u8			rt_via_alen;
->>   	u8			rt_via_table;
->>   	u8			rt_via[0];
->> @@ -87,19 +94,24 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
->>   	return true;
->>   }
->>
->> -static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
->> -			struct mpls_entry_decoded dec)
->> +static enum mpls_payload_type mpls_pkt_determine_af(struct sk_buff *skb)
->>   {
->> -	/* RFC4385 and RFC5586 encode other packets in mpls such that
->> -	 * they don't conflict with the ip version number, making
->> -	 * decoding by examining the ip version correct in everything
->> -	 * except for the strangest cases.
->> -	 *
->> -	 * The strange cases if we choose to support them will require
->> -	 * manual configuration.
->> -	 */
->> -	struct iphdr *hdr4;
->> -	bool success = true;
->> +	struct iphdr *hdr4 = ip_hdr(skb);
->> +
->> +	switch (hdr4->version) {
->> +	case 4:
->> +		return MPT_IPV4;
->> +	case 6:
->> +		return MPT_IPV6;
->> +	}
->> +
->> +	return MPT_UNSPEC;
->> +}
->> +
->> +static bool mpls_bos_egress(struct mpls_route *rt, struct sk_buff *skb,
->> +			    struct mpls_entry_decoded dec)
->> +{
->> +	enum mpls_payload_type payload_type;
->>
->>   	/* The IPv4 code below accesses through the IPv4 header
->>   	 * checksum, which is 12 bytes into the packet.
->> @@ -114,24 +126,31 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
->>   	if (!pskb_may_pull(skb, 12))
->>   		return false;
->>
->> -	/* Use ip_hdr to find the ip protocol version */
->> -	hdr4 = ip_hdr(skb);
->> -	if (hdr4->version == 4) {
->> +	payload_type = rt->rt_payload_type;
->> +	if (payload_type == MPT_UNSPEC)
->> +		payload_type = mpls_pkt_determine_af(skb);
->> +
->> +	switch (payload_type) {
->> +	case MPT_IPV4: {
->> +		struct iphdr *hdr4 = ip_hdr(skb);
->>   		skb->protocol = htons(ETH_P_IP);
->>   		csum_replace2(&hdr4->check,
->>   			      htons(hdr4->ttl << 8),
->>   			      htons(dec.ttl << 8));
->>   		hdr4->ttl = dec.ttl;
->> +		return true;
->>   	}
->> -	else if (hdr4->version == 6) {
->> +	case MPT_IPV6: {
->>   		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
->>   		skb->protocol = htons(ETH_P_IPV6);
->>   		hdr6->hop_limit = dec.ttl;
->> +		return true;
->>   	}
->> -	else
->> -		/* version 0 and version 1 are used by pseudo wires */
->> -		success = false;
->> -	return success;
->> +	case MPT_UNSPEC:
->> +		break;
->> +	}
->> +
->> +	return false;
->>   }
->>
->>   static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->> @@ -210,7 +229,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->>   	skb->protocol = htons(ETH_P_MPLS_UC);
->>
->>   	if (unlikely(!new_header_size && dec.bos)) {
->> -		if (!mpls_egress(rt, skb, dec))
->> +		if (!mpls_bos_egress(rt, skb, dec))
->>   			goto drop;
->>   	} else if (rt->rt_unlabeled) {
->>   		/* Labeled traffic destined to unlabeled peer should
->> @@ -253,16 +272,17 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
->>   };
->>
->>   struct mpls_route_config {
->> -	u32		rc_protocol;
->> -	u32		rc_ifindex;
->> -	u16		rc_via_table;
->> -	u16		rc_via_alen;
->> -	u8		rc_via[MAX_VIA_ALEN];
->> -	u32		rc_label;
->> -	u32		rc_output_labels;
->> -	u32		rc_output_label[MAX_NEW_LABELS];
->> -	u32		rc_nlflags;
->> -	struct nl_info	rc_nlinfo;
->> +	u32			rc_protocol;
->> +	u32			rc_ifindex;
->> +	u16			rc_via_table;
->> +	u16			rc_via_alen;
->> +	u8			rc_via[MAX_VIA_ALEN];
->> +	u32			rc_label;
->> +	u32			rc_output_labels;
->> +	u32			rc_output_label[MAX_NEW_LABELS];
->> +	u32			rc_nlflags;
->> +	enum mpls_payload_type	rc_payload_type;
->> +	struct nl_info		rc_nlinfo;
->>   };
->>
->>   static struct mpls_route *mpls_rt_alloc(size_t alen)
->> @@ -413,6 +433,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
->>   	}
->>   	rt->rt_protocol = cfg->rc_protocol;
->>   	RCU_INIT_POINTER(rt->rt_dev, dev);
->> +	rt->rt_payload_type = cfg->rc_payload_type;
->>   	rt->rt_via_table = cfg->rc_via_table;
->>   	memcpy(rt->rt_via, cfg->rc_via, cfg->rc_via_alen);
->>
->> @@ -948,6 +969,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
->>   			goto nort0;
->>   		RCU_INIT_POINTER(rt0->rt_dev, lo);
->>   		rt0->rt_protocol = RTPROT_KERNEL;
->> +		rt0->rt_payload_type = MPT_IPV4;
->>   		rt0->rt_via_table = NEIGH_LINK_TABLE;
->>   		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
->>   	}
->> @@ -958,6 +980,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
->>   			goto nort2;
->>   		RCU_INIT_POINTER(rt2->rt_dev, lo);
->>   		rt2->rt_protocol = RTPROT_KERNEL;
->> +		rt2->rt_payload_type = MPT_IPV6;
->>   		rt2->rt_via_table = NEIGH_LINK_TABLE;
->>   		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
->>   	}
+---
+Joe
