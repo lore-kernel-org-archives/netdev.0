@@ -1,7 +1,7 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 6/8] ipv6: do retries on stable privacy addresses
-Date: Mon, 23 Mar 2015 23:36:04 +0100
-Message-ID: <63c1b36b9e6f458ca32ce233336e62912dcdeab7.1427149704.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 2/8] ipv6: introduce secret_stable to ipv6_devconf
+Date: Mon, 23 Mar 2015 23:36:00 +0100
+Message-ID: <135700f43a2ec666ec7b322e75b0194ffe168540.1427149704.git.hannes@stressinduktion.org>
 References: <cover.1427149704.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,25 +10,25 @@ Cc: ek@google.com, fgont@si6networks.com, lorenzo@google.com,
 	hideaki.yoshifuji@miraclelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:44383 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:56974 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753500AbbCWWgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:36:22 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 06719209E2
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 18:36:19 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1753188AbbCWWgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:36:16 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id A22EA20859
+	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 18:36:13 -0400 (EDT)
 In-Reply-To: <cover.1427149704.git.hannes@stressinduktion.org>
 In-Reply-To: <cover.1427149704.git.hannes@stressinduktion.org>
 References: <cover.1427149704.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a DAD conflict is detected, we want to retry privacy stable address
-generation up to idgen_retries (=3D 3) times with a delay of idgen_dela=
-y
-(=3D 1 second). Add the logic to addrconf_dad_failure.
+This patch implements the procfs logic for the stable_address knob:
+The secret is formatted as an ipv6 address and will be stored per
+interface and per namespace. We track initialized flag and return EIO
+errors until the secret is set.
 
-By design, we don't clean up dad failed permanent addresses.
+We don't inherit the secret to newly created namespaces.
 
 Cc: Erik Kline <ek@google.com>
 Cc: Fernando Gont <fgont@si6networks.com>
@@ -37,110 +37,172 @@ Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yos=
 hifuji@miraclelinux.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/if_inet6.h |  1 +
- net/ipv6/addrconf.c    | 57 ++++++++++++++++++++++++++++++++++++++++++=
-+++++---
- 2 files changed, 55 insertions(+), 3 deletions(-)
+ include/linux/ipv6.h      |  4 +++
+ include/uapi/linux/ipv6.h |  1 +
+ net/ipv6/addrconf.c       | 68 +++++++++++++++++++++++++++++++++++++++=
+++++++++
+ 3 files changed, 73 insertions(+)
 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index d89397a..1c8b682 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -52,6 +52,7 @@ struct inet6_ifaddr {
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 4d5169f..82806c6 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -53,6 +53,10 @@ struct ipv6_devconf {
+ 	__s32           ndisc_notify;
+ 	__s32		suppress_frag_ndisc;
+ 	__s32		accept_ra_mtu;
++	struct ipv6_stable_secret {
++		bool initialized;
++		struct in6_addr secret;
++	} stable_secret;
+ 	void		*sysctl;
+ };
 =20
- 	__u32			flags;
- 	__u8			dad_probes;
-+	__u8			stable_privacy_retry;
-=20
- 	__u16			scope;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 437a6a4..5efa54a 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -170,6 +170,7 @@ enum {
+ 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
++	DEVCONF_STABLE_SECRET,
+ 	DEVCONF_MAX
+ };
 =20
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 1cc5320..9b51fdb 100644
+index 158378e..5b967c8 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -1710,6 +1710,7 @@ static int addrconf_dad_end(struct inet6_ifaddr *=
-ifp)
+@@ -46,6 +46,7 @@
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/net.h>
++#include <linux/inet.h>
+ #include <linux/in6.h>
+ #include <linux/netdevice.h>
+ #include <linux/if_addr.h>
+@@ -102,6 +103,9 @@
 =20
- void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ #define	INFINITY_LIFE_TIME	0xFFFFFFFF
+=20
++#define IPV6_MAX_STRLEN \
++	sizeof("ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255")
++
+ static inline u32 cstamp_delta(unsigned long cstamp)
  {
+ 	return (cstamp - INITIAL_JIFFIES) * 100UL / HZ;
+@@ -202,6 +206,9 @@ static struct ipv6_devconf ipv6_devconf __read_most=
+ly =3D {
+ 	.accept_dad		=3D 1,
+ 	.suppress_frag_ndisc	=3D 1,
+ 	.accept_ra_mtu		=3D 1,
++	.stable_secret		=3D {
++		.initialized =3D false,
++	}
+ };
+=20
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly =3D {
+@@ -240,6 +247,9 @@ static struct ipv6_devconf ipv6_devconf_dflt __read=
+_mostly =3D {
+ 	.accept_dad		=3D 1,
+ 	.suppress_frag_ndisc	=3D 1,
+ 	.accept_ra_mtu		=3D 1,
++	.stable_secret		=3D {
++		.initialized =3D false,
++	},
+ };
+=20
+ /* Check if a valid qdisc is available */
+@@ -4430,6 +4440,7 @@ static inline void ipv6_store_devconf(struct ipv6=
+_devconf *cnf,
+ 	array[DEVCONF_SUPPRESS_FRAG_NDISC] =3D cnf->suppress_frag_ndisc;
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] =3D cnf->accept_ra_from_local;
+ 	array[DEVCONF_ACCEPT_RA_MTU] =3D cnf->accept_ra_mtu;
++	/* we omit DEVCONF_STABLE_SECRET for now */
+ }
+=20
+ static inline size_t inet6_ifla6_size(void)
+@@ -5074,6 +5085,53 @@ int addrconf_sysctl_proxy_ndp(struct ctl_table *=
+ctl, int write,
+ 	return ret;
+ }
+=20
++static int addrconf_sysctl_stable_secret(struct ctl_table *ctl, int wr=
+ite,
++					 void __user *buffer, size_t *lenp,
++					 loff_t *ppos)
++{
++	int err;
 +	struct in6_addr addr;
- 	struct inet6_dev *idev =3D ifp->idev;
-=20
- 	if (addrconf_dad_end(ifp)) {
-@@ -1720,9 +1721,59 @@ void addrconf_dad_failure(struct inet6_ifaddr *i=
-fp)
- 	net_info_ratelimited("%s: IPv6 duplicate address %pI6c detected!\n",
- 			     ifp->idev->dev->name, &ifp->addr);
-=20
--	if (idev->cnf.accept_dad > 1 && !idev->cnf.disable_ipv6) {
--		struct in6_addr addr;
-+	spin_lock_bh(&ifp->lock);
++	char str[IPV6_MAX_STRLEN];
++	struct ctl_table lctl =3D *ctl;
++	struct ipv6_stable_secret *secret =3D ctl->data;
 +
-+	if (ifp->flags & IFA_F_STABLE_PRIVACY) {
-+		int scope =3D ifp->scope;
-+		u32 flags =3D ifp->flags;
-+		struct in6_addr new_addr;
-+		struct inet6_ifaddr *ifp2;
-+		u32 valid_lft, preferred_lft;
-+		int pfxlen =3D ifp->prefix_len;
-+		const unsigned int idgen_retries =3D 3;
-+		const unsigned int idgen_delay =3D 1 * HZ;
-+		int retries =3D ifp->stable_privacy_retry + 1;
++	lctl.maxlen =3D IPV6_MAX_STRLEN;
++	lctl.data =3D str;
 +
-+		if (retries > idgen_retries) {
-+			net_info_ratelimited("%s: privacy stable address generation failed =
-because of DAD conflicts!\n",
-+					     ifp->idev->dev->name);
-+			goto errdad;
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	if (!write && !secret->initialized) {
++		err =3D -EIO;
++		goto out;
++	}
++
++	if (!write) {
++		err =3D snprintf(str, sizeof(str), "%pI6",
++			       &secret->secret);
++		if (err >=3D sizeof(str)) {
++			err =3D -EIO;
++			goto out;
 +		}
++	}
 +
-+		new_addr =3D ifp->addr;
-+		if (ipv6_generate_stable_address(&new_addr, retries,
-+						 idev))
-+			goto errdad;
++	err =3D proc_dostring(&lctl, write, buffer, lenp, ppos);
++	if (err || !write)
++		goto out;
++
++	if (in6_pton(str, -1, addr.in6_u.u6_addr8, -1, NULL) !=3D 1) {
++		err =3D -EIO;
++		goto out;
++	}
++
++	secret->initialized =3D true;
++	secret->secret =3D addr;
++
++out:
++	rtnl_unlock();
++
++	return err;
++}
 =20
-+		valid_lft =3D ifp->valid_lft;
-+		preferred_lft =3D ifp->prefered_lft;
-+
-+		spin_unlock_bh(&ifp->lock);
-+
-+		if (idev->cnf.max_addresses &&
-+		    ipv6_count_addresses(idev) >=3D
-+		    idev->cnf.max_addresses)
-+			goto lock_errdad;
-+
-+		net_info_ratelimited("%s: generating new stable privacy address beca=
-use of DAD conflict\n",
-+				     ifp->idev->dev->name);
-+
-+		ifp2 =3D ipv6_add_addr(idev, &new_addr, NULL, pfxlen,
-+				     scope, flags, valid_lft,
-+				     preferred_lft);
-+		if (IS_ERR(ifp2))
-+			goto lock_errdad;
-+
-+		spin_lock_bh(&ifp2->lock);
-+		ifp2->stable_privacy_retry =3D retries;
-+		ifp2->state =3D INET6_IFADDR_STATE_PREDAD;
-+		spin_unlock_bh(&ifp2->lock);
-+
-+		addrconf_mod_dad_work(ifp2, idgen_delay);
-+		in6_ifa_put(ifp2);
-+lock_errdad:
-+		spin_lock_bh(&ifp->lock);
-+	} else if (idev->cnf.accept_dad > 1 && !idev->cnf.disable_ipv6) {
- 		addr.s6_addr32[0] =3D htonl(0xfe800000);
- 		addr.s6_addr32[1] =3D 0;
-=20
-@@ -1736,7 +1787,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *if=
-p)
+ static struct addrconf_sysctl_table
+ {
+@@ -5347,6 +5405,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	=3D proc_dointvec,
+ 		},
+ 		{
++			.procname	=3D "stable_secret",
++			.data		=3D &ipv6_devconf.stable_secret,
++			.maxlen		=3D IPV6_MAX_STRLEN,
++			.mode		=3D 0600,
++			.proc_handler	=3D addrconf_sysctl_stable_secret,
++		},
++		{
+ 			/* sentinel */
  		}
- 	}
+ 	},
+@@ -5442,6 +5507,9 @@ static int __net_init addrconf_init_net(struct ne=
+t *net)
+ 	dflt->autoconf =3D ipv6_defaults.autoconf;
+ 	dflt->disable_ipv6 =3D ipv6_defaults.disable_ipv6;
 =20
--	spin_lock_bh(&ifp->lock);
-+errdad:
- 	/* transition from _POSTDAD to _ERRDAD */
- 	ifp->state =3D INET6_IFADDR_STATE_ERRDAD;
- 	spin_unlock_bh(&ifp->lock);
++	dflt->stable_secret.initialized =3D false;
++	all->stable_secret.initialized =3D false;
++
+ 	net->ipv6.devconf_all =3D all;
+ 	net->ipv6.devconf_dflt =3D dflt;
+=20
 --=20
 2.1.0
