@@ -1,7 +1,7 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 8/8] ipv6: add documentation for stable_secret, idgen_delay and idgen_retries knobs
-Date: Mon, 23 Mar 2015 18:02:02 +0100
-Message-ID: <6da46ae2f76bf9aca41bd09ea7f284b75955637c.1427129103.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next 3/8] ipv6: generation of stable privacy addresses for link-local and autoconf
+Date: Mon, 23 Mar 2015 18:01:57 +0100
+Message-ID: <436f67a5a1be78dfb4a8bb5824d20ddc47130975.1427129103.git.hannes@stressinduktion.org>
 References: <cover.1427129103.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,18 +10,48 @@ Cc: ek@google.com, fgont@si6networks.com, lorenzo@google.com,
 	hideaki.yoshifuji@miraclelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:42029 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:54783 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753226AbbCWRCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:02:16 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 984912094D
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 13:02:13 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1752263AbbCWRCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:02:12 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id EB9B920A2B
+	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 13:02:08 -0400 (EDT)
 In-Reply-To: <cover.1427129103.git.hannes@stressinduktion.org>
 In-Reply-To: <cover.1427129103.git.hannes@stressinduktion.org>
 References: <cover.1427129103.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+This patch implements the stable privacy address generation for
+link-local and autoconf addresses as specified in RFC7217.
+
+  RID =3D F(Prefix, Net_Iface, Network_ID, DAD_Counter, secret_key)
+
+is the RID (random identifier). As the hash function F we chose one
+round of sha1. Prefix will be either the link-local prefix or the
+router advertised one. As Net_Iface we use the MAC address of the
+device. DAD_Counter and secret_key are implemented as specified.
+
+We don't use Network_ID, as it couples the code too closely to other
+subsystems. It is specified as optional in the RFC.
+
+As Net_Iface we only use the MAC address: we simply have no stable
+identifier in the kernel we could possibly use: because this code might
+run very early, we cannot depend on names, as they might be changed by
+user space early on during the boot process.
+
+A new address generation mode is introduced,
+IN6_ADDR_GEN_MODE_STABLE_PRIVACY. With iproute2 one can switch back to
+none or eui64 address configuration mode although the stable_secret is
+already set.
+
+We refuse writes to ipv6/conf/all/stable_secret but only allow
+ipv6/conf/default/stable_secret and the interface specific file to be
+written to. The default stable_secret is used as the parameter for the
+namespace, the interface specific can overwrite the secret, e.g. when
+switching a network configuration from one system to another while
+inheriting the secret.
 
 Cc: Erik Kline <ek@google.com>
 Cc: Fernando Gont <fgont@si6networks.com>
@@ -30,52 +60,213 @@ Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yos=
 hifuji@miraclelinux.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- Documentation/networking/ip-sysctl.txt | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ include/uapi/linux/if_link.h |   1 +
+ net/ipv6/addrconf.c          | 130 +++++++++++++++++++++++++++++++++++=
+++++++--
+ 2 files changed, 127 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index 6c07c2b..6825247 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1220,6 +1220,17 @@ anycast_src_echo_reply - BOOLEAN
- 	FALSE: disabled
- 	Default: FALSE
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.=
+h
+index f5f5edd..7ffb18d 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -216,6 +216,7 @@ enum {
+ enum in6_addr_gen_mode {
+ 	IN6_ADDR_GEN_MODE_EUI64,
+ 	IN6_ADDR_GEN_MODE_NONE,
++	IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
+ };
 =20
-+idgen_delay - INTEGER
-+	Controls the delay in seconds after which time to retry
-+	privacy stable address generation if a DAD conflict is
-+	detected.
-+	Default: 1 (as specified in RFC7212)
-+
-+idgen_retries - INTEGER
-+	Controls the number of retries to generate a stable privacy
-+	address if a DAD conflict is detected.
-+	Default: 3 (as specified in RFC7212)
-+
- mld_qrv - INTEGER
- 	Controls the MLD query robustness variable (see RFC3810 9.1).
- 	Default: 2 (as specified by RFC3810 9.1)
-@@ -1540,6 +1551,20 @@ use_optimistic - BOOLEAN
- 		0: disabled (default)
- 		1: enabled
+ /* Bridge section */
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 5b967c8..6813268 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -131,6 +131,9 @@ static void ipv6_regen_rndid(unsigned long data);
 =20
-+stable_secret - IPv6 address
-+	This IPv6 address will be used as a secret to generate IPv6
-+	addresses for link-local addresses and autoconfigured
-+	ones. All addresses generated after setting this secret will
-+	be stable privacy ones by default. This can be changed via the
-+	addrgenmode ip-link. conf/default/stable_secret is used as the
-+	secret for the namespace, the interface specific ones can
-+	overwrite that. Writes to conf/all/stable_secret are refused.
+ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev);
+ static int ipv6_count_addresses(struct inet6_dev *idev);
++static int ipv6_generate_stable_address(struct in6_addr *addr,
++					u8 dad_count,
++					const struct inet6_dev *idev);
+=20
+ /*
+  *	Configured unicast address hash table
+@@ -2302,6 +2305,11 @@ void addrconf_prefix_rcv(struct net_device *dev,=
+ u8 *opt, int len, bool sllao)
+ 				       in6_dev->token.s6_addr + 8, 8);
+ 				read_unlock_bh(&in6_dev->lock);
+ 				tokenized =3D true;
++			} else if (in6_dev->addr_gen_mode =3D=3D
++				   IN6_ADDR_GEN_MODE_STABLE_PRIVACY &&
++				   !ipv6_generate_stable_address(&addr, 0,
++								 in6_dev)) {
++				goto ok;
+ 			} else if (ipv6_generate_eui64(addr.s6_addr + 8, dev) &&
+ 				   ipv6_inherit_eui64(addr.s6_addr + 8, in6_dev)) {
+ 				in6_dev_put(in6_dev);
+@@ -2820,12 +2828,98 @@ static void addrconf_add_linklocal(struct inet6=
+_dev *idev, const struct in6_addr
+ 	}
+ }
+=20
++static bool ipv6_reserved_interfaceid(struct in6_addr address)
++{
++	if ((address.s6_addr32[2] | address.s6_addr32[3]) =3D=3D 0)
++		return true;
 +
-+	It is recommended to generate this secret during installation
-+	of a system and keep it stable after that.
++	if (address.s6_addr32[2] =3D=3D htonl(0x02005eff) &&
++	    ((address.s6_addr32[3] & htonl(0xfe000000)) =3D=3D htonl(0xfe0000=
+00)))
++		return true;
 +
-+	By default the stable secret is unset.
++	if (address.s6_addr32[2] =3D=3D htonl(0xfdffffff) &&
++	    ((address.s6_addr32[3] & htonl(0xffffff80)) =3D=3D htonl(0xffffff=
+80)))
++		return true;
 +
- icmp/*:
- ratelimit - INTEGER
- 	Limit the maximal rates for sending ICMPv6 packets.
++	return false;
++}
++
++static int ipv6_generate_stable_address(struct in6_addr *address,
++					u8 dad_count,
++					const struct inet6_dev *idev)
++{
++	static const int idgen_retries =3D 3;
++
++	static DEFINE_SPINLOCK(lock);
++	static __u32 digest[SHA_DIGEST_WORDS];
++	static __u32 workspace[SHA_WORKSPACE_WORDS];
++
++	static union {
++		char __data[SHA_MESSAGE_BYTES];
++		struct {
++			struct in6_addr secret;
++			__be64 prefix;
++			unsigned char hwaddr[MAX_ADDR_LEN];
++			u8 dad_count;
++		} __packed;
++	} data;
++
++	struct in6_addr secret;
++	struct in6_addr temp;
++	struct net *net =3D dev_net(idev->dev);
++
++	BUILD_BUG_ON(sizeof(data.__data) !=3D sizeof(data));
++
++	if (idev->cnf.stable_secret.initialized)
++		secret =3D idev->cnf.stable_secret.secret;
++	else if (net->ipv6.devconf_dflt->stable_secret.initialized)
++		secret =3D net->ipv6.devconf_dflt->stable_secret.secret;
++	else
++		return -1;
++
++retry:
++	spin_lock_bh(&lock);
++
++	sha_init(digest);
++	memset(&data, 0, sizeof(data));
++	memset(workspace, 0, sizeof(workspace));
++	memcpy(data.hwaddr, idev->dev->perm_addr, idev->dev->addr_len);
++	data.prefix =3D ((__be64)address->s6_addr32[0] << 32) |
++		       (__be64)address->s6_addr32[1];
++	data.secret =3D secret;
++	data.dad_count =3D dad_count;
++
++	sha_transform(digest, data.__data, workspace);
++
++	temp =3D *address;
++	temp.s6_addr32[2] =3D digest[0];
++	temp.s6_addr32[3] =3D digest[1];
++
++	spin_unlock_bh(&lock);
++
++	if (ipv6_reserved_interfaceid(temp)) {
++		dad_count++;
++		if (dad_count > idgen_retries)
++			return -1;
++		goto retry;
++	}
++
++	*address =3D temp;
++	return 0;
++}
++
+ static void addrconf_addr_gen(struct inet6_dev *idev, bool prefix_rout=
+e)
+ {
+-	if (idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_EUI64) {
+-		struct in6_addr addr;
++	struct in6_addr addr;
++
++	ipv6_addr_set(&addr, htonl(0xFE800000), 0, 0, 0);
+=20
+-		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
++	if (idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY) {
++		if (!ipv6_generate_stable_address(&addr, 0, idev))
++			addrconf_add_linklocal(idev, &addr);
++		else if (prefix_route)
++			addrconf_prefix_route(&addr, 64, idev->dev, 0, 0);
++	} else if (idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_EUI64) {
+ 		/* addrconf_add_linklocal also adds a prefix_route and we
+ 		 * only need to care about prefix routes if ipv6_generate_eui64
+ 		 * couldn't generate one.
+@@ -4675,8 +4769,15 @@ static int inet6_set_link_af(struct net_device *=
+dev, const struct nlattr *nla)
+ 		u8 mode =3D nla_get_u8(tb[IFLA_INET6_ADDR_GEN_MODE]);
+=20
+ 		if (mode !=3D IN6_ADDR_GEN_MODE_EUI64 &&
+-		    mode !=3D IN6_ADDR_GEN_MODE_NONE)
++		    mode !=3D IN6_ADDR_GEN_MODE_NONE &&
++		    mode !=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY)
++			return -EINVAL;
++
++		if (mode =3D=3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY &&
++		    !idev->cnf.stable_secret.initialized &&
++		    !dev_net(dev)->ipv6.devconf_dflt->stable_secret.initialized)
+ 			return -EINVAL;
++
+ 		idev->addr_gen_mode =3D mode;
+ 		err =3D 0;
+ 	}
+@@ -5093,8 +5194,12 @@ static int addrconf_sysctl_stable_secret(struct =
+ctl_table *ctl, int write,
+ 	struct in6_addr addr;
+ 	char str[IPV6_MAX_STRLEN];
+ 	struct ctl_table lctl =3D *ctl;
++	struct net *net =3D ctl->extra2;
+ 	struct ipv6_stable_secret *secret =3D ctl->data;
+=20
++	if (&net->ipv6.devconf_all->stable_secret =3D=3D ctl->data)
++		return -EIO;
++
+ 	lctl.maxlen =3D IPV6_MAX_STRLEN;
+ 	lctl.data =3D str;
+=20
+@@ -5127,6 +5232,23 @@ static int addrconf_sysctl_stable_secret(struct =
+ctl_table *ctl, int write,
+ 	secret->initialized =3D true;
+ 	secret->secret =3D addr;
+=20
++	if (&net->ipv6.devconf_dflt->stable_secret =3D=3D ctl->data) {
++		struct net_device *dev;
++
++		for_each_netdev(net, dev) {
++			struct inet6_dev *idev =3D __in6_dev_get(dev);
++
++			if (idev) {
++				idev->addr_gen_mode =3D
++					IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
++			}
++		}
++	} else {
++		struct inet6_dev *idev =3D ctl->extra1;
++
++		idev->addr_gen_mode =3D IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
++	}
++
+ out:
+ 	rtnl_unlock();
+=20
 --=20
 2.1.0
