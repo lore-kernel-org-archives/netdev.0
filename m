@@ -1,55 +1,51 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/7] net: bcmgenet: update bcmgenet_ephy_power_up to clear CK25_DIS bit
-Date: Mon, 23 Mar 2015 15:03:46 -0700
-Message-ID: <1427148231-18902-3-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/7] net: bcmgenet: integrated GPHY power up/down
+Date: Mon, 23 Mar 2015 15:06:39 -0700
+Message-ID: <55108E6F.5010503@gmail.com>
 References: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36230 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753405AbbCWWEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:04:38 -0400
-Received: by padcy3 with SMTP id cy3so204377101pad.3
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:04:37 -0700 (PDT)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:36014 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753657AbbCWWHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:07:21 -0400
+Received: by pdbcz9 with SMTP id cz9so200227212pdb.3
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:07:20 -0700 (PDT)
 In-Reply-To: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The CK25_DIS bit controls whether a 25Mhz clock is fed to the GPHY or
-not, in preparation for powering down the integrated GPHY when relevant,
-make sure we clear that bit.
+On 23/03/15 15:03, Florian Fainelli wrote:
+> Hi David,
+> 
+> This patch series implements integrated Gigabit PHY power up/down, which allows
+> us to save close to 300mW on some designs when the Gigabit PHY is known to be
+> unused (e.g: during bcmgenet_close or bcmgenet_suspend not doing Wake-on-LAN).
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.h | 1 +
- drivers/net/ethernet/broadcom/genet/bcmmii.c   | 2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
+I will resubmit shortly with a trivial fix for "net: bcmgenet: implement
+GPHY power down sequence"), sorry about that.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index 1ea838946318..a27ef777cc81 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -354,6 +354,7 @@ struct bcmgenet_mib_counters {
- #define EXT_GPHY_CTRL			0x1C
- #define  EXT_CFG_IDDQ_BIAS		(1 << 0)
- #define  EXT_CFG_PWR_DOWN		(1 << 1)
-+#define  EXT_CK25_DIS			(1 << 4)
- #define  EXT_GPHY_RESET			(1 << 5)
- 
- /* DMA rings size */
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 446889cc3c6a..f7d9d2753141 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -178,7 +178,7 @@ static void bcmgenet_ephy_power_up(struct net_device *dev)
- 		return;
- 
- 	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
--	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN);
-+	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN | EXT_CK25_DIS);
- 	reg |= EXT_GPHY_RESET;
- 	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
- 	mdelay(2);
+> 
+> Thanks!
+> 
+> Florian Fainelli (7):
+>   net: bcmgenet: propagate errors from bcmgenet_power_down
+>   net: bcmgenet: update bcmgenet_ephy_power_up to clear CK25_DIS bit
+>   net: bcmgenet: rename bcmgenet_ephy_power_up
+>   net: bcmgenet: fix GPHY power-up sequence
+>   net: bcmgenet: implement GPHY power down sequence
+>   net: bcmgenet: power up and down integrated GPHY when unused
+>   net: bcmgenet: power down and up GPHY during suspend/resume
+> 
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 34 +++++++++++++++++++-------
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.h |  2 ++
+>  drivers/net/ethernet/broadcom/genet/bcmmii.c   | 32 ++++++++++++++++--------
+>  3 files changed, 49 insertions(+), 19 deletions(-)
+> 
+
+
 -- 
-2.1.0
+Florian
