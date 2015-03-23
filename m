@@ -1,34 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/3] Add support for async socket operations
-Date: Mon, 23 Mar 2015 16:42:21 -0400 (EDT)
-Message-ID: <20150323.164221.1726829049738525120.davem@davemloft.net>
-References: <20150319193118.11500.10463.stgit@tstruk-mobl1>
+Subject: Re: [Patch net-next] net: clear skb->priority when forwarding to
+ another netns
+Date: Mon, 23 Mar 2015 16:43:53 -0400 (EDT)
+Message-ID: <20150323.164353.1673812828862266536.davem@davemloft.net>
+References: <1426886949-12447-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-aio@kvack.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
-	viro@ZenIV.linux.org.uk, linux-fsdevel@vger.kernel.org, hch@lst.de,
-	linux-crypto@vger.kernel.org
-To: tadeusz.struk@intel.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20150319193118.11500.10463.stgit@tstruk-mobl1>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58124 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752519AbbCWUny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:43:54 -0400
+In-Reply-To: <1426886949-12447-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Date: Thu, 19 Mar 2015 12:31:19 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 20 Mar 2015 14:29:09 -0700
 
-> After the iocb parameter has been removed from sendmsg() and recvmsg() ops
-> the socket layer, and the network stack no longer support async operations.
-> This patch set adds support for asynchronous operations on sockets back.
+> skb->priority can be set for two purposes:
 > 
-> Changes in v3:
-> * As sugested by Al Viro instead of adding new functions aio_sendmsg
->   and aio_recvmsg, added a ptr to iocb into the kernel-side msghdr structure.
->   This way no change to aio.c is required.
+> 1) With respect to IP TOS field, which is computed by a mask.
+> Ususally used for priority qdisc's (pfifo, prio etc.), on TX
+> side (we only have ingress qdisc on RX side).
 > 
-> Changes in v2:
-> * removed redundant total_size param from aio_sendmsg and aio_recvmsg functions
+> 2) Used as a classid or flowid, works in the same way with tc
+> classid. What's more, this can even override the classid
+> of tc filters.
+> 
+> For case 1), it has been respected within its netns, I don't
+> see any point of keeping it for another netns, especially
+> when packets will be forwarded to Rx path (no matter from TX
+> path or RX path).
+> 
+> For case 2) we care, our applications run inside a netns,
+> and we classify the packets by our own filters outside,
+> If some application sets this priority, it could bypass
+> our filters, therefore clear it when moving out of a netns,
+> it makes no sense to bypass tc filters out of its netns.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Series applied to net-next.
+Applied, t hanks.
