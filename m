@@ -1,47 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
-Date: Mon, 23 Mar 2015 21:19:32 +1100
-Message-ID: <20150323101931.GB13000@gondor.apana.org.au>
-References: <20150322080330.GA3416@gondor.apana.org.au>
- <E1YZard-0000wE-Se@gondolin.me.apana.org.au>
- <20150322121755.GH1185@casper.infradead.org>
- <20150323000954.GB9507@gondor.apana.org.au>
- <20150323083319.GB16023@casper.infradead.org>
- <20150323092806.GA12506@gondor.apana.org.au>
- <20150323093632.GD16023@casper.infradead.org>
- <20150323093952.GA12635@gondor.apana.org.au>
- <20150323094454.GA12683@gondor.apana.org.au>
- <20150323100852.GG16023@casper.infradead.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v6 2/7] ixgbe: Add a new netdev op to
+ allow/prevent a VF from querying an RSS info
+Date: Mon, 23 Mar 2015 03:30:33 -0700
+Message-ID: <1427106633.2577.159.camel@jtkirshe-mobl>
+References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com>
+	 <1427050887-19412-3-git-send-email-vladz@cloudius-systems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-IdEfso3CxfPLKxjBEzJ2"
+Cc: netdev@vger.kernel.org, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Vlad Zolotarov <vladz@cloudius-systems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:46092 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752325AbbCWKTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 06:19:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20150323100852.GG16023@casper.infradead.org>
+Received: from mga02.intel.com ([134.134.136.20]:58470 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752033AbbCWKae (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 06:30:34 -0400
+In-Reply-To: <1427050887-19412-3-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2015 at 10:08:52AM +0000, Thomas Graf wrote:
->
-> I have yet to understand the implications of multiple rehashes.
-> The idea of having to traverse N tables for each insert, removal
-> and lookup in a pressure situation is still frightening.
 
-It's simple.  With only expansion you can never have more than
-log N tables.
+--=-IdEfso3CxfPLKxjBEzJ2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Sun, 2015-03-22 at 21:01 +0200, Vlad Zolotarov wrote:
+> Implements the new netdev op to allow user to enable/disable the
+> ability
+> of a specific VF to query its RSS Indirection Table and an RSS Hash
+> Key.
+>=20
+> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 +++++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27
+> ++++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+>  4 files changed, 37 insertions(+)
+
+Thanks Vlad, I have applied your patch to my next-queue tree
+--=20
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
+dev-queue
+
+--=-IdEfso3CxfPLKxjBEzJ2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVD+tJAAoJEOVv75VaS+3OSmwP/RYMgx/kCIUU6N8iRVtNHS2z
+IR0C1j9lUoiK27I0qoi/FrOXrjbRHX8TGZK8v+Ml9F+EsnDVvuz5Zq11cwlCXfkP
+yLPYD+arISVC6d4Aed2iosXWsUo8AuKXyEQD7srAjX4fSJ8pSzvVBMLlOG38A6Sn
+L42Agl/rpjhvfI7NPo1lujSXxrggyJGarKf1XKuYx6ZbhKK3/+5pRmDT+f4DEpyO
+/dufGVJjepiQhEUCCQG+iC1A/gCt5qA6xH05qbweyrqrzLcHil2tQsikUWLWVJIc
+YAYImmUFHVbC7kOeSfeGJD1AFYd0FplEdcvOa27MIQa+nQ85CvzHsqAdCG7JYUyL
+gV37cmB0hmC0nixJkJoVTWGWhbIYuUU45WGAjCVqoFtzUyXaqBcSInM9KDvAo95l
+76jriyBzcmD5j5+SjXz7/hdmPO3gnapasQhVCkuDEiGh04wm1/6f6GOjFg0Xh4Ss
+4cT4k9LPNqOeqN5XlTtDEC3+fAMYtdGii3uFoxSZg8dv3QIybf8F58p7V6CJ+KTC
+by6rFjTFJKFDbyCZvSzXKXzgWVihqfi2Y4ZXhKg+dXSapEBH3E4IDwOOQ/YlkmXt
+VMCk7R+3gCIfT3OQhgWB9PfRs2ZGCiTOwSUvin39hvJTwgVkMfnovbllUID6lQZ9
+2PeDYi5eUe7/ISdIISTs
+=k99H
+-----END PGP SIGNATURE-----
+
+--=-IdEfso3CxfPLKxjBEzJ2--
