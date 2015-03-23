@@ -1,50 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v3 PATCH 4/9] netlink: Use default rhashtable hashfn
-Date: Tue, 24 Mar 2015 00:50:22 +1100
-Message-ID: <E1Ya2kI-0004Hq-V0@gondolin.me.apana.org.au>
-References: <20150323134955.GA16328@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:54671 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752013AbbCWNuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 09:50:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: tcp6: fix double call of tcp_v6_fill_cb()
+Date: Mon, 23 Mar 2015 06:52:06 -0700
+Message-ID: <1427118726.25985.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1427107090-4100-1-git-send-email-alexey.kodanev@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexey Kodanev <alexey.kodanev@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427107090-4100-1-git-send-email-alexey.kodanev@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the explicit jhash value for the hashfn parameter
-of rhashtable.  As the key length is a multiple of 4, this means that
-we will actually end up using jhash2.
+On Mon, 2015-03-23 at 13:38 +0300, Alexey Kodanev wrote:
+> Regression introduced by commit 2dc49d1680.
+> 
+> tcp_v6_fill_cb() will be called twice if socket's state changes from
+> TCP_TIME_WAIT to TCP_LISTEN. That can result in performance loss and
+> control buffer data corruption because in the second tcp_v6_fill_cb()
+> it's not copying the 'header' anymore, but 'seq', 'end_seq', etc.
+> 
+> Reproduced with LTP/tcp_fastopen test and netperf -t TCP_CRR, so when
+> we're constantly closing and opening TCP connections after several
+> requests/responses from client.
+> 
+> This can be fixed if we move 'header' union back to the beginning of
+> 'struct tcp_skb_cb' and getting skb->next, TCP_SKB_CB(skb)->seq and
+> TCP_SKB_CB(skb)->end_seq on the same cache line by moving 'cb[48]'
+> closer to 'skb->next', above the *sk and *dev pointers.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Acked-by: Thomas Graf <tgraf@suug.ch>
----
 
- net/netlink/af_netlink.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+NACK.  DO not change sk and dev pointers.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 6517921..e2f7f28 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -3133,13 +3133,12 @@ static inline u32 netlink_hash(const void *data, u32 seed)
- 	struct netlink_compare_arg arg;
- 
- 	netlink_compare_arg_init(&arg, sock_net(&nlk->sk), nlk->portid);
--	return jhash(&arg, netlink_compare_arg_len, seed);
-+	return jhash2((u32 *)&arg, netlink_compare_arg_len / sizeof(u32), seed);
- }
- 
- static const struct rhashtable_params netlink_rhashtable_params = {
- 	.head_offset = offsetof(struct netlink_sock, node),
- 	.key_len = netlink_compare_arg_len,
--	.hashfn = jhash,
- 	.obj_hashfn = netlink_hash,
- 	.obj_cmpfn = netlink_compare,
- 	.max_size = 65536,
+Fix the bug yes, do not change skb layout so radically, it will have
+serious performance impact for other part of the stack.
