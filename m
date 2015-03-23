@@ -1,202 +1,76 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH] net: tcp6: fix double call of tcp_v6_fill_cb()
-Date: Mon, 23 Mar 2015 13:38:10 +0300
-Message-ID: <1427107090-4100-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: linux-kernel@vger.kernel.org,
-	Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH iproute2] ip link set vf: Added "query_rss" command
+Date: Mon, 23 Mar 2015 03:42:41 -0700
+Message-ID: <1427107361.2577.173.camel@jtkirshe-mobl>
+References: <1427050378-15004-1-git-send-email-vladz@cloudius-systems.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-321SguJMNlT2zAFMEpZG"
+Cc: stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org
+To: Vlad Zolotarov <vladz@cloudius-systems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:60058 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbbCWKmm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 06:42:42 -0400
+In-Reply-To: <1427050378-15004-1-git-send-email-vladz@cloudius-systems.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Regression introduced by commit 2dc49d1680.
 
-tcp_v6_fill_cb() will be called twice if socket's state changes from
-TCP_TIME_WAIT to TCP_LISTEN. That can result in performance loss and
-control buffer data corruption because in the second tcp_v6_fill_cb()
-it's not copying the 'header' anymore, but 'seq', 'end_seq', etc.
+--=-321SguJMNlT2zAFMEpZG
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Reproduced with LTP/tcp_fastopen test and netperf -t TCP_CRR, so when
-we're constantly closing and opening TCP connections after several
-requests/responses from client.
+On Sun, 2015-03-22 at 20:52 +0200, Vlad Zolotarov wrote:
+> Add a new option to toggle the ability of querying the RSS
+> configuration of a specific VF.
+>=20
+> VF RSS information like RSS hash key may be considered sensitive on
+> some devices where
+> this information is shared between VF and PF and thus its querying may
+> be prohibited by default.
+>=20
+> This new option allows a system administrator with privileges to
+> modify a PF state
+> to control if the above VF querying is allowed or not.
+>=20
+> For example:
+>  To enable RSS querying of VF[0] of ethX:
+>  >> ip link set dev ethX vf 0 query_rss on
+>=20
+> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+> ---
+>  include/linux/if_link.h |  8 ++++++++
+>  ip/iplink.c             | 13 +++++++++++++
+>  2 files changed, 21 insertions(+)
 
-This can be fixed if we move 'header' union back to the beginning of
-'struct tcp_skb_cb' and getting skb->next, TCP_SKB_CB(skb)->seq and
-TCP_SKB_CB(skb)->end_seq on the same cache line by moving 'cb[48]'
-closer to 'skb->next', above the *sk and *dev pointers.
+I have added your other patch series to my next-queue tree for further
+review and testing.  I have also made validation aware of this patch to
+properly review your changes, thanks Vlad.
 
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- include/linux/skbuff.h |    5 +++--
- include/net/tcp.h      |   17 ++++++++---------
- net/ipv4/tcp_ipv4.c    |    6 ------
- net/ipv4/tcp_output.c  |    4 ----
- net/ipv6/tcp_ipv6.c    |   21 ++++-----------------
- 5 files changed, 15 insertions(+), 38 deletions(-)
+--=-321SguJMNlT2zAFMEpZG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f54d665..8870d16 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -524,8 +524,6 @@ struct sk_buff {
- 		};
- 		struct rb_node	rbnode; /* used in netem & tcp stack */
- 	};
--	struct sock		*sk;
--	struct net_device	*dev;
- 
- 	/*
- 	 * This is the control buffer. It is free to use for every
-@@ -535,6 +533,9 @@ struct sk_buff {
- 	 */
- 	char			cb[48] __aligned(8);
- 
-+	struct sock		*sk;
-+	struct net_device	*dev;
-+
- 	unsigned long		_skb_refdst;
- 	void			(*destructor)(struct sk_buff *skb);
- #ifdef CONFIG_XFRM
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 8d6b983..1a5cf12 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -694,6 +694,13 @@ static inline u32 tcp_skb_timestamp(const struct sk_buff *skb)
-  * If this grows please adjust skbuff.h:skbuff->cb[xxx] size appropriately.
-  */
- struct tcp_skb_cb {
-+	union {
-+		struct inet_skb_parm	h4;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		struct inet6_skb_parm	h6;
-+#endif
-+	} header;	/* For incoming frames		*/
-+
- 	__u32		seq;		/* Starting sequence number	*/
- 	__u32		end_seq;	/* SEQ + FIN + SYN + datalen	*/
- 	union {
-@@ -721,21 +728,13 @@ struct tcp_skb_cb {
- 	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
- 	/* 1 byte hole */
- 	__u32		ack_seq;	/* Sequence number ACK'd	*/
--	union {
--		struct inet_skb_parm	h4;
--#if IS_ENABLED(CONFIG_IPV6)
--		struct inet6_skb_parm	h6;
--#endif
--	} header;	/* For incoming frames		*/
- };
- 
- #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
- 
- 
- #if IS_ENABLED(CONFIG_IPV6)
--/* This is the variant of inet6_iif() that must be used by TCP,
-- * as TCP moves IP6CB into a different location in skb->cb[]
-- */
-+/* This is the variant of inet6_iif() that must be used by TCP */
- static inline int tcp_v6_iif(const struct sk_buff *skb)
- {
- 	return TCP_SKB_CB(skb)->header.h6.iif;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5a2dfed..43d6cd2 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1622,12 +1622,6 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 
- 	th = tcp_hdr(skb);
- 	iph = ip_hdr(skb);
--	/* This is tricky : We move IPCB at its correct location into TCP_SKB_CB()
--	 * barrier() makes sure compiler wont play fool^Waliasing games.
--	 */
--	memmove(&TCP_SKB_CB(skb)->header.h4, IPCB(skb),
--		sizeof(struct inet_skb_parm));
--	barrier();
- 
- 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
- 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index a2a796c..7de50d0 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1011,10 +1011,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	/* Our usage of tstamp should remain private */
- 	skb->tstamp.tv64 = 0;
- 
--	/* Cleanup our debris for IP stacks */
--	memset(skb->cb, 0, max(sizeof(struct inet_skb_parm),
--			       sizeof(struct inet6_skb_parm)));
--
- 	err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl);
- 
- 	if (likely(err <= 0))
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5d46832..e8cc440 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1392,15 +1392,6 @@ ipv6_pktoptions:
- static void tcp_v6_fill_cb(struct sk_buff *skb, const struct ipv6hdr *hdr,
- 			   const struct tcphdr *th)
- {
--	/* This is tricky: we move IP6CB at its correct location into
--	 * TCP_SKB_CB(). It must be done after xfrm6_policy_check(), because
--	 * _decode_session6() uses IP6CB().
--	 * barrier() makes sure compiler won't play aliasing games.
--	 */
--	memmove(&TCP_SKB_CB(skb)->header.h6, IP6CB(skb),
--		sizeof(struct inet6_skb_parm));
--	barrier();
--
- 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
- 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
- 				    skb->len - th->doff*4);
-@@ -1443,8 +1434,10 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 	th = tcp_hdr(skb);
- 	hdr = ipv6_hdr(skb);
- 
-+	tcp_v6_fill_cb(skb, hdr, th);
-+
- 	sk = __inet6_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest,
--				inet6_iif(skb));
-+				tcp_v6_iif(skb));
- 	if (!sk)
- 		goto no_tcp_socket;
- 
-@@ -1460,8 +1453,6 @@ process:
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_and_relse;
- 
--	tcp_v6_fill_cb(skb, hdr, th);
--
- #ifdef CONFIG_TCP_MD5SIG
- 	if (tcp_v6_inbound_md5_hash(sk, skb))
- 		goto discard_and_relse;
-@@ -1493,8 +1484,6 @@ no_tcp_socket:
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto discard_it;
- 
--	tcp_v6_fill_cb(skb, hdr, th);
--
- 	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
- csum_error:
- 		TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
-@@ -1518,8 +1507,6 @@ do_time_wait:
- 		goto discard_it;
- 	}
- 
--	tcp_v6_fill_cb(skb, hdr, th);
--
- 	if (skb->len < (th->doff<<2)) {
- 		inet_twsk_put(inet_twsk(sk));
- 		goto bad_packet;
-@@ -1538,7 +1525,7 @@ do_time_wait:
- 					    &ipv6_hdr(skb)->saddr, th->source,
- 					    &ipv6_hdr(skb)->daddr,
- 					    ntohs(th->dest), tcp_v6_iif(skb));
--		if (sk2 != NULL) {
-+		if (sk2) {
- 			struct inet_timewait_sock *tw = inet_twsk(sk);
- 			inet_twsk_deschedule(tw, &tcp_death_row);
- 			inet_twsk_put(tw);
--- 
-1.7.1
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVD+4hAAoJEOVv75VaS+3OQDMP/j/2yAdBmQhF8WYHXipK/efK
+cv5D7eTGBTnXEBisHTIqYJaLekcwl84UMdtT+qckJc4LYR+mF0AUTCnwtbP7OXGS
+L0lQxlycfJktWrt0pLK3Hgq1zSocwMetjOpB/rWwSS9bVvRnSlb0ZVp3HuXdrg6s
+Gd6JopIvRI7IvlOYtg0fm0y2XDMSXV8e+rkld2yCOlHfHzBDUMineJX0668zJ+zx
+3JT9e52D7MC7arRlhfzgJeDLfpYL3LNJPj8wXn65E0DmUOPYlaj54ljqKXg8+p/g
+pZMT0/+vNwWZha+6asbSvX1XyZc4+upM9QSwn63hztVym6aFqVurfY283iKLY0lb
+ormIi96YbgINQnX9YCRMwggYp6vuirHaGwOy+K/t0WL5WraP9gXLfLl9NNCvFjzz
+SpCKCGz5IzynjZv5/60UoxS1x6mqvFPW5AjKmW7EAzuy6j0PeWcwooqVRdKArD4n
+SYBzcJ4uEKi4DXglOgqZ4aSn+8fSn8FPLr3/IrIVjO3lZH5xTfrTJT5LRA+SAz8i
+Ajvj7qeftCDU1wqrxIz9kKouaa50vePegfbG3sV8/QqyH5ATUXMQCjN7nkDKlK6W
+OGV/oIAdoUXIpBPyLFC0tE49NQhvWnngahXRyaI8OlgESRyezBERgnaUEQkZktn0
+SfUC1fW04SbNkT0SCHf2
+=/MQv
+-----END PGP SIGNATURE-----
+
+--=-321SguJMNlT2zAFMEpZG--
