@@ -1,59 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
-Date: Mon, 23 Mar 2015 22:13:38 +0000
-Message-ID: <20150323221338.GE20752@casper.infradead.org>
-References: <20150322121755.GH1185@casper.infradead.org>
- <20150323000954.GB9507@gondor.apana.org.au>
- <20150323083319.GB16023@casper.infradead.org>
- <20150323.124434.1526209682898584518.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v3 PATCH 9/9] rhashtable: Add immediate rehash during insertion
+Date: Tue, 24 Mar 2015 09:15:44 +1100
+Message-ID: <20150323221544.GA20231@gondor.apana.org.au>
+References: <20150323134955.GA16328@gondor.apana.org.au>
+ <E1Ya2kO-0004JD-Om@gondolin.me.apana.org.au>
+ <20150323165033.GD20752@casper.infradead.org>
+ <20150323214422.GA19938@gondor.apana.org.au>
+ <20150323215632.GA22099@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
-	kaber@trash.net, josh@joshtriplett.org, paulmck@linux.vnet.ibm.com,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59453 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753343AbbCWWNj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:13:39 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:47941 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753188AbbCWWQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:16:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20150323.124434.1526209682898584518.davem@davemloft.net>
+In-Reply-To: <20150323215632.GA22099@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/23/15 at 12:44pm, David Miller wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Mon, 23 Mar 2015 08:33:19 +0000
+On Mon, Mar 23, 2015 at 09:56:32PM +0000, Thomas Graf wrote:
+>
+> OK. I can certinaly live with this. You are certinaly right that
+> simplicity isn't a bad move here. Thanks for being patience and
+> answering all the questions.
 > 
-> > I don't get why almost nobody would want shrinking. I agree that for
-> > tables like TCP hash tables, once you have grown you want to keep that
-> > table size because the load is likely to come back. But we will also
-> > have lots of users such as the Netlink socket with a table per protocol
-> > where not shrinking results in giving the user the ability to waste
-> > memory indefinitely for no gain.
-> 
-> The user can't do this with TCP?  Why is netlink only susceptible?
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 
-You are right. Any table that doesn't shrink will eventually waste
-memory. I used TCP vs Netlink because I believe it represents the
-difference in priorities very well. TCP may go 0..1M flows within
-a fraction of a second so if you've seen that many flows before you
-might get hit again and you prioritize the "being ready" to handle it
-higher than eventually wasting the memory indefinitely.
-
-Whereas with Netlink it seems (glad to be proven wrong) that the
-need for instant growth is lesser as it takes time to create 1M
-sockets across many PIDs. So we gain something by releasing the
-resources if not needed.
-
-> The only plausible argument for shrinking I've ever heard of is the
-> nft_hash case, and there that code can _explicitly_ ask for a shrink
-> after it has made a major table modification.
-> 
-> That puts all of the smarts for when to shrink where the knowledge
-> resides, and in this case that's the user.
-
-My argument pro automatic shrinking is simplicity. I'm absolutely
-fine with disabling it by default and to require enabling it
-explicitly.
+Thank you for your reviewing and critiques!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
