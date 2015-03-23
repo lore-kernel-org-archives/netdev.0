@@ -1,7 +1,7 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 5/8] ipv6: collapse state_lock and lock
-Date: Mon, 23 Mar 2015 18:01:59 +0100
-Message-ID: <25612e2922d3297613e62498814b946fe2b02f98.1427129103.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next 2/8] ipv6: introduce secret_stable to ipv6_devconf
+Date: Mon, 23 Mar 2015 18:01:56 +0100
+Message-ID: <d0eb70f70680a965b5808e2e4cecf3d5bab49a4d.1427129103.git.hannes@stressinduktion.org>
 References: <cover.1427129103.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,18 +10,25 @@ Cc: ek@google.com, fgont@si6networks.com, lorenzo@google.com,
 	hideaki.yoshifuji@miraclelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:37832 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:47714 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752423AbbCWRCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:02:13 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id D3AF3207C4
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 13:02:10 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1752876AbbCWRCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:02:11 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 1578820915
+	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 13:02:08 -0400 (EDT)
 In-Reply-To: <cover.1427129103.git.hannes@stressinduktion.org>
 In-Reply-To: <cover.1427129103.git.hannes@stressinduktion.org>
 References: <cover.1427129103.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+This patch implements the procfs logic for the stable_address knob: The
+secret is formatted as an ipv6 address and will be stored per interface
+and per namespace (default and all slots). We track initialized flag
+and return EIO errors until the secret is set.
+
+We don't inherit the secret to newly created namespaces.
 
 Cc: Erik Kline <ek@google.com>
 Cc: Fernando Gont <fgont@si6networks.com>
@@ -30,158 +37,172 @@ Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yos=
 hifuji@miraclelinux.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/if_inet6.h |  3 +--
- net/ipv6/addrconf.c    | 31 +++++++++++++++----------------
- 2 files changed, 16 insertions(+), 18 deletions(-)
+ include/linux/ipv6.h      |  4 +++
+ include/uapi/linux/ipv6.h |  1 +
+ net/ipv6/addrconf.c       | 68 +++++++++++++++++++++++++++++++++++++++=
+++++++++
+ 3 files changed, 73 insertions(+)
 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index 98e5f95..d89397a 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -41,13 +41,12 @@ enum {
- struct inet6_ifaddr {
- 	struct in6_addr		addr;
- 	__u32			prefix_len;
--=09
-+
- 	/* In seconds, relative to tstamp. Expiry is at tstamp + HZ * lft. */
- 	__u32			valid_lft;
- 	__u32			prefered_lft;
- 	atomic_t		refcnt;
- 	spinlock_t		lock;
--	spinlock_t		state_lock;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 4d5169f..82806c6 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -53,6 +53,10 @@ struct ipv6_devconf {
+ 	__s32           ndisc_notify;
+ 	__s32		suppress_frag_ndisc;
+ 	__s32		accept_ra_mtu;
++	struct ipv6_stable_secret {
++		bool initialized;
++		struct in6_addr secret;
++	} stable_secret;
+ 	void		*sysctl;
+ };
 =20
- 	int			state;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 437a6a4..5efa54a 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -170,6 +170,7 @@ enum {
+ 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
++	DEVCONF_STABLE_SECRET,
+ 	DEVCONF_MAX
+ };
 =20
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index c2357b6..1cc5320 100644
+index 158378e..5b967c8 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -873,7 +873,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct =
-in6_addr *addr,
- 		ifa->peer_addr =3D *peer_addr;
+@@ -46,6 +46,7 @@
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/net.h>
++#include <linux/inet.h>
+ #include <linux/in6.h>
+ #include <linux/netdevice.h>
+ #include <linux/if_addr.h>
+@@ -102,6 +103,9 @@
 =20
- 	spin_lock_init(&ifa->lock);
--	spin_lock_init(&ifa->state_lock);
- 	INIT_DELAYED_WORK(&ifa->dad_work, addrconf_dad_work);
- 	INIT_HLIST_NODE(&ifa->addr_lst);
- 	ifa->scope =3D scope;
-@@ -1016,10 +1015,10 @@ static void ipv6_del_addr(struct inet6_ifaddr *=
-ifp)
+ #define	INFINITY_LIFE_TIME	0xFFFFFFFF
 =20
- 	ASSERT_RTNL();
-=20
--	spin_lock_bh(&ifp->state_lock);
-+	spin_lock_bh(&ifp->lock);
- 	state =3D ifp->state;
- 	ifp->state =3D INET6_IFADDR_STATE_DEAD;
--	spin_unlock_bh(&ifp->state_lock);
-+	spin_unlock_bh(&ifp->lock);
-=20
- 	if (state =3D=3D INET6_IFADDR_STATE_DEAD)
- 		goto out;
-@@ -1699,12 +1698,12 @@ static int addrconf_dad_end(struct inet6_ifaddr=
- *ifp)
++#define IPV6_MAX_STRLEN \
++	sizeof("ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255")
++
+ static inline u32 cstamp_delta(unsigned long cstamp)
  {
- 	int err =3D -ENOENT;
+ 	return (cstamp - INITIAL_JIFFIES) * 100UL / HZ;
+@@ -202,6 +206,9 @@ static struct ipv6_devconf ipv6_devconf __read_most=
+ly =3D {
+ 	.accept_dad		=3D 1,
+ 	.suppress_frag_ndisc	=3D 1,
+ 	.accept_ra_mtu		=3D 1,
++	.stable_secret		=3D {
++		.initialized =3D false,
++	}
+ };
 =20
--	spin_lock_bh(&ifp->state_lock);
-+	spin_lock_bh(&ifp->lock);
- 	if (ifp->state =3D=3D INET6_IFADDR_STATE_DAD) {
- 		ifp->state =3D INET6_IFADDR_STATE_POSTDAD;
- 		err =3D 0;
- 	}
--	spin_unlock_bh(&ifp->state_lock);
-+	spin_unlock_bh(&ifp->lock);
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly =3D {
+@@ -240,6 +247,9 @@ static struct ipv6_devconf ipv6_devconf_dflt __read=
+_mostly =3D {
+ 	.accept_dad		=3D 1,
+ 	.suppress_frag_ndisc	=3D 1,
+ 	.accept_ra_mtu		=3D 1,
++	.stable_secret		=3D {
++		.initialized =3D false,
++	},
+ };
 =20
- 	return err;
+ /* Check if a valid qdisc is available */
+@@ -4430,6 +4440,7 @@ static inline void ipv6_store_devconf(struct ipv6=
+_devconf *cnf,
+ 	array[DEVCONF_SUPPRESS_FRAG_NDISC] =3D cnf->suppress_frag_ndisc;
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] =3D cnf->accept_ra_from_local;
+ 	array[DEVCONF_ACCEPT_RA_MTU] =3D cnf->accept_ra_mtu;
++	/* we omit DEVCONF_STABLE_SECRET for now */
  }
-@@ -1737,10 +1736,10 @@ void addrconf_dad_failure(struct inet6_ifaddr *=
-ifp)
+=20
+ static inline size_t inet6_ifla6_size(void)
+@@ -5074,6 +5085,53 @@ int addrconf_sysctl_proxy_ndp(struct ctl_table *=
+ctl, int write,
+ 	return ret;
+ }
+=20
++static int addrconf_sysctl_stable_secret(struct ctl_table *ctl, int wr=
+ite,
++					 void __user *buffer, size_t *lenp,
++					 loff_t *ppos)
++{
++	int err;
++	struct in6_addr addr;
++	char str[IPV6_MAX_STRLEN];
++	struct ctl_table lctl =3D *ctl;
++	struct ipv6_stable_secret *secret =3D ctl->data;
++
++	lctl.maxlen =3D IPV6_MAX_STRLEN;
++	lctl.data =3D str;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	if (!write && !secret->initialized) {
++		err =3D -EIO;
++		goto out;
++	}
++
++	if (!write) {
++		err =3D snprintf(str, sizeof(str), "%pI6",
++			       &secret->secret);
++		if (err >=3D sizeof(str)) {
++			err =3D -EIO;
++			goto out;
++		}
++	}
++
++	err =3D proc_dostring(&lctl, write, buffer, lenp, ppos);
++	if (err || !write)
++		goto out;
++
++	if (in6_pton(str, -1, addr.in6_u.u6_addr8, -1, NULL) !=3D 1) {
++		err =3D -EIO;
++		goto out;
++	}
++
++	secret->initialized =3D true;
++	secret->secret =3D addr;
++
++out:
++	rtnl_unlock();
++
++	return err;
++}
+=20
+ static struct addrconf_sysctl_table
+ {
+@@ -5347,6 +5405,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	=3D proc_dointvec,
+ 		},
+ 		{
++			.procname	=3D "stable_secret",
++			.data		=3D &ipv6_devconf.stable_secret,
++			.maxlen		=3D IPV6_MAX_STRLEN,
++			.mode		=3D 0600,
++			.proc_handler	=3D addrconf_sysctl_stable_secret,
++		},
++		{
+ 			/* sentinel */
  		}
- 	}
+ 	},
+@@ -5442,6 +5507,9 @@ static int __net_init addrconf_init_net(struct ne=
+t *net)
+ 	dflt->autoconf =3D ipv6_defaults.autoconf;
+ 	dflt->disable_ipv6 =3D ipv6_defaults.disable_ipv6;
 =20
--	spin_lock_bh(&ifp->state_lock);
-+	spin_lock_bh(&ifp->lock);
- 	/* transition from _POSTDAD to _ERRDAD */
- 	ifp->state =3D INET6_IFADDR_STATE_ERRDAD;
--	spin_unlock_bh(&ifp->state_lock);
-+	spin_unlock_bh(&ifp->lock);
++	dflt->stable_secret.initialized =3D false;
++	all->stable_secret.initialized =3D false;
++
+ 	net->ipv6.devconf_all =3D all;
+ 	net->ipv6.devconf_dflt =3D dflt;
 =20
- 	addrconf_mod_dad_work(ifp, 0);
- }
-@@ -2369,7 +2368,7 @@ ok:
- 			u32 stored_lft;
-=20
- 			/* update lifetime (RFC2462 5.5.3 e) */
--			spin_lock(&ifp->lock);
-+			spin_lock_bh(&ifp->lock);
- 			now =3D jiffies;
- 			if (ifp->valid_lft > (now - ifp->tstamp) / HZ)
- 				stored_lft =3D ifp->valid_lft - (now - ifp->tstamp) / HZ;
-@@ -2399,12 +2398,12 @@ ok:
- 				ifp->tstamp =3D now;
- 				flags =3D ifp->flags;
- 				ifp->flags &=3D ~IFA_F_DEPRECATED;
--				spin_unlock(&ifp->lock);
-+				spin_unlock_bh(&ifp->lock);
-=20
- 				if (!(flags&IFA_F_TENTATIVE))
- 					ipv6_ifa_notify(0, ifp);
- 			} else
--				spin_unlock(&ifp->lock);
-+				spin_unlock_bh(&ifp->lock);
-=20
- 			manage_tempaddrs(in6_dev, ifp, valid_lft, prefered_lft,
- 					 create, now);
-@@ -3265,10 +3264,10 @@ restart:
-=20
- 		write_unlock_bh(&idev->lock);
-=20
--		spin_lock_bh(&ifa->state_lock);
-+		spin_lock_bh(&ifa->lock);
- 		state =3D ifa->state;
- 		ifa->state =3D INET6_IFADDR_STATE_DEAD;
--		spin_unlock_bh(&ifa->state_lock);
-+		spin_unlock_bh(&ifa->lock);
-=20
- 		if (state !=3D INET6_IFADDR_STATE_DEAD) {
- 			__ipv6_ifa_notify(RTM_DELADDR, ifa);
-@@ -3426,12 +3425,12 @@ static void addrconf_dad_start(struct inet6_ifa=
-ddr *ifp)
- {
- 	bool begin_dad =3D false;
-=20
--	spin_lock_bh(&ifp->state_lock);
-+	spin_lock_bh(&ifp->lock);
- 	if (ifp->state !=3D INET6_IFADDR_STATE_DEAD) {
- 		ifp->state =3D INET6_IFADDR_STATE_PREDAD;
- 		begin_dad =3D true;
- 	}
--	spin_unlock_bh(&ifp->state_lock);
-+	spin_unlock_bh(&ifp->lock);
-=20
- 	if (begin_dad)
- 		addrconf_mod_dad_work(ifp, 0);
-@@ -3453,7 +3452,7 @@ static void addrconf_dad_work(struct work_struct =
-*w)
-=20
- 	rtnl_lock();
-=20
--	spin_lock_bh(&ifp->state_lock);
-+	spin_lock_bh(&ifp->lock);
- 	if (ifp->state =3D=3D INET6_IFADDR_STATE_PREDAD) {
- 		action =3D DAD_BEGIN;
- 		ifp->state =3D INET6_IFADDR_STATE_DAD;
-@@ -3461,7 +3460,7 @@ static void addrconf_dad_work(struct work_struct =
-*w)
- 		action =3D DAD_ABORT;
- 		ifp->state =3D INET6_IFADDR_STATE_POSTDAD;
- 	}
--	spin_unlock_bh(&ifp->state_lock);
-+	spin_unlock_bh(&ifp->lock);
-=20
- 	if (action =3D=3D DAD_BEGIN) {
- 		addrconf_dad_begin(ifp);
 --=20
 2.1.0
