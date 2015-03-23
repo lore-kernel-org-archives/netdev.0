@@ -1,120 +1,41 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/8] netfilter: bridge: kill nf_bridge_pad
-Date: Mon, 23 Mar 2015 12:36:21 +0100
-Message-ID: <1427110584-5190-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 8/8] netfilter: ip6t_REJECT: check for IP6T_F_PROTO
+Date: Mon, 23 Mar 2015 12:36:24 +0100
+Message-ID: <1427110584-5190-9-git-send-email-pablo@netfilter.org>
 References: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60128 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:60124 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752289AbbCWLck (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 07:32:40 -0400
+	id S1752151AbbCWLcj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 07:32:39 -0400
 In-Reply-To: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Make sure IP6T_F_PROTO is set to enforce layer 4 protocol matching from
+the ip6_tables core.
 
-The br_netfilter frag output function calls skb_cow_head() so in
-case it needs a larger headroom to e.g. re-add a previously stripped PPPOE
-or VLAN header things will still work (at cost of reallocation).
-
-We can then move nf_bridge_encap_header_len to br_netfilter.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Suggested-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_bridge.h |   22 ----------------------
- net/bridge/br_netfilter.c        |   12 ++++++++++++
- net/ipv4/ip_output.c             |    5 +----
- 3 files changed, 13 insertions(+), 26 deletions(-)
+ net/ipv6/netfilter/ip6t_REJECT.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index ed0d3bf..2734977 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -23,18 +23,6 @@ enum nf_br_hook_priorities {
- #define BRNF_8021Q			0x10
- #define BRNF_PPPoE			0x20
- 
--static inline unsigned int nf_bridge_encap_header_len(const struct sk_buff *skb)
--{
--	switch (skb->protocol) {
--	case __cpu_to_be16(ETH_P_8021Q):
--		return VLAN_HLEN;
--	case __cpu_to_be16(ETH_P_PPP_SES):
--		return PPPOE_SES_HLEN;
--	default:
--		return 0;
--	}
--}
--
- static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
- {
- 	if (unlikely(skb->nf_bridge->mask & BRNF_PPPoE))
-@@ -44,15 +32,6 @@ static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
- 
- int br_handle_frame_finish(struct sk_buff *skb);
- 
--/* This is called by the IP fragmenting code and it ensures there is
-- * enough room for the encapsulating header (if there is one). */
--static inline unsigned int nf_bridge_pad(const struct sk_buff *skb)
--{
--	if (skb->nf_bridge)
--		return nf_bridge_encap_header_len(skb);
--	return 0;
--}
--
- static inline void br_drop_fake_rtable(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
-@@ -62,7 +41,6 @@ static inline void br_drop_fake_rtable(struct sk_buff *skb)
- }
- 
- #else
--#define nf_bridge_pad(skb)			(0)
- #define br_drop_fake_rtable(skb)	        do { } while (0)
- #endif /* CONFIG_BRIDGE_NETFILTER */
- 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index bd2d24d..f3884a1 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -153,6 +153,18 @@ static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
- 	return nf_bridge;
- }
- 
-+static unsigned int nf_bridge_encap_header_len(const struct sk_buff *skb)
-+{
-+	switch (skb->protocol) {
-+	case __cpu_to_be16(ETH_P_8021Q):
-+		return VLAN_HLEN;
-+	case __cpu_to_be16(ETH_P_PPP_SES):
-+		return PPPOE_SES_HLEN;
-+	default:
-+		return 0;
-+	}
-+}
-+
- static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
- {
- 	unsigned int len = nf_bridge_encap_header_len(skb);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index a7aea20..90b49e8 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -636,10 +636,7 @@ slow_path:
- 	left = skb->len - hlen;		/* Space per frame */
- 	ptr = hlen;		/* Where to start from */
- 
--	/* for bridged IP traffic encapsulated inside f.e. a vlan header,
--	 * we need to make room for the encapsulating header
--	 */
--	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, nf_bridge_pad(skb));
-+	ll_rs = LL_RESERVED_SPACE(rt->dst.dev);
- 
- 	/*
- 	 *	Fragment the datagram.
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 544b0a9..12331ef 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -83,7 +83,8 @@ static int reject_tg6_check(const struct xt_tgchk_param *par)
+ 		return -EINVAL;
+ 	} else if (rejinfo->with == IP6T_TCP_RESET) {
+ 		/* Must specify that it's a TCP packet */
+-		if (e->ipv6.proto != IPPROTO_TCP ||
++		if (!(e->ipv6.flags & IP6T_F_PROTO) ||
++		    e->ipv6.proto != IPPROTO_TCP ||
+ 		    (e->ipv6.invflags & XT_INV_PROTO)) {
+ 			pr_info("TCP_RESET illegal for non-tcp\n");
+ 			return -EINVAL;
 -- 
 1.7.10.4
