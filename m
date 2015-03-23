@@ -1,54 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: arp_hash
-Date: Sun, 22 Mar 2015 19:53:15 -0400 (EDT)
-Message-ID: <20150322.195315.643961269309745827.davem@davemloft.net>
-References: <20150322213408.GC7925@gondor.apana.org.au>
-	<20150322.185714.1793567801322787489.davem@davemloft.net>
-	<20150322234218.GA9243@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
+Date: Mon, 23 Mar 2015 11:07:07 +1100
+Message-ID: <20150323000707.GA9507@gondor.apana.org.au>
+References: <20150322080330.GA3416@gondor.apana.org.au>
+ <E1YZard-0000wE-Se@gondolin.me.apana.org.au>
+ <20150322121755.GH1185@casper.infradead.org>
+ <20150322130630.GA16023@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@purestorage.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49953 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751914AbbCVXxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 19:53:17 -0400
-In-Reply-To: <20150322234218.GA9243@gondor.apana.org.au>
+Received: from ringil.hengli.com.au ([178.18.16.133]:58796 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751914AbbCWAH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 20:07:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20150322130630.GA16023@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 23 Mar 2015 10:42:18 +1100
-
-> On Sun, Mar 22, 2015 at 06:57:14PM -0400, David Miller wrote:
->> From: Herbert Xu <herbert@gondor.apana.org.au>
->> Date: Mon, 23 Mar 2015 08:34:08 +1100
->> 
->> > So what scales we are talking about, twice, three times? Have you
->> > considered more modern hashes such as SipHash or SpookyHash
->> > (successor to jhash/lookup3 and supposedly faster)?
->> 
->> I want it to be one cycle or two.
->> 
->> Every single transmitted packet hits this hash demux.
+On Sun, Mar 22, 2015 at 01:06:30PM +0000, Thomas Graf wrote:
+> On 03/22/15 at 12:17pm, Thomas Graf wrote:
+> > On 03/22/15 at 07:04pm, Herbert Xu wrote:
+> > > +	struct bucket_table *new_tbl;
+> > > +	struct bucket_table *tbl;
+> > > +	int err;
+> > >  
+> > > -	ASSERT_RHT_MUTEX(ht);
+> > > +	if (size < ht->p.min_size)
+> > > +		size = ht->p.min_size;
+> > 
+> > We should only shrink if size < old_tbl->size
 > 
-> For hosts can we cache this? For routers I guess this is just
-> the mummified remains of the route cache :)
+> I found the check further down. Any particular reason why check
+> after allocation and then free again? Why do you want to avoid
+> the allocation inside the mutex?
 
-We want no reference counting of the neighbour entries, that's one of
-the main points of all this.
+It's just quality of code.  You should always try to minimise
+the locked sections.
 
-That way packets getting stuck do not run into the classic
-dreaded "Neighbour table overflow", remember that?
-
-THAT is what is attackable when people have /8 subnets and
-someone just spam pings every host on that subnet.
-
-That is a more serious exposure than this hashing issue.
-
-At least with ref-less use, as we have now, we could trim hash chains
-that get too large with almost no barriers whatsoever because nearly
-every neigh entry has no external references outside of these demux
-sequences.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
