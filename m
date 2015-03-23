@@ -1,52 +1,135 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v3 PATCH 9/9] rhashtable: Add immediate rehash during insertion
-Date: Mon, 23 Mar 2015 21:56:32 +0000
-Message-ID: <20150323215632.GA22099@casper.infradead.org>
-References: <20150323134955.GA16328@gondor.apana.org.au>
- <E1Ya2kO-0004JD-Om@gondolin.me.apana.org.au>
- <20150323165033.GD20752@casper.infradead.org>
- <20150323214422.GA19938@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] inet: fix double request socket freeing
+Date: Mon, 23 Mar 2015 15:00:41 -0700
+Message-ID: <1427148041.25985.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150323090317.GB8934@haze> <550FEA98.3040009@gmail.com>
+	 <1427130389.25985.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
+To: Fan Du <fengyuleidian0615@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59283 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214AbbCWV4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 17:56:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20150323214422.GA19938@gondor.apana.org.au>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:35809 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752619AbbCWWAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:00:43 -0400
+Received: by igcau2 with SMTP id au2so55683213igc.0
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:00:43 -0700 (PDT)
+In-Reply-To: <1427130389.25985.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/24/15 at 08:44am, Herbert Xu wrote:
-> I specifically made it this way because I don't think the users
-> should be touching the actual limit.  This is something that you
-> always want to enable unless you're in the situation of netfilter
-> where you don't care.
-> 
-> If you did care then 16 is sort of intrinsic to the 32-bit hash
-> that we're using.  Going below doesn't make much sense because
-> you may run into false warnings due to double rehashes (that's
-> how I discovered 4 was uesless, very quickly :) Remember the
-> rehash is only there to detect pathological cases where people
-> are actively attacking us.  Otherwise the 100% utilisation check
-> will kick in.
-> 
-> Going above 16 means that you're hashing multiple objects with
-> the same key.  Then you'd want to disable this altogether.
-> 
-> The rhashtable already has too many knobs and I don't want to
-> add anything unnecessary to rhashtable_params.
+From: Fan Du <fan.du@intel.com>
 
-OK. I can certinaly live with this. You are certinaly right that
-simplicity isn't a bad move here. Thanks for being patience and
-answering all the questions.
+Eric Hugne reported following error :
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+I'm hitting this warning on latest net-next when i try to SSH into a machine
+with eth0 added to a bridge (but i think the problem is older than that)
+
+Steps to reproduce:
+node2 ~ # brctl addif br0 eth0
+[  223.758785] device eth0 entered promiscuous mode
+node2 ~ # ip link set br0 up
+[  244.503614] br0: port 1(eth0) entered forwarding state
+[  244.505108] br0: port 1(eth0) entered forwarding state
+node2 ~ # [  251.160159] ------------[ cut here ]------------
+[  251.160831] WARNING: CPU: 0 PID: 3 at include/net/request_sock.h:102 tcp_v4_err+0x6b1/0x720()
+[  251.162077] Modules linked in:
+[  251.162496] CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 4.0.0-rc3+ #18
+[  251.163334] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  251.164078]  ffffffff81a8365c ffff880038a6ba18 ffffffff8162ace4 0000000000009898
+[  251.165084]  0000000000000000 ffff880038a6ba58 ffffffff8104da85 ffff88003fa437c0
+[  251.166195]  ffff88003fa437c0 ffff88003fa74e00 ffff88003fa43bb8 ffff88003fad99a0
+[  251.167203] Call Trace:
+[  251.167533]  [<ffffffff8162ace4>] dump_stack+0x45/0x57
+[  251.168206]  [<ffffffff8104da85>] warn_slowpath_common+0x85/0xc0
+[  251.169239]  [<ffffffff8104db65>] warn_slowpath_null+0x15/0x20
+[  251.170271]  [<ffffffff81559d51>] tcp_v4_err+0x6b1/0x720
+[  251.171408]  [<ffffffff81630d03>] ? _raw_read_lock_irq+0x3/0x10
+[  251.172589]  [<ffffffff81534e20>] ? inet_del_offload+0x40/0x40
+[  251.173366]  [<ffffffff81569295>] icmp_socket_deliver+0x65/0xb0
+[  251.174134]  [<ffffffff815693a2>] icmp_unreach+0xc2/0x280
+[  251.174820]  [<ffffffff8156a82d>] icmp_rcv+0x2bd/0x3a0
+[  251.175473]  [<ffffffff81534ea2>] ip_local_deliver_finish+0x82/0x1e0
+[  251.176282]  [<ffffffff815354d8>] ip_local_deliver+0x88/0x90
+[  251.177004]  [<ffffffff815350f0>] ip_rcv_finish+0xf0/0x310
+[  251.177693]  [<ffffffff815357bc>] ip_rcv+0x2dc/0x390
+[  251.178336]  [<ffffffff814f5da3>] __netif_receive_skb_core+0x713/0xa20
+[  251.179170]  [<ffffffff814f7fca>] __netif_receive_skb+0x1a/0x80
+[  251.179922]  [<ffffffff814f97d4>] process_backlog+0x94/0x120
+[  251.180639]  [<ffffffff814f9612>] net_rx_action+0x1e2/0x310
+[  251.181356]  [<ffffffff81051267>] __do_softirq+0xa7/0x290
+[  251.182046]  [<ffffffff81051469>] run_ksoftirqd+0x19/0x30
+[  251.182726]  [<ffffffff8106cc23>] smpboot_thread_fn+0x153/0x1d0
+[  251.183485]  [<ffffffff8106cad0>] ? SyS_setgroups+0x130/0x130
+[  251.184228]  [<ffffffff8106935e>] kthread+0xee/0x110
+[  251.184871]  [<ffffffff81069270>] ? kthread_create_on_node+0x1b0/0x1b0
+[  251.185690]  [<ffffffff81631108>] ret_from_fork+0x58/0x90
+[  251.186385]  [<ffffffff81069270>] ? kthread_create_on_node+0x1b0/0x1b0
+[  251.187216] ---[ end trace c947fc7b24e42ea1 ]---
+[  259.542268] br0: port 1(eth0) entered forwarding state
+
+Remove the double calls to reqsk_put()
+
+[edumazet] :
+
+I got confused because reqsk_timer_handler() _has_ to call
+reqsk_put(req) after calling inet_csk_reqsk_queue_drop(), as
+the timer handler holds a reference on req.
+
+Signed-off-by: Fan Du <fan.du@intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Erik Hugne <erik.hugne@ericsson.com>
+Fixes: fa76ce7328b2 ("inet: get rid of central tcp/dccp listener timer")
+---
+v2: respin on latest net-next
+ net/dccp/ipv4.c     |    2 +-
+ net/ipv4/tcp_ipv4.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 6310b8b19598e5e5c0dc826f056c066b8c6d660c..2b4f21d34df6819c134b590d8ddeecffe668aaf6 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -208,6 +208,7 @@ void dccp_req_err(struct sock *sk, u64 seq)
+ 
+ 	if (!between48(seq, dccp_rsk(req)->dreq_iss, dccp_rsk(req)->dreq_gss)) {
+ 		NET_INC_STATS_BH(net, LINUX_MIB_OUTOFWINDOWICMPS);
++		reqsk_put(req);
+ 	} else {
+ 		/*
+ 		 * Still in RESPOND, just remove it silently.
+@@ -217,7 +218,6 @@ void dccp_req_err(struct sock *sk, u64 seq)
+ 		 */
+ 		inet_csk_reqsk_queue_drop(req->rsk_listener, req);
+ 	}
+-	reqsk_put(req);
+ }
+ EXPORT_SYMBOL(dccp_req_err);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a57615062b66cec3f12304735ef1d76eab479c89..4e90217003e83f67da99317f7a3aa6a6c2d99b3e 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -324,6 +324,7 @@ void tcp_req_err(struct sock *sk, u32 seq)
+ 
+ 	if (seq != tcp_rsk(req)->snt_isn) {
+ 		NET_INC_STATS_BH(net, LINUX_MIB_OUTOFWINDOWICMPS);
++		reqsk_put(req);
+ 	} else {
+ 		/*
+ 		 * Still in SYN_RECV, just remove it silently.
+@@ -331,10 +332,9 @@ void tcp_req_err(struct sock *sk, u32 seq)
+ 		 * created socket, and POSIX does not want network
+ 		 * errors returned from accept().
+ 		 */
+-		inet_csk_reqsk_queue_drop(req->rsk_listener, req);
+ 		NET_INC_STATS_BH(net, LINUX_MIB_LISTENDROPS);
++		inet_csk_reqsk_queue_drop(req->rsk_listener, req);
+ 	}
+-	reqsk_put(req);
+ }
+ EXPORT_SYMBOL(tcp_req_err);
+ 
