@@ -1,94 +1,56 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 6/7] net: bcmgenet: power up and down integrated GPHY when unused
-Date: Mon, 23 Mar 2015 15:03:50 -0700
-Message-ID: <1427148231-18902-7-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 5/7] net: bcmgenet: implement GPHY power down sequence
+Date: Mon, 23 Mar 2015 15:03:49 -0700
+Message-ID: <1427148231-18902-6-git-send-email-f.fainelli@gmail.com>
 References: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:33752 "EHLO
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:34067 "EHLO
 	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753442AbbCWWEm (ORCPT
+	with ESMTP id S1753420AbbCWWEm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:04:42 -0400
-Received: by pdnc3 with SMTP id c3so200440238pdn.0
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:04:42 -0700 (PDT)
+Received: by pdbni2 with SMTP id ni2so200353682pdb.1
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:04:41 -0700 (PDT)
 In-Reply-To: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Power up the GPHY while we are bringing-up the network interface, and
-conversely, upon bring down, power the GPHY down. In order to avoid
-creating hardware hazards, make sure that the GPHY gets powered on
-during bcmgenet_open() prior to the UniMAC being reset as the UniMAC may
-start creating activity towards the GPHY if we reverse the steps.
+Implement the GPHY power down sequence by setting all power down bits, putting
+the GPHY in reset, and finally cutting the 25Mhz reference clock.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 11 ++++++++---
- drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
- drivers/net/ethernet/broadcom/genet/bcmmii.c   |  2 +-
- 3 files changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f86837f1656a..c6b15c3cf023 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -869,6 +869,8 @@ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
- 			reg |= (EXT_PWR_DOWN_PHY |
- 				EXT_PWR_DOWN_DLL | EXT_PWR_DOWN_BIAS);
- 			bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
-+
-+			bcmgenet_phy_power_set(priv->dev, false);
- 		}
- 		break;
- 	default:
-@@ -2465,9 +2467,6 @@ static void bcmgenet_netif_start(struct net_device *dev)
- 
- 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, true);
- 
--	if (phy_is_internal(priv->phydev))
--		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
--
- 	netif_tx_start_all_queues(dev);
- 
- 	phy_start(priv->phydev);
-@@ -2486,6 +2485,12 @@ static int bcmgenet_open(struct net_device *dev)
- 	if (!IS_ERR(priv->clk))
- 		clk_prepare_enable(priv->clk);
- 
-+	/* If this is an internal GPHY, power it back on now, before UniMAC is
-+	 * brought out of reset as absolutely no UniMAC activity is allowed
-+	 */
-+	if (phy_is_internal(priv->phydev))
-+		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
-+
- 	/* take MAC out of reset */
- 	bcmgenet_umac_reset(priv);
- 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index a27ef777cc81..7a59879d441f 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -664,6 +664,7 @@ int bcmgenet_mii_init(struct net_device *dev);
- int bcmgenet_mii_config(struct net_device *dev, bool init);
- void bcmgenet_mii_exit(struct net_device *dev);
- void bcmgenet_mii_reset(struct net_device *dev);
-+void bcmgenet_phy_power_set(struct net_device *dev, bool enable);
- void bcmgenet_mii_setup(struct net_device *dev);
- 
- /* Wake-on-LAN routines */
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index 77d6a18707c3..5d110880f7c1 100644
+index c26c0757d755..77d6a18707c3 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -168,7 +168,7 @@ void bcmgenet_mii_reset(struct net_device *dev)
+@@ -177,6 +177,7 @@ static void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
+ 	if (!GENET_IS_V4(priv))
+ 		return;
+ 
++	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
+ 	if (enable) {
+ 		reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
+ 		reg &= ~EXT_CK25_DIS;
+@@ -189,9 +190,14 @@ static void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
+ 		mdelay(1);
+ 
+ 		reg &= ~EXT_GPHY_RESET;
++	} else {
++		reg |= EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN | EXT_GPHY_RESET;
+ 		bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+-		udelay(60);
++		mdelay(1);
++		reg |= EXT_CK25_DIS;
  	}
++	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++	udelay(60);
  }
  
--static void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
-+void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
- {
- 	struct bcmgenet_priv *priv = netdev_priv(dev);
- 	u32 reg = 0;
+ static void bcmgenet_internal_phy_setup(struct net_device *dev)
 -- 
 2.1.0
