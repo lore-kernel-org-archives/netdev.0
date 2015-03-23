@@ -1,51 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v6 2/7] ixgbe: Add a new netdev op to
- allow/prevent a VF from querying an RSS info
-Date: Mon, 23 Mar 2015 03:30:33 -0700
-Message-ID: <1427106633.2577.159.camel@jtkirshe-mobl>
+Subject: Re: [PATCH net-next v6 1/7] if_link: Add an additional parameter to
+ ifla_vf_info for RSS querying
+Date: Mon, 23 Mar 2015 03:30:21 -0700
+Message-ID: <1427106621.2577.158.camel@jtkirshe-mobl>
 References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com>
-	 <1427050887-19412-3-git-send-email-vladz@cloudius-systems.com>
+	 <1427050887-19412-2-git-send-email-vladz@cloudius-systems.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-IdEfso3CxfPLKxjBEzJ2"
+	protocol="application/pgp-signature"; boundary="=-RVcoh2Gsz8Q4s9iFlXtL"
 Cc: netdev@vger.kernel.org, avi@cloudius-systems.com,
 	gleb@cloudius-systems.com
 To: Vlad Zolotarov <vladz@cloudius-systems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58470 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:15466 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752033AbbCWKae (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 06:30:34 -0400
-In-Reply-To: <1427050887-19412-3-git-send-email-vladz@cloudius-systems.com>
+	id S1752033AbbCWKaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 06:30:23 -0400
+In-Reply-To: <1427050887-19412-2-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-IdEfso3CxfPLKxjBEzJ2
+--=-RVcoh2Gsz8Q4s9iFlXtL
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Sun, 2015-03-22 at 21:01 +0200, Vlad Zolotarov wrote:
-> Implements the new netdev op to allow user to enable/disable the
-> ability
-> of a specific VF to query its RSS Indirection Table and an RSS Hash
-> Key.
+> Add configuration setting for drivers to allow/block an RSS
+> Redirection Table and
+> a Hash Key querying for discrete VFs.
+>=20
+> On some devices VF share the mentioned above information with PF and
+> querying it may
+> adduce a theoretical security risk. We want to let a system
+> administrator to decide if he/she
+> wants to take this risk or not.
 >=20
 > Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 +++++++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27
-> ++++++++++++++++++++++++++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
->  4 files changed, 37 insertions(+)
+>  include/linux/if_link.h      |  1 +
+>  include/linux/netdevice.h    |  8 ++++++++
+>  include/uapi/linux/if_link.h |  8 ++++++++
+>  net/core/rtnetlink.c         | 32 ++++++++++++++++++++++++++------
+>  4 files changed, 43 insertions(+), 6 deletions(-)
 
 Thanks Vlad, I have applied your patch to my next-queue tree
 --=20
 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
 dev-queue
 
---=-IdEfso3CxfPLKxjBEzJ2
+--=-RVcoh2Gsz8Q4s9iFlXtL
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -53,19 +57,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJVD+tJAAoJEOVv75VaS+3OSmwP/RYMgx/kCIUU6N8iRVtNHS2z
-IR0C1j9lUoiK27I0qoi/FrOXrjbRHX8TGZK8v+Ml9F+EsnDVvuz5Zq11cwlCXfkP
-yLPYD+arISVC6d4Aed2iosXWsUo8AuKXyEQD7srAjX4fSJ8pSzvVBMLlOG38A6Sn
-L42Agl/rpjhvfI7NPo1lujSXxrggyJGarKf1XKuYx6ZbhKK3/+5pRmDT+f4DEpyO
-/dufGVJjepiQhEUCCQG+iC1A/gCt5qA6xH05qbweyrqrzLcHil2tQsikUWLWVJIc
-YAYImmUFHVbC7kOeSfeGJD1AFYd0FplEdcvOa27MIQa+nQ85CvzHsqAdCG7JYUyL
-gV37cmB0hmC0nixJkJoVTWGWhbIYuUU45WGAjCVqoFtzUyXaqBcSInM9KDvAo95l
-76jriyBzcmD5j5+SjXz7/hdmPO3gnapasQhVCkuDEiGh04wm1/6f6GOjFg0Xh4Ss
-4cT4k9LPNqOeqN5XlTtDEC3+fAMYtdGii3uFoxSZg8dv3QIybf8F58p7V6CJ+KTC
-by6rFjTFJKFDbyCZvSzXKXzgWVihqfi2Y4ZXhKg+dXSapEBH3E4IDwOOQ/YlkmXt
-VMCk7R+3gCIfT3OQhgWB9PfRs2ZGCiTOwSUvin39hvJTwgVkMfnovbllUID6lQZ9
-2PeDYi5eUe7/ISdIISTs
-=k99H
+iQIcBAABCgAGBQJVD+s9AAoJEOVv75VaS+3OX3oP/0duSD8bAecvo8j72zPjiqqj
+njkzLx03paXrtfYEomWBdvsrI13Hz4MCjoQfDmI3bKv0/pzrVPoSykcXQcviyeUw
+cXrgM9JueO2adPa/grdNtHEDOWxeWFkIRQOIIs4040mmztJTTPSkbUkH8aQ1flxw
+k6v+xoq0hi0eGfvdq09ufY0JVGextUFl6eGBtLtrn0NIOj/HBT+C/b57sB2KeliP
+VnxEWXh+F8/CjyBC+mvZRDRLnkXOt+spiqsGnvMgFpyX6Oy5WPkb9T2APuxhVtJ8
+Wl+jf4RCb7Tu8CBvICU6HLJN+IiQ3Hf2+2pMD/Apc0CNGPjvM2jAjFFA0JiMOQYu
+9LmNYARjqxAw0X+7az1OXCPxYqZo74n6jrQBqz1JY5rElKsCjhiKGdbj7/nXSFbb
+Zhks5Tq+gV3+YVw7BrGjAa06dZXVbKaE3zf2iRQKkOAqKmikK6h3YD19u/hr3l8Y
+bnFsXFrPrlElpEr+DuBZSFTHOLUaNoZ+PRw/G9QgvbHrwNqIdrBfvONLcclT+PUj
+OjTyAl2vdDUDnzlJdvjdZXrOAJdGda9xdSo9jgm12egMCVy0jaXCYbZkW10i9AMk
+wiBV3zqVjEvailDJVpCSRw/zMSRHv75Ymvco73p29AQGWw6VdIRctbxo2ge5pKwV
+lkvEW5xYtHGDLu3zf08X
+=9eJy
 -----END PGP SIGNATURE-----
 
---=-IdEfso3CxfPLKxjBEzJ2--
+--=-RVcoh2Gsz8Q4s9iFlXtL--
