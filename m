@@ -1,86 +1,41 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] ipvlan: fix addr hash list corruption
-Date: Mon, 23 Mar 2015 22:10:19 +0100
-Message-ID: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Dan Williams <dcbw@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56458 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752557AbbCWVLz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 17:11:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tadeusz Struk <tadeusz.struk@intel.com>
+Subject: Re: [PATCH v3 net-next 0/3] Add support for async socket operations
+Date: Mon, 23 Mar 2015 14:13:21 -0700
+Message-ID: <551081F1.9090303@intel.com>
+References: <20150319193118.11500.10463.stgit@tstruk-mobl1> <20150323.164221.1726829049738525120.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-aio@kvack.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
+	viro@ZenIV.linux.org.uk, linux-fsdevel@vger.kernel.org, hch@lst.de,
+	linux-crypto@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20150323.164221.1726829049738525120.davem@davemloft.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When ipvlan interface with IP addresses attached is brought down and then
-deleted, the assigned addresses are deleted twice from the address hash
-list, first on the interface down and second on the link deletion.
-Similarly, when an address is added while the interface is down, it is added
-second time once the interface is brought up.
+On 03/23/2015 01:42 PM, David Miller wrote:
+> From: Tadeusz Struk <tadeusz.struk@intel.com>
+> Date: Thu, 19 Mar 2015 12:31:19 -0700
+> 
+>> After the iocb parameter has been removed from sendmsg() and recvmsg() ops
+>> the socket layer, and the network stack no longer support async operations.
+>> This patch set adds support for asynchronous operations on sockets back.
+>>
+>> Changes in v3:
+>> * As sugested by Al Viro instead of adding new functions aio_sendmsg
+>>   and aio_recvmsg, added a ptr to iocb into the kernel-side msghdr structure.
+>>   This way no change to aio.c is required.
+>>
+>> Changes in v2:
+>> * removed redundant total_size param from aio_sendmsg and aio_recvmsg functions
+> 
+> Series applied to net-next.
+> 
 
-Check the interface status before adding/removing to the hash list in the
-notifiers.
+Thanks Dave!
 
-Reported-by: Dan Williams <dcbw@redhat.com>
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+Herbert, is it possible to pull it to cryptodev?
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 4f4099d5603d..04cfa7a13645 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -504,7 +504,8 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
- 
- 	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
- 		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
--			ipvlan_ht_addr_del(addr, !dev->dismantle);
-+			if (netif_running(dev))
-+				ipvlan_ht_addr_del(addr, !dev->dismantle);
- 			list_del_rcu(&addr->anode);
- 		}
- 	}
-@@ -622,7 +623,8 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
- 	addr->atype = IPVL_IPV6;
- 	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv6cnt++;
--	ipvlan_ht_addr_add(ipvlan, addr);
-+	if (netif_running(ipvlan->dev))
-+		ipvlan_ht_addr_add(ipvlan, addr);
- 
- 	return 0;
- }
-@@ -635,7 +637,8 @@ static void ipvlan_del_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
- 	if (!addr)
- 		return;
- 
--	ipvlan_ht_addr_del(addr, true);
-+	if (netif_running(ipvlan->dev))
-+		ipvlan_ht_addr_del(addr, true);
- 	list_del_rcu(&addr->anode);
- 	ipvlan->ipv6cnt--;
- 	WARN_ON(ipvlan->ipv6cnt < 0);
-@@ -690,7 +693,8 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	addr->atype = IPVL_IPV4;
- 	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv4cnt++;
--	ipvlan_ht_addr_add(ipvlan, addr);
-+	if (netif_running(ipvlan->dev))
-+		ipvlan_ht_addr_add(ipvlan, addr);
- 	ipvlan_set_broadcast_mac_filter(ipvlan, true);
- 
- 	return 0;
-@@ -704,7 +708,8 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	if (!addr)
- 		return;
- 
--	ipvlan_ht_addr_del(addr, true);
-+	if (netif_running(ipvlan->dev))
-+		ipvlan_ht_addr_del(addr, true);
- 	list_del_rcu(&addr->anode);
- 	ipvlan->ipv4cnt--;
- 	WARN_ON(ipvlan->ipv4cnt < 0);
--- 
-1.8.3.1
