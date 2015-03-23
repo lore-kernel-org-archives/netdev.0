@@ -1,57 +1,34 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V2 19/23] ptp: tilegx: convert to the 64 bit
- get/set time methods.
-Date: Mon, 23 Mar 2015 21:06:26 +0100
-Message-ID: <20150323200625.GA7120@netboy>
-References: <cover.1426973658.git.richardcochran@gmail.com>
- <8bc233b19d08308c01015936841d9be8d4441ece.1426973658.git.richardcochran@gmail.com>
- <551038FB.2070200@ezchip.com>
- <20150323165839.GA4330@localhost.localdomain>
- <55104CBE.90603@ezchip.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/3] Add support for async socket operations
+Date: Mon, 23 Mar 2015 16:42:21 -0400 (EDT)
+Message-ID: <20150323.164221.1726829049738525120.davem@davemloft.net>
+References: <20150319193118.11500.10463.stgit@tstruk-mobl1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Arnd Bergmann <arnd@linaro.org>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.c
-To: Chris Metcalf <cmetcalf@ezchip.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:37078 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752967AbbCWUGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:06:33 -0400
-Content-Disposition: inline
-In-Reply-To: <55104CBE.90603@ezchip.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-aio@kvack.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, ying.xue@windriver.com, bcrl@kvack.org,
+	viro@ZenIV.linux.org.uk, linux-fsdevel@vger.kernel.org, hch@lst.de,
+	linux-crypto@vger.kernel.org
+To: tadeusz.struk@intel.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150319193118.11500.10463.stgit@tstruk-mobl1>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 23, 2015 at 01:26:22PM -0400, Chris Metcalf wrote:
-> As far as I know, the tilegx driver is the only client of those gxio
-> routines.
+From: Tadeusz Struk <tadeusz.struk@intel.com>
+Date: Thu, 19 Mar 2015 12:31:19 -0700
 
-...
+> After the iocb parameter has been removed from sendmsg() and recvmsg() ops
+> the socket layer, and the network stack no longer support async operations.
+> This patch set adds support for asynchronous operations on sockets back.
+> 
+> Changes in v3:
+> * As sugested by Al Viro instead of adding new functions aio_sendmsg
+>   and aio_recvmsg, added a ptr to iocb into the kernel-side msghdr structure.
+>   This way no change to aio.c is required.
+> 
+> Changes in v2:
+> * removed redundant total_size param from aio_sendmsg and aio_recvmsg functions
 
-> I guess that brings us back to changing the gxio_xxx APIs.
-
-Ok, I'll do that for the next round.
-
-Thanks,
-Richard
+Series applied to net-next.
