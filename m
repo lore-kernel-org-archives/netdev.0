@@ -1,48 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Net: ethernet: rocker: fixed a space coding style issue
-Date: Mon, 23 Mar 2015 13:20:25 -0400 (EDT)
-Message-ID: <20150323.132025.1558105817791850699.davem@davemloft.net>
-References: <1426960960-31552-1-git-send-email-andreimaresu@gmail.com>
-	<20150323131839.GB2038@nanopsycho.lan>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 8/8] ipv6: add documentation for stable_secret,
+ idgen_delay and idgen_retries knobs
+Date: Mon, 23 Mar 2015 18:20:22 +0100
+Message-ID: <1427131222.1406156.244135082.7863BC98@webmail.messagingengine.com>
+References: <cover.1427129103.git.hannes@stressinduktion.org>
+ <6da46ae2f76bf9aca41bd09ea7f284b75955637c.1427129103.git.hannes@stressinduktion.org>
+ <1427130835.25985.77.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andreimaresu@gmail.com, sfeldma@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jiri@resnulli.us
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ek@google.com, fgont@si6networks.com,
+	lorenzo@google.com, hideaki.yoshifuji@miraclelinux.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56418 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633AbbCWRU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:20:28 -0400
-In-Reply-To: <20150323131839.GB2038@nanopsycho.lan>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:37509 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753090AbbCWRUX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 13:20:23 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 5542A207C2
+	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 13:20:20 -0400 (EDT)
+In-Reply-To: <1427130835.25985.77.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 23 Mar 2015 14:18:39 +0100
 
-> Sat, Mar 21, 2015 at 07:02:40PM CET, andreimaresu@gmail.com wrote:
->>Fixed a space coding style issue found by checkpatch.pl in rocker.c
->>
->>Signed-off-by: Andrei Maresu <andreimaresu@gmail.com>
->>---
->> drivers/net/ethernet/rocker/rocker.c | 2 +-
->> 1 file changed, 1 insertion(+), 1 deletion(-)
->>
->>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->>index 9fb6948..d364b12 100644
->>--- a/drivers/net/ethernet/rocker/rocker.c
->>+++ b/drivers/net/ethernet/rocker/rocker.c
->>@@ -812,7 +812,7 @@ static void *rocker_desc_cookie_ptr_get(struct rocker_desc_info *desc_info)
->> static void rocker_desc_cookie_ptr_set(struct rocker_desc_info *desc_info,
->> 				       void *ptr)
->> {
->>-	desc_info->desc->cookie = (uintptr_t) ptr;
->>+	desc_info->desc->cookie = (uintptr_t)ptr;
-> 
-> Checkpatch does not mark this as an error, not even as a warning:
-> "CHECK: No space is necessary after a cast". I personally like the
-> notation with space better.
 
-Me too, I'm not applying this.
+On Mon, Mar 23, 2015, at 18:13, Eric Dumazet wrote:
+> On Mon, 2015-03-23 at 18:02 +0100, Hannes Frederic Sowa wrote:
+> > Cc: Erik Kline <ek@google.com>
+> > Cc: Fernando Gont <fgont@si6networks.com>
+> > Cc: Lorenzo Colitti <lorenzo@google.com>
+> > Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki=
+=2Eyoshifuji@miraclelinux.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> >  Documentation/networking/ip-sysctl.txt | 25 ++++++++++++++++++++++=
++++
+> >  1 file changed, 25 insertions(+)
+> >=20
+> > diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation=
+/networking/ip-sysctl.txt
+> > index 6c07c2b..6825247 100644
+> > --- a/Documentation/networking/ip-sysctl.txt
+> > +++ b/Documentation/networking/ip-sysctl.txt
+> > @@ -1220,6 +1220,17 @@ anycast_src_echo_reply - BOOLEAN
+> >  	FALSE: disabled
+> >  	Default: FALSE
+> > =20
+> > +idgen_delay - INTEGER
+> > +	Controls the delay in seconds after which time to retry
+> > +	privacy stable address generation if a DAD conflict is
+> > +	detected.
+> > +	Default: 1 (as specified in RFC7212)
+> > +
+> > +idgen_retries - INTEGER
+> > +	Controls the number of retries to generate a stable privacy
+> > +	address if a DAD conflict is detected.
+> > +	Default: 3 (as specified in RFC7212)
+> > +
+>=20
+> I thought you were implementing RFC7217 ?
+
+Oh, it is a typo, I'll fix it up in v2.
+
+Thanks,
+Hannes
