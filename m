@@ -1,46 +1,95 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: next-20150323 build: 1 failures 23 warnings (next-20150323)
-Date: Mon, 23 Mar 2015 23:08:07 +0100
-Message-ID: <20150323220806.GB8891@linux-mips.org>
-References: <E1YZyoN-00019n-50@debutante>
- <20150323212524.GU14954@sirena.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	kernel-build-reports@lists.linaro.org,
-	linaro-kernel@lists.linaro.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Mark Brown <broonie@kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 1/7] net: bcmgenet: propagate errors from bcmgenet_power_down
+Date: Mon, 23 Mar 2015 15:09:51 -0700
+Message-ID: <1427148597-28337-2-git-send-email-f.fainelli@gmail.com>
+References: <1427148597-28337-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	jaedon.shin@gmail.com, pgynther@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([148.251.95.138]:43457 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752748AbbCWWIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:08:13 -0400
-Received: from localhost.localdomain ([127.0.0.1]:42600 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S27009710AbbCWWIKqq7py (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Mar 2015 23:08:10 +0100
-Content-Disposition: inline
-In-Reply-To: <20150323212524.GU14954@sirena.org.uk>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35776 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753707AbbCWWLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:11:19 -0400
+Received: by pagv19 with SMTP id v19so29491198pag.2
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:11:19 -0700 (PDT)
+In-Reply-To: <1427148597-28337-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2015 at 02:25:24PM -0700, Mark Brown wrote:
+If bcmgenet_power_down() fails, we would want to propagate a return
+value from bcmgenet_wol_power_down_cfg() to know about this.
 
-> On Mon, Mar 23, 2015 at 09:38:19AM +0000, Build bot for Mark Brown wrote:
-> 
-> In current -next the bgmac driver does not compile in an ARM
-> allmodconfig:
-> 
-> > 	arm-allmodconfig
-> > ../drivers/net/ethernet/broadcom/bgmac.c:20:27: fatal error: bcm47xx_nvram.h: No such file or directory
-> 
-> because this include file is only present on MIPS.  This looks at first
-> glance to have happened in the merge commit edb15d83a875a1f4 from the
-> MIPS tree though I think that needs a bit more investigation.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-At that time the bgmac NIC was still exclusivly used on MIPS.
-
-  Ralf
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 12956b143b11..f86837f1656a 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -847,9 +847,10 @@ static struct ethtool_ops bcmgenet_ethtool_ops = {
+ };
+ 
+ /* Power down the unimac, based on mode. */
+-static void bcmgenet_power_down(struct bcmgenet_priv *priv,
++static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 				enum bcmgenet_power_mode mode)
+ {
++	int ret = 0;
+ 	u32 reg;
+ 
+ 	switch (mode) {
+@@ -858,7 +859,7 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 		break;
+ 
+ 	case GENET_POWER_WOL_MAGIC:
+-		bcmgenet_wol_power_down_cfg(priv, mode);
++		ret = bcmgenet_wol_power_down_cfg(priv, mode);
+ 		break;
+ 
+ 	case GENET_POWER_PASSIVE:
+@@ -873,6 +874,8 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 	default:
+ 		break;
+ 	}
++
++	return 0;
+ }
+ 
+ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+@@ -2606,12 +2609,12 @@ static int bcmgenet_close(struct net_device *dev)
+ 	free_irq(priv->irq1, priv);
+ 
+ 	if (phy_is_internal(priv->phydev))
+-		bcmgenet_power_down(priv, GENET_POWER_PASSIVE);
++		ret = bcmgenet_power_down(priv, GENET_POWER_PASSIVE);
+ 
+ 	if (!IS_ERR(priv->clk))
+ 		clk_disable_unprepare(priv->clk);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static void bcmgenet_timeout(struct net_device *dev)
+@@ -3097,14 +3100,14 @@ static int bcmgenet_suspend(struct device *d)
+ 
+ 	/* Prepare the device for Wake-on-LAN and switch to the slow clock */
+ 	if (device_may_wakeup(d) && priv->wolopts) {
+-		bcmgenet_power_down(priv, GENET_POWER_WOL_MAGIC);
++		ret = bcmgenet_power_down(priv, GENET_POWER_WOL_MAGIC);
+ 		clk_prepare_enable(priv->clk_wol);
+ 	}
+ 
+ 	/* Turn off the clocks */
+ 	clk_disable_unprepare(priv->clk);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int bcmgenet_resume(struct device *d)
+-- 
+2.1.0
