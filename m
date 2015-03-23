@@ -1,45 +1,59 @@
-From: cliff_clark@selinc.com
-Subject: [PATCH] ucc_geth: Intialize link state to down before register_netdev
-Date: Mon, 23 Mar 2015 09:47:41 -0700
-Message-ID: <OF3CCCBC69.C8C0BA7E-ON88257E11.005C1D2B-88257E11.005C420A@selinc.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v9 tip 6/9] samples: bpf: simple non-portable kprobe filter
+ example
+Date: Mon, 23 Mar 2015 10:32:45 -0700
+Message-ID: <55104E3D.20103@plumgrid.com>
+References: <1426894210-27441-1-git-send-email-ast@plumgrid.com> <1426894210-27441-7-git-send-email-ast@plumgrid.com> <20150323073506.GC25184@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org
-To: Li Yang <leoli@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from valiant.selinc.com ([74.117.214.141]:45556 "EHLO
-	valiant.selinc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752285AbbCWR3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 13:29:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150323073506.GC25184-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ucc_geth was indicating link up after a port is administratively enabled 
-even 
-when nothing is plugged in.  This causes user-space tools to see a 
-spurious link 
-up the first time after boot.  
-  
-Signed-off-by: Cliff Clark <cliff_clark@selinc.com>
----
- drivers/net/ethernet/freescale/ucc_geth.c | 3 +++
- 1 file changed, 3 insertions(+)
+On 3/23/15 12:35 AM, Ingo Molnar wrote:
+>
+> * Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>
+>> +void read_trace_pipe(void)
+>> +{
+>> +	int trace_fd;
+>> +
+>> +	trace_fd = open(DEBUGFS "trace_pipe", O_RDONLY, 0);
+>> +	if (trace_fd < 0)
+>> +		return;
+>> +
+>> +	while (1) {
+>> +		static char buf[4096];
+>> +		ssize_t sz;
+>> +
+>> +		sz = read(trace_fd, buf, sizeof(buf));
+>
+> read() will return -1 on failure ...
+>
+>> +		if (sz) {
+>
+> ... this test passes ...
+>
+>> +			buf[sz] = 0;
+>
+> ... and here we smash the stack?
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c 
-b/drivers/net/ethernet/freescale/ucc_geth.c
-index 357e8b57..56b774d 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -3893,6 +3893,9 @@ static int ucc_geth_probe(struct platform_device* 
-ofdev)
-        ugeth->phy_interface = phy_interface;
-        ugeth->max_speed = max_speed;
- 
-+       /* Carrier starts down, phylib will bring it up */
-+       netif_carrier_off(dev);
-+
-        err = register_netdev(dev);
-        if (err) {
-                if (netif_msg_probe(ugeth))
--- 
-1.9.1
+good point. If it was normal file, for sure it's a bug, but trace_pipe
+is a pseudo file and I think read cannot return -1. Regardless, it makes
+sense to fix it. Will do. Do you mind I address it as follow up patch?
+Or if the rest is ok, can you change the condition to sz>0 while
+applying? I can respin the whole thing too, if you like.
+Thanks!
