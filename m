@@ -1,67 +1,43 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v2] tcp: prevent fetching dst twice in early demux code
-Date: Mon, 23 Mar 2015 15:14:00 +0100 (CET)
-Message-ID: <20150323141400.1568AA0CCC@unicorn.suse.cz>
-References: <1427118542.25985.62.camel@edumazet-glaptop2.roam.corp.google.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427118542.25985.62.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [v2 PATCH 3/10] rhashtable: Allow hashfn to be unset
+Date: Mon, 23 Mar 2015 14:29:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB079DB@AcuExch.aculab.com>
+References: <20150322080330.GA3416@gondor.apana.org.au>
+ <E1YZarZ-0000v8-7e@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.185]:53842 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbbCWObV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 10:31:21 -0400
+In-Reply-To: <E1YZarZ-0000v8-7e@gondolin.me.apana.org.au>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On s390x, gcc 4.8 compiles this part of tcp_v6_early_demux()
+From: Herbert Xu
+> Since every current rhashtable user uses jhash as their hash
+> function, the fact that jhash is an inline function causes each
+> user to generate a copy of its code.
+> 
+> This function provides a solution to this problem by allowing
+> hashfn to be unset.  In which case rhashtable will automatically
+> set it to jhash.  Furthermore, if the key length is a multiple
+> of 4, we will switch over to jhash2.
 
-        struct dst_entry *dst = sk->sk_rx_dst;
+Would it make sense to do this as a run-time check for the NULL
+function pointer so that the jhash code itself can be inlined?
 
-        if (dst)
-                dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+The cost of the test is likely to be less that the indirect call.
 
-to code reading sk->sk_rx_dst twice, once for the test and once for
-the argument of ip6_dst_check() (dst_check() is inline). This allows
-ip6_dst_check() to be called with null first argument, causing a crash.
-
-Protect sk->sk_rx_dst access by READ_ONCE() both in IPv4 and IPv6
-TCP early demux code.
-
-Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-Fixes: c7109986db3c ("ipv6: Early TCP socket demux")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/tcp_ipv4.c | 2 +-
- net/ipv6/tcp_ipv6.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5a2dfed..f1756ee 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1518,7 +1518,7 @@ void tcp_v4_early_demux(struct sk_buff *skb)
- 		skb->sk = sk;
- 		skb->destructor = sock_edemux;
- 		if (sk->sk_state != TCP_TIME_WAIT) {
--			struct dst_entry *dst = sk->sk_rx_dst;
-+			struct dst_entry *dst = READ_ONCE(sk->sk_rx_dst);
- 
- 			if (dst)
- 				dst = dst_check(dst, 0);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5d46832..b283a49 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1585,7 +1585,7 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
- 		skb->sk = sk;
- 		skb->destructor = sock_edemux;
- 		if (sk->sk_state != TCP_TIME_WAIT) {
--			struct dst_entry *dst = sk->sk_rx_dst;
-+			struct dst_entry *dst = READ_ONCE(sk->sk_rx_dst);
- 
- 			if (dst)
- 				dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
--- 
-2.3.3
+	David
