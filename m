@@ -1,35 +1,33 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v3 PATCH 6/9] rhashtable: Shrink to fit
-Date: Mon, 23 Mar 2015 15:38:20 +0000
-Message-ID: <20150323153820.GA20752@casper.infradead.org>
-References: <20150323134955.GA16328@gondor.apana.org.au>
- <E1Ya2kL-0004IO-CI@gondolin.me.apana.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH -next] netfilter: Use LOGLEVEL_<FOO> defines
+Date: Mon, 23 Mar 2015 08:43:09 -0700
+Message-ID: <1427125389.16851.23.camel@perches.com>
+References: <20150323140841.0b807b95@canb.auug.org.au>
+	 <20150323124723.GA6740@salvia> <1427115331.16851.11.camel@perches.com>
+	 <20150323130638.GA6857@salvia> <1427117031.16851.16.camel@perches.com>
+	 <20150324003828.0eac53d9@canb.auug.org.au> <20150323135235.GA7595@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56759 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218AbbCWPiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 11:38:21 -0400
-Content-Disposition: inline
-In-Reply-To: <E1Ya2kL-0004IO-CI@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150323135235.GA7595@salvia>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/24/15 at 12:50am, Herbert Xu wrote:
-> This patch changes rhashtable_shrink to shrink to the smallest
-> size possible rather than halving the table.  This is needed
-> because with multiple rehashing we will defer shrinking until
-> all other rehashing is done, meaning that when we do shrink
-> we may be able to shrink a lot.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Mon, 2015-03-23 at 14:52 +0100, Pablo Neira Ayuso wrote:
+> I would also prefer if you include the explicit header files in that
+> patch too. Could you send us a v2? Please, Cc:
+> netfilter-devel@vger.kernel.org
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+As I wrote to Stephen, I'd prefer to #include
+kernel.h where it's not already specified.
+
+net/netfilter/nft_log.c does, every other
+modified file doesn't.
+
+Is that OK with you?
