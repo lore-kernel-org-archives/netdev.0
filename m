@@ -1,108 +1,120 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/8] netfilter: Remove uses of seq_<foo> return values
-Date: Mon, 23 Mar 2015 12:36:19 +0100
-Message-ID: <1427110584-5190-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/8] netfilter: bridge: kill nf_bridge_pad
+Date: Mon, 23 Mar 2015 12:36:21 +0100
+Message-ID: <1427110584-5190-6-git-send-email-pablo@netfilter.org>
 References: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60128 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752289AbbCWLck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 07:32:40 -0400
 In-Reply-To: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+From: Florian Westphal <fw@strlen.de>
 
-The seq_printf/seq_puts/seq_putc return values, because they
-are frequently misused, will eventually be converted to void.
+The br_netfilter frag output function calls skb_cow_head() so in
+case it needs a larger headroom to e.g. re-add a previously stripped PPPOE
+or VLAN header things will still work (at cost of reallocation).
 
-See: commit 1f33c41c03da ("seq_file: Rename seq_overflow() to
-     seq_has_overflowed() and make public")
+We can then move nf_bridge_encap_header_len to br_netfilter.
 
-Miscellanea:
-
-o realign arguments
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |    4 +++-
- net/netfilter/nf_conntrack_acct.c                     |    8 +++++---
- net/netfilter/nf_conntrack_expect.c                   |    4 +++-
- net/netfilter/nfnetlink_log.c                         |   12 +++++++-----
- 4 files changed, 18 insertions(+), 10 deletions(-)
+ include/linux/netfilter_bridge.h |   22 ----------------------
+ net/bridge/br_netfilter.c        |   12 ++++++++++++
+ net/ipv4/ip_output.c             |    5 +----
+ 3 files changed, 13 insertions(+), 26 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-index a460a87..f0dfe92 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -300,7 +300,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
- 		    __nf_ct_l3proto_find(exp->tuple.src.l3num),
- 		    __nf_ct_l4proto_find(exp->tuple.src.l3num,
- 					 exp->tuple.dst.protonum));
--	return seq_putc(s, '\n');
-+	seq_putc(s, '\n');
-+
-+	return 0;
- }
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index ed0d3bf..2734977 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -23,18 +23,6 @@ enum nf_br_hook_priorities {
+ #define BRNF_8021Q			0x10
+ #define BRNF_PPPoE			0x20
  
- static const struct seq_operations exp_seq_ops = {
-diff --git a/net/netfilter/nf_conntrack_acct.c b/net/netfilter/nf_conntrack_acct.c
-index a4b5e2a..45da11a 100644
---- a/net/netfilter/nf_conntrack_acct.c
-+++ b/net/netfilter/nf_conntrack_acct.c
-@@ -47,9 +47,11 @@ seq_print_acct(struct seq_file *s, const struct nf_conn *ct, int dir)
- 		return 0;
- 
- 	counter = acct->counter;
--	return seq_printf(s, "packets=%llu bytes=%llu ",
--			  (unsigned long long)atomic64_read(&counter[dir].packets),
--			  (unsigned long long)atomic64_read(&counter[dir].bytes));
-+	seq_printf(s, "packets=%llu bytes=%llu ",
-+		   (unsigned long long)atomic64_read(&counter[dir].packets),
-+		   (unsigned long long)atomic64_read(&counter[dir].bytes));
-+
-+	return 0;
- };
- EXPORT_SYMBOL_GPL(seq_print_acct);
- 
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 91a1837..7a17070 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -561,7 +561,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
- 				   helper->expect_policy[expect->class].name);
- 	}
- 
--	return seq_putc(s, '\n');
-+	seq_putc(s, '\n');
-+
-+	return 0;
- }
- 
- static const struct seq_operations exp_seq_ops = {
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 11d85b3..db5e3a8 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -998,11 +998,13 @@ static int seq_show(struct seq_file *s, void *v)
+-static inline unsigned int nf_bridge_encap_header_len(const struct sk_buff *skb)
+-{
+-	switch (skb->protocol) {
+-	case __cpu_to_be16(ETH_P_8021Q):
+-		return VLAN_HLEN;
+-	case __cpu_to_be16(ETH_P_PPP_SES):
+-		return PPPOE_SES_HLEN;
+-	default:
+-		return 0;
+-	}
+-}
+-
+ static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
  {
- 	const struct nfulnl_instance *inst = v;
+ 	if (unlikely(skb->nf_bridge->mask & BRNF_PPPoE))
+@@ -44,15 +32,6 @@ static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
  
--	return seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
--			  inst->group_num,
--			  inst->peer_portid, inst->qlen,
--			  inst->copy_mode, inst->copy_range,
--			  inst->flushtimeout, atomic_read(&inst->use));
-+	seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
-+		   inst->group_num,
-+		   inst->peer_portid, inst->qlen,
-+		   inst->copy_mode, inst->copy_range,
-+		   inst->flushtimeout, atomic_read(&inst->use));
-+
-+	return 0;
+ int br_handle_frame_finish(struct sk_buff *skb);
+ 
+-/* This is called by the IP fragmenting code and it ensures there is
+- * enough room for the encapsulating header (if there is one). */
+-static inline unsigned int nf_bridge_pad(const struct sk_buff *skb)
+-{
+-	if (skb->nf_bridge)
+-		return nf_bridge_encap_header_len(skb);
+-	return 0;
+-}
+-
+ static inline void br_drop_fake_rtable(struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+@@ -62,7 +41,6 @@ static inline void br_drop_fake_rtable(struct sk_buff *skb)
  }
  
- static const struct seq_operations nful_seq_ops = {
+ #else
+-#define nf_bridge_pad(skb)			(0)
+ #define br_drop_fake_rtable(skb)	        do { } while (0)
+ #endif /* CONFIG_BRIDGE_NETFILTER */
+ 
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index bd2d24d..f3884a1 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -153,6 +153,18 @@ static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
+ 	return nf_bridge;
+ }
+ 
++static unsigned int nf_bridge_encap_header_len(const struct sk_buff *skb)
++{
++	switch (skb->protocol) {
++	case __cpu_to_be16(ETH_P_8021Q):
++		return VLAN_HLEN;
++	case __cpu_to_be16(ETH_P_PPP_SES):
++		return PPPOE_SES_HLEN;
++	default:
++		return 0;
++	}
++}
++
+ static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
+ {
+ 	unsigned int len = nf_bridge_encap_header_len(skb);
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index a7aea20..90b49e8 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -636,10 +636,7 @@ slow_path:
+ 	left = skb->len - hlen;		/* Space per frame */
+ 	ptr = hlen;		/* Where to start from */
+ 
+-	/* for bridged IP traffic encapsulated inside f.e. a vlan header,
+-	 * we need to make room for the encapsulating header
+-	 */
+-	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, nf_bridge_pad(skb));
++	ll_rs = LL_RESERVED_SPACE(rt->dst.dev);
+ 
+ 	/*
+ 	 *	Fragment the datagram.
 -- 
 1.7.10.4
-
