@@ -1,208 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 2/8] ipv6: introduce secret_stable to ipv6_devconf
-Date: Mon, 23 Mar 2015 23:36:00 +0100
-Message-ID: <135700f43a2ec666ec7b322e75b0194ffe168540.1427149704.git.hannes@stressinduktion.org>
-References: <cover.1427149704.git.hannes@stressinduktion.org>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Mon, 23 Mar 2015 22:37:08 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B78D8BD39@ORSMSX101.amr.corp.intel.com>
+References: <1719052.SGOfRAJhfQ@storm> <2370189.uakqRR7OLn@storm>
+ <309B89C4C689E141A5FF6A0C5FB2118B78D72A14@ORSMSX101.amr.corp.intel.com>
+ <3606797.04xNxe9kJh@storm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ek@google.com, fgont@si6networks.com, lorenzo@google.com,
-	hideaki.yoshifuji@miraclelinux.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:56974 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753188AbbCWWgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:36:16 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id A22EA20859
-	for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 18:36:13 -0400 (EDT)
-In-Reply-To: <cover.1427149704.git.hannes@stressinduktion.org>
-In-Reply-To: <cover.1427149704.git.hannes@stressinduktion.org>
-References: <cover.1427149704.git.hannes@stressinduktion.org>
+Received: from mga09.intel.com ([134.134.136.24]:20286 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932106AbbCWWhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 18:37:09 -0400
+In-Reply-To: <3606797.04xNxe9kJh@storm>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements the procfs logic for the stable_address knob:
-The secret is formatted as an ipv6 address and will be stored per
-interface and per namespace. We track initialized flag and return EIO
-errors until the secret is set.
-
-We don't inherit the secret to newly created namespaces.
-
-Cc: Erik Kline <ek@google.com>
-Cc: Fernando Gont <fgont@si6networks.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>
-Cc: YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yos=
-hifuji@miraclelinux.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/ipv6.h      |  4 +++
- include/uapi/linux/ipv6.h |  1 +
- net/ipv6/addrconf.c       | 68 +++++++++++++++++++++++++++++++++++++++=
-++++++++
- 3 files changed, 73 insertions(+)
-
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 4d5169f..82806c6 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -53,6 +53,10 @@ struct ipv6_devconf {
- 	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
- 	__s32		accept_ra_mtu;
-+	struct ipv6_stable_secret {
-+		bool initialized;
-+		struct in6_addr secret;
-+	} stable_secret;
- 	void		*sysctl;
- };
-=20
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 437a6a4..5efa54a 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -170,6 +170,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
-+	DEVCONF_STABLE_SECRET,
- 	DEVCONF_MAX
- };
-=20
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 158378e..5b967c8 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -46,6 +46,7 @@
- #include <linux/socket.h>
- #include <linux/sockios.h>
- #include <linux/net.h>
-+#include <linux/inet.h>
- #include <linux/in6.h>
- #include <linux/netdevice.h>
- #include <linux/if_addr.h>
-@@ -102,6 +103,9 @@
-=20
- #define	INFINITY_LIFE_TIME	0xFFFFFFFF
-=20
-+#define IPV6_MAX_STRLEN \
-+	sizeof("ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255")
-+
- static inline u32 cstamp_delta(unsigned long cstamp)
- {
- 	return (cstamp - INITIAL_JIFFIES) * 100UL / HZ;
-@@ -202,6 +206,9 @@ static struct ipv6_devconf ipv6_devconf __read_most=
-ly =3D {
- 	.accept_dad		=3D 1,
- 	.suppress_frag_ndisc	=3D 1,
- 	.accept_ra_mtu		=3D 1,
-+	.stable_secret		=3D {
-+		.initialized =3D false,
-+	}
- };
-=20
- static struct ipv6_devconf ipv6_devconf_dflt __read_mostly =3D {
-@@ -240,6 +247,9 @@ static struct ipv6_devconf ipv6_devconf_dflt __read=
-_mostly =3D {
- 	.accept_dad		=3D 1,
- 	.suppress_frag_ndisc	=3D 1,
- 	.accept_ra_mtu		=3D 1,
-+	.stable_secret		=3D {
-+		.initialized =3D false,
-+	},
- };
-=20
- /* Check if a valid qdisc is available */
-@@ -4430,6 +4440,7 @@ static inline void ipv6_store_devconf(struct ipv6=
-_devconf *cnf,
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] =3D cnf->suppress_frag_ndisc;
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] =3D cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] =3D cnf->accept_ra_mtu;
-+	/* we omit DEVCONF_STABLE_SECRET for now */
- }
-=20
- static inline size_t inet6_ifla6_size(void)
-@@ -5074,6 +5085,53 @@ int addrconf_sysctl_proxy_ndp(struct ctl_table *=
-ctl, int write,
- 	return ret;
- }
-=20
-+static int addrconf_sysctl_stable_secret(struct ctl_table *ctl, int wr=
-ite,
-+					 void __user *buffer, size_t *lenp,
-+					 loff_t *ppos)
-+{
-+	int err;
-+	struct in6_addr addr;
-+	char str[IPV6_MAX_STRLEN];
-+	struct ctl_table lctl =3D *ctl;
-+	struct ipv6_stable_secret *secret =3D ctl->data;
-+
-+	lctl.maxlen =3D IPV6_MAX_STRLEN;
-+	lctl.data =3D str;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (!write && !secret->initialized) {
-+		err =3D -EIO;
-+		goto out;
-+	}
-+
-+	if (!write) {
-+		err =3D snprintf(str, sizeof(str), "%pI6",
-+			       &secret->secret);
-+		if (err >=3D sizeof(str)) {
-+			err =3D -EIO;
-+			goto out;
-+		}
-+	}
-+
-+	err =3D proc_dostring(&lctl, write, buffer, lenp, ppos);
-+	if (err || !write)
-+		goto out;
-+
-+	if (in6_pton(str, -1, addr.in6_u.u6_addr8, -1, NULL) !=3D 1) {
-+		err =3D -EIO;
-+		goto out;
-+	}
-+
-+	secret->initialized =3D true;
-+	secret->secret =3D addr;
-+
-+out:
-+	rtnl_unlock();
-+
-+	return err;
-+}
-=20
- static struct addrconf_sysctl_table
- {
-@@ -5347,6 +5405,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	=3D proc_dointvec,
- 		},
- 		{
-+			.procname	=3D "stable_secret",
-+			.data		=3D &ipv6_devconf.stable_secret,
-+			.maxlen		=3D IPV6_MAX_STRLEN,
-+			.mode		=3D 0600,
-+			.proc_handler	=3D addrconf_sysctl_stable_secret,
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
-@@ -5442,6 +5507,9 @@ static int __net_init addrconf_init_net(struct ne=
-t *net)
- 	dflt->autoconf =3D ipv6_defaults.autoconf;
- 	dflt->disable_ipv6 =3D ipv6_defaults.disable_ipv6;
-=20
-+	dflt->stable_secret.initialized =3D false;
-+	all->stable_secret.initialized =3D false;
-+
- 	net->ipv6.devconf_all =3D all;
- 	net->ipv6.devconf_dflt =3D dflt;
-=20
---=20
-2.1.0
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogVGhvbWFzIEphcm9zY2gg
+W21haWx0bzp0aG9tYXMuamFyb3NjaEBpbnRyYTJuZXQuY29tXQ0KPiBTZW50OiBNb25kYXksIE1h
+cmNoIDIzLCAyMDE1IDY6NTggQU0NCj4gVG86IEJyb3duLCBBYXJvbiBGDQo+IENjOiBLaXJzaGVy
+LCBKZWZmcmV5IFQ7ICdMaW51eCBOZXRkZXYgTGlzdCc7IEVyaWMgRHVtYXpldDsgZTEwMDAtZGV2
+ZWwNCj4gU3ViamVjdDogUmU6IFtiaXNlY3RlZCByZWdyZXNzaW9uXSBlMTAwMGU6ICJEZXRlY3Rl
+ZCBIYXJkd2FyZSBVbml0IEhhbmciDQo+IA0KPiBIaSBBYXJvbiwNCj4gDQo+IE9uIFNhdHVyZGF5
+LCAyMS4gRmVicnVhcnkgMjAxNSAwMTo1OTozNSBCcm93biwgQWFyb24gRiB3cm90ZToNCj4gPiBU
+aGFua3MsIHRoYXQgKGFuZCB0aGUgbXVsdGlwbGUgYnVnIHdyaXRlLXVwcyBvbiBzb3VyY2Vmb3Jn
+ZSkgZ2F2ZSBtZQ0KPiBtb3JlDQo+ID4gdGhhbiBlbm91Z2ggdG8gZ28gb24uICBJIHdhcyBhYmxl
+IHRvIHJlcGxpY2F0ZSBpdCBvbiBhIGhhbmRmdWwgb2YNCj4gc3lzdGVtcw0KPiA+IGluIG15IGxh
+Yi4gIE9uIGVmZmVjdGVkIHN5c3RlbXMgc2V0dGluZyB1cCBhIE5BVCBhbmQgc3RyZXNzaW5nIHRo
+ZQ0KPiA+IGludGVyZmFjZXMgd2l0aCBldmVuIG1vZGVyYXRlIHRyYWZmaWMgbGV2ZWxzIHRyaWdn
+ZXJzIGl0IHByZXR0eSBxdWlja2x5Lg0KPiA+IEl0IGFwcGVhcnMgdGhhdCB0aGUgTkFUIHBhcnQg
+aXMgdW5uZWNlc3NhcnksIGp1c3Qgc2V0dGluZyB0aGUgc3lzdGVtcyB1cA0KPiA+IGFzIGEgc29m
+dHdhcmUgcm91dGVyIGFuZCBydW5uaW5nIHNvbWUgdHJhZmZpYyBhY3Jvc3MgaXQgYWxzbyB0cmln
+Z2VycyBpdA0KPiA+IGdpdmluZyB0aGUgc2FtZSBhcHBhcmVudCBiZWhhdmlvciAodHggaGFuZywg
+d2F0Y2hkb2cgdGltZW91dCB0cmFjZSwgcG9ydA0KPiA+IHJlc2V0LikNCj4gPg0KPiA+IEFuZCB3
+aXRoIGFuIGludGVybmFsIHJlcHJvZHVjdGlvbiBvZiB0aGUgaXNzdWUgSSBoYXZlIGNyZWF0ZWQg
+YW4NCj4gaW50ZXJuYWwNCj4gPiBidWcgcmVwb3J0LCBkZXNjcmliZWQgbXkgc2V0IG9mIHJlcHJv
+ZHVjdGlvbnMsIHJlZmVyZW5jZWQgdGhlIHNpbWlsYXINCj4gPiBleHRlcm5hbCBvbmVzIGFuZCBh
+c3NpZ25lZCBpdCB0byBvdXIgY3VycmVudCBlMTAwMGUgZGV2ZWxvcGVyLg0KPiANCj4ganVzdCB3
+YW50ZWQgdG8gcXVpY2tseSBjaGVjayBpZiB0aGVyZSBoYXMgYmVlbiBhbnkgcHJvZ3Jlc3MNCj4g
+c2luY2UgdGhlIGludGVybmFsIGJ1ZyByZXBvcnQgaGFzIGJlZW4gZmlsZWQ/DQoNCk5vLCBubyB1
+cGRhdGVzIGJleW9uZCBhIGJpdCBvZiBpbnZlc3RpZ2F0aW9uLg0KIA0KPiANCj4gQ2hlZXJzLA0K
+PiBUaG9tYXMNCg0K
