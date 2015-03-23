@@ -1,50 +1,85 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: arp_hash
-Date: Mon, 23 Mar 2015 22:01:33 +1100
-Message-ID: <20150323110133.GA13359@gondor.apana.org.au>
-References: <20150322213408.GC7925@gondor.apana.org.au>
- <20150322.185714.1793567801322787489.davem@davemloft.net>
- <20150322234218.GA9243@gondor.apana.org.au>
- <20150322.195315.643961269309745827.davem@davemloft.net>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: Re: sfc fixup patch
+Date: Mon, 23 Mar 2015 10:55:15 +0000
+Message-ID: <550FF113.8000209@solarflare.com>
+References: <1427080232.4770.212.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roland@purestorage.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:34772 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbbCWLBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 07:01:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20150322.195315.643961269309745827.davem@davemloft.net>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:53911 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752060AbbCWLCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 07:02:42 -0400
+In-Reply-To: <1427080232.4770.212.camel@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 22, 2015 at 07:53:15PM -0400, David Miller wrote:
->
-> We want no reference counting of the neighbour entries, that's one of
-> the main points of all this.
+
+
+On 23/03/15 03:10, Benjamin Herrenschmidt wrote:
+> Hi Dave, Shradha !
 > 
-> That way packets getting stuck do not run into the classic
-> dreaded "Neighbour table overflow", remember that?
-
-Right.
-
-> THAT is what is attackable when people have /8 subnets and
-> someone just spam pings every host on that subnet.
+> While merging some EEH changes, I noticed a breakage in the SFC driver
+> due to it using an API we didn't mean driver to use directly and that
+> is going away. I've done this small fixup patch, any objection to me
+> sticking it in the original series (as to avoid bisection breaks)
+> before I send it to Linus ?
 > 
-> That is a more serious exposure than this hashing issue.
+> Cheers,
+> Ben.
 > 
-> At least with ref-less use, as we have now, we could trim hash chains
-> that get too large with almost no barriers whatsoever because nearly
-> every neigh entry has no external references outside of these demux
-> sequences.
+> net/ethernet/sfc: Don't use of_node_to_eeh_dev()
+> 
+> This is deprecated, it forces the driver to hop via the OF node
+> that may or may not exist, instead use pci_dev_to_eeh_dev() which
+> is simpler.
+> 
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-Yes if we trim the buckets to keep the chain length under a limit
-it should be good enough I think.
+Acked-by: Shradha Shah <sshah@solarflare.com>
 
-Thanks,
+> ---
+>  drivers/net/ethernet/sfc/efx.c   | 4 +---
+>  drivers/net/ethernet/sfc/siena.c | 3 +--
+>  2 files changed, 2 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index 2384824..77d6453 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -2523,9 +2523,7 @@ int efx_try_recovery(struct efx_nic *efx)
+>  	 * schedule a 'recover or reset', leading to this recovery handler.
+>  	 * Manually call the eeh failure check function.
+>  	 */
+> -	struct eeh_dev *eehdev =
+> -		of_node_to_eeh_dev(pci_device_to_OF_node(efx->pci_dev));
+> -
+> +	struct eeh_dev *eehdev = pci_dev_to_eeh_dev(efx->pci_dev);
+>  	if (eeh_dev_check_failure(eehdev)) {
+>  		/* The EEH mechanisms will handle the error and reset the
+>  		 * device if necessary.
+> diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+> index 3583f02..f12c811 100644
+> --- a/drivers/net/ethernet/sfc/siena.c
+> +++ b/drivers/net/ethernet/sfc/siena.c
+> @@ -205,8 +205,7 @@ static int siena_map_reset_flags(u32 *flags)
+>   */
+>  static void siena_monitor(struct efx_nic *efx)
+>  {
+> -	struct eeh_dev *eehdev =
+> -		of_node_to_eeh_dev(pci_device_to_OF_node(efx->pci_dev));
+> +	struct eeh_dev *eehdev = pci_dev_to_eeh_dev(efx->pci_dev);
+>  
+>  	eeh_dev_check_failure(eehdev);
+>  }
+> 
+> 
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Many Thanks,
+Regards,
+Shradha Shah
