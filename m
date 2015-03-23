@@ -1,51 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/7] net: bcmgenet: integrated GPHY power up/down
-Date: Mon, 23 Mar 2015 15:06:39 -0700
-Message-ID: <55108E6F.5010503@gmail.com>
-References: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: next-20150323 build: 1 failures 23 warnings (next-20150323)
+Date: Mon, 23 Mar 2015 23:08:07 +0100
+Message-ID: <20150323220806.GB8891@linux-mips.org>
+References: <E1YZyoN-00019n-50@debutante>
+ <20150323212524.GU14954@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:36014 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753657AbbCWWHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:07:21 -0400
-Received: by pdbcz9 with SMTP id cz9so200227212pdb.3
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:07:20 -0700 (PDT)
-In-Reply-To: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
+Received: from eddie.linux-mips.org ([148.251.95.138]:43457 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752748AbbCWWIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:08:13 -0400
+Received: from localhost.localdomain ([127.0.0.1]:42600 "EHLO linux-mips.org"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S27009710AbbCWWIKqq7py (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Mar 2015 23:08:10 +0100
+Content-Disposition: inline
+In-Reply-To: <20150323212524.GU14954@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/03/15 15:03, Florian Fainelli wrote:
-> Hi David,
-> 
-> This patch series implements integrated Gigabit PHY power up/down, which allows
-> us to save close to 300mW on some designs when the Gigabit PHY is known to be
-> unused (e.g: during bcmgenet_close or bcmgenet_suspend not doing Wake-on-LAN).
+On Mon, Mar 23, 2015 at 02:25:24PM -0700, Mark Brown wrote:
 
-I will resubmit shortly with a trivial fix for "net: bcmgenet: implement
-GPHY power down sequence"), sorry about that.
+> On Mon, Mar 23, 2015 at 09:38:19AM +0000, Build bot for Mark Brown wrote:
+> 
+> In current -next the bgmac driver does not compile in an ARM
+> allmodconfig:
+> 
+> > 	arm-allmodconfig
+> > ../drivers/net/ethernet/broadcom/bgmac.c:20:27: fatal error: bcm47xx_nvram.h: No such file or directory
+> 
+> because this include file is only present on MIPS.  This looks at first
+> glance to have happened in the merge commit edb15d83a875a1f4 from the
+> MIPS tree though I think that needs a bit more investigation.
 
-> 
-> Thanks!
-> 
-> Florian Fainelli (7):
->   net: bcmgenet: propagate errors from bcmgenet_power_down
->   net: bcmgenet: update bcmgenet_ephy_power_up to clear CK25_DIS bit
->   net: bcmgenet: rename bcmgenet_ephy_power_up
->   net: bcmgenet: fix GPHY power-up sequence
->   net: bcmgenet: implement GPHY power down sequence
->   net: bcmgenet: power up and down integrated GPHY when unused
->   net: bcmgenet: power down and up GPHY during suspend/resume
-> 
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 34 +++++++++++++++++++-------
->  drivers/net/ethernet/broadcom/genet/bcmgenet.h |  2 ++
->  drivers/net/ethernet/broadcom/genet/bcmmii.c   | 32 ++++++++++++++++--------
->  3 files changed, 49 insertions(+), 19 deletions(-)
-> 
+At that time the bgmac NIC was still exclusivly used on MIPS.
 
-
--- 
-Florian
+  Ralf
