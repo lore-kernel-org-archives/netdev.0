@@ -1,81 +1,66 @@
-From: =?koi8-r?B?8MHOz9cg4c7E0sXK?= <rockford@yandex.ru>
-Subject: Re: Bug in drivers/net/ethernet/freescale/fec_main.c, TX is broken. In 4.0.0-rc3
-Date: Mon, 23 Mar 2015 11:22:13 +0300
-Message-ID: <397281427098933@web12o.yandex.ru>
-References: <390621425930628@web28o.yandex.ru>
-	<3625951426018334@web26j.yandex.ru>
-	<BLUPR03MB373A446E2D97992CA7AAA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
-	<726281426513068@web10o.yandex.ru>
-	<BLUPR03MB3739B9C6E14A106CCAEBA32F5020@BLUPR03MB373.namprd03.prod.outlook.com>
-	<994171426532944@web7m.yandex.ru>
-	<20150321205359.GM8656@n2100.arm.linux.org.uk>
-	 <CAOMZO5BnPQTFoBRr4EGH24_yZZAY6NJmVFg4WeiJcTqrYqki5A@mail.gmail.com> <BLUPR03MB373FC71B9A8559E51084C26F50D0@BLUPR03MB373.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward12o.cmail.yandex.net ([37.9.109.179]:52392 "EHLO
-	forward12o.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751935AbbCWIWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 04:22:18 -0400
-In-Reply-To: <BLUPR03MB373FC71B9A8559E51084C26F50D0@BLUPR03MB373.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net] tcp: prevent fetching dst twice in early demux code
+Date: Mon, 23 Mar 2015 09:27:18 +0100 (CET)
+Message-ID: <20150323082718.265EDA0BE9@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On s390x, gcc 4.8 compiles this part of tcp_v6_early_demux()
 
+        struct dst_entry *dst = sk->sk_rx_dst;
 
-23.03.2015, 05:42, "fugang.duan@freescale.com" <fugang.duan@freescale.c=
-om>:
-> From: Fabio Estevam <festevam@gmail.com> Sent: Sunday, March 22, 2015=
- 6:36 AM
->> =9ATo: Russell King - ARM Linux
->> =9ACc: =F0=C1=CE=CF=D7 =E1=CE=C4=D2=C5=CA; Duan Fugang-B38611; netde=
-v@vger.kernel.org; linux-arm-
->> =9Akernel
->> =9ASubject: Re: Bug in drivers/net/ethernet/freescale/fec_main.c, TX=
- is
->> =9Abroken. In 4.0.0-rc3
->>
->> =9AHi Russell,
->>
->> =9AOn Sat, Mar 21, 2015 at 5:53 PM, Russell King - ARM Linux
->> =9A<linux@arm.linux.org.uk> wrote:
->>> =9AGiven that this bug can seriously screw data up in undetectable =
-ways
->>> =9A(TCP checksums don't save you, because the FEC generates them on=
- the
->>> =9Adata which it read from memory, even if it happened to read the =
-data
->>> =9Afrom the SoC's boot ROM) we do need to get this fixed ASAP.
->> =9ACurrent mainline has 2b995f63987013 reverted, so 4.0-rc5 will not=
- have
->> =9Athis corruption problem.
->>
->> =9ARegards,
->>
->> =9AFabio Estevam
->
-> We cannot revert the commit 2b995f63987013, otherwise there introduce=
- other issue. The correct fix method is Russell King's fix in the previ=
-ous mail.
-> It is strange thing that I cannot reproduce the issue on i.MX6q sabre=
-sd board. Anyway, we must consider TSO case that it's not a fragmented =
-skb.
+        if (dst)
+                dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
 
-It is just DMA_API_DEBUG=3Dy error versus several data corruption error=
-=2E DMA_API_DEBUG can be wrong too.
-And did you do the check with that option enabled? This can cause delay=
-s in kernel enough to do actually write to the network before code in c=
-ommit freed non-send data blocks.
-I have it disabled all the time.
+to code reading sk->sk_rx_dst twice, once for the test and once for
+the argument of ip6_dst_check() (dst_check() is inline). This allows
+ip6_dst_check() to be called with null first argument, causing a crash.
 
-And you can check it by compiling a kernel over NFS, or big git merges =
-over NFS, or doing big ftp transfer, etc.
+Protect sk->sk_rx_dst access by ACCESS_ONCE() both in IPv4 and IPv6
+TCP early demux code.
 
---
- =E1=CE=C4=D2=C5=CA
+Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
+Fixes: c7109986db3c ("ipv6: Early TCP socket demux")
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/ipv4/tcp_ipv4.c | 2 +-
+ net/ipv6/tcp_ipv6.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 5a2dfed..3d42b45 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1518,7 +1518,7 @@ void tcp_v4_early_demux(struct sk_buff *skb)
+ 		skb->sk = sk;
+ 		skb->destructor = sock_edemux;
+ 		if (sk->sk_state != TCP_TIME_WAIT) {
+-			struct dst_entry *dst = sk->sk_rx_dst;
++			struct dst_entry *dst = ACCESS_ONCE(sk->sk_rx_dst);
+ 
+ 			if (dst)
+ 				dst = dst_check(dst, 0);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5d46832..50eb5ff 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1585,7 +1585,7 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
+ 		skb->sk = sk;
+ 		skb->destructor = sock_edemux;
+ 		if (sk->sk_state != TCP_TIME_WAIT) {
+-			struct dst_entry *dst = sk->sk_rx_dst;
++			struct dst_entry *dst = ACCESS_ONCE(sk->sk_rx_dst);
+ 
+ 			if (dst)
+ 				dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+-- 
+2.3.3
