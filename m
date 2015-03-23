@@ -1,45 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] tcp: prevent fetching dst twice in early demux
- code
-Date: Mon, 23 Mar 2015 07:39:24 -0700
-Message-ID: <1427121564.25985.69.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1427118542.25985.62.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150323141400.1568AA0CCC@unicorn.suse.cz>
+From: Arnd Bergmann <arnd@linaro.org>
+Subject: Re: [PATCH net-next V2 20/23] ptp: dp83640: convert to the 64 bit get/set time methods.
+Date: Mon, 23 Mar 2015 16:06:28 +0100
+Message-ID: <201503231606.29346.arnd@linaro.org>
+References: <cover.1426973658.git.richardcochran@gmail.com> <201503221848.02226.arnd@linaro.org> <20150323081040.GA4779@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Michal Kubecek <mkubecek@suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Stefan =?iso-8859-1?q?S=F8rensen?=
+	<stefan.sorensen@spectrali
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150323141400.1568AA0CCC@unicorn.suse.cz>
+In-Reply-To: <20150323081040.GA4779@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-03-23 at 15:14 +0100, Michal Kubecek wrote:
-> On s390x, gcc 4.8 compiles this part of tcp_v6_early_demux()
+On Monday 23 March 2015, Richard Cochran wrote:
 > 
->         struct dst_entry *dst = sk->sk_rx_dst;
+> On Sun, Mar 22, 2015 at 06:48:02PM +0100, Arnd Bergmann wrote:
+> > Ok, got it. The code looks correct then, though I'd like to see the use
+> > of 'timespec' pushed out as far as possible. How about changing the
+> > type for tdr_write() as well here?
+> > 
+> > tdr_write() itself should be fine until 2106, as it writes an unsigned number,
+> > but it's probably good to document that inside of that function.
 > 
->         if (dst)
->                 dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+> Arnd, thanks for the careful review.  I will work out follow up
+> patches for this driver and the i210 (igb) to address the remaining
+> issues.  For this series, lets leave tdr_write as is now, but I will
+> surely take another look for the fix.
 > 
-> to code reading sk->sk_rx_dst twice, once for the test and once for
-> the argument of ip6_dst_check() (dst_check() is inline). This allows
-> ip6_dst_check() to be called with null first argument, causing a crash.
-> 
-> Protect sk->sk_rx_dst access by READ_ONCE() both in IPv4 and IPv6
-> TCP early demux code.
-> 
-> Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-> Fixes: c7109986db3c ("ipv6: Early TCP socket demux")
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> ---
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Ok, sounds good.
 
-Thanks Michal
+	Arnd
