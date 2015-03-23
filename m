@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/8] netfilter: bridge: remove BRNF_STATE_BRIDGED flag
-Date: Mon, 23 Mar 2015 12:36:18 +0100
-Message-ID: <1427110584-5190-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/8] netfilter: Remove uses of seq_<foo> return values
+Date: Mon, 23 Mar 2015 12:36:19 +0100
+Message-ID: <1427110584-5190-4-git-send-email-pablo@netfilter.org>
 References: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,79 +10,99 @@ In-Reply-To: <1427110584-5190-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Joe Perches <joe@perches.com>
 
-Its not needed anymore since 2bf540b73ed5b
-([NETFILTER]: bridge-netfilter: remove deferred hooks).
-Before this it was possible to have physoutdev set for locally generated
-packets -- this isn't the case anymore:
+The seq_printf/seq_puts/seq_putc return values, because they
+are frequently misused, will eventually be converted to void.
 
-BRNF_STATE_BRIDGED flag is set when we assign nf_bridge->physoutdev,
-so physoutdev != NULL means BRNF_STATE_BRIDGED is set.
-If physoutdev is NULL, then we are looking at locally-delivered and
-routed packet.
+See: commit 1f33c41c03da ("seq_file: Rename seq_overflow() to
+     seq_has_overflowed() and make public")
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Miscellanea:
+
+o realign arguments
+
+Signed-off-by: Joe Perches <joe@perches.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_bridge.h |    1 -
- net/bridge/br_netfilter.c        |    9 ++++++---
- net/netfilter/xt_physdev.c       |    3 +--
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |    4 +++-
+ net/netfilter/nf_conntrack_acct.c                     |    8 +++++---
+ net/netfilter/nf_conntrack_expect.c                   |    4 +++-
+ net/netfilter/nfnetlink_log.c                         |   12 +++++++-----
+ 4 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index de123d7..ed0d3bf 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -19,7 +19,6 @@ enum nf_br_hook_priorities {
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index a460a87..f0dfe92 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -300,7 +300,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
+ 		    __nf_ct_l3proto_find(exp->tuple.src.l3num),
+ 		    __nf_ct_l4proto_find(exp->tuple.src.l3num,
+ 					 exp->tuple.dst.protonum));
+-	return seq_putc(s, '\n');
++	seq_putc(s, '\n');
++
++	return 0;
+ }
  
- #define BRNF_PKT_TYPE			0x01
- #define BRNF_BRIDGED_DNAT		0x02
--#define BRNF_BRIDGED			0x04
- #define BRNF_NF_BRIDGE_PREROUTING	0x08
- #define BRNF_8021Q			0x10
- #define BRNF_PPPoE			0x20
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 261fcd5..bd2d24d 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -736,8 +736,6 @@ static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
- 	if (pf == NFPROTO_IPV4 && br_parse_ip_options(skb))
- 		return NF_DROP;
+ static const struct seq_operations exp_seq_ops = {
+diff --git a/net/netfilter/nf_conntrack_acct.c b/net/netfilter/nf_conntrack_acct.c
+index a4b5e2a..45da11a 100644
+--- a/net/netfilter/nf_conntrack_acct.c
++++ b/net/netfilter/nf_conntrack_acct.c
+@@ -47,9 +47,11 @@ seq_print_acct(struct seq_file *s, const struct nf_conn *ct, int dir)
+ 		return 0;
  
--	/* The physdev module checks on this */
--	nf_bridge->mask |= BRNF_BRIDGED;
- 	nf_bridge->physoutdev = skb->dev;
- 	if (pf == NFPROTO_IPV4)
- 		skb->protocol = htons(ETH_P_IP);
-@@ -857,7 +855,12 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
- 	struct net_device *realoutdev = bridge_parent(skb->dev);
- 	u_int8_t pf;
+ 	counter = acct->counter;
+-	return seq_printf(s, "packets=%llu bytes=%llu ",
+-			  (unsigned long long)atomic64_read(&counter[dir].packets),
+-			  (unsigned long long)atomic64_read(&counter[dir].bytes));
++	seq_printf(s, "packets=%llu bytes=%llu ",
++		   (unsigned long long)atomic64_read(&counter[dir].packets),
++		   (unsigned long long)atomic64_read(&counter[dir].bytes));
++
++	return 0;
+ };
+ EXPORT_SYMBOL_GPL(seq_print_acct);
  
--	if (!nf_bridge || !(nf_bridge->mask & BRNF_BRIDGED))
-+	/* if nf_bridge is set, but ->physoutdev is NULL, this packet came in
-+	 * on a bridge, but was delivered locally and is now being routed:
-+	 *
-+	 * POST_ROUTING was already invoked from the ip stack.
-+	 */
-+	if (!nf_bridge || !nf_bridge->physoutdev)
- 		return NF_ACCEPT;
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 91a1837..7a17070 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -561,7 +561,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
+ 				   helper->expect_policy[expect->class].name);
+ 	}
  
- 	if (!realoutdev)
-diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-index f440f57..50a5204 100644
---- a/net/netfilter/xt_physdev.c
-+++ b/net/netfilter/xt_physdev.c
-@@ -56,8 +56,7 @@ physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
+-	return seq_putc(s, '\n');
++	seq_putc(s, '\n');
++
++	return 0;
+ }
  
- 	/* This only makes sense in the FORWARD and POSTROUTING chains */
- 	if ((info->bitmask & XT_PHYSDEV_OP_BRIDGED) &&
--	    (!!(nf_bridge->mask & BRNF_BRIDGED) ^
--	    !(info->invert & XT_PHYSDEV_OP_BRIDGED)))
-+	    (!!nf_bridge->physoutdev ^ !(info->invert & XT_PHYSDEV_OP_BRIDGED)))
- 		return false;
+ static const struct seq_operations exp_seq_ops = {
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 11d85b3..db5e3a8 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -998,11 +998,13 @@ static int seq_show(struct seq_file *s, void *v)
+ {
+ 	const struct nfulnl_instance *inst = v;
  
- 	if ((info->bitmask & XT_PHYSDEV_OP_ISIN &&
+-	return seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
+-			  inst->group_num,
+-			  inst->peer_portid, inst->qlen,
+-			  inst->copy_mode, inst->copy_range,
+-			  inst->flushtimeout, atomic_read(&inst->use));
++	seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
++		   inst->group_num,
++		   inst->peer_portid, inst->qlen,
++		   inst->copy_mode, inst->copy_range,
++		   inst->flushtimeout, atomic_read(&inst->use));
++
++	return 0;
+ }
+ 
+ static const struct seq_operations nful_seq_ops = {
 -- 
 1.7.10.4
 
