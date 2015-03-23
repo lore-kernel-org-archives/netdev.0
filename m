@@ -1,71 +1,115 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH v2] tipc: fix build issue when building without IPv6
-Date: Mon, 23 Mar 2015 11:00:17 +0800
-Message-ID: <550F81C1.4020701@windriver.com>
-References: <20150319.150433.850095478975909930.davem@davemloft.net> <1426794478-5469-1-git-send-email-marcelo.leitner@gmail.com> <20150319.160658.1294624225284354605.davem@davemloft.net> <550B8156.3020400@windriver.com> <9df97f7f63e5c844ede07f1e6ec45c4e@propriete.com.br>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 23 Mar 2015 14:08:41 +1100
+Message-ID: <20150323140841.0b807b95@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <richard.alpe@ericsson.com>,
-	<jon.maloy@ericsson.com>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>, <erik.hugne@ericsson.com>
-To: Marcelo <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:55328 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941AbbCWDAq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 23:00:46 -0400
-In-Reply-To: <9df97f7f63e5c844ede07f1e6ec45c4e@propriete.com.br>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_//aICTucY+xLsjne6JNWB4N1"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/20/2015 08:35 PM, Marcelo wrote:
-> I think David and Willem suggestion were more about the dependencies
-> than fixing the build issue itself. I mean, if some part of TIPC real=
-ly
-> needs IPv6 in order to work or something like that.
->=20
-> So if all we want to do if fix the build issue, I have another sugges=
-tion.
-> When we have IPV6=3Dm and TIPC=3Dy, just have to use the stub too.
->=20
-> (cut & pasted)
-> --- a/net/tipc/udp_media.c
-> +++ b/net/tipc/udp_media.c
-> @@ -193,7 +193,7 @@ static int tipc_udp_send_msg(struct net *net, str=
-uct
-> sk_buff *skb,
->                         .saddr =3D src->ipv6,
->                         .flowi6_proto =3D IPPROTO_UDP
->                 };
-> -               err =3D ip6_dst_lookup(ub->ubsock->sk, &ndst, &fl6);
-> +               err =3D ipv6_stub->ipv6_dst_lookup(ub->ubsock->sk, &n=
-dst,
-> &fl6);
->                 if (err)
->                         goto tx_error;
->                 ttl =3D ip6_dst_hoplimit(ndst);
->=20
-> then it builds fine here. That is, assuming that you can't reach this=
- code
-> while
-> ipv6 module is unloaded.. (I didn't check that) what do you think?
+--Sig_//aICTucY+xLsjne6JNWB4N1
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-It seems that your above change is useless to kill the error. For insta=
-nce, when
-I apply it into my project, below build error appears:
+Hi all,
 
-net/tipc/udp_media.c: In function =E2=80=98tipc_udp_send_msg=E2=80=99:
-net/tipc/udp_media.c:196:18: error: =E2=80=98const struct ipv6_stub=E2=80=
-=99 has no member named
-=E2=80=98ip6_dst_lookup=E2=80=99
-make[2]: *** [net/tipc/udp_media.o] Error 1
-make[1]: *** [net/tipc] Error 2
-make: *** [net] Error 2
+Today's linux-next merge of the net-next tree got a conflict in
+net/netfilter/nf_tables_core.c between commit 4017a7ee693d ("netfilter:
+restore rule tracing via nfnetlink_log") from the net tree and commit
+01ef16c2dd2e ("netfilter: nf_tables: minor tracing cleanups") from the
+net-next tree.
 
-In my opinion, we have to follow David's suggestion dividing the udp_me=
-dia.c as
-an separate module.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-Regards,
-Ying
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/netfilter/nf_tables_core.c
+index 2d298dccb6dd,77165bf023f3..000000000000
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@@ -21,6 -21,48 +21,48 @@@
+  #include <net/netfilter/nf_tables.h>
+  #include <net/netfilter/nf_log.h>
+ =20
++ enum nft_trace {
++ 	NFT_TRACE_RULE,
++ 	NFT_TRACE_RETURN,
++ 	NFT_TRACE_POLICY,
++ };
++=20
++ static const char *const comments[] =3D {
++ 	[NFT_TRACE_RULE]	=3D "rule",
++ 	[NFT_TRACE_RETURN]	=3D "return",
++ 	[NFT_TRACE_POLICY]	=3D "policy",
++ };
++=20
++ static struct nf_loginfo trace_loginfo =3D {
++ 	.type =3D NF_LOG_TYPE_LOG,
++ 	.u =3D {
++ 		.log =3D {
++ 			.level =3D 4,
++ 			.logflags =3D NF_LOG_MASK,
++ 	        },
++ 	},
++ };
++=20
++ static void __nft_trace_packet(const struct nft_pktinfo *pkt,
++ 			       const struct nft_chain *chain,
++ 			       int rulenum, enum nft_trace type)
++ {
++ 	struct net *net =3D dev_net(pkt->in ? pkt->in : pkt->out);
++=20
+ -	nf_log_packet(net, pkt->xt.family, pkt->ops->hooknum, pkt->skb, pkt->in,
+ -		      pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
+ -		      chain->table->name, chain->name, comments[type],
+ -		      rulenum);
+++	nf_log_trace(net, pkt->xt.family, pkt->ops->hooknum, pkt->skb, pkt->in,
+++		     pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
+++		     chain->table->name, chain->name, comments[type],
+++		     rulenum);
++ }
++=20
++ static inline void nft_trace_packet(const struct nft_pktinfo *pkt,
++ 				    const struct nft_chain *chain,
++ 				    int rulenum, enum nft_trace type)
++ {
++ 	if (unlikely(pkt->skb->nf_trace))
++ 		__nft_trace_packet(pkt, chain, rulenum, type);
++ }
++=20
+  static void nft_cmp_fast_eval(const struct nft_expr *expr,
+  			      struct nft_data data[NFT_REG_MAX + 1])
+  {
+
+--Sig_//aICTucY+xLsjne6JNWB4N1
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVD4O+AAoJEMDTa8Ir7ZwVI74P/1HJ4Lvx1MbMhq3LaaovIjVr
+XW+Np8Gb9cr10eYTmcXaThNQ18uYJmuUznSyUceqnFKSeqy+PNLqR7hlRlR0iiRA
+tZmIJx3XhzXH9QdxLsO2EJHjBgYJxmrpgnjA8cU7wwFXEl/e+EjPv3C7lpIMifgA
+rsRCFv1H0TuSgE1e/xzc7Pkn5qrzZBrHOEAQJyhoUeCAGL738g8bd2NXs7zv05Pb
+7a7mSPAzyNHQ13ZJuZ4MSqNWmVVx9kxzv+uVWz/k4Z/AP9BMjh2pieuYEtH9dDfg
+cmKgyGbl0oBbh3aLTbnubnIrs24Ywxn/0ojuv58QJq8ePZqExUy+hbUHG8nMBc0s
+TDPgn30YI4fNpq09oGyGPQ+q1cba3/jzgMNCjwuw0foLfhS6fn9vkJgrJYfEVUms
+9Bi05AixB9zufboXSHWpTRenh8A55Kno/BLLFAtDVqy40IAbcEfFiwlzxd5TrZgl
+91kxezMqqOGoLD5Q4ZrUU+Gf2itVzI1ZlzPEop8PMCNQFBLtB6fbWfB6yy9Ns7M1
+kFlhYIGzlql1oQu8A+ewA2eg7rR+got+PY7vo/eu4dfZJ6Xu9iYVDiBwK995XYry
+/BErib1qxkRcoy2HWvEeK5gT+c09aUGw8kNwQ7LoFPkLkDWB6QCnSz6p8fJ43uZB
+HY+qOq4y0cfvyKTG3CT3
+=G4Gf
+-----END PGP SIGNATURE-----
+
+--Sig_//aICTucY+xLsjne6JNWB4N1--
