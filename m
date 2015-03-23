@@ -1,48 +1,87 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v10 tip 5/9] tracing: allow BPF programs to call bpf_trace_printk()
-Date: Mon, 23 Mar 2015 10:50:09 -0700
-Message-ID: <55105251.6070807@plumgrid.com>
-References: <1427053150-32213-1-git-send-email-ast@plumgrid.com> <1427053150-32213-6-git-send-email-ast@plumgrid.com> <063D6719AE5E284EB5DD2968C1650D6D1CB07731@AcuExch.aculab.com> <20150323120753.GA22560@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v2 2/5] mpls: Remove incorrect PHP comment
+Date: Mon, 23 Mar 2015 13:16:41 -0500
+Message-ID: <87h9tb37g6.fsf@x220.int.ebiederm.org>
+References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
+	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1426866170-28739-3-git-send-email-rshearma@brocade.com>
+	<87fv8wals4.fsf@x220.int.ebiederm.org> <550FF9C9.2000308@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150323120753.GA22560-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "davem\@davemloft.net" <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:52741 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752214AbbCWSUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 14:20:34 -0400
+In-Reply-To: <550FF9C9.2000308@brocade.com> (Robert Shearman's message of
+	"Mon, 23 Mar 2015 11:32:25 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/23/15 5:07 AM, Ingo Molnar wrote:
->
-> * David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> wrote:
->
->> From: Alexei Starovoitov
->>> Debugging of BPF programs needs some form of printk from the program,
->>> so let programs call limited trace_printk() with %d %u %x %p modifiers only.
+Robert Shearman <rshearma@brocade.com> writes:
+
+> On 22/03/15 19:12, Eric W. Biederman wrote:
+>> Robert Shearman <rshearma@brocade.com> writes:
 >>
->> Should anyone be allowed to use BPF programs to determine the kernel
->> addresses of any items?
->> Looks as though it is leaking kernel addresses to userspace.
->> Note that the problem is with the arguments, not the format string.
+>>> Popping the last label on the stack does not necessarily imply
+>>> performing penultimate hop popping. There is no reason why this
+>>> couldn't be the last hop in the network, so remove the comment.
+>>
+>> So this change I will disagree with.
+>>
+>> What the code implements is Penultimate hop popping.  Even if you send
+>> the packets over loopback that is what the code is doing.
 >
-> All of these are privileged operations - inherent if you are trying to
-> debug the kernel.
+> No, RFC3031 s3.16 (https://tools.ietf.org/html/rfc3031#page-18) talks in terms
+> of LSRs (label switch routers), not passes through the forwarding
+> code.
 
-yep.
+In very simple terms the code always removes the labels and forwards the
+code.  That is by definition penultimate hop popping.  That is all that
+is implmeneted in the code today.  And that is what the comment is
+noting.
 
-There is a plan to add 'pointer leak detector' to bpf verifier and
-'constant blinding' pass, so in the future we may let unprivileged
-users load programs. seccomp will be first such user. But it will
-take long time.
+>> This is relevant because I think the code may actually be wrong in the
+>> local reception case.  By preforming penultimate hop popping and
+>> receving the code on loopback I think this code allows bypassing
+>> iptables rules that apply to incoming ip packets.  Certainly there is a
+>> loss of information as to which hardware interface the packet came in on
+>> that it may be desirable to correct.
+>
+> Indeed, but network operators may well want to apply different rules to traffic
+> coming in as IP versus traffic coming in as MPLS.
+>
+> This may well merit a comment of its own, but this isn't directly relevant to
+> the comment I'm removing.
+
+My point is and what is directly relevant is the case of local delivery
+is a hack.  A hack that a pretty strong case can be made that it does
+the wrong thing and something we probably should fix before the code
+makes it to Linus for 4.1 so the bug does not get cast in stone.
+
+In other words the disparity between the comment and the code indicates
+an actual bug, not just a wrong comment.
+
+Eric
+
+>>> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+>>> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+>>> ---
+>>>   net/mpls/af_mpls.c | 1 -
+>>>   1 file changed, 1 deletion(-)
+>>>
+>>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>>> index 0d6763a..bf3459a 100644
+>>> --- a/net/mpls/af_mpls.c
+>>> +++ b/net/mpls/af_mpls.c
+>>> @@ -199,7 +199,6 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>>>   	skb->protocol = htons(ETH_P_MPLS_UC);
+>>>
+>>>   	if (unlikely(!new_header_size && dec.bos)) {
+>>> -		/* Penultimate hop popping */
+>>>   		if (!mpls_egress(rt, skb, dec))
+>>>   			goto drop;
+>>>   	} else {
