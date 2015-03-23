@@ -1,41 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] netfilter: preparatory patches for set extensions
-Date: Mon, 23 Mar 2015 16:44:18 -0400 (EDT)
-Message-ID: <20150323.164418.1520100994652735634.davem@davemloft.net>
-References: <1426952290-18962-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH net-next v6] switchdev: fix stp update API to work with
+ layered netdevices
+Date: Mon, 23 Mar 2015 16:45:25 -0400 (EDT)
+Message-ID: <20150323.164525.1089841738578904403.davem@davemloft.net>
+References: <1426958848-2781-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, herbert@gondor.apana.org.au, tgraf@suug.ch,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: sfeldma@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58129 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58144 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752519AbbCWUoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:44:20 -0400
-In-Reply-To: <1426952290-18962-1-git-send-email-kaber@trash.net>
+	with ESMTP id S1753182AbbCWUp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:45:27 -0400
+In-Reply-To: <1426958848-2781-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 21 Mar 2015 15:38:08 +0000
+From: roopa@cumulusnetworks.com
+Date: Sat, 21 Mar 2015 10:27:28 -0700
 
-> These patches contain some prepraration for nftables set extensions.
-> These extensions will allow to attach dynamically sized data to set
-> elements, thereby moving the key to a non-fixed position.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> This requires nft_hash to use the rhashtable callbacks. Since the
-> key length is variable, the length must be provided to the obj_hashfn.
+> make it same as the netdev_switch_port_bridge_setlink/dellink
+> api (ie traverse lowerdevs to get to the switch port).
 > 
-> The patches change rhashtable to do so and do a conversion of nft_hash
-> to rhashtable callbacks without any functional changes.
+> removes "WARN_ON(!ops->ndo_switch_parent_id_get)" because
+> direct bridge ports can be stacked netdevices (like bonds
+> and team of switch ports) which may not implement this ndo.
 > 
-> @Dave and Pablo: these patches apply on top of nf-next and a bunch
-> of patches I just sent to Pablo, but also need Herbert's recent
-> changes in net-next. Additionally I have more patches coming up
-> which depend on these changes. In order to simplify things, I'd
-> suggest to have the rhashtable change go through Pablo's tree if
-> you don't mind.
+> v2 to v3:
+> 	- remove changes to bond and team. Bring back the
+> 	transparently following lowerdevs like i initially
+> 	had for setlink/getlink
+> 	(http://www.spinics.net/lists/netdev/msg313436.html)
+> 	dave and scott feldman also seem to prefer it be that
+> 	way and move to non-transparent way of doing things
+> 	if we see a problem down the lane.
+> 
+> v3 to v4:
+> 	- fix ret initialization
+> 
+> v4 to v5:
+> 	- return err on first failure (scott feldman)
+> 
+> v5 to v6:
+> 	- change variable name (err) and initialize to
+> 	-EOPNOTSUPP (scott feldman).
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Pablo can take this stuff, no problem.
+Applied, thank you.
