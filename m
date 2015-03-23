@@ -1,64 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [v3 PATCH 9/9] rhashtable: Add immediate rehash during insertion
-Date: Mon, 23 Mar 2015 16:54:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB07C98@AcuExch.aculab.com>
-References: <20150323134955.GA16328@gondor.apana.org.au>
- <E1Ya2kO-0004JD-Om@gondolin.me.apana.org.au>
- <20150323165033.GD20752@casper.infradead.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V2 19/23] ptp: tilegx: convert to the 64 bit
+ get/set time methods.
+Date: Mon, 23 Mar 2015 17:58:39 +0100
+Message-ID: <20150323165839.GA4330@localhost.localdomain>
+References: <cover.1426973658.git.richardcochran@gmail.com>
+ <8bc233b19d08308c01015936841d9be8d4441ece.1426973658.git.richardcochran@gmail.com>
+ <551038FB.2070200@ezchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Thomas Graf' <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:57398 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbbCWQ4D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 12:56:03 -0400
-In-Reply-To: <20150323165033.GD20752@casper.infradead.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Arnd Bergmann <arnd@linaro.org>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.c
+To: Chris Metcalf <cmetcalf@ezchip.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <551038FB.2070200@ezchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf
-> On 03/24/15 at 12:50am, Herbert Xu wrote:
-> > @@ -116,6 +117,7 @@ struct rhashtable_params {
-> >  	unsigned int		max_size;
-> >  	unsigned int		min_size;
-> >  	u32			nulls_base;
-> > +	bool			insecure_elasticity;
-> >  	size_t			locks_mul;
-> >  	rht_hashfn_t		hashfn;
-> >  	rht_obj_hashfn_t	obj_hashfn;
-> 
-> First of all, love the naming of this variable ;-)
-> 
-> > @@ -127,6 +129,7 @@ struct rhashtable_params {
-> >   * @tbl: Bucket table
-> >   * @nelems: Number of elements in table
-> >   * @key_len: Key length for hashfn
-> > + * @elasticity: Maximum chain length before rehash
-> >   * @p: Configuration parameters
-> >   * @run_work: Deferred worker to expand/shrink asynchronously
-> >   * @mutex: Mutex to protect current/future table swapping
-> 
-> 2nd: Seems like you rely on an underflow to allow to "disable"
-> the elasticity limit. Fair enough, but it would be great to
-> have the limit configurable as well.
-> 
-> How about making elasticity a signed int, default to 16 if user
-> specifies 0 and require it to be set to -1 (through a define)
-> to actually disable the behaviour. That would avoid requiring
-> two variables to implement this and makes the limit configurable
-> at the same time.
+On Mon, Mar 23, 2015 at 12:02:03PM -0400, Chris Metcalf wrote:
+> This driver is 64-bit only.  Would it make more sense to just change
+> the accessors from gettime/settime to gettime/settime64 and nothing
+> else, i.e. rely on the current behavior that timespec and timespec64
+> are the same type, and trust the compiler to fail it if somehow someone
+> tried to build this driver into a 32-bit kernel?
 
-Or set the value to MAXINT to disable it.
-That way you don't even need two tests in the code.
+On the one hand, I think the best way would be for
+gxio_mpipe_get/set_timestamp to also take a timespec64, because it
+makes the width clear.  With a plain old timespec, you have to
+remember whether you are 64 bit or not.  However, but I couldn't tell
+if changing gxio_mpipe_get/set_timestamp would work for other callers
+or not.
 
-	David
+If the driver is 64 bit only, shouldn't that be reflected in the
+Kconfig?
+
+On the other hand, I wouldn't mind the change you suggest, if it were
+super obvious that the code is 64 bit only.  It was not obvious to me.
+
+Thanks,
+Richard
