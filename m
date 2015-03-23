@@ -1,32 +1,79 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH] ucc_geth: Intialize link state to down before register_netdev
-Date: Mon, 23 Mar 2015 17:03:59 -0500
-Message-ID: <CADRPPNRaCf+TNwTvo_g+j7GhT9tO_H+z7Ury44-2MB4hoa2UFQ@mail.gmail.com>
-References: <OF3CCCBC69.C8C0BA7E-ON88257E11.005C1D2B-88257E11.005C420A@selinc.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: cliff_clark@selinc.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 3/7] net: bcmgenet: rename bcmgenet_ephy_power_up
+Date: Mon, 23 Mar 2015 15:03:47 -0700
+Message-ID: <1427148231-18902-4-git-send-email-f.fainelli@gmail.com>
+References: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:36048 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772AbbCWWEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:04:00 -0400
-Received: by lbbug6 with SMTP id ug6so34075477lbb.3
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:03:59 -0700 (PDT)
-In-Reply-To: <OF3CCCBC69.C8C0BA7E-ON88257E11.005C1D2B-88257E11.005C420A@selinc.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:35170 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753388AbbCWWEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:04:39 -0400
+Received: by pdbop1 with SMTP id op1so200249524pdb.2
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:04:39 -0700 (PDT)
+In-Reply-To: <1427148231-18902-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2015 at 11:47 AM,  <cliff_clark@selinc.com> wrote:
-> ucc_geth was indicating link up after a port is administratively enabled
-> even
-> when nothing is plugged in.  This causes user-space tools to see a
-> spurious link
-> up the first time after boot.
->
-> Signed-off-by: Cliff Clark <cliff_clark@selinc.com>
+In preparation for implementing the power down GPHY sequence, rename
+bcmgenet_ephy_power_up to illustrate that it is not EPHY specific but
+PHY agnostic, and add an "enable" argument.
 
-Ack for the change, but the commit message is having messy line breaks.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
-- Leo
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index f7d9d2753141..3fdbf57208a3 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -168,7 +168,7 @@ void bcmgenet_mii_reset(struct net_device *dev)
+ 	}
+ }
+ 
+-static void bcmgenet_ephy_power_up(struct net_device *dev)
++static void bcmgenet_phy_power_set(struct net_device *dev, bool enable)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	u32 reg = 0;
+@@ -177,15 +177,17 @@ static void bcmgenet_ephy_power_up(struct net_device *dev)
+ 	if (!GENET_IS_V4(priv))
+ 		return;
+ 
+-	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
+-	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN | EXT_CK25_DIS);
+-	reg |= EXT_GPHY_RESET;
+-	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+-	mdelay(2);
++	if (enable) {
++		reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
++		reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN | EXT_CK25_DIS);
++		reg |= EXT_GPHY_RESET;
++		bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++		mdelay(2);
+ 
+-	reg &= ~EXT_GPHY_RESET;
+-	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+-	udelay(20);
++		reg &= ~EXT_GPHY_RESET;
++		bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
++		udelay(20);
++	}
+ }
+ 
+ static void bcmgenet_internal_phy_setup(struct net_device *dev)
+@@ -193,8 +195,8 @@ static void bcmgenet_internal_phy_setup(struct net_device *dev)
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+ 	u32 reg;
+ 
+-	/* Power up EPHY */
+-	bcmgenet_ephy_power_up(dev);
++	/* Power up PHY */
++	bcmgenet_phy_power_set(dev, true);
+ 	/* enable APD */
+ 	reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
+ 	reg |= EXT_PWR_DN_EN_LD;
+-- 
+2.1.0
