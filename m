@@ -1,36 +1,32 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH] lib utils: use a correct variable to get address length
-Date: Mon, 23 Mar 2015 14:53:22 -0700
-Message-ID: <55108B52.8050904@cumulusnetworks.com>
-References: <1427145369-29477-1-git-send-email-avagin@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable: warnings caused by "rhashtable: Fix use-after-free
+ in rhashtable_walk_stop"
+Date: Tue, 24 Mar 2015 08:55:13 +1100
+Message-ID: <20150323215513.GA20128@gondor.apana.org.au>
+References: <55105B2E.1070409@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
-	Vadim Kochan <vadim4j@gmail.com>,
-	Sven-Haegar Koch <haegar@sdinet.de>
-To: Andrew Vagin <avagin@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33061 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221AbbCWVxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 17:53:24 -0400
-Received: by pabxg6 with SMTP id xg6so191386169pab.0
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 14:53:23 -0700 (PDT)
-In-Reply-To: <1427145369-29477-1-git-send-email-avagin@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55105B2E.1070409@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/23/15, 2:16 PM, Andrew Vagin wrote:
-> dst->famaly is initialized in get_addr_1()
->
-> This patch fixes errors like this:
-> $ ip r a 10.31.0.0/16 dev br0
-> Error: an inet prefix is expected rather than "10.31.0.0/16".
->
-> Cc: Vadim Kochan <vadim4j@gmail.com>
-> Fixes: f3a2ddc124e0 ("lib utils: Use helpers to get AF bit/byte len")
-> Signed-off-by: Andrew Vagin <avagin@openvz.org>
+On Mon, Mar 23, 2015 at 02:27:58PM -0400, Sasha Levin wrote:
+> Hi all,
+> 
+> Commit 963ecbd41a ("rhashtable: Fix use-after-free in rhashtable_walk_stop") is causing
+> RCU warnings since the code now locks a mutex (which might sleep) within an RCU critical
+> section within rhashtable_walk_stop().
 
-I have already submitted similar patch 
-https://patchwork.ozlabs.org/patch/451210/
+OK I will add a spin lock to bucket_table for this.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
