@@ -1,47 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] inet: fix double request socket freeing
-Date: Mon, 23 Mar 2015 17:01:18 -0400 (EDT)
-Message-ID: <20150323.170118.1601171271014763673.davem@davemloft.net>
-References: <20150323090317.GB8934@haze>
-	<550FEA98.3040009@gmail.com>
-	<1427130389.25985.76.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] vxlan: simplify if clause in dev_close
+Date: Mon, 23 Mar 2015 17:02:30 -0400 (EDT)
+Message-ID: <20150323.170230.104062959694514151.davem@davemloft.net>
+References: <20150323155612.GD24038@mwanda>
+	<e902446603472e4ec42118b60f90444b1755501e.1427137720.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengyuleidian0615@gmail.com, erik.hugne@ericsson.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58268 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752508AbbCWVBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 17:01:21 -0400
-In-Reply-To: <1427130389.25985.76.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
+	kernel-janitors@vger.kernel.org
+To: marcelo.leitner@gmail.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <e902446603472e4ec42118b60f90444b1755501e.1427137720.git.marcelo.leitner@gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Mar 2015 10:06:29 -0700
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Mon, 23 Mar 2015 16:23:12 -0300
 
-> From: Fan Du <fan.du@intel.com>
+> Dan Carpenter's static checker warned that in vxlan_stop we are checking
+> if 'vs' can be NULL while later we simply derreference it.
 > 
-> Eric Hugne reported following error :
+> As after commit 56ef9c909b40 ("vxlan: Move socket initialization to
+> within rtnl scope") 'vs' just cannot be NULL in vxlan_stop() anymore, as
+> the interface won't go up if the socket initialization fails. So we are
+> good to just remove the check and make it consistent.
 > 
-> I'm hitting this warning on latest net-next when i try to SSH into a machine
-> with eth0 added to a bridge (but i think the problem is older than that)
- ...
-> Remove the double calls to reqsk_put()
-> 
-> [edumazet] :
-> 
-> I got confused because reqsk_timer_handler() _has_ to call
-> reqsk_put(req) after calling inet_csk_reqsk_queue_drop(), as
-> the timer handler holds a reference on req.
-> 
-> Signed-off-by: Fan Du <fan.du@intel.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Erik Hugne <erik.hugne@ericsson.com>
-> Fixes: fa76ce7328b2 ("inet: get rid of central tcp/dccp listener timer")
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-This not longer applies after I installed your part 15 listener rework
-patch set.
+Applied, thanks.
