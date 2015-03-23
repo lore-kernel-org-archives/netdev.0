@@ -1,66 +1,57 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] tcp: prevent fetching dst twice in early demux code
-Date: Mon, 23 Mar 2015 09:27:18 +0100 (CET)
-Message-ID: <20150323082718.265EDA0BE9@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
+Date: Mon, 23 Mar 2015 08:33:19 +0000
+Message-ID: <20150323083319.GB16023@casper.infradead.org>
+References: <20150322080330.GA3416@gondor.apana.org.au>
+ <E1YZard-0000wE-Se@gondolin.me.apana.org.au>
+ <20150322121755.GH1185@casper.infradead.org>
+ <20150323000954.GB9507@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:54516 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007AbbCWIdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 04:33:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20150323000954.GB9507@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On s390x, gcc 4.8 compiles this part of tcp_v6_early_demux()
+On 03/23/15 at 11:09am, Herbert Xu wrote:
+> On Sun, Mar 22, 2015 at 12:17:55PM +0000, Thomas Graf wrote:
+> > 
+> > This is misleading. I agree that unconditional shrinking is dangerous.
+> > Shrinking was an optional feature disabled by default before. The
+> 
+> How was shrinking disabled before? AFAICS it always kicked in at
+> 30%.
 
-        struct dst_entry *dst = sk->sk_rx_dst;
+Before Daniel removed the indirection due to all callers enabling
+shrinking by default ;-) It was clear that some future users
+eventually would not want shrinking and thus require a conditional.
 
-        if (dst)
-                dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+> > inlining enabled it by default for all users. What is the benefit of
+> > requiring this logic outside of rhashtable over just adding a flag to
+> > enable shrinking at 30% utilization?
+> 
+> That would be adding an extra branch on the fast-path for an
+> operation which almost nobody needs.
 
-to code reading sk->sk_rx_dst twice, once for the test and once for
-the argument of ip6_dst_check() (dst_check() is inline). This allows
-ip6_dst_check() to be called with null first argument, causing a crash.
+I don't get why almost nobody would want shrinking. I agree that for
+tables like TCP hash tables, once you have grown you want to keep that
+table size because the load is likely to come back. But we will also
+have lots of users such as the Netlink socket with a table per protocol
+where not shrinking results in giving the user the ability to waste
+memory indefinitely for no gain.
 
-Protect sk->sk_rx_dst access by ACCESS_ONCE() both in IPv4 and IPv6
-TCP early demux code.
-
-Fixes: 41063e9dd119 ("ipv4: Early TCP socket demux.")
-Fixes: c7109986db3c ("ipv6: Early TCP socket demux")
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/tcp_ipv4.c | 2 +-
- net/ipv6/tcp_ipv6.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5a2dfed..3d42b45 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1518,7 +1518,7 @@ void tcp_v4_early_demux(struct sk_buff *skb)
- 		skb->sk = sk;
- 		skb->destructor = sock_edemux;
- 		if (sk->sk_state != TCP_TIME_WAIT) {
--			struct dst_entry *dst = sk->sk_rx_dst;
-+			struct dst_entry *dst = ACCESS_ONCE(sk->sk_rx_dst);
- 
- 			if (dst)
- 				dst = dst_check(dst, 0);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5d46832..50eb5ff 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1585,7 +1585,7 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
- 		skb->sk = sk;
- 		skb->destructor = sock_edemux;
- 		if (sk->sk_state != TCP_TIME_WAIT) {
--			struct dst_entry *dst = sk->sk_rx_dst;
-+			struct dst_entry *dst = ACCESS_ONCE(sk->sk_rx_dst);
- 
- 			if (dst)
- 				dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
--- 
-2.3.3
+I'm not claiming you always want shrinking but what gain is there by
+removing integrated support? Can you show numbers that the additional
+branch actually hurts?
