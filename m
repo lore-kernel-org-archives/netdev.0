@@ -1,62 +1,80 @@
-From: Wolfgang Rosner <wrosner@tirnet.de>
-Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link // Kernel issue
-Date: Mon, 23 Mar 2015 01:57:44 +0100
-Message-ID: <201503230157.46489.wrosner@tirnet.de>
-References: <201503210110.48980.wrosner@tirnet.de> <1427043294.25985.52.camel@edumazet-glaptop2.roam.corp.google.com> <201503222148.00332.wrosner@tirnet.de>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute2 v2] man ip-netns: Fix syntax in default ns
+ process, indent's
+Date: Mon, 23 Mar 2015 10:11:24 +0900
+Message-ID: <20150323011120.GA20755@vergenet.net>
+References: <1426960318-12044-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tirnet.de ([217.7.138.221]:20661 "EHLO mail.tirnet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751880AbbCWA5u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Mar 2015 20:57:50 -0400
-In-Reply-To: <201503222148.00332.wrosner@tirnet.de>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:33672 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965AbbCWBLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Mar 2015 21:11:34 -0400
+Received: by pdnc3 with SMTP id c3so170683026pdn.0
+        for <netdev@vger.kernel.org>; Sun, 22 Mar 2015 18:11:33 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <1426960318-12044-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Eric,
+On Sat, Mar 21, 2015 at 07:51:58PM +0200, Vadim Kochan wrote:
+> From: Vadim Kochan <vadim4j@gmail.com>
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+> v2:
+>     Deleted leading spaces - suggested by Ben Hutchings <ben@decadent.org.uk>
+> 
+>  man/man8/ip-netns.8 | 18 +++++++++++++-----
+>  1 file changed, 13 insertions(+), 5 deletions(-)
+> 
+> diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
+> index d496675..0c3dca8 100644
+> --- a/man/man8/ip-netns.8
+> +++ b/man/man8/ip-netns.8
+> @@ -46,7 +46,7 @@ ip-netns \- process network namespace management
+>  A network namespace is logically another copy of the network stack,
+>  with its own routes, firewall rules, and network devices.
+>  
+> -By default process inherits network namespace from its parent. Initially all
+> +By default a process inherits network namespace from its parent. Initially all
 
-It's the kernel, stupid me....
+Perhaps also s/inherits/inherits its/
 
-I can't belive it:
-
-I just bootet my gatway into a debian kernel, and it works right away:
-	5.93 Gbits/sec	over a single TCP connection :-)))
-
-root@cruncher:~# cat /proc/version
-Linux version 3.16.0-0.bpo.4-amd64 (debian-kernel@lists.debian.org) (gcc 
-version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.16.7-ckt4-3~bpo70+1 
-(2015-02-12)
-
-as opposed to vanilla 3.19, which was running in the previous tests.
-
-=====================
-the sad thing is, that I had to remove the "udba=notify" option from my 
-aufs-layered nfsroots mimics.
-So anytime I make config-Changes or add packages to the blade setup, I have to 
-run a script to remount all nfs roots, to get the blade known of the change.
-(this was the reason why I went for 3.19)
-======================
-
-
-Therefore, I would be glad to get it working with 3.19, too.
-And I hope that you, too, were eager to rule out the possibility of a 
-regression bug :-)
-
-
-So, what could had have happend:
-- regression bug somewhere in the kernel
-- broken compatibility between 3.16 and 3.19 (maybe the iproute2 tools?)
-- broken compatibility between Vanilla and Debian
-- ????
-
-Are you ready to assist me on this track?
-
-
-
-Wolfgang Rosner
+>  the processes share the same default network namespace from the init process.
+>  
+>  By convention a named network namespace is an object at
+> @@ -103,10 +103,18 @@ option was specified then all the network namespace names will be removed.
+>  It is possible to lose the physical device when it was moved to netns and
+>  then this netns was deleted with a running process:
+>  
+> -    $ ip netns add net0
+> -    $ ip link set dev eth0 netns net0
+> -    $ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
+> -    $ ip netns del net0
+> +.RS 10
+> +$ ip netns add net0
+> +.RE
+> +.RS 10
+> +$ ip link set dev eth0 netns net0
+> +.RE
+> +.RS 10
+> +$ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
+> +.RE
+> +.RS 10
+> +$ ip netns del net0
+> +.RE
+>  
+>  and eth0 will appear in the default netns only after SOME_PROCESS_IN_BACKGROUND
+>  will exit or will be killed. To prevent this the processes running in net0
+> -- 
+> 2.3.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
