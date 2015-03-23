@@ -1,177 +1,85 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH V2 -next] netfilter: Use LOGLEVEL_<FOO> defines
-Date: Mon, 23 Mar 2015 11:50:10 -0700
-Message-ID: <1427136610.16851.29.camel@perches.com>
-References: <20150323140841.0b807b95@canb.auug.org.au>
-	 <20150323124723.GA6740@salvia> <1427115331.16851.11.camel@perches.com>
-	 <20150323130638.GA6857@salvia> <1427117031.16851.16.camel@perches.com>
-	 <20150324003828.0eac53d9@canb.auug.org.au> <20150323135235.GA7595@salvia>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH] fib_trie: Fix regression in handling of
+ inflate/halve failure
+Date: Mon, 23 Mar 2015 11:51:53 -0700
+Message-ID: <20150323185142.1079.79248.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150323135235.GA7595@salvia>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44517 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752120AbbCWSvz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Mar 2015 14:51:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the #defines where appropriate.
+When I updated the code to address a possible null pointer dereference in
+resize I ended up reverting an exception handling fix for the suffix length
+in the event that inflate or halve failed.  This change is meant to correct
+that by reverting the earlier fix and instead simply getting the parent
+again after inflate has been completed to avoid the possible null pointer
+issue.
 
-Miscellanea:
-
-Add explicit #include <linux/kernel.h> where it was not
-previously used so that these #defines are a bit more
-explicitly defined instead of indirectly included via:
-	module.h->moduleparam.h->kernel.h
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Fixes: ddb4b9a13 ("fib_trie: Address possible NULL pointer dereference in resize")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
+ net/ipv4/fib_trie.c |   13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-I really don't want to get into unwinding all the
-various #include dependencies.  kernel.h is pretty
-generic and effectively used throughout the tree
-to centralize various #includes.
-
- net/ipv4/netfilter/nf_log_arp.c  | 4 +++-
- net/ipv4/netfilter/nf_log_ipv4.c | 4 +++-
- net/ipv6/netfilter/ip6_tables.c  | 5 ++++-
- net/ipv6/netfilter/nf_log_ipv6.c | 4 +++-
- net/netfilter/nf_tables_core.c   | 3 ++-
- net/netfilter/nft_log.c          | 2 +-
- 6 files changed, 16 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
-index d059182..e7ad950 100644
---- a/net/ipv4/netfilter/nf_log_arp.c
-+++ b/net/ipv4/netfilter/nf_log_arp.c
-@@ -10,8 +10,10 @@
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
-+
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/spinlock.h>
- #include <linux/skbuff.h>
-@@ -27,7 +29,7 @@ static struct nf_loginfo default_loginfo = {
- 	.type	= NF_LOG_TYPE_LOG,
- 	.u = {
- 		.log = {
--			.level	  = 5,
-+			.level	  = LOGLEVEL_NOTICE,
- 			.logflags = NF_LOG_MASK,
- 		},
- 	},
-diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
-index 7510198..076aadd 100644
---- a/net/ipv4/netfilter/nf_log_ipv4.c
-+++ b/net/ipv4/netfilter/nf_log_ipv4.c
-@@ -5,8 +5,10 @@
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
-+
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/spinlock.h>
- #include <linux/skbuff.h>
-@@ -26,7 +28,7 @@ static struct nf_loginfo default_loginfo = {
- 	.type	= NF_LOG_TYPE_LOG,
- 	.u = {
- 		.log = {
--			.level	  = 5,
-+			.level	  = LOGLEVEL_NOTICE,
- 			.logflags = NF_LOG_MASK,
- 		},
- 	},
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index bb00c6f..83f59dc 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -9,7 +9,10 @@
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
-+
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/kernel.h>
- #include <linux/capability.h>
- #include <linux/in.h>
- #include <linux/skbuff.h>
-@@ -234,7 +237,7 @@ static struct nf_loginfo trace_loginfo = {
- 	.type = NF_LOG_TYPE_LOG,
- 	.u = {
- 		.log = {
--			.level = 4,
-+			.level = LOGLEVEL_WARNING,
- 			.logflags = NF_LOG_MASK,
- 		},
- 	},
-diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
-index ddf07e6..8dd8696 100644
---- a/net/ipv6/netfilter/nf_log_ipv6.c
-+++ b/net/ipv6/netfilter/nf_log_ipv6.c
-@@ -5,8 +5,10 @@
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
-+
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/spinlock.h>
- #include <linux/skbuff.h>
-@@ -27,7 +29,7 @@ static struct nf_loginfo default_loginfo = {
- 	.type	= NF_LOG_TYPE_LOG,
- 	.u = {
- 		.log = {
--			.level	  = 5,
-+			.level	  = LOGLEVEL_NOTICE,
- 			.logflags = NF_LOG_MASK,
- 		},
- 	},
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 9a9e874..174e1f5 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -8,6 +8,7 @@
-  * Development of this code funded by Astaro AG (http://www.astaro.com/)
-  */
- 
-+#include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/list.h>
-@@ -37,7 +38,7 @@ static struct nf_loginfo trace_loginfo = {
- 	.type = NF_LOG_TYPE_LOG,
- 	.u = {
- 		.log = {
--			.level = 4,
-+			.level = LOGLEVEL_WARNING,
- 			.logflags = NF_LOG_MASK,
- 	        },
- 	},
-diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
-index bde05f28..e18af9db 100644
---- a/net/netfilter/nft_log.c
-+++ b/net/netfilter/nft_log.c
-@@ -78,7 +78,7 @@ static int nft_log_init(const struct nft_ctx *ctx,
- 			li->u.log.level =
- 				ntohl(nla_get_be32(tb[NFTA_LOG_LEVEL]));
- 		} else {
--			li->u.log.level = 4;
-+			li->u.log.level = LOGLEVEL_WARNING;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index e3b4aee..2c7c299 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -830,7 +830,7 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
+ 	/* Double as long as the resulting node has a number of
+ 	 * nonempty nodes that are above the threshold.
+ 	 */
+-	while (should_inflate(tp, tn) && max_work--) {
++	while (should_inflate(tp, tn) && max_work) {
+ 		tp = inflate(t, tn);
+ 		if (!tp) {
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+@@ -839,17 +839,21 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
+ 			break;
  		}
- 		if (tb[NFTA_LOG_FLAGS] != NULL) {
- 			li->u.log.logflags =
+ 
++		max_work--;
+ 		tn = get_child(tp, cindex);
+ 	}
+ 
++	/* update parent in case inflate failed */
++	tp = node_parent(tn);
++
+ 	/* Return if at least one inflate is run */
+ 	if (max_work != MAX_WORK)
+-		return node_parent(tn);
++		return tp;
+ 
+ 	/* Halve as long as the number of empty children in this
+ 	 * node is above threshold.
+ 	 */
+-	while (should_halve(tp, tn) && max_work--) {
++	while (should_halve(tp, tn) && max_work) {
+ 		tp = halve(t, tn);
+ 		if (!tp) {
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+@@ -858,6 +862,7 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
+ 			break;
+ 		}
+ 
++		max_work--;
+ 		tn = get_child(tp, cindex);
+ 	}
+ 
+@@ -865,7 +870,7 @@ static struct key_vector *resize(struct trie *t, struct key_vector *tn)
+ 	if (should_collapse(tn))
+ 		return collapse(t, tn);
+ 
+-	/* update parent in case inflate or halve failed */
++	/* update parent in case halve failed */
+ 	tp = node_parent(tn);
+ 
+ 	/* Return if at least one deflate was run */
