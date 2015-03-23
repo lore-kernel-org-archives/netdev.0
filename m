@@ -1,82 +1,49 @@
-From: subashab@codeaurora.org
-Subject: Re: [PATCH] net: rps: fix data stall after hotplug
-Date: Mon, 23 Mar 2015 22:16:12 -0000
-Message-ID: <744bbefe8859bf667eafc0de02729078.squirrel@www.codeaurora.org>
-References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
-    <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
-    <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
-    <b25a45de2cb43bbcfcaa84634d74533e.squirrel@www.codeaurora.org>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: next-20150323 build: 1 failures 23 warnings (next-20150323)
+Date: Mon, 23 Mar 2015 23:16:49 +0100
+Message-ID: <CACna6rzRO=vtiv_RfC9nDz+nCZdGGvCh4-zx5cm-W2GSRC1U6w@mail.gmail.com>
+References: <E1YZyoN-00019n-50@debutante>
+	<20150323212524.GU14954@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46765 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284AbbCWWQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:16:13 -0400
-In-Reply-To: <b25a45de2cb43bbcfcaa84634d74533e.squirrel@www.codeaurora.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:33998 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753182AbbCWWQt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:16:49 -0400
+Received: by iedfl3 with SMTP id fl3so54173537ied.1
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:16:49 -0700 (PDT)
+In-Reply-To: <20150323212524.GU14954@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> On Thu, 2015-03-19 at 14:50 -0700, Eric Dumazet wrote:
->>
->>> Are you seeing this race on x86 ?
->>>
->>> If IPI are not reliable on your arch, I am guessing you should fix
->>> them.
->>>
->>> Otherwise, even without hotplug you'll have hangs.
->>
->> Please try instead this patch :
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index
->> 5d43e010ef870a6ab92895297fe18d6e6a03593a..baa4bff9a6fbe0d77d7921865c=
-038060cb5efffd
->> 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -4320,9 +4320,8 @@ static void net_rps_action_and_irq_enable(stru=
-ct
->> softnet_data *sd)
->>  		while (remsd) {
->>  			struct softnet_data *next =3D remsd->rps_ipi_next;
->>
->> -			if (cpu_online(remsd->cpu))
->> -				smp_call_function_single_async(remsd->cpu,
->> -							   &remsd->csd);
->> +			smp_call_function_single_async(remsd->cpu,
->> +						       &remsd->csd);
->>  			remsd =3D next;
->>  		}
->>  	} else
->>
->>
-> Thanks for the patch Eric. We are seeing this race on ARM.
-> I will try this and update.
+On 23 March 2015 at 22:25, Mark Brown <broonie@kernel.org> wrote:
+> On Mon, Mar 23, 2015 at 09:38:19AM +0000, Build bot for Mark Brown wr=
+ote:
 >
+> In current -next the bgmac driver does not compile in an ARM
+> allmodconfig:
+>
+>>       arm-allmodconfig
+>> ../drivers/net/ethernet/broadcom/bgmac.c:20:27: fatal error: bcm47xx=
+_nvram.h: No such file or directory
+>
+> because this include file is only present on MIPS.  This looks at fir=
+st
+> glance to have happened in the merge commit edb15d83a875a1f4 from the
+> MIPS tree though I think that needs a bit more investigation.
 
-Unfortunately, I am not able to reproduce data stall now with or withou=
-t
-the patch. Could you tell me more about the patch and what issue you we=
-re
-suspecting?
+Sorry & thanks. Will fix that tomorrow.
 
-Based on the code, it looks like we BUG out on our arch if we try to ca=
-ll
-an IPI on an offline CPU. Since this condition is never hit, I feel tha=
-t
-the IPI might not have failed.
-
-void smp_send_reschedule(int cpu)
-{
-=A0=A0=A0=A0=A0=A0=A0=A0BUG_ON(cpu_is_offline(cpu));
-=A0=A0=A0=A0=A0=A0=A0=A0smp_cross_call_common(cpumask_of(cpu), IPI_RESC=
-HEDULE);
-}
-
---
-The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
- a Linux Foundation Collaborative Project
+--=20
+Rafa=C5=82
