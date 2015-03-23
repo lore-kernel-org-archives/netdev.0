@@ -1,285 +1,210 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH net-next 3/3] bgmac: implement scatter/gather support
-Date: Mon, 23 Mar 2015 12:35:37 +0100
-Message-ID: <1427110537-18091-3-git-send-email-nbd@openwrt.org>
+Subject: [PATCH net-next 2/3] bgmac: implement GRO and use build_skb
+Date: Mon, 23 Mar 2015 12:35:36 +0100
+Message-ID: <1427110537-18091-2-git-send-email-nbd@openwrt.org>
 References: <1427110537-18091-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51356
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51358
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752113AbbCWLv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 07:51:26 -0400
+	with ESMTP id S1752497AbbCWLvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 07:51:31 -0400
 In-Reply-To: <1427110537-18091-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Always use software checksumming, since the hardware does not have any
-checksum offload support.
-This significantly improves local TCP tx performance.
+This improves performance for routing and local rx
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 164 +++++++++++++++++++++++++---------
- 1 file changed, 121 insertions(+), 43 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c | 80 ++++++++++++++++++++++++-----------
+ drivers/net/ethernet/broadcom/bgmac.h |  7 ++-
+ 2 files changed, 62 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index c7da37a..fa8f9e1 100644
+index efda7cf..c7da37a 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -115,53 +115,91 @@ static void bgmac_dma_tx_enable(struct bgmac *bgmac,
- 	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_TX_CTL, ctl);
- }
- 
-+static void
-+bgmac_dma_tx_add_buf(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
-+		     int i, int len, u32 ctl0)
-+{
-+	struct bgmac_slot_info *slot;
-+	struct bgmac_dma_desc *dma_desc;
-+	u32 ctl1;
-+
-+	if (i == ring->num_slots - 1)
-+		ctl0 |= BGMAC_DESC_CTL0_EOT;
-+
-+	ctl1 = len & BGMAC_DESC_CTL1_LEN;
-+
-+	slot = &ring->slots[i];
-+	dma_desc = &ring->cpu_base[i];
-+	dma_desc->addr_low = cpu_to_le32(lower_32_bits(slot->dma_addr));
-+	dma_desc->addr_high = cpu_to_le32(upper_32_bits(slot->dma_addr));
-+	dma_desc->ctl0 = cpu_to_le32(ctl0);
-+	dma_desc->ctl1 = cpu_to_le32(ctl1);
-+}
-+
- static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
- 				    struct bgmac_dma_ring *ring,
- 				    struct sk_buff *skb)
+@@ -276,31 +276,31 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
+ 				     struct bgmac_slot_info *slot)
  {
  	struct device *dma_dev = bgmac->core->dma_dev;
- 	struct net_device *net_dev = bgmac->net_dev;
--	struct bgmac_dma_desc *dma_desc;
--	struct bgmac_slot_info *slot;
--	u32 ctl0, ctl1;
-+	struct bgmac_slot_info *slot = &ring->slots[ring->end];
- 	int free_slots;
-+	int nr_frags;
-+	u32 flags;
-+	int index = ring->end;
-+	int i;
+-	struct sk_buff *skb;
+ 	dma_addr_t dma_addr;
+ 	struct bgmac_rx_header *rx;
++	void *buf;
  
- 	if (skb->len > BGMAC_DESC_CTL1_LEN) {
- 		bgmac_err(bgmac, "Too long skb (%d)\n", skb->len);
--		goto err_stop_drop;
-+		goto err_drop;
+ 	/* Alloc skb */
+-	skb = netdev_alloc_skb(bgmac->net_dev, BGMAC_RX_BUF_SIZE);
+-	if (!skb)
++	buf = netdev_alloc_frag(BGMAC_RX_ALLOC_SIZE);
++	if (!buf)
+ 		return -ENOMEM;
+ 
+ 	/* Poison - if everything goes fine, hardware will overwrite it */
+-	rx = (struct bgmac_rx_header *)skb->data;
++	rx = buf;
+ 	rx->len = cpu_to_le16(0xdead);
+ 	rx->flags = cpu_to_le16(0xbeef);
+ 
+ 	/* Map skb for the DMA */
+-	dma_addr = dma_map_single(dma_dev, skb->data,
+-				  BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
++	dma_addr = dma_map_single(dma_dev, buf, BGMAC_RX_BUF_SIZE,
++				  DMA_FROM_DEVICE);
+ 	if (dma_mapping_error(dma_dev, dma_addr)) {
+ 		bgmac_err(bgmac, "DMA mapping error\n");
+-		dev_kfree_skb(skb);
++		put_page(virt_to_head_page(buf));
+ 		return -ENOMEM;
  	}
  
-+	if (skb->ip_summed == CHECKSUM_PARTIAL)
-+		skb_checksum_help(skb);
-+
-+	nr_frags = skb_shinfo(skb)->nr_frags;
-+
- 	if (ring->start <= ring->end)
- 		free_slots = ring->start - ring->end + BGMAC_TX_RING_SLOTS;
- 	else
- 		free_slots = ring->start - ring->end;
--	if (free_slots == 1) {
-+
-+	if (free_slots <= nr_frags + 1) {
- 		bgmac_err(bgmac, "TX ring is full, queue should be stopped!\n");
- 		netif_stop_queue(net_dev);
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	slot = &ring->slots[ring->end];
+ 	/* Update the slot */
 -	slot->skb = skb;
--	slot->dma_addr = dma_map_single(dma_dev, skb->data, skb->len,
-+	slot->dma_addr = dma_map_single(dma_dev, skb->data, skb_headlen(skb),
- 					DMA_TO_DEVICE);
--	if (dma_mapping_error(dma_dev, slot->dma_addr)) {
--		bgmac_err(bgmac, "Mapping error of skb on ring 0x%X\n",
--			  ring->mmio_base);
--		goto err_stop_drop;
--	}
-+	if (unlikely(dma_mapping_error(dma_dev, slot->dma_addr)))
-+		goto err_dma_head;
++	slot->buf = buf;
+ 	slot->dma_addr = dma_addr;
  
--	ctl0 = BGMAC_DESC_CTL0_IOC | BGMAC_DESC_CTL0_SOF | BGMAC_DESC_CTL0_EOF;
--	if (ring->end == ring->num_slots - 1)
--		ctl0 |= BGMAC_DESC_CTL0_EOT;
--	ctl1 = skb->len & BGMAC_DESC_CTL1_LEN;
-+	flags = BGMAC_DESC_CTL0_SOF;
-+	if (!nr_frags)
-+		flags |= BGMAC_DESC_CTL0_EOF | BGMAC_DESC_CTL0_IOC;
- 
--	dma_desc = ring->cpu_base;
--	dma_desc += ring->end;
--	dma_desc->addr_low = cpu_to_le32(lower_32_bits(slot->dma_addr));
--	dma_desc->addr_high = cpu_to_le32(upper_32_bits(slot->dma_addr));
--	dma_desc->ctl0 = cpu_to_le32(ctl0);
--	dma_desc->ctl1 = cpu_to_le32(ctl1);
-+	bgmac_dma_tx_add_buf(bgmac, ring, index, skb_headlen(skb), flags);
-+	flags = 0;
-+
-+	for (i = 0; i < nr_frags; i++) {
-+		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
-+		int len = skb_frag_size(frag);
-+
-+		index = (index + 1) % BGMAC_TX_RING_SLOTS;
-+		slot = &ring->slots[index];
-+		slot->dma_addr = skb_frag_dma_map(dma_dev, frag, 0,
-+						  len, DMA_TO_DEVICE);
-+		if (unlikely(dma_mapping_error(dma_dev, slot->dma_addr)))
-+			goto err_dma;
-+
-+		if (i == nr_frags - 1)
-+			flags |= BGMAC_DESC_CTL0_EOF | BGMAC_DESC_CTL0_IOC;
-+
-+		bgmac_dma_tx_add_buf(bgmac, ring, index, len, flags);
-+	}
-+
-+	slot->skb = skb;
- 
- 	netdev_sent_queue(net_dev, skb->len);
- 
-@@ -170,20 +208,35 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
- 	/* Increase ring->end to point empty slot. We tell hardware the first
- 	 * slot it should *not* read.
- 	 */
--	if (++ring->end >= BGMAC_TX_RING_SLOTS)
--		ring->end = 0;
-+	ring->end = (index + 1) % BGMAC_TX_RING_SLOTS;
- 	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_TX_INDEX,
- 		    ring->index_base +
- 		    ring->end * sizeof(struct bgmac_dma_desc));
- 
--	/* Always keep one slot free to allow detecting bugged calls. */
--	if (--free_slots == 1)
-+	free_slots -= nr_frags + 1;
-+	if (free_slots < 8)
- 		netif_stop_queue(net_dev);
- 
- 	return NETDEV_TX_OK;
- 
--err_stop_drop:
--	netif_stop_queue(net_dev);
-+err_dma:
-+	dma_unmap_single(dma_dev, slot->dma_addr, skb_headlen(skb),
-+			 DMA_TO_DEVICE);
-+
-+	while (i > 0) {
-+		int index = (ring->end + i) % BGMAC_TX_RING_SLOTS;
-+		struct bgmac_slot_info *slot = &ring->slots[index];
-+		u32 ctl1 = le32_to_cpu(ring->cpu_base[index].ctl1);
-+		int len = ctl1 & BGMAC_DESC_CTL1_LEN;
-+
-+		dma_unmap_page(dma_dev, slot->dma_addr, len, DMA_TO_DEVICE);
-+	}
-+
-+err_dma_head:
-+	bgmac_err(bgmac, "Mapping error of skb on ring 0x%X\n",
-+		  ring->mmio_base);
-+
-+err_drop:
- 	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
-@@ -205,32 +258,45 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
- 
- 	while (ring->start != empty_slot) {
+ 	return 0;
+@@ -343,8 +343,9 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 	while (ring->start != ring->end) {
+ 		struct device *dma_dev = bgmac->core->dma_dev;
  		struct bgmac_slot_info *slot = &ring->slots[ring->start];
-+		u32 ctl1 = le32_to_cpu(ring->cpu_base[ring->start].ctl1);
-+		int len = ctl1 & BGMAC_DESC_CTL1_LEN;
+-		struct sk_buff *skb = slot->skb;
+-		struct bgmac_rx_header *rx;
++		struct bgmac_rx_header *rx = slot->buf;
++		struct sk_buff *skb;
++		void *buf = slot->buf;
+ 		u16 len, flags;
  
--		if (slot->skb) {
-+		if (!slot->dma_addr) {
-+			bgmac_err(bgmac, "Hardware reported transmission for empty TX ring slot %d! End of ring: %d\n",
-+				  ring->start, ring->end);
-+			goto next;
-+		}
-+
-+		if (ctl1 & BGMAC_DESC_CTL0_SOF)
- 			/* Unmap no longer used buffer */
--			dma_unmap_single(dma_dev, slot->dma_addr,
--					 slot->skb->len, DMA_TO_DEVICE);
--			slot->dma_addr = 0;
-+			dma_unmap_single(dma_dev, slot->dma_addr, len,
-+					 DMA_TO_DEVICE);
-+		else
-+			dma_unmap_page(dma_dev, slot->dma_addr, len,
-+				       DMA_TO_DEVICE);
+ 		/* Unmap buffer to make it accessible to the CPU */
+@@ -352,7 +353,6 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 					BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
  
-+		if (slot->skb) {
- 			bytes_compl += slot->skb->len;
- 			pkts_compl++;
+ 		/* Get info from the header */
+-		rx = (struct bgmac_rx_header *)skb->data;
+ 		len = le16_to_cpu(rx->len);
+ 		flags = le16_to_cpu(rx->flags);
  
- 			/* Free memory! :) */
- 			dev_kfree_skb(slot->skb);
- 			slot->skb = NULL;
--		} else {
--			bgmac_err(bgmac, "Hardware reported transmission for empty TX ring slot %d! End of ring: %d\n",
--				  ring->start, ring->end);
- 		}
+@@ -393,12 +393,13 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			dma_unmap_single(dma_dev, old_dma_addr,
+ 					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
  
-+next:
-+		slot->dma_addr = 0;
- 		if (++ring->start >= BGMAC_TX_RING_SLOTS)
- 			ring->start = 0;
- 		freed = true;
- 	}
++			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+ 			skb_put(skb, BGMAC_RX_FRAME_OFFSET + len);
+ 			skb_pull(skb, BGMAC_RX_FRAME_OFFSET);
  
-+	if (!pkts_compl)
-+		return;
-+
- 	netdev_completed_queue(bgmac->net_dev, pkts_compl, bytes_compl);
+ 			skb_checksum_none_assert(skb);
+ 			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
+-			netif_receive_skb(skb);
++			napi_gro_receive(&bgmac->napi, skb);
+ 			handled++;
+ 		} while (0);
  
--	if (freed && netif_queue_stopped(bgmac->net_dev))
-+	if (netif_queue_stopped(bgmac->net_dev))
- 		netif_wake_queue(bgmac->net_dev);
+@@ -434,12 +435,11 @@ static bool bgmac_dma_unaligned(struct bgmac *bgmac,
+ 	return false;
  }
  
-@@ -439,17 +505,25 @@ static void bgmac_dma_tx_ring_free(struct bgmac *bgmac,
- 				   struct bgmac_dma_ring *ring)
+-static void bgmac_dma_ring_free(struct bgmac *bgmac,
+-				struct bgmac_dma_ring *ring)
++static void bgmac_dma_tx_ring_free(struct bgmac *bgmac,
++				   struct bgmac_dma_ring *ring)
  {
  	struct device *dma_dev = bgmac->core->dma_dev;
-+	struct bgmac_dma_desc *dma_desc = ring->cpu_base;
  	struct bgmac_slot_info *slot;
+-	int size;
  	int i;
  
  	for (i = 0; i < ring->num_slots; i++) {
-+		int len = dma_desc[i].ctl1 & BGMAC_DESC_CTL1_LEN;
+@@ -451,23 +451,55 @@ static void bgmac_dma_ring_free(struct bgmac *bgmac,
+ 			dev_kfree_skb(slot->skb);
+ 		}
+ 	}
++}
+ 
+-	if (ring->cpu_base) {
+-		/* Free ring of descriptors */
+-		size = ring->num_slots * sizeof(struct bgmac_dma_desc);
+-		dma_free_coherent(dma_dev, size, ring->cpu_base,
+-				  ring->dma_base);
++static void bgmac_dma_rx_ring_free(struct bgmac *bgmac,
++				   struct bgmac_dma_ring *ring)
++{
++	struct device *dma_dev = bgmac->core->dma_dev;
++	struct bgmac_slot_info *slot;
++	int i;
 +
- 		slot = &ring->slots[i];
--		if (slot->skb) {
--			if (slot->dma_addr)
--				dma_unmap_single(dma_dev, slot->dma_addr,
--						 slot->skb->len, DMA_TO_DEVICE);
--			dev_kfree_skb(slot->skb);
--		}
-+		dev_kfree_skb(slot->skb);
-+
-+		if (!slot->dma_addr)
++	for (i = 0; i < ring->num_slots; i++) {
++		slot = &ring->slots[i];
++		if (!slot->buf)
 +			continue;
 +
-+		if (slot->skb)
++		if (slot->dma_addr)
 +			dma_unmap_single(dma_dev, slot->dma_addr,
-+					 len, DMA_TO_DEVICE);
-+		else
-+			dma_unmap_page(dma_dev, slot->dma_addr,
-+				       len, DMA_TO_DEVICE);
++					 BGMAC_RX_BUF_SIZE,
++					 DMA_FROM_DEVICE);
++		put_page(virt_to_head_page(slot->buf));
  	}
  }
  
-@@ -1583,6 +1657,10 @@ static int bgmac_probe(struct bcma_device *core)
- 		goto err_dma_free;
- 	}
- 
-+	net_dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-+	net_dev->hw_features = net_dev->features;
-+	net_dev->vlan_features = net_dev->features;
++static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
++				     struct bgmac_dma_ring *ring)
++{
++	struct device *dma_dev = bgmac->core->dma_dev;
++	int size;
 +
- 	err = register_netdev(bgmac->net_dev);
- 	if (err) {
- 		bgmac_err(bgmac, "Cannot register net device\n");
++	if (!ring->cpu_base)
++	    return;
++
++	/* Free ring of descriptors */
++	size = ring->num_slots * sizeof(struct bgmac_dma_desc);
++	dma_free_coherent(dma_dev, size, ring->cpu_base,
++			  ring->dma_base);
++}
++
+ static void bgmac_dma_free(struct bgmac *bgmac)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
+-		bgmac_dma_ring_free(bgmac, &bgmac->tx_ring[i]);
+-	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
+-		bgmac_dma_ring_free(bgmac, &bgmac->rx_ring[i]);
++	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
++		bgmac_dma_tx_ring_free(bgmac, &bgmac->tx_ring[i]);
++		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
++	}
++	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
++		bgmac_dma_rx_ring_free(bgmac, &bgmac->rx_ring[i]);
++		bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i]);
++	}
+ }
+ 
+ static int bgmac_dma_alloc(struct bgmac *bgmac)
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 1f9f36f..3ad965f 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -362,6 +362,8 @@
+ #define BGMAC_RX_FRAME_OFFSET			30		/* There are 2 unused bytes between header and real data */
+ #define BGMAC_RX_MAX_FRAME_SIZE			1536		/* Copied from b44/tg3 */
+ #define BGMAC_RX_BUF_SIZE			(BGMAC_RX_FRAME_OFFSET + BGMAC_RX_MAX_FRAME_SIZE)
++#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE) + \
++						 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ 
+ #define BGMAC_BFL_ENETROBO			0x0010		/* has ephy roboswitch spi */
+ #define BGMAC_BFL_ENETADM			0x0080		/* has ADMtek switch */
+@@ -383,7 +385,10 @@
+ #define ETHER_MAX_LEN   1518
+ 
+ struct bgmac_slot_info {
+-	struct sk_buff *skb;
++	union {
++		struct sk_buff *skb;
++		void *buf;
++	};
+ 	dma_addr_t dma_addr;
+ };
+ 
 -- 
 2.2.2
