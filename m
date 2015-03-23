@@ -1,47 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvlan: transmit multicast as unicast in source mode
-Date: Mon, 23 Mar 2015 16:50:46 -0400 (EDT)
-Message-ID: <20150323.165046.44048598018869192.davem@davemloft.net>
-References: <1427027389-9691-1-git-send-email-michael-dev@fami-braun.de>
+Subject: Re: [PATCH net-next 0/8] tcp listener refactoring part 15
+Date: Mon, 23 Mar 2015 16:52:56 -0400 (EDT)
+Message-ID: <20150323.165256.1010799920148836791.davem@davemloft.net>
+References: <1427044945-32608-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de
-To: michael-dev@fami-braun.de
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58178 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58187 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbbCWUus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:50:48 -0400
-In-Reply-To: <1427027389-9691-1-git-send-email-michael-dev@fami-braun.de>
+	with ESMTP id S1753167AbbCWUw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:52:58 -0400
+In-Reply-To: <1427044945-32608-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Braun <michael-dev@fami-braun.de>
-Date: Sun, 22 Mar 2015 13:29:49 +0100
+From: Eric Dumazet <edumazet@google.com>
+Date: Sun, 22 Mar 2015 10:22:17 -0700
 
-> When having multiple remote mac addresses assigned to different macvlan
-> source devices created on top of the same other netdev, multicast packets
-> send on one interface will be also received by the remote machines
-> asssigned to the other macvlan device.
+> I am trying to make the final patch pushing request socks into ehash
+> as small as possible. In this patch series, I made various adjustments
+> for the SYNACK generation, allowing me to reach 1 Mpps SYNACK in my
+> stress test (still hitting LISTENER spinlock of course, and the syn_wait
+> spinlock)
 > 
-> This is because multicast packets are transmitted as layer-2 multicast.
-> Thought, not all protocols need their multicast packets to be transmitted
-> as layer-2 multicast, esp. ARP, IPv4 and IPv6. Most importantly, IPv6
-> router advertisments will be processed even if received as layer-2 unicast.
+> I also converted the ICMP handlers a bit ahead of time :
 > 
-> So this patch adds support for replicating multicast packets and sending
-> them out as unicast by changing the destination mac address.
-> This fixes IPv6 autoconf addresses and routes on the remote stations
-> assigned to different macvlan devices.
-> 
-> There are two new flags: UNICAST and UNICAST_ALL. The first only rewrites
-> ARP, IPv4 and IPv6 (and their 802.1Q tagged variant), the latter rewrites
-> all multicast packets.
-> 
-> Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
+> They no longer need to get the LISTENER socket, and can use
+> only a lookup in ehash table. No big deal if we ignore ICMP
+> for requests socks before the final steps.
 
-I want someone who understands macvlans better to review this before
-I apply it.
-
-Thanks.
+Series applied, thanks Eric.
