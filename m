@@ -1,42 +1,62 @@
-From: Andrew Vagin <avagin@openvz.org>
-Subject: [PATCH] lib utils: use a correct variable to get address length
-Date: Tue, 24 Mar 2015 00:16:09 +0300
-Message-ID: <1427145369-29477-1-git-send-email-avagin@openvz.org>
-Cc: Andrew Vagin <avagin@openvz.org>, Vadim Kochan <vadim4j@gmail.com>
-To: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v3 PATCH 9/9] rhashtable: Add immediate rehash during insertion
+Date: Tue, 24 Mar 2015 08:44:23 +1100
+Message-ID: <20150323214422.GA19938@gondor.apana.org.au>
+References: <20150323134955.GA16328@gondor.apana.org.au>
+ <E1Ya2kO-0004JD-Om@gondolin.me.apana.org.au>
+ <20150323165033.GD20752@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:5245 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752830AbbCWVcC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 17:32:02 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:57256 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752214AbbCWVov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 17:44:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20150323165033.GD20752@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dst->famaly is initialized in get_addr_1()
+On Mon, Mar 23, 2015 at 04:50:33PM +0000, Thomas Graf wrote:
+>
+> 2nd: Seems like you rely on an underflow to allow to "disable"
+> the elasticity limit. Fair enough, but it would be great to
+> have the limit configurable as well.
+> 
+> How about making elasticity a signed int, default to 16 if user
+> specifies 0 and require it to be set to -1 (through a define)
+> to actually disable the behaviour. That would avoid requiring
+> two variables to implement this and makes the limit configurable
+> at the same time.
 
-This patch fixes errors like this:
-$ ip r a 10.31.0.0/16 dev br0
-Error: an inet prefix is expected rather than "10.31.0.0/16".
+I specifically made it this way because I don't think the users
+should be touching the actual limit.  This is something that you
+always want to enable unless you're in the situation of netfilter
+where you don't care.
 
-Cc: Vadim Kochan <vadim4j@gmail.com>
-Fixes: f3a2ddc124e0 ("lib utils: Use helpers to get AF bit/byte len")
-Signed-off-by: Andrew Vagin <avagin@openvz.org>
----
- lib/utils.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If you did care then 16 is sort of intrinsic to the 32-bit hash
+that we're using.  Going below doesn't make much sense because
+you may run into false warnings due to double rehashes (that's
+how I discovered 4 was uesless, very quickly :) Remember the
+rehash is only there to detect pathological cases where people
+are actively attacking us.  Otherwise the 100% utilisation check
+will kick in.
 
-diff --git a/lib/utils.c b/lib/utils.c
-index 9cda268..0d08a86 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -477,7 +477,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
- 
- 	err = get_addr_1(dst, arg, family);
- 	if (err == 0) {
--		dst->bitlen = af_bit_len(family);
-+		dst->bitlen = af_bit_len(dst->family);
- 
- 		if (slash) {
- 			if (get_netmask(&plen, slash+1, 0)
+Going above 16 means that you're hashing multiple objects with
+the same key.  Then you'd want to disable this altogether.
+
+The rhashtable already has too many knobs and I don't want to
+add anything unnecessary to rhashtable_params.
+
+Cheers,
 -- 
-2.1.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
