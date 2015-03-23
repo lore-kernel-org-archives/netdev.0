@@ -1,43 +1,89 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v10 tip 5/9] tracing: allow BPF programs to call
- bpf_trace_printk()
-Date: Mon, 23 Mar 2015 11:37:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB07731@AcuExch.aculab.com>
-References: <1427053150-32213-1-git-send-email-ast@plumgrid.com>
- <1427053150-32213-6-git-send-email-ast@plumgrid.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next v2 3/5] mpls: Differentiate implicit-null and
+ unlabeled neighbours
+Date: Mon, 23 Mar 2015 11:47:45 +0000
+Message-ID: <550FFD61.8050708@brocade.com>
+References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>	<1426866170-28739-1-git-send-email-rshearma@brocade.com>	<1426866170-28739-4-git-send-email-rshearma@brocade.com>	<87fv8w95ir.fsf@x220.int.ebiederm.org> <87h9tc4u9y.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Alexei Starovoitov' <ast@plumgrid.com>,
-	Ingo Molnar <mingo@kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.185]:55991 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbbCWLjg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 07:39:36 -0400
-In-Reply-To: <1427053150-32213-6-git-send-email-ast@plumgrid.com>
-Content-Language: en-US
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:34394 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752218AbbCWLru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 07:47:50 -0400
+In-Reply-To: <87h9tc4u9y.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov
-> Debugging of BPF programs needs some form of printk from the program,
-> so let programs call limited trace_printk() with %d %u %x %p modifiers only.
+On 22/03/15 21:06, Eric W. Biederman wrote:
+> ebiederm@xmission.com (Eric W. Biederman) writes:
+>
+>> Robert Shearman <rshearma@brocade.com> writes:
+>>
+>>> The control plane can advertise labels for neighbours that don't have
+>>> an outgoing label. RFC 3032 s3.22 states that either the remaining
+>>> labels should be popped (if the control plane can determine that it's
+>>> safe to do so, which in light of MPLS-VPN, RFC 4364, is never the case
+>>> now) or that the packet should be discarded.
+>>
+>> I can not figure out what you are referring to.  There is no section 3.2
+>> in RFC3022.
+>
+> I have found it.  That is is RFC3021 Section 3.22.  This is something
+> the code already does.  If the label can not be looked up with
+> mpls_route_input_rcu the packet is dropped.
 
-Should anyone be allowed to use BPF programs to determine the kernel
-addresses of any items?
-Looks as though it is leaking kernel addresses to userspace.
-Note that the problem is with the arguments, not the format string.
+No, the existing code handles the lack of an incoming label. s3.22 is 
+stating what should be done with the lack of an outgoing label.
 
-	David
+> Beyond that I believe the rest of my comments still stand.  If you want
+> to do this explicitly some form of explicit blackhole route needs to be
+> supported.  Either just allowing a route to be configured with no output
+> device or an explicit RTN_BLACKHOLE route.
+
+No, that isn't going to address the problem this patch solves.
+
+>
+>>> Therefore, if the peer is unlabeled and the last label wasn't popped
+>>> then drop the packet. The peer being unlabeled is signalled by an
+>>> empty label stack. However, implicit-null still needs to be supported
+>>> (i.e. penultimate hop popping) where the incoming label is popped and
+>>> no labels are put on and the packet can still go out labeled with the
+>>> unpopped part of the stack. This is achieved by the control plane
+>>> specifying a label stack consisting of the single special
+>>> implicit-null value.
+>>
+>> As I understand it you want to handle the case for a label for which
+>> there is no next hop, and the packet should be black-holed.
+>>
+>> In struct mpls_route such routes are currently represented by routes
+>> that have no network device.  And in rtnetlink should be represented
+>> with routes of type RTN_BLACKHOLE which I do not currently support
+>> parsing.  But that should be simple enough to correc.t
+>>
+>> With respect to Implicit NULL it should be an error to accept a route
+>> that has an RTA_NEWDST that includes an implicit NULL.
+>>
+>> The rtnetlink is not ldp nor should it have ldp semantics and be made
+>> complicated by those semantics.
+
+This isn't specific to LDP - it is used by MP-BGP as well, or indeed 
+would be perfectly valid to be specified in static configuration. As per 
+RFC3031 s4.1.5 (https://tools.ietf.org/html/rfc3031#section-4.1.5) this 
+signals that penultimate hop popping should be done, as opposed to 
+dropping the packet if it would go out as MPLS (s3.22).
+
+Thanks,
+Rob
+
+>> The semantics of RTA_NEWDST are the labels to push on after the top most
+>> label has been popped off.  I see no reason to include other mechanisms
+>> into that processing when it is easy enough to add or tweak other
+>> attributes to have those semantics.
+>>
+>> Certainly it is not something that I think is worth special casing on
+>> the fast path in mpls_forward.
