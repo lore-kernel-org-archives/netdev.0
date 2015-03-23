@@ -1,95 +1,56 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/7] net: bcmgenet: propagate errors from bcmgenet_power_down
-Date: Mon, 23 Mar 2015 15:09:51 -0700
-Message-ID: <1427148597-28337-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/7] net: bcmgenet: update bcmgenet_ephy_power_up to clear CK25_DIS bit
+Date: Mon, 23 Mar 2015 15:09:52 -0700
+Message-ID: <1427148597-28337-3-git-send-email-f.fainelli@gmail.com>
 References: <1427148597-28337-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	jaedon.shin@gmail.com, pgynther@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35776 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753707AbbCWWLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:11:19 -0400
-Received: by pagv19 with SMTP id v19so29491198pag.2
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:11:19 -0700 (PDT)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:34883 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753411AbbCWWLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:11:21 -0400
+Received: by pdbop1 with SMTP id op1so200397800pdb.2
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 15:11:20 -0700 (PDT)
 In-Reply-To: <1427148597-28337-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If bcmgenet_power_down() fails, we would want to propagate a return
-value from bcmgenet_wol_power_down_cfg() to know about this.
+The CK25_DIS bit controls whether a 25Mhz clock is fed to the GPHY or
+not, in preparation for powering down the integrated GPHY when relevant,
+make sure we clear that bit.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 12956b143b11..f86837f1656a 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -847,9 +847,10 @@ static struct ethtool_ops bcmgenet_ethtool_ops = {
- };
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 1ea838946318..a27ef777cc81 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -354,6 +354,7 @@ struct bcmgenet_mib_counters {
+ #define EXT_GPHY_CTRL			0x1C
+ #define  EXT_CFG_IDDQ_BIAS		(1 << 0)
+ #define  EXT_CFG_PWR_DOWN		(1 << 1)
++#define  EXT_CK25_DIS			(1 << 4)
+ #define  EXT_GPHY_RESET			(1 << 5)
  
- /* Power down the unimac, based on mode. */
--static void bcmgenet_power_down(struct bcmgenet_priv *priv,
-+static int bcmgenet_power_down(struct bcmgenet_priv *priv,
- 				enum bcmgenet_power_mode mode)
- {
-+	int ret = 0;
- 	u32 reg;
+ /* DMA rings size */
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 446889cc3c6a..f7d9d2753141 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -178,7 +178,7 @@ static void bcmgenet_ephy_power_up(struct net_device *dev)
+ 		return;
  
- 	switch (mode) {
-@@ -858,7 +859,7 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
- 		break;
- 
- 	case GENET_POWER_WOL_MAGIC:
--		bcmgenet_wol_power_down_cfg(priv, mode);
-+		ret = bcmgenet_wol_power_down_cfg(priv, mode);
- 		break;
- 
- 	case GENET_POWER_PASSIVE:
-@@ -873,6 +874,8 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
- 	default:
- 		break;
- 	}
-+
-+	return 0;
- }
- 
- static void bcmgenet_power_up(struct bcmgenet_priv *priv,
-@@ -2606,12 +2609,12 @@ static int bcmgenet_close(struct net_device *dev)
- 	free_irq(priv->irq1, priv);
- 
- 	if (phy_is_internal(priv->phydev))
--		bcmgenet_power_down(priv, GENET_POWER_PASSIVE);
-+		ret = bcmgenet_power_down(priv, GENET_POWER_PASSIVE);
- 
- 	if (!IS_ERR(priv->clk))
- 		clk_disable_unprepare(priv->clk);
- 
--	return 0;
-+	return ret;
- }
- 
- static void bcmgenet_timeout(struct net_device *dev)
-@@ -3097,14 +3100,14 @@ static int bcmgenet_suspend(struct device *d)
- 
- 	/* Prepare the device for Wake-on-LAN and switch to the slow clock */
- 	if (device_may_wakeup(d) && priv->wolopts) {
--		bcmgenet_power_down(priv, GENET_POWER_WOL_MAGIC);
-+		ret = bcmgenet_power_down(priv, GENET_POWER_WOL_MAGIC);
- 		clk_prepare_enable(priv->clk_wol);
- 	}
- 
- 	/* Turn off the clocks */
- 	clk_disable_unprepare(priv->clk);
- 
--	return 0;
-+	return ret;
- }
- 
- static int bcmgenet_resume(struct device *d)
+ 	reg = bcmgenet_ext_readl(priv, EXT_GPHY_CTRL);
+-	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN);
++	reg &= ~(EXT_CFG_IDDQ_BIAS | EXT_CFG_PWR_DOWN | EXT_CK25_DIS);
+ 	reg |= EXT_GPHY_RESET;
+ 	bcmgenet_ext_writel(priv, reg, EXT_GPHY_CTRL);
+ 	mdelay(2);
 -- 
 2.1.0
