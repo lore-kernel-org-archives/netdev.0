@@ -1,63 +1,55 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH v9 tip 8/9] samples: bpf: IO latency analysis
- (iosnoop/heatmap)
-Date: Mon, 23 Mar 2015 08:40:28 +0100
-Message-ID: <20150323074028.GE25184@gmail.com>
-References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
- <1426894210-27441-9-git-send-email-ast@plumgrid.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V2 20/23] ptp: dp83640: convert to the 64 bit
+ get/set time methods.
+Date: Mon, 23 Mar 2015 09:10:40 +0100
+Message-ID: <20150323081040.GA4779@localhost.localdomain>
+References: <cover.1426973658.git.richardcochran@gmail.com>
+ <201503220336.31836.arnd@linaro.org>
+ <20150322072935.GB4254@localhost.localdomain>
+ <201503221848.02226.arnd@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:38112 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262AbbCWHkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 03:40:33 -0400
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectrali
+To: Arnd Bergmann <arnd@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1426894210-27441-9-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <201503221848.02226.arnd@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, Mar 22, 2015 at 06:48:02PM +0100, Arnd Bergmann wrote:
+> Ok, got it. The code looks correct then, though I'd like to see the use
+> of 'timespec' pushed out as far as possible. How about changing the
+> type for tdr_write() as well here?
+> 
+> tdr_write() itself should be fine until 2106, as it writes an unsigned number,
+> but it's probably good to document that inside of that function.
 
-* Alexei Starovoitov <ast@plumgrid.com> wrote:
-
-> BPF C program attaches to blk_mq_start_request/blk_update_request kprobe events
-> to calculate IO latency.
-
- ...
-
-> +/* kprobe is NOT a stable ABI
-> + * This bpf+kprobe example can stop working any time.
-> + */
-> +SEC("kprobe/blk_mq_start_request")
-> +int bpf_prog1(struct pt_regs *ctx)
-> +{
-> +	long rq = ctx->di;
-> +	u64 val = bpf_ktime_get_ns();
-> +
-> +	bpf_map_update_elem(&my_map, &rq, &val, BPF_ANY);
-> +	return 0;
-> +}
-
-So just to make sure the original BPF instrumentation model is still 
-upheld: no matter in what way the kernel changes, neither the kprobe, 
-nor the BPF program can ever crash or corrupt the kernel, assuming the 
-kprobes, perf and BPF subsystem has no bugs, correct?
-
-So 'stops working' here means that the instrumentation data might not 
-be reliable if kernel internal interfaces change - but it won't ever 
-make the kernel unreliable in any fashion. Right?
+Arnd, thanks for the careful review.  I will work out follow up
+patches for this driver and the i210 (igb) to address the remaining
+issues.  For this series, lets leave tdr_write as is now, but I will
+surely take another look for the fix.
 
 Thanks,
-
-	Ingo
+Richard
