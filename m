@@ -1,50 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v2 PATCH 7/10] rhashtable: Disable automatic shrinking
-Date: Tue, 24 Mar 2015 08:48:20 +1100
-Message-ID: <20150323214819.GB19938@gondor.apana.org.au>
-References: <20150322121755.GH1185@casper.infradead.org>
- <20150323000954.GB9507@gondor.apana.org.au>
- <20150323083319.GB16023@casper.infradead.org>
- <20150323.124434.1526209682898584518.davem@davemloft.net>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH] lib utils: use a correct variable to get address length
+Date: Mon, 23 Mar 2015 14:53:22 -0700
+Message-ID: <55108B52.8050904@cumulusnetworks.com>
+References: <1427145369-29477-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, eric.dumazet@gmail.com, kaber@trash.net,
-	josh@joshtriplett.org, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
+	Vadim Kochan <vadim4j@gmail.com>,
+	Sven-Haegar Koch <haegar@sdinet.de>
+To: Andrew Vagin <avagin@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:57149 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214AbbCWVse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 17:48:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20150323.124434.1526209682898584518.davem@davemloft.net>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33061 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752221AbbCWVxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 17:53:24 -0400
+Received: by pabxg6 with SMTP id xg6so191386169pab.0
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 14:53:23 -0700 (PDT)
+In-Reply-To: <1427145369-29477-1-git-send-email-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2015 at 12:44:34PM -0400, David Miller wrote:
+On 3/23/15, 2:16 PM, Andrew Vagin wrote:
+> dst->famaly is initialized in get_addr_1()
 >
-> The user can't do this with TCP?  Why is netlink only susceptible?
-> 
-> The only plausible argument for shrinking I've ever heard of is the
-> nft_hash case, and there that code can _explicitly_ ask for a shrink
-> after it has made a major table modification.
-> 
-> That puts all of the smarts for when to shrink where the knowledge
-> resides, and in this case that's the user.
+> This patch fixes errors like this:
+> $ ip r a 10.31.0.0/16 dev br0
+> Error: an inet prefix is expected rather than "10.31.0.0/16".
+>
+> Cc: Vadim Kochan <vadim4j@gmail.com>
+> Fixes: f3a2ddc124e0 ("lib utils: Use helpers to get AF bit/byte len")
+> Signed-off-by: Andrew Vagin <avagin@openvz.org>
 
-One thing I got to say is that automatic shrinking is a really
-good stress test as reenabling it allowed me to quickly identify
-two bugs in the final patch :)
-
-Other than that I totally agree that it should be disabled by
-default as otherwise it increases the amortised cost of the hash
-table for a paltry saving in memory.
-
-We can do it afterwards once we're sure this whole thing is stable.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I have already submitted similar patch 
+https://patchwork.ozlabs.org/patch/451210/
