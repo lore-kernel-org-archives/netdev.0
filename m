@@ -1,61 +1,42 @@
-From: Chris Metcalf <cmetcalf@ezchip.com>
-Subject: Re: [PATCH net-next V2 19/23] ptp: tilegx: convert to the 64 bit
- get/set time methods.
-Date: Mon, 23 Mar 2015 12:02:03 -0400
-Message-ID: <551038FB.2070200@ezchip.com>
-References: <cover.1426973658.git.richardcochran@gmail.com> <8bc233b19d08308c01015936841d9be8d4441ece.1426973658.git.richardcochran@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [v3 PATCH 7/9] rhashtable: Add multiple rehash support
+Date: Mon, 23 Mar 2015 16:37:09 +0000
+Message-ID: <20150323163709.GB20752@casper.infradead.org>
+References: <20150323134955.GA16328@gondor.apana.org.au>
+ <E1Ya2kM-0004If-GN@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	"Ariel Elior" <ariel.elior@qlogic.com>,
-	Arnd Bergmann <arnd@linaro.org>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"David Miller" <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	"Luwei Zhou" <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	=?windows-1252?Q?Stefan_S=F8rensen?=
-	<stefan.sorensen@spectralink.com>,
-	Thoma
-To: Richard Cochran <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8bc233b19d08308c01015936841d9be8d4441ece.1426973658.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:57033 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120AbbCWQhL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 12:37:11 -0400
+Content-Disposition: inline
+In-Reply-To: <E1Ya2kM-0004If-GN@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/21/2015 05:39 PM, Richard Cochran wrote:
-> This driver calls code (via gxio_mpipe_get/set_timestamp) that makes
-> the assumption that the tv_sec field is 64 bits wide.  So apparently
-> this driver is 64 bit only.  So maybe this driver and device are ready
-> for 2038, but maybe not.
->
-> Not even compile tested.
->
-> Signed-off-by: Richard Cochran<richardcochran@gmail.com>
+On 03/24/15 at 12:50am, Herbert Xu wrote:
+> This patch adds the missing bits to allow multiple rehashes.  The
+> read-side as well as remove already handle this correctly.  So it's
+> only the rehasher and insertion that need modification to handle
+> this.
+> 
+> Note that this patch doesn't actually enable it so for now rehashing
+> is still only performed by the worker thread.
+> 
+> This patch also disables the explicit expand/shrink interface because
+> the table is meant to expand and shrink automatically, and continuing
+> to export these interfaces unnecessarily complicates the life of the
+> rehasher since the rehash process is now composed of two parts.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-This driver is 64-bit only.  Would it make more sense to just change
-the accessors from gettime/settime to gettime/settime64 and nothing
-else, i.e. rely on the current behavior that timespec and timespec64
-are the same type, and trust the compiler to fail it if somehow someone
-tried to build this driver into a 32-bit kernel?
-
-In any case, if you think it's better as-is, you can certainly have my
-
-Acked-by: Chris Metcalf <cmetcalf@ezchip.com>
-
--- 
-Chris Metcalf, EZChip Semiconductor
-http://www.ezchip.com
+Acked-by: Thomas Graf <tgraf@suug.ch>
