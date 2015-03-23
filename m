@@ -1,73 +1,90 @@
-From: Joe Harvell <joe.harvell@tekcomms.com>
-Subject: Re: [PATCH] iproute2: enhance addr label validation
-Date: Mon, 23 Mar 2015 10:43:03 -0500
-Message-ID: <55103487.5070903@tekcomms.com>
-References: <550DD13D.90009@tekcomms.com>
- <20150323011522.GB20755@vergenet.net> <55101D07.6090301@tekcomms.com>
+From: Jonas Johansson <jonasj76@gmail.com>
+Subject: Re: Using a waiting MDIO does not go well with a spinlocked bridge
+Date: Mon, 23 Mar 2015 16:42:46 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1503231641440.21270@hellgate.skynet>
+References: <alpine.LNX.2.03.1503201321050.27020@hellgate.skynet> <CAE4R7bA4pzSrZfn1W198kMKnYeJEofLsrgPzq_8xJR7KjCewPg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Stephen Hemminger <shemming@brocade.com>,
-	Vadim Kochan <vadim4j@gmail.com>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jonas Johansson <jonasj76@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	=?ISO-8859-2?Q?Ji=F8=ED_P=EDrko?= <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0141.outbound.protection.outlook.com ([207.46.100.141]:4309
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752230AbbCWPok (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 11:44:40 -0400
-In-Reply-To: <55101D07.6090301@tekcomms.com>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:32796 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752485AbbCWPrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 11:47:24 -0400
+Received: by labto5 with SMTP id to5so29833056lab.0
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 08:47:23 -0700 (PDT)
+In-Reply-To: <CAE4R7bA4pzSrZfn1W198kMKnYeJEofLsrgPzq_8xJR7KjCewPg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
->> Hi Joe,
->>
->> On Sat, Mar 21, 2015 at 03:14:53PM -0500, Joe Harvell wrote:
->>> The ip addr command today rejects address labels that would break
->>> ifconfig.  However, it allows some labels which still break it. Enhance
->>> enforcement to reject all known incompatible labels, and allow the
->>> existing -force option to allow someone to use a label even if it is 
->>> not
->>> ifconfig compatible
->> I am concerned this will break existing users who are relying on setting
->> labels that would now be rejected without using -force.
->>
-> [snip]
->
-> Simon,
->
-> Good point.  I propose the following:
->
-> When a label is specified without -force, and that label begins with 
-> the interface
-> name but is followed by something other than a colon, accept the label 
-> but emit
-> a warning message indicating this label is incompatible with ifconfig 
-> and that later
-> versions of the 'ip address' command may reject it.  This message can 
-> also indicate
-> that -force can be specified to explicitly indicate a label that is 
-> non ifconfig compatible
-> is desired.
->
-> At some point in the future, the behavior could then be changed to 
-> reject such labels.
->
-> What do you think?
->
-> ---
-> Joe
-Ok, I made the changes I propose above, and have pushed them to 
-'git@github.com:jharvell/iproute2.git addr-label-noncompat'
-with a new signoff commit (303f46819883d4c808974629a6d3515102c5c0d0) 
-that summarizes all the changes from master.
-But I'm not sure what I'm supposed to do with respect to the patch in 
-patchwork to designate that I want the new code
-to be merged instead of before the change.  Do I reject this patch 
-request and submit another one?  Do I send an email
-with the same subject as this one with the new patch against master?
 
-Thanks.
----
-Joe
+
+On Fri, 20 Mar 2015, Scott Feldman wrote:
+
+> On Fri, Mar 20, 2015 at 5:22 AM, Jonas Johansson <jonasj76@gmail.com> wrote:
+>> The bridge code will sometimes hold a spinlock and the code following must
+>> therefore be atomic. If using a MDIO call which uses a wait/sleep in this
+>> contex, the kernel will not be very happy.
+>>
+>> I'm using a switch device and wants to flush its FDB when the linux bridge
+>> FDB is flushed. I've implemented some hooks for this task.
+>> In short:
+>>      bridge    - br_fdb_flush() & br_fdb_delete_by_port
+>>   -> switchdev - switch_flush()
+>>   -> dsa       - slave_flush()
+>>   -> mv88e6xxx - mv88_flush()
+>
+> I think we need to hook switchdev in fdb_delete(), then it'll get
+> called from flush and ageing out operations, rather than adding a new
+> switch_flush().  But, that's an aside for your main issue that the
+> bridge will hold a spinlock for most (all?) FDB delete operations.  I
+> don't see a way around relaxing that, on the bridge side, since it's
+> doing things like walking lists while deleting list elements.  So that
+> means the call into switchdev will be spinlocked, so switchdev driver
+> needs to deal with that.  Scheduling to work queue is one option, as
+> you mention, if FDB delete can't be done under the spinlock.
+>
+>
+Thanks for the input.
+My idea of using a switch_flush() was to take advantage of the HW to flush 
+all FDB entries in one single operation. If I'm not mistaken, using 
+fdb_delete() will result in a call for each FDB entry, which will result 
+in a lot of overhead.
+
+>> So, when a bridge port is flushed via e.g. sysfs, the mv88_flush() function
+>> will at the end be called. The mv88_flush() will use MDIO calls to set the
+>> proper registers and flush the device. But, due to that the MDIO on my
+>> platform uses wait_for_completion() and a spinlock is held (in this case in
+>> brport_store()) the process will not go very well.
+>>
+>> The only possible solutions that came into my mind is:
+>>  1) Let mv88_flush() schedule a work queue to take care of the flush
+>>     later on.
+>>  2) Change the MDIO implementation to use polling.
+>>  3) Dont use spinlock in bridge code.
+>>
+>> 1) Using this approach the the atomic part is missed, i.e. the switch device
+>> isn't guaranteed to be flushed after the command has been issued. And, if a
+>> FDB entry is added (atomic) to the switch device immediately after the flush
+>> command, there will not be defined if the entry will be added before or
+>> after the flush occurs. To solve this, all (FDB) operations must be added to
+>> a work queue to assure that they are executed in the right order.
+>
+> We would loose the FDB add results if added to work queue.  On add,
+> you could check work queue delete list for entry, and if there, remove
+> from work queue list.
+>
+>>
+>> 2) This will result in unsued CPU cycles.
+>>
+>> 3) Havent looked into this, but probably a lot of work.
+>
+> Can of worms...wouldn't recommend that option.
+>
+>> Any ideas?
+>
