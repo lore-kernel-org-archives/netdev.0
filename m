@@ -1,41 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/3] virtio net: Handle proto_down state by
- setting the carrier off.
-Date: Mon, 23 Mar 2015 16:50:01 -0400 (EDT)
-Message-ID: <20150323.165001.2063467454200119106.davem@davemloft.net>
-References: <1426997218-27313-3-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: Re: [PATCH] macvlan: transmit multicast as unicast in source mode
+Date: Mon, 23 Mar 2015 16:50:46 -0400 (EDT)
+Message-ID: <20150323.165046.44048598018869192.davem@davemloft.net>
+References: <1427027389-9691-1-git-send-email-michael-dev@fami-braun.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com
-To: anuradhak@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de
+To: michael-dev@fami-braun.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58175 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58178 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbbCWUuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:50:04 -0400
-In-Reply-To: <1426997218-27313-3-git-send-email-anuradhak@cumulusnetworks.com>
+	with ESMTP id S1752512AbbCWUus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 16:50:48 -0400
+In-Reply-To: <1427027389-9691-1-git-send-email-michael-dev@fami-braun.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: anuradhak@cumulusnetworks.com
-Date: Sat, 21 Mar 2015 21:06:57 -0700
+From: Michael Braun <michael-dev@fami-braun.de>
+Date: Sun, 22 Mar 2015 13:29:49 +0100
 
-> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> When having multiple remote mac addresses assigned to different macvlan
+> source devices created on top of the same other netdev, multicast packets
+> send on one interface will be also received by the remote machines
+> asssigned to the other macvlan device.
 > 
-> Applications such as MLAG can detect errors in the network which results
-> in IFF_PROTO_DOWN being set. This patch adds support for handling
-> proto_down for virtio drivers by turning off the carrier and stopping
-> netif processing.
+> This is because multicast packets are transmitted as layer-2 multicast.
+> Thought, not all protocols need their multicast packets to be transmitted
+> as layer-2 multicast, esp. ARP, IPv4 and IPv6. Most importantly, IPv6
+> router advertisments will be processed even if received as layer-2 unicast.
 > 
-> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> So this patch adds support for replicating multicast packets and sending
+> them out as unicast by changing the destination mac address.
+> This fixes IPv6 autoconf addresses and routes on the remote stations
+> assigned to different macvlan devices.
+> 
+> There are two new flags: UNICAST and UNICAST_ALL. The first only rewrites
+> ARP, IPv4 and IPv6 (and their 802.1Q tagged variant), the latter rewrites
+> all multicast packets.
+> 
+> Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
 
-I really don't like the idea that there are potentially many drivers
-that will not have to add this kind of new code.
+I want someone who understands macvlans better to review this before
+I apply it.
 
-This doesn't scale when you have dozens of software devices of various
-types, and several hundred physical hardware networking drivers.
+Thanks.
