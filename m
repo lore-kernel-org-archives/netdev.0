@@ -1,50 +1,45 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [bisected regression] e1000e: "Detected Hardware Unit Hang"
-Date: Mon, 23 Mar 2015 22:37:08 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B78D8BD39@ORSMSX101.amr.corp.intel.com>
-References: <1719052.SGOfRAJhfQ@storm> <2370189.uakqRR7OLn@storm>
- <309B89C4C689E141A5FF6A0C5FB2118B78D72A14@ORSMSX101.amr.corp.intel.com>
- <3606797.04xNxe9kJh@storm>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: ip addr add command generates error
+Date: Mon, 23 Mar 2015 22:43:00 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789291C3A@ORSMSX108.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	'Linux Netdev List' <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"vadim4j@gmail.com" <vadim4j@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:20286 "EHLO mga09.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:14984 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932106AbbCWWhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Mar 2015 18:37:09 -0400
-In-Reply-To: <3606797.04xNxe9kJh@storm>
+	id S1752214AbbCWWnH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 18:43:07 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogVGhvbWFzIEphcm9zY2gg
-W21haWx0bzp0aG9tYXMuamFyb3NjaEBpbnRyYTJuZXQuY29tXQ0KPiBTZW50OiBNb25kYXksIE1h
-cmNoIDIzLCAyMDE1IDY6NTggQU0NCj4gVG86IEJyb3duLCBBYXJvbiBGDQo+IENjOiBLaXJzaGVy
-LCBKZWZmcmV5IFQ7ICdMaW51eCBOZXRkZXYgTGlzdCc7IEVyaWMgRHVtYXpldDsgZTEwMDAtZGV2
-ZWwNCj4gU3ViamVjdDogUmU6IFtiaXNlY3RlZCByZWdyZXNzaW9uXSBlMTAwMGU6ICJEZXRlY3Rl
-ZCBIYXJkd2FyZSBVbml0IEhhbmciDQo+IA0KPiBIaSBBYXJvbiwNCj4gDQo+IE9uIFNhdHVyZGF5
-LCAyMS4gRmVicnVhcnkgMjAxNSAwMTo1OTozNSBCcm93biwgQWFyb24gRiB3cm90ZToNCj4gPiBU
-aGFua3MsIHRoYXQgKGFuZCB0aGUgbXVsdGlwbGUgYnVnIHdyaXRlLXVwcyBvbiBzb3VyY2Vmb3Jn
-ZSkgZ2F2ZSBtZQ0KPiBtb3JlDQo+ID4gdGhhbiBlbm91Z2ggdG8gZ28gb24uICBJIHdhcyBhYmxl
-IHRvIHJlcGxpY2F0ZSBpdCBvbiBhIGhhbmRmdWwgb2YNCj4gc3lzdGVtcw0KPiA+IGluIG15IGxh
-Yi4gIE9uIGVmZmVjdGVkIHN5c3RlbXMgc2V0dGluZyB1cCBhIE5BVCBhbmQgc3RyZXNzaW5nIHRo
-ZQ0KPiA+IGludGVyZmFjZXMgd2l0aCBldmVuIG1vZGVyYXRlIHRyYWZmaWMgbGV2ZWxzIHRyaWdn
-ZXJzIGl0IHByZXR0eSBxdWlja2x5Lg0KPiA+IEl0IGFwcGVhcnMgdGhhdCB0aGUgTkFUIHBhcnQg
-aXMgdW5uZWNlc3NhcnksIGp1c3Qgc2V0dGluZyB0aGUgc3lzdGVtcyB1cA0KPiA+IGFzIGEgc29m
-dHdhcmUgcm91dGVyIGFuZCBydW5uaW5nIHNvbWUgdHJhZmZpYyBhY3Jvc3MgaXQgYWxzbyB0cmln
-Z2VycyBpdA0KPiA+IGdpdmluZyB0aGUgc2FtZSBhcHBhcmVudCBiZWhhdmlvciAodHggaGFuZywg
-d2F0Y2hkb2cgdGltZW91dCB0cmFjZSwgcG9ydA0KPiA+IHJlc2V0LikNCj4gPg0KPiA+IEFuZCB3
-aXRoIGFuIGludGVybmFsIHJlcHJvZHVjdGlvbiBvZiB0aGUgaXNzdWUgSSBoYXZlIGNyZWF0ZWQg
-YW4NCj4gaW50ZXJuYWwNCj4gPiBidWcgcmVwb3J0LCBkZXNjcmliZWQgbXkgc2V0IG9mIHJlcHJv
-ZHVjdGlvbnMsIHJlZmVyZW5jZWQgdGhlIHNpbWlsYXINCj4gPiBleHRlcm5hbCBvbmVzIGFuZCBh
-c3NpZ25lZCBpdCB0byBvdXIgY3VycmVudCBlMTAwMGUgZGV2ZWxvcGVyLg0KPiANCj4ganVzdCB3
-YW50ZWQgdG8gcXVpY2tseSBjaGVjayBpZiB0aGVyZSBoYXMgYmVlbiBhbnkgcHJvZ3Jlc3MNCj4g
-c2luY2UgdGhlIGludGVybmFsIGJ1ZyByZXBvcnQgaGFzIGJlZW4gZmlsZWQ/DQoNCk5vLCBubyB1
-cGRhdGVzIGJleW9uZCBhIGJpdCBvZiBpbnZlc3RpZ2F0aW9uLg0KIA0KPiANCj4gQ2hlZXJzLA0K
-PiBUaG9tYXMNCg0K
+The 'ip addr add' command used to use the following syntax:
+
+# ip addr add 10.0.0.2/24 brd 10.0.0.255 dev <eth>
+
+However, attempts to use that same command syntax with the current ipro=
+ute2 tip gives the following error:
+
+Error: an inet prefix is expected rather than "20.0.0.2/24"
+
+This seems like a bug.  The commit that introduces the issue is f3a2ddc=
+124e09d3990b836e322ed39c76c35546e by Vadim Kochan.  Reverting this comm=
+it fixes the problem.
+
+Is this change deliberate?  It would break a lot of scripts if so.
+
+Thanks,
+
+- Greg
+
+----------
+=A0
+Any man who afflicts the human race with ideas must be prepared to see =
+them misunderstood.
+=A0
+- H. L. Mencken
