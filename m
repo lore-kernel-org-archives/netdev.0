@@ -1,43 +1,89 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next 0/5] NetCP: Add support for version 1.5
-Date: Mon, 23 Mar 2015 11:13:33 -0400
-Message-ID: <55102D9D.3080802@ti.com>
-References: <1426882285-4873-1-git-send-email-m-karicheri2@ti.com> <20150320.220334.1613709882223685682.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next V2 17/23] ptp: stmmac: convert to the 64 bit
+ get/set time methods.
+Date: Mon, 23 Mar 2015 16:35:06 +0100
+Message-ID: <551032AA.3060906@st.com>
+References: <cover.1426973658.git.richardcochran@gmail.com> <009374d77dee7633ab0ef1a5d95182b45aaa3f18.1426973658.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <mugunthanvnm@ti.com>,
-	<prabhakar.csengg@gmail.com>, <grygorii.strashko@ti.com>,
-	<cj@linux.com>, <lokeshvutla@ti.com>, <mpa@pengutronix.de>,
-	<galak@codeaurora.org>, <ijc+devicetree@hellion.org.uk>,
-	<mark.rutland@arm.com>, <pawel.moll@arm.com>, <robh+dt@kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Arnd Bergmann <arnd@linaro.org>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	=?ISO-8859-1?Q?Stefan_S=F8rensen?=
+	<stefan.sorensen@spectralink.com>,
+	Thomas Gleixner <tglx@lin
+To: Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150320.220334.1613709882223685682.davem@davemloft.net>
+In-Reply-To: <009374d77dee7633ab0ef1a5d95182b45aaa3f18.1426973658.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/20/2015 10:03 PM, David Miller wrote:
-> From: Murali Karicheri<m-karicheri2@ti.com>
-> Date: Fri, 20 Mar 2015 16:11:20 -0400
+On 3/21/2015 10:39 PM, Richard Cochran wrote:
+> This device stores the number of seconds in a 32 bit register.  So
+> more work is needed on this driver before the year 2038 comes around.
 >
->> NetCP 1.5 is used in newer K2 SoCs from Texas Instruments
->> such as K2E, K2L etc. This patch series add support for Ethss
->> driver for this version of NetCP. While at it, fix couple of
->> bugs in the original driver.
->>
->> One of the earlier patch "net: netcp: select davinci_mdio driver
->> by default" is folded onto this series.
->>
->> Please review and let me know your comments.
+> Compile tested only.
+
+I cannot perform tests on my side, unfortunately. I have no setup at
+this moment. Added Rayagond on copy too
+
+Peppe
+
 >
-> Series applied to net-next, thanks.
-David,
-
-Thanks for applying the series.
-
-Regards,
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    8 ++++----
+>   1 file changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> index c5ee79d8..172f318 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+> @@ -105,7 +105,7 @@ static int stmmac_adjust_time(struct ptp_clock_info *ptp, s64 delta)
+>    * Description: this function will read the current time from the
+>    * hardware clock and store it in @ts.
+>    */
+> -static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
+> +static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
+>   {
+>   	struct stmmac_priv *priv =
+>   	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
+> @@ -135,7 +135,7 @@ static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
+>    * hardware clock.
+>    */
+>   static int stmmac_set_time(struct ptp_clock_info *ptp,
+> -			   const struct timespec *ts)
+> +			   const struct timespec64 *ts)
+>   {
+>   	struct stmmac_priv *priv =
+>   	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
+> @@ -168,8 +168,8 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
+>   	.pps = 0,
+>   	.adjfreq = stmmac_adjust_freq,
+>   	.adjtime = stmmac_adjust_time,
+> -	.gettime = stmmac_get_time,
+> -	.settime = stmmac_set_time,
+> +	.gettime64 = stmmac_get_time,
+> +	.settime64 = stmmac_set_time,
+>   	.enable = stmmac_enable,
+>   };
+>
+>
