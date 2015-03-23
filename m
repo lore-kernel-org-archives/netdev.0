@@ -1,47 +1,63 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
-Date: Mon, 23 Mar 2015 08:19:12 +0100
-Message-ID: <550FBE70.40201@redhat.com>
-References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>	<jpg8uf2ghln.fsf@redhat.com>	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>	<jpgtwxpvk5x.fsf@redhat.com>	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>	<jpg1tko7qwb.fsf@redhat.com>	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>	<jpglhiw4tal.fsf@redhat.com>	<jpgk2yewcpt.fsf@redhat.com>	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>	<550A85B3.4070703@redhat.com>	<CA+AkT2hJcHBcTzyONosrd82dD1m3-ML1_doS=tjBFoAPdnTmaw@mail.gma
- il.com>	<550ADAD2.8070506@redhat.com> <CA+AkT2jPV_P436_RUQepT7wHtPaGOYGeE5uzUKtyXtk0s8U_gQ@mail.gmail.com>
+From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v9 tip 6/9] samples: bpf: simple non-portable kprobe
+ filter example
+Date: Mon, 23 Mar 2015 08:29:29 +0100
+Message-ID: <20150323072929.GB25184@gmail.com>
+References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
+ <1426894210-27441-7-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Shannon Nelson <shannon.nelson@intel.com>,
-	Bandan Das <bsd@redhat.com>,
-	Alex Williamson <alex.williamson@redhat.com>,
-	QEMU Developers <qemu-devel@nongnu.org>,
-	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: jacob jacob <opstkusr@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CA+AkT2jPV_P436_RUQepT7wHtPaGOYGeE5uzUKtyXtk0s8U_gQ@mail.gmail.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1426894210-27441-7-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 20.03.2015 21:55, jacob jacob wrote:
-> On Thu, Mar 19, 2015 at 10:18 AM, Stefan Assmann <sassmann@redhat.com> wrote:
->> On 19.03.2015 15:04, jacob jacob wrote:
->>> Hi Stefan,
->>> have you been able to get PCI passthrough working without any issues
->>> after the upgrade?
->>
->> My XL710 fails to transfer regular TCP traffic (netperf). If that works
->> for you then you're already one step ahead of me. Afraid I can't help
->> you there.
+
+* Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+
+> tracex1_kern.c - C program compiled into BPF.
+> It attaches to kprobe:netif_receive_skb
+> When skb->dev->name == "lo", it prints sample debug message into trace_pipe
+> via bpf_trace_printk() helper function.
 > 
-> I have data transfer working when trying the test runs on the host
-> itself. Are you seeing problems when directly trying the TCP traffic
-> from the host itself?
-
-Correct.
-
-> The issues that i am seeing are specific to the case when the devices
-> are passed via PCI passthrough into the VM.
+> tracex1_user.c - corresponding user space component that:
+> - loads bpf program via bpf() syscall
+> - opens kprobes:netif_receive_skb event via perf_event_open() syscall
+> - attaches the program to event via ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
+> - prints from trace_pipe
 > 
-> Any ideas whether this would be a kvm/qemu or i40e driver issue?
-> (Updating to the latest firmware and using latest i40e driver didn't
-> seem to help.)
+> Note, this bpf program is completely non-portable. It must be recompiled
+> with current kernel headers. kprobe is not a stable ABI and bpf+kprobe scripts
+> may stop working any time.
+> 
+> bpf verifier will detect that it's using bpf_trace_printk() and kernel will
+> print warning banner:
+> ** trace_printk() being used. Allocating extra memory.  **
 
-Hard to say, that's probably something for Intel to look into.
+Printing this might be OK.
 
-  Stefan
+> **                                                      **
+> ** This means that this is a DEBUG kernel and it is     **
+> ** unsafe for production use.                           **
+
+But I think printing that it's unsafe for production use is over the 
+top: it's up to the admin whether it's safe or unsafe, just like 
+inserting a kprobe can be safe or unsafe.
+
+Informing that something happened is enough.
+
+Thanks,
+
+	Ingo
