@@ -1,55 +1,62 @@
-From: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v9 tip 0/9] tracing: attach eBPF programs to kprobes
-Date: Mon, 23 Mar 2015 08:36:44 +0100
-Message-ID: <20150323073643.GD25184@gmail.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v9 tip 8/9] samples: bpf: IO latency analysis
+ (iosnoop/heatmap)
+Date: Mon, 23 Mar 2015 08:40:28 +0100
+Message-ID: <20150323074028.GE25184@gmail.com>
 References: <1426894210-27441-1-git-send-email-ast@plumgrid.com>
- <20150321000812.606ef8cb@grimm.local.home>
+ <1426894210-27441-9-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:38112 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262AbbCWHkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 03:40:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20150321000812.606ef8cb-2kNGR76GQU9OHLTnHDQRgA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1426894210-27441-9-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-* Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+* Alexei Starovoitov <ast@plumgrid.com> wrote:
 
-> On Fri, 20 Mar 2015 16:30:01 -0700
-> Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> 
-> > Hi Ingo,
-> > 
-> > I think it's good to go.
-> > Patch 1 is already in net-next. Patch 3 depends on it.
-> > I'm assuming it's not going to be a problem during merge window.
-> > Patch 3 will have a minor conflict in uapi/linux/bpf.h in linux-next,
-> > since net-next has added new lines to the bpf_prog_type and bpf_func_id enums.
-> > I'm assuming it's not a problem either.
-> > 
-> > V8->V9:
-> > - fixed comment style and allowed ispunct after %p
-> > - added Steven's Reviewed-by. Thanks Steven!
-> 
-> Hi Ingo,
-> 
-> I'm fine with this series, so don't let me hold it up from going into
-> your tree.
+> BPF C program attaches to blk_mq_start_request/blk_update_request kprobe events
+> to calculate IO latency.
 
-Ok, thanks!
+ ...
 
-Looks like a very powerful instrumentation interface to me.
+> +/* kprobe is NOT a stable ABI
+> + * This bpf+kprobe example can stop working any time.
+> + */
+> +SEC("kprobe/blk_mq_start_request")
+> +int bpf_prog1(struct pt_regs *ctx)
+> +{
+> +	long rq = ctx->di;
+> +	u64 val = bpf_ktime_get_ns();
+> +
+> +	bpf_map_update_elem(&my_map, &rq, &val, BPF_ANY);
+> +	return 0;
+> +}
+
+So just to make sure the original BPF instrumentation model is still 
+upheld: no matter in what way the kernel changes, neither the kprobe, 
+nor the BPF program can ever crash or corrupt the kernel, assuming the 
+kprobes, perf and BPF subsystem has no bugs, correct?
+
+So 'stops working' here means that the instrumentation data might not 
+be reliable if kernel internal interfaces change - but it won't ever 
+make the kernel unreliable in any fashion. Right?
 
 Thanks,
 
