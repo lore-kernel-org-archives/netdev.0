@@ -1,41 +1,37 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v3 PATCH 3/9] rhashtable: Allow hashfn to be unset
-Date: Mon, 23 Mar 2015 15:36:37 +0000
-Message-ID: <20150323153637.GB9478@casper.infradead.org>
-References: <20150323134955.GA16328@gondor.apana.org.au>
- <E1Ya2kH-0004HZ-IC@gondolin.me.apana.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH -next] netfilter: Use LOGLEVEL_<FOO> defines
+Date: Mon, 23 Mar 2015 08:36:59 -0700
+Message-ID: <1427125019.16851.20.camel@perches.com>
+References: <20150323140841.0b807b95@canb.auug.org.au>
+	 <20150323124723.GA6740@salvia> <1427115331.16851.11.camel@perches.com>
+	 <20150323130638.GA6857@salvia> <1427117031.16851.16.camel@perches.com>
+	 <20150324003828.0eac53d9@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56739 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753101AbbCWPgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 11:36:38 -0400
-Content-Disposition: inline
-In-Reply-To: <E1Ya2kH-0004HZ-IC@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150324003828.0eac53d9@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/24/15 at 12:50am, Herbert Xu wrote:
-> Since every current rhashtable user uses jhash as their hash
-> function, the fact that jhash is an inline function causes each
-> user to generate a copy of its code.
-> 
-> This function provides a solution to this problem by allowing
-> hashfn to be unset.  In which case rhashtable will automatically
-> set it to jhash.  Furthermore, if the key length is a multiple
-> of 4, we will switch over to jhash2.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Tue, 2015-03-24 at 00:38 +1100, Stephen Rothwell wrote:
+> Hi Joe,
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Hi Stephen.
 
-I'll add some documentation when the API stabilizes and multiple
-rehashing is complete.
+> I am not sure what you are getting at here.  kernel.h does not include
+> kern_levels.h (but printk.h does).  I, for one, am always happier when
+> necessary include files are explicitly included.
+
+kernel.h -> printk.h -> kern_levels.h
+
+No .c file in the tree does a specific #include
+of kern_levels.h, only a couple of .S files.
+
+Adding printk.h might be useful, but I think
+that kernel.h is probably better.
