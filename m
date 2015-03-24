@@ -1,109 +1,47 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Tue, 24 Mar 2015 09:01:26 -0700
-Message-ID: <20150324160126.GA17104@roeck-us.net>
-References: <550C92F3.50302@cumulusnetworks.com>
- <20150320220946.GB31769@lunn.ch>
- <20150323002215.GA6074@roeck-us.net>
- <550F6D7D.7030403@gmail.com>
- <550F8102.7040701@roeck-us.net>
- <550F8600.2020300@gmail.com>
- <550F8987.5070600@roeck-us.net>
- <5510498D.5010001@cumulusnetworks.com>
- <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
- <20150324142921.GA2026@nanopsycho.orion>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH 01/11] sysctl: make some functions unstatic to
+ access by arch/lib
+Date: Tue, 24 Mar 2015 09:13:39 -0700
+Message-ID: <1427213619.5642.34.camel@perches.com>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>
+	 <1427202642-1716-2-git-send-email-tazaki@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:56945 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753706AbbCXQBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 12:01:50 -0400
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YaRGy-004KmA-HR
-	for netdev@vger.kernel.org; Tue, 24 Mar 2015 16:01:44 +0000
-Content-Disposition: inline
-In-Reply-To: <20150324142921.GA2026@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arch@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, Jonathan
+ Corbet <corbet@lwn.net>, Jhristoph Lameter <cl@linux.com>, Jekka Enberg
+ <penberg@kernel.org>, Javid Rientjes <rientjes@google.com>, Joonsoo Kim
+ <iamjoonsoo.kim@lge.com>, Jndrew Morton <akpm@linux-foundation.org>,
+ linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+ netdev@vger.kernel.org,  linux-mm@kvack.org, Jeff Dike <jdike@addtoit.com>,
+ Richard Weinberger <richard@nod.at>, Rusty Russell <rusty@rustcorp.com.au>,
+ Mathieu Lacage <mathieu.lacage@gmail.com>
+To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1427202642-1716-2-git-send-email-tazaki@sfc.wide.ad.jp>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 24, 2015 at 03:29:21PM +0100, Jiri Pirko wrote:
-> >
-> >diff --git a/drivers/net/ethernet/rocker/rocker.c
-> >b/drivers/net/ethernet/rocker/rocker.c
-> >index aab962c..0f7217f7 100644
-> >--- a/drivers/net/ethernet/rocker/rocker.c
-> >+++ b/drivers/net/ethernet/rocker/rocker.c
-> >@@ -3931,15 +3931,28 @@ unmap_frag:
-> >        return -EMSGSIZE;
-> > }
-> >
-> >+static bool rocker_port_dev_check(struct net_device *dev);
-> >+
-> > static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct
-> >net_device *dev)
-> > {
-> >        struct rocker_port *rocker_port = netdev_priv(dev);
-> >        struct rocker *rocker = rocker_port->rocker;
-> >        struct rocker_desc_info *desc_info;
-> >        struct rocker_tlv *frags;
-> >+       struct net_device *in_dev;
-> >        int i;
-> >        int err;
-> >
-> >+       if (rocker_port_is_bridged(rocker_port)) {
-> >+               rcu_read_lock();
-> >+               in_dev = dev_get_by_index_rcu(dev_net(dev), skb->skb_iif);
-> 
-> Hmm, you iterate over all ports for every xmit call :/
-> Would be nicer if skb_iif would be netdev poiter. Not sure it is doable.
-> 
-It may be easier (and faster) to loop through all rocker ports and try to find
-one with the same ifindex. Then the dev_check call would not be necessary.
+On Tue, 2015-03-24 at 22:10 +0900, Hajime Tazaki wrote:
+> libos (arch/lib) emulates a sysctl-like interface by a function call of
+> userspace by enumerating sysctl tree from sysctl_table_root. It requires
+> to be publicly accessible to this symbol and related functions.
+[]
+> diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+[]
+> @@ -77,7 +77,7 @@ static int namecmp(const char *name1, int len1, const char *name2, int len2)
+>  }
+>  
+>  /* Called under sysctl_lock */
+> -static struct ctl_table *find_entry(struct ctl_table_header **phead,
+> +struct ctl_table *find_entry(struct ctl_table_header **phead,
 
-If the rocker switch can be attached to multiple bridges, it may also be
-necessary to check if the bridge group is the same for both ports.
+find_entry and all of the <foo>_entry functions below it
+are overly generic names.  Maybe prefix with ctl_table_
 
-Guenter
 
-> 
-> >+               if (in_dev && rocker_port_dev_check(in_dev)) {
-> >+                       rcu_read_unlock();
-> >+                       goto skip;
-> >+               }
-> >+               rcu_read_unlock();
-> >+       }
-> >+
-> >        desc_info = rocker_desc_head_get(&rocker_port->tx_ring);
-> >        if (unlikely(!desc_info)) {
-> >                if (net_ratelimit())
-> >@@ -3951,7 +3964,7 @@ static netdev_tx_t rocker_port_xmit(struct
-> >sk_buff *skb, struct net_device *dev)
-> >
-> >        frags = rocker_tlv_nest_start(desc_info, ROCKER_TLV_TX_FRAGS);
-> >        if (!frags)
-> >-               goto out;
-> >+               goto drop;
-> >        err = rocker_tx_desc_frag_map_put(rocker_port, desc_info,
-> >                                          skb->data, skb_headlen(skb));
-> >        if (err)
-> >@@ -3983,9 +3996,10 @@ unmap_frags:
-> >        rocker_tx_desc_frags_unmap(rocker_port, desc_info);
-> > nest_cancel:
-> >        rocker_tlv_nest_cancel(desc_info, frags);
-> >-out:
-> >-       dev_kfree_skb(skb);
-> >+drop:
-> >        dev->stats.tx_dropped++;
-> >+skip:
-> >+       dev_kfree_skb(skb);
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
