@@ -1,47 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH 01/11] sysctl: make some functions unstatic to
- access by arch/lib
-Date: Tue, 24 Mar 2015 09:13:39 -0700
-Message-ID: <1427213619.5642.34.camel@perches.com>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>
-	 <1427202642-1716-2-git-send-email-tazaki@sfc.wide.ad.jp>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next v3] filter: introduce SKF_AD_VLAN_TPID BPF
+ extension
+Date: Tue, 24 Mar 2015 16:44:09 +0100
+Message-ID: <20150324154409.GD2050@nanopsycho.orion>
+References: <1427204921-14535-1-git-send-email-msekleta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, Jonathan
- Corbet <corbet@lwn.net>, Jhristoph Lameter <cl@linux.com>, Jekka Enberg
- <penberg@kernel.org>, Javid Rientjes <rientjes@google.com>, Joonsoo Kim
- <iamjoonsoo.kim@lge.com>, Jndrew Morton <akpm@linux-foundation.org>,
- linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
- netdev@vger.kernel.org,  linux-mm@kvack.org, Jeff Dike <jdike@addtoit.com>,
- Richard Weinberger <richard@nod.at>, Rusty Russell <rusty@rustcorp.com.au>,
- Mathieu Lacage <mathieu.lacage@gmail.com>
-To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1427202642-1716-2-git-send-email-tazaki@sfc.wide.ad.jp>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Michal Sekletar <msekleta@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47969 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752909AbbCXPob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 11:44:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1427204921-14535-1-git-send-email-msekleta@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-03-24 at 22:10 +0900, Hajime Tazaki wrote:
-> libos (arch/lib) emulates a sysctl-like interface by a function call of
-> userspace by enumerating sysctl tree from sysctl_table_root. It requires
-> to be publicly accessible to this symbol and related functions.
-[]
-> diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-[]
-> @@ -77,7 +77,7 @@ static int namecmp(const char *name1, int len1, const char *name2, int len2)
->  }
->  
->  /* Called under sysctl_lock */
-> -static struct ctl_table *find_entry(struct ctl_table_header **phead,
-> +struct ctl_table *find_entry(struct ctl_table_header **phead,
+Tue, Mar 24, 2015 at 02:48:41PM CET, msekleta@redhat.com wrote:
+>If vlan offloading takes place then vlan header is removed from frame
+>and its contents, both vlan_tci and vlan_proto, is available to user
+>space via TPACKET interface. However, only vlan_tci can be used in BPF
+>filters.
+>
+>This commit introduces a new BPF extension. It makes possible to load
+>the value of vlan_proto (vlan TPID) to register A. Support for classic
+>BPF and eBPF is being added, analogous to skb->protocol.
+>
+>Cc: Daniel Borkmann <daniel@iogearbox.net>
+>Cc: Alexei Starovoitov <ast@plumgrid.com>
+>Cc: Jiri Pirko <jpirko@redhat.com>
+>
+>Signed-off-by: Michal Sekletar <msekleta@redhat.com>
 
-find_entry and all of the <foo>_entry functions below it
-are overly generic names.  Maybe prefix with ctl_table_
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
