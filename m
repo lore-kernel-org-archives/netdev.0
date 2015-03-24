@@ -1,59 +1,63 @@
 From: <cmetcalf@ezchip.com>
-Subject: [PATCH 0/4] initial NOHZ_FULL support for tile
-Date: Tue, 24 Mar 2015 15:21:31 -0400
-Message-ID: <1427224895-30830-1-git-send-email-cmetcalf@ezchip.com>
+Subject: [PATCH 4/4] net: tile: don't send interrupts to nohz cores by default
+Date: Tue, 24 Mar 2015 15:21:35 -0400
+Message-ID: <1427224895-30830-5-git-send-email-cmetcalf@ezchip.com>
+References: <1427224895-30830-1-git-send-email-cmetcalf@ezchip.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Chris Metcalf <cmetcalf@ezchip.com>
-To: <linux-kernel@vger.kernel.org>,
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Borislav Petkov <bp@alien8.de>,
 	Frederic Weisbecker <fweisbec@gmail.com>,
-	Gilad Ben-Yossef <gilad@benyossef.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>,
-	Kevin Hilman <khilman@linaro.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Borislav Petkov <bp@alien8.de>,
 	Li Zhong <zhong@linux.vnet.ibm.com>,
 	Mike Galbraith <efault@gmx.de>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Thomas Gleixner <tglx@linutronix.de>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Kevin Hilman <khilman@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0080.outbound.protection.outlook.com ([157.56.112.80]:48639
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755119AbbCXTWr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 15:22:47 -0400
+In-Reply-To: <1427224895-30830-1-git-send-email-cmetcalf@ezchip.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Chris Metcalf <cmetcalf@ezchip.com>
 
-These changes are the necessary minimum to make the tile architecture
-work relatively well with NOHZ_FULL.  The tile architecture has had
-out-of-tree support since 2008 for a DATAPLANE mode that provided
-similar functionality (called Zero-Overhead Linux in our marketing
-materials); we are now in the process of layering that on top of the
-community NOHZ_FULL to upstream it.
+Signed-off-by: Chris Metcalf <cmetcalf@ezchip.com>
+---
+ drivers/net/ethernet/tile/tilegx.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Chris Metcalf (4):
-  tile: support arch_irq_work_raise
-  tile: support CONTEXT_TRACKING and thus NOHZ_FULL
-  nohz: add tick_nohz_full_clear_cpus() API
-  net: tile: don't send interrupts to nohz cores by default
-
- arch/tile/Kconfig                   |  1 +
- arch/tile/include/asm/Kbuild        |  1 -
- arch/tile/include/asm/irq_work.h    | 14 ++++++++++++++
- arch/tile/include/asm/smp.h         |  1 +
- arch/tile/include/asm/thread_info.h |  9 ++++++---
- arch/tile/kernel/process.c          | 12 ++++++++----
- arch/tile/kernel/ptrace.c           | 22 ++++++++++++++++++++--
- arch/tile/kernel/single_step.c      |  3 +++
- arch/tile/kernel/smp.c              | 32 +++++++++++++++++++++++++++++++-
- arch/tile/kernel/traps.c            | 16 +++++++++-------
- arch/tile/kernel/unaligned.c        | 22 +++++++++++++---------
- arch/tile/mm/fault.c                | 10 +++++++---
- drivers/net/ethernet/tile/tilegx.c  |  5 ++++-
- include/linux/tick.h                |  7 +++++++
- 14 files changed, 124 insertions(+), 31 deletions(-)
- create mode 100644 arch/tile/include/asm/irq_work.h
-
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index bea8cd2bb56c..cf9850c6a809 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -40,6 +40,7 @@
+ #include <linux/tcp.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_clock_kernel.h>
++#include <linux/tick.h>
+ 
+ #include <asm/checksum.h>
+ #include <asm/homecache.h>
+@@ -2271,8 +2272,10 @@ static int __init tile_net_init_module(void)
+ 	for (i = 0; gxio_mpipe_link_enumerate_mac(i, name, mac) >= 0; i++)
+ 		tile_net_dev_init(name, mac);
+ 
+-	if (!network_cpus_init())
++	if (!network_cpus_init()) {
+ 		network_cpus_map = *cpu_online_mask;
++		tick_nohz_full_clear_cpus(&network_cpus_map);
++	}
+ 
+ 	return 0;
+ }
 -- 
 2.1.2
