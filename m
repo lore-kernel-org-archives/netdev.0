@@ -1,96 +1,48 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: pull-request: wireless-drivers 2015-03-24
-Date: Tue, 24 Mar 2015 08:29:54 +0200
-Message-ID: <87h9tadi1p.fsf@kamboji.qca.qualcomm.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: ip addr add command generates error
+Date: Tue, 24 Mar 2015 10:09:01 +0200
+Message-ID: <20150324080901.GA724@angus-think.wlc.globallogic.com>
+References: <C5551D9AAB213A418B7FD5E4A6F30A0789291C3A@ORSMSX108.amr.corp.intel.com>
+ <5510AC1A.7050507@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"vadim4j@gmail.com" <vadim4j@gmail.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:36068 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751665AbbCXIUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 04:20:55 -0400
+Received: by labe2 with SMTP id e2so77975498lab.3
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 01:20:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5510AC1A.7050507@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Mon, Mar 23, 2015 at 05:13:14PM -0700, roopa wrote:
+> On 3/23/15, 3:43 PM, Rose, Gregory V wrote:
+> >The 'ip addr add' command used to use the following syntax:
+> >
+> ># ip addr add 10.0.0.2/24 brd 10.0.0.255 dev <eth>
+> >
+> >However, attempts to use that same command syntax with the current iproute2 tip gives the following error:
+> >
+> >Error: an inet prefix is expected rather than "20.0.0.2/24"
+> >
+> >This seems like a bug.  The commit that introduces the issue is f3a2ddc124e09d3990b836e322ed39c76c35546e by Vadim Kochan.  Reverting this commit fixes the problem.
+> >
+> >Is this change deliberate?  It would break a lot of scripts if so.
+> >
+> 
+> looked like an unintended change. This was reported a few days back and I
+> hit this too in another context and a patch
+> https://patchwork.ozlabs.org/patch/451210/ is in the queue.
 
-here are few more fixes I would like to still get to 4.0 if possible,
-detailed info in the tag below. Please let me know if there are any
-problems.
+I apologize for this stupid mistake!
 
-Kalle
-
-The following changes since commit 3f1615340acea54e21f4b9d4d65921540dca84b2:
-
-  brcmfmac: Perform bound checking on vendor command buffer (2015-03-07 10:52:30 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-03-24
-
-for you to fetch changes up to 6ae4ccfee09efe5baa3951d1c1d27050a46a1469:
-
-  Merge tag 'iwlwifi-for-kalle-2014-03-22' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2015-03-23 06:43:43 +0200)
-
-----------------------------------------------------------------
-
-iwlwifi:
-
-* avoid panic with lots of IBSS stations
-* Fix dvm's behavior after suspend resume
-* Allow to keep connection after CSA failure
-* Remove a noisy by harmless WARN_ON
-* New device IDs
-
-rtlwifi:
-
-* fix IOMMU mapping leak in AP mode
-
-brcmfmac:
-
-* disable MBSS feature for BCM43362 to get AP mode working again
-
-ath9k:
-
-* disable Transmit Power Control (TPC) again due to regressions
-
-* fix beaconing issue with AP+STA setup
-
-----------------------------------------------------------------
-Arend van Spriel (1):
-      brcmfmac: disable MBSS feature for BCM43362
-
-Emmanuel Grumbach (2):
-      iwlwifi: dvm: drop VO packets when mac80211 tells us to
-      iwlwifi: dvm: run INIT firmware again upon .start()
-
-Felix Fietkau (2):
-      ath9k: fix tracking of enabled AP beacons
-      ath9k: disable TPC support again (for now)
-
-Johannes Berg (3):
-      iwlwifi: mvm: disconnect if CSA time event fails scheduling
-      iwlwifi: mvm: protect rate scaling against non-mvm IBSS stations
-      iwlwifi: mvm: remove WARN_ON for invalid BA notification
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2014-03-22' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-Larry Finger (1):
-      rtlwifi: Fix IOMMU mapping leak in AP mode
-
-Oren Givon (1):
-      iwlwifi: add new 3165 series PCI IDs
-
- drivers/net/wireless/ath/ath9k/beacon.c           |   20 ++++++++++-------
- drivers/net/wireless/ath/ath9k/common.h           |    2 +-
- drivers/net/wireless/ath/ath9k/hw.c               |    2 +-
- drivers/net/wireless/brcm80211/brcmfmac/feature.c |    3 ++-
- drivers/net/wireless/iwlwifi/dvm/dev.h            |    1 -
- drivers/net/wireless/iwlwifi/dvm/mac80211.c       |   17 ++++++++-------
- drivers/net/wireless/iwlwifi/dvm/ucode.c          |    5 -----
- drivers/net/wireless/iwlwifi/mvm/rs.c             |   24 +++++++++++++++++++--
- drivers/net/wireless/iwlwifi/mvm/time-event.c     |    2 ++
- drivers/net/wireless/iwlwifi/mvm/tx.c             |    6 ++++--
- drivers/net/wireless/iwlwifi/pcie/drv.c           |    6 ++++--
- drivers/net/wireless/rtlwifi/pci.c                |   12 ++++++++++-
- 12 files changed, 68 insertions(+), 32 deletions(-)
+Regards,
