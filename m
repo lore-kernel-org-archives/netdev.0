@@ -1,49 +1,29 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
-Date: Tue, 24 Mar 2015 18:06:28 +0100
-Message-ID: <20150324180628.278017fb@griffin>
-References: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
-	<20150324.130037.1897087027068811494.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] net: use for_each_netdev_safe() in
+ rtnl_group_changelink()
+Date: Tue, 24 Mar 2015 13:03:16 -0400 (EDT)
+Message-ID: <20150324.130316.1992586825650098426.davem@davemloft.net>
+References: <1427153469-32542-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1427157352.25985.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com, dcbw@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41364 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933070AbbCXRGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2015 13:06:34 -0400
-In-Reply-To: <20150324.130037.1897087027068811494.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37620 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964778AbbCXRDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 13:03:17 -0400
+In-Reply-To: <1427157352.25985.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Mar 2015 13:00:37 -0400 (EDT), David Miller wrote:
-> From: Jiri Benc <jbenc@redhat.com>
-> Date: Mon, 23 Mar 2015 22:10:19 +0100
-> 
-> > @@ -504,7 +504,8 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
-> >  
-> >  	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
-> >  		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
-> > -			ipvlan_ht_addr_del(addr, !dev->dismantle);
-> > +			if (netif_running(dev))
-> > +				ipvlan_ht_addr_del(addr, !dev->dismantle);
-> >  			list_del_rcu(&addr->anode);
-> >  		}
-> >  	}
-> 
-> This is so error prone, because you are depending upon so many implementation
-> details to infer a boolean state "is this address hashed".
-> 
-> So just add the boolean state to struct ipvl_addr, and manage it in
-> the ipvlan_ht_addr_{add,del}() code.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 23 Mar 2015 17:35:52 -0700
 
-I had that originally but then decided to go with smaller memory
-footprint. Which obviously doesn't matter much here. I'll send v2 with
-the boolean state.
+> It seems this bug was added in commit e7ed828f10bd8, right ?
+> 
+> Fixes: e7ed828f10bd8 ("netlink: support setting devgroup parameters")
 
- Jiri
-
--- 
-Jiri Benc
+I added this to the commit message, thanks.
