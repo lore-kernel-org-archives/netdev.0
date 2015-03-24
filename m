@@ -1,40 +1,61 @@
 From: Varun Prakash <varun@chelsio.com>
-Subject: [PATCH 2/3] cxgb4: add cxgb4_fcoe.c for FCoE
-Date: Tue, 24 Mar 2015 19:14:46 +0530
-Message-ID: <1cc49d916480bd8c1804709719bc90e1c16ad8dc.1427199268.git.varun@chelsio.com>
+Subject: [PATCH 1/3] cxgb4: add cxgb4_fcoe.h and macro definitions for FCoE
+Date: Tue, 24 Mar 2015 19:14:45 +0530
+Message-ID: <53b7c0b7beb85b5f20755d50293f4818476a8659.1427199268.git.varun@chelsio.com>
 References: <cover.1427199268.git.varun@chelsio.com>
 Cc: davem@davemloft.net, JBottomley@parallels.com, leedom@chelsio.com,
 	anish@chelsio.com, hariprasad@chelsio.com, praveenm@chelsio.com,
 	varun@chelsio.com
 To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:7629 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752555AbbCXNqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:46:18 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <cover.1427199268.git.varun@chelsio.com>
 In-Reply-To: <cover.1427199268.git.varun@chelsio.com>
 References: <cover.1427199268.git.varun@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds cxgb4_fcoe.c and enables FCOE_CRC, FCOE_MTU
-net device features.
+This patch adds new header file cxgb4_fcoe.h and defines new
+macros for FCoE support in cxgb4 driver.
 
 Signed-off-by: Varun Prakash <varun@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c |  122 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    8 ++
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   74 +++++++++++++-
- 3 files changed, 201 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    7 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.h |   57 +++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   25 ++++++++++
+ 3 files changed, 89 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.h
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 4555634..bf46ca9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -387,6 +387,10 @@ struct sge_rspq;
+ 
+ #include "cxgb4_dcb.h"
+ 
++#ifdef CONFIG_CHELSIO_T4_FCOE
++#include "cxgb4_fcoe.h"
++#endif /* CONFIG_CHELSIO_T4_FCOE */
++
+ struct port_info {
+ 	struct adapter *adapter;
+ 	u16    viid;
+@@ -406,6 +410,9 @@ struct port_info {
+ #ifdef CONFIG_CHELSIO_T4_DCB
+ 	struct port_dcb_info dcb;     /* Data Center Bridging support */
+ #endif
++#ifdef CONFIG_CHELSIO_T4_FCOE
++	struct cxgb_fcoe fcoe;
++#endif /* CONFIG_CHELSIO_T4_FCOE */
+ };
+ 
+ struct dentry;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.h
 new file mode 100644
-index 0000000..062d3c0
+index 0000000..bf9258a
 --- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c
-@@ -0,0 +1,122 @@
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.h
+@@ -0,0 +1,57 @@
 +/*
 + * This file is part of the Chelsio T4 Ethernet driver for Linux.
 + *
@@ -69,252 +90,79 @@ index 0000000..062d3c0
 + * SOFTWARE.
 + */
 +
++#ifndef __CXGB4_FCOE_H__
++#define __CXGB4_FCOE_H__
++
 +#ifdef CONFIG_CHELSIO_T4_FCOE
 +
-+#include <scsi/fc/fc_fs.h>
-+#include <scsi/libfcoe.h>
-+#include "cxgb4.h"
++#define CXGB_FCOE_TXPKT_CSUM_START	28
++#define CXGB_FCOE_TXPKT_CSUM_END	8
 +
-+bool cxgb_fcoe_sof_eof_supported(struct adapter *adap, struct sk_buff *skb)
-+{
-+	struct fcoe_hdr *fcoeh = (struct fcoe_hdr *)skb_network_header(skb);
-+	u8 sof = fcoeh->fcoe_sof;
-+	u8 eof = 0;
++/* fcoe flags */
++enum {
++	CXGB_FCOE_ENABLED     = (1 << 0),
++};
 +
-+	if ((sof != FC_SOF_I3) && (sof != FC_SOF_N3)) {
-+		dev_err(adap->pdev_dev, "Unsupported SOF 0x%x\n", sof);
-+		return 0;
-+	}
++struct cxgb_fcoe {
++	u8	flags;
++};
 +
-+	skb_copy_bits(skb, skb->len - 4, &eof, 1);
++int cxgb_fcoe_enable(struct net_device *);
++int cxgb_fcoe_disable(struct net_device *);
++bool cxgb_fcoe_sof_eof_supported(struct adapter *, struct sk_buff *);
 +
-+	if ((eof != FC_EOF_N) && (eof != FC_EOF_T)) {
-+		dev_err(adap->pdev_dev, "Unsupported EOF 0x%x\n", eof);
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+/**
-+ * cxgb_fcoe_enable - enable FCoE offload features
-+ * @netdev: net device
-+ *
-+ * Returns 0 on success or -EINVAL on failure.
-+ */
-+int cxgb_fcoe_enable(struct net_device *netdev)
-+{
-+	struct port_info *pi = netdev_priv(netdev);
-+	struct adapter *adap = pi->adapter;
-+	struct cxgb_fcoe *fcoe = &pi->fcoe;
-+
-+	if (is_t4(adap->params.chip))
-+		return -EINVAL;
-+
-+	if (!(adap->flags & FULL_INIT_DONE))
-+		return -EINVAL;
-+
-+	dev_info(adap->pdev_dev, "Enabling FCoE offload features\n");
-+
-+	netdev->features |= NETIF_F_FCOE_CRC;
-+	netdev->vlan_features |= NETIF_F_FCOE_CRC;
-+	netdev->features |= NETIF_F_FCOE_MTU;
-+	netdev->vlan_features |= NETIF_F_FCOE_MTU;
-+
-+	netdev_features_change(netdev);
-+
-+	fcoe->flags |= CXGB_FCOE_ENABLED;
-+
-+	return 0;
-+}
-+
-+/**
-+ * cxgb_fcoe_disable - disable FCoE offload
-+ * @netdev: net device
-+ *
-+ * Returns 0 on success or -EINVAL on failure.
-+ */
-+int cxgb_fcoe_disable(struct net_device *netdev)
-+{
-+	struct port_info *pi = netdev_priv(netdev);
-+	struct adapter *adap = pi->adapter;
-+	struct cxgb_fcoe *fcoe = &pi->fcoe;
-+
-+	if (!(fcoe->flags & CXGB_FCOE_ENABLED))
-+		return -EINVAL;
-+
-+	dev_info(adap->pdev_dev, "Disabling FCoE offload features\n");
-+
-+	fcoe->flags &= ~CXGB_FCOE_ENABLED;
-+
-+	netdev->features &= ~NETIF_F_FCOE_CRC;
-+	netdev->vlan_features &= ~NETIF_F_FCOE_CRC;
-+	netdev->features &= ~NETIF_F_FCOE_MTU;
-+	netdev->vlan_features &= ~NETIF_F_FCOE_MTU;
-+
-+	netdev_features_change(netdev);
-+
-+	return 0;
-+}
 +#endif /* CONFIG_CHELSIO_T4_FCOE */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index dd4b2da..e40e283 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1271,6 +1271,10 @@ static u16 cxgb_select_queue(struct net_device *dev, struct sk_buff *skb,
- 			txq = 0;
- 		} else {
- 			txq = (vlan_tci & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+			if (skb->protocol == htons(ETH_P_FCOE))
-+				txq = skb->priority & 0x7;
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
- 		}
- 		return txq;
- 	}
-@@ -4578,6 +4582,10 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller  = cxgb_netpoll,
- #endif
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+	.ndo_fcoe_enable      = cxgb_fcoe_enable,
-+	.ndo_fcoe_disable     = cxgb_fcoe_disable,
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	.ndo_busy_poll        = cxgb_busy_poll,
- #endif
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index b4b9f60..c46e7a9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -46,6 +46,9 @@
- #ifdef CONFIG_NET_RX_BUSY_POLL
- #include <net/busy_poll.h>
- #endif /* CONFIG_NET_RX_BUSY_POLL */
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+#include <scsi/fc/fc_fcoe.h>
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
- #include "cxgb4.h"
- #include "t4_regs.h"
- #include "t4_values.h"
-@@ -1044,6 +1047,38 @@ static inline void txq_advance(struct sge_txq *q, unsigned int n)
- 		q->pidx -= q->size;
- }
++#endif /* __CXGB4_FCOE_H__ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 0fb975e..30a2f56 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -794,6 +794,14 @@ struct cpl_rx_pkt {
+ 	__be16 err_vec;
+ };
  
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+static inline int
-+cxgb_fcoe_offload(struct sk_buff *skb, struct adapter *adap,
-+		  const struct port_info *pi, u64 *cntrl)
-+{
-+	const struct cxgb_fcoe *fcoe = &pi->fcoe;
++#define RXF_PSH_S    20
++#define RXF_PSH_V(x) ((x) << RXF_PSH_S)
++#define RXF_PSH_F    RXF_PSH_V(1U)
 +
-+	if (!(fcoe->flags & CXGB_FCOE_ENABLED))
-+		return 0;
++#define RXF_SYN_S    21
++#define RXF_SYN_V(x) ((x) << RXF_SYN_S)
++#define RXF_SYN_F    RXF_SYN_V(1U)
 +
-+	if (skb->protocol != htons(ETH_P_FCOE))
-+		return 0;
-+
-+	skb_reset_mac_header(skb);
-+	skb->mac_len = sizeof(struct ethhdr);
-+
-+	skb_set_network_header(skb, skb->mac_len);
-+	skb_set_transport_header(skb, skb->mac_len + sizeof(struct fcoe_hdr));
-+
-+	if (!cxgb_fcoe_sof_eof_supported(adap, skb))
-+		return -ENOTSUPP;
-+
-+	/* FC CRC offload */
-+	*cntrl = TXPKT_CSUM_TYPE(TX_CSUM_FCOE) |
-+		     TXPKT_L4CSUM_DIS | TXPKT_IPCSUM_DIS |
-+		     TXPKT_CSUM_START(CXGB_FCOE_TXPKT_CSUM_START) |
-+		     TXPKT_CSUM_END(CXGB_FCOE_TXPKT_CSUM_END) |
-+		     TXPKT_CSUM_LOC(CXGB_FCOE_TXPKT_CSUM_END);
-+	return 0;
-+}
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
-+
- /**
-  *	t4_eth_xmit - add a packet to an Ethernet Tx queue
-  *	@skb: the packet
-@@ -1066,6 +1101,9 @@ netdev_tx_t t4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	const struct skb_shared_info *ssi;
- 	dma_addr_t addr[MAX_SKB_FRAGS + 1];
- 	bool immediate = false;
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+	int err;
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
+ #define RXF_UDP_S    22
+ #define RXF_UDP_V(x) ((x) << RXF_UDP_S)
+ #define RXF_UDP_F    RXF_UDP_V(1U)
+@@ -810,6 +818,18 @@ struct cpl_rx_pkt {
+ #define RXF_IP6_V(x) ((x) << RXF_IP6_S)
+ #define RXF_IP6_F    RXF_IP6_V(1U)
  
- 	/*
- 	 * The chip min packet length is 10 octets but play safe and reject
-@@ -1082,6 +1120,13 @@ out_free:	dev_kfree_skb_any(skb);
- 	q = &adap->sge.ethtxq[qidx + pi->first_qset];
- 
- 	reclaim_completed_tx(adap, &q->q, true);
-+	cntrl = TXPKT_L4CSUM_DIS | TXPKT_IPCSUM_DIS;
++#define RXF_SYN_COOKIE_S    26
++#define RXF_SYN_COOKIE_V(x) ((x) << RXF_SYN_COOKIE_S)
++#define RXF_SYN_COOKIE_F    RXF_SYN_COOKIE_V(1U)
 +
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+	err = cxgb_fcoe_offload(skb, adap, pi, &cntrl);
-+	if (unlikely(err == -ENOTSUPP))
-+		goto out_free;
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
- 
- 	flits = calc_tx_flits(skb);
- 	ndesc = flits_to_desc(flits);
-@@ -1153,13 +1198,17 @@ out_free:	dev_kfree_skb_any(skb);
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			cntrl = hwcsum(skb) | TXPKT_IPCSUM_DIS;
- 			q->tx_cso++;
--		} else
--			cntrl = TXPKT_L4CSUM_DIS | TXPKT_IPCSUM_DIS;
-+		}
- 	}
- 
- 	if (skb_vlan_tag_present(skb)) {
- 		q->vlan_ins++;
- 		cntrl |= TXPKT_VLAN_VLD | TXPKT_VLAN(skb_vlan_tag_get(skb));
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+		if (skb->protocol == htons(ETH_P_FCOE))
-+			cntrl |= TXPKT_VLAN(
-+				 ((skb->priority & 0x7) << VLAN_PRIO_SHIFT));
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
- 	}
- 
- 	cpl->ctrl0 = htonl(TXPKT_OPCODE(CPL_TX_PKT_XT) |
-@@ -1759,6 +1808,9 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 	struct sge *s = &q->adap->sge;
- 	int cpl_trace_pkt = is_t4(q->adap->params.chip) ?
- 			    CPL_TRACE_PKT : CPL_TRACE_PKT_T5;
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+	struct port_info *pi;
-+#endif
- 
- 	if (unlikely(*(u8 *)rsp == cpl_trace_pkt))
- 		return handle_trace_pkt(q->adap, si);
-@@ -1799,8 +1851,24 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 			skb->ip_summed = CHECKSUM_COMPLETE;
- 			rxq->stats.rx_cso++;
- 		}
--	} else
-+	} else {
- 		skb_checksum_none_assert(skb);
-+#ifdef CONFIG_CHELSIO_T4_FCOE
-+#define CPL_RX_PKT_FLAGS (RXF_PSH_F | RXF_SYN_F | RXF_UDP_F | \
-+			  RXF_TCP_F | RXF_IP_F | RXF_IP6_F | RXF_LRO_F)
++#define RXF_FCOE_S    26
++#define RXF_FCOE_V(x) ((x) << RXF_FCOE_S)
++#define RXF_FCOE_F    RXF_FCOE_V(1U)
 +
-+		pi = netdev_priv(skb->dev);
-+		if (!(pkt->l2info & cpu_to_be32(CPL_RX_PKT_FLAGS))) {
-+			if ((pkt->l2info & cpu_to_be32(RXF_FCOE_F)) &&
-+			    (pi->fcoe.flags & CXGB_FCOE_ENABLED)) {
-+				if (!(pkt->err_vec & cpu_to_be16(RXERR_CSUM_F)))
-+					skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			}
-+		}
++#define RXF_LRO_S    27
++#define RXF_LRO_V(x) ((x) << RXF_LRO_S)
++#define RXF_LRO_F    RXF_LRO_V(1U)
 +
-+#undef CPL_RX_PKT_FLAGS
-+#endif /* CONFIG_CHELSIO_T4_FCOE */
-+	}
+ /* rx_pkt.l2info fields */
+ #define RX_ETHHDR_LEN_S    0
+ #define RX_ETHHDR_LEN_M    0x1F
+@@ -846,6 +866,11 @@ struct cpl_rx_pkt {
+ #define RX_IPHDR_LEN_V(x) ((x) << RX_IPHDR_LEN_S)
+ #define RX_IPHDR_LEN_G(x) (((x) >> RX_IPHDR_LEN_S) & RX_IPHDR_LEN_M)
  
- 	if (unlikely(pkt->vlan_ex)) {
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
++/* rx_pkt.err_vec fields */
++#define RXERR_CSUM_S    13
++#define RXERR_CSUM_V(x) ((x) << RXERR_CSUM_S)
++#define RXERR_CSUM_F    RXERR_CSUM_V(1U)
++
+ struct cpl_trace_pkt {
+ 	u8 opcode;
+ 	u8 intf;
 -- 
 1.7.1
+
