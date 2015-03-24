@@ -1,102 +1,265 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v7 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-Date: Tue, 24 Mar 2015 15:05:44 +0200
-Message-ID: <1427202346-12502-6-git-send-email-vladz@cloudius-systems.com>
-References: <1427202346-12502-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:34194 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347AbbCXNGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:06:00 -0400
-Received: by wegp1 with SMTP id p1so162763511weg.1
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 06:05:59 -0700 (PDT)
-In-Reply-To: <1427202346-12502-1-git-send-email-vladz@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
+Subject: [RFC PATCH 00/11] an introduction of library operating system for Linux (LibOS)
+Date: Tue, 24 Mar 2015 22:10:31 +0900
+Message-ID: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>
+Cc: Hajime Tazaki <tazaki@sfc.wide.ad.jp>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Jhristoph Lameter <cl@linux.com>,
+	Jekka Enberg <penberg@kernel.org>,
+	Javid Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Jndrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org,
+	linux-mm@kvack.org,
+	Jeff Dike <jdike@addtoit.com>,
+	Richard Weinberger <richard@nod.at>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Mathieu Lacage <mathieu.lacage@gmail.com>
+To: linux-arch@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
-the same RSS key for all VFs.
+This is an introduction of library operating system (LibOS) for Linux.
 
-x550 on the other hand has a separate RSS Key for every pool.
+Our objective is to build the kernel network stack as a shared library
+that can be linked to by userspace programs to provide network stack
+personalization and testing facilities, and allow researchers to more
+easily simulate complex network topologies of linux routers/hosts.
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v5:
-   - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
-     basis.
+Although the architecture itself can virtualize various things, the
+current design only focuses on the network stack. You can benefit
+network stack feature such as TCP, UDP, SCTP, DCCP (IPv4 and IPv6),
+Mobie IPv6, Multipath TCP (IPv4/IPv6, out-of-tree at the present
+moment), and netlink with various userspace applications (quagga,
+iproute2, iperf, wget, and thttpd).
 
-New in v3:
-   - Added a support for x550 devices.
+== What is LibOS ? ==
 
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbe_get_vf_rss_key()).
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
+The library exposes an entry point as API, which is lib_init(), in
+order to connect userspace applications to the (userspace-version)
+kernel network stack. The clock source, virtual struct net_device, and
+scheduler are provided by caller while kernel resource like system
+calls is provided by callee.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index f9b5eae..3f14373 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -105,6 +105,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
- #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
- 
-+#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 301bb1b..78517a1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -1016,6 +1016,30 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- 	return 0;
- }
- 
-+static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
-+				u32 *msgbuf, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+	u32 *rss_key = &msgbuf[1];
-+
-+	/* verify the PF is supporting the correct API */
-+	if (!adapter->vfinfo[vf].rss_query_enabled ||
-+	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
-+		return -EPERM;
-+
-+	/* Read the RSS KEY */
-+	if (hw->mac.type >= ixgbe_mac_X550) {
-+		for (i = 0; i < 10; i++)
-+			rss_key[i] = IXGBE_READ_REG(hw,
-+						IXGBE_PFVFRSSRK(i, vf));
-+	} else
-+		for (i = 0; i < 10; i++)
-+			rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1075,6 +1099,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_RETA:
- 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_GET_RSS_KEY:
-+		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
+Once the LibOS is initialized via the API, userspace applications with
+POSIX socket can use the system calls defined in LibOS by replacing
+from the original socket-related symbols to the LibOS-specific
+one. Then application can benefit the network stack of LibOS without
+involving the host network stack.
+
+Currently, there are two users of LibOS: Network Stack in Userspace
+(NUSE) and ns-3 network simulatior with Direct Code Execution
+(DCE). These codes are managed at an external repository(*1).
+
+
+== How to use it ? ==
+
+to build the library,
+% make {defconfig,menuconfig} ARCH=lib
+
+then, build it.
+% make library ARCH=lib
+
+You will see liblinux-$(KERNELVERSION).so in the top directory.
+
+== More information ==
+
+The crucial difference between UML (user-mode linux) and this approach
+is that we allow multiple network stack instances to co-exist within a
+single process with dlmopen(3) like linking for easy debugging.
+
+
+These patches are also available on this branch:
+
+git://github.com/libos-nuse/net-next-nuse.git for-asm-upstream
+
+
+For further information, here is a slideset presented at the last
+netdev0.1 conference.
+
+http://www.slideshare.net/hajimetazaki/library-operating-system-for-linux-netdev01
+
+I would appreciate any kind of your feedback regarding to upstream
+this feature.
+
+*1 https://github.com/libos-nuse/linux-libos-tools
+
+
+Hajime Tazaki (11):
+  sysctl: make some functions unstatic to access by arch/lib
+  slab: add private memory allocator header for arch/lib
+  lib: public headers and API implementations for userspace programs
+  lib: memory management (kernel glue code)
+  lib: time handling (kernel glue code)
+  lib: context and scheduling handling (kernel glue code)
+  lib: sysctl handling (kernel glue code)
+  lib: other kernel glue layer code
+  lib: asm-generic files
+  lib: libos build scripts and documentation
+  lib: tools used for test scripts
+
+ Documentation/virtual/libos-howto.txt | 143 ++++++++
+ MAINTAINERS                           |   9 +
+ arch/lib/.gitignore                   |   8 +
+ arch/lib/Kconfig                      | 121 +++++++
+ arch/lib/Makefile                     | 248 +++++++++++++
+ arch/lib/Makefile.print               |  44 +++
+ arch/lib/cred.c                       |  16 +
+ arch/lib/dcache.c                     |  93 +++++
+ arch/lib/defconfig                    | 653 ++++++++++++++++++++++++++++++++++
+ arch/lib/filemap.c                    |  27 ++
+ arch/lib/fs.c                         | 287 +++++++++++++++
+ arch/lib/generate-linker-script.py    |  50 +++
+ arch/lib/glue.c                       | 336 +++++++++++++++++
+ arch/lib/hrtimer.c                    | 122 +++++++
+ arch/lib/include/asm/Kbuild           |  55 +++
+ arch/lib/include/asm/atomic.h         |  47 +++
+ arch/lib/include/asm/barrier.h        |   8 +
+ arch/lib/include/asm/bitsperlong.h    |  12 +
+ arch/lib/include/asm/current.h        |   7 +
+ arch/lib/include/asm/elf.h            |  10 +
+ arch/lib/include/asm/hardirq.h        |   8 +
+ arch/lib/include/asm/page.h           |  14 +
+ arch/lib/include/asm/pgtable.h        |  30 ++
+ arch/lib/include/asm/processor.h      |  19 +
+ arch/lib/include/asm/ptrace.h         |   4 +
+ arch/lib/include/asm/segment.h        |   6 +
+ arch/lib/include/asm/sembuf.h         |   4 +
+ arch/lib/include/asm/shmbuf.h         |   4 +
+ arch/lib/include/asm/shmparam.h       |   4 +
+ arch/lib/include/asm/sigcontext.h     |   6 +
+ arch/lib/include/asm/slab.h           |  21 ++
+ arch/lib/include/asm/stat.h           |   4 +
+ arch/lib/include/asm/statfs.h         |   4 +
+ arch/lib/include/asm/swab.h           |   7 +
+ arch/lib/include/asm/thread_info.h    |  35 ++
+ arch/lib/include/asm/uaccess.h        |  14 +
+ arch/lib/include/asm/unistd.h         |   4 +
+ arch/lib/include/sim-assert.h         |  23 ++
+ arch/lib/include/sim-init.h           | 134 +++++++
+ arch/lib/include/sim-printf.h         |  13 +
+ arch/lib/include/sim-types.h          |  53 +++
+ arch/lib/include/sim.h                |  51 +++
+ arch/lib/include/uapi/asm/byteorder.h |   6 +
+ arch/lib/inode.c                      | 146 ++++++++
+ arch/lib/lib-device.c                 | 187 ++++++++++
+ arch/lib/lib-socket.c                 | 410 +++++++++++++++++++++
+ arch/lib/lib.c                        | 289 +++++++++++++++
+ arch/lib/lib.h                        |  21 ++
+ arch/lib/modules.c                    |  36 ++
+ arch/lib/pid.c                        |  29 ++
+ arch/lib/print.c                      |  56 +++
+ arch/lib/proc.c                       | 164 +++++++++
+ arch/lib/processor.mk                 |   7 +
+ arch/lib/random.c                     |  53 +++
+ arch/lib/sched.c                      | 365 +++++++++++++++++++
+ arch/lib/security.c                   |  45 +++
+ arch/lib/seq.c                        | 122 +++++++
+ arch/lib/slab.c                       | 200 +++++++++++
+ arch/lib/softirq.c                    | 104 ++++++
+ arch/lib/splice.c                     |  20 ++
+ arch/lib/super.c                      | 210 +++++++++++
+ arch/lib/sysctl.c                     | 284 +++++++++++++++
+ arch/lib/sysfs.c                      |  83 +++++
+ arch/lib/tasklet-hrtimer.c            |  57 +++
+ arch/lib/tasklet.c                    |  76 ++++
+ arch/lib/time.c                       | 149 ++++++++
+ arch/lib/timer.c                      | 230 ++++++++++++
+ arch/lib/vmscan.c                     |  26 ++
+ arch/lib/workqueue.c                  | 242 +++++++++++++
+ fs/proc/proc_sysctl.c                 |  16 +-
+ include/linux/slab.h                  |  12 +
+ tools/testing/libos/.gitignore        |   6 +
+ tools/testing/libos/Makefile          |  38 ++
+ tools/testing/libos/README            |  15 +
+ tools/testing/libos/bisect.sh         |  10 +
+ tools/testing/libos/dce-test.sh       |  23 ++
+ tools/testing/libos/nuse-test.sh      |  57 +++
+ 77 files changed, 6544 insertions(+), 8 deletions(-)
+ create mode 100644 Documentation/virtual/libos-howto.txt
+ create mode 100644 arch/lib/.gitignore
+ create mode 100644 arch/lib/Kconfig
+ create mode 100644 arch/lib/Makefile
+ create mode 100644 arch/lib/Makefile.print
+ create mode 100644 arch/lib/cred.c
+ create mode 100644 arch/lib/dcache.c
+ create mode 100644 arch/lib/defconfig
+ create mode 100644 arch/lib/filemap.c
+ create mode 100644 arch/lib/fs.c
+ create mode 100755 arch/lib/generate-linker-script.py
+ create mode 100644 arch/lib/glue.c
+ create mode 100644 arch/lib/hrtimer.c
+ create mode 100644 arch/lib/include/asm/Kbuild
+ create mode 100644 arch/lib/include/asm/atomic.h
+ create mode 100644 arch/lib/include/asm/barrier.h
+ create mode 100644 arch/lib/include/asm/bitsperlong.h
+ create mode 100644 arch/lib/include/asm/current.h
+ create mode 100644 arch/lib/include/asm/elf.h
+ create mode 100644 arch/lib/include/asm/hardirq.h
+ create mode 100644 arch/lib/include/asm/page.h
+ create mode 100644 arch/lib/include/asm/pgtable.h
+ create mode 100644 arch/lib/include/asm/processor.h
+ create mode 100644 arch/lib/include/asm/ptrace.h
+ create mode 100644 arch/lib/include/asm/segment.h
+ create mode 100644 arch/lib/include/asm/sembuf.h
+ create mode 100644 arch/lib/include/asm/shmbuf.h
+ create mode 100644 arch/lib/include/asm/shmparam.h
+ create mode 100644 arch/lib/include/asm/sigcontext.h
+ create mode 100644 arch/lib/include/asm/slab.h
+ create mode 100644 arch/lib/include/asm/stat.h
+ create mode 100644 arch/lib/include/asm/statfs.h
+ create mode 100644 arch/lib/include/asm/swab.h
+ create mode 100644 arch/lib/include/asm/thread_info.h
+ create mode 100644 arch/lib/include/asm/uaccess.h
+ create mode 100644 arch/lib/include/asm/unistd.h
+ create mode 100644 arch/lib/include/sim-assert.h
+ create mode 100644 arch/lib/include/sim-init.h
+ create mode 100644 arch/lib/include/sim-printf.h
+ create mode 100644 arch/lib/include/sim-types.h
+ create mode 100644 arch/lib/include/sim.h
+ create mode 100644 arch/lib/include/uapi/asm/byteorder.h
+ create mode 100644 arch/lib/inode.c
+ create mode 100644 arch/lib/lib-device.c
+ create mode 100644 arch/lib/lib-socket.c
+ create mode 100644 arch/lib/lib.c
+ create mode 100644 arch/lib/lib.h
+ create mode 100644 arch/lib/modules.c
+ create mode 100644 arch/lib/pid.c
+ create mode 100644 arch/lib/print.c
+ create mode 100644 arch/lib/proc.c
+ create mode 100644 arch/lib/processor.mk
+ create mode 100644 arch/lib/random.c
+ create mode 100644 arch/lib/sched.c
+ create mode 100644 arch/lib/security.c
+ create mode 100644 arch/lib/seq.c
+ create mode 100644 arch/lib/slab.c
+ create mode 100644 arch/lib/softirq.c
+ create mode 100644 arch/lib/splice.c
+ create mode 100644 arch/lib/super.c
+ create mode 100644 arch/lib/sysctl.c
+ create mode 100644 arch/lib/sysfs.c
+ create mode 100644 arch/lib/tasklet-hrtimer.c
+ create mode 100644 arch/lib/tasklet.c
+ create mode 100644 arch/lib/time.c
+ create mode 100644 arch/lib/timer.c
+ create mode 100644 arch/lib/vmscan.c
+ create mode 100644 arch/lib/workqueue.c
+ create mode 100644 tools/testing/libos/.gitignore
+ create mode 100644 tools/testing/libos/Makefile
+ create mode 100644 tools/testing/libos/README
+ create mode 100755 tools/testing/libos/bisect.sh
+ create mode 100755 tools/testing/libos/dce-test.sh
+ create mode 100755 tools/testing/libos/nuse-test.sh
+
 -- 
 2.1.0
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
