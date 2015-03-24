@@ -1,45 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] tcp: listener refactor part 16
-Date: Tue, 24 Mar 2015 15:14:39 -0400 (EDT)
-Message-ID: <20150324.151439.133059567496002449.davem@davemloft.net>
-References: <1427171666-30585-1-git-send-email-edumazet@google.com>
-	<20150324.150257.1215806444155190560.davem@davemloft.net>
+Subject: Re: pull-request: wireless-drivers 2015-03-24
+Date: Tue, 24 Mar 2015 15:20:04 -0400 (EDT)
+Message-ID: <20150324.152004.1313468784884421685.davem@davemloft.net>
+References: <87h9tadi1p.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38678 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752467AbbCXTOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:14:41 -0400
-In-Reply-To: <20150324.150257.1215806444155190560.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kvalo@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87h9tadi1p.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyNCBN
-YXIgMjAxNSAxNTowMjo1NyAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1
-bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gRGF0ZTogTW9uLCAyMyBNYXIgMjAxNSAyMTozNDoyMiAtMDcw
-MA0KPiANCj4+IEkgYWRkZWQgY29uc3QgcXVhbGlmaWVycyB0byB2YXJpb3VzIG1kNSBtZXRob2Rz
-LCBhcyBJIGV4cGVjdA0KPj4gdG8gY2FsbCB0aGVtIG9uIGJlaGFsZiBvZiByZXF1ZXN0IHNvY2sg
-dHJhZmZpYyBldmVuIGlmDQo+PiB0aGUgbGlzdGVuZXIgc29ja2V0IGlzIG5vdCBsb2NrZWQuIFRo
-aXMgc2VlbXMgb2ssIGJ1dCBhZGRpbmcNCj4+IGNvbnN0IG1ha2VzIHRoZSBjb250cmFjdCBjbGVh
-cmVyLiBOb3RlIGEgZ29vZCByZWR1Y3Rpb24NCj4+IG9mIGNvZGUgc2l6ZSB0aGFua3MgdG8gcmVx
-dWVzdC9lc3RhYmxpc2ggc29ja2V0cyBjb252ZXJnZW5jZS4NCj4gDQo+IFNlcmllcyBhcHBsaWVk
-LCBrZWVwIHVwIHRoZSBnb29kIHdvcmsgRXJpYy4NCg0KQWN0dWFsbHksIEkgaGF2ZSB0byBiYWNr
-IHRoaXMgb3V0Lg0KDQpZb3UgY2FuJ3QgbWFyayBhbGwgb2YgdGhlc2UgdGhpbmdzIGNvbnN0LCBi
-ZWNhdXNlIG9mIGxvY2tkZXA6DQoNCmtlcm5lbC9NYWtlZmlsZToxMzM6ICoqKiBObyBYLjUwOSBj
-ZXJ0aWZpY2F0ZXMgZm91bmQgKioqDQpuZXQvaXB2NC90Y3BfaXB2NC5jOiBJbiBmdW5jdGlvbiCh
-dGNwX21kNV9kb19sb29rdXCiOg0KbmV0L2lwdjQvdGNwX2lwdjQuYzo5MDc6Mjogd2FybmluZzog
-cGFzc2luZyBhcmd1bWVudCAxIG9mIKFsb2NrX2lzX2hlbGSiIGRpc2NhcmRzIKFjb25zdKIgcXVh
-bGlmaWVyIGZyb20gcG9pbnRlciB0YXJnZXQgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KSW4g
-ZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUvbGludXgvc3BpbmxvY2tfdHlwZXMuaDoxODowLA0K
-ICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvc3BpbmxvY2suaDo4MSwNCiAgICAg
-ICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L3NlcWxvY2suaDozNSwNCiAgICAgICAgICAg
-ICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L3RpbWUuaDo1LA0KICAgICAgICAgICAgICAgICBmcm9t
-IGluY2x1ZGUvbGludXgvc3RhdC5oOjE4LA0KICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUv
-bGludXgvbW9kdWxlLmg6MTAsDQogICAgICAgICAgICAgICAgIGZyb20gbmV0L2lwdjQvdGNwX2lw
-djQuYzo1ODoNCmluY2x1ZGUvbGludXgvbG9ja2RlcC5oOjM0MToxMjogbm90ZTogZXhwZWN0ZWQg
-oXN0cnVjdCBsb2NrZGVwX21hcCAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChY29uc3Qgc3Ry
-dWN0IGxvY2tkZXBfbWFwICqiDQo=
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Date: Tue, 24 Mar 2015 08:29:54 +0200
+
+> here are few more fixes I would like to still get to 4.0 if possible,
+> detailed info in the tag below. Please let me know if there are any
+> problems.
+
+Pulled, thanks Kalle.
