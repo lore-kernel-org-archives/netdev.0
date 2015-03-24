@@ -1,45 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: fix compile error when IPV6=m and TIPC=y
-Date: Tue, 24 Mar 2015 15:21:03 -0400 (EDT)
-Message-ID: <20150324.152103.1882579305066252346.davem@davemloft.net>
-References: <1427187561-25064-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] ipv6: fix sparse warnings in privacy stable
+ addresses generation
+Date: Tue, 24 Mar 2015 15:21:59 -0400 (EDT)
+Message-ID: <20150324.152159.44172822245737488.davem@davemloft.net>
+References: <2c4b658a420789137afca51f5249fd15022a9383.1427191441.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcelo.leitner@gmail.com, jon.maloy@ericsson.com,
-	Paul.Gortmaker@windriver.com, erik.hugne@ericsson.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38733 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38738 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752266AbbCXTVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:21:06 -0400
-In-Reply-To: <1427187561-25064-1-git-send-email-ying.xue@windriver.com>
+	with ESMTP id S1752146AbbCXTWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:22:01 -0400
+In-Reply-To: <2c4b658a420789137afca51f5249fd15022a9383.1427191441.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Tue, 24 Mar 2015 16:59:21 +0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 24 Mar 2015 11:05:28 +0100
 
-> When IPV6=m and TIPC=y, below error will appear during building kernel
-> image:
+> Those warnings reported by sparse endianness check (via kbuild test robot)
+> are harmless, nevertheless fix them up and make the code a little bit
+> easier to read.
 > 
-> net/tipc/udp_media.c:196:
-> undefined reference to `ip6_dst_lookup'
-> make: *** [vmlinux] Error 1
-> 
-> As ip6_dst_lookup() is implemented in IPV6 and IPV6 is compiled as
-> module, ip6_dst_lookup() is not built-in core kernel image. As a
-> result, compiler cannot find 'ip6_dst_lookup' reference while
-> compiling TIPC code into core kernel image.
-> 
-> But with the method introduced by commit 5f81bd2e5d80 ("ipv6: export a
-> stub for IPv6 symbols used by vxlan"), we can avoid the compile error
-> through "ipv6_stub" pointer to access ip6_dst_lookup().
-> 
-> Fixes: d0f91938bede ("tipc: add ip/udp media type")
-> Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Fixes: 622c81d57b392cc ("ipv6: generation of stable privacy addresses for link-local and autoconf")
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
 Applied.
