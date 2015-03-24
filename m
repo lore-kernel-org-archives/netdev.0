@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 23 Mar 2015 23:00:03 -0400 (EDT)
-Message-ID: <20150323.230003.1242651745820752377.davem@davemloft.net>
-References: <20150324134508.77b039a9@canb.auug.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v1 PATCH 9/10] rhashtable: Allow GFP_ATOMIC bucket table
+ allocation
+Date: Tue, 24 Mar 2015 14:09:13 +1100
+Message-ID: <20150324030913.GA8184@gondor.apana.org.au>
+References: <20150322075300.GA2441@gondor.apana.org.au>
+ <E1YZahk-0000jW-Ry@gondolin.me.apana.org.au>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB077F0@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, viro@ZenIV.linux.org.uk,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	hch@lst.de, tadeusz.struk@intel.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150324134508.77b039a9@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:56788 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752266AbbCXDJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 23:09:43 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB077F0@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 24 Mar 2015 13:45:08 +1100
+On Mon, Mar 23, 2015 at 12:53:11PM +0000, David Laight wrote:
+>
+> Given the lock is only used for insert and delete, I'm also not at
+> all clear why you allocate 128 locks per cpu for very large tables.
+> With the locks in their own array I don't think there can be 'false
+> sharing', the worst than can happen is two cpus spinning on locks
+> in the same cache line.
 
-> After merging the net-next tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
-> 
-> crypto/algif_skcipher.c: In function 'skcipher_async_cb':
-> crypto/algif_skcipher.c:109:2: error: implicit declaration of function 'aio_complete' [-Werror=implicit-function-declaration]
->   aio_complete(iocb, err, err);
->   ^
-> 
-> Caused by commit a596999b7ddf ("crypto: algif - change algif_skcipher
-> to be asynchronous") interacting with commit 04b2fa9f8f36 ("fs: split
-> generic and aio kiocb") from the vfs tree.
-> 
-> I applied the following merge fix patch (which gets it building, but I
-> am not sure if more is needed).
+Personally I'm totally against Bucket locks.  If you have a
+scalability problem you really need to solve them at a higher
+level, e.g., multiqueue transmission in networking.  Bucket
+locks are simply kicking the can down the road, it'll come back
+to bite you sooner or later in terms of scalability.
 
-Ok, more conflicts wiht Al's vfs work.
+So no I'm not going to waste my time fixing up something that
+in my opinion shouldn't even exist :)
 
-This is starting to pile on, heavily...
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
