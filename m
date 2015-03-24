@@ -1,61 +1,131 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [v1 PATCH 9/10] rhashtable: Allow GFP_ATOMIC bucket table
- allocation
-Date: Mon, 23 Mar 2015 21:24:11 -0700
-Message-ID: <1427171051.25985.94.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150322075300.GA2441@gondor.apana.org.au>
-	 <E1YZahk-0000jW-Ry@gondolin.me.apana.org.au>
-	 <063D6719AE5E284EB5DD2968C1650D6D1CB077F0@AcuExch.aculab.com>
-	 <20150324030913.GA8184@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 2/4] tcp: md5: input path is run under rcu protected sections
+Date: Mon, 23 Mar 2015 21:34:24 -0700
+Message-ID: <1427171666-30585-3-git-send-email-edumazet@google.com>
+References: <1427171666-30585-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37018 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921AbbCXEYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 00:24:14 -0400
-Received: by igcqo1 with SMTP id qo1so57264912igc.0
-        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 21:24:13 -0700 (PDT)
-In-Reply-To: <20150324030913.GA8184@gondor.apana.org.au>
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:34158 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328AbbCXEen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 00:34:43 -0400
+Received: by yhaf10 with SMTP id f10so3600581yha.1
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 21:34:42 -0700 (PDT)
+In-Reply-To: <1427171666-30585-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-03-24 at 14:09 +1100, Herbert Xu wrote:
-> On Mon, Mar 23, 2015 at 12:53:11PM +0000, David Laight wrote:
-> >
-> > Given the lock is only used for insert and delete, I'm also not at
-> > all clear why you allocate 128 locks per cpu for very large tables.
-> > With the locks in their own array I don't think there can be 'false
-> > sharing', the worst than can happen is two cpus spinning on locks
-> > in the same cache line.
-> 
-> Personally I'm totally against Bucket locks.  If you have a
-> scalability problem you really need to solve them at a higher
-> level, e.g., multiqueue transmission in networking.  Bucket
-> locks are simply kicking the can down the road, it'll come back
-> to bite you sooner or later in terms of scalability.
+It is guaranteed that both tcp_v4_rcv() and tcp_v6_rcv()
+run from rcu read locked sections :
 
+ip_local_deliver_finish() and ip6_input_finish() both
+use rcu_read_lock()
 
-Well, keep in mind a lock can be very big with LOCKDEP.
+Also align tcp_v6_inbound_md5_hash() on tcp_v4_inbound_md5_hash()
+by returning a boolean.
 
-One lock per bucket is totally overkill.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_ipv4.c | 17 +++--------------
+ net/ipv6/tcp_ipv6.c | 25 ++++++-------------------
+ 2 files changed, 9 insertions(+), 33 deletions(-)
 
-A hash array of locks is a good compromise.
-
-128 locks per cpu is also a good compromise, because one cache line can
-hold 16 locks.
-
-Number of locks has nothing to do with number of buckets,
-unless you have unlimited memory and can afford one lock per bucket,
-and don't care of memory thrashing when dumping whole hash table.
-
-I thought this kind of solution was well understood among network
-developers.
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4e90217003e8..d339a0488f51 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1153,8 +1153,9 @@ clear_hash_noput:
+ }
+ EXPORT_SYMBOL(tcp_v4_md5_hash_skb);
+ 
+-static bool __tcp_v4_inbound_md5_hash(struct sock *sk,
+-				      const struct sk_buff *skb)
++/* Called with rcu_read_lock() */
++static bool tcp_v4_inbound_md5_hash(struct sock *sk,
++				    const struct sk_buff *skb)
+ {
+ 	/*
+ 	 * This gets called for each TCP segment that arrives
+@@ -1206,18 +1207,6 @@ static bool __tcp_v4_inbound_md5_hash(struct sock *sk,
+ 	}
+ 	return false;
+ }
+-
+-static bool tcp_v4_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
+-{
+-	bool ret;
+-
+-	rcu_read_lock();
+-	ret = __tcp_v4_inbound_md5_hash(sk, skb);
+-	rcu_read_unlock();
+-
+-	return ret;
+-}
+-
+ #endif
+ 
+ static void tcp_v4_init_req(struct request_sock *req, struct sock *sk_listener,
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 4a4e6d30c448..078e7d0f4cd8 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -633,8 +633,7 @@ clear_hash_noput:
+ 	return 1;
+ }
+ 
+-static int __tcp_v6_inbound_md5_hash(struct sock *sk,
+-				     const struct sk_buff *skb)
++static bool tcp_v6_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
+ {
+ 	const __u8 *hash_location = NULL;
+ 	struct tcp_md5sig_key *hash_expected;
+@@ -648,16 +647,16 @@ static int __tcp_v6_inbound_md5_hash(struct sock *sk,
+ 
+ 	/* We've parsed the options - do we have a hash? */
+ 	if (!hash_expected && !hash_location)
+-		return 0;
++		return false;
+ 
+ 	if (hash_expected && !hash_location) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPMD5NOTFOUND);
+-		return 1;
++		return true;
+ 	}
+ 
+ 	if (!hash_expected && hash_location) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPMD5UNEXPECTED);
+-		return 1;
++		return true;
+ 	}
+ 
+ 	/* check the signature */
+@@ -670,22 +669,10 @@ static int __tcp_v6_inbound_md5_hash(struct sock *sk,
+ 				     genhash ? "failed" : "mismatch",
+ 				     &ip6h->saddr, ntohs(th->source),
+ 				     &ip6h->daddr, ntohs(th->dest));
+-		return 1;
++		return true;
+ 	}
+-	return 0;
+-}
+-
+-static int tcp_v6_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
+-{
+-	int ret;
+-
+-	rcu_read_lock();
+-	ret = __tcp_v6_inbound_md5_hash(sk, skb);
+-	rcu_read_unlock();
+-
+-	return ret;
++	return false;
+ }
+-
+ #endif
+ 
+ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
+-- 
+2.2.0.rc0.207.ga3a616c
