@@ -1,134 +1,93 @@
-From: "Zimmermann, Alexander" <Alexander.Zimmermann@netapp.com>
-Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link //
- Kernel issue
-Date: Tue, 24 Mar 2015 12:59:41 +0000
-Message-ID: <D7E2823C-9D9C-45F9-B276-CA4692A1A839@netapp.com>
-References: <201503210110.48980.wrosner@tirnet.de>
- <201503231005.02195.wrosner@tirnet.de>
- <8926B7EB-3EC1-404A-95BA-787DF248773E@netapp.com>
- <201503231454.57319.wrosner@tirnet.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wolfgang Rosner <wrosner@tirnet.de>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [PATCH net-next v7 0/7]: ixgbevf: Allow querying VFs RSS indirection table and key
+Date: Tue, 24 Mar 2015 15:05:39 +0200
+Message-ID: <1427202346-12502-1-git-send-email-vladz@cloudius-systems.com>
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx143.netapp.com ([216.240.21.24]:30374 "EHLO mx143.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752491AbbCXM7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Mar 2015 08:59:42 -0400
-In-Reply-To: <201503231454.57319.wrosner@tirnet.de>
-Content-Language: en-US
-Content-ID: <BF9740C98788104BA20A9F2286C3110A@hq.netapp.com>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:36207 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035AbbCXNFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:05:52 -0400
+Received: by wgra20 with SMTP id a20so170650307wgr.3
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 06:05:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgV29sZmdhbmcsDQoNCj4gQW0gMjMuMDMuMjAxNSB1bSAxNDo1NCBzY2hyaWViIFdvbGZnYW5n
-IFJvc25lciA8d3Jvc25lckB0aXJuZXQuZGU+Og0KPiANCj4gQW0gTW9udGFnLCAyMy4gTcOkcnog
-MjAxNSAxMDoyNTozMyBzY2hyaWViZW4gU2llOg0KPj4gSGkgV29sZmdhbmcsDQo+PiANCj4+PiBB
-bSAyMy4wMy4yMDE1IHVtIDEwOjA1IHNjaHJpZWIgV29sZmdhbmcgUm9zbmVyIDx3cm9zbmVyQHRp
-cm5ldC5kZT46DQo+Pj4gDQo+Pj4gQW0gTW9udGFnLCAyMy4gTcOkcnogMjAxNSAwMzozMzoxNyBz
-Y2hyaWViIEVyaWMgRHVtYXpldDoNCj4+Pj4gT24gTW9uLCAyMDE1LTAzLTIzIGF0IDAxOjU3ICsw
-MTAwLCBXb2xmZ2FuZyBSb3NuZXIgd3JvdGU6DQo+Pj4+PiBBcmUgeW91IHJlYWR5IHRvIGFzc2lz
-dCBtZSBvbiB0aGlzIHRyYWNrPw0KPj4+PiANCj4+Pj4gRmlyc3QgY2hlY2sgaWYgdGhlIHByb2Js
-ZW0gaXMgYWxyZWFkeSBzb2x2ZWQsIHVzaW5nIHRoaXMgZ2l0IHRyZWUgPw0KPj4+PiANCj4+Pj4g
-aHR0cDovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQuZ2l0
-DQo+Pj4gDQo+Pj4gSXMgaXQgT0sgdG8gdXNlIHRoaXMgMy4xOSB0YWc/DQo+Pj4gaHR0cHM6Ly9r
-ZXJuZWwuZ29vZ2xlc291cmNlLmNvbS9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0
-LmdpdC8rLw0KPj4+IHYzLjE5DQo+Pj4gDQo+Pj4gDQo+Pj4gSSBzZWUgdGhhdCBoZWFkIGlzIHY0
-LjAtcmM0DQo+Pj4gSSdtIGFmcmFpZCB0aGF0IHRoaXMgbWlnaHQgYnJlYWsgb3RoZXIgdGhpbmdz
-Lg0KPj4+IEkgdGhpbmsgb2YgYXVmcywgd2hpY2ggSSBuZWVkIHRvIGdldCBteSBjbGllbnRzIG5m
-c3Jvb3QgYm9vdGVkLg0KPj4gDQo+PiBwcm9iYWJseSB5b3UgY2FuIHRha2UgYSBsb29rIG9uIE92
-ZXJsYXlGUyAoaW5zdGVhZCBvZiBhdWZzKSB3aGljaA0KPj4gd2FzIGludHJvZHVjZWQgaW4ga2Vy
-bmVsIDMuMTgNCj4+IA0KPj4gQWxleA0KPiANCj4gDQo+IEhpIEFsZXgsDQo+IA0KPiBUaGFuayB5
-b3UgZm9yIHRoZSB0aXAuDQo+IEJ1dCBpZiBpdCBqdXN0IHdlcmUgdGhhdCBlYXN5IGFzIHRvIGhh
-dmUgYSBsb29rIGF0IGl0Li4uLg0KPiANCj4gQXMgZmFyIGFzIEkga25vdywgb3ZlcmxheWZzIG9u
-bHkgYWxsb3dzIHR3byBsYXllcnMsIHJpZ2h0Pw0KPiBTbyBmb3IgbW9yZSBjb21wbGV4IHRyZWVz
-LCBJIGNvdWxkIG1heWJlIHN0YWNrIHRoZW0gKHNvIEkgaG9wZSkuDQo+IA0KPiBUbyBkbyBzbywg
-YXQgbGVhc3QgSSBoYWQgdG8gcmVkZXNpZ24gbXkgY29tcGxldGUgc2NyaXB0IHdoaWNoIGJ1aWxk
-cyB0aGUgDQo+IG5mc3Jvb3QgbWltaWNzIGFzIHNob3duIGJlbG93Lg0KPiANCj4gQW5kIGFzIGZh
-ciBhcyBJIGNvdWxkIGZpZ3VyZSBvdXQsIHRoZSByZXByZXNlbnRhdGlvbiBvZiB3aGl0ZW91dHMg
-aXMgZGlmZmVyZW50IA0KPiBpbiBhdWZzIGFuZCBpbiBvdmVybGF5ZnMuIFNvIEkgY2Fubm5vdCBz
-aW1wbHkgdXNlIG15IGV4aXN0aW5nIGF1ZnMgYnJhbmNoZXMgDQo+IGFuZCBzdGFjayB0aGVtIGJ5
-IG92ZXJsYXlmcywgd2l0aG91dCBicmVha2luZyB0aGUgZmlsZS8gd2hpdGVvdXQgY29uc2lzdGVu
-Y3ksIA0KPiBvciBjYW4gST8NCj4gDQoNCnNvcnJ5IGFib3V0IHRoYXQsIGJ1dCBJ4oCZdmUgbm8g
-Y2x1ZS4gSSBnb3QgcmlkIG9mIHRoZSBvdmVybGF5IHN0dWZmIGxhc3QgeWVhci4NCkkgbmV0Ym9v
-dCBteSBkaXNrbGVzcyBtYWNoaW5lcyB2aWEgUFhFLCBORlMgcmVhZG9ubHkgKGV4cGVjdCBob21l
-KSwgYW5kIHRtcGZzIGZvciANCnRoZSByZXN0LiBUaGF04oCZcyBpdC4NCg0KPiANCj4gSG93ZXZl
-ciwgd2hlbiBtYWtpbmcgdGhlIGRlY2lzaW9uIGluIGZhdm91ciBvZiBhdWZzLCB0aGUgdWRiYSAo
-InVzZXIgZGlyZWN0IA0KPiBicmFuY2ggYWNjZXNzIikgZmVhdHVyZSAoYW5kIGxhY2sgdGhlcmVv
-ZiBpbiBvdmVybGF5ZnMpIHdhcyB0aGUgbWFpbiByZWFzb24gDQo+IG5vdCB0byBnbyBmb3Igb3Zl
-cmxheWZzOg0KPiANCj4+IENoYW5nZXMgdG8gdGhlIHVuZGVybHlpbmcgZmlsZXN5c3RlbXMgd2hp
-bGUgcGFydCBvZiBhIG1vdW50ZWQgb3ZlcmxheQ0KPj4gZmlsZXN5c3RlbSBhcmUgbm90IGFsbG93
-ZWQuICBJZiB0aGUgdW5kZXJseWluZyBmaWxlc3lzdGVtIGlzIGNoYW5nZWQsDQo+PiB0aGUgYmVo
-YXZpb3Igb2YgdGhlIG92ZXJsYXkgaXMgdW5kZWZpbmVkLA0KPiAoIGZyb20gaHR0cHM6Ly93d3cu
-a2VybmVsLm9yZy9kb2MvRG9jdW1lbnRhdGlvbi9maWxlc3lzdGVtcy9vdmVybGF5ZnMudHh0ICkN
-Cj4gDQo+IElzIHRoaXMgZ29pbmcgdG8gY2hhbmdlIGluIHRoZSBmb3Jlc2VlYWJsZSBmdXR1cmU/
-DQo+IEFyZSB5b3UgYXdhcmUgb2YgYW55IHBsYW5zIHRvIGltcGxlbWVudCBVREJBIGluIG92ZXJs
-YXlmcz8NCg0KSSBkb27igJl0IGZvbGxvdyB0aGUgb3ZlcmxheWZzIGRldmVsb3BtZW50IGFueW1v
-cmUuDQoNCj4gSWYgc28sIEkgd291bGQgYmUgZ2xhZCB0byBwYXJ0aWNpcGF0ZSBpbiB0ZXN0aW5n
-Lg0KPiANCj4gSSBjb3VsZCBsaXZlIHdpdGhvdXQgdGhlIHVkYmEgZmVhdHVyZSBmb3IgYSBsaW1p
-dGVkIHRlc3QgcGVyaW9kLg0KPiBCdXQgSSBnb3QgdXNlZCB0byB0aGUgcG9zc2liaWxpdHkgdG8g
-aW5zdGFsbCBwYWNrYWdlcyBpbiBhIHBhY2thZ2UgbGF5ZXIsIGZpbmUgDQo+IHR1bmUgY29uZmln
-dXJhdGlvbiBpbiBhbm90aGVyIGxheWVyIGFuZCBsaXZlIHRlc3QgdGhpcyBvbiBhIHBhcmFsbGVs
-IGNsdXN0ZXIgDQo+IG9mIDE2IG1hY2hpbmVzLCB3aXRob3V0IGRyb3BwaW5nIG9mZiBuZnNyb290
-IGVhY2ggdGltZS4NCg0KSSBzZWUuIFlvdXIgZW52aXJvbm1lbnQgaXMgbXVjaCBtb3JlIGNvbXBs
-aWNhdGVkIHRoYW4gbWluZS4NCg0KQWxleA0KDQo+IA0KPiBNYXliZSwgcGFydCBvZiB0aGlzIGZ1
-bmNpdG9uYWxpdHkgY2FuIGJlIHJlcGxhY2VkIGJ5IGJ0cmZzIHNuYXBzaG90dGluZy4NCj4gQnV0
-IG5ldmVydGhlbGVzcywgaXQgd291bGQgZW5kIHVwIGFzIGEgY29tbGVwdGUgcmVkZXNpZ24gb2Yg
-bXkgY2x1c3RlciBzZXR1cC4NCj4gDQo+IA0KPiBXb2xmZ2FuZyBSb3NuZXINCj4gDQo+IA0KPiAN
-Cj4gIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMj
-IyMjIyMjIyMjIyMjIyMjIyMjIyMjIw0KPiANCj4gVGhpcyBpcyBob3cgbXkgYXVmcyBtb3VudHMg
-bG9vayBsaWtlOg0KPiANCj4gYXVmcy1uZnNyb290LWJsYWRlLTAwMSBvbiAvY2x1c3Rlci9uZnMv
-bmZzci9ibGFkZS0wMDEuY3J1bmNobmV0IHR5cGUgYXVmcyANCj4gKHJ3LHJlbGF0aW1lLHNpPTg4
-YTRmNGQ0NjJkZjQzNDMpDQo+ICAgICAgICAwIHJ3IGlkPTY0IHBhdGg9L2NsdXN0ZXIvbm9kZV9y
-b290cy93aGVlenktSEQtMjAxNV8wMl8yMS9jb3cvY293XzAwMQ0KPiAgICAgICAgMSBybyt3aCBp
-ZD02NSBwYXRoPS9jbHVzdGVyL25vZGVfcm9vdHMvd2hlZXp5LUhELTIwMTVfMDJfMjEvY29uZmln
-DQo+ICAgICAgICAyIHJvK3doIGlkPTY2IHBhdGg9L2NsdXN0ZXIvbm9kZV9yb290cy93aGVlenkt
-SEQtMjAxNV8wMl8yMS9tYXNrDQo+ICAgICAgICAzIHJvK3doIGlkPTY3IHBhdGg9L2NsdXN0ZXIv
-bm9kZV9yb290cy93aGVlenktSEQtMjAxNV8wMl8yMS9wa2dfc3RkDQo+ICAgICAgICA0IHJvIGlk
-PTY4IHBhdGg9L2NsdXN0ZXIvbm9kZV9yb290cy93aGVlenktSEQtMjAxNV8wMl8yMS9iYXNlDQo+
-ICAgICAgICB4aW5vOiAvdG1wLy5hdWZzLnhpbm8NCj4gCToNCj4gCShyZXBlYXRlZCAxNiB0aW1l
-cykNCj4gCToNCj4gYXVmcy1uZnNyb290LWJsYWRlLTAxNg0KPiANCj4gDQo+IA0KPiBwbHVzIDMg
-YWRtaW4gbGF5ZXJzICh3cml0YWJsZSBmb3IgZWFjaCBpbnRlcm1lZGlhcnkgbGF5ZXIpDQo+IA0K
-PiANCj4gDQo+IHJvb3RAY3J1bmNoZXI6L2NsdXN0ZXIvZXRjL3NjcmlwdHMvYXZhaWxhYmxlIyBt
-b3VudCB8IGdyZXAgYXVmcw0KPiBhdWZzLW5mc3Jvb3QtYmxhZGUtMDAxIG9uIC9jbHVzdGVyL25m
-cy9uZnNyL2JsYWRlLTAwMS5jcnVuY2huZXQgdHlwZSBhdWZzIA0KPiAocncscmVsYXRpbWUsc2k9
-ODhhNGY0ZDQ2MmRmNDM0MykNCj4gYXVmcy1uZnNyb290LWJsYWRlLTAwMiBvbiAvY2x1c3Rlci9u
-ZnMvbmZzci9ibGFkZS0wMDIuY3J1bmNobmV0IHR5cGUgYXVmcyANCj4gKHJ3LHJlbGF0aW1lLHNp
-PTg4YTRmNGQzZmUyNDUzNDMpDQo+IGF1ZnMtbmZzcm9vdC1ibGFkZS0wMDMgb24gL2NsdXN0ZXIv
-bmZzL25mc3IvYmxhZGUtMDAzLmNydW5jaG5ldCB0eXBlIGF1ZnMgDQo+IChydyxyZWxhdGltZSxz
-aT04OGE0ZjRkM2ZlOWM1MzQzKQ0KPiBhdWZzLW5mc3Jvb3QtYmxhZGUtMDA0IG9uIC9jbHVzdGVy
-L25mcy9uZnNyL2JsYWRlLTAwNC5jcnVuY2huZXQgdHlwZSBhdWZzIA0KPiAocncscmVsYXRpbWUs
-c2k9ODhhNGY0ZDQ2N2I1MzM0MykNCj4gYXVmcy1uZnNyb290LWJsYWRlLTAwNSBvbiAvY2x1c3Rl
-ci9uZnMvbmZzci9ibGFkZS0wMDUuY3J1bmNobmV0IHR5cGUgYXVmcyANCj4gKHJ3LHJlbGF0aW1l
-LHNpPTg4YTRmNGQ0N2RiNjkzNDMpDQo+IGF1ZnMtbmZzcm9vdC1ibGFkZS0wMDYgb24gL2NsdXN0
-ZXIvbmZzL25mc3IvYmxhZGUtMDA2LmNydW5jaG5ldCB0eXBlIGF1ZnMgDQo+IChydyxyZWxhdGlt
-ZSxzaT04OGE0ZjRkNDYzMGJiMzQzKQ0KPiBhdWZzLW5mc3Jvb3QtYmxhZGUtMDA3IG9uIC9jbHVz
-dGVyL25mcy9uZnNyL2JsYWRlLTAwNy5jcnVuY2huZXQgdHlwZSBhdWZzIA0KPiAocncscmVsYXRp
-bWUsc2k9ODhhNGY0ZDQ1ODZjYzM0MykNCj4gYXVmcy1uZnNyb290LWJsYWRlLTAwOCBvbiAvY2x1
-c3Rlci9uZnMvbmZzci9ibGFkZS0wMDguY3J1bmNobmV0IHR5cGUgYXVmcyANCj4gKHJ3LHJlbGF0
-aW1lLHNpPTg4YTRmNGQ0NTg2ODkzNDMpDQo+IGF1ZnMtbmZzcm9vdC1ibGFkZS0wMDkgb24gL2Ns
-dXN0ZXIvbmZzL25mc3IvYmxhZGUtMDA5LmNydW5jaG5ldCB0eXBlIGF1ZnMgDQo+IChydyxyZWxh
-dGltZSxzaT04OGE0ZjRkM2ZkYTk3MzQzKQ0KPiBhdWZzLW5mc3Jvb3QtYmxhZGUtMDEwIG9uIC9j
-bHVzdGVyL25mcy9uZnNyL2JsYWRlLTAxMC5jcnVuY2huZXQgdHlwZSBhdWZzIA0KPiAocncscmVs
-YXRpbWUsc2k9ODhhNGY0ZDNmZTNiZTM0MykNCj4gYXVmcy1uZnNyb290LWJsYWRlLTAxMSBvbiAv
-Y2x1c3Rlci9uZnMvbmZzci9ibGFkZS0wMTEuY3J1bmNobmV0IHR5cGUgYXVmcyANCj4gKHJ3LHJl
-bGF0aW1lLHNpPTg4YTRmNGQzZmU4Y2IzNDMpDQo+IGF1ZnMtbmZzcm9vdC1ibGFkZS0wMTIgb24g
-L2NsdXN0ZXIvbmZzL25mc3IvYmxhZGUtMDEyLmNydW5jaG5ldCB0eXBlIGF1ZnMgDQo+IChydyxy
-ZWxhdGltZSxzaT04OGE0ZjRkM2ZjOTBjMzQzKQ0KPiBhdWZzLW5mc3Jvb3QtYmxhZGUtMDEzIG9u
-IC9jbHVzdGVyL25mcy9uZnNyL2JsYWRlLTAxMy5jcnVuY2huZXQgdHlwZSBhdWZzIA0KPiAocncs
-cmVsYXRpbWUsc2k9ODhhNGY0ZDQ2MjJmYjM0MykNCj4gYXVmcy1uZnNyb290LWJsYWRlLTAxNCBv
-biAvY2x1c3Rlci9uZnMvbmZzci9ibGFkZS0wMTQuY3J1bmNobmV0IHR5cGUgYXVmcyANCj4gKHJ3
-LHJlbGF0aW1lLHNpPTg4YTRmNGQzZTJjYzgzNDMpDQo+IGF1ZnMtbmZzcm9vdC1ibGFkZS0wMTUg
-b24gL2NsdXN0ZXIvbmZzL25mc3IvYmxhZGUtMDE1LmNydW5jaG5ldCB0eXBlIGF1ZnMgDQo+IChy
-dyxyZWxhdGltZSxzaT04OGE0ZjRkMGNhNjRlMzQzKQ0KPiBhdWZzLW5mc3Jvb3QtYmxhZGUtMDE2
-IG9uIC9jbHVzdGVyL25mcy9uZnNyL2JsYWRlLTAxNi5jcnVuY2huZXQgdHlwZSBhdWZzIA0KPiAo
-cncscmVsYXRpbWUsc2k9ODhhNGY0ZDBjYTkyZTM0MykNCj4gYXVmc19wa2dfc3RkIG9uIC9jbHVz
-dGVyL25vZGVfcm9vdHMvd2hlZXp5LUhELTIwMTVfMDJfMjEvYWRtb3VudC1wa2dfc3RkIHR5cGUg
-DQo+IGF1ZnMgKHJ3LHJlbGF0aW1lLHNpPTg4YTRmNGQ0NmRjZWQzNDMpDQo+IGF1ZnNfbWFzayBv
-biAvY2x1c3Rlci9ub2RlX3Jvb3RzL3doZWV6eS1IRC0yMDE1XzAyXzIxL2FkbW91bnQtbWFzayB0
-eXBlIGF1ZnMgDQo+IChydyxyZWxhdGltZSxzaT04OGE0ZjRkM2IwYTJiMzQzKQ0KPiBhdWZzX2Nv
-bmZpZyBvbiAvY2x1c3Rlci9ub2RlX3Jvb3RzL3doZWV6eS1IRC0yMDE1XzAyXzIxL2FkbW91bnQt
-Y29uZmlnIHR5cGUgDQo+IGF1ZnMgKHJ3LHJlbGF0aW1lLHNpPTg4YTRmNGQzZmVlNGMzNDMpDQo+
-IA0KPiANCj4gDQo+IA0KPiANCj4gDQo+IA0KDQo=
+Add the ethtool ops to VF driver to allow querying the RSS indirection table
+and RSS Random Key.
+
+On some devices VFs share the RSS Redirection Table and Hash Key with a PF and letting
+the VF query this information may introduce some security risks. Therefore we disable this
+feature by default for such devices (e.g. 82599) and allow it for those where there isn't any
+possible risk (e.g. on x550). The new netdev op is going to allow a system administrator to
+change the default behaviour with "ip link set" command.
+
+ - netdev: Add a new netdev op to allow/block VF from querying RSS Indirection Table and
+   RSS Hash Key.
+ - PF driver: Add new VF-PF channel commands.
+ - VF driver: Utilize these new commands and add the corresponding
+              ethtool callbacks.
+
+New in v7:
+   - Add ixgbe_mbox_api_12 case in ixgbevf_set_num_queues().
+   - Properly expand HW RETA into the ethtool buffer.
+
+New in v6:
+   - Add a proper return code when an VF query operations are blocked by PF.
+   - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
+   - Changed a description of PATCH7: set the correct ethtool options names.
+
+New in v5:
+   - Added a new netdev op to allow/block VF from querying RSS Indirection Table and
+     RSS Hash Key.
+   - Let VF query the RSS info only if VF is allowed to.
+
+New in v4:
+   - Forgot to run checkpatch on v3 and there were a few styling things to fix. ;)
+
+New in v3:
+   - Added a missing support for x550 devices.
+   - Mask the indirection table values according to PSRTYPE[n].RQPL.
+   - Minimized the number of added VF-PF commands.
+
+New in v2:
+   - Added a detailed description to patches 4 and 5.
+
+New in v1 (compared to RFC):
+   - Use "if-else" statement instead of a "switch-case" for a single option case.
+     More specifically: in cases where the newly added API version is the only one
+     allowed. We may consider using a "switch-case" back again when the list of
+     allowed API versions in these specific places grows up.
+
+Vlad Zolotarov (7):
+  if_link: Add an additional parameter to ifla_vf_info for RSS querying
+  ixgbe: Add a new netdev op to allow/prevent a VF from querying an RSS
+    info
+  ixgbe: Add a RETA query command to VF-PF channel API
+  ixgbevf: Add a RETA query code
+  ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
+  ixgbevf: Add RSS Key query code
+  ixgbevf: Add the appropriate ethtool ops to query RSS indirection
+    table and key
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   7 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  10 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 119 ++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |   2 +
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  58 +++++++++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   5 +-
+ drivers/net/ethernet/intel/ixgbevf/mbx.h          |  10 ++
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 145 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
+ include/linux/if_link.h                           |   1 +
+ include/linux/netdevice.h                         |   8 ++
+ include/uapi/linux/if_link.h                      |   8 ++
+ net/core/rtnetlink.c                              |  32 ++++-
+ 14 files changed, 401 insertions(+), 7 deletions(-)
+
+-- 
+2.1.0
