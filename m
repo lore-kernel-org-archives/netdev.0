@@ -1,41 +1,32 @@
-From: "Cliff Clark" <cliff_clark@selinc.com>
-Subject: [PATCH] ucc_geth: Intialize link state to down before register_netdev
-Date: Tue, 24 Mar 2015 14:07:26 -0700
-Message-ID: <1427231246-1782-1-git-send-email-cliff_clark@selinc.com>
-Cc: netdev@vger.kernel.org, Cliff Clark <cliff_clark@selinc.com>
-To: LeoLi@freescale.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/4] tcp: listener refactor part 16
+Date: Tue, 24 Mar 2015 14:28:48 -0700
+Message-ID: <1427232528.25985.96.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1427171666-30585-1-git-send-email-edumazet@google.com>
+	 <20150324.150257.1215806444155190560.davem@davemloft.net>
+	 <20150324.151439.133059567496002449.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from volare.selinc.com ([74.117.214.143]:50732 "EHLO
-	volare.selinc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752189AbbCXVHm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:07:42 -0400
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:34643 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751876AbbCXV2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:28:50 -0400
+Received: by iedfl3 with SMTP id fl3so9401541ied.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 14:28:49 -0700 (PDT)
+In-Reply-To: <20150324.151439.133059567496002449.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cliff Clark <cliff_clark@selinc.com>
+On Tue, 2015-03-24 at 15:14 -0400, David Miller wrote:
 
-ucc_geth was indicating link up after a port is administratively enabled even
-when nothing is plugged in.  This causes user-space tools to see a spurious link
-up the first time after boot.
+> Actually, I have to back this out.
+> 
+> You can't mark all of these things const, because of lockdep:
 
-Signed-off-by: Cliff Clark <cliff_clark@selinc.com>
----
- drivers/net/ethernet/freescale/ucc_geth.c | 3 +++
- 1 file changed, 3 insertions(+)
+Arg, sorry for that. I had LOCKDEP enabled, but not CONFIG_PROVE_RCU=y
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 357e8b57..56b774d 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -3893,6 +3893,9 @@ static int ucc_geth_probe(struct platform_device* ofdev)
- 	ugeth->phy_interface = phy_interface;
- 	ugeth->max_speed = max_speed;
- 
-+	/* Carrier starts down, phylib will bring it up */
-+	netif_carrier_off(dev);
-+
- 	err = register_netdev(dev);
- 	if (err) {
- 		if (netif_msg_probe(ugeth))
--- 
-1.9.1
+Will send a v2
