@@ -1,26 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] FCoE support in cxgb4 driver
-Date: Tue, 24 Mar 2015 15:26:27 -0400 (EDT)
-Message-ID: <20150324.152627.354543247307854229.davem@davemloft.net>
-References: <cover.1427199268.git.varun@chelsio.com>
+Subject: Re: [PATCH net-next v3] filter: introduce SKF_AD_VLAN_TPID BPF
+ extension
+Date: Tue, 24 Mar 2015 15:26:41 -0400 (EDT)
+Message-ID: <20150324.152641.1956497494389302908.davem@davemloft.net>
+References: <1427204921-14535-1-git-send-email-msekleta@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	JBottomley@parallels.com, leedom@chelsio.com, anish@chelsio.com,
-	hariprasad@chelsio.com, praveenm@chelsio.com
-To: varun@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <cover.1427199268.git.varun@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@plumgrid.com,
+	jpirko@redhat.com
+To: msekleta@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38783 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753107AbbCXT0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:26:43 -0400
+In-Reply-To: <1427204921-14535-1-git-send-email-msekleta@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Varun Prakash <varun@chelsio.com>
-Date: Tue, 24 Mar 2015 19:14:44 +0530
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Tue, 24 Mar 2015 14:48:41 +0100
 
-> This patch series enables FCoE support in cxgb4 driver, it enables
-> FCOE_CRC and FCOE_MTU net device features.
+> If vlan offloading takes place then vlan header is removed from frame
+> and its contents, both vlan_tci and vlan_proto, is available to user
+> space via TPACKET interface. However, only vlan_tci can be used in BPF
+> filters.
 > 
-> This series is created against net-next tree.
+> This commit introduces a new BPF extension. It makes possible to load
+> the value of vlan_proto (vlan TPID) to register A. Support for classic
+> BPF and eBPF is being added, analogous to skb->protocol.
+> 
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Jiri Pirko <jpirko@redhat.com>
+> 
+> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
 
-Series applied, thank you.
+Applied.
