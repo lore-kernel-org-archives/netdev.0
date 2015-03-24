@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Tue, 24 Mar 2015 11:59:15 -0400 (EDT)
-Message-ID: <20150324.115915.829626973555093278.davem@davemloft.net>
-References: <20150324134508.77b039a9@canb.auug.org.au>
-	<20150323.230003.1242651745820752377.davem@davemloft.net>
-	<20150324104346.GA7422@lst.de>
+Subject: Re: [PATCH for kernel 3.4.x 0/1] net: neighbour: Add
+ mcast_resolicit to configure the number of multicast resolicitations in
+ PROBE state
+Date: Tue, 24 Mar 2015 11:59:38 -0400 (EDT)
+Message-ID: <20150324.115938.688597808655372422.davem@davemloft.net>
+References: <1427190355-1216-1-git-send-email-Yanjun.Zhu@windriver.com>
+	<55114543.2080709@miraclelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	viro@ZenIV.linux.org.uk, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tadeusz.struk@intel.com
-To: hch@lst.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150324104346.GA7422@lst.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Yanjun.Zhu@windriver.com, lizefan@huawei.com,
+	netdev@vger.kernel.org, ulf.samuelsson@ericsson.com,
+	yoshfuji@linux-ipv6.org, Alexandre.Dietsch@windriver.com
+To: hideaki.yoshifuji@miraclelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37138 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932098AbbCXP7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 11:59:40 -0400
+In-Reply-To: <55114543.2080709@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 24 Mar 2015 11:43:46 +0100
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Date: Tue, 24 Mar 2015 20:06:43 +0900
 
-> On Mon, Mar 23, 2015 at 11:00:03PM -0400, David Miller wrote:
->> Ok, more conflicts wiht Al's vfs work.
->> 
->> This is starting to pile on, heavily...
-> 
-> These are my changes.  But I think it would be much better if any aio-related
-> changes like this one we be one on top of my changes in Al's iocb branch,
-> there have been various changes, and it would be better to review and
-> commit the changes on top of it instead of carrying the changes as fixups.
-> 
-> Nevermind the actual test coverage..
+> Hmm, it needs additional knob to change this 10+-year-old
+> behavior.  I am not for backporting this to old stable
+> kernels unless all stable kernels supports this knob as
+> well.
 
-That's no longer possible as my tree never rebases and the commits are pushed
-out already.
-
-Another solution to this set of conflicts, is therefore necessary.
+It is not appropriate for -stable at all.
