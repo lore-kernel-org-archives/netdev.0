@@ -1,78 +1,45 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
- packets
-Date: Tue, 24 Mar 2015 06:13:39 -0700
-Message-ID: <55116303.4090000@roeck-us.net>
-References: <1426870714-3225-1-git-send-email-roopa@cumulusnetworks.com>	<20150320.163655.474336751434677390.davem@davemloft.net>	<550C92F3.50302@cumulusnetworks.com>	<20150320220946.GB31769@lunn.ch>	<20150323002215.GA6074@roeck-us.net>	<550F6D7D.7030403@gmail.com>	<550F8102.7040701@roeck-us.net>	<550F8600.2020300@gmail.com>	<550F8987.5070600@roeck-us.net>	<5510498D.5010001@cumulusnetworks.com> <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 3/5 net-next] rhashtable: Mark internal/private inline functions as such
+Date: Tue, 24 Mar 2015 14:18:18 +0100
+Message-ID: <a3b4d5eb5faa88c62ff79f8e85b39c729c2bb2e0.1427202823.git.tgraf@suug.ch>
+References: <cover.1427202823.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:60370 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941AbbCXNNn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:13:43 -0400
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YaOeM-001z1k-2p
-	for netdev@vger.kernel.org; Tue, 24 Mar 2015 13:13:42 +0000
-In-Reply-To: <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:34697 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580AbbCXNS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:18:29 -0400
+In-Reply-To: <cover.1427202823.git.tgraf@suug.ch>
+In-Reply-To: <cover.1427202823.git.tgraf@suug.ch>
+References: <cover.1427202823.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/23/2015 10:59 PM, Scott Feldman wrote:
-> On Mon, Mar 23, 2015 at 10:12 AM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 3/22/15, 8:33 PM, Guenter Roeck wrote:
->>>
-[ ... ]
->>
->> yep, so my first RFC listed three ways to do this,
->> 1) flag on the bridge port
->> 2) check if the port being forwarded to is a switch port, using
->>              - the offload flag
->>              - the parent id (as john fastabend pointed out)
->> 3) A per packet flag which switch driver sets indicating that the packet is
->> hw forwarded.
->>      This is because we have run into cases where we want to move to software
->> forwarding
->>      of certain packets like igmp reports.  (I will get some more details on
->> the particular igmp problem).
->>      In such case, hardware punts the igmp packet to cpu and cpu will do the
->> forwarding.
->>      I think we may hit more cases like this in the future.
->>
->> my RFC v1 was based on 1). RFC v2 was based on 3) above.
->>
->> But, for now, agree that we can just support the more common case using 2).
->> And, we can move to 3) in the future if needed.
->
-> Roopa, I think it may be possible to do this without any changes to
-> the bridge code or switchdev code by dropping duplicate pkts in the
-> swdev driver itself.  The skb is marked with skb_iif set to ifindex of
-> ingress port, so when the driver goes to egress a pkt on the port, if
-> the skb_iif is one of the other device ports, we can assume the device
-> did the fwd already so we can drop the duplicate pkt.  Below is the
-> change to rocker.  The driver can get as fancy as it wants in its test
-> to drop or not.  This solution works for mixed offload and
-> non-offloaded ports in a bridge, or ports from different offload
-> devices in the same bridge.
->
-> Yes, the bridge is spending overhead to clone pkts to flood to its
-> ports.  IGMP snooping mitigates this for mcast.  BR_FLOOD can be
-> turned off on the bridge ports to mitigate this for unknown unicast
-> floods.  So what's left is bcasts.
->
-You would still want the soft bridge code to flood from non-switch ports
-to switch ports and vice versa, as well as across multiple switches.
-So I am not entirely sure I understand how turning off BR_FLOOD would help.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/linux/rhashtable.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Thanks,
-Guenter
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index f89cda0..0e1f975 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -539,6 +539,7 @@ restart:
+ 	return NULL;
+ }
+ 
++/* Internal function, please use rhashtable_insert_fast() instead */
+ static inline int __rhashtable_insert_fast(
+ 	struct rhashtable *ht, const void *key, struct rhash_head *obj,
+ 	const struct rhashtable_params params)
+@@ -711,6 +712,7 @@ static inline int rhashtable_lookup_insert_key(
+ 	return __rhashtable_insert_fast(ht, key, obj, params);
+ }
+ 
++/* Internal function, please use rhashtable_remove_fast() instead */
+ static inline int __rhashtable_remove_fast(
+ 	struct rhashtable *ht, struct bucket_table *tbl,
+ 	struct rhash_head *obj, const struct rhashtable_params params)
+-- 
+1.9.3
