@@ -1,43 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Responsible Disclosure
-Date: Tue, 24 Mar 2015 23:09:18 +0100
-Message-ID: <1427234958.3345059.244780326.2445D79D@webmail.messagingengine.com>
-References: <1425861908.8414.12.camel@modio.se> <20150309054916.GA8575@kroah.com>
- <1427153139.14059.2.camel@takeit.se> <20150324184517.GA24177@kroah.com>
- <1427225461.3276.1.camel@takeit.se> <20150324195517.GB10851@kroah.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [PATCH]: iproute2: enhance enforcement of ifconfig compatible
+ address labels and allow non-compatible ones with -force
+Date: Tue, 24 Mar 2015 15:11:14 -0700
+Message-ID: <20150324151114.7168de0b@urahara>
+References: <4edec6f657e24e98b938c3ad76b54625@BRMWP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: security@kernel.org, security <security@android.com>,
-	netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>, ljungmark@modio.se
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Joe Harvell <joe.harvell@tekcomms.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:42756 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751797AbbCXWJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:09:21 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id CECD120C15
-	for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 18:09:15 -0400 (EDT)
-In-Reply-To: <20150324195517.GB10851@kroah.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35089 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751842AbbCXWLS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:11:18 -0400
+In-Reply-To: <4edec6f657e24e98b938c3ad76b54625@BRMWP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 21 Mar 2015 17:55:02 +0000
+Joe Harvell <joe.harvell@tekcomms.com> wrote:
 
-
-On Tue, Mar 24, 2015, at 20:55, Greg KH wrote:
-> Please submit this in a form that can be applied.
+> The ip addr command today rejects address labels that would break 
+> ifconfig.  However, it allows some labels which still break it. Enhance 
+> enforcement to reject all known incompatible labels, and allow the 
+> existing -force option to allow someone to use a label even if it is not 
+> ifconfig compatible
 > 
-> Take a look at Documentation/SubmittingPatches for the proper format.
+> Make existing -force option of ip addr add skip enforcment of ifconfig 
+> compatible address labels.
+> Change enforcement to properly reject labels that do begin with 
+> <devname> but are followed by a string that does not begin with colon.
 > 
-> Also, you are messing with the coding style here for no reason (hint,
-> indent after the if, and wrap your lines properly.)
 > 
-> Can you fix that up, and resend, starting a new email thread, netdev
-> doesn't care about the prior subject, you need to pick a proper one for
-> the patch.
+> The following changes since commit 4612d04d6b8f07274bd5d0688f717ccc189499ad:
+> 
+>    tc class: Show class names from file (2015-03-15 12:27:40 -0700)
+> 
+> are available in the git repository at:
+> 
+>    git@github.com:jharvell/iproute2.git addr-label-noncompat
+> 
+> for you to fetch changes up to 6a1d09e93ae1fb4f7f1cd5981813af918e8efc88:
 
-Please also refer to the section where IETF did reconsider this issue.
-
-Thanks,
-Hannes
+Not really enthusiastic about this. It seems to introduce more issues
+and I don't consider it a big issue. If user is creating labels with
+ip and it breaks ifconfig, it is really a case of shooting themselves
+in the foot; or the fact that ifconfig needs to die (or get fixed).
