@@ -1,45 +1,57 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 2/2] ip: Harmonise usage references to show /
- list option
-Date: Tue, 24 Mar 2015 14:53:15 -0700
-Message-ID: <20150324145315.754c6ff3@urahara>
-References: <1426499950-6641-1-git-send-email-mark.einon@gmail.com>
-	<1426499950-6641-2-git-send-email-mark.einon@gmail.com>
+Subject: Re: [PATCH iproute2] bridge: drop reference to unused option
+ embedded from manpage
+Date: Tue, 24 Mar 2015 14:55:24 -0700
+Message-ID: <20150324145524.491e6435@urahara>
+References: <1426606450-30133-1-git-send-email-gospo@cumulusnetworks.com>
+	<5508CC3B.3040306@lab.ntt.co.jp>
+	<20150319161419.GA20295@gospo.home.greyhouse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mark Einon <mark.einon@gmail.com>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:34094 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbbCXVxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:53:12 -0400
-Received: by pdbni2 with SMTP id ni2so6340591pdb.1
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 14:53:12 -0700 (PDT)
-In-Reply-To: <1426499950-6641-2-git-send-email-mark.einon@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36242 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455AbbCXVzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:55:22 -0400
+Received: by padcy3 with SMTP id cy3so6289425pad.3
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 14:55:22 -0700 (PDT)
+In-Reply-To: <20150319161419.GA20295@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Mar 2015 09:59:10 +0000
-Mark Einon <mark.einon@gmail.com> wrote:
+On Thu, 19 Mar 2015 12:14:22 -0400
+Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index c842e85..b863e7b 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -59,7 +59,7 @@ static void usage(void) __attribute__((noreturn));
->  
->  static void usage(void)
->  {
-> -	fprintf(stderr, "Usage: ip route { list | flush } SELECTOR\n");
+> On Wed, Mar 18, 2015 at 09:52:11AM +0900, Toshiaki Makita wrote:
+> > On 2015/03/18 0:34, Andy Gospodarek wrote:
+> > > While looking at the manpage, I noticed a reference to 'embedded' that was
+> > > added by this commit:
+> > > 
+> > > 	commit d611682a8c8f28205158e6d3a7d5e2d01db022cc
+> > > 	Author: John Fastabend <john.r.fastabend@intel.com>
+> > > 	Date:   Thu Sep 13 23:50:36 2012 -0700
+> > > 
+> > > 	    iproute2: bridge: finish removing replace option in man pages
+> > > 
+> > > I no longer see any reference to the 'embedded' option in any c- or h-files, so
+> > > it seems worthwhile to remove.
+> > 
+> > Actually, in addition, "master" option is missing.
+> > Also, the current explanation of "self" looks incorrect and appropriate
+> > for "master".
+> > 
+> > I wondered if you could fix them together with this... or I will do later.
+> > 
+> 
+> Good idea, but I would prefer the suggested change as another patch.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Sorry, this sounds like a good idea until I went and checked what
-is shown on the man pages.
-
-The ip route man page has:
-
-       ip route { list | flush } SELECTOR
-
-For me, it is more important that the usage match the man page,
-rather than having all usage messages match.
+I applied this patch, feel free to do more cleanups in later patches.
