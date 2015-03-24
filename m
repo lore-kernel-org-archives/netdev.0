@@ -1,83 +1,39 @@
-From: jacob jacob <opstkusr@gmail.com>
-Subject: Re: PCI passthrough of 40G ethernet interface
-	(Openstack/KVM)
-Date: Tue, 24 Mar 2015 11:04:48 -0400
-Message-ID: <CA+AkT2gt5nxJxE5+h3=5bQ1-upoQCmq88VHneOAUCmPESESjHQ@mail.gmail.com>
-References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
-	<jpg8uf2ghln.fsf@redhat.com>
-	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
-	<jpgtwxpvk5x.fsf@redhat.com>
-	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>
-	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
-	<jpg1tko7qwb.fsf@redhat.com>
-	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
-	<jpglhiw4tal.fsf@redhat.com> <jpgk2yewcpt.fsf@redhat.com>
-	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>
-	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>
-	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
-	<550A85B3.4070703@redhat.com>
-	<CA+AkT2hJcHBcTzyONosrd82dD1m3-ML1_doS=tjBFoAPdnTmaw@mail.gmail.com>
-	<550ADAD2.8070506@redhat.com>
-	<CA+AkT2jPV_P436_RUQepT7wHtPaGOYGeE5uzUKtyXtk0s8U_gQ@mail.gmail.com>
-	<550FBE70.40201@redhat.com>
-	<CA+AkT2hoBZ63Pb3MiFV6X=StaU8eAQWb79AbwSLjH7bdoCL6yA@mail.gmail.com>
-	<CAP-MU4P9wXNwgagFNVL4WCK2Xn29hX+DUa=zvBncC8h4c+FMMg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next v3] filter: introduce SKF_AD_VLAN_TPID BPF extension
+Date: Tue, 24 Mar 2015 08:17:37 -0700
+Message-ID: <55118011.60002@plumgrid.com>
+References: <1427204921-14535-1-git-send-email-msekleta@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org,
-	Alex Williamson <alex.williamson@redhat.com>,
-	QEMU Developers <qemu-devel@nongnu.org>, Bandan Das <bsd@redhat.com>,
-	Stefan Assmann <sassmann@redhat.com>
-To: Shannon Nelson <shannon.nelson@intel.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <CAP-MU4P9wXNwgagFNVL4WCK2Xn29hX+DUa=zvBncC8h4c+FMMg@mail.gmail.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37049 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139AbbCXPRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 11:17:40 -0400
+Received: by igcxg11 with SMTP id xg11so100450igc.0
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 08:17:39 -0700 (PDT)
+In-Reply-To: <1427204921-14535-1-git-send-email-msekleta@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2015 at 10:53 AM, Shannon Nelson
-<shannon.nelson@intel.com> wrote:
-> On Tue, Mar 24, 2015 at 7:13 AM, jacob jacob <opstkusr@gmail.com> wrote:
->> After update to latest firmware and using version 1.2.37 of i40e
->> driver, things are looking better with PCI passthrough.
->>
->> ]# ethtool -i eth3
->> driver: i40e
->> version: 1.2.37
->> firmware-version: f4.33.31377 a1.2 n4.42 e1930
->> bus-info: 0000:00:07.0
->> supports-statistics: yes
->> supports-test: yes
->> supports-eeprom-access: yes
->> supports-register-dump: yes
->> supports-priv-flags: yes
+On 3/24/15 6:48 AM, Michal Sekletar wrote:
+> If vlan offloading takes place then vlan header is removed from frame
+> and its contents, both vlan_tci and vlan_proto, is available to user
+> space via TPACKET interface. However, only vlan_tci can be used in BPF
+> filters.
 >
-> I'm glad the updates helped as we expected.
+> This commit introduces a new BPF extension. It makes possible to load
+> the value of vlan_proto (vlan TPID) to register A. Support for classic
+> BPF and eBPF is being added, analogous to skb->protocol.
 >
->>
->> There are still issues running dpdk 1.8.0 from the VM using the pci
->> passthrough devices and looks like it puts the devices in a bad state.
->> i40e driver will not bind after this happens and a host reboot is
->> required to recover.
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Jiri Pirko <jpirko@redhat.com>
 >
-> Did you make sure to unbind the i40e device from pci-stub after you
-> were done with using it in the VM?
+> Signed-off-by: Michal Sekletar <msekleta@redhat.com>
 
-The issue is running dpdk from within the vm itself. Is it possible
-that the igb_uio driver needs additional updates/functionality to be
-at parity with 1.2.37 version of i40e driver?
-
->
->> I'll post further updates as i make progress.
->> Thanks for all the help.
->>
->
-> Good luck,
-> sln
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
