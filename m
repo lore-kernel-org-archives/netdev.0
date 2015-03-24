@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5 net-next] rhashtable: Disable automatic shrinking
- by default
-Date: Tue, 24 Mar 2015 15:29:24 -0400 (EDT)
-Message-ID: <20150324.152924.921970094708836276.davem@davemloft.net>
-References: <cover.1427202823.git.tgraf@suug.ch>
-	<f6ed6e9fe9434e55475b777281f6fe67eff0e07d.1427202823.git.tgraf@suug.ch>
-	<20150324185545.GA15837@gondor.apana.org.au>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH] ucc_geth: Intialize link state to down before register_netdev
+Date: Tue, 24 Mar 2015 20:30:00 +0100
+Message-ID: <5511BB38.8010501@gmx.de>
+References: <OF515B2C92.39F94674-ON88257E12.00676FA3-88257E12.00679D6B@selinc.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: cliff_clark@selinc.com, Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38809 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbbCXT30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:29:26 -0400
-In-Reply-To: <20150324185545.GA15837@gondor.apana.org.au>
+Received: from mout.gmx.net ([212.227.15.18]:65112 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752948AbbCXTaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 15:30:12 -0400
+In-Reply-To: <OF515B2C92.39F94674-ON88257E12.00676FA3-88257E12.00679D6B@selinc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 25 Mar 2015 05:55:45 +1100
-
-> On Tue, Mar 24, 2015 at 02:18:19PM +0100, Thomas Graf wrote:
->> Using rhashtable_remove_fast() will no longer automatically
->> shrink the table. Users need to opt-in to shrinking by
->> explicitly using rhashtable_remove_and_shrink()
->> 
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On 24.03.2015 19:51, cliff_clark@selinc.com wrote:
+> ucc_geth was indicating link up after a port is administratively enabled 
+> even
+> when nothing is plugged in.  This causes user-space tools to see a 
+> spurious link
+> up the first time after boot.
 > 
-> Note that this patch doesn't completely disable automatic shrinking
-> since the worker thread can still trigger it.
+> Signed-off-by: Cliff Clark <cliff_clark@selinc.com>
+> ---
+>  drivers/net/ethernet/freescale/ucc_geth.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c 
+> b/drivers/net/ethernet/freescale/ucc_geth.c
+> index 357e8b57..56b774d 100644
+> --- a/drivers/net/ethernet/freescale/ucc_geth.c
+> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
+> @@ -3893,6 +3893,9 @@ static int ucc_geth_probe(struct platform_device* 
+> ofdev)
+>         ugeth->phy_interface = phy_interface;
+>         ugeth->max_speed = max_speed;
+>  
+> +       /* Carrier starts down, phylib will bring it up */
+> +       netif_carrier_off(dev);
+> +
+>         err = register_netdev(dev);
+>         if (err) {
+>                 if (netif_msg_probe(ugeth))
 
-Ok, but how do you feel about Thomas's series otherwise?
+The commit message is still messy. checkpatch also complaints about
+spaces at the beginning of a line.
 
-It looks fine to me.
+Regards,
+Lino
