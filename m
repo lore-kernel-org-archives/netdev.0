@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tipc: validate length of sockaddr in connect() for
- dgram/rdm
-Date: Tue, 24 Mar 2015 12:57:31 -0400 (EDT)
-Message-ID: <20150324.125731.1973092060458690117.davem@davemloft.net>
-References: <1427139003-30510-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Tue, 24 Mar 2015 13:00:37 -0400 (EDT)
+Message-ID: <20150324.130037.1897087027068811494.davem@davemloft.net>
+References: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, erik.hugne@ericsson.com,
-	ying.xue@windriver.com, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427139003-30510-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, maheshb@google.com, dcbw@redhat.com
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37598 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755510AbbCXRAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 13:00:40 -0400
+In-Reply-To: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Mon, 23 Mar 2015 15:30:00 -0400
+From: Jiri Benc <jbenc@redhat.com>
+Date: Mon, 23 Mar 2015 22:10:19 +0100
 
-> Commit f2f8036 ("tipc: add support for connect() on dgram/rdm sockets")
-> hasn't validated user input length for the sockaddr structure which allows
-> a user to overwrite kernel memory with arbitrary input.
-> 
-> Fixes: f2f8036 ("tipc: add support for connect() on dgram/rdm sockets")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> @@ -504,7 +504,8 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+>  
+>  	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
+>  		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
+> -			ipvlan_ht_addr_del(addr, !dev->dismantle);
+> +			if (netif_running(dev))
+> +				ipvlan_ht_addr_del(addr, !dev->dismantle);
+>  			list_del_rcu(&addr->anode);
+>  		}
+>  	}
 
-Applied, thanks.
+This is so error prone, because you are depending upon so many implementation
+details to infer a boolean state "is this address hashed".
+
+So just add the boolean state to struct ipvl_addr, and manage it in
+the ipvlan_ht_addr_{add,del}() code.
