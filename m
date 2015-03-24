@@ -1,32 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: fix sparse warnings in privacy stable
- addresses generation
-Date: Tue, 24 Mar 2015 15:21:59 -0400 (EDT)
-Message-ID: <20150324.152159.44172822245737488.davem@davemloft.net>
-References: <2c4b658a420789137afca51f5249fd15022a9383.1427191441.git.hannes@stressinduktion.org>
+From: <cmetcalf@ezchip.com>
+Subject: [PATCH 0/4] initial NOHZ_FULL support for tile
+Date: Tue, 24 Mar 2015 15:21:31 -0400
+Message-ID: <1427224895-30830-1-git-send-email-cmetcalf@ezchip.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38738 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752146AbbCXTWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:22:01 -0400
-In-Reply-To: <2c4b658a420789137afca51f5249fd15022a9383.1427191441.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Chris Metcalf <cmetcalf@ezchip.com>
+To: <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Gilad Ben-Yossef <gilad@benyossef.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>,
+	Kevin Hilman <khilman@linaro.org>,
+	Li Zhong <zhong@linux.vnet.ibm.com>,
+	Mike Galbraith <efault@gmx.de>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Thomas Gleixner <tglx@linutronix.de>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 24 Mar 2015 11:05:28 +0100
+From: Chris Metcalf <cmetcalf@ezchip.com>
 
-> Those warnings reported by sparse endianness check (via kbuild test robot)
-> are harmless, nevertheless fix them up and make the code a little bit
-> easier to read.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Fixes: 622c81d57b392cc ("ipv6: generation of stable privacy addresses for link-local and autoconf")
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+These changes are the necessary minimum to make the tile architecture
+work relatively well with NOHZ_FULL.  The tile architecture has had
+out-of-tree support since 2008 for a DATAPLANE mode that provided
+similar functionality (called Zero-Overhead Linux in our marketing
+materials); we are now in the process of layering that on top of the
+community NOHZ_FULL to upstream it.
 
-Applied.
+Chris Metcalf (4):
+  tile: support arch_irq_work_raise
+  tile: support CONTEXT_TRACKING and thus NOHZ_FULL
+  nohz: add tick_nohz_full_clear_cpus() API
+  net: tile: don't send interrupts to nohz cores by default
+
+ arch/tile/Kconfig                   |  1 +
+ arch/tile/include/asm/Kbuild        |  1 -
+ arch/tile/include/asm/irq_work.h    | 14 ++++++++++++++
+ arch/tile/include/asm/smp.h         |  1 +
+ arch/tile/include/asm/thread_info.h |  9 ++++++---
+ arch/tile/kernel/process.c          | 12 ++++++++----
+ arch/tile/kernel/ptrace.c           | 22 ++++++++++++++++++++--
+ arch/tile/kernel/single_step.c      |  3 +++
+ arch/tile/kernel/smp.c              | 32 +++++++++++++++++++++++++++++++-
+ arch/tile/kernel/traps.c            | 16 +++++++++-------
+ arch/tile/kernel/unaligned.c        | 22 +++++++++++++---------
+ arch/tile/mm/fault.c                | 10 +++++++---
+ drivers/net/ethernet/tile/tilegx.c  |  5 ++++-
+ include/linux/tick.h                |  7 +++++++
+ 14 files changed, 124 insertions(+), 31 deletions(-)
+ create mode 100644 arch/tile/include/asm/irq_work.h
+
+-- 
+2.1.2
