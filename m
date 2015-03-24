@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/8] ipv6: RFC7217 stable privacy addresses
- implementation
-Date: Mon, 23 Mar 2015 22:15:29 -0400 (EDT)
-Message-ID: <20150323.221529.1733601437583593221.davem@davemloft.net>
-References: <cover.1427149704.git.hannes@stressinduktion.org>
+Subject: Re: rhashtable: warnings caused by "rhashtable: Fix use-after-free
+ in rhashtable_walk_stop"
+Date: Mon, 23 Mar 2015 22:16:24 -0400 (EDT)
+Message-ID: <20150323.221624.2222527689667678224.davem@davemloft.net>
+References: <55105B2E.1070409@oracle.com>
+	<20150323215513.GA20128@gondor.apana.org.au>
+	<20150323225317.GA20707@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ek@google.com, fgont@si6networks.com,
-	lorenzo@google.com, hideaki.yoshifuji@miraclelinux.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59998 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbbCXCPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 22:15:31 -0400
-In-Reply-To: <cover.1427149704.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sasha.levin@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tgraf@suug.ch
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150323225317.GA20707@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 23 Mar 2015 23:35:58 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 24 Mar 2015 09:53:17 +1100
 
-> this is an implementation of basic support for RFC7217 stable privacy
-> addresses. Please review and consider for net-next.
+> rhashtable: Fix sleeping inside RCU critical section in walk_stop
 > 
-> v2:
-> * Correct references to RFC 7212 -> RFC 7217 in documentation patch (thanks, Eric!)
+> The commit 963ecbd41a1026d99ec7537c050867428c397b89 ("rhashtable:
+> Fix use-after-free in rhashtable_walk_stop") fixed a real bug
+> but created another one because we may end up sleeping inside an
+> RCU critical section.
+> 
+> This patch fixes it properly by replacing the mutex with a spin
+> lock that specifically protects the walker lists.
+> 
+> Reported-by: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks!
+Applied, thanks everyone.
