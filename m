@@ -1,89 +1,225 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Tue, 24 Mar 2015 11:14:28 -0700
-Message-ID: <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
-References: <20150323002215.GA6074@roeck-us.net>
-	<550F6D7D.7030403@gmail.com>
-	<550F8102.7040701@roeck-us.net>
-	<550F8600.2020300@gmail.com>
-	<550F8987.5070600@roeck-us.net>
-	<5510498D.5010001@cumulusnetworks.com>
-	<CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
-	<20150324142921.GA2026@nanopsycho.orion>
-	<20150324160126.GA17104@roeck-us.net>
-	<5511A29F.5010006@cumulusnetworks.com>
-	<20150324175825.GA1465@roeck-us.net>
+From: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 2/5] mpls: Remove incorrect PHP comment
+Date: Tue, 24 Mar 2015 11:43:05 -0700
+Message-ID: <CAMs_D1-8CTCxPFWefihy3ZsqLH9sywutS6z+FS1-1pDFFGhVGw@mail.gmail.com>
+References: <1426800772-22378-1-git-send-email-rshearma@brocade.com>
+	<1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1426866170-28739-3-git-send-email-rshearma@brocade.com>
+	<87fv8wals4.fsf@x220.int.ebiederm.org>
+	<550FF9C9.2000308@brocade.com>
+	<87h9tb37g6.fsf@x220.int.ebiederm.org>
+	<55118035.2090806@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: roopa <roopa@cumulusnetworks.com>, Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33883 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752165AbbCXSOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 14:14:51 -0400
-Received: by qgep97 with SMTP id p97so2037258qge.1
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 11:14:50 -0700 (PDT)
-In-Reply-To: <20150324175825.GA1465@roeck-us.net>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:34340 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753194AbbCXSnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 14:43:07 -0400
+Received: by wibg7 with SMTP id g7so57908301wib.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 11:43:05 -0700 (PDT)
+In-Reply-To: <55118035.2090806@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2015 at 10:58 AM, Guenter Roeck <linux@roeck-us.net> wrote:
-> On Tue, Mar 24, 2015 at 10:45:03AM -0700, roopa wrote:
->> On 3/24/15, 9:01 AM, Guenter Roeck wrote:
->> >On Tue, Mar 24, 2015 at 03:29:21PM +0100, Jiri Pirko wrote:
->> >>>diff --git a/drivers/net/ethernet/rocker/rocker.c
->> >>>b/drivers/net/ethernet/rocker/rocker.c
->> >>>index aab962c..0f7217f7 100644
->> >>>--- a/drivers/net/ethernet/rocker/rocker.c
->> >>>+++ b/drivers/net/ethernet/rocker/rocker.c
->> >>>@@ -3931,15 +3931,28 @@ unmap_frag:
->> >>>        return -EMSGSIZE;
->> >>>}
->> >>>
->> >>>+static bool rocker_port_dev_check(struct net_device *dev);
->> >>>+
->> >>>static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct
->> >>>net_device *dev)
->> >>>{
->> >>>        struct rocker_port *rocker_port = netdev_priv(dev);
->> >>>        struct rocker *rocker = rocker_port->rocker;
->> >>>        struct rocker_desc_info *desc_info;
->> >>>        struct rocker_tlv *frags;
->> >>>+       struct net_device *in_dev;
->> >>>        int i;
->> >>>        int err;
->> >>>
->> >>>+       if (rocker_port_is_bridged(rocker_port)) {
->> >>>+               rcu_read_lock();
->> >>>+               in_dev = dev_get_by_index_rcu(dev_net(dev), skb->skb_iif);
->> >>Hmm, you iterate over all ports for every xmit call :/
->> >>Would be nicer if skb_iif would be netdev poiter. Not sure it is doable.
->> >>
->> >It may be easier (and faster) to loop through all rocker ports and try to find
->> >one with the same ifindex. Then the dev_check call would not be necessary.
->> >
->> This is still overhead for every packet on the switches we support. The
->> number of ports can go close to 128
->> (40G ports can be broken into 4x10G ports).
+On Tue, Mar 24, 2015 at 8:18 AM, Robert Shearman <rshearma@brocade.com> wrote:
+> On 23/03/15 18:16, Eric W. Biederman wrote:
 >>
-> Agreed. Given that, and since dev_get_by_index_rcu uses a hash to find the
-> device pointer, it may actually be (much) faster (and the above "iterate
-> over all ports" is a bit misleading).
->
-> I tested the above approach with DSA and a Marvell switch chip. It works,
-> but I am a bit concerned about the per-packet overhead, especially
-> in larger networks. I would prefer if there would be a means to 'catch'
-> duplicate packets earlier - before they are even created, if that is
-> possible.
+>> Robert Shearman <rshearma@brocade.com> writes:
+>>
+>>> On 22/03/15 19:12, Eric W. Biederman wrote:
+>>>>
+>>>> Robert Shearman <rshearma@brocade.com> writes:
+>>>>
+>>>>> Popping the last label on the stack does not necessarily imply
+>>>>> performing penultimate hop popping. There is no reason why this
+>>>>> couldn't be the last hop in the network, so remove the comment.
+>>>>
+>>>>
+>>>> So this change I will disagree with.
+>>>>
+>>>> What the code implements is Penultimate hop popping.  Even if you send
+>>>> the packets over loopback that is what the code is doing.
+>>>
+>>>
+>>> No, RFC3031 s3.16 (https://tools.ietf.org/html/rfc3031#page-18) talks in
+>>> terms
+>>> of LSRs (label switch routers), not passes through the forwarding
+>>> code.
+>>
+>>
+>> In very simple terms the code always removes the labels and forwards the
+>> code.  That is by definition penultimate hop popping.  That is all that
+>> is implmeneted in the code today.  And that is what the comment is
+>> noting.
+>>
 
-I'm not so concerned about the per-packet overhead.  For multicast, we
-have IGMP snooping.  And big switches are going to have rate controls
-on CPU bound traffic, so the CPU should be able to handle the
-per-packet overhead with ease.
+Yes, this is what the code implements today. I guess the point that
+Rob might be making
+is that this is not necessarily PHP. The terminus of the LSP (ultimate
+hop) need not always
+signal an implicit-null or an explicit-null label upstream. In such a
+case, it is the ultimate hop
+that would see a labeled packet and would pop the label.
+
+What the code implements today can probably be better called as "pop
+and forward" - the
+label directly identifies the nexthop to forward to. There are other
+paradigms needed as Rob
+describes below.
+
+>
+> I think we might be talking at cross purposes here so I'd like to back up a
+> little bit and make sure that we are using the same terminology and are
+> talking about the same problem.
+>
+> In terms of terminology this is what I mean -
+>
+> PHP means popping the label in the penultimate hop router in the *signalled*
+> LSP. Note: There may be more hops beyond this LSP - either MPLS using an
+> inner label or payload - such as IP.
+>
+> UHP means popping the label in the ultimate hop router in the signalled LSP.
+> Again there may be further hops that are outside of the LSP.
+>
+> Orthogonal to this is the relation of the FEC to the UH router.
+>
+> a) All traffic for this FEC needs to be sent to another router (which is
+> beyond this LSP).
+> b) The FEC requires the UH router to do a payload lookup in order to
+> identify where the payload should go. This can be a label lookup on the next
+> label in (e.g. where the outer label is a TE tunnel over which further LSPs
+> have been setup). Or it can be a payload protocol lookup e.g. IP. There are
+> a couple of sub-cases here - the common case is where the FEC is for a
+> prefix that is directly connected to the UH - in which case the lookup we
+> need is conceptually a neighbour lookup. Another case is where the FEC
+> corresponds to a summary prefix that this router has advertised to its peer
+> - in which case the lookup is a routing table lookup.
+> c) The FEC is destined for the UH router and needs to be "received" by it.
+> Typically this case can be handled in exactly the same way as B above but
+> mention it here for completeness.
+>
+> Does this terminology work for you?
+>
+> If it does then I hope you will also agree that PHP is really aimed at
+> decreasing the work for the UH router in the cases where the FEC corresponds
+> to B above. (And it also allows C to be handled using existing e.g. IP path
+> mechanisms). If we want to do UHP then we'd require the UH router to first
+> lookup the outer label (which would be exp-null) and then an additional
+> protocol lookup.
+>
+> But there are a couple of cases where you either can't or may not want to do
+> PHP.
+>
+> Firstly with an application like MPLS VPN the UH router is the PE and it
+> needs the label in order to identify which routing table to do the (IP)
+> payload lookup in.
+>
+
+I can relate to the terminology above. The one clarification I'll add
+to the comment
+on MPLS VPN is that it is the VPN label that will identify the routing table in
+which to do the IP/payload lookup. The PH cannot pop this label as it doesn't
+even know about it. The same would be the case for PWE - the PW label needs
+to reach the UH for it to be able to do the forwarding. The PH may pop the LSP
+label (on which the L3VPN or PW is setup) or it may not - based on what the
+UH signaled it to do.
+
+Of course, the comment is one thing - the implementation would be enhancements
+to what is already available. IMO, one key aspect of this would be the
+ability to
+specify a label operation such as "pop" or "swap" - or even "no-op" which may
+have a use case when MPLS dataplane is used to achieve Segment Routing.
+
+For example,
+ip -f mpls route add 200 pop
+ip -f mpls route add 1400 nexthop via inet 192.168.12.1 dev eth1
+
+would handle a label stack {200, 1400(S)} on the UH, pop the LSP label 200 and
+(implicitly) pop the VPN label 1400 and forward to nexthop specified.
+
+For example,
+ip -f mpls route add 200 pop
+ip -f mpls route add 1600 pop dev lo20
+
+could handle a similar L3VPN scenario that requires a payload (IP) lookup. The
+VRF (table to use) could be identified by rules associated with
+'lo20'. The incoming
+interface information is lost, but in this case, the most relevant
+information is the
+VRF which is determined by 'lo20' (which is pointed to by the VPN label 1600).
+
+> Secondly, in case A, PHP doesn't offer any benefit. The PH is already able
+> to use the incoming label to determine how to forward without needing a
+> further lookup. It's a choice, but there are certainly stacks out there that
+> will choose to advertise a real label for the FEC so that we do UHP here.
+> (I'd actually expect that to be the norm).
+>
+> Does this description of behaviours work for you?
+>
+> If we are still together at this point then my last question is why you say
+> that "remov[ing] a label and forward[ing] the [packet]" is "by definition
+> penultimate-hop popping"?
+>
+> I'm actually more interested in getting aligned on this than the comment
+> itself. I also have some comments on what you say below about local delivery
+> but I suspect it will all make more sense once we sort this out.
+>
+> Thanks,
+> Rob
+>
+>>>> This is relevant because I think the code may actually be wrong in the
+>>>> local reception case.  By preforming penultimate hop popping and
+>>>> receving the code on loopback I think this code allows bypassing
+>>>> iptables rules that apply to incoming ip packets.  Certainly there is a
+>>>> loss of information as to which hardware interface the packet came in on
+>>>> that it may be desirable to correct.
+>>>
+>>>
+>>> Indeed, but network operators may well want to apply different rules to
+>>> traffic
+>>> coming in as IP versus traffic coming in as MPLS.
+>>>
+>>> This may well merit a comment of its own, but this isn't directly
+>>> relevant to
+>>> the comment I'm removing.
+>>
+>>
+>> My point is and what is directly relevant is the case of local delivery
+>> is a hack.  A hack that a pretty strong case can be made that it does
+>> the wrong thing and something we probably should fix before the code
+>> makes it to Linus for 4.1 so the bug does not get cast in stone.
+>>
+>> In other words the disparity between the comment and the code indicates
+>> an actual bug, not just a wrong comment.
+>>
+>> Eric
+>>
+>>>>> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+>>>>> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+>>>>> ---
+>>>>>    net/mpls/af_mpls.c | 1 -
+>>>>>    1 file changed, 1 deletion(-)
+>>>>>
+>>>>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>>>>> index 0d6763a..bf3459a 100644
+>>>>> --- a/net/mpls/af_mpls.c
+>>>>> +++ b/net/mpls/af_mpls.c
+>>>>> @@ -199,7 +199,6 @@ static int mpls_forward(struct sk_buff *skb, struct
+>>>>> net_device *dev,
+>>>>>         skb->protocol = htons(ETH_P_MPLS_UC);
+>>>>>
+>>>>>         if (unlikely(!new_header_size && dec.bos)) {
+>>>>> -               /* Penultimate hop popping */
+>>>>>                 if (!mpls_egress(rt, skb, dec))
+>>>>>                         goto drop;
+>>>>>         } else {
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
