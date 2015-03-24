@@ -1,61 +1,67 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
- for Linux (LibOS)
-Date: Tue, 24 Mar 2015 15:32:05 +0100
-Message-ID: <55117565.6080002@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at> <m2twxacw13.wl@sfc.wide.ad.jp>
+From: Shannon Nelson <shannon.nelson@intel.com>
+Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
+Date: Tue, 24 Mar 2015 07:53:24 -0700
+Message-ID: <CAP-MU4P9wXNwgagFNVL4WCK2Xn29hX+DUa=zvBncC8h4c+FMMg@mail.gmail.com>
+References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
+	<jpg8uf2ghln.fsf@redhat.com>
+	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
+	<jpgtwxpvk5x.fsf@redhat.com>
+	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>
+	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
+	<jpg1tko7qwb.fsf@redhat.com>
+	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
+	<jpglhiw4tal.fsf@redhat.com>
+	<jpgk2yewcpt.fsf@redhat.com>
+	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>
+	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>
+	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
+	<550A85B3.4070703@redhat.com>
+	<CA+AkT2hJcHBcTzyONosrd82dD1m3-ML1_doS=tjBFoAPdnTmaw@mail.gmail.com>
+	<550ADAD2.8070506@redhat.com>
+	<CA+AkT2jPV_P436_RUQepT7wHtPaGOYGeE5uzUKtyXtk0s8U_gQ@mail.gmail.com>
+	<550FBE70.40201@redhat.com>
+	<CA+AkT2hoBZ63Pb3MiFV6X=StaU8eAQWb79AbwSLjH7bdoCL6yA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
-	cl@linux.com, penberg@kernel.org, rientjes@google.com,
-	iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
-	rusty@rustcorp.com.au, mathieu.lacage@gmail.com
-To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <m2twxacw13.wl@sfc.wide.ad.jp>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stefan Assmann <sassmann@redhat.com>, Bandan Das <bsd@redhat.com>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	QEMU Developers <qemu-devel@nongnu.org>,
+	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
+To: jacob jacob <opstkusr@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <CA+AkT2hoBZ63Pb3MiFV6X=StaU8eAQWb79AbwSLjH7bdoCL6yA@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 24.03.2015 um 15:25 schrieb Hajime Tazaki:
-> At Tue, 24 Mar 2015 14:21:49 +0100,
-> Richard Weinberger wrote:
->>
->> Am 24.03.2015 um 14:10 schrieb Hajime Tazaki:
->>  > == More information ==
->>>
->>> The crucial difference between UML (user-mode linux) and this approach
->>> is that we allow multiple network stack instances to co-exist within a
->>> single process with dlmopen(3) like linking for easy debugging.
->>
->> Is this the only difference?
->> We already have arch/um, why do you need arch/lib/ then?
->> My point is, can't you merge your arch/lib into the existing arch/um stuff?
->> From a very rough look your arch/lib seems like a micro UML.
-> 
-> I understand your point.
-> but ptrace(2) based system call interception used by UML
-> makes it depend on the host OS (i.e., linux kernel), while
-> LibOS uses symbol hijacking with weak alias and LD_PRELOAD.
-> 
-> we're really thinking to run this library on other
-> POSIX-like hosts (e.g., osx) though it's not coming yet.
+On Tue, Mar 24, 2015 at 7:13 AM, jacob jacob <opstkusr@gmail.com> wrote:
+> After update to latest firmware and using version 1.2.37 of i40e
+> driver, things are looking better with PCI passthrough.
+>
+> ]# ethtool -i eth3
+> driver: i40e
+> version: 1.2.37
+> firmware-version: f4.33.31377 a1.2 n4.42 e1930
+> bus-info: 0000:00:07.0
+> supports-statistics: yes
+> supports-test: yes
+> supports-eeprom-access: yes
+> supports-register-dump: yes
+> supports-priv-flags: yes
 
-Yeah, but this does not mean that arch/um and arch/lib can't coexist in arch/um.
-Maybe you can add a "library operation mode" to UML.
-I'll happily help you in that area.
+I'm glad the updates helped as we expected.
 
->> BTW: There was already an idea for having UML as regular library.
->> See: http://user-mode-linux.sourceforge.net/old/projects.html
->> "UML as a normal userspace library"
-> 
-> thanks, it's new information for me.
-> were there any trial on this idea ?
+>
+> There are still issues running dpdk 1.8.0 from the VM using the pci
+> passthrough devices and looks like it puts the devices in a bad state.
+> i40e driver will not bind after this happens and a host reboot is
+> required to recover.
 
-IIRC Jeff (the original author of UML) wanted to create a special linker script
-such that you can build UML as shared object.
+Did you make sure to unbind the i40e device from pci-stub after you
+were done with using it in the VM?
 
-Thanks,
-//richard
+> I'll post further updates as i make progress.
+> Thanks for all the help.
+>
+
+Good luck,
+sln
