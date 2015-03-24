@@ -1,44 +1,68 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] virtio: change comment in transmit
-Date: Tue, 24 Mar 2015 16:22:07 -0700
-Message-ID: <20150324162207.6d4ecf48@urahara>
+From: Joe Harvell <joe.harvell@tekcomms.com>
+Subject: Re: [PATCH]: iproute2: enhance enforcement of ifconfig compatible
+ address labels and allow non-compatible ones with -force
+Date: Tue, 24 Mar 2015 17:55:36 -0500
+Message-ID: <5511EB68.5070604@tekcomms.com>
+References: <4edec6f657e24e98b938c3ad76b54625@BRMWP-EXMB11.corp.brocade.com>
+ <20150324151114.7168de0b@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33058 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874AbbCXXWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 19:22:05 -0400
-Received: by pabxg6 with SMTP id xg6so8474722pab.0
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 16:22:04 -0700 (PDT)
+Received: from mail-by2on0133.outbound.protection.outlook.com ([207.46.100.133]:64336
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751842AbbCXX3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 19:29:37 -0400
+In-Reply-To: <20150324151114.7168de0b@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The original comment was not really informative or funny
-as well as sexist. Replace it with a better explanation of
-why the driver does stop and what the impacts are.
-
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
---- a/drivers/net/virtio_net.c	2015-03-24 15:20:25.174671000 -0700
-+++ b/drivers/net/virtio_net.c	2015-03-24 16:17:28.478525333 -0700
-@@ -939,8 +939,12 @@ static netdev_tx_t start_xmit(struct sk_
- 	skb_orphan(skb);
- 	nf_reset(skb);
- 
--	/* Apparently nice girls don't return TX_BUSY; stop the queue
--	 * before it gets out of hand.  Naturally, this wastes entries. */
-+	/* It is better to stop queue if running out of space
-+	 * instead of forcing queuing layer to requeue the skb
-+	 * by returning TX_BUSY (and cause a BUG message).
-+	 * Since most packets only take 1 or 2 ring slots
-+	 * this means 16 slots are typically wasted.
-+	 */
- 	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
- 		netif_stop_subqueue(dev, qnum);
- 		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+Le 24/03/2015 17:11, Stephen Hemminger a =E9crit :
+> On Sat, 21 Mar 2015 17:55:02 +0000
+> Joe Harvell <joe.harvell@tekcomms.com> wrote:
+>
+>> The ip addr command today rejects address labels that would break
+>> ifconfig.  However, it allows some labels which still break it. Enha=
+nce
+>> enforcement to reject all known incompatible labels, and allow the
+>> existing -force option to allow someone to use a label even if it is=
+ not
+>> ifconfig compatible
+>>
+>> Make existing -force option of ip addr add skip enforcment of ifconf=
+ig
+>> compatible address labels.
+>> Change enforcement to properly reject labels that do begin with
+>> <devname> but are followed by a string that does not begin with colo=
+n.
+>>
+>>
+>> The following changes since commit 4612d04d6b8f07274bd5d0688f717ccc1=
+89499ad:
+>>
+>>     tc class: Show class names from file (2015-03-15 12:27:40 -0700)
+>>
+>> are available in the git repository at:
+>>
+>>     git@github.com:jharvell/iproute2.git addr-label-noncompat
+>>
+>> for you to fetch changes up to 6a1d09e93ae1fb4f7f1cd5981813af918e8ef=
+c88:
+> Not really enthusiastic about this. It seems to introduce more issues
+> and I don't consider it a big issue. If user is creating labels with
+> ip and it breaks ifconfig, it is really a case of shooting themselves
+> in the foot; or the fact that ifconfig needs to die (or get fixed).
+Actually, I agree.  My real motivation for this change is to be able to
+create labels that are currently being rejected.  I did this through
+a -force option because I assumed no one would agree to remove the
+enforcement altogether.  When I noticed during my testing that the
+existing enforcement doesn't even catch all the lables that break ifcon=
+fig,
+I decided to enhance it.  But I'm totally fine with just removing the=20
+existing
+enforcement altogether.
