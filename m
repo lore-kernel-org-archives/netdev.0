@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
-Date: Tue, 24 Mar 2015 13:00:37 -0400 (EDT)
-Message-ID: <20150324.130037.1897087027068811494.davem@davemloft.net>
-References: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
+Subject: Re: [Patch net] net: use for_each_netdev_safe() in
+ rtnl_group_changelink()
+Date: Tue, 24 Mar 2015 13:02:54 -0400 (EDT)
+Message-ID: <20150324.130254.1666495511890518435.davem@davemloft.net>
+References: <1427153469-32542-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com, dcbw@redhat.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37598 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37612 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755510AbbCXRAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 13:00:40 -0400
-In-Reply-To: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
+	with ESMTP id S932202AbbCXRC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 13:02:57 -0400
+In-Reply-To: <1427153469-32542-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Mon, 23 Mar 2015 22:10:19 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 23 Mar 2015 16:31:09 -0700
 
-> @@ -504,7 +504,8 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
->  
->  	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
->  		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
-> -			ipvlan_ht_addr_del(addr, !dev->dismantle);
-> +			if (netif_running(dev))
-> +				ipvlan_ht_addr_del(addr, !dev->dismantle);
->  			list_del_rcu(&addr->anode);
->  		}
->  	}
+> In case we move the whole dev group to another netns,
+> we should call for_each_netdev_safe(), otherwise we get
+> a soft lockup:
+ ...
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-This is so error prone, because you are depending upon so many implementation
-details to infer a boolean state "is this address hashed".
-
-So just add the boolean state to struct ipvl_addr, and manage it in
-the ipvlan_ht_addr_{add,del}() code.
+Applied and queued up for -stable, thanks.
