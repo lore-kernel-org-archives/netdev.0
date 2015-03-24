@@ -1,53 +1,49 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net: allow to delete a whole device group
-Date: Tue, 24 Mar 2015 10:21:51 -0700
-Message-ID: <CAM_iQpWcuX_aVzAgOEuUEiQY5MvUJhATUARm1KdqgaXbM7Sbxg@mail.gmail.com>
-References: <1427155455-8257-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20150324.131105.1048577882668644719.davem@davemloft.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Tue, 24 Mar 2015 18:06:28 +0100
+Message-ID: <20150324180628.278017fb@griffin>
+References: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
+	<20150324.130037.1897087027068811494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maheshb@google.com, dcbw@redhat.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:36300 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752646AbbCXRVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 13:21:52 -0400
-Received: by pdbcz9 with SMTP id cz9so227355281pdb.3
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 10:21:51 -0700 (PDT)
-In-Reply-To: <20150324.131105.1048577882668644719.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:41364 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933070AbbCXRGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 13:06:34 -0400
+In-Reply-To: <20150324.130037.1897087027068811494.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2015 at 10:11 AM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Mon, 23 Mar 2015 17:04:15 -0700
->
->> +     for_each_netdev_safe(net, dev, aux) {
->> +             if (dev->group == group) {
->> +                     const struct rtnl_link_ops *ops;
->> +
->> +                     found = true;
->> +                     ops = dev->rtnl_link_ops;
->> +                     if (!ops || !ops->dellink)
->> +                             return -EOPNOTSUPP;
->> +                     ops->dellink(dev, &list_kill);
->> +             }
->
-> These semantics are terrible.
->
-> A netlink request should always strive (no, I'll say it _must_) either
-> fully perform the requested operation for all relevant objects, or
-> have no side effects and return an error.
->
-> If need be you must completely unwind all partial changes before
-> returning that error, or alternatively defer commiting the
-> changes until you can guarantee that all of them can be performed.
+On Tue, 24 Mar 2015 13:00:37 -0400 (EDT), David Miller wrote:
+> From: Jiri Benc <jbenc@redhat.com>
+> Date: Mon, 23 Mar 2015 22:10:19 +0100
+> 
+> > @@ -504,7 +504,8 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+> >  
+> >  	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
+> >  		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
+> > -			ipvlan_ht_addr_del(addr, !dev->dismantle);
+> > +			if (netif_running(dev))
+> > +				ipvlan_ht_addr_del(addr, !dev->dismantle);
+> >  			list_del_rcu(&addr->anode);
+> >  		}
+> >  	}
+> 
+> This is so error prone, because you are depending upon so many implementation
+> details to infer a boolean state "is this address hashed".
+> 
+> So just add the boolean state to struct ipvl_addr, and manage it in
+> the ipvlan_ht_addr_{add,del}() code.
 
-Good point.
+I had that originally but then decided to go with smaller memory
+footprint. Which obviously doesn't matter much here. I'll send v2 with
+the boolean state.
 
-I don't see a way to unwind the dellink, I think we can scan the list
-twice, once for (!ops || !ops->dellink) check, once for dellink().
+ Jiri
 
-Thanks.
+-- 
+Jiri Benc
