@@ -1,42 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 0/5 net-next] rhashtable updates on top of Herbert's work
-Date: Tue, 24 Mar 2015 14:18:15 +0100
-Message-ID: <cover.1427202823.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: davem@davemloft.net
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] mlx4 driver RC fixes
+Date: Tue, 24 Mar 2015 15:18:37 +0200
+Message-ID: <1427203119-27149-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:34627 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752580AbbCXNSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:18:25 -0400
+Received: from mailp.voltaire.com ([193.47.165.129]:49665 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752648AbbCXNSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 09:18:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch 1 is a bugfix for an RCU splash I encountered while testing.
-Patch 2 & 3 are pure cleanups. Patch 4 disables automatic shrinking
-by default as discussed in previous thread. Patch 5 removes some
-rhashtable internal knowledge from nft_hash and fixes another RCU
-splash.
+Hi Dave,
 
-I've pushed various rhashtable tests (Netlink, nft) together with a
-Makefile to a git tree [0] for easier stress testing.
+Ido's patch should go to -stable of >= 3.14 too, the issue is older but it
+hits us with VXLAN for which driver support dates there.
 
-[0] https://github.com/tgraf/rhashtable
+As for Jack's fix, for the time being, picking it to 4.0 is OK.
 
-Thomas Graf (5):
-  rhashtable: Extend RCU read lock into rhashtable_insert_rehash()
-  rhashtable: Use 'unsigned int' consistently
-  rhashtable: Mark internal/private inline functions as such
-  rhashtable: Disable automatic shrinking by default
-  rhashtable: Add rhashtable_free_and_destroy()
+Or.
 
- include/linux/rhashtable.h | 50 +++++++++++++++++++++++-----------
- lib/rhashtable.c           | 67 +++++++++++++++++++++++++++++++++-------------
- lib/test_rhashtable.c      |  2 +-
- net/netfilter/nft_hash.c   | 27 ++++++-------------
- net/netlink/af_netlink.c   |  4 +--
- net/tipc/socket.c          |  3 ++-
- 6 files changed, 96 insertions(+), 57 deletions(-)
+Ido Shamay (1):
+  net/mlx4_en: Call register_netdevice in the proper location
 
--- 
-1.9.3
+Jack Morgenstein (1):
+  net/mlx4_core: Fix GEN_EQE accessing uninitialixed mutex
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   15 ++++++++-------
+ drivers/net/ethernet/mellanox/mlx4/eq.c            |   18 +++++++-----------
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    6 ++++++
+ 4 files changed, 22 insertions(+), 19 deletions(-)
