@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v3 PATCH 0/9] rhashtable: Multiple rehashing
-Date: Tue, 24 Mar 2015 14:57:30 -0400 (EDT)
-Message-ID: <20150324.145730.591778015335401246.davem@davemloft.net>
-References: <20150323134955.GA16328@gondor.apana.org.au>
-	<20150323.220913.317244497700484970.davem@davemloft.net>
-	<20150324023729.GA7973@gondor.apana.org.au>
+Subject: Re: [PATCH net-next 0/4] tcp: listener refactor part 16
+Date: Tue, 24 Mar 2015 15:02:57 -0400 (EDT)
+Message-ID: <20150324.150257.1215806444155190560.davem@davemloft.net>
+References: <1427171666-30585-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, eric.dumazet@gmail.com, kaber@trash.net,
-	josh@joshtriplett.org, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38570 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38607 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbbCXS5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 14:57:33 -0400
-In-Reply-To: <20150324023729.GA7973@gondor.apana.org.au>
+	with ESMTP id S1752900AbbCXTDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 15:03:00 -0400
+In-Reply-To: <1427171666-30585-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 24 Mar 2015 13:37:30 +1100
+From: Eric Dumazet <edumazet@google.com>
+Date: Mon, 23 Mar 2015 21:34:22 -0700
 
-> rhashtable: Add comment on choice of elasticity value
-> 
-> This patch adds a comment on the choice of the value 16 as the
-> maximum chain length before we force a rehash.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I added const qualifiers to various md5 methods, as I expect
+> to call them on behalf of request sock traffic even if
+> the listener socket is not locked. This seems ok, but adding
+> const makes the contract clearer. Note a good reduction
+> of code size thanks to request/establish sockets convergence.
 
-Thanks for following up on this, applied.
+Series applied, keep up the good work Eric.
