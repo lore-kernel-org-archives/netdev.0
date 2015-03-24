@@ -1,130 +1,108 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 4/5 net-next v2] rhashtable: Disable automatic shrinking by
- default
-Date: Tue, 24 Mar 2015 20:42:19 +0000
-Message-ID: <20150324204219.GA23613@casper.infradead.org>
-References: <cover.1427202823.git.tgraf@suug.ch>
- <f6ed6e9fe9434e55475b777281f6fe67eff0e07d.1427202823.git.tgraf@suug.ch>
- <20150324185545.GA15837@gondor.apana.org.au>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
+Date: Tue, 24 Mar 2015 21:04:29 +0000
+Message-ID: <87618083B2453E4A8714035B62D6799250274DD2@FMSMSX105.amr.corp.intel.com>
+References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com>
+ <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com>
+ <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com>
+ <55113B9B.3090308@cloudius-systems.com>
+ <87618083B2453E4A8714035B62D6799250274C7F@FMSMSX105.amr.corp.intel.com>
+ <5511B5AE.1090905@cloudius-systems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
+	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
+To: Vlad Zolotarov <vladz@cloudius-systems.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38083 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752342AbbCXUmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 16:42:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20150324185545.GA15837@gondor.apana.org.au>
+Received: from mga01.intel.com ([192.55.52.88]:34293 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752284AbbCXVEb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:04:31 -0400
+In-Reply-To: <5511B5AE.1090905@cloudius-systems.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce a new bool automatic_shrinking to require the
-user to explicitly opt-in to automatic shrinking of tables.
+>-----Original Message-----
+>From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com] 
+>Sent: Tuesday, March 24, 2015 12:06 PM
+> Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
+> I'm not sure where you see this, on my setup ixgbevf_get_queues() gets 4 in msg[IXGBE_VF_R/TX_QUEUES] which is used to set hw->mac.max_t/rx_queues.
+>
+>Right. I misread the __ALIGN_MASK() macro.
+>But then I can't see where max_rx_queues is used. 
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2: Use bool in params to also disable shrinking in worker as
-    pointed out by Herbert.
+It is used when stopping the Tx/Rx queues in ixgbevf_stop_hw_vf().
 
-@Dave: Patch 5 still applied on top with some fuzz. If not,
-       let me know and I will respin.
+>ixgbevf_set_num_queues() sets adapter->num_rx_queues ignoring the above 
+>value if num_tcs less or equal to 1:
+>
+>/* fetch queue configuration from the PF */
+>	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
+>
+>	spin_unlock_bh(&adapter->mbx_lock);
+>
+>	if (err)
+>		return;
+>
+>	/* we need as many queues as traffic classes */
+>	if (num_tcs > 1) {
+>		adapter->num_rx_queues = num_tcs;
+>	} else {
+>		u16 rss = min_t(u16, num_online_cpus(), IXGBEVF_MAX_RSS_QUEUES);
+>
+>		switch (hw->api_version) {
+>		case ixgbe_mbox_api_11:
+>		case ixgbe_mbox_api_12:
+>			adapter->num_rx_queues = rss;
+>			adapter->num_tx_queues = rss;
+>		default:
+>			break;
+>		}
+>	}
+>
+>This means that if PF returned in IXGBE_VF_RX_QUEUES 1 and if u have 
+>more than 1 CPU u will still go and configure 2 Rx queues for a VF. This 
+>unless I miss something again... ;)
 
- include/linux/rhashtable.h | 7 +++++--
- lib/rhashtable.c           | 2 +-
- net/netfilter/nft_hash.c   | 1 +
- net/netlink/af_netlink.c   | 1 +
- net/tipc/socket.c          | 1 +
- 5 files changed, 9 insertions(+), 3 deletions(-)
+>From what I can see vmdq->mask can be only for 4 or 8 queues, so the PF will not return 1, unless you meant something else.
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 0e1f975..ae26c49 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -2,7 +2,7 @@
-  * Resizable, Scalable, Concurrent Hash Table
-  *
-  * Copyright (c) 2015 Herbert Xu <herbert@gondor.apana.org.au>
-- * Copyright (c) 2014 Thomas Graf <tgraf@suug.ch>
-+ * Copyright (c) 2014-2015 Thomas Graf <tgraf@suug.ch>
-  * Copyright (c) 2008-2014 Patrick McHardy <kaber@trash.net>
-  *
-  * Code partially derived from nft_hash
-@@ -104,6 +104,7 @@ struct rhashtable;
-  * @min_size: Minimum size while shrinking
-  * @nulls_base: Base value to generate nulls marker
-  * @insecure_elasticity: Set to true to disable chain length checks
-+ * @automatic_shrinking: Enable automatic shrinking of tables
-  * @locks_mul: Number of bucket locks to allocate per cpu (default: 128)
-  * @hashfn: Hash function (default: jhash2 if !(key_len % 4), or jhash)
-  * @obj_hashfn: Function to hash object
-@@ -118,6 +119,7 @@ struct rhashtable_params {
- 	unsigned int		min_size;
- 	u32			nulls_base;
- 	bool			insecure_elasticity;
-+	bool			automatic_shrinking;
- 	size_t			locks_mul;
- 	rht_hashfn_t		hashfn;
- 	rht_obj_hashfn_t	obj_hashfn;
-@@ -784,7 +786,8 @@ static inline int rhashtable_remove_fast(
- 		goto out;
- 
- 	atomic_dec(&ht->nelems);
--	if (rht_shrink_below_30(ht, tbl))
-+	if (unlikely(ht->p.automatic_shrinking &&
-+		     rht_shrink_below_30(ht, tbl)))
- 		schedule_work(&ht->run_work);
- 
- out:
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 93374d7..a0ad777 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -367,7 +367,7 @@ static void rht_deferred_worker(struct work_struct *work)
- 
- 	if (rht_grow_above_75(ht, tbl))
- 		rhashtable_expand(ht);
--	else if (rht_shrink_below_30(ht, tbl))
-+	else if (ht->p.automatic_shrinking && rht_shrink_below_30(ht, tbl))
- 		rhashtable_shrink(ht);
- 
- 	err = rhashtable_rehash_table(ht);
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index ad39669..8577a37 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -172,6 +172,7 @@ static const struct rhashtable_params nft_hash_params = {
- 	.head_offset = offsetof(struct nft_hash_elem, node),
- 	.key_offset = offsetof(struct nft_hash_elem, key),
- 	.hashfn = jhash,
-+	.automatic_shrinking = true,
- };
- 
- static int nft_hash_init(const struct nft_set *set,
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index e2f7f28..4caa809 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -3142,6 +3142,7 @@ static const struct rhashtable_params netlink_rhashtable_params = {
- 	.obj_hashfn = netlink_hash,
- 	.obj_cmpfn = netlink_compare,
- 	.max_size = 65536,
-+	.automatic_shrinking = true,
- };
- 
- static int __init netlink_proto_init(void)
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 6dd5bd9..3cc099d 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2295,6 +2295,7 @@ static const struct rhashtable_params tsk_rht_params = {
- 	.key_len = sizeof(u32), /* portid */
- 	.max_size = 1048576,
- 	.min_size = 256,
-+	.automatic_shrinking = true,
- };
- 
- int tipc_sk_rht_init(struct net *net)
--- 
-1.9.3
+The comment about the 1 queue is outdated though - I think it's leftover from the time the VF only allowed single queue.
+
+>> BTW - there are other issues with your patches. The indirection table seems to come out as all 0s and the VF driver reports link >> down/up when querying it.
+
+>Worked just fine to me on x540.
+>What is your setup? How did u check it? Did u remember to patch "ip" 
+>tool and enable the querying?
+
+I have x540 as well and used the modified ip, otherwise the operation won't be allowed. I will do some more debugging when I get a chance and will get back to you.
+
+>>
+>> Where is this information useful anyway - what is the use case? There is no description in your patches for why all this is >>needed.
+>
+>I'm not sure it's required to explain why would I want to add a standard 
+>ethtool functionality to a driver.
+>However, since u've asked - we are developing a software infrastructure 
+>that needs the ability to query the VF's indirection table and RSS hash 
+>key from inside the Guest OS (particularly on AWS) in order to be able 
+>to open the socket the way that its traffic would arrive to a specific CPU.
+
+Understanding the use case can help with the implementation. Because you need to get the RSS info from the PF for macs < x550 this opens up the possibility to abuse (even if inadvertently) the mailbox if someone decided to query that info in a loop - like we have seen this happen with net-snmp.
+
+Have you tested what happens if you run:
+
+while true
+do
+	ethtool --show-rxfh-indir ethX
+done
+
+in the background while passing traffic through the VF?
+
+Perhaps storing the RSS key and the table is better option than having to invoke the mailbox on every read.
+
+Thanks,
+Emil
