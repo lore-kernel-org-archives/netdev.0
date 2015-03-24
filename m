@@ -1,79 +1,79 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
-Date: Mon, 23 Mar 2015 23:46:54 +0000
-Message-ID: <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com>
-References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com>
- <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>
-To: Vlad Zolotarov <vladz@cloudius-systems.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net: allow to delete a whole device group
+Date: Mon, 23 Mar 2015 17:04:15 -0700
+Message-ID: <1427155455-8257-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28705 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192AbbCWXrA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 19:47:00 -0400
-In-Reply-To: <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com>
-Content-Language: en-US
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34940 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621AbbCXAE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Mar 2015 20:04:28 -0400
+Received: by pagv19 with SMTP id v19so31922270pag.2
+        for <netdev@vger.kernel.org>; Mon, 23 Mar 2015 17:04:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Vlad Zolotarov
->Sent: Sunday, March 22, 2015 12:01 PM
->
->Subject: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
->
->   - Added a new API version support.
->   - Added the query implementation in the ixgbevf.
->
->Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->---
->New in v6:
->   - Add a proper return code when an operation is blocked by PF.
->
->New in v3:
->   - Adjusted to the new interface IXGBE_VF_GET_RETA command.
->   - Added a proper support for x550 devices.
->
->New in v1 (compared to RFC):
->   - Use "if-else" statement instead of a "switch-case" for a single option case
->     (in ixgbevf_get_reta()).
->---
-> drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 +-
-> drivers/net/ethernet/intel/ixgbevf/mbx.h          |  8 ++
-> drivers/net/ethernet/intel/ixgbevf/vf.c           | 92 +++++++++++++++++++++++
-> drivers/net/ethernet/intel/ixgbevf/vf.h           |  1 +
-> 4 files changed, 104 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->index 4ee15ad..4787fcf 100644
->--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->@@ -2030,7 +2030,8 @@ static void ixgbevf_init_last_counter_stats(struct ixgbevf_adapter *adapter)
-> static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
-> {
-> 	struct ixgbe_hw *hw = &adapter->hw;
->-	int api[] = { ixgbe_mbox_api_11,
->+	int api[] = { ixgbe_mbox_api_12,
->+		      ixgbe_mbox_api_11,
-> 		      ixgbe_mbox_api_10,
-> 		      ixgbe_mbox_api_unknown };
-> 	int err = 0, idx = 0;
->@@ -3712,6 +3713,7 @@ static int ixgbevf_change_mtu(struct net_device *netdev, int new_mtu)
-> 
-> 	switch (adapter->hw.api_version) {
-> 	case ixgbe_mbox_api_11:
->+	case ixgbe_mbox_api_12:
-> 		max_possible_frame = IXGBE_MAX_JUMBO_FRAME_SIZE;
-> 		break;
-> 	default:
+With dev group, we can change a batch of net devices,
+so we should allow to delete them together too.
 
-You need another case for ixgbe_mbox_api_12 in ixgbevf_set_num_queues(), otherwise the driver will load with a single queue.
+Group 0 is not allowed to be deleted since it is
+the default group.
 
-Thanks,
-Emil
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/core/rtnetlink.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e769510..7a6d914 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1836,6 +1836,34 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	return err;
+ }
+ 
++static int rtnl_group_dellink(const struct net *net, int group)
++{
++	struct net_device *dev, *aux;
++	LIST_HEAD(list_kill);
++	bool found = false;
++
++	if (!group)
++		return -EPERM;
++
++	for_each_netdev_safe(net, dev, aux) {
++		if (dev->group == group) {
++			const struct rtnl_link_ops *ops;
++
++			found = true;
++			ops = dev->rtnl_link_ops;
++			if (!ops || !ops->dellink)
++				return -EOPNOTSUPP;
++			ops->dellink(dev, &list_kill);
++		}
++	}
++
++	if (!found)
++		return -ENODEV;
++
++	unregister_netdevice_many(&list_kill);
++	return 0;
++}
++
+ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+@@ -1859,6 +1887,8 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	else if (tb[IFLA_IFNAME])
+ 		dev = __dev_get_by_name(net, ifname);
++	else if (tb[IFLA_GROUP])
++		return rtnl_group_dellink(net, nla_get_u32(tb[IFLA_GROUP]));
+ 	else
+ 		return -EINVAL;
+ 
+-- 
+1.8.3.1
