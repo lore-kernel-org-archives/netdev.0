@@ -1,69 +1,66 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v3] man ip-netns: Fix syntax in default ns process, indent's
-Date: Tue, 24 Mar 2015 11:41:52 +0200
-Message-ID: <1427190112-14636-1-git-send-email-vadim4j@gmail.com>
-Cc: simon.horman@netronome.com, ben@decadent.org.uk,
-	Vadim Kochan <vadim4j@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] ipv6: fix sparse warnings in privacy stable addresses generation
+Date: Tue, 24 Mar 2015 11:05:28 +0100
+Message-ID: <2c4b658a420789137afca51f5249fd15022a9383.1427191441.git.hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:35362 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbbCXJxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 05:53:46 -0400
-Received: by laae1 with SMTP id e1so22898967laa.2
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 02:53:44 -0700 (PDT)
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:42609 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752258AbbCXKFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 06:05:34 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id E7BA520631
+	for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 06:05:30 -0400 (EDT)
+Received: from stressinduktion.org (unknown [217.192.177.51])
+	by mail.messagingengine.com (Postfix) with ESMTPA id 0B0AFC00013
+	for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 06:05:32 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+Those warnings reported by sparse endianness check (via kbuild test robot)
+are harmless, nevertheless fix them up and make the code a little bit
+easier to read.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: 622c81d57b392cc ("ipv6: generation of stable privacy addresses for link-local and autoconf")
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-v3:
-    Added 'its' after 'By default a process inherits ...'
-    -> suggested by Simon Horman <simon.horman@netronome.com>
-v2:
-    Deleted leading spaces
-    -> suggested by Ben Hutchings <ben@decadent.org.uk>
+ net/ipv6/addrconf.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
- man/man8/ip-netns.8 | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
-index d496675..d34cdfe 100644
---- a/man/man8/ip-netns.8
-+++ b/man/man8/ip-netns.8
-@@ -46,7 +46,7 @@ ip-netns \- process network namespace management
- A network namespace is logically another copy of the network stack,
- with its own routes, firewall rules, and network devices.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d2d2383..2660263 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2906,7 +2906,7 @@ static int ipv6_generate_stable_address(struct in6_addr *address,
+ 		char __data[SHA_MESSAGE_BYTES];
+ 		struct {
+ 			struct in6_addr secret;
+-			__be64 prefix;
++			__be32 prefix[2];
+ 			unsigned char hwaddr[MAX_ADDR_LEN];
+ 			u8 dad_count;
+ 		} __packed;
+@@ -2932,16 +2932,16 @@ retry:
+ 	memset(&data, 0, sizeof(data));
+ 	memset(workspace, 0, sizeof(workspace));
+ 	memcpy(data.hwaddr, idev->dev->perm_addr, idev->dev->addr_len);
+-	data.prefix = ((__be64)address->s6_addr32[0] << 32) |
+-		       (__be64)address->s6_addr32[1];
++	data.prefix[0] = address->s6_addr32[0];
++	data.prefix[1] = address->s6_addr32[1];
+ 	data.secret = secret;
+ 	data.dad_count = dad_count;
  
--By default process inherits network namespace from its parent. Initially all
-+By default a process inherits its network namespace from its parent. Initially all
- the processes share the same default network namespace from the init process.
+ 	sha_transform(digest, data.__data, workspace);
  
- By convention a named network namespace is an object at
-@@ -103,10 +103,18 @@ option was specified then all the network namespace names will be removed.
- It is possible to lose the physical device when it was moved to netns and
- then this netns was deleted with a running process:
+ 	temp = *address;
+-	temp.s6_addr32[2] = digest[0];
+-	temp.s6_addr32[3] = digest[1];
++	temp.s6_addr32[2] = (__force __be32)digest[0];
++	temp.s6_addr32[3] = (__force __be32)digest[1];
  
--    $ ip netns add net0
--    $ ip link set dev eth0 netns net0
--    $ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
--    $ ip netns del net0
-+.RS 10
-+$ ip netns add net0
-+.RE
-+.RS 10
-+$ ip link set dev eth0 netns net0
-+.RE
-+.RS 10
-+$ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
-+.RE
-+.RS 10
-+$ ip netns del net0
-+.RE
+ 	spin_unlock_bh(&lock);
  
- and eth0 will appear in the default netns only after SOME_PROCESS_IN_BACKGROUND
- will exit or will be killed. To prevent this the processes running in net0
 -- 
-2.3.1
+2.1.0
