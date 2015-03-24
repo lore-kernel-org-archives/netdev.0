@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for kernel 3.4.x 1/1] net: neighbour: Add
- mcast_resolicit to configure the number of multicast resolicitations in
- PROBE state
-Date: Tue, 24 Mar 2015 11:55:51 -0400 (EDT)
-Message-ID: <20150324.115551.2097254629095935718.davem@davemloft.net>
-References: <1427190355-1216-1-git-send-email-Yanjun.Zhu@windriver.com>
-	<1427190355-1216-2-git-send-email-Yanjun.Zhu@windriver.com>
-	<E66F6C44A7A6EA49ABFC80EA526506DF6A474235@ALA-MBA.corp.ad.wrs.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 24 Mar 2015 11:59:15 -0400 (EDT)
+Message-ID: <20150324.115915.829626973555093278.davem@davemloft.net>
+References: <20150324134508.77b039a9@canb.auug.org.au>
+	<20150323.230003.1242651745820752377.davem@davemloft.net>
+	<20150324104346.GA7422@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lizefan@huawei.com, netdev@vger.kernel.org,
-	ulf.samuelsson@ericsson.com, hideaki.yoshifuji@miraclelinux.com,
-	yoshfuji@linux-ipv6.org, Alexandre.Dietsch@windriver.com
-To: Yanjun.Zhu@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37110 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752230AbbCXPzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 11:55:54 -0400
-In-Reply-To: <E66F6C44A7A6EA49ABFC80EA526506DF6A474235@ALA-MBA.corp.ad.wrs.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	viro@ZenIV.linux.org.uk, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tadeusz.struk@intel.com
+To: hch@lst.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150324104346.GA7422@lst.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Zhu, Yanjun" <Yanjun.Zhu@windriver.com>
-Date: Tue, 24 Mar 2015 09:51:56 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 24 Mar 2015 11:43:46 +0100
 
-> This patch is needed in linux kernel 3.4.106. I made a new patch
-> based on linux kernel 3.4.106. Please let me know your advice.
+> On Mon, Mar 23, 2015 at 11:00:03PM -0400, David Miller wrote:
+>> Ok, more conflicts wiht Al's vfs work.
+>> 
+>> This is starting to pile on, heavily...
+> 
+> These are my changes.  But I think it would be much better if any aio-related
+> changes like this one we be one on top of my changes in Al's iocb branch,
+> there have been various changes, and it would be better to review and
+> commit the changes on top of it instead of carrying the changes as fixups.
+> 
+> Nevermind the actual test coverage..
 
-It's a new feature therefore not appropriate for -stable.
+That's no longer possible as my tree never rebases and the commits are pushed
+out already.
 
-It's only "needed" from your perspective, therefore you can apply it
-to your own local sources as needed.
+Another solution to this set of conflicts, is therefore necessary.
