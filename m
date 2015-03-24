@@ -1,46 +1,37 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] fix ip -force -batch to continue on errors
-Date: Tue, 24 Mar 2015 15:00:21 -0700
-Message-ID: <20150324150021.1cf3a756@urahara>
-References: <1426645592-4002-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/5 net-next v2] rhashtable: Disable automatic
+ shrinking by default
+Date: Tue, 24 Mar 2015 18:01:27 -0400 (EDT)
+Message-ID: <20150324.180127.2191929658904515752.davem@davemloft.net>
+References: <f6ed6e9fe9434e55475b777281f6fe67eff0e07d.1427202823.git.tgraf@suug.ch>
+	<20150324185545.GA15837@gondor.apana.org.au>
+	<20150324204219.GA23613@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haegar@sdinet.de
-To: roopa@cumulusnetworks.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:34864 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842AbbCXWAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:00:20 -0400
-Received: by pdbop1 with SMTP id op1so6454814pdb.2
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 15:00:19 -0700 (PDT)
-In-Reply-To: <1426645592-4002-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39932 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072AbbCXWBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:01:31 -0400
+In-Reply-To: <20150324204219.GA23613@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Mar 2015 19:26:32 -0700
-roopa@cumulusnetworks.com wrote:
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 24 Mar 2015 20:42:19 +0000
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Introduce a new bool automatic_shrinking to require the
+> user to explicitly opt-in to automatic shrinking of tables.
 > 
-> This patch replaces exits with returns in several
-> iproute2 commands. This fixes `ip -batch -force`
-> to not exit but continue on errors.
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+> v2: Use bool in params to also disable shrinking in worker as
+>     pointed out by Herbert.
 > 
-> $cat c.txt
-> route del 1.2.3.0/24 dev eth0
-> route del 1.2.4.0/24 dev eth0
-> route del 1.2.5.0/24 dev eth0
-> route add 1.2.3.0/24 dev eth0
-> 
-> $ip -force -batch c.txt
-> RTNETLINK answers: No such process
-> Command failed c.txt:2
-> RTNETLINK answers: No such process
-> Command failed c.txt:3
-> 
-> Reported-by: Sven-Haegar Koch <haegar@sdinet.de>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> @Dave: Patch 5 still applied on top with some fuzz. If not,
+>        let me know and I will respin.
 
-Applied thanks
+Ok I applied this series with the updated patch #4, thanks!
