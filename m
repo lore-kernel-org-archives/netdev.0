@@ -1,48 +1,95 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: ip addr add command generates error
-Date: Tue, 24 Mar 2015 10:09:01 +0200
-Message-ID: <20150324080901.GA724@angus-think.wlc.globallogic.com>
-References: <C5551D9AAB213A418B7FD5E4A6F30A0789291C3A@ORSMSX108.amr.corp.intel.com>
- <5510AC1A.7050507@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 v2] man ip-netns: Fix syntax in default ns
+ process, indent's
+Date: Tue, 24 Mar 2015 10:29:24 +0200
+Message-ID: <20150324082924.GA1276@angus-think.wlc.globallogic.com>
+References: <1426960318-12044-1-git-send-email-vadim4j@gmail.com>
+ <20150323011120.GA20755@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vadim4j@gmail.com" <vadim4j@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: roopa <roopa@cumulusnetworks.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org,
+	ben@decadent.org.uk
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:36068 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665AbbCXIUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 04:20:55 -0400
-Received: by labe2 with SMTP id e2so77975498lab.3
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 01:20:53 -0700 (PDT)
+Received: from mail-la0-f53.google.com ([209.85.215.53]:33404 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238AbbCXIlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 04:41:18 -0400
+Received: by labto5 with SMTP id to5so46017998lab.0
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 01:41:16 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <5510AC1A.7050507@cumulusnetworks.com>
+In-Reply-To: <20150323011120.GA20755@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 23, 2015 at 05:13:14PM -0700, roopa wrote:
-> On 3/23/15, 3:43 PM, Rose, Gregory V wrote:
-> >The 'ip addr add' command used to use the following syntax:
-> >
-> ># ip addr add 10.0.0.2/24 brd 10.0.0.255 dev <eth>
-> >
-> >However, attempts to use that same command syntax with the current iproute2 tip gives the following error:
-> >
-> >Error: an inet prefix is expected rather than "20.0.0.2/24"
-> >
-> >This seems like a bug.  The commit that introduces the issue is f3a2ddc124e09d3990b836e322ed39c76c35546e by Vadim Kochan.  Reverting this commit fixes the problem.
-> >
-> >Is this change deliberate?  It would break a lot of scripts if so.
-> >
+On Mon, Mar 23, 2015 at 10:11:24AM +0900, Simon Horman wrote:
+> On Sat, Mar 21, 2015 at 07:51:58PM +0200, Vadim Kochan wrote:
+> > From: Vadim Kochan <vadim4j@gmail.com>
+> > 
+> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> > ---
+> > v2:
+> >     Deleted leading spaces - suggested by Ben Hutchings <ben@decadent.org.uk>
+> > 
+> >  man/man8/ip-netns.8 | 18 +++++++++++++-----
+> >  1 file changed, 13 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
+> > index d496675..0c3dca8 100644
+> > --- a/man/man8/ip-netns.8
+> > +++ b/man/man8/ip-netns.8
+> > @@ -46,7 +46,7 @@ ip-netns \- process network namespace management
+> >  A network namespace is logically another copy of the network stack,
+> >  with its own routes, firewall rules, and network devices.
+> >  
+> > -By default process inherits network namespace from its parent. Initially all
+> > +By default a process inherits network namespace from its parent. Initially all
 > 
-> looked like an unintended change. This was reported a few days back and I
-> hit this too in another context and a patch
-> https://patchwork.ozlabs.org/patch/451210/ is in the queue.
+> Perhaps also s/inherits/inherits its/
+> 
+> >  the processes share the same default network namespace from the init process.
+> >  
+> >  By convention a named network namespace is an object at
+> > @@ -103,10 +103,18 @@ option was specified then all the network namespace names will be removed.
+> >  It is possible to lose the physical device when it was moved to netns and
+> >  then this netns was deleted with a running process:
+> >  
+> > -    $ ip netns add net0
+> > -    $ ip link set dev eth0 netns net0
+> > -    $ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
+> > -    $ ip netns del net0
+> > +.RS 10
+> > +$ ip netns add net0
+> > +.RE
+> > +.RS 10
+> > +$ ip link set dev eth0 netns net0
+> > +.RE
+> > +.RS 10
+> > +$ ip netns exec net0 SOME_PROCESS_IN_BACKGROUND
+> > +.RE
+> > +.RS 10
+> > +$ ip netns del net0
+> > +.RE
+> >  
+> >  and eth0 will appear in the default netns only after SOME_PROCESS_IN_BACKGROUND
+> >  will exit or will be killed. To prevent this the processes running in net0
+> > -- 
+> > 2.3.1
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
 
-I apologize for this stupid mistake!
+Hi,
 
-Regards,
+So may it be like this ?
+
+	By default a process inherits its network namespace from the parent.
+
+or like this ?
+
+	By default a process inherits its network namespace from its parent.
+
+Thanks,
