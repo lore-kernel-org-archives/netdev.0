@@ -1,167 +1,131 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 5/5] tcp: md5: get rid of tcp_v[46]_reqsk_md5_lookup()
-Date: Tue, 24 Mar 2015 15:58:56 -0700
-Message-ID: <1427237936-19030-6-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 3/5] tcp: md5: input path is run under rcu protected sections
+Date: Tue, 24 Mar 2015 15:58:54 -0700
+Message-ID: <1427237936-19030-4-git-send-email-edumazet@google.com>
 References: <1427237936-19030-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:34605 "EHLO
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:33305 "EHLO
 	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370AbbCXW7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:59:41 -0400
-Received: by obcwp18 with SMTP id wp18so616922obc.1
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 15:59:40 -0700 (PDT)
+	with ESMTP id S1752445AbbCXW71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:59:27 -0400
+Received: by obbnt9 with SMTP id nt9so619820obb.0
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 15:59:26 -0700 (PDT)
 In-Reply-To: <1427237936-19030-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With request socks convergence, we no longer need
-different lookup methods. A request socket can
-use generic lookup function.
+It is guaranteed that both tcp_v4_rcv() and tcp_v6_rcv()
+run from rcu read locked sections :
 
-Add const qualifier to 2nd tcp_v[46]_md5_lookup() parameter.
+ip_local_deliver_finish() and ip6_input_finish() both
+use rcu_read_lock()
+
+Also align tcp_v6_inbound_md5_hash() on tcp_v4_inbound_md5_hash()
+by returning a boolean.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h     |  8 ++++----
- net/ipv4/tcp_ipv4.c   | 19 +++++--------------
- net/ipv4/tcp_output.c |  2 +-
- net/ipv6/tcp_ipv6.c   | 10 ++--------
- 4 files changed, 12 insertions(+), 27 deletions(-)
+ net/ipv4/tcp_ipv4.c | 17 +++--------------
+ net/ipv6/tcp_ipv6.c | 25 ++++++-------------------
+ 2 files changed, 9 insertions(+), 33 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 992be858c370..42690daa924e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1303,7 +1303,7 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
- int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr,
- 		   int family);
- struct tcp_md5sig_key *tcp_v4_md5_lookup(struct sock *sk,
--					 struct sock *addr_sk);
-+					 const struct sock *addr_sk);
- 
- #ifdef CONFIG_TCP_MD5SIG
- struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
-@@ -1614,7 +1614,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- struct tcp_sock_af_ops {
- #ifdef CONFIG_TCP_MD5SIG
- 	struct tcp_md5sig_key	*(*md5_lookup) (struct sock *sk,
--						struct sock *addr_sk);
-+						const struct sock *addr_sk);
- 	int		(*calc_md5_hash)(char *location,
- 					 const struct tcp_md5sig_key *md5,
- 					 const struct sock *sk,
-@@ -1628,8 +1628,8 @@ struct tcp_sock_af_ops {
- struct tcp_request_sock_ops {
- 	u16 mss_clamp;
- #ifdef CONFIG_TCP_MD5SIG
--	struct tcp_md5sig_key	*(*md5_lookup) (struct sock *sk,
--						struct request_sock *req);
-+	struct tcp_md5sig_key *(*req_md5_lookup)(struct sock *sk,
-+						 const struct sock *addr_sk);
- 	int		(*calc_md5_hash) (char *location,
- 					  const struct tcp_md5sig_key *md5,
- 					  const struct sock *sk,
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 79d5c641688c..fc8995a702a6 100644
+index 4e90217003e8..d339a0488f51 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -898,10 +898,10 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
- 					 const union tcp_md5_addr *addr,
- 					 int family)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
-+	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_md5sig_key *key;
- 	unsigned int size = sizeof(struct in_addr);
--	struct tcp_md5sig_info *md5sig;
-+	const struct tcp_md5sig_info *md5sig;
- 
- 	/* caller either holds rcu_read_lock() or socket lock */
- 	md5sig = rcu_dereference_check(tp->md5sig_info,
-@@ -924,24 +924,15 @@ struct tcp_md5sig_key *tcp_md5_do_lookup(struct sock *sk,
- EXPORT_SYMBOL(tcp_md5_do_lookup);
- 
- struct tcp_md5sig_key *tcp_v4_md5_lookup(struct sock *sk,
--					 struct sock *addr_sk)
-+					 const struct sock *addr_sk)
- {
- 	union tcp_md5_addr *addr;
- 
--	addr = (union tcp_md5_addr *)&inet_sk(addr_sk)->inet_daddr;
-+	addr = (union tcp_md5_addr *)&sk->sk_daddr;
- 	return tcp_md5_do_lookup(sk, addr, AF_INET);
+@@ -1153,8 +1153,9 @@ clear_hash_noput:
  }
- EXPORT_SYMBOL(tcp_v4_md5_lookup);
+ EXPORT_SYMBOL(tcp_v4_md5_hash_skb);
  
--static struct tcp_md5sig_key *tcp_v4_reqsk_md5_lookup(struct sock *sk,
--						      struct request_sock *req)
--{
--	union tcp_md5_addr *addr;
+-static bool __tcp_v4_inbound_md5_hash(struct sock *sk,
+-				      const struct sk_buff *skb)
++/* Called with rcu_read_lock() */
++static bool tcp_v4_inbound_md5_hash(struct sock *sk,
++				    const struct sk_buff *skb)
+ {
+ 	/*
+ 	 * This gets called for each TCP segment that arrives
+@@ -1206,18 +1207,6 @@ static bool __tcp_v4_inbound_md5_hash(struct sock *sk,
+ 	}
+ 	return false;
+ }
 -
--	addr = (union tcp_md5_addr *)&inet_rsk(req)->ir_rmt_addr;
--	return tcp_md5_do_lookup(sk, addr, AF_INET);
+-static bool tcp_v4_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
+-{
+-	bool ret;
+-
+-	rcu_read_lock();
+-	ret = __tcp_v4_inbound_md5_hash(sk, skb);
+-	rcu_read_unlock();
+-
+-	return ret;
 -}
 -
- /* This can be called on a newly created socket, from other files */
- int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
- 		   int family, const u8 *newkey, u8 newkeylen, gfp_t gfp)
-@@ -1247,7 +1238,7 @@ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
- static const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
- 	.mss_clamp	=	TCP_MSS_DEFAULT,
- #ifdef CONFIG_TCP_MD5SIG
--	.md5_lookup	=	tcp_v4_reqsk_md5_lookup,
-+	.req_md5_lookup	=	tcp_v4_md5_lookup,
- 	.calc_md5_hash	=	tcp_v4_md5_hash_skb,
  #endif
- 	.init_req	=	tcp_v4_init_req,
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 501cf9d401c3..2e69b8d16e68 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2938,7 +2938,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
  
- #ifdef CONFIG_TCP_MD5SIG
- 	rcu_read_lock();
--	md5 = tcp_rsk(req)->af_specific->md5_lookup(sk, req);
-+	md5 = tcp_rsk(req)->af_specific->req_md5_lookup(sk, req_to_sk(req));
- #endif
- 	tcp_header_size = tcp_synack_options(sk, req, mss, skb, &opts, md5,
- 					     foc) + sizeof(*th);
+ static void tcp_v4_init_req(struct request_sock *req, struct sock *sk_listener,
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 57d1c41404ec..a9568caf4675 100644
+index 4a4e6d30c448..078e7d0f4cd8 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -486,17 +486,11 @@ static struct tcp_md5sig_key *tcp_v6_md5_do_lookup(struct sock *sk,
+@@ -633,8 +633,7 @@ clear_hash_noput:
+ 	return 1;
  }
  
- static struct tcp_md5sig_key *tcp_v6_md5_lookup(struct sock *sk,
--						struct sock *addr_sk)
-+						const struct sock *addr_sk)
+-static int __tcp_v6_inbound_md5_hash(struct sock *sk,
+-				     const struct sk_buff *skb)
++static bool tcp_v6_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
  {
- 	return tcp_v6_md5_do_lookup(sk, &addr_sk->sk_v6_daddr);
- }
+ 	const __u8 *hash_location = NULL;
+ 	struct tcp_md5sig_key *hash_expected;
+@@ -648,16 +647,16 @@ static int __tcp_v6_inbound_md5_hash(struct sock *sk,
  
--static struct tcp_md5sig_key *tcp_v6_reqsk_md5_lookup(struct sock *sk,
--						      struct request_sock *req)
--{
--	return tcp_v6_md5_do_lookup(sk, &inet_rsk(req)->ir_v6_rmt_addr);
+ 	/* We've parsed the options - do we have a hash? */
+ 	if (!hash_expected && !hash_location)
+-		return 0;
++		return false;
+ 
+ 	if (hash_expected && !hash_location) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPMD5NOTFOUND);
+-		return 1;
++		return true;
+ 	}
+ 
+ 	if (!hash_expected && hash_location) {
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPMD5UNEXPECTED);
+-		return 1;
++		return true;
+ 	}
+ 
+ 	/* check the signature */
+@@ -670,22 +669,10 @@ static int __tcp_v6_inbound_md5_hash(struct sock *sk,
+ 				     genhash ? "failed" : "mismatch",
+ 				     &ip6h->saddr, ntohs(th->source),
+ 				     &ip6h->daddr, ntohs(th->dest));
+-		return 1;
++		return true;
+ 	}
+-	return 0;
 -}
 -
- static int tcp_v6_parse_md5_keys(struct sock *sk, char __user *optval,
- 				 int optlen)
- {
-@@ -720,7 +714,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
- 	.mss_clamp	=	IPV6_MIN_MTU - sizeof(struct tcphdr) -
- 				sizeof(struct ipv6hdr),
- #ifdef CONFIG_TCP_MD5SIG
--	.md5_lookup	=	tcp_v6_reqsk_md5_lookup,
-+	.req_md5_lookup	=	tcp_v6_md5_lookup,
- 	.calc_md5_hash	=	tcp_v6_md5_hash_skb,
+-static int tcp_v6_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
+-{
+-	int ret;
+-
+-	rcu_read_lock();
+-	ret = __tcp_v6_inbound_md5_hash(sk, skb);
+-	rcu_read_unlock();
+-
+-	return ret;
++	return false;
+ }
+-
  #endif
- 	.init_req	=	tcp_v6_init_req,
+ 
+ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
 -- 
 2.2.0.rc0.207.ga3a616c
