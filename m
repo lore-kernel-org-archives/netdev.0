@@ -1,37 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5 net-next v2] rhashtable: Disable automatic
- shrinking by default
-Date: Tue, 24 Mar 2015 18:01:27 -0400 (EDT)
-Message-ID: <20150324.180127.2191929658904515752.davem@davemloft.net>
-References: <f6ed6e9fe9434e55475b777281f6fe67eff0e07d.1427202823.git.tgraf@suug.ch>
-	<20150324185545.GA15837@gondor.apana.org.au>
-	<20150324204219.GA23613@casper.infradead.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2] iproute2: Fix -o (oneline) being broken in xfrm &
+ correct mark radix
+Date: Tue, 24 Mar 2015 15:02:18 -0700
+Message-ID: <20150324150218.42cb176d@urahara>
+References: <20150319_195428_022337.philipp@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, Alexy Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Philip Prindeville <philipp@redfish-solutions.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39932 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072AbbCXWBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:01:31 -0400
-In-Reply-To: <20150324204219.GA23613@casper.infradead.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35469 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103AbbCXWCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:02:18 -0400
+Received: by pagj7 with SMTP id j7so6512904pag.2
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 15:02:18 -0700 (PDT)
+In-Reply-To: <20150319_195428_022337.philipp@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 24 Mar 2015 20:42:19 +0000
+On Thu, 19 Mar 2015 13:54:28 -0600
+Philip Prindeville <philipp@redfish-solutions.com> wrote:
 
-> Introduce a new bool automatic_shrinking to require the
-> user to explicitly opt-in to automatic shrinking of tables.
+> Don't insert newline in -o (oneline) mode; print mark as hex.
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
-> v2: Use bool in params to also disable shrinking in worker as
->     pointed out by Herbert.
+> Oneline mode is supposed to force all output to be on oneline and
+> machine-parsable, but this isn't the case for "ip xfrm" as shown:
 > 
-> @Dave: Patch 5 still applied on top with some fuzz. If not,
->        let me know and I will respin.
+> % ip -o xfrm monitor
+> ...
+> src 0.0.0.0/0 dst 0.0.0.0/0 \   dir out priority 2051 ptype main \  mark -1879048191/0xffffffff
+>     tmpl src 203.0.130.10 dst 198.51.130.30\        proto esp reqid 16384 mode tunnel\
+> ...
+> 
+> as that's 2 lines, not one. Also, the "mark" is shown in signed
+> decimal, but the mask is in hex. This is confusing: let's use
+> hex for both.
+> 
+> Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
 
-Ok I applied this series with the updated patch #4, thanks!
+Applied to master. Thanks
