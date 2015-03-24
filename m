@@ -1,7 +1,7 @@
 From: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-Subject: [RFC PATCH 06/11] lib: context and scheduling handling (kernel glue code)
-Date: Tue, 24 Mar 2015 22:10:37 +0900
-Message-ID: <1427202642-1716-7-git-send-email-tazaki@sfc.wide.ad.jp>
+Subject: [RFC PATCH 09/11] lib: asm-generic files
+Date: Tue, 24 Mar 2015 22:10:40 +0900
+Message-ID: <1427202642-1716-10-git-send-email-tazaki@sfc.wide.ad.jp>
 References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>
 Cc: Hajime Tazaki <tazaki@sfc.wide.ad.jp>,
 	Arnd Bergmann <arnd@arndb.de>,
@@ -27,827 +27,533 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
 ---
- arch/lib/sched.c     | 365 +++++++++++++++++++++++++++++++++++++++++++++++++++
- arch/lib/softirq.c   | 104 +++++++++++++++
- arch/lib/tasklet.c   |  76 +++++++++++
- arch/lib/workqueue.c | 242 ++++++++++++++++++++++++++++++++++
- 4 files changed, 787 insertions(+)
- create mode 100644 arch/lib/sched.c
- create mode 100644 arch/lib/softirq.c
- create mode 100644 arch/lib/tasklet.c
- create mode 100644 arch/lib/workqueue.c
+ arch/lib/include/asm/Kbuild           | 55 +++++++++++++++++++++++++++++++++++
+ arch/lib/include/asm/atomic.h         | 47 ++++++++++++++++++++++++++++++
+ arch/lib/include/asm/barrier.h        |  8 +++++
+ arch/lib/include/asm/bitsperlong.h    | 12 ++++++++
+ arch/lib/include/asm/current.h        |  7 +++++
+ arch/lib/include/asm/elf.h            | 10 +++++++
+ arch/lib/include/asm/hardirq.h        |  8 +++++
+ arch/lib/include/asm/page.h           | 14 +++++++++
+ arch/lib/include/asm/pgtable.h        | 30 +++++++++++++++++++
+ arch/lib/include/asm/processor.h      | 19 ++++++++++++
+ arch/lib/include/asm/ptrace.h         |  4 +++
+ arch/lib/include/asm/segment.h        |  6 ++++
+ arch/lib/include/asm/sembuf.h         |  4 +++
+ arch/lib/include/asm/shmbuf.h         |  4 +++
+ arch/lib/include/asm/shmparam.h       |  4 +++
+ arch/lib/include/asm/sigcontext.h     |  6 ++++
+ arch/lib/include/asm/slab.h           | 21 +++++++++++++
+ arch/lib/include/asm/stat.h           |  4 +++
+ arch/lib/include/asm/statfs.h         |  4 +++
+ arch/lib/include/asm/swab.h           |  7 +++++
+ arch/lib/include/asm/thread_info.h    | 35 ++++++++++++++++++++++
+ arch/lib/include/asm/uaccess.h        | 14 +++++++++
+ arch/lib/include/asm/unistd.h         |  4 +++
+ arch/lib/include/uapi/asm/byteorder.h |  6 ++++
+ 24 files changed, 333 insertions(+)
+ create mode 100644 arch/lib/include/asm/Kbuild
+ create mode 100644 arch/lib/include/asm/atomic.h
+ create mode 100644 arch/lib/include/asm/barrier.h
+ create mode 100644 arch/lib/include/asm/bitsperlong.h
+ create mode 100644 arch/lib/include/asm/current.h
+ create mode 100644 arch/lib/include/asm/elf.h
+ create mode 100644 arch/lib/include/asm/hardirq.h
+ create mode 100644 arch/lib/include/asm/page.h
+ create mode 100644 arch/lib/include/asm/pgtable.h
+ create mode 100644 arch/lib/include/asm/processor.h
+ create mode 100644 arch/lib/include/asm/ptrace.h
+ create mode 100644 arch/lib/include/asm/segment.h
+ create mode 100644 arch/lib/include/asm/sembuf.h
+ create mode 100644 arch/lib/include/asm/shmbuf.h
+ create mode 100644 arch/lib/include/asm/shmparam.h
+ create mode 100644 arch/lib/include/asm/sigcontext.h
+ create mode 100644 arch/lib/include/asm/slab.h
+ create mode 100644 arch/lib/include/asm/stat.h
+ create mode 100644 arch/lib/include/asm/statfs.h
+ create mode 100644 arch/lib/include/asm/swab.h
+ create mode 100644 arch/lib/include/asm/thread_info.h
+ create mode 100644 arch/lib/include/asm/uaccess.h
+ create mode 100644 arch/lib/include/asm/unistd.h
+ create mode 100644 arch/lib/include/uapi/asm/byteorder.h
 
-diff --git a/arch/lib/sched.c b/arch/lib/sched.c
+diff --git a/arch/lib/include/asm/Kbuild b/arch/lib/include/asm/Kbuild
 new file mode 100644
-index 0000000..168e744
+index 0000000..9649a11
 --- /dev/null
-+++ b/arch/lib/sched.c
-@@ -0,0 +1,365 @@
-+/*
-+ * glue code for library version of Linux kernel
-+ * Copyright (c) 2015 INRIA, Hajime Tazaki
-+ *
-+ * Author: Mathieu Lacage <mathieu.lacage@gmail.com>
-+ *         Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-+ */
-+
-+#include <linux/wait.h>
-+#include <linux/list.h>
-+#include <linux/sched.h>
-+#include <linux/nsproxy.h>
-+#include <net/net_namespace.h>
-+#include "lib.h"
-+#include "sim.h"
-+#include "sim-assert.h"
-+
-+/**
-+   called by wait_event macro:
-+   - prepare_to_wait
-+   - schedule
-+   - finish_wait
-+ */
-+
-+struct SimTask *lib_task_create(void *private, unsigned long pid)
-+{
-+	struct SimTask *task = lib_malloc(sizeof(struct SimTask));
-+	struct cred *cred;
-+	struct nsproxy *ns;
-+	struct user_struct *user;
-+	struct thread_info *info;
-+	struct pid *kpid;
-+
-+	if (!task)
-+		return NULL;
-+	memset(task, 0, sizeof(struct SimTask));
-+	cred = lib_malloc(sizeof(struct cred));
-+	if (!cred)
-+		return NULL;
-+	/* XXX: we could optimize away this allocation by sharing it
-+	   for all tasks */
-+	ns = lib_malloc(sizeof(struct nsproxy));
-+	if (!ns)
-+		return NULL;
-+	user = lib_malloc(sizeof(struct user_struct));
-+	if (!user)
-+		return NULL;
-+	info = alloc_thread_info(&task->kernel_task);
-+	if (!info)
-+		return NULL;
-+	kpid = lib_malloc(sizeof(struct pid));
-+	if (!kpid)
-+		return NULL;
-+	kpid->numbers[0].nr = pid;
-+	cred->fsuid = make_kuid(current_user_ns(), 0);
-+	cred->fsgid = make_kgid(current_user_ns(), 0);
-+	cred->user = user;
-+	atomic_set(&cred->usage, 1);
-+	info->task = &task->kernel_task;
-+	info->preempt_count = 0;
-+	info->flags = 0;
-+	atomic_set(&ns->count, 1);
-+	ns->uts_ns = 0;
-+	ns->ipc_ns = 0;
-+	ns->mnt_ns = 0;
-+	ns->pid_ns_for_children = 0;
-+	ns->net_ns = &init_net;
-+	task->kernel_task.cred = cred;
-+	task->kernel_task.pid = pid;
-+	task->kernel_task.pids[PIDTYPE_PID].pid = kpid;
-+	task->kernel_task.pids[PIDTYPE_PGID].pid = kpid;
-+	task->kernel_task.pids[PIDTYPE_SID].pid = kpid;
-+	task->kernel_task.nsproxy = ns;
-+	task->kernel_task.stack = info;
-+	/* this is a hack. */
-+	task->kernel_task.group_leader = &task->kernel_task;
-+	task->private = private;
-+	return task;
-+}
-+void lib_task_destroy(struct SimTask *task)
-+{
-+	lib_free((void *)task->kernel_task.nsproxy);
-+	lib_free((void *)task->kernel_task.cred);
-+	lib_free((void *)task->kernel_task.cred->user);
-+	free_thread_info(task->kernel_task.stack);
-+	lib_free(task);
-+}
-+void *lib_task_get_private(struct SimTask *task)
-+{
-+	return task->private;
-+}
-+
-+int kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
-+{
-+	struct SimTask *task = lib_task_start((void (*)(void *))fn, arg);
-+
-+	return task->kernel_task.pid;
-+}
-+
-+struct task_struct *get_current(void)
-+{
-+	struct SimTask *lib_task = lib_task_current();
-+
-+	return &lib_task->kernel_task;
-+}
-+
-+struct thread_info *current_thread_info(void)
-+{
-+	return task_thread_info(get_current());
-+}
-+struct thread_info *alloc_thread_info(struct task_struct *task)
-+{
-+	return lib_malloc(sizeof(struct thread_info));
-+}
-+void free_thread_info(struct thread_info *ti)
-+{
-+	lib_free(ti);
-+}
-+
-+
-+void __put_task_struct(struct task_struct *t)
-+{
-+	lib_free(t);
-+}
-+
-+void add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
-+{
-+	wait->flags &= ~WQ_FLAG_EXCLUSIVE;
-+	list_add(&wait->task_list, &q->task_list);
-+}
-+void add_wait_queue_exclusive(wait_queue_head_t *q, wait_queue_t *wait)
-+{
-+	wait->flags |= WQ_FLAG_EXCLUSIVE;
-+	list_add_tail(&wait->task_list, &q->task_list);
-+}
-+void remove_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
-+{
-+	if (wait->task_list.prev != LIST_POISON2)
-+		list_del(&wait->task_list);
-+}
-+void
-+prepare_to_wait_exclusive(wait_queue_head_t *q, wait_queue_t *wait, int state)
-+{
-+	wait->flags |= WQ_FLAG_EXCLUSIVE;
-+	if (list_empty(&wait->task_list))
-+		list_add_tail(&wait->task_list, &q->task_list);
-+	set_current_state(state);
-+}
-+void prepare_to_wait(wait_queue_head_t *q, wait_queue_t *wait, int state)
-+{
-+	unsigned long flags;
-+
-+	wait->flags &= ~WQ_FLAG_EXCLUSIVE;
-+	spin_lock_irqsave(&q->lock, flags);
-+	if (list_empty(&wait->task_list))
-+		__add_wait_queue(q, wait);
-+	set_current_state(state);
-+	spin_unlock_irqrestore(&q->lock, flags);
-+}
-+void finish_wait(wait_queue_head_t *q, wait_queue_t *wait)
-+{
-+	set_current_state(TASK_RUNNING);
-+	if (!list_empty(&wait->task_list))
-+		list_del_init(&wait->task_list);
-+}
-+int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync,
-+			     void *key)
-+{
-+	int ret = default_wake_function(wait, mode, sync, key);
-+
-+	if (ret && (wait->task_list.prev != LIST_POISON2))
-+		list_del_init(&wait->task_list);
-+
-+	return ret;
-+}
-+
-+int woken_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key)
-+{
-+	wait->flags |= WQ_FLAG_WOKEN;
-+	return default_wake_function(wait, mode, sync, key);
-+}
-+
-+void __init_waitqueue_head(wait_queue_head_t *q, const char *name,
-+			   struct lock_class_key *k)
-+{
-+	INIT_LIST_HEAD(&q->task_list);
-+}
-+/**
-+ * wait_for_completion: - waits for completion of a task
-+ * @x:  holds the state of this particular completion
-+ *
-+ * This waits to be signaled for completion of a specific task. It is NOT
-+ * interruptible and there is no timeout.
-+ *
-+ * See also similar routines (i.e. wait_for_completion_timeout()) with timeout
-+ * and interrupt capability. Also see complete().
-+ */
-+void wait_for_completion(struct completion *x)
-+{
-+	wait_for_completion_timeout(x, MAX_SCHEDULE_TIMEOUT);
-+}
-+unsigned long wait_for_completion_timeout(struct completion *x,
-+					  unsigned long timeout)
-+{
-+	if (!x->done) {
-+		DECLARE_WAITQUEUE(wait, current);
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		wait.flags |= WQ_FLAG_EXCLUSIVE;
-+		list_add_tail(&wait.task_list, &x->wait.task_list);
-+		do
-+			timeout = schedule_timeout(timeout);
-+		while (!x->done && timeout);
-+		if (wait.task_list.prev != LIST_POISON2)
-+			list_del(&wait.task_list);
-+
-+		if (!x->done)
-+			return timeout;
-+	}
-+	x->done--;
-+	return timeout ? : 1;
-+}
-+
-+/**
-+ * __wake_up - wake up threads blocked on a waitqueue.
-+ * @q: the waitqueue
-+ * @mode: which threads
-+ * @nr_exclusive: how many wake-one or wake-many threads to wake up
-+ * @key: is directly passed to the wakeup function
-+ *
-+ * It may be assumed that this function implies a write memory barrier before
-+ * changing the task state if and only if any tasks are woken up.
-+ */
-+void __wake_up(wait_queue_head_t *q, unsigned int mode,
-+	       int nr_exclusive, void *key)
-+{
-+	wait_queue_t *curr, *next;
-+
-+	list_for_each_entry_safe(curr, next, &q->task_list, task_list) {
-+		unsigned flags = curr->flags;
-+
-+		if (curr->func(curr, mode, 0, key) &&
-+		    (flags & WQ_FLAG_EXCLUSIVE) &&
-+		    !--nr_exclusive)
-+			break;
-+	}
-+}
-+void __wake_up_sync_key(wait_queue_head_t *q, unsigned int mode,
-+			int nr_exclusive, void *key)
-+{
-+	__wake_up(q, mode, nr_exclusive, key);
-+}
-+int default_wake_function(wait_queue_t *curr, unsigned mode, int wake_flags,
-+			  void *key)
-+{
-+	struct task_struct *task = (struct task_struct *)curr->private;
-+	struct SimTask *lib_task = container_of(task, struct SimTask,
-+						kernel_task);
-+
-+	return lib_task_wakeup(lib_task);
-+}
-+
-+
-+void schedule(void)
-+{
-+	lib_task_wait();
-+}
-+
-+static void trampoline(void *context)
-+{
-+	struct SimTask *task = context;
-+
-+	lib_task_wakeup(task);
-+}
-+
-+signed long schedule_timeout(signed long timeout)
-+{
-+	u64 ns;
-+	struct SimTask *self;
-+
-+	if (timeout == MAX_SCHEDULE_TIMEOUT) {
-+		lib_task_wait();
-+		return MAX_SCHEDULE_TIMEOUT;
-+	}
-+	lib_assert(timeout >= 0);
-+	ns = ((__u64)timeout) * (1000000000 / HZ);
-+	self = lib_task_current();
-+	lib_event_schedule_ns(ns, &trampoline, self);
-+	lib_task_wait();
-+	/* we know that we are always perfectly on time. */
-+	return 0;
-+}
-+
-+signed long schedule_timeout_uninterruptible(signed long timeout)
-+{
-+	return schedule_timeout(timeout);
-+}
-+signed long schedule_timeout_interruptible(signed long timeout)
-+{
-+	return schedule_timeout(timeout);
-+}
-+
-+void yield(void)
-+{
-+	lib_task_yield();
-+}
-+
-+void complete_all(struct completion *x)
-+{
-+	x->done += UINT_MAX / 2;
-+	__wake_up(&x->wait, TASK_NORMAL, 0, 0);
-+}
-+void complete(struct completion *x)
-+{
-+	x->done++;
-+	__wake_up(&x->wait, TASK_NORMAL, 1, 0);
-+}
-+
-+long wait_for_completion_interruptible_timeout(
-+	struct completion *x, unsigned long timeout)
-+{
-+	return wait_for_completion_timeout(x, timeout);
-+}
-+int wait_for_completion_interruptible(struct completion *x)
-+{
-+	wait_for_completion_timeout(x, MAX_SCHEDULE_TIMEOUT);
-+	return 0;
-+}
-+int wake_up_process(struct task_struct *tsk)
-+{
-+	struct SimTask *lib_task =
-+		container_of(tsk, struct SimTask, kernel_task);
-+
-+	return lib_task_wakeup(lib_task);
-+}
-+int _cond_resched(void)
-+{
-+	/* we never schedule to decrease latency. */
-+	return 0;
-+}
-+int idle_cpu(int cpu)
-+{
-+	/* we are never idle: we call this from rcutiny.c and the answer */
-+	/* does not matter, really. */
-+	return 0;
-+}
-+
-+unsigned long long __attribute__((weak)) sched_clock(void)
-+{
-+	return (unsigned long long)(jiffies - INITIAL_JIFFIES)
-+	       * (NSEC_PER_SEC / HZ);
-+}
-+
-+u64 local_clock(void)
-+{
-+	return sched_clock();
-+}
-+
-+void __sched schedule_preempt_disabled(void)
-+{
-+}
-+
-+void resched_cpu(int cpu)
-+{
-+	rcu_sched_qs();
-+}
-diff --git a/arch/lib/softirq.c b/arch/lib/softirq.c
++++ b/arch/lib/include/asm/Kbuild
+@@ -0,0 +1,55 @@
++generic-y += auxvec.h
++generic-y += bitops.h
++generic-y += bug.h
++generic-y += cache.h
++generic-y += cacheflush.h
++generic-y += checksum.h
++generic-y += cputime.h
++generic-y += cmpxchg.h
++generic-y += delay.h
++generic-y += device.h
++generic-y += div64.h
++generic-y += dma.h
++generic-y += exec.h
++generic-y += emergency-restart.h
++generic-y += errno.h
++generic-y += fcntl.h
++generic-y += ftrace.h
++generic-y += io.h
++generic-y += ioctl.h
++generic-y += ioctls.h
++generic-y += ipcbuf.h
++generic-y += irq.h
++generic-y += irqflags.h
++generic-y += irq_regs.h
++generic-y += kdebug.h
++generic-y += kmap_types.h
++generic-y += linkage.h
++generic-y += local.h
++generic-y += mcs_spinlock.h
++generic-y += mman.h
++generic-y += mmu.h
++generic-y += module.h
++generic-y += mutex.h
++generic-y += param.h
++generic-y += pci.h
++generic-y += percpu.h
++generic-y += poll.h
++generic-y += posix_types.h
++generic-y += preempt.h
++generic-y += resource.h
++generic-y += scatterlist.h
++generic-y += sections.h
++generic-y += setup.h
++generic-y += signal.h
++generic-y += siginfo.h
++generic-y += socket.h
++generic-y += sockios.h
++generic-y += string.h
++generic-y += termbits.h
++generic-y += termios.h
++generic-y += timex.h
++generic-y += types.h
++generic-y += topology.h
++generic-y += trace_clock.h
++generic-y += unaligned.h
+diff --git a/arch/lib/include/asm/atomic.h b/arch/lib/include/asm/atomic.h
 new file mode 100644
-index 0000000..609db7e
+index 0000000..d98ae3f
 --- /dev/null
-+++ b/arch/lib/softirq.c
-@@ -0,0 +1,104 @@
-+/*
-+ * glue code for library version of Linux kernel
-+ * Copyright (c) 2015 INRIA, Hajime Tazaki
-+ *
-+ * Author: Mathieu Lacage <mathieu.lacage@gmail.com>
-+ *         Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-+ */
++++ b/arch/lib/include/asm/atomic.h
+@@ -0,0 +1,47 @@
++#ifndef _ASM_SIM_ATOMIC_H
++#define _ASM_SIM_ATOMIC_H
 +
-+#include <linux/interrupt.h>
-+#include "sim-init.h"
-+#include "sim.h"
-+#include "sim-assert.h"
++#include <linux/types.h>
 +
-+
-+static struct softirq_action softirq_vec[NR_SOFTIRQS];
-+static struct SimTask *g_softirq_task = 0;
-+static int g_n_raises = 0;
-+
-+void lib_softirq_wakeup(void)
-+{
-+	g_n_raises++;
-+	lib_task_wakeup(g_softirq_task);
-+}
-+
-+static void softirq_task_function(void *context)
-+{
-+	while (true) {
-+		do_softirq();
-+		g_n_raises--;
-+		if (g_n_raises == 0 || local_softirq_pending() == 0) {
-+			g_n_raises = 0;
-+			lib_task_wait();
-+		}
-+	}
-+}
-+
-+static void ensure_task_created(void)
-+{
-+	if (g_softirq_task != 0)
-+		return;
-+	g_softirq_task = lib_task_start(&softirq_task_function, 0);
-+}
-+
-+void open_softirq(int nr, void (*action)(struct softirq_action *))
-+{
-+	ensure_task_created();
-+	softirq_vec[nr].action = action;
-+}
-+#define MAX_SOFTIRQ_RESTART 10
-+
-+void do_softirq(void)
-+{
-+	__u32 pending;
-+	int max_restart = MAX_SOFTIRQ_RESTART;
-+	struct softirq_action *h;
-+
-+	pending = local_softirq_pending();
-+
-+restart:
-+	/* Reset the pending bitmask before enabling irqs */
-+	set_softirq_pending(0);
-+
-+	local_irq_enable();
-+
-+	h = softirq_vec;
-+
-+	do {
-+		if (pending & 1)
-+			h->action(h);
-+		h++;
-+		pending >>= 1;
-+	} while (pending);
-+
-+	local_irq_disable();
-+
-+	pending = local_softirq_pending();
-+	if (pending && --max_restart)
-+		goto restart;
-+}
-+void raise_softirq_irqoff(unsigned int nr)
-+{
-+	__raise_softirq_irqoff(nr);
-+
-+	lib_softirq_wakeup();
-+}
-+void __raise_softirq_irqoff(unsigned int nr)
-+{
-+	/* trace_softirq_raise(nr); */
-+	or_softirq_pending(1UL << nr);
-+}
-+int __cond_resched_softirq(void)
-+{
-+	/* tell the caller that we did not need to re-schedule. */
-+	return 0;
-+}
-+void raise_softirq(unsigned int nr)
-+{
-+	/* copy/paste from kernel/softirq.c */
-+	unsigned long flags;
-+
-+	local_irq_save(flags);
-+	raise_softirq_irqoff(nr);
-+	local_irq_restore(flags);
-+}
-diff --git a/arch/lib/tasklet.c b/arch/lib/tasklet.c
-new file mode 100644
-index 0000000..6cc68f4
---- /dev/null
-+++ b/arch/lib/tasklet.c
-@@ -0,0 +1,76 @@
-+/*
-+ * glue code for library version of Linux kernel
-+ * Copyright (c) 2015 INRIA, Hajime Tazaki
-+ *
-+ * Author: Mathieu Lacage <mathieu.lacage@gmail.com>
-+ *         Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-+ */
-+
-+#include <linux/interrupt.h>
-+#include "sim.h"
-+#include "sim-assert.h"
-+
-+void tasklet_init(struct tasklet_struct *t,
-+		  void (*func)(unsigned long), unsigned long data)
-+{
-+	t->next = NULL;
-+	t->state = 0;
-+	atomic_set(&t->count, 0);
-+	t->func = func;
-+	t->data = data;
-+}
-+
-+void tasklet_kill(struct tasklet_struct *t)
-+{
-+	/* theoretically, called from user context */
-+	while (test_and_set_bit(TASKLET_STATE_SCHED, &t->state)) {
-+		do
-+			lib_task_yield();
-+		while (test_bit(TASKLET_STATE_SCHED, &t->state));
-+	}
-+	clear_bit(TASKLET_STATE_SCHED, &t->state);
-+}
-+struct tasklet_struct *g_sched_events = NULL;
-+static void run_tasklet_softirq(struct softirq_action *h)
-+{
-+	/* while (!list_empty (&g_sched_events)) */
-+	/*   { */
-+	struct tasklet_struct *tasklet = g_sched_events;
-+
-+	if (atomic_read(&tasklet->count) == 0) {
-+		/* this tasklet is enabled so, we run it. */
-+		test_and_clear_bit(TASKLET_STATE_SCHED, &tasklet->state);
-+		tasklet->func(tasklet->data);
-+	}
-+	/* } */
-+}
-+static void ensure_softirq_opened(void)
-+{
-+	static bool opened = false;
-+
-+	if (opened)
-+		return;
-+	opened = true;
-+	open_softirq(TASKLET_SOFTIRQ, run_tasklet_softirq);
-+}
-+static void trampoline(void *context)
-+{
-+	ensure_softirq_opened();
-+	struct tasklet_struct *tasklet = context;
-+	/* allow the tasklet to re-schedule itself */
-+	lib_assert(tasklet->next != 0);
-+	tasklet->next = 0;
-+	g_sched_events = tasklet;
-+	raise_softirq(TASKLET_SOFTIRQ);
-+}
-+void __tasklet_schedule(struct tasklet_struct *t)
-+{
-+	void *event;
-+
-+	/* Note: no need to set TASKLET_STATE_SCHED because
-+	   it is set by caller. */
-+	lib_assert(t->next == 0);
-+	/* run the tasklet at the next immediately available opportunity. */
-+	event = lib_event_schedule_ns(0, &trampoline, t);
-+	t->next = event;
-+}
-diff --git a/arch/lib/workqueue.c b/arch/lib/workqueue.c
-new file mode 100644
-index 0000000..bd0e9c5
---- /dev/null
-+++ b/arch/lib/workqueue.c
-@@ -0,0 +1,242 @@
-+/*
-+ * glue code for library version of Linux kernel
-+ * Copyright (c) 2015 INRIA, Hajime Tazaki
-+ *
-+ * Author: Mathieu Lacage <mathieu.lacage@gmail.com>
-+ *         Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-+ */
-+
-+#include <linux/workqueue.h>
-+#include <linux/slab.h>
-+#include "sim.h"
-+#include "sim-assert.h"
-+
-+/* copy from kernel/workqueue.c */
-+typedef unsigned long mayday_mask_t;
-+struct workqueue_struct {
-+	unsigned int flags;                     /* W: WQ_* flags */
-+	union {
-+		struct cpu_workqueue_struct __percpu *pcpu;
-+		struct cpu_workqueue_struct *single;
-+		unsigned long v;
-+	} cpu_wq;                               /* I: cwq's */
-+	struct list_head list;                  /* W: list of all workqueues */
-+
-+	struct mutex flush_mutex;               /* protects wq flushing */
-+	int work_color;                         /* F: current work color */
-+	int flush_color;                        /* F: current flush color */
-+	atomic_t nr_cwqs_to_flush;              /* flush in progress */
-+	struct wq_flusher *first_flusher;       /* F: first flusher */
-+	struct list_head flusher_queue;         /* F: flush waiters */
-+	struct list_head flusher_overflow;      /* F: flush overflow list */
-+
-+	mayday_mask_t mayday_mask;              /* cpus requesting rescue */
-+	struct worker *rescuer;                 /* I: rescue worker */
-+
-+	int nr_drainers;                        /* W: drain in progress */
-+	int saved_max_active;                   /* W: saved cwq max_active */
-+#ifdef CONFIG_LOCKDEP
-+	struct lockdep_map lockdep_map;
++#if !defined(CONFIG_64BIT)
++typedef struct {
++	volatile long long counter;
++} atomic64_t;
 +#endif
-+	char name[];                            /* I: workqueue name */
-+};
 +
-+struct wq_barrier {
-+	struct SimTask *waiter;
-+	struct workqueue_struct wq;
-+};
++#define ATOMIC64_INIT(i) { (i) }
 +
-+static void
-+workqueue_function(void *context)
++#define atomic64_read(v)        (*(volatile long *)&(v)->counter)
++void atomic64_add(long i, atomic64_t *v);
++static inline void atomic64_sub(long i, atomic64_t *v)
 +{
-+	struct workqueue_struct *wq = context;
-+
-+	while (true) {
-+		lib_task_wait();
-+		while (!list_empty(&wq->list)) {
-+			struct work_struct *work =
-+				list_first_entry(&wq->list, struct work_struct,
-+						entry);
-+			work_func_t f = work->func;
-+
-+			if (work->entry.prev != LIST_POISON2) {
-+				list_del_init(&work->entry);
-+				clear_bit(WORK_STRUCT_PENDING_BIT,
-+					  work_data_bits(work));
-+				f(work);
-+			}
-+		}
-+	}
++	v->counter -= i;
 +}
-+
-+static struct SimTask *workqueue_task(struct workqueue_struct *wq)
++int atomic64_sub_and_test(long i, atomic64_t *v);
++void atomic64_inc(atomic64_t *v);
++#define atomic64_dec(v)			atomic64_sub(1LL, (v))
++int atomic64_dec_and_test(atomic64_t *v);
++int atomic64_inc_and_test(atomic64_t *v);
++int atomic64_add_negative(long i, atomic64_t *v);
++/* long atomic64_add_return(long i, atomic64_t *v); */
++static inline long atomic64_add_return(long i, atomic64_t *v)
 +{
-+	struct wq_barrier *barr = container_of(wq, struct wq_barrier, wq);
-+
-+	if (barr->waiter == 0)
-+		barr->waiter = lib_task_start(&workqueue_function, wq);
-+	return barr->waiter;
++	v->counter += i;
++	return v->counter;
 +}
-+
-+static int flush_entry(struct workqueue_struct *wq, struct list_head *prev)
++static inline void atomic64_set(atomic64_t *v, long i)
 +{
-+	int active = 0;
-+
-+	if (!list_empty(&wq->list)) {
-+		active = 1;
-+		lib_task_wakeup(workqueue_task(wq));
-+		/* XXX: should wait for completion? but this will block
-+		   and init won't return.. */
-+		/* lib_task_wait (); */
-+	}
-+
-+	return active;
++	v->counter = i;
 +}
++long atomic64_sub_return(long i, atomic64_t *v);
++long atomic64_inc_return(atomic64_t *v);
++long atomic64_dec_return(atomic64_t *v);
++long atomic64_cmpxchg(atomic64_t *v, long old, long new);
++long atomic64_xchg(atomic64_t *v, long new);
++int atomic64_add_unless(atomic64_t *v, long a, long u);
++int atomic64_inc_is_not_zero(atomic64_t *v);
++#define atomic64_inc_not_zero(v) 	atomic64_add_unless((v), 1LL, 0LL)
 +
-+void delayed_work_timer_fn(unsigned long data)
++#include <asm-generic/atomic.h>
++
++#endif /* _ASM_SIM_ATOMIC_H */
+diff --git a/arch/lib/include/asm/barrier.h b/arch/lib/include/asm/barrier.h
+new file mode 100644
+index 0000000..47adcc6
+--- /dev/null
++++ b/arch/lib/include/asm/barrier.h
+@@ -0,0 +1,8 @@
++#include <asm-generic/barrier.h>
++
++#undef smp_store_release
++#define smp_store_release(p, v)						\
++	do {								\
++		smp_mb();						\
++		ACCESS_ONCE(*p) = (v);					\
++	} while (0)
+diff --git a/arch/lib/include/asm/bitsperlong.h b/arch/lib/include/asm/bitsperlong.h
+new file mode 100644
+index 0000000..c7592f9
+--- /dev/null
++++ b/arch/lib/include/asm/bitsperlong.h
+@@ -0,0 +1,12 @@
++#ifndef _ASM_SIM_BITSPERLONG_H
++#define _ASM_SIM_BITSPERLONG_H
++
++#ifdef CONFIG_64BIT
++#define BITS_PER_LONG 64
++#else
++#define BITS_PER_LONG 32
++#endif /* CONFIG_64BIT */
++
++#define __BITS_PER_LONG BITS_PER_LONG
++
++#endif /* _ASM_SIM_BITSPERLONG_H */
+diff --git a/arch/lib/include/asm/current.h b/arch/lib/include/asm/current.h
+new file mode 100644
+index 0000000..62489cd
+--- /dev/null
++++ b/arch/lib/include/asm/current.h
+@@ -0,0 +1,7 @@
++#ifndef _ASM_SIM_CURRENT_H
++#define _ASM_SIM_CURRENT_H
++
++struct task_struct *get_current(void);
++#define current get_current()
++
++#endif /* _ASM_SIM_CURRENT_H */
+diff --git a/arch/lib/include/asm/elf.h b/arch/lib/include/asm/elf.h
+new file mode 100644
+index 0000000..a7396c9
+--- /dev/null
++++ b/arch/lib/include/asm/elf.h
+@@ -0,0 +1,10 @@
++#ifndef _ASM_SIM_ELF_H
++#define _ASM_SIM_ELF_H
++
++#if defined(CONFIG_64BIT)
++#define ELF_CLASS ELFCLASS64
++#else
++#define ELF_CLASS ELFCLASS32
++#endif
++
++#endif /* _ASM_SIM_ELF_H */
+diff --git a/arch/lib/include/asm/hardirq.h b/arch/lib/include/asm/hardirq.h
+new file mode 100644
+index 0000000..47d47f9
+--- /dev/null
++++ b/arch/lib/include/asm/hardirq.h
+@@ -0,0 +1,8 @@
++#ifndef _ASM_SIM_HARDIRQ_H
++#define _ASM_SIM_HARDIRQ_H
++
++extern unsigned int interrupt_pending;
++
++#define local_softirq_pending() (interrupt_pending)
++
++#endif /* _ASM_SIM_HARDIRQ_H */
+diff --git a/arch/lib/include/asm/page.h b/arch/lib/include/asm/page.h
+new file mode 100644
+index 0000000..8c0aa74
+--- /dev/null
++++ b/arch/lib/include/asm/page.h
+@@ -0,0 +1,14 @@
++#ifndef _ASM_SIM_PAGE_H
++#define _ASM_SIM_PAGE_H
++
++typedef struct {} pud_t;
++
++#define THREAD_ORDER    1
++#define THREAD_SIZE  (PAGE_SIZE << THREAD_ORDER)
++
++#define WANT_PAGE_VIRTUAL 1
++
++#include <asm-generic/page.h>
++#include <asm-generic/getorder.h>
++
++#endif /* _ASM_SIM_PAGE_H */
+diff --git a/arch/lib/include/asm/pgtable.h b/arch/lib/include/asm/pgtable.h
+new file mode 100644
+index 0000000..ce599c8
+--- /dev/null
++++ b/arch/lib/include/asm/pgtable.h
+@@ -0,0 +1,30 @@
++#ifndef _ASM_SIM_PGTABLE_H
++#define _ASM_SIM_PGTABLE_H
++
++#define PAGE_KERNEL ((pgprot_t) {0 })
++
++#define arch_start_context_switch(prev) do {} while (0)
++
++#define kern_addr_valid(addr)(1)
++#define pte_file(pte)(1)
++/* Encode and de-code a swap entry */
++#define __swp_type(x)                   (((x).val >> 5) & 0x1f)
++#define __swp_offset(x)                 ((x).val >> 11)
++#define __swp_entry(type, offset) \
++	((swp_entry_t) {((type) << 5) | ((offset) << 11) })
++#define __pte_to_swp_entry(pte)         ((swp_entry_t) {pte_val((pte)) })
++#define __swp_entry_to_pte(x)           ((pte_t) {(x).val })
++#define pmd_page(pmd) (struct page *)(pmd_val(pmd) & PAGE_MASK)
++#define pgtable_cache_init()   do { } while (0)
++
++static inline int pte_swp_soft_dirty(pte_t pte)
 +{
-+	struct delayed_work *dwork = (struct delayed_work *)data;
-+	struct work_struct *work = &dwork->work;
-+
-+	list_add_tail(&work->entry, &dwork->wq->list);
-+	lib_task_wakeup(workqueue_task(dwork->wq));
-+}
-+
-+bool queue_work_on(int cpu, struct workqueue_struct *wq,
-+		   struct work_struct *work)
-+{
-+	int ret = 0;
-+
-+	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
-+		list_add_tail(&work->entry, &wq->list);
-+		lib_task_wakeup(workqueue_task(wq));
-+		ret = 1;
-+	}
-+	return ret;
-+}
-+
-+void flush_scheduled_work(void)
-+{
-+	flush_entry(system_wq, system_wq->list.prev);
-+}
-+bool flush_work(struct work_struct *work)
-+{
-+	return flush_entry(system_wq, &work->entry);
-+}
-+void flush_workqueue(struct workqueue_struct *wq)
-+{
-+	flush_entry(wq, wq->list.prev);
-+}
-+bool cancel_work_sync(struct work_struct *work)
-+{
-+	int retval = 0;
-+
-+	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work)))
-+		/* work was not yet queued */
-+		return 0;
-+	if (!list_empty(&work->entry)) {
-+		/* work was queued. now unqueued. */
-+		if (work->entry.prev != LIST_POISON2) {
-+			list_del_init(&work->entry);
-+			clear_bit(WORK_STRUCT_PENDING_BIT,
-+				  work_data_bits(work));
-+			retval = 1;
-+		}
-+	}
-+	return retval;
-+}
-+bool queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
-+			   struct delayed_work *dwork, unsigned long delay)
-+{
-+	int ret = 0;
-+	struct timer_list *timer = &dwork->timer;
-+	struct work_struct *work = &dwork->work;
-+
-+	if (delay == 0)
-+		return queue_work(wq, work);
-+
-+	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
-+		lib_assert(!timer_pending(timer));
-+		dwork->wq = wq;
-+		/* This stores cwq for the moment, for the timer_fn */
-+		timer->expires = jiffies + delay;
-+		timer->data = (unsigned long)dwork;
-+		timer->function = delayed_work_timer_fn;
-+		add_timer(timer);
-+		ret = 1;
-+	}
-+	return ret;
-+}
-+bool mod_delayed_work_on(int cpu, struct workqueue_struct *wq,
-+			 struct delayed_work *dwork, unsigned long delay)
-+{
-+	del_timer(&dwork->timer);
-+	__clear_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(&dwork->work));
-+	return queue_delayed_work(wq, dwork, delay);
-+}
-+bool cancel_delayed_work(struct delayed_work *dwork)
-+{
-+	del_timer(&dwork->timer);
-+	return cancel_work_sync(&dwork->work);
-+}
-+
-+struct workqueue_struct *__alloc_workqueue_key(const char *fmt,
-+					       unsigned int flags,
-+					       int max_active,
-+					       struct lock_class_key *key,
-+					       const char *lock_name, ...)
-+{
-+	va_list args, args1;
-+	struct wq_barrier *barr;
-+	struct workqueue_struct *wq;
-+	size_t namelen;
-+
-+	/* determine namelen, allocate wq and format name */
-+	va_start(args, lock_name);
-+	va_copy(args1, args);
-+	namelen = vsnprintf(NULL, 0, fmt, args) + 1;
-+
-+	barr = kzalloc(sizeof(*barr) + namelen, GFP_KERNEL);
-+	if (!barr)
-+		goto err;
-+	barr->waiter = 0;
-+	wq = &barr->wq;
-+
-+	vsnprintf(wq->name, namelen, fmt, args1);
-+	va_end(args);
-+	va_end(args1);
-+
-+	max_active = max_active ? : WQ_DFL_ACTIVE;
-+	/* init wq */
-+	wq->flags = flags;
-+	wq->saved_max_active = max_active;
-+	mutex_init(&wq->flush_mutex);
-+	atomic_set(&wq->nr_cwqs_to_flush, 0);
-+	INIT_LIST_HEAD(&wq->flusher_queue);
-+	INIT_LIST_HEAD(&wq->flusher_overflow);
-+
-+	lockdep_init_map(&wq->lockdep_map, lock_name, key, 0);
-+	INIT_LIST_HEAD(&wq->list);
-+
-+	/* start waiter task */
-+	workqueue_task(wq);
-+	return wq;
-+err:
-+	if (barr)
-+		kfree(barr);
-+	return NULL;
-+}
-+
-+struct workqueue_struct *system_wq __read_mostly;
-+struct workqueue_struct *system_power_efficient_wq __read_mostly;
-+/* from linux/workqueue.h */
-+#define system_nrt_wq                   __system_nrt_wq()
-+
-+static int __init init_workqueues(void)
-+{
-+	system_wq = alloc_workqueue("events", 0, 0);
-+	system_power_efficient_wq = alloc_workqueue("events_power_efficient",
-+						    WQ_POWER_EFFICIENT, 0);
 +	return 0;
 +}
-+early_initcall(init_workqueues);
++
++static inline pte_t pte_swp_clear_soft_dirty(pte_t pte)
++{
++	return pte;
++}
++
++#endif /* _ASM_SIM_PGTABLE_H */
+diff --git a/arch/lib/include/asm/processor.h b/arch/lib/include/asm/processor.h
+new file mode 100644
+index 0000000..b673ee0
+--- /dev/null
++++ b/arch/lib/include/asm/processor.h
+@@ -0,0 +1,19 @@
++#ifndef _ASM_SIM_PROCESSOR_H
++#define _ASM_SIM_PROCESSOR_H
++
++struct thread_struct {};
++
++#define cpu_relax()
++#define cpu_relax_lowlatency() cpu_relax()
++#define KSTK_ESP(tsk)	(0)
++
++void *current_text_addr(void);
++
++#define TASK_SIZE ((~(long)0))
++
++#define thread_saved_pc(x) (unsigned long)0
++#define task_pt_regs(t) NULL
++
++int kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
++
++#endif /* _ASM_SIM_PROCESSOR_H */
+diff --git a/arch/lib/include/asm/ptrace.h b/arch/lib/include/asm/ptrace.h
+new file mode 100644
+index 0000000..ddd9708
+--- /dev/null
++++ b/arch/lib/include/asm/ptrace.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_PTRACE_H
++#define _ASM_SIM_PTRACE_H
++
++#endif /* _ASM_SIM_PTRACE_H */
+diff --git a/arch/lib/include/asm/segment.h b/arch/lib/include/asm/segment.h
+new file mode 100644
+index 0000000..e056922
+--- /dev/null
++++ b/arch/lib/include/asm/segment.h
+@@ -0,0 +1,6 @@
++#ifndef _ASM_SIM_SEGMENT_H
++#define _ASM_SIM_SEGMENT_H
++
++typedef struct { int seg; } mm_segment_t;
++
++#endif /* _ASM_SIM_SEGMENT_H */
+diff --git a/arch/lib/include/asm/sembuf.h b/arch/lib/include/asm/sembuf.h
+new file mode 100644
+index 0000000..d64927b
+--- /dev/null
++++ b/arch/lib/include/asm/sembuf.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_SEMBUF_H
++#define _ASM_SIM_SEMBUF_H
++
++#endif /* _ASM_SIM_SEMBUF_H */
+diff --git a/arch/lib/include/asm/shmbuf.h b/arch/lib/include/asm/shmbuf.h
+new file mode 100644
+index 0000000..42d0a71
+--- /dev/null
++++ b/arch/lib/include/asm/shmbuf.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_SHMBUF_H
++#define _ASM_SIM_SHMBUF_H
++
++#endif /* _ASM_SIM_SHMBUF_H */
+diff --git a/arch/lib/include/asm/shmparam.h b/arch/lib/include/asm/shmparam.h
+new file mode 100644
+index 0000000..3410f1b
+--- /dev/null
++++ b/arch/lib/include/asm/shmparam.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_SHMPARAM_H
++#define _ASM_SIM_SHMPARAM_H
++
++#endif /* _ASM_SIM_SHMPARAM_H */
+diff --git a/arch/lib/include/asm/sigcontext.h b/arch/lib/include/asm/sigcontext.h
+new file mode 100644
+index 0000000..230b4b5
+--- /dev/null
++++ b/arch/lib/include/asm/sigcontext.h
+@@ -0,0 +1,6 @@
++#ifndef _ASM_SIM_SIGCONTEXT_H
++#define _ASM_SIM_SIGCONTEXT_H
++
++struct sigcontext {};
++
++#endif /* _ASM_SIM_SIGCONTEXT_H */
+diff --git a/arch/lib/include/asm/slab.h b/arch/lib/include/asm/slab.h
+new file mode 100644
+index 0000000..a3f5d19
+--- /dev/null
++++ b/arch/lib/include/asm/slab.h
+@@ -0,0 +1,21 @@
++#ifndef _ASM_SIM_SLAB_H
++#define _ASM_SIM_SLAB_H
++
++
++struct kmem_cache {
++	unsigned int object_size;
++	const char *name;
++	size_t size;
++	size_t align;
++	unsigned long flags;
++	void (*ctor)(void *);
++};
++
++void *__kmalloc(size_t size, gfp_t flags);
++void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
++static __always_inline void *kmalloc(size_t size, gfp_t flags)
++{
++	return __kmalloc(size, flags);
++}
++
++#endif /* _ASM_SIM_SLAB_H */
+diff --git a/arch/lib/include/asm/stat.h b/arch/lib/include/asm/stat.h
+new file mode 100644
+index 0000000..80fa2cb
+--- /dev/null
++++ b/arch/lib/include/asm/stat.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_STAT_H
++#define _ASM_SIM_STAT_H
++
++#endif /* _ASM_SIM_STAT_H */
+diff --git a/arch/lib/include/asm/statfs.h b/arch/lib/include/asm/statfs.h
+new file mode 100644
+index 0000000..881ce51
+--- /dev/null
++++ b/arch/lib/include/asm/statfs.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_STATFS_H
++#define _ASM_SIM_STATFS_H
++
++#endif /* _ASM_SIM_STATFS_H */
+diff --git a/arch/lib/include/asm/swab.h b/arch/lib/include/asm/swab.h
+new file mode 100644
+index 0000000..d81376a
+--- /dev/null
++++ b/arch/lib/include/asm/swab.h
+@@ -0,0 +1,7 @@
++#ifndef _ASM_SIM_SWAB_H
++#define _ASM_SIM_SWAB_H
++
++#include <linux/types.h>
++
++
++#endif /* _ASM_SIM_SWAB_H */
+diff --git a/arch/lib/include/asm/thread_info.h b/arch/lib/include/asm/thread_info.h
+new file mode 100644
+index 0000000..a9a26d9
+--- /dev/null
++++ b/arch/lib/include/asm/thread_info.h
+@@ -0,0 +1,35 @@
++#ifndef _ASM_SIM_THREAD_INFO_H
++#define _ASM_SIM_THREAD_INFO_H
++
++#define TIF_NEED_RESCHED 1
++#define TIF_SIGPENDING 2
++
++struct thread_info {
++	__u32 flags;
++	int preempt_count;
++	struct task_struct *task;
++	struct restart_block restart_block;
++};
++
++struct thread_info *current_thread_info(void);
++struct thread_info *alloc_thread_info(struct task_struct *task);
++void free_thread_info(struct thread_info *ti);
++
++#define TS_RESTORE_SIGMASK      0x0008  /* restore signal mask in do_signal() */
++#define HAVE_SET_RESTORE_SIGMASK        1
++static inline void set_restore_sigmask(void)
++{
++}
++static inline void clear_restore_sigmask(void)
++{
++}
++static inline bool test_restore_sigmask(void)
++{
++	return true;
++}
++static inline bool test_and_clear_restore_sigmask(void)
++{
++	return true;
++}
++
++#endif /* _ASM_SIM_THREAD_INFO_H */
+diff --git a/arch/lib/include/asm/uaccess.h b/arch/lib/include/asm/uaccess.h
+new file mode 100644
+index 0000000..74f973b
+--- /dev/null
++++ b/arch/lib/include/asm/uaccess.h
+@@ -0,0 +1,14 @@
++#ifndef _ASM_SIM_UACCESS_H
++#define _ASM_SIM_UACCESS_H
++
++#define KERNEL_DS ((mm_segment_t) {0 })
++#define USER_DS ((mm_segment_t) {0 })
++#define get_fs() KERNEL_DS
++#define get_ds() USER_DS
++#define set_fs(x) do {} while ((x.seg) != (x.seg))
++
++#define __access_ok(addr, size) (1)
++
++#include <asm-generic/uaccess.h>
++
++#endif /* _ASM_SIM_UACCESS_H */
+diff --git a/arch/lib/include/asm/unistd.h b/arch/lib/include/asm/unistd.h
+new file mode 100644
+index 0000000..6b482b4
+--- /dev/null
++++ b/arch/lib/include/asm/unistd.h
+@@ -0,0 +1,4 @@
++#ifndef _ASM_SIM_UNISTD_H
++#define _ASM_SIM_UNISTD_H
++
++#endif /* _ASM_SIM_UNISTD_H */
+diff --git a/arch/lib/include/uapi/asm/byteorder.h b/arch/lib/include/uapi/asm/byteorder.h
+new file mode 100644
+index 0000000..b13a7a8
+--- /dev/null
++++ b/arch/lib/include/uapi/asm/byteorder.h
+@@ -0,0 +1,6 @@
++#ifndef _ASM_X86_BYTEORDER_H
++#define _ASM_X86_BYTEORDER_H
++
++#include <linux/byteorder/little_endian.h>
++
++#endif /* _ASM_X86_BYTEORDER_H */
 -- 
 2.1.0
 
