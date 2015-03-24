@@ -1,32 +1,45 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 1/2] ip: Make uniform the use of synonyms list,
- show and lst
-Date: Tue, 24 Mar 2015 14:49:56 -0700
-Message-ID: <20150324144956.28d77e7e@urahara>
+Subject: Re: [PATCH iproute2 2/2] ip: Harmonise usage references to show /
+ list option
+Date: Tue, 24 Mar 2015 14:53:15 -0700
+Message-ID: <20150324145315.754c6ff3@urahara>
 References: <1426499950-6641-1-git-send-email-mark.einon@gmail.com>
+	<1426499950-6641-2-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Mark Einon <mark.einon@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:32874 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916AbbCXVty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:49:54 -0400
-Received: by pdnc3 with SMTP id c3so6352304pdn.0
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 14:49:53 -0700 (PDT)
-In-Reply-To: <1426499950-6641-1-git-send-email-mark.einon@gmail.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34094 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbbCXVxM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 17:53:12 -0400
+Received: by pdbni2 with SMTP id ni2so6340591pdb.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 14:53:12 -0700 (PDT)
+In-Reply-To: <1426499950-6641-2-git-send-email-mark.einon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Mar 2015 09:59:09 +0000
+On Mon, 16 Mar 2015 09:59:10 +0000
 Mark Einon <mark.einon@gmail.com> wrote:
 
-> Where used in the ip tool, the 'show' option always has the synonyms
-> 'list' and 'lst', except for ip-token and ip-addrlabel, which are missing
-> 'lst'. Add this as a synonym for these commands.
-> 
-> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index c842e85..b863e7b 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -59,7 +59,7 @@ static void usage(void) __attribute__((noreturn));
+>  
+>  static void usage(void)
+>  {
+> -	fprintf(stderr, "Usage: ip route { list | flush } SELECTOR\n");
 
-Applied
+Sorry, this sounds like a good idea until I went and checked what
+is shown on the man pages.
+
+The ip route man page has:
+
+       ip route { list | flush } SELECTOR
+
+For me, it is more important that the usage match the man page,
+rather than having all usage messages match.
