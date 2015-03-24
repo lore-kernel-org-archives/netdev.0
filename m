@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 23 Mar 2015 22:29:34 -0400 (EDT)
-Message-ID: <20150323.222934.1290096929224794650.davem@davemloft.net>
-References: <20150323140841.0b807b95@canb.auug.org.au>
-	<20150323124723.GA6740@salvia>
+Subject: Re: pull-request: can 2015-03-22
+Date: Mon, 23 Mar 2015 22:36:58 -0400 (EDT)
+Message-ID: <20150323.223658.1410554039834160226.davem@davemloft.net>
+References: <1427051618-28318-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net
-To: pablo@netfilter.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150323124723.GA6740@salvia>
-Sender: linux-next-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1427051618-28318-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 23 Mar 2015 13:47:23 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sun, 22 Mar 2015 20:13:31 +0100
 
-> On Mon, Mar 23, 2015 at 02:08:41PM +1100, Stephen Rothwell wrote:
->> Hi all,
->> 
->> Today's linux-next merge of the net-next tree got a conflict in
->> net/netfilter/nf_tables_core.c between commit 4017a7ee693d ("netfilter:
->> restore rule tracing via nfnetlink_log") from the net tree and commit
->> 01ef16c2dd2e ("netfilter: nf_tables: minor tracing cleanups") from the
->> net-next tree.
->> 
->> I fixed it up (see below) and can carry the fix as necessary (no action
->> is required).
+> this is a pull-request of 7 patches for net/master.
 > 
-> This looks good, thanks for adressing this conflict Stephen.
+> Ahmed S. Darwish fixes another two problems in the kvaser_usb driver. A patch
+> by Colin Ian King for the gs_usb driver adds a missing check for kzalloc
+> allocation failures. Two patches by Stephane Grosjean for the peak_usb driver
+> add missing support for ISO / non-ISO mode switching. Andri Yngvason
+> contributes a patch to fix the state handling in the flexcan driver. The last
+> patch by Andreas Werner for the flexcan driver add missing EPROBE_DEFER
+> handling for the transceiver regulator.
 
-Pablo, I just pushed out a merge of net into net-next, please double
-check that I handled this conflict correctly.
-
-Thanks!
+Pulled, thanks Marc.
