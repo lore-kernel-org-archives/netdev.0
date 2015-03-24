@@ -1,186 +1,73 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 5/5 net-next] rhashtable: Add rhashtable_free_and_destroy()
-Date: Tue, 24 Mar 2015 14:18:20 +0100
-Message-ID: <1758cf3ce7934f268bc9ba9d3404a225781144ab.1427202823.git.tgraf@suug.ch>
-References: <cover.1427202823.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: davem@davemloft.net
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_en: Call register_netdevice in the proper location
+Date: Tue, 24 Mar 2015 15:18:38 +0200
+Message-ID: <1427203119-27149-2-git-send-email-ogerlitz@mellanox.com>
+References: <1427203119-27149-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Ido Shamay <idos@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:34737 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752566AbbCXNSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 09:18:32 -0400
-In-Reply-To: <cover.1427202823.git.tgraf@suug.ch>
-In-Reply-To: <cover.1427202823.git.tgraf@suug.ch>
-References: <cover.1427202823.git.tgraf@suug.ch>
+Received: from mailp.voltaire.com ([193.47.165.129]:49666 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752698AbbCXNSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Mar 2015 09:18:46 -0400
+In-Reply-To: <1427203119-27149-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rhashtable_destroy() variant which stops rehashes, iterates over
-the table and calls a callback to release resources.
+From: Ido Shamay <idos@mellanox.com>
 
-Avoids need for nft_hash to embed rhashtable internals and allows to
-get rid of the being_destroyed flag. It also saves a 2nd mutex
-lock upon destruction.
+Netdevice registration should be performed a the end of the driver
+initialization flow. If we don't do that, after calling register_netdevice,
+device callbacks may be issued by higher layers of the stack before
+final configuration of the device is done.
 
-Also fixes an RCU lockdep splash on nft set destruction due to
-calling rht_for_each_entry_safe() without holding bucket locks.
-Open code this loop as we need know that no mutations may occur in
-parallel.
+For example (VXLAN configuration race), mlx4_SET_PORT_VXLAN was issued
+after the register_netdev command. System network scripts may configure
+the interface (UP) right after the registration, which also attach
+unicast VXLAN steering rule, before mlx4_SET_PORT_VXLAN was called,
+causing the firmware to fail the rule attachment.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Fixes: 837052d0ccc5 ("net/mlx4_en: Add netdev support for TCP/IP offloads of vxlan tunneling")
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- include/linux/rhashtable.h |  5 +++--
- lib/rhashtable.c           | 49 ++++++++++++++++++++++++++++++++++++----------
- net/netfilter/nft_hash.c   | 25 +++++++----------------
- 3 files changed, 49 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index d0ca452..1995db3 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -134,12 +134,10 @@ struct rhashtable_params {
-  * @run_work: Deferred worker to expand/shrink asynchronously
-  * @mutex: Mutex to protect current/future table swapping
-  * @lock: Spin lock to protect walker list
-- * @being_destroyed: True if table is set up for destruction
-  */
- struct rhashtable {
- 	struct bucket_table __rcu	*tbl;
- 	atomic_t			nelems;
--	bool                            being_destroyed;
- 	unsigned int			key_len;
- 	unsigned int			elasticity;
- 	struct rhashtable_params	p;
-@@ -332,6 +330,9 @@ int rhashtable_walk_start(struct rhashtable_iter *iter) __acquires(RCU);
- void *rhashtable_walk_next(struct rhashtable_iter *iter);
- void rhashtable_walk_stop(struct rhashtable_iter *iter) __releases(RCU);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index ebce5bb..3485acf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2805,13 +2805,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	netif_carrier_off(dev);
+ 	mlx4_en_set_default_moderation(priv);
  
-+void rhashtable_free_and_destroy(struct rhashtable *ht,
-+				 void (*free_fn)(void *ptr, void *arg),
-+				 void *arg);
- void rhashtable_destroy(struct rhashtable *ht);
+-	err = register_netdev(dev);
+-	if (err) {
+-		en_err(priv, "Netdev registration failed for port %d\n", port);
+-		goto out;
+-	}
+-	priv->registered = 1;
+-
+ 	en_warn(priv, "Using %d TX rings\n", prof->tx_ring_num);
+ 	en_warn(priv, "Using %d RX rings\n", prof->rx_ring_num);
  
- #define rht_dereference(p, ht) \
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 93374d7..bb3a792 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -359,8 +359,6 @@ static void rht_deferred_worker(struct work_struct *work)
+@@ -2853,6 +2846,14 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
  
- 	ht = container_of(work, struct rhashtable, run_work);
- 	mutex_lock(&ht->mutex);
--	if (ht->being_destroyed)
--		goto unlock;
+ 	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
  
- 	tbl = rht_dereference(ht->tbl, ht);
- 	tbl = rhashtable_last_table(ht, tbl);
-@@ -372,7 +370,6 @@ static void rht_deferred_worker(struct work_struct *work)
- 
- 	err = rhashtable_rehash_table(ht);
- 
--unlock:
- 	mutex_unlock(&ht->mutex);
- 
- 	if (err)
-@@ -771,21 +768,53 @@ int rhashtable_init(struct rhashtable *ht,
- EXPORT_SYMBOL_GPL(rhashtable_init);
- 
- /**
-- * rhashtable_destroy - destroy hash table
-+ * rhashtable_free_and_destroy - free elements and destroy hash table
-  * @ht:		the hash table to destroy
-+ * @free_fn:	callback to release resources of element
-+ * @arg:	pointer passed to free_fn
-  *
-- * Frees the bucket array. This function is not rcu safe, therefore the caller
-- * has to make sure that no resizing may happen by unpublishing the hashtable
-- * and waiting for the quiescent cycle before releasing the bucket array.
-+ * Stops an eventual async resize. If defined, invokes free_fn for each
-+ * element to releasal resources. Please note that RCU protected
-+ * readers may still be accessing the elements. Releasing of resources
-+ * must occur in a compatible manner. Then frees the bucket array.
-+ *
-+ * This function will eventually sleep to wait for an async resize
-+ * to complete. The caller is responsible that no further write operations
-+ * occurs in parallel.
-  */
--void rhashtable_destroy(struct rhashtable *ht)
-+void rhashtable_free_and_destroy(struct rhashtable *ht,
-+				 void (*free_fn)(void *ptr, void *arg),
-+				 void *arg)
- {
--	ht->being_destroyed = true;
-+	const struct bucket_table *tbl;
-+	unsigned int i;
- 
- 	cancel_work_sync(&ht->run_work);
- 
- 	mutex_lock(&ht->mutex);
--	bucket_table_free(rht_dereference(ht->tbl, ht));
-+	tbl = rht_dereference(ht->tbl, ht);
-+	if (free_fn) {
-+		for (i = 0; i < tbl->size; i++) {
-+			struct rhash_head *pos, *next;
-+
-+			for (pos = rht_dereference(tbl->buckets[i], ht),
-+			     next = !rht_is_a_nulls(pos) ?
-+					rht_dereference(pos->next, ht) : NULL;
-+			     !rht_is_a_nulls(pos);
-+			     pos = next,
-+			     next = !rht_is_a_nulls(pos) ?
-+					rht_dereference(pos->next, ht) : NULL)
-+				free_fn(rht_obj(ht, pos), arg);
-+		}
++	err = register_netdev(dev);
++	if (err) {
++		en_err(priv, "Netdev registration failed for port %d\n", port);
++		goto out;
 +	}
 +
-+	bucket_table_free(tbl);
- 	mutex_unlock(&ht->mutex);
- }
-+EXPORT_SYMBOL_GPL(rhashtable_free_and_destroy);
++	priv->registered = 1;
 +
-+void rhashtable_destroy(struct rhashtable *ht)
-+{
-+	return rhashtable_free_and_destroy(ht, NULL, NULL);
-+}
- EXPORT_SYMBOL_GPL(rhashtable_destroy);
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 2986f1d..ad29965 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -187,26 +187,15 @@ static int nft_hash_init(const struct nft_set *set,
- 	return rhashtable_init(priv, &params);
- }
+ 	return 0;
  
--static void nft_hash_destroy(const struct nft_set *set)
-+static void nft_free_element(void *ptr, void *arg)
- {
--	struct rhashtable *priv = nft_set_priv(set);
--	const struct bucket_table *tbl;
--	struct nft_hash_elem *he;
--	struct rhash_head *pos, *next;
--	unsigned int i;
--
--	/* Stop an eventual async resizing */
--	priv->being_destroyed = true;
--	mutex_lock(&priv->mutex);
--
--	tbl = rht_dereference(priv->tbl, priv);
--	for (i = 0; i < tbl->size; i++) {
--		rht_for_each_entry_safe(he, pos, next, tbl, i, node)
--			nft_hash_elem_destroy(set, he);
--	}
--	mutex_unlock(&priv->mutex);
-+	nft_hash_elem_destroy((const struct nft_set *)arg, ptr);
-+}
- 
--	rhashtable_destroy(priv);
-+static void nft_hash_destroy(const struct nft_set *set)
-+{
-+	rhashtable_free_and_destroy(nft_set_priv(set), nft_free_element,
-+				    (void *)set);
- }
- 
- static bool nft_hash_estimate(const struct nft_set_desc *desc, u32 features,
+ out:
 -- 
-1.9.3
+1.7.1
