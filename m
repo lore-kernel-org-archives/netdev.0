@@ -1,53 +1,31 @@
 From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [PATCH net-next] iproute2: MPLS support
-Date: Tue, 24 Mar 2015 15:36:09 -0700
-Message-ID: <20150324153609.72e3ca93@urahara>
-References: <87bnjwspek.fsf@x220.int.ebiederm.org>
+Subject: Re: [PATCH iproute2] ip route: support RFC4191 router preference
+Date: Tue, 24 Mar 2015 15:38:23 -0700
+Message-ID: <20150324153823.73625f3f@urahara>
+References: <87d66392c0bc4bb087c63497a123b440@BRMWP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Lubomir Rintel <lkundrak@v3.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:51573 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:61926 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751915AbbCXWgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:36:09 -0400
-In-Reply-To: <87bnjwspek.fsf@x220.int.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1752401AbbCXWic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 18:38:32 -0400
+In-Reply-To: <87d66392c0bc4bb087c63497a123b440@BRMWP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Mar 2015 13:50:11 -0500
-ebiederm@xmission.com (Eric W. Biederman) wrote:
+On Mon, 16 Mar 2015 15:01:47 +0000
+Lubomir Rintel <lkundrak@v3.sk> wrote:
 
-> This set of changes  adds support for nexthops in different
-> address families, with the new netlink RTA_VIA option.
+> This allows querying and setting the route preference. It's usually set from
+> the IPv6 Neighbor Discovery Router Advertisement messages.
 > 
-> Support is added for routes that change the destination address (as MPLS
-> does) with the RTA_NEWDST attribute.
+> Introduced in "ipv6: expose RFC4191 route preference via rtnetlink", enqueued
+> for Linux 4.1.
 > 
-> Support for MPLS addresses is added (for multiple labels I
-> had to make up the syntax I used label/label/label as it fits in
-> well with addresses that don't have a space in them).
-> 
-> Support for these options is merged into David's net-next kernel
-> tree, and the meaning of the options is unlikely to change in any
-> significant way before this code merges upstream.
-> 
-> The documentation has been updated to report that the new options
-> are present and to report roughly what they do.  This includes
-> ip --help and the man pages.
-> 
-> Eric W. Biederman (8):
->       iproute2: Add a source addres length parameter to rt_addr_n2a
->       iproute2: Make the addr argument of ll_addr_n2a const
->       iproute2: Add support for printing AF_PACKET addresses
->       iproute2: Add address family to/from string helper functions.
->       iproute2: misc whitespace cleanup
->       iproute2: Add support for  RTA_VIA attributes
->       iproute2: Add support for the RTA_NEWDST attribute.
->       iproute2: Add basic mpls support to iproute
+> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 
-Applied to net-next branch of iproute.
-Only change was to use result of kernel make headers_install
-version of mpls.h
+Applied to net-next branch
