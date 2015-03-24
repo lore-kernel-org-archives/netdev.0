@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove never used forwarding_accel_ops pointer
- from net_device
-Date: Tue, 24 Mar 2015 12:44:19 -0400 (EDT)
-Message-ID: <20150324.124419.637505012204914427.davem@davemloft.net>
-References: <73a15123e8cbe6771ac6659ba39e17b3ea84975c.1427131748.git.hannes@stressinduktion.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] net: use for_each_netdev_safe() in rtnl_group_changelink()
+Date: Tue, 24 Mar 2015 09:46:32 -0700
+Message-ID: <CAM_iQpWCe-YFLuGo9YvwWmB1anG+ttv-jZ-5kEYotLrmySKErw@mail.gmail.com>
+References: <1427153469-32542-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1427157352.25985.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37487 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854AbbCXQo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 12:44:26 -0400
-In-Reply-To: <73a15123e8cbe6771ac6659ba39e17b3ea84975c.1427131748.git.hannes@stressinduktion.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33643 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752779AbbCXQqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 12:46:33 -0400
+Received: by pabxg6 with SMTP id xg6so218258130pab.0
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 09:46:32 -0700 (PDT)
+In-Reply-To: <1427157352.25985.86.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 23 Mar 2015 18:40:02 +0100
+On Mon, Mar 23, 2015 at 5:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> It seems this bug was added in commit e7ed828f10bd8, right ?
+>
+> Fixes: e7ed828f10bd8 ("netlink: support setting devgroup parameters")
+>
 
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
-> Hi John,
-> 
-> I guess it slipped in by accident?
+Right.
 
-That's how it looks to me, applied, thanks.
+I hope Dave or patchwork can add it into changelog.
+
+Thanks.
