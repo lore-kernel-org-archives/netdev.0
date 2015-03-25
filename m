@@ -1,63 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: tcp6: fix double call of tcp_v6_fill_cb()
-Date: Wed, 25 Mar 2015 15:26:34 -0700
-Message-ID: <1427322394.25985.128.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1427107090-4100-1-git-send-email-alexey.kodanev@oracle.com>
-	 <1427118726.25985.63.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <551327C0.3020303@oracle.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 6/7] net: bcmgenet: rework Rx NAPI code
+Date: Wed, 25 Mar 2015 15:27:51 -0700
+Message-ID: <55133667.4020206@gmail.com>
+References: <20150325193515.354C12201FB@puck.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexey Kodanev <alexey.kodanev@oracle.com>
+Cc: davem@davemloft.net, jaedon.shin@gmail.com
+To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:33684 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbbCYW0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 18:26:36 -0400
-Received: by iecvj10 with SMTP id vj10so33772342iec.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 15:26:35 -0700 (PDT)
-In-Reply-To: <551327C0.3020303@oracle.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:35874 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751413AbbCYW2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 18:28:35 -0400
+Received: by pdbcz9 with SMTP id cz9so42104631pdb.3
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 15:28:34 -0700 (PDT)
+In-Reply-To: <20150325193515.354C12201FB@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-26 at 00:25 +0300, Alexey Kodanev wrote:
+On 25/03/15 12:35, Petri Gynther wrote:
+> Introduce new bcmgenet functions to handle the NAPI calls to:
+> netif_napi_add()
+> napi_enable()
+> napi_disable()
+> netif_napi_del()
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-> Did various testing with exactly that change and hadn't found any 
-> "serious performance impact" on the stack (at least on my configuration).
-
-Sure, but nobody will take the risk to make such change without serious
-tests on multiple workloads and arches.
-
-> 
-> Alright, what about other part of the patch, is it acceptable?
-> 
-> I came up with one more solution... not so radical :)
-> We can restore inet6_skb_parm with
-> 
->      memmove(IP6CB(skb), &TCP_SKB_CB(skb)->header.h6, ...)
-> 
-> in the two places in tcp_v6_rcv(), before xfrm6_policy_check() + 
-> tcp_v6_fill_cb() are called again:
-> 
->   static int tcp_v6_rcv(struct sk_buff *skb)
->   {
->          const struct tcphdr *th;
-> @@ -1543,6 +1552,7 @@ do_time_wait:
->                          inet_twsk_deschedule(tw, &tcp_death_row);
->                          inet_twsk_put(tw);
->                          sk = sk2;
-> +                       tcp_v6_restore_cb(skb);
->                          goto process;
->                  }
->                  /* Fall through to ACK */
-> @@ -1551,6 +1561,7 @@ do_time_wait:
->                  tcp_v6_timewait_ack(sk, skb);
->                  break;
->          case TCP_TW_RST:
-> +               tcp_v6_restore_cb(skb);
->                  goto no_tcp_socket;
->          case TCP_TW_SUCCESS:
-> 
-
-Looks good to me !
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
