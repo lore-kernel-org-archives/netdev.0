@@ -1,58 +1,96 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH] iproute2: enhance addr label validation
-Date: Wed, 25 Mar 2015 09:23:11 +0900
-Message-ID: <20150325002309.GF23124@vergenet.net>
-References: <550DD13D.90009@tekcomms.com>
- <20150323011522.GB20755@vergenet.net>
- <55101D07.6090301@tekcomms.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>,
-	Vadim Kochan <vadim4j@gmail.com>
-To: Joe Harvell <joe.harvell@tekcomms.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: [PATCH iproute2] iproute2: unify naming for entries offloaded to hardware
+Date: Tue, 24 Mar 2015 20:33:05 -0400
+Message-ID: <1427243585-1530-1-git-send-email-gospo@cumulusnetworks.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36498 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347AbbCYAXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 20:23:22 -0400
-Received: by padcy3 with SMTP id cy3so9680662pad.3
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 17:23:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55101D07.6090301@tekcomms.com>
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:34546 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915AbbCYAdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 20:33:19 -0400
+Received: by ykfc206 with SMTP id c206so5329597ykf.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 17:33:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
+The kernel now has the capability to offload FDB and FIB entries to hardware.
+It is important to let users know if table entries are also offloaded to
+hardware.  Currently offloaded FDB entries are indicated by the existence of
+the flag 'external' on the entry as of the following commit:
 
-On Mon, Mar 23, 2015 at 09:02:47AM -0500, Joe Harvell wrote:
-> >Hi Joe,
-> >
-> >On Sat, Mar 21, 2015 at 03:14:53PM -0500, Joe Harvell wrote:
-> >>The ip addr command today rejects address labels that would break
-> >>ifconfig.  However, it allows some labels which still break it. Enhance
-> >>enforcement to reject all known incompatible labels, and allow the
-> >>existing -force option to allow someone to use a label even if it is not
-> >>ifconfig compatible
-> >I am concerned this will break existing users who are relying on setting
-> >labels that would now be rejected without using -force.
-> >
-> [snip]
-> 
-> Simon,
-> 
-> Good point.  I propose the following:
-> 
-> When a label is specified without -force, and that label begins with the
-> interface name but is followed by something other than a colon, accept
-> the label but emit a warning message indicating this label is
-> incompatible with ifconfig and that later versions of the 'ip address'
-> command may reject it.  This message can also indicate that -force can be
-> specified to explicitly indicate a label that is non ifconfig compatible
-> is desired.
-> 
-> At some point in the future, the behavior could then be changed to reject
-> such labels.
-> 
-> What do you think?
+commit 28467b7f3facd6114b2fbe0c9fecf57adbd52e12
+Author: Scott Feldman <sfeldma@gmail.com>
+Date:   Thu Dec 4 09:57:15 2014 +0100
 
-That sounds entirely reasonable to me.
+    bridge/fdb: add flag/indication for FDB entry synced from offload device
+
+When the patch to add support for indicating that FIB entries were also
+offloaded as posted to netdev by Scott Feldman it became clear that 'external'
+would not be an ideal name for routes.  There could definitely be confusion
+about what this might mean since many routes are to external networks -- a
+collision/confusion that did not happen with FDB.
+
+Scott Feldman asked me to check with others and build concensus around a name.
+After speaking with several people about this I am proposing we refer to both
+FDB and FIB entries that are currently backed by hardware (based on the work
+done in rocker) with the flag 'offload' appended to the end ofthe entry.
+
+Some people liked the string 'external,' others liked 'hardware,' but the point
+is to communicate that these routes are available to something that will will
+offload the forwarding normally done by the kernel.  Since the term 'offload'
+is used so frequently it seems appropriate to use the same language in
+ip/bridge output.
+
+The term 'offload' also seems to resonate with many of the people who have
+responded on Scott's original thread or to those who I reached out to directly
+and did respond to my query, so it seems we have reached consensus that it
+should be the term used going forward.
+
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+CC: Jamal Hadi Salim <jhs@mojatatu.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Jiri Pirko <jiri@resnulli.us>
+CC: John W. Linville <linville@tuxdriver.com>
+CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+CC: Scott Feldman <sfeldma@gmail.com>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+---
+ bridge/fdb.c | 2 +-
+ ip/iproute.c | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 3c33e22..e34933b 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -159,7 +159,7 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (r->ndm_flags & NTF_ROUTER)
+ 		fprintf(fp, "router ");
+ 	if (r->ndm_flags & NTF_EXT_LEARNED)
+-		fprintf(fp, "external ");
++		fprintf(fp, "offload ");
+ 
+ 	fprintf(fp, "%s\n", state_n2a(r->ndm_state));
+ 	return 0;
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 024d401..34a5216 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -412,6 +412,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "onlink ");
+ 	if (r->rtm_flags & RTNH_F_PERVASIVE)
+ 		fprintf(fp, "pervasive ");
++	if (r->rtm_flags & RTNH_F_EXTERNAL)
++		fprintf(fp, "offload ");
+ 	if (r->rtm_flags & RTM_F_NOTIFY)
+ 		fprintf(fp, "notify ");
+ 	if (tb[RTA_MARK]) {
+-- 
+1.9.3
