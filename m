@@ -1,139 +1,134 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v8 6/7] ixgbevf: Add RSS Key query code
-Date: Wed, 25 Mar 2015 19:42:41 +0200
-Message-ID: <1427305362-23948-7-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v8 2/7] ixgbe: Add a new netdev op to allow/prevent a VF from querying an RSS info
+Date: Wed, 25 Mar 2015 19:42:37 +0200
+Message-ID: <1427305362-23948-3-git-send-email-vladz@cloudius-systems.com>
 References: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
 	gleb@cloudius-systems.com, intel-wired-lan@lists.osuosl.org,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:37418 "EHLO
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:32903 "EHLO
 	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754841AbbCYRm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:59 -0400
-Received: by wixw10 with SMTP id w10so49291952wix.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:58 -0700 (PDT)
+	with ESMTP id S1752830AbbCYRmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:53 -0400
+Received: by wixw10 with SMTP id w10so80012673wix.0
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:52 -0700 (PDT)
 In-Reply-To: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ixgbevf_get_rss_key() function that queries the PF for an RSS Random Key
-using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
+Implements the new netdev op to allow user to enable/disable the ability
+of a specific VF to query its RSS Indirection Table and an RSS Hash Key.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
-New in v8:
-   - Protect a mailbox access.
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 +++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+ 4 files changed, 37 insertions(+)
 
-New in v6:
-   - Return a proper return code when an operation is blocked by PF.
-
-New in v2:
-   - Added a more detailed patch description.
-
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbevf_get_rss_key()).
----
- drivers/net/ethernet/intel/ixgbevf/mbx.h |  2 ++
- drivers/net/ethernet/intel/ixgbevf/vf.c  | 60 ++++++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h  |  1 +
- 3 files changed, 63 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-index 7342554..923bb0f 100644
---- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
-@@ -115,6 +115,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
- #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 7068e9c..5e44e48 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -151,6 +151,7 @@ struct vf_data_storage {
+ 	u16 tx_rate;
+ 	u16 vlan_count;
+ 	u8 spoofchk_enabled;
++	bool rss_query_enabled;
+ 	unsigned int vf_api;
+ };
  
-+#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 395dc6b..8853d52 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3600,6 +3600,12 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+ 		if (hw->mac.ops.set_ethertype_anti_spoofing)
+ 			hw->mac.ops.set_ethertype_anti_spoofing(hw, true, i);
+ 	}
 +
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN	4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index 2e468a6..4ca0304 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -325,6 +325,66 @@ static inline int _ixgbevf_get_reta(struct ixgbevf_adapter *a,
- 	return rc;
++	/* Enable/Disable RSS query feature  */
++	for (i = 0; i < adapter->num_vfs; i++)
++		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
++					      adapter->vfinfo[i].rss_query_enabled);
++
  }
  
-+static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
+ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+@@ -8040,6 +8046,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
+ 	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
+ 	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
++	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
+ 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+ 	.ndo_get_stats64	= ixgbe_get_stats64,
+ #ifdef CONFIG_IXGBE_DCB
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 09a291b..4d67677 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -108,6 +108,19 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 		/* enable spoof checking for all VFs */
+ 		for (i = 0; i < adapter->num_vfs; i++)
+ 			adapter->vfinfo[i].spoofchk_enabled = true;
++
++		/* by default:
++		 *   - Enable RSS query for x550 devices. x550 VFs don't share
++		 *     RSS Redirection Table and RSS Hash Key with a PF, so
++		 *     there isn't any possible security threat in allowing them
++		 *     to query this information.
++		 *   - disable - for all the rest since they do share it with a
++		 *     PF.
++		 */
++		for (i = 0; i < adapter->num_vfs; i++)
++			adapter->vfinfo[i].rss_query_enabled =
++				       (adapter->hw.mac.type >= ixgbe_mac_X550);
++
+ 		return 0;
+ 	}
+ 
+@@ -1330,6 +1343,19 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
+ 	return 0;
+ }
+ 
++int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
++				  bool setting)
 +{
-+	int err;
-+	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+	/* Return and error if API doesn't support RSS Random Key retrieval */
-+	if (hw->api_version != ixgbe_mbox_api_12)
-+		return -EPERM;
++	if (vf >= adapter->num_vfs)
++		return -EINVAL;
 +
-+	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
-+	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
-+
-+	if (err)
-+		return err;
-+
-+	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
-+
-+	if (err)
-+		return err;
-+
-+	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
-+
-+	/* If the operation has been refused by a PF return -EPERM */
-+	if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
-+		return -EPERM;
-+
-+	/* If we didn't get an ACK there must have been
-+	 * some sort of mailbox error so we should treat it
-+	 * as such.
-+	 */
-+	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
-+		return IXGBE_ERR_MBX;
-+
-+	memcpy(rss_key, msgbuf + 1, 40);
++	adapter->vfinfo[vf].rss_query_enabled = setting;
 +
 +	return 0;
 +}
 +
-+/**
-+ * ixgbevf_get_rss_key - get the RSS Random Key
-+ * @hw: pointer to the HW structure
-+ * @reta: buffer to fill with RETA contents.
-+ *
-+ * The "rss_key" buffer should be big enough to contain 10 registers.
-+ * Ensures the atomicy of a mailbox access using the adapter.mbx_lock spinlock.
-+ *
-+ * Returns: 0 on success.
-+ *          if API doesn't support this operation - (-EPERM).
-+ */
-+int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
-+{
-+	int rc;
-+
-+	spin_lock_bh(&a->mbx_lock);
-+	rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
-+	spin_unlock_bh(&a->mbx_lock);
-+
-+	return rc;
-+}
-+
- /**
-  * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
-  * @adapter: pointer to the port handle
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index 7944962..a054716 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -212,4 +212,5 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
- int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
- 		       unsigned int *default_tc);
- int ixgbevf_get_reta(struct ixgbevf_adapter *adapter, u32 *reta);
-+int ixgbevf_get_rss_key(struct ixgbevf_adapter *adapter, u8 *rss_key);
- #endif /* __IXGBE_VF_H__ */
+ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf, struct ifla_vf_info *ivi)
+ {
+@@ -1343,5 +1369,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
+ 	ivi->qos = adapter->vfinfo[vf].pf_qos;
+ 	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
++	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 32c26d5..2c197e6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -47,6 +47,8 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
+ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ 			int max_tx_rate);
+ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
++int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
++				  bool setting);
+ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf, struct ifla_vf_info *ivi);
+ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
 -- 
 2.1.0
