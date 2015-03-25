@@ -1,66 +1,155 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
-Date: Wed, 25 Mar 2015 11:41:29 +0200
-Message-ID: <551282C9.8050800@cloudius-systems.com>
-References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com>	 <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com>	 <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com>	 <55113B9B.3090308@cloudius-systems.com>	 <87618083B2453E4A8714035B62D6799250274C7F@FMSMSX105.amr.corp.intel.com>	 <5511AFD6.2020406@cloudius-systems.com>	 <87618083B2453E4A8714035B62D6799250274F2A@FMSMSX105.amr.corp.intel.com>	 <55127FE6.8030905@cloudius-systems.com> <1427276354.2601.49.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: [PATCH] net: sysctl for RA default route MTU
+Date: Wed, 25 Mar 2015 12:49:26 +0300
+Message-ID: <1427276966-3980-1-git-send-email-klamm@yandex-team.ru>
+References: <20150324.152705.921124268458994532.davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, Roman Gushchin <klamm@yandex-team.ru>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:34093 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055AbbCYJld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 05:41:33 -0400
-Received: by wibg7 with SMTP id g7so69980184wib.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 02:41:32 -0700 (PDT)
-In-Reply-To: <1427276354.2601.49.camel@jtkirshe-mobl>
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:58030 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752294AbbCYJtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 05:49:53 -0400
+In-Reply-To: <20150324.152705.921124268458994532.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch introduces new ipv6 sysctl: ra_default_route_mtu.
+If it's set (> 0), it defines per-route MTU for any new default route
+received by RA.
 
+This sysctl will help in the following configuration: we want to use
+jumbo-frames for internal networks and default ethernet frames for
+default route. Per-route MTU can only lower per-link MTU, so link MTU
+should be set to ~9000 (statically or via RA).
 
-On 03/25/15 11:39, Jeff Kirsher wrote:
-> On Wed, 2015-03-25 at 11:29 +0200, Vlad Zolotarov wrote:
->> On 03/25/15 00:50, Tantilov, Emil S wrote:
->>>> -----Original Message-----
->>>> From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com]
->>>> Sent: Tuesday, March 24, 2015 11:41 AM
->>>> To: Tantilov, Emil S; netdev@vger.kernel.org
->>>> Cc: Kirsher, Jeffrey T; avi@cloudius-systems.com;
->> gleb@cloudius-systems.com
->>>> Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
->>>>
->>>>
->>>>
->>>>> On 03/24/15 20:12, Tantilov, Emil S wrote:
->>>>> BTW - there are other issues with your patches. The indirection
->> table seems to come out as all 0s and the VF driver reports link
->> down/up when querying it.
->>>> Worked just fine to me on x540.
->>>> What is your setup? How did u check it? Did u remember to patch
->> "ip" tool and enable the querying?
->>> The issue with the link is that you do not have proper locking when
->> calling the mailbox which is messing up the link check subtask.
->> Basically you need to protect the calls to ixgbevf_get_rss_key and
->> get_reta with the mbx_lock similar to how the driver does it in all
->> cases where the mailbox is called.
->>
->> :D Just wrote u the same thing in a reply on your first email...
->> Sure. Let me fix it in v8.
-> Since you will be producing a v8, can you please CC
-> intel-wired-lan@lists.osuosl.org it is a mailing list we just created
-> for all Linux kernel patches and kernel development for Intel wired
-> Ethernet drivers.
->
-> We also have a public patchworks project:
-> http://patchwork.ozlabs.org/project/intel-wired-lan/list/
->
-> I had planned on making an announcement on netdev later this week.
+Due to dynamic nature of RA, setting MTU for default route will require
+userspace agent, that will monitor changes of default route
+and (re)configure it. Not simple. The suggested sysctl solves this problem.
 
-Sure thing, Jeff.
+Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+---
+ Documentation/networking/ip-sysctl.txt | 5 +++++
+ include/linux/ipv6.h                   | 1 +
+ include/uapi/linux/ipv6.h              | 1 +
+ net/ipv6/addrconf.c                    | 9 +++++++++
+ net/ipv6/ndisc.c                       | 3 ++-
+ net/ipv6/route.c                       | 8 ++++++++
+ 6 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 1b8c964..c013dda 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1316,6 +1316,11 @@ accept_ra_mtu - BOOLEAN
+ 	Functional default: enabled if accept_ra is enabled.
+ 			    disabled if accept_ra is disabled.
+ 
++ra_default_route_mtu - INTEGER
++	Define MTU for any new default route received by RA.
++
++	Functional default: disabled (0).
++
+ accept_redirects - BOOLEAN
+ 	Accept Redirects.
+ 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 4d5169f..b310c9f 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -40,6 +40,7 @@ struct ipv6_devconf {
+ 	__s32		proxy_ndp;
+ 	__s32		accept_source_route;
+ 	__s32		accept_ra_from_local;
++	__s32		ra_default_route_mtu;
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 	__s32		optimistic_dad;
+ 	__s32		use_optimistic;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 437a6a4..4539c31 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -170,6 +170,7 @@ enum {
+ 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+ 	DEVCONF_USE_OPTIMISTIC,
+ 	DEVCONF_ACCEPT_RA_MTU,
++	DEVCONF_RA_DEFAULT_ROUTE_MTU,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b603002..9d5ec10 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -189,6 +189,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_ra_defrtr	= 1,
+ 	.accept_ra_from_local	= 0,
+ 	.accept_ra_pinfo	= 1,
++	.ra_default_route_mtu	= 0,
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	.accept_ra_rtr_pref	= 1,
+ 	.rtr_probe_interval	= 60 * HZ,
+@@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.accept_dad		= 1,
+ 	.suppress_frag_ndisc	= 1,
+ 	.accept_ra_mtu		= 1,
++	.ra_default_route_mtu	= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -4398,6 +4400,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+ 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
++	array[DEVCONF_RA_DEFAULT_ROUTE_MTU] = cnf->ra_default_route_mtu;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -5314,6 +5317,12 @@ static struct addrconf_sysctl_table
+ 			.mode		= 0644,
+ 			.proc_handler	= proc_dointvec,
+ 		},
++			.procname	= "ra_default_route_mtu",
++			.data		= &ipv6_devconf.ra_default_route_mtu,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec,
++		},
+ 		{
+ 			/* sentinel */
+ 		}
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 471ed24..c70ab44 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1362,7 +1362,8 @@ skip_routeinfo:
+ 		} else if (in6_dev->cnf.mtu6 != mtu) {
+ 			in6_dev->cnf.mtu6 = mtu;
+ 
+-			if (rt)
++			if (rt && (!in6_dev->cnf.ra_default_route_mtu ||
++				   mtu < in6_dev->cnf.ra_default_route_mtu))
+ 				dst_metric_set(&rt->dst, RTAX_MTU, mtu);
+ 
+ 			rt6_mtu_change(skb->dev, mtu);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4688bd4..6394adf 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1714,6 +1714,14 @@ int ip6_route_add(struct fib6_config *cfg)
+ 
+ 	rt->rt6i_flags = cfg->fc_flags;
+ 
++	if ((cfg->fc_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) ==
++	    (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) {
++		u32 mtu = idev->cnf.ra_default_route_mtu;
++
++		if (mtu && mtu >= IPV6_MIN_MTU && mtu <= idev->cnf.mtu6)
++			dst_metric_set(&rt->dst, RTAX_MTU, mtu);
++	}
++
+ install_route:
+ 	rt->dst.dev = dev;
+ 	rt->rt6i_idev = idev;
+-- 
+2.1.0
