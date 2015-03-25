@@ -1,21 +1,17 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 2/2] ipv6: hash net ptr into fragmentation bucket selection
-Date: Wed, 25 Mar 2015 15:18:54 +0100
-Message-ID: <62113c74b0570a87a1e4a4c9d1ea0edac67d43a7.1427293098.git.hannes@stressinduktion.org>
-References: <748d8e27361f8c77fe8ade5f05fbfd2b86371e22.1427293098.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next v2 1/2] ipv4: hash net ptr into fragmentation bucket selection
+Date: Wed, 25 Mar 2015 15:18:53 +0100
+Message-ID: <748d8e27361f8c77fe8ade5f05fbfd2b86371e22.1427293098.git.hannes@stressinduktion.org>
 Cc: Eric Dumazet <edumazet@google.com>, Flavio Leitner <fbl@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:38641 "EHLO
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:44545 "EHLO
 	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932284AbbCYOTB (ORCPT
+	by vger.kernel.org with ESMTP id S932206AbbCYOTB (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 10:19:01 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8E987212C9
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 3F12B20DB0
 	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:18:58 -0400 (EDT)
-In-Reply-To: <748d8e27361f8c77fe8ade5f05fbfd2b86371e22.1427293098.git.hannes@stressinduktion.org>
-In-Reply-To: <748d8e27361f8c77fe8ade5f05fbfd2b86371e22.1427293098.git.hannes@stressinduktion.org>
-References: <748d8e27361f8c77fe8ade5f05fbfd2b86371e22.1427293098.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -27,135 +23,235 @@ Cc: Eric Dumazet <edumazet@google.com>
 Cc: Flavio Leitner <fbl@redhat.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/ipv6.h     |  5 +++--
- net/ipv6/ip6_output.c  |  6 +++---
- net/ipv6/output_core.c | 14 ++++++++------
- net/ipv6/udp_offload.c |  4 ++--
- 4 files changed, 16 insertions(+), 13 deletions(-)
+ drivers/net/ppp/pptp.c          |  2 +-
+ include/net/ip.h                | 12 +++++++-----
+ net/ipv4/igmp.c                 |  4 ++--
+ net/ipv4/ip_output.c            |  7 ++++---
+ net/ipv4/ip_tunnel_core.c       |  2 +-
+ net/ipv4/ipmr.c                 |  7 ++++---
+ net/ipv4/raw.c                  |  2 +-
+ net/ipv4/route.c                |  4 ++--
+ net/ipv4/xfrm4_mode_tunnel.c    |  2 +-
+ net/netfilter/ipvs/ip_vs_xmit.c |  5 +++--
+ 10 files changed, 26 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e7ba975..65142e6 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,8 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 1dc628f..e3bfbd4d 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -281,7 +281,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	nf_reset(skb);
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(sock_net(sk), skb, NULL);
+ 	ip_send_check(iph);
+ 
+ 	ip_local_out(skb);
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 025c61c..d0808a3 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -318,9 +318,10 @@ static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
  }
  
--void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
--void ipv6_proxy_select_ident(struct sk_buff *skb);
-+void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
-+		       struct rt6_info *rt);
-+void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
+ u32 ip_idents_reserve(u32 hash, int segs);
+-void __ip_select_ident(struct iphdr *iph, int segs);
++void __ip_select_ident(struct net *net, struct iphdr *iph, int segs);
  
- int ip6_dst_hoplimit(struct dst_entry *dst);
- 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7e80b61..b06ad00 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -628,7 +628,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 		skb_reset_network_header(skb);
- 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
- 
--		ipv6_select_ident(fh, rt);
-+		ipv6_select_ident(net, fh, rt);
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		fh->frag_off = htons(IP6_MF);
-@@ -775,7 +775,7 @@ slow_path:
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		if (!frag_id) {
--			ipv6_select_ident(fh, rt);
-+			ipv6_select_ident(net, fh, rt);
- 			frag_id = fh->identification;
- 		} else
- 			fh->identification = frag_id;
-@@ -1079,7 +1079,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
- 				     sizeof(struct frag_hdr)) & ~7;
- 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--	ipv6_select_ident(&fhdr, rt);
-+	ipv6_select_ident(sock_net(sk), &fhdr, rt);
- 	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 
- append:
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 74581f7..4016a6e 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -9,13 +9,14 @@
- #include <net/addrconf.h>
- #include <net/secure_seq.h>
- 
--static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
--			       struct in6_addr *src)
-+static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
-+			       struct in6_addr *dst, struct in6_addr *src)
+-static inline void ip_select_ident_segs(struct sk_buff *skb, struct sock *sk, int segs)
++static inline void ip_select_ident_segs(struct net *net, struct sk_buff *skb,
++					struct sock *sk, int segs)
  {
- 	u32 hash, id;
+ 	struct iphdr *iph = ip_hdr(skb);
  
- 	hash = __ipv6_addr_jhash(dst, hashrnd);
- 	hash = __ipv6_addr_jhash(src, hash);
-+	hash ^= net_hash_mix(net);
+@@ -337,13 +338,14 @@ static inline void ip_select_ident_segs(struct sk_buff *skb, struct sock *sk, in
+ 			iph->id = 0;
+ 		}
+ 	} else {
+-		__ip_select_ident(iph, segs);
++		__ip_select_ident(net, iph, segs);
+ 	}
+ }
  
- 	/* Treat id of 0 as unset and if we get 0 back from ip_idents_reserve,
- 	 * set the hight order instead thus minimizing possible future
-@@ -36,7 +37,7 @@ static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
-  *
-  * The network header must be set before calling this.
+-static inline void ip_select_ident(struct sk_buff *skb, struct sock *sk)
++static inline void ip_select_ident(struct net *net, struct sk_buff *skb,
++				   struct sock *sk)
+ {
+-	ip_select_ident_segs(skb, sk, 1);
++	ip_select_ident_segs(net, skb, sk, 1);
+ }
+ 
+ static inline __wsum inet_compute_pseudo(struct sk_buff *skb, int proto)
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index ad3f866..ad09213 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -370,7 +370,7 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, unsigned int mtu)
+ 	pip->saddr    = fl4.saddr;
+ 	pip->protocol = IPPROTO_IGMP;
+ 	pip->tot_len  = 0;	/* filled in later */
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(net, skb, NULL);
+ 	((u8 *)&pip[1])[0] = IPOPT_RA;
+ 	((u8 *)&pip[1])[1] = 4;
+ 	((u8 *)&pip[1])[2] = 0;
+@@ -714,7 +714,7 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
+ 	iph->daddr    = dst;
+ 	iph->saddr    = fl4.saddr;
+ 	iph->protocol = IPPROTO_IGMP;
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(net, skb, NULL);
+ 	((u8 *)&iph[1])[0] = IPOPT_RA;
+ 	((u8 *)&iph[1])[1] = 4;
+ 	((u8 *)&iph[1])[2] = 0;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 90b49e8..8259e77 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -148,7 +148,7 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
+ 	iph->daddr    = (opt && opt->opt.srr ? opt->opt.faddr : daddr);
+ 	iph->saddr    = saddr;
+ 	iph->protocol = sk->sk_protocol;
+-	ip_select_ident(skb, sk);
++	ip_select_ident(sock_net(sk), skb, sk);
+ 
+ 	if (opt && opt->opt.optlen) {
+ 		iph->ihl += opt->opt.optlen>>2;
+@@ -430,7 +430,8 @@ packet_routed:
+ 		ip_options_build(skb, &inet_opt->opt, inet->inet_daddr, rt, 0);
+ 	}
+ 
+-	ip_select_ident_segs(skb, sk, skb_shinfo(skb)->gso_segs ?: 1);
++	ip_select_ident_segs(sock_net(sk), skb, sk,
++			     skb_shinfo(skb)->gso_segs ?: 1);
+ 
+ 	/* TODO : should we use skb->sk here instead of sk ? */
+ 	skb->priority = sk->sk_priority;
+@@ -1379,7 +1380,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+ 	iph->ttl = ttl;
+ 	iph->protocol = sk->sk_protocol;
+ 	ip_copy_addrs(iph, fl4);
+-	ip_select_ident(skb, sk);
++	ip_select_ident(net, skb, sk);
+ 
+ 	if (opt) {
+ 		iph->ihl += opt->optlen>>2;
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 88c386c..8c4dcc4 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -74,7 +74,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	iph->daddr	=	dst;
+ 	iph->saddr	=	src;
+ 	iph->ttl	=	ttl;
+-	__ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
++	__ip_select_ident(sock_net(sk), iph, skb_shinfo(skb)->gso_segs ?: 1);
+ 
+ 	err = ip_local_out_sk(sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 5b18883..c688cd1 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1642,7 +1642,8 @@ static struct notifier_block ip_mr_notifier = {
+  *	important for multicast video.
   */
--void ipv6_proxy_select_ident(struct sk_buff *skb)
-+void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
+ 
+-static void ip_encap(struct sk_buff *skb, __be32 saddr, __be32 daddr)
++static void ip_encap(struct net *net, struct sk_buff *skb,
++		     __be32 saddr, __be32 daddr)
  {
- 	static u32 ip6_proxy_idents_hashrnd __read_mostly;
- 	struct in6_addr buf[2];
-@@ -53,20 +54,21 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
- 	net_get_random_once(&ip6_proxy_idents_hashrnd,
- 			    sizeof(ip6_proxy_idents_hashrnd));
+ 	struct iphdr *iph;
+ 	const struct iphdr *old_iph = ip_hdr(skb);
+@@ -1661,7 +1662,7 @@ static void ip_encap(struct sk_buff *skb, __be32 saddr, __be32 daddr)
+ 	iph->protocol	=	IPPROTO_IPIP;
+ 	iph->ihl	=	5;
+ 	iph->tot_len	=	htons(skb->len);
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(net, skb, NULL);
+ 	ip_send_check(iph);
  
--	id = __ipv6_select_ident(ip6_proxy_idents_hashrnd,
-+	id = __ipv6_select_ident(net, ip6_proxy_idents_hashrnd,
- 				 &addrs[1], &addrs[0]);
- 	skb_shinfo(skb)->ip6_frag_id = htonl(id);
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+@@ -1758,7 +1759,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
+ 	 * What do we do with netfilter? -- RR
+ 	 */
+ 	if (vif->flags & VIFF_TUNNEL) {
+-		ip_encap(skb, vif->local, vif->remote);
++		ip_encap(net, skb, vif->local, vif->remote);
+ 		/* FIXME: extra output firewall step used to be here. --RR */
+ 		vif->dev->stats.tx_packets++;
+ 		vif->dev->stats.tx_bytes += skb->len;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 923cf53..56946f4 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -404,7 +404,7 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+ 		iph->check   = 0;
+ 		iph->tot_len = htons(length);
+ 		if (!iph->id)
+-			ip_select_ident(skb, NULL);
++			ip_select_ident(net, skb, NULL);
+ 
+ 		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ 	}
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 649c8a3..b3fedde 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -482,7 +482,7 @@ u32 ip_idents_reserve(u32 hash, int segs)
  }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
+ EXPORT_SYMBOL(ip_idents_reserve);
  
--void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
-+void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
-+		       struct rt6_info *rt)
+-void __ip_select_ident(struct iphdr *iph, int segs)
++void __ip_select_ident(struct net *net, struct iphdr *iph, int segs)
  {
- 	static u32 ip6_idents_hashrnd __read_mostly;
- 	u32 id;
+ 	static u32 ip_idents_hashrnd __read_mostly;
+ 	u32 hash, id;
+@@ -491,7 +491,7 @@ void __ip_select_ident(struct iphdr *iph, int segs)
  
- 	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
+ 	hash = jhash_3words((__force u32)iph->daddr,
+ 			    (__force u32)iph->saddr,
+-			    iph->protocol,
++			    iph->protocol | (net_hash_mix(net) << 8),
+ 			    ip_idents_hashrnd);
+ 	id = ip_idents_reserve(hash, segs);
+ 	iph->id = htons(id);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index 91771a7..35feda6 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -63,7 +63,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
  
--	id = __ipv6_select_ident(ip6_idents_hashrnd, &rt->rt6i_dst.addr,
-+	id = __ipv6_select_ident(net, ip6_idents_hashrnd, &rt->rt6i_dst.addr,
- 				 &rt->rt6i_src.addr);
- 	fhdr->identification = htonl(id);
+ 	top_iph->saddr = x->props.saddr.a4;
+ 	top_iph->daddr = x->id.daddr.a4;
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(dev_net(dst->dev), skb, NULL);
+ 
+ 	return 0;
  }
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index be2c0ba..7441e1e 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -54,7 +54,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index f35c15b..bf02932 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -924,7 +924,8 @@ int
+ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		  struct ip_vs_protocol *pp, struct ip_vs_iphdr *ipvsh)
+ {
+-	struct netns_ipvs *ipvs = net_ipvs(skb_net(skb));
++	struct net *net = skb_net(skb);
++	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct rtable *rt;			/* Route to the other host */
+ 	__be32 saddr;				/* Source for tunnel */
+ 	struct net_device *tdev;		/* Device to other host */
+@@ -991,7 +992,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	iph->daddr		=	cp->daddr.ip;
+ 	iph->saddr		=	saddr;
+ 	iph->ttl		=	ttl;
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(net, skb, NULL);
  
- 		/* Set the IPv6 fragment id if not set yet */
- 		if (!skb_shinfo(skb)->ip6_frag_id)
--			ipv6_proxy_select_ident(skb);
-+			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
- 
- 		segs = NULL;
- 		goto out;
-@@ -113,7 +113,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		fptr->nexthdr = nexthdr;
- 		fptr->reserved = 0;
- 		if (!skb_shinfo(skb)->ip6_frag_id)
--			ipv6_proxy_select_ident(skb);
-+			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
- 		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
- 
- 		/* Fragment the skb. ipv6 header and the remaining fields of the
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->ignore_df = 1;
 -- 
 2.1.0
