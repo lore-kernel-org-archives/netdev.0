@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v11 tip 9/9] samples: bpf: kmem_alloc/free tracker
-Date: Wed, 25 Mar 2015 12:49:26 -0700
-Message-ID: <1427312966-8434-10-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v11 tip 8/9] samples: bpf: IO latency analysis (iosnoop/heatmap)
+Date: Wed, 25 Mar 2015 12:49:25 -0700
+Message-ID: <1427312966-8434-9-git-send-email-ast@plumgrid.com>
 References: <1427312966-8434-1-git-send-email-ast@plumgrid.com>
 Cc: Steven Rostedt <rostedt@goodmis.org>,
 	Namhyung Kim <namhyung@kernel.org>,
@@ -15,153 +15,201 @@ Cc: Steven Rostedt <rostedt@goodmis.org>,
 	linux-kernel@vger.kernel.org
 To: Ingo Molnar <mingo@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35519 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753680AbbCYTtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:49:41 -0400
-Received: by pagj7 with SMTP id j7so39099762pag.2
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:49:40 -0700 (PDT)
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:36293 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753656AbbCYTtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:49:40 -0400
+Received: by pdbcz9 with SMTP id cz9so38388663pdb.3
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:49:39 -0700 (PDT)
 In-Reply-To: <1427312966-8434-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One bpf program attaches to kmem_cache_alloc_node() and remembers all allocated
-objects in the map.
-Another program attaches to kmem_cache_free() and deletes corresponding
-object from the map.
-
-User space walks the map every second and prints any objects which are
-older than 1 second.
+BPF C program attaches to blk_mq_start_request/blk_update_request kprobe events
+to calculate IO latency.
+For every completed block IO event it computes the time delta in nsec
+and records in a histogram map: map[log10(delta)*10]++
+User space reads this histogram map every 2 seconds and prints it as a 'heatmap'
+using gray shades of text terminal. Black spaces have many events and white
+spaces have very few events. Left most space is the smallest latency, right most
+space is the largest latency in the range.
 
 Usage:
-$ sudo tracex4
+$ sudo ./tracex3
+and do 'sudo dd if=/dev/sda of=/dev/null' in other terminal.
+Observe IO latencies and how different activity (like 'make kernel') affects it.
 
-Then start few long living processes. The tracex4 will print:
+Similar experiments can be done for network transmit latencies, syscalls, etc
 
-obj 0xffff880465928000 is 13sec old was allocated at ip ffffffff8105dc32
-obj 0xffff88043181c280 is 13sec old was allocated at ip ffffffff8105dc32
-obj 0xffff880465848000 is  8sec old was allocated at ip ffffffff8105dc32
-obj 0xffff8804338bc280 is 15sec old was allocated at ip ffffffff8105dc32
+'-t' flag prints the heatmap using normal ascii characters:
 
-$ addr2line -fispe vmlinux ffffffff8105dc32
-do_fork at fork.c:1665
-
-As soon as processes exit the memory is reclaimed and tracex4 prints nothing.
-
-Similar experiment can be done with __kmalloc/kfree pair.
+$ sudo ./tracex3 -t
+  heatmap of IO latency
+  # - many events with this latency
+    - few events
+|1us      |10us     |100us    |1ms      |10ms     |100ms    |1s       |10s
+                         *ooo. *O.#.                                    # 221
+                      .  *#     .                                       # 125
+                         ..   .o#*..                                    # 55
+                    .  . .  .  .#O                                      # 37
+                         .#                                             # 175
+                               .#*.                                     # 37
+                          #                                             # 199
+              .              . *#*.                                     # 55
+                               *#..*                                    # 42
+                          #                                             # 266
+                      ...***Oo#*OO**o#* .                               # 629
+                          #                                             # 271
+                              . .#o* o.*o*                              # 221
+                        . . o* *#O..                                    # 50
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/Makefile       |    4 +++
- samples/bpf/tracex4_kern.c |   54 ++++++++++++++++++++++++++++++++++
- samples/bpf/tracex4_user.c |   69 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 127 insertions(+)
- create mode 100644 samples/bpf/tracex4_kern.c
- create mode 100644 samples/bpf/tracex4_user.c
+ samples/bpf/Makefile       |    4 ++
+ samples/bpf/tracex3_kern.c |   89 ++++++++++++++++++++++++++
+ samples/bpf/tracex3_user.c |  150 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 243 insertions(+)
+ create mode 100644 samples/bpf/tracex3_kern.c
+ create mode 100644 samples/bpf/tracex3_user.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index dcd850546d52..fe98fb226e6e 100644
+index 6dd272143733..dcd850546d52 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -9,6 +9,7 @@ hostprogs-y += sockex2
+@@ -8,6 +8,7 @@ hostprogs-y += sockex1
+ hostprogs-y += sockex2
  hostprogs-y += tracex1
  hostprogs-y += tracex2
- hostprogs-y += tracex3
-+hostprogs-y += tracex4
++hostprogs-y += tracex3
  
  test_verifier-objs := test_verifier.o libbpf.o
  test_maps-objs := test_maps.o libbpf.o
-@@ -18,6 +19,7 @@ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
+@@ -16,6 +17,7 @@ sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
+ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
  tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
  tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
- tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
-+tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
++tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
  
  # Tell kbuild to always build the programs
  always := $(hostprogs-y)
-@@ -26,6 +28,7 @@ always += sockex2_kern.o
+@@ -23,6 +25,7 @@ always += sockex1_kern.o
+ always += sockex2_kern.o
  always += tracex1_kern.o
  always += tracex2_kern.o
- always += tracex3_kern.o
-+always += tracex4_kern.o
++always += tracex3_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  
-@@ -35,6 +38,7 @@ HOSTLOADLIBES_sockex2 += -lelf
+@@ -31,6 +34,7 @@ HOSTLOADLIBES_sockex1 += -lelf
+ HOSTLOADLIBES_sockex2 += -lelf
  HOSTLOADLIBES_tracex1 += -lelf
  HOSTLOADLIBES_tracex2 += -lelf
- HOSTLOADLIBES_tracex3 += -lelf
-+HOSTLOADLIBES_tracex4 += -lelf -lrt
++HOSTLOADLIBES_tracex3 += -lelf
  
  # point this to your LLVM backend with bpf support
  LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
-diff --git a/samples/bpf/tracex4_kern.c b/samples/bpf/tracex4_kern.c
+diff --git a/samples/bpf/tracex3_kern.c b/samples/bpf/tracex3_kern.c
 new file mode 100644
-index 000000000000..126b80512228
+index 000000000000..255ff2792366
 --- /dev/null
-+++ b/samples/bpf/tracex4_kern.c
-@@ -0,0 +1,54 @@
-+/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
++++ b/samples/bpf/tracex3_kern.c
+@@ -0,0 +1,89 @@
++/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
 + */
-+#include <linux/ptrace.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
 +#include <linux/version.h>
 +#include <uapi/linux/bpf.h>
 +#include "bpf_helpers.h"
 +
-+struct pair {
-+	u64 val;
-+	u64 ip;
-+};
-+
 +struct bpf_map_def SEC("maps") my_map = {
 +	.type = BPF_MAP_TYPE_HASH,
 +	.key_size = sizeof(long),
-+	.value_size = sizeof(struct pair),
-+	.max_entries = 1000000,
++	.value_size = sizeof(u64),
++	.max_entries = 4096,
 +};
 +
 +/* kprobe is NOT a stable ABI. If kernel internals change this bpf+kprobe
 + * example will no longer be meaningful
 + */
-+SEC("kprobe/kmem_cache_free")
++SEC("kprobe/blk_mq_start_request")
 +int bpf_prog1(struct pt_regs *ctx)
 +{
-+	long ptr = ctx->si;
++	long rq = ctx->di;
++	u64 val = bpf_ktime_get_ns();
 +
-+	bpf_map_delete_elem(&my_map, &ptr);
++	bpf_map_update_elem(&my_map, &rq, &val, BPF_ANY);
 +	return 0;
 +}
 +
-+SEC("kretprobe/kmem_cache_alloc_node")
++static unsigned int log2l(unsigned long long n)
++{
++#define S(k) if (n >= (1ull << k)) { i += k; n >>= k; }
++	int i = -(n == 0);
++	S(32); S(16); S(8); S(4); S(2); S(1);
++	return i;
++#undef S
++}
++
++#define SLOTS 100
++
++struct bpf_map_def SEC("maps") lat_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(u64),
++	.max_entries = SLOTS,
++};
++
++SEC("kprobe/blk_update_request")
 +int bpf_prog2(struct pt_regs *ctx)
 +{
-+	long ptr = ctx->ax;
-+	long ip = 0;
++	long rq = ctx->di;
++	u64 *value, l, base;
++	u32 index;
 +
-+	/* get ip address of kmem_cache_alloc_node() caller */
-+	bpf_probe_read(&ip, sizeof(ip), (void *)(ctx->bp + sizeof(ip)));
++	value = bpf_map_lookup_elem(&my_map, &rq);
++	if (!value)
++		return 0;
 +
-+	struct pair v = {
-+		.val = bpf_ktime_get_ns(),
-+		.ip = ip,
-+	};
++	u64 cur_time = bpf_ktime_get_ns();
++	u64 delta = cur_time - *value;
 +
-+	bpf_map_update_elem(&my_map, &ptr, &v, BPF_ANY);
++	bpf_map_delete_elem(&my_map, &rq);
++
++	/* the lines below are computing index = log10(delta)*10
++	 * using integer arithmetic
++	 * index = 29 ~ 1 usec
++	 * index = 59 ~ 1 msec
++	 * index = 89 ~ 1 sec
++	 * index = 99 ~ 10sec or more
++	 * log10(x)*10 = log2(x)*10/log2(10) = log2(x)*3
++	 */
++	l = log2l(delta);
++	base = 1ll << l;
++	index = (l * 64 + (delta - base) * 64 / base) * 3 / 64;
++
++	if (index >= SLOTS)
++		index = SLOTS - 1;
++
++	value = bpf_map_lookup_elem(&lat_map, &index);
++	if (value)
++		__sync_fetch_and_add((long *)value, 1);
++
 +	return 0;
 +}
 +char _license[] SEC("license") = "GPL";
 +u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/tracex4_user.c b/samples/bpf/tracex4_user.c
+diff --git a/samples/bpf/tracex3_user.c b/samples/bpf/tracex3_user.c
 new file mode 100644
-index 000000000000..bc4a3bdea6ed
+index 000000000000..0aaa933ab938
 --- /dev/null
-+++ b/samples/bpf/tracex4_user.c
-@@ -0,0 +1,69 @@
-+/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
++++ b/samples/bpf/tracex3_user.c
+@@ -0,0 +1,150 @@
++/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
@@ -173,42 +221,95 @@ index 000000000000..bc4a3bdea6ed
 +#include <unistd.h>
 +#include <stdbool.h>
 +#include <string.h>
-+#include <time.h>
 +#include <linux/bpf.h>
 +#include "libbpf.h"
 +#include "bpf_load.h"
 +
-+struct pair {
-+	long long val;
-+	__u64 ip;
-+};
++#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
 +
-+static __u64 time_get_ns(void)
++#define SLOTS 100
++
++static void clear_stats(int fd)
 +{
-+	struct timespec ts;
++	__u32 key;
++	__u64 value = 0;
 +
-+	clock_gettime(CLOCK_MONOTONIC, &ts);
-+	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
++	for (key = 0; key < SLOTS; key++)
++		bpf_update_elem(fd, &key, &value, BPF_ANY);
 +}
 +
-+static void print_old_objects(int fd)
++const char *color[] = {
++	"\033[48;5;255m",
++	"\033[48;5;252m",
++	"\033[48;5;250m",
++	"\033[48;5;248m",
++	"\033[48;5;246m",
++	"\033[48;5;244m",
++	"\033[48;5;242m",
++	"\033[48;5;240m",
++	"\033[48;5;238m",
++	"\033[48;5;236m",
++	"\033[48;5;234m",
++	"\033[48;5;232m",
++};
++const int num_colors = ARRAY_SIZE(color);
++
++const char nocolor[] = "\033[00m";
++
++const char *sym[] = {
++	" ",
++	" ",
++	".",
++	".",
++	"*",
++	"*",
++	"o",
++	"o",
++	"O",
++	"O",
++	"#",
++	"#",
++};
++
++bool full_range = false;
++bool text_only = false;
++
++static void print_banner(void)
 +{
-+	long long val = time_get_ns();
-+	__u64 key, next_key;
-+	struct pair v;
++	if (full_range)
++		printf("|1ns     |10ns     |100ns    |1us      |10us     |100us"
++		       "    |1ms      |10ms     |100ms    |1s       |10s\n");
++	else
++		printf("|1us      |10us     |100us    |1ms      |10ms     "
++		       "|100ms    |1s       |10s\n");
++}
 +
-+	key = write(1, "\e[1;1H\e[2J", 12); /* clear screen */
++static void print_hist(int fd)
++{
++	__u32 key;
++	__u64 value;
++	__u64 cnt[SLOTS];
++	__u64 max_cnt = 0;
++	__u64 total_events = 0;
 +
-+	key = -1;
-+	while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
-+		bpf_lookup_elem(map_fd[0], &next_key, &v);
-+		key = next_key;
-+		if (val - v.val < 1000000000ll)
-+			/* object was allocated more then 1 sec ago */
-+			continue;
-+		printf("obj 0x%llx is %2lldsec old was allocated at ip %llx\n",
-+		       next_key, (val - v.val) / 1000000000ll, v.ip);
++	for (key = 0; key < SLOTS; key++) {
++		value = 0;
++		bpf_lookup_elem(fd, &key, &value);
++		cnt[key] = value;
++		total_events += value;
++		if (value > max_cnt)
++			max_cnt = value;
 +	}
++	clear_stats(fd);
++	for (key = full_range ? 0 : 29; key < SLOTS; key++) {
++		int c = num_colors * cnt[key] / (max_cnt + 1);
++
++		if (text_only)
++			printf("%s", sym[c]);
++		else
++			printf("%s %s", color[c], nocolor);
++	}
++	printf(" # %lld\n", total_events);
 +}
 +
 +int main(int ac, char **argv)
@@ -223,9 +324,37 @@ index 000000000000..bc4a3bdea6ed
 +		return 1;
 +	}
 +
++	for (i = 1; i < ac; i++) {
++		if (strcmp(argv[i], "-a") == 0) {
++			full_range = true;
++		} else if (strcmp(argv[i], "-t") == 0) {
++			text_only = true;
++		} else if (strcmp(argv[i], "-h") == 0) {
++			printf("Usage:\n"
++			       "  -a display wider latency range\n"
++			       "  -t text only\n");
++			return 1;
++		}
++	}
++
++	printf("  heatmap of IO latency\n");
++	if (text_only)
++		printf("  %s", sym[num_colors - 1]);
++	else
++		printf("  %s %s", color[num_colors - 1], nocolor);
++	printf(" - many events with this latency\n");
++
++	if (text_only)
++		printf("  %s", sym[0]);
++	else
++		printf("  %s %s", color[0], nocolor);
++	printf(" - few events\n");
++
 +	for (i = 0; ; i++) {
-+		print_old_objects(map_fd[1]);
-+		sleep(1);
++		if (i % 20 == 0)
++			print_banner();
++		print_hist(map_fd[1]);
++		sleep(2);
 +	}
 +
 +	return 0;
