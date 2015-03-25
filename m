@@ -1,64 +1,105 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next] virtio: change comment in transmit
-Date: Wed, 25 Mar 2015 14:29:38 +1030
-Message-ID: <87y4mlhglx.fsf@rustcorp.com.au>
-References: <20150324162207.6d4ecf48@urahara>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] iproute2: unify naming for entries offloaded
+ to hardware
+Date: Tue, 24 Mar 2015 21:28:46 -0700
+Message-ID: <5512397E.1030706@cumulusnetworks.com>
+References: <1427243585-1530-1-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150324162207.6d4ecf48@urahara>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:33855 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbbCYE2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 00:28:48 -0400
+Received: by pdbni2 with SMTP id ni2so15490743pdb.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 21:28:47 -0700 (PDT)
+In-Reply-To: <1427243585-1530-1-git-send-email-gospo@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
-> The original comment was not really informative or funny
-> as well as sexist. Replace it with a better explanation of
-> why the driver does stop and what the impacts are.
+On 3/24/15, 5:33 PM, Andy Gospodarek wrote:
+> The kernel now has the capability to offload FDB and FIB entries to hardware.
+> It is important to let users know if table entries are also offloaded to
+> hardware.  Currently offloaded FDB entries are indicated by the existence of
+> the flag 'external' on the entry as of the following commit:
 >
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> commit 28467b7f3facd6114b2fbe0c9fecf57adbd52e12
+> Author: Scott Feldman <sfeldma@gmail.com>
+> Date:   Thu Dec 4 09:57:15 2014 +0100
+>
+>      bridge/fdb: add flag/indication for FDB entry synced from offload device
+>
+> When the patch to add support for indicating that FIB entries were also
+> offloaded as posted to netdev by Scott Feldman it became clear that 'external'
+> would not be an ideal name for routes.  There could definitely be confusion
+> about what this might mean since many routes are to external networks -- a
+> collision/confusion that did not happen with FDB.
+>
+> Scott Feldman asked me to check with others and build concensus around a name.
+> After speaking with several people about this I am proposing we refer to both
+> FDB and FIB entries that are currently backed by hardware (based on the work
+> done in rocker) with the flag 'offload' appended to the end ofthe entry.
+>
+> Some people liked the string 'external,' others liked 'hardware,' but the point
+> is to communicate that these routes are available to something that will will
+> offload the forwarding normally done by the kernel.  Since the term 'offload'
+> is used so frequently it seems appropriate to use the same language in
+> ip/bridge output.
+>
+> The term 'offload' also seems to resonate with many of the people who have
+> responded on Scott's original thread or to those who I reached out to directly
+> and did respond to my query, so it seems we have reached consensus that it
+> should be the term used going forward.
+>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> CC: Jamal Hadi Salim <jhs@mojatatu.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: John W. Linville <linville@tuxdriver.com>
+> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+> CC: Scott Feldman <sfeldma@gmail.com>
+> CC: Stephen Hemminger <stephen@networkplumber.org>
+> ---
+>   bridge/fdb.c | 2 +-
+>   ip/iproute.c | 2 ++
+>   2 files changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/bridge/fdb.c b/bridge/fdb.c
+> index 3c33e22..e34933b 100644
+> --- a/bridge/fdb.c
+> +++ b/bridge/fdb.c
+> @@ -159,7 +159,7 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>   	if (r->ndm_flags & NTF_ROUTER)
+>   		fprintf(fp, "router ");
+>   	if (r->ndm_flags & NTF_EXT_LEARNED)
+> -		fprintf(fp, "external ");
+> +		fprintf(fp, "offload ");
+>   
+>   	fprintf(fp, "%s\n", state_n2a(r->ndm_state));
+>   	return 0;
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 024d401..34a5216 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -412,6 +412,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>   		fprintf(fp, "onlink ");
+>   	if (r->rtm_flags & RTNH_F_PERVASIVE)
+>   		fprintf(fp, "pervasive ");
+> +	if (r->rtm_flags & RTNH_F_EXTERNAL)
+> +		fprintf(fp, "offload ");
+>   	if (r->rtm_flags & RTM_F_NOTIFY)
+>   		fprintf(fp, "notify ");
+>   	if (tb[RTA_MARK]) {
+Thanks andy. This looks good.
 
-Fair call.  Comment was certainly snarky, probably sexist.  I think it
-expressed my feelings perfectly, however.
-
-I note that there's still no comment saying "don't do this" in
-netdevice.h; I gather returning NETDEV_TX_BUSY is still considered a Bad
-Thing?
-
-(Does it really BUG_ON?)
-
-Thanks,
-Rusty.
-
-> --- a/drivers/net/virtio_net.c	2015-03-24 15:20:25.174671000 -0700
-> +++ b/drivers/net/virtio_net.c	2015-03-24 16:17:28.478525333 -0700
-> @@ -939,8 +939,12 @@ static netdev_tx_t start_xmit(struct sk_
->  	skb_orphan(skb);
->  	nf_reset(skb);
->  
-> -	/* Apparently nice girls don't return TX_BUSY; stop the queue
-> -	 * before it gets out of hand.  Naturally, this wastes entries. */
-> +	/* It is better to stop queue if running out of space
-> +	 * instead of forcing queuing layer to requeue the skb
-> +	 * by returning TX_BUSY (and cause a BUG message).
-> +	 * Since most packets only take 1 or 2 ring slots
-> +	 * this means 16 slots are typically wasted.
-> +	 */
->  	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
->  		netif_stop_subqueue(dev, qnum);
->  		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Since the flag is part of uapi, I would prefer the flag renamed to 
+RTNH_F_OFFLOAD too.
+What do others feel ?. It can be a subsequent patch if there are votes.
