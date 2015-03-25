@@ -1,269 +1,161 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/3] tipc: clean up handling of
-	link congestion
-Date: Wed, 25 Mar 2015 12:07:25 -0400
-Message-ID: <1427299646-31680-3-git-send-email-jon.maloy@ericsson.com>
-References: <1427299646-31680-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1427299646-31680-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 2/2] ipv6: hash net ptr into fragmentation bucket selection
+Date: Wed, 25 Mar 2015 17:07:45 +0100
+Message-ID: <5e251a7cd84525368e820d961db0fd0ff66323c8.1427299303.git.hannes@stressinduktion.org>
+References: <119e03d3cffe2f7233f5132f6dce92b20bc55b07.1427299303.git.hannes@stressinduktion.org>
+Cc: Eric Dumazet <edumazet@google.com>, Flavio Leitner <fbl@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:47340 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752742AbbCYQHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 12:07:52 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 4E92621143
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:07:49 -0400 (EDT)
+In-Reply-To: <119e03d3cffe2f7233f5132f6dce92b20bc55b07.1427299303.git.hannes@stressinduktion.org>
+In-Reply-To: <119e03d3cffe2f7233f5132f6dce92b20bc55b07.1427299303.git.hannes@stressinduktion.org>
+References: <119e03d3cffe2f7233f5132f6dce92b20bc55b07.1427299303.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After the recent changes in message importance handling it becomes
-possible to simplify handling of messages and sockets when we
-encounter link congestion.
+As namespaces are sometimes used with overlapping ip address ranges,
+we should also use the namespace as input to the hash to select the ip
+fragmentation counter bucket.
 
-We merge the function tipc_link_cong() into link_schedule_user(),
-and simplify the code of the latter. The code should now be
-easier to follow, especially regarding return codes and handling
-of the message that caused the situation.
-
-In case the scheduling function is unable to pre-allocate a wakeup
-message buffer, it now returns -ENOBUFS, which is a more correct
-code than the previously used -EHOSTUNREACH.
-
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Flavio Leitner <fbl@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/tipc/link.c | 104 ++++++++++++++++++++++++++------------------------------
- net/tipc/msg.h  |  28 ++++++---------
- 2 files changed, 60 insertions(+), 72 deletions(-)
+ include/net/ipv6.h     |  5 +++--
+ net/ipv6/ip6_output.c  |  6 +++---
+ net/ipv6/output_core.c | 14 ++++++++------
+ net/ipv6/udp_offload.c |  4 ++--
+ 4 files changed, 16 insertions(+), 13 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index b9325a1..58e2460 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -367,28 +367,43 @@ void tipc_link_delete_list(struct net *net, unsigned int bearer_id,
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e7ba975..65142e6 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -671,8 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
+ 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
  }
  
- /**
-- * link_schedule_user - schedule user for wakeup after congestion
-+ * link_schedule_user - schedule a message sender for wakeup after congestion
-  * @link: congested link
-- * @oport: sending port
-- * @chain_sz: size of buffer chain that was attempted sent
-- * @imp: importance of message attempted sent
-+ * @list: message that was attempted sent
-  * Create pseudo msg to send back to user when congestion abates
-+ * Only consumes message if there is an error
-  */
--static bool link_schedule_user(struct tipc_link *link, u32 oport,
--			       uint chain_sz, uint imp)
-+static int link_schedule_user(struct tipc_link *link, struct sk_buff_head *list)
+-void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
+-void ipv6_proxy_select_ident(struct sk_buff *skb);
++void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
++		       struct rt6_info *rt);
++void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
+ 
+ int ip6_dst_hoplimit(struct dst_entry *dst);
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7e80b61..b06ad00 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -628,7 +628,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 		skb_reset_network_header(skb);
+ 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
+ 
+-		ipv6_select_ident(fh, rt);
++		ipv6_select_ident(net, fh, rt);
+ 		fh->nexthdr = nexthdr;
+ 		fh->reserved = 0;
+ 		fh->frag_off = htons(IP6_MF);
+@@ -775,7 +775,7 @@ slow_path:
+ 		fh->nexthdr = nexthdr;
+ 		fh->reserved = 0;
+ 		if (!frag_id) {
+-			ipv6_select_ident(fh, rt);
++			ipv6_select_ident(net, fh, rt);
+ 			frag_id = fh->identification;
+ 		} else
+ 			fh->identification = frag_id;
+@@ -1079,7 +1079,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
+ 				     sizeof(struct frag_hdr)) & ~7;
+ 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+-	ipv6_select_ident(&fhdr, rt);
++	ipv6_select_ident(sock_net(sk), &fhdr, rt);
+ 	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
+ 
+ append:
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index 74581f7..4016a6e 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -9,13 +9,14 @@
+ #include <net/addrconf.h>
+ #include <net/secure_seq.h>
+ 
+-static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
+-			       struct in6_addr *src)
++static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
++			       struct in6_addr *dst, struct in6_addr *src)
  {
--	struct sk_buff *buf;
-+	struct tipc_msg *msg = buf_msg(skb_peek(list));
-+	int imp = msg_importance(msg);
-+	u32 oport = msg_origport(msg);
-+	u32 addr = link_own_addr(link);
-+	struct sk_buff *skb;
+ 	u32 hash, id;
  
--	buf = tipc_msg_create(SOCK_WAKEUP, 0, INT_H_SIZE, 0,
--			      link_own_addr(link), link_own_addr(link),
--			      oport, 0, 0);
--	if (!buf)
--		return false;
--	TIPC_SKB_CB(buf)->chain_sz = chain_sz;
--	TIPC_SKB_CB(buf)->chain_imp = imp;
--	skb_queue_tail(&link->wakeupq, buf);
-+	/* This really cannot happen...  */
-+	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE)) {
-+		pr_warn("%s<%s>, send queue full", link_rst_msg, link->name);
-+		tipc_link_reset(link);
-+		goto err;
-+	}
-+	/* Non-blocking sender: */
-+	if (TIPC_SKB_CB(skb_peek(list))->wakeup_pending)
-+		return -ELINKCONG;
-+
-+	/* Create and schedule wakeup pseudo message */
-+	skb = tipc_msg_create(SOCK_WAKEUP, 0, INT_H_SIZE, 0,
-+			      addr, addr, oport, 0, 0);
-+	if (!skb)
-+		goto err;
-+	TIPC_SKB_CB(skb)->chain_sz = skb_queue_len(list);
-+	TIPC_SKB_CB(skb)->chain_imp = imp;
-+	skb_queue_tail(&link->wakeupq, skb);
- 	link->stats.link_congs++;
--	return true;
-+	return -ELINKCONG;
-+err:
-+	__skb_queue_purge(list);
-+	return -ENOBUFS;
- }
+ 	hash = __ipv6_addr_jhash(dst, hashrnd);
+ 	hash = __ipv6_addr_jhash(src, hash);
++	hash ^= net_hash_mix(net);
  
- /**
-@@ -708,48 +723,15 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 	}
- }
- 
--/* tipc_link_cong: determine return value and how to treat the
-- * sent buffer during link congestion.
-- * - For plain, errorless user data messages we keep the buffer and
-- *   return -ELINKONG.
-- * - For all other messages we discard the buffer and return -EHOSTUNREACH
-- * - For TIPC internal messages we also reset the link
-- */
--static int tipc_link_cong(struct tipc_link *link, struct sk_buff_head *list)
--{
--	struct sk_buff *skb = skb_peek(list);
--	struct tipc_msg *msg = buf_msg(skb);
--	int imp = msg_importance(msg);
--	u32 oport = msg_tot_origport(msg);
--
--	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE)) {
--		pr_warn("%s<%s>, send queue full", link_rst_msg, link->name);
--		tipc_link_reset(link);
--		goto drop;
--	}
--	if (unlikely(msg_errcode(msg)))
--		goto drop;
--	if (unlikely(msg_reroute_cnt(msg)))
--		goto drop;
--	if (TIPC_SKB_CB(skb)->wakeup_pending)
--		return -ELINKCONG;
--	if (link_schedule_user(link, oport, skb_queue_len(list), imp))
--		return -ELINKCONG;
--drop:
--	__skb_queue_purge(list);
--	return -EHOSTUNREACH;
--}
--
- /**
-  * __tipc_link_xmit(): same as tipc_link_xmit, but destlink is known & locked
-  * @link: link to use
-  * @list: chain of buffers containing message
+ 	/* Treat id of 0 as unset and if we get 0 back from ip_idents_reserve,
+ 	 * set the hight order instead thus minimizing possible future
+@@ -36,7 +37,7 @@ static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
   *
-- * Consumes the buffer chain, except when returning -ELINKCONG
-- * Returns 0 if success, otherwise errno: -ELINKCONG, -EMSGSIZE (plain socket
-- * user data messages) or -EHOSTUNREACH (all other messages/senders)
-- * Only the socket functions tipc_send_stream() and tipc_send_packet() need
-- * to act on the return value, since they may need to do more send attempts.
-+ * Consumes the buffer chain, except when returning -ELINKCONG,
-+ * since the caller then may want to make more send attempts.
-+ * Returns 0 if success, or errno: -ELINKCONG, -EMSGSIZE or -ENOBUFS
-+ * Messages at TIPC_SYSTEM_IMPORTANCE are always accepted
+  * The network header must be set before calling this.
   */
- int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- 		     struct sk_buff_head *list)
-@@ -768,7 +750,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- 
- 	/* Match backlog limit against msg importance: */
- 	if (unlikely(link->backlog[imp].len >= link->backlog[imp].limit))
--		return tipc_link_cong(link, list);
-+		return link_schedule_user(link, list);
- 
- 	if (unlikely(msg_size(msg) > mtu)) {
- 		__skb_queue_purge(list);
-@@ -820,13 +802,25 @@ static int __tipc_link_xmit_skb(struct tipc_link *link, struct sk_buff *skb)
- 	return __tipc_link_xmit(link->owner->net, link, &head);
- }
- 
-+/* tipc_link_xmit_skb(): send single buffer to destination
-+ * Buffers sent via this functon are generally TIPC_SYSTEM_IMPORTANCE
-+ * messages, which will not be rejected
-+ * The only exception is datagram messages rerouted after secondary
-+ * lookup, which are rare and safe to dispose of anyway.
-+ * TODO: Return real return value, and let callers use
-+ * tipc_wait_for_sendpkt() where applicable
-+ */
- int tipc_link_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
- 		       u32 selector)
+-void ipv6_proxy_select_ident(struct sk_buff *skb)
++void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
  {
- 	struct sk_buff_head head;
-+	int rc;
+ 	static u32 ip6_proxy_idents_hashrnd __read_mostly;
+ 	struct in6_addr buf[2];
+@@ -53,20 +54,21 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
+ 	net_get_random_once(&ip6_proxy_idents_hashrnd,
+ 			    sizeof(ip6_proxy_idents_hashrnd));
  
- 	skb2list(skb, &head);
--	return tipc_link_xmit(net, &head, dnode, selector);
-+	rc = tipc_link_xmit(net, &head, dnode, selector);
-+	if (rc == -ELINKCONG)
-+		kfree_skb(skb);
-+	return 0;
+-	id = __ipv6_select_ident(ip6_proxy_idents_hashrnd,
++	id = __ipv6_select_ident(net, ip6_proxy_idents_hashrnd,
+ 				 &addrs[1], &addrs[0]);
+ 	skb_shinfo(skb)->ip6_frag_id = htonl(id);
  }
+ EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
  
- /**
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index bd3969a..6445db0 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -240,6 +240,15 @@ static inline void msg_set_size(struct tipc_msg *m, u32 sz)
- 	m->hdr[0] = htonl((msg_word(m, 0) & ~0x1ffff) | sz);
- }
- 
-+static inline unchar *msg_data(struct tipc_msg *m)
-+{
-+	return ((unchar *)m) + msg_hdr_sz(m);
-+}
-+
-+static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
-+{
-+	return (struct tipc_msg *)msg_data(m);
-+}
- 
- /*
-  * Word 1
-@@ -372,6 +381,8 @@ static inline void msg_set_prevnode(struct tipc_msg *m, u32 a)
- 
- static inline u32 msg_origport(struct tipc_msg *m)
+-void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
++void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
++		       struct rt6_info *rt)
  {
-+	if (msg_user(m) == MSG_FRAGMENTER)
-+		m = msg_get_wrapped(m);
- 	return msg_word(m, 4);
- }
+ 	static u32 ip6_idents_hashrnd __read_mostly;
+ 	u32 id;
  
-@@ -467,16 +478,6 @@ static inline void msg_set_nameupper(struct tipc_msg *m, u32 n)
- 	msg_set_word(m, 10, n);
- }
+ 	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
  
--static inline unchar *msg_data(struct tipc_msg *m)
--{
--	return ((unchar *)m) + msg_hdr_sz(m);
--}
--
--static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
--{
--	return (struct tipc_msg *)msg_data(m);
--}
--
- /*
-  * Constants and routines used to read and write TIPC internal message headers
-  */
-@@ -753,13 +754,6 @@ static inline void msg_set_link_tolerance(struct tipc_msg *m, u32 n)
- 	msg_set_bits(m, 9, 0, 0xffff, n);
+-	id = __ipv6_select_ident(ip6_idents_hashrnd, &rt->rt6i_dst.addr,
++	id = __ipv6_select_ident(net, ip6_idents_hashrnd, &rt->rt6i_dst.addr,
+ 				 &rt->rt6i_src.addr);
+ 	fhdr->identification = htonl(id);
  }
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index be2c0ba..7441e1e 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -54,7 +54,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
  
--static inline u32 msg_tot_origport(struct tipc_msg *m)
--{
--	if ((msg_user(m) == MSG_FRAGMENTER) && (msg_type(m) == FIRST_FRAGMENT))
--		return msg_origport(msg_get_wrapped(m));
--	return msg_origport(m);
--}
--
- struct sk_buff *tipc_buf_acquire(u32 size);
- bool tipc_msg_validate(struct sk_buff *skb);
- bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
+ 		/* Set the IPv6 fragment id if not set yet */
+ 		if (!skb_shinfo(skb)->ip6_frag_id)
+-			ipv6_proxy_select_ident(skb);
++			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
+ 
+ 		segs = NULL;
+ 		goto out;
+@@ -113,7 +113,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		fptr->nexthdr = nexthdr;
+ 		fptr->reserved = 0;
+ 		if (!skb_shinfo(skb)->ip6_frag_id)
+-			ipv6_proxy_select_ident(skb);
++			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
+ 		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
+ 
+ 		/* Fragment the skb. ipv6 header and the remaining fields of the
 -- 
-1.9.1
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+2.1.0
