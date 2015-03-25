@@ -1,194 +1,190 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v8 3/7] ixgbe: Add a RETA query command to VF-PF channel API
-Date: Wed, 25 Mar 2015 19:42:38 +0200
-Message-ID: <1427305362-23948-4-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v8 1/7] if_link: Add an additional parameter to ifla_vf_info for RSS querying
+Date: Wed, 25 Mar 2015 19:42:36 +0200
+Message-ID: <1427305362-23948-2-git-send-email-vladz@cloudius-systems.com>
 References: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
 	gleb@cloudius-systems.com, intel-wired-lan@lists.osuosl.org,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:36465 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754835AbbCYRm4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:56 -0400
-Received: by wgra20 with SMTP id a20so36110191wgr.3
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:53 -0700 (PDT)
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:33844 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754830AbbCYRmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:51 -0400
+Received: by wgs2 with SMTP id 2so36459488wgs.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:50 -0700 (PDT)
 In-Reply-To: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-82599 and x540 VFs and PF share the same RSS redirection table (RETA). Therefore we
-just return it for all VFs. x550 on the other hand provides a separate redirection
-table for each VF (there is a per-pool RETA table).
+Add configuration setting for drivers to allow/block an RSS Redirection Table and
+a Hash Key querying for discrete VFs.
 
-For 82599 and x540 RETA table is an array of 32 registers (128 bytes) and the maximum number of
-registers that may be delivered in a single VF-PF channel command is 15. Therefore
-we will deliver the whole table in 3 steps: 12, 12 and 8 registers in each
-step correspondingly.
-
-For x550 VFs RETA is a 64 byte array, so we may deliver it in two steps: 12 and 4 registers
-correspondingly.
-
-Thus this patch does the following:
-
-  - Adds a new API version (to specify a new commands set).
-  - Adds the IXGBE_VF_GET_RETA command to the VF-PF commands set.
+On some devices VF share the mentioned above information with PF and querying it may
+adduce a theoretical security risk. We want to let a system administrator to decide if he/she
+wants to take this risk or not.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
-New in v5:
-   - Use the newly added netdev op to allow/prevent the RETA query on a per-VF basis.
+ include/linux/if_link.h      |  1 +
+ include/linux/netdevice.h    |  8 ++++++++
+ include/uapi/linux/if_link.h |  8 ++++++++
+ net/core/rtnetlink.c         | 32 ++++++++++++++++++++++++++------
+ 4 files changed, 43 insertions(+), 6 deletions(-)
 
-New in v4:
-   - Deleted an empty line in ixgbe_get_vf_reta() switch-case.
-
-New in v3:
-   - Pass the number of dwords and offset in RETA in the IXGBE_VF_GET_RETA request message.
-     This allows to reduce the added command set to a single command.
-   - Added a support for all devices supported by the ixgbe driver that have
-     SR-IOV functions support: 82599, x540 and x550. The original code supported
-     only 82599 and x540.
-   - Added the masking of the RETA entries according to the PSRTYPE[n].RQPL
-     value.
-
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbe_get_vf_reta()).
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  8 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 65 ++++++++++++++++++++++++++
- 2 files changed, 73 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index a5cb755..f9b5eae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -73,6 +73,7 @@ enum ixgbe_pfvf_api_rev {
- 	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
- 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
- 	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
-+	ixgbe_mbox_api_12,	/* API version 1.2, linux/freebsd VF driver */
- 	/* This value should always be last */
- 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 119130e..da49299 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -14,5 +14,6 @@ struct ifla_vf_info {
+ 	__u32 linkstate;
+ 	__u32 min_tx_rate;
+ 	__u32 max_tx_rate;
++	__u32 rss_query_en;
  };
-@@ -97,6 +98,13 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
- #define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 08c4ab3..a858cda 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -875,6 +875,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
+  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
+  *			  struct nlattr *port[]);
++ *
++ *      Enable or disable the VF ability to query its RSS Redirection Table and
++ *      Hash Key. This is needed since on some devices VF share this information
++ *      with PF and querying it may adduce a theoretical security risk.
++ * int (*ndo_set_vf_rss_query_en)(struct net_device *dev, int vf, bool setting);
+  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
+  * int (*ndo_setup_tc)(struct net_device *dev, u8 tc)
+  * 	Called to setup 'tc' number of traffic classes in the net device. This
+@@ -1094,6 +1099,9 @@ struct net_device_ops {
+ 						   struct nlattr *port[]);
+ 	int			(*ndo_get_vf_port)(struct net_device *dev,
+ 						   int vf, struct sk_buff *skb);
++	int			(*ndo_set_vf_rss_query_en)(
++						   struct net_device *dev,
++						   int vf, bool setting);
+ 	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc);
+ #if IS_ENABLED(CONFIG_FCOE)
+ 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 7ffb18d..d9cd192 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -465,6 +465,9 @@ enum {
+ 	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+ 	IFLA_VF_LINK_STATE,	/* link state enable/disable/auto switch */
+ 	IFLA_VF_RATE,		/* Min and Max TX Bandwidth Allocation */
++	IFLA_VF_RSS_QUERY_EN,	/* RSS Redirection Table and Hash Key query
++				 * on/off switch
++				 */
+ 	__IFLA_VF_MAX,
+ };
  
-+/* mailbox API, version 1.2 VF requests */
-+#define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
+@@ -509,6 +512,11 @@ struct ifla_vf_link_state {
+ 	__u32 link_state;
+ };
+ 
++struct ifla_vf_rss_query_en {
++	__u32 vf;
++	__u32 setting;
++};
 +
-+/* GET_RETA request data indices within the mailbox */
-+#define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
-+#define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 4d67677..301bb1b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -437,6 +437,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- #endif /* CONFIG_FCOE */
- 		switch (adapter->vfinfo[vf].vf_api) {
- 		case ixgbe_mbox_api_11:
-+		case ixgbe_mbox_api_12:
- 			/*
- 			 * Version 1.1 supports jumbo frames on VFs if PF has
- 			 * jumbo frames enabled which means legacy VFs are
-@@ -904,6 +905,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
- 	switch (api) {
- 	case ixgbe_mbox_api_10:
- 	case ixgbe_mbox_api_11:
-+	case ixgbe_mbox_api_12:
- 		adapter->vfinfo[vf].vf_api = api;
+ /* VF ports management section
+  *
+  *	Nested layout of set/get msg is:
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index b96ac21..dcbf568 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -818,7 +818,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+ 			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
+-			 nla_total_size(sizeof(struct ifla_vf_link_state)));
++			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
++			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)));
+ 		return size;
+ 	} else
  		return 0;
- 	default:
-@@ -927,6 +929,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
- 	switch (adapter->vfinfo[vf].vf_api) {
- 	case ixgbe_mbox_api_20:
- 	case ixgbe_mbox_api_11:
-+	case ixgbe_mbox_api_12:
- 		break;
- 	default:
- 		return -1;
-@@ -954,6 +957,65 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
- 	return 0;
- }
+@@ -1132,14 +1133,16 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			struct ifla_vf_tx_rate vf_tx_rate;
+ 			struct ifla_vf_spoofchk vf_spoofchk;
+ 			struct ifla_vf_link_state vf_linkstate;
++			struct ifla_vf_rss_query_en vf_rss_query_en;
  
-+static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i, j;
-+	u32 *reta = &msgbuf[1];
-+	u32 mask = 0;
-+	u32 psrtype;
-+	u32 reta_offset_dw = msgbuf[IXGBE_VF_RETA_OFFSET];
-+	u32 dwords = msgbuf[IXGBE_VF_RETA_SZ];
+ 			/*
+ 			 * Not all SR-IOV capable drivers support the
+-			 * spoofcheck query.  Preset to -1 so the user
+-			 * space tool can detect that the driver didn't
+-			 * report anything.
++			 * spoofcheck and "RSS query enable" query.  Preset to
++			 * -1 so the user space tool can detect that the driver
++			 * didn't report anything.
+ 			 */
+ 			ivi.spoofchk = -1;
++			ivi.rss_query_en = -1;
+ 			memset(ivi.mac, 0, sizeof(ivi.mac));
+ 			/* The default value for VF link state is "auto"
+ 			 * IFLA_VF_LINK_STATE_AUTO which equals zero
+@@ -1152,7 +1155,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 				vf_rate.vf =
+ 				vf_tx_rate.vf =
+ 				vf_spoofchk.vf =
+-				vf_linkstate.vf = ivi.vf;
++				vf_linkstate.vf =
++				vf_rss_query_en.vf = ivi.vf;
+ 
+ 			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
+ 			vf_vlan.vlan = ivi.vlan;
+@@ -1162,6 +1166,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			vf_rate.max_tx_rate = ivi.max_tx_rate;
+ 			vf_spoofchk.setting = ivi.spoofchk;
+ 			vf_linkstate.link_state = ivi.linkstate;
++			vf_rss_query_en.setting = ivi.rss_query_en;
+ 			vf = nla_nest_start(skb, IFLA_VF_INFO);
+ 			if (!vf) {
+ 				nla_nest_cancel(skb, vfinfo);
+@@ -1176,7 +1181,10 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    nla_put(skb, IFLA_VF_SPOOFCHK, sizeof(vf_spoofchk),
+ 				    &vf_spoofchk) ||
+ 			    nla_put(skb, IFLA_VF_LINK_STATE, sizeof(vf_linkstate),
+-				    &vf_linkstate))
++				    &vf_linkstate) ||
++			    nla_put(skb, IFLA_VF_RSS_QUERY_EN,
++				    sizeof(vf_rss_query_en),
++				    &vf_rss_query_en))
+ 				goto nla_put_failure;
+ 			nla_nest_end(skb, vf);
+ 		}
+@@ -1290,6 +1298,7 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 	[IFLA_VF_SPOOFCHK]	= { .len = sizeof(struct ifla_vf_spoofchk) },
+ 	[IFLA_VF_RATE]		= { .len = sizeof(struct ifla_vf_rate) },
+ 	[IFLA_VF_LINK_STATE]	= { .len = sizeof(struct ifla_vf_link_state) },
++	[IFLA_VF_RSS_QUERY_EN]	= { .len = sizeof(struct ifla_vf_rss_query_en) },
+ };
+ 
+ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+@@ -1500,6 +1509,17 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+ 								 ivl->link_state);
+ 			break;
+ 		}
++		case IFLA_VF_RSS_QUERY_EN: {
++			struct ifla_vf_rss_query_en *ivrssq_en;
 +
-+	/* verify the PF is supporting the correct API */
-+	if (!adapter->vfinfo[vf].rss_query_enabled ||
-+	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
-+		return -EPERM;
-+
-+	psrtype = IXGBE_READ_REG(hw, IXGBE_PSRTYPE(vf));
-+
-+	/* The redirection table is composed as follows:
-+	 * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS indices
-+	 * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index X550:
-+	 * 512 (8 bit wide) entries containing 6 bit RSS index
-+	 *
-+	 * PSRTYPE[n].RQPL defines if 0, 1 or 2 bits from the redirection table
-+	 * value should be used.
-+	 */
-+
-+	if ((psrtype & (1 << 29)) == (1 << 29))
-+		mask = 0x01010101;
-+	else if ((psrtype & (2 << 29)) == (2 << 29))
-+		mask = 0x03030303;
-+	else
-+		mask = 0;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		/* Read the appropriate portion of RETA */
-+		for (i = 0; i < dwords; i++)
-+			reta[i] = IXGBE_READ_REG(hw,
-+						IXGBE_RETA(i + reta_offset_dw));
-+		break;
-+	case ixgbe_mac_X550:
-+	case ixgbe_mac_X550EM_x:
-+		/* X550 has a per-VF RETA */
-+		for (i = 0, j = reta_offset_dw; i < dwords; i++, j++)
-+			reta[i] = IXGBE_READ_REG(hw,
-+						IXGBE_PFVFRETA(j, vf));
-+		break;
-+	default:
-+		return -1;
-+	}
-+
-+	/* Mask the relevant bits */
-+	for (i = 0; i < dwords; i++)
-+		reta[i] &= mask;
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1010,6 +1072,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_QUEUES:
- 		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_GET_RETA:
-+		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
++			ivrssq_en = nla_data(vf);
++			err = -EOPNOTSUPP;
++			if (ops->ndo_set_vf_rss_query_en)
++				err = ops->ndo_set_vf_rss_query_en(dev,
++							    ivrssq_en->vf,
++							    ivrssq_en->setting);
++			break;
++		}
+ 		default:
+ 			err = -EINVAL;
+ 			break;
 -- 
 2.1.0
