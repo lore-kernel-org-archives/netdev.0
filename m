@@ -1,47 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] net: sysctl for RA default route MTU
-Date: Wed, 25 Mar 2015 16:52:01 +0100
-Message-ID: <1427298721.2344863.245111901.25E46F85@webmail.messagingengine.com>
-References: <20150324.152705.921124268458994532.davem@davemloft.net>
- <1427281679-13007-1-git-send-email-klamm@yandex-team.ru>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 0/3] tipc: some improvements and
+	fixes
+Date: Wed, 25 Mar 2015 12:07:23 -0400
+Message-ID: <1427299646-31680-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Roman Gushchin <klamm@yandex-team.ru>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427281679-13007-1-git-send-email-klamm@yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 25, 2015, at 12:07, Roman Gushchin wrote:
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1714,6 +1714,14 @@ int ip6_route_add(struct fib6_config *cfg)
->  
->  	rt->rt6i_flags = cfg->fc_flags;
->  
-> +       if ((cfg->fc_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
-> ==
-> +           (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) {
-> +               u32 mtu = idev->cnf.ra_default_route_mtu;
-> +
-> +               if (mtu && mtu >= IPV6_MIN_MTU && mtu <= idev->cnf.mtu6)
-> +                       dst_metric_set(&rt->dst, RTAX_MTU, mtu);
-> +       }
-> +
+We introduce a better algorithm for selecting when and which
+users should be subject to link congestion control, plus clean
+up some code for that mechanism.
+Commit #3 fixes another rare race condition during packet reception.
 
-Could you move this RA specific snippet over to ndisc.c?
+Jon Maloy (3):
+  tipc: introduce starvation free send algorithm
+  tipc: clean up handling of link congestion
+  tipc: eliminate race condition at dual link establishment
 
-Hmm
+ net/tipc/bcast.c |   2 +-
+ net/tipc/link.c  | 207 ++++++++++++++++++++++++++++++++++---------------------
+ net/tipc/link.h  |   9 ++-
+ net/tipc/msg.h   |  36 +++++-----
+ 4 files changed, 157 insertions(+), 97 deletions(-)
 
-How do you use this option?
+-- 
+1.9.1
 
-You use jumbo frames on the on-link network and announce all routes via
-route options where you also want to communicate to with jumbo frames?
 
-I wonder if an offlink_mtu parameter would be more suitable?
-
-Thanks,
-Hannes
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
