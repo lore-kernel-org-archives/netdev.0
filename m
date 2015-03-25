@@ -1,59 +1,57 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next 1/7] net: bcmgenet: remove priv->int0_mask and priv->int1_mask
-Date: Wed, 25 Mar 2015 12:35:09 -0700 (PDT)
-Message-ID: <20150325193509.D65552201FC@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net 2/2] ipmr,ip6mr: call list_del_rcu() when deleting mr
+ table from list
+Date: Wed, 25 Mar 2015 21:07:02 +0100
+Message-ID: <1427314022.3581245.245236665.477D7858@webmail.messagingengine.com>
+References: <1427310345-29829-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1427310345-29829-2-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f201.google.com ([209.85.160.201]:34483 "EHLO
-	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbbCYUCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 16:02:49 -0400
-Received: by ykq142 with SMTP id 142so2168189ykq.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 13:02:49 -0700 (PDT)
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:54198 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752193AbbCYUHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 16:07:03 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 5565020ABB
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 16:07:00 -0400 (EDT)
+In-Reply-To: <1427310345-29829-2-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove unused priv->int0_mask and priv->int1_mask.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 --
- drivers/net/ethernet/broadcom/genet/bcmgenet.h | 2 --
- 2 files changed, 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index c38d542..030249d 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -985,7 +985,6 @@ static inline void bcmgenet_tx_ring_int_enable(struct bcmgenet_priv *priv,
- {
- 	bcmgenet_intrl2_1_writel(priv, (1 << ring->index),
- 				 INTRL2_CPU_MASK_CLEAR);
--	priv->int1_mask &= ~(1 << ring->index);
- }
- 
- static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
-@@ -993,7 +992,6 @@ static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
- {
- 	bcmgenet_intrl2_1_writel(priv, (1 << ring->index),
- 				 INTRL2_CPU_MASK_SET);
--	priv->int1_mask |= (1 << ring->index);
- }
- 
- /* Unlocked version of the reclaim routine */
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index 7a59879..a9e1612 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -558,8 +558,6 @@ struct bcmgenet_priv {
- 	void __iomem *base;
- 	enum bcmgenet_version version;
- 	struct net_device *dev;
--	u32 int0_mask;
--	u32 int1_mask;
- 
- 	/* NAPI for descriptor based rx */
- 	struct napi_struct napi ____cacheline_aligned;
--- 
-2.2.0.rc0.207.ga3a616c
+On Wed, Mar 25, 2015, at 20:05, Cong Wang wrote:
+> Probably not a big deal, just for corretness.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/ipv4/ipmr.c  | 2 +-
+>  net/ipv6/ip6mr.c | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index d6fede8..68f67b8 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -280,7 +280,7 @@ static void __net_exit ipmr_rules_exit(struct net
+> *net)
+>  
+>  	rtnl_lock();
+>  	list_for_each_entry_safe(mrt, next, &net->ipv4.mr_tables, list) {
+> -               list_del(&mrt->list);
+> +               list_del_rcu(&mrt->list);
+>  		ipmr_free_table(mrt);
+>  	}
+>  	rtnl_unlock();
+
+I really do wonder if we have the rcu locking correct in there:
+
+Looking into getsockopt/setsockopt operations, we might have socket
+lock, but I cannot see where we lock rcu, so the ipmr_get_table call is
+safe. Do you also see the problem?
+
+Thanks,
+Hannes
