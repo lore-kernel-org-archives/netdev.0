@@ -1,70 +1,74 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 1/2] ipv4: hash net ptr into fragmentation bucket
- selection
-Date: Wed, 25 Mar 2015 16:16:26 +0100
-Message-ID: <1427296586.2333772.245087045.6283C1D9@webmail.messagingengine.com>
-References: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
- <1427294700.25985.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] ipv6: Don't reduce hop limit for an interface
+Date: Wed, 25 Mar 2015 16:28:44 +0100
+Message-ID: <1427297324.2337285.245105105.48DCB26B@webmail.messagingengine.com>
+References: <1427272141.10689.7.camel@takeit.se>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Flavio Leitner <fbl@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: ljungmark@modio.se, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:48044 "EHLO
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50006 "EHLO
 	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932137AbbCYPQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:16:27 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0EC9C2126D
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 11:16:24 -0400 (EDT)
-In-Reply-To: <1427294700.25985.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	by vger.kernel.org with ESMTP id S1753833AbbCYP2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:28:44 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id B8CDF20A5F
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 11:28:41 -0400 (EDT)
+In-Reply-To: <1427272141.10689.7.camel@takeit.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On Wed, Mar 25, 2015, at 15:45, Eric Dumazet wrote:
-> On Wed, 2015-03-25 at 15:00 +0100, Hannes Frederic Sowa wrote:
-> > As namespaces are sometimes used with overlapping ip address ranges,
-> > we should also use the namespace as input to the hash to select the ip
-> > fragmentation counter bucket.
-> > 
-> > Cc: Eric Dumazet <edumazet@google.com>
-> > Cc: Flavio Leitner <fbl@redhat.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> >  drivers/net/ppp/pptp.c          | 2 +-
-> >  net/netfilter/ipvs/ip_vs_xmit.c | 5 +++--
-> >  2 files changed, 4 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-> > index 1dc628f..e3bfbd4d 100644
-> > --- a/drivers/net/ppp/pptp.c
-> > +++ b/drivers/net/ppp/pptp.c
-> > @@ -281,7 +281,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
-> >  	nf_reset(skb);
-> >  
-> >  	skb->ip_summed = CHECKSUM_NONE;
-> > -	ip_select_ident(skb, NULL);
-> > +	ip_select_ident(sock_net(sk), skb, NULL);
-> >  	ip_send_check(iph);
-> >  
+On Wed, Mar 25, 2015, at 09:29, D. S. Ljungmark wrote:
+> From 3ae93eb68a06ab2d9c984c6708dbc9e5f3bc8251 Mon Sep 17 00:00:00 2001
+> From: "D.S. Ljungmark" <ljungmark@modio.se>
+> Date: Wed, 25 Mar 2015 09:28:15 +0100
+> Subject: [PATCH] ipv6: Don't reduce hop limit for an interface
 > 
-> I do not see how this would compile, without corresponding change in
-> ip_select_ident() ?
-
-Cheers! ;)
-
-We have a very slow coffee machine, so while waiting for a new one to be
-produced I forgot to squash the ipv4 commits and just send them out.
-
-> Or maybe I should drink this coffee ;)
+> A local route may have a lower hop_limit set than global routes do.
 > 
-> Really, Redhat should tell truth to its customers : frags are bad
+> RFC 3756, Section 4.2.7, "Parameter Spoofing"
+> 
+> >   1.  The attacker includes a Current Hop Limit of one or another small
+> >       number which the attacker knows will cause legitimate packets to
+> >       be dropped before they reach their destination.
+> 
+> >   As an example, one possible approach to mitigate this threat is to
+> >   ignore very small hop limits.  The nodes could implement a
+> >   configurable minimum hop limit, and ignore attempts to set it below
+> >   said limit.
+> 
+> Signed-off-by: D.S. Ljungmark <ljungmark@modio.se>
+> ---
+>  net/ipv6/ndisc.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 471ed24..14ecdaf 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -1218,7 +1218,14 @@ static void ndisc_router_discovery(struct sk_buff
+> *skb)
+>  	if (rt)
+>  		rt6_set_expires(rt, jiffies + (HZ * lifetime));
+>  	if (ra_msg->icmph.icmp6_hop_limit) {
+> -               in6_dev->cnf.hop_limit = ra_msg->icmph.icmp6_hop_limit;
+> +               /* Only set hop_limit on the interface if it is higher
+> than
+> +                * the current hop_limit.
+> +                */
+> +               if (in6_dev->cnf.hop_limit <
+> ra_msg->icmph.icmp6_hop_limit) {
+> +                       in6_dev->cnf.hop_limit =
+> ra_msg->icmph.icmp6_hop_limit;
+> +               } else {
+> +                       ND_PRINTK(2, warn, "RA: Got route advertisement
+> with lower hop_limit than current\n");
+> +               }
 
-We still have to support Google's DNS servers, too. ;)
+I think this is the simplest solution to this problem and solves the
+problem by default, thanks!
 
-Bye,
-Hannes
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
