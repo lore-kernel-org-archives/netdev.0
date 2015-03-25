@@ -1,102 +1,36 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v8 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-Date: Wed, 25 Mar 2015 19:42:40 +0200
-Message-ID: <1427305362-23948-6-git-send-email-vladz@cloudius-systems.com>
-References: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com, intel-wired-lan@lists.osuosl.org,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
+From: Vinson Lee <vlee@twopensource.com>
+Subject: Re: Please backport dev_kfree_skb_any fixes for stable
+Date: Wed, 25 Mar 2015 10:48:47 -0700
+Message-ID: <CAHTgTXWvDs4fTg_Gpsn8XrYnHbgZOKC4ymkq_QVdnGVCOaiqzw@mail.gmail.com>
+References: <20140627.163813.1794281555636065922.davem@davemloft.net>
+	<CAHA+R7N52T1NNzytbiJ0Qoc=L3tiZRJRU+8bCET-ieeih_XS8Q@mail.gmail.com>
+	<CAHTgTXX2rw9441stUb41EHTKanm9HZ+4T+a5+fur4O6G7zy21A@mail.gmail.com>
+	<20150324.001408.1364899234285488351.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:33211 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752210AbbCYRm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:57 -0400
-Received: by wgbcc7 with SMTP id cc7so35809676wgb.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:56 -0700 (PDT)
-In-Reply-To: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:35901 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752619AbbCYRss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:48:48 -0400
+Received: by oicf142 with SMTP id f142so18978511oic.3
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:48:48 -0700 (PDT)
+In-Reply-To: <20150324.001408.1364899234285488351.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
-the same RSS key for all VFs.
+On Mon, Mar 23, 2015 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
+> From: Vinson Lee <vlee@twopensource.com>
+> Date: Tue, 17 Mar 2015 16:52:20 -0700
+>
+>> This stable request seems to have been forgotten.
+>
+> Sorry I've lost all of the context for this, you'll have to remind me
+> of all of the details.
 
-x550 on the other hand has a separate RSS Key for every pool.
-
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v5:
-   - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
-     basis.
-
-New in v3:
-   - Added a support for x550 devices.
-
-New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case
-     (in ixgbe_get_vf_rss_key()).
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index f9b5eae..3f14373 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -105,6 +105,8 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
- #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
- 
-+#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
-+
- /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 301bb1b..78517a1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -1016,6 +1016,30 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- 	return 0;
- }
- 
-+static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
-+				u32 *msgbuf, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+	u32 *rss_key = &msgbuf[1];
-+
-+	/* verify the PF is supporting the correct API */
-+	if (!adapter->vfinfo[vf].rss_query_enabled ||
-+	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
-+		return -EPERM;
-+
-+	/* Read the RSS KEY */
-+	if (hw->mac.type >= ixgbe_mac_X550) {
-+		for (i = 0; i < 10; i++)
-+			rss_key[i] = IXGBE_READ_REG(hw,
-+						IXGBE_PFVFRSSRK(i, vf));
-+	} else
-+		for (i = 0; i < 10; i++)
-+			rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
-+
-+	return 0;
-+}
-+
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1075,6 +1099,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_RETA:
- 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_GET_RSS_KEY:
-+		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
--- 
-2.1.0
+These patches fixes warnings that can occur when a netconsole message
+is transmitted in an IRQ.
