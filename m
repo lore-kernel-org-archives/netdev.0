@@ -1,74 +1,50 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: Re: [PATCH] net: tcp6: fix double call of tcp_v6_fill_cb()
-Date: Thu, 26 Mar 2015 00:25:20 +0300
-Message-ID: <551327C0.3020303@oracle.com>
-References: <1427107090-4100-1-git-send-email-alexey.kodanev@oracle.com> <1427118726.25985.63.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: Re: [PATCH net] af_unix: don't poll dead peers
+Date: Wed, 25 Mar 2015 22:33:59 +0100
+Message-ID: <CA+rthh8jHXz75xSMHHDbNbwZQ334yWieo=Q4PazuVUW4PKm3Gg@mail.gmail.com>
+References: <1425499629-15223-1-git-send-email-minipli@googlemail.com>
+	<1425500502.5130.232.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
+	<1425502952.5130.234.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+rthh_B-eZ6xjW+ZmcUuHjZy-Mw4v6NUPypWLn2W9nfjyOZ7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Olivier Mauras <olivier@mauras.ch>,
+	PaX Team <pageexec@freemail.hu>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427118726.25985.63.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:37719 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbbCYVeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 17:34:01 -0400
+Received: by wixw10 with SMTP id w10so57570611wix.0
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 14:33:59 -0700 (PDT)
+In-Reply-To: <CA+rthh_B-eZ6xjW+ZmcUuHjZy-Mw4v6NUPypWLn2W9nfjyOZ7Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
-On 03/23/2015 04:52 PM, Eric Dumazet wrote:
-> On Mon, 2015-03-23 at 13:38 +0300, Alexey Kodanev wrote:
->> Regression introduced by commit 2dc49d1680.
->>
->> tcp_v6_fill_cb() will be called twice if socket's state changes from
->> TCP_TIME_WAIT to TCP_LISTEN. That can result in performance loss and
->> control buffer data corruption because in the second tcp_v6_fill_cb()
->> it's not copying the 'header' anymore, but 'seq', 'end_seq', etc.
->>
->> Reproduced with LTP/tcp_fastopen test and netperf -t TCP_CRR, so when
->> we're constantly closing and opening TCP connections after several
->> requests/responses from client.
->>
->> This can be fixed if we move 'header' union back to the beginning of
->> 'struct tcp_skb_cb' and getting skb->next, TCP_SKB_CB(skb)->seq and
->> TCP_SKB_CB(skb)->end_seq on the same cache line by moving 'cb[48]'
->> closer to 'skb->next', above the *sk and *dev pointers.
+On 4 March 2015 at 22:26, Mathias Krause <minipli@googlemail.com> wrote:
+> [ Removed Rainer from the Cc list, his address is bouncing. ]
 >
-> NACK.  DO not change sk and dev pointers.
+> On 4 March 2015 at 22:02, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2015-03-04 at 21:39 +0100, Mathias Krause wrote:
+>>> On 4 March 2015 at 21:21, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> >
+>>> > Using locks in _poll() is going to be tremendously expensive for some
+>>> > applications still using poll() or select() ?
+>>>
+>>> I've no idea but we're already taking this very lock in the
+>>> unix_peer_get() call a few lines above.
+>>
+>> This is not the same lock.
+>>
+>> other != sk
 >
-> Fix the bug yes, do not change skb layout so radically, it will have
-> serious performance impact for other part of the stack.
+> True. So, do you propose to not take the lock at all?
 
-Did various testing with exactly that change and hadn't found any 
-"serious performance impact" on the stack (at least on my configuration).
+Ping.
 
-Alright, what about other part of the patch, is it acceptable?
+Eric, do you think it's safe to not take the lock prior testing the flag?
 
-I came up with one more solution... not so radical :)
-We can restore inet6_skb_parm with
-
-     memmove(IP6CB(skb), &TCP_SKB_CB(skb)->header.h6, ...)
-
-in the two places in tcp_v6_rcv(), before xfrm6_policy_check() + 
-tcp_v6_fill_cb() are called again:
-
-  static int tcp_v6_rcv(struct sk_buff *skb)
-  {
-         const struct tcphdr *th;
-@@ -1543,6 +1552,7 @@ do_time_wait:
-                         inet_twsk_deschedule(tw, &tcp_death_row);
-                         inet_twsk_put(tw);
-                         sk = sk2;
-+                       tcp_v6_restore_cb(skb);
-                         goto process;
-                 }
-                 /* Fall through to ACK */
-@@ -1551,6 +1561,7 @@ do_time_wait:
-                 tcp_v6_timewait_ack(sk, skb);
-                 break;
-         case TCP_TW_RST:
-+               tcp_v6_restore_cb(skb);
-                 goto no_tcp_socket;
-         case TCP_TW_SUCCESS:
-
-
-Thanks,
-Alexey
+Mathias
