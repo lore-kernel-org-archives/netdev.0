@@ -1,151 +1,164 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [net-next 05/16] ixgbevf: enable multiple queue support
-Date: Wed, 25 Mar 2015 22:35:31 +0200
-Message-ID: <55131C13.2000607@cloudius-systems.com>
-References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com> <1423128950-12388-6-git-send-email-jeffrey.t.kirsher@intel.com> <55127581.2080205@cloudius-systems.com> <5512FEDC.7080902@redhat.com> <55131153.2090401@cloudius-systems.com> <551317A0.6090108@redhat.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH] usbnet: Fix tx_bytes statistic running backward in cdc_ncm
+Date: Wed, 25 Mar 2015 21:41:33 +0100
+Message-ID: <1427316093-13595-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:35921 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752294AbbCYUff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 16:35:35 -0400
-Received: by wibg7 with SMTP id g7so124068787wib.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 13:35:34 -0700 (PDT)
-In-Reply-To: <551317A0.6090108@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
 
+cdc_ncm disagrees with usbnet about how much framing overhead should
+be counted in the tx_bytes statistics, and tries 'fix' this by
+decrementing tx_bytes on the transmit path.  But statistics must never
+be decremented except due to roll-over; this will thoroughly confuse
+user-space.  Also, tx_bytes is only incremented by usbnet in the
+completion path.
 
-On 03/25/15 22:16, Alexander Duyck wrote:
->
-> On 03/25/2015 12:49 PM, Vlad Zolotarov wrote:
->> On 03/25/15 20:30, Alexander Duyck wrote:
->>> On 03/25/2015 01:44 AM, Vlad Zolotarov wrote:
->>>> On 02/05/15 11:35, Jeff Kirsher wrote:
->>>>> From: Emil Tantilov <emil.s.tantilov@intel.com>
->>>
->>>>
->>>>>     #define IXGBEVF_DEFAULT_TXD 1024
->>>>>   #define IXGBEVF_DEFAULT_RXD   512
->>>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c 
->>>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>>> index c9b49bf..815808f 100644
->>>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>>> @@ -1794,7 +1794,8 @@ static int ixgbevf_configure_dcb(struct 
->>>>> ixgbevf_adapter *adapter)
->>>>>       struct ixgbe_hw *hw = &adapter->hw;
->>>>>       unsigned int def_q = 0;
->>>>>       unsigned int num_tcs = 0;
->>>>> -    unsigned int num_rx_queues = 1;
->>>>> +    unsigned int num_rx_queues = adapter->num_rx_queues;
->>>>> +    unsigned int num_tx_queues = adapter->num_tx_queues;
->>>>>       int err;
->>>>>         spin_lock_bh(&adapter->mbx_lock);
->>>>> @@ -1808,6 +1809,9 @@ static int ixgbevf_configure_dcb(struct 
->>>>> ixgbevf_adapter *adapter)
->>>>>           return err;
->>>>>         if (num_tcs > 1) {
->>>>> +        /* we need only one Tx queue */
->>>>> +        num_tx_queues = 1;
->>>>> +
->>>>>           /* update default Tx ring register index */
->>>>>           adapter->tx_ring[0]->reg_idx = def_q;
->>>>>   @@ -1816,7 +1820,8 @@ static int ixgbevf_configure_dcb(struct 
->>>>> ixgbevf_adapter *adapter)
->>>>>       }
->>>>>         /* if we have a bad config abort request queue reset */
->>>>> -    if (adapter->num_rx_queues != num_rx_queues) {
->>>>> +    if ((adapter->num_rx_queues != num_rx_queues) ||
->>>>> +        (adapter->num_tx_queues != num_tx_queues)) {
->>>>>           /* force mailbox timeout to prevent further messages */
->>>>>           hw->mbx.timeout = 0;
->>>>>   @@ -2181,8 +2186,19 @@ static void ixgbevf_set_num_queues(struct 
->>>>> ixgbevf_adapter *adapter)
->>>>>           return;
->>>>>         /* we need as many queues as traffic classes */
->>>>> -    if (num_tcs > 1)
->>>>> +    if (num_tcs > 1) {
->>>>>           adapter->num_rx_queues = num_tcs;
->>>>> +    } else {
->>>>> +        u16 rss = min_t(u16, num_online_cpus(), 
->>>>> IXGBEVF_MAX_RSS_QUEUES);
->>>>
->>>> Emil,
->>>> Here u ignore the IXGBE_VF_RX_QUEUES value returned the PF (stored 
->>>> in the hw->mac.max_rx_queues). This will accidentally work if PF is 
->>>> driven by a current ixgbe Linux driver but what would happen if HV 
->>>> is not a Linux box? What if HV decides to configure the 
->>>> PSRTYPE[x].RQPL to 0 and decide that VF should be configured with a 
->>>> single queue? I maybe miss something here but the above line seems 
->>>> bogus. Please, comment.
->>>
->>> It isn't ignored.  The fact that num_tcs is being tested for checks 
->>> for the one case where the number of RSS queues available would be 
->>> 1, otherwise the hardware will provide at least 2 queues. 
->>
->>> If the RETA is not configured for 2 queues one of them will not be 
->>> active, but that should not be any sort of actual issue and would be 
->>> more of an administrative choice anyway as it would also limit the PF.
->>
->> This would be an administrative choice ignored by the ixgbevf driver.
->
-> What are you talking about?  How is this an administrative choice? 
-> When you configure SR-IOV one of the decisions is to select the queue 
-> layout.
+=46ix this by requiring drivers that set FLAG_MULTI_FRAME to set a
+tx_bytes delta along with the tx_packets count.
 
-And another administrative choice may be to allow the VF to use only a 
-single queue due to reasons not related to Intel HW at all. I've told 
-about it before.
+=46ixes: beeecd42c3b4 ("net: cdc_ncm/cdc_mbim: adding NCM protocol stat=
+istics")
+Signed-off-by: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+This should really go to stable-3.19 and 4.0, but since it depends on
+6588af614e7b ("usbnet: Fix tx_packets stat for FLAG_MULTI_FRAME drivers=
+")
+already in net-next, then I guess it is net-next for this patch as well=
+=2E
 
-> There is no layout that gives the VF less than 2 queues.  Your 
-> argument makes no sense.  That is why this keeps going back and forth.
+Thanks Ben, for fixing this.
 
-My argument makes perfect sense and u would see it if u stopped thinking 
-only about the ixgbe when we talk about the PF driver. One day PF driver 
-may be able to get the limitation of the VF queues number from the 
-system administrator and it may decide to limit it by 1.
+Bj=C3=B8rn
 
->
->> Frankly, I don't understand why are we arguing about this for so 
->> long? It's obvious that the safest and the most correct way to write 
->> it would be to limit the num_rx_queues by the value returned by PF. 
->> It would also remove any further questions and it's a one line patch.
->> However, if u still insist to keep it the way it is then let's drop 
->> this discussion and move on.
->
-> There is nothing the PF can do to deny access to the 2 queues that 
-> belong to the VF, they are there.  All Emil's patch does is give the 
-> VF the ability to use the 2 queues for RSS, if it decides to, in order 
-> to make better use of system resources.  If the RETA is populated for 
-> only one queue then worst case is that the VF is wasting resources on 
-> a queue that will go unused.
->
-> What concerns me is that you keep talking about a hypothetical PF 
-> driver which quite frankly can't be supported by the hardware.  If 
-> there is something you are working on that these changes break then I 
-> would recommend coming forward with the code for it via something such 
-> as an RFC so we can start a conversation, otherwise there is no way to 
-> help you since we have no idea what you are talking about.
+ drivers/net/usb/asix_common.c |  2 +-
+ drivers/net/usb/cdc_ncm.c     |  7 +++----
+ drivers/net/usb/sr9800.c      |  2 +-
+ drivers/net/usb/usbnet.c      | 16 +++++++++++++---
+ include/linux/usb/usbnet.h    |  6 ++++--
+ 5 files changed, 22 insertions(+), 11 deletions(-)
 
-Alex, I don't need any help - on the contrary, I'm trying to help u by 
-reviewing your code. For me the problem is clear - u clearly ignore your 
-own design: u query the PF about the VF queues number and ignore it. U 
-won't utilize the system resources any worse if u wouldn't ignore it but 
-If u think this is ok - then be it. It would be u, guys, that would have 
-to deal with it when and if u get any complains from the users.
+diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_commo=
+n.c
+index 724a9b50df7a..75d6f26729a3 100644
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -189,7 +189,7 @@ struct sk_buff *asix_tx_fixup(struct usbnet *dev, s=
+truct sk_buff *skb,
+ 		skb_put(skb, sizeof(padbytes));
+ 	}
+=20
+-	usbnet_set_skb_tx_stats(skb, 1);
++	usbnet_set_skb_tx_stats(skb, 1, 0);
+ 	return skb;
+ }
+=20
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 70cbea551139..c3e4da9e79ca 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1177,13 +1177,12 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struc=
+t sk_buff *skb, __le32 sign)
+ 	ctx->tx_overhead +=3D skb_out->len - ctx->tx_curr_frame_payload;
+ 	ctx->tx_ntbs++;
+=20
+-	/* usbnet has already counted all the framing overhead.
++	/* usbnet will count all the framing overhead by default.
+ 	 * Adjust the stats so that the tx_bytes counter show real
+ 	 * payload data instead.
+ 	 */
+-	dev->net->stats.tx_bytes -=3D skb_out->len - ctx->tx_curr_frame_paylo=
+ad;
+-
+-	usbnet_set_skb_tx_stats(skb_out, n);
++	usbnet_set_skb_tx_stats(skb_out, n,
++				ctx->tx_curr_frame_payload - skb_out->len);
+=20
+ 	return skb_out;
+=20
+diff --git a/drivers/net/usb/sr9800.c b/drivers/net/usb/sr9800.c
+index 7650cdc8fe6b..953de13267df 100644
+--- a/drivers/net/usb/sr9800.c
++++ b/drivers/net/usb/sr9800.c
+@@ -144,7 +144,7 @@ static struct sk_buff *sr_tx_fixup(struct usbnet *d=
+ev, struct sk_buff *skb,
+ 		skb_put(skb, sizeof(padbytes));
+ 	}
+=20
+-	usbnet_set_skb_tx_stats(skb, 1);
++	usbnet_set_skb_tx_stats(skb, 1, 0);
+ 	return skb;
+ }
+=20
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 0f3ff285f6a1..777757ae1973 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1346,9 +1346,19 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *s=
+kb,
+ 		} else
+ 			urb->transfer_flags |=3D URB_ZERO_PACKET;
+ 	}
+-	entry->length =3D urb->transfer_buffer_length =3D length;
+-	if (!(info->flags & FLAG_MULTI_PACKET))
+-		usbnet_set_skb_tx_stats(skb, 1);
++	urb->transfer_buffer_length =3D length;
++
++	if (info->flags & FLAG_MULTI_PACKET) {
++		/* Driver has set number of packets and a length delta.
++		 * Calculate the complete length and ensure that it's
++		 * positive.
++		 */
++		entry->length +=3D length;
++		if (WARN_ON_ONCE(entry->length <=3D 0))
++			entry->length =3D length;
++	} else {
++		usbnet_set_skb_tx_stats(skb, 1, length);
++	}
+=20
+ 	spin_lock_irqsave(&dev->txq.lock, flags);
+ 	retval =3D usb_autopm_get_interface_async(dev->intf);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index ff3fb2bd0e90..6e0ce8c7b8cb 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -227,7 +227,7 @@ struct skb_data {	/* skb->cb is one of these */
+ 	struct urb		*urb;
+ 	struct usbnet		*dev;
+ 	enum skb_state		state;
+-	size_t			length;
++	long			length;
+ 	unsigned long		packets;
+ };
+=20
+@@ -235,11 +235,13 @@ struct skb_data {	/* skb->cb is one of these */
+  * tx_fixup method before returning an skb.
+  */
+ static inline void
+-usbnet_set_skb_tx_stats(struct sk_buff *skb, unsigned long packets)
++usbnet_set_skb_tx_stats(struct sk_buff *skb,
++			unsigned long packets, long bytes_delta)
+ {
+ 	struct skb_data *entry =3D (struct skb_data *) skb->cb;
+=20
+ 	entry->packets =3D packets;
++	entry->length =3D bytes_delta;
+ }
+=20
+ extern int usbnet_open(struct net_device *net);
+--=20
+2.1.4
 
-I have nothing to add any more here. Do whatever u think is right for u.
-
-Best regards,
-vlad
-
->
-> - Alex
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
