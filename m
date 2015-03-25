@@ -1,97 +1,139 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v8 0/7]: ixgbevf: Allow querying VFs RSS indirection table and key
-Date: Wed, 25 Mar 2015 19:42:35 +0200
-Message-ID: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v8 6/7] ixgbevf: Add RSS Key query code
+Date: Wed, 25 Mar 2015 19:42:41 +0200
+Message-ID: <1427305362-23948-7-git-send-email-vladz@cloudius-systems.com>
+References: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
 	gleb@cloudius-systems.com, intel-wired-lan@lists.osuosl.org,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:33810 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754182AbbCYRmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:49 -0400
-Received: by wgs2 with SMTP id 2so36458686wgs.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:48 -0700 (PDT)
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:37418 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754841AbbCYRm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:59 -0400
+Received: by wixw10 with SMTP id w10so49291952wix.0
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:58 -0700 (PDT)
+In-Reply-To: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ethtool ops to VF driver to allow querying the RSS indirection table
-and RSS Random Key.
+Add the ixgbevf_get_rss_key() function that queries the PF for an RSS Random Key
+using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
 
-On some devices VFs share the RSS Redirection Table and Hash Key with a PF and letting
-the VF query this information may introduce some security risks. Therefore we disable this
-feature by default for such devices (e.g. 82599) and allow it for those where there isn't any
-possible risk (e.g. on x550). The new netdev op is going to allow a system administrator to
-change the default behaviour with "ip link set" command.
-
- - netdev: Add a new netdev op to allow/block VF from querying RSS Indirection Table and
-   RSS Hash Key.
- - PF driver: Add new VF-PF channel commands.
- - VF driver: Utilize these new commands and add the corresponding
-              ethtool callbacks.
-
+Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+---
 New in v8:
-   - Protect new mailbox operations with adapter.mbx_lock spinlock.
-
-New in v7:
-   - Add ixgbe_mbox_api_12 case in ixgbevf_set_num_queues().
-   - Properly expand HW RETA into the ethtool buffer.
+   - Protect a mailbox access.
 
 New in v6:
-   - Add a proper return code when an VF query operations are blocked by PF.
-   - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
-   - Changed a description of PATCH7: set the correct ethtool options names.
-
-New in v5:
-   - Added a new netdev op to allow/block VF from querying RSS Indirection Table and
-     RSS Hash Key.
-   - Let VF query the RSS info only if VF is allowed to.
-
-New in v4:
-   - Forgot to run checkpatch on v3 and there were a few styling things to fix. ;)
-
-New in v3:
-   - Added a missing support for x550 devices.
-   - Mask the indirection table values according to PSRTYPE[n].RQPL.
-   - Minimized the number of added VF-PF commands.
+   - Return a proper return code when an operation is blocked by PF.
 
 New in v2:
-   - Added a detailed description to patches 4 and 5.
+   - Added a more detailed patch description.
 
 New in v1 (compared to RFC):
-   - Use "if-else" statement instead of a "switch-case" for a single option case.
-     More specifically: in cases where the newly added API version is the only one
-     allowed. We may consider using a "switch-case" back again when the list of
-     allowed API versions in these specific places grows up.
+   - Use "if-else" statement instead of a "switch-case" for a single option case
+     (in ixgbevf_get_rss_key()).
+---
+ drivers/net/ethernet/intel/ixgbevf/mbx.h |  2 ++
+ drivers/net/ethernet/intel/ixgbevf/vf.c  | 60 ++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h  |  1 +
+ 3 files changed, 63 insertions(+)
 
-
-Vlad Zolotarov (7):
-  if_link: Add an additional parameter to ifla_vf_info for RSS querying
-  ixgbe: Add a new netdev op to allow/prevent a VF from querying an RSS
-    info
-  ixgbe: Add a RETA query command to VF-PF channel API
-  ixgbevf: Add a RETA query code
-  ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
-  ixgbevf: Add RSS Key query code
-  ixgbevf: Add the appropriate ethtool ops to query RSS indirection
-    table and key
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   7 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  10 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 119 ++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |   2 +
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  58 +++++++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   5 +-
- drivers/net/ethernet/intel/ixgbevf/mbx.h          |  10 ++
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 184 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h           |   3 +
- include/linux/if_link.h                           |   1 +
- include/linux/netdevice.h                         |   8 +
- include/uapi/linux/if_link.h                      |   8 +
- net/core/rtnetlink.c                              |  32 +++-
- 14 files changed, 441 insertions(+), 7 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+index 7342554..923bb0f 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
++++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+@@ -115,6 +115,8 @@ enum ixgbe_pfvf_api_rev {
+ #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
+ #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
+ 
++#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
++
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN	4
+ /* word in permanent address message with the current multicast type */
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index 2e468a6..4ca0304 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -325,6 +325,66 @@ static inline int _ixgbevf_get_reta(struct ixgbevf_adapter *a,
+ 	return rc;
+ }
+ 
++static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
++{
++	int err;
++	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
++
++	/* Return and error if API doesn't support RSS Random Key retrieval */
++	if (hw->api_version != ixgbe_mbox_api_12)
++		return -EPERM;
++
++	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
++	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
++
++	if (err)
++		return err;
++
++	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
++
++	if (err)
++		return err;
++
++	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
++
++	/* If the operation has been refused by a PF return -EPERM */
++	if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
++		return -EPERM;
++
++	/* If we didn't get an ACK there must have been
++	 * some sort of mailbox error so we should treat it
++	 * as such.
++	 */
++	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
++		return IXGBE_ERR_MBX;
++
++	memcpy(rss_key, msgbuf + 1, 40);
++
++	return 0;
++}
++
++/**
++ * ixgbevf_get_rss_key - get the RSS Random Key
++ * @hw: pointer to the HW structure
++ * @reta: buffer to fill with RETA contents.
++ *
++ * The "rss_key" buffer should be big enough to contain 10 registers.
++ * Ensures the atomicy of a mailbox access using the adapter.mbx_lock spinlock.
++ *
++ * Returns: 0 on success.
++ *          if API doesn't support this operation - (-EPERM).
++ */
++int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
++{
++	int rc;
++
++	spin_lock_bh(&a->mbx_lock);
++	rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
++	spin_unlock_bh(&a->mbx_lock);
++
++	return rc;
++}
++
+ /**
+  * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
+  * @adapter: pointer to the port handle
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index 7944962..a054716 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -212,4 +212,5 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
+ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+ 		       unsigned int *default_tc);
+ int ixgbevf_get_reta(struct ixgbevf_adapter *adapter, u32 *reta);
++int ixgbevf_get_rss_key(struct ixgbevf_adapter *adapter, u8 *rss_key);
+ #endif /* __IXGBE_VF_H__ */
 -- 
 2.1.0
