@@ -1,133 +1,86 @@
-From: "D. S. Ljungmark" <spider@takeit.se>
-Subject: Re: ipv6 : Don't reduce hop limit below current value
-Date: Wed, 25 Mar 2015 00:36:38 +0100
-Message-ID: <1427240198.3276.8.camel@takeit.se>
-References: <1427232969.3276.4.camel@takeit.se>
-	 <20150324.180610.1598116015739871982.davem@davemloft.net>
-Reply-To: ljungmark@modio.se
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH] iproute2: enhance addr label validation
+Date: Wed, 25 Mar 2015 09:22:53 +0900
+Message-ID: <20150325002251.GE23124@vergenet.net>
+References: <550DD13D.90009@tekcomms.com>
+ <20150323011522.GB20755@vergenet.net>
+ <55101D07.6090301@tekcomms.com>
+ <55103487.5070903@tekcomms.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-	protocol="application/pgp-signature"; boundary="=-TuEHpQ0uK3ID/VFsL2gp"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Joe Harvell <joe.harvell@tekcomms.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:36303 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842AbbCXXgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 19:36:43 -0400
-Received: by labe2 with SMTP id e2so6668329lab.3
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 16:36:41 -0700 (PDT)
-In-Reply-To: <20150324.180610.1598116015739871982.davem@davemloft.net>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:36023 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752347AbbCYAXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 20:23:04 -0400
+Received: by pdbcz9 with SMTP id cz9so9630065pdb.3
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 17:23:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <55103487.5070903@tekcomms.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Joe,
 
---=-TuEHpQ0uK3ID/VFsL2gp
-Content-Type: multipart/mixed; boundary="=-6InRY2lx3uKSdosWLdhX"
+On Mon, Mar 23, 2015 at 10:43:03AM -0500, Joe Harvell wrote:
+> >
+> >>Hi Joe,
+> >>
+> >>On Sat, Mar 21, 2015 at 03:14:53PM -0500, Joe Harvell wrote:
+> >>>The ip addr command today rejects address labels that would break
+> >>>ifconfig.  However, it allows some labels which still break it. Enhance
+> >>>enforcement to reject all known incompatible labels, and allow the
+> >>>existing -force option to allow someone to use a label even if it is
+> >>>not
+> >>>ifconfig compatible
+> >>I am concerned this will break existing users who are relying on setting
+> >>labels that would now be rejected without using -force.
+> >>
+> >[snip]
+> >
+> >Simon,
+> >
+> >Good point.  I propose the following:
+> >
+> >When a label is specified without -force, and that label begins with the
+> >interface
+> >name but is followed by something other than a colon, accept the label but
+> >emit
+> >a warning message indicating this label is incompatible with ifconfig and
+> >that later
+> >versions of the 'ip address' command may reject it.  This message can also
+> >indicate
+> >that -force can be specified to explicitly indicate a label that is non
+> >ifconfig compatible
+> >is desired.
+> >
+> >At some point in the future, the behavior could then be changed to reject
+> >such labels.
+> >
+> >What do you think?
+> >
+> >---
+> >Joe
+>
+> Ok, I made the changes I propose above, and have pushed them to
+> 'git@github.com:jharvell/iproute2.git addr-label-noncompat' with a new
+> signoff commit (303f46819883d4c808974629a6d3515102c5c0d0) that summarizes
+> all the changes from master.  But I'm not sure what I'm supposed to do
+> with respect to the patch in patchwork to designate that I want the new
+> code to be merged instead of before the change.  Do I reject this patch
+> request and submit another one?  Do I send an email with the same subject
+> as this one with the new patch against master?
 
+To some extent this is up to Stephen, who is the maintainer.
+But I expect the following should be close to the mark:
 
---=-6InRY2lx3uKSdosWLdhX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+1. If you new patch has the same title as the previous patch then
+   you can post it as [PATCH v2] and it should be fairly clear that
+   it supersedes the previous version.
 
-On tis, 2015-03-24 at 18:06 -0400, David Miller wrote:
-> From: "D. S. Ljungmark" <spider@takeit.se>
-> Date: Tue, 24 Mar 2015 22:36:09 +0100
->=20
-> > +		/*	Only set hop_limit on the interface if it is higher than
-> > +		*	the current hop_limit.
-> > +		 */
->=20
-> Comments in the networking should be of the form:
->=20
-> 	/* Like
-> 	 * this.
-> 	 */
-
-Not sure if your complaint was about the misaligned *, or that there was
-a tab char after the comment start rather than a space.
-
-Adjusted both and re-sending.
-
-
-
-And there was a comment about quoting the relevant IETF standard,
-
-RFC 3756, Section 4.2.7, "Parameter Spoofing"
-
-
-   1.  The attacker includes a Current Hop Limit of one or another small
-       number which the attacker knows will cause legitimate packets to
-       be dropped before they reach their destination.
-<snip>
-
-   As an example, one possible approach to mitigate this threat is to
-   ignore very small hop limits.  The nodes could implement a
-   configurable minimum hop limit, and ignore attempts to set it below
-   said limit.
-
-
-This patch basically treats the current interface hop limit as the
-threshold to use.=20
-
-//D.S.
-
-
---=-6InRY2lx3uKSdosWLdhX
-Content-Disposition: attachment;
-	filename="0001-ipv6-Don-t-reduce-hop-limit-for-an-interface.patch"
-Content-Type: text/x-patch;
-	name="0001-ipv6-Don-t-reduce-hop-limit-for-an-interface.patch";
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-RnJvbSA4YWJiOWNhNTk1ZjgzYWU0ZjQzM2RiZTJiMDIyYzllMTZhMGNiYzM5IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiAiRC5TLiBManVuZ21hcmsiIDxzcGlkZXJAc2t1Z2dvci5zZT4K
-RGF0ZTogVHVlLCAyNCBNYXIgMjAxNSAyMjoxODo0NyArMDEwMApTdWJqZWN0OiBbUEFUQ0hdIGlw
-djY6IERvbid0IHJlZHVjZSBob3AgbGltaXQgZm9yIGFuIGludGVyZmFjZQoKQSBsb2NhbCByb3V0
-ZSBtYXkgaGF2ZSBhIGxvd2VyIGhvcF9saW1pdCBzZXQgdGhhbiBnbG9iYWwgcm91dGVzIGRvLgpT
-ZWUgUkZDIDM3NTYgU2VjdGlvbiA0LjIuNwoKU2lnbmVkLW9mZi1ieTogRC5TLiBManVuZ21hcmsg
-PGxqdW5nbWFya0Btb2Rpby5zZT4KLS0tCiBuZXQvaXB2Ni9uZGlzYy5jIHwgOSArKysrKysrKy0K
-IDEgZmlsZSBjaGFuZ2VkLCA4IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKCmRpZmYgLS1n
-aXQgYS9uZXQvaXB2Ni9uZGlzYy5jIGIvbmV0L2lwdjYvbmRpc2MuYwppbmRleCA0NzFlZDI0Li4x
-NGVjZGFmIDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9uZGlzYy5jCisrKyBiL25ldC9pcHY2L25kaXNj
-LmMKQEAgLTEyMTgsNyArMTIxOCwxNCBAQCBzdGF0aWMgdm9pZCBuZGlzY19yb3V0ZXJfZGlzY292
-ZXJ5KHN0cnVjdCBza19idWZmICpza2IpCiAJaWYgKHJ0KQogCQlydDZfc2V0X2V4cGlyZXMocnQs
-IGppZmZpZXMgKyAoSFogKiBsaWZldGltZSkpOwogCWlmIChyYV9tc2ctPmljbXBoLmljbXA2X2hv
-cF9saW1pdCkgewotCQlpbjZfZGV2LT5jbmYuaG9wX2xpbWl0ID0gcmFfbXNnLT5pY21waC5pY21w
-Nl9ob3BfbGltaXQ7CisJCS8qIE9ubHkgc2V0IGhvcF9saW1pdCBvbiB0aGUgaW50ZXJmYWNlIGlm
-IGl0IGlzIGhpZ2hlciB0aGFuCisJCSAqIHRoZSBjdXJyZW50IGhvcF9saW1pdC4KKwkJICovCisJ
-CWlmIChpbjZfZGV2LT5jbmYuaG9wX2xpbWl0IDwgcmFfbXNnLT5pY21waC5pY21wNl9ob3BfbGlt
-aXQpIHsKKwkJCWluNl9kZXYtPmNuZi5ob3BfbGltaXQgPSByYV9tc2ctPmljbXBoLmljbXA2X2hv
-cF9saW1pdDsKKwkJfSBlbHNlIHsKKwkJCU5EX1BSSU5USygyLCB3YXJuLCAiUkE6IEdvdCByb3V0
-ZSBhZHZlcnRpc2VtZW50IHdpdGggbG93ZXIgaG9wX2xpbWl0IHRoYW4gY3VycmVudFxuIik7CisJ
-CX0KIAkJaWYgKHJ0KQogCQkJZHN0X21ldHJpY19zZXQoJnJ0LT5kc3QsIFJUQVhfSE9QTElNSVQs
-CiAJCQkJICAgICAgIHJhX21zZy0+aWNtcGguaWNtcDZfaG9wX2xpbWl0KTsKLS0gCjIuMS4wCgo=
-
-
---=-6InRY2lx3uKSdosWLdhX--
-
---=-TuEHpQ0uK3ID/VFsL2gp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCAAGBQJVEfUGAAoJEPzDdnREnjz8c0MP/1zJHZSIfn2lj8uRsnJwCnEk
-Ygn9kkCML5BTA9rTJA3I1xDJr1pi17Ig/u70MPgb3+cV2/mm0B7IYDpxcxdi7+4t
-9yuazKCXMIDmHeosen/MHlLu2S5f5iYHkikMm3IgmQW+qXzmUCD6IpxCq9OG0DpX
-R5AaCe5bym8rXB4XMxb5L+WmRDlC/n/ZJQrdHGVv30PaK4lSTgcAPRYTOKWEPR+9
-HpzxaNosm6nu+nkUYIdrp6QCuEc9LfRO5zn4YDZA6SuuWG73zTgI6A9Q48AeBJjZ
-sLfx8jFqWl4IVAX9gLehbW00iqRzanXn2mzc6fZdugszTRF3/mxET/j2s86fwcVy
-cvxJ0f9Zv+NcdDCbmA2aSRK47dC3n3v4kgba4F3OtFpYobgELG68hut7o1EgSdvU
-z0o2XFnIHZOpvSaVXaINGWVUaOK7EoRGl+AZnh9XiuQlFySaXMlmvhDcr4yT52/N
-ZbmfIsXoYZakjchsRLsZLEOregQIA36esr/jcXHp/x7HeWO29+RPgkpTLqdSqPKM
-zyD8kh9E5jG6bwGjvMRAPbzOT4rXOqbf5qXdfjoFXnvQ0lcsTwkwcOPT7O2cF8tJ
-Y51RmaOQhdXgWYEO8/5LruEC6yO+qzM+WZycFI9rVE//0XJ3COFw07oxm1KbxFmq
-yGr6uTSsftLrOA46qXM0
-=XsuO
------END PGP SIGNATURE-----
-
---=-TuEHpQ0uK3ID/VFsL2gp--
+2. If you new patch has a different title then there could be a note
+  in response to it noting that it has been superseded. In effect your
+  previous email is such a note.
