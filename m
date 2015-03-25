@@ -1,139 +1,234 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [net-next 05/16] ixgbevf: enable multiple queue support
-Date: Wed, 25 Mar 2015 21:49:39 +0200
-Message-ID: <55131153.2090401@cloudius-systems.com>
-References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com> <1423128950-12388-6-git-send-email-jeffrey.t.kirsher@intel.com> <55127581.2080205@cloudius-systems.com> <5512FEDC.7080902@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v11 tip 9/9] samples: bpf: kmem_alloc/free tracker
+Date: Wed, 25 Mar 2015 12:49:26 -0700
+Message-ID: <1427312966-8434-10-git-send-email-ast@plumgrid.com>
+References: <1427312966-8434-1-git-send-email-ast@plumgrid.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:38211 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752322AbbCYTtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:49:42 -0400
-Received: by wibgn9 with SMTP id gn9so54862395wib.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:49:41 -0700 (PDT)
-In-Reply-To: <5512FEDC.7080902@redhat.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35519 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753680AbbCYTtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:49:41 -0400
+Received: by pagj7 with SMTP id j7so39099762pag.2
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:49:40 -0700 (PDT)
+In-Reply-To: <1427312966-8434-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+One bpf program attaches to kmem_cache_alloc_node() and remembers all allocated
+objects in the map.
+Another program attaches to kmem_cache_free() and deletes corresponding
+object from the map.
 
+User space walks the map every second and prints any objects which are
+older than 1 second.
 
-On 03/25/15 20:30, Alexander Duyck wrote:
-> On 03/25/2015 01:44 AM, Vlad Zolotarov wrote:
->>
->>
->> On 02/05/15 11:35, Jeff Kirsher wrote:
->>> From: Emil Tantilov <emil.s.tantilov@intel.com>
->>>
->>> This patch enables multiple queues and RSS support for the VF.
->>> Maximum of 2 queues are supported due to available vectors.
->>>
->>> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
->>> Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> ---
->>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
->>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 22 
->>> +++++++++++++++++++---
->>>   2 files changed, 20 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h 
->>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->>> index 8c44ab2..65cda34 100644
->>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->>> @@ -124,6 +124,7 @@ struct ixgbevf_ring {
->>>     #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
->>>   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
->>> +#define IXGBEVF_MAX_RSS_QUEUES 2
->>
->> According to the MRQE register description in 82599 and x540 specs 2 
->> (the value of IXGBEVF_MAX_RSS_QUEUES) is the minimal allowed number 
->> of queues in a single pool thus it's a minimal number of VF queues - 
->> not the maximal (see more comments on this below).
->
-> This is the maximum since the VF only supports 3 interrupts, one for 
-> mailbox and 2 for queues, and RSS requires an interrupt per queue 
-> pair.  The other possibility is that DCB has been enabled in which 
-> case there RSS is reduced to one queue pair per pool with one RSS pool 
-> for each traffic class.
->
->>
->>>     #define IXGBEVF_DEFAULT_TXD   1024
->>>   #define IXGBEVF_DEFAULT_RXD   512
->>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c 
->>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>> index c9b49bf..815808f 100644
->>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>> @@ -1794,7 +1794,8 @@ static int ixgbevf_configure_dcb(struct 
->>> ixgbevf_adapter *adapter)
->>>       struct ixgbe_hw *hw = &adapter->hw;
->>>       unsigned int def_q = 0;
->>>       unsigned int num_tcs = 0;
->>> -    unsigned int num_rx_queues = 1;
->>> +    unsigned int num_rx_queues = adapter->num_rx_queues;
->>> +    unsigned int num_tx_queues = adapter->num_tx_queues;
->>>       int err;
->>>         spin_lock_bh(&adapter->mbx_lock);
->>> @@ -1808,6 +1809,9 @@ static int ixgbevf_configure_dcb(struct 
->>> ixgbevf_adapter *adapter)
->>>           return err;
->>>         if (num_tcs > 1) {
->>> +        /* we need only one Tx queue */
->>> +        num_tx_queues = 1;
->>> +
->>>           /* update default Tx ring register index */
->>>           adapter->tx_ring[0]->reg_idx = def_q;
->>>   @@ -1816,7 +1820,8 @@ static int ixgbevf_configure_dcb(struct 
->>> ixgbevf_adapter *adapter)
->>>       }
->>>         /* if we have a bad config abort request queue reset */
->>> -    if (adapter->num_rx_queues != num_rx_queues) {
->>> +    if ((adapter->num_rx_queues != num_rx_queues) ||
->>> +        (adapter->num_tx_queues != num_tx_queues)) {
->>>           /* force mailbox timeout to prevent further messages */
->>>           hw->mbx.timeout = 0;
->>>   @@ -2181,8 +2186,19 @@ static void ixgbevf_set_num_queues(struct 
->>> ixgbevf_adapter *adapter)
->>>           return;
->>>         /* we need as many queues as traffic classes */
->>> -    if (num_tcs > 1)
->>> +    if (num_tcs > 1) {
->>>           adapter->num_rx_queues = num_tcs;
->>> +    } else {
->>> +        u16 rss = min_t(u16, num_online_cpus(), 
->>> IXGBEVF_MAX_RSS_QUEUES);
->>
->> Emil,
->> Here u ignore the IXGBE_VF_RX_QUEUES value returned the PF (stored in 
->> the hw->mac.max_rx_queues). This will accidentally work if PF is 
->> driven by a current ixgbe Linux driver but what would happen if HV is 
->> not a Linux box? What if HV decides to configure the PSRTYPE[x].RQPL 
->> to 0 and decide that VF should be configured with a single queue? I 
->> maybe miss something here but the above line seems bogus. Please, 
->> comment.
->
-> It isn't ignored.  The fact that num_tcs is being tested for checks 
-> for the one case where the number of RSS queues available would be 1, 
-> otherwise the hardware will provide at least 2 queues. 
+Usage:
+$ sudo tracex4
 
-> If the RETA is not configured for 2 queues one of them will not be 
-> active, but that should not be any sort of actual issue and would be 
-> more of an administrative choice anyway as it would also limit the PF.
+Then start few long living processes. The tracex4 will print:
 
-This would be an administrative choice ignored by the ixgbevf driver.
-Frankly, I don't understand why are we arguing about this for so long? 
-It's obvious that the safest and the most correct way to write it would 
-be to limit the num_rx_queues by the value returned by PF. It would also 
-remove any further questions and it's a one line patch.
-However, if u still insist to keep it the way it is then let's drop this 
-discussion and move on.
+obj 0xffff880465928000 is 13sec old was allocated at ip ffffffff8105dc32
+obj 0xffff88043181c280 is 13sec old was allocated at ip ffffffff8105dc32
+obj 0xffff880465848000 is  8sec old was allocated at ip ffffffff8105dc32
+obj 0xffff8804338bc280 is 15sec old was allocated at ip ffffffff8105dc32
 
->
-> - Alex
+$ addr2line -fispe vmlinux ffffffff8105dc32
+do_fork at fork.c:1665
+
+As soon as processes exit the memory is reclaimed and tracex4 prints nothing.
+
+Similar experiment can be done with __kmalloc/kfree pair.
+
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ samples/bpf/Makefile       |    4 +++
+ samples/bpf/tracex4_kern.c |   54 ++++++++++++++++++++++++++++++++++
+ samples/bpf/tracex4_user.c |   69 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 127 insertions(+)
+ create mode 100644 samples/bpf/tracex4_kern.c
+ create mode 100644 samples/bpf/tracex4_user.c
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index dcd850546d52..fe98fb226e6e 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -9,6 +9,7 @@ hostprogs-y += sockex2
+ hostprogs-y += tracex1
+ hostprogs-y += tracex2
+ hostprogs-y += tracex3
++hostprogs-y += tracex4
+ 
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -18,6 +19,7 @@ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
+ tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
+ tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
+ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
++tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -26,6 +28,7 @@ always += sockex2_kern.o
+ always += tracex1_kern.o
+ always += tracex2_kern.o
+ always += tracex3_kern.o
++always += tracex4_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+@@ -35,6 +38,7 @@ HOSTLOADLIBES_sockex2 += -lelf
+ HOSTLOADLIBES_tracex1 += -lelf
+ HOSTLOADLIBES_tracex2 += -lelf
+ HOSTLOADLIBES_tracex3 += -lelf
++HOSTLOADLIBES_tracex4 += -lelf -lrt
+ 
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/tracex4_kern.c b/samples/bpf/tracex4_kern.c
+new file mode 100644
+index 000000000000..126b80512228
+--- /dev/null
++++ b/samples/bpf/tracex4_kern.c
+@@ -0,0 +1,54 @@
++/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/ptrace.h>
++#include <linux/version.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++
++struct pair {
++	u64 val;
++	u64 ip;
++};
++
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(long),
++	.value_size = sizeof(struct pair),
++	.max_entries = 1000000,
++};
++
++/* kprobe is NOT a stable ABI. If kernel internals change this bpf+kprobe
++ * example will no longer be meaningful
++ */
++SEC("kprobe/kmem_cache_free")
++int bpf_prog1(struct pt_regs *ctx)
++{
++	long ptr = ctx->si;
++
++	bpf_map_delete_elem(&my_map, &ptr);
++	return 0;
++}
++
++SEC("kretprobe/kmem_cache_alloc_node")
++int bpf_prog2(struct pt_regs *ctx)
++{
++	long ptr = ctx->ax;
++	long ip = 0;
++
++	/* get ip address of kmem_cache_alloc_node() caller */
++	bpf_probe_read(&ip, sizeof(ip), (void *)(ctx->bp + sizeof(ip)));
++
++	struct pair v = {
++		.val = bpf_ktime_get_ns(),
++		.ip = ip,
++	};
++
++	bpf_map_update_elem(&my_map, &ptr, &v, BPF_ANY);
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/tracex4_user.c b/samples/bpf/tracex4_user.c
+new file mode 100644
+index 000000000000..bc4a3bdea6ed
+--- /dev/null
++++ b/samples/bpf/tracex4_user.c
+@@ -0,0 +1,69 @@
++/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <unistd.h>
++#include <stdbool.h>
++#include <string.h>
++#include <time.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++struct pair {
++	long long val;
++	__u64 ip;
++};
++
++static __u64 time_get_ns(void)
++{
++	struct timespec ts;
++
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
++}
++
++static void print_old_objects(int fd)
++{
++	long long val = time_get_ns();
++	__u64 key, next_key;
++	struct pair v;
++
++	key = write(1, "\e[1;1H\e[2J", 12); /* clear screen */
++
++	key = -1;
++	while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
++		bpf_lookup_elem(map_fd[0], &next_key, &v);
++		key = next_key;
++		if (val - v.val < 1000000000ll)
++			/* object was allocated more then 1 sec ago */
++			continue;
++		printf("obj 0x%llx is %2lldsec old was allocated at ip %llx\n",
++		       next_key, (val - v.val) / 1000000000ll, v.ip);
++	}
++}
++
++int main(int ac, char **argv)
++{
++	char filename[256];
++	int i;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	for (i = 0; ; i++) {
++		print_old_objects(map_fd[1]);
++		sleep(1);
++	}
++
++	return 0;
++}
+-- 
+1.7.9.5
