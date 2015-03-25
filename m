@@ -1,97 +1,60 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
- for Linux (LibOS)
-Date: Wed, 25 Mar 2015 23:50:23 +0100
-Message-ID: <55133BAF.30301@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at> <m2bnjhcevt.wl@sfc.wide.ad.jp>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next 0/7] net: bcmgenet: multiple Rx queues support
+Date: Wed, 25 Mar 2015 15:53:44 -0700
+Message-ID: <CAGXr9JH-iEE-d=pZvR1KOsK+URCxyXL-GW4JtaF49DEGZO56eg@mail.gmail.com>
+References: <20150325193509.09C362201FB@puck.mtv.corp.google.com>
+	<55133786.40500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
-	cl@linux.com, penberg@kernel.org, rientjes@google.com,
-	iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
-	rusty@rustcorp.com.au, mathieu.lacage@gmail.com
-To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <m2bnjhcevt.wl@sfc.wide.ad.jp>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:34546 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752425AbbCYWxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 18:53:45 -0400
+Received: by qgep97 with SMTP id p97so69242196qge.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 15:53:45 -0700 (PDT)
+In-Reply-To: <55133786.40500@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Hi Florian,
 
-Am 25.03.2015 um 15:48 schrieb Hajime Tazaki:
-> 
-> At Tue, 24 Mar 2015 16:27:51 +0100,
-> Richard Weinberger wrote:
+On Wed, Mar 25, 2015 at 3:32 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 25/03/15 12:35, Petri Gynther wrote:
+>> Final patch set to add support for multiple Rx queues:
+>> 1. remove priv->int0_mask and priv->int1_mask
+>> 2. modify Tx ring int_enable and int_disable vectors
+>> 3. simplify bcmgenet_init_dma()
+>> 4. tweak init_umac()
+>> 5. rework Tx NAPI code
+>> 6. rework Rx NAPI code
+>> 7. add support for multiple Rx queues
 >>
->> I'd say you should try hard to re-use/integrate your work in arch/um.
->> With um we already have an architecture which targets userspace,
->> having two needs a very good justification.
-> 
-> in addition to the case of my previous email, libos is not
-> limited to run on user-mode: it is just a library which can
-> be used with various programs. thus it has a potential (not
-> implemented yet) to run on a hypervisor like OSv or MirageOS
-> does for application containment, or run on a bare-metal
-> machine as rumpkernel does. We already have a clear
-> interface for the underlying layer to be able to add such
-> backend.
-> 
-> again, it's not only for user-mode.
-> 
-> mixing all the stuff in a single architecture may not only
-> mislead to users, but also introduce conceptual-disagreements
-> during code sharing of essential parts. 
-> 
-> I don't see any benefits to have a name 'um' with this idea.
-> 
-> # I'm not saying sharing a part of code is bad idea at all, btw.
+>
+> Looks very good, thanks for getting these change out! Now I suppose what
+> we would need is some sort of ethtool rx-nfc API to allow flow
+> configuration towards particular RX queues?
+> --
+> Florian
 
-After digging into the source I know what you mean and I have the
-feeling that "lib" is the wrong name.
-It has not much do to with an architecture.
-Apart from that, I really like your idea!
+Thanks for the quick review. Yes, as the next step, we would need
+ethtool rx-nfc API to allow Rx flow configuration to various Rx
+queues. Also, Rx priority queues are still off by default:
 
-You don't implement an architecture, you take some part of Linux
-(the networking stack) and create stubs around it to make it work.
-That means that we'd also have to duplicate kernel functions into
-arch/lib to keep it running.
+[GENET_V3] = {
+        .tx_queues = 4,
+        .tx_bds_per_q = 32,
+        .rx_queues = 0,
+        .rx_bds_per_q = 0,
 
-BTW: It does not build here:
----cut---
-  LIB           liblinux-4.0.0-rc5.so
-Cloning into 'arch/lib/tools'...
-remote: Counting objects: 93, done.
-remote: Compressing objects: 100% (19/19), done.
-remote: Total 93 (delta 9), reused 0 (delta 0), pack-reused 74
-Receiving objects: 100% (93/93), 59.77 KiB | 0 bytes/s, done.
-Resolving deltas: 100% (43/43), done.
-Checking connectivity... done
-  CC       nuse-fiber.o
-  CC       nuse-vif.o
-  CC       nuse-hostcalls.o
-  CC       nuse-config.o
-  CC       nuse-vif-rawsock.o
-  CC       nuse-vif-tap.o
-  CC       nuse-glue.o
-  CC       nuse-vif-pipe.o
-  CC       nuse.o
-make[2]: *** No rule to make target `rump/lib/librumpuser/rumpuser_sp.c', needed by `rump/lib/librumpuser/rumpuser_sp.o'.  Stop.
-make[2]: *** Waiting for unfinished jobs....
-  CC       sim.o
-  GEN      git-sparse
-make[2]: *** No rule to make target `rump/lib/librumpclient/rumpclient.c', needed by `rump/lib/librumpclient/rumpclient.o'.  Stop.
-make[1]: *** [librumpclient.so] Error 2
-make[1]: *** Waiting for unfinished jobs....
-nuse.c: In function 'nuse_dev_rx':
-nuse.c:279:5: warning: unused variable 'hdr' [-Wunused-variable]
-  } *hdr = (struct ethhdr *)buf;
-     ^
-make[1]: *** [librumpserver.so] Error 2
-make: *** [arch/lib/tools] Error 2
----cut---
+[GENET_V4] = {
+        .tx_queues = 4,
+        .tx_bds_per_q = 32,
+        .rx_queues = 0,
+        .rx_bds_per_q = 0,
 
-Thanks,
-//richard
+-- Petri
