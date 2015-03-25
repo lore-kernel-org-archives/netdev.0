@@ -1,44 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: fix ipv4 mapped request socks
-Date: Wed, 25 Mar 2015 09:48:41 -0700
-Message-ID: <1427302121.25985.117.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1427258756.25985.104.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150325.005738.199321600853824869.davem@davemloft.net>
-	 <1427260862.25985.105.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150325054837.GA790@localhost.westell.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH] ethtool: return non-zero from do_sset() when any of ETHTOOL_{G,S}*
+ fails
+Date: Wed, 25 Mar 2015 17:58:27 +0100
+Message-ID: <5512E933.60301@redhat.com>
+References: <1423236283-32446-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>, bhutchings@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:36250 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752842AbbCYQsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 12:48:45 -0400
-Received: by igbud6 with SMTP id ud6so106746698igb.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 09:48:44 -0700 (PDT)
-In-Reply-To: <20150325054837.GA790@localhost.westell.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35998 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752914AbbCYQ6n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2015 12:58:43 -0400
+In-Reply-To: <1423236283-32446-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-03-24 at 22:48 -0700, Alexei Starovoitov wrote:
+On 02/06/2015 04:24 PM, Ivan Vecera wrote:
+> Function do_sset returns unconditionally zero error code without regard
+> to return value of ETHTOOL_{G,S}* ioctls.
+>
+> Cc: Ben Hutchings <ben@decadent.org.uk>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> ---
+>   ethtool.c | 7 +++++--
+>   1 file changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/ethtool.c b/ethtool.c
+> index bf583f3..c004d41 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -2357,7 +2357,7 @@ static int do_sset(struct cmd_context *ctx)
+>   	int argc = ctx->argc;
+>   	char **argp = ctx->argp;
+>   	int i;
+> -	int err;
+> +	int err, result = 0;
+>
+>   	for (i = 0; i < ARRAY_SIZE(flags_msglvl); i++)
+>   		flag_to_cmdline_info(flags_msglvl[i].name,
+> @@ -2617,6 +2617,7 @@ static int do_sset(struct cmd_context *ctx)
+>   				fprintf(stderr, "  not setting transceiver\n");
+>   			if (mdix_wanted != -1)
+>   				fprintf(stderr, "  not setting mdix\n");
+> +			result = err;
+>   		}
+>   	}
+>
+> @@ -2650,6 +2651,7 @@ static int do_sset(struct cmd_context *ctx)
+>   				fprintf(stderr, "  not setting wol\n");
+>   			if (sopass_change)
+>   				fprintf(stderr, "  not setting sopass\n");
+> +			result = err;
+>   		}
+>   	}
+>
+> @@ -2668,9 +2670,10 @@ static int do_sset(struct cmd_context *ctx)
+>   			if (err < 0)
+>   				perror("Cannot set new msglvl");
+>   		}
+> +		result = err;
+>   	}
+>
+> -	return 0;
+> +	return result;
+>   }
+>
+>   static int do_gregs(struct cmd_context *ctx)
+>
+Ben, any comment on this?
 
-> btw, the following time saving steps were useful to me:
-> 
-> 1. add to your ~/.gitconfig
-> [core]
->         abbrev = 12
-> [pretty]
->         fixes = Fixes: %h (\"%s\")
-> 
-> 2. when bad commit is found do:
-> $ git log -1 --pretty=fixes 3f66b083a5b7f1a63540c24df3679c24f
-> 
-> which will print:
-> 
-> Fixes: 3f66b083a5b7 ("inet: introduce ireq_family")
-> 
-> 3. copy-paste that line into your patch
-
-Nice trick ! You should capture it somehow in Documentation/... !
+Ivan
