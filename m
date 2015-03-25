@@ -1,104 +1,180 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: bpf+tracing next steps. Was: [PATCH v9 tip 3/9] tracing: attach
- BPF programs to kprobes
-Date: Wed, 25 Mar 2015 21:07:07 +0900
-Message-ID: <5512A4EB.90604@hitachi.com>
-References: <1426894210-27441-1-git-send-email-ast@plumgrid.com> <1426894210-27441-4-git-send-email-ast@plumgrid.com> <550D60C2.8010502@hitachi.com> <550D962E.7010400@plumgrid.com> <550E9421.7030507@hitachi.com> <550F0402.80900@plumgrid.com> <550F77B3.1020802@hitachi.com> <550F9D20.7070006@plumgrid.com> <550FDC8A.5010100@hitachi.com> <5512040B.3020605@plumgrid.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH v2] net: sysctl for RA default route MTU
+Date: Wed, 25 Mar 2015 15:34:38 +0300
+Message-ID: <CAOJe8K1QCE37jDTpMbkUC3WOBu1WOhQfta0jWOQ3URPUjnjzUw@mail.gmail.com>
+References: <20150324.152705.921124268458994532.davem@davemloft.net>
+	<1427281679-13007-1-git-send-email-klamm@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5512040B.3020605-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Roman Gushchin <klamm@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f48.google.com ([209.85.213.48]:34126 "EHLO
+	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751326AbbCYMej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 08:34:39 -0400
+Received: by yhch68 with SMTP id h68so10616161yhc.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 05:34:39 -0700 (PDT)
+In-Reply-To: <1427281679-13007-1-git-send-email-klamm@yandex-team.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2015/03/25 9:40), Alexei Starovoitov wrote:
-> On 3/23/15 2:27 AM, Masami Hiramatsu wrote:
->> (2015/03/23 13:57), Alexei Starovoitov wrote:
->>> On 3/22/15 7:17 PM, Masami Hiramatsu wrote:
->>>> (2015/03/23 3:03), Alexei Starovoitov wrote:
->>>>
->>>>> User space tools that will compile ktap/dtrace scripts into bpf might
->>>>> use build-id for their own purpose, but that's a different discussion.
->>>>
->>>> Agreed.
->>>> I'd like to discuss it since kprobe event interface may also have same
->>>> issue.
->>>
->>> I'm not sure what 'issue' you're seeing. My understanding is that
->>> build-ids are used by perf to associate binaries with their debug info
->>> and by systemtap to make sure that probes actually match the kernel
->>> they were compiled for. In bpf case it probably will be perf way only.
->>
->> Ah, I see. So perftools can check the build-id if needed, right?
-> 
-> yes. of course.
-> 
->>> Are you interested in doing something with bpf ? ;)
->>
->> Of course :)
-> 
-> Great :)
-> 
->>> I know that Jovi is working on clang-based front-end, He Kuang is doing
->>> something fancy and I'm going to focus on 'tcp instrumentation' once
->>> bpf+kprobes is in. I think these efforts will help us make it
->>> concrete and will establish a path towards bpf+tracepoints
->>> (debug tracepoints or trace markers) and eventual integration with perf.
->>> Here is the wish-list (for kernel and userspace) inspired by Brendan:
->>> - access to pid, uid, tid, comm, etc
->>> - access to kernel stack trace
->>> - access to user-level stack trace
->>> - kernel debuginfo for walking kernel structs, and accessing kprobe
->>> entry args as variables
->>
->> perf probe can provide this to bpf.
-> 
-> I was thinking about deeper integration with perf actually.
-> perf has all the right infra to find debug info in kernel and user
-> binaries, to extract and understand all the dwarf stuff.
-> The future tracing language can use more of it.
-> The programs should be able refer to names of in-kernel variables
-> and arguments natively.
-> When I'm writing a program that attaches to blk_update_request()
-> I would like to write:
-> bpf_printk("req %p bytes %d\n", req->q, nr_bytes);
-> and perf with debug info should be able to figure out that 'req'
-> is the first function argument, then find out offset of '->q'
-> within the struct and that 'nr_bytes' is the 3rd argument in
-> appropriate register. Then generate llvm ir on the fly,
-> compile it, load into kernel and attach to kprobe event at
-> this blk_update_request() function. All seamlessly.
+On 3/25/15, Roman Gushchin <klamm@yandex-team.ru> wrote:
+> This patch introduces new ipv6 sysctl: ra_default_route_mtu.
+> If it's set (> 0), it defines per-route MTU for any new default route
+> received by RA.
+>
+> This sysctl will help in the following configuration: we want to use
+> jumbo-frames for internal networks and default ethernet frames for
+> default route. Per-route MTU can only lower per-link MTU, so link MTU
+> should be set to ~9000 (statically or via RA).
+>
+> Due to dynamic nature of RA, setting MTU for default route will require
+> userspace agent, that will monitor changes of default route
+> and (re)configure it. Not simple. The suggested sysctl solves this
+> problem.
+>
+> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
 
-Yes, that is what perf probe providing now. I think it is easy
-to do that with probe-finder.c. :)
+It's net-next material
 
->>> - tracing of uprobes
->>> - tracing of user markers
->>
->> I'm working on the perf-cache which will also support SDT (based on Hemant Kumar's work).
-> 
-> yep. waiting for SDT stuff to finalize. Would be nice to
-> have 'follow' button for interesting patches :)
-
-:)
-
-Thank you!
-
-
--- 
-Masami HIRAMATSU
-Software Platform Research Dept. Linux Technology Research Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
+> ---
+>
+> Changes from v1: add forgotten brace.
+> ---
+>  Documentation/networking/ip-sysctl.txt |  5 +++++
+>  include/linux/ipv6.h                   |  1 +
+>  include/uapi/linux/ipv6.h              |  1 +
+>  net/ipv6/addrconf.c                    | 10 ++++++++++
+>  net/ipv6/ndisc.c                       |  3 ++-
+>  net/ipv6/route.c                       |  8 ++++++++
+>  6 files changed, 27 insertions(+), 1 deletion(-)
+>
+> diff --git a/Documentation/networking/ip-sysctl.txt
+> b/Documentation/networking/ip-sysctl.txt
+> index 1b8c964..c013dda 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1316,6 +1316,11 @@ accept_ra_mtu - BOOLEAN
+>  	Functional default: enabled if accept_ra is enabled.
+>  			    disabled if accept_ra is disabled.
+>
+> +ra_default_route_mtu - INTEGER
+> +	Define MTU for any new default route received by RA.
+> +
+> +	Functional default: disabled (0).
+> +
+>  accept_redirects - BOOLEAN
+>  	Accept Redirects.
+>
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 4d5169f..b310c9f 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -40,6 +40,7 @@ struct ipv6_devconf {
+>  	__s32		proxy_ndp;
+>  	__s32		accept_source_route;
+>  	__s32		accept_ra_from_local;
+> +	__s32		ra_default_route_mtu;
+>  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+>  	__s32		optimistic_dad;
+>  	__s32		use_optimistic;
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index 437a6a4..4539c31 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -170,6 +170,7 @@ enum {
+>  	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+>  	DEVCONF_USE_OPTIMISTIC,
+>  	DEVCONF_ACCEPT_RA_MTU,
+> +	DEVCONF_RA_DEFAULT_ROUTE_MTU,
+>  	DEVCONF_MAX
+>  };
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index b603002..322dd733 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -189,6 +189,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly =
+> {
+>  	.accept_ra_defrtr	= 1,
+>  	.accept_ra_from_local	= 0,
+>  	.accept_ra_pinfo	= 1,
+> +	.ra_default_route_mtu	= 0,
+>  #ifdef CONFIG_IPV6_ROUTER_PREF
+>  	.accept_ra_rtr_pref	= 1,
+>  	.rtr_probe_interval	= 60 * HZ,
+> @@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt
+> __read_mostly = {
+>  	.accept_dad		= 1,
+>  	.suppress_frag_ndisc	= 1,
+>  	.accept_ra_mtu		= 1,
+> +	.ra_default_route_mtu	= 0,
+>  };
+>
+>  /* Check if a valid qdisc is available */
+> @@ -4398,6 +4400,7 @@ static inline void ipv6_store_devconf(struct
+> ipv6_devconf *cnf,
+>  	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
+>  	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+>  	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
+> +	array[DEVCONF_RA_DEFAULT_ROUTE_MTU] = cnf->ra_default_route_mtu;
+>  }
+>
+>  static inline size_t inet6_ifla6_size(void)
+> @@ -5315,6 +5318,13 @@ static struct addrconf_sysctl_table
+>  			.proc_handler	= proc_dointvec,
+>  		},
+>  		{
+> +			.procname	= "ra_default_route_mtu",
+> +			.data		= &ipv6_devconf.ra_default_route_mtu,
+> +			.maxlen		= sizeof(int),
+> +			.mode		= 0644,
+> +			.proc_handler	= proc_dointvec,
+> +		},
+> +		{
+>  			/* sentinel */
+>  		}
+>  	},
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 471ed24..c70ab44 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -1362,7 +1362,8 @@ skip_routeinfo:
+>  		} else if (in6_dev->cnf.mtu6 != mtu) {
+>  			in6_dev->cnf.mtu6 = mtu;
+>
+> -			if (rt)
+> +			if (rt && (!in6_dev->cnf.ra_default_route_mtu ||
+> +				   mtu < in6_dev->cnf.ra_default_route_mtu))
+>  				dst_metric_set(&rt->dst, RTAX_MTU, mtu);
+>
+>  			rt6_mtu_change(skb->dev, mtu);
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 4688bd4..6394adf 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1714,6 +1714,14 @@ int ip6_route_add(struct fib6_config *cfg)
+>
+>  	rt->rt6i_flags = cfg->fc_flags;
+>
+> +	if ((cfg->fc_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) ==
+> +	    (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) {
+> +		u32 mtu = idev->cnf.ra_default_route_mtu;
+> +
+> +		if (mtu && mtu >= IPV6_MIN_MTU && mtu <= idev->cnf.mtu6)
+> +			dst_metric_set(&rt->dst, RTAX_MTU, mtu);
+> +	}
+> +
+>  install_route:
+>  	rt->dst.dev = dev;
+>  	rt->rt6i_idev = idev;
+> --
+> 2.1.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
