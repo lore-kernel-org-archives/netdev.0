@@ -1,260 +1,69 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v3 1/2] ipv4: hash net ptr into fragmentation bucket selection
-Date: Wed, 25 Mar 2015 17:07:44 +0100
-Message-ID: <119e03d3cffe2f7233f5132f6dce92b20bc55b07.1427299303.git.hannes@stressinduktion.org>
-Cc: Eric Dumazet <edumazet@google.com>, Flavio Leitner <fbl@redhat.com>
-To: netdev@vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] lib utils: fix family during af_bit_len
+ calculation
+Date: Wed, 25 Mar 2015 18:13:49 +0200
+Message-ID: <20150325161349.GA21340@angus-think.wlc.globallogic.com>
+References: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
+ <20150324150500.6159e407@urahara>
+ <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+	vadim4j@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:58089 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753148AbbCYQHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 12:07:51 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9DFD420DDB
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:07:48 -0400 (EDT)
+Received: from mail-la0-f51.google.com ([209.85.215.51]:34305 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032AbbCYQZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 12:25:44 -0400
+Received: by lagg8 with SMTP id g8so24272334lag.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 09:25:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As namespaces are sometimes used with overlapping ip address ranges,
-we should also use the namespace as input to the hash to select the ip
-fragmentation counter bucket.
+> okay... but... still not good.
+> 
+> Could someone add some basic regression tests on ss command ?
+> 
+> Vadim, can you take a look at this problem for example ?
+> 
+> root@edumazet-glaptop2:/usr/src/iproute2# ss --version ; ss -t dst 1.2.3.4
+> ss utility, iproute2-ss131122
+> State      Recv-Q Send-Q                                                             Local Address:Port                                                                 Peer Address:Port   
+> 
+> (This was the expected result, and an old ss command is working)
+> 
+> But with current git tree we now have :
+> 
+> root@edumazet-glaptop2:/usr/src/iproute2# misc/ss --version ; misc/ss -t dst 1.2.3.4 | head -4
+> ss utility, iproute2-ss150210
+> State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
+> ESTAB      0      0      172.29.161.170:37914                74.125.201.138:https                
+> ESTAB      0      0      172.29.161.170:60388                74.125.69.189:https                
+> ESTAB      0      0      172.29.161.170:42870                74.125.69.188:5228                 
+> 
 
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Flavio Leitner <fbl@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-v3:
-* use xor instead of shift-or to mix in the netns pointer (thanks, Eric)
+I reproduced this once, but after not any more, I even tried to setup
+tcp servers with same address but with no luck, would you please dump
+stats into file by -D option and send it, in case if you will catch the
+issue ?
 
- drivers/net/ppp/pptp.c          |  2 +-
- include/net/ip.h                | 12 +++++++-----
- net/ipv4/igmp.c                 |  4 ++--
- net/ipv4/ip_output.c            |  7 ++++---
- net/ipv4/ip_tunnel_core.c       |  2 +-
- net/ipv4/ipmr.c                 |  7 ++++---
- net/ipv4/raw.c                  |  2 +-
- net/ipv4/route.c                |  4 ++--
- net/ipv4/xfrm4_mode_tunnel.c    |  2 +-
- net/netfilter/ipvs/ip_vs_xmit.c |  5 +++--
- 10 files changed, 26 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index 1dc628f..e3bfbd4d 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -281,7 +281,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 	nf_reset(skb);
- 
- 	skb->ip_summed = CHECKSUM_NONE;
--	ip_select_ident(skb, NULL);
-+	ip_select_ident(sock_net(sk), skb, NULL);
- 	ip_send_check(iph);
- 
- 	ip_local_out(skb);
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 025c61c..d0808a3 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -318,9 +318,10 @@ static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
- }
- 
- u32 ip_idents_reserve(u32 hash, int segs);
--void __ip_select_ident(struct iphdr *iph, int segs);
-+void __ip_select_ident(struct net *net, struct iphdr *iph, int segs);
- 
--static inline void ip_select_ident_segs(struct sk_buff *skb, struct sock *sk, int segs)
-+static inline void ip_select_ident_segs(struct net *net, struct sk_buff *skb,
-+					struct sock *sk, int segs)
- {
- 	struct iphdr *iph = ip_hdr(skb);
- 
-@@ -337,13 +338,14 @@ static inline void ip_select_ident_segs(struct sk_buff *skb, struct sock *sk, in
- 			iph->id = 0;
- 		}
- 	} else {
--		__ip_select_ident(iph, segs);
-+		__ip_select_ident(net, iph, segs);
- 	}
- }
- 
--static inline void ip_select_ident(struct sk_buff *skb, struct sock *sk)
-+static inline void ip_select_ident(struct net *net, struct sk_buff *skb,
-+				   struct sock *sk)
- {
--	ip_select_ident_segs(skb, sk, 1);
-+	ip_select_ident_segs(net, skb, sk, 1);
- }
- 
- static inline __wsum inet_compute_pseudo(struct sk_buff *skb, int proto)
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index ad3f866..ad09213 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -370,7 +370,7 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, unsigned int mtu)
- 	pip->saddr    = fl4.saddr;
- 	pip->protocol = IPPROTO_IGMP;
- 	pip->tot_len  = 0;	/* filled in later */
--	ip_select_ident(skb, NULL);
-+	ip_select_ident(net, skb, NULL);
- 	((u8 *)&pip[1])[0] = IPOPT_RA;
- 	((u8 *)&pip[1])[1] = 4;
- 	((u8 *)&pip[1])[2] = 0;
-@@ -714,7 +714,7 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
- 	iph->daddr    = dst;
- 	iph->saddr    = fl4.saddr;
- 	iph->protocol = IPPROTO_IGMP;
--	ip_select_ident(skb, NULL);
-+	ip_select_ident(net, skb, NULL);
- 	((u8 *)&iph[1])[0] = IPOPT_RA;
- 	((u8 *)&iph[1])[1] = 4;
- 	((u8 *)&iph[1])[2] = 0;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 90b49e8..8259e77 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -148,7 +148,7 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
- 	iph->daddr    = (opt && opt->opt.srr ? opt->opt.faddr : daddr);
- 	iph->saddr    = saddr;
- 	iph->protocol = sk->sk_protocol;
--	ip_select_ident(skb, sk);
-+	ip_select_ident(sock_net(sk), skb, sk);
- 
- 	if (opt && opt->opt.optlen) {
- 		iph->ihl += opt->opt.optlen>>2;
-@@ -430,7 +430,8 @@ packet_routed:
- 		ip_options_build(skb, &inet_opt->opt, inet->inet_daddr, rt, 0);
- 	}
- 
--	ip_select_ident_segs(skb, sk, skb_shinfo(skb)->gso_segs ?: 1);
-+	ip_select_ident_segs(sock_net(sk), skb, sk,
-+			     skb_shinfo(skb)->gso_segs ?: 1);
- 
- 	/* TODO : should we use skb->sk here instead of sk ? */
- 	skb->priority = sk->sk_priority;
-@@ -1379,7 +1380,7 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
- 	iph->ttl = ttl;
- 	iph->protocol = sk->sk_protocol;
- 	ip_copy_addrs(iph, fl4);
--	ip_select_ident(skb, sk);
-+	ip_select_ident(net, skb, sk);
- 
- 	if (opt) {
- 		iph->ihl += opt->optlen>>2;
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 88c386c..8c4dcc4 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -74,7 +74,7 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	iph->daddr	=	dst;
- 	iph->saddr	=	src;
- 	iph->ttl	=	ttl;
--	__ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
-+	__ip_select_ident(sock_net(sk), iph, skb_shinfo(skb)->gso_segs ?: 1);
- 
- 	err = ip_local_out_sk(sk, skb);
- 	if (unlikely(net_xmit_eval(err)))
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 5b18883..c688cd1 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1642,7 +1642,8 @@ static struct notifier_block ip_mr_notifier = {
-  *	important for multicast video.
-  */
- 
--static void ip_encap(struct sk_buff *skb, __be32 saddr, __be32 daddr)
-+static void ip_encap(struct net *net, struct sk_buff *skb,
-+		     __be32 saddr, __be32 daddr)
- {
- 	struct iphdr *iph;
- 	const struct iphdr *old_iph = ip_hdr(skb);
-@@ -1661,7 +1662,7 @@ static void ip_encap(struct sk_buff *skb, __be32 saddr, __be32 daddr)
- 	iph->protocol	=	IPPROTO_IPIP;
- 	iph->ihl	=	5;
- 	iph->tot_len	=	htons(skb->len);
--	ip_select_ident(skb, NULL);
-+	ip_select_ident(net, skb, NULL);
- 	ip_send_check(iph);
- 
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-@@ -1758,7 +1759,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 	 * What do we do with netfilter? -- RR
- 	 */
- 	if (vif->flags & VIFF_TUNNEL) {
--		ip_encap(skb, vif->local, vif->remote);
-+		ip_encap(net, skb, vif->local, vif->remote);
- 		/* FIXME: extra output firewall step used to be here. --RR */
- 		vif->dev->stats.tx_packets++;
- 		vif->dev->stats.tx_bytes += skb->len;
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 923cf53..56946f4 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -404,7 +404,7 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 		iph->check   = 0;
- 		iph->tot_len = htons(length);
- 		if (!iph->id)
--			ip_select_ident(skb, NULL);
-+			ip_select_ident(net, skb, NULL);
- 
- 		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
- 	}
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 649c8a3..be8703d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -482,7 +482,7 @@ u32 ip_idents_reserve(u32 hash, int segs)
- }
- EXPORT_SYMBOL(ip_idents_reserve);
- 
--void __ip_select_ident(struct iphdr *iph, int segs)
-+void __ip_select_ident(struct net *net, struct iphdr *iph, int segs)
- {
- 	static u32 ip_idents_hashrnd __read_mostly;
- 	u32 hash, id;
-@@ -491,7 +491,7 @@ void __ip_select_ident(struct iphdr *iph, int segs)
- 
- 	hash = jhash_3words((__force u32)iph->daddr,
- 			    (__force u32)iph->saddr,
--			    iph->protocol,
-+			    iph->protocol ^ net_hash_mix(net),
- 			    ip_idents_hashrnd);
- 	id = ip_idents_reserve(hash, segs);
- 	iph->id = htons(id);
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index 91771a7..35feda6 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -63,7 +63,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	top_iph->saddr = x->props.saddr.a4;
- 	top_iph->daddr = x->id.daddr.a4;
--	ip_select_ident(skb, NULL);
-+	ip_select_ident(dev_net(dst->dev), skb, NULL);
- 
- 	return 0;
- }
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index f35c15b..bf02932 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -924,7 +924,8 @@ int
- ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		  struct ip_vs_protocol *pp, struct ip_vs_iphdr *ipvsh)
- {
--	struct netns_ipvs *ipvs = net_ipvs(skb_net(skb));
-+	struct net *net = skb_net(skb);
-+	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct rtable *rt;			/* Route to the other host */
- 	__be32 saddr;				/* Source for tunnel */
- 	struct net_device *tdev;		/* Device to other host */
-@@ -991,7 +992,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	iph->daddr		=	cp->daddr.ip;
- 	iph->saddr		=	saddr;
- 	iph->ttl		=	ttl;
--	ip_select_ident(skb, NULL);
-+	ip_select_ident(net, skb, NULL);
- 
- 	/* Another hack: avoid icmp_send in ip_fragment */
- 	skb->ignore_df = 1;
--- 
-2.1.0
+> Meaning filter does not work anymore.
+> 
+> A second problem I noticed are these, although they are not new.
+> 
+> root@edumazet-glaptop2:/usr/src/iproute2# misc/ss -ta dst ::1
+> Error: an inet prefix is expected rather than ":".
+> Cannot parse dst/src address.
+> 
+> root@edumazet-glaptop2:/usr/src/iproute2# misc/ss -ta dst ::ffff:1.2.3.4
+> Error: "1.2.3.4" does not look like a port.
+> Cannot parse dst/src address.
+> 
+> 
+> Thanks so much guys.
+> 
+> 
