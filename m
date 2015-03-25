@@ -1,88 +1,55 @@
-From: Michael Wang <yun.wang@profitbricks.com>
-Subject: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking on
- transport and link layer
-Date: Wed, 25 Mar 2015 16:09:36 +0100
-Message-ID: <5512CFB0.1050108@profitbricks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Moni Shoua <monis@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Yann Droneaud <ydroneaud@opteya.com>,
-	Colin Ian King <colin.king@canonical.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Matan Barak <matanb@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Mel Gorman <mgorman@suse.de>,
-	Alex Estrin <alex.estrin@intel.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Erez Shitrit <erezsh@mellanox.com>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.c
-To: linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Ira Weiny <ira.weiny@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] net: dsa: Handle non-bridge master change
+Date: Wed, 25 Mar 2015 08:08:37 -0700
+Message-ID: <1427296117-1805-1-git-send-email-linux@roeck-us.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>, netdev@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:43061 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932209AbbCYPIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:08:51 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YamvK-001Jel-3D
+	for netdev@vger.kernel.org; Wed, 25 Mar 2015 15:08:50 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Master change notifications may occur other than when joining or
+leaving a bridge, for example when being added to or removed from
+a bond or Open vSwitch. In that case, do nothing instead of asking
+the switch driver to remove a port from a bridge that it didn't join.
 
-My sincerely apologies for the corrupted mails, and thanks for Dan's kindly
-remind :-)
-
-There are too many lengthy code to check the transport type of IB device,
-or the link layer type of it's port, this patch set try to use some helper to
-refine and save us some code.
-
-TODO:
-    Currently we inferred from the transport type and link layer type to identify
-    the way of management, it will be better if we can directly get the indicator
-    from vendor.
-
-    Sean proposed one suggestion:
-        https://www.mail-archive.com/linux-rdma@vger.kernel.org/msg23339.html
-
-    It may need a big work to adapt current implementation to utilize
-    these flags elegantly.
-
-    Also the performance concern on query_port() need to be addressed, may be
-    some new callback like query_mgmt() could works.
-
-Michael Wang (2):
-    [PATCH 1/2] IB/Verbs: Use helpers to check transport and link layer
-    [PATCH 2/2] IB/Verbs: Use helpers to check IBoE technology
-
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/infiniband/core/agent.c           |    2 -
- drivers/infiniband/core/cm.c              |    2 -
- drivers/infiniband/core/cma.c             |   33 ++++++++++++------------------
- drivers/infiniband/core/mad.c             |    6 ++---
- drivers/infiniband/core/multicast.c       |   11 +++-------
- drivers/infiniband/core/sa_query.c        |   14 ++++++------
- drivers/infiniband/core/ucm.c             |    3 --
- drivers/infiniband/core/user_mad.c        |    2 -
- drivers/infiniband/core/verbs.c           |    5 +---
- drivers/infiniband/hw/mlx4/ah.c           |    2 -
- drivers/infiniband/hw/mlx4/cq.c           |    4 ---
- drivers/infiniband/hw/mlx4/mad.c          |   14 +++---------
- drivers/infiniband/hw/mlx4/main.c         |    8 ++-----
- drivers/infiniband/hw/mlx4/mlx4_ib.h      |    2 -
- drivers/infiniband/hw/mlx4/qp.c           |   21 ++++++-------------
- drivers/infiniband/hw/mlx4/sysfs.c        |    6 +----
- drivers/infiniband/ulp/ipoib/ipoib_main.c |    6 ++---
- include/rdma/ib_verbs.h                   |   30 +++++++++++++++++++++++++++
- net/sunrpc/xprtrdma/svc_rdma_recvfrom.c   |    3 --
- 19 files changed, 87 insertions(+), 87 deletions(-)
+Modeled after 'rocker: handle non-bridge master change',
+after confirming that the condition is seen on dsa interfaces.
+
+ net/dsa/slave.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index f0af7aa331c1..39555f3f263b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -830,12 +830,13 @@ static bool dsa_slave_dev_check(struct net_device *dev)
+ static int dsa_slave_master_changed(struct net_device *dev)
+ {
+ 	struct net_device *master = netdev_master_upper_dev_get(dev);
++	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	int err = 0;
+ 
+ 	if (master && master->rtnl_link_ops &&
+ 	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
+ 		err = dsa_slave_bridge_port_join(dev, master);
+-	else
++	else if (dsa_port_is_bridged(p))
+ 		err = dsa_slave_bridge_port_leave(dev);
+ 
+ 	return err;
+-- 
+2.1.0
