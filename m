@@ -1,50 +1,53 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: Re: [PATCH net] af_unix: don't poll dead peers
-Date: Wed, 25 Mar 2015 22:33:59 +0100
-Message-ID: <CA+rthh8jHXz75xSMHHDbNbwZQ334yWieo=Q4PazuVUW4PKm3Gg@mail.gmail.com>
-References: <1425499629-15223-1-git-send-email-minipli@googlemail.com>
-	<1425500502.5130.232.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+rthh85wArTd9w7S_GhzbzMxrMRjWBym-4cEzc3MmkkUx+bsg@mail.gmail.com>
-	<1425502952.5130.234.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+rthh_B-eZ6xjW+ZmcUuHjZy-Mw4v6NUPypWLn2W9nfjyOZ7Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Olivier Mauras <olivier@mauras.ch>,
-	PaX Team <pageexec@freemail.hu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net 1/2] fib6: install fib6 ops in the last step
+Date: Wed, 25 Mar 2015 14:45:02 -0700
+Message-ID: <1427319903-22976-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:37719 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133AbbCYVeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 17:34:01 -0400
-Received: by wixw10 with SMTP id w10so57570611wix.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 14:33:59 -0700 (PDT)
-In-Reply-To: <CA+rthh_B-eZ6xjW+ZmcUuHjZy-Mw4v6NUPypWLn2W9nfjyOZ7Q@mail.gmail.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:35947 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750809AbbCYVp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 17:45:26 -0400
+Received: by pdbcz9 with SMTP id cz9so41132017pdb.3
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 14:45:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4 March 2015 at 22:26, Mathias Krause <minipli@googlemail.com> wrote:
-> [ Removed Rainer from the Cc list, his address is bouncing. ]
->
-> On 4 March 2015 at 22:02, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Wed, 2015-03-04 at 21:39 +0100, Mathias Krause wrote:
->>> On 4 March 2015 at 21:21, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> >
->>> > Using locks in _poll() is going to be tremendously expensive for some
->>> > applications still using poll() or select() ?
->>>
->>> I've no idea but we're already taking this very lock in the
->>> unix_peer_get() call a few lines above.
->>
->> This is not the same lock.
->>
->> other != sk
->
-> True. So, do you propose to not take the lock at all?
+We should not commit the new ops until we finish
+all the setup, otherwise we have to NULL it on failure.
 
-Ping.
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv6/fib6_rules.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-Eric, do you think it's safe to not take the lock prior testing the flag?
-
-Mathias
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 27ca796..273eb26 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -299,19 +299,16 @@ static int __net_init fib6_rules_net_init(struct net *net)
+ 	ops = fib_rules_register(&fib6_rules_ops_template, net);
+ 	if (IS_ERR(ops))
+ 		return PTR_ERR(ops);
+-	net->ipv6.fib6_rules_ops = ops;
+-
+ 
+-	err = fib_default_rule_add(net->ipv6.fib6_rules_ops, 0,
+-				   RT6_TABLE_LOCAL, 0);
++	err = fib_default_rule_add(ops, 0, RT6_TABLE_LOCAL, 0);
+ 	if (err)
+ 		goto out_fib6_rules_ops;
+ 
+-	err = fib_default_rule_add(net->ipv6.fib6_rules_ops,
+-				   0x7FFE, RT6_TABLE_MAIN, 0);
++	err = fib_default_rule_add(ops, 0x7FFE, RT6_TABLE_MAIN, 0);
+ 	if (err)
+ 		goto out_fib6_rules_ops;
+ 
++	net->ipv6.fib6_rules_ops = ops;
+ out:
+ 	return err;
+ 
+-- 
+1.8.3.1
