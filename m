@@ -1,123 +1,70 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [net-next 05/16] ixgbevf: enable multiple queue support
-Date: Wed, 25 Mar 2015 10:44:49 +0200
-Message-ID: <55127581.2080205@cloudius-systems.com>
-References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com> <1423128950-12388-6-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Wed, 25 Mar 2015 09:58:51 +0100
+Message-ID: <20150325095851.1d8d1622@griffin>
+References: <2ca7312e5e3df10ce129315f89c3ab5d82d4d428.1427145009.git.jbenc@redhat.com>
+	<20150324.130037.1897087027068811494.davem@davemloft.net>
+	<20150324180628.278017fb@griffin>
+	<CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>, dcbw@redhat.com
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:34469 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752266AbbCYIow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 04:44:52 -0400
-Received: by wgs2 with SMTP id 2so18843587wgs.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 01:44:51 -0700 (PDT)
-In-Reply-To: <1423128950-12388-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38595 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752058AbbCYI6z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2015 04:58:55 -0400
+In-Reply-To: <CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 24 Mar 2015 16:16:38 -0700, Mahesh Bandewar wrote:
+> Well, we already have hlist_unhashed().The following patch should fix
+> the duplicate addition as well as deletion. Please give it a try.
 
+Good idea, it's surely better than adding a new boolean.
 
-On 02/05/15 11:35, Jeff Kirsher wrote:
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
->
-> This patch enables multiple queues and RSS support for the VF.
-> Maximum of 2 queues are supported due to available vectors.
->
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
->   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 22 +++++++++++++++++++---
->   2 files changed, 20 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-> index 8c44ab2..65cda34 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-> @@ -124,6 +124,7 @@ struct ixgbevf_ring {
->   
->   #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
->   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
-> +#define IXGBEVF_MAX_RSS_QUEUES 2
+However, I'm wondering that when there's apparently no problem with the
+addresses being on the hash list when interface is down, what's the
+point in clearing the hash list in the ndo_stop handler and
+repopulating it in ndo_open?
 
-According to the MRQE register description in 82599 and x540 specs 2 
-(the value of IXGBEVF_MAX_RSS_QUEUES) is the minimal allowed number of 
-queues in a single pool thus it's a minimal number of VF queues - not 
-the maximal (see more comments on this below).
+The following patch fixes the problem, too, and as a bonus removes code:
 
->   
->   #define IXGBEVF_DEFAULT_TXD   1024
->   #define IXGBEVF_DEFAULT_RXD   512
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index c9b49bf..815808f 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> @@ -1794,7 +1794,8 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
->   	struct ixgbe_hw *hw = &adapter->hw;
->   	unsigned int def_q = 0;
->   	unsigned int num_tcs = 0;
-> -	unsigned int num_rx_queues = 1;
-> +	unsigned int num_rx_queues = adapter->num_rx_queues;
-> +	unsigned int num_tx_queues = adapter->num_tx_queues;
->   	int err;
->   
->   	spin_lock_bh(&adapter->mbx_lock);
-> @@ -1808,6 +1809,9 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
->   		return err;
->   
->   	if (num_tcs > 1) {
-> +		/* we need only one Tx queue */
-> +		num_tx_queues = 1;
-> +
->   		/* update default Tx ring register index */
->   		adapter->tx_ring[0]->reg_idx = def_q;
->   
-> @@ -1816,7 +1820,8 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
->   	}
->   
->   	/* if we have a bad config abort request queue reset */
-> -	if (adapter->num_rx_queues != num_rx_queues) {
-> +	if ((adapter->num_rx_queues != num_rx_queues) ||
-> +	    (adapter->num_tx_queues != num_tx_queues)) {
->   		/* force mailbox timeout to prevent further messages */
->   		hw->mbx.timeout = 0;
->   
-> @@ -2181,8 +2186,19 @@ static void ixgbevf_set_num_queues(struct ixgbevf_adapter *adapter)
->   		return;
->   
->   	/* we need as many queues as traffic classes */
-> -	if (num_tcs > 1)
-> +	if (num_tcs > 1) {
->   		adapter->num_rx_queues = num_tcs;
-> +	} else {
-> +		u16 rss = min_t(u16, num_online_cpus(), IXGBEVF_MAX_RSS_QUEUES);
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 4f4099d5603d..03def841b1a9 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -149,10 +149,6 @@ static int ipvlan_open(struct net_device *dev)
+ 	else
+ 		dev->flags &= ~IFF_NOARP;
+ 
+-	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
+-		list_for_each_entry(addr, &ipvlan->addrs, anode)
+-			ipvlan_ht_addr_add(ipvlan, addr);
+-	}
+ 	return dev_uc_add(phy_dev, phy_dev->dev_addr);
+ }
+ 
+@@ -166,11 +162,6 @@ static int ipvlan_stop(struct net_device *dev)
+ 	dev_mc_unsync(phy_dev, dev);
+ 
+ 	dev_uc_del(phy_dev, phy_dev->dev_addr);
+-
+-	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
+-		list_for_each_entry(addr, &ipvlan->addrs, anode)
+-			ipvlan_ht_addr_del(addr, !dev->dismantle);
+-	}
+ 	return 0;
+ }
+ 
 
-Emil,
-Here u ignore the IXGBE_VF_RX_QUEUES value returned the PF (stored in 
-the hw->mac.max_rx_queues). This will accidentally work if PF is driven 
-by a current ixgbe Linux driver but what would happen if HV is not a 
-Linux box? What if HV decides to configure the PSRTYPE[x].RQPL to 0 and 
-decide that VF should be configured with a single queue? I maybe miss 
-something here but the above line seems bogus. Please, comment.
+What do you think? Should I submit this formally?
 
-thanks,
-vlad
+ Jiri
 
-> +
-> +		switch (hw->api_version) {
-> +		case ixgbe_mbox_api_11:
-> +			adapter->num_rx_queues = rss;
-> +			adapter->num_tx_queues = rss;
-> +		default:
-> +			break;
-> +		}
-> +	}
->   }
->   
->   /**
+-- 
+Jiri Benc
