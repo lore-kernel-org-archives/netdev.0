@@ -1,51 +1,116 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH net-next v7 3/7] ixgbe: Add a RETA query command to
- VF-PF channel API
-Date: Wed, 25 Mar 2015 19:33:14 +0000
-Message-ID: <87618083B2453E4A8714035B62D6799250275E65@FMSMSX105.amr.corp.intel.com>
-References: <1427202346-12502-1-git-send-email-vladz@cloudius-systems.com>
- <1427202346-12502-4-git-send-email-vladz@cloudius-systems.com>
- <87618083B2453E4A8714035B62D6799250275A68@FMSMSX105.amr.corp.intel.com>
- <55130AD2.4010509@cloudius-systems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>
-To: Vlad Zolotarov <vladz@cloudius-systems.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next 2/7] net: bcmgenet: modify Tx ring int_enable and int_disable vectors
+Date: Wed, 25 Mar 2015 12:35:10 -0700 (PDT)
+Message-ID: <20150325193510.E280D2201FB@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:38431 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751850AbbCYTdR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:33:17 -0400
-In-Reply-To: <55130AD2.4010509@cloudius-systems.com>
-Content-Language: en-US
+Received: from mail-qg0-f73.google.com ([209.85.192.73]:33915 "EHLO
+	mail-qg0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752190AbbCYTfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:35:12 -0400
+Received: by qgdq107 with SMTP id q107so2125120qgd.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:35:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com] 
->Sent: Wednesday, March 25, 2015 12:22 PM
->To: Tantilov, Emil S; netdev@vger.kernel.org
->Cc: Kirsher, Jeffrey T; avi@cloudius-systems.com; gleb@cloudius-systems.com
->Subject: Re: [PATCH net-next v7 3/7] ixgbe: Add a RETA query command to VF-PF channel API
->
->
->
->>On 03/25/15 20:03, Tantilov, Emil S wrote:
+Remove unnecessary function parameter priv. Use ring->priv instead.
 
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 26 +++++++++++---------------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  6 ++----
+ 2 files changed, 13 insertions(+), 19 deletions(-)
 
-	<snip>
-	
->>There is no need to query the X550 info through the mailbox - this information can be obtained directly from the VF registers.
->
->Unfortunately I couldn't find a x550 spec anywhere. Could u give me a pointer to it? 
-
-There is no official documentation for X550 out yet AFAIK, but you can see how the RSS key and redirection table are populated in ixgbevf - ixgbevf_setup_vfmrqc(). Basically the info is in the IXGBE_VFRSSRK/RETA registers.
-
-Or you can just strip the X550 related code from your patches and we'll take care of it once we agree on the implementation.
-
-Thanks,
-Emil
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 030249d..550bf98 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -964,33 +964,29 @@ static void bcmgenet_free_cb(struct enet_cb *cb)
+ 	dma_unmap_addr_set(cb, dma_addr, 0);
+ }
+ 
+-static inline void bcmgenet_tx_ring16_int_disable(struct bcmgenet_priv *priv,
+-						  struct bcmgenet_tx_ring *ring)
++static inline void bcmgenet_tx_ring16_int_disable(struct bcmgenet_tx_ring *ring)
+ {
+-	bcmgenet_intrl2_0_writel(priv,
++	bcmgenet_intrl2_0_writel(ring->priv,
+ 				 UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE,
+ 				 INTRL2_CPU_MASK_SET);
+ }
+ 
+-static inline void bcmgenet_tx_ring16_int_enable(struct bcmgenet_priv *priv,
+-						 struct bcmgenet_tx_ring *ring)
++static inline void bcmgenet_tx_ring16_int_enable(struct bcmgenet_tx_ring *ring)
+ {
+-	bcmgenet_intrl2_0_writel(priv,
++	bcmgenet_intrl2_0_writel(ring->priv,
+ 				 UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE,
+ 				 INTRL2_CPU_MASK_CLEAR);
+ }
+ 
+-static inline void bcmgenet_tx_ring_int_enable(struct bcmgenet_priv *priv,
+-					       struct bcmgenet_tx_ring *ring)
++static inline void bcmgenet_tx_ring_int_enable(struct bcmgenet_tx_ring *ring)
+ {
+-	bcmgenet_intrl2_1_writel(priv, (1 << ring->index),
++	bcmgenet_intrl2_1_writel(ring->priv, 1 << ring->index,
+ 				 INTRL2_CPU_MASK_CLEAR);
+ }
+ 
+-static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
+-						struct bcmgenet_tx_ring *ring)
++static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_tx_ring *ring)
+ {
+-	bcmgenet_intrl2_1_writel(priv, (1 << ring->index),
++	bcmgenet_intrl2_1_writel(ring->priv, 1 << ring->index,
+ 				 INTRL2_CPU_MASK_SET);
+ }
+ 
+@@ -1083,7 +1079,7 @@ static int bcmgenet_tx_poll(struct napi_struct *napi, int budget)
+ 
+ 	if (work_done == 0) {
+ 		napi_complete(napi);
+-		ring->int_enable(ring->priv, ring);
++		ring->int_enable(ring);
+ 
+ 		return 0;
+ 	}
+@@ -2172,7 +2168,7 @@ static irqreturn_t bcmgenet_isr1(int irq, void *dev_id)
+ 		ring = &priv->tx_rings[index];
+ 
+ 		if (likely(napi_schedule_prep(&ring->napi))) {
+-			ring->int_disable(priv, ring);
++			ring->int_disable(ring);
+ 			__napi_schedule(&ring->napi);
+ 		}
+ 	}
+@@ -2211,7 +2207,7 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
+ 		struct bcmgenet_tx_ring *ring = &priv->tx_rings[DESC_INDEX];
+ 
+ 		if (likely(napi_schedule_prep(&ring->napi))) {
+-			ring->int_disable(priv, ring);
++			ring->int_disable(ring);
+ 			__napi_schedule(&ring->napi);
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index a9e1612..7b11e7a 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -535,10 +535,8 @@ struct bcmgenet_tx_ring {
+ 	unsigned int	prod_index;	/* Tx ring producer index SW copy */
+ 	unsigned int	cb_ptr;		/* Tx ring initial CB ptr */
+ 	unsigned int	end_ptr;	/* Tx ring end CB ptr */
+-	void (*int_enable)(struct bcmgenet_priv *priv,
+-			   struct bcmgenet_tx_ring *);
+-	void (*int_disable)(struct bcmgenet_priv *priv,
+-			    struct bcmgenet_tx_ring *);
++	void (*int_enable)(struct bcmgenet_tx_ring *);
++	void (*int_disable)(struct bcmgenet_tx_ring *);
+ 	struct bcmgenet_priv *priv;
+ };
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
