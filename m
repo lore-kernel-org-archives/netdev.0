@@ -1,93 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Tue, 24 Mar 2015 20:46:23 -0700
-Message-ID: <CAGVrzcZ+QywZxe4P2bcnBLG9mXUDARNzNyXF1yTOV9tnAcx=PQ@mail.gmail.com>
-References: <20150323002215.GA6074@roeck-us.net> <550F6D7D.7030403@gmail.com>
- <550F8102.7040701@roeck-us.net> <550F8600.2020300@gmail.com>
- <550F8987.5070600@roeck-us.net> <5510498D.5010001@cumulusnetworks.com>
- <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
- <20150324142921.GA2026@nanopsycho.orion> <20150324160126.GA17104@roeck-us.net>
- <5511A29F.5010006@cumulusnetworks.com> <20150324175825.GA1465@roeck-us.net> <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next] virtio: change comment in transmit
+Date: Wed, 25 Mar 2015 14:29:38 +1030
+Message-ID: <87y4mlhglx.fsf@rustcorp.com.au>
+References: <20150324162207.6d4ecf48@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	roopa <roopa@cumulusnetworks.com>, Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:34561 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbbCYDrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 23:47:04 -0400
-Received: by obbgg8 with SMTP id gg8so10213650obb.1
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 20:47:03 -0700 (PDT)
-In-Reply-To: <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20150324162207.6d4ecf48@urahara>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-2015-03-24 11:14 GMT-07:00 Scott Feldman <sfeldma@gmail.com>:
-> On Tue, Mar 24, 2015 at 10:58 AM, Guenter Roeck <linux@roeck-us.net> wrote:
->> On Tue, Mar 24, 2015 at 10:45:03AM -0700, roopa wrote:
->>> On 3/24/15, 9:01 AM, Guenter Roeck wrote:
->>> >On Tue, Mar 24, 2015 at 03:29:21PM +0100, Jiri Pirko wrote:
->>> >>>diff --git a/drivers/net/ethernet/rocker/rocker.c
->>> >>>b/drivers/net/ethernet/rocker/rocker.c
->>> >>>index aab962c..0f7217f7 100644
->>> >>>--- a/drivers/net/ethernet/rocker/rocker.c
->>> >>>+++ b/drivers/net/ethernet/rocker/rocker.c
->>> >>>@@ -3931,15 +3931,28 @@ unmap_frag:
->>> >>>        return -EMSGSIZE;
->>> >>>}
->>> >>>
->>> >>>+static bool rocker_port_dev_check(struct net_device *dev);
->>> >>>+
->>> >>>static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct
->>> >>>net_device *dev)
->>> >>>{
->>> >>>        struct rocker_port *rocker_port = netdev_priv(dev);
->>> >>>        struct rocker *rocker = rocker_port->rocker;
->>> >>>        struct rocker_desc_info *desc_info;
->>> >>>        struct rocker_tlv *frags;
->>> >>>+       struct net_device *in_dev;
->>> >>>        int i;
->>> >>>        int err;
->>> >>>
->>> >>>+       if (rocker_port_is_bridged(rocker_port)) {
->>> >>>+               rcu_read_lock();
->>> >>>+               in_dev = dev_get_by_index_rcu(dev_net(dev), skb->skb_iif);
->>> >>Hmm, you iterate over all ports for every xmit call :/
->>> >>Would be nicer if skb_iif would be netdev poiter. Not sure it is doable.
->>> >>
->>> >It may be easier (and faster) to loop through all rocker ports and try to find
->>> >one with the same ifindex. Then the dev_check call would not be necessary.
->>> >
->>> This is still overhead for every packet on the switches we support. The
->>> number of ports can go close to 128
->>> (40G ports can be broken into 4x10G ports).
->>>
->> Agreed. Given that, and since dev_get_by_index_rcu uses a hash to find the
->> device pointer, it may actually be (much) faster (and the above "iterate
->> over all ports" is a bit misleading).
->>
->> I tested the above approach with DSA and a Marvell switch chip. It works,
->> but I am a bit concerned about the per-packet overhead, especially
->> in larger networks. I would prefer if there would be a means to 'catch'
->> duplicate packets earlier - before they are even created, if that is
->> possible.
+Stephen Hemminger <stephen@networkplumber.org> writes:
+> The original comment was not really informative or funny
+> as well as sexist. Replace it with a better explanation of
+> why the driver does stop and what the impacts are.
 >
-> I'm not so concerned about the per-packet overhead.  For multicast, we
-> have IGMP snooping.  And big switches are going to have rate controls
-> on CPU bound traffic, so the CPU should be able to handle the
-> per-packet overhead with ease.
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Ok, that works for a model where you are only processing exception
-traffic, but this may not always be the case, there are things you
-don't/can't offload on smaller devices, such that you still want the
-overhead to be a lightweight as possible.
---
-Florian
+Fair call.  Comment was certainly snarky, probably sexist.  I think it
+expressed my feelings perfectly, however.
+
+I note that there's still no comment saying "don't do this" in
+netdevice.h; I gather returning NETDEV_TX_BUSY is still considered a Bad
+Thing?
+
+(Does it really BUG_ON?)
+
+Thanks,
+Rusty.
+
+> --- a/drivers/net/virtio_net.c	2015-03-24 15:20:25.174671000 -0700
+> +++ b/drivers/net/virtio_net.c	2015-03-24 16:17:28.478525333 -0700
+> @@ -939,8 +939,12 @@ static netdev_tx_t start_xmit(struct sk_
+>  	skb_orphan(skb);
+>  	nf_reset(skb);
+>  
+> -	/* Apparently nice girls don't return TX_BUSY; stop the queue
+> -	 * before it gets out of hand.  Naturally, this wastes entries. */
+> +	/* It is better to stop queue if running out of space
+> +	 * instead of forcing queuing layer to requeue the skb
+> +	 * by returning TX_BUSY (and cause a BUG message).
+> +	 * Since most packets only take 1 or 2 ring slots
+> +	 * this means 16 slots are typically wasted.
+> +	 */
+>  	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
+>  		netif_stop_subqueue(dev, qnum);
+>  		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
