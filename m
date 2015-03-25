@@ -1,86 +1,161 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] lib utils: fix family during af_bit_len
- calculation
-Date: Wed, 25 Mar 2015 15:31:47 +0200
-Message-ID: <20150325133147.GA946@angus-think.wlc.globallogic.com>
-References: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
- <20150324150500.6159e407@urahara>
- <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	vadim4j@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next 2/2] ipv6: hash net ptr into fragmentation bucket selection
+Date: Wed, 25 Mar 2015 15:00:19 +0100
+Message-ID: <1ff8faaeff057c9c3a7db39a0c55e8f3dea1f247.1427291651.git.hannes@stressinduktion.org>
+References: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
+Cc: Eric Dumazet <edumazet@google.com>, Flavio Leitner <fbl@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:33325 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361AbbCYNnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 09:43:47 -0400
-Received: by lbcmq2 with SMTP id mq2so17860285lbc.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 06:43:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36287 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752337AbbCYOA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 10:00:26 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 08D2B20FBD
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:00:23 -0400 (EDT)
+In-Reply-To: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
+In-Reply-To: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
+References: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 25, 2015 at 06:32:32AM -0700, Eric Dumazet wrote:
-> On Tue, 2015-03-24 at 15:05 -0700, Stephen Hemminger wrote:
-> > On Tue, 17 Mar 2015 19:18:28 -0700
-> > roopa@cumulusnetworks.com wrote:
-> > 
-> > > From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> > > 
-> > > commit f3a2ddc124e0 ("lib utils: Use helpers to get AF bit/byte len")
-> > > used a wrong family or family of zero in the default case
-> > > during af_bit_len calculation causing ip route commands to
-> > > fail with below error
-> > > 
-> > > Error: an inet prefix is expected rather than "10.0.2.14/24".
-> > > 
-> > > Reported-by: Sven-Haegar Koch <haegar@sdinet.de>
-> > > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> > 
-> > Applied, thanks everybody
-> 
-> okay... but... still not good.
-> 
-> Could someone add some basic regression tests on ss command ?
-> 
-> Vadim, can you take a look at this problem for example ?
-> 
-> root@edumazet-glaptop2:/usr/src/iproute2# ss --version ; ss -t dst 1.2.3.4
-> ss utility, iproute2-ss131122
-> State      Recv-Q Send-Q                                                             Local Address:Port                                                                 Peer Address:Port   
-> 
-> (This was the expected result, and an old ss command is working)
-> 
-> But with current git tree we now have :
-> 
-> root@edumazet-glaptop2:/usr/src/iproute2# misc/ss --version ; misc/ss -t dst 1.2.3.4 | head -4
-> ss utility, iproute2-ss150210
-> State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port                
-> ESTAB      0      0      172.29.161.170:37914                74.125.201.138:https                
-> ESTAB      0      0      172.29.161.170:60388                74.125.69.189:https                
-> ESTAB      0      0      172.29.161.170:42870                74.125.69.188:5228                 
-> 
-> Meaning filter does not work anymore.
-> 
-> A second problem I noticed are these, although they are not new.
-> 
-> root@edumazet-glaptop2:/usr/src/iproute2# misc/ss -ta dst ::1
-> Error: an inet prefix is expected rather than ":".
-> Cannot parse dst/src address.
-> 
-> root@edumazet-glaptop2:/usr/src/iproute2# misc/ss -ta dst ::ffff:1.2.3.4
-> Error: "1.2.3.4" does not look like a port.
-> Cannot parse dst/src address.
-> 
-> 
-> Thanks so much guys.
-> 
-> 
+As namespaces are sometimes used with overlapping ip address ranges,
+we should also use the namespace as input to the hash to select the ip
+fragmentation counter bucket.
 
-I will try to look at these issues today later.
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Flavio Leitner <fbl@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/ipv6.h     |  5 +++--
+ net/ipv6/ip6_output.c  |  6 +++---
+ net/ipv6/output_core.c | 14 ++++++++------
+ net/ipv6/udp_offload.c |  4 ++--
+ 4 files changed, 16 insertions(+), 13 deletions(-)
 
-Regards,
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e7ba975..65142e6 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -671,8 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
+ 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
+ }
+ 
+-void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
+-void ipv6_proxy_select_ident(struct sk_buff *skb);
++void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
++		       struct rt6_info *rt);
++void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
+ 
+ int ip6_dst_hoplimit(struct dst_entry *dst);
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7e80b61..b06ad00 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -628,7 +628,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 		skb_reset_network_header(skb);
+ 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
+ 
+-		ipv6_select_ident(fh, rt);
++		ipv6_select_ident(net, fh, rt);
+ 		fh->nexthdr = nexthdr;
+ 		fh->reserved = 0;
+ 		fh->frag_off = htons(IP6_MF);
+@@ -775,7 +775,7 @@ slow_path:
+ 		fh->nexthdr = nexthdr;
+ 		fh->reserved = 0;
+ 		if (!frag_id) {
+-			ipv6_select_ident(fh, rt);
++			ipv6_select_ident(net, fh, rt);
+ 			frag_id = fh->identification;
+ 		} else
+ 			fh->identification = frag_id;
+@@ -1079,7 +1079,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
+ 				     sizeof(struct frag_hdr)) & ~7;
+ 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+-	ipv6_select_ident(&fhdr, rt);
++	ipv6_select_ident(sock_net(sk), &fhdr, rt);
+ 	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
+ 
+ append:
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index 74581f7..4016a6e 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -9,13 +9,14 @@
+ #include <net/addrconf.h>
+ #include <net/secure_seq.h>
+ 
+-static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
+-			       struct in6_addr *src)
++static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
++			       struct in6_addr *dst, struct in6_addr *src)
+ {
+ 	u32 hash, id;
+ 
+ 	hash = __ipv6_addr_jhash(dst, hashrnd);
+ 	hash = __ipv6_addr_jhash(src, hash);
++	hash ^= net_hash_mix(net);
+ 
+ 	/* Treat id of 0 as unset and if we get 0 back from ip_idents_reserve,
+ 	 * set the hight order instead thus minimizing possible future
+@@ -36,7 +37,7 @@ static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
+  *
+  * The network header must be set before calling this.
+  */
+-void ipv6_proxy_select_ident(struct sk_buff *skb)
++void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
+ {
+ 	static u32 ip6_proxy_idents_hashrnd __read_mostly;
+ 	struct in6_addr buf[2];
+@@ -53,20 +54,21 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
+ 	net_get_random_once(&ip6_proxy_idents_hashrnd,
+ 			    sizeof(ip6_proxy_idents_hashrnd));
+ 
+-	id = __ipv6_select_ident(ip6_proxy_idents_hashrnd,
++	id = __ipv6_select_ident(net, ip6_proxy_idents_hashrnd,
+ 				 &addrs[1], &addrs[0]);
+ 	skb_shinfo(skb)->ip6_frag_id = htonl(id);
+ }
+ EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
+ 
+-void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
++void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
++		       struct rt6_info *rt)
+ {
+ 	static u32 ip6_idents_hashrnd __read_mostly;
+ 	u32 id;
+ 
+ 	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
+ 
+-	id = __ipv6_select_ident(ip6_idents_hashrnd, &rt->rt6i_dst.addr,
++	id = __ipv6_select_ident(net, ip6_idents_hashrnd, &rt->rt6i_dst.addr,
+ 				 &rt->rt6i_src.addr);
+ 	fhdr->identification = htonl(id);
+ }
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index be2c0ba..7441e1e 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -54,7 +54,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 
+ 		/* Set the IPv6 fragment id if not set yet */
+ 		if (!skb_shinfo(skb)->ip6_frag_id)
+-			ipv6_proxy_select_ident(skb);
++			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
+ 
+ 		segs = NULL;
+ 		goto out;
+@@ -113,7 +113,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		fptr->nexthdr = nexthdr;
+ 		fptr->reserved = 0;
+ 		if (!skb_shinfo(skb)->ip6_frag_id)
+-			ipv6_proxy_select_ident(skb);
++			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
+ 		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
+ 
+ 		/* Fragment the skb. ipv6 header and the remaining fields of the
+-- 
+2.1.0
