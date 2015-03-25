@@ -1,33 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] cxgb4: fix boolreturn.cocci warnings
-Date: Wed, 25 Mar 2015 15:14:14 -0700
-Message-ID: <1427321654.15849.3.camel@perches.com>
-References: <201503260524.AdqSbov9%fengguang.wu@intel.com>
-	 <20150325215525.GA26868@athens>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/7] net: bcmgenet: remove priv->int0_mask and
+ priv->int1_mask
+Date: Wed, 25 Mar 2015 15:20:00 -0700
+Message-ID: <55133490.90708@gmail.com>
+References: <20150325193509.D65552201FC@puck.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Varun Prakash <varun@chelsio.com>, kbuild-all@01.org,
-	Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>
+Cc: davem@davemloft.net, jaedon.shin@gmail.com
+To: Petri Gynther <pgynther@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0117.hostedemail.com ([216.40.44.117]:58607 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752541AbbCYWOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 18:14:18 -0400
-In-Reply-To: <20150325215525.GA26868@athens>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34647 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764AbbCYWUp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 18:20:45 -0400
+Received: by pacwe9 with SMTP id we9so42584783pac.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 15:20:45 -0700 (PDT)
+In-Reply-To: <20150325193509.D65552201FC@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-26 at 05:55 +0800, kbuild test robot wrote:
-> drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c:49:9-10: WARNING: return of 0/1 in function 'cxgb_fcoe_sof_eof_supported' with return type bool
+On 25/03/15 12:35, Petri Gynther wrote:
+> Remove unused priv->int0_mask and priv->int1_mask.
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-Hey Fengguang.
-
-There are so many of these that could be fixed.
-
-Did you establish a queue to ration them out slowly
-or do you just do them every once in awhile?
-
-cheers, Joe
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
