@@ -1,157 +1,94 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: [PATCH v2] net: sysctl for RA default route MTU
-Date: Wed, 25 Mar 2015 14:07:59 +0300
-Message-ID: <1427281679-13007-1-git-send-email-klamm@yandex-team.ru>
-References: <20150324.152705.921124268458994532.davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org, Roman Gushchin <klamm@yandex-team.ru>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150324.152705.921124268458994532.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: [PATCH 1/2] IB/Verbs: Use helpers to refine the checking on transport
+ and link layer
+Date: Wed, 25 Mar 2015 12:12:50 +0100
+Message-ID: <55129832.2070707@profitbricks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>, Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Alex Estrin <alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Tom Gundersen <
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces new ipv6 sysctl: ra_default_route_mtu.
-If it's set (> 0), it defines per-route MTU for any new default route
-received by RA.
 
-This sysctl will help in the following configuration: we want to use
-jumbo-frames for internal networks and default ethernet frames for
-default route. Per-route MTU can only lower per-link MTU, so link MTU
-should be set to ~9000 (statically or via RA).
+There are too many lengthy code to check the transport type of IB device,
+or the link layer type of it's port, this patch set try to use some 
+helper to
+refine and save us some code.
 
-Due to dynamic nature of RA, setting MTU for default route will require
-userspace agent, that will monitor changes of default route
-and (re)configure it. Not simple. The suggested sysctl solves this
-problem.
+TODO:
+     Currently we inferred from the transport type and link layer type 
+to identify
+     the way of management, it will be better if we can directly get the 
+indicator
+     from vendor.
 
-Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+     Sean proposed one suggestion:
+  https://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg23339.html
+
+     It may need a big work to adapt current implementation to utilize
+     these flags elegantly.
+
+     Also the performance concern on query_port() need to be addressed, 
+may be
+     some new callback like query_mgmt() could works.
+
+Michael Wang (2):
+     [PATCH 1/2] IB/Verbs: Use helpers to check transport and link layer
+     [PATCH 2/2] IB/Verbs: Use helpers to check IBoE technology
 
 ---
-
-Changes from v1: add forgotten brace.
----
- Documentation/networking/ip-sysctl.txt |  5 +++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 10 ++++++++++
- net/ipv6/ndisc.c                       |  3 ++-
- net/ipv6/route.c                       |  8 ++++++++
- 6 files changed, 27 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1b8c964..c013dda 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1316,6 +1316,11 @@ accept_ra_mtu - BOOLEAN
- 	Functional default: enabled if accept_ra is enabled.
- 			    disabled if accept_ra is disabled.
- 
-+ra_default_route_mtu - INTEGER
-+	Define MTU for any new default route received by RA.
-+
-+	Functional default: disabled (0).
-+
- accept_redirects - BOOLEAN
- 	Accept Redirects.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 4d5169f..b310c9f 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -40,6 +40,7 @@ struct ipv6_devconf {
- 	__s32		proxy_ndp;
- 	__s32		accept_source_route;
- 	__s32		accept_ra_from_local;
-+	__s32		ra_default_route_mtu;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	__s32		optimistic_dad;
- 	__s32		use_optimistic;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 437a6a4..4539c31 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -170,6 +170,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
-+	DEVCONF_RA_DEFAULT_ROUTE_MTU,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index b603002..322dd733 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -189,6 +189,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.accept_ra_defrtr	= 1,
- 	.accept_ra_from_local	= 0,
- 	.accept_ra_pinfo	= 1,
-+	.ra_default_route_mtu	= 0,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
- 	.rtr_probe_interval	= 60 * HZ,
-@@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.ra_default_route_mtu	= 0,
- };
- 
- /* Check if a valid qdisc is available */
-@@ -4398,6 +4400,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
-+	array[DEVCONF_RA_DEFAULT_ROUTE_MTU] = cnf->ra_default_route_mtu;
- }
- 
- static inline size_t inet6_ifla6_size(void)
-@@ -5315,6 +5318,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname	= "ra_default_route_mtu",
-+			.data		= &ipv6_devconf.ra_default_route_mtu,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 471ed24..c70ab44 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1362,7 +1362,8 @@ skip_routeinfo:
- 		} else if (in6_dev->cnf.mtu6 != mtu) {
- 			in6_dev->cnf.mtu6 = mtu;
- 
--			if (rt)
-+			if (rt && (!in6_dev->cnf.ra_default_route_mtu ||
-+				   mtu < in6_dev->cnf.ra_default_route_mtu))
- 				dst_metric_set(&rt->dst, RTAX_MTU, mtu);
- 
- 			rt6_mtu_change(skb->dev, mtu);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4688bd4..6394adf 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1714,6 +1714,14 @@ int ip6_route_add(struct fib6_config *cfg)
- 
- 	rt->rt6i_flags = cfg->fc_flags;
- 
-+	if ((cfg->fc_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) ==
-+	    (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) {
-+		u32 mtu = idev->cnf.ra_default_route_mtu;
-+
-+		if (mtu && mtu >= IPV6_MIN_MTU && mtu <= idev->cnf.mtu6)
-+			dst_metric_set(&rt->dst, RTAX_MTU, mtu);
-+	}
-+
- install_route:
- 	rt->dst.dev = dev;
- 	rt->rt6i_idev = idev;
--- 
-2.1.0
+  drivers/infiniband/core/agent.c           |    2 -
+  drivers/infiniband/core/cm.c              |    2 -
+  drivers/infiniband/core/cma.c             |   33 
+++++++++++++------------------
+  drivers/infiniband/core/mad.c             |    6 ++---
+  drivers/infiniband/core/multicast.c       |   11 +++-------
+  drivers/infiniband/core/sa_query.c        |   14 ++++++------
+  drivers/infiniband/core/ucm.c             |    3 --
+  drivers/infiniband/core/user_mad.c        |    2 -
+  drivers/infiniband/core/verbs.c           |    5 +---
+  drivers/infiniband/hw/mlx4/ah.c           |    2 -
+  drivers/infiniband/hw/mlx4/cq.c           |    4 ---
+  drivers/infiniband/hw/mlx4/mad.c          |   14 +++---------
+  drivers/infiniband/hw/mlx4/main.c         |    8 ++-----
+  drivers/infiniband/hw/mlx4/mlx4_ib.h      |    2 -
+  drivers/infiniband/hw/mlx4/qp.c           |   21 ++++++-------------
+  drivers/infiniband/hw/mlx4/sysfs.c        |    6 +----
+  drivers/infiniband/ulp/ipoib/ipoib_main.c |    6 ++---
+  include/rdma/ib_verbs.h                   |   30 
++++++++++++++++++++++++++++
+  net/sunrpc/xprtrdma/svc_rdma_recvfrom.c   |    3 --
+  19 files changed, 87 insertions(+), 87 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
