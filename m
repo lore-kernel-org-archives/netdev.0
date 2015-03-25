@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: fix a link reset issue due to
- retransmission failures
-Date: Wed, 25 Mar 2015 11:46:01 -0400 (EDT)
-Message-ID: <20150325.114601.1175030459168194223.davem@davemloft.net>
-References: <1427278181-29389-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Wed, 25 Mar 2015 11:46:22 -0400 (EDT)
+Message-ID: <20150325.114622.1915164845375005128.davem@davemloft.net>
+References: <20150324180628.278017fb@griffin>
+	<CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
+	<20150325095851.1d8d1622@griffin>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
+Cc: maheshb@google.com, netdev@vger.kernel.org, dcbw@redhat.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47220 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47230 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932226AbbCYPqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:46:03 -0400
-In-Reply-To: <1427278181-29389-1-git-send-email-ying.xue@windriver.com>
+	with ESMTP id S932203AbbCYPqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:46:24 -0400
+In-Reply-To: <20150325095851.1d8d1622@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Wed, 25 Mar 2015 18:09:40 +0800
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 25 Mar 2015 09:58:51 +0100
 
-> When a node joins a cluster while we are transmitting a fragment
-> stream over the broadcast link, it's missing the preceding fragments
-> needed to build a meaningful message. As a result, the node has to
-> drop it. However, as the fragment message is not acknowledged to
-> its sender before it's dropped, it accidentally causes link reset
-> of retransmission failure on the node.
+> On Tue, 24 Mar 2015 16:16:38 -0700, Mahesh Bandewar wrote:
+>> Well, we already have hlist_unhashed().The following patch should fix
+>> the duplicate addition as well as deletion. Please give it a try.
 > 
-> Reported-by: Erik Hugne <erik.hugne@ericsson.com>
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-> Tested-by: Erik Hugne <erik.hugne@ericsson.com>
+> Good idea, it's surely better than adding a new boolean.
+> 
+> However, I'm wondering that when there's apparently no problem with the
+> addresses being on the hash list when interface is down, what's the
+> point in clearing the hash list in the ndo_stop handler and
+> repopulating it in ndo_open?
+> 
+> The following patch fixes the problem, too, and as a bonus removes code:
 
-Applied.
+I'll let Mahesh reply to this.
