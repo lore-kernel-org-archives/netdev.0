@@ -1,155 +1,68 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: [PATCH] net: sysctl for RA default route MTU
-Date: Wed, 25 Mar 2015 12:49:26 +0300
-Message-ID: <1427276966-3980-1-git-send-email-klamm@yandex-team.ru>
-References: <20150324.152705.921124268458994532.davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org, Roman Gushchin <klamm@yandex-team.ru>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:58030 "EHLO
-	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752294AbbCYJtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 05:49:53 -0400
-In-Reply-To: <20150324.152705.921124268458994532.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] tipc: fix a link reset issue due
+	to retransmission failures
+Date: Wed, 25 Mar 2015 18:09:40 +0800
+Message-ID: <1427278181-29389-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch introduces new ipv6 sysctl: ra_default_route_mtu.
-If it's set (> 0), it defines per-route MTU for any new default route
-received by RA.
+When a node joins a cluster while we are transmitting a fragment
+stream over the broadcast link, it's missing the preceding fragments
+needed to build a meaningful message. As a result, the node has to
+drop it. However, as the fragment message is not acknowledged to
+its sender before it's dropped, it accidentally causes link reset
+of retransmission failure on the node.
 
-This sysctl will help in the following configuration: we want to use
-jumbo-frames for internal networks and default ethernet frames for
-default route. Per-route MTU can only lower per-link MTU, so link MTU
-should be set to ~9000 (statically or via RA).
-
-Due to dynamic nature of RA, setting MTU for default route will require
-userspace agent, that will monitor changes of default route
-and (re)configure it. Not simple. The suggested sysctl solves this problem.
-
-Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+Reported-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Tested-by: Erik Hugne <erik.hugne@ericsson.com>
 ---
- Documentation/networking/ip-sysctl.txt | 5 +++++
- include/linux/ipv6.h                   | 1 +
- include/uapi/linux/ipv6.h              | 1 +
- net/ipv6/addrconf.c                    | 9 +++++++++
- net/ipv6/ndisc.c                       | 3 ++-
- net/ipv6/route.c                       | 8 ++++++++
- 6 files changed, 26 insertions(+), 1 deletion(-)
+ net/tipc/bcast.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1b8c964..c013dda 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1316,6 +1316,11 @@ accept_ra_mtu - BOOLEAN
- 	Functional default: enabled if accept_ra is enabled.
- 			    disabled if accept_ra is disabled.
- 
-+ra_default_route_mtu - INTEGER
-+	Define MTU for any new default route received by RA.
-+
-+	Functional default: disabled (0).
-+
- accept_redirects - BOOLEAN
- 	Accept Redirects.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 4d5169f..b310c9f 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -40,6 +40,7 @@ struct ipv6_devconf {
- 	__s32		proxy_ndp;
- 	__s32		accept_source_route;
- 	__s32		accept_ra_from_local;
-+	__s32		ra_default_route_mtu;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	__s32		optimistic_dad;
- 	__s32		use_optimistic;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 437a6a4..4539c31 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -170,6 +170,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
-+	DEVCONF_RA_DEFAULT_ROUTE_MTU,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index b603002..9d5ec10 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -189,6 +189,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.accept_ra_defrtr	= 1,
- 	.accept_ra_from_local	= 0,
- 	.accept_ra_pinfo	= 1,
-+	.ra_default_route_mtu	= 0,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
- 	.rtr_probe_interval	= 60 * HZ,
-@@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.ra_default_route_mtu	= 0,
- };
- 
- /* Check if a valid qdisc is available */
-@@ -4398,6 +4400,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
-+	array[DEVCONF_RA_DEFAULT_ROUTE_MTU] = cnf->ra_default_route_mtu;
- }
- 
- static inline size_t inet6_ifla6_size(void)
-@@ -5314,6 +5317,12 @@ static struct addrconf_sysctl_table
- 			.mode		= 0644,
- 			.proc_handler	= proc_dointvec,
- 		},
-+			.procname	= "ra_default_route_mtu",
-+			.data		= &ipv6_devconf.ra_default_route_mtu,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
- 		{
- 			/* sentinel */
- 		}
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 471ed24..c70ab44 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1362,7 +1362,8 @@ skip_routeinfo:
- 		} else if (in6_dev->cnf.mtu6 != mtu) {
- 			in6_dev->cnf.mtu6 = mtu;
- 
--			if (rt)
-+			if (rt && (!in6_dev->cnf.ra_default_route_mtu ||
-+				   mtu < in6_dev->cnf.ra_default_route_mtu))
- 				dst_metric_set(&rt->dst, RTAX_MTU, mtu);
- 
- 			rt6_mtu_change(skb->dev, mtu);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4688bd4..6394adf 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1714,6 +1714,14 @@ int ip6_route_add(struct fib6_config *cfg)
- 
- 	rt->rt6i_flags = cfg->fc_flags;
- 
-+	if ((cfg->fc_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) ==
-+	    (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY)) {
-+		u32 mtu = idev->cnf.ra_default_route_mtu;
-+
-+		if (mtu && mtu >= IPV6_MIN_MTU && mtu <= idev->cnf.mtu6)
-+			dst_metric_set(&rt->dst, RTAX_MTU, mtu);
-+	}
-+
- install_route:
- 	rt->dst.dev = dev;
- 	rt->rt6i_idev = idev;
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 403aee7..7935553 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -523,11 +523,13 @@ receive:
+ 			tipc_bclink_unlock(net);
+ 			tipc_node_unlock(node);
+ 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
+-			tipc_buf_append(&node->bclink.reasm_buf, &buf);
+-			if (unlikely(!buf && !node->bclink.reasm_buf))
+-				goto unlock;
+ 			tipc_bclink_lock(net);
+ 			bclink_accept_pkt(node, seqno);
++			tipc_buf_append(&node->bclink.reasm_buf, &buf);
++			if (unlikely(!buf && !node->bclink.reasm_buf)) {
++				tipc_bclink_unlock(net);
++				goto unlock;
++			}
+ 			bcl->stats.recv_fragments++;
+ 			if (buf) {
+ 				bcl->stats.recv_fragmented++;
 -- 
-2.1.0
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
