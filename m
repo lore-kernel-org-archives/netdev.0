@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] crypto: algif - fix warn: unsigned 'used' is
- never less than zero
-Date: Wed, 25 Mar 2015 11:45:54 -0400 (EDT)
-Message-ID: <20150325.114554.625753070227410964.davem@davemloft.net>
-References: <20150325142919.4229.90027.stgit@tstruk-mobl1>
+Subject: Re: [PATCH net-next] tipc: fix a link reset issue due to
+ retransmission failures
+Date: Wed, 25 Mar 2015 11:46:01 -0400 (EDT)
+Message-ID: <20150325.114601.1175030459168194223.davem@davemloft.net>
+References: <1427278181-29389-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: tadeusz.struk@intel.com
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	erik.hugne@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47216 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47220 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932203AbbCYPpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:45:55 -0400
-In-Reply-To: <20150325142919.4229.90027.stgit@tstruk-mobl1>
+	with ESMTP id S932226AbbCYPqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 11:46:03 -0400
+In-Reply-To: <1427278181-29389-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Date: Wed, 25 Mar 2015 07:29:19 -0700
+From: Ying Xue <ying.xue@windriver.com>
+Date: Wed, 25 Mar 2015 18:09:40 +0800
 
-> Change type from unsigned long to int to fix an issue reported by kbuild robot:
-> crypto/algif_skcipher.c:596 skcipher_recvmsg_async() warn: unsigned 'used' is
-> never less than zero.
+> When a node joins a cluster while we are transmitting a fragment
+> stream over the broadcast link, it's missing the preceding fragments
+> needed to build a meaningful message. As a result, the node has to
+> drop it. However, as the fragment message is not acknowledged to
+> its sender before it's dropped, it accidentally causes link reset
+> of retransmission failure on the node.
 > 
-> Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
+> Reported-by: Erik Hugne <erik.hugne@ericsson.com>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+> Tested-by: Erik Hugne <erik.hugne@ericsson.com>
 
 Applied.
