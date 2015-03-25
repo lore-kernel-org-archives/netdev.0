@@ -1,249 +1,269 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/3] tipc: introduce starvation free send algorithm
-Date: Wed, 25 Mar 2015 12:07:24 -0400
-Message-ID: <1427299646-31680-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/3] tipc: clean up handling of
+	link congestion
+Date: Wed, 25 Mar 2015 12:07:25 -0400
+Message-ID: <1427299646-31680-3-git-send-email-jon.maloy@ericsson.com>
 References: <1427299646-31680-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:23552 "EHLO
-	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752616AbbCYQHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 12:07:38 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1427299646-31680-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Currently, we only use a single counter; the length of the backlog
-queue, to determine whether a message should be accepted to the queue
-or not. Each time a message is being sent, the queue length is compared
-to a threshold value for the message's importance priority. If the queue
-length is beyond this threshold, the message is rejected. This algorithm
-implies a risk of starvation of low importance senders during very high
-load, because it may take a long time before the backlog queue has
-decreased enough to accept a lower level message.
+After the recent changes in message importance handling it becomes
+possible to simplify handling of messages and sockets when we
+encounter link congestion.
 
-We now eliminate this risk by introducing a counter for each importance
-priority. When a message is sent, we check only the queue level for that
-particular message's priority. If that is ok, the message can be added
-to the backlog, irrespective of the queue level for other priorities.
-This way, each level is guaranteed a certain portion of the total
-bandwidth, and any risk of starvation is eliminated.
+We merge the function tipc_link_cong() into link_schedule_user(),
+and simplify the code of the latter. The code should now be
+easier to follow, especially regarding return codes and handling
+of the message that caused the situation.
+
+In case the scheduling function is unable to pre-allocate a wakeup
+message buffer, it now returns -ENOBUFS, which is a more correct
+code than the previously used -EHOSTUNREACH.
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bcast.c |  2 +-
- net/tipc/link.c  | 58 +++++++++++++++++++++++++++++++++++---------------------
- net/tipc/link.h  |  7 +++++--
- 3 files changed, 42 insertions(+), 25 deletions(-)
+ net/tipc/link.c | 104 ++++++++++++++++++++++++++------------------------------
+ net/tipc/msg.h  |  28 ++++++---------
+ 2 files changed, 60 insertions(+), 72 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 5230739..7935553 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -831,7 +831,7 @@ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg)
- 	prop = nla_nest_start(msg->skb, TIPC_NLA_LINK_PROP);
- 	if (!prop)
- 		goto attr_msg_full;
--	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_WIN, bcl->queue_limit[0]))
-+	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_WIN, bcl->window))
- 		goto prop_msg_full;
- 	nla_nest_end(msg->skb, prop);
- 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 8c98c4d..b9325a1 100644
+index b9325a1..58e2460 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -310,7 +310,6 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 	link_init_max_pkt(l_ptr);
- 	l_ptr->priority = b_ptr->priority;
- 	tipc_link_set_queue_limits(l_ptr, b_ptr->window);
--
- 	l_ptr->next_out_no = 1;
- 	__skb_queue_head_init(&l_ptr->transmq);
- 	__skb_queue_head_init(&l_ptr->backlogq);
-@@ -398,19 +397,22 @@ static bool link_schedule_user(struct tipc_link *link, u32 oport,
-  * Move a number of waiting users, as permitted by available space in
-  * the send queue, from link wait queue to node wait queue for wakeup
-  */
--void link_prepare_wakeup(struct tipc_link *link)
-+void link_prepare_wakeup(struct tipc_link *l)
- {
--	uint pend_qsz = skb_queue_len(&link->backlogq);
-+	int pnd[TIPC_SYSTEM_IMPORTANCE + 1] = {0,};
-+	int imp, lim;
- 	struct sk_buff *skb, *tmp;
+@@ -367,28 +367,43 @@ void tipc_link_delete_list(struct net *net, unsigned int bearer_id,
+ }
  
--	skb_queue_walk_safe(&link->wakeupq, skb, tmp) {
--		if (pend_qsz >= link->queue_limit[TIPC_SKB_CB(skb)->chain_imp])
-+	skb_queue_walk_safe(&l->wakeupq, skb, tmp) {
-+		imp = TIPC_SKB_CB(skb)->chain_imp;
-+		lim = l->window + l->backlog[imp].limit;
-+		pnd[imp] += TIPC_SKB_CB(skb)->chain_sz;
-+		if ((pnd[imp] + l->backlog[imp].len) >= lim)
- 			break;
--		pend_qsz += TIPC_SKB_CB(skb)->chain_sz;
--		skb_unlink(skb, &link->wakeupq);
--		skb_queue_tail(&link->inputq, skb);
--		link->owner->inputq = &link->inputq;
--		link->owner->action_flags |= TIPC_MSG_EVT;
-+		skb_unlink(skb, &l->wakeupq);
-+		skb_queue_tail(&l->inputq, skb);
-+		l->owner->inputq = &l->inputq;
-+		l->owner->action_flags |= TIPC_MSG_EVT;
+ /**
+- * link_schedule_user - schedule user for wakeup after congestion
++ * link_schedule_user - schedule a message sender for wakeup after congestion
+  * @link: congested link
+- * @oport: sending port
+- * @chain_sz: size of buffer chain that was attempted sent
+- * @imp: importance of message attempted sent
++ * @list: message that was attempted sent
+  * Create pseudo msg to send back to user when congestion abates
++ * Only consumes message if there is an error
+  */
+-static bool link_schedule_user(struct tipc_link *link, u32 oport,
+-			       uint chain_sz, uint imp)
++static int link_schedule_user(struct tipc_link *link, struct sk_buff_head *list)
+ {
+-	struct sk_buff *buf;
++	struct tipc_msg *msg = buf_msg(skb_peek(list));
++	int imp = msg_importance(msg);
++	u32 oport = msg_origport(msg);
++	u32 addr = link_own_addr(link);
++	struct sk_buff *skb;
+ 
+-	buf = tipc_msg_create(SOCK_WAKEUP, 0, INT_H_SIZE, 0,
+-			      link_own_addr(link), link_own_addr(link),
+-			      oport, 0, 0);
+-	if (!buf)
+-		return false;
+-	TIPC_SKB_CB(buf)->chain_sz = chain_sz;
+-	TIPC_SKB_CB(buf)->chain_imp = imp;
+-	skb_queue_tail(&link->wakeupq, buf);
++	/* This really cannot happen...  */
++	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE)) {
++		pr_warn("%s<%s>, send queue full", link_rst_msg, link->name);
++		tipc_link_reset(link);
++		goto err;
++	}
++	/* Non-blocking sender: */
++	if (TIPC_SKB_CB(skb_peek(list))->wakeup_pending)
++		return -ELINKCONG;
++
++	/* Create and schedule wakeup pseudo message */
++	skb = tipc_msg_create(SOCK_WAKEUP, 0, INT_H_SIZE, 0,
++			      addr, addr, oport, 0, 0);
++	if (!skb)
++		goto err;
++	TIPC_SKB_CB(skb)->chain_sz = skb_queue_len(list);
++	TIPC_SKB_CB(skb)->chain_imp = imp;
++	skb_queue_tail(&link->wakeupq, skb);
+ 	link->stats.link_congs++;
+-	return true;
++	return -ELINKCONG;
++err:
++	__skb_queue_purge(list);
++	return -ENOBUFS;
+ }
+ 
+ /**
+@@ -708,48 +723,15 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
  	}
  }
  
-@@ -424,6 +426,16 @@ void tipc_link_reset_fragments(struct tipc_link *l_ptr)
- 	l_ptr->reasm_buf = NULL;
- }
- 
-+static void tipc_link_purge_backlog(struct tipc_link *l)
-+{
-+	__skb_queue_purge(&l->backlogq);
-+	l->backlog[TIPC_LOW_IMPORTANCE].len = 0;
-+	l->backlog[TIPC_MEDIUM_IMPORTANCE].len = 0;
-+	l->backlog[TIPC_HIGH_IMPORTANCE].len = 0;
-+	l->backlog[TIPC_CRITICAL_IMPORTANCE].len = 0;
-+	l->backlog[TIPC_SYSTEM_IMPORTANCE].len = 0;
-+}
-+
+-/* tipc_link_cong: determine return value and how to treat the
+- * sent buffer during link congestion.
+- * - For plain, errorless user data messages we keep the buffer and
+- *   return -ELINKONG.
+- * - For all other messages we discard the buffer and return -EHOSTUNREACH
+- * - For TIPC internal messages we also reset the link
+- */
+-static int tipc_link_cong(struct tipc_link *link, struct sk_buff_head *list)
+-{
+-	struct sk_buff *skb = skb_peek(list);
+-	struct tipc_msg *msg = buf_msg(skb);
+-	int imp = msg_importance(msg);
+-	u32 oport = msg_tot_origport(msg);
+-
+-	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE)) {
+-		pr_warn("%s<%s>, send queue full", link_rst_msg, link->name);
+-		tipc_link_reset(link);
+-		goto drop;
+-	}
+-	if (unlikely(msg_errcode(msg)))
+-		goto drop;
+-	if (unlikely(msg_reroute_cnt(msg)))
+-		goto drop;
+-	if (TIPC_SKB_CB(skb)->wakeup_pending)
+-		return -ELINKCONG;
+-	if (link_schedule_user(link, oport, skb_queue_len(list), imp))
+-		return -ELINKCONG;
+-drop:
+-	__skb_queue_purge(list);
+-	return -EHOSTUNREACH;
+-}
+-
  /**
-  * tipc_link_purge_queues - purge all pkt queues associated with link
-  * @l_ptr: pointer to link
-@@ -432,7 +444,7 @@ void tipc_link_purge_queues(struct tipc_link *l_ptr)
- {
- 	__skb_queue_purge(&l_ptr->deferdq);
- 	__skb_queue_purge(&l_ptr->transmq);
--	__skb_queue_purge(&l_ptr->backlogq);
-+	tipc_link_purge_backlog(l_ptr);
- 	tipc_link_reset_fragments(l_ptr);
- }
+  * __tipc_link_xmit(): same as tipc_link_xmit, but destlink is known & locked
+  * @link: link to use
+  * @list: chain of buffers containing message
+  *
+- * Consumes the buffer chain, except when returning -ELINKCONG
+- * Returns 0 if success, otherwise errno: -ELINKCONG, -EMSGSIZE (plain socket
+- * user data messages) or -EHOSTUNREACH (all other messages/senders)
+- * Only the socket functions tipc_send_stream() and tipc_send_packet() need
+- * to act on the return value, since they may need to do more send attempts.
++ * Consumes the buffer chain, except when returning -ELINKCONG,
++ * since the caller then may want to make more send attempts.
++ * Returns 0 if success, or errno: -ELINKCONG, -EMSGSIZE or -ENOBUFS
++ * Messages at TIPC_SYSTEM_IMPORTANCE are always accepted
+  */
+ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+ 		     struct sk_buff_head *list)
+@@ -768,7 +750,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
  
-@@ -466,13 +478,13 @@ void tipc_link_reset(struct tipc_link *l_ptr)
+ 	/* Match backlog limit against msg importance: */
+ 	if (unlikely(link->backlog[imp].len >= link->backlog[imp].limit))
+-		return tipc_link_cong(link, list);
++		return link_schedule_user(link, list);
  
- 	/* Clean up all queues, except inputq: */
- 	__skb_queue_purge(&l_ptr->transmq);
--	__skb_queue_purge(&l_ptr->backlogq);
- 	__skb_queue_purge(&l_ptr->deferdq);
- 	if (!owner->inputq)
- 		owner->inputq = &l_ptr->inputq;
- 	skb_queue_splice_init(&l_ptr->wakeupq, owner->inputq);
- 	if (!skb_queue_empty(owner->inputq))
- 		owner->action_flags |= TIPC_MSG_EVT;
-+	tipc_link_purge_backlog(l_ptr);
- 	l_ptr->rcv_unacked = 0;
- 	l_ptr->checkpoint = 1;
- 	l_ptr->next_out_no = 1;
-@@ -754,16 +766,14 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- 	struct sk_buff_head *backlogq = &link->backlogq;
- 	struct sk_buff *skb, *tmp;
- 
--	/* Match queue limit against msg importance: */
--	if (unlikely(skb_queue_len(backlogq) >= link->queue_limit[imp]))
-+	/* Match backlog limit against msg importance: */
-+	if (unlikely(link->backlog[imp].len >= link->backlog[imp].limit))
- 		return tipc_link_cong(link, list);
- 
--	/* Has valid packet limit been used ? */
  	if (unlikely(msg_size(msg) > mtu)) {
  		__skb_queue_purge(list);
- 		return -EMSGSIZE;
- 	}
--
- 	/* Prepare each packet for sending, and add to relevant queue: */
- 	skb_queue_walk_safe(list, skb, tmp) {
- 		__skb_unlink(skb, list);
-@@ -786,8 +796,10 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- 		if (tipc_msg_make_bundle(&skb, mtu, link->addr)) {
- 			link->stats.sent_bundled++;
- 			link->stats.sent_bundles++;
-+			imp = msg_importance(buf_msg(skb));
- 		}
- 		__skb_queue_tail(backlogq, skb);
-+		link->backlog[imp].len++;
- 		seqno++;
- 	}
- 	link->next_out_no = seqno;
-@@ -914,6 +926,7 @@ void tipc_link_push_packets(struct tipc_link *link)
- 		if (!skb)
- 			break;
- 		msg = buf_msg(skb);
-+		link->backlog[msg_importance(msg)].len--;
- 		msg_set_ack(msg, ack);
- 		msg_set_bcast_ack(msg, link->owner->bclink.last_in);
- 		link->rcv_unacked = 0;
-@@ -1610,6 +1623,7 @@ void tipc_link_failover_send_queue(struct tipc_link *l_ptr)
- 	tipc_msg_init(link_own_addr(l_ptr), &tunnel_hdr, CHANGEOVER_PROTOCOL,
- 		      ORIGINAL_MSG, INT_H_SIZE, l_ptr->addr);
- 	skb_queue_splice_tail_init(&l_ptr->backlogq, &l_ptr->transmq);
-+	tipc_link_purge_backlog(l_ptr);
- 	msgcount = skb_queue_len(&l_ptr->transmq);
- 	msg_set_bearer_id(&tunnel_hdr, l_ptr->peer_bearer_id);
- 	msg_set_msgcnt(&tunnel_hdr, msgcount);
-@@ -1817,11 +1831,11 @@ void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
- 	int max_bulk = TIPC_MAX_PUBLICATIONS / (l->max_pkt / ITEM_SIZE);
- 
- 	l->window = win;
--	l->queue_limit[TIPC_LOW_IMPORTANCE]      = win / 2;
--	l->queue_limit[TIPC_MEDIUM_IMPORTANCE]   = win;
--	l->queue_limit[TIPC_HIGH_IMPORTANCE]     = win / 2 * 3;
--	l->queue_limit[TIPC_CRITICAL_IMPORTANCE] = win * 2;
--	l->queue_limit[TIPC_SYSTEM_IMPORTANCE]   = max_bulk;
-+	l->backlog[TIPC_LOW_IMPORTANCE].limit      = win / 2;
-+	l->backlog[TIPC_MEDIUM_IMPORTANCE].limit   = win;
-+	l->backlog[TIPC_HIGH_IMPORTANCE].limit     = win / 2 * 3;
-+	l->backlog[TIPC_CRITICAL_IMPORTANCE].limit = win * 2;
-+	l->backlog[TIPC_SYSTEM_IMPORTANCE].limit   = max_bulk;
+@@ -820,13 +802,25 @@ static int __tipc_link_xmit_skb(struct tipc_link *link, struct sk_buff *skb)
+ 	return __tipc_link_xmit(link->owner->net, link, &head);
  }
  
- /* tipc_link_find_owner - locate owner node of link by link's name
-@@ -2120,7 +2134,7 @@ static int __tipc_nl_add_link(struct net *net, struct tipc_nl_msg *msg,
- 	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_TOL, link->tolerance))
- 		goto prop_msg_full;
- 	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_WIN,
--			link->queue_limit[TIPC_LOW_IMPORTANCE]))
-+			link->window))
- 		goto prop_msg_full;
- 	if (nla_put_u32(msg->skb, TIPC_NLA_PROP_PRIO, link->priority))
- 		goto prop_msg_full;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index eec3ecf..99543a4 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -118,7 +118,7 @@ struct tipc_stats {
-  * @pmsg: convenience pointer to "proto_msg" field
-  * @priority: current link priority
-  * @net_plane: current link network plane ('A' through 'H')
-- * @queue_limit: outbound message queue congestion thresholds (indexed by user)
-+ * @backlog_limit: backlog queue congestion thresholds (indexed by importance)
-  * @exp_msg_count: # of tunnelled messages expected during link changeover
-  * @reset_checkpoint: seq # of last acknowledged message at time of link reset
-  * @max_pkt: current maximum packet size for this link
-@@ -166,7 +166,6 @@ struct tipc_link {
- 	struct tipc_msg *pmsg;
- 	u32 priority;
- 	char net_plane;
--	u32 queue_limit[15];	/* queue_limit[0]==window limit */
++/* tipc_link_xmit_skb(): send single buffer to destination
++ * Buffers sent via this functon are generally TIPC_SYSTEM_IMPORTANCE
++ * messages, which will not be rejected
++ * The only exception is datagram messages rerouted after secondary
++ * lookup, which are rare and safe to dispose of anyway.
++ * TODO: Return real return value, and let callers use
++ * tipc_wait_for_sendpkt() where applicable
++ */
+ int tipc_link_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
+ 		       u32 selector)
+ {
+ 	struct sk_buff_head head;
++	int rc;
  
- 	/* Changeover */
- 	u32 exp_msg_count;
-@@ -180,6 +179,10 @@ struct tipc_link {
- 	/* Sending */
- 	struct sk_buff_head transmq;
- 	struct sk_buff_head backlogq;
-+	struct {
-+		u16 len;
-+		u16 limit;
-+	} backlog[5];
- 	u32 next_out_no;
- 	u32 window;
- 	u32 last_retransmitted;
+ 	skb2list(skb, &head);
+-	return tipc_link_xmit(net, &head, dnode, selector);
++	rc = tipc_link_xmit(net, &head, dnode, selector);
++	if (rc == -ELINKCONG)
++		kfree_skb(skb);
++	return 0;
+ }
+ 
+ /**
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index bd3969a..6445db0 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -240,6 +240,15 @@ static inline void msg_set_size(struct tipc_msg *m, u32 sz)
+ 	m->hdr[0] = htonl((msg_word(m, 0) & ~0x1ffff) | sz);
+ }
+ 
++static inline unchar *msg_data(struct tipc_msg *m)
++{
++	return ((unchar *)m) + msg_hdr_sz(m);
++}
++
++static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
++{
++	return (struct tipc_msg *)msg_data(m);
++}
+ 
+ /*
+  * Word 1
+@@ -372,6 +381,8 @@ static inline void msg_set_prevnode(struct tipc_msg *m, u32 a)
+ 
+ static inline u32 msg_origport(struct tipc_msg *m)
+ {
++	if (msg_user(m) == MSG_FRAGMENTER)
++		m = msg_get_wrapped(m);
+ 	return msg_word(m, 4);
+ }
+ 
+@@ -467,16 +478,6 @@ static inline void msg_set_nameupper(struct tipc_msg *m, u32 n)
+ 	msg_set_word(m, 10, n);
+ }
+ 
+-static inline unchar *msg_data(struct tipc_msg *m)
+-{
+-	return ((unchar *)m) + msg_hdr_sz(m);
+-}
+-
+-static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
+-{
+-	return (struct tipc_msg *)msg_data(m);
+-}
+-
+ /*
+  * Constants and routines used to read and write TIPC internal message headers
+  */
+@@ -753,13 +754,6 @@ static inline void msg_set_link_tolerance(struct tipc_msg *m, u32 n)
+ 	msg_set_bits(m, 9, 0, 0xffff, n);
+ }
+ 
+-static inline u32 msg_tot_origport(struct tipc_msg *m)
+-{
+-	if ((msg_user(m) == MSG_FRAGMENTER) && (msg_type(m) == FIRST_FRAGMENT))
+-		return msg_origport(msg_get_wrapped(m));
+-	return msg_origport(m);
+-}
+-
+ struct sk_buff *tipc_buf_acquire(u32 size);
+ bool tipc_msg_validate(struct sk_buff *skb);
+ bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
 -- 
 1.9.1
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
