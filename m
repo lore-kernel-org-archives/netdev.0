@@ -1,162 +1,49 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next 5/7] net: bcmgenet: rework Tx NAPI code
-Date: Wed, 25 Mar 2015 12:35:14 -0700 (PDT)
-Message-ID: <20150325193514.14CE82201FB@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
-To: netdev@vger.kernel.org
+From: Vinson Lee <vlee@twopensource.com>
+Subject: Re: Please backport dev_kfree_skb_any fixes for stable
+Date: Wed, 25 Mar 2015 12:39:01 -0700
+Message-ID: <CAHTgTXVokVeq9Og6pEpRyhqtKuzFD4VHkMn_pnBUtt-V8ecxVA@mail.gmail.com>
+References: <CAHTgTXX2rw9441stUb41EHTKanm9HZ+4T+a5+fur4O6G7zy21A@mail.gmail.com>
+	<20150324.001408.1364899234285488351.davem@davemloft.net>
+	<CAHTgTXWvDs4fTg_Gpsn8XrYnHbgZOKC4ymkq_QVdnGVCOaiqzw@mail.gmail.com>
+	<20150325.140358.1369150767101881939.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f201.google.com ([209.85.160.201]:32883 "EHLO
-	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752401AbbCYTfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:35:15 -0400
-Received: by ykbq200 with SMTP id q200so2132012ykb.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:35:15 -0700 (PDT)
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:36585 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866AbbCYTjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:39:02 -0400
+Received: by obdfc2 with SMTP id fc2so28196713obd.3
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:39:01 -0700 (PDT)
+In-Reply-To: <20150325.140358.1369150767101881939.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce new bcmgenet functions to handle the NAPI calls to:
-netif_napi_add()
-napi_enable()
-napi_disable()
-netif_napi_del()
+On Wed, Mar 25, 2015 at 11:03 AM, David Miller <davem@davemloft.net> wrote:
+> From: Vinson Lee <vlee@twopensource.com>
+> Date: Wed, 25 Mar 2015 10:48:47 -0700
+>
+>> On Mon, Mar 23, 2015 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Vinson Lee <vlee@twopensource.com>
+>>> Date: Tue, 17 Mar 2015 16:52:20 -0700
+>>>
+>>>> This stable request seems to have been forgotten.
+>>>
+>>> Sorry I've lost all of the context for this, you'll have to remind me
+>>> of all of the details.
+>>
+>> These patches fixes warnings that can occur when a netconsole message
+>> is transmitted in an IRQ.
+>
+> I mean the full context, as in the list of commits you'd like me to
+> queue up for -stable, and what -stable releases they are relevant
+> for.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 80 ++++++++++++++++++++------
- 1 file changed, 62 insertions(+), 18 deletions(-)
+Please backport the list of commits from the original stable request
+at http://permalink.gmane.org/gmane.linux.network/320390.
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 68873be..367006d 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1733,7 +1733,6 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
- 
- 	spin_lock_init(&ring->lock);
- 	ring->priv = priv;
--	netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
- 	ring->index = index;
- 	if (index == DESC_INDEX) {
- 		ring->queue = 0;
-@@ -1777,17 +1776,6 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
- 				  TDMA_WRITE_PTR);
- 	bcmgenet_tdma_ring_writel(priv, index, end_ptr * words_per_bd - 1,
- 				  DMA_END_ADDR);
--
--	napi_enable(&ring->napi);
--}
--
--static void bcmgenet_fini_tx_ring(struct bcmgenet_priv *priv,
--				  unsigned int index)
--{
--	struct bcmgenet_tx_ring *ring = &priv->tx_rings[index];
--
--	napi_disable(&ring->napi);
--	netif_napi_del(&ring->napi);
- }
- 
- /* Initialize a RDMA ring */
-@@ -1835,6 +1823,62 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
- 	return ret;
- }
- 
-+static void bcmgenet_init_tx_napi(struct bcmgenet_priv *priv)
-+{
-+	unsigned int i;
-+	struct bcmgenet_tx_ring *ring;
-+
-+	for (i = 0; i < priv->hw_params->tx_queues; ++i) {
-+		ring = &priv->tx_rings[i];
-+		netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
-+	}
-+
-+	ring = &priv->tx_rings[DESC_INDEX];
-+	netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
-+}
-+
-+static void bcmgenet_enable_tx_napi(struct bcmgenet_priv *priv)
-+{
-+	unsigned int i;
-+	struct bcmgenet_tx_ring *ring;
-+
-+	for (i = 0; i < priv->hw_params->tx_queues; ++i) {
-+		ring = &priv->tx_rings[i];
-+		napi_enable(&ring->napi);
-+	}
-+
-+	ring = &priv->tx_rings[DESC_INDEX];
-+	napi_enable(&ring->napi);
-+}
-+
-+static void bcmgenet_disable_tx_napi(struct bcmgenet_priv *priv)
-+{
-+	unsigned int i;
-+	struct bcmgenet_tx_ring *ring;
-+
-+	for (i = 0; i < priv->hw_params->tx_queues; ++i) {
-+		ring = &priv->tx_rings[i];
-+		napi_disable(&ring->napi);
-+	}
-+
-+	ring = &priv->tx_rings[DESC_INDEX];
-+	napi_disable(&ring->napi);
-+}
-+
-+static void bcmgenet_fini_tx_napi(struct bcmgenet_priv *priv)
-+{
-+	unsigned int i;
-+	struct bcmgenet_tx_ring *ring;
-+
-+	for (i = 0; i < priv->hw_params->tx_queues; ++i) {
-+		ring = &priv->tx_rings[i];
-+		netif_napi_del(&ring->napi);
-+	}
-+
-+	ring = &priv->tx_rings[DESC_INDEX];
-+	netif_napi_del(&ring->napi);
-+}
-+
- /* Initialize Tx queues
-  *
-  * Queues 0-3 are priority-based, each one has 32 descriptors,
-@@ -1895,6 +1939,9 @@ static void bcmgenet_init_tx_queues(struct net_device *dev)
- 	bcmgenet_tdma_writel(priv, dma_priority[1], DMA_PRIORITY_1);
- 	bcmgenet_tdma_writel(priv, dma_priority[2], DMA_PRIORITY_2);
- 
-+	/* Initialize Tx NAPI */
-+	bcmgenet_init_tx_napi(priv);
-+
- 	/* Enable Tx queues */
- 	bcmgenet_tdma_writel(priv, ring_cfg, DMA_RING_CFG);
- 
-@@ -2036,12 +2083,7 @@ static void __bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- 
- static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- {
--	int i;
--
--	bcmgenet_fini_tx_ring(priv, DESC_INDEX);
--
--	for (i = 0; i < priv->hw_params->tx_queues; i++)
--		bcmgenet_fini_tx_ring(priv, i);
-+	bcmgenet_fini_tx_napi(priv);
- 
- 	__bcmgenet_fini_dma(priv);
- }
-@@ -2466,6 +2508,7 @@ static void bcmgenet_netif_start(struct net_device *dev)
- 
- 	/* Start the network engine */
- 	napi_enable(&priv->napi);
-+	bcmgenet_enable_tx_napi(priv);
- 
- 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, true);
- 
-@@ -2574,6 +2617,7 @@ static void bcmgenet_netif_stop(struct net_device *dev)
- 	phy_stop(priv->phydev);
- 
- 	bcmgenet_intr_disable(priv);
-+	bcmgenet_disable_tx_napi(priv);
- 
- 	/* Wait for pending work items to complete. Since interrupts are
- 	 * disabled no new work will be scheduled.
--- 
-2.2.0.rc0.207.ga3a616c
+The patches are from 3.15. Please queue them up for kernels <= 3.14.
