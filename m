@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Please backport dev_kfree_skb_any fixes for stable
-Date: Wed, 25 Mar 2015 14:03:58 -0400 (EDT)
-Message-ID: <20150325.140358.1369150767101881939.davem@davemloft.net>
-References: <CAHTgTXX2rw9441stUb41EHTKanm9HZ+4T+a5+fur4O6G7zy21A@mail.gmail.com>
-	<20150324.001408.1364899234285488351.davem@davemloft.net>
-	<CAHTgTXWvDs4fTg_Gpsn8XrYnHbgZOKC4ymkq_QVdnGVCOaiqzw@mail.gmail.com>
+Subject: Re: [PATCH] net: dsa: Handle non-bridge master change
+Date: Wed, 25 Mar 2015 14:07:17 -0400 (EDT)
+Message-ID: <20150325.140717.458262147377513231.davem@davemloft.net>
+References: <1427296117-1805-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
-	cwang@twopensource.com
-To: vlee@twopensource.com
+Cc: f.fainelli@gmail.com, andrew@lunn.ch, sfeldma@gmail.com,
+	netdev@vger.kernel.org
+To: linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48413 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48432 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932159AbbCYSEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 14:04:02 -0400
-In-Reply-To: <CAHTgTXWvDs4fTg_Gpsn8XrYnHbgZOKC4ymkq_QVdnGVCOaiqzw@mail.gmail.com>
+	with ESMTP id S1753297AbbCYSHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 14:07:19 -0400
+In-Reply-To: <1427296117-1805-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vinson Lee <vlee@twopensource.com>
-Date: Wed, 25 Mar 2015 10:48:47 -0700
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 25 Mar 2015 08:08:37 -0700
 
-> On Mon, Mar 23, 2015 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
->> From: Vinson Lee <vlee@twopensource.com>
->> Date: Tue, 17 Mar 2015 16:52:20 -0700
->>
->>> This stable request seems to have been forgotten.
->>
->> Sorry I've lost all of the context for this, you'll have to remind me
->> of all of the details.
+> Master change notifications may occur other than when joining or
+> leaving a bridge, for example when being added to or removed from
+> a bond or Open vSwitch. In that case, do nothing instead of asking
+> the switch driver to remove a port from a bridge that it didn't join.
 > 
-> These patches fixes warnings that can occur when a netconsole message
-> is transmitted in an IRQ.
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-I mean the full context, as in the list of commits you'd like me to
-queue up for -stable, and what -stable releases they are relevant
-for.
+Applied.
