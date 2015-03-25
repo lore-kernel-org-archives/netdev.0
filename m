@@ -1,89 +1,60 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
-Date: Wed, 25 Mar 2015 18:35:41 +0000
-Message-ID: <87618083B2453E4A8714035B62D6799250275B81@FMSMSX105.amr.corp.intel.com>
-References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com>
- <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com>
- <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com>
- <55113B9B.3090308@cloudius-systems.com>
- <87618083B2453E4A8714035B62D6799250274C7F@FMSMSX105.amr.corp.intel.com>
- <5511B5AE.1090905@cloudius-systems.com>
- <87618083B2453E4A8714035B62D6799250274DD2@FMSMSX105.amr.corp.intel.com>
- <55127F8D.3070309@cloudius-systems.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Wed, 25 Mar 2015 13:47:17 -0500
+Message-ID: <1427309237.31633.24.camel@redhat.com>
+References: <20150324180628.278017fb@griffin>
+	 <CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
+	 <20150325095851.1d8d1622@griffin>
+	 <20150325.114622.1915164845375005128.davem@davemloft.net>
+	 <CAF2d9jh5WaNYsMxp29GY3LqM08jjVPwLd1BQ1HLFKMsKFda6zQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: Vlad Zolotarov <vladz@cloudius-systems.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jbenc@redhat.com,
+	linux-netdev <netdev@vger.kernel.org>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48622 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54582 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750809AbbCYSfn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 14:35:43 -0400
-In-Reply-To: <55127F8D.3070309@cloudius-systems.com>
-Content-Language: en-US
+	id S1752249AbbCYSrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2015 14:47:18 -0400
+In-Reply-To: <CAF2d9jh5WaNYsMxp29GY3LqM08jjVPwLd1BQ1HLFKMsKFda6zQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com] 
->Sent: Wednesday, March 25, 2015 2:28 AM
->Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
+On Wed, 2015-03-25 at 11:11 -0700, Mahesh Bandewar wrote:
+> On Wed, Mar 25, 2015 at 8:46 AM, David Miller <davem@davemloft.net> wrote:
+> > From: Jiri Benc <jbenc@redhat.com>
+> > Date: Wed, 25 Mar 2015 09:58:51 +0100
+> >
+> >> On Tue, 24 Mar 2015 16:16:38 -0700, Mahesh Bandewar wrote:
+> >>> Well, we already have hlist_unhashed().The following patch should fix
+> >>> the duplicate addition as well as deletion. Please give it a try.
+> >>
+> >> Good idea, it's surely better than adding a new boolean.
+> >>
+> >> However, I'm wondering that when there's apparently no problem with the
+> >> addresses being on the hash list when interface is down, what's the
+> >> point in clearing the hash list in the ndo_stop handler and
+> >> repopulating it in ndo_open?
+> >>
+> >> The following patch fixes the problem, too, and as a bonus removes code:
+> >
+> > I'll let Mahesh reply to this.
+> 
+> Yes functionally you will get the same result. However during the RX
+> processing, that code helps ipvlan-demux machine along with
+> packet-dispatcher to determine it early to drop the packet rather than
+> later. Also note that addition / deletion of address entries in
+> hash-table is done in control-path while the demux / dispatcher
+> operate in data-path. So for this reason I would prefer to leave the
+> hash-table entries addition / deletion as it is.
 
-<snip>
+Jiri's patch was actually prompted by my testing of ipvlan with L2 mode.
+How much testing of L2 have you given ipvlan internally and what setups
+have you tested?  It doesn't look like ipvlan handles ARP/ICMP very well
+at all right now, and while I've got patches to fix some of that I'm
+trying to characterize the rest.  Also, have you ever tested it with
+DHCP?
 
->> Have you tested what happens if you run:
->>
->> while true
->> do
->> 	ethtool --show-rxfh-indir ethX
->> done
->>
->> in the background while passing traffic through the VF?
->I understand your concerns but let's start with clarifying a few things. 
->First, VF driver is by definition not trusted. If it (or its user) 
->decides to do anything malicious (like u proposed above) that would 
->eventually hurt (only this) VF's performance - nobody should care. 
->However the right question here would be: "How the above use case may 
->hurt the corresponding PF or other VFs' performance?" And since the 
->mailbox operation involves quite a few MMIO writes and reads this may 
->slow the PF quite a bit and this may be a problem that should be taken 
->care of. However it wasn't my patch series that have introduced it. The 
->same problem would arise if Guest would change VF's MAC address in a 
->tight loop like above. Namely any VF slow path operation that would 
->eventually cause the VF-PF channel transaction may be used to create an 
->attack on a PF.
-
-There are operations that can be disruptive to the VF I am not arguing that,
-the issue introduced by these patches has mostly to do with the fact that now
-we can hit the mailbox more often for what is mostly static information.
-
-Especially with ethtool we already had to deal with an issue caused by net-snmp:
-https://sourceforge.net/p/e1000/mailman/message/32188362/
-
-Where net-snmp was being too aggressive when collecting information, even if most of it was static.
-
->
-> Perhaps storing the RSS key and the table is better option than having to invoke the mailbox on every read.
-
->I don't think this could work if I understand your proposal correctly. 
->The only way to cache the result that would decrease the number of mbox 
->transactions would be to cache it in the VF. But how could i invalidate 
->this cache if the table content has been changed by a PF? I think the 
->main source of a confusion here is that u assume that PF driver is a 
->Linux ixgbe driver that doesn't support an indirection table change at 
->the moment. As I have explained above - this should not be assumed.
-
-You keep mentioning other drivers - what other driver do you mean?
-All the PF drivers that enable SRIOV are maintained and supported by Intel.
-
-For HW older than X550 we can simply not allow the RSS hash to be modified if the driver is loaded in SRIOV mode.
-This way the RSS info can be read once the driver is loaded. For X550 this can all be done in the VF, so you can avoid calling the mailbox altogether.
-I understand this is a bit limiting, but this is due to HW limitation anyway (VFs do not have their own RSS config).
-
-Thanks,
-Emil
+Dan
