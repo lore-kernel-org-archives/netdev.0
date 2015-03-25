@@ -1,18 +1,20 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v3] tc class: Ignore if default class name file does not exist
-Date: Wed, 25 Mar 2015 05:08:26 +0200
-Message-ID: <1427252906-6344-1-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 v4] tc class: Ignore if default class name file does not exist
+Date: Wed, 25 Mar 2015 05:14:37 +0200
+Message-ID: <1427253277-7250-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:36516 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286AbbCYDUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 23:20:20 -0400
-Received: by labe2 with SMTP id e2so9490747lab.3
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 20:20:18 -0700 (PDT)
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:34124 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912AbbCYD0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 23:26:31 -0400
+Received: by lbbsy1 with SMTP id sy1so8466856lbb.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 20:26:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+From: Vadim Kochan <vadim4j@gmail.com>
 
 If '-nm' specified that do not fail if there is no
 default class names file in /etc/iproute2.
