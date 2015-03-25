@@ -1,120 +1,102 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v8 7/7] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
-Date: Wed, 25 Mar 2015 19:42:42 +0200
-Message-ID: <1427305362-23948-8-git-send-email-vladz@cloudius-systems.com>
+Subject: [PATCH net-next v8 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF channel commands set
+Date: Wed, 25 Mar 2015 19:42:40 +0200
+Message-ID: <1427305362-23948-6-git-send-email-vladz@cloudius-systems.com>
 References: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
 	gleb@cloudius-systems.com, intel-wired-lan@lists.osuosl.org,
 	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:35657 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752830AbbCYRnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:43:00 -0400
-Received: by wibbg6 with SMTP id bg6so34127324wib.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:59 -0700 (PDT)
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:33211 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752210AbbCYRm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 13:42:57 -0400
+Received: by wgbcc7 with SMTP id cc7so35809676wgb.0
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:42:56 -0700 (PDT)
 In-Reply-To: <1427305362-23948-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
-implementations.
+For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
+the same RSS key for all VFs.
 
-This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF devices.
+x550 on the other hand has a separate RSS Key for every pool.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 ---
-New in v6:
-   - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
-
-New in v4:
-   - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
+New in v5:
+   - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
+     basis.
 
 New in v3:
-   - Added a proper support for x550 devices: return the correct redirection table size.
+   - Added a support for x550 devices.
 
-New in v2:
-   - Added a detailed description to the patch.
+New in v1 (compared to RFC):
+   - Use "if-else" statement instead of a "switch-case" for a single option case
+     (in ixgbe_get_vf_rss_key()).
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 58 ++++++++++++++++++++++++++++
- 1 file changed, 58 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 27 ++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index e83c85b..7cb4008 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -794,6 +794,60 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+index f9b5eae..3f14373 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+@@ -105,6 +105,8 @@ enum ixgbe_pfvf_api_rev {
+ #define IXGBE_VF_RETA_SZ        1	/* Number of RETA DWs to bring */
+ #define IXGBE_VF_RETA_OFFSET    2	/* Offset in RETA */
+ 
++#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
++
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN 4
+ /* word in permanent address message with the current multicast type */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 301bb1b..78517a1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1016,6 +1016,30 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
  	return 0;
  }
  
-+static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
-+			     u32 *rules __always_unused)
++static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
++				u32 *msgbuf, u32 vf)
 +{
-+	struct ixgbevf_adapter *adapter = netdev_priv(dev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	int i;
++	u32 *rss_key = &msgbuf[1];
 +
-+	switch (info->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		info->data = adapter->num_rx_queues;
-+		return 0;
-+	default:
-+		hw_dbg(&adapter->hw, "Command parameters not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
++	/* verify the PF is supporting the correct API */
++	if (!adapter->vfinfo[vf].rss_query_enabled ||
++	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
++		return -EPERM;
 +
-+static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+
-+	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
-+		return 64;
-+	else
-+		return 128;
-+}
-+
-+static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	return 40;
-+}
-+
-+static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-+			    u8 *hfunc)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+	int err;
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	if (indir) {
-+		err = ixgbevf_get_reta(adapter, indir);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (key) {
-+		err = ixgbevf_get_rss_key(adapter, key);
-+		if (err)
-+			return err;
-+	}
++	/* Read the RSS KEY */
++	if (hw->mac.type >= ixgbe_mac_X550) {
++		for (i = 0; i < 10; i++)
++			rss_key[i] = IXGBE_READ_REG(hw,
++						IXGBE_PFVFRSSRK(i, vf));
++	} else
++		for (i = 0; i < 10; i++)
++			rss_key[i] = IXGBE_READ_REG(hw, IXGBE_RSSRK(i));
 +
 +	return 0;
 +}
 +
- static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_settings		= ixgbevf_get_settings,
- 	.get_drvinfo		= ixgbevf_get_drvinfo,
-@@ -811,6 +865,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
- 	.get_coalesce		= ixgbevf_get_coalesce,
- 	.set_coalesce		= ixgbevf_set_coalesce,
-+	.get_rxnfc		= ixgbevf_get_rxnfc,
-+	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
-+	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
-+	.get_rxfh		= ixgbevf_get_rxfh,
- };
- 
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+@@ -1075,6 +1099,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	case IXGBE_VF_GET_RETA:
+ 		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
+ 		break;
++	case IXGBE_VF_GET_RSS_KEY:
++		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
++		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+ 		retval = IXGBE_ERR_MBX;
 -- 
 2.1.0
