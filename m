@@ -1,216 +1,93 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v4] tc class: Ignore if default class name file does not exist
-Date: Wed, 25 Mar 2015 05:14:37 +0200
-Message-ID: <1427253277-7250-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
+ forwarded packets
+Date: Tue, 24 Mar 2015 20:46:23 -0700
+Message-ID: <CAGVrzcZ+QywZxe4P2bcnBLG9mXUDARNzNyXF1yTOV9tnAcx=PQ@mail.gmail.com>
+References: <20150323002215.GA6074@roeck-us.net> <550F6D7D.7030403@gmail.com>
+ <550F8102.7040701@roeck-us.net> <550F8600.2020300@gmail.com>
+ <550F8987.5070600@roeck-us.net> <5510498D.5010001@cumulusnetworks.com>
+ <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
+ <20150324142921.GA2026@nanopsycho.orion> <20150324160126.GA17104@roeck-us.net>
+ <5511A29F.5010006@cumulusnetworks.com> <20150324175825.GA1465@roeck-us.net> <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	roopa <roopa@cumulusnetworks.com>, Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	David Miller <davem@davemloft.net>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:34124 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912AbbCYD0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 23:26:31 -0400
-Received: by lbbsy1 with SMTP id sy1so8466856lbb.1
-        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 20:26:30 -0700 (PDT)
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:34561 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbbCYDrE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 23:47:04 -0400
+Received: by obbgg8 with SMTP id gg8so10213650obb.1
+        for <netdev@vger.kernel.org>; Tue, 24 Mar 2015 20:47:03 -0700 (PDT)
+In-Reply-To: <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+2015-03-24 11:14 GMT-07:00 Scott Feldman <sfeldma@gmail.com>:
+> On Tue, Mar 24, 2015 at 10:58 AM, Guenter Roeck <linux@roeck-us.net> wrote:
+>> On Tue, Mar 24, 2015 at 10:45:03AM -0700, roopa wrote:
+>>> On 3/24/15, 9:01 AM, Guenter Roeck wrote:
+>>> >On Tue, Mar 24, 2015 at 03:29:21PM +0100, Jiri Pirko wrote:
+>>> >>>diff --git a/drivers/net/ethernet/rocker/rocker.c
+>>> >>>b/drivers/net/ethernet/rocker/rocker.c
+>>> >>>index aab962c..0f7217f7 100644
+>>> >>>--- a/drivers/net/ethernet/rocker/rocker.c
+>>> >>>+++ b/drivers/net/ethernet/rocker/rocker.c
+>>> >>>@@ -3931,15 +3931,28 @@ unmap_frag:
+>>> >>>        return -EMSGSIZE;
+>>> >>>}
+>>> >>>
+>>> >>>+static bool rocker_port_dev_check(struct net_device *dev);
+>>> >>>+
+>>> >>>static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct
+>>> >>>net_device *dev)
+>>> >>>{
+>>> >>>        struct rocker_port *rocker_port = netdev_priv(dev);
+>>> >>>        struct rocker *rocker = rocker_port->rocker;
+>>> >>>        struct rocker_desc_info *desc_info;
+>>> >>>        struct rocker_tlv *frags;
+>>> >>>+       struct net_device *in_dev;
+>>> >>>        int i;
+>>> >>>        int err;
+>>> >>>
+>>> >>>+       if (rocker_port_is_bridged(rocker_port)) {
+>>> >>>+               rcu_read_lock();
+>>> >>>+               in_dev = dev_get_by_index_rcu(dev_net(dev), skb->skb_iif);
+>>> >>Hmm, you iterate over all ports for every xmit call :/
+>>> >>Would be nicer if skb_iif would be netdev poiter. Not sure it is doable.
+>>> >>
+>>> >It may be easier (and faster) to loop through all rocker ports and try to find
+>>> >one with the same ifindex. Then the dev_check call would not be necessary.
+>>> >
+>>> This is still overhead for every packet on the switches we support. The
+>>> number of ports can go close to 128
+>>> (40G ports can be broken into 4x10G ports).
+>>>
+>> Agreed. Given that, and since dev_get_by_index_rcu uses a hash to find the
+>> device pointer, it may actually be (much) faster (and the above "iterate
+>> over all ports" is a bit misleading).
+>>
+>> I tested the above approach with DSA and a Marvell switch chip. It works,
+>> but I am a bit concerned about the per-packet overhead, especially
+>> in larger networks. I would prefer if there would be a means to 'catch'
+>> duplicate packets earlier - before they are even created, if that is
+>> possible.
+>
+> I'm not so concerned about the per-packet overhead.  For multicast, we
+> have IGMP snooping.  And big switches are going to have rate controls
+> on CPU bound traffic, so the CPU should be able to handle the
+> per-packet overhead with ease.
 
-If '-nm' specified that do not fail if there is no
-default class names file in /etc/iproute2.
-
-Changed default class name file cls_names -> tc_cls.
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- include/names.h |  3 ++-
- lib/names.c     | 59 +++++++++++++++++++++++++++++++++++++++++----------------
- tc/tc_util.c    | 19 +++++++++++++++----
- 3 files changed, 60 insertions(+), 21 deletions(-)
-
-diff --git a/include/names.h b/include/names.h
-index 4123d0b..6fed581 100644
---- a/include/names.h
-+++ b/include/names.h
-@@ -16,7 +16,8 @@ struct db_names {
- 	int max;
- };
- 
--struct db_names *db_names_alloc(const char *path);
-+struct db_names *db_names_alloc(void);
-+int db_names_load(struct db_names *db, const char *path);
- void db_names_free(struct db_names *db);
- 
- char *id_to_name(struct db_names *db, int id, char *name);
-diff --git a/lib/names.c b/lib/names.c
-index 93933f7..3b5b0b1 100644
---- a/lib/names.c
-+++ b/lib/names.c
-@@ -11,8 +11,10 @@
- #include <stdio.h>
- #include <string.h>
- #include <stdlib.h>
-+#include <errno.h>
- 
- #include "names.h"
-+#include "utils.h"
- 
- #define MAX_ENTRIES  256
- #define NAME_MAX_LEN 512
-@@ -48,48 +50,65 @@ static int read_id_name(FILE *fp, int *id, char *name)
- 	return 0;
- }
- 
--struct db_names *db_names_alloc(const char *path)
-+struct db_names *db_names_alloc(void)
- {
- 	struct db_names *db;
--	struct db_entry *entry;
--	FILE *fp;
--	int id;
--	char namebuf[NAME_MAX_LEN] = {0};
--	int ret;
- 
--	fp = fopen(path, "r");
--	if (!fp) {
--		fprintf(stderr, "Can't open file: %s\n", path);
-+	db = malloc(sizeof(*db));
-+	if (!db)
- 		return NULL;
--	}
- 
--	db = malloc(sizeof(*db));
- 	memset(db, 0, sizeof(*db));
- 
- 	db->size = MAX_ENTRIES;
- 	db->hash = malloc(sizeof(struct db_entry *) * db->size);
- 	memset(db->hash, 0, sizeof(struct db_entry *) * db->size);
- 
-+	return db;
-+}
-+
-+int db_names_load(struct db_names *db, const char *path)
-+{
-+	struct db_entry *entry;
-+	FILE *fp;
-+	int id;
-+	char namebuf[NAME_MAX_LEN] = {0};
-+	int ret = -1;
-+
-+	fp = fopen(path, "r");
-+	if (!fp)
-+		return -ENOENT;
-+
- 	while ((ret = read_id_name(fp, &id, &namebuf[0]))) {
- 		if (ret == -1) {
- 			fprintf(stderr, "Database %s is corrupted at %s\n",
- 					path, namebuf);
--			fclose(fp);
--			return NULL;
-+			goto Exit;
- 		}
-+		ret = -1;
- 
- 		if (id < 0)
- 			continue;
- 
- 		entry = malloc(sizeof(*entry));
--		entry->id   = id;
-+		if (!entry)
-+			goto Exit;
-+
- 		entry->name = strdup(namebuf);
-+		if (!entry->name) {
-+			free(entry);
-+			goto Exit;
-+		}
-+
-+		entry->id   = id;
- 		entry->next = db->hash[id & (db->size - 1)];
- 		db->hash[id & (db->size - 1)] = entry;
- 	}
-+	ret = 0;
- 
-+Exit:
- 	fclose(fp);
--	return db;
-+	return ret;
- }
- 
- void db_names_free(struct db_names *db)
-@@ -117,8 +136,12 @@ void db_names_free(struct db_names *db)
- 
- char *id_to_name(struct db_names *db, int id, char *name)
- {
--	struct db_entry *entry = db->hash[id & (db->size - 1)];
-+	struct db_entry *entry;
-+
-+	if (!db)
-+		return NULL;
- 
-+	entry = db->hash[id & (db->size - 1)];
- 	while (entry && entry->id != id)
- 		entry = entry->next;
- 
-@@ -136,6 +159,9 @@ int name_to_id(struct db_names *db, int *id, const char *name)
- 	struct db_entry *entry;
- 	int i;
- 
-+	if (!db)
-+		return -1;
-+
- 	if (db->cached && strcmp(db->cached->name, name) == 0) {
- 		*id = db->cached->id;
- 		return 0;
-@@ -145,6 +171,7 @@ int name_to_id(struct db_names *db, int *id, const char *name)
- 		entry = db->hash[i];
- 		while (entry && strcmp(entry->name, name))
- 			entry = entry->next;
-+
- 		if (entry) {
- 			db->cached = entry;
- 			*id = entry->id;
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index feae439..1d3153d 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -21,6 +21,7 @@
- #include <arpa/inet.h>
- #include <string.h>
- #include <math.h>
-+#include <errno.h>
- 
- #include "utils.h"
- #include "names.h"
-@@ -33,15 +34,25 @@
- 
- static struct db_names *cls_names = NULL;
- 
--#define NAMES_DB "/etc/iproute2/cls_names"
-+#define NAMES_DB "/etc/iproute2/tc_cls"
- 
- int cls_names_init(char *path)
- {
--	cls_names = db_names_alloc(path ?: NAMES_DB);
--	if (!cls_names) {
--		fprintf(stderr, "Error while opening class names file\n");
-+	int ret;
-+
-+	cls_names = db_names_alloc();
-+	if (!cls_names)
-+		return -1;
-+
-+	ret = db_names_load(cls_names, path ?: NAMES_DB);
-+	if (ret == -ENOENT && path) {
-+		fprintf(stderr, "Can't open class names file: %s\n", path);
- 		return -1;
- 	}
-+	if (ret) {
-+		db_names_free(cls_names);
-+		cls_names = NULL;
-+	}
- 
- 	return 0;
- }
--- 
-2.3.1
+Ok, that works for a model where you are only processing exception
+traffic, but this may not always be the case, there are things you
+don't/can't offload on smaller devices, such that you still want the
+overhead to be a lightweight as possible.
+--
+Florian
