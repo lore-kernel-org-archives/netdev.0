@@ -1,57 +1,121 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net 2/2] ipmr,ip6mr: call list_del_rcu() when deleting mr
- table from list
-Date: Wed, 25 Mar 2015 21:07:02 +0100
-Message-ID: <1427314022.3581245.245236665.477D7858@webmail.messagingengine.com>
-References: <1427310345-29829-1-git-send-email-xiyou.wangcong@gmail.com>
- <1427310345-29829-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [net-next 05/16] ixgbevf: enable multiple queue support
+Date: Wed, 25 Mar 2015 13:16:32 -0700
+Message-ID: <551317A0.6090108@redhat.com>
+References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com> <1423128950-12388-6-git-send-email-jeffrey.t.kirsher@intel.com> <55127581.2080205@cloudius-systems.com> <5512FEDC.7080902@redhat.com> <55131153.2090401@cloudius-systems.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Vlad Zolotarov <vladz@cloudius-systems.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:54198 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752193AbbCYUHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 16:07:03 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 5565020ABB
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 16:07:00 -0400 (EDT)
-In-Reply-To: <1427310345-29829-2-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58812 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752058AbbCYUQi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Mar 2015 16:16:38 -0400
+In-Reply-To: <55131153.2090401@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+On 03/25/2015 12:49 PM, Vlad Zolotarov wrote:
+> On 03/25/15 20:30, Alexander Duyck wrote:
+>> On 03/25/2015 01:44 AM, Vlad Zolotarov wrote:
+>>> On 02/05/15 11:35, Jeff Kirsher wrote:
+>>>> From: Emil Tantilov <emil.s.tantilov@intel.com>
+>>
+>>>
+>>>>     #define IXGBEVF_DEFAULT_TXD   1024
+>>>>   #define IXGBEVF_DEFAULT_RXD   512
+>>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c 
+>>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> index c9b49bf..815808f 100644
+>>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> @@ -1794,7 +1794,8 @@ static int ixgbevf_configure_dcb(struct 
+>>>> ixgbevf_adapter *adapter)
+>>>>       struct ixgbe_hw *hw = &adapter->hw;
+>>>>       unsigned int def_q = 0;
+>>>>       unsigned int num_tcs = 0;
+>>>> -    unsigned int num_rx_queues = 1;
+>>>> +    unsigned int num_rx_queues = adapter->num_rx_queues;
+>>>> +    unsigned int num_tx_queues = adapter->num_tx_queues;
+>>>>       int err;
+>>>>         spin_lock_bh(&adapter->mbx_lock);
+>>>> @@ -1808,6 +1809,9 @@ static int ixgbevf_configure_dcb(struct 
+>>>> ixgbevf_adapter *adapter)
+>>>>           return err;
+>>>>         if (num_tcs > 1) {
+>>>> +        /* we need only one Tx queue */
+>>>> +        num_tx_queues = 1;
+>>>> +
+>>>>           /* update default Tx ring register index */
+>>>>           adapter->tx_ring[0]->reg_idx = def_q;
+>>>>   @@ -1816,7 +1820,8 @@ static int ixgbevf_configure_dcb(struct 
+>>>> ixgbevf_adapter *adapter)
+>>>>       }
+>>>>         /* if we have a bad config abort request queue reset */
+>>>> -    if (adapter->num_rx_queues != num_rx_queues) {
+>>>> +    if ((adapter->num_rx_queues != num_rx_queues) ||
+>>>> +        (adapter->num_tx_queues != num_tx_queues)) {
+>>>>           /* force mailbox timeout to prevent further messages */
+>>>>           hw->mbx.timeout = 0;
+>>>>   @@ -2181,8 +2186,19 @@ static void ixgbevf_set_num_queues(struct 
+>>>> ixgbevf_adapter *adapter)
+>>>>           return;
+>>>>         /* we need as many queues as traffic classes */
+>>>> -    if (num_tcs > 1)
+>>>> +    if (num_tcs > 1) {
+>>>>           adapter->num_rx_queues = num_tcs;
+>>>> +    } else {
+>>>> +        u16 rss = min_t(u16, num_online_cpus(), 
+>>>> IXGBEVF_MAX_RSS_QUEUES);
+>>>
+>>> Emil,
+>>> Here u ignore the IXGBE_VF_RX_QUEUES value returned the PF (stored 
+>>> in the hw->mac.max_rx_queues). This will accidentally work if PF is 
+>>> driven by a current ixgbe Linux driver but what would happen if HV 
+>>> is not a Linux box? What if HV decides to configure the 
+>>> PSRTYPE[x].RQPL to 0 and decide that VF should be configured with a 
+>>> single queue? I maybe miss something here but the above line seems 
+>>> bogus. Please, comment.
+>>
+>> It isn't ignored.  The fact that num_tcs is being tested for checks 
+>> for the one case where the number of RSS queues available would be 1, 
+>> otherwise the hardware will provide at least 2 queues. 
+>
+>> If the RETA is not configured for 2 queues one of them will not be 
+>> active, but that should not be any sort of actual issue and would be 
+>> more of an administrative choice anyway as it would also limit the PF.
+>
+> This would be an administrative choice ignored by the ixgbevf driver.
 
-On Wed, Mar 25, 2015, at 20:05, Cong Wang wrote:
-> Probably not a big deal, just for corretness.
-> 
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/ipv4/ipmr.c  | 2 +-
->  net/ipv6/ip6mr.c | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index d6fede8..68f67b8 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -280,7 +280,7 @@ static void __net_exit ipmr_rules_exit(struct net
-> *net)
->  
->  	rtnl_lock();
->  	list_for_each_entry_safe(mrt, next, &net->ipv4.mr_tables, list) {
-> -               list_del(&mrt->list);
-> +               list_del_rcu(&mrt->list);
->  		ipmr_free_table(mrt);
->  	}
->  	rtnl_unlock();
+What are you talking about?  How is this an administrative choice? When 
+you configure SR-IOV one of the decisions is to select the queue 
+layout.  There is no layout that gives the VF less than 2 queues.  Your 
+argument makes no sense.  That is why this keeps going back and forth.
 
-I really do wonder if we have the rcu locking correct in there:
+> Frankly, I don't understand why are we arguing about this for so long? 
+> It's obvious that the safest and the most correct way to write it 
+> would be to limit the num_rx_queues by the value returned by PF. It 
+> would also remove any further questions and it's a one line patch.
+> However, if u still insist to keep it the way it is then let's drop 
+> this discussion and move on.
 
-Looking into getsockopt/setsockopt operations, we might have socket
-lock, but I cannot see where we lock rcu, so the ipmr_get_table call is
-safe. Do you also see the problem?
+There is nothing the PF can do to deny access to the 2 queues that 
+belong to the VF, they are there.  All Emil's patch does is give the VF 
+the ability to use the 2 queues for RSS, if it decides to, in order to 
+make better use of system resources.  If the RETA is populated for only 
+one queue then worst case is that the VF is wasting resources on a queue 
+that will go unused.
 
-Thanks,
-Hannes
+What concerns me is that you keep talking about a hypothetical PF driver 
+which quite frankly can't be supported by the hardware.  If there is 
+something you are working on that these changes break then I would 
+recommend coming forward with the code for it via something such as an 
+RFC so we can start a conversation, otherwise there is no way to help 
+you since we have no idea what you are talking about.
+
+- Alex
