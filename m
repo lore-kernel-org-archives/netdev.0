@@ -1,68 +1,54 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: fix a link reset issue due
-	to retransmission failures
-Date: Wed, 25 Mar 2015 18:09:40 +0800
-Message-ID: <1427278181-29389-1-git-send-email-ying.xue@windriver.com>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: RFC: Use of "jiffies" vs "jiffies64" in the neighbour system.
+Date: Wed, 25 Mar 2015 11:11:45 +0100
+Message-ID: <551289E1.8090609@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:46483 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018AbbCYKLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 06:11:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a node joins a cluster while we are transmitting a fragment
-stream over the broadcast link, it's missing the preceding fragments
-needed to build a meaningful message. As a result, the node has to
-drop it. However, as the fragment message is not acknowledged to
-its sender before it's dropped, it accidentally causes link reset
-of retransmission failure on the node.
+If you run HZ = 1000, then jiffies will wrap around after 49,71 days.
+This means that all time compares in the neighbour system will fail.
 
-Reported-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Tested-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/bcast.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ From what I can see from "jiffies,h" there is no attempt to detect the 
+wrap-around.
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 403aee7..7935553 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -523,11 +523,13 @@ receive:
- 			tipc_bclink_unlock(net);
- 			tipc_node_unlock(node);
- 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
--			tipc_buf_append(&node->bclink.reasm_buf, &buf);
--			if (unlikely(!buf && !node->bclink.reasm_buf))
--				goto unlock;
- 			tipc_bclink_lock(net);
- 			bclink_accept_pkt(node, seqno);
-+			tipc_buf_append(&node->bclink.reasm_buf, &buf);
-+			if (unlikely(!buf && !node->bclink.reasm_buf)) {
-+				tipc_bclink_unlock(net);
-+				goto unlock;
-+			}
- 			bcl->stats.recv_fragments++;
- 			if (buf) {
- 				bcl->stats.recv_fragmented++;
+#define time_after(a,b)        \
+     (typecheck(unsigned long, a) && \
+      typecheck(unsigned long, b) && \
+      ((long)(b) - (long)(a) < 0))
+#define time_before(a,b)    time_after(b,a)
+
+#define time_after_eq(a,b)    \
+     (typecheck(unsigned long, a) && \
+      typecheck(unsigned long, b) && \
+      ((long)(a) - (long)(b) >= 0))
+#define time_before_eq(a,b)    time_after_eq(b,a)
+
+While the problem is not big for most users, I suspect it will
+affect quality at the time of wrap-around.
+
+It looks like garbage collection will stop in neigh_alloc,
+since time has not passed time of last flush.
+
+reachable time will no longer be recomputed in periodic_work
+
+When you are in REACHABLE state, you will stay there,
+since "now" will be before "confirmed" +"reachable_time",
+so the entry will not be moved to DELAY or STALE,
+
+If you are in delay state, you will move the entry
+into REACHABLE even if you did not get a response.
+
+and so on....
+
 -- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
+Best Regards,
+Ulf Samuelsson
