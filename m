@@ -1,90 +1,59 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v11 tip 1/9] bpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs
-Date: Wed, 25 Mar 2015 12:49:18 -0700
-Message-ID: <1427312966-8434-2-git-send-email-ast@plumgrid.com>
-References: <1427312966-8434-1-git-send-email-ast@plumgrid.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@kernel.org>
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next 1/7] net: bcmgenet: remove priv->int0_mask and priv->int1_mask
+Date: Wed, 25 Mar 2015 12:35:09 -0700 (PDT)
+Message-ID: <20150325193509.D65552201FC@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33737 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753559AbbCYTtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 15:49:31 -0400
-Received: by pabxg6 with SMTP id xg6so39122907pab.0
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 12:49:30 -0700 (PDT)
-In-Reply-To: <1427312966-8434-1-git-send-email-ast@plumgrid.com>
+Received: from mail-yk0-f201.google.com ([209.85.160.201]:34483 "EHLO
+	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbbCYUCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 16:02:49 -0400
+Received: by ykq142 with SMTP id 142so2168189ykq.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 13:02:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
+Remove unused priv->int0_mask and priv->int1_mask.
 
-Socket filter code and other subsystems with upcoming eBPF support should
-not need to deal with the fact that we have CONFIG_BPF_SYSCALL defined or
-not.
-
-Having the bpf syscall as a config option is a nice thing and I'd expect
-it to stay that way for expert users (I presume one day the default setting
-of it might change, though), but code making use of it should not care if
-it's actually enabled or not.
-
-Instead, hide this via header files and let the rest deal with it.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Reviewed-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Signed-off-by: Petri Gynther <pgynther@google.com>
 ---
- include/linux/bpf.h |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 --
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 2 --
+ 2 files changed, 4 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index bbfceb756452..c2e21113ecc0 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -113,8 +113,6 @@ struct bpf_prog_type_list {
- 	enum bpf_prog_type type;
- };
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index c38d542..030249d 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -985,7 +985,6 @@ static inline void bcmgenet_tx_ring_int_enable(struct bcmgenet_priv *priv,
+ {
+ 	bcmgenet_intrl2_1_writel(priv, (1 << ring->index),
+ 				 INTRL2_CPU_MASK_CLEAR);
+-	priv->int1_mask &= ~(1 << ring->index);
+ }
  
--void bpf_register_prog_type(struct bpf_prog_type_list *tl);
--
- struct bpf_prog;
+ static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
+@@ -993,7 +992,6 @@ static inline void bcmgenet_tx_ring_int_disable(struct bcmgenet_priv *priv,
+ {
+ 	bcmgenet_intrl2_1_writel(priv, (1 << ring->index),
+ 				 INTRL2_CPU_MASK_SET);
+-	priv->int1_mask |= (1 << ring->index);
+ }
  
- struct bpf_prog_aux {
-@@ -129,11 +127,25 @@ struct bpf_prog_aux {
- };
+ /* Unlocked version of the reclaim routine */
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 7a59879..a9e1612 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -558,8 +558,6 @@ struct bcmgenet_priv {
+ 	void __iomem *base;
+ 	enum bcmgenet_version version;
+ 	struct net_device *dev;
+-	u32 int0_mask;
+-	u32 int1_mask;
  
- #ifdef CONFIG_BPF_SYSCALL
-+void bpf_register_prog_type(struct bpf_prog_type_list *tl);
-+
- void bpf_prog_put(struct bpf_prog *prog);
-+struct bpf_prog *bpf_prog_get(u32 ufd);
- #else
--static inline void bpf_prog_put(struct bpf_prog *prog) {}
-+static inline void bpf_register_prog_type(struct bpf_prog_type_list *tl)
-+{
-+}
-+
-+static inline struct bpf_prog *bpf_prog_get(u32 ufd)
-+{
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
-+
-+static inline void bpf_prog_put(struct bpf_prog *prog)
-+{
-+}
- #endif
--struct bpf_prog *bpf_prog_get(u32 ufd);
-+
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog *fp, union bpf_attr *attr);
- 
+ 	/* NAPI for descriptor based rx */
+ 	struct napi_struct napi ____cacheline_aligned;
 -- 
-1.7.9.5
+2.2.0.rc0.207.ga3a616c
