@@ -1,21 +1,17 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 2/2] ipv6: hash net ptr into fragmentation bucket selection
-Date: Wed, 25 Mar 2015 15:00:19 +0100
-Message-ID: <1ff8faaeff057c9c3a7db39a0c55e8f3dea1f247.1427291651.git.hannes@stressinduktion.org>
-References: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
+Subject: [PATCH net-next 1/2] ipv4: hash net ptr into fragmentation bucket selection
+Date: Wed, 25 Mar 2015 15:00:18 +0100
+Message-ID: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
 Cc: Eric Dumazet <edumazet@google.com>, Flavio Leitner <fbl@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36287 "EHLO
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50716 "EHLO
 	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752337AbbCYOA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 10:00:26 -0400
+	by vger.kernel.org with ESMTP id S1752204AbbCYOAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 10:00:25 -0400
 Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 08D2B20FBD
-	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:00:23 -0400 (EDT)
-In-Reply-To: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
-In-Reply-To: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
-References: <8d98fd0e002553538fb43e5fcafff38f3d65153f.1427291651.git.hannes@stressinduktion.org>
+	by mailout.nyi.internal (Postfix) with ESMTP id 4E0FC206E5
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 10:00:22 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -27,135 +23,45 @@ Cc: Eric Dumazet <edumazet@google.com>
 Cc: Flavio Leitner <fbl@redhat.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/ipv6.h     |  5 +++--
- net/ipv6/ip6_output.c  |  6 +++---
- net/ipv6/output_core.c | 14 ++++++++------
- net/ipv6/udp_offload.c |  4 ++--
- 4 files changed, 16 insertions(+), 13 deletions(-)
+ drivers/net/ppp/pptp.c          | 2 +-
+ net/netfilter/ipvs/ip_vs_xmit.c | 5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e7ba975..65142e6 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,8 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 1dc628f..e3bfbd4d 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -281,7 +281,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	nf_reset(skb);
  
--void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
--void ipv6_proxy_select_ident(struct sk_buff *skb);
-+void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
-+		       struct rt6_info *rt);
-+void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb);
+ 	skb->ip_summed = CHECKSUM_NONE;
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(sock_net(sk), skb, NULL);
+ 	ip_send_check(iph);
  
- int ip6_dst_hoplimit(struct dst_entry *dst);
- 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7e80b61..b06ad00 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -628,7 +628,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 		skb_reset_network_header(skb);
- 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
- 
--		ipv6_select_ident(fh, rt);
-+		ipv6_select_ident(net, fh, rt);
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		fh->frag_off = htons(IP6_MF);
-@@ -775,7 +775,7 @@ slow_path:
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		if (!frag_id) {
--			ipv6_select_ident(fh, rt);
-+			ipv6_select_ident(net, fh, rt);
- 			frag_id = fh->identification;
- 		} else
- 			fh->identification = frag_id;
-@@ -1079,7 +1079,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 	skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
- 				     sizeof(struct frag_hdr)) & ~7;
- 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--	ipv6_select_ident(&fhdr, rt);
-+	ipv6_select_ident(sock_net(sk), &fhdr, rt);
- 	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 
- append:
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 74581f7..4016a6e 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -9,13 +9,14 @@
- #include <net/addrconf.h>
- #include <net/secure_seq.h>
- 
--static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
--			       struct in6_addr *src)
-+static u32 __ipv6_select_ident(struct net *net, u32 hashrnd,
-+			       struct in6_addr *dst, struct in6_addr *src)
+ 	ip_local_out(skb);
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index f35c15b..bf02932 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -924,7 +924,8 @@ int
+ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		  struct ip_vs_protocol *pp, struct ip_vs_iphdr *ipvsh)
  {
- 	u32 hash, id;
+-	struct netns_ipvs *ipvs = net_ipvs(skb_net(skb));
++	struct net *net = skb_net(skb);
++	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct rtable *rt;			/* Route to the other host */
+ 	__be32 saddr;				/* Source for tunnel */
+ 	struct net_device *tdev;		/* Device to other host */
+@@ -991,7 +992,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	iph->daddr		=	cp->daddr.ip;
+ 	iph->saddr		=	saddr;
+ 	iph->ttl		=	ttl;
+-	ip_select_ident(skb, NULL);
++	ip_select_ident(net, skb, NULL);
  
- 	hash = __ipv6_addr_jhash(dst, hashrnd);
- 	hash = __ipv6_addr_jhash(src, hash);
-+	hash ^= net_hash_mix(net);
- 
- 	/* Treat id of 0 as unset and if we get 0 back from ip_idents_reserve,
- 	 * set the hight order instead thus minimizing possible future
-@@ -36,7 +37,7 @@ static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
-  *
-  * The network header must be set before calling this.
-  */
--void ipv6_proxy_select_ident(struct sk_buff *skb)
-+void ipv6_proxy_select_ident(struct net *net, struct sk_buff *skb)
- {
- 	static u32 ip6_proxy_idents_hashrnd __read_mostly;
- 	struct in6_addr buf[2];
-@@ -53,20 +54,21 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
- 	net_get_random_once(&ip6_proxy_idents_hashrnd,
- 			    sizeof(ip6_proxy_idents_hashrnd));
- 
--	id = __ipv6_select_ident(ip6_proxy_idents_hashrnd,
-+	id = __ipv6_select_ident(net, ip6_proxy_idents_hashrnd,
- 				 &addrs[1], &addrs[0]);
- 	skb_shinfo(skb)->ip6_frag_id = htonl(id);
- }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
- 
--void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
-+void ipv6_select_ident(struct net *net, struct frag_hdr *fhdr,
-+		       struct rt6_info *rt)
- {
- 	static u32 ip6_idents_hashrnd __read_mostly;
- 	u32 id;
- 
- 	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
- 
--	id = __ipv6_select_ident(ip6_idents_hashrnd, &rt->rt6i_dst.addr,
-+	id = __ipv6_select_ident(net, ip6_idents_hashrnd, &rt->rt6i_dst.addr,
- 				 &rt->rt6i_src.addr);
- 	fhdr->identification = htonl(id);
- }
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index be2c0ba..7441e1e 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -54,7 +54,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 
- 		/* Set the IPv6 fragment id if not set yet */
- 		if (!skb_shinfo(skb)->ip6_frag_id)
--			ipv6_proxy_select_ident(skb);
-+			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
- 
- 		segs = NULL;
- 		goto out;
-@@ -113,7 +113,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		fptr->nexthdr = nexthdr;
- 		fptr->reserved = 0;
- 		if (!skb_shinfo(skb)->ip6_frag_id)
--			ipv6_proxy_select_ident(skb);
-+			ipv6_proxy_select_ident(dev_net(skb->dev), skb);
- 		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
- 
- 		/* Fragment the skb. ipv6 header and the remaining fields of the
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->ignore_df = 1;
 -- 
 2.1.0
