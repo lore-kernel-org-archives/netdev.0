@@ -1,53 +1,92 @@
-From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: [PATCH for kernel 3.4.x 0/1] net: neighbour: Add mcast_resolicit
- to configure the number of multicast resolicitations in PROBE state
-Date: Wed, 25 Mar 2015 10:24:31 +0800
-Message-ID: <55121C5F.4050202@windriver.com>
-References: <1427190355-1216-1-git-send-email-Yanjun.Zhu@windriver.com> <55114543.2080709@miraclelinux.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
+ packets
+Date: Tue, 24 Mar 2015 20:10:50 -0700
+Message-ID: <5512273A.2060303@roeck-us.net>
+References: <20150323002215.GA6074@roeck-us.net>	<550F6D7D.7030403@gmail.com>	<550F8102.7040701@roeck-us.net>	<550F8600.2020300@gmail.com>	<550F8987.5070600@roeck-us.net>	<5510498D.5010001@cumulusnetworks.com>	<CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>	<20150324142921.GA2026@nanopsycho.orion>	<20150324160126.GA17104@roeck-us.net>	<5511A29F.5010006@cumulusnetworks.com>	<20150324175825.GA1465@roeck-us.net> <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	<lizefan@huawei.com>, <netdev@vger.kernel.org>,
-	<ulf.samuelsson@ericsson.com>, <yoshfuji@linux-ipv6.org>,
-	<Alexandre.Dietsch@windriver.com>
+Cc: roopa <roopa@cumulusnetworks.com>, Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	David Miller <davem@davemloft.net>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:33111 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752036AbbCYCY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 22:24:28 -0400
-In-Reply-To: <55114543.2080709@miraclelinux.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:49524 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751990AbbCYDKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Mar 2015 23:10:53 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YabiW-001nW7-Ng
+	for netdev@vger.kernel.org; Wed, 25 Mar 2015 03:10:53 +0000
+In-Reply-To: <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/24/2015 07:06 PM, YOSHIFUJI Hideaki wrote:
-> Hi,
+On 03/24/2015 11:14 AM, Scott Feldman wrote:
+> On Tue, Mar 24, 2015 at 10:58 AM, Guenter Roeck <linux@roeck-us.net> wrote:
+>> On Tue, Mar 24, 2015 at 10:45:03AM -0700, roopa wrote:
+>>> On 3/24/15, 9:01 AM, Guenter Roeck wrote:
+>>>> On Tue, Mar 24, 2015 at 03:29:21PM +0100, Jiri Pirko wrote:
+>>>>>> diff --git a/drivers/net/ethernet/rocker/rocker.c
+>>>>>> b/drivers/net/ethernet/rocker/rocker.c
+>>>>>> index aab962c..0f7217f7 100644
+>>>>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>>>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>>>>> @@ -3931,15 +3931,28 @@ unmap_frag:
+>>>>>>         return -EMSGSIZE;
+>>>>>> }
+>>>>>>
+>>>>>> +static bool rocker_port_dev_check(struct net_device *dev);
+>>>>>> +
+>>>>>> static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct
+>>>>>> net_device *dev)
+>>>>>> {
+>>>>>>         struct rocker_port *rocker_port = netdev_priv(dev);
+>>>>>>         struct rocker *rocker = rocker_port->rocker;
+>>>>>>         struct rocker_desc_info *desc_info;
+>>>>>>         struct rocker_tlv *frags;
+>>>>>> +       struct net_device *in_dev;
+>>>>>>         int i;
+>>>>>>         int err;
+>>>>>>
+>>>>>> +       if (rocker_port_is_bridged(rocker_port)) {
+>>>>>> +               rcu_read_lock();
+>>>>>> +               in_dev = dev_get_by_index_rcu(dev_net(dev), skb->skb_iif);
+>>>>> Hmm, you iterate over all ports for every xmit call :/
+>>>>> Would be nicer if skb_iif would be netdev poiter. Not sure it is doable.
+>>>>>
+>>>> It may be easier (and faster) to loop through all rocker ports and try to find
+>>>> one with the same ifindex. Then the dev_check call would not be necessary.
+>>>>
+>>> This is still overhead for every packet on the switches we support. The
+>>> number of ports can go close to 128
+>>> (40G ports can be broken into 4x10G ports).
+>>>
+>> Agreed. Given that, and since dev_get_by_index_rcu uses a hash to find the
+>> device pointer, it may actually be (much) faster (and the above "iterate
+>> over all ports" is a bit misleading).
+>>
+>> I tested the above approach with DSA and a Marvell switch chip. It works,
+>> but I am a bit concerned about the per-packet overhead, especially
+>> in larger networks. I would prefer if there would be a means to 'catch'
+>> duplicate packets earlier - before they are even created, if that is
+>> possible.
 >
-> Zhu Yanjun wrote:
->> This patch is for the kernel 4.0. But kernel 3.4 needs this patch, too. So this patch is backported.
->> There are the following modifications:
->>  1. Because the mothod to set sysctl is different between kernel 3.4 and kernel 4.0, in this patch, the sysctl method is changed;
->>  2. Because the variables of mcast_resolicit is different, in this patch, the function neigh_max_probes is changed;
->>  3. Because there are so many modifications in this patch, so the author is changed to me;
->>
->> Zhu Yanjun (1):
->>   net: neighbour: Add mcast_resolicit to configure the number of
->>     multicast resolicitations in PROBE state
->>
->>  include/linux/neighbour.h |  1 +
->>  include/net/neighbour.h   |  1 +
->>  net/core/neighbour.c      | 20 +++++++++++++++++---
->>  3 files changed, 19 insertions(+), 3 deletions(-)
->>
-> Hmm, it needs additional knob to change this 10+-year-old
-> behavior.  I am not for backporting this to old stable
-> kernels unless all stable kernels supports this knob as
-> well.
+> I'm not so concerned about the per-packet overhead.  For multicast, we
+> have IGMP snooping.  And big switches are going to have rate controls
+> on CPU bound traffic, so the CPU should be able to handle the
+> per-packet overhead with ease.
 >
-HI, YOSHIFUJI
 
->From your perspective, what is the additional knob ? would you like to
-let me know?
+Ok, next question: Are there any legitimate reasons why a packet might be
+sent out on the same interface ? Examples might be packets received through
+a VPN or other tunnel and forwarded to the local network, or packets forwarded
+in L3 (for example if there are multiple L3 networks on the same link).
+Would skb_iif be set for such packets ?
 
-Best Regards!
-Zhu Yanjun
+Guenter
