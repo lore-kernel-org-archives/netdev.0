@@ -1,64 +1,109 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 2/3] be2net: setup xps queue mapping
-Date: Thu, 26 Mar 2015 03:05:09 -0400
-Message-ID: <1427353510-24790-3-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 1/3] be2net: assign CPU affinity hints to be2net IRQs
+Date: Thu, 26 Mar 2015 03:05:08 -0400
+Message-ID: <1427353510-24790-2-git-send-email-sathya.perla@emulex.com>
 References: <1427353510-24790-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:33044 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750881AbbCZHBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 03:01:08 -0400
+Received: from cmexedge2.emulex.com ([138.239.224.100]:14143 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752071AbbCZHBP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 03:01:15 -0400
 In-Reply-To: <1427353510-24790-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch sets up xps queue mapping on load, so that TX traffic is
-steered to the queue whose irqs are being processed by the current cpu.
-This helps in avoiding TX lock contention.
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 
+This patch provides hints to irqbalance to map be2net IRQs to
+specific CPU cores. cpumask_set_cpu_local_first() is used, which first
+maps IRQs to near NUMA cores; when those cores are exhausted, IRQs are
+mapped to far NUMA cores.
+
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |  2 ++
+ drivers/net/ethernet/emulex/benet/be_main.c | 17 ++++++++++++++---
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index eb39673..a2fe1f3 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -30,6 +30,7 @@
+ #include <linux/firmware.h>
+ #include <linux/slab.h>
+ #include <linux/u64_stats_sync.h>
++#include <linux/cpumask.h>
+ 
+ #include "be_hw.h"
+ #include "be_roce.h"
+@@ -183,6 +184,7 @@ struct be_eq_obj {
+ 	u16 spurious_intr;
+ 	struct napi_struct napi;
+ 	struct be_adapter *adapter;
++	cpumask_var_t  affinity_mask;
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ #define BE_EQ_IDLE		0
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 3541207..5ff7fba 100644
+index d8df78b..3541207 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2454,8 +2454,9 @@ static void be_tx_queues_destroy(struct be_adapter *adapter)
+@@ -2342,6 +2342,7 @@ static void be_evt_queues_destroy(struct be_adapter *adapter)
+ 			napi_hash_del(&eqo->napi);
+ 			netif_napi_del(&eqo->napi);
+ 		}
++		free_cpumask_var(eqo->affinity_mask);
+ 		be_queue_free(adapter, &eqo->q);
+ 	}
+ }
+@@ -2357,6 +2358,11 @@ static int be_evt_queues_create(struct be_adapter *adapter)
+ 				    adapter->cfg_num_qs);
  
- static int be_tx_qs_create(struct be_adapter *adapter)
- {
--	struct be_queue_info *cq, *eq;
-+	struct be_queue_info *cq;
- 	struct be_tx_obj *txo;
-+	struct be_eq_obj *eqo;
- 	int status, i;
- 
- 	adapter->num_tx_qs = min(adapter->num_evt_qs, be_max_txqs(adapter));
-@@ -2473,8 +2474,8 @@ static int be_tx_qs_create(struct be_adapter *adapter)
- 		/* If num_evt_qs is less than num_tx_qs, then more than
- 		 * one txq share an eq
- 		 */
--		eq = &adapter->eq_obj[i % adapter->num_evt_qs].q;
--		status = be_cmd_cq_create(adapter, cq, eq, false, 3);
-+		eqo = &adapter->eq_obj[i % adapter->num_evt_qs];
-+		status = be_cmd_cq_create(adapter, cq, &eqo->q, false, 3);
- 		if (status)
- 			return status;
- 
-@@ -2486,6 +2487,9 @@ static int be_tx_qs_create(struct be_adapter *adapter)
- 		status = be_cmd_txq_create(adapter, txo);
- 		if (status)
- 			return status;
+ 	for_all_evt_queues(adapter, eqo, i) {
++		if (!zalloc_cpumask_var(&eqo->affinity_mask, GFP_KERNEL))
++			return -ENOMEM;
++		cpumask_set_cpu_local_first(i, dev_to_node(&adapter->pdev->dev),
++					    eqo->affinity_mask);
 +
-+		netif_set_xps_queue(adapter->netdev, eqo->affinity_mask,
-+				    eqo->idx);
+ 		netif_napi_add(adapter->netdev, &eqo->napi, be_poll,
+ 			       BE_NAPI_WEIGHT);
+ 		napi_hash_add(&eqo->napi);
+@@ -3028,6 +3034,8 @@ static int be_msix_register(struct be_adapter *adapter)
+ 		status = request_irq(vec, be_msix, 0, eqo->desc, eqo);
+ 		if (status)
+ 			goto err_msix;
++
++		irq_set_affinity_hint(vec, eqo->affinity_mask);
  	}
  
- 	dev_info(&adapter->pdev->dev, "created %d TX queue(s)\n",
+ 	return 0;
+@@ -3072,7 +3080,7 @@ static void be_irq_unregister(struct be_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct be_eq_obj *eqo;
+-	int i;
++	int i, vec;
+ 
+ 	if (!adapter->isr_registered)
+ 		return;
+@@ -3084,8 +3092,11 @@ static void be_irq_unregister(struct be_adapter *adapter)
+ 	}
+ 
+ 	/* MSIx */
+-	for_all_evt_queues(adapter, eqo, i)
+-		free_irq(be_msix_vec_get(adapter, eqo), eqo);
++	for_all_evt_queues(adapter, eqo, i) {
++		vec = be_msix_vec_get(adapter, eqo);
++		irq_set_affinity_hint(vec, NULL);
++		free_irq(vec, eqo);
++	}
+ 
+ done:
+ 	adapter->isr_registered = false;
 -- 
 2.2.0
