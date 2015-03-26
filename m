@@ -1,110 +1,41 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-Date: Thu, 26 Mar 2015 17:43:42 -0500
-Message-ID: <1427409822.18540.13.camel@redhat.com>
-References: <1427409698.18540.11.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mahesh Bandewar <maheshb@google.com>, jbenc@redhat.com
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [PATCH net-next v2 0/2] ixgbe: Add the appropriate ethtool ops to query RSS indirection table and key
+Date: Fri, 27 Mar 2015 00:44:44 +0200
+Message-ID: <1427409886-20261-1-git-send-email-vladz@cloudius-systems.com>
+Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+	avi@cloudius-systems.com, gleb@cloudius-systems.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37088 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752101AbbCZWni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 18:43:38 -0400
-In-Reply-To: <1427409698.18540.11.camel@redhat.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:35444 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752709AbbCZWow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 18:44:52 -0400
+Received: by wibbg6 with SMTP id bg6so6661942wib.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 15:44:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipvlan currently fails DHCP addressing for two reasons:
+Add the ethtool ops to VF driver to allow querying the RSS indirection table
+and RSS Random Key.
 
-1) DHCP offers are typically unicast back to the device's MAC
-address, and at the IP layer have a destination IP address
-matching the new lease address.  In ipvlan unicast packets
-are checked against existing addresses assigned to the ipvlan
-interface, so clearly this fails hard because the ipvlan
-interface has no IP addresses yet.  Workaround: request
-that the server broadcast replies (-B for dhclient), which
-don't get checked against the IP address list.
+This series refactors the RSS configuration code to store the current contents of
+RSS indirection table and Hash Key in the "adapter" struct so that we won't need
+to access registers every time this info is queried.
 
-2) Even when that's done, mac_filters only allows the
-broadcast MAC address when the interface has >= 1 IPv4
-addresses, so double-fail, and the incoming DHCP offer
-gets dropped on the floor again.
+New in v2:
+   - Some styling fixes.
+   - Moved macros definitions from ixgbe_type.h to ixgbe.h.
 
-Instead of doing ugly stuff like watching for outgoing DHCP
-requests and adding the broadcast MAC to mac_filters for
-a period of time, just always allow the broadcast MAC.  This
-lets the ipvlan interface be configured with DHCP in
-Layer2 mode as long as as broadcast replies are used.
+Vlad Zolotarov (2):
+  ixgbe: Refactor the RSS configuration code.
+  ixgbe: Add the appropriate ethtool ops to query RSS indirection table
+    and key
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 21 ++++-----------------
- 1 file changed, 4 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  10 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  42 +++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 142 ++++++++++++++++-------
+ 3 files changed, 151 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index d34f580..787d7fb 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -214,17 +214,6 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
- 		dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
- }
- 
--static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
--{
--	struct net_device *dev = ipvlan->dev;
--	unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
--
--	if (set && !test_bit(hashbit, ipvlan->mac_filters))
--		__set_bit(hashbit, ipvlan->mac_filters);
--	else if (!set && test_bit(hashbit, ipvlan->mac_filters))
--		__clear_bit(hashbit, ipvlan->mac_filters);
--}
--
- static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
- {
- 	struct ipvl_dev *ipvlan = netdev_priv(dev);
-@@ -239,11 +228,11 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
- 		netdev_for_each_mc_addr(ha, dev)
- 			__set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
- 
-+		/* always allow broadcast frames */
-+		__set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
-+
- 		bitmap_copy(ipvlan->mac_filters, mc_filters,
- 			    IPVLAN_MAC_FILTER_SIZE);
--
--		if (ipvlan->ipv4cnt)
--			ipvlan_set_broadcast_mac_filter(ipvlan, true);
- 	}
- 	dev_uc_sync(ipvlan->phy_dev, dev);
- 	dev_mc_sync(ipvlan->phy_dev, dev);
-@@ -470,6 +459,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 	INIT_LIST_HEAD(&ipvlan->addrs);
- 	ipvlan->ipv4cnt = 0;
- 	ipvlan->ipv6cnt = 0;
-+	__set_bit(ipvlan_mac_hash(dev->broadcast), ipvlan->mac_filters);
- 
- 	/* TODO Probably put random address here to be presented to the
- 	 * world but keep using the physical-dev address for the outgoing
-@@ -694,7 +684,6 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv4cnt++;
- 	ipvlan_ht_addr_add(ipvlan, addr);
--	ipvlan_set_broadcast_mac_filter(ipvlan, true);
- 
- 	return 0;
- }
-@@ -711,8 +700,6 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	list_del_rcu(&addr->anode);
- 	ipvlan->ipv4cnt--;
- 	WARN_ON(ipvlan->ipv4cnt < 0);
--	if (!ipvlan->ipv4cnt)
--	    ipvlan_set_broadcast_mac_filter(ipvlan, false);
- 	kfree_rcu(addr, rcu);
- 
- 	return;
 -- 
 2.1.0
