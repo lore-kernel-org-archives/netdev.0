@@ -1,7 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next 7/7] igb: Enable TSO for stacked vlan
-Date: Thu, 26 Mar 2015 14:01:20 +0900
-Message-ID: <1427346080-12086-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next 1/7] vlan: Add features for stacked
+	vlan device
+Date: Thu, 26 Mar 2015 14:01:14 +0900
+Message-ID: <1427346080-12086-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,27 +30,36 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-As datasheets for igb (I210, I350, 82576, etc.) say, maclen can be from
-14 to 127, which is enough for reasonable number of vlan tags.
-My netperf test showed I350's TSO works pretty fine with multiple vlans.
+Stacked vlan devices curretly have few features (GRO, HIGHDMA, LLTX).
+Since we have software fallbacks in case the NIC can not handle some
+features for multiple vlans, we can add the same features as the lower
+vlan devices for stacked vlan devices.
+
+This allows stacked vlan devices to create large (GSO) packets and not to
+segment packets. Those packets will be segmented by software on the real
+device, or even can be segmented by the NIC once TSO for multiple vlans
+becomes enabled by the following patches.
+
+The exception is those related to FCoE, which does not have a software
+fallback.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 1 +
+ net/8021q/vlan_dev.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 0e07545..8457d03 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2093,6 +2093,7 @@ static const struct net_device_ops igb_netdev_ops = {
- #endif
- 	.ndo_fix_features	= igb_fix_features,
- 	.ndo_set_features	= igb_set_features,
-+	.ndo_features_check	= passthru_features_check,
- };
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index f196552..8b5ab90 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -554,6 +554,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 	if (dev->features & NETIF_F_VLAN_FEATURES)
+ 		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
  
- /**
++	dev->vlan_features = real_dev->vlan_features & ~NETIF_F_ALL_FCOE;
+ 
+ 	/* ipv6 shared card related stuff */
+ 	dev->dev_id = real_dev->dev_id;
 -- 
 1.8.1.2
 
