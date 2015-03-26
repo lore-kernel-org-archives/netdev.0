@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/15] rhashtable: provide len to obj_hashfn
-Date: Thu, 26 Mar 2015 13:06:53 +0100
-Message-ID: <1427371622-4466-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/15] netfilter: nft_hash: convert to use rhashtable callbacks
+Date: Thu, 26 Mar 2015 13:06:56 +0100
+Message-ID: <1427371622-4466-10-git-send-email-pablo@netfilter.org>
 References: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,70 +12,122 @@ List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
 
-nftables sets will be converted to use so called setextensions, moving
-the key to a non-fixed position. To hash it, the obj_hashfn must be used,
-however it so far doesn't receive the length parameter.
+A following patch will convert sets to use so called set extensions,
+where the key is not located in a fixed position anymore. This will
+require rhashtable hashing and comparison callbacks to be used.
 
-Pass the key length to obj_hashfn() and convert existing users.
+As preparation, convert nft_hash to use these callbacks without any
+functional changes.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/rhashtable.h |    6 ++++--
- lib/rhashtable.c           |    2 +-
- net/netlink/af_netlink.c   |    2 +-
- 3 files changed, 6 insertions(+), 4 deletions(-)
+ net/netfilter/nft_hash.c |   54 +++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 49 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 99f2e49..e23d242 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -88,7 +88,7 @@ struct rhashtable_compare_arg {
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index e35f0b2..dc96a7e 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -33,16 +33,50 @@ struct nft_hash_elem {
+ 	struct nft_data			data[];
  };
  
- typedef u32 (*rht_hashfn_t)(const void *data, u32 len, u32 seed);
--typedef u32 (*rht_obj_hashfn_t)(const void *data, u32 seed);
-+typedef u32 (*rht_obj_hashfn_t)(const void *data, u32 len, u32 seed);
- typedef int (*rht_obj_cmpfn_t)(struct rhashtable_compare_arg *arg,
- 			       const void *obj);
++struct nft_hash_cmp_arg {
++	const struct nft_set		*set;
++	const struct nft_data		*key;
++};
++
+ static const struct rhashtable_params nft_hash_params;
  
-@@ -242,7 +242,9 @@ static inline unsigned int rht_head_hashfn(
- 	const char *ptr = rht_obj(ht, he);
- 
- 	return likely(params.obj_hashfn) ?
--	       rht_bucket_index(tbl, params.obj_hashfn(ptr, tbl->hash_rnd)) :
-+	       rht_bucket_index(tbl, params.obj_hashfn(ptr, params.key_len ?:
-+							    ht->p.key_len,
-+						       tbl->hash_rnd)) :
- 	       rht_key_hashfn(ht, tbl, ptr + params.key_offset, params);
- }
- 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 4b7b7e6..4898442 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -691,7 +691,7 @@ static u32 rhashtable_jhash2(const void *key, u32 length, u32 seed)
-  *	struct rhash_head	node;
-  * };
-  *
-- * u32 my_hash_fn(const void *data, u32 seed)
-+ * u32 my_hash_fn(const void *data, u32 len, u32 seed)
-  * {
-  *	struct test_obj *obj = data;
-  *
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 4caa809..19909d0 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -3127,7 +3127,7 @@ static struct pernet_operations __net_initdata netlink_net_ops = {
- 	.exit = netlink_net_exit,
- };
- 
--static inline u32 netlink_hash(const void *data, u32 seed)
-+static inline u32 netlink_hash(const void *data, u32 len, u32 seed)
++static inline u32 nft_hash_key(const void *data, u32 len, u32 seed)
++{
++	const struct nft_hash_cmp_arg *arg = data;
++
++	return jhash(arg->key, len, seed);
++}
++
++static inline u32 nft_hash_obj(const void *data, u32 len, u32 seed)
++{
++	const struct nft_hash_elem *he = data;
++
++	return jhash(&he->key, len, seed);
++}
++
++static inline int nft_hash_cmp(struct rhashtable_compare_arg *arg,
++			       const void *ptr)
++{
++	const struct nft_hash_cmp_arg *x = arg->key;
++	const struct nft_hash_elem *he = ptr;
++
++	if (nft_data_cmp(&he->key, x->key, x->set->klen))
++		return 1;
++	return 0;
++}
++
+ static bool nft_hash_lookup(const struct nft_set *set,
+ 			    const struct nft_data *key,
+ 			    struct nft_data *data)
  {
- 	const struct netlink_sock *nlk = data;
- 	struct netlink_compare_arg arg;
+ 	struct nft_hash *priv = nft_set_priv(set);
+ 	const struct nft_hash_elem *he;
++	struct nft_hash_cmp_arg arg = {
++		.set	 = set,
++		.key	 = key,
++	};
+ 
+-	he = rhashtable_lookup_fast(&priv->ht, key, nft_hash_params);
++	he = rhashtable_lookup_fast(&priv->ht, &arg, nft_hash_params);
+ 	if (he && set->flags & NFT_SET_MAP)
+ 		nft_data_copy(data, he->data);
+ 
+@@ -54,6 +88,10 @@ static int nft_hash_insert(const struct nft_set *set,
+ {
+ 	struct nft_hash *priv = nft_set_priv(set);
+ 	struct nft_hash_elem *he;
++	struct nft_hash_cmp_arg arg = {
++		.set	 = set,
++		.key	 = &elem->key,
++	};
+ 	unsigned int size;
+ 	int err;
+ 
+@@ -72,7 +110,8 @@ static int nft_hash_insert(const struct nft_set *set,
+ 	if (set->flags & NFT_SET_MAP)
+ 		nft_data_copy(he->data, &elem->data);
+ 
+-	err = rhashtable_insert_fast(&priv->ht, &he->node, nft_hash_params);
++	err = rhashtable_lookup_insert_key(&priv->ht, &arg, &he->node,
++					   nft_hash_params);
+ 	if (err)
+ 		kfree(he);
+ 
+@@ -102,8 +141,12 @@ static int nft_hash_get(const struct nft_set *set, struct nft_set_elem *elem)
+ {
+ 	struct nft_hash *priv = nft_set_priv(set);
+ 	struct nft_hash_elem *he;
++	struct nft_hash_cmp_arg arg = {
++		.set	 = set,
++		.key	 = &elem->key,
++	};
+ 
+-	he = rhashtable_lookup_fast(&priv->ht, &elem->key, nft_hash_params);
++	he = rhashtable_lookup_fast(&priv->ht, &arg, nft_hash_params);
+ 	if (!he)
+ 		return -ENOENT;
+ 
+@@ -174,8 +217,9 @@ static unsigned int nft_hash_privsize(const struct nlattr * const nla[])
+ 
+ static const struct rhashtable_params nft_hash_params = {
+ 	.head_offset		= offsetof(struct nft_hash_elem, node),
+-	.key_offset		= offsetof(struct nft_hash_elem, key),
+-	.hashfn			= jhash,
++	.hashfn			= nft_hash_key,
++	.obj_hashfn		= nft_hash_obj,
++	.obj_cmpfn		= nft_hash_cmp,
+ 	.automatic_shrinking	= true,
+ };
+ 
 -- 
 1.7.10.4
 
