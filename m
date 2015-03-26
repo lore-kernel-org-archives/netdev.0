@@ -1,65 +1,42 @@
-From: Jonathan Davies <jonathan.davies@citrix.com>
-Subject: [PATCH] xen-netfront: transmit fully GSO-sized packets
-Date: Thu, 26 Mar 2015 11:13:26 +0000
-Message-ID: <1427368406-28084-1-git-send-email-jonathan.davies@citrix.com>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: Re: [PATCH 8/8] NFC: Add Intel FieldsPeak NFC solution driver
+Date: Thu, 26 Mar 2015 12:20:53 +0100
+Message-ID: <20150326112053.GB19973@ribalta.ger.corp.intel.com>
+References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+ <1424772112-27399-9-git-send-email-robert.dolca@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jonathan Davies <jonathan.davies@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:27982 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751278AbbCZLN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 07:13:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfc@lists.01.org,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Robert Dolca <robert.dolca@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1424772112-27399-9-git-send-email-robert.dolca@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-xen-netfront limits transmitted skbs to be at most 44 segments in size. However,
-GSO permits up to 65536 bytes, which means a maximum of 45 segments of 1448
-bytes each. This slight reduction in the size of packets means a slight loss in
-efficiency.
+Robert,
 
-Since c/s 9ecd1a75d, xen-netfront sets gso_max_size to
-    XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER,
-where XEN_NETIF_MAX_TX_SIZE is 65535 bytes.
+Another comment:
 
-The calculation used by tcp_tso_autosize (and also tcp_xmit_size_goal since c/s
-6c09fa09d) in determining when to split an skb into two is
-    sk->sk_gso_max_size - 1 - MAX_TCP_HEADER.
+On Tue, Feb 24, 2015 at 12:01:52PM +0200, Robert Dolca wrote:
+> +static struct i2c_device_id fdp_nci_i2c_id_table[] = {
+> +	{"INT339A", 0},
+> +	{}
+> +};
+> +
+> +MODULE_DEVICE_TABLE(i2c, fdp_nci_i2c_id_table);
+> +
+> +
+> +static const struct acpi_device_id fdp_nci_i2c_acpi_match[] = {
+> +	{"INT339A", 0},
+> +	{}
+> +};
+Why don't we have a MODULE_DEVICE_TABLE(acpi, fdp_nci_i2c_acpi_match);
+here ?
 
-So the maximum permitted size of an skb is calculated to be
-    (XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER) - 1 - MAX_TCP_HEADER.
-
-Intuitively, this looks like the wrong formula -- we don't need two TCP headers.
-Instead, there is no need to deviate from the default gso_max_size of 65536 as
-this already accommodates the size of the header.
-
-Currently, the largest skb transmitted by netfront is 63712 bytes (44 segments
-of 1448 bytes each), as observed via tcpdump. This patch makes netfront send
-skbs of up to 65160 bytes (45 segments of 1448 bytes each).
-
-Fixes: 9ecd1a75d977 ("xen-netfront: reduce gso_max_size to account for max TCP header")
-Signed-off-by: Jonathan Davies <jonathan.davies@citrix.com>
----
- drivers/net/xen-netfront.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index e9b960f..fb6e978 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1279,8 +1279,6 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
- 	netdev->ethtool_ops = &xennet_ethtool_ops;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
- 
--	netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
--
- 	np->netdev = netdev;
- 
- 	netif_carrier_off(netdev);
--- 
-1.9.1
+Cheers,
+Samuel.
