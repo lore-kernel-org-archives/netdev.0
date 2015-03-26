@@ -1,42 +1,41 @@
-From: =?UTF-8?Q?Bj=C3=B8rnar_Ness?= <bjornar.ness@gmail.com>
-Subject: IPv6 nexthop for IPv4
-Date: Thu, 26 Mar 2015 14:16:40 +0100
-Message-ID: <CAJO99T=uXuaYP5QCRYbU7iRhK7S8UqW9GfmL1J2yBh1N2TDjYg@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
+Date: Thu, 26 Mar 2015 13:25:32 +0000
+Message-ID: <20150326132532.GB20404@casper.infradead.org>
+References: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+	jesse@nicira.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:33791 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489AbbCZNQm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 09:16:42 -0400
-Received: by lbcmq2 with SMTP id mq2so40575291lbc.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 06:16:40 -0700 (PDT)
+Received: from casper.infradead.org ([85.118.1.10]:51763 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752501AbbCZNZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 09:25:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, hope this is the right place to ask.
+On 03/26/15 at 01:53pm, Jiri Pirko wrote:
+> This patch introduces OpenFlow-based filter. So far, the very essential
+> packet fields are supported (according to OpenFlow v1.4 spec).
+> 
+> This patch is only the first step. There is a lot of potential performance
+> improvements possible to implement. Also a lot of features are missing
+> now. They will be addressed in follow-up patches.
+> 
+> To the name of this classifier, I believe that "cls_openflow" is pretty
+> accurate. It is actually a OpenFlow classifier.
 
-Does anyone know if there is work beeing done in natively supporting
-IPv6 nexthops for IPv4?
+My feedback on this was that this could be misleading because
+cls_openflow does not make the kernel an OpenFlow switch (neither
+does OVS). I can see the relation to some of the match fields as
+specified by OpenFlow but there is no relation to the wire protocol
+itself or any of the other OpenFlow specific concepts such as flow
+tables, group tables, counters, actions, etc.
 
-I know that "some" Linux switch software company is working on this, bu=
-t
-I am afraid the functionality will be more of a "hack".
-
-The benefit of this is stateless configuration (rfc5549), using IPv6 li=
-nk-local
-neighbor address as IPv4 nexthop, beeing able to do for example:
-
-ip route add 10.0.0.0/16 via fe80::225:90ff:fed3:bfb4/64 dev sfp0
-
-This is somehow possible now by exploiting static arp entries and
-"unused" IPv4 addresses for nexthop, but is far from ideal.
-
-Hope someone will be able to provide some insight on what is planned
-in this area, and weather this direct functionality will ever make it
-into the kernel.
-
---
-Bj=C3=B8rnar Ness
+That said, I can see what you mean by it and I think if we make this
+clear in the description and manual page that might be enough to
+avoid confusion.
