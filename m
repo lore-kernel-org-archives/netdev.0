@@ -1,74 +1,78 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
- on transport and link layer
-Date: Thu, 26 Mar 2015 15:13:34 -0600
-Message-ID: <20150326211334.GA3359@obsidianresearch.com>
-References: <5512CFB0.1050108@profitbricks.com>
- <1427378940.21101.100.camel@redhat.com>
- <55142DFD.2060100@profitbricks.com>
- <1427387258.21101.124.camel@redhat.com>
- <55143AAC.8040206@profitbricks.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net: smc91x: make use of 4th parameter to devm_gpiod_get_index
+Date: Thu, 26 Mar 2015 22:26:08 +0100
+Message-ID: <1427405168-28578-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Majd Dibbiny <majd@mellanox.c
-To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <55143AAC.8040206-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	Tony Lindgren <tony@atomide.com>, netdev@vger.kernel.org,
+	kernel@pengutronix.de, Alexandre Courbot <acourbot@nvidia.com>
+To: Nicolas Pitre <nico@fluxnic.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:55333 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298AbbCZV0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 17:26:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 05:58:20PM +0100, Michael Wang wrote:
+Since 39b2bbe3d715 (gpio: add flags argument to gpiod_get*() functions)
+which appeared in v3.17-rc1, the gpiod_get* functions take an additiona=
+l
+parameter that allows to specify direction and initial value for output=
+=2E
+Simplify accordingly.
 
-> The questions is just wondering how the transition method could be, but
-> if we have to do the changes for vendor, that sounds like a tough job...
+Moreover use devm_gpiod_get_index_optional for still simpler handling.
 
-I would see changing how the information is represented in the struct
-as a follow on issue. The first patch should go through and replace
-all direct access to the link layer/transport/etc with an
-appropriately narrow is_XX() test like Doug was suggesting.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ drivers/net/ethernet/smsc/smc91x.c | 25 ++++++++-----------------
+ 1 file changed, 8 insertions(+), 17 deletions(-)
 
-That means looking at each code site and determining what it needs,
-making a is_XX for it and a kdoc describing exactly what is needed for
-the test to return true.
-
-The follow on patch can then rework the is_XX and drop the link
-layer/transport stuff..
-
-Some ideas for is_XX:
-  IB compatible SA
-  QP0 SMP mechanism
-  IB SMP format
-  OPA SMP format
-  QP1 GMP mechanism
-  IB compatible CM
-  GID addressing
-  IP/IPv6 addressing
-  Ethernet VLAN
-  ...
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/=
+smsc/smc91x.c
+index 8678e39aba08..5a1a3e7c93e7 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -2204,27 +2204,18 @@ static int try_toggle_control_gpio(struct devic=
+e *dev,
+ 				   int value, unsigned int nsdelay)
+ {
+ 	struct gpio_desc *gpio =3D *desc;
++	enum gpiod_flags flags =3D value ? GPIOD_OUT_LOW : GPIOD_OUT_HIGH;
+ 	int res;
+=20
+-	gpio =3D devm_gpiod_get_index(dev, name, index);
+-	if (IS_ERR(gpio)) {
+-		if (PTR_ERR(gpio) =3D=3D -ENOENT) {
+-			*desc =3D NULL;
+-			return 0;
+-		}
+-
++	gpio =3D devm_gpiod_get_index_optional(dev, name, index, flags);
++	if (IS_ERR(gpio))
+ 		return PTR_ERR(gpio);
++
++	if (gpio) {
++		if (nsdelay)
++			usleep_range(nsdelay, 2 * nsdelay);
++		gpiod_set_value_cansleep(gpio, value);
+ 	}
+-	res =3D gpiod_direction_output(gpio, !value);
+-	if (res) {
+-		dev_err(dev, "unable to toggle gpio %s: %i\n", name, res);
+-		devm_gpiod_put(dev, gpio);
+-		gpio =3D NULL;
+-		return res;
+-	}
+-	if (nsdelay)
+-		usleep_range(nsdelay, 2 * nsdelay);
+-	gpiod_set_value_cansleep(gpio, value);
+ 	*desc =3D gpio;
+=20
+ 	return 0;
+--=20
+2.1.4
