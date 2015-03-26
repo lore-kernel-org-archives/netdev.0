@@ -1,180 +1,67 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
- on transport and link layer
-Date: Thu, 26 Mar 2015 10:09:00 -0400
-Message-ID: <1427378940.21101.100.camel@redhat.com>
-References: <5512CFB0.1050108@profitbricks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] xen-netfront: transmit fully GSO-sized packets
+Date: Thu, 26 Mar 2015 17:14:08 +0300
+Message-ID: <55141430.9050309@cogentembedded.com>
+References: <1427368406-28084-1-git-send-email-jonathan.davies@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-/Ql6gYk8G0P7tUSi+MWG"
-Cc: linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Ira Weiny <ira.weiny@intel.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Moni Shoua <monis@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Yann Droneaud <ydroneaud@opteya.com>,
-	Colin Ian King <colin.king@canonical.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Matan Barak <matanb@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Dan Carpenter <dan.carpenter@o
-To: Michael Wang <yun.wang@profitbricks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5512CFB0.1050108@profitbricks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-/Ql6gYk8G0P7tUSi+MWG
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-03-25 at 16:09 +0100, Michael Wang wrote:
-> My sincerely apologies for the corrupted mails, and thanks for Dan's kind=
-ly
-> remind :-)
->=20
-> There are too many lengthy code to check the transport type of IB device,
-> or the link layer type of it's port, this patch set try to use some helpe=
-r to
-> refine and save us some code.
->=20
-> TODO:
->     Currently we inferred from the transport type and link layer type to =
-identify
->     the way of management, it will be better if we can directly get the i=
-ndicator
->     from vendor.
->=20
->     Sean proposed one suggestion:
->         https://www.mail-archive.com/linux-rdma@vger.kernel.org/msg23339.=
-html
->=20
->     It may need a big work to adapt current implementation to utilize
->     these flags elegantly.
->=20
->     Also the performance concern on query_port() need to be addressed, ma=
-y be
->     some new callback like query_mgmt() could works.
->=20
-> Michael Wang (2):
->     [PATCH 1/2] IB/Verbs: Use helpers to check transport and link layer
->     [PATCH 2/2] IB/Verbs: Use helpers to check IBoE technology
->=20
-> ---
->  drivers/infiniband/core/agent.c           |    2 -
->  drivers/infiniband/core/cm.c              |    2 -
->  drivers/infiniband/core/cma.c             |   33 ++++++++++++-----------=
--------
->  drivers/infiniband/core/mad.c             |    6 ++---
->  drivers/infiniband/core/multicast.c       |   11 +++-------
->  drivers/infiniband/core/sa_query.c        |   14 ++++++------
->  drivers/infiniband/core/ucm.c             |    3 --
->  drivers/infiniband/core/user_mad.c        |    2 -
->  drivers/infiniband/core/verbs.c           |    5 +---
->  drivers/infiniband/hw/mlx4/ah.c           |    2 -
->  drivers/infiniband/hw/mlx4/cq.c           |    4 ---
->  drivers/infiniband/hw/mlx4/mad.c          |   14 +++---------
->  drivers/infiniband/hw/mlx4/main.c         |    8 ++-----
->  drivers/infiniband/hw/mlx4/mlx4_ib.h      |    2 -
->  drivers/infiniband/hw/mlx4/qp.c           |   21 ++++++-------------
->  drivers/infiniband/hw/mlx4/sysfs.c        |    6 +----
->  drivers/infiniband/ulp/ipoib/ipoib_main.c |    6 ++---
->  include/rdma/ib_verbs.h                   |   30 +++++++++++++++++++++++=
-++++
->  net/sunrpc/xprtrdma/svc_rdma_recvfrom.c   |    3 --
->  19 files changed, 87 insertions(+), 87 deletions(-)
->=20
-
-I think this is a step in the right direction.  However, as I brought up
-in a different thread, I think it would be best if we start to clear up
-some of the funny things in this space, such as calling iWARP link layer
-InfiniBand.
-
-One thing we didn't discuss before is that, even if changing these items
-around in user space would break user space, changing them around in the
-kernel won't break anything except maybe Lustre (which we can inform the
-authors about the change so they can anticipate it and do the right
-thing in their code) because we can fix up our return values we pass to
-user space with no impact to them as it's not on a hot path.  We can
-then emulate the old way of setting all these variables to user space
-while fixing them up in kernel space.
-
-So, I would suggest that we fix things up thusly:
-
-enum transport {
-	TRANSPORT_IB=3D1,
-	TRANSPORT_IWARP=3D2,
-	TRANSPORT_ROCE=3D4,
-	TRANSPORT_OPA=3D8,
-	TRANSPORT_USNIC=3D10,
-};
-
-#define HAS_SA(ibdev) ((ibdev)->transport & (TRANSPORT_IB|TRANSPORT_OPA))
-#define HAS_JUMBO_SA(ibdev) ((ibdev)->transport & TRANSPORT_OPA))
-
-or possibly
-
-static bool ib_dev_has_sa(struct ibv_device *ibdev)
-{
-	return ibdev->transport & (TRANSPORT_IB | TRANSPORT_OPA);
-}
-
-If we do this, then the only thing we have to fix up to preserve ABI
-with user space is to make sure that any time we export an ibv_device
-struct and any time we import the same, we convert from our new internal
-representation to the old representation that user space expects.  And
-we also need to make a few changes in the sysfs code to display the
-properties as things expect.  But, that would allow us to fix up what I
-see as a problem right now, which is that we hide the information we
-need to know what sort of device we are working on in two different
-fields: the transport and the link layer.  Instead, just use one field
-with enough variants that we can store all of the relevant information
-we need in that one field.  This has the benefit that any comparisons
-that happen in hot paths will now always be a single bitwise comparison
-and will no longer need to hit two separate variables for two separate
-compares.
-
-
-
---=20
-Doug Ledford <dledford@redhat.com>
-              GPG KeyID: 0E572FDD
-
-
-
---=-/Ql6gYk8G0P7tUSi+MWG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>
+To: Jonathan Davies <jonathan.davies@citrix.com>,
+	netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:36733 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930AbbCZOOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 10:14:11 -0400
+Received: by labe2 with SMTP id e2so46434471lab.3
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 07:14:10 -0700 (PDT)
+In-Reply-To: <1427368406-28084-1-git-send-email-jonathan.davies@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Hello.
 
-iQIcBAABAgAGBQJVFBL8AAoJELgmozMOVy/dtc4P/3R67xJKqEwzXUK+oX+R7H3E
-6BNtV9xkB8fVXHseL188/iFCE0mP4WO2WaMt88/iwVU+LChZX1bRClehjue4nl3B
-qrDoiW+5r+xKkBGjPj6Y593kwVSZKsKBkC50+gekxtTdzbff8HIk3JW+OVIBXVUp
-IwWSX7cwAqws1e/Y4ldFcNMKXkkvqr8QyEQsUGDvZNt+tph28YKxbpk/ZYF294tW
-JuWqVV0cYa0ZTkNDBbLqAnBSaFSCkYFkY6DA470Y3FzUaiEf8YWHxUrie7BlJ4Qd
-r/TW0T8N5rklmn14JK7K85j+DuWy7ad2bEFhDQP6tikUosn0XMXpg82sv2Wcl/TP
-o+GsXixfrUOBd9Y5/MRBpVx5zTWjD4Uq8LrYBf76qphtqUInTc6GcCwZsh+o1yi8
-znhFBwl/vU4qCrzcplIu103stQMXgI00A0byzjwsaKY6+GATxgtRU/ehm3BMh0bS
-uSWQxbGrGZBgVb7jb4pFpSdp3+PUv/t5BwJSq7YoXsQCdxlPXWbTuTk1/Sws9OzZ
-Y3gkxLA2w/Til58wXlW2zYIAH7/8RkcmYZBNH5uIqdxmEScn3neGnWUo3uoNdVcq
-+hC+mQEgI34fg0k9SvRv4cchkXo3QCF2bdhLIbVLVZ03zMoqJbwveCuAIhK0wYtM
-K5tAbB0u2AqUqyTtq+DD
-=oFE4
------END PGP SIGNATURE-----
+On 3/26/2015 2:13 PM, Jonathan Davies wrote:
 
---=-/Ql6gYk8G0P7tUSi+MWG--
+> xen-netfront limits transmitted skbs to be at most 44 segments in size. However,
+> GSO permits up to 65536 bytes, which means a maximum of 45 segments of 1448
+> bytes each. This slight reduction in the size of packets means a slight loss in
+> efficiency.
+
+> Since c/s 9ecd1a75d, xen-netfront sets gso_max_size to
+
+    c/s == commit?
+    Please also specify that commit's summary line in parens.
+
+>      XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER,
+> where XEN_NETIF_MAX_TX_SIZE is 65535 bytes.
+
+> The calculation used by tcp_tso_autosize (and also tcp_xmit_size_goal since c/s
+> 6c09fa09d) in determining when to split an skb into two is
+
+    Likewise.
+
+>      sk->sk_gso_max_size - 1 - MAX_TCP_HEADER.
+
+> So the maximum permitted size of an skb is calculated to be
+>      (XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER) - 1 - MAX_TCP_HEADER.
+
+> Intuitively, this looks like the wrong formula -- we don't need two TCP headers.
+> Instead, there is no need to deviate from the default gso_max_size of 65536 as
+> this already accommodates the size of the header.
+
+> Currently, the largest skb transmitted by netfront is 63712 bytes (44 segments
+> of 1448 bytes each), as observed via tcpdump. This patch makes netfront send
+> skbs of up to 65160 bytes (45 segments of 1448 bytes each).
+
+> Fixes: 9ecd1a75d977 ("xen-netfront: reduce gso_max_size to account for max TCP header")
+
+    Ah, here's the summary for the first mentioned commit...
+
+> Signed-off-by: Jonathan Davies <jonathan.davies@citrix.com>
+
+WBR, Sergei
