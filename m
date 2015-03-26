@@ -1,197 +1,42 @@
-From: Christian Hesse <list@eworm.de>
-Subject: [PATCH 1/1] ip-link: allow human readable output with base of 1024 only for byte counts
-Date: Thu, 26 Mar 2015 12:24:08 +0100
-Message-ID: <1427369048-1433-1-git-send-email-list@eworm.de>
-Cc: Christian Hesse <mail@eworm.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: tcp6: fix double call of tcp_v6_fill_cb()
+Date: Thu, 26 Mar 2015 04:46:46 -0700
+Message-ID: <1427370406.25985.129.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1427358484-16402-1-git-send-email-alexey.kodanev@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vasily.isaenko@oracle.com
+To: Alexey Kodanev <alexey.kodanev@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.mylinuxtime.de ([148.251.109.235]:44614 "EHLO
-	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334AbbCZLeC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 07:34:02 -0400
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:35778 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbbCZLqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 07:46:49 -0400
+Received: by igcau2 with SMTP id au2so127062603igc.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 04:46:48 -0700 (PDT)
+In-Reply-To: <1427358484-16402-1-git-send-email-alexey.kodanev@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christian Hesse <mail@eworm.de>
+On Thu, 2015-03-26 at 11:28 +0300, Alexey Kodanev wrote:
+> Regression from the following commit: 2dc49d1680.
+> 
+> tcp_v6_fill_cb() will be called twice if socket's state changes from
+> TCP_TIME_WAIT to TCP_LISTEN. That can result in control buffer data
+> corruption because in the second tcp_v6_fill_cb() call it's not copying
+> IP6CB(skb) anymore, but 'seq', 'end_seq', etc., so we can get weird and
+> unpredictable results. Performance loss of up to 1200% has been observed
+> in LTP/vxlan03 test.
+> 
+> This can be fixed by copying inet6_skb_parm to the beginning of 'cb'
+> only if xfrm6_policy_check() and tcp_v6_fill_cb() are going to be
+> called again.
+> 
+> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+> ---
 
-Counting bytes with a base of 1024 is ok. Counting packets, errors, etc
-that way makes no sense.
-So only print byte counts with a base of 1024 if option -iec is given.
+Thanks Alexey !
 
-Signed-off-by: Christian Hesse <mail@eworm.de>
----
- ip/ipaddress.c | 98 +++++++++++++++++++++++++++++-----------------------------
- 1 file changed, 49 insertions(+), 49 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 99a6ab5..016ce60 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -361,7 +361,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	}
- }
- 
--static void print_num(FILE *fp, unsigned width, uint64_t count)
-+static void print_num(FILE *fp, unsigned width, uint64_t count, int use_iec)
- {
- 	const char *prefix = "kMGTPE";
- 	const unsigned int base = use_iec ? 1024 : 1000;
-@@ -408,14 +408,14 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
- 		s->rx_compressed ? "compressed" : "", _SL_);
- 
- 	fprintf(fp, "    ");
--	print_num(fp, 10, s->rx_bytes);
--	print_num(fp, 8, s->rx_packets);
--	print_num(fp, 7, s->rx_errors);
--	print_num(fp, 7, s->rx_dropped);
--	print_num(fp, 7, s->rx_over_errors);
--	print_num(fp, 7, s->multicast);
-+	print_num(fp, 10, s->rx_bytes, use_iec);
-+	print_num(fp, 8, s->rx_packets, 0);
-+	print_num(fp, 7, s->rx_errors, 0);
-+	print_num(fp, 7, s->rx_dropped, 0);
-+	print_num(fp, 7, s->rx_over_errors,0 );
-+	print_num(fp, 7, s->multicast, 0);
- 	if (s->rx_compressed)
--		print_num(fp, 7, s->rx_compressed);
-+		print_num(fp, 7, s->rx_compressed, 0);
- 
- 	/* RX error stats */
- 	if (show_stats > 1) {
-@@ -423,11 +423,11 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
- 		fprintf(fp, "    RX errors: length   crc     frame   fifo    missed%s", _SL_);
- 
- 		fprintf(fp, "               ");
--		print_num(fp, 8, s->rx_length_errors);
--		print_num(fp, 7, s->rx_crc_errors);
--		print_num(fp, 7, s->rx_frame_errors);
--		print_num(fp, 7, s->rx_fifo_errors);
--		print_num(fp, 7, s->rx_missed_errors);
-+		print_num(fp, 8, s->rx_length_errors, 0);
-+		print_num(fp, 7, s->rx_crc_errors, 0);
-+		print_num(fp, 7, s->rx_frame_errors, 0);
-+		print_num(fp, 7, s->rx_fifo_errors, 0);
-+		print_num(fp, 7, s->rx_missed_errors, 0);
- 	}
- 	fprintf(fp, "%s", _SL_);
- 
-@@ -437,14 +437,14 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
- 
- 
- 	fprintf(fp, "    ");
--	print_num(fp, 10, s->tx_bytes);
--	print_num(fp, 8, s->tx_packets);
--	print_num(fp, 7, s->tx_errors);
--	print_num(fp, 7, s->tx_dropped);
--	print_num(fp, 7, s->tx_carrier_errors);
--	print_num(fp, 7, s->collisions);
-+	print_num(fp, 10, s->tx_bytes, use_iec);
-+	print_num(fp, 8, s->tx_packets, 0);
-+	print_num(fp, 7, s->tx_errors, 0);
-+	print_num(fp, 7, s->tx_dropped, 0);
-+	print_num(fp, 7, s->tx_carrier_errors, 0);
-+	print_num(fp, 7, s->collisions, 0);
- 	if (s->tx_compressed)
--		print_num(fp, 7, s->tx_compressed);
-+		print_num(fp, 7, s->tx_compressed, 0);
- 
- 	/* TX error stats */
- 	if (show_stats > 1) {
-@@ -455,12 +455,12 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
- 		fprintf(fp, "%s", _SL_);
- 
- 		fprintf(fp, "               ");
--		print_num(fp, 8, s->tx_aborted_errors);
--		print_num(fp, 7, s->tx_fifo_errors);
--		print_num(fp, 7, s->tx_window_errors);
--		print_num(fp, 7, s->tx_heartbeat_errors);
-+		print_num(fp, 8, s->tx_aborted_errors, 0);
-+		print_num(fp, 7, s->tx_fifo_errors, 0);
-+		print_num(fp, 7, s->tx_window_errors, 0);
-+		print_num(fp, 7, s->tx_heartbeat_errors, 0);
- 		if (carrier_changes)
--			print_num(fp, 7, *(uint32_t*)RTA_DATA(carrier_changes));
-+			print_num(fp, 7, *(uint32_t*)RTA_DATA(carrier_changes), 0);
- 	}
- }
- 
-@@ -473,25 +473,25 @@ static void print_link_stats32(FILE *fp, const struct rtnl_link_stats *s,
- 
- 
- 	fprintf(fp, "    ");
--	print_num(fp, 10, s->rx_bytes);
--	print_num(fp, 8, s->rx_packets);
--	print_num(fp, 7, s->rx_errors);
--	print_num(fp, 7, s->rx_dropped);
--	print_num(fp, 7, s->rx_over_errors);
--	print_num(fp, 7, s->multicast);
-+	print_num(fp, 10, s->rx_bytes, use_iec);
-+	print_num(fp, 8, s->rx_packets, 0);
-+	print_num(fp, 7, s->rx_errors, 0);
-+	print_num(fp, 7, s->rx_dropped, 0);
-+	print_num(fp, 7, s->rx_over_errors, 0);
-+	print_num(fp, 7, s->multicast, 0);
- 	if (s->rx_compressed)
--		print_num(fp, 7, s->rx_compressed);
-+		print_num(fp, 7, s->rx_compressed, 0);
- 
- 	/* RX error stats */
- 	if (show_stats > 1) {
- 		fprintf(fp, "%s", _SL_);
- 		fprintf(fp, "    RX errors: length   crc     frame   fifo    missed%s", _SL_);
- 		fprintf(fp, "               ");
--		print_num(fp, 8, s->rx_length_errors);
--		print_num(fp, 7, s->rx_crc_errors);
--		print_num(fp, 7, s->rx_frame_errors);
--		print_num(fp, 7, s->rx_fifo_errors);
--		print_num(fp, 7, s->rx_missed_errors);
-+		print_num(fp, 8, s->rx_length_errors, 0);
-+		print_num(fp, 7, s->rx_crc_errors, 0);
-+		print_num(fp, 7, s->rx_frame_errors, 0);
-+		print_num(fp, 7, s->rx_fifo_errors, 0);
-+		print_num(fp, 7, s->rx_missed_errors, 0);
- 	}
- 	fprintf(fp, "%s", _SL_);
- 
-@@ -500,14 +500,14 @@ static void print_link_stats32(FILE *fp, const struct rtnl_link_stats *s,
- 		s->tx_compressed ? "compressed" : "", _SL_);
- 
- 	fprintf(fp, "    ");
--	print_num(fp, 10, s->tx_bytes);
--	print_num(fp, 8, s->tx_packets);
--	print_num(fp, 7, s->tx_errors);
--	print_num(fp, 7, s->tx_dropped);
--	print_num(fp, 7, s->tx_carrier_errors);
--	print_num(fp, 7, s->collisions);
-+	print_num(fp, 10, s->tx_bytes, use_iec);
-+	print_num(fp, 8, s->tx_packets, 0);
-+	print_num(fp, 7, s->tx_errors, 0);
-+	print_num(fp, 7, s->tx_dropped, 0);
-+	print_num(fp, 7, s->tx_carrier_errors, 0);
-+	print_num(fp, 7, s->collisions, 0);
- 	if (s->tx_compressed)
--		print_num(fp, 7, s->tx_compressed);
-+		print_num(fp, 7, s->tx_compressed, 0);
- 
- 	/* TX error stats */
- 	if (show_stats > 1) {
-@@ -518,12 +518,12 @@ static void print_link_stats32(FILE *fp, const struct rtnl_link_stats *s,
- 		fprintf(fp, "%s", _SL_);
- 
- 		fprintf(fp, "               ");
--		print_num(fp, 8, s->tx_aborted_errors);
--		print_num(fp, 7, s->tx_fifo_errors);
--		print_num(fp, 7, s->tx_window_errors);
--		print_num(fp, 7, s->tx_heartbeat_errors);
-+		print_num(fp, 8, s->tx_aborted_errors, 0);
-+		print_num(fp, 7, s->tx_fifo_errors, 0);
-+		print_num(fp, 7, s->tx_window_errors, 0);
-+		print_num(fp, 7, s->tx_heartbeat_errors, 0);
- 		if (carrier_changes)
--			print_num(fp, 7, *(uint32_t*)RTA_DATA(carrier_changes));
-+			print_num(fp, 7, *(uint32_t*)RTA_DATA(carrier_changes), 0);
- 	}
- }
- 
--- 
-2.3.4
+Fixes: 2dc49d1680b53 ("tcp6: don't move IP6CB before xfrm6_policy_check()")
+Acked-by: Eric Dumazet <edumazet@google.com>
