@@ -1,76 +1,199 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: IPv6 nexthop for IPv4
-Date: Thu, 26 Mar 2015 12:27:59 -0400
-Message-ID: <20150326162756.GC1051@gospo>
-References: <CAJO99T=uXuaYP5QCRYbU7iRhK7S8UqW9GfmL1J2yBh1N2TDjYg@mail.gmail.com>
- <CACP96tQnQ5d2qrPbs+S640S=r07vnbt-RmL_O2zT7Wcvg99dug@mail.gmail.com>
- <CAJO99TmhNARZL4L2KzMHLdqhXFh8LYb+mussWvaiCN4KQpim=Q@mail.gmail.com>
- <CACP96tQAYZEq=cFyDNBkgzUbJ_VPJB540ZxgaRqpciujCYOjsA@mail.gmail.com>
- <CAJO99Tm+ex7aELCrNnubWz1hGjELMp0LCMKSqtyr+Vci1hrmuw@mail.gmail.com>
- <20150326154336.GA2528@tuxdriver.com>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
+ on transport and link layer
+Date: Thu, 26 Mar 2015 12:27:38 -0400
+Message-ID: <1427387258.21101.124.camel@redhat.com>
+References: <5512CFB0.1050108@profitbricks.com>
+	 <1427378940.21101.100.camel@redhat.com> <55142DFD.2060100@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sowmini Varadhan <sowmini05@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>,
-	=?iso-8859-1?Q?Bj=F8rnar?= Ness <bjornar.ness@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f48.google.com ([209.85.213.48]:35959 "EHLO
-	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002AbbCZQ2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:28:06 -0400
-Received: by yhjf44 with SMTP id f44so28707428yhj.3
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:28:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150326154336.GA2528@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-J/Y4N0HcTdODZ8Wk9AOY"
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Dan Carpenter <dan.carpenter@o
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <55142DFD.2060100-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 26, 2015 at 11:43:36AM -0400, John W. Linville wrote:
-> On Thu, Mar 26, 2015 at 04:10:21PM +0100, Bj=F8rnar Ness wrote:
-> > 2015-03-26 15:53 GMT+01:00 Sowmini Varadhan <sowmini05@gmail.com>:
-> > > On Thu, Mar 26, 2015 at 10:39 AM, Bj=F8rnar Ness <bjornar.ness@gm=
-ail.com> wrote:
-> > >
-> > >>>> ip route add 10.0.0.0/16 via fe80::225:90ff:fed3:bfb4/64 dev s=
-fp0
-> > >>>
-> > >>> Trying to understand what the desired behavior is, for the rout=
-e
-> > >>> above: if I send a packet from 10.0.0.1 to 10.0.0.2, you want t=
-he dst-mac
-> > >>> to be the mac address of e80::225:90ff:fed3:bfb4???
-> > >>
-> > >> Absolutely, correct.
-> > >
-> > > What if the current node does not want to support ipv6? This soun=
-ds
-> > > pretty "creative", if this can work, you might as well make the n=
-exthop to
-> > > be the L2 address of the gw.
-> >=20
-> > If it does not support IPv6 I guess the route command will fail! Th=
-is
-> > is a bad argument
-> > against this. Dont see the point of limiting nexthop to L2
+
+--=-J/Y4N0HcTdODZ8Wk9AOY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2015-03-26 at 17:04 +0100, Michael Wang wrote:
+> Hi, Doug
 >=20
-> This topic was discussed at the recent Netconf event in Ottawa.
-> This is a viable means of interconnecting two IPv4 "island" subnets
-> across an IPv6 "ocean" backplane.
+> Thanks for the excellent comments :-)
 >=20
-> Andy Gospodarek gave a short discussion on the topic, and IIRC it
-> was warmly received.  I'll Cc him on this message -- I think he had a
-> (fairly simple) patch more or less ready.
+> On 03/26/2015 03:09 PM, Doug Ledford wrote:
+> > On Wed, 2015-03-25 at 16:09 +0100, Michael Wang wrote:
+> >> [snip]
+> >>
+> > [snip]
+> >
+> > So, I would suggest that we fix things up thusly:
+> >
+> > enum transport {
+> > 	TRANSPORT_IB=3D1,
+> > 	TRANSPORT_IWARP=3D2,
+> > 	TRANSPORT_ROCE=3D4,
+> > 	TRANSPORT_OPA=3D8,
+> > 	TRANSPORT_USNIC=3D10,
+> > };
+> >
+> > #define HAS_SA(ibdev) ((ibdev)->transport & (TRANSPORT_IB|TRANSPORT_OPA=
+))
+> > #define HAS_JUMBO_SA(ibdev) ((ibdev)->transport & TRANSPORT_OPA))
+> >
+> > or possibly
+> >
+> > static bool ib_dev_has_sa(struct ibv_device *ibdev)
+> > {
+> > 	return ibdev->transport & (TRANSPORT_IB | TRANSPORT_OPA);
+> > }
+>=20
+> The idea sounds interesting, and here my silly questions come :-P
+>=20
+> So are you suggesting that we add a new bitmask 'transport' into 'struct =
+ib_device'
+> in kernel, and setup it at very beginning?
+>=20
+> Few more questions here is:
+> 1. when to setup? (maybe inside ib_register_device() before doing client-=
+>add() callback?)
 
-Yes, I do have one!  I was working on some other issues and need to
-rebase it based on Eric's recent work.  It was fairly simple and the
-netlink changes are also not too difficult so the patch to iproute2 was
-small.
+I don't think "we" can set it up here.  The driver's have to set it up.
+After all, the mlx4 driver will have to decide for itself what the port
+transport is and tell us, we can't tell it.
 
-I have an older patch you can see here:
+> 2. how to setup? (still infer from the transport and link layer like we c=
+urrently do?)
 
-https://github.com/gospo/net-next/commit/7f602a54424f453872b6a45ae5ed4d=
-3a601db91d
+Find each point in each driver where they currently set the link layer
+and transport fields today, and replace that with setting the new
+transport bitmask instead.
 
-Shall I rebase and post to the list for all to see?
+> 3. in case if a device has ports with different link layer type (please c=
+orrect
+>     me if this will never happen), then only one bitmask may not be enoug=
+h to
+>     present the transport of all the ports? (maybe create a bitmask per p=
+ort?)
+
+Correct, a bitmask per port.  And we can remove the existing transport
+and link layer elements of the struct and replace it with just the new
+transport.  Then, whenever we need to copy a struct to user space, we
+have a helper that looks something like this:
+
+static void inline ib_set_user_transport(struct ib_device *ibdev,
+					 struct user_ibv_device *uibdev)
+{
+	switch(ibdev->port[port]->transport) {
+	case TRANSPORT_IB:
+	case TRANSPORT_OPA:
+		uibdev->port[port]->link_layer =3D INFINIBAND;
+		uibdev->port[port]->transport =3D INFINIBAND;
+		break;
+	case TRANSPORT_IWARP:
+		uibdev->port[port]->link_layer =3D INFINIBAND;
+		uibdev->port[port]->transport =3D IWARP;
+		break;
+	case TRANSPORT_ROCE:
+		uibdev->port[port]->link_layer =3D ETHERNET;
+		uibdev->port[port]->transport =3D INFINIBAND;
+		break;
+	case TRANSPORT_USNIC:
+		uibdev->port[port]->link_layer =3D ETHERNET;
+		uibdev->port[port]->transport =3D <whatever USNIC uses today>;
+		break;
+	default:
+		pr_err(ibdev, "unknown transport type %x\n",
+		       ibdev->port[port]->transport);
+	}
+}
+
+That preserves the user space ABI and all user programs keep working,
+while we update to an internal representation that makes more sense for
+how things have evolved.
+
+> Regards,
+> Michael Wang
+>=20
+> >
+> > If we do this, then the only thing we have to fix up to preserve ABI
+> > with user space is to make sure that any time we export an ibv_device
+> > struct and any time we import the same, we convert from our new interna=
+l
+> > representation to the old representation that user space expects.  And
+> > we also need to make a few changes in the sysfs code to display the
+> > properties as things expect.  But, that would allow us to fix up what I
+> > see as a problem right now, which is that we hide the information we
+> > need to know what sort of device we are working on in two different
+> > fields: the transport and the link layer.  Instead, just use one field
+> > with enough variants that we can store all of the relevant information
+> > we need in that one field.  This has the benefit that any comparisons
+> > that happen in hot paths will now always be a single bitwise comparison
+> > and will no longer need to hit two separate variables for two separate
+> > compares.
+> >
+> >
+> >
+>=20
+
+
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+              GPG KeyID: 0E572FDD
+
+
+
+--=-J/Y4N0HcTdODZ8Wk9AOY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABAgAGBQJVFDN6AAoJELgmozMOVy/d9q8QAIT8viYhax0bYOOcoCIek2lf
+hjtQ06I1eYd6IZTO57587qSKOxuuV7Yvd0Y+f5/sDyPzWmhsLRlyYTrJZGC1WYx1
+LGOdsX8UZEvuYuQpNedbnT79vb64NSqA8BOl3wcZNLtd0ViGVsa0KWzTOdjGGimg
+lZx18WYfeLS3NJfcagt22/3NuyWsCiuxwyLKmz0248Euc3W+9MFyoXv25zFElfPr
+Vq6LaTC+iwvnRJh3S7czA4MEUdyiBelgv2y2UMBcKrASKjyd7Is+0rwUhAvPAAeZ
+HdeALg8aLI4YLWLjtF+n2ZTondYr0GXU+ZsDGR5kZsEkvdlU//v1mwd77OabTPiy
+SjAuLr04GYKZ5Vc5wp7K9QbgpKgjhGyjq/MJHMG9lGaA4nfvpqsRPM8BU+/XwPUK
+cgZ92FSHiEFsU/wuQCIPRgCSo2zfJLQVywCyj8ROk2OJqDGXJs+F403tMUcfkNOT
+LAEFR7E8ngrWiT+lZG7WSB8iAD9wgG17MG8VELiz6yK9CnlTfPVRaMr5R7K9xyqV
+ugtUyCfq6W+UzKmFsWr6sJoIKZr9pMPaL1TK9HVixEHVlMflu65tl7c2E/Hels8n
+kMy0T5xKT5SkqyRkLq/5QjD25fJYaqbHOhNth6QtFJ8+Ix/WCIDx5BtazR0UTrE+
+tQNfXFEEGrDo+lmW93j1
+=R0Bs
+-----END PGP SIGNATURE-----
+
+--=-J/Y4N0HcTdODZ8Wk9AOY--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
