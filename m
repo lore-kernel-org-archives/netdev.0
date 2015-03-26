@@ -1,49 +1,78 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: Re: [Qemu-devel] PCI passthrough of 40G ethernet interface (Openstack/KVM)
-Date: Wed, 25 Mar 2015 18:00:36 -0700
-Message-ID: <CAP-MU4NLifPrrRjDH2go6swewEiasoCZ5xD+p5K_k590TvLobw@mail.gmail.com>
-References: <CA+AkT2g=vFxKAUrHzWDxPzfq_SNvOUJvzHe5YsX+p+p6Ad8hog@mail.gmail.com>
-	<jpg8uf2ghln.fsf@redhat.com>
-	<CA+AkT2hZ5e=YRkSqQnpQm9CgfC_fqs-m_05FTRZQLt9ynj9A4w@mail.gmail.com>
-	<jpgtwxpvk5x.fsf@redhat.com>
-	<CA+AkT2j9UUTVmEsW1B4D_cvfCTjp-+62qhvnYxcrthy=QmQcaw@mail.gmail.com>
-	<CA+AkT2gXouCdMWzRJBY0jYi6O61OjDnNf7XGnfLzhYkJCe00mg@mail.gmail.com>
-	<jpg1tko7qwb.fsf@redhat.com>
-	<CA+AkT2i2z+DGV0aezUQaOLKrVupprniuxC19xGOuNnd6gC1ZGg@mail.gmail.com>
-	<jpglhiw4tal.fsf@redhat.com>
-	<jpgk2yewcpt.fsf@redhat.com>
-	<CA+AkT2g-Xt+hcpoh2ETx70v0mzV6m=-5zpxJrhs2C8WF--kmWw@mail.gmail.com>
-	<CAP-MU4PSMMOv-sjfDtKOSaHa9-dy3cMovsHV7V_cV1k6N7yvFg@mail.gmail.com>
-	<CAP-MU4Pfv9W9FgaLxwOac3LnSJMxWcbYP4Pq43YjcJ9AWAamvQ@mail.gmail.com>
-	<550A85B3.4070703@redhat.com>
-	<CA+AkT2hJcHBcTzyONosrd82dD1m3-ML1_doS=tjBFoAPdnTmaw@mail.gmail.com>
-	<550ADAD2.8070506@redhat.com>
-	<CA+AkT2jPV_P436_RUQepT7wHtPaGOYGeE5uzUKtyXtk0s8U_gQ@mail.gmail.com>
-	<550FBE70.40201@redhat.com>
-	<CA+AkT2hoBZ63Pb3MiFV6X=StaU8eAQWb79AbwSLjH7bdoCL6yA@mail.gmail.com>
-	<CAP-MU4P9wXNwgagFNVL4WCK2Xn29hX+DUa=zvBncC8h4c+FMMg@mail.gmail.com>
-	<CA+AkT2gt5nxJxE5+h3=5bQ1-upoQCmq88VHneOAUCmPESESjHQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net 2/2] ipmr,ip6mr: call list_del_rcu() when deleting mr
+ table from list
+Date: Thu, 26 Mar 2015 02:01:09 +0100
+Message-ID: <1427331669.3644952.245320733.5C7B84E1@webmail.messagingengine.com>
+References: <1427310345-29829-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1427310345-29829-2-git-send-email-xiyou.wangcong@gmail.com>
+ <1427314022.3581245.245236665.477D7858@webmail.messagingengine.com>
+ <1427314914.3584424.245242065.67DE2EEE@webmail.messagingengine.com>
+ <1427317004.3592779.245256885.395A5939@webmail.messagingengine.com>
+ <CAHA+R7Mj7BaVKmmt+0TvUb4a3-mTcP=8_-ZJfxRamOHkjCw-sA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stefan Assmann <sassmann@redhat.com>, Bandan Das <bsd@redhat.com>,
-	Alex Williamson <alex.williamson@redhat.com>,
-	QEMU Developers <qemu-devel@nongnu.org>,
-	kvm-devel <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: jacob jacob <opstkusr@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CA+AkT2gt5nxJxE5+h3=5bQ1-upoQCmq88VHneOAUCmPESESjHQ@mail.gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52025 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751736AbbCZBBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 21:01:10 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0DD9D20817
+	for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 21:01:07 -0400 (EDT)
+In-Reply-To: <CAHA+R7Mj7BaVKmmt+0TvUb4a3-mTcP=8_-ZJfxRamOHkjCw-sA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 24, 2015 at 8:04 AM, jacob jacob <opstkusr@gmail.com> wrote:
->
-> The issue is running dpdk from within the vm itself. Is it possible
-> that the igb_uio driver needs additional updates/functionality to be
-> at parity with 1.2.37 version of i40e driver?
->
 
-At this point I think you need to work with the DPDK folks.  We don't
-directly support or test the PF driver in a passthru mode, and DPDK
-folks will have a better idea how this might affect their driver.
 
-sln
+On Wed, Mar 25, 2015, at 23:33, Cong Wang wrote:
+> On Wed, Mar 25, 2015 at 1:56 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > On Wed, Mar 25, 2015, at 21:21, Hannes Frederic Sowa wrote:
+> >> On Wed, Mar 25, 2015, at 21:07, Hannes Frederic Sowa wrote:
+> >> > On Wed, Mar 25, 2015, at 20:05, Cong Wang wrote:
+> >> > > Probably not a big deal, just for corretness.
+> >> > >
+> >> > > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> >> > > ---
+> >> > >  net/ipv4/ipmr.c  | 2 +-
+> >> > >  net/ipv6/ip6mr.c | 2 +-
+> >> > >  2 files changed, 2 insertions(+), 2 deletions(-)
+> >> > >
+> >> > > diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> >> > > index d6fede8..68f67b8 100644
+> >> > > --- a/net/ipv4/ipmr.c
+> >> > > +++ b/net/ipv4/ipmr.c
+> >> > > @@ -280,7 +280,7 @@ static void __net_exit ipmr_rules_exit(struct net
+> >> > > *net)
+> >> > >
+> >> > >   rtnl_lock();
+> >> > >   list_for_each_entry_safe(mrt, next, &net->ipv4.mr_tables, list) {
+> >> > > -               list_del(&mrt->list);
+> >> > > +               list_del_rcu(&mrt->list);
+> >> > >           ipmr_free_table(mrt);
+> >> > >   }
+> >> > >   rtnl_unlock();
+> >> >
+> >> > I really do wonder if we have the rcu locking correct in there:
+> >> >
+> >> > Looking into getsockopt/setsockopt operations, we might have socket
+> >> > lock, but I cannot see where we lock rcu, so the ipmr_get_table call is
+> >> > safe. Do you also see the problem?
+> 
+> I see only ipmr_rule_action() really has RCU read lock, I think the
+> sockopt
+> operations should take RCU read lock too, since it is supposed to be
+> protected by rcu+rtnl rather than rcu+sock lock?
+
+Exactly, it would be canonical, especially because of lockdep. I am not
+sure yet about socket lock, but will review that tomorrow.
+
+Maybe we also have to add __rcu annotations?
+
+Bye,
+Hannes
