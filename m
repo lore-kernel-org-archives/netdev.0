@@ -1,170 +1,61 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 4/6] of: add API for changing parameters of fixed link
-Date: Thu, 26 Mar 2015 19:02:25 +0300
-Message-ID: <55142D91.6010006@list.ru>
-References: <55142C31.5050504@list.ru> <55142CB1.1080107@list.ru> <55142D01.3090601@list.ru> <55142D3C.4040902@list.ru>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] lib utils: fix family during af_bit_len
+ calculation
+Date: Thu, 26 Mar 2015 18:28:34 +0200
+Message-ID: <20150326162834.GA32500@angus-think.wlc.globallogic.com>
+References: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
+ <20150324150500.6159e407@urahara>
+ <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150325161349.GA21340@angus-think.wlc.globallogic.com>
+ <1427303247.25985.119.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150326140418.GA12220@angus-think.wlc.globallogic.com>
+ <1427387645.25985.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Rami Rosen <rosenr@marvell.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	roopa@cumulusnetworks.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback8.mail.ru ([94.100.181.110]:46425 "EHLO
-	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752132AbbCZQiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:38:23 -0400
-Received: from smtp37.i.mail.ru (smtp37.i.mail.ru [94.100.177.97])
-	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id E6D0B7F834C7
-	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 19:02:34 +0300 (MSK)
-In-Reply-To: <55142D3C.4040902@list.ru>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:36553 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752522AbbCZQkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:40:31 -0400
+Received: by lbbug6 with SMTP id ug6so45240922lbb.3
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:40:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1427387645.25985.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--=-=-=-=-=-=-=-=-=# Don't remove this line #=-=-=-=-=-=-=-=-=-
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
----
- drivers/of/of_mdio.c    |   72
-+++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/of_mdio.h |   17 +++++++++++
- 2 files changed, 89 insertions(+)
+On Thu, Mar 26, 2015 at 09:34:05AM -0700, Eric Dumazet wrote:
+> On Thu, 2015-03-26 at 16:04 +0200, Vadim Kochan wrote:
+> > On Wed, Mar 25, 2015 at 10:07:27AM -0700, Eric Dumazet wrote:
+> > > On Wed, 2015-03-25 at 18:13 +0200, Vadim Kochan wrote:
+> > > 
+> > > > I reproduced this once, but after not any more, I even tried to setup
+> > > > tcp servers with same address but with no luck, would you please dump
+> > > > stats into file by -D option and send it, in case if you will catch the
+> > > > issue ?
+> > > 
+> > > Yeah, this is strange, because after a small change, and a revert, I
+> > > could not reproduce it anymore.
+> > > 
+> > > Something fishy... maybe a Makefile bug ....
+> > > 
+> > > 
+> > 
+> > Seems this issue is already fixed by this patch from Roopa, because when I
+> > switched to the commit before the fix then I reproduced the issue. I
+> > meant the issue related to :
+> > 
+> >     ss -t dst 1.2.3.4
+> 
+> Yes, but I had my git tree up to date, and misc/ss rebuilt.
+> 
+> Let's say it was some kind of user error.
+> 
+> 
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index b3dc1e6..ade2426 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -251,6 +251,69 @@ struct phy_device *of_phy_attach(struct net_device
-*dev,
- EXPORT_SYMBOL(of_phy_attach);
- 
- #if defined(CONFIG_FIXED_PHY)
-+struct fixed_link_data {
-+    struct fixed_phy_status status;
-+    struct fixed_phy_status changed;
-+};
-+
-+static int of_phy_fixed_link_update(struct phy_device *phy,
-+          struct fixed_phy_status *status)
-+{
-+    struct fixed_link_data *priv = phy->priv;
-+
-+    if (priv->changed.link) {
-+        status->link = priv->status.link;
-+        priv->changed.link = 0;
-+    }
-+    if (priv->changed.speed) {
-+        status->speed = priv->status.speed;
-+        priv->changed.speed = 0;
-+    }
-+    if (priv->changed.duplex) {
-+        status->duplex = priv->status.duplex;
-+        priv->changed.duplex = 0;
-+    }
-+    if (priv->changed.pause) {
-+        status->pause = priv->status.pause;
-+        priv->changed.pause = 0;
-+    }
-+    if (priv->changed.asym_pause) {
-+        status->asym_pause = priv->status.asym_pause;
-+        priv->changed.asym_pause = 0;
-+    }
-+    return 0;
-+}
-+
-+int of_phy_fixed_link_set_link(struct phy_device *phy, int link)
-+{
-+    struct fixed_link_data *priv = phy->priv;
-+
-+    priv->status.link = link;
-+    priv->changed.link = 1;
-+    return 0;
-+}
-+EXPORT_SYMBOL(of_phy_fixed_link_set_link);
-+
-+int of_phy_fixed_link_set_speed(struct phy_device *phy, int speed)
-+{
-+    struct fixed_link_data *priv = phy->priv;
-+
-+    priv->status.speed = speed;
-+    priv->changed.speed = 1;
-+    return 0;
-+}
-+EXPORT_SYMBOL(of_phy_fixed_link_set_speed);
-+
-+int of_phy_fixed_link_set_duplex(struct phy_device *phy, int duplex)
-+{
-+    struct fixed_link_data *priv = phy->priv;
-+
-+    priv->status.duplex = duplex;
-+    priv->changed.duplex = 1;
-+    return 0;
-+}
-+EXPORT_SYMBOL(of_phy_fixed_link_set_duplex);
-+
- /*
-  * of_phy_is_fixed_link() and of_phy_register_fixed_link() must
-  * support two DT bindings:
-@@ -287,6 +350,7 @@ int of_phy_register_fixed_link(struct device_node *np)
-     const __be32 *fixed_link_prop;
-     int len;
-     struct phy_device *phy;
-+    struct fixed_link_data *priv;
- 
-     /* New binding */
-     fixed_link_node = of_get_child_by_name(np, "fixed-link");
-@@ -320,6 +384,14 @@ int of_phy_register_fixed_link(struct device_node *np)
-         }
-     }
- 
-+    priv = kmalloc(sizeof(*priv), GFP_KERNEL);
-+    if (!priv) {
-+        fixed_phy_unregister(phy);
-+        return -ENOMEM;
-+    }
-+    memset(&priv->changed, 0, sizeof(priv->changed));
-+    phy->priv = priv;
-+    fixed_phy_set_link_update(phy, of_phy_fixed_link_update);
-     return 0;
- }
- EXPORT_SYMBOL(of_phy_register_fixed_link);
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index d449018..677adac 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -65,6 +65,9 @@ static inline struct mii_bus *of_mdio_find_bus(struct
-device_node *mdio_np)
- #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
- extern int of_phy_register_fixed_link(struct device_node *np);
- extern bool of_phy_is_fixed_link(struct device_node *np);
-+extern int of_phy_fixed_link_set_link(struct phy_device *phy, int link);
-+extern int of_phy_fixed_link_set_speed(struct phy_device *phy, int speed);
-+extern int of_phy_fixed_link_set_duplex(struct phy_device *phy, int
-duplex);
- #else
- static inline int of_phy_register_fixed_link(struct device_node *np)
- {
-@@ -74,6 +77,20 @@ static inline bool of_phy_is_fixed_link(struct
-device_node *np)
- {
-     return false;
- }
-+static inline int of_phy_fixed_link_set_link(struct phy_device *phy,
-int link)
-+{
-+    return -ENOSYS;
-+}
-+static inline int of_phy_fixed_link_set_speed(struct phy_device *phy,
-+                          int speed)
-+{
-+    return -ENOSYS;
-+}
-+static inline int of_phy_fixed_link_set_duplex(struct phy_device *phy,
-+                           int duplex)
-+{
-+    return -ENOSYS;
-+}
- #endif
- 
- 
--- 
-1.7.9.5
+I assume that may be if you did rebuild only misc/ss then probably it
+used the old lib/utils.o which still had buggy func for parsing address ?
