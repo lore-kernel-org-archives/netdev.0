@@ -1,113 +1,117 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next 3/7] net: bcmgenet: simplify bcmgenet_init_dma()
-Date: Thu, 26 Mar 2015 10:56:17 -0700
-Message-ID: <CAGXr9JH8UFoOs1btdvtbr_ed6_pjY7Fp48okhioKkA2NwdjF_w@mail.gmail.com>
-References: <20150325193511.F0B1E2201FB@puck.mtv.corp.google.com>
-	<C72C3DD6-8BD6-4204-8085-8DE4AA9DAF71@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Jaedon Shin <jaedon.shin@gmail.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [PATCH net-next v1 2/2] ixgbe: Add the appropriate ethtool ops to query RSS indirection table and key
+Date: Thu, 26 Mar 2015 19:56:39 +0200
+Message-ID: <1427392599-18184-3-git-send-email-vladz@cloudius-systems.com>
+References: <1427392599-18184-1-git-send-email-vladz@cloudius-systems.com>
+Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+	avi@cloudius-systems.com, gleb@cloudius-systems.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:33398 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473AbbCZR4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 13:56:52 -0400
-Received: by qgfa8 with SMTP id a8so103180438qgf.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 10:56:52 -0700 (PDT)
-In-Reply-To: <C72C3DD6-8BD6-4204-8085-8DE4AA9DAF71@gmail.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:34199 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbbCZR4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 13:56:46 -0400
+Received: by wibg7 with SMTP id g7so22144486wib.1
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 10:56:45 -0700 (PDT)
+In-Reply-To: <1427392599-18184-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jaedon,
+Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
+implementations.
 
-On Wed, Mar 25, 2015 at 7:34 PM, Jaedon Shin <jaedon.shin@gmail.com> wrote:
->
->> On Mar 26, 2015, at 4:35 AM, Petri Gynther <pgynther@google.com> wrote:
->>
->> Do the two kcalloc() calls first, before proceeding into Rx/Tx DMA init.
->> Makes the error case handling much simpler.
->>
->> Signed-off-by: Petri Gynther <pgynther@google.com>
->> ---
->> drivers/net/ethernet/broadcom/genet/bcmgenet.c | 33 +++++++++++++-------------
->> 1 file changed, 17 insertions(+), 16 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> index 550bf98..1c9f9b4 100644
->> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> @@ -2050,9 +2050,6 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
->>
->>       netif_dbg(priv, hw, priv->dev, "%s\n", __func__);
->>
->> -     /* Init rDma */
->> -     bcmgenet_rdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
->> -
->>       /* Initialize common Rx ring structures */
->>       priv->rx_bds = priv->base + priv->hw_params->rdma_offset;
->>       priv->num_rx_bds = TOTAL_DESC;
->> @@ -2066,25 +2063,13 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
->>               cb->bd_addr = priv->rx_bds + i * DMA_DESC_SIZE;
->>       }
->>
->> -     /* Initialize Rx queues */
->> -     ret = bcmgenet_init_rx_queues(priv->dev);
->> -     if (ret) {
->> -             netdev_err(priv->dev, "failed to initialize Rx queues\n");
->> -             bcmgenet_free_rx_buffers(priv);
->> -             kfree(priv->rx_cbs);
->> -             return ret;
->> -     }
->> -
->> -     /* Init tDma */
->> -     bcmgenet_tdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
->> -
->>       /* Initialize common TX ring structures */
->>       priv->tx_bds = priv->base + priv->hw_params->tdma_offset;
->>       priv->num_tx_bds = TOTAL_DESC;
->>       priv->tx_cbs = kcalloc(priv->num_tx_bds, sizeof(struct enet_cb),
->>                              GFP_KERNEL);
->>       if (!priv->tx_cbs) {
->> -             __bcmgenet_fini_dma(priv);
->
-> __bcmgenet_fini_dma that may be integrated with bcmgenet_fini_dma not used in bcmgenet_init_dma.
->
+This enables the ethtool's "-x" and "--show-rxfh[-indir]" options.
 
-I'll remove __bcmgenet_fini_dma() after this patch set has been applied.
+Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 42 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  2 +-
+ 3 files changed, 44 insertions(+), 1 deletion(-)
 
-> Reviewed-by: Jaedon Shin <jaedon.shin@gmail.com>
->
->> +             kfree(priv->rx_cbs);
->>               return -ENOMEM;
->>       }
->>
->> @@ -2093,6 +2078,22 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
->>               cb->bd_addr = priv->tx_bds + i * DMA_DESC_SIZE;
->>       }
->>
->> +     /* Init rDma */
->> +     bcmgenet_rdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
->> +
->> +     /* Initialize Rx queues */
->> +     ret = bcmgenet_init_rx_queues(priv->dev);
->> +     if (ret) {
->> +             netdev_err(priv->dev, "failed to initialize Rx queues\n");
->> +             bcmgenet_free_rx_buffers(priv);
->> +             kfree(priv->rx_cbs);
->> +             kfree(priv->tx_cbs);
->> +             return ret;
->> +     }
->> +
->> +     /* Init tDma */
->> +     bcmgenet_tdma_writel(priv, DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
->> +
->>       /* Initialize Tx queues */
->>       bcmgenet_init_tx_queues(priv->dev);
->>
->> --
->> 2.2.0.rc0.207.ga3a616c
->>
->
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 402d182..b17bbef 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -957,4 +957,5 @@ void ixgbe_sriov_reinit(struct ixgbe_adapter *adapter);
+ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 				  struct ixgbe_adapter *adapter,
+ 				  struct ixgbe_ring *tx_ring);
++u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
+ #endif /* _IXGBE_H_ */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 02ffb30..a4423ea 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2853,6 +2853,45 @@ static int ixgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
+ 	return ret;
+ }
+ 
++static u32 ixgbe_get_rxfh_key_size(struct net_device *netdev)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	return sizeof(adapter->rss_key);
++}
++
++static u32 ixgbe_rss_indir_size(struct net_device *netdev)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	return ixgbe_rss_indir_tbl_entries(adapter);
++}
++
++static void ixgbe_get_reta(struct ixgbe_adapter *adapter, u32 *indir)
++{
++	int i, reta_size = ixgbe_rss_indir_tbl_entries(adapter);
++
++	for (i = 0; i < reta_size; i++)
++		indir[i] = adapter->rss_indir_tbl[i];
++}
++
++static int ixgbe_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
++			    u8 *hfunc)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	if (hfunc)
++		*hfunc = ETH_RSS_HASH_TOP;
++
++	if (indir)
++		ixgbe_get_reta(adapter, indir);
++
++	if (key)
++		memcpy(key, adapter->rss_key, ixgbe_get_rxfh_key_size(netdev));
++
++	return 0;
++}
++
+ static int ixgbe_get_ts_info(struct net_device *dev,
+ 			     struct ethtool_ts_info *info)
+ {
+@@ -3110,6 +3149,9 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
+ 	.set_coalesce           = ixgbe_set_coalesce,
+ 	.get_rxnfc		= ixgbe_get_rxnfc,
+ 	.set_rxnfc		= ixgbe_set_rxnfc,
++	.get_rxfh_indir_size	= ixgbe_rss_indir_size,
++	.get_rxfh_key_size	= ixgbe_get_rxfh_key_size,
++	.get_rxfh		= ixgbe_get_rxfh,
+ 	.get_channels		= ixgbe_get_channels,
+ 	.set_channels		= ixgbe_set_channels,
+ 	.get_ts_info		= ixgbe_get_ts_info,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index e3de0c9..a0db522 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3237,7 +3237,7 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
+  *  - X550(non-SRIOV mode): 512
+  *  - X550(SRIOV mode):     64
+  */
+-static u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
++u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
+ {
+ 	if (adapter->hw.mac.type < ixgbe_mac_X550)
+ 		return 128;
+-- 
+2.1.0
