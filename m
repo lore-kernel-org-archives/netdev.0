@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/15] netfilter: nf_tables: add transaction helper functions
-Date: Thu, 26 Mar 2015 13:07:01 +0100
-Message-ID: <1427371622-4466-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/15] netfilter: nft_hash: restore struct nft_hash
+Date: Thu, 26 Mar 2015 13:06:54 +0100
+Message-ID: <1427371622-4466-8-git-send-email-pablo@netfilter.org>
 References: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,130 +12,147 @@ List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
 
-Add some helper functions for building the genmask as preparation for
-set transactions.
-
-Also add a little documentation how this stuff actually works.
+Following patches will add new private members, restore struct nft_hash
+as preparation.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |   28 ++++++++++++++++++++++++++++
- net/netfilter/nf_tables_api.c     |   17 ++++++-----------
- net/netfilter/nf_tables_core.c    |    6 +-----
- 3 files changed, 35 insertions(+), 16 deletions(-)
+ net/netfilter/nft_hash.c |   37 +++++++++++++++++++++----------------
+ 1 file changed, 21 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index f190d26..4c46a32 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -720,6 +720,34 @@ void nft_unregister_expr(struct nft_expr_type *);
- #define MODULE_ALIAS_NFT_SET() \
- 	MODULE_ALIAS("nft-set")
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index f9ce219..a517f84 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -23,6 +23,10 @@
+ /* We target a hash table size of 4, element hint is 75% of final size */
+ #define NFT_HASH_ELEMENT_HINT 3
  
-+/*
-+ * The gencursor defines two generations, the currently active and the
-+ * next one. Objects contain a bitmask of 2 bits specifying the generations
-+ * they're active in. A set bit means they're inactive in the generation
-+ * represented by that bit.
-+ *
-+ * New objects start out as inactive in the current and active in the
-+ * next generation. When committing the ruleset the bitmask is cleared,
-+ * meaning they're active in all generations. When removing an object,
-+ * it is set inactive in the next generation. After committing the ruleset,
-+ * the objects are removed.
-+ */
-+static inline unsigned int nft_gencursor_next(const struct net *net)
-+{
-+	return net->nft.gencursor + 1 == 1 ? 1 : 0;
-+}
++struct nft_hash {
++	struct rhashtable		ht;
++};
 +
-+static inline u8 nft_genmask_next(const struct net *net)
-+{
-+	return 1 << nft_gencursor_next(net);
-+}
+ struct nft_hash_elem {
+ 	struct rhash_head		node;
+ 	struct nft_data			key;
+@@ -35,10 +39,10 @@ static bool nft_hash_lookup(const struct nft_set *set,
+ 			    const struct nft_data *key,
+ 			    struct nft_data *data)
+ {
+-	struct rhashtable *priv = nft_set_priv(set);
++	struct nft_hash *priv = nft_set_priv(set);
+ 	const struct nft_hash_elem *he;
+ 
+-	he = rhashtable_lookup_fast(priv, key, nft_hash_params);
++	he = rhashtable_lookup_fast(&priv->ht, key, nft_hash_params);
+ 	if (he && set->flags & NFT_SET_MAP)
+ 		nft_data_copy(data, he->data);
+ 
+@@ -48,7 +52,7 @@ static bool nft_hash_lookup(const struct nft_set *set,
+ static int nft_hash_insert(const struct nft_set *set,
+ 			   const struct nft_set_elem *elem)
+ {
+-	struct rhashtable *priv = nft_set_priv(set);
++	struct nft_hash *priv = nft_set_priv(set);
+ 	struct nft_hash_elem *he;
+ 	unsigned int size;
+ 	int err;
+@@ -68,7 +72,7 @@ static int nft_hash_insert(const struct nft_set *set,
+ 	if (set->flags & NFT_SET_MAP)
+ 		nft_data_copy(he->data, &elem->data);
+ 
+-	err = rhashtable_insert_fast(priv, &he->node, nft_hash_params);
++	err = rhashtable_insert_fast(&priv->ht, &he->node, nft_hash_params);
+ 	if (err)
+ 		kfree(he);
+ 
+@@ -87,19 +91,19 @@ static void nft_hash_elem_destroy(const struct nft_set *set,
+ static void nft_hash_remove(const struct nft_set *set,
+ 			    const struct nft_set_elem *elem)
+ {
+-	struct rhashtable *priv = nft_set_priv(set);
++	struct nft_hash *priv = nft_set_priv(set);
+ 
+-	rhashtable_remove_fast(priv, elem->cookie, nft_hash_params);
++	rhashtable_remove_fast(&priv->ht, elem->cookie, nft_hash_params);
+ 	synchronize_rcu();
+ 	kfree(elem->cookie);
+ }
+ 
+ static int nft_hash_get(const struct nft_set *set, struct nft_set_elem *elem)
+ {
+-	struct rhashtable *priv = nft_set_priv(set);
++	struct nft_hash *priv = nft_set_priv(set);
+ 	struct nft_hash_elem *he;
+ 
+-	he = rhashtable_lookup_fast(priv, &elem->key, nft_hash_params);
++	he = rhashtable_lookup_fast(&priv->ht, &elem->key, nft_hash_params);
+ 	if (!he)
+ 		return -ENOENT;
+ 
+@@ -114,13 +118,13 @@ static int nft_hash_get(const struct nft_set *set, struct nft_set_elem *elem)
+ static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
+ 			  struct nft_set_iter *iter)
+ {
+-	struct rhashtable *priv = nft_set_priv(set);
++	struct nft_hash *priv = nft_set_priv(set);
+ 	const struct nft_hash_elem *he;
+ 	struct rhashtable_iter hti;
+ 	struct nft_set_elem elem;
+ 	int err;
+ 
+-	err = rhashtable_walk_init(priv, &hti);
++	err = rhashtable_walk_init(&priv->ht, &hti);
+ 	iter->err = err;
+ 	if (err)
+ 		return;
+@@ -165,7 +169,7 @@ out:
+ 
+ static unsigned int nft_hash_privsize(const struct nlattr * const nla[])
+ {
+-	return sizeof(struct rhashtable);
++	return sizeof(struct nft_hash);
+ }
+ 
+ static const struct rhashtable_params nft_hash_params = {
+@@ -179,13 +183,13 @@ static int nft_hash_init(const struct nft_set *set,
+ 			 const struct nft_set_desc *desc,
+ 			 const struct nlattr * const tb[])
+ {
+-	struct rhashtable *priv = nft_set_priv(set);
++	struct nft_hash *priv = nft_set_priv(set);
+ 	struct rhashtable_params params = nft_hash_params;
+ 
+ 	params.nelem_hint = desc->size ?: NFT_HASH_ELEMENT_HINT;
+ 	params.key_len = set->klen;
+ 
+-	return rhashtable_init(priv, &params);
++	return rhashtable_init(&priv->ht, &params);
+ }
+ 
+ static void nft_free_element(void *ptr, void *arg)
+@@ -195,8 +199,9 @@ static void nft_free_element(void *ptr, void *arg)
+ 
+ static void nft_hash_destroy(const struct nft_set *set)
+ {
+-	rhashtable_free_and_destroy(nft_set_priv(set), nft_free_element,
+-				    (void *)set);
++	struct nft_hash *priv = nft_set_priv(set);
 +
-+static inline u8 nft_genmask_cur(const struct net *net)
-+{
-+	/* Use ACCESS_ONCE() to prevent refetching the value for atomicity */
-+	return 1 << ACCESS_ONCE(net->nft.gencursor);
-+}
-+
- /**
-  *	struct nft_trans - nf_tables object update in transaction
-  *
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index b35512f..66fa5e9 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -198,36 +198,31 @@ static int nft_delchain(struct nft_ctx *ctx)
- static inline bool
- nft_rule_is_active(struct net *net, const struct nft_rule *rule)
- {
--	return (rule->genmask & (1 << net->nft.gencursor)) == 0;
--}
--
--static inline int gencursor_next(struct net *net)
--{
--	return net->nft.gencursor+1 == 1 ? 1 : 0;
-+	return (rule->genmask & nft_genmask_cur(net)) == 0;
++	rhashtable_free_and_destroy(&priv->ht, nft_free_element, (void *)set);
  }
  
- static inline int
- nft_rule_is_active_next(struct net *net, const struct nft_rule *rule)
- {
--	return (rule->genmask & (1 << gencursor_next(net))) == 0;
-+	return (rule->genmask & nft_genmask_next(net)) == 0;
- }
+ static bool nft_hash_estimate(const struct nft_set_desc *desc, u32 features,
+@@ -209,7 +214,7 @@ static bool nft_hash_estimate(const struct nft_set_desc *desc, u32 features,
+ 		esize += FIELD_SIZEOF(struct nft_hash_elem, data[0]);
  
- static inline void
- nft_rule_activate_next(struct net *net, struct nft_rule *rule)
- {
- 	/* Now inactive, will be active in the future */
--	rule->genmask = (1 << net->nft.gencursor);
-+	rule->genmask = nft_genmask_cur(net);
- }
- 
- static inline void
- nft_rule_deactivate_next(struct net *net, struct nft_rule *rule)
- {
--	rule->genmask = (1 << gencursor_next(net));
-+	rule->genmask = nft_genmask_next(net);
- }
- 
- static inline void nft_rule_clear(struct net *net, struct nft_rule *rule)
- {
--	rule->genmask &= ~(1 << gencursor_next(net));
-+	rule->genmask &= ~nft_genmask_next(net);
- }
- 
- static int
-@@ -3626,7 +3621,7 @@ static int nf_tables_commit(struct sk_buff *skb)
- 	while (++net->nft.base_seq == 0);
- 
- 	/* A new generation has just started */
--	net->nft.gencursor = gencursor_next(net);
-+	net->nft.gencursor = nft_gencursor_next(net);
- 
- 	/* Make sure all packets have left the previous generation before
- 	 * purging old rules.
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 4429008..ef4dfcb 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -121,11 +121,7 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
- 	struct nft_jumpstack jumpstack[NFT_JUMP_STACK_SIZE];
- 	struct nft_stats *stats;
- 	int rulenum;
--	/*
--	 * Cache cursor to avoid problems in case that the cursor is updated
--	 * while traversing the ruleset.
--	 */
--	unsigned int gencursor = ACCESS_ONCE(net->nft.gencursor);
-+	unsigned int gencursor = nft_genmask_cur(net);
- 
- do_chain:
- 	rulenum = 0;
+ 	if (desc->size) {
+-		est->size = sizeof(struct rhashtable) +
++		est->size = sizeof(struct nft_hash) +
+ 			    roundup_pow_of_two(desc->size * 4 / 3) *
+ 			    sizeof(struct nft_hash_elem *) +
+ 			    desc->size * esize;
 -- 
 1.7.10.4
 
