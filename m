@@ -1,41 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
-Date: Thu, 26 Mar 2015 13:25:32 +0000
-Message-ID: <20150326132532.GB20404@casper.infradead.org>
-References: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
+From: Amit Singh Tomar <amit.tomar@freescale.com>
+Subject: [PATCH 1/1] Fman: Fix the header file name
+Date: Thu, 26 Mar 2015 18:55:23 +0530
+Message-ID: <1427376323-3237-1-git-send-email-amit.tomar@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	jesse@nicira.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain
+Cc: Scott Wood <scottwood@freescale.com>,
+	<Igal.Liberman@freescale.com>,
+	"Amit Singh Tomar" <amit.tomar@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51763 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501AbbCZNZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 09:25:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
+Received: from mail-bn1bon0147.outbound.protection.outlook.com ([157.56.111.147]:46964
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752226AbbCZNZg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2015 09:25:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/26/15 at 01:53pm, Jiri Pirko wrote:
-> This patch introduces OpenFlow-based filter. So far, the very essential
-> packet fields are supported (according to OpenFlow v1.4 spec).
-> 
-> This patch is only the first step. There is a lot of potential performance
-> improvements possible to implement. Also a lot of features are missing
-> now. They will be addressed in follow-up patches.
-> 
-> To the name of this classifier, I believe that "cls_openflow" is pretty
-> accurate. It is actually a OpenFlow classifier.
+Header file name should be "dpaa_eth_common.h".There is no file with name
+"dpaa_eth-common.h".
 
-My feedback on this was that this could be misleading because
-cls_openflow does not make the kernel an OpenFlow switch (neither
-does OVS). I can see the relation to some of the match fields as
-specified by OpenFlow but there is no relation to the wire protocol
-itself or any of the other OpenFlow specific concepts such as flow
-tables, group tables, counters, actions, etc.
+Signed-off-by: Amit Singh Tomar <amit.tomar@freescale.com>
+---
+ .../freescale/fman/src/wrapper/fman_test.c         |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-That said, I can see what you mean by it and I think if we make this
-clear in the description and manual page that might be enough to
-avoid confusion.
+diff --git a/drivers/net/ethernet/freescale/fman/src/wrapper/fman_test.c b/drivers/net/ethernet/freescale/fman/src/wrapper/fman_test.c
+index 4bd6261..32b7868 100644
+--- a/drivers/net/ethernet/freescale/fman/src/wrapper/fman_test.c
++++ b/drivers/net/ethernet/freescale/fman/src/wrapper/fman_test.c
+@@ -65,7 +65,7 @@
+ #include "fsl_fman_test.h"
+ 
+ #include "dpaa_eth.h"
+-#include "dpaa_eth-common.h"
++#include "dpaa_eth_common.h"
+ 
+ #define FMT_FRM_WATERMARK   0xdeadbeefdeadbeeaLL
+ 
+-- 
+1.7.9.5
