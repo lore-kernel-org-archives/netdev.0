@@ -1,39 +1,34 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 2/6] pass phy_device instead of net_device to fixed_phy
- link_update() function
-Date: Thu, 26 Mar 2015 23:59:02 +0100
-Message-ID: <20150326235902.5f9efc70@free-electrons.com>
-References: <55142C31.5050504@list.ru>
-	<55142CB1.1080107@list.ru>
-	<55142D01.3090601@list.ru>
-	<20150326.154901.1917521749865418277.davem@davemloft.net>
-	<55148E65.4020103@list.ru>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net-next] fib: move fib_rules_cleanup_ops() under rtnl lock
+Date: Thu, 26 Mar 2015 16:05:44 -0700
+Message-ID: <CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>
+References: <1427403769-31208-1-git-send-email-xiyou.wangcong@gmail.com>
+	<55147E5D.2070600@redhat.com>
+	<CAHA+R7P4-y4o5WuUwzfwd+LrrkdRdo2=UfXzYdgTrJ63qkaTVg@mail.gmail.com>
+	<55148576.1010303@redhat.com>
+	<CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stas Sergeev <stsp@list.ru>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:56838 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753333AbbCZW7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 18:59:40 -0400
-In-Reply-To: <55148E65.4020103@list.ru>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34890 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900AbbCZXFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 19:05:44 -0400
+Received: by igcau2 with SMTP id au2so6055111igc.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 16:05:44 -0700 (PDT)
+In-Reply-To: <CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Stas Sergeev,
+On Thu, Mar 26, 2015 at 3:32 PM, Cong Wang <cwang@twopensource.com> wrote:
+>
+> On the other hand, the name rules_mod_lock already tells it is
+> just a protection for ops (module) register.
 
-On Fri, 27 Mar 2015 01:55:33 +0300, Stas Sergeev wrote:
-
-> I'll remove the silly thunderbird-patch-inline plugin (that adds this line)
-> and will try to convince thunderbird not to break indentation, oh...
-
-Or you start using 'git send-email', which will do the right thing for
-you.
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+I even doubt we really need rules_mod_lock, it is per netns,
+which is newly allocated when registering pernet and upper
+layer should guarantee no concurrent unregistering, so we
+probably only need to take rtnl lock.
