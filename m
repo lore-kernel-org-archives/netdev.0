@@ -1,97 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/7] net: Move check for multiple vlans to
- drivers
-Date: Thu, 26 Mar 2015 04:55:36 -0700
-Message-ID: <1427370936.25985.133.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1427346080-12086-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Linux NICS <linux.nics@intel.com>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:37819 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382AbbCZLzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 07:55:38 -0400
-Received: by igcxg11 with SMTP id xg11so51444529igc.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 04:55:38 -0700 (PDT)
-In-Reply-To: <1427346080-12086-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/15] Netfilter updates for net-next
+Date: Thu, 26 Mar 2015 13:06:47 +0100
+Message-ID: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-03-26 at 14:01 +0900, Toshiaki Makita wrote:
-> To allow drivers to handle the features check for multiple tags,
-> move the check to ndo_features_check().
-> As no drivers currently handle multiple tagged TSO, introduce
-> dflt_features_check() and call it if the driver does not have
-> ndo_features_check().
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> ---
+Hi David,
 
+The following patchset contains Netfilter updates for your net-next tree.
+Basically, nf_tables updates to add the set extension infrastructure and finish
+the transaction for sets from Patrick McHardy. More specifically, they are:
 
-> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> index bc649dd..5ceb38f 100644
-> --- a/include/linux/if_vlan.h
-> +++ b/include/linux/if_vlan.h
-> @@ -606,4 +606,26 @@ static inline bool skb_vlan_tagged_multi(struct sk_buff *skb)
->  	return true;
->  }
->  
-> +/**
-> + * vlan_features_check - drop unsafe features for skb with multiple tags.
-> + * @skb: skbuff to query
-> + * @features: features to be checked
-> + *
-> + * Returns features without unsafe ones if the skb has multiple tags.
-> + */
-> +static inline netdev_features_t vlan_features_check(struct sk_buff *skb,
+1) Move netns to basechain and use recently added possible_net_t, from
+   Patrick McHardy.
 
-const struct sk_buff *skb
+2) Use LOGLEVEL_<FOO> from nf_log infrastructure, from Joe Perches.
 
-> +						    netdev_features_t features)
-> +{
-> +	if (skb_vlan_tagged_multi(skb))
-> +		features = netdev_intersect_features(features,
-> +						     NETIF_F_SG |
-> +						     NETIF_F_HIGHDMA |
-> +						     NETIF_F_FRAGLIST |
-> +						     NETIF_F_GEN_CSUM |
-> +						     NETIF_F_HW_VLAN_CTAG_TX |
-> +						     NETIF_F_HW_VLAN_STAG_TX);
-> +
-> +	return features;
-> +}
-> +
->  #endif /* !(_LINUX_IF_VLAN_H_) */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 04bffcd..41d0db55 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2562,6 +2562,13 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
->  	return features;
->  }
->  
-> +static netdev_features_t dflt_features_check(struct sk_buff *skb,
+3) Restore nf_log_trace that was accidentally removed during conflict
+   resolution.
 
-const struct sk_buff *skb
+4) nft_queue does not depend on NETFILTER_XTABLES, starting from here
+   all patches from Patrick McHardy.
 
-> +					     struct net_device *dev,
-> +					     netdev_features_t features)
-> +{
-> +	return vlan_features_check(skb, features);
-> +}
-> +
+5) Use raw_smp_processor_id() in nft_meta.
+
+Then, several patches to prepare ground for the new set extension
+infrastructure:
+
+6) Pass object length to the hash callback in rhashtable as needed by
+   the new set extension infrastructure.
+
+7) Cleanup patch to restore struct nft_hash as wrapper for struct
+   rhashtable
+
+8) Another small source code readability cleanup for nft_hash.
+
+9) Convert nft_hash to rhashtable callbacks.
+
+And finally...
+
+10) Add the new set extension infrastructure.
+
+11) Convert the nft_hash and nft_rbtree sets to use it.
+
+12) Batch set element release to avoid several RCU grace period in a row
+    and add new function nft_set_elem_destroy() to consolidate set element
+    release.
+
+13) Return the set extension data area from nft_lookup.
+
+14) Refactor existing transaction code to add some helper functions
+    and document it.
+
+15) Complete the set transaction support, using similar approach to what we
+    already use, to activate/deactivate elements in an atomic fashion.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 0144a81cccf7532bead90f0542f517bd028d3b3c:
+
+  tcp: fix ipv4 mapped request socks (2015-03-25 00:57:48 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to cc02e457bb86f7b6ffee3651bab22d104b60effb:
+
+  netfilter: nf_tables: implement set transaction support (2015-03-26 11:09:35 +0100)
+
+----------------------------------------------------------------
+Joe Perches (1):
+      netfilter: Use LOGLEVEL_<FOO> defines
+
+Pablo Neira Ayuso (1):
+      netfilter: nf_tables: restore nf_log_trace() in nf_tables_core.c
+
+Patrick McHardy (13):
+      netfilter: nf_tables: move struct net pointer to base chain
+      netfilter: nf_tables: nft_queue does not depend on x_tables
+      netfilter: nft_meta: use raw_smp_processor_id()
+      rhashtable: provide len to obj_hashfn
+      netfilter: nft_hash: restore struct nft_hash
+      netfilter: nft_hash: indent rhashtable parameters
+      netfilter: nft_hash: convert to use rhashtable callbacks
+      netfilter: nf_tables: add set extensions
+      netfilter: nf_tables: convert hash and rbtree to set extensions
+      netfilter: nf_tables: consolide set element destruction
+      netfilter: nf_tables: return set extensions from ->lookup()
+      netfilter: nf_tables: add transaction helper functions
+      netfilter: nf_tables: implement set transaction support
+
+ include/linux/rhashtable.h        |    6 +-
+ include/net/netfilter/nf_tables.h |  190 ++++++++++++++++++++++++++++++++---
+ lib/rhashtable.c                  |    2 +-
+ net/ipv4/netfilter/nf_log_arp.c   |    4 +-
+ net/ipv4/netfilter/nf_log_ipv4.c  |    4 +-
+ net/ipv6/netfilter/ip6_tables.c   |    5 +-
+ net/ipv6/netfilter/nf_log_ipv6.c  |    4 +-
+ net/netfilter/Kconfig             |    1 -
+ net/netfilter/nf_tables_api.c     |  199 ++++++++++++++++++++++++++-----------
+ net/netfilter/nf_tables_core.c    |   18 ++--
+ net/netfilter/nft_hash.c          |  183 +++++++++++++++++++---------------
+ net/netfilter/nft_log.c           |    2 +-
+ net/netfilter/nft_lookup.c        |    6 +-
+ net/netfilter/nft_meta.c          |    2 +-
+ net/netfilter/nft_rbtree.c        |  123 +++++++++++------------
+ net/netlink/af_netlink.c          |    2 +-
+ 16 files changed, 513 insertions(+), 238 deletions(-)
