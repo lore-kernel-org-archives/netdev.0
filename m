@@ -1,89 +1,90 @@
-From: Jonathan Davies <jonathan.davies@citrix.com>
-Subject: [PATCH RFC] tcp: Allow sk_wmem_alloc to exceed sysctl_tcp_limit_output_bytes
-Date: Thu, 26 Mar 2015 16:46:53 +0000
-Message-ID: <1427388414-31077-1-git-send-email-jonathan.davies@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jonathan Davies <jonathan.davies@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, <netdev@vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] netns: don't clear nsid too early on removal
+Date: Thu, 26 Mar 2015 17:56:38 +0100
+Message-ID: <1427388998-4393-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:34387 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362AbbCZQsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:48:52 -0400
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48403 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220AbbCZQ4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:56:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Network drivers with slow TX completion can experience poor network transmit
-throughput, limited by hitting the sk_wmem_alloc limit check in tcp_write_xmit.
-The limit is 128 KB (by default), which means we are limited to two 64 KB skbs
-in-flight. This has been observed to limit transmit throughput with xen-netfront
-because its TX completion can be relatively slow compared to physical NIC
-drivers.
+With the current code, ids are removed too early.
+Suppose you have an ipip interface that stands in the netns foo and its link
+part in the netns bar (so the netns bar has an nsid into the netns foo).
+Now, you remove the netns bar:
+ - the bar nsid into the netns foo is removed
+ - the netns exit method of ipip is called, thus our ipip iface is removed:
+   => a netlink message is sent in the netns foo to advertise this deletion
+   => this netlink message requests an nsid for bar, thus a new nsid is
+      allocated for bar and never removed.
 
-There have been several modifications to the calculation of the sk_wmem_alloc
-limit in the past. Here is a brief history:
+We must remove nsids when we are sure that nobody will refer to netns currently
+cleaned.
 
- * Since TSQ was introduced, the queue size limit was
-       sysctl_tcp_limit_output_bytes.
-
- * Commit c9eeec26 ("tcp: TSQ can use a dynamic limit") made the limit
-       max(skb->truesize, sk->sk_pacing_rate >> 10).
-   This allows more packets in-flight according to the estimated rate.
-
- * Commit 98e09386 ("tcp: tsq: restore minimal amount of queueing") made the
-   limit
-       max_t(unsigned int, sysctl_tcp_limit_output_bytes,
-                           sk->sk_pacing_rate >> 10).
-   This ensures at least sysctl_tcp_limit_output_bytes in flight but allowed
-   more if rate estimation shows this to be worthwhile.
-
- * Commit 605ad7f1 ("tcp: refine TSO autosizing") made the limit
-       min_t(u32, max(2 * skb->truesize, sk->sk_pacing_rate >> 10),
-                  sysctl_tcp_limit_output_bytes).
-   This meant that the limit can never exceed sysctl_tcp_limit_output_bytes,
-   regardless of what rate estimation suggests. It's not clear from the commit
-   message why this significant change was justified, changing
-   sysctl_tcp_limit_output_bytes from being a lower bound to an upper bound.
-
-This patch restores the behaviour that allows the limit to grow above
-sysctl_tcp_limit_output_bytes according to the rate estimation.
-
-This has been measured to improve xen-netfront throughput from a domU to dom0
-from 5.5 Gb/s to 8.0 Gb/s. Or, in the case of transmitting from one domU to
-another (on the same host), throughput rose from 2.8 Gb/s to 8.0 Gb/s. In the
-latter case, TX completion is especially slow, explaining the large improvement.
-These values were measured against 4.0-rc5 using "iperf -c <ip> -i 1" using
-CentOS 7.0 VM(s) on Citrix XenServer 6.5 on a Dell R730 host with a pair of Xeon
-E5-2650 v3 CPUs.
-
-Fixes: 605ad7f184b6 ("tcp: refine TSO autosizing")
-Signed-off-by: Jonathan Davies <jonathan.davies@citrix.com>
+Fixes: 0c7aecd4bde4 ("netns: add rtnl cmd to add and get peer netns ids")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv4/tcp_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/net_namespace.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 1db253e..3a49af8 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2052,7 +2052,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		 * One example is wifi aggregation (802.11 AMPDU)
- 		 */
- 		limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
--		limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
-+		limit = max_t(u32, limit, sysctl_tcp_limit_output_bytes);
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index cb5290b8c428..5221f975a4cc 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -349,7 +349,7 @@ static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
+ static void cleanup_net(struct work_struct *work)
+ {
+ 	const struct pernet_operations *ops;
+-	struct net *net, *tmp;
++	struct net *net, *tmp, *peer;
+ 	struct list_head net_kill_list;
+ 	LIST_HEAD(net_exit_list);
  
- 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
- 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
+@@ -365,14 +365,6 @@ static void cleanup_net(struct work_struct *work)
+ 	list_for_each_entry(net, &net_kill_list, cleanup_list) {
+ 		list_del_rcu(&net->list);
+ 		list_add_tail(&net->exit_list, &net_exit_list);
+-		for_each_net(tmp) {
+-			int id = __peernet2id(tmp, net, false);
+-
+-			if (id >= 0)
+-				idr_remove(&tmp->netns_ids, id);
+-		}
+-		idr_destroy(&net->netns_ids);
+-
+ 	}
+ 	rtnl_unlock();
+ 
+@@ -398,12 +390,26 @@ static void cleanup_net(struct work_struct *work)
+ 	 */
+ 	rcu_barrier();
+ 
++	rtnl_lock();
+ 	/* Finally it is safe to free my network namespace structure */
+ 	list_for_each_entry_safe(net, tmp, &net_exit_list, exit_list) {
++		/* Unreference net from all peers (no need to loop over
++		 * net_exit_list because idr_destroy() will be called for each
++		 * element of this list.
++		 */
++		for_each_net(peer) {
++			int id = __peernet2id(peer, net, false);
++
++			if (id >= 0)
++				idr_remove(&peer->netns_ids, id);
++		}
++		idr_destroy(&net->netns_ids);
++
+ 		list_del_init(&net->exit_list);
+ 		put_user_ns(net->user_ns);
+ 		net_drop_ns(net);
+ 	}
++	rtnl_unlock();
+ }
+ static DECLARE_WORK(net_cleanup_work, cleanup_net);
+ 
 -- 
-1.9.1
+2.2.2
