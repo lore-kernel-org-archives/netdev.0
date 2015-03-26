@@ -1,47 +1,52 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 0/6] mvneta: SGMII-based in-band link status signaling
-Date: Thu, 26 Mar 2015 20:34:33 +0300
-Message-ID: <55144329.3040501@list.ru>
-References: <55142C31.5050504@list.ru> <55143E3F.9080501@gmail.com> <55144096.6060800@list.ru> <551441FA.1010504@gmail.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next 4/7] net: bcmgenet: tweak init_umac()
+Date: Thu, 26 Mar 2015 10:50:42 -0700
+Message-ID: <CAGXr9JHUYEuAxC+Ur55n+SxXaP5-kzaMR0hKF6k=g0Nv7XLWoA@mail.gmail.com>
+References: <20150325193513.08B462201FB@puck.mtv.corp.google.com>
+	<5513356D.1000302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jaedon Shin <jaedon.shin@gmail.com>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp22.mail.ru ([94.100.181.177]:58830 "EHLO smtp22.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750819AbbCZReh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 13:34:37 -0400
-In-Reply-To: <551441FA.1010504@gmail.com>
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:33466 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752400AbbCZRvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 13:51:07 -0400
+Received: by qgfa8 with SMTP id a8so102928187qgf.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 10:51:06 -0700 (PDT)
+In-Reply-To: <5513356D.1000302@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-26.03.2015 20:29, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 26/03/15 10:23, Stas Sergeev wrote:
->> 26.03.2015 20:13, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> Hello,
->>>
->>> On 26/03/15 08:56, Stas Sergeev wrote:
->>>> Hello.
->>>>
->>>> The following patches are needed when mvneta is used
->>>> in SGMII mode without MDIO.
->>> Would you mind using scripts/get_maintainer.pl such that the releva=
-nt
->>> people who have touched this code in the past can be CC'd?
->>>
->>> Your patches are barely readable, let alone that you have provided
->>> little to explanation as to why you are making such invasive change=
-s.
->> OK, will re-send tomorrow with more explanations and CCs.
->> Still not sure about "barely readable" though - I made them
->> through checkpatch.pl.
-> Your commit messages are very scarce, you need to explain more what y=
-ou
-> are doing an why.
-That's OK, will do, thanks.
-You said that my patches and barely readable AND have
-little explanation, so I thought you mean the code changes
-itself are barely readable too.
+Hi Florian,
+
+On Wed, Mar 25, 2015 at 3:23 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 25/03/15 12:35, Petri Gynther wrote:
+>> Use more meaningful variable names int0_enable and int1_enable when
+>> enabling bcmgenet interrupts.
+>>
+>> For Rx default queue interrupts, use:
+>> UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE
+>>
+>> For Tx default queue interrupts, use:
+>> UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE
+>
+> Can we define a constant for these two, kind of like what I did earlier
+> with UMAC_IRQ_RXDMA_MASK and UMAC_IRQ_TXDMA_MASK?
+>
+> Does not need to happen now, but it could make the code clearer.
+>
+
+After this patch set is applied, I'll craft a patch for:
+#define UMAC_IRQ_RXDMA_DONE  (UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE)
+#define UMAC_IRQ_TXDMA_DONE  (UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE)
+
+>>
+>> Signed-off-by: Petri Gynther <pgynther@google.com>
+>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> --
+> Florian
