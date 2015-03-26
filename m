@@ -1,52 +1,50 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
-Date: Thu, 26 Mar 2015 00:49:09 +0100
-Message-ID: <20150326004910.1259bed5@griffin>
-References: <20150324180628.278017fb@griffin>
-	<CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
-	<20150325095851.1d8d1622@griffin>
-	<20150325.114622.1915164845375005128.davem@davemloft.net>
-	<CAF2d9jh5WaNYsMxp29GY3LqM08jjVPwLd1BQ1HLFKMsKFda6zQ@mail.gmail.com>
-	<20150326002154.3e179fec@griffin>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: Re: [PATCH 1/8] NFC: NCI: Allow connection close with dev down
+Date: Thu, 26 Mar 2015 01:29:25 +0100
+Message-ID: <20150326002925.GA10954@ribalta.home>
+References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+ <1424772112-27399-2-git-send-email-robert.dolca@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>, dcbw@redhat.com
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47310 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752073AbbCYXtP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Mar 2015 19:49:15 -0400
-In-Reply-To: <20150326002154.3e179fec@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfc@lists.01.org,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Robert Dolca <robert.dolca@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1424772112-27399-2-git-send-email-robert.dolca@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Mar 2015 00:21:53 +0100, Jiri Benc wrote:
-> On Wed, 25 Mar 2015 11:11:47 -0700, Mahesh Bandewar wrote:
-> > Yes functionally you will get the same result. However during the RX
-> > processing, that code helps ipvlan-demux machine along with
-> > packet-dispatcher to determine it early to drop the packet rather than
-> > later.
+Hi Robert,
+
+On Tue, Feb 24, 2015 at 12:01:45PM +0200, Robert Dolca wrote:
+> By calling __nci_request instead of nci_request allows the driver to use
+> the function while initializing the device (setup stage)
 > 
-> When the interface is down, this doesn't matter, does it? You don't
-> send/receive anything when the interface is down.
+> Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+> ---
+>  net/nfc/nci/core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+> index 9575a18..c4dd5d8 100644
+> --- a/net/nfc/nci/core.c
+> +++ b/net/nfc/nci/core.c
+> @@ -558,7 +558,7 @@ static void nci_core_conn_close_req(struct nci_dev *ndev, unsigned long opt)
+>  
+>  int nci_core_conn_close(struct nci_dev *ndev, u8 conn_id)
+>  {
+> -	return nci_request(ndev, nci_core_conn_close_req, conn_id,
+> +	return __nci_request(ndev, nci_core_conn_close_req, conn_id,
+>  				msecs_to_jiffies(NCI_CMD_TIMEOUT));
+You're fixing your problem by removing the NCI request serialization and
+removing the check for your device being UP.
+I assume you need to open and close a proprietary connection from your
+setup hook ? Then please extend nci_request() to check for both NCI_UP
+and NCI_INIT.
 
-But obviously, with more ipvlan interfaces under the same master, some
-of them being up and some down, it may be beneficial to keep the
-addresses of interfaces that are down off the hash list. Which means my
-original patch was correct after all...
-
-Another question is whether the logic in ipvlan_addr_busy is correct.
-To my understanding, the purpose of ipvlan_ht_addr_lookup call in
-ipvlan_addr_busy is to ensure two interfaces under the same master
-cannot have the same IP address assigned. As assigned addresses may not
-be on the hash list when an interface is down, this check does not
-really work. Note that this problem is already present in the current
-code, with or without any patches currently discussed.
-
- Jiri
-
--- 
-Jiri Benc
+Cheers,
+Samuel.
