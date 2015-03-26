@@ -1,43 +1,64 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 1/6] restructure of_phy_register_fixed_link() for further
- modifications
-Date: Thu, 26 Mar 2015 23:26:17 +0300
-Message-ID: <55146B69.2050504@list.ru>
-References: <55142C31.5050504@list.ru> <55142CB1.1080107@list.ru> <55145794.9090608@cogentembedded.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
+Date: Thu, 26 Mar 2015 21:39:11 +0100
+Message-ID: <1427402351.2093330.245738573.1406B9EA@webmail.messagingengine.com>
+References: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
+ <1427379836.29436.9.camel@stressinduktion.org>
+ <20150326152938.GD2010@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+	tgraf@suug.ch, jesse@nicira.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp27.mail.ru ([94.100.181.182]:41461 "EHLO smtp27.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751552AbbCZU0j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 16:26:39 -0400
-In-Reply-To: <55145794.9090608@cogentembedded.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:54288 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752853AbbCZUjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 16:39:12 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 0A41220847
+	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 16:39:09 -0400 (EDT)
+In-Reply-To: <20150326152938.GD2010@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-26.03.2015 22:01, Sergei Shtylyov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Hello.
->
-> On 03/26/2015 06:58 PM, Stas Sergeev wrote:
->
->> -=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D-=3D# Don't remove this line #=3D-=3D=
--=3D-=3D-=3D-=3D-=3D-=3D-=3D-
->
->    Hm, why?
-Because I used some stupid thunderbird-patch-inline plugin that
-adds that line:
-http://www.floc.net/doc/git/contrib/thunderbird-patch-inline/README
+On Thu, Mar 26, 2015, at 16:29, Jiri Pirko wrote:
+> Thu, Mar 26, 2015 at 03:23:56PM CET, hannes@stressinduktion.org wrote:
+> >> +static int of_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+> >> +		       struct tcf_result *res)
+> >> +{
+> >> +	struct cls_of_head *head = rcu_dereference_bh(tp->root);
+> >> +	struct cls_of_filter *f;
+> >> +	struct of_flow_key skb_key;
+> >> +	int ret;
+> >> +
+> >> +	of_extract_key(skb, &skb_key);
+> >> +
+> >> +	list_for_each_entry_rcu(f, &head->filters, list) {
+> >> +		if (!of_match(&skb_key, f))
+> >> +			continue;
+> >
+> >This seems very limited to me, do you have plans to extend this?
+> 
+> What do you have in mind?
 
-> You could have put a proper change log here...
->    Also, threading the patches one after the other is a bad idea,=20
-> please post them all as a replies to the patchset summary (0/6).
-Ok.
+We have the possibility to make the order of the matches matter easily
+here (like a decision tree).
+Maybe this would give a benefit over simple full match with mask, so
+user space can align the most
+significant matches first thus creating less churn in the caches and
+make the lookup time shorter?
+I understand, if you want build a simples openvswitch replacement a hash
+table would be good to go,
+too.
 
->    Unfortunately, your patch has been whitespace-damaged by your=20
-> mailer, with all tabs converted to spaces.
-So the plugin didn't work as expected. :(
+Just a proposal, maybe we can add more benefit to this kind of
+classifier.
+
+Albeit it looks a bit like cls_bpf could do that more easily.
+
+What do you think?
+
+Bye,
+Hannes
