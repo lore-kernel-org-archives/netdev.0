@@ -1,8 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next 2/7] vlan: Introduce helper functions
-	to check if skb is tagged
-Date: Thu, 26 Mar 2015 14:01:15 +0900
-Message-ID: <1427346080-12086-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next 4/7] net: Introduce
+	passthru_features_check
+Date: Thu, 26 Mar 2015 14:01:17 +0900
+Message-ID: <1427346080-12086-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,113 +30,49 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Separate the two checks for single vlan and multiple vlans in
-netif_skb_features().  This allows us to move the check for multiple
-vlans to another function later.
+As there are a number of (especially virtual) devices that don't
+need the multiple vlan check, introduce passthru_features_check() for
+convenience.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- include/linux/if_vlan.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c          | 24 ++++++++----------------
- 2 files changed, 53 insertions(+), 16 deletions(-)
+ include/linux/netdevice.h | 3 +++
+ net/core/dev.c            | 8 ++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index b11b28a..bc649dd 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -561,4 +561,49 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
- 		skb->protocol = htons(ETH_P_802_2);
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 08c4ab3..967bb4c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3657,6 +3657,9 @@ void netdev_change_features(struct net_device *dev);
+ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
+ 					struct net_device *dev);
  
-+/**
-+ * skb_vlan_tagged - check if skb is vlan tagged.
-+ * @skb: skbuff to query
-+ *
-+ * Returns true if the skb is tagged, regardless of whether it is hardware
-+ * accelerated or not.
-+ */
-+static inline bool skb_vlan_tagged(struct sk_buff *skb)
-+{
-+	if (!skb_vlan_tag_present(skb) &&
-+	    likely(skb->protocol != htons(ETH_P_8021Q) &&
-+		   skb->protocol != htons(ETH_P_8021AD)))
-+		return false;
-+
-+	return true;
-+}
-+
-+/**
-+ * skb_vlan_tagged_multi - check if skb is vlan tagged with multiple headers.
-+ * @skb: skbuff to query
-+ *
-+ * Returns true if the skb is tagged with multiple vlan headers, regardless
-+ * of whether it is hardware accelerated or not.
-+ */
-+static inline bool skb_vlan_tagged_multi(struct sk_buff *skb)
-+{
-+	__be16 protocol = skb->protocol;
-+
-+	if (!skb_vlan_tag_present(skb)) {
-+		struct vlan_ethhdr *veh;
-+
-+		if (likely(protocol != htons(ETH_P_8021Q) &&
-+			   protocol != htons(ETH_P_8021AD)))
-+			return false;
-+
-+		veh = (struct vlan_ethhdr *)skb->data;
-+		protocol = veh->h_vlan_encapsulated_proto;
-+	}
-+
-+	if (protocol != htons(ETH_P_8021Q) && protocol != htons(ETH_P_8021AD))
-+		return false;
-+
-+	return true;
-+}
-+
- #endif /* !(_LINUX_IF_VLAN_H_) */
++netdev_features_t passthru_features_check(struct sk_buff *skb,
++					  struct net_device *dev,
++					  netdev_features_t features);
+ netdev_features_t netif_skb_features(struct sk_buff *skb);
+ 
+ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
 diff --git a/net/core/dev.c b/net/core/dev.c
-index a0408d4..04bffcd 100644
+index 41d0db55..b4cc929 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -2567,7 +2567,6 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 	struct net_device *dev = skb->dev;
- 	netdev_features_t features = dev->features;
- 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
--	__be16 protocol = skb->protocol;
+@@ -2562,6 +2562,14 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 	return features;
+ }
  
- 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
- 		features &= ~NETIF_F_GSO_MASK;
-@@ -2579,22 +2578,15 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 	if (skb->encapsulation)
- 		features &= dev->hw_enc_features;
- 
--	if (!skb_vlan_tag_present(skb)) {
--		if (unlikely(protocol == htons(ETH_P_8021Q) ||
--			     protocol == htons(ETH_P_8021AD))) {
--			struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
--			protocol = veh->h_vlan_encapsulated_proto;
--		} else {
--			goto finalize;
--		}
--	}
--
--	features = netdev_intersect_features(features,
--					     dev->vlan_features |
--					     NETIF_F_HW_VLAN_CTAG_TX |
--					     NETIF_F_HW_VLAN_STAG_TX);
-+	if (skb_vlan_tagged(skb))
-+		features = netdev_intersect_features(features,
-+						     dev->vlan_features |
-+						     NETIF_F_HW_VLAN_CTAG_TX |
-+						     NETIF_F_HW_VLAN_STAG_TX);
-+	else
-+		goto finalize;
- 
--	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD))
-+	if (skb_vlan_tagged_multi(skb))
- 		features = netdev_intersect_features(features,
- 						     NETIF_F_SG |
- 						     NETIF_F_HIGHDMA |
++netdev_features_t passthru_features_check(struct sk_buff *skb,
++					  struct net_device *dev,
++					  netdev_features_t features)
++{
++	return features;
++}
++EXPORT_SYMBOL(passthru_features_check);
++
+ static netdev_features_t dflt_features_check(struct sk_buff *skb,
+ 					     struct net_device *dev,
+ 					     netdev_features_t features)
 -- 
 1.8.1.2
 
