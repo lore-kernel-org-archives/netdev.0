@@ -1,163 +1,368 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
-Date: Thu, 26 Mar 2015 07:40:11 -0700
-Message-ID: <55141A4B.1040903@redhat.com>
-References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com> <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com> <55113B9B.3090308@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274C7F@FMSMSX105.amr.corp.intel.com> <5511B5AE.1090905@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274DD2@FMSMSX105.amr.corp.intel.com> <55127F8D.3070309@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250275B81@FMSMSX105.amr.corp.intel.com> <551317DE.90500@cloudius-systems.com> <551322F2.5020101@redhat.com> <5513D2C9.7010907@cloudius-systems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: Vlad Zolotarov <vladz@cloudius-systems.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37435 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932092AbbCZOkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 10:40:16 -0400
-In-Reply-To: <5513D2C9.7010907@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Implement batching in send buffer
+Date: Thu, 26 Mar 2015 09:03:37 -0700
+Message-ID: <1427385817-17811-1-git-send-email-haiyangz@microsoft.com>
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	driverdev-devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+With this patch, we can send out multiple RNDIS data packets in one send buffer
+slot and one VMBus message. It reduces the overhead associated with VMBus messages.
 
-On 03/26/2015 02:35 AM, Vlad Zolotarov wrote:
->
->
-> On 03/25/15 23:04, Alexander Duyck wrote:
->>
->> On 03/25/2015 01:17 PM, Vlad Zolotarov wrote:
->>>
->>>
->>> On 03/25/15 20:35, Tantilov, Emil S wrote:
->>>>> -----Original Message-----
->>>>> From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com]
->>>>> Sent: Wednesday, March 25, 2015 2:28 AM
->>>>> Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
->>>>
->>>
-<snip>
->>>>
->>>>> Perhaps storing the RSS key and the table is better option than 
->>>>> having to invoke the mailbox on every read.
->>>>> I don't think this could work if I understand your proposal 
->>>>> correctly.
->>>>> The only way to cache the result that would decrease the number of 
->>>>> mbox
->>>>> transactions would be to cache it in the VF. But how could i 
->>>>> invalidate
->>>>> this cache if the table content has been changed by a PF? I think the
->>>>> main source of a confusion here is that u assume that PF driver is a
->>>>> Linux ixgbe driver that doesn't support an indirection table 
->>>>> change at
->>>>> the moment. As I have explained above - this should not be assumed.
->>>> You keep mentioning other drivers - what other driver do you mean?
->>>> All the PF drivers that enable SRIOV are maintained and supported 
->>>> by Intel.
->>>>
->>>> For HW older than X550 we can simply not allow the RSS hash to be 
->>>> modified if the driver is loaded in SRIOV mode.
->>>> This way the RSS info can be read once the driver is loaded. For 
->>>> X550 this can all be done in the VF, so you can avoid calling the 
->>>> mailbox altogether.
->>>> I understand this is a bit limiting, but this is due to HW 
->>>> limitation anyway (VFs do not have their own RSS config).
->>>
->>> Let me remind u that Linux, FreeBSD, XEN  and DPDK PF drivers are 
->>> all open source so u can't actually go and "not allow" things. ;) 
->>> And although Intel developers contribute most of the code there are 
->>> and will be other contributors too so I doubt the proposed above 
->>> approach fits the open source spirit well. ;)
->>
->> Actually these drivers already support multiple OSes just fine. The 
->> part where I think you are confused is that you assume they all use 
->> the same Mailbox API which they likely wouldn't.  I would suggest 
->> taking a look at ixgbe_pfvf_api_rev in mbx.h of the VF driver. 
->> Different OSes have different things that can be supported, so for 
->> example the ixgbe_mbox_api_20 is reserved for a Solaris based PF/VF 
->> combination.  I would suspect that FreeBSD will likely have to 
->> conform to the existing APIs, or report that it only supports a 
->> different version of the mailbox API.
->
-> I didn't assume a common API at all. My point was that u can't just go 
-> and "forbid" standard things like changing the indirection table in 
-> the open source project(s). Therefore u shouldn't assume it and thus 
-> caching the indirection table doesn't seem a future-proof solution to me.
->
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |   16 +++-
+ drivers/net/hyperv/netvsc.c       |  187 ++++++++++++++++++++++++++++---------
+ drivers/net/hyperv/netvsc_drv.c   |    2 +
+ drivers/net/hyperv/rndis_filter.c |    4 +
+ 4 files changed, 162 insertions(+), 47 deletions(-)
 
-The point was the current driver doesn't provide any such option. If you 
-plan on adding it, then add it first and then we can talk about it.  
-Otherwise it isn't a requirement for any current solution that you might 
-implement.  That was the point I was trying to get across.  My advice is 
-to avoid scoping in features that aren't there.  If you want to go ahead 
-and add it then do so, but otherwise don't limit implementation by 
-things that have not yet been added.
-
->
->>
->>>
->>> The user should actually not query the indirection table and a hash 
->>> key too often. And if he/she does - it should be his/her problem.
->>> However, if like with the ixgbevf_set_num_queues() u insist on your 
->>> way of doing this (on caching the indirection table and hash key) - 
->>> then please let me know and I will add it. Because, frankly, I care 
->>> about the PF part of this series much more than for the VF part... ;)
->>
->> I would say you don't need to cache it, but for 82599 and x540 there 
->> isn't any need to store more than 3 bits per entry, 384b, or 12 
->> DWORDs for the entire RETA of the VF since the hardware can support 
->> at most 8 queues w/ SR-IOV.  Then you only need one message instead 
->> of 3 which will reduce quite a bit of the complication with all of this.
->>
->> Also it might make more sense to start working on displaying this on 
->> the PF before you start trying to do this on the VF.  As far as I 
->> know ixgbe still doesn't have this functionality and it would make 
->> much more sense to enable that first on ixgbe before you start trying 
->> to find a way to feed the data to the VF.
->
-> Let's agree on the next steps:
->
-> 1. I'll reduce the series scope to 82599 and x540 devices.
-
-For mailbox implementation that is okay, my advice for the x550 would be 
-to just read the registers.  They should already be defined in the 
-driver so it is just a matter of reversing the process for writing the 
-RETA.  You should have a solid grasp of that once you implement the 
-solution for the PF.
-
-> 2. I'll add the same ethtool operations I've already added to VF to PF
->    devices as well.
-
-Yes, I would recommend PF first, and then VF.  The PF allows for a much 
-simpler approach, and you will likely have a better idea of the solution 
-for X550.  For the most part you can probably just copy the code already 
-in igb.
-
-> 3. I'll implement the compression the Alex so desperately wants... ;)
-
-I've done enough of these mailbox type setups on this hardware to 
-realize that you don't want to be dealing with a multi-part message.  It 
-will make things so much easier for you to have this processed as a 
-single message.
-
-> 4. I won't implement the caching of the indirection and RSS hash key
->    query results in the VF level.
-
-The idea with caching is to keep the number of messages across the 
-mailbox to a minimum.  Compressing it down to 3 bits per entry will help 
-some, but I am not sure if that is enough to completely mitigate the 
-need for caching.  For now though the caching isn't a must-have, and it 
-won't be needed for x550 since it can access the table directly.  The 
-main thing I would recommend keeping an eye on would be how long it will 
-take to complete the messages necessary to get the ethtool info.  If 
-there are any scenarios where things take more than 1 second then I 
-would say we are taking too long and we would have to look into caching 
-because we want to avoid holding the rtnl lock for any extended period 
-of time.
-
-My advice is get the PF patches in first, then we can look at trying to 
-get feature parity on the VF.
-
-- Alex
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4815843..384f057 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -131,6 +131,7 @@ struct hv_netvsc_packet {
+ 
+ 	struct hv_device *device;
+ 	bool is_data_pkt;
++	bool xmit_more; /* from skb */
+ 	u16 vlan_tci;
+ 
+ 	u16 q_idx;
+@@ -596,7 +597,16 @@ struct nvsp_message {
+ 
+ #define VRSS_SEND_TAB_SIZE 16
+ 
+-/* Per netvsc channel-specific */
++#define RNDIS_MAX_PKT_DEFAULT 8
++#define RNDIS_PKT_ALIGN_DEFAULT 8
++
++struct multi_send_data {
++	spinlock_t lock; /* protect struct multi_send_data */
++	struct hv_netvsc_packet *pkt; /* netvsc pkt pending */
++	u32 count; /* counter of batched packets */
++};
++
++/* Per netvsc device */
+ struct netvsc_device {
+ 	struct hv_device *dev;
+ 
+@@ -647,6 +657,10 @@ struct netvsc_device {
+ 	unsigned char *cb_buffer;
+ 	/* The sub channel callback buffer */
+ 	unsigned char *sub_cb_buf;
++
++	struct multi_send_data msd[NR_CPUS];
++	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
++	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ };
+ 
+ /* NdisInitialize message */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 208eb05..b81bd37 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -37,6 +37,7 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ {
+ 	struct netvsc_device *net_device;
+ 	struct net_device *ndev = hv_get_drvdata(device);
++	int i;
+ 
+ 	net_device = kzalloc(sizeof(struct netvsc_device), GFP_KERNEL);
+ 	if (!net_device)
+@@ -53,6 +54,11 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
+ 	net_device->destroy = false;
+ 	net_device->dev = device;
+ 	net_device->ndev = ndev;
++	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
++	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
++
++	for (i = 0; i < num_online_cpus(); i++)
++		spin_lock_init(&net_device->msd[i].lock);
+ 
+ 	hv_set_drvdata(device, net_device);
+ 	return net_device;
+@@ -687,12 +693,23 @@ static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
+ 
+ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 				   unsigned int section_index,
++				   u32 pend_size,
+ 				   struct hv_netvsc_packet *packet)
+ {
+ 	char *start = net_device->send_buf;
+-	char *dest = (start + (section_index * net_device->send_section_size));
++	char *dest = start + (section_index * net_device->send_section_size)
++		     + pend_size;
+ 	int i;
+ 	u32 msg_size = 0;
++	u32 padding = 0;
++	u32 remain = packet->total_data_buflen % net_device->pkt_align;
++
++	/* Add padding */
++	if (packet->is_data_pkt && packet->xmit_more && remain) {
++		padding = net_device->pkt_align - remain;
++		packet->rndis_msg->msg_len += padding;
++		packet->total_data_buflen += padding;
++	}
+ 
+ 	for (i = 0; i < packet->page_buf_cnt; i++) {
+ 		char *src = phys_to_virt(packet->page_buf[i].pfn << PAGE_SHIFT);
+@@ -703,67 +720,48 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 		msg_size += len;
+ 		dest += len;
+ 	}
++
++	if (padding) {
++		memset(dest, 0, padding);
++		msg_size += padding;
++	}
++
+ 	return msg_size;
+ }
+ 
+-int netvsc_send(struct hv_device *device,
+-			struct hv_netvsc_packet *packet)
++static inline int netvsc_send_pkt(
++	struct hv_netvsc_packet *packet,
++	struct netvsc_device *net_device)
+ {
+-	struct netvsc_device *net_device;
+-	int ret = 0;
+-	struct nvsp_message sendMessage;
+-	struct net_device *ndev;
+-	struct vmbus_channel *out_channel = NULL;
+-	u64 req_id;
+-	unsigned int section_index = NETVSC_INVALID_INDEX;
+-	u32 msg_size = 0;
+-	struct sk_buff *skb = NULL;
++	struct nvsp_message nvmsg;
++	struct vmbus_channel *out_channel = packet->channel;
+ 	u16 q_idx = packet->q_idx;
++	struct net_device *ndev = net_device->ndev;
++	u64 req_id;
++	int ret;
+ 
+-
+-	net_device = get_outbound_net_device(device);
+-	if (!net_device)
+-		return -ENODEV;
+-	ndev = net_device->ndev;
+-
+-	sendMessage.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
++	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
+ 	if (packet->is_data_pkt) {
+ 		/* 0 is RMC_DATA; */
+-		sendMessage.msg.v1_msg.send_rndis_pkt.channel_type = 0;
++		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 0;
+ 	} else {
+ 		/* 1 is RMC_CONTROL; */
+-		sendMessage.msg.v1_msg.send_rndis_pkt.channel_type = 1;
++		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 1;
+ 	}
+ 
+-	/* Attempt to send via sendbuf */
+-	if (packet->total_data_buflen < net_device->send_section_size) {
+-		section_index = netvsc_get_next_send_section(net_device);
+-		if (section_index != NETVSC_INVALID_INDEX) {
+-			msg_size = netvsc_copy_to_send_buf(net_device,
+-							   section_index,
+-							   packet);
+-			skb = (struct sk_buff *)
+-			      (unsigned long)packet->send_completion_tid;
+-			packet->page_buf_cnt = 0;
+-		}
+-	}
+-	packet->send_buf_index = section_index;
+-
+-
+-	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
+-		section_index;
+-	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = msg_size;
++	nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
++		packet->send_buf_index;
++	if (packet->send_buf_index == NETVSC_INVALID_INDEX)
++		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
++	else
++		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size =
++			packet->total_data_buflen;
+ 
+ 	if (packet->send_completion)
+ 		req_id = (ulong)packet;
+ 	else
+ 		req_id = 0;
+ 
+-	out_channel = net_device->chn_table[packet->q_idx];
+-	if (out_channel == NULL)
+-		out_channel = device->channel;
+-	packet->channel = out_channel;
+-
+ 	if (out_channel->rescind)
+ 		return -ENODEV;
+ 
+@@ -771,11 +769,12 @@ int netvsc_send(struct hv_device *device,
+ 		ret = vmbus_sendpacket_pagebuffer(out_channel,
+ 						  packet->page_buf,
+ 						  packet->page_buf_cnt,
+-						  &sendMessage,
++						  &nvmsg,
+ 						  sizeof(struct nvsp_message),
+ 						  req_id);
+ 	} else {
+-		ret = vmbus_sendpacket(out_channel, &sendMessage,
++		ret = vmbus_sendpacket(
++				out_channel, &nvmsg,
+ 				sizeof(struct nvsp_message),
+ 				req_id,
+ 				VM_PKT_DATA_INBAND,
+@@ -809,6 +808,102 @@ int netvsc_send(struct hv_device *device,
+ 			   packet, ret);
+ 	}
+ 
++	return ret;
++}
++
++int netvsc_send(struct hv_device *device,
++		struct hv_netvsc_packet *packet)
++{
++	struct netvsc_device *net_device;
++	int ret = 0, m_ret = 0;
++	struct vmbus_channel *out_channel;
++	u16 q_idx = packet->q_idx;
++	u32 pktlen = packet->total_data_buflen, msd_len = 0;
++	unsigned int section_index = NETVSC_INVALID_INDEX;
++	struct sk_buff *skb = NULL;
++	unsigned long flag;
++	struct multi_send_data *msdp;
++	struct hv_netvsc_packet *msd_send = NULL, *cur_send = NULL;
++
++	net_device = get_outbound_net_device(device);
++	if (!net_device)
++		return -ENODEV;
++
++	out_channel = net_device->chn_table[q_idx];
++	if (!out_channel) {
++		out_channel = device->channel;
++		q_idx = 0;
++		packet->q_idx = 0;
++	}
++	packet->channel = out_channel;
++	packet->send_buf_index = NETVSC_INVALID_INDEX;
++
++	msdp = &net_device->msd[q_idx];
++
++	/* batch packets in send buffer if possible */
++	spin_lock_irqsave(&msdp->lock, flag);
++	if (msdp->pkt)
++		msd_len = msdp->pkt->total_data_buflen;
++
++	if (packet->is_data_pkt && msd_len > 0 &&
++	    msdp->count < net_device->max_pkt &&
++	    msd_len + pktlen + net_device->pkt_align <
++	    net_device->send_section_size) {
++		section_index = msdp->pkt->send_buf_index;
++
++	} else if (packet->is_data_pkt && pktlen + net_device->pkt_align <
++		   net_device->send_section_size) {
++		section_index = netvsc_get_next_send_section(net_device);
++		if (section_index != NETVSC_INVALID_INDEX) {
++				msd_send = msdp->pkt;
++				msdp->pkt = NULL;
++				msdp->count = 0;
++				msd_len = 0;
++		}
++	}
++
++	if (section_index != NETVSC_INVALID_INDEX) {
++		netvsc_copy_to_send_buf(net_device,
++					section_index, msd_len,
++					packet);
++		skb = (struct sk_buff *)
++		       (unsigned long)packet->send_completion_tid;
++
++		packet->page_buf_cnt = 0;
++		packet->send_buf_index = section_index;
++		packet->total_data_buflen += msd_len;
++
++		kfree(msdp->pkt);
++		if (packet->xmit_more) {
++			msdp->pkt = packet;
++			msdp->count++;
++		} else {
++			cur_send = packet;
++			msdp->pkt = NULL;
++			msdp->count = 0;
++		}
++	} else {
++		msd_send = msdp->pkt;
++		msdp->pkt = NULL;
++		msdp->count = 0;
++		cur_send = packet;
++	}
++
++	spin_unlock_irqrestore(&msdp->lock, flag);
++
++	if (msd_send) {
++		m_ret = netvsc_send_pkt(msd_send, net_device);
++
++		if (m_ret != 0) {
++			netvsc_free_send_slot(net_device,
++					      msd_send->send_buf_index);
++			kfree(msd_send);
++		}
++	}
++
++	if (cur_send)
++		ret = netvsc_send_pkt(cur_send, net_device);
++
+ 	if (ret != 0) {
+ 		if (section_index != NETVSC_INVALID_INDEX)
+ 			netvsc_free_send_slot(net_device, section_index);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a06bd66..0c99818 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -413,6 +413,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	packet->xmit_more = skb->xmit_more;
++
+ 	packet->vlan_tci = skb->vlan_tci;
+ 
+ 	packet->q_idx = skb_get_queue_mapping(skb);
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index ca81de0..a2b185a 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -237,6 +237,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
+ 	}
+ 
+ 	packet->send_completion = NULL;
++	packet->xmit_more = false;
+ 
+ 	ret = netvsc_send(dev->net_dev->dev, packet);
+ 	return ret;
+@@ -855,6 +856,7 @@ static int rndis_filter_init_device(struct rndis_device *dev)
+ 	u32 status;
+ 	int ret;
+ 	unsigned long t;
++	struct netvsc_device *nvdev = dev->net_dev;
+ 
+ 	request = get_rndis_request(dev, RNDIS_MSG_INIT,
+ 			RNDIS_MESSAGE_SIZE(struct rndis_initialize_request));
+@@ -889,6 +891,8 @@ static int rndis_filter_init_device(struct rndis_device *dev)
+ 	status = init_complete->status;
+ 	if (status == RNDIS_STATUS_SUCCESS) {
+ 		dev->state = RNDIS_DEV_INITIALIZED;
++		nvdev->max_pkt = init_complete->max_pkt_per_msg;
++		nvdev->pkt_align = 1 << init_complete->pkt_alignment_factor;
+ 		ret = 0;
+ 	} else {
+ 		dev->state = RNDIS_DEV_UNINITIALIZED;
+-- 
+1.7.4.1
