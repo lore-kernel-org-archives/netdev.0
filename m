@@ -1,90 +1,105 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] netns: don't clear nsid too early on removal
-Date: Thu, 26 Mar 2015 17:56:38 +0100
-Message-ID: <1427388998-4393-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Michael Wang <yun.wang@profitbricks.com>
+Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
+ on transport and link layer
+Date: Thu, 26 Mar 2015 17:58:20 +0100
+Message-ID: <55143AAC.8040206@profitbricks.com>
+References: <5512CFB0.1050108@profitbricks.com>	 <1427378940.21101.100.camel@redhat.com> <55142DFD.2060100@profitbricks.com> <1427387258.21101.124.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Ira Weiny <ira.weiny@intel.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Moni Shoua <monis@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Yann Droneaud <ydroneaud@opteya.com>,
+	Colin Ian King <colin.king@canonical.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Matan Barak <matanb@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Dan Carpenter <dan.carpenter@o
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48403 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbbCZQ4x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:56:53 -0400
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:34007 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752335AbbCZQ6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:58:24 -0400
+Received: by wgs2 with SMTP id 2so71550975wgs.1
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:58:23 -0700 (PDT)
+In-Reply-To: <1427387258.21101.124.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the current code, ids are removed too early.
-Suppose you have an ipip interface that stands in the netns foo and its link
-part in the netns bar (so the netns bar has an nsid into the netns foo).
-Now, you remove the netns bar:
- - the bar nsid into the netns foo is removed
- - the netns exit method of ipip is called, thus our ipip iface is removed:
-   => a netlink message is sent in the netns foo to advertise this deletion
-   => this netlink message requests an nsid for bar, thus a new nsid is
-      allocated for bar and never removed.
+On 03/26/2015 05:27 PM, Doug Ledford wrote:
+> On Thu, 2015-03-26 at 17:04 +0100, Michael Wang wrote:
+>> [snip]
+>>
+>> Few more questions here is:
+>> 1. when to setup? (maybe inside ib_register_device() before doing client->add() callback?)
+> I don't think "we" can set it up here.  The driver's have to set it up.
+> After all, the mlx4 driver will have to decide for itself what the port
+> transport is and tell us, we can't tell it.
+>> 2. how to setup? (still infer from the transport and link layer like we currently do?)
+> Find each point in each driver where they currently set the link layer
+> and transport fields today, and replace that with setting the new
+> transport bitmask instead.
 
-We must remove nsids when we are sure that nobody will refer to netns currently
-cleaned.
+Forgive me but I'm not very familiar with the process of such changing...
 
-Fixes: 0c7aecd4bde4 ("netns: add rtnl cmd to add and get peer netns ids")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/net_namespace.c | 24 +++++++++++++++---------
- 1 file changed, 15 insertions(+), 9 deletions(-)
+So shall we do this for all the vendors? or provide a transition method
+and asking them to do this later by themselves?
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index cb5290b8c428..5221f975a4cc 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -349,7 +349,7 @@ static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
- static void cleanup_net(struct work_struct *work)
- {
- 	const struct pernet_operations *ops;
--	struct net *net, *tmp;
-+	struct net *net, *tmp, *peer;
- 	struct list_head net_kill_list;
- 	LIST_HEAD(net_exit_list);
- 
-@@ -365,14 +365,6 @@ static void cleanup_net(struct work_struct *work)
- 	list_for_each_entry(net, &net_kill_list, cleanup_list) {
- 		list_del_rcu(&net->list);
- 		list_add_tail(&net->exit_list, &net_exit_list);
--		for_each_net(tmp) {
--			int id = __peernet2id(tmp, net, false);
--
--			if (id >= 0)
--				idr_remove(&tmp->netns_ids, id);
--		}
--		idr_destroy(&net->netns_ids);
--
- 	}
- 	rtnl_unlock();
- 
-@@ -398,12 +390,26 @@ static void cleanup_net(struct work_struct *work)
- 	 */
- 	rcu_barrier();
- 
-+	rtnl_lock();
- 	/* Finally it is safe to free my network namespace structure */
- 	list_for_each_entry_safe(net, tmp, &net_exit_list, exit_list) {
-+		/* Unreference net from all peers (no need to loop over
-+		 * net_exit_list because idr_destroy() will be called for each
-+		 * element of this list.
-+		 */
-+		for_each_net(peer) {
-+			int id = __peernet2id(peer, net, false);
-+
-+			if (id >= 0)
-+				idr_remove(&peer->netns_ids, id);
-+		}
-+		idr_destroy(&net->netns_ids);
-+
- 		list_del_init(&net->exit_list);
- 		put_user_ns(net->user_ns);
- 		net_drop_ns(net);
- 	}
-+	rtnl_unlock();
- }
- static DECLARE_WORK(net_cleanup_work, cleanup_net);
- 
--- 
-2.2.2
+The questions is just wondering how the transition method could be, but
+if we have to do the changes for vendor, that sounds like a tough job...
+
+>
+>> 3. in case if a device has ports with different link layer type (please correct
+>>     me if this will never happen), then only one bitmask may not be enough to
+>>     present the transport of all the ports? (maybe create a bitmask per port?)
+> [snip]
+>
+> That preserves the user space ABI and all user programs keep working,
+> while we update to an internal representation that makes more sense for
+> how things have evolved.
+
+I get your point :-) to reassemble the information in old style, maybe
+we can temporarily reserve the old mechanism, and do reform for
+the user space in another separate patch set, also cleanup the old
+stuff too.
+
+Regards,
+Michael Wang
+
+>
+>> Regards,
+>> Michael Wang
+>>
+>>> If we do this, then the only thing we have to fix up to preserve ABI
+>>> with user space is to make sure that any time we export an ibv_device
+>>> struct and any time we import the same, we convert from our new internal
+>>> representation to the old representation that user space expects.  And
+>>> we also need to make a few changes in the sysfs code to display the
+>>> properties as things expect.  But, that would allow us to fix up what I
+>>> see as a problem right now, which is that we hide the information we
+>>> need to know what sort of device we are working on in two different
+>>> fields: the transport and the link layer.  Instead, just use one field
+>>> with enough variants that we can store all of the relevant information
+>>> we need in that one field.  This has the benefit that any comparisons
+>>> that happen in hot paths will now always be a single bitwise comparison
+>>> and will no longer need to hit two separate variables for two separate
+>>> compares.
+>>>
+>>>
+>>>
+>
