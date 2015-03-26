@@ -1,53 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] lib utils: fix family during af_bit_len
- calculation
-Date: Thu, 26 Mar 2015 09:34:05 -0700
-Message-ID: <1427387645.25985.138.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
-	 <20150324150500.6159e407@urahara>
-	 <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150325161349.GA21340@angus-think.wlc.globallogic.com>
-	 <1427303247.25985.119.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150326140418.GA12220@angus-think.wlc.globallogic.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH 2/6] pass phy_device instead of net_device to fixed_phy link_update()
+ function
+Date: Thu, 26 Mar 2015 19:00:01 +0300
+Message-ID: <55142D01.3090601@list.ru>
+References: <55142C31.5050504@list.ru> <55142CB1.1080107@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	roopa@cumulusnetworks.com, netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+Cc: Rami Rosen <rosenr@marvell.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:33871 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888AbbCZQeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:34:07 -0400
-Received: by iedfl3 with SMTP id fl3so57024512ied.1
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:34:07 -0700 (PDT)
-In-Reply-To: <20150326140418.GA12220@angus-think.wlc.globallogic.com>
+Received: from fallback8.mail.ru ([94.100.181.110]:45189 "EHLO
+	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbbCZQgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:36:36 -0400
+Received: from smtp45.i.mail.ru (smtp45.i.mail.ru [94.100.177.105])
+	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id A48F57F87C99
+	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 19:00:08 +0300 (MSK)
+In-Reply-To: <55142CB1.1080107@list.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-26 at 16:04 +0200, Vadim Kochan wrote:
-> On Wed, Mar 25, 2015 at 10:07:27AM -0700, Eric Dumazet wrote:
-> > On Wed, 2015-03-25 at 18:13 +0200, Vadim Kochan wrote:
-> > 
-> > > I reproduced this once, but after not any more, I even tried to setup
-> > > tcp servers with same address but with no luck, would you please dump
-> > > stats into file by -D option and send it, in case if you will catch the
-> > > issue ?
-> > 
-> > Yeah, this is strange, because after a small change, and a revert, I
-> > could not reproduce it anymore.
-> > 
-> > Something fishy... maybe a Makefile bug ....
-> > 
-> > 
-> 
-> Seems this issue is already fixed by this patch from Roopa, because when I
-> switched to the commit before the fix then I reproduced the issue. I
-> meant the issue related to :
-> 
->     ss -t dst 1.2.3.4
+-=-=-=-=-=-=-=-=-=# Don't remove this line #=-=-=-=-=-=-=-=-=-
+Looking up phy_device pointer from net_device requires poking into
+private data. This may be problematic if phy is handled separately
+from net_device.
+Pass phy_device pointer to link_update() function because looking
+up net_device pointer from phy_device is trivial.
 
-Yes, but I had my git tree up to date, and misc/ss rebuilt.
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+---
+ drivers/net/phy/fixed_phy.c |    7 +++----
+ include/linux/phy_fixed.h   |    4 ++--
+ net/dsa/slave.c             |    3 ++-
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-Let's say it was some kind of user error.
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index a08a3c7..8078998 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -36,7 +36,7 @@ struct fixed_phy {
+     u16 regs[MII_REGS_NUM];
+     struct phy_device *phydev;
+     struct fixed_phy_status status;
+-    int (*link_update)(struct net_device *, struct fixed_phy_status *);
++    int (*link_update)(struct phy_device *, struct fixed_phy_status *);
+     struct list_head node;
+ };
+ 
+@@ -139,8 +139,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int
+phy_addr, int reg_num)
+         if (fp->addr == phy_addr) {
+             /* Issue callback if user registered it. */
+             if (fp->link_update) {
+-                fp->link_update(fp->phydev->attached_dev,
+-                        &fp->status);
++                fp->link_update(fp->phydev, &fp->status);
+                 fixed_phy_update_regs(fp);
+             }
+             return fp->regs[reg_num];
+@@ -162,7 +161,7 @@ static int fixed_mdio_write(struct mii_bus *bus, int
+phy_addr, int reg_num,
+  * May be useful for PHY's that need to be software-driven.
+  */
+ int fixed_phy_set_link_update(struct phy_device *phydev,
+-                  int (*link_update)(struct net_device *,
++                  int (*link_update)(struct phy_device *,
+                          struct fixed_phy_status *))
+ {
+     struct fixed_mdio_bus *fmb = &platform_fmb;
+diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+index 7e75bfe..ac82e6d 100644
+--- a/include/linux/phy_fixed.h
++++ b/include/linux/phy_fixed.h
+@@ -19,7 +19,7 @@ extern struct phy_device *fixed_phy_register(unsigned
+int irq,
+                          struct device_node *np);
+ extern void fixed_phy_del(int phy_addr);
+ extern int fixed_phy_set_link_update(struct phy_device *phydev,
+-            int (*link_update)(struct net_device *,
++            int (*link_update)(struct phy_device *,
+                        struct fixed_phy_status *));
+ #else
+ static inline int fixed_phy_add(unsigned int irq, int phy_id,
+@@ -38,7 +38,7 @@ static inline int fixed_phy_del(int phy_addr)
+     return -ENODEV;
+ }
+ static inline int fixed_phy_set_link_update(struct phy_device *phydev,
+-            int (*link_update)(struct net_device *,
++            int (*link_update)(struct phy_device *,
+                        struct fixed_phy_status *))
+ {
+     return -ENODEV;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index f23dead..86ac744 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -500,9 +500,10 @@ static void dsa_slave_adjust_link(struct net_device
+*dev)
+         phy_print_status(p->phy);
+ }
+ 
+-static int dsa_slave_fixed_link_update(struct net_device *dev,
++static int dsa_slave_fixed_link_update(struct phy_device *phy,
+                        struct fixed_phy_status *status)
+ {
++    struct net_device *dev = phy->attached_dev;
+     struct dsa_slave_priv *p = netdev_priv(dev);
+     struct dsa_switch *ds = p->parent;
+ 
+-- 
+1.7.9.5
