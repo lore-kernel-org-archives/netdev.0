@@ -1,114 +1,43 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 2/6] pass phy_device instead of net_device to fixed_phy link_update()
- function
-Date: Thu, 26 Mar 2015 19:00:01 +0300
-Message-ID: <55142D01.3090601@list.ru>
-References: <55142C31.5050504@list.ru> <55142CB1.1080107@list.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPv6 nexthop for IPv4
+Date: Thu, 26 Mar 2015 09:37:51 -0700
+Message-ID: <1427387871.25985.139.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJO99T=uXuaYP5QCRYbU7iRhK7S8UqW9GfmL1J2yBh1N2TDjYg@mail.gmail.com>
+	 <CACP96tQnQ5d2qrPbs+S640S=r07vnbt-RmL_O2zT7Wcvg99dug@mail.gmail.com>
+	 <CAJO99TmhNARZL4L2KzMHLdqhXFh8LYb+mussWvaiCN4KQpim=Q@mail.gmail.com>
+	 <CACP96tQAYZEq=cFyDNBkgzUbJ_VPJB540ZxgaRqpciujCYOjsA@mail.gmail.com>
+	 <CAJO99Tm+ex7aELCrNnubWz1hGjELMp0LCMKSqtyr+Vci1hrmuw@mail.gmail.com>
+	 <20150326154336.GA2528@tuxdriver.com> <20150326162756.GC1051@gospo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rami Rosen <rosenr@marvell.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	=?ISO-8859-1?Q?Bj=F8rnar?= Ness <bjornar.ness@gmail.com>,
+	Sowmini Varadhan <sowmini05@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback8.mail.ru ([94.100.181.110]:45189 "EHLO
-	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002AbbCZQgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:36:36 -0400
-Received: from smtp45.i.mail.ru (smtp45.i.mail.ru [94.100.177.105])
-	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id A48F57F87C99
-	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 19:00:08 +0300 (MSK)
-In-Reply-To: <55142CB1.1080107@list.ru>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:37694 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752546AbbCZQhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:37:54 -0400
+Received: by igcxg11 with SMTP id xg11so58971518igc.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:37:53 -0700 (PDT)
+In-Reply-To: <20150326162756.GC1051@gospo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--=-=-=-=-=-=-=-=-=# Don't remove this line #=-=-=-=-=-=-=-=-=-
-Looking up phy_device pointer from net_device requires poking into
-private data. This may be problematic if phy is handled separately
-from net_device.
-Pass phy_device pointer to link_update() function because looking
-up net_device pointer from phy_device is trivial.
+On Thu, 2015-03-26 at 12:27 -0400, Andy Gospodarek wrote:
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
----
- drivers/net/phy/fixed_phy.c |    7 +++----
- include/linux/phy_fixed.h   |    4 ++--
- net/dsa/slave.c             |    3 ++-
- 3 files changed, 7 insertions(+), 7 deletions(-)
+> Yes, I do have one!  I was working on some other issues and need to
+> rebase it based on Eric's recent work.  It was fairly simple and the
+> netlink changes are also not too difficult so the patch to iproute2 was
+> small.
+> 
+> I have an older patch you can see here:
+> 
+> https://github.com/gospo/net-next/commit/7f602a54424f453872b6a45ae5ed4d3a601db91d
+> 
+> Shall I rebase and post to the list for all to see?
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index a08a3c7..8078998 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -36,7 +36,7 @@ struct fixed_phy {
-     u16 regs[MII_REGS_NUM];
-     struct phy_device *phydev;
-     struct fixed_phy_status status;
--    int (*link_update)(struct net_device *, struct fixed_phy_status *);
-+    int (*link_update)(struct phy_device *, struct fixed_phy_status *);
-     struct list_head node;
- };
- 
-@@ -139,8 +139,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int
-phy_addr, int reg_num)
-         if (fp->addr == phy_addr) {
-             /* Issue callback if user registered it. */
-             if (fp->link_update) {
--                fp->link_update(fp->phydev->attached_dev,
--                        &fp->status);
-+                fp->link_update(fp->phydev, &fp->status);
-                 fixed_phy_update_regs(fp);
-             }
-             return fp->regs[reg_num];
-@@ -162,7 +161,7 @@ static int fixed_mdio_write(struct mii_bus *bus, int
-phy_addr, int reg_num,
-  * May be useful for PHY's that need to be software-driven.
-  */
- int fixed_phy_set_link_update(struct phy_device *phydev,
--                  int (*link_update)(struct net_device *,
-+                  int (*link_update)(struct phy_device *,
-                          struct fixed_phy_status *))
- {
-     struct fixed_mdio_bus *fmb = &platform_fmb;
-diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
-index 7e75bfe..ac82e6d 100644
---- a/include/linux/phy_fixed.h
-+++ b/include/linux/phy_fixed.h
-@@ -19,7 +19,7 @@ extern struct phy_device *fixed_phy_register(unsigned
-int irq,
-                          struct device_node *np);
- extern void fixed_phy_del(int phy_addr);
- extern int fixed_phy_set_link_update(struct phy_device *phydev,
--            int (*link_update)(struct net_device *,
-+            int (*link_update)(struct phy_device *,
-                        struct fixed_phy_status *));
- #else
- static inline int fixed_phy_add(unsigned int irq, int phy_id,
-@@ -38,7 +38,7 @@ static inline int fixed_phy_del(int phy_addr)
-     return -ENODEV;
- }
- static inline int fixed_phy_set_link_update(struct phy_device *phydev,
--            int (*link_update)(struct net_device *,
-+            int (*link_update)(struct phy_device *,
-                        struct fixed_phy_status *))
- {
-     return -ENODEV;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index f23dead..86ac744 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -500,9 +500,10 @@ static void dsa_slave_adjust_link(struct net_device
-*dev)
-         phy_print_status(p->phy);
- }
- 
--static int dsa_slave_fixed_link_update(struct net_device *dev,
-+static int dsa_slave_fixed_link_update(struct phy_device *phy,
-                        struct fixed_phy_status *status)
- {
-+    struct net_device *dev = phy->attached_dev;
-     struct dsa_slave_priv *p = netdev_priv(dev);
-     struct dsa_switch *ds = p->parent;
- 
--- 
-1.7.9.5
+Absolutely !
