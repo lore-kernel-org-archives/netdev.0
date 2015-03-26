@@ -1,46 +1,43 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/15] netfilter: nf_tables: restore nf_log_trace() in nf_tables_core.c
-Date: Thu, 26 Mar 2015 13:06:50 +0100
-Message-ID: <1427371622-4466-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/15] netfilter: nft_meta: use raw_smp_processor_id()
+Date: Thu, 26 Mar 2015 13:06:52 +0100
+Message-ID: <1427371622-4466-6-git-send-email-pablo@netfilter.org>
 References: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38271 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38326 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752456AbbCZMDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 08:03:25 -0400
+	id S1752462AbbCZMDa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2015 08:03:30 -0400
 In-Reply-To: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As described by 4017a7e ("netfilter: restore rule tracing via
-nfnetlink_log"), this accidentally slipped through during conflict
-resolution in d5c1d8c.
+From: Patrick McHardy <kaber@trash.net>
 
+Using smp_processor_id() triggers warnings with PREEMPT_RCU. There is no
+point in disabling preemption since we only collect the numeric value,
+so use raw_smp_processor_id() instead.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_core.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/netfilter/nft_meta.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 763a9d8..4429008 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -50,10 +50,10 @@ static void __nft_trace_packet(const struct nft_pktinfo *pkt,
- {
- 	struct net *net = dev_net(pkt->in ? pkt->in : pkt->out);
- 
--	nf_log_packet(net, pkt->xt.family, pkt->ops->hooknum, pkt->skb, pkt->in,
--		      pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
--		      chain->table->name, chain->name, comments[type],
--		      rulenum);
-+	nf_log_trace(net, pkt->xt.family, pkt->ops->hooknum, pkt->skb, pkt->in,
-+		     pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
-+		     chain->table->name, chain->name, comments[type],
-+		     rulenum);
- }
- 
- static inline void nft_trace_packet(const struct nft_pktinfo *pkt,
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index abe6811..5197874 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -153,7 +153,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 		}
+ 		break;
+ 	case NFT_META_CPU:
+-		dest->data[0] = smp_processor_id();
++		dest->data[0] = raw_smp_processor_id();
+ 		break;
+ 	case NFT_META_IIFGROUP:
+ 		if (in == NULL)
 -- 
 1.7.10.4
