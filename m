@@ -1,199 +1,186 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
- on transport and link layer
-Date: Thu, 26 Mar 2015 12:27:38 -0400
-Message-ID: <1427387258.21101.124.camel@redhat.com>
-References: <5512CFB0.1050108@profitbricks.com>
-	 <1427378940.21101.100.camel@redhat.com> <55142DFD.2060100@profitbricks.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
+Date: Thu, 26 Mar 2015 18:29:49 +0200
+Message-ID: <551433FD.904@cloudius-systems.com>
+References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com> <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com> <55113B9B.3090308@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274C7F@FMSMSX105.amr.corp.intel.com> <5511B5AE.1090905@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274DD2@FMSMSX105.amr.corp.intel.com> <55127F8D.3070309@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250275B81@FMSMSX105.amr.corp.intel.com> <551317DE.90500@cloudius-systems.com> <551322F2.5020101@redhat.com> <5513D2C9.7010907@cloudius-systems.com> <55141A4B.1040903@redhat.com> <55142177.9080705@cloudius-systems.com> <55142CC7.70302@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-J/Y4N0HcTdODZ8Wk9AOY"
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Dan Carpenter <dan.carpenter@o
-To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <55142DFD.2060100-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---=-J/Y4N0HcTdODZ8Wk9AOY
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2015-03-26 at 17:04 +0100, Michael Wang wrote:
-> Hi, Doug
->=20
-> Thanks for the excellent comments :-)
->=20
-> On 03/26/2015 03:09 PM, Doug Ledford wrote:
-> > On Wed, 2015-03-25 at 16:09 +0100, Michael Wang wrote:
-> >> [snip]
-> >>
-> > [snip]
-> >
-> > So, I would suggest that we fix things up thusly:
-> >
-> > enum transport {
-> > 	TRANSPORT_IB=3D1,
-> > 	TRANSPORT_IWARP=3D2,
-> > 	TRANSPORT_ROCE=3D4,
-> > 	TRANSPORT_OPA=3D8,
-> > 	TRANSPORT_USNIC=3D10,
-> > };
-> >
-> > #define HAS_SA(ibdev) ((ibdev)->transport & (TRANSPORT_IB|TRANSPORT_OPA=
-))
-> > #define HAS_JUMBO_SA(ibdev) ((ibdev)->transport & TRANSPORT_OPA))
-> >
-> > or possibly
-> >
-> > static bool ib_dev_has_sa(struct ibv_device *ibdev)
-> > {
-> > 	return ibdev->transport & (TRANSPORT_IB | TRANSPORT_OPA);
-> > }
->=20
-> The idea sounds interesting, and here my silly questions come :-P
->=20
-> So are you suggesting that we add a new bitmask 'transport' into 'struct =
-ib_device'
-> in kernel, and setup it at very beginning?
->=20
-> Few more questions here is:
-> 1. when to setup? (maybe inside ib_register_device() before doing client-=
->add() callback?)
-
-I don't think "we" can set it up here.  The driver's have to set it up.
-After all, the mlx4 driver will have to decide for itself what the port
-transport is and tell us, we can't tell it.
-
-> 2. how to setup? (still infer from the transport and link layer like we c=
-urrently do?)
-
-Find each point in each driver where they currently set the link layer
-and transport fields today, and replace that with setting the new
-transport bitmask instead.
-
-> 3. in case if a device has ports with different link layer type (please c=
-orrect
->     me if this will never happen), then only one bitmask may not be enoug=
-h to
->     present the transport of all the ports? (maybe create a bitmask per p=
-ort?)
-
-Correct, a bitmask per port.  And we can remove the existing transport
-and link layer elements of the struct and replace it with just the new
-transport.  Then, whenever we need to copy a struct to user space, we
-have a helper that looks something like this:
-
-static void inline ib_set_user_transport(struct ib_device *ibdev,
-					 struct user_ibv_device *uibdev)
-{
-	switch(ibdev->port[port]->transport) {
-	case TRANSPORT_IB:
-	case TRANSPORT_OPA:
-		uibdev->port[port]->link_layer =3D INFINIBAND;
-		uibdev->port[port]->transport =3D INFINIBAND;
-		break;
-	case TRANSPORT_IWARP:
-		uibdev->port[port]->link_layer =3D INFINIBAND;
-		uibdev->port[port]->transport =3D IWARP;
-		break;
-	case TRANSPORT_ROCE:
-		uibdev->port[port]->link_layer =3D ETHERNET;
-		uibdev->port[port]->transport =3D INFINIBAND;
-		break;
-	case TRANSPORT_USNIC:
-		uibdev->port[port]->link_layer =3D ETHERNET;
-		uibdev->port[port]->transport =3D <whatever USNIC uses today>;
-		break;
-	default:
-		pr_err(ibdev, "unknown transport type %x\n",
-		       ibdev->port[port]->transport);
-	}
-}
-
-That preserves the user space ABI and all user programs keep working,
-while we update to an internal representation that makes more sense for
-how things have evolved.
-
-> Regards,
-> Michael Wang
->=20
-> >
-> > If we do this, then the only thing we have to fix up to preserve ABI
-> > with user space is to make sure that any time we export an ibv_device
-> > struct and any time we import the same, we convert from our new interna=
-l
-> > representation to the old representation that user space expects.  And
-> > we also need to make a few changes in the sysfs code to display the
-> > properties as things expect.  But, that would allow us to fix up what I
-> > see as a problem right now, which is that we hide the information we
-> > need to know what sort of device we are working on in two different
-> > fields: the transport and the link layer.  Instead, just use one field
-> > with enough variants that we can store all of the relevant information
-> > we need in that one field.  This has the benefit that any comparisons
-> > that happen in hot paths will now always be a single bitwise comparison
-> > and will no longer need to hit two separate variables for two separate
-> > compares.
-> >
-> >
-> >
->=20
-
-
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-              GPG KeyID: 0E572FDD
-
-
-
---=-J/Y4N0HcTdODZ8Wk9AOY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
+	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:35238 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752185AbbCZQ3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:29:53 -0400
+Received: by wgdm6 with SMTP id m6so70570184wgd.2
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:29:52 -0700 (PDT)
+In-Reply-To: <55142CC7.70302@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAABAgAGBQJVFDN6AAoJELgmozMOVy/d9q8QAIT8viYhax0bYOOcoCIek2lf
-hjtQ06I1eYd6IZTO57587qSKOxuuV7Yvd0Y+f5/sDyPzWmhsLRlyYTrJZGC1WYx1
-LGOdsX8UZEvuYuQpNedbnT79vb64NSqA8BOl3wcZNLtd0ViGVsa0KWzTOdjGGimg
-lZx18WYfeLS3NJfcagt22/3NuyWsCiuxwyLKmz0248Euc3W+9MFyoXv25zFElfPr
-Vq6LaTC+iwvnRJh3S7czA4MEUdyiBelgv2y2UMBcKrASKjyd7Is+0rwUhAvPAAeZ
-HdeALg8aLI4YLWLjtF+n2ZTondYr0GXU+ZsDGR5kZsEkvdlU//v1mwd77OabTPiy
-SjAuLr04GYKZ5Vc5wp7K9QbgpKgjhGyjq/MJHMG9lGaA4nfvpqsRPM8BU+/XwPUK
-cgZ92FSHiEFsU/wuQCIPRgCSo2zfJLQVywCyj8ROk2OJqDGXJs+F403tMUcfkNOT
-LAEFR7E8ngrWiT+lZG7WSB8iAD9wgG17MG8VELiz6yK9CnlTfPVRaMr5R7K9xyqV
-ugtUyCfq6W+UzKmFsWr6sJoIKZr9pMPaL1TK9HVixEHVlMflu65tl7c2E/Hels8n
-kMy0T5xKT5SkqyRkLq/5QjD25fJYaqbHOhNth6QtFJ8+Ix/WCIDx5BtazR0UTrE+
-tQNfXFEEGrDo+lmW93j1
-=R0Bs
------END PGP SIGNATURE-----
 
---=-J/Y4N0HcTdODZ8Wk9AOY--
+On 03/26/15 17:59, Alexander Duyck wrote:
+>
+> On 03/26/2015 08:10 AM, Vlad Zolotarov wrote:
+>>
+>>
+>> On 03/26/15 16:40, Alexander Duyck wrote:
+>>>
+>>> On 03/26/2015 02:35 AM, Vlad Zolotarov wrote:
+>>>>
+>>>>
+>>>> On 03/25/15 23:04, Alexander Duyck wrote:
+>>>>>
+>>>>> On 03/25/2015 01:17 PM, Vlad Zolotarov wrote:
+>>>>>>
+>>>>>>
+>>>>>> On 03/25/15 20:35, Tantilov, Emil S wrote:
+>>>>>>>> -----Original Message-----
+>>>>>>>> From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com]
+>>>>>>>> Sent: Wednesday, March 25, 2015 2:28 AM
+>>>>>>>> Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query 
+>>>>>>>> code
+>>>>>>>
+>>>>>>
+>>>
+>
+> <snip>
+>
+>>>
+>>>>
+>>>>>
+>>>>>>
+>>>>>> The user should actually not query the indirection table and a 
+>>>>>> hash key too often. And if he/she does - it should be his/her 
+>>>>>> problem.
+>>>>>> However, if like with the ixgbevf_set_num_queues() u insist on 
+>>>>>> your way of doing this (on caching the indirection table and hash 
+>>>>>> key) - then please let me know and I will add it. Because, 
+>>>>>> frankly, I care about the PF part of this series much more than 
+>>>>>> for the VF part... ;)
+>>>>>
+>>>>> I would say you don't need to cache it, but for 82599 and x540 
+>>>>> there isn't any need to store more than 3 bits per entry, 384b, or 
+>>>>> 12 DWORDs for the entire RETA of the VF since the hardware can 
+>>>>> support at most 8 queues w/ SR-IOV. Then you only need one message 
+>>>>> instead of 3 which will reduce quite a bit of the complication 
+>>>>> with all of this.
+>>>>>
+>>>>> Also it might make more sense to start working on displaying this 
+>>>>> on the PF before you start trying to do this on the VF. As far as 
+>>>>> I know ixgbe still doesn't have this functionality and it would 
+>>>>> make much more sense to enable that first on ixgbe before you 
+>>>>> start trying to find a way to feed the data to the VF.
+>>>>
+>>>> Let's agree on the next steps:
+>>>>
+>>>> 1. I'll reduce the series scope to 82599 and x540 devices.
+>>>
+>>> For mailbox implementation that is okay, my advice for the x550 
+>>> would be to just read the registers.  They should already be defined 
+>>> in the driver so it is just a matter of reversing the process for 
+>>> writing the RETA.  You should have a solid grasp of that once you 
+>>> implement the solution for the PF.
+>>
+>> The problem is that I have no means to validate the solution - I have 
+>> only x540 devices (nor specs). I'd prefer not to work in darkness and 
+>> let u, guys, do it...
+>
+> If it helps the specs for the x540 can be found at 
+> http://www.intel.com/content/www/us/en/network-adapters/10-gigabit-network-adapters/ethernet-x540-datasheet.html. 
+> Section 8 has a full list of the register definitions.
+>
+> All the code you need should already be stored in ixgbe_setup_reta and 
+> ixgbe_setup_vfreta.  If you do it right you shouldn't even need to 
+> read the hardware.  Odds are you could generate it in software and 
+> that is what you would be accessing on the PF. 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have no problems implementing the PF x550 part. I would need the 
+proper spec to implement the VF part though. And since I can't have it 
+now I'd rather not to it at the moment... ;)
+
+
+Sure. This is what I have already implemented. The same is for RSS hash 
+key.
+
+> After all, if at some point you reset the hardware you would need to 
+> restore it from software wouldn't you, and since the table is static 
+> for now you should be able to calculate the value without need of 
+> reading a register.  If at some point in the future you can change the 
+> table then it means a copy has to be maintained in kernel memory and 
+> at that point you could use that for the data you would be sending to 
+> the VF.
+
+Right.
+
+>
+>>>
+>>>> 4. I won't implement the caching of the indirection and RSS hash key
+>>>>    query results in the VF level.
+>>>
+>>> The idea with caching is to keep the number of messages across the 
+>>> mailbox to a minimum.  Compressing it down to 3 bits per entry will 
+>>> help some, but I am not sure if that is enough to completely 
+>>> mitigate the need for caching.  For now though the caching isn't a 
+>>> must-have, and it won't be needed for x550 since it can access the 
+>>> table directly.  The main thing I would recommend keeping an eye on 
+>>> would be how long it will take to complete the messages necessary to 
+>>> get the ethtool info.  If there are any scenarios where things take 
+>>> more than 1 second then I would say we are taking too long and we 
+>>> would have to look into caching because we want to avoid holding the 
+>>> rtnl lock for any extended period of time.
+>>
+>> I've described the limitations the caching approach imposes above. I 
+>> suggest we follow your approach here - solve the problems when they 
+>> arrive. ;) I haven't succeeded to make it take as long as even near 
+>> one second.
+>>
+>>>
+>>> My advice is get the PF patches in first, then we can look at trying 
+>>> to get feature parity on the VF.
+>>
+>> "feature parity on the VF"?
+>
+> Get "ethtool -x/X" working on the PF, and then get it working on the 
+> VF.  That way it makes for very simple verification as you can inspect 
+> that the PF and VF tables are consistent.  As I said if nothing else 
+> you can probably take a look at the igb driver to see how this was 
+> done on the 1Gbps Intel hardware.
+
+If memory serves me well I've written the ethtool -x|-X implementation 
+for bnx2x once so I have a general idea of what there should be. ;)
+Making ethtool -X work is a bit more sensitive since a simplistic 
+implementation like u have in igb may lead to a momentary out-of-order 
+packet arrival in the context of the same stream - the packet that 
+arrives later on wire may be served earlier since there may still be 
+unhandled packets on the "old" RSS queue when it arrives. This is unless 
+updating the RSS indirection table registers ensures the fast path 
+queues flushing.
+
+The proper solution should ensure the fast path queues draining before 
+updating the indirection table. In any case, I'd prefer not to implement 
+the -X option and concentrate on -x option only.
+
+>
+>>
+>> I'll send the patches later today. I'll incorporate the new PF code 
+>> into the existing series.
+>
+> You might want to break things out into a couple series of patches. Do 
+> the PF driver first just to make sure you have an understanding of 
+> what you expect, think of it as a proof of concept if nothing else for 
+> how you want the VF to function, then submit the VF series as a 
+> separate patch set and include the mailbox API changes.
+
+Sound reasonable.
+
+>
+> - Alex
+>
