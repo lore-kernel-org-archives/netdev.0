@@ -1,8 +1,7 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next 4/7] net: Introduce
-	passthru_features_check
-Date: Thu, 26 Mar 2015 14:01:17 +0900
-Message-ID: <1427346080-12086-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next 7/7] igb: Enable TSO for stacked vlan
+Date: Thu, 26 Mar 2015 14:01:20 +0900
+Message-ID: <1427346080-12086-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,49 +29,27 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-As there are a number of (especially virtual) devices that don't
-need the multiple vlan check, introduce passthru_features_check() for
-convenience.
+As datasheets for igb (I210, I350, 82576, etc.) say, maclen can be from
+14 to 127, which is enough for reasonable number of vlan tags.
+My netperf test showed I350's TSO works pretty fine with multiple vlans.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- include/linux/netdevice.h | 3 +++
- net/core/dev.c            | 8 ++++++++
- 2 files changed, 11 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 08c4ab3..967bb4c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3657,6 +3657,9 @@ void netdev_change_features(struct net_device *dev);
- void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- 					struct net_device *dev);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 0e07545..8457d03 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2093,6 +2093,7 @@ static const struct net_device_ops igb_netdev_ops = {
+ #endif
+ 	.ndo_fix_features	= igb_fix_features,
+ 	.ndo_set_features	= igb_set_features,
++	.ndo_features_check	= passthru_features_check,
+ };
  
-+netdev_features_t passthru_features_check(struct sk_buff *skb,
-+					  struct net_device *dev,
-+					  netdev_features_t features);
- netdev_features_t netif_skb_features(struct sk_buff *skb);
- 
- static inline bool net_gso_ok(netdev_features_t features, int gso_type)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 41d0db55..b4cc929 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2562,6 +2562,14 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
- 	return features;
- }
- 
-+netdev_features_t passthru_features_check(struct sk_buff *skb,
-+					  struct net_device *dev,
-+					  netdev_features_t features)
-+{
-+	return features;
-+}
-+EXPORT_SYMBOL(passthru_features_check);
-+
- static netdev_features_t dflt_features_check(struct sk_buff *skb,
- 					     struct net_device *dev,
- 					     netdev_features_t features)
+ /**
 -- 
 1.8.1.2
 
