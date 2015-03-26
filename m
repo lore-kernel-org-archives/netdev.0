@@ -1,94 +1,82 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Thu, 26 Mar 2015 09:20:11 +0100
-Message-ID: <20150326082011.GA2010@nanopsycho.orion>
-References: <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
- <20150324142921.GA2026@nanopsycho.orion>
- <20150324160126.GA17104@roeck-us.net>
- <5511A29F.5010006@cumulusnetworks.com>
- <20150324175825.GA1465@roeck-us.net>
- <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
- <CAGVrzcZ+QywZxe4P2bcnBLG9mXUDARNzNyXF1yTOV9tnAcx=PQ@mail.gmail.com>
- <CAE4R7bBeFg9v-CnUJU-0pe8ZS4AYXQNAGNTcvCrHdZ1ggYmOPA@mail.gmail.com>
- <5512E9EC.5020504@cumulusnetworks.com>
- <CAE4R7bCtpaonLeRiX9s3yFisONDQUv9z_EOBcGTdgTGLEjC7vA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: [PATCH v2] net: tcp6: fix double call of tcp_v6_fill_cb()
+Date: Thu, 26 Mar 2015 11:28:04 +0300
+Message-ID: <1427358484-16402-1-git-send-email-alexey.kodanev@oracle.com>
+Cc: vasily.isaenko@oracle.com,
+	Alexey Kodanev <alexey.kodanev@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:37294 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbbCZIUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 04:20:14 -0400
-Received: by wiaa2 with SMTP id a2so11170143wia.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 01:20:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bCtpaonLeRiX9s3yFisONDQUv9z_EOBcGTdgTGLEjC7vA@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:24299 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbbCZI0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 04:26:00 -0400
+Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
+	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t2Q8Px63004189
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 08:25:59 GMT
+Received: from userv0121.oracle.com (userv0121.oracle.com [156.151.31.72])
+	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t2Q8PxkK022656
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 08:25:59 GMT
+Received: from abhmp0009.oracle.com (abhmp0009.oracle.com [141.146.116.15])
+	by userv0121.oracle.com (8.13.8/8.13.8) with ESMTP id t2Q8Pwhr007994
+	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 08:25:58 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 26, 2015 at 08:44:27AM CET, sfeldma@gmail.com wrote:
->On Wed, Mar 25, 2015 at 10:01 AM, roopa <roopa@cumulusnetworks.com> wrote:
->
->[cut]
->
->So just to keep the discussion alive (because we really need to solve
->this problem), my current thinking is back to Roopa's RFC patch to
->mark the skb to avoid fwding in bridge driver.  One idea (sorry if
->this was already suggested, thread is long) is to use
->swdev_parent_id_get op in the following way:
->
->1) when port interface is added to bridge, bridge calls
->swdev_parent_id_get() on port to get switch id.
->swdev_parent_id_get() needs to be modified to work on stacked drivers.
->For example, if a bond is the new bridge port, swdev_parent_id_get()
->on the bond interface should get switch_id for bond member.  We stash
->the switch_id in the bridge port private structure for later
->comparison.
+Regression from the following commit: 2dc49d1680.
 
-Nope, that cannot work. You can bond 2 ports each belonging to a
-different switch.
+tcp_v6_fill_cb() will be called twice if socket's state changes from
+TCP_TIME_WAIT to TCP_LISTEN. That can result in control buffer data
+corruption because in the second tcp_v6_fill_cb() call it's not copying
+IP6CB(skb) anymore, but 'seq', 'end_seq', etc., so we can get weird and
+unpredictable results. Performance loss of up to 1200% has been observed
+in LTP/vxlan03 test.
 
-swdev_parent_id_get should not work on stacked devices ever.
+This can be fixed by copying inet6_skb_parm to the beginning of 'cb'
+only if xfrm6_policy_check() and tcp_v6_fill_cb() are going to be
+called again.
 
->
->2) port driver knows the switch_id for the port, so any pkts it sends
->up to the CPU which has already been flooded/fwded by the device are
->marked with the switch_id.  So the skb is marked, somehow.  Some
->options:
->
->  a) add a new skb switch_id field that's wrapped with
->CONFIG_NET_SWITCHDEV; seems bad, to add a new field.
->  b) put switch_id into skb->cb, but not sure how this doesn't get
->stomped on by upper drivers, or how
->      bridge knows if something valid is in there or not.  Too bad we
->don't have a TLV format for skb->cb, so
->      layers could pile things on.  But 48 bytes isn't much to play with.
->  c) squash switch_id into u32 skb->mark.  We loose information here
->and could collide between switch_ids.
->
->3) bridge driver, in br_flood(), does check if skb switch_id mark
->matches dst port switch_id.  If so, skips fwding pkt to that port.
->The switch_id compare check compares switch_id len and contents.  If
->skb has no switch_id mark, then compare can be skipped.
->
->
->The only tough part is figuring out 2).  Just need someway to stuff
->switch_id into skb.  With bridge driver doing match on switch_id on a
->per-packet basis, we can support Florian's case where sometimes we
->want the bridge driver to fwd pkts (in those cases, the driver just
->leaves skb switch_id mark empty).   Mixed offloaded and non-offloaded
->ports works because switch_id comparison fails for non-offload ports.
->Same for mixed switches bridged together.  The per-pkt overhead
->concerns are minimized.
->
->-scott
+Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+---
+ net/ipv6/tcp_ipv6.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5d46832..7d21a78 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1411,6 +1411,15 @@ static void tcp_v6_fill_cb(struct sk_buff *skb, const struct ipv6hdr *hdr,
+ 	TCP_SKB_CB(skb)->sacked = 0;
+ }
+ 
++static void tcp_v6_restore_cb(struct sk_buff *skb)
++{
++	/* We need to move header back to the beginning if xfrm6_policy_check()
++	 * and tcp_v6_fill_cb() are going to be called again.
++	 */
++	memmove(IP6CB(skb), &TCP_SKB_CB(skb)->header.h6,
++		sizeof(struct inet6_skb_parm));
++}
++
+ static int tcp_v6_rcv(struct sk_buff *skb)
+ {
+ 	const struct tcphdr *th;
+@@ -1543,6 +1552,7 @@ do_time_wait:
+ 			inet_twsk_deschedule(tw, &tcp_death_row);
+ 			inet_twsk_put(tw);
+ 			sk = sk2;
++			tcp_v6_restore_cb(skb);
+ 			goto process;
+ 		}
+ 		/* Fall through to ACK */
+@@ -1551,6 +1561,7 @@ do_time_wait:
+ 		tcp_v6_timewait_ack(sk, skb);
+ 		break;
+ 	case TCP_TW_RST:
++		tcp_v6_restore_cb(skb);
+ 		goto no_tcp_socket;
+ 	case TCP_TW_SUCCESS:
+ 		;
+-- 
+1.7.1
