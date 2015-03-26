@@ -1,29 +1,24 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 1/2] fib6: install fib6 ops in the last step
-Date: Wed, 25 Mar 2015 20:49:55 -0700
-Message-ID: <CAM_iQpUPhS2kMCvdZGXm+5ahXV15tcj0bQRcZ0JNMuyAYzfjrg@mail.gmail.com>
-References: <1427319903-22976-1-git-send-email-xiyou.wangcong@gmail.com>
+From: E-mail System Admin <kunal@vgsom.iitkgp.ernet.in>
+Subject: E-mail System Admin
+Date: Thu, 26 Mar 2015 09:04:14 +0530 (IST)
+Message-ID: <1206099102.173728.1427340854538.JavaMail.zimbra@vgsom.iitkgp.ernet.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34076 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334AbbCZDtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Mar 2015 23:49:55 -0400
-Received: by pacwe9 with SMTP id we9so50081657pac.1
-        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 20:49:55 -0700 (PDT)
-In-Reply-To: <1427319903-22976-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from imsvaou.iitkgp.ac.in ([203.110.245.100]:32878 "EHLO
+	imsvaou.iitkgp.ac.in" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750786AbbCZEQc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 00:16:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 25, 2015 at 2:45 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> We should not commit the new ops until we finish
-> all the setup, otherwise we have to NULL it on failure.
->
+Our records indicate that your E-mail=C2=AE Account could not be automa=
+tically updated ugraded to the new WebMail 8.1.0 Please click this link=
+ below to update manually.
 
-I messed up my net branch with net-next, so this single patch
-actually doesn't fix any bug so can be just targeted for net-next.
+http://www.contactme.com/5512bf1461b204000300cbef
 
-Let me know if you want me to resend.
+We Are Sorry For Any Inconvenience.
+E-mail System Admin Copyright=C2=A9 2015
