@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 2/2] tipc: involve reference
-	counter for node structure
-Date: Thu, 26 Mar 2015 18:10:24 +0800
-Message-ID: <1427364624-5930-3-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 1/2] tipc: fix potential deadlock
+	when all links are reset
+Date: Thu, 26 Mar 2015 18:10:23 +0800
+Message-ID: <1427364624-5930-2-git-send-email-ying.xue@windriver.com>
 References: <1427364624-5930-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,383 +22,272 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-TIPC node hash node table is protected with rcu lock on read side.
-tipc_node_find() is used to look for a node object with node address
-through iterating the hash node table. As the entire process of what
-tipc_node_find() traverses the table is guarded with rcu read lock,
-it's safe for us. However, when callers use the node object returned
-by tipc_node_find(), there is no rcu read lock applied. Therefore,
-this is absolutely unsafe for callers of tipc_node_find().
+[   60.988363] ======================================================
+[   60.988754] [ INFO: possible circular locking dependency detected ]
+[   60.989152] 3.19.0+ #194 Not tainted
+[   60.989377] -------------------------------------------------------
+[   60.989781] swapper/3/0 is trying to acquire lock:
+[   60.990079]  (&(&n_ptr->lock)->rlock){+.-...}, at: [<ffffffffa0006dca>] tipc_link_retransmit+0x1aa/0x240 [tipc]
+[   60.990743]
+[   60.990743] but task is already holding lock:
+[   60.991106]  (&(&bclink->lock)->rlock){+.-...}, at: [<ffffffffa00004be>] tipc_bclink_lock+0x8e/0xa0 [tipc]
+[   60.991738]
+[   60.991738] which lock already depends on the new lock.
+[   60.991738]
+[   60.992174]
+[   60.992174] the existing dependency chain (in reverse order) is:
+[   60.992174]
+-> #1 (&(&bclink->lock)->rlock){+.-...}:
+[   60.992174]        [<ffffffff810a9c0c>] lock_acquire+0x9c/0x140
+[   60.992174]        [<ffffffff8179c41f>] _raw_spin_lock_bh+0x3f/0x50
+[   60.992174]        [<ffffffffa00004be>] tipc_bclink_lock+0x8e/0xa0 [tipc]
+[   60.992174]        [<ffffffffa0000f57>] tipc_bclink_add_node+0x97/0xf0 [tipc]
+[   60.992174]        [<ffffffffa0011815>] tipc_node_link_up+0xf5/0x110 [tipc]
+[   60.992174]        [<ffffffffa0007783>] link_state_event+0x2b3/0x4f0 [tipc]
+[   60.992174]        [<ffffffffa00193c0>] tipc_link_proto_rcv+0x24c/0x418 [tipc]
+[   60.992174]        [<ffffffffa0008857>] tipc_rcv+0x827/0xac0 [tipc]
+[   60.992174]        [<ffffffffa0002ca3>] tipc_l2_rcv_msg+0x73/0xd0 [tipc]
+[   60.992174]        [<ffffffff81646e66>] __netif_receive_skb_core+0x746/0x980
+[   60.992174]        [<ffffffff816470c1>] __netif_receive_skb+0x21/0x70
+[   60.992174]        [<ffffffff81647295>] netif_receive_skb_internal+0x35/0x130
+[   60.992174]        [<ffffffff81648218>] napi_gro_receive+0x158/0x1d0
+[   60.992174]        [<ffffffff81559e05>] e1000_clean_rx_irq+0x155/0x490
+[   60.992174]        [<ffffffff8155c1b7>] e1000_clean+0x267/0x990
+[   60.992174]        [<ffffffff81647b60>] net_rx_action+0x150/0x360
+[   60.992174]        [<ffffffff8105ec43>] __do_softirq+0x123/0x360
+[   60.992174]        [<ffffffff8105f12e>] irq_exit+0x8e/0xb0
+[   60.992174]        [<ffffffff8179f9f5>] do_IRQ+0x65/0x110
+[   60.992174]        [<ffffffff8179da6f>] ret_from_intr+0x0/0x13
+[   60.992174]        [<ffffffff8100de9f>] arch_cpu_idle+0xf/0x20
+[   60.992174]        [<ffffffff8109dfa6>] cpu_startup_entry+0x2f6/0x3f0
+[   60.992174]        [<ffffffff81033cda>] start_secondary+0x13a/0x150
+[   60.992174]
+-> #0 (&(&n_ptr->lock)->rlock){+.-...}:
+[   60.992174]        [<ffffffff810a8f7d>] __lock_acquire+0x163d/0x1ca0
+[   60.992174]        [<ffffffff810a9c0c>] lock_acquire+0x9c/0x140
+[   60.992174]        [<ffffffff8179c41f>] _raw_spin_lock_bh+0x3f/0x50
+[   60.992174]        [<ffffffffa0006dca>] tipc_link_retransmit+0x1aa/0x240 [tipc]
+[   60.992174]        [<ffffffffa0001e11>] tipc_bclink_rcv+0x611/0x640 [tipc]
+[   60.992174]        [<ffffffffa0008646>] tipc_rcv+0x616/0xac0 [tipc]
+[   60.992174]        [<ffffffffa0002ca3>] tipc_l2_rcv_msg+0x73/0xd0 [tipc]
+[   60.992174]        [<ffffffff81646e66>] __netif_receive_skb_core+0x746/0x980
+[   60.992174]        [<ffffffff816470c1>] __netif_receive_skb+0x21/0x70
+[   60.992174]        [<ffffffff81647295>] netif_receive_skb_internal+0x35/0x130
+[   60.992174]        [<ffffffff81648218>] napi_gro_receive+0x158/0x1d0
+[   60.992174]        [<ffffffff81559e05>] e1000_clean_rx_irq+0x155/0x490
+[   60.992174]        [<ffffffff8155c1b7>] e1000_clean+0x267/0x990
+[   60.992174]        [<ffffffff81647b60>] net_rx_action+0x150/0x360
+[   60.992174]        [<ffffffff8105ec43>] __do_softirq+0x123/0x360
+[   60.992174]        [<ffffffff8105f12e>] irq_exit+0x8e/0xb0
+[   60.992174]        [<ffffffff8179f9f5>] do_IRQ+0x65/0x110
+[   60.992174]        [<ffffffff8179da6f>] ret_from_intr+0x0/0x13
+[   60.992174]        [<ffffffff8100de9f>] arch_cpu_idle+0xf/0x20
+[   60.992174]        [<ffffffff8109dfa6>] cpu_startup_entry+0x2f6/0x3f0
+[   60.992174]        [<ffffffff81033cda>] start_secondary+0x13a/0x150
+[   60.992174]
+[   60.992174] other info that might help us debug this:
+[   60.992174]
+[   60.992174]  Possible unsafe locking scenario:
+[   60.992174]
+[   60.992174]        CPU0                    CPU1
+[   60.992174]        ----                    ----
+[   60.992174]   lock(&(&bclink->lock)->rlock);
+[   60.992174]                                lock(&(&n_ptr->lock)->rlock);
+[   60.992174]                                lock(&(&bclink->lock)->rlock);
+[   60.992174]   lock(&(&n_ptr->lock)->rlock);
+[   60.992174]
+[   60.992174]  *** DEADLOCK ***
+[   60.992174]
+[   60.992174] 3 locks held by swapper/3/0:
+[   60.992174]  #0:  (rcu_read_lock){......}, at: [<ffffffff81646791>] __netif_receive_skb_core+0x71/0x980
+[   60.992174]  #1:  (rcu_read_lock){......}, at: [<ffffffffa0002c35>] tipc_l2_rcv_msg+0x5/0xd0 [tipc]
+[   60.992174]  #2:  (&(&bclink->lock)->rlock){+.-...}, at: [<ffffffffa00004be>] tipc_bclink_lock+0x8e/0xa0 [tipc]
+[   60.992174]
 
-Now we introduce a reference counter for node structure. Before
-tipc_node_find() returns node object to its caller, it first increases
-the reference counter. Accordingly, after its caller used it up,
-it decreases the counter again. This can prevent a node being used by
-one thread from being freed by another thread.
+The correct the sequence of grabbing n_ptr->lock and bclink->lock
+should be that the former is first held and the latter is then taken,
+which exactly happened on CPU1. But especially when the retransmission
+of broadcast link is failed, bclink->lock is first held in
+tipc_bclink_rcv(), and n_ptr->lock is taken in link_retransmit_failure()
+called by tipc_link_retransmit() subsequently, which is demonstrated on
+CPU0. As a result, deadlock occurs.
+
+If the order of holding the two locks happening on CPU0 is reversed, the
+deadlock risk will be relieved. Therefore, the node lock taken in
+link_retransmit_failure() originally is moved to tipc_bclink_rcv()
+so that it's obtained before bclink lock. But the precondition of
+the adjustment of node lock is that responding to bclink reset event
+must be moved from tipc_bclink_unlock() to tipc_node_unlock().
 
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericson.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c      |    5 +--
- net/tipc/discover.c   |    1 +
- net/tipc/link.c       |    7 ++--
- net/tipc/name_distr.c |    2 ++
- net/tipc/node.c       |   85 +++++++++++++++++++++++++++++++++++--------------
- net/tipc/node.h       |    9 ++++--
- 6 files changed, 79 insertions(+), 30 deletions(-)
+ net/tipc/bcast.c |   23 +----------------------
+ net/tipc/bcast.h |    4 ----
+ net/tipc/link.c  |    5 +----
+ net/tipc/node.c  |    5 ++++-
+ net/tipc/node.h  |    3 ++-
+ 5 files changed, 8 insertions(+), 32 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 4289dd6..ae558dd 100644
+index 7935553..4289dd6 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -329,13 +329,12 @@ static void bclink_peek_nack(struct net *net, struct tipc_msg *msg)
- 		return;
+@@ -62,21 +62,8 @@ static void tipc_bclink_lock(struct net *net)
+ static void tipc_bclink_unlock(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_node *node = NULL;
  
- 	tipc_node_lock(n_ptr);
+-	if (likely(!tn->bclink->flags)) {
+-		spin_unlock_bh(&tn->bclink->lock);
+-		return;
+-	}
 -
- 	if (n_ptr->bclink.recv_permitted &&
- 	    (n_ptr->bclink.last_in != n_ptr->bclink.last_sent) &&
- 	    (n_ptr->bclink.last_in == msg_bcgap_after(msg)))
- 		n_ptr->bclink.oos_state = 2;
+-	if (tn->bclink->flags & TIPC_BCLINK_RESET) {
+-		tn->bclink->flags &= ~TIPC_BCLINK_RESET;
+-		node = tipc_bclink_retransmit_to(net);
+-	}
+ 	spin_unlock_bh(&tn->bclink->lock);
 -
- 	tipc_node_unlock(n_ptr);
-+	tipc_node_put(n_ptr);
+-	if (node)
+-		tipc_link_reset_all(node);
  }
  
- /* tipc_bclink_xmit - deliver buffer chain to all nodes in cluster
-@@ -466,6 +465,7 @@ void tipc_bclink_rcv(struct net *net, struct sk_buff *buf)
+ void tipc_bclink_input(struct net *net)
+@@ -91,13 +78,6 @@ uint  tipc_bclink_get_mtu(void)
+ 	return MAX_PKT_DEFAULT_MCAST;
+ }
+ 
+-void tipc_bclink_set_flags(struct net *net, unsigned int flags)
+-{
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-
+-	tn->bclink->flags |= flags;
+-}
+-
+ static u32 bcbuf_acks(struct sk_buff *buf)
+ {
+ 	return (u32)(unsigned long)TIPC_SKB_CB(buf)->handle;
+@@ -156,7 +136,6 @@ static void bclink_update_last_sent(struct tipc_node *node, u32 seqno)
+ 						seqno : node->bclink.last_sent;
+ }
+ 
+-
+ /**
+  * tipc_bclink_retransmit_to - get most recent node to request retransmission
+  *
+@@ -476,13 +455,13 @@ void tipc_bclink_rcv(struct net *net, struct sk_buff *buf)
+ 			goto unlock;
+ 		if (msg_destnode(msg) == tn->own_addr) {
+ 			tipc_bclink_acknowledge(node, msg_bcast_ack(msg));
+-			tipc_node_unlock(node);
+ 			tipc_bclink_lock(net);
+ 			bcl->stats.recv_nacks++;
+ 			tn->bclink->retransmit_to = node;
+ 			bclink_retransmit_pkt(tn, msg_bcgap_after(msg),
+ 					      msg_bcgap_to(msg));
+ 			tipc_bclink_unlock(net);
++			tipc_node_unlock(node);
+ 		} else {
  			tipc_node_unlock(node);
  			bclink_peek_nack(net, msg);
- 		}
-+		tipc_node_put(node);
- 		goto exit;
- 	}
- 
-@@ -570,6 +570,7 @@ receive:
- 
- unlock:
- 	tipc_node_unlock(node);
-+	tipc_node_put(node);
- exit:
- 	kfree_skb(buf);
- }
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index 169f3dd..967e292 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -260,6 +260,7 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
- 		}
- 	}
- 	tipc_node_unlock(node);
-+	tipc_node_put(node);
- }
- 
- /**
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index f5e086c..514466e 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -854,6 +854,7 @@ int tipc_link_xmit(struct net *net, struct sk_buff_head *list, u32 dnode,
- 		if (link)
- 			rc = __tipc_link_xmit(net, link, list);
- 		tipc_node_unlock(node);
-+		tipc_node_put(node);
- 	}
- 	if (link)
- 		return rc;
-@@ -1116,8 +1117,8 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
- 		n_ptr = tipc_node_find(net, msg_prevnode(msg));
- 		if (unlikely(!n_ptr))
- 			goto discard;
--		tipc_node_lock(n_ptr);
- 
-+		tipc_node_lock(n_ptr);
- 		/* Locate unicast link endpoint that should handle message */
- 		l_ptr = n_ptr->links[b_ptr->identity];
- 		if (unlikely(!l_ptr))
-@@ -1205,6 +1206,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
- 		skb = NULL;
- unlock:
- 		tipc_node_unlock(n_ptr);
-+		tipc_node_put(n_ptr);
- discard:
- 		if (unlikely(skb))
- 			kfree_skb(skb);
-@@ -2236,7 +2238,6 @@ int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	msg.seq = cb->nlh->nlmsg_seq;
- 
- 	rcu_read_lock();
--
- 	if (prev_node) {
- 		node = tipc_node_find(net, prev_node);
- 		if (!node) {
-@@ -2249,6 +2250,7 @@ int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			cb->prev_seq = 1;
- 			goto out;
- 		}
-+		tipc_node_put(node);
- 
- 		list_for_each_entry_continue_rcu(node, &tn->node_list,
- 						 list) {
-@@ -2256,6 +2258,7 @@ int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			err = __tipc_nl_add_node_links(net, &msg, node,
- 						       &prev_link);
- 			tipc_node_unlock(node);
-+			tipc_node_put(node);
- 			if (err)
- 				goto out;
- 
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 506aaa5..41e7b7e 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -244,6 +244,7 @@ static void tipc_publ_subscribe(struct net *net, struct publication *publ,
- 	tipc_node_lock(node);
- 	list_add_tail(&publ->nodesub_list, &node->publ_list);
- 	tipc_node_unlock(node);
-+	tipc_node_put(node);
- }
- 
- static void tipc_publ_unsubscribe(struct net *net, struct publication *publ,
-@@ -258,6 +259,7 @@ static void tipc_publ_unsubscribe(struct net *net, struct publication *publ,
- 	tipc_node_lock(node);
- 	list_del_init(&publ->nodesub_list);
- 	tipc_node_unlock(node);
-+	tipc_node_put(node);
- }
- 
- /**
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 5cc43d3..3e4f048 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -42,6 +42,7 @@
- 
- static void node_lost_contact(struct tipc_node *n_ptr);
- static void node_established_contact(struct tipc_node *n_ptr);
-+static void tipc_node_delete(struct tipc_node *node);
- 
- struct tipc_sock_conn {
- 	u32 port;
-@@ -67,6 +68,23 @@ static unsigned int tipc_hashfn(u32 addr)
- 	return addr & (NODE_HTABLE_SIZE - 1);
- }
- 
-+static void tipc_node_kref_release(struct kref *kref)
-+{
-+	struct tipc_node *node = container_of(kref, struct tipc_node, kref);
-+
-+	tipc_node_delete(node);
-+}
-+
-+void tipc_node_put(struct tipc_node *node)
-+{
-+	kref_put(&node->kref, tipc_node_kref_release);
-+}
-+
-+static void tipc_node_get(struct tipc_node *node)
-+{
-+	kref_get(&node->kref);
-+}
-+
- /*
-  * tipc_node_find - locate specified node object, if it exists
-  */
-@@ -82,6 +100,7 @@ struct tipc_node *tipc_node_find(struct net *net, u32 addr)
- 	hlist_for_each_entry_rcu(node, &tn->node_htable[tipc_hashfn(addr)],
- 				 hash) {
- 		if (node->addr == addr) {
-+			tipc_node_get(node);
- 			rcu_read_unlock();
- 			return node;
- 		}
-@@ -106,6 +125,7 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
- 	}
- 	n_ptr->addr = addr;
- 	n_ptr->net = net;
-+	kref_init(&n_ptr->kref);
- 	spin_lock_init(&n_ptr->lock);
- 	INIT_HLIST_NODE(&n_ptr->hash);
- 	INIT_LIST_HEAD(&n_ptr->list);
-@@ -120,16 +140,17 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
- 	list_add_tail_rcu(&n_ptr->list, &temp_node->list);
- 	n_ptr->action_flags = TIPC_WAIT_PEER_LINKS_DOWN;
- 	n_ptr->signature = INVALID_NODE_SIG;
-+	tipc_node_get(n_ptr);
- exit:
- 	spin_unlock_bh(&tn->node_list_lock);
- 	return n_ptr;
- }
- 
--static void tipc_node_delete(struct tipc_net *tn, struct tipc_node *n_ptr)
-+static void tipc_node_delete(struct tipc_node *node)
- {
--	list_del_rcu(&n_ptr->list);
--	hlist_del_rcu(&n_ptr->hash);
--	kfree_rcu(n_ptr, rcu);
-+	list_del_rcu(&node->list);
-+	hlist_del_rcu(&node->hash);
-+	kfree_rcu(node, rcu);
- }
- 
- void tipc_node_stop(struct net *net)
-@@ -139,7 +160,7 @@ void tipc_node_stop(struct net *net)
- 
- 	spin_lock_bh(&tn->node_list_lock);
- 	list_for_each_entry_safe(node, t_node, &tn->node_list, list)
--		tipc_node_delete(tn, node);
-+		tipc_node_put(node);
- 	spin_unlock_bh(&tn->node_list_lock);
- }
- 
-@@ -147,6 +168,7 @@ int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port)
- {
- 	struct tipc_node *node;
- 	struct tipc_sock_conn *conn;
-+	int err = 0;
- 
- 	if (in_own_node(net, dnode))
- 		return 0;
-@@ -157,8 +179,10 @@ int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port)
- 		return -EHOSTUNREACH;
- 	}
- 	conn = kmalloc(sizeof(*conn), GFP_ATOMIC);
--	if (!conn)
--		return -EHOSTUNREACH;
-+	if (!conn) {
-+		err = -EHOSTUNREACH;
-+		goto exit;
-+	}
- 	conn->peer_node = dnode;
- 	conn->port = port;
- 	conn->peer_port = peer_port;
-@@ -166,7 +190,9 @@ int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port)
- 	tipc_node_lock(node);
- 	list_add_tail(&conn->list, &node->conn_sks);
- 	tipc_node_unlock(node);
--	return 0;
-+exit:
-+	tipc_node_put(node);
-+	return err;
- }
- 
- void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port)
-@@ -189,6 +215,7 @@ void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port)
- 		kfree(conn);
- 	}
- 	tipc_node_unlock(node);
-+	tipc_node_put(node);
- }
- 
- /**
-@@ -417,19 +444,25 @@ int tipc_node_get_linkname(struct net *net, u32 bearer_id, u32 addr,
- 			   char *linkname, size_t len)
- {
- 	struct tipc_link *link;
-+	int err = -EINVAL;
- 	struct tipc_node *node = tipc_node_find(net, addr);
- 
--	if ((bearer_id >= MAX_BEARERS) || !node)
--		return -EINVAL;
-+	if (!node)
-+		return err;
-+
-+	if (bearer_id >= MAX_BEARERS)
-+		goto exit;
-+
- 	tipc_node_lock(node);
- 	link = node->links[bearer_id];
- 	if (link) {
- 		strncpy(linkname, link->name, len);
--		tipc_node_unlock(node);
--		return 0;
-+		err = 0;
- 	}
-+exit:
- 	tipc_node_unlock(node);
--	return -EINVAL;
-+	tipc_node_put(node);
-+	return err;
- }
- 
- void tipc_node_unlock(struct tipc_node *node)
-@@ -545,17 +578,21 @@ int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	msg.seq = cb->nlh->nlmsg_seq;
- 
- 	rcu_read_lock();
--
--	if (last_addr && !tipc_node_find(net, last_addr)) {
--		rcu_read_unlock();
--		/* We never set seq or call nl_dump_check_consistent() this
--		 * means that setting prev_seq here will cause the consistence
--		 * check to fail in the netlink callback handler. Resulting in
--		 * the NLMSG_DONE message having the NLM_F_DUMP_INTR flag set if
--		 * the node state changed while we released the lock.
--		 */
--		cb->prev_seq = 1;
--		return -EPIPE;
-+	if (last_addr) {
-+		node = tipc_node_find(net, last_addr);
-+		if (!node) {
-+			rcu_read_unlock();
-+			/* We never set seq or call nl_dump_check_consistent()
-+			 * this means that setting prev_seq here will cause the
-+			 * consistence check to fail in the netlink callback
-+			 * handler. Resulting in the NLMSG_DONE message having
-+			 * the NLM_F_DUMP_INTR flag set if the node state
-+			 * changed while we released the lock.
-+			 */
-+			cb->prev_seq = 1;
-+			return -EPIPE;
-+		}
-+		tipc_node_put(node);
- 	}
- 
- 	list_for_each_entry_rcu(node, &tn->node_list, list) {
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 9629ecd..02d5c20 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -94,6 +94,7 @@ struct tipc_node_bclink {
- /**
-  * struct tipc_node - TIPC node structure
-  * @addr: network address of node
-+ * @ref: reference counter to node object
-  * @lock: spinlock governing access to structure
-  * @net: the applicable net namespace
-  * @hash: links to adjacent nodes in unsorted hash chain
-@@ -115,6 +116,7 @@ struct tipc_node_bclink {
-  */
- struct tipc_node {
- 	u32 addr;
-+	struct kref kref;
- 	spinlock_t lock;
- 	struct net *net;
- 	struct hlist_node hash;
-@@ -137,6 +139,7 @@ struct tipc_node {
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index 43f397f..4bdc122 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -55,7 +55,6 @@ struct tipc_bcbearer_pair {
+ 	struct tipc_bearer *secondary;
  };
  
- struct tipc_node *tipc_node_find(struct net *net, u32 addr);
-+void tipc_node_put(struct tipc_node *node);
- struct tipc_node *tipc_node_create(struct net *net, u32 addr);
- void tipc_node_stop(struct net *net);
- void tipc_node_attach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr);
-@@ -171,10 +174,12 @@ static inline uint tipc_node_get_mtu(struct net *net, u32 addr, u32 selector)
+-#define TIPC_BCLINK_RESET	1
+ #define	BCBEARER		MAX_BEARERS
  
- 	node = tipc_node_find(net, addr);
+ /**
+@@ -86,7 +85,6 @@ struct tipc_bcbearer {
+  * @lock: spinlock governing access to structure
+  * @link: (non-standard) broadcast link structure
+  * @node: (non-standard) node structure representing b'cast link's peer node
+- * @flags: represent bclink states
+  * @bcast_nodes: map of broadcast-capable nodes
+  * @retransmit_to: node that most recently requested a retransmit
+  *
+@@ -96,7 +94,6 @@ struct tipc_bclink {
+ 	spinlock_t lock;
+ 	struct tipc_link link;
+ 	struct tipc_node node;
+-	unsigned int flags;
+ 	struct sk_buff_head arrvq;
+ 	struct sk_buff_head inputq;
+ 	struct tipc_node_map bcast_nodes;
+@@ -117,7 +114,6 @@ static inline int tipc_nmap_equal(struct tipc_node_map *nm_a,
  
--	if (likely(node))
-+	if (likely(node)) {
- 		mtu = node->act_mtus[selector & 1];
--	else
-+		tipc_node_put(node);
-+	} else {
- 		mtu = MAX_MSG_SIZE;
-+	}
+ int tipc_bclink_init(struct net *net);
+ void tipc_bclink_stop(struct net *net);
+-void tipc_bclink_set_flags(struct net *tn, unsigned int flags);
+ void tipc_bclink_add_node(struct net *net, u32 addr);
+ void tipc_bclink_remove_node(struct net *net, u32 addr);
+ struct tipc_node *tipc_bclink_retransmit_to(struct net *tn);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 1287161..f5e086c 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -980,7 +980,6 @@ static void link_retransmit_failure(struct tipc_link *l_ptr,
+ 			(unsigned long) TIPC_SKB_CB(buf)->handle);
  
- 	return mtu;
+ 		n_ptr = tipc_bclink_retransmit_to(net);
+-		tipc_node_lock(n_ptr);
+ 
+ 		tipc_addr_string_fill(addr_string, n_ptr->addr);
+ 		pr_info("Broadcast link info for %s\n", addr_string);
+@@ -992,9 +991,7 @@ static void link_retransmit_failure(struct tipc_link *l_ptr,
+ 			n_ptr->bclink.oos_state,
+ 			n_ptr->bclink.last_sent);
+ 
+-		tipc_node_unlock(n_ptr);
+-
+-		tipc_bclink_set_flags(net, TIPC_BCLINK_RESET);
++		n_ptr->action_flags |= TIPC_BCAST_RESET;
+ 		l_ptr->stale_count = 0;
+ 	}
  }
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 26d1de1..5cc43d3 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -459,7 +459,7 @@ void tipc_node_unlock(struct tipc_node *node)
+ 				TIPC_NOTIFY_NODE_DOWN | TIPC_NOTIFY_NODE_UP |
+ 				TIPC_NOTIFY_LINK_DOWN | TIPC_NOTIFY_LINK_UP |
+ 				TIPC_WAKEUP_BCAST_USERS | TIPC_BCAST_MSG_EVT |
+-				TIPC_NAMED_MSG_EVT);
++				TIPC_NAMED_MSG_EVT | TIPC_BCAST_RESET);
+ 
+ 	spin_unlock_bh(&node->lock);
+ 
+@@ -488,6 +488,9 @@ void tipc_node_unlock(struct tipc_node *node)
+ 
+ 	if (flags & TIPC_BCAST_MSG_EVT)
+ 		tipc_bclink_input(net);
++
++	if (flags & TIPC_BCAST_RESET)
++		tipc_link_reset_all(node);
+ }
+ 
+ /* Caller should hold node lock for the passed node */
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index e89ac04..9629ecd 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -64,7 +64,8 @@ enum {
+ 	TIPC_NOTIFY_LINK_UP		= (1 << 6),
+ 	TIPC_NOTIFY_LINK_DOWN		= (1 << 7),
+ 	TIPC_NAMED_MSG_EVT		= (1 << 8),
+-	TIPC_BCAST_MSG_EVT		= (1 << 9)
++	TIPC_BCAST_MSG_EVT		= (1 << 9),
++	TIPC_BCAST_RESET		= (1 << 10)
+ };
+ 
+ /**
 -- 
 1.7.9.5
 
