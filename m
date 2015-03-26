@@ -1,50 +1,39 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH 1/8] NFC: NCI: Allow connection close with dev down
-Date: Thu, 26 Mar 2015 01:29:25 +0100
-Message-ID: <20150326002925.GA10954@ribalta.home>
+From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH 3/8] NFC: NCI: Adds NCI init and reset API for drivers
+Date: Thu, 26 Mar 2015 01:29:37 +0100
+Message-ID: <20150326002937.GB10954@ribalta.home>
 References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
- <1424772112-27399-2-git-send-email-robert.dolca@intel.com>
+ <1424772112-27399-4-git-send-email-robert.dolca@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfc@lists.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Robert Dolca <robert.dolca@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1424772112-27399-2-git-send-email-robert.dolca@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1424772112-27399-4-git-send-email-robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 Hi Robert,
 
-On Tue, Feb 24, 2015 at 12:01:45PM +0200, Robert Dolca wrote:
-> By calling __nci_request instead of nci_request allows the driver to use
-> the function while initializing the device (setup stage)
-> 
-> Signed-off-by: Robert Dolca <robert.dolca@intel.com>
-> ---
->  net/nfc/nci/core.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
-> index 9575a18..c4dd5d8 100644
-> --- a/net/nfc/nci/core.c
-> +++ b/net/nfc/nci/core.c
-> @@ -558,7 +558,7 @@ static void nci_core_conn_close_req(struct nci_dev *ndev, unsigned long opt)
->  
->  int nci_core_conn_close(struct nci_dev *ndev, u8 conn_id)
->  {
-> -	return nci_request(ndev, nci_core_conn_close_req, conn_id,
-> +	return __nci_request(ndev, nci_core_conn_close_req, conn_id,
->  				msecs_to_jiffies(NCI_CMD_TIMEOUT));
-You're fixing your problem by removing the NCI request serialization and
-removing the check for your device being UP.
-I assume you need to open and close a proprietary connection from your
-setup hook ? Then please extend nci_request() to check for both NCI_UP
-and NCI_INIT.
+On Tue, Feb 24, 2015 at 12:01:47PM +0200, Robert Dolca wrote:
+> In order to communicate with the device during the setup
+> phase, the driver may need to initialize the device. After
+> the setup is done the driver should reset the device to leave
+> it in the same state that it was before the setup function
+> call.
+I would prefer not to export those symbols, but instead introduce a
+quirk bitmap to let the NCI core know that your device expects the core
+to be initialized before calling the setup ops.
+That would be done from nci_open_device().
 
 Cheers,
 Samuel.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
