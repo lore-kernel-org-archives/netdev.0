@@ -1,94 +1,155 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 2/2] cxgb4: Disable interrupts and napi before unregistering netdev
-Date: Thu, 26 Mar 2015 10:04:26 +0530
-Message-ID: <1427344466-17658-3-git-send-email-hariprasad@chelsio.com>
-References: <1427344466-17658-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com,
-	swise@opengridcomputing.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9289 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750926AbbCZE2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 00:28:52 -0400
-In-Reply-To: <1427344466-17658-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next 2/7] vlan: Introduce helper functions
+	to check if skb is tagged
+Date: Thu, 26 Mar 2015 14:01:15 +0900
+Message-ID: <1427346080-12086-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: "David S . Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Ariel Elior <ariel.elior@qlogic.com>, Amir Vadai <amirv@mellanox.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Dept-GELinuxNICDev@qlogic.com, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>, Linux NICS <linux.nics@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Disable interrupts and quiesce rx before unregistering net device to avoid crash
-while unloading driver when traffic is flowing through.
+Separate the two checks for single vlan and multiple vlans in
+netif_skb_features().  This allows us to move the check for multiple
+vlans to another function later.
 
-Based on original work by Shameem Khalid <shameem@chelsio.com>
-
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   25 ++++++++++++++++------
- 1 files changed, 18 insertions(+), 7 deletions(-)
+ include/linux/if_vlan.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c          | 24 ++++++++----------------
+ 2 files changed, 53 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index b9b5a7b..826de7a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -934,6 +934,21 @@ static void quiesce_rx(struct adapter *adap)
- 	}
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index b11b28a..bc649dd 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -561,4 +561,49 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
+ 		skb->protocol = htons(ETH_P_802_2);
  }
  
-+/* Disable interrupt and napi handler */
-+static void disable_interrupts(struct adapter *adap)
++/**
++ * skb_vlan_tagged - check if skb is vlan tagged.
++ * @skb: skbuff to query
++ *
++ * Returns true if the skb is tagged, regardless of whether it is hardware
++ * accelerated or not.
++ */
++static inline bool skb_vlan_tagged(struct sk_buff *skb)
 +{
-+	if (adap->flags & FULL_INIT_DONE) {
-+		t4_intr_disable(adap);
-+		if (adap->flags & USING_MSIX) {
-+			free_msix_queue_irqs(adap);
-+			free_irq(adap->msix_info[0].vec, adap);
-+		} else {
-+			free_irq(adap->pdev->irq, adap);
-+		}
-+		quiesce_rx(adap);
-+	}
++	if (!skb_vlan_tag_present(skb) &&
++	    likely(skb->protocol != htons(ETH_P_8021Q) &&
++		   skb->protocol != htons(ETH_P_8021AD)))
++		return false;
++
++	return true;
 +}
 +
- /*
-  * Enable NAPI scheduling and interrupt generation for all Rx queues.
-  */
-@@ -4257,19 +4272,12 @@ static int cxgb_up(struct adapter *adap)
- 
- static void cxgb_down(struct adapter *adapter)
- {
--	t4_intr_disable(adapter);
- 	cancel_work_sync(&adapter->tid_release_task);
- 	cancel_work_sync(&adapter->db_full_task);
- 	cancel_work_sync(&adapter->db_drop_task);
- 	adapter->tid_release_task_busy = false;
- 	adapter->tid_release_head = NULL;
- 
--	if (adapter->flags & USING_MSIX) {
--		free_msix_queue_irqs(adapter);
--		free_irq(adapter->msix_info[0].vec, adapter);
--	} else
--		free_irq(adapter->pdev->irq, adapter);
--	quiesce_rx(adapter);
- 	t4_sge_stop(adapter);
- 	t4_free_sge_resources(adapter);
- 	adapter->flags &= ~FULL_INIT_DONE;
-@@ -5591,6 +5599,7 @@ static pci_ers_result_t eeh_err_detected(struct pci_dev *pdev,
- 		netif_carrier_off(dev);
- 	}
- 	spin_unlock(&adap->stats_lock);
-+	disable_interrupts(adap);
- 	if (adap->flags & FULL_INIT_DONE)
- 		cxgb_down(adap);
- 	rtnl_unlock();
-@@ -6304,6 +6313,8 @@ static void remove_one(struct pci_dev *pdev)
- 		if (is_offload(adapter))
- 			detach_ulds(adapter);
- 
-+		disable_interrupts(adapter);
++/**
++ * skb_vlan_tagged_multi - check if skb is vlan tagged with multiple headers.
++ * @skb: skbuff to query
++ *
++ * Returns true if the skb is tagged with multiple vlan headers, regardless
++ * of whether it is hardware accelerated or not.
++ */
++static inline bool skb_vlan_tagged_multi(struct sk_buff *skb)
++{
++	__be16 protocol = skb->protocol;
 +
- 		for_each_port(adapter, i)
- 			if (adapter->port[i]->reg_state == NETREG_REGISTERED)
- 				unregister_netdev(adapter->port[i]);
++	if (!skb_vlan_tag_present(skb)) {
++		struct vlan_ethhdr *veh;
++
++		if (likely(protocol != htons(ETH_P_8021Q) &&
++			   protocol != htons(ETH_P_8021AD)))
++			return false;
++
++		veh = (struct vlan_ethhdr *)skb->data;
++		protocol = veh->h_vlan_encapsulated_proto;
++	}
++
++	if (protocol != htons(ETH_P_8021Q) && protocol != htons(ETH_P_8021AD))
++		return false;
++
++	return true;
++}
++
+ #endif /* !(_LINUX_IF_VLAN_H_) */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a0408d4..04bffcd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2567,7 +2567,6 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 	struct net_device *dev = skb->dev;
+ 	netdev_features_t features = dev->features;
+ 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
+-	__be16 protocol = skb->protocol;
+ 
+ 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
+ 		features &= ~NETIF_F_GSO_MASK;
+@@ -2579,22 +2578,15 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 	if (skb->encapsulation)
+ 		features &= dev->hw_enc_features;
+ 
+-	if (!skb_vlan_tag_present(skb)) {
+-		if (unlikely(protocol == htons(ETH_P_8021Q) ||
+-			     protocol == htons(ETH_P_8021AD))) {
+-			struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
+-			protocol = veh->h_vlan_encapsulated_proto;
+-		} else {
+-			goto finalize;
+-		}
+-	}
+-
+-	features = netdev_intersect_features(features,
+-					     dev->vlan_features |
+-					     NETIF_F_HW_VLAN_CTAG_TX |
+-					     NETIF_F_HW_VLAN_STAG_TX);
++	if (skb_vlan_tagged(skb))
++		features = netdev_intersect_features(features,
++						     dev->vlan_features |
++						     NETIF_F_HW_VLAN_CTAG_TX |
++						     NETIF_F_HW_VLAN_STAG_TX);
++	else
++		goto finalize;
+ 
+-	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD))
++	if (skb_vlan_tagged_multi(skb))
+ 		features = netdev_intersect_features(features,
+ 						     NETIF_F_SG |
+ 						     NETIF_F_HIGHDMA |
 -- 
-1.7.1
+1.8.1.2
+
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming The Go Parallel Website, sponsored
+by Intel and developed in partnership with Slashdot Media, is your hub for all
+things parallel software development, from weekly thought leadership blogs to
+news, videos, case studies, tutorials and more. Take a look and join the 
+conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
