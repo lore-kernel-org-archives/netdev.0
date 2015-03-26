@@ -1,43 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPv6 nexthop for IPv4
-Date: Thu, 26 Mar 2015 09:37:51 -0700
-Message-ID: <1427387871.25985.139.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJO99T=uXuaYP5QCRYbU7iRhK7S8UqW9GfmL1J2yBh1N2TDjYg@mail.gmail.com>
-	 <CACP96tQnQ5d2qrPbs+S640S=r07vnbt-RmL_O2zT7Wcvg99dug@mail.gmail.com>
-	 <CAJO99TmhNARZL4L2KzMHLdqhXFh8LYb+mussWvaiCN4KQpim=Q@mail.gmail.com>
-	 <CACP96tQAYZEq=cFyDNBkgzUbJ_VPJB540ZxgaRqpciujCYOjsA@mail.gmail.com>
-	 <CAJO99Tm+ex7aELCrNnubWz1hGjELMp0LCMKSqtyr+Vci1hrmuw@mail.gmail.com>
-	 <20150326154336.GA2528@tuxdriver.com> <20150326162756.GC1051@gospo>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] tcp: fix ipv4 mapped request socks
+Date: Thu, 26 Mar 2015 17:37:55 +0100
+Message-ID: <551435E3.5060101@6wind.com>
+References: <1427258756.25985.104.camel@edumazet-glaptop2.roam.corp.google.com>	 <20150325.005738.199321600853824869.davem@davemloft.net>	 <1427260862.25985.105.camel@edumazet-glaptop2.roam.corp.google.com>	 <20150325054837.GA790@localhost.westell.com> <1427302121.25985.117.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	=?ISO-8859-1?Q?Bj=F8rnar?= Ness <bjornar.ness@gmail.com>,
-	Sowmini Varadhan <sowmini05@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:37694 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546AbbCZQhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:37:54 -0400
-Received: by igcxg11 with SMTP id xg11so58971518igc.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:37:53 -0700 (PDT)
-In-Reply-To: <20150326162756.GC1051@gospo>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:35489 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752546AbbCZQh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:37:58 -0400
+Received: by wgdm6 with SMTP id m6so70837365wgd.2
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:37:57 -0700 (PDT)
+In-Reply-To: <1427302121.25985.117.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-03-26 at 12:27 -0400, Andy Gospodarek wrote:
-
-> Yes, I do have one!  I was working on some other issues and need to
-> rebase it based on Eric's recent work.  It was fairly simple and the
-> netlink changes are also not too difficult so the patch to iproute2 was
-> small.
-> 
-> I have an older patch you can see here:
-> 
-> https://github.com/gospo/net-next/commit/7f602a54424f453872b6a45ae5ed4d3a601db91d
-> 
-> Shall I rebase and post to the list for all to see?
-
-Absolutely !
+Le 25/03/2015 17:48, Eric Dumazet a =C3=A9crit :
+> On Tue, 2015-03-24 at 22:48 -0700, Alexei Starovoitov wrote:
+>
+>> btw, the following time saving steps were useful to me:
+>>
+>> 1. add to your ~/.gitconfig
+>> [core]
+>>          abbrev =3D 12
+>> [pretty]
+>>          fixes =3D Fixes: %h (\"%s\")
+>>
+>> 2. when bad commit is found do:
+>> $ git log -1 --pretty=3Dfixes 3f66b083a5b7f1a63540c24df3679c24f
+>>
+>> which will print:
+>>
+>> Fixes: 3f66b083a5b7 ("inet: introduce ireq_family")
+>>
+>> 3. copy-paste that line into your patch
+>
+> Nice trick ! You should capture it somehow in Documentation/... !
+It's already done here ;-)
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Doc=
+umentation/SubmittingPatches#n193
