@@ -1,87 +1,60 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Thu, 26 Mar 2015 07:28:28 -0700
-Message-ID: <CAE4R7bCYe1c2dT0V3tDjUvVuzB28WabAjbt=sQreK=3WM+60Nw@mail.gmail.com>
-References: <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com>
-	<20150324142921.GA2026@nanopsycho.orion>
-	<20150324160126.GA17104@roeck-us.net>
-	<5511A29F.5010006@cumulusnetworks.com>
-	<20150324175825.GA1465@roeck-us.net>
-	<CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
-	<CAGVrzcZ+QywZxe4P2bcnBLG9mXUDARNzNyXF1yTOV9tnAcx=PQ@mail.gmail.com>
-	<CAE4R7bBeFg9v-CnUJU-0pe8ZS4AYXQNAGNTcvCrHdZ1ggYmOPA@mail.gmail.com>
-	<5512E9EC.5020504@cumulusnetworks.com>
-	<CAE4R7bCtpaonLeRiX9s3yFisONDQUv9z_EOBcGTdgTGLEjC7vA@mail.gmail.com>
-	<20150326082011.GA2010@nanopsycho.orion>
+From: Sowmini Varadhan <sowmini05@gmail.com>
+Subject: Re: IPv6 nexthop for IPv4
+Date: Thu, 26 Mar 2015 10:29:14 -0400
+Message-ID: <CACP96tQnQ5d2qrPbs+S640S=r07vnbt-RmL_O2zT7Wcvg99dug@mail.gmail.com>
+References: <CAJO99T=uXuaYP5QCRYbU7iRhK7S8UqW9GfmL1J2yBh1N2TDjYg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: roopa <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Bj=C3=B8rnar_Ness?= <bjornar.ness@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f52.google.com ([209.85.192.52]:34364 "EHLO
-	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382AbbCZO23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 10:28:29 -0400
-Received: by qgep97 with SMTP id p97so98275543qge.1
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 07:28:28 -0700 (PDT)
-In-Reply-To: <20150326082011.GA2010@nanopsycho.orion>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:34091 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbbCZO3P convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 10:29:15 -0400
+Received: by wgs2 with SMTP id 2so66487914wgs.1
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 07:29:14 -0700 (PDT)
+In-Reply-To: <CAJO99T=uXuaYP5QCRYbU7iRhK7S8UqW9GfmL1J2yBh1N2TDjYg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 1:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Mar 26, 2015 at 08:44:27AM CET, sfeldma@gmail.com wrote:
->>On Wed, Mar 25, 2015 at 10:01 AM, roopa <roopa@cumulusnetworks.com> wrote:
->>
->>[cut]
->>
->>So just to keep the discussion alive (because we really need to solve
->>this problem), my current thinking is back to Roopa's RFC patch to
->>mark the skb to avoid fwding in bridge driver.  One idea (sorry if
->>this was already suggested, thread is long) is to use
->>swdev_parent_id_get op in the following way:
->>
->>1) when port interface is added to bridge, bridge calls
->>swdev_parent_id_get() on port to get switch id.
->>swdev_parent_id_get() needs to be modified to work on stacked drivers.
->>For example, if a bond is the new bridge port, swdev_parent_id_get()
->>on the bond interface should get switch_id for bond member.  We stash
->>the switch_id in the bridge port private structure for later
->>comparison.
+On Thu, Mar 26, 2015 at 9:16 AM, Bj=C3=B8rnar Ness <bjornar.ness@gmail.=
+com> wrote:
+> Hello, hope this is the right place to ask.
 >
-> Nope, that cannot work. You can bond 2 ports each belonging to a
-> different switch.
+> Does anyone know if there is work beeing done in natively supporting
+> IPv6 nexthops for IPv4?
 
-Are you thinking about two switch ASICs in the same box, and bonding
-ports from each?  Or are you thinking about bonding ports from
-different boxes, ala MLAG?
+What problem are you trying to solve? Do you want to tunnel your
+ipv4 packet through IPv6? there are a number of tunneling mechanisms
+in linux for this.
 
-In the first case the bond would report NULL switch_id if the member
-ports don't all have the same switch_id.  If bond switch_id is NULL,
-the bridge driver would fwd pkts to bond and now bond would make same
-check as bridge: if dst port switch_id is same as skb switch_id, then
-drop pkt.  In bridge, if bond switch_id is non-NULL and matches skb
-switch_id, then drop pkt.  So it works as desired for this case.  It
-requires the bonding/teaming driver to modify the default behavior for
-swdev_parent_id_get() to only return switch_id if all ports agree on
-switch_id.
 
-For second case using MLAG, I suspect bond member port switch_ids
-would likely be different, and so with same logic in bonding/bridge
-drivers as above in first case, the pkt would be fwded down.
+>
+> I know that "some" Linux switch software company is working on this, =
+but
+> I am afraid the functionality will be more of a "hack".
+>
+> The benefit of this is stateless configuration (rfc5549), using IPv6 =
+link-local
+> neighbor address as IPv4 nexthop, beeing able to do for example:
+>
+> ip route add 10.0.0.0/16 via fe80::225:90ff:fed3:bfb4/64 dev sfp0
 
-Is there another case to consider?  I think converting
-swdev_parent_id_get() to use same algo we have for stp, allowing for
-any layer to override like in my bonding example, will have benefits
-down the road.
+Trying to understand what the desired behavior is, for the route
+above: if I send a packet from 10.0.0.1 to 10.0.0.2, you want the dst-m=
+ac
+to be the mac address of e80::225:90ff:fed3:bfb4???
+how do you know that fe80::225:90ff:fed3:bfb4 supports ipv4
+forwarding on the receiving interface (and if it does, why didn't it
+advertise itself as an IPv4 router on that interface)?
 
-What is the argument for not allowing stacked version of swdev_parent_id_get()?
-
--scott
+>
+> This is somehow possible now by exploiting static arp entries and
+> "unused" IPv4 addresses for nexthop, but is far from ideal.
+>
+> Hope someone will be able to provide some insight on what is planned
+> in this area, and weather this direct functionality will ever make it
+> into the kernel.
+>
