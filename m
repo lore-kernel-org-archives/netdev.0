@@ -1,82 +1,89 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH v2] net: tcp6: fix double call of tcp_v6_fill_cb()
-Date: Thu, 26 Mar 2015 11:28:04 +0300
-Message-ID: <1427358484-16402-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: vasily.isaenko@oracle.com,
-	Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Thu, 26 Mar 2015 09:45:54 +0100
+Message-ID: <20150326094554.292d3699@griffin>
+References: <20150324180628.278017fb@griffin>
+	<CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
+	<20150325095851.1d8d1622@griffin>
+	<20150325.114622.1915164845375005128.davem@davemloft.net>
+	<CAF2d9jh5WaNYsMxp29GY3LqM08jjVPwLd1BQ1HLFKMsKFda6zQ@mail.gmail.com>
+	<20150326002154.3e179fec@griffin>
+	<CAF2d9jj2cbDKXPnFUyVOJUVzrvb4CbK5ktbeW32N31xG0Hz63g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>, dcbw@redhat.com
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24299 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbbCZI0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 04:26:00 -0400
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t2Q8Px63004189
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 08:25:59 GMT
-Received: from userv0121.oracle.com (userv0121.oracle.com [156.151.31.72])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id t2Q8PxkK022656
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 08:25:59 GMT
-Received: from abhmp0009.oracle.com (abhmp0009.oracle.com [141.146.116.15])
-	by userv0121.oracle.com (8.13.8/8.13.8) with ESMTP id t2Q8Pwhr007994
-	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 08:25:58 GMT
+Received: from mx1.redhat.com ([209.132.183.28]:37687 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751133AbbCZIqB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Mar 2015 04:46:01 -0400
+In-Reply-To: <CAF2d9jj2cbDKXPnFUyVOJUVzrvb4CbK5ktbeW32N31xG0Hz63g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Regression from the following commit: 2dc49d1680.
+On Wed, 25 Mar 2015 19:15:55 -0700, Mahesh Bandewar wrote:
+> I think you missed the point. Addition / deletion of addresses into
+> the hash-table (always) happens in the control path while the cost of
+> those decisions will be paid per packet in data-path; was the point I
+> was trying to make.
 
-tcp_v6_fill_cb() will be called twice if socket's state changes from
-TCP_TIME_WAIT to TCP_LISTEN. That can result in control buffer data
-corruption because in the second tcp_v6_fill_cb() call it's not copying
-IP6CB(skb) anymore, but 'seq', 'end_seq', etc., so we can get weird and
-unpredictable results. Performance loss of up to 1200% has been observed
-in LTP/vxlan03 test.
+I think you're trying to say "don't add addresses to the hash table
+unless necessary". If so, we're not in argument here.
 
-This can be fixed by copying inet6_skb_parm to the beginning of 'cb'
-only if xfrm6_policy_check() and tcp_v6_fill_cb() are going to be
-called again.
+> > Basically, there are two (and only two) possible cases: 1. the
+> > addresses should not be on the hash list when the interface is down,
+> > and 2. there's no problem with the addresses being on the hash list
+> > when the interface is down.
+> >
+> As I mentioned earlier in my previous reply; it does work and
+> functionally same. However the decision to drop the packet will happen
+> later in RX path when the interface is down.
 
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- net/ipv6/tcp_ipv6.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+Yes.
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5d46832..7d21a78 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1411,6 +1411,15 @@ static void tcp_v6_fill_cb(struct sk_buff *skb, const struct ipv6hdr *hdr,
- 	TCP_SKB_CB(skb)->sacked = 0;
- }
- 
-+static void tcp_v6_restore_cb(struct sk_buff *skb)
-+{
-+	/* We need to move header back to the beginning if xfrm6_policy_check()
-+	 * and tcp_v6_fill_cb() are going to be called again.
-+	 */
-+	memmove(IP6CB(skb), &TCP_SKB_CB(skb)->header.h6,
-+		sizeof(struct inet6_skb_parm));
-+}
-+
- static int tcp_v6_rcv(struct sk_buff *skb)
- {
- 	const struct tcphdr *th;
-@@ -1543,6 +1552,7 @@ do_time_wait:
- 			inet_twsk_deschedule(tw, &tcp_death_row);
- 			inet_twsk_put(tw);
- 			sk = sk2;
-+			tcp_v6_restore_cb(skb);
- 			goto process;
- 		}
- 		/* Fall through to ACK */
-@@ -1551,6 +1561,7 @@ do_time_wait:
- 		tcp_v6_timewait_ack(sk, skb);
- 		break;
- 	case TCP_TW_RST:
-+		tcp_v6_restore_cb(skb);
- 		goto no_tcp_socket;
- 	case TCP_TW_SUCCESS:
- 		;
+> The root cause of the issue is addition / deletion of duplicate
+> entries into the hash-table and I think fixing it is better thing
+> which is exactly what the fix I proposed do.
+
+Except that it fixes only part of the bug, see below.
+
+> Your first patch though
+> fixes the symptoms, I believe it's not the correct fix
+
+Could you please elaborate why it's not the correct fix? It ensures
+that the addresses are on the hash list *iff* the interface is up. When
+the interface is down, the addresses are not there. If it is up, they
+are. My impression so far is this is exactly what you want. I don't see
+why the patch is not correct.
+
+> while your
+> second patch does fix it but eliminates this optimization that is in
+> place.
+
+Agreed.
+
+> Hence I suggested that  "though correct, I would not *prefer*
+> it" for the said reasons. If the order in which user pushes config
+> alters the hash-table entries, then that's unintended and need to be
+> fixed.
+
+Agreed.
+
+> > ip l s ipvlan0 down
+> > ip a a 1.2.3.4/24 dev ipvlan0
+> > -> at this point, 1.2.3.4 is on the hash list
+> >
+> unintended behavior and need to be fixed.
+
+Which is exactly what my first patch does. Could you please look at it
+again, keeping also this scenario in mind?
+
+Thanks,
+
+ Jiri
+
 -- 
-1.7.1
+Jiri Benc
