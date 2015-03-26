@@ -1,173 +1,165 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next 3/7] net: Move check for multiple
-	vlans to drivers
-Date: Thu, 26 Mar 2015 14:01:16 +0900
-Message-ID: <1427346080-12086-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Fw: [Bug 95171] New: "hw csum failure" message flood for ppp
+ tunnel since upgrade to 3.16
+Date: Wed, 25 Mar 2015 22:41:13 -0700
+Message-ID: <CALx6S35xtCMt5DGF6V+=un6LX20SBZdqjU6Zm0JNmrm03-g2LA@mail.gmail.com>
+References: <20150325173826.0a31f8d3@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: "David S . Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Ariel Elior <ariel.elior@qlogic.com>, Amir Vadai <amirv@mellanox.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>, Linux NICS <linux.nics@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:36658 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751402AbbCZFlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 01:41:14 -0400
+Received: by igbud6 with SMTP id ud6so121266534igb.1
+        for <netdev@vger.kernel.org>; Wed, 25 Mar 2015 22:41:13 -0700 (PDT)
+In-Reply-To: <20150325173826.0a31f8d3@uryu.home.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To allow drivers to handle the features check for multiple tags,
-move the check to ndo_features_check().
-As no drivers currently handle multiple tagged TSO, introduce
-dflt_features_check() and call it if the driver does not have
-ndo_features_check().
+On Wed, Mar 25, 2015 at 5:38 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+>
+> Begin forwarded message:
+>
+> Date: Fri, 20 Mar 2015 22:30:53 +0000
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+> Subject: [Bug 95171] New: "hw csum failure" message flood for ppp tunnel since upgrade to 3.16
+>
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  1 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  1 +
- include/linux/if_vlan.h                          | 22 ++++++++++++++++++++++
- net/core/dev.c                                   | 21 +++++++++------------
- 5 files changed, 34 insertions(+), 12 deletions(-)
+Looks like we need some skb_postpull_rcsum in ppp_generic.c. Should be
+pretty straightforward, but I probably won't be able to get to it till
+next week...
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 9677431..039b0c1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12557,6 +12557,7 @@ static netdev_features_t bnx2x_features_check(struct sk_buff *skb,
- 					      struct net_device *dev,
- 					      netdev_features_t features)
- {
-+	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index a8339e9..ebc93a1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2373,6 +2373,7 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
- 						struct net_device *dev,
- 						netdev_features_t features)
- {
-+	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
- }
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index a430a34a..367f397 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -507,6 +507,7 @@ static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
- 					       struct net_device *dev,
- 					       netdev_features_t features)
- {
-+	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
- }
- #endif
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index bc649dd..5ceb38f 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -606,4 +606,26 @@ static inline bool skb_vlan_tagged_multi(struct sk_buff *skb)
- 	return true;
- }
- 
-+/**
-+ * vlan_features_check - drop unsafe features for skb with multiple tags.
-+ * @skb: skbuff to query
-+ * @features: features to be checked
-+ *
-+ * Returns features without unsafe ones if the skb has multiple tags.
-+ */
-+static inline netdev_features_t vlan_features_check(struct sk_buff *skb,
-+						    netdev_features_t features)
-+{
-+	if (skb_vlan_tagged_multi(skb))
-+		features = netdev_intersect_features(features,
-+						     NETIF_F_SG |
-+						     NETIF_F_HIGHDMA |
-+						     NETIF_F_FRAGLIST |
-+						     NETIF_F_GEN_CSUM |
-+						     NETIF_F_HW_VLAN_CTAG_TX |
-+						     NETIF_F_HW_VLAN_STAG_TX);
-+
-+	return features;
-+}
-+
- #endif /* !(_LINUX_IF_VLAN_H_) */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 04bffcd..41d0db55 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2562,6 +2562,13 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
- 	return features;
- }
- 
-+static netdev_features_t dflt_features_check(struct sk_buff *skb,
-+					     struct net_device *dev,
-+					     netdev_features_t features)
-+{
-+	return vlan_features_check(skb, features);
-+}
-+
- netdev_features_t netif_skb_features(struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
-@@ -2583,22 +2590,12 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 						     dev->vlan_features |
- 						     NETIF_F_HW_VLAN_CTAG_TX |
- 						     NETIF_F_HW_VLAN_STAG_TX);
--	else
--		goto finalize;
- 
--	if (skb_vlan_tagged_multi(skb))
--		features = netdev_intersect_features(features,
--						     NETIF_F_SG |
--						     NETIF_F_HIGHDMA |
--						     NETIF_F_FRAGLIST |
--						     NETIF_F_GEN_CSUM |
--						     NETIF_F_HW_VLAN_CTAG_TX |
--						     NETIF_F_HW_VLAN_STAG_TX);
--
--finalize:
- 	if (dev->netdev_ops->ndo_features_check)
- 		features &= dev->netdev_ops->ndo_features_check(skb, dev,
- 								features);
-+	else
-+		features &= dflt_features_check(skb, dev, features);
- 
- 	return harmonize_features(skb, features);
- }
--- 
-1.8.1.2
+Tom
 
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=95171
+>
+>             Bug ID: 95171
+>            Summary: "hw csum failure" message flood for ppp tunnel since
+>                     upgrade to 3.16
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.16
+>           Hardware: x86-64
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: dkocher@gmail.com
+>         Regression: Yes
+>
+> Since upgrade from 3.15 to 3.16 the following error is flooding my message
+> file:
+>
+> Oct  1 10:49:23 afftar kernel: [    9.558032] ppp0: hw csum failure
+> Oct  1 10:49:23 afftar kernel: [    9.558041] CPU: 1 PID: 1000 Comm: java Not
+> tainted 3.16.3-200.fc20.x86_64 #1
+> Oct  1 10:49:23 afftar kernel: [    9.558044] Hardware name: System
+> manufacturer System Product Name/M3N-H/HDMI, BIOS ASUS M3N-H/HDMI ACPI BIOS
+> Revision 2701 09/27/2010
+> Oct  1 10:49:23 afftar kernel: [    9.558046]  0000000000000000
+> 000000007cd0c47e ffff880127c43b60 ffffffff81707091
+> Oct  1 10:49:23 afftar kernel: [    9.558050]  ffff8800bb1a2000
+> ffff880127c43b78 ffffffff815f54ea ffff8800cafdbb00
+> Oct  1 10:49:23 afftar kernel: [    9.558053]  ffff880127c43ba8
+> ffffffff815ecd2a 1763efe1cafdbb00 ffff8800cafdbb00
+> Oct  1 10:49:23 afftar kernel: [    9.558056] Call Trace:
+> Oct  1 10:49:23 afftar kernel: [    9.558058]  <IRQ>  [<ffffffff81707091>]
+> dump_stack+0x45/0x56
+> Oct  1 10:49:23 afftar kernel: [    9.558070]  [<ffffffff815f54ea>]
+> netdev_rx_csum_fault+0x3a/0x40
+> Oct  1 10:49:23 afftar kernel: [    9.558075]  [<ffffffff815ecd2a>]
+> __skb_checksum_complete+0xaa/0xb0
+> Oct  1 10:49:23 afftar kernel: [    9.558079]  [<ffffffff816874fc>]
+> nf_ip_checksum+0xcc/0x100
+> Oct  1 10:49:23 afftar kernel: [    9.558095]  [<ffffffffa03fb573>]
+> udp_error+0x103/0x200 [nf_conntrack]
+> Oct  1 10:49:23 afftar kernel: [    9.558100]  [<ffffffffa0507e30>] ?
+> pppol2tp_seq_show+0x2d0/0x2d0 [l2tp_ppp]
+> Oct  1 10:49:23 afftar kernel: [    9.558106]  [<ffffffffa03f4873>]
+> nf_conntrack_in+0xf3/0xab0 [nf_conntrack]
+> Oct  1 10:49:23 afftar kernel: [    9.558111]  [<ffffffff816357b0>] ?
+> ip_rcv_finish+0x350/0x350
+> Oct  1 10:49:23 afftar kernel: [    9.558114]  [<ffffffff81635460>] ?
+> inet_del_offload+0x40/0x40
+> Oct  1 10:49:23 afftar kernel: [    9.558119]  [<ffffffffa04312f2>]
+> ipv4_conntrack_in+0x22/0x30 [nf_conntrack_ipv4]
+> Oct  1 10:49:23 afftar kernel: [    9.558122]  [<ffffffff8162c45a>]
+> nf_iterate+0xaa/0xc0
+> Oct  1 10:49:23 afftar kernel: [    9.558125]  [<ffffffff81635460>] ?
+> inet_del_offload+0x40/0x40
+> Oct  1 10:49:23 afftar kernel: [    9.558127]  [<ffffffff8162c4f4>]
+> nf_hook_slow+0x84/0x140
+> Oct  1 10:49:23 afftar kernel: [    9.558130]  [<ffffffff81635460>] ?
+> inet_del_offload+0x40/0x40
+> Oct  1 10:49:23 afftar kernel: [    9.558133]  [<ffffffff81635e88>]
+> ip_rcv+0x2f8/0x3d0
+> Oct  1 10:49:23 afftar kernel: [    9.558136]  [<ffffffff815f82a2>]
+> __netif_receive_skb_core+0x562/0x790
+> Oct  1 10:49:23 afftar kernel: [    9.558139]  [<ffffffff815f84e8>]
+> __netif_receive_skb+0x18/0x60
+> Oct  1 10:49:23 afftar kernel: [    9.558142]  [<ffffffff815f91ce>]
+> process_backlog+0x9e/0x150
+> Oct  1 10:49:23 afftar kernel: [    9.558145]  [<ffffffff815f8989>]
+> net_rx_action+0x149/0x240
+> Oct  1 10:49:23 afftar kernel: [    9.558149]  [<ffffffff810924d5>]
+> __do_softirq+0xf5/0x2a0
+> Oct  1 10:49:23 afftar kernel: [    9.558152]  [<ffffffff810928ed>]
+> irq_exit+0xbd/0xd0
+> Oct  1 10:49:23 afftar kernel: [    9.558156]  [<ffffffff81711408>]
+> do_IRQ+0x58/0xf0
+> Oct  1 10:49:23 afftar kernel: [    9.558159]  [<ffffffff8170f1ed>]
+> common_interrupt+0x6d/0x6d
+>
+> It did not happen with 3.15.10, and started to happen with 3.16 and all never
+> versions (last one checked - 3.18.9).
+>
+> I was able to determine the commit which introduced it for me:
+>
+> =====
+> commit    5d0c2b95bc57cf8fdc0e7b3e9d7e751eb65ad052
+>
+> net: Preserve CHECKSUM_COMPLETE at validation
+>
+> Currently when the first checksum in a packet is validated using
+> CHECKSUM_COMPLETE, ip_summed is overwritten to be CHECKSUM_UNNECESSARY so that
+> any subsequent checksums in the packet are not correctly validated.
+>
+> This patch adds csum_valid flag in sk_buff and uses that to indicate validated
+> checksum instead of setting CHECKSUM_UNNECESSARY. The bit is set accordingly in
+> the skb_checksum_validate_* functions. The flag is checked in
+> skb_checksum_complete, so that validation is communicated between checksum_init
+> and checksum_complete sequence in TCP and UDP.
+>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> =====
+>
+> Later there were more fixes related to checksum computation, but neither of
+> those fixes mine (related to ppp/l2tp tunnel). All work seems to had been done
+> by Tom Herbert so please assign this report to him as possible.
+>
+> There are several reports for this issue, it's not only me:
+>
+> https://bugzilla.redhat.com/show_bug.cgi?id=1148612
+> https://bugzilla.redhat.com/show_bug.cgi?id=1200635
+> https://lkml.org/lkml/2015/2/16/472
+>
+> It is easily reproducible here, feel free to contact me for more information.
+>
+> --
+> You are receiving this mail because:
+> You are the assignee for the bug.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
