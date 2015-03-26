@@ -1,239 +1,53 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: [PATCH 5/6] mvneta: implement SGMII-based in-band link status signaling
-Date: Thu, 26 Mar 2015 19:03:32 +0300
-Message-ID: <55142DD4.9060004@list.ru>
-References: <55142C31.5050504@list.ru> <55142CB1.1080107@list.ru> <55142D01.3090601@list.ru> <55142D3C.4040902@list.ru> <55142D91.6010006@list.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2] lib utils: fix family during af_bit_len
+ calculation
+Date: Thu, 26 Mar 2015 09:34:05 -0700
+Message-ID: <1427387645.25985.138.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1426645109-3411-1-git-send-email-roopa@cumulusnetworks.com>
+	 <20150324150500.6159e407@urahara>
+	 <1427290352.25985.111.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150325161349.GA21340@angus-think.wlc.globallogic.com>
+	 <1427303247.25985.119.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150326140418.GA12220@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rami Rosen <rosenr@marvell.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	roopa@cumulusnetworks.com, netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback1.mail.ru ([94.100.181.184]:39927 "EHLO
-	fallback1.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850AbbCZQcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:32:54 -0400
-Received: from smtp49.i.mail.ru (smtp49.i.mail.ru [94.100.177.109])
-	by fallback1.mail.ru (mPOP.Fallback_MX) with ESMTP id 023BA5402A0C
-	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 19:03:48 +0300 (MSK)
-In-Reply-To: <55142D91.6010006@list.ru>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:33871 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751888AbbCZQeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:34:07 -0400
+Received: by iedfl3 with SMTP id fl3so57024512ied.1
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:34:07 -0700 (PDT)
+In-Reply-To: <20150326140418.GA12220@angus-think.wlc.globallogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--=-=-=-=-=-=-=-=-=# Don't remove this line #=-=-=-=-=-=-=-=-=-
-When MDIO bus is unavailable (common setup for SGMII), the in-band
-signalling must be used to correctly track link status.
+On Thu, 2015-03-26 at 16:04 +0200, Vadim Kochan wrote:
+> On Wed, Mar 25, 2015 at 10:07:27AM -0700, Eric Dumazet wrote:
+> > On Wed, 2015-03-25 at 18:13 +0200, Vadim Kochan wrote:
+> > 
+> > > I reproduced this once, but after not any more, I even tried to setup
+> > > tcp servers with same address but with no luck, would you please dump
+> > > stats into file by -D option and send it, in case if you will catch the
+> > > issue ?
+> > 
+> > Yeah, this is strange, because after a small change, and a revert, I
+> > could not reproduce it anymore.
+> > 
+> > Something fishy... maybe a Makefile bug ....
+> > 
+> > 
+> 
+> Seems this issue is already fixed by this patch from Roopa, because when I
+> switched to the commit before the fix then I reproduced the issue. I
+> meant the issue related to :
+> 
+>     ss -t dst 1.2.3.4
 
-Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
----
- drivers/net/ethernet/marvell/mvneta.c |   94
-+++++++++++++++++++++++++++++----
- 1 file changed, 83 insertions(+), 11 deletions(-)
+Yes, but I had my git tree up to date, and misc/ss rebuilt.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c
-b/drivers/net/ethernet/marvell/mvneta.c
-index 96208f1..44d2655 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -122,6 +122,7 @@
- #define      MVNETA_TX_INTR_MASK_ALL             (0xff << 0)
- #define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1)
-<< 8)
- #define      MVNETA_RX_INTR_MASK_ALL             (0xff << 8)
-+#define      MVNETA_MISCINTR_INTR_MASK           BIT(31)
- 
- #define MVNETA_INTR_OLD_CAUSE                    0x25a8
- #define MVNETA_INTR_OLD_MASK                     0x25ac
-@@ -180,9 +181,11 @@
- #define MVNETA_GMAC_AUTONEG_CONFIG               0x2c0c
- #define      MVNETA_GMAC_FORCE_LINK_DOWN         BIT(0)
- #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
-+#define      MVNETA_GMAC_INBAND_AN_ENABLE        BIT(2)
- #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
- #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
- #define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
-+#define      MVNETA_GMAC_AN_FLOW_CTRL_EN         BIT(11)
- #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
- #define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
- #define MVNETA_MIB_COUNTERS_BASE                 0x3080
-@@ -304,6 +307,7 @@ struct mvneta_port {
-     unsigned int link;
-     unsigned int duplex;
-     unsigned int speed;
-+    int inband_status;
- };
- 
- /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
-@@ -994,6 +998,17 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
-     val &= ~MVNETA_PHY_POLLING_ENABLE;
-     mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
- 
-+    if (pp->inband_status) {
-+        val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-+        val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
-+             MVNETA_GMAC_FORCE_LINK_DOWN);
-+        val |= MVNETA_GMAC_INBAND_AN_ENABLE |
-+               MVNETA_GMAC_AN_SPEED_EN |
-+               MVNETA_GMAC_AN_FLOW_CTRL_EN |
-+               MVNETA_GMAC_AN_DUPLEX_EN;
-+        mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+    }
-+
-     mvneta_set_ucast_table(pp, -1);
-     mvneta_set_special_mcast_table(pp, -1);
-     mvneta_set_other_mcast_table(pp, -1);
-@@ -2043,6 +2058,21 @@ static irqreturn_t mvneta_isr(int irq, void *dev_id)
-     return IRQ_HANDLED;
- }
- 
-+static void mvneta_get_phy_status(struct mvneta_port *pp,
-+                  struct fixed_phy_status *r_stat)
-+{
-+    u32 gmac_stat = mvreg_read(pp, MVNETA_GMAC_STATUS);
-+
-+    r_stat->link = !!(gmac_stat & MVNETA_GMAC_LINK_UP);
-+    if (gmac_stat & MVNETA_GMAC_SPEED_1000)
-+        r_stat->speed = SPEED_1000;
-+    else if (gmac_stat & MVNETA_GMAC_SPEED_100)
-+        r_stat->speed = SPEED_100;
-+    else
-+        r_stat->speed = SPEED_10;
-+    r_stat->duplex = !!(gmac_stat & MVNETA_GMAC_FULL_DUPLEX);
-+}
-+
- /* NAPI handler
-  * Bits 0 - 7 of the causeRxTx register indicate that are transmitted
-  * packets on the corresponding TXQ (Bit 0 is for TX queue 1).
-@@ -2063,8 +2093,29 @@ static int mvneta_poll(struct napi_struct *napi,
-int budget)
-     }
- 
-     /* Read cause register */
--    cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE) &
--        (MVNETA_RX_INTR_MASK(rxq_number) |
-MVNETA_TX_INTR_MASK(txq_number));
-+    cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE);
-+    if (cause_rx_tx & MVNETA_MISCINTR_INTR_MASK) {
-+        u32 cause_misc = mvreg_read(pp, MVNETA_INTR_MISC_CAUSE);
-+
-+        mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
-+        if (pp->inband_status && (cause_misc &
-+                 (MVNETA_CAUSE_PHY_STATUS_CHANGE |
-+                  MVNETA_CAUSE_LINK_CHANGE |
-+                  MVNETA_CAUSE_PSC_SYNC_CHANGE))) {
-+            struct fixed_phy_status phy_stat;
-+
-+            mvneta_get_phy_status(pp, &phy_stat);
-+            if (pp->link != phy_stat.link)
-+                of_phy_fixed_link_set_link(pp->phy_dev,
-+                               phy_stat.link);
-+            if (pp->speed != phy_stat.speed)
-+                of_phy_fixed_link_set_speed(pp->phy_dev,
-+                                phy_stat.speed);
-+            if (pp->duplex != phy_stat.duplex)
-+                of_phy_fixed_link_set_duplex(pp->phy_dev,
-+                                 phy_stat.duplex);
-+        }
-+    }
- 
-     /* Release Tx descriptors */
-     if (cause_rx_tx & MVNETA_TX_INTR_MASK_ALL) {
-@@ -2109,7 +2160,9 @@ static int mvneta_poll(struct napi_struct *napi,
-int budget)
-         napi_complete(napi);
-         local_irq_save(flags);
-         mvreg_write(pp, MVNETA_INTR_NEW_MASK,
--                MVNETA_RX_INTR_MASK(rxq_number) |
-MVNETA_TX_INTR_MASK(txq_number));
-+                MVNETA_RX_INTR_MASK(rxq_number) |
-+                MVNETA_TX_INTR_MASK(txq_number) |
-+                MVNETA_MISCINTR_INTR_MASK);
-         local_irq_restore(flags);
-     }
- 
-@@ -2373,7 +2426,13 @@ static void mvneta_start_dev(struct mvneta_port *pp)
- 
-     /* Unmask interrupts */
-     mvreg_write(pp, MVNETA_INTR_NEW_MASK,
--            MVNETA_RX_INTR_MASK(rxq_number) |
-MVNETA_TX_INTR_MASK(txq_number));
-+            MVNETA_RX_INTR_MASK(rxq_number) |
-+            MVNETA_TX_INTR_MASK(txq_number) |
-+            MVNETA_MISCINTR_INTR_MASK);
-+    mvreg_write(pp, MVNETA_INTR_MISC_MASK,
-+            MVNETA_CAUSE_PHY_STATUS_CHANGE |
-+            MVNETA_CAUSE_LINK_CHANGE |
-+            MVNETA_CAUSE_PSC_SYNC_CHANGE);
- 
-     phy_start(pp->phy_dev);
-     netif_tx_start_all_queues(pp->dev);
-@@ -2523,9 +2582,7 @@ static void mvneta_adjust_link(struct net_device
-*ndev)
-             val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
-             val &= ~(MVNETA_GMAC_CONFIG_MII_SPEED |
-                  MVNETA_GMAC_CONFIG_GMII_SPEED |
--                 MVNETA_GMAC_CONFIG_FULL_DUPLEX |
--                 MVNETA_GMAC_AN_SPEED_EN |
--                 MVNETA_GMAC_AN_DUPLEX_EN);
-+                 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
- 
-             if (phydev->duplex)
-                 val |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
-@@ -2554,12 +2611,24 @@ static void mvneta_adjust_link(struct net_device
-*ndev)
- 
-     if (status_change) {
-         if (phydev->link) {
--            u32 val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
--            val |= (MVNETA_GMAC_FORCE_LINK_PASS |
--                MVNETA_GMAC_FORCE_LINK_DOWN);
--            mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
-+            if (!pp->inband_status) {
-+                u32 val = mvreg_read(pp,
-+                          MVNETA_GMAC_AUTONEG_CONFIG);
-+                val &= ~MVNETA_GMAC_FORCE_LINK_DOWN;
-+                val |= MVNETA_GMAC_FORCE_LINK_PASS;
-+                mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
-+                        val);
-+            }
-             mvneta_port_up(pp);
-         } else {
-+            if (!pp->inband_status) {
-+                u32 val = mvreg_read(pp,
-+                          MVNETA_GMAC_AUTONEG_CONFIG);
-+                val &= ~MVNETA_GMAC_FORCE_LINK_PASS;
-+                val |= MVNETA_GMAC_FORCE_LINK_DOWN;
-+                mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
-+                        val);
-+            }
-             mvneta_port_down(pp);
-         }
-         phy_print_status(phydev);
-@@ -2934,6 +3003,7 @@ static int mvneta_probe(struct platform_device *pdev)
-     char hw_mac_addr[ETH_ALEN];
-     const char *mac_from;
-     int phy_mode;
-+    int fixed_phy = 0;
-     int err;
- 
-     /* Our multiqueue support is not complete, so for now, only
-@@ -2967,6 +3037,7 @@ static int mvneta_probe(struct platform_device *pdev)
-             dev_err(&pdev->dev, "cannot register fixed PHY\n");
-             goto err_free_irq;
-         }
-+        fixed_phy = 1;
- 
-         /* In the case of a fixed PHY, the DT node associated
-          * to the PHY is the Ethernet MAC DT node.
-@@ -2990,6 +3061,7 @@ static int mvneta_probe(struct platform_device *pdev)
-     pp = netdev_priv(dev);
-     pp->phy_node = phy_node;
-     pp->phy_interface = phy_mode;
-+    pp->inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
-fixed_phy;
- 
-     pp->clk = devm_clk_get(&pdev->dev, NULL);
-     if (IS_ERR(pp->clk)) {
--- 
-1.7.9.5
+Let's say it was some kind of user error.
