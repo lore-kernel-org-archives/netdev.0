@@ -1,186 +1,239 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query code
-Date: Thu, 26 Mar 2015 18:29:49 +0200
-Message-ID: <551433FD.904@cloudius-systems.com>
-References: <1427050887-19412-1-git-send-email-vladz@cloudius-systems.com> <1427050887-19412-5-git-send-email-vladz@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274730@FMSMSX105.amr.corp.intel.com> <55113B9B.3090308@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274C7F@FMSMSX105.amr.corp.intel.com> <5511B5AE.1090905@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250274DD2@FMSMSX105.amr.corp.intel.com> <55127F8D.3070309@cloudius-systems.com> <87618083B2453E4A8714035B62D6799250275B81@FMSMSX105.amr.corp.intel.com> <551317DE.90500@cloudius-systems.com> <551322F2.5020101@redhat.com> <5513D2C9.7010907@cloudius-systems.com> <55141A4B.1040903@redhat.com> <55142177.9080705@cloudius-systems.com> <55142CC7.70302@redhat.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH 5/6] mvneta: implement SGMII-based in-band link status signaling
+Date: Thu, 26 Mar 2015 19:03:32 +0300
+Message-ID: <55142DD4.9060004@list.ru>
+References: <55142C31.5050504@list.ru> <55142CB1.1080107@list.ru> <55142D01.3090601@list.ru> <55142D3C.4040902@list.ru> <55142D91.6010006@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Rami Rosen <rosenr@marvell.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:35238 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752185AbbCZQ3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:29:53 -0400
-Received: by wgdm6 with SMTP id m6so70570184wgd.2
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 09:29:52 -0700 (PDT)
-In-Reply-To: <55142CC7.70302@redhat.com>
+Received: from fallback1.mail.ru ([94.100.181.184]:39927 "EHLO
+	fallback1.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751850AbbCZQcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 12:32:54 -0400
+Received: from smtp49.i.mail.ru (smtp49.i.mail.ru [94.100.177.109])
+	by fallback1.mail.ru (mPOP.Fallback_MX) with ESMTP id 023BA5402A0C
+	for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 19:03:48 +0300 (MSK)
+In-Reply-To: <55142D91.6010006@list.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+-=-=-=-=-=-=-=-=-=# Don't remove this line #=-=-=-=-=-=-=-=-=-
+When MDIO bus is unavailable (common setup for SGMII), the in-band
+signalling must be used to correctly track link status.
 
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+---
+ drivers/net/ethernet/marvell/mvneta.c |   94
++++++++++++++++++++++++++++++----
+ 1 file changed, 83 insertions(+), 11 deletions(-)
 
-On 03/26/15 17:59, Alexander Duyck wrote:
->
-> On 03/26/2015 08:10 AM, Vlad Zolotarov wrote:
->>
->>
->> On 03/26/15 16:40, Alexander Duyck wrote:
->>>
->>> On 03/26/2015 02:35 AM, Vlad Zolotarov wrote:
->>>>
->>>>
->>>> On 03/25/15 23:04, Alexander Duyck wrote:
->>>>>
->>>>> On 03/25/2015 01:17 PM, Vlad Zolotarov wrote:
->>>>>>
->>>>>>
->>>>>> On 03/25/15 20:35, Tantilov, Emil S wrote:
->>>>>>>> -----Original Message-----
->>>>>>>> From: Vlad Zolotarov [mailto:vladz@cloudius-systems.com]
->>>>>>>> Sent: Wednesday, March 25, 2015 2:28 AM
->>>>>>>> Subject: Re: [PATCH net-next v6 4/7] ixgbevf: Add a RETA query 
->>>>>>>> code
->>>>>>>
->>>>>>
->>>
->
-> <snip>
->
->>>
->>>>
->>>>>
->>>>>>
->>>>>> The user should actually not query the indirection table and a 
->>>>>> hash key too often. And if he/she does - it should be his/her 
->>>>>> problem.
->>>>>> However, if like with the ixgbevf_set_num_queues() u insist on 
->>>>>> your way of doing this (on caching the indirection table and hash 
->>>>>> key) - then please let me know and I will add it. Because, 
->>>>>> frankly, I care about the PF part of this series much more than 
->>>>>> for the VF part... ;)
->>>>>
->>>>> I would say you don't need to cache it, but for 82599 and x540 
->>>>> there isn't any need to store more than 3 bits per entry, 384b, or 
->>>>> 12 DWORDs for the entire RETA of the VF since the hardware can 
->>>>> support at most 8 queues w/ SR-IOV. Then you only need one message 
->>>>> instead of 3 which will reduce quite a bit of the complication 
->>>>> with all of this.
->>>>>
->>>>> Also it might make more sense to start working on displaying this 
->>>>> on the PF before you start trying to do this on the VF. As far as 
->>>>> I know ixgbe still doesn't have this functionality and it would 
->>>>> make much more sense to enable that first on ixgbe before you 
->>>>> start trying to find a way to feed the data to the VF.
->>>>
->>>> Let's agree on the next steps:
->>>>
->>>> 1. I'll reduce the series scope to 82599 and x540 devices.
->>>
->>> For mailbox implementation that is okay, my advice for the x550 
->>> would be to just read the registers.  They should already be defined 
->>> in the driver so it is just a matter of reversing the process for 
->>> writing the RETA.  You should have a solid grasp of that once you 
->>> implement the solution for the PF.
->>
->> The problem is that I have no means to validate the solution - I have 
->> only x540 devices (nor specs). I'd prefer not to work in darkness and 
->> let u, guys, do it...
->
-> If it helps the specs for the x540 can be found at 
-> http://www.intel.com/content/www/us/en/network-adapters/10-gigabit-network-adapters/ethernet-x540-datasheet.html. 
-> Section 8 has a full list of the register definitions.
->
-> All the code you need should already be stored in ixgbe_setup_reta and 
-> ixgbe_setup_vfreta.  If you do it right you shouldn't even need to 
-> read the hardware.  Odds are you could generate it in software and 
-> that is what you would be accessing on the PF. 
-
-I have no problems implementing the PF x550 part. I would need the 
-proper spec to implement the VF part though. And since I can't have it 
-now I'd rather not to it at the moment... ;)
-
-
-Sure. This is what I have already implemented. The same is for RSS hash 
-key.
-
-> After all, if at some point you reset the hardware you would need to 
-> restore it from software wouldn't you, and since the table is static 
-> for now you should be able to calculate the value without need of 
-> reading a register.  If at some point in the future you can change the 
-> table then it means a copy has to be maintained in kernel memory and 
-> at that point you could use that for the data you would be sending to 
-> the VF.
-
-Right.
-
->
->>>
->>>> 4. I won't implement the caching of the indirection and RSS hash key
->>>>    query results in the VF level.
->>>
->>> The idea with caching is to keep the number of messages across the 
->>> mailbox to a minimum.  Compressing it down to 3 bits per entry will 
->>> help some, but I am not sure if that is enough to completely 
->>> mitigate the need for caching.  For now though the caching isn't a 
->>> must-have, and it won't be needed for x550 since it can access the 
->>> table directly.  The main thing I would recommend keeping an eye on 
->>> would be how long it will take to complete the messages necessary to 
->>> get the ethtool info.  If there are any scenarios where things take 
->>> more than 1 second then I would say we are taking too long and we 
->>> would have to look into caching because we want to avoid holding the 
->>> rtnl lock for any extended period of time.
->>
->> I've described the limitations the caching approach imposes above. I 
->> suggest we follow your approach here - solve the problems when they 
->> arrive. ;) I haven't succeeded to make it take as long as even near 
->> one second.
->>
->>>
->>> My advice is get the PF patches in first, then we can look at trying 
->>> to get feature parity on the VF.
->>
->> "feature parity on the VF"?
->
-> Get "ethtool -x/X" working on the PF, and then get it working on the 
-> VF.  That way it makes for very simple verification as you can inspect 
-> that the PF and VF tables are consistent.  As I said if nothing else 
-> you can probably take a look at the igb driver to see how this was 
-> done on the 1Gbps Intel hardware.
-
-If memory serves me well I've written the ethtool -x|-X implementation 
-for bnx2x once so I have a general idea of what there should be. ;)
-Making ethtool -X work is a bit more sensitive since a simplistic 
-implementation like u have in igb may lead to a momentary out-of-order 
-packet arrival in the context of the same stream - the packet that 
-arrives later on wire may be served earlier since there may still be 
-unhandled packets on the "old" RSS queue when it arrives. This is unless 
-updating the RSS indirection table registers ensures the fast path 
-queues flushing.
-
-The proper solution should ensure the fast path queues draining before 
-updating the indirection table. In any case, I'd prefer not to implement 
-the -X option and concentrate on -x option only.
-
->
->>
->> I'll send the patches later today. I'll incorporate the new PF code 
->> into the existing series.
->
-> You might want to break things out into a couple series of patches. Do 
-> the PF driver first just to make sure you have an understanding of 
-> what you expect, think of it as a proof of concept if nothing else for 
-> how you want the VF to function, then submit the VF series as a 
-> separate patch set and include the mailbox API changes.
-
-Sound reasonable.
-
->
-> - Alex
->
+diff --git a/drivers/net/ethernet/marvell/mvneta.c
+b/drivers/net/ethernet/marvell/mvneta.c
+index 96208f1..44d2655 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -122,6 +122,7 @@
+ #define      MVNETA_TX_INTR_MASK_ALL             (0xff << 0)
+ #define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1)
+<< 8)
+ #define      MVNETA_RX_INTR_MASK_ALL             (0xff << 8)
++#define      MVNETA_MISCINTR_INTR_MASK           BIT(31)
+ 
+ #define MVNETA_INTR_OLD_CAUSE                    0x25a8
+ #define MVNETA_INTR_OLD_MASK                     0x25ac
+@@ -180,9 +181,11 @@
+ #define MVNETA_GMAC_AUTONEG_CONFIG               0x2c0c
+ #define      MVNETA_GMAC_FORCE_LINK_DOWN         BIT(0)
+ #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
++#define      MVNETA_GMAC_INBAND_AN_ENABLE        BIT(2)
+ #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
+ #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
+ #define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
++#define      MVNETA_GMAC_AN_FLOW_CTRL_EN         BIT(11)
+ #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
+ #define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
+ #define MVNETA_MIB_COUNTERS_BASE                 0x3080
+@@ -304,6 +307,7 @@ struct mvneta_port {
+     unsigned int link;
+     unsigned int duplex;
+     unsigned int speed;
++    int inband_status;
+ };
+ 
+ /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
+@@ -994,6 +998,17 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+     val &= ~MVNETA_PHY_POLLING_ENABLE;
+     mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
+ 
++    if (pp->inband_status) {
++        val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
++        val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
++             MVNETA_GMAC_FORCE_LINK_DOWN);
++        val |= MVNETA_GMAC_INBAND_AN_ENABLE |
++               MVNETA_GMAC_AN_SPEED_EN |
++               MVNETA_GMAC_AN_FLOW_CTRL_EN |
++               MVNETA_GMAC_AN_DUPLEX_EN;
++        mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
++    }
++
+     mvneta_set_ucast_table(pp, -1);
+     mvneta_set_special_mcast_table(pp, -1);
+     mvneta_set_other_mcast_table(pp, -1);
+@@ -2043,6 +2058,21 @@ static irqreturn_t mvneta_isr(int irq, void *dev_id)
+     return IRQ_HANDLED;
+ }
+ 
++static void mvneta_get_phy_status(struct mvneta_port *pp,
++                  struct fixed_phy_status *r_stat)
++{
++    u32 gmac_stat = mvreg_read(pp, MVNETA_GMAC_STATUS);
++
++    r_stat->link = !!(gmac_stat & MVNETA_GMAC_LINK_UP);
++    if (gmac_stat & MVNETA_GMAC_SPEED_1000)
++        r_stat->speed = SPEED_1000;
++    else if (gmac_stat & MVNETA_GMAC_SPEED_100)
++        r_stat->speed = SPEED_100;
++    else
++        r_stat->speed = SPEED_10;
++    r_stat->duplex = !!(gmac_stat & MVNETA_GMAC_FULL_DUPLEX);
++}
++
+ /* NAPI handler
+  * Bits 0 - 7 of the causeRxTx register indicate that are transmitted
+  * packets on the corresponding TXQ (Bit 0 is for TX queue 1).
+@@ -2063,8 +2093,29 @@ static int mvneta_poll(struct napi_struct *napi,
+int budget)
+     }
+ 
+     /* Read cause register */
+-    cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE) &
+-        (MVNETA_RX_INTR_MASK(rxq_number) |
+MVNETA_TX_INTR_MASK(txq_number));
++    cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE);
++    if (cause_rx_tx & MVNETA_MISCINTR_INTR_MASK) {
++        u32 cause_misc = mvreg_read(pp, MVNETA_INTR_MISC_CAUSE);
++
++        mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
++        if (pp->inband_status && (cause_misc &
++                 (MVNETA_CAUSE_PHY_STATUS_CHANGE |
++                  MVNETA_CAUSE_LINK_CHANGE |
++                  MVNETA_CAUSE_PSC_SYNC_CHANGE))) {
++            struct fixed_phy_status phy_stat;
++
++            mvneta_get_phy_status(pp, &phy_stat);
++            if (pp->link != phy_stat.link)
++                of_phy_fixed_link_set_link(pp->phy_dev,
++                               phy_stat.link);
++            if (pp->speed != phy_stat.speed)
++                of_phy_fixed_link_set_speed(pp->phy_dev,
++                                phy_stat.speed);
++            if (pp->duplex != phy_stat.duplex)
++                of_phy_fixed_link_set_duplex(pp->phy_dev,
++                                 phy_stat.duplex);
++        }
++    }
+ 
+     /* Release Tx descriptors */
+     if (cause_rx_tx & MVNETA_TX_INTR_MASK_ALL) {
+@@ -2109,7 +2160,9 @@ static int mvneta_poll(struct napi_struct *napi,
+int budget)
+         napi_complete(napi);
+         local_irq_save(flags);
+         mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-                MVNETA_RX_INTR_MASK(rxq_number) |
+MVNETA_TX_INTR_MASK(txq_number));
++                MVNETA_RX_INTR_MASK(rxq_number) |
++                MVNETA_TX_INTR_MASK(txq_number) |
++                MVNETA_MISCINTR_INTR_MASK);
+         local_irq_restore(flags);
+     }
+ 
+@@ -2373,7 +2426,13 @@ static void mvneta_start_dev(struct mvneta_port *pp)
+ 
+     /* Unmask interrupts */
+     mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-            MVNETA_RX_INTR_MASK(rxq_number) |
+MVNETA_TX_INTR_MASK(txq_number));
++            MVNETA_RX_INTR_MASK(rxq_number) |
++            MVNETA_TX_INTR_MASK(txq_number) |
++            MVNETA_MISCINTR_INTR_MASK);
++    mvreg_write(pp, MVNETA_INTR_MISC_MASK,
++            MVNETA_CAUSE_PHY_STATUS_CHANGE |
++            MVNETA_CAUSE_LINK_CHANGE |
++            MVNETA_CAUSE_PSC_SYNC_CHANGE);
+ 
+     phy_start(pp->phy_dev);
+     netif_tx_start_all_queues(pp->dev);
+@@ -2523,9 +2582,7 @@ static void mvneta_adjust_link(struct net_device
+*ndev)
+             val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+             val &= ~(MVNETA_GMAC_CONFIG_MII_SPEED |
+                  MVNETA_GMAC_CONFIG_GMII_SPEED |
+-                 MVNETA_GMAC_CONFIG_FULL_DUPLEX |
+-                 MVNETA_GMAC_AN_SPEED_EN |
+-                 MVNETA_GMAC_AN_DUPLEX_EN);
++                 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
+ 
+             if (phydev->duplex)
+                 val |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
+@@ -2554,12 +2611,24 @@ static void mvneta_adjust_link(struct net_device
+*ndev)
+ 
+     if (status_change) {
+         if (phydev->link) {
+-            u32 val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+-            val |= (MVNETA_GMAC_FORCE_LINK_PASS |
+-                MVNETA_GMAC_FORCE_LINK_DOWN);
+-            mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
++            if (!pp->inband_status) {
++                u32 val = mvreg_read(pp,
++                          MVNETA_GMAC_AUTONEG_CONFIG);
++                val &= ~MVNETA_GMAC_FORCE_LINK_DOWN;
++                val |= MVNETA_GMAC_FORCE_LINK_PASS;
++                mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
++                        val);
++            }
+             mvneta_port_up(pp);
+         } else {
++            if (!pp->inband_status) {
++                u32 val = mvreg_read(pp,
++                          MVNETA_GMAC_AUTONEG_CONFIG);
++                val &= ~MVNETA_GMAC_FORCE_LINK_PASS;
++                val |= MVNETA_GMAC_FORCE_LINK_DOWN;
++                mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
++                        val);
++            }
+             mvneta_port_down(pp);
+         }
+         phy_print_status(phydev);
+@@ -2934,6 +3003,7 @@ static int mvneta_probe(struct platform_device *pdev)
+     char hw_mac_addr[ETH_ALEN];
+     const char *mac_from;
+     int phy_mode;
++    int fixed_phy = 0;
+     int err;
+ 
+     /* Our multiqueue support is not complete, so for now, only
+@@ -2967,6 +3037,7 @@ static int mvneta_probe(struct platform_device *pdev)
+             dev_err(&pdev->dev, "cannot register fixed PHY\n");
+             goto err_free_irq;
+         }
++        fixed_phy = 1;
+ 
+         /* In the case of a fixed PHY, the DT node associated
+          * to the PHY is the Ethernet MAC DT node.
+@@ -2990,6 +3061,7 @@ static int mvneta_probe(struct platform_device *pdev)
+     pp = netdev_priv(dev);
+     pp->phy_node = phy_node;
+     pp->phy_interface = phy_mode;
++    pp->inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) &&
+fixed_phy;
+ 
+     pp->clk = devm_clk_get(&pdev->dev, NULL);
+     if (IS_ERR(pp->clk)) {
+-- 
+1.7.9.5
