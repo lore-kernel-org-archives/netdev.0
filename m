@@ -1,43 +1,76 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/15] netfilter: nft_meta: use raw_smp_processor_id()
-Date: Thu, 26 Mar 2015 13:06:52 +0100
-Message-ID: <1427371622-4466-6-git-send-email-pablo@netfilter.org>
-References: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] xen-netfront: transmit fully GSO-sized packets
+Date: Thu, 26 Mar 2015 05:05:37 -0700
+Message-ID: <1427371537.25985.136.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1427368406-28084-1-git-send-email-jonathan.davies@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Jonathan Davies <jonathan.davies@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38326 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752462AbbCZMDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 08:03:30 -0400
-In-Reply-To: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37259 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456AbbCZMFj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 08:05:39 -0400
+Received: by igcxg11 with SMTP id xg11so51658776igc.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 05:05:39 -0700 (PDT)
+In-Reply-To: <1427368406-28084-1-git-send-email-jonathan.davies@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+On Thu, 2015-03-26 at 11:13 +0000, Jonathan Davies wrote:
+> xen-netfront limits transmitted skbs to be at most 44 segments in size. However,
+> GSO permits up to 65536 bytes, which means a maximum of 45 segments of 1448
+> bytes each. This slight reduction in the size of packets means a slight loss in
+> efficiency.
+> 
+> Since c/s 9ecd1a75d, xen-netfront sets gso_max_size to
+>     XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER,
+> where XEN_NETIF_MAX_TX_SIZE is 65535 bytes.
+> 
+> The calculation used by tcp_tso_autosize (and also tcp_xmit_size_goal since c/s
+> 6c09fa09d) in determining when to split an skb into two is
+>     sk->sk_gso_max_size - 1 - MAX_TCP_HEADER.
+> 
+> So the maximum permitted size of an skb is calculated to be
+>     (XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER) - 1 - MAX_TCP_HEADER.
+> 
+> Intuitively, this looks like the wrong formula -- we don't need two TCP headers.
+> Instead, there is no need to deviate from the default gso_max_size of 65536 as
+> this already accommodates the size of the header.
+> 
+> Currently, the largest skb transmitted by netfront is 63712 bytes (44 segments
+> of 1448 bytes each), as observed via tcpdump. This patch makes netfront send
+> skbs of up to 65160 bytes (45 segments of 1448 bytes each).
+> 
+> Fixes: 9ecd1a75d977 ("xen-netfront: reduce gso_max_size to account for max TCP header")
+> Signed-off-by: Jonathan Davies <jonathan.davies@citrix.com>
+> ---
+>  drivers/net/xen-netfront.c | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index e9b960f..fb6e978 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1279,8 +1279,6 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+>  	netdev->ethtool_ops = &xennet_ethtool_ops;
+>  	SET_NETDEV_DEV(netdev, &dev->dev);
+>  
+> -	netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
+> -
+>  	np->netdev = netdev;
+>  
+>  	netif_carrier_off(netdev);
 
-Using smp_processor_id() triggers warnings with PREEMPT_RCU. There is no
-point in disabling preemption since we only collect the numeric value,
-so use raw_smp_processor_id() instead.
+Hmm, this partially reverts commit
+9ecd1a75d977e2e8c48139c7d3efed183f898d94
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nft_meta.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index abe6811..5197874 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -153,7 +153,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		}
- 		break;
- 	case NFT_META_CPU:
--		dest->data[0] = smp_processor_id();
-+		dest->data[0] = raw_smp_processor_id();
- 		break;
- 	case NFT_META_IIFGROUP:
- 		if (in == NULL)
--- 
-1.7.10.4
+
+Why xennet_change_mtu() is not changed by your patch ?
