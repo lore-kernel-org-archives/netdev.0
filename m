@@ -1,152 +1,69 @@
-From: Michael Wang <yun.wang@profitbricks.com>
-Subject: [RFC PATCH 05/11] IB/Verbs: Use management helper has_cm() for cm-check
-Date: Fri, 27 Mar 2015 16:45:25 +0100
-Message-ID: <55157B15.3040400@profitbricks.com>
-References: <551579CA.4030901@profitbricks.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/6] mvneta: SGMII-based in-band link state signaling
+Date: Fri, 27 Mar 2015 08:44:52 -0700
+Message-ID: <CAGVrzcazh_URQw7nK3=aq-xg7sn48XVbaDdYtzzTEBB2bJUadQ@mail.gmail.com>
+References: <55155AFC.4050800@list.ru> <20150327133907.GA11975@lunn.ch>
+ <551560B9.1030505@list.ru> <20150327135904.GB11975@lunn.ch> <55156730.5030807@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Yann Droneaud <ydroneaud@opteya.com>,
-	Colin Ian King <colin.king@canonical.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Matan Barak <matanb@mellanox.com>,
-	Alex Estrin <alex.estrin@intel.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Erez Shitrit <erezsh@mellanox.com>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Mike Marciniszyn <mike.m
-To: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Ira Weiny <ira.weiny@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <551579CA.4030901@profitbricks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: Stas Sergeev <stsp@list.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:34245 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753363AbbC0Ppd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 11:45:33 -0400
+In-Reply-To: <55156730.5030807@list.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+2015-03-27 7:20 GMT-07:00 Stas Sergeev <stsp@list.ru>:
+> 27.03.2015 16:59, Andrew Lunn =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> But there is no MDIO, because SGMII AFAIK doesn't need MDIO.
+>>> SGMII has in-band status, but for some reason it seems currently
+>>> linux is not ready for such setup - this is what my patch addresses=
+=2E
+>>
+>> Hacking the fixed-link driver feels wrong to me. You probably want t=
+o
+>> implement an SGMII-link driver. With some refactoring you can probab=
+ly
+>> re-use some of the fixed-link driver code, but it should be a separa=
+te
+>> driver, with its own DT binding.
+> Well I took the path of "the least resistance" of course...
+> and the one that doesn't look unreasonable to me, but the separate
+> driver is an option too. Though it will really be just the "same
+> fixed-link with 3 added functions to change properties". Do we really
+> need 2 mostly similar drivers? Esp when one includes the functionalit=
+y
+> of the other, and just adds a bit on top? Maybe having just one, with
+> all the capabilities added?
+> For example, maybe someone will later want the ability to alter the
+> properties of fixed-link with ethtool or alike? Will this also requir=
+e
+> "just another fixed link driver"?
+> Having one fully-featured driver will allow us to add the "sgmii-link=
+"
+> DT binding as an alias to "fixed-link" and some function like
+> of_phy_fixed_link_is_sgmii() that will tell us whether we need an
+> in-band status or not.
+>
+>> But i'm no export here. So lets see what others say.
+> Right. If people will be negative to an addition to fixed-link driver=
+,
+> I'll take a look into adding a new DT binding - something I'd really
+> like to avoid doing. :) More work, more code, and yet even a new conf=
+ig
+> option - this have to be justified.
 
-Introduce helper has_cm() to help us check if an IB device
-support Communication Manager.
-
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Cc: Doug Ledford <dledford@redhat.com>
-Cc: Ira Weiny <ira.weiny@intel.com>
-Cc: Sean Hefty <sean.hefty@intel.com>
-Signed-off-by: Michael Wang <yun.wang@profitbricks.com>
----
- drivers/infiniband/core/cm.c  |  2 +-
- drivers/infiniband/core/cma.c | 10 ++++------
- drivers/infiniband/core/ucm.c |  2 +-
- include/rdma/ib_verbs.h       | 13 +++++++++++++
- 4 files changed, 19 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
-index 2c72e9e..5c1f01b 100644
---- a/drivers/infiniband/core/cm.c
-+++ b/drivers/infiniband/core/cm.c
-@@ -3762,7 +3762,7 @@ static void cm_add_one(struct ib_device *ib_device)
-     int ret;
-     u8 i;
- 
--    if (!rdma_transport_is_ib(ib_device))
-+    if (!has_cm(ib_device))
-         return;
- 
-     cm_dev = kzalloc(sizeof(*cm_dev) + sizeof(*port) *
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 280cfe3..276fb76 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -433,7 +433,7 @@ static int cma_resolve_ib_dev(struct rdma_id_private *id_priv)
-     pkey = ntohs(addr->sib_pkey);
- 
-     list_for_each_entry(cur_dev, &dev_list, list) {
--        if (!rdma_transport_is_ib(cur_dev->device))
-+        if (!has_cm(cur_dev->device))
-             continue;
- 
-         for (p = 1; p <= cur_dev->device->phys_port_cnt; ++p) {
-@@ -631,7 +631,7 @@ static int cma_modify_qp_rtr(struct rdma_id_private *id_priv,
-     if (ret)
-         goto out;
- 
--    if (rdma_transport_is_ib(id_priv->cma_dev->device) &&
-+    if (has_cm(id_priv->cma_dev->device) &&
-         rdma_port_ll_is_eth(id_priv->id.device, id_priv->id.port_num)) {
-         ret = rdma_addr_find_smac_by_sgid(&sgid, qp_attr.smac, NULL);
- 
-@@ -1620,8 +1620,7 @@ static void cma_listen_on_dev(struct rdma_id_private *id_priv,
-     struct rdma_cm_id *id;
-     int ret;
- 
--    if (cma_family(id_priv) == AF_IB &&
--        !rdma_transport_is_ib(cma_dev->device))
-+    if (cma_family(id_priv) == AF_IB && !has_cm(cma_dev->device))
-         return;
- 
-     id = rdma_create_id(cma_listen_handler, id_priv, id_priv->id.ps,
-@@ -2022,8 +2021,7 @@ static int cma_bind_loopback(struct rdma_id_private *id_priv)
-     cma_dev = NULL;
-     mutex_lock(&lock);
-     list_for_each_entry(cur_dev, &dev_list, list) {
--        if (cma_family(id_priv) == AF_IB &&
--            !rdma_transport_is_ib(cur_dev->device))
-+        if (cma_family(id_priv) == AF_IB && !has_cm(cur_dev->device))
-             continue;
- 
-         if (!cma_dev)
-diff --git a/drivers/infiniband/core/ucm.c b/drivers/infiniband/core/ucm.c
-index ddbe0b4..7084181 100644
---- a/drivers/infiniband/core/ucm.c
-+++ b/drivers/infiniband/core/ucm.c
-@@ -1253,7 +1253,7 @@ static void ib_ucm_add_one(struct ib_device *device)
-     dev_t base;
-     struct ib_ucm_device *ucm_dev;
- 
--    if (!device->alloc_ucontext || !rdma_transport_is_ib(device))
-+    if (!device->alloc_ucontext || !has_cm(device))
-         return;
- 
-     ucm_dev = kzalloc(sizeof *ucm_dev, GFP_KERNEL);
-diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
-index 3d06178..c0a63f8 100644
---- a/include/rdma/ib_verbs.h
-+++ b/include/rdma/ib_verbs.h
-@@ -1797,6 +1797,19 @@ static inline int has_mad(struct ib_device *device)
- }
- 
- /**
-+ * has_cm - Check if a device support Communication Manager.
-+ *
-+ * @device: Device to be checked
-+ *
-+ * Return 0 when a device has none port to support Communication
-+ * Manager.
-+ */
-+static inline int has_cm(struct ib_device *device)
-+{
-+    return rdma_transport_is_ib(device);
-+}
-+
-+/**
-  * cap_smi - Check if the port of device has the capability
-  * Subnet Management Interface.
-  *
--- 
-2.1.0
+See my other reply, I think that by register a fixed_link_update
+callback and adjusting fixed_phy_status based on the SGMII in-band
+decoded data you would get all you want to work without major surgery
+to the current code. If we are missing information in fixed_phy_status
+to support SGMII-specific properties, maybe we could add those.
+--=20
+=46lorian
