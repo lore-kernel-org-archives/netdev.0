@@ -1,114 +1,110 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: Re: [PATCH 1/4] net/macb: only probe queues once and use stored values
-Date: Fri, 27 Mar 2015 17:24:20 +0100
-Message-ID: <55158434.2090708@atmel.com>
-References: <cover.1427469791.git.nicolas.ferre@atmel.com> <09960ba7389058e026b73409018fe1ee61d6dc57.1427469791.git.nicolas.ferre@atmel.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast()
+ and, cap_mcast() for mcast-check
+Date: Fri, 27 Mar 2015 10:28:20 -0600
+Message-ID: <20150327162820.GC28412@obsidianresearch.com>
+References: <551579CA.4030901@profitbricks.com>
+ <55157B71.6040505@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	<monstr@monstr.eu>, <michal.simek@xilinx.com>, <punnaia@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:56237 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753160AbbC0QYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 12:24:25 -0400
-In-Reply-To: <09960ba7389058e026b73409018fe1ee61d6dc57.1427469791.git.nicolas.ferre@atmel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Alex Estrin <alex.estrin@int
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <55157B71.6040505-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Nicolas,
+On Fri, Mar 27, 2015 at 04:46:57PM +0100, Michael Wang wrote:
+> 
+> Introduce helper has_mcast() and cap_mcast() to help us check if an
+> IB device or it's port support Multicast.
+> 
+> Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+> Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Cc: Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+>  drivers/infiniband/core/cma.c       |  2 +-
+>  drivers/infiniband/core/multicast.c |  8 ++++----
+>  include/rdma/ib_verbs.h             | 28 ++++++++++++++++++++++++++++
+>  3 files changed, 33 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+> index 276fb76..cbbc85b 100644
+> +++ b/drivers/infiniband/core/cma.c
+> @@ -3398,7 +3398,7 @@ void rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
+>                  ib_detach_mcast(id->qp,
+>                          &mc->multicast.ib->rec.mgid,
+>                          be16_to_cpu(mc->multicast.ib->rec.mlid));
+> -            if (rdma_transport_is_ib(id_priv->cma_dev->device)) {
+> +            if (has_mcast(id_priv->cma_dev->device)) {
 
-There is a little mistake in this patch, which will prevent the GEM fro=
-m=20
-working properly:
+This might make more sense as cap_ib_multicast / cap_ip_multicast
 
-Le 27/03/2015 16:34, Nicolas Ferre a =E9crit :
-> When merging at91_ether and macb driver during 421d9df0628b (net/macb=
-: merge
-> at91_ether driver into macb driver) the probe function has been split=
-=2E The code
-> dealing with initialization of queues is now moved in macb_init() whi=
-ch needs
-> information computed in the parent macb_probe() function.
-> So, add the queue_mask information to the private structure and use i=
-t when
-> needed in macb_init().
->=20
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-> Cc: Boris Brezillon <boris.brezillon@free-electrons.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c | 9 ++++-----
->  drivers/net/ethernet/cadence/macb.h | 1 +
->  2 files changed, 5 insertions(+), 5 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-> index a0a04b3638e6..b710768172d9 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2180,7 +2180,7 @@ static void macb_probe_queues(void __iomem *mem=
-,
->  static int macb_init(struct platform_device *pdev)
->  {
->  	struct net_device *dev =3D platform_get_drvdata(pdev);
-> -	unsigned int hw_q, queue_mask, q, num_queues;
-> +	unsigned int hw_q, q;
->  	struct macb *bp =3D netdev_priv(dev);
->  	struct macb_queue *queue;
->  	int err;
-> @@ -2226,10 +2226,8 @@ static int macb_init(struct platform_device *p=
-dev)
->  	 * register mapping but we don't want to test the queue index then
->  	 * compute the corresponding register offset at run time.
->  	 */
-> -	macb_probe_queues(bp->regs, &queue_mask, &num_queues);
-> -
-> -	for (hw_q =3D 0, q =3D 0; hw_q < MACB_MAX_QUEUES; ++hw_q) {
-> -		if (!(queue_mask & (1 << hw_q)))
-> +	for (hw_q =3D 0, q =3D 0; hw_q < bp->num_queues; ++hw_q) {
-> +		if (!(bp->queue_mask & (1 << hw_q)))
->  			continue;
+>                  switch (rdma_port_get_link_layer(id->device, id->port_num)) {
+>                  case IB_LINK_LAYER_INFINIBAND:
+>                      ib_sa_free_multicast(mc->multicast.ib);
 
-The exit condition of the for loop must remain "hw_q < MACB_MAX_QUEUES"=
- and=20
-should not be replaced by "hw_q < bp->num_queues".
-Indeed there can be only 2 queues, for instance queue0 and queue7. So i=
-f you
-change the exit conditon of the loop, queue7 won't be initialized and H=
-RESP=20
-errors will occur.
-> =20
->  		queue =3D &bp->queues[q];
-> @@ -2715,6 +2713,7 @@ static int macb_probe(struct platform_device *p=
-dev)
->  	bp->dev =3D dev;
->  	bp->regs =3D mem;
->  	bp->num_queues =3D num_queues;
-> +	bp->queue_mask =3D queue_mask;
->  	spin_lock_init(&bp->lock);
-> =20
->  	platform_set_drvdata(pdev, dev);
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
-et/cadence/macb.h
-> index bc6e35c40822..0b6afac91bfe 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -785,6 +785,7 @@ struct macb {
->  	size_t			rx_buffer_size;
-> =20
->  	unsigned int		num_queues;
-> +	unsigned int		queue_mask;
->  	struct macb_queue	queues[MACB_MAX_QUEUES];
-> =20
->  	spinlock_t		lock;
->=20
+> diff --git a/drivers/infiniband/core/multicast.c b/drivers/infiniband/core/multicast.c
+> index 17573ff..ffeaf27 100644
+> +++ b/drivers/infiniband/core/multicast.c
+> @@ -780,7 +780,7 @@ static void mcast_event_handler(struct ib_event_handler *handler,
+>      int index;
+>  
+>      dev = container_of(handler, struct mcast_device, event_handler);
+> -    if (!rdma_port_ll_is_ib(dev->device, event->element.port_num))
+> +    if (!cap_mcast(dev->device, event->element.port_num))
+>          return;
 
-Best Regards,
+These should probably be cap_ib_sa - that is what they are guarding
+against.
 
-Cyrille
+But it seems redudent, since mcast_add_one will already not add a port that is
+not IB, so mcast_event_handler is not callable. Something to do with
+rocee/ib switching?
+
+>      index = event->element.port_num - dev->start_port;
+> @@ -807,7 +807,7 @@ static void mcast_add_one(struct ib_device *device)
+>      int i;
+>      int count = 0;
+>  
+> -    if (!rdma_transport_is_ib(device))
+> +    if (!has_mcast(device))
+>          return;
+
+Again, this seems redundant, every port is tested directly below, why
+is this check needed?
+
+Looking at this, I do wonder how a port can dynamically change between
+rocee and IB.. If the link value changes then mcast_remove_one will
+not be a perfect reversal of mcast_add_one. Bug?
+
+It feels necessary to understand what happens when a port dynamically
+switches to ethernet on mlx hardware to validate these patches :(
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
