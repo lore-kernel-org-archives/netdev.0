@@ -1,8 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 2/7] vlan: Introduce helper
-	functions to check if skb is tagged
-Date: Fri, 27 Mar 2015 14:31:11 +0900
-Message-ID: <1427434277-27569-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next 1/7] vlan: Add features for
+	stacked vlan device
+Date: Fri, 27 Mar 2015 14:31:10 +0900
+Message-ID: <1427434277-27569-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,113 +30,36 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Separate the two checks for single vlan and multiple vlans in
-netif_skb_features().  This allows us to move the check for multiple
-vlans to another function later.
+Stacked vlan devices curretly have few features (GRO, HIGHDMA, LLTX).
+Since we have software fallbacks in case the NIC can not handle some
+features for multiple vlans, we can add the same features as the lower
+vlan devices for stacked vlan devices.
+
+This allows stacked vlan devices to create large (GSO) packets and not to
+segment packets. Those packets will be segmented by software on the real
+device, or even can be segmented by the NIC once TSO for multiple vlans
+becomes enabled by the following patches.
+
+The exception is those related to FCoE, which does not have a software
+fallback.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- include/linux/if_vlan.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c          | 24 ++++++++----------------
- 2 files changed, 53 insertions(+), 16 deletions(-)
+ net/8021q/vlan_dev.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index b11b28a..4265d44 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -561,4 +561,49 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
- 		skb->protocol = htons(ETH_P_802_2);
- }
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index f196552..8b5ab90 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -554,6 +554,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 	if (dev->features & NETIF_F_VLAN_FEATURES)
+ 		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
  
-+/**
-+ * skb_vlan_tagged - check if skb is vlan tagged.
-+ * @skb: skbuff to query
-+ *
-+ * Returns true if the skb is tagged, regardless of whether it is hardware
-+ * accelerated or not.
-+ */
-+static inline bool skb_vlan_tagged(const struct sk_buff *skb)
-+{
-+	if (!skb_vlan_tag_present(skb) &&
-+	    likely(skb->protocol != htons(ETH_P_8021Q) &&
-+		   skb->protocol != htons(ETH_P_8021AD)))
-+		return false;
-+
-+	return true;
-+}
-+
-+/**
-+ * skb_vlan_tagged_multi - check if skb is vlan tagged with multiple headers.
-+ * @skb: skbuff to query
-+ *
-+ * Returns true if the skb is tagged with multiple vlan headers, regardless
-+ * of whether it is hardware accelerated or not.
-+ */
-+static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
-+{
-+	__be16 protocol = skb->protocol;
-+
-+	if (!skb_vlan_tag_present(skb)) {
-+		struct vlan_ethhdr *veh;
-+
-+		if (likely(protocol != htons(ETH_P_8021Q) &&
-+			   protocol != htons(ETH_P_8021AD)))
-+			return false;
-+
-+		veh = (struct vlan_ethhdr *)skb->data;
-+		protocol = veh->h_vlan_encapsulated_proto;
-+	}
-+
-+	if (protocol != htons(ETH_P_8021Q) && protocol != htons(ETH_P_8021AD))
-+		return false;
-+
-+	return true;
-+}
-+
- #endif /* !(_LINUX_IF_VLAN_H_) */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a0408d4..04bffcd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2567,7 +2567,6 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 	struct net_device *dev = skb->dev;
- 	netdev_features_t features = dev->features;
- 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
--	__be16 protocol = skb->protocol;
++	dev->vlan_features = real_dev->vlan_features & ~NETIF_F_ALL_FCOE;
  
- 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
- 		features &= ~NETIF_F_GSO_MASK;
-@@ -2579,22 +2578,15 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 	if (skb->encapsulation)
- 		features &= dev->hw_enc_features;
- 
--	if (!skb_vlan_tag_present(skb)) {
--		if (unlikely(protocol == htons(ETH_P_8021Q) ||
--			     protocol == htons(ETH_P_8021AD))) {
--			struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
--			protocol = veh->h_vlan_encapsulated_proto;
--		} else {
--			goto finalize;
--		}
--	}
--
--	features = netdev_intersect_features(features,
--					     dev->vlan_features |
--					     NETIF_F_HW_VLAN_CTAG_TX |
--					     NETIF_F_HW_VLAN_STAG_TX);
-+	if (skb_vlan_tagged(skb))
-+		features = netdev_intersect_features(features,
-+						     dev->vlan_features |
-+						     NETIF_F_HW_VLAN_CTAG_TX |
-+						     NETIF_F_HW_VLAN_STAG_TX);
-+	else
-+		goto finalize;
- 
--	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD))
-+	if (skb_vlan_tagged_multi(skb))
- 		features = netdev_intersect_features(features,
- 						     NETIF_F_SG |
- 						     NETIF_F_HIGHDMA |
+ 	/* ipv6 shared card related stuff */
+ 	dev->dev_id = real_dev->dev_id;
 -- 
 1.8.1.2
 
