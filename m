@@ -1,74 +1,49 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [RFC PATCH 08/11] IB/Verbs: Use management helper has_iwarp()
- for, iwarp-check
-Date: Fri, 27 Mar 2015 11:29:12 -0600
-Message-ID: <20150327172912.GA28901@obsidianresearch.com>
-References: <551579CA.4030901@profitbricks.com>
- <55157B98.1060103@profitbricks.com>
- <20150327161319.GB28412@obsidianresearch.com>
- <20150327171631.GC27862@phlsvsds.ph.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Yann Droneaud <ydroneaud@opteya.com>,
-	Colin Ian King <colin.king@canonical.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Matan Barak <matanb@mellanox.com>,
-	Alex Estrin <alex.
-To: "ira.weiny" <ira.weiny@intel.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net 2/4] ipvlan: protect against concurrent link removal
+Date: Fri, 27 Mar 2015 18:30:24 +0100
+Message-ID: <c29592aedc0b747cfd8be4889566cbb7587da7e6.1427476903.git.jbenc@redhat.com>
+References: <cover.1427476903.git.jbenc@redhat.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Dan Williams <dcbw@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:43684 "EHLO quartz.orcorp.ca"
+Received: from mx1.redhat.com ([209.132.183.28]:45118 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751471AbbC0R3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 13:29:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20150327171631.GC27862@phlsvsds.ph.intel.com>
+	id S1752548AbbC0Rao (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2015 13:30:44 -0400
+In-Reply-To: <cover.1427476903.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 27, 2015 at 01:16:31PM -0400, ira.weiny wrote:
-> On Fri, Mar 27, 2015 at 10:13:19AM -0600, Jason Gunthorpe wrote:
-> > On Fri, Mar 27, 2015 at 04:47:36PM +0100, Michael Wang wrote:
-> > > 
-> > > Introduce helper has_iwarp() to help us check if an IB device
-> > > support IWARP protocol.
-> > 
-> > Should probably be !has_rdma_read_sges()
-> > 
-> > True if the device can handle more than one SGE entry on a RDMA READ
-> > work request.
-> 
-> Isn't this value already provided by the query_device verb?
-> 
-> The verbs spec states the Query HCA contains the:
-> 
-> "Maximum number of scatter/gather entries per Work Request supported by the
-> HCA."
+Adding and removing to the 'ipvlans' list is already done using _rcu list
+operations.
 
-http://www.spinics.net/lists/linux-rdma/msg22565.html
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ drivers/net/ipvlan/ipvlan_core.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-''Unlike IB, the iWARP protocol only allows 1 target/sink SGE in an
-rdma read''
-
-It is one of those annoying verbs is different on iWarp things.
-
-So the max sge in the query_verbs must only apply to send/rdma write
-on iWarp?
-
-Jason
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 9f705fc9e0ef..77b7f56d1551 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -192,7 +192,8 @@ static void ipvlan_multicast_frame(struct ipvl_port *port, struct sk_buff *skb,
+ 	if (skb->protocol == htons(ETH_P_PAUSE))
+ 		return;
+ 
+-	list_for_each_entry(ipvlan, &port->ipvlans, pnode) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(ipvlan, &port->ipvlans, pnode) {
+ 		if (local && (ipvlan == in_dev))
+ 			continue;
+ 
+@@ -219,6 +220,7 @@ static void ipvlan_multicast_frame(struct ipvl_port *port, struct sk_buff *skb,
+ mcast_acct:
+ 		ipvlan_count_rx(ipvlan, len, ret == NET_RX_SUCCESS, true);
+ 	}
++	rcu_read_unlock();
+ 
+ 	/* Locally generated? ...Forward a copy to the main-device as
+ 	 * well. On the RX side we'll ignore it (wont give it to any
+-- 
+1.8.3.1
