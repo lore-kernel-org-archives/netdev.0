@@ -1,67 +1,78 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 4/6] of: add API for changing parameters of fixed link
-Date: Fri, 27 Mar 2015 20:31:23 +0300
-Message-ID: <551593EB.9060802@list.ru>
-References: <55155AFC.4050800@list.ru> <55155D35.1070703@list.ru> <CAGVrzcau0mUne8uXsTs_9=e4JtQt5w5L+hwtLmKo+UfjSEwC+w@mail.gmail.com> <5515803F.3020600@list.ru> <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw@mail.gmail.com> <551587D1.5070408@list.ru> <5515904A.1060600@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 1/4 v2] ipvlan: fix addr hash list corruption
+Date: Fri, 27 Mar 2015 20:36:36 +0300
+Message-ID: <55159524.8010104@cogentembedded.com>
+References: <cover.1427476903.git.jbenc@redhat.com> <b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Dan Williams <dcbw@redhat.com>
+To: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp46.i.mail.ru ([94.100.177.106]:40212 "EHLO smtp46.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753377AbbC0Rfa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 13:35:30 -0400
-In-Reply-To: <5515904A.1060600@gmail.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:34703 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753410AbbC0Rgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 13:36:40 -0400
+Received: by lagg8 with SMTP id g8so75963076lag.1
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 10:36:38 -0700 (PDT)
+In-Reply-To: <b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-27.03.2015 20:15, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 27/03/15 09:39, Stas Sergeev wrote:
->> 27.03.2015 19:21, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>> Do you want mvneta to register a similar callback in of_mdio, inst=
-ead
->>>> of adding an explicit state-updating functions? Something like
->>>> of_phy_fixed_link_set_update_callback()?
->>> You don't need an of_phy_fixed_link_set_update callback, you just n=
-eed
->>> to provide a fixed_link_update callback in mvneta, that you registe=
-r,
->> That approach I in fact considered initially, as the simplest one,
->> and even had a patch. But I disliked the fact that then mvneta will
->> exploit the knowledge of the fact that of_phy_register_fixed_link()
->> uses a fixed_phy driver. What if the implementation will later chang=
-e?
->=20
-> There is no reason why it should change later, that's the entire purp=
-ose
-> of why we can tell whether it is a fixed PHY or a regular MDIO-manage=
-d
-> PHY, and drivers rely on that for their operations.
-I don't think anything is exported to the outside of of_mdio.
-It uses fixed_phy driver completely internally. Assuming that we
-can pass the created phy_device to the fixed_phy API directly, look
-like a bit of layering violation to me. But it is not that big as to
-worry about. :)
-I don't think many drivers rely on that - perhaps only dsa_slave.
-So I'll add the second one.
+Hello.
 
-> Ok, you could either make of_phy_register_fixed_link() return a
-> phy_device,
-OK, if you think that's right - I'll do.
-I was under an impression that this was intentional to not return
-the phy.
+On 03/27/2015 08:30 PM, Jiri Benc wrote:
 
-> I think your concerns are valid, but I don't think there is going to =
-be
-> any problem with the approach I suggested because there is a contract
-> that the fixed PHYs and regular PHYs need to
-OK, so I'll do that on Monday then.
+> When ipvlan interface with IP addresses attached is brought down and then
+> deleted, the assigned addresses are deleted twice from the address hash
+> list, first on the interface down and second on the link deletion.
+> Similarly, when an address is added while the interface is down, it is added
+> second time once the interface is brought up.
+
+> When the interface is down, the addresses should be kept off the hash list
+> for performance reasons. Ensure this is true, which also fixes the double add
+> problem. To fix the double free, check whether the address is hashed before
+> removing it.
+
+> Reported-by: Dan Williams <dcbw@redhat.com>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+
+> Changes since v1: check hlist_unhashed on deletion instead of depending on
+> netif_running
+
+[...]
+
+> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> index 4f4099d5603d..dbaf67c722a0 100644
+> --- a/drivers/net/ipvlan/ipvlan_main.c
+> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> @@ -622,7 +622,10 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
+>   	addr->atype = IPVL_IPV6;
+>   	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
+>   	ipvlan->ipv6cnt++;
+> -	ipvlan_ht_addr_add(ipvlan, addr);
+> +	/* If the interface is not up, the address will be added to the hash
+> +	 * list by ipvlan_open. */
+
+    The preferred multi-line comment style in the networking code is:
+
+/* Like
+  * this.
+  */
+
+[...]
+> @@ -690,7 +693,10 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>   	addr->atype = IPVL_IPV4;
+>   	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
+>   	ipvlan->ipv4cnt++;
+> -	ipvlan_ht_addr_add(ipvlan, addr);
+> +	/* If the interface is not up, the address will be added to the hash
+> +	 * list by ipvlan_open. */
+
+    Likewise.
+
+[...]
+
+WBR, Sergei
