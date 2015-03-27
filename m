@@ -1,91 +1,62 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 4/7] net: Introduce
-	passthru_features_check
-Date: Fri, 27 Mar 2015 14:31:13 +0900
-Message-ID: <1427434277-27569-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
+ for Linux (LibOS)
+Date: Fri, 27 Mar 2015 06:52:04 +0100
+Message-ID: <5514F004.7030509@nod.at>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m2h9t7bubh.wl@wide.ad.jp>	<5514560A.7040707@nod.at>	<87iodnqfp1.fsf@rustcorp.com.au> <CAMuHMdXYa2K8FH48A8_O-TsfduUC2A2WWD_bHhBgznf6FbN1Zw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: "David S . Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Ariel Elior <ariel.elior@qlogic.com>, Amir Vadai <amirv@mellanox.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>, Linux NICS <linux.nics@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Hajime Tazaki <tazaki@wide.ad.jp>,
+ Linux-Arch <linux-arch@vger.kernel.org>,
+ Arnd Bergmann <arnd@arndb.de>, Jonathan Corbet <corbet@lwn.net>,
+ Christoph Lameter <cl@linux.com>,
+ Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
+ Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Linux MM <linux-mm@kvack.org>, Jeff Dike <jdike@addtoit.com>,
+ mathieu.lacage@gmail.com
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+ Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAMuHMdXYa2K8FH48A8_O-TsfduUC2A2WWD_bHhBgznf6FbN1Zw@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-As there are a number of (especially virtual) devices that don't
-need the multiple vlan check, introduce passthru_features_check() for
-convenience.
+Am 27.03.2015 um 04:49 schrieb Geert Uytterhoeven:
+> On Fri, Mar 27, 2015 at 4:31 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+>> Richard Weinberger <richard@nod.at> writes:
+>>> This also infers that arch/lib will be broken most of the time as
+>>> every time the networking stack references a new symbol it
+>>> has to be duplicated into arch/lib.
+>>>
+>>> But this does not mean that your idea is bad, all I want to say that
+>>> I'm not sure whether arch/lib is the right approach.
+>>> Maybe Arnd has a better idea.
+>>
+>> Exactly why I look forward to getting this in-tree.  Jeremy Kerr and I
+>> wrote nfsim back in 2005(!) which stubbed around the netfilter
+>> infrastructure; with failtest and valgrind it found some nasty bugs.  It
+>> was too much hassle to maintain out-of-tree though :(
+>>
+>> I look forward to a flood of great bugfixes from this work :)
+> 
+> IIRC, the ability to run UML under valgrind was also one of its key features?
+> And that's not limited to networking.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- include/linux/netdevice.h | 3 +++
- net/core/dev.c            | 8 ++++++++
- 2 files changed, 11 insertions(+)
+Sadly this feature went never mainline. You needed a rather invading patch
+for both Linux and valgrind.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 08c4ab3..967bb4c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3657,6 +3657,9 @@ void netdev_change_features(struct net_device *dev);
- void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- 					struct net_device *dev);
- 
-+netdev_features_t passthru_features_check(struct sk_buff *skb,
-+					  struct net_device *dev,
-+					  netdev_features_t features);
- netdev_features_t netif_skb_features(struct sk_buff *skb);
- 
- static inline bool net_gso_ok(netdev_features_t features, int gso_type)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index cb46bad..3a06003 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2562,6 +2562,14 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
- 	return features;
- }
- 
-+netdev_features_t passthru_features_check(struct sk_buff *skb,
-+					  struct net_device *dev,
-+					  netdev_features_t features)
-+{
-+	return features;
-+}
-+EXPORT_SYMBOL(passthru_features_check);
-+
- static netdev_features_t dflt_features_check(const struct sk_buff *skb,
- 					     struct net_device *dev,
- 					     netdev_features_t features)
--- 
-1.8.1.2
+But now with KASan we have a much more powerful feature to find issues.
 
+Thanks,
+//richard
 
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
