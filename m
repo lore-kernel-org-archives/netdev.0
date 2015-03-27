@@ -1,61 +1,139 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
- for Linux (LibOS)
-Date: Fri, 27 Mar 2015 10:21:59 +0100
-Message-ID: <55152137.20405@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m2h9t7bubh.wl@wide.ad.jp>	<5514560A.7040707@nod.at> <m28uejaqyn.wl@wide.ad.jp>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: [PATCH net-next 1/2] net: neighbour: Add mcast_resolicit to configure
+ the number of multicast resolicitations in PROBE state.
+Date: Fri, 27 Mar 2015 10:42:10 +0100
+Message-ID: <551525F2.3040107@ericsson.com>
+References: <20150319.224146.893461080038567220.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
- cl@linux.com, penberg@kernel.org, rientjes@google.com,
- iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
- linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
- netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
- rusty@rustcorp.com.au, mathieu.lacage@gmail.com
-To: Hajime Tazaki <tazaki@wide.ad.jp>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <m28uejaqyn.wl@wide.ad.jp>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <Yanjun.Zhu@windriver.com>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:48709 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753742AbbC0JmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 05:42:15 -0400
+In-Reply-To: <20150319.224146.893461080038567220.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 27.03.2015 um 07:34 schrieb Hajime Tazaki:
->>> it (arch/lib) is a hardware-independent architecture which
->>> provides necessary features to the remainder of kernel code,
->>> isn't it ?
->>
->> The stuff in arch/ is the code to glue the kernel to
->> a specific piece of hardware.
->> Your code does something between. You duplicate kernel core features
->> to make a specific piece of code work in userland.
->=20
-> indeed, 'something between' would be an appropriate word.
+Should not this patch add modifications to "kernel/sysctl_binary.c" and
+"include/linux/sysctl.h" as well?
 
-Just an idea popping out of my head...
+mcast_probes and ucast_probes are initialized in arp.c and ndisc.c.
+Should we not initialize also mcast_reprobes, even if it is zero?
 
-What about putting libos into tools/testing/ and make it much more generi=
-c and framework alike.
-With more generic I mean that libos could be a stubbing framework for the=
- kernel.
-i.e. you specify the subsystem you want to test/stub and the framework he=
-lps you doing so.
-A lot of the stubs you're placing in arch/lib could be auto-generated as =
-the
-vast majority of all kernel methods you stub are no-ops which call only l=
-ib_assert(false).
+There are some statistics printout in net/core/neighbour.c.
+They handle mcast_solicit and ucast_solicit.
 
-Using that approach only very few kernel core components have to be dupli=
-cated and
-actually implemented by hand.
-Hence, less maintenance overhead and libos is not broken all the time.
+Are they unneccessary for mcast_resolicit?
 
-What do you think?
+Best Regards,
+Ulf Samuelsson
 
-Thanks,
-//richard
+On 03/19/2015 02:41 PM, YOSHIFUJI Hideaki wrote:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+> We send unicast neighbor (ARP or NDP) solicitations ucast_probes
+> times in PROBE state.  Zhu Yanjun reported that some implementation
+> does not reply against them and the entry will become FAILED, which
+> is undesirable.
+>
+> We had been dealt with such nodes by sending multicast probes mcast_
+> solicit times after unicast probes in PROBE state.  In 2003, I made
+> a change not to send them to improve compatibility with IPv6 NDP.
+>
+> Let's introduce per-protocol per-interface sysctl knob "mcast_
+> reprobe" to configure the number of multicast (re)solicitation for
+> reconfirmation in PROBE state.  The default is 0, since we have
+> been doing so for 10+ years.
+>
+> Reported-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+> CC: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>   include/net/neighbour.h        |  1 +
+>   include/uapi/linux/neighbour.h |  1 +
+>   net/core/neighbour.c           | 15 +++++++++++----
+>   3 files changed, 13 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+> index e7bdf51..bd33e66 100644
+> --- a/include/net/neighbour.h
+> +++ b/include/net/neighbour.h
+> @@ -42,6 +42,7 @@ enum {
+>   	NEIGH_VAR_MCAST_PROBES,
+>   	NEIGH_VAR_UCAST_PROBES,
+>   	NEIGH_VAR_APP_PROBES,
+> +	NEIGH_VAR_MCAST_REPROBES,
+>   	NEIGH_VAR_RETRANS_TIME,
+>   	NEIGH_VAR_BASE_REACHABLE_TIME,
+>   	NEIGH_VAR_DELAY_PROBE_TIME,
+> diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
+> index 3873a35..2e35c61 100644
+> --- a/include/uapi/linux/neighbour.h
+> +++ b/include/uapi/linux/neighbour.h
+> @@ -126,6 +126,7 @@ enum {
+>   	NDTPA_PROXY_QLEN,		/* u32 */
+>   	NDTPA_LOCKTIME,			/* u64, msecs */
+>   	NDTPA_QUEUE_LENBYTES,		/* u32 */
+> +	NDTPA_MCAST_REPROBES,		/* u32 */
+>   	__NDTPA_MAX
+>   };
+>   #define NDTPA_MAX (__NDTPA_MAX - 1)
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 0e8b32e..3de6542 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -817,10 +817,9 @@ out:
+>   static __inline__ int neigh_max_probes(struct neighbour *n)
+>   {
+>   	struct neigh_parms *p = n->parms;
+> -	int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES);
+> -	if (!(n->nud_state & NUD_PROBE))
+> -		max_probes += NEIGH_VAR(p, MCAST_PROBES);
+> -	return max_probes;
+> +	return NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES) +
+> +	       (n->nud_state & NUD_PROBE ? NEIGH_VAR(p, MCAST_REPROBES) :
+> +	        NEIGH_VAR(p, MCAST_PROBES));
+>   }
+>   
+>   static void neigh_invalidate(struct neighbour *neigh)
+> @@ -1742,6 +1741,8 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
+>   			NEIGH_VAR(parms, UCAST_PROBES)) ||
+>   	    nla_put_u32(skb, NDTPA_MCAST_PROBES,
+>   			NEIGH_VAR(parms, MCAST_PROBES)) ||
+> +	    nla_put_u32(skb, NDTPA_MCAST_REPROBES,
+> +			NEIGH_VAR(parms, MCAST_REPROBES)) ||
+>   	    nla_put_msecs(skb, NDTPA_REACHABLE_TIME, parms->reachable_time) ||
+>   	    nla_put_msecs(skb, NDTPA_BASE_REACHABLE_TIME,
+>   			  NEIGH_VAR(parms, BASE_REACHABLE_TIME)) ||
+> @@ -1901,6 +1902,7 @@ static const struct nla_policy nl_ntbl_parm_policy[NDTPA_MAX+1] = {
+>   	[NDTPA_APP_PROBES]		= { .type = NLA_U32 },
+>   	[NDTPA_UCAST_PROBES]		= { .type = NLA_U32 },
+>   	[NDTPA_MCAST_PROBES]		= { .type = NLA_U32 },
+> +	[NDTPA_MCAST_REPROBES]		= { .type = NLA_U32 },
+>   	[NDTPA_BASE_REACHABLE_TIME]	= { .type = NLA_U64 },
+>   	[NDTPA_GC_STALETIME]		= { .type = NLA_U64 },
+>   	[NDTPA_DELAY_PROBE_TIME]	= { .type = NLA_U64 },
+> @@ -2001,6 +2003,10 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+>   				NEIGH_VAR_SET(p, MCAST_PROBES,
+>   					      nla_get_u32(tbp[i]));
+>   				break;
+> +			case NDTPA_MCAST_REPROBES:
+> +				NEIGH_VAR_SET(p, MCAST_REPROBES,
+> +					      nla_get_u32(tbp[i]));
+> +				break;
+>   			case NDTPA_BASE_REACHABLE_TIME:
+>   				NEIGH_VAR_SET(p, BASE_REACHABLE_TIME,
+>   					      nla_get_msecs(tbp[i]));
+> @@ -2987,6 +2993,7 @@ static struct neigh_sysctl_table {
+>   		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(MCAST_PROBES, "mcast_solicit"),
+>   		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(UCAST_PROBES, "ucast_solicit"),
+>   		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(APP_PROBES, "app_solicit"),
+> +		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(MCAST_REPROBES, "mcast_resolicit"),
+>   		NEIGH_SYSCTL_USERHZ_JIFFIES_ENTRY(RETRANS_TIME, "retrans_time"),
+>   		NEIGH_SYSCTL_JIFFIES_ENTRY(BASE_REACHABLE_TIME, "base_reachable_time"),
+>   		NEIGH_SYSCTL_JIFFIES_ENTRY(DELAY_PROBE_TIME, "delay_first_probe_time"),
