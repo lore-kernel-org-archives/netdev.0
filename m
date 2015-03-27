@@ -1,127 +1,75 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] tc: bpf: generalize pedit action
-Date: Fri, 27 Mar 2015 09:01:11 -0700
-Message-ID: <55157EC7.9030700@plumgrid.com>
-References: <1427424837-7757-1-git-send-email-ast@plumgrid.com> <55153425.2070502@iogearbox.net>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
+ on transport and link layer
+Date: Fri, 27 Mar 2015 17:03:14 +0100
+Message-ID: <55157F42.1070303@profitbricks.com>
+References: <5512CFB0.1050108@profitbricks.com> <1427378940.21101.100.camel@redhat.com> <55142DFD.2060100@profitbricks.com> <1427387258.21101.124.camel@redhat.com> <55143AAC.8040206@profitbricks.com> <20150326211334.GA3359@obsidianresearch.com> <5515284A.3030106@profitbricks.com> <20150327155530.GA21778@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:34890 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756AbbC0QBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 12:01:15 -0400
-Received: by ierf6 with SMTP id f6so7002502ier.2
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 09:01:15 -0700 (PDT)
-In-Reply-To: <55153425.2070502@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Majd Dibbiny <majd@mellanox.c
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150327155530.GA21778-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/27/15 3:42 AM, Daniel Borkmann wrote:
-> On 03/27/2015 03:53 AM, Alexei Starovoitov wrote:
->> existing TC action 'pedit' can munge any bits of the packet.
->> Generalize it for use in bpf programs attached as cls_bpf and act_bpf via
->> bpf_skb_store_bytes() helper function.
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+
+On 03/27/2015 04:55 PM, Jason Gunthorpe wrote:
+> On Fri, Mar 27, 2015 at 10:52:10AM +0100, Michael Wang wrote:
+>> [snip]
+> So, in principle, testing the device should almost make sense. The
+> device is the container for things like PD's MR's and QP's and those
+> things can migrate between the ports freely, so all post must share
+> the same attributes for those items.
 >
-> I like it.
+> However.. AFAIK, we can have RoCEE and IB ports on the same device -
+> which makes that whole concept seem sort of like nonsense..
 >
->> pedit is limited to 32-bit masked rewrites. Here let it be flexible.
->>
->> ptr = skb_header_pointer(skb, offset, len, buf);
->> memcpy(ptr, from, len);
->> if (ptr == buf)
->>    skb_store_bits(skb, offset, ptr, len);
->>
->> ^^ logic is the same as in pedit.
->> shifts, mask, invert style of rewrite is easily done by the program.
->> Just like arbitrary parsing of the packet and applying rewrites on
->> demand.
-> ...
->> +static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
->> +{
->> +    struct sk_buff *skb = (struct sk_buff *) (long) r1;
->> +    unsigned int offset = (unsigned int) r2;
->> +    void *from = (void *) (long) r3;
->> +    unsigned int len = (unsigned int) r4;
->> +    char buf[16];
->> +    void *ptr;
->> +
->> +    /* bpf verifier guarantees that:
->> +     * 'from' pointer points to bpf program stack
->> +     * 'len' bytes of it were initialized
->> +     * 'len' > 0
->> +     * 'skb' is a valid pointer to 'struct sk_buff'
->> +     *
->> +     * so check for invalid 'offset' and too large 'len'
->> +     */
->> +    if (offset > 0xffff || len > sizeof(buf))
->> +        return -EFAULT;
+> Anyhow, I would discourage testing the device. Each site has to be
+> examined and determine if it working with a single port and really
+> needs a port attribute (which may be a device attribute today) or if
+> it is doing something device wide and is checking if all ports support
+> X.
+I prefer Doug's proposal that these attributes should be setup
+by vendor at very beginning, unless the attributes keep changing...
+
 >
-> Could you elaborate on the hard-coded 0xffff? Hm, perhaps better u16, or
-> do you see any issues with wrong widening?
+>> Let's discuss and figure out the right name in the thread of
+>> v2 patch set, I guess there will be a lot to be correct :-P
+> Well, this is actually a hard job. This isn't a mechanical clean up,
+> each site has to be inspected and understood before it can be
+> migrated to the correct API.
+I've send out the RFC patch set, let's see if it is possible to settle
+some thing done ;-)
 
-0xffff is the maximum packet size, of course.
-Beyond basic sanity the above two conditions check for overflow
-of offset+len automatically.
-u16 won't work, since all the following functions are taking 'int' or
-'unsigned int'. These checks are done first to make there are no wrap
-arounds or other subtleties. Especially since skb_copy_bits is quite
-complex inside.
+Regards,
+Michael Wang
 
-> This check should probably be also unlikely().
-
-I thought about it as well, but decided against it, since we don't
-use likley/unlikely in skb_header_pointer, skb_copy_bits and others.
-Better to be consistent.
-
-> Ok, the sizeof(buf) could still be increased in future if truly necessary.
-
-yes. correct.
-I've decided to go small first and extend if necessary.
-
->> +    if (skb_cloned(skb) && !skb_clone_writable(skb, offset + len))
->> +        return -EFAULT;
->> +
->> +    ptr = skb_header_pointer(skb, offset, len, buf);
->> +    if (unlikely(!ptr))
->> +        return -EFAULT;
->> +
->> +    skb_postpull_rcsum(skb, ptr, len);
->> +
->> +    memcpy(ptr, from, len);
->> +
->> +    if (ptr == buf)
->> +        /* skb_store_bits cannot return -EFAULT here */
->> +        skb_store_bits(skb, offset, ptr, len);
->> +
->> +    if (skb->ip_summed == CHECKSUM_COMPLETE)
->> +        skb->csum = csum_add(skb->csum, csum_partial(ptr, len, 0));
 >
-> For egress, I think that CHECKSUM_PARTIAL does not need to be dealt
-> with since the skb length doesn't change. Do you see an issue when
-> cls_bpf/act_bpf would be attached to the ingress qdisc?
+> Jason
 
-Well, this patch is packet writer only.
-The checksum helpers and support for CHECKSUM_PARTIAL (similar to 
-TP_STATUS_CSUMNOTREADY) are coming in the future patches.
-They should be independent. Otherwise this simple writer function
-would need to special case different offsets and tons of other
-checks. Keep it simple principle.
-
-> I was also thinking if it's worth it to split off the csum correction
-> as a separate function if there are not too big performance implications?
-
-yep. performance will suffer if we split it. Better to leave it as-is.
-
-> That way, an action may also allow to intentionally test corruption of
-> a part of the skb data together with the recent prandom function.
-
-This writer can do that already, but it keeps skb->csum correct.
-If you suggestion is to test corruption of skb->csum, then I don't
-see why we would want that.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
