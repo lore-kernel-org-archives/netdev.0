@@ -1,54 +1,69 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH 3/3] iproute2: Add support for phys_port_name
-Date: Thu, 26 Mar 2015 21:41:33 -0600
-Message-ID: <5514D16D.5010205@gmail.com>
-References: <1426520818-11198-1-git-send-email-dsahern@gmail.com>	<1426520818-11198-3-git-send-email-dsahern@gmail.com> <20150324155015.2dae6252@urahara>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [RFC PATCH 00/11] an introduction of library operating system for
+ Linux (LibOS)
+Date: Fri, 27 Mar 2015 04:49:55 +0100
+Message-ID: <CAMuHMdXYa2K8FH48A8_O-TsfduUC2A2WWD_bHhBgznf6FbN1Zw@mail.gmail.com>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>
+	<551164ED.5000907@nod.at>
+	<m2twxacw13.wl@sfc.wide.ad.jp>
+	<55117565.6080002@nod.at>
+	<m2sicuctb2.wl@sfc.wide.ad.jp>
+	<55118277.5070909@nod.at>
+	<m2bnjhcevt.wl@sfc.wide.ad.jp>
+	<55133BAF.30301@nod.at>
+	<m2h9t7bubh.wl@wide.ad.jp>
+	<5514560A.7040707@nod.at>
+	<87iodnqfp1.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:37474 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411AbbC0Dlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 23:41:40 -0400
-Received: by igcxg11 with SMTP id xg11so10070328igc.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 20:41:40 -0700 (PDT)
-In-Reply-To: <20150324155015.2dae6252@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Weinberger <richard@nod.at>,
+	Hajime Tazaki <tazaki@wide.ad.jp>,
+	Linux-Arch <linux-arch@vger.kernel.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Christoph Lameter <cl@linux.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	David Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux MM <linux-mm@kvack.org>, Jeff Dike <jdike@addtoit.com>,
+	mathieu.lacage@gmail.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <87iodnqfp1.fsf@rustcorp.com.au>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/24/15 4:50 PM, Stephen Hemminger wrote:
->> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
->> index 99a6ab5977e3..9e65015b7a48 100644
->> --- a/ip/ipaddress.c
->> +++ b/ip/ipaddress.c
->> @@ -645,6 +645,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
->>   				      b1, sizeof(b1)));
->>   	}
+On Fri, Mar 27, 2015 at 4:31 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+> Richard Weinberger <richard@nod.at> writes:
+>> This also infers that arch/lib will be broken most of the time as
+>> every time the networking stack references a new symbol it
+>> has to be duplicated into arch/lib.
 >>
->> +	if (tb[IFLA_PHYS_PORT_NAME])
->> +		fprintf(fp, "port name %s ", rta_getattr_str(tb[IFLA_PHYS_PORT_NAME]));
->> +
->>   	if (tb[IFLA_OPERSTATE])
->>   		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
->>
+>> But this does not mean that your idea is bad, all I want to say that
+>> I'm not sure whether arch/lib is the right approach.
+>> Maybe Arnd has a better idea.
 >
-> In general, this is a good idea, but there are several of issues.
-> 1. There are programs that parse ip route output, therefore all new
->     fields need to go at the end.
-> 2. The two word format 'port name' does not match other parts
-> 3. Extra stuff usually goes int 'details' section
-> 4. There are VPN scripts etc that expect all ip commands to
->     be invertable. I.e the output of ip link should also be easily
->     convertable to input.
+> Exactly why I look forward to getting this in-tree.  Jeremy Kerr and I
+> wrote nfsim back in 2005(!) which stubbed around the netfilter
+> infrastructure; with failtest and valgrind it found some nasty bugs.  It
+> was too much hassle to maintain out-of-tree though :(
+>
+> I look forward to a flood of great bugfixes from this work :)
 
-The location of PORT_NAME is right after PORT_ID. I take it from this 
-list you want it elsewhere. At the end?
+IIRC, the ability to run UML under valgrind was also one of its key features?
+And that's not limited to networking.
 
-And rather than 'port name' how about 'port-name'? no precedence for 
-CamelCase and both 'port' and 'name' are too generic. 'pname' is not 
-intuitive. Suggestions?
+Gr{oetje,eeting}s,
 
-David
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
