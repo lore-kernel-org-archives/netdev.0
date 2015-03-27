@@ -1,85 +1,61 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH v3] net: tcp6: fix double call of tcp_v6_fill_cb()
-Date: Fri, 27 Mar 2015 12:24:22 +0300
-Message-ID: <1427448262-7231-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: vasily.isaenko@oracle.com,
-	Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:37062 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753769AbbC0JVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 05:21:51 -0400
-Received: from aserv0022.oracle.com (aserv0022.oracle.com [141.146.126.234])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t2R9LoXA009476
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 09:21:50 GMT
-Received: from aserv0122.oracle.com (aserv0122.oracle.com [141.146.126.236])
-	by aserv0022.oracle.com (8.13.8/8.13.8) with ESMTP id t2R9LoxR014938
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 09:21:50 GMT
-Received: from abhmp0016.oracle.com (abhmp0016.oracle.com [141.146.116.22])
-	by aserv0122.oracle.com (8.13.8/8.13.8) with ESMTP id t2R9LoWT023516
-	for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 09:21:50 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
+ for Linux (LibOS)
+Date: Fri, 27 Mar 2015 10:21:59 +0100
+Message-ID: <55152137.20405@nod.at>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m2h9t7bubh.wl@wide.ad.jp>	<5514560A.7040707@nod.at> <m28uejaqyn.wl@wide.ad.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
+ cl@linux.com, penberg@kernel.org, rientjes@google.com,
+ iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
+ linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+ netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
+ rusty@rustcorp.com.au, mathieu.lacage@gmail.com
+To: Hajime Tazaki <tazaki@wide.ad.jp>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <m28uejaqyn.wl@wide.ad.jp>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-tcp_v6_fill_cb() will be called twice if socket's state changes from
-TCP_TIME_WAIT to TCP_LISTEN. That can result in control buffer data
-corruption because in the second tcp_v6_fill_cb() call it's not copying
-IP6CB(skb) anymore, but 'seq', 'end_seq', etc., so we can get weird and
-unpredictable results. Performance loss of up to 1200% has been observed
-in LTP/vxlan03 test.
+Am 27.03.2015 um 07:34 schrieb Hajime Tazaki:
+>>> it (arch/lib) is a hardware-independent architecture which
+>>> provides necessary features to the remainder of kernel code,
+>>> isn't it ?
+>>
+>> The stuff in arch/ is the code to glue the kernel to
+>> a specific piece of hardware.
+>> Your code does something between. You duplicate kernel core features
+>> to make a specific piece of code work in userland.
+>=20
+> indeed, 'something between' would be an appropriate word.
 
-This can be fixed by copying inet6_skb_parm to the beginning of 'cb'
-only if xfrm6_policy_check() and tcp_v6_fill_cb() are going to be
-called again.
+Just an idea popping out of my head...
 
-Fixes: 2dc49d1680b53 ("tcp6: don't move IP6CB before xfrm6_policy_check()")
+What about putting libos into tools/testing/ and make it much more generi=
+c and framework alike.
+With more generic I mean that libos could be a stubbing framework for the=
+ kernel.
+i.e. you specify the subsystem you want to test/stub and the framework he=
+lps you doing so.
+A lot of the stubs you're placing in arch/lib could be auto-generated as =
+the
+vast majority of all kernel methods you stub are no-ops which call only l=
+ib_assert(false).
 
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
-v3: remove redundant 'Regression from...' line from commit message
+Using that approach only very few kernel core components have to be dupli=
+cated and
+actually implemented by hand.
+Hence, less maintenance overhead and libos is not broken all the time.
 
- net/ipv6/tcp_ipv6.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+What do you think?
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5d46832..7d21a78 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1411,6 +1411,15 @@ static void tcp_v6_fill_cb(struct sk_buff *skb, const struct ipv6hdr *hdr,
- 	TCP_SKB_CB(skb)->sacked = 0;
- }
- 
-+static void tcp_v6_restore_cb(struct sk_buff *skb)
-+{
-+	/* We need to move header back to the beginning if xfrm6_policy_check()
-+	 * and tcp_v6_fill_cb() are going to be called again.
-+	 */
-+	memmove(IP6CB(skb), &TCP_SKB_CB(skb)->header.h6,
-+		sizeof(struct inet6_skb_parm));
-+}
-+
- static int tcp_v6_rcv(struct sk_buff *skb)
- {
- 	const struct tcphdr *th;
-@@ -1543,6 +1552,7 @@ do_time_wait:
- 			inet_twsk_deschedule(tw, &tcp_death_row);
- 			inet_twsk_put(tw);
- 			sk = sk2;
-+			tcp_v6_restore_cb(skb);
- 			goto process;
- 		}
- 		/* Fall through to ACK */
-@@ -1551,6 +1561,7 @@ do_time_wait:
- 		tcp_v6_timewait_ack(sk, skb);
- 		break;
- 	case TCP_TW_RST:
-+		tcp_v6_restore_cb(skb);
- 		goto no_tcp_socket;
- 	case TCP_TW_SUCCESS:
- 		;
--- 
-1.7.1
+Thanks,
+//richard
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
