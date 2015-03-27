@@ -1,122 +1,150 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth-next 2015-03-27
-Date: Fri, 27 Mar 2015 20:40:58 +0200
-Message-ID: <20150327184058.GA10609@t440s.P-661HNU-F1>
+From: Wolfgang Rosner <wrosner@tirnet.de>
+Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link // Kernel issue
+Date: Fri, 27 Mar 2015 19:46:07 +0100
+Message-ID: <201503271946.07464.wrosner@tirnet.de>
+References: <201503210110.48980.wrosner@tirnet.de> <1427077997.25985.59.camel@edumazet-glaptop2.roam.corp.google.com> <201503262034.05499.wrosner@tirnet.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ikeVEW9yuYc//A+q"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tirnet.de ([217.7.138.221]:3623 "EHLO mail.tirnet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751002AbbC0SqJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 14:46:09 -0400
+In-Reply-To: <201503262034.05499.wrosner@tirnet.de>
 Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hello Eric,
 
 
---ikeVEW9yuYc//A+q
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I tried to discern the possibilities of Debian patches having solved th=
+e=20
+problem vs, regression bug in recent Kernels.
 
-Hi Dave,
+So I tested:
+- Vanilla 3.16.7
+- recent Debian 3.19.1
 
-Here's another set of Bluetooth & 802.15.4 patches for 4.1:
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 
- - New API to control LE advertising data (i.e. peripheral role)
- - mac802154 & at86rf230 cleanups
- - Support for toggling quirks from debugfs (useful for testing)
- - Memory leak fix for LE scanning
- - Extra version info reading support for Broadcom controllers
+results:
 
-Please let me know if there are any issues pulling. Thanks.
+- Vanilla 3.16.7
+from
+https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.16.7.tar.xz
+result: really bad,=20
+~ 500 Mbit /s both inbound and outwards
+inbound even with -P24 parallel threads not more than 800 Mbit
+outobund with -P12 we are back over 5 Gbit/s again
 
-Johan
+=46rom that, to mee it looks like the problem was introduced before  3.=
+16.7
+but only partly solved since then.
 
----
-The following changes since commit ea6edfbcefec1fcfdb826a1d5a054f402dfbfb24:
-
-  mac802154: fix typo in header guard (2015-03-19 15:32:22 +0100)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
-
-for you to fetch changes up to a7a484bfca218f9671a3e3bc98851eab6b628310:
-
-  at86rf230: fix is_tx while error handling (2015-03-27 19:18:51 +0100)
-
-----------------------------------------------------------------
-Alexander Aring (3):
-      mac802154: cleanup concurrent check
-      at86rf230: remove unnecessary spinlock
-      at86rf230: fix is_tx while error handling
-
-Arman Uguray (15):
-      Bluetooth: Add definitions for Add/Remove Advertising API
-      Bluetooth: Introduce HCI_ADVERTISING_INSTANCE setting and add AD flags
-      Bluetooth: Add data structure for advertising instance
-      Bluetooth: Implement the Add Advertising command
-      Bluetooth: Implement the Remove Advertising command
-      Bluetooth: Add support for instance scan response
-      Bluetooth: Add support for adv instance timeout
-      Bluetooth: Add macros for advertising instance flags
-      Bluetooth: Support the "connectable mode" adv flag
-      Bluetooth: Support the "discoverable" adv flag
-      Bluetooth: Support the "limited-discoverable" adv flag
-      Bluetooth: Support the "managed-flags" adv flag
-      Bluetooth: Support the "tx-power" adv flag
-      Bluetooth: Update supported_flags for AD features
-      Bluetooth: Unify advertising data code paths
-
-Jakub Pawlowski (1):
-      Bluetooth: Expose quirks through debugfs
-
-Johan Hedberg (1):
-      Bluetooth: Fix memory leak in le_scan_disable_work_complete()
-
-Loic Poulain (1):
-      Bluetooth: hci_uart: Add setup callback
-
-Marcel Holtmann (6):
-      Bluetooth: Gracefully response to enabling LE on LE only devices
-      Bluetooth: Use HCI_MAX_AD_LENGTH constant instead hardcoded value
-      Bluetooth: Read Verbose Config Version Info for Broadcom devices
-      Bluetooth: Read Broadcom chip info for Apple Bluetooth devices
-      Bluetooth: Filter list of supported commands/events for untrusted users
-      Bluetooth: Fix minor typo in comment for static address setting
-
- drivers/bluetooth/btusb.c          |  57 ++-
- drivers/bluetooth/hci_ldisc.c      |  11 +
- drivers/bluetooth/hci_uart.h       |   1 +
- drivers/net/ieee802154/at86rf230.c |  10 +-
- include/net/bluetooth/hci.h        |   2 +
- include/net/bluetooth/hci_core.h   |  18 +
- include/net/bluetooth/mgmt.h       |  42 +++
- net/bluetooth/hci_core.c           |  18 +-
- net/bluetooth/hci_debugfs.c        |  60 +++
- net/bluetooth/mgmt.c               | 715 +++++++++++++++++++++++++++++++++---
- net/mac802154/iface.c              |  20 +-
- 11 files changed, 862 insertions(+), 92 deletions(-)
+I tried to map vailla versions with the davem fork,
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/tree/
+ but got lost in git / developer workflow .
 
 
---ikeVEW9yuYc//A+q
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+- recent Debian 3.19.1
+same results as with any other recent kernel
+	inbound > 5.5 GBit
+	outbound ~ 3.2 GBit
+	outbound -P 2 > 5 Gbit
 
-iQIcBAEBAgAGBQJVFaQ6AAoJECQj9vv5qNQSFcQP/3vKUeQaE3N4zUwiVoolQl/U
-5dVDUVyiNBfzv/MnEsptFg+7LFrMp0YmRyZOaG9c6eyTcEmmwkbMCQLwHQmulx5B
-Nq6WVNYwjCAeKvX/vs71EfXGxB99UUS6VJ561NNbw3l9SxyPK3YIodYFnc8gUha7
-YTuRl6r1ySM5c+Wj2EIPb/Nbo4RXmtwiUTZQguqmUWILitO2Y6uhu9bJ/sACuPmJ
-h5xoZqn1Vr9/B0sFH9/WMG8TvEi6iNIQ1ncnUq+VhNr3vBvyUYDNAYieihyWzMcy
-MbFhiIE3thBl5aMIQ0jxwTWSTbtLWFyelzqwskvOQcXrkfIVCtd/LINsB5uaUeYC
-zlBCe93I0cnDY0vtROMa/QO8q2efuHeQVR1ku4SbunvtpAJo04Z1etpf5zY4wy+D
-96x4JIRAQjUL3m9w0jNKYUdBbybCK210nB62yRgYMJmBG+IAyJUJbVDJ9YcvrXrv
-rnXrxsaIKTyCpnMDAp//rBpvdFEXVAdY48mAa52n26bpFouylImW5wnPorHykzGV
-BSPl7uxJB1Dq7/hKWpnW5i6LwSyYXCtrG/Y0cOw9gedIVLtkf6EI1aMSa4dAEE2F
-RdhvhCfYWXT3kLM9LNSrvsrNuvQ5jClbCLkiOhKaPuYslKuVu9fPuTVcsqIGXtyv
-U3kRy9l0GDzABLgvxtub
-=8uUF
------END PGP SIGNATURE-----
 
---ikeVEW9yuYc//A+q--
+So it looks like the debian people have _not_ found the solution, but w=
+ere=20
+just lucky enough with their=20
+ 3.16.0-0.bpo.4-amd64 #1 SMP Debian 3.16.7-ckt4-3~bpo70+1=20
+
+not to hit it yet...
+
+
+
+Am Donnerstag, 26. M=C3=A4rz 2015 20:34:05 schrieb Wolfgang Rosner:
+> Hello, Eric
+>
+> Am Montag, 23. M=C3=A4rz 2015 03:33:17 schrieben Sie:
+> > On Mon, 2015-03-23 at 01:57 +0100, Wolfgang Rosner wrote:
+> > > Are you ready to assist me on this track?
+> >
+> > First check if the problem is already solved, using this git tree ?
+> >
+> > http://git.kernel.org/cgit/linux/kernel/git/davem/net.git
+>
+> Does not look like that :-(
+>
+>
+>
+> I tried both 3.19.2 frome kernel.org and
+> a git clone frome above adress from "master" this morning.
+> $ uname -a
+> Linux cruncher 4.0.0-rc5+ #1 SMP Thu Mar 26 08:48:08 CET 2015 x86_64
+> GNU/Linux
+>
+>
+> Sorry when it took some time.
+>
+> I've built a workaround for my aufs nfsroot to get rid of that, at le=
+ast
+> for testing.
+> Both kernels were built w/o aufs patches, so we cannot blame this any=
+more
+> (I've learned that people like to do so...)
+>
+>
+> -----------
+>
+> I tried sequential run to check for jitter and to allow for adaptatio=
+n
+>
+> for i in `seq 10` ; do  iperf -c 192.168.130.225 -t 100 ; done
+>
+> 3.17 / 3.30 / 3.16 / 3.19 / 3.29 / 3.29 / 3.35 / 3.32 / 3.22 / 3.32
+> Gbits/sec
+>
+> ...full bandwith at shared Link utilisation:
+>
+> [  4]  0.0-10.0 sec  3.31 GBytes  2.84 Gbits/sec
+> [  3]  0.0-10.0 sec  3.32 GBytes  2.85 Gbits/sec
+> [SUM]  0.0-10.0 sec  6.63 GBytes  5.69 Gbits/sec
+>
+> ...full bandwith (5.66 Gbits/sec) in the opposite direction
+>
+> (Test figures are from davem 4.0.0-rc5+, on 3.19.2 they were quite th=
+e
+> same)
+>
+> ------------------------
+>
+> Tried a look at differences in kernel .config
+> between the versions where the problem occured
+>
+> diff /boot/config-3.16.0-0.bpo.4-amd64 /boot/config-3.19.0 | less
+>
+> there is one occurence of TCP
+> '> # CONFIG_TCP_CONG_DCTCP is not set
+>
+> but it should not hurt if it is not set, should it?
+>
+> All the other stuff does not ring any bell wiht my (very limited) ran=
+ge of
+> experience.
+>
+>
+> So what next?
+>
+>
+>
+> Wolfgang Rosner
+>
+> --
+
+
+Wolfgang Rosner
