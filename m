@@ -1,15 +1,18 @@
-From: "ira.weiny" <ira.weiny@intel.com>
-Subject: Re: [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast() and, cap_mcast() for mcast-check
-Date: Fri, 27 Mar 2015 13:05:08 -0400
-Message-ID: <20150327170508.GB27862@phlsvsds.ph.intel.com>
-References: <551579CA.4030901@profitbricks.com> <55157B71.6040505@profitbricks.com> <20150327162820.GC28412@obsidianresearch.com>
+From: Yun Wang <yun.wang@profitbricks.com>
+Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and
+ cap_sa(), for sa-check
+Date: Fri, 27 Mar 2015 18:13:27 +0100
+Message-ID: <CAJuTgQWgWrNuNaCdNg0g_eHsaOPNUgM4qD=F56HZWeDeN0KWOQ@mail.gmail.com>
+References: <551579CA.4030901@profitbricks.com>
+	<55157B43.6060507@profitbricks.com>
+	<20150327164756.GA27862@phlsvsds.ph.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Roland Dreier <roland@kernel.org>,
 	Sean Hefty <sean.hefty@intel.com>,
 	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
 	"J. Bruce Fields" <bfields@fieldses.org>,
 	Trond Myklebust <trond.myklebust@primarydata.com>,
@@ -26,112 +29,163 @@ Cc: Michael Wang <yun.wang@profitbricks.com>,
 	Majd Dibbiny <majd@mellanox.com>,
 	Jiri Kosina <jkosina@suse.cz>,
 	Matan Barak <matanb@mellanox.com>,
-	Alex Estrin <alex.
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+	Alex Estrin <a
+To: "ira.weiny" <ira.weiny@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150327162820.GC28412@obsidianresearch.com>
+In-Reply-To: <20150327164756.GA27862@phlsvsds.ph.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 27, 2015 at 10:28:20AM -0600, Jason Gunthorpe wrote:
-> On Fri, Mar 27, 2015 at 04:46:57PM +0100, Michael Wang wrote:
-> > 
-> > Introduce helper has_mcast() and cap_mcast() to help us check if an
-> > IB device or it's port support Multicast.
-> > 
-> > Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-> > Cc: Doug Ledford <dledford@redhat.com>
-> > Cc: Ira Weiny <ira.weiny@intel.com>
-> > Cc: Sean Hefty <sean.hefty@intel.com>
-> > Signed-off-by: Michael Wang <yun.wang@profitbricks.com>
-> >  drivers/infiniband/core/cma.c       |  2 +-
-> >  drivers/infiniband/core/multicast.c |  8 ++++----
-> >  include/rdma/ib_verbs.h             | 28 ++++++++++++++++++++++++++++
-> >  3 files changed, 33 insertions(+), 5 deletions(-)
-> > 
-> > diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-> > index 276fb76..cbbc85b 100644
-> > +++ b/drivers/infiniband/core/cma.c
-> > @@ -3398,7 +3398,7 @@ void rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
-> >                  ib_detach_mcast(id->qp,
-> >                          &mc->multicast.ib->rec.mgid,
-> >                          be16_to_cpu(mc->multicast.ib->rec.mlid));
-> > -            if (rdma_transport_is_ib(id_priv->cma_dev->device)) {
-> > +            if (has_mcast(id_priv->cma_dev->device)) {
-> 
-> This might make more sense as cap_ib_multicast / cap_ip_multicast
+On Fri, Mar 27, 2015 at 5:47 PM, ira.weiny <ira.weiny@intel.com> wrote:
+> On Fri, Mar 27, 2015 at 04:46:11PM +0100, Michael Wang wrote:
+>>
+>> Introduce helper has_sa() and cap_sa() to help us check if an IB device
+>> or it's port support Subnet Administrator.
+>
+> I think these 2 should be combined.  The question is if a port requires the use
+> of the SA depending on the network it is connected to.
+>
+> Aren't some dual port Mellanox cards capable of doing IB on 1 port and Eth on
+> the other?  Do they show up as 2 devices?
 
-Agreed.
+I'm not sure about this... but sounds like your opinion is same to
+Jason on ipoib stuff, I'll do more investigation on that part, if it's
+just for optimization, then we should be able to eliminate has_xx()
+stuff :-) after all, init/exit is not a hot path.
 
-> 
-> >                  switch (rdma_port_get_link_layer(id->device, id->port_num)) {
-> >                  case IB_LINK_LAYER_INFINIBAND:
-> >                      ib_sa_free_multicast(mc->multicast.ib);
-> 
-> > diff --git a/drivers/infiniband/core/multicast.c b/drivers/infiniband/core/multicast.c
-> > index 17573ff..ffeaf27 100644
-> > +++ b/drivers/infiniband/core/multicast.c
-> > @@ -780,7 +780,7 @@ static void mcast_event_handler(struct ib_event_handler *handler,
-> >      int index;
-> >  
-> >      dev = container_of(handler, struct mcast_device, event_handler);
-> > -    if (!rdma_port_ll_is_ib(dev->device, event->element.port_num))
-> > +    if (!cap_mcast(dev->device, event->element.port_num))
-> >          return;
-> 
-> These should probably be cap_ib_sa - that is what they are guarding
-> against.
-> 
-> But it seems redudent, since mcast_add_one will already not add a port that is
-> not IB, so mcast_event_handler is not callable. Something to do with
-> rocee/ib switching?
+>
+> Regardless I think we should define the SA access on a per port basis.
+>
+>>
+>> Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+>> Cc: Doug Ledford <dledford@redhat.com>
+>> Cc: Ira Weiny <ira.weiny@intel.com>
+>> Cc: Sean Hefty <sean.hefty@intel.com>
+>> Signed-off-by: Michael Wang <yun.wang@profitbricks.com>
+>> ---
+>>  drivers/infiniband/core/sa_query.c | 12 ++++++------
+>>  include/rdma/ib_verbs.h            | 28 ++++++++++++++++++++++++++++
+>>  2 files changed, 34 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
+>> index d95d25f..89c27da 100644
+>> --- a/drivers/infiniband/core/sa_query.c
+>> +++ b/drivers/infiniband/core/sa_query.c
+>> @@ -450,7 +450,7 @@ static void ib_sa_event(struct ib_event_handler *handler, struct ib_event *event
+>>          struct ib_sa_port *port =
+>>              &sa_dev->port[event->element.port_num - sa_dev->start_port];
+>>
+>> -        if (!rdma_port_ll_is_ib(handler->device, port->port_num))
+>> +        if (!cap_sa(handler->device, port->port_num))
+>>              return;
+>>
+>>          spin_lock_irqsave(&port->ah_lock, flags);
+>> @@ -1154,7 +1154,7 @@ static void ib_sa_add_one(struct ib_device *device)
+>>      struct ib_sa_device *sa_dev;
+>>      int s, e, i;
+>>
+>> -    if (!rdma_transport_is_ib(device))
+>> +    if (!has_sa(device))
+>
+> The logic here should be:
+>
+> if (no ports of this device need sa access)
+>         return;
+>
+> So why not eliminate this check and allow the cap_sa(s) to handle the support?
 
-I'm not sure about this either.  This check seems to be necessary only on a
-per-port level.  It does seem apparent that one can't go from Eth to IB.  What
-happens if you go from IB to Eth on the port?
+I'll check if we could merge this part to the following iteration :-)
 
-> 
-> >      index = event->element.port_num - dev->start_port;
-> > @@ -807,7 +807,7 @@ static void mcast_add_one(struct ib_device *device)
-> >      int i;
-> >      int count = 0;
-> >  
-> > -    if (!rdma_transport_is_ib(device))
-> > +    if (!has_mcast(device))
-> >          return;
-> 
-> Again, this seems redundant, every port is tested directly below, why
-> is this check needed?
+Regards,
+Michael Wang
 
-Agreed.  Same as my comments about the SA support.  This is really only
-needed on ports which need to register with the SA (or perhaps some future
-entity) for Mcast support.
-
-Also this is part of the ib_sa module and exports the function
-ib_sa_join_multicast.  So that this point it is covered under the
-cap_sa(device, port) call.
-
-So the implementation of cap_mcast at this point is:
-
-cap_mcast(device, port)
-{
-	return cap_sa(device,port);
-}
-
-> 
-> Looking at this, I do wonder how a port can dynamically change between
-> rocee and IB.. If the link value changes then mcast_remove_one will
-> not be a perfect reversal of mcast_add_one. Bug?
-> 
-> It feels necessary to understand what happens when a port dynamically
-> switches to ethernet on mlx hardware to validate these patches :(
-
-Agreed.
-
-:-(
-
--- Ira
-
-> 
-> Jason
+>
+> -- Ira
+>
+>>          return;
+>>
+>>      if (device->node_type == RDMA_NODE_IB_SWITCH)
+>> @@ -1175,7 +1175,7 @@ static void ib_sa_add_one(struct ib_device *device)
+>>
+>>      for (i = 0; i <= e - s; ++i) {
+>>          spin_lock_init(&sa_dev->port[i].ah_lock);
+>> -        if (!rdma_port_ll_is_ib(device, i + 1))
+>> +        if (!cap_sa(device, i + 1))
+>>              continue;
+>>
+>>          sa_dev->port[i].sm_ah    = NULL;
+>> @@ -1205,14 +1205,14 @@ static void ib_sa_add_one(struct ib_device *device)
+>>          goto err;
+>>
+>>      for (i = 0; i <= e - s; ++i)
+>> -        if (rdma_port_ll_is_ib(device, i + 1))
+>> +        if (cap_sa(device, i + 1))
+>>              update_sm_ah(&sa_dev->port[i].update_task);
+>>
+>>      return;
+>>
+>>  err:
+>>      while (--i >= 0)
+>> -        if (rdma_port_ll_is_ib(device, i + 1))
+>> +        if (cap_sa(device, i + 1))
+>>              ib_unregister_mad_agent(sa_dev->port[i].agent);
+>>
+>>      kfree(sa_dev);
+>> @@ -1233,7 +1233,7 @@ static void ib_sa_remove_one(struct ib_device *device)
+>>      flush_workqueue(ib_wq);
+>>
+>>      for (i = 0; i <= sa_dev->end_port - sa_dev->start_port; ++i) {
+>> -        if (rdma_port_ll_is_ib(device, i + 1)) {
+>> +        if (cap_sa(device, i + 1)) {
+>>              ib_unregister_mad_agent(sa_dev->port[i].agent);
+>>              if (sa_dev->port[i].sm_ah)
+>>                  kref_put(&sa_dev->port[i].sm_ah->ref, free_sm_ah);
+>> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+>> index c0a63f8..fa8ffa3 100644
+>> --- a/include/rdma/ib_verbs.h
+>> +++ b/include/rdma/ib_verbs.h
+>> @@ -1810,6 +1810,19 @@ static inline int has_cm(struct ib_device *device)
+>>  }
+>>
+>>  /**
+>> + * has_sa - Check if a device support Subnet Administrator.
+>> + *
+>> + * @device: Device to be checked
+>> + *
+>> + * Return 0 when a device has none port to support
+>> + * Subnet Administrator.
+>> + */
+>> +static inline int has_sa(struct ib_device *device)
+>> +{
+>> +    return rdma_transport_is_ib(device);
+>> +}
+>> +
+>> +/**
+>>   * cap_smi - Check if the port of device has the capability
+>>   * Subnet Management Interface.
+>>   *
+>> @@ -1824,6 +1837,21 @@ static inline int cap_smi(struct ib_device *device, u8 port_num)
+>>      return rdma_port_ll_is_ib(device, port_num);
+>>  }
+>>
+>> +/**
+>> + * cap_sa - Check if the port of device has the capability
+>> + * Subnet Administrator.
+>> + *
+>> + * @device: Device to be checked
+>> + * @port_num: Port number of the device
+>> + *
+>> + * Return 0 when port of the device don't support
+>> + * Subnet Administrator.
+>> + */
+>> +static inline int cap_sa(struct ib_device *device, u8 port_num)
+>> +{
+>> +    return rdma_port_ll_is_ib(device, port_num);
+>> +}
+>> +
+>>  int ib_query_gid(struct ib_device *device,
+>>           u8 port_num, int index, union ib_gid *gid);
+>>
+>> --
+>> 2.1.0
+>>
