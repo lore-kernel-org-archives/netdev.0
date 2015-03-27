@@ -1,7 +1,9 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 0/7] Stacked vlan TSO
-Date: Fri, 27 Mar 2015 14:31:09 +0900
-Message-ID: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next 3/7] net: Move check for multiple
+	vlans to drivers
+Date: Fri, 27 Mar 2015 14:31:12 +0900
+Message-ID: <1427434277-27569-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,6 +19,7 @@ To: "David S . Miller" <davem@davemloft.net>,
 	Andy Gospodarek <gospo@cumulusnetworks.com>,
 	Jiri Pirko <jiri@resnulli.us>, Linux NICS <linux.nics@intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -27,116 +30,131 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On the basis of Netdev 0.1 discussion[1], I made a patch set to enable
-TSO for packets with multiple vlans.
+To allow drivers to handle the features check for multiple tags,
+move the check to ndo_features_check().
+As no drivers currently handle multiple tagged TSO, introduce
+dflt_features_check() and call it if the driver does not have
+ndo_features_check().
 
-Currently, packets with multiple vlans are always segmented by software,
-which is caused by that netif_skb_features() drops most feature flags
-for multiple tagged packets.
-
-To allow NICs to segment them, we need to get rid of that check from core.
-Fortunately, recently introduced ndo_features_check() can be used to
-move the check to each driver, and this patch set is based on the idea.
-
-For the initial patch set, I chose 3 drivers, bonding, team, and igb, as
-candidates to enable TSO. I tested them and confirmed they works fine
-with this change.
-
-Here are samples of performance test results. As I expected, %sys gets
-pretty lower than before.
-
-* TEST1: vlan (.1Q) on vlan (.1ad) on igb (I350)
-
-- before
-
-$ netperf -t TCP_STREAM -H 192.168.10.1 -l 60
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    60.02     933.72
-
-Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
-Average:        all      0.13      0.00     11.28      0.01      0.00     88.58
-
-- after
-
-$ netperf -t TCP_STREAM -H 192.168.10.1 -l 60
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    60.01     936.13
-
-Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
-Average:        all      0.24      0.00      4.17      0.01      0.00     95.58
-
-
-* TEST2: vlan (.1Q) on bridge (.1ad vlan filtering) on team on igb (I350)
-
-- before
-
-$ netperf -t TCP_STREAM -H 192.168.10.1 -l 60
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    60.01     936.28
-
-Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
-Average:        all      0.41      0.00     11.57      0.01      0.00     88.01
-
-- after
-
-$ netperf -t TCP_STREAM -H 192.168.10.1 -l 60
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    60.02     935.72
-
-Average:        CPU     %user     %nice   %system   %iowait    %steal     %idle
-Average:        all      0.14      0.00      7.66      0.01      0.00     92.19
-
-
-In addition to above, I tested these configurations:
-- vlan (.1Q) on vlan (1.ad) on bonding on igb (I350)
-- vlan (.1Q) on vlan (1.Q) on igb (I350)
-- vlan (.1Q) on vlan (1.Q) on team on igb (I350)
-And didn't find any problem.
-
-
-[1] https://netdev01.org/sessions/18
-    https://netdev01.org/docs/netdev01_bof_8021ad_makita_150212.pdf
-
---
-- v2: Add const qualifiers for skb arguments.
-
-Toshiaki Makita (7):
-  vlan: Add features for stacked vlan device
-  vlan: Introduce helper functions to check if skb is tagged
-  net: Move check for multiple vlans to drivers
-  net: Introduce passthru_features_check
-  bonding: Don't segment multiple tagged packets on bonding device
-  team: Don't segment multiple tagged packets on team device
-  igb: Enable TSO for stacked vlan
-
- drivers/net/bonding/bond_main.c                  |  1 +
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  1 +
- drivers/net/ethernet/intel/igb/igb_main.c        |  1 +
  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  1 +
  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  1 +
- drivers/net/team/team.c                          |  1 +
- include/linux/if_vlan.h                          | 67 ++++++++++++++++++++++++
- include/linux/netdevice.h                        |  3 ++
- net/8021q/vlan_dev.c                             |  1 +
- net/core/dev.c                                   | 41 +++++++--------
- 10 files changed, 96 insertions(+), 22 deletions(-)
+ include/linux/if_vlan.h                          | 22 ++++++++++++++++++++++
+ net/core/dev.c                                   | 21 +++++++++------------
+ 5 files changed, 34 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 9677431..039b0c1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12557,6 +12557,7 @@ static netdev_features_t bnx2x_features_check(struct sk_buff *skb,
+ 					      struct net_device *dev,
+ 					      netdev_features_t features)
+ {
++	features = vlan_features_check(skb, features);
+ 	return vxlan_features_check(skb, features);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index a8339e9..ebc93a1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2373,6 +2373,7 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+ 						struct net_device *dev,
+ 						netdev_features_t features)
+ {
++	features = vlan_features_check(skb, features);
+ 	return vxlan_features_check(skb, features);
+ }
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index a430a34a..367f397 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -507,6 +507,7 @@ static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
+ 					       struct net_device *dev,
+ 					       netdev_features_t features)
+ {
++	features = vlan_features_check(skb, features);
+ 	return vxlan_features_check(skb, features);
+ }
+ #endif
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 4265d44..920e445 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -606,4 +606,26 @@ static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
+ 	return true;
+ }
+ 
++/**
++ * vlan_features_check - drop unsafe features for skb with multiple tags.
++ * @skb: skbuff to query
++ * @features: features to be checked
++ *
++ * Returns features without unsafe ones if the skb has multiple tags.
++ */
++static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
++						    netdev_features_t features)
++{
++	if (skb_vlan_tagged_multi(skb))
++		features = netdev_intersect_features(features,
++						     NETIF_F_SG |
++						     NETIF_F_HIGHDMA |
++						     NETIF_F_FRAGLIST |
++						     NETIF_F_GEN_CSUM |
++						     NETIF_F_HW_VLAN_CTAG_TX |
++						     NETIF_F_HW_VLAN_STAG_TX);
++
++	return features;
++}
++
+ #endif /* !(_LINUX_IF_VLAN_H_) */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 04bffcd..cb46bad 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2562,6 +2562,13 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 	return features;
+ }
+ 
++static netdev_features_t dflt_features_check(const struct sk_buff *skb,
++					     struct net_device *dev,
++					     netdev_features_t features)
++{
++	return vlan_features_check(skb, features);
++}
++
+ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+@@ -2583,22 +2590,12 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ 						     dev->vlan_features |
+ 						     NETIF_F_HW_VLAN_CTAG_TX |
+ 						     NETIF_F_HW_VLAN_STAG_TX);
+-	else
+-		goto finalize;
+ 
+-	if (skb_vlan_tagged_multi(skb))
+-		features = netdev_intersect_features(features,
+-						     NETIF_F_SG |
+-						     NETIF_F_HIGHDMA |
+-						     NETIF_F_FRAGLIST |
+-						     NETIF_F_GEN_CSUM |
+-						     NETIF_F_HW_VLAN_CTAG_TX |
+-						     NETIF_F_HW_VLAN_STAG_TX);
+-
+-finalize:
+ 	if (dev->netdev_ops->ndo_features_check)
+ 		features &= dev->netdev_ops->ndo_features_check(skb, dev,
+ 								features);
++	else
++		features &= dflt_features_check(skb, dev, features);
+ 
+ 	return harmonize_features(skb, features);
+ }
 -- 
 1.8.1.2
 
