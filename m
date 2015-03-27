@@ -1,44 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
-Date: Fri, 27 Mar 2015 11:44:02 +0000
-Message-ID: <20150327114402.GB12265@casper.infradead.org>
-References: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
- <1427379836.29436.9.camel@stressinduktion.org>
- <20150326152938.GD2010@nanopsycho.orion>
- <1427402351.2093330.245738573.1406B9EA@webmail.messagingengine.com>
- <20150327060716.GB2073@nanopsycho.orion>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [RFC net-next 1/2] net: allow user to set IPv6 nexthop for IPv4
+ route
+Date: Fri, 27 Mar 2015 11:53:01 +0000
+Message-ID: <5515449D.4080408@brocade.com>
+References: <1427403928-1342-1-git-send-email-gospo@cumulusnetworks.com> <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	jesse@nicira.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Bjornar Ness <bjornar.ness@gmail.com>,
+	"Sowmini Varadhan" <sowmini05@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40671 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251AbbC0LoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 07:44:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20150327060716.GB2073@nanopsycho.orion>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46550 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752613AbbC0Lzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 07:55:38 -0400
+In-Reply-To: <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/15 at 07:07am, Jiri Pirko wrote:
-> well, you can do *everything* with cls_bpf now that it supports ebpf.
-> But I think it is a big hammer. cls_openflow suppose to be just
-> replacement for existing ovs classification, with very simple and well
-> understood uapi.
+On 26/03/15 21:05, Andy Gospodarek wrote:
+> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+> index bea910f..26cdd01 100644
+> --- a/include/uapi/linux/rtnetlink.h
+> +++ b/include/uapi/linux/rtnetlink.h
+> @@ -306,6 +306,7 @@ enum rtattr_type_t {
+>          RTA_VIA,
+>          RTA_NEWDST,
+>          RTA_PREF,
+> +       RTA_GATEWAY6,
 
-The current linear filtering approach makes it not suitable
-right now. No doubt that unifying flow classification would
-be great to have.
+There shouldn't be any need to add a new attribute. The RTA_VIA 
+attribute that Eric Biederman recently introduced should have the 
+semantics that you require:
 
-Once you start building some form of wildcarded hash tables
-into this, I see a lot of overlap with cls_flow appearing.
-What about extending cls_flow instead? Are you still planning
-to have one cls_classifier instance per wildcard flow?
+"RTA_VIA specifies the specifies the next machine to send a packet to
+like RTA_GATEWAY.  RTA_VIA differs from RTA_GATEWAY in that it
+includes the address family of the address of the next machine to send
+a packet to."
 
-I'm usually all for small steps and take it from there but you
-are setting a uapi in stone here and once you add linear
-filtering behaviour you can't just undo it without a ton of
-flags.
+Thanks,
+Rob
