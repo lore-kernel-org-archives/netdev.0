@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/6] i40evf: delay releasing rings
-Date: Fri, 27 Mar 2015 03:02:48 -0700
-Message-ID: <1427450573-13945-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/6] i40evf: resequence close operations
+Date: Fri, 27 Mar 2015 03:02:49 -0700
+Message-ID: <1427450573-13945-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1427450573-13945-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,143 +10,59 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:13066 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752155AbbC0KDI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 06:03:08 -0400
+	id S1752036AbbC0KDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2015 06:03:10 -0400
 In-Reply-To: <1427450573-13945-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-When the VF interface is closed, we cannot immediately free our rings
-and RX buffers, because the hardware hasn't yet stopped accessing this
-memory. This shows up as a panic or memory corruption when the device is
-brought down while under heavy stress.
+Call the netdev carrier off and TX disable functions first, before other
+shutdown operations. This stops the stack from hitting us with
+transmits while we're shutting down. Additionally, disable NAPI before
+disabling interrupts, or the interrupt might get re-enabled
+inappropriately. Finally, remove the call to netif_tx_stop_all_queues,
+as it is redundant - the call to netif_tx_disable already did the same
+thing.
 
-To fix this, delay releasing resources until we receive acknowledgment
-from the PF driver that the rings have indeed been stopped. Because of
-this delay, we also need to check to make sure that all of our admin
-queue requests have been handled before allowing the device to be
-opened.
-
-Change-ID: I44edd35529ce2fa2a9512437a3a8e6f14ed8ed63
+Change-ID: I8b2dd25231b82817746cc256234a5eeeb4abaccc
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 ++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 23 ++++++++++------------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  2 ++
- 3 files changed, 14 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 9812247..34c8565 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -272,6 +272,8 @@ void i40evf_update_stats(struct i40evf_adapter *adapter);
- void i40evf_reset_interrupt_capability(struct i40evf_adapter *adapter);
- int i40evf_init_interrupt_scheme(struct i40evf_adapter *adapter);
- void i40evf_irq_enable_queues(struct i40evf_adapter *adapter, u32 mask);
-+void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter);
-+void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter);
- 
- void i40e_napi_add_all(struct i40evf_adapter *adapter);
- void i40e_napi_del_all(struct i40evf_adapter *adapter);
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 812b120..da901f4 100644
+index da901f4..b08efaf 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -28,8 +28,6 @@
- #include "i40e_prototype.h"
- static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter);
- static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter);
--static void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter);
--static void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter);
- static int i40evf_close(struct net_device *netdev);
+@@ -971,8 +971,10 @@ void i40evf_down(struct i40evf_adapter *adapter)
+ 				&adapter->crit_section))
+ 		usleep_range(500, 1000);
  
- char i40evf_driver_name[] = "i40evf";
-@@ -1358,6 +1356,11 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 		goto watchdog_done;
+-	i40evf_irq_disable(adapter);
++	netif_carrier_off(netdev);
++	netif_tx_disable(netdev);
+ 	i40evf_napi_disable_all(adapter);
++	i40evf_irq_disable(adapter);
+ 
+ 	/* remove all MAC filters */
+ 	list_for_each_entry(f, &adapter->mac_filter_list, list) {
+@@ -995,13 +997,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
+ 		adapter->aq_required |= I40EVF_FLAG_AQ_DEL_VLAN_FILTER;
+ 		adapter->aq_required |= I40EVF_FLAG_AQ_DISABLE_QUEUES;
  	}
+-	netif_tx_disable(netdev);
  
-+	if (adapter->aq_required & I40EVF_FLAG_AQ_DISABLE_QUEUES) {
-+		i40evf_disable_queues(adapter);
-+		goto watchdog_done;
-+	}
-+
- 	if (adapter->aq_required & I40EVF_FLAG_AQ_MAP_VECTORS) {
- 		i40evf_map_queues(adapter);
- 		goto watchdog_done;
-@@ -1383,11 +1386,6 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 		goto watchdog_done;
- 	}
- 
--	if (adapter->aq_required & I40EVF_FLAG_AQ_DISABLE_QUEUES) {
--		i40evf_disable_queues(adapter);
--		goto watchdog_done;
--	}
+-	netif_tx_stop_all_queues(netdev);
 -
- 	if (adapter->aq_required & I40EVF_FLAG_AQ_CONFIGURE_QUEUES) {
- 		i40evf_configure_queues(adapter);
- 		goto watchdog_done;
-@@ -1724,7 +1722,7 @@ out:
-  *
-  * Free all transmit software resources
-  **/
--static void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
-+void i40evf_free_all_tx_resources(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
-@@ -1794,7 +1792,7 @@ static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter)
-  *
-  * Free all receive software resources
-  **/
--static void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter)
-+void i40evf_free_all_rx_resources(struct i40evf_adapter *adapter)
- {
- 	int i;
- 
-@@ -1824,7 +1822,7 @@ static int i40evf_open(struct net_device *netdev)
- 		dev_err(&adapter->pdev->dev, "Unable to open device due to PF driver failure.\n");
- 		return -EIO;
- 	}
--	if (adapter->state != __I40EVF_DOWN)
-+	if (adapter->state != __I40EVF_DOWN || adapter->aq_required)
- 		return -EBUSY;
- 
- 	/* allocate transmit descriptors */
-@@ -1888,9 +1886,6 @@ static int i40evf_close(struct net_device *netdev)
- 	adapter->state = __I40EVF_DOWN;
- 	i40evf_free_traffic_irqs(adapter);
- 
--	i40evf_free_all_tx_resources(adapter);
--	i40evf_free_all_rx_resources(adapter);
+-	msleep(20);
 -
- 	return 0;
+-	netif_carrier_off(netdev);
+ 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
  }
  
-@@ -2504,6 +2499,8 @@ static void i40evf_remove(struct pci_dev *pdev)
- 	iounmap(hw->hw_addr);
- 	pci_release_regions(pdev);
- 
-+	i40evf_free_all_tx_resources(adapter);
-+	i40evf_free_all_rx_resources(adapter);
- 	i40evf_free_queues(adapter);
- 	kfree(adapter->vf_res);
- 	/* If we got removed before an up/down sequence, we've got a filter
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 3f0c85e..4240a49 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -761,6 +761,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		break;
- 	case I40E_VIRTCHNL_OP_DISABLE_QUEUES:
- 		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_DISABLE_QUEUES);
-+		i40evf_free_all_tx_resources(adapter);
-+		i40evf_free_all_rx_resources(adapter);
- 		break;
- 	case I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES:
- 		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_CONFIGURE_QUEUES);
 -- 
 1.9.3
