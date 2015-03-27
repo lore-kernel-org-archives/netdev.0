@@ -1,43 +1,32 @@
-From: Sowmini Varadhan <sowmini05@gmail.com>
-Subject: Re: [RFC net-next 1/2] net: allow user to set IPv6 nexthop for IPv4 route
-Date: Fri, 27 Mar 2015 09:23:57 -0400
-Message-ID: <CACP96tQjVxSgh3m7ext5P+iyY2tPXy3O6R+UQ4wv44MRjFQvZQ@mail.gmail.com>
-References: <1427403928-1342-1-git-send-email-gospo@cumulusnetworks.com>
-	<1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH 0/6] mvneta: SGMII-based in-band link state signaling
+Date: Fri, 27 Mar 2015 16:28:28 +0300
+Message-ID: <55155AFC.4050800@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Bjornar Ness <bjornar.ness@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:37953 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752467AbbC0NX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 09:23:58 -0400
-Received: by wibgn9 with SMTP id gn9so31111537wib.1
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 06:23:58 -0700 (PDT)
-In-Reply-To: <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
+Received: from smtp49.i.mail.ru ([94.100.177.109]:37828 "EHLO smtp49.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752511AbbC0N2d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2015 09:28:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 5:05 PM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> This adds kernel infrastructure to allow userspace (read: routing protocols) to
-> support adding IPv6 next-hops to IPv4 routes.  This is essentially added to
-> support a feature of MP-BGP outlined in RFC-5549.
->
-> Thise does not encompass all that is needed to support RFC-5549, but this
-> demonstrates the netlink infrastructure needed to correctly enable the kernel
-> infrastructure that would support this RFC.  For more informtion the full RFC
-> is here: http://www.ietf.org/rfc/rfc5549.txt.
+Hello.
 
-Is there some impact to redirect behavior? RFC 5549 does not seem to
-discuss it at all, but the firsthop would be processing (and
-potentially sending)
-an icmp redirect to the host. I dont think there is a good way to construct
-this, either with icmpv4 or icmpv6, and maybe some checks are needed to
-not even try, when the IP mix-match is encountered.
+Currently the fixed-link DT binding is pre-configured and
+cannot be changed in run-time. This means the cable unplug
+events are not being detected, and the link parameters can't
+be negotiated.
 
---Sowmini
+The following patches are needed when mvneta is used
+in fixed-link mode (without MDIO).
+They add an API to of_mdio for updating the fixed_phy
+status, and use that API in the mvneta driver when parsing
+the SGMII in-band status.
+
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
