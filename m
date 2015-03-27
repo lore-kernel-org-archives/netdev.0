@@ -1,139 +1,104 @@
-From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
-Subject: Re: [PATCH net-next 1/2] net: neighbour: Add mcast_resolicit to configure
- the number of multicast resolicitations in PROBE state.
-Date: Fri, 27 Mar 2015 10:42:10 +0100
-Message-ID: <551525F2.3040107@ericsson.com>
-References: <20150319.224146.893461080038567220.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
+ on transport and link layer
+Date: Fri, 27 Mar 2015 10:52:10 +0100
+Message-ID: <5515284A.3030106@profitbricks.com>
+References: <5512CFB0.1050108@profitbricks.com> <1427378940.21101.100.camel@redhat.com> <55142DFD.2060100@profitbricks.com> <1427387258.21101.124.camel@redhat.com> <55143AAC.8040206@profitbricks.com> <20150326211334.GA3359@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <Yanjun.Zhu@windriver.com>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:48709 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753742AbbC0JmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 05:42:15 -0400
-In-Reply-To: <20150319.224146.893461080038567220.yoshfuji@yoshifuji-H87MS01.miraclelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Majd Dibbiny <majd@mellanox.c
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150326211334.GA3359-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Should not this patch add modifications to "kernel/sysctl_binary.c" and
-"include/linux/sysctl.h" as well?
+Hi, Jason
 
-mcast_probes and ucast_probes are initialized in arp.c and ndisc.c.
-Should we not initialize also mcast_reprobes, even if it is zero?
+Thanks for the reply :-)
 
-There are some statistics printout in net/core/neighbour.c.
-They handle mcast_solicit and ucast_solicit.
-
-Are they unneccessary for mcast_resolicit?
-
-Best Regards,
-Ulf Samuelsson
-
-On 03/19/2015 02:41 PM, YOSHIFUJI Hideaki wrote:
-
-> We send unicast neighbor (ARP or NDP) solicitations ucast_probes
-> times in PROBE state.  Zhu Yanjun reported that some implementation
-> does not reply against them and the entry will become FAILED, which
-> is undesirable.
+On 03/26/2015 10:13 PM, Jason Gunthorpe wrote:
+> On Thu, Mar 26, 2015 at 05:58:20PM +0100, Michael Wang wrote:
 >
-> We had been dealt with such nodes by sending multicast probes mcast_
-> solicit times after unicast probes in PROBE state.  In 2003, I made
-> a change not to send them to improve compatibility with IPv6 NDP.
+>> The questions is just wondering how the transition method could be, but
+>> if we have to do the changes for vendor, that sounds like a tough job...
+> I would see changing how the information is represented in the struct
+> as a follow on issue. The first patch should go through and replace
+> all direct access to the link layer/transport/etc with an
+> appropriately narrow is_XX() test like Doug was suggesting.
+
+Sounds like a good plan, I'd like to change the second patch to
+introduce these new helpers, later when we come to a good
+solution, rework should be far more easier.
+
 >
-> Let's introduce per-protocol per-interface sysctl knob "mcast_
-> reprobe" to configure the number of multicast (re)solicitation for
-> reconfirmation in PROBE state.  The default is 0, since we have
-> been doing so for 10+ years.
+> That means looking at each code site and determining what it needs,
+> making a is_XX for it and a kdoc describing exactly what is needed for
+> the test to return true.
+
+Basically I found there are three kind of check in current
+implementation:
+
+1. check transport type of device only
+    I'd like to use helper has_XX(device)
+    which means some port of the device has XX capability.
+
+2. check link layer of device's port only
+    I'd like to use helper cap_XX(device, port)
+    which means the port has XX capability
+
+3. check both the transport type and link layer
+    I'd like to use helper tech_XX(device, port)
+    which means the port of that device using technology
+    ib, iwrap, iboe(roce) ...
+
 >
-> Reported-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-> CC: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
-> Signed-off-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->   include/net/neighbour.h        |  1 +
->   include/uapi/linux/neighbour.h |  1 +
->   net/core/neighbour.c           | 15 +++++++++++----
->   3 files changed, 13 insertions(+), 4 deletions(-)
+> The follow on patch can then rework the is_XX and drop the link
+> layer/transport stuff..
 >
-> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-> index e7bdf51..bd33e66 100644
-> --- a/include/net/neighbour.h
-> +++ b/include/net/neighbour.h
-> @@ -42,6 +42,7 @@ enum {
->   	NEIGH_VAR_MCAST_PROBES,
->   	NEIGH_VAR_UCAST_PROBES,
->   	NEIGH_VAR_APP_PROBES,
-> +	NEIGH_VAR_MCAST_REPROBES,
->   	NEIGH_VAR_RETRANS_TIME,
->   	NEIGH_VAR_BASE_REACHABLE_TIME,
->   	NEIGH_VAR_DELAY_PROBE_TIME,
-> diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-> index 3873a35..2e35c61 100644
-> --- a/include/uapi/linux/neighbour.h
-> +++ b/include/uapi/linux/neighbour.h
-> @@ -126,6 +126,7 @@ enum {
->   	NDTPA_PROXY_QLEN,		/* u32 */
->   	NDTPA_LOCKTIME,			/* u64, msecs */
->   	NDTPA_QUEUE_LENBYTES,		/* u32 */
-> +	NDTPA_MCAST_REPROBES,		/* u32 */
->   	__NDTPA_MAX
->   };
->   #define NDTPA_MAX (__NDTPA_MAX - 1)
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 0e8b32e..3de6542 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -817,10 +817,9 @@ out:
->   static __inline__ int neigh_max_probes(struct neighbour *n)
->   {
->   	struct neigh_parms *p = n->parms;
-> -	int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES);
-> -	if (!(n->nud_state & NUD_PROBE))
-> -		max_probes += NEIGH_VAR(p, MCAST_PROBES);
-> -	return max_probes;
-> +	return NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES) +
-> +	       (n->nud_state & NUD_PROBE ? NEIGH_VAR(p, MCAST_REPROBES) :
-> +	        NEIGH_VAR(p, MCAST_PROBES));
->   }
->   
->   static void neigh_invalidate(struct neighbour *neigh)
-> @@ -1742,6 +1741,8 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
->   			NEIGH_VAR(parms, UCAST_PROBES)) ||
->   	    nla_put_u32(skb, NDTPA_MCAST_PROBES,
->   			NEIGH_VAR(parms, MCAST_PROBES)) ||
-> +	    nla_put_u32(skb, NDTPA_MCAST_REPROBES,
-> +			NEIGH_VAR(parms, MCAST_REPROBES)) ||
->   	    nla_put_msecs(skb, NDTPA_REACHABLE_TIME, parms->reachable_time) ||
->   	    nla_put_msecs(skb, NDTPA_BASE_REACHABLE_TIME,
->   			  NEIGH_VAR(parms, BASE_REACHABLE_TIME)) ||
-> @@ -1901,6 +1902,7 @@ static const struct nla_policy nl_ntbl_parm_policy[NDTPA_MAX+1] = {
->   	[NDTPA_APP_PROBES]		= { .type = NLA_U32 },
->   	[NDTPA_UCAST_PROBES]		= { .type = NLA_U32 },
->   	[NDTPA_MCAST_PROBES]		= { .type = NLA_U32 },
-> +	[NDTPA_MCAST_REPROBES]		= { .type = NLA_U32 },
->   	[NDTPA_BASE_REACHABLE_TIME]	= { .type = NLA_U64 },
->   	[NDTPA_GC_STALETIME]		= { .type = NLA_U64 },
->   	[NDTPA_DELAY_PROBE_TIME]	= { .type = NLA_U64 },
-> @@ -2001,6 +2003,10 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
->   				NEIGH_VAR_SET(p, MCAST_PROBES,
->   					      nla_get_u32(tbp[i]));
->   				break;
-> +			case NDTPA_MCAST_REPROBES:
-> +				NEIGH_VAR_SET(p, MCAST_REPROBES,
-> +					      nla_get_u32(tbp[i]));
-> +				break;
->   			case NDTPA_BASE_REACHABLE_TIME:
->   				NEIGH_VAR_SET(p, BASE_REACHABLE_TIME,
->   					      nla_get_msecs(tbp[i]));
-> @@ -2987,6 +2993,7 @@ static struct neigh_sysctl_table {
->   		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(MCAST_PROBES, "mcast_solicit"),
->   		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(UCAST_PROBES, "ucast_solicit"),
->   		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(APP_PROBES, "app_solicit"),
-> +		NEIGH_SYSCTL_ZERO_INTMAX_ENTRY(MCAST_REPROBES, "mcast_resolicit"),
->   		NEIGH_SYSCTL_USERHZ_JIFFIES_ENTRY(RETRANS_TIME, "retrans_time"),
->   		NEIGH_SYSCTL_JIFFIES_ENTRY(BASE_REACHABLE_TIME, "base_reachable_time"),
->   		NEIGH_SYSCTL_JIFFIES_ENTRY(DELAY_PROBE_TIME, "delay_first_probe_time"),
+> Some ideas for is_XX:
+>   IB compatible SA
+>   QP0 SMP mechanism
+>   IB SMP format
+>   OPA SMP format
+>   QP1 GMP mechanism
+>   IB compatible CM
+>   GID addressing
+>   IP/IPv6 addressing
+>   Ethernet VLAN
+>   ...
+
+Let's discuss and figure out the right name in the thread of
+v2 patch set, I guess there will be a lot to be correct :-P
+
+Regards,
+Michael Wang
+
+>
+> Jason
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
