@@ -1,75 +1,146 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 3/4] ipvlan: do not use rcu operations for address list
-Date: Fri, 27 Mar 2015 18:30:25 +0100
-Message-ID: <a188e1cf1f5a239c10529b2e70e6eaf4f8549ff7.1427476903.git.jbenc@redhat.com>
-References: <cover.1427476903.git.jbenc@redhat.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Dan Williams <dcbw@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57244 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752353AbbC0Rap (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 13:30:45 -0400
-In-Reply-To: <cover.1427476903.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yun Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast()
+ and, cap_mcast() for mcast-check
+Date: Fri, 27 Mar 2015 18:31:26 +0100
+Message-ID: <CAJuTgQUSm0pM8pqLiivTrKbhtXkKYZaZbBxYFTog0JatzQm3=g@mail.gmail.com>
+References: <551579CA.4030901@profitbricks.com>
+	<55157B71.6040505@profitbricks.com>
+	<20150327162820.GC28412@obsidianresearch.com>
+	<20150327170508.GB27862@phlsvsds.ph.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+To: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150327170508.GB27862-W4f6Xiosr+yv7QzWx2u06xL4W9x8LtSr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-All accesses to ipvlan->addrs are under rtnl.
+On Fri, Mar 27, 2015 at 6:05 PM, ira.weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+> On Fri, Mar 27, 2015 at 10:28:20AM -0600, Jason Gunthorpe wrote:
+>> On Fri, Mar 27, 2015 at 04:46:57PM +0100, Michael Wang wrote:
+>> >
+[snip]
+>> > -            if (rdma_transport_is_ib(id_priv->cma_dev->device)) {
+>> > +            if (has_mcast(id_priv->cma_dev->device)) {
+>>
+>> This might make more sense as cap_ib_multicast / cap_ip_multicast
+>
+> Agreed.
+>
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Will be changed in next version :-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index dbaf67c722a0..f5b1c7b38770 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -505,7 +505,7 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
- 	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
- 		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
- 			ipvlan_ht_addr_del(addr, !dev->dismantle);
--			list_del_rcu(&addr->anode);
-+			list_del(&addr->anode);
- 		}
- 	}
- 	list_del_rcu(&ipvlan->pnode);
-@@ -620,7 +620,7 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
- 	addr->master = ipvlan;
- 	memcpy(&addr->ip6addr, ip6_addr, sizeof(struct in6_addr));
- 	addr->atype = IPVL_IPV6;
--	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
-+	list_add_tail(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv6cnt++;
- 	/* If the interface is not up, the address will be added to the hash
- 	 * list by ipvlan_open. */
-@@ -639,7 +639,7 @@ static void ipvlan_del_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
- 		return;
- 
- 	ipvlan_ht_addr_del(addr, true);
--	list_del_rcu(&addr->anode);
-+	list_del(&addr->anode);
- 	ipvlan->ipv6cnt--;
- 	WARN_ON(ipvlan->ipv6cnt < 0);
- 	kfree_rcu(addr, rcu);
-@@ -691,7 +691,7 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	addr->master = ipvlan;
- 	memcpy(&addr->ip4addr, ip4_addr, sizeof(struct in_addr));
- 	addr->atype = IPVL_IPV4;
--	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
-+	list_add_tail(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv4cnt++;
- 	/* If the interface is not up, the address will be added to the hash
- 	 * list by ipvlan_open. */
-@@ -711,7 +711,7 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 		return;
- 
- 	ipvlan_ht_addr_del(addr, true);
--	list_del_rcu(&addr->anode);
-+	list_del(&addr->anode);
- 	ipvlan->ipv4cnt--;
- 	WARN_ON(ipvlan->ipv4cnt < 0);
- 	if (!ipvlan->ipv4cnt)
--- 
-1.8.3.1
+>>
+>> >                  switch (rdma_port_get_link_layer(id->device, id->port_num)) {
+>> >                  case IB_LINK_LAYER_INFINIBAND:
+>> >                      ib_sa_free_multicast(mc->multicast.ib);
+>>
+>> > diff --git a/drivers/infiniband/core/multicast.c b/drivers/infiniband/core/multicast.c
+>> > index 17573ff..ffeaf27 100644
+>> > +++ b/drivers/infiniband/core/multicast.c
+>> > @@ -780,7 +780,7 @@ static void mcast_event_handler(struct ib_event_handler *handler,
+>> >      int index;
+>> >
+>> >      dev = container_of(handler, struct mcast_device, event_handler);
+>> > -    if (!rdma_port_ll_is_ib(dev->device, event->element.port_num))
+>> > +    if (!cap_mcast(dev->device, event->element.port_num))
+>> >          return;
+>>
+>> These should probably be cap_ib_sa - that is what they are guarding
+>> against.
+>>
+>> But it seems redudent, since mcast_add_one will already not add a port that is
+>> not IB, so mcast_event_handler is not callable. Something to do with
+>> rocee/ib switching?
+>
+> I'm not sure about this either.  This check seems to be necessary only on a
+> per-port level.  It does seem apparent that one can't go from Eth to IB.  What
+> happens if you go from IB to Eth on the port?
+
+I also feel it's redundant at first glance, but just not sure if it
+could be removed, lack of some knowledge :-P
+
+>
+>>
+>> >      index = event->element.port_num - dev->start_port;
+>> > @@ -807,7 +807,7 @@ static void mcast_add_one(struct ib_device *device)
+>> >      int i;
+>> >      int count = 0;
+>> >
+>> > -    if (!rdma_transport_is_ib(device))
+>> > +    if (!has_mcast(device))
+>> >          return;
+>>
+>> Again, this seems redundant, every port is tested directly below, why
+>> is this check needed?
+>
+> Agreed.  Same as my comments about the SA support.  This is really only
+> needed on ports which need to register with the SA (or perhaps some future
+> entity) for Mcast support.
+
+I will recheck all the logical around has_XX() see if we can get rid of them ;-)
+
+>
+> Also this is part of the ib_sa module and exports the function
+> ib_sa_join_multicast.  So that this point it is covered under the
+> cap_sa(device, port) call.
+>
+> So the implementation of cap_mcast at this point is:
+>
+> cap_mcast(device, port)
+> {
+>         return cap_sa(device,port);
+> }
+>
+
+Sounds good :-) will be in next version.
+
+>>
+>> Looking at this, I do wonder how a port can dynamically change between
+>> rocee and IB.. If the link value changes then mcast_remove_one will
+>> not be a perfect reversal of mcast_add_one. Bug?
+>>
+>> It feels necessary to understand what happens when a port dynamically
+>> switches to ethernet on mlx hardware to validate these patches :(
+>
+> Agreed.
+
+Maybe we can temporarily reserve the old logical, and gradually solve
+these problems?
+
+Regards,
+Michael Wang
+
+
+>
+> :-(
+>
+> -- Ira
+>
+>>
+>> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
