@@ -1,21 +1,21 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] Renesas Ethernet AVB driver
-Date: Sat, 28 Mar 2015 02:11:42 +0300
-Message-ID: <237923615.rIRdooMS47@wasted.cogentembedded.com>
+Subject: [PATCH resend] Renesas Ethernet AVB driver
+Date: Sat, 28 Mar 2015 02:13:19 +0300
+Message-ID: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: linux-sh@vger.kernel.org
-To: rebh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
 	galak@codeaurora.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:34128 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753792AbbC0XLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 19:11:49 -0400
-Received: by lboc7 with SMTP id c7so16910309lbo.1
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 16:11:47 -0700 (PDT)
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:34754 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752200AbbC0XNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 19:13:25 -0400
+Received: by lboc7 with SMTP id c7so16926232lbo.1
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 16:13:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -36,6 +36,8 @@ Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 This patch is against David Miller's 'net-next.git' repo.
+
+Resending with the correct Rob Herring's address...
 
  Documentation/devicetree/bindings/net/renesas,ravb.txt |   48 
  drivers/net/ethernet/renesas/Kconfig                   |   14 
