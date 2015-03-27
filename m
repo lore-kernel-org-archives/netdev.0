@@ -1,54 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v2 0/2] ixgbe: Add the appropriate ethtool ops
- to query RSS indirection table and key
-Date: Thu, 26 Mar 2015 21:17:58 -0700
-Message-ID: <1427429878.2497.46.camel@jtkirshe-mobl>
-References: <1427409886-20261-1-git-send-email-vladz@cloudius-systems.com>
+Subject: Re: [linux-nics] [PATCH net-next 7/7] igb: Enable TSO for stacked
+ vlan
+Date: Thu, 26 Mar 2015 21:48:52 -0700
+Message-ID: <1427431732.2497.48.camel@jtkirshe-mobl>
+References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <1427346080-12086-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-CByTi3dFVDvnuJWEE2r5"
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	avi@cloudius-systems.com, gleb@cloudius-systems.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>
+	protocol="application/pgp-signature"; boundary="=-MWogQtuFgFWcXbxhdrxH"
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Dept-GELinuxNICDev@qlogic.com, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Linux NICS <linux.nics@intel.com>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19198 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53649 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751205AbbC0ESE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 00:18:04 -0400
-In-Reply-To: <1427409886-20261-1-git-send-email-vladz@cloudius-systems.com>
+	id S1750968AbbC0Es4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2015 00:48:56 -0400
+In-Reply-To: <1427346080-12086-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-CByTi3dFVDvnuJWEE2r5
+--=-MWogQtuFgFWcXbxhdrxH
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2015-03-27 at 00:44 +0200, Vlad Zolotarov wrote:
-> Add the ethtool ops to VF driver to allow querying the RSS indirection
-> table
-> and RSS Random Key.
+On Thu, 2015-03-26 at 14:01 +0900, Toshiaki Makita wrote:
+> As datasheets for igb (I210, I350, 82576, etc.) say, maclen can be
+> from
+> 14 to 127, which is enough for reasonable number of vlan tags.
+> My netperf test showed I350's TSO works pretty fine with multiple
+> vlans.
 >=20
-> This series refactors the RSS configuration code to store the current
-> contents of
-> RSS indirection table and Hash Key in the "adapter" struct so that we
-> won't need
-> to access registers every time this info is queried.
->=20
-> New in v2:
->    - Some styling fixes.
->    - Moved macros definitions from ixgbe_type.h to ixgbe.h.
->=20
-> Vlad Zolotarov (2):
->   ixgbe: Refactor the RSS configuration code.
->   ixgbe: Add the appropriate ethtool ops to query RSS indirection
-> table
->     and key
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-I am assuming that this series is to replace the latest v8 series,
-correct?
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
---=-CByTi3dFVDvnuJWEE2r5
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c | 1 +
+>  1 file changed, 1 insertion(+)
+
+
+
+--=-MWogQtuFgFWcXbxhdrxH
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -56,19 +60,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJVFNn2AAoJEOVv75VaS+3O8wQP/1kXQq3QtU2Tjt6RxqV16Aez
-9nWmcKFeV+IuIAanOxTFhXqLxF5Jsol+MVtLeFX2qGeoa2Z0JKhWChU6xUS+a0Mi
-3fmJxEmFdBjYkZRJskKxzKQjvVNggPqbEs6zuQEEFXXTYEHhCQQZ/h7I3UJlbEPP
-40wj4SzfqJN7CHmf9QLA8cO81+mYOrpvycVcDNpNRMdSN0jY+Mgoe+ZlkqBDm6gx
-Xn6UxK3FTufcKZ8Rh82KArGi9Kr4nX06ux289nI1mUdcgXFXky2e7eww0cRvpw1y
-4D4pHeGzw+U9evKAUZj4lP8MFxhARehXX7m0ZR2XrYcXbXeam+4RtZ06UE52cuLe
-BLWXsX1mRyw5aVqV/x3v8aDO1q1Jq25kR0VEtDwyEI4Ir7T2wYPDJnJ+AKP5NuSI
-DKhUyWGsuR/6dZJooCTW/j27CnB7FBCB+2nylFKytvJiRfU2FV1LbsfvVmO47b+p
-/ownXWUy2EX9u/MVADJymcXUnAoOWBfVbqEp5QijtKWnTKKjis/ip/Xku8XpALXN
-PJ/6H5capm3EspNshAgZ2OriDDtvyW4O0ncr7zLRuoaIXjltcircWOMbPxjdrFLd
-jcfvTdj1MGW43X13oTJ8f03MN2U56icecaVudSM8D256gJ15CHGLSSqvclRSfqir
-EI9xRuQPlQQR/0PYuBdm
-=Exnh
+iQIcBAABCgAGBQJVFOE0AAoJEOVv75VaS+3OwKEP/0oa3M3eOK3BV012+BqlbOsb
+OJjLWgWCkpdQhW/NdYgBwx+4CSQKnna+4IC28gzFETQk1C0RL4DTCCNLugC6Rpw6
+K7D77s9oZ80GUkACz+xN5NiE6bRCGADhYXR7kjUbv2S9uDGaW2ooXPaeU/G/yzmV
+t1zFq0sqEyV1EH242ssTTprbVRvHsjNcBpKWAIv/TXAaKCpXLz8vXGTrWyaFVL9Q
+9T6/VlwfTfGvEelCf9Gps85y/4VP+gBRQnb/cwS07sS4AfvC+si409s4t8PSofgk
+Ax2e2J3zRwKk95iRmgpxmG+qJtftD+fds+631hWARi8qTqUrG8u2Q/KbclQzoJuw
+18ddIbE0Vquqv7xQiw6UR1wle6f8ZqmUHrdBLWUtgC0pcK4wBPaNonyAQKpJVwKS
+NE3RSXDR9Ypk8pNMbdZowREZ1wGj6B5Vm7S5Bq0HZ8PAofmOlLrxmwndsxMj3it/
+mImgfkMyCh+59NnogwlYGc+p89b5vhPvrU960etBfLH78fQGmoyI4izjbY5nPjHb
+uO5wcSGGPs80Mw+iZSqxW9I8cGSuf4qJqwbcgY9+XmmPt0vDnrIbWt12HyE/kPLs
+wV2v1N6DSTDhXh+SFqfTSsQUNwChoDV614SUNWx9krZ3oPgk+ooPCfcaXvLJ3wGF
+hjoG4PB3kOu+TAKU+GhP
+=wzC5
 -----END PGP SIGNATURE-----
 
---=-CByTi3dFVDvnuJWEE2r5--
+--=-MWogQtuFgFWcXbxhdrxH--
