@@ -1,7 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] Intel Wired LAN Driver Updates
-Date: Fri, 27 Mar 2015 16:04:10 -0700
-Message-ID: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net] MAINTAINERS: Update Intel Wired Ethernet Driver
+	info
+Date: Fri, 27 Mar 2015 16:04:11 -0700
+Message-ID: <1427497451-23642-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +12,7 @@ Cc: nhorman@redhat.com, jogreene@redhat.com, linux.nics@intel.com,
 	linux-kernel@vger.kernel.org, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -20,42 +23,59 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The veil has been lifted...
+Update the git tree info with a recent change in tree names.  Also
+add our new mailing list created solely for Linux kernel patches
+and kernel development, as well as the new patchwork project for
+tracking patches.  Lastly update the list of "reviewers" since a
+couple of developers have moved on to different projects.
 
-No more having patches submitted against Intel wired Ethernet drivers
-to be applied to a mysterious queue and not knowing what the status or
-how many patches are in the queue.  We have created a new mailing list
-(intel-wired-lan@lists.osuosl.org) for all Linux kernel patches and
-kernel development, which anyone can subscribe to.  Also we have a
-public patchwork project on patchwork.ozlabs.org, where all the
-patches reside and their current status.
+Made an update to the section header so that it is more manageable
+going forward as we add new drivers.
 
-This change was made on part of the multiple requests for the community
-and to also benefit from the various community testers.
-
-Developers may also notice we have removed e1000-devel@lists.sourceforge.net
-and the linux.nics@intel.com mailing lists from the MAINTAINERS file.
-These mailing lists are not going away, their removal is an attempt to
-focus their usage for their intended purpose.
-
-The e1000-devel@lists.sourceforge.net mailing list will be used only
-for our out-of-tree driver work and linux.nics@intel.com customer issues
-and related work.
-
-We had a "soft opening" March 24th, but now we are "officially" open
-publicly for business. :-)`
-
-The following are changes since commit dde93dfea53c72b07907d9e44a6e4b1545f6bdc4:
-  cxgb4: Fix frame size warning for 32 bit arch
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue master
-
-Jeff Kirsher (1):
-  MAINTAINERS: Update Intel Wired Ethernet Driver info
-
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
  MAINTAINERS | 25 ++++++++++++-------------
  1 file changed, 12 insertions(+), 13 deletions(-)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 358eb01..9508870 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5128,22 +5128,21 @@ M:	Deepak Saxena <dsaxena@plexity.net>
+ S:	Maintained
+ F:	drivers/char/hw_random/ixp4xx-rng.c
+ 
+-INTEL ETHERNET DRIVERS (e100/e1000/e1000e/fm10k/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e/i40evf)
++INTEL ETHERNET DRIVERS
+ M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+-M:	Jesse Brandeburg <jesse.brandeburg@intel.com>
+-M:	Bruce Allan <bruce.w.allan@intel.com>
+-M:	Carolyn Wyborny <carolyn.wyborny@intel.com>
+-M:	Don Skidmore <donald.c.skidmore@intel.com>
+-M:	Greg Rose <gregory.v.rose@intel.com>
+-M:	Matthew Vick <matthew.vick@intel.com>
+-M:	John Ronciak <john.ronciak@intel.com>
+-M:	Mitch Williams <mitch.a.williams@intel.com>
+-M:	Linux NICS <linux.nics@intel.com>
+-L:	e1000-devel@lists.sourceforge.net
++R:	Jesse Brandeburg <jesse.brandeburg@intel.com>
++R:	Shannon Nelson <shannon.nelson@intel.com>
++R:	Carolyn Wyborny <carolyn.wyborny@intel.com>
++R:	Don Skidmore <donald.c.skidmore@intel.com>
++R:	Matthew Vick <matthew.vick@intel.com>
++R:	John Ronciak <john.ronciak@intel.com>
++R:	Mitch Williams <mitch.a.williams@intel.com>
++L:	intel-wired-lan@lists.osuosl.org
+ W:	http://www.intel.com/support/feedback.htm
+ W:	http://e1000.sourceforge.net/
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
++Q:	http://patchwork.ozlabs.org/project/intel-wired-lan/list/
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
+ S:	Supported
+ F:	Documentation/networking/e100.txt
+ F:	Documentation/networking/e1000.txt
 -- 
 1.9.3
 
