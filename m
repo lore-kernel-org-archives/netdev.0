@@ -1,62 +1,47 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
- for Linux (LibOS)
-Date: Fri, 27 Mar 2015 06:52:04 +0100
-Message-ID: <5514F004.7030509@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m2h9t7bubh.wl@wide.ad.jp>	<5514560A.7040707@nod.at>	<87iodnqfp1.fsf@rustcorp.com.au> <CAMuHMdXYa2K8FH48A8_O-TsfduUC2A2WWD_bHhBgznf6FbN1Zw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 00/16] net: dsa: HW bridging, EEE support
+Date: Thu, 26 Mar 2015 23:01:26 -0700
+Message-ID: <CAGVrzcZNwz9sPMLXP+HPdRkGGg7vxqf49mQj4fHo_rdGOkqJjA@mail.gmail.com>
+References: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Hajime Tazaki <tazaki@wide.ad.jp>,
- Linux-Arch <linux-arch@vger.kernel.org>,
- Arnd Bergmann <arnd@arndb.de>, Jonathan Corbet <corbet@lwn.net>,
- Christoph Lameter <cl@linux.com>,
- Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
- Joonsoo Kim <iamjoonsoo.kim@lge.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Linux MM <linux-mm@kvack.org>, Jeff Dike <jdike@addtoit.com>,
- mathieu.lacage@gmail.com
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
- Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAMuHMdXYa2K8FH48A8_O-TsfduUC2A2WWD_bHhBgznf6FbN1Zw@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 27.03.2015 um 04:49 schrieb Geert Uytterhoeven:
-> On Fri, Mar 27, 2015 at 4:31 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
->> Richard Weinberger <richard@nod.at> writes:
->>> This also infers that arch/lib will be broken most of the time as
->>> every time the networking stack references a new symbol it
->>> has to be duplicated into arch/lib.
->>>
->>> But this does not mean that your idea is bad, all I want to say that
->>> I'm not sure whether arch/lib is the right approach.
->>> Maybe Arnd has a better idea.
->>
->> Exactly why I look forward to getting this in-tree.  Jeremy Kerr and I
->> wrote nfsim back in 2005(!) which stubbed around the netfilter
->> infrastructure; with failtest and valgrind it found some nasty bugs.  It
->> was too much hassle to maintain out-of-tree though :(
->>
->> I look forward to a flood of great bugfixes from this work :)
-> 
-> IIRC, the ability to run UML under valgrind was also one of its key features?
-> And that's not limited to networking.
+Hi Guenter,
 
-Sadly this feature went never mainline. You needed a rather invading patch
-for both Linux and valgrind.
+2015-03-26 18:36 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
+> Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
+> for HW bridging support, without adding the code itself. For the most part
+> this factors out common port initialization code. There is no functional
+> change except for patch 3, which disables the message port bit for the
+> CPU port to prevent packet duplication if HW bridging is configured.
+>
+> Patch 8 adds the infrastructure for hardware bridging support to the
+> mv88e6xxx code.
+>
+> Patch 9 wires the MV88E6352 driver to support hardware bridging.
+>
+> Patches 10 to 12 add support for ndo_fdb functions to the dsa subsystem,
+> and wire up the MV88E6352 driver to support those functions.
+>
+> Patches 13 to 16 add EEE support and HW bridging support to the mv88e6171
+> driver. This set of patches is from Andrew, applied on top of the first
+> set of patches.
+>
+> The series applies to net-next as of 3/24/2015.
+>
+> Thanks a lot to Andrew Lunn for testing and valuable feedback.
 
-But now with KASan we have a much more powerful feature to find issues.
+This looks really good to me:
 
-Thanks,
-//richard
-
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Florian
