@@ -1,86 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v2 0/2] ixgbe: Add the appropriate ethtool ops
- to query RSS indirection table and key
-Date: Fri, 27 Mar 2015 03:05:51 -0700
-Message-ID: <1427450751.2497.65.camel@jtkirshe-mobl>
-References: <1427409886-20261-1-git-send-email-vladz@cloudius-systems.com>
-	 <1427429878.2497.46.camel@jtkirshe-mobl>
-	 <551528B1.90303@cloudius-systems.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net: fec: setup right value for mdio hold time
+Date: Fri, 27 Mar 2015 11:08:32 +0100
+Message-ID: <1427450912-9793-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-khaDe438Ct3kI+/xmPl/"
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	avi@cloudius-systems.com, gleb@cloudius-systems.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Russell King <rmk+kernel@arm.linux.org.uk>,
+	Frank Li <Frank.Li@freescale.com>,
+	=?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	kernel@pengutronix.de, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:23335 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751578AbbC0KFx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 06:05:53 -0400
-In-Reply-To: <551528B1.90303@cloudius-systems.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:53190 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681AbbC0KJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 06:09:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The FEC modules used on i.MX28 and newer have a register to tune the MD=
+IO
+output hold time that should be at least 10 ns. Up to now this value wa=
+s not
+explicitly set and so resulted in less hold time if the fec clock was
+faster than 100 MHz.
 
---=-khaDe438Ct3kI+/xmPl/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This was noticed on an i.MX28 machine that uses an input clock of ~150
+Mhz which resulted in unreliable communication with a Marvell switch.
 
-On Fri, 2015-03-27 at 12:53 +0300, Vlad Zolotarov wrote:
-> On 03/27/15 07:17, Jeff Kirsher wrote:
-> > On Fri, 2015-03-27 at 00:44 +0200, Vlad Zolotarov wrote:
-> >> Add the ethtool ops to VF driver to allow querying the RSS
-> indirection
-> >> table
-> >> and RSS Random Key.
-> >>
-> >> This series refactors the RSS configuration code to store the
-> current
-> >> contents of
-> >> RSS indirection table and Hash Key in the "adapter" struct so that
-> we
-> >> won't need
-> >> to access registers every time this info is queried.
-> >>
-> >> New in v2:
-> >>     - Some styling fixes.
-> >>     - Moved macros definitions from ixgbe_type.h to ixgbe.h.
-> >>
-> >> Vlad Zolotarov (2):
-> >>    ixgbe: Refactor the RSS configuration code.
-> >>    ixgbe: Add the appropriate ethtool ops to query RSS indirection
-> >> table
-> >>      and key
-> > I am assuming that this series is to replace the latest v8 series,
-> > correct?
->=20
-> This series is a precondition for v9. I have prepared it and waited
-> for=20
-> this series to get it... I'll send it on Sunday.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 30 +++++++++++++++++++++++=
+++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
 
-Ok, so I will drop v8 since there will be v9 coming.
-
---=-khaDe438Ct3kI+/xmPl/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVFSt/AAoJEOVv75VaS+3OaOAP/0OLBS4PbUvF9yKXzJMIZLzG
-XNu4r5b7GOknUDjAGwN+P7fnSwurhIX1CHRQvjjR31Ub6E9DqR9o6yJhpJTq/5BQ
-u91EpLH45ynj9GyqAljKgbFfi5W6kRFHnCchyzlJ+Yso4f+wQwm4BT7YIb9xT0lZ
-xjobKgCLrMyK3ajda6vDMQQf/rv2UzkW/LlS0Q3B7jSDLFtOkjZxgiT4WsvUeqxj
-dIkBqRisro4I0CZ7p/7aaXMVHBJ/IsvB4PrvfXFvXmaSrxYIjPB8ngqf/xEzJdWO
-6U9QTjgw1r+r2/2l4QVsmEMG6l0xk6NQOIqcGfgPz7FPgQVzzkOUitzPAET5+bKY
-ik4XkeLbBkVyO8pLRTkixwa5EvnwFBIAd4Hs4CX9yyMpN7RB77v3VwcuHYZV/Wnq
-QztlfQnQgvSJlgNyItI8GfTxdv6ctPTRntjw3kdG01ERzvXRBIcshS0/3yQP1QMX
-PtTXnHtY/T4KxC1b4NkfUd20ajfD0eij8rUSAL13xqIWTeFkatVSWyjRHIDSTLcr
-+/+PF1aoCk8DaItp+/U1NleS2z05ptfeGFnVbrKGh4vXIx2187Q0N+kiAeO99Lq7
-TcIc+v4yytOCwNV0zGVSOO8k9sG5/mhEkVOnHfd8WTjjy7dS9q1UE2HT35dkgGr5
-kVni8oHNX8XGrWYpf2mv
-=zUOr
------END PGP SIGNATURE-----
-
---=-khaDe438Ct3kI+/xmPl/--
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
+hernet/freescale/fec_main.c
+index 78e1ce09b1ab..f6a3a7abd468 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1954,6 +1954,7 @@ static int fec_enet_mii_init(struct platform_devi=
+ce *pdev)
+ 	struct fec_enet_private *fep =3D netdev_priv(ndev);
+ 	struct device_node *node;
+ 	int err =3D -ENXIO, i;
++	u32 mii_speed, holdtime;
+=20
+ 	/*
+ 	 * The i.MX28 dual fec interfaces are not equal.
+@@ -1991,10 +1992,33 @@ static int fec_enet_mii_init(struct platform_de=
+vice *pdev)
+ 	 * Reference Manual has an error on this, and gets fixed on i.MX6Q
+ 	 * document.
+ 	 */
+-	fep->phy_speed =3D DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000);
++	mii_speed =3D DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000);
+ 	if (fep->quirks & FEC_QUIRK_ENET_MAC)
+-		fep->phy_speed--;
+-	fep->phy_speed <<=3D 1;
++		mii_speed--;
++	if (mii_speed > 63) {
++		dev_err(&pdev->dev,
++			"fec clock (%lu) to fast to get right mii speed\n",
++			clk_get_rate(fep->clk_ipg));
++		err =3D -EINVAL;
++		goto err_out;
++	}
++
++	/*
++	 * The i.MX28 and i.MX6 types have another filed in the MSCR (aka
++	 * MII_SPEED) register that defines the MDIO output hold time. Earlie=
+r
++	 * versions are RAZ there, so just ignore the difference and write th=
+e
++	 * register always.
++	 * The minimal hold time according to IEE802.3 (clause 22) is 10 ns.
++	 * HOLDTIME + 1 is the number of clk cycles the fec is holding the
++	 * output.
++	 * The HOLDTIME bitfield takes values between 0 and 7 (inclusive).
++	 * Given that ceil(clkrate / 5000000) <=3D 64, the calculation for
++	 * holdtime cannot result in a value greater than 3.
++	 */
++	holdtime =3D DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 100000000) - 1;
++
++	fep->phy_speed =3D mii_speed << 1 | holdtime << 8;
++
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+=20
+ 	fep->mii_bus =3D mdiobus_alloc();
+--=20
+2.1.4
