@@ -1,150 +1,60 @@
-From: Wolfgang Rosner <wrosner@tirnet.de>
-Subject: Re: One way TCP bottleneck over 6 x Gbit tecl aggregated link // Kernel issue
-Date: Fri, 27 Mar 2015 19:46:07 +0100
-Message-ID: <201503271946.07464.wrosner@tirnet.de>
-References: <201503210110.48980.wrosner@tirnet.de> <1427077997.25985.59.camel@edumazet-glaptop2.roam.corp.google.com> <201503262034.05499.wrosner@tirnet.de>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net: phy: at803x: simplify using devm_gpiod_get_optional and its 4th argument
+Date: Fri, 27 Mar 2015 20:25:02 +0100
+Message-ID: <1427484302-17075-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <acourbot@nvidia.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tirnet.de ([217.7.138.221]:3623 "EHLO mail.tirnet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751002AbbC0SqJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 14:46:09 -0400
-In-Reply-To: <201503262034.05499.wrosner@tirnet.de>
-Content-Disposition: inline
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:51226 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750931AbbC0TZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 15:25:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+Since 39b2bbe3d715 (gpio: add flags argument to gpiod_get*() functions)
+which appeared in v3.17-rc1, the gpiod_get* functions take an additiona=
+l
+parameter that allows to specify direction and initial value for output=
+=2E
+Moreover use devm_gpiod_get_index_optional instead of ignoring all
+errors returned by devm_gpiod_get. Simplify accordingly.
 
+The result is more strict error handling which is good.
 
-I tried to discern the possibilities of Debian patches having solved th=
-e=20
-problem vs, regression bug in recent Kernels.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ drivers/net/phy/at803x.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-So I tested:
-- Vanilla 3.16.7
-- recent Debian 3.19.1
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-results:
-
-- Vanilla 3.16.7
-from
-https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.16.7.tar.xz
-result: really bad,=20
-~ 500 Mbit /s both inbound and outwards
-inbound even with -P24 parallel threads not more than 800 Mbit
-outobund with -P12 we are back over 5 Gbit/s again
-
-=46rom that, to mee it looks like the problem was introduced before  3.=
-16.7
-but only partly solved since then.
-
-I tried to map vailla versions with the davem fork,
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/tree/
- but got lost in git / developer workflow .
-
-
-
-- recent Debian 3.19.1
-same results as with any other recent kernel
-	inbound > 5.5 GBit
-	outbound ~ 3.2 GBit
-	outbound -P 2 > 5 Gbit
-
-
-So it looks like the debian people have _not_ found the solution, but w=
-ere=20
-just lucky enough with their=20
- 3.16.0-0.bpo.4-amd64 #1 SMP Debian 3.16.7-ckt4-3~bpo70+1=20
-
-not to hit it yet...
-
-
-
-Am Donnerstag, 26. M=C3=A4rz 2015 20:34:05 schrieb Wolfgang Rosner:
-> Hello, Eric
->
-> Am Montag, 23. M=C3=A4rz 2015 03:33:17 schrieben Sie:
-> > On Mon, 2015-03-23 at 01:57 +0100, Wolfgang Rosner wrote:
-> > > Are you ready to assist me on this track?
-> >
-> > First check if the problem is already solved, using this git tree ?
-> >
-> > http://git.kernel.org/cgit/linux/kernel/git/davem/net.git
->
-> Does not look like that :-(
->
->
->
-> I tried both 3.19.2 frome kernel.org and
-> a git clone frome above adress from "master" this morning.
-> $ uname -a
-> Linux cruncher 4.0.0-rc5+ #1 SMP Thu Mar 26 08:48:08 CET 2015 x86_64
-> GNU/Linux
->
->
-> Sorry when it took some time.
->
-> I've built a workaround for my aufs nfsroot to get rid of that, at le=
-ast
-> for testing.
-> Both kernels were built w/o aufs patches, so we cannot blame this any=
-more
-> (I've learned that people like to do so...)
->
->
-> -----------
->
-> I tried sequential run to check for jitter and to allow for adaptatio=
-n
->
-> for i in `seq 10` ; do  iperf -c 192.168.130.225 -t 100 ; done
->
-> 3.17 / 3.30 / 3.16 / 3.19 / 3.29 / 3.29 / 3.35 / 3.32 / 3.22 / 3.32
-> Gbits/sec
->
-> ...full bandwith at shared Link utilisation:
->
-> [  4]  0.0-10.0 sec  3.31 GBytes  2.84 Gbits/sec
-> [  3]  0.0-10.0 sec  3.32 GBytes  2.85 Gbits/sec
-> [SUM]  0.0-10.0 sec  6.63 GBytes  5.69 Gbits/sec
->
-> ...full bandwith (5.66 Gbits/sec) in the opposite direction
->
-> (Test figures are from davem 4.0.0-rc5+, on 3.19.2 they were quite th=
-e
-> same)
->
-> ------------------------
->
-> Tried a look at differences in kernel .config
-> between the versions where the problem occured
->
-> diff /boot/config-3.16.0-0.bpo.4-amd64 /boot/config-3.19.0 | less
->
-> there is one occurence of TCP
-> '> # CONFIG_TCP_CONG_DCTCP is not set
->
-> but it should not hurt if it is not set, should it?
->
-> All the other stuff does not ring any bell wiht my (very limited) ran=
-ge of
-> experience.
->
->
-> So what next?
->
->
->
-> Wolfgang Rosner
->
-> --
-
-
-Wolfgang Rosner
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index f80e19ac6704..87dd633a8d1f 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -197,15 +197,12 @@ static int at803x_probe(struct phy_device *phydev=
+)
+ 	if (!priv)
+ 		return -ENOMEM;
+=20
+-	priv->gpiod_reset =3D devm_gpiod_get(dev, "reset");
+-	if (IS_ERR(priv->gpiod_reset))
+-		priv->gpiod_reset =3D NULL;
+-	else
+-		gpiod_direction_output(priv->gpiod_reset, 1);
++	priv->gpiod_reset =3D devm_gpiod_get_optional(dev, "reset",
++						    GPIOD_OUT_HIGH);
+=20
+ 	phydev->priv =3D priv;
+=20
+-	return 0;
++	return IS_ERR(priv->gpiod_reset);
+ }
+=20
+ static int at803x_config_init(struct phy_device *phydev)
+--=20
+2.1.4
