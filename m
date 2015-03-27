@@ -1,99 +1,59 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware
- forwarded packets
-Date: Fri, 27 Mar 2015 10:08:23 +0900
-Message-ID: <20150327010821.GA10514@vergenet.net>
-References: <5511A29F.5010006@cumulusnetworks.com>
- <20150324175825.GA1465@roeck-us.net>
- <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com>
- <CAGVrzcZ+QywZxe4P2bcnBLG9mXUDARNzNyXF1yTOV9tnAcx=PQ@mail.gmail.com>
- <CAE4R7bBeFg9v-CnUJU-0pe8ZS4AYXQNAGNTcvCrHdZ1ggYmOPA@mail.gmail.com>
- <5512E9EC.5020504@cumulusnetworks.com>
- <CAE4R7bCtpaonLeRiX9s3yFisONDQUv9z_EOBcGTdgTGLEjC7vA@mail.gmail.com>
- <20150326082011.GA2010@nanopsycho.orion>
- <CAE4R7bCYe1c2dT0V3tDjUvVuzB28WabAjbt=sQreK=3WM+60Nw@mail.gmail.com>
- <20150326144922.GC2010@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	John Fastabend <john.fastabend@gmail.com>,
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH v2 00/16] net: dsa: HW bridging, EEE support
+Date: Thu, 26 Mar 2015 18:36:27 -0700
+Message-ID: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
-	David Miller <davem@davemloft.net>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35023 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752530AbbC0BIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 21:08:36 -0400
-Received: by pacwz10 with SMTP id wz10so28408316pac.2
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 18:08:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150326144922.GC2010@nanopsycho.orion>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:39291 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752694AbbC0Bgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 21:36:49 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YbJCZ-0020TN-Mq
+	for netdev@vger.kernel.org; Fri, 27 Mar 2015 01:36:48 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 03:49:22PM +0100, Jiri Pirko wrote:
-> Thu, Mar 26, 2015 at 03:28:28PM CET, sfeldma@gmail.com wrote:
-> >On Thu, Mar 26, 2015 at 1:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> >> Thu, Mar 26, 2015 at 08:44:27AM CET, sfeldma@gmail.com wrote:
-> >>>On Wed, Mar 25, 2015 at 10:01 AM, roopa <roopa@cumulusnetworks.com> wrote:
-> >>>
-> >>>[cut]
-> >>>
-> >>>So just to keep the discussion alive (because we really need to solve
-> >>>this problem), my current thinking is back to Roopa's RFC patch to
-> >>>mark the skb to avoid fwding in bridge driver.  One idea (sorry if
-> >>>this was already suggested, thread is long) is to use
-> >>>swdev_parent_id_get op in the following way:
-> >>>
-> >>>1) when port interface is added to bridge, bridge calls
-> >>>swdev_parent_id_get() on port to get switch id.
-> >>>swdev_parent_id_get() needs to be modified to work on stacked drivers.
-> >>>For example, if a bond is the new bridge port, swdev_parent_id_get()
-> >>>on the bond interface should get switch_id for bond member.  We stash
-> >>>the switch_id in the bridge port private structure for later
-> >>>comparison.
-> >>
-> >> Nope, that cannot work. You can bond 2 ports each belonging to a
-> >> different switch.
-> >
-> >Are you thinking about two switch ASICs in the same box, and bonding
-> >ports from each?  Or are you thinking about bonding ports from
-> >different boxes, ala MLAG?
-> 
-> One machine, 2 switches.
-> 
-> >
-> >In the first case the bond would report NULL switch_id if the member
-> >ports don't all have the same switch_id.  If bond switch_id is NULL,
-> >the bridge driver would fwd pkts to bond and now bond would make same
-> >check as bridge: if dst port switch_id is same as skb switch_id, then
-> >drop pkt.  In bridge, if bond switch_id is non-NULL and matches skb
-> >switch_id, then drop pkt.  So it works as desired for this case.  It
-> >requires the bonding/teaming driver to modify the default behavior for
-> >swdev_parent_id_get() to only return switch_id if all ports agree on
-> >switch_id.
-> >
-> >For second case using MLAG, I suspect bond member port switch_ids
-> >would likely be different, and so with same logic in bonding/bridge
-> >drivers as above in first case, the pkt would be fwded down.
-> >
-> >Is there another case to consider?  I think converting
-> >swdev_parent_id_get() to use same algo we have for stp, allowing for
-> >any layer to override like in my bonding example, will have benefits
-> >down the road.
-> >
-> >What is the argument for not allowing stacked version of swdev_parent_id_get()?
-> 
-> That was suppose wo identify a switch port. "ip link" will show you that
-> and you see right away what is going on. If bond implements that, that
-> brigs a mess. I don't like that.
+Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
+for HW bridging support, without adding the code itself. For the most part
+this factors out common port initialization code. There is no functional
+change except for patch 3, which disables the message port bit for the
+CPU port to prevent packet duplication if HW bridging is configured.
 
-I'm not sure that I follow how this messes things up from a bridging point
-of view. Would it help if bonds consistently returned a NULL parent id
-even if all its slaves have the same parent id?
+Patch 8 adds the infrastructure for hardware bridging support to the
+mv88e6xxx code.
+
+Patch 9 wires the MV88E6352 driver to support hardware bridging.
+
+Patches 10 to 12 add support for ndo_fdb functions to the dsa subsystem,
+and wire up the MV88E6352 driver to support those functions.
+
+Patches 13 to 16 add EEE support and HW bridging support to the mv88e6171
+driver. This set of patches is from Andrew, applied on top of the first
+set of patches.
+
+The series applies to net-next as of 3/24/2015.
+
+Thanks a lot to Andrew Lunn for testing and valuable feedback.
+
+---
+Changes since v1:
+- Fixed compile error in patch 02/16. That was previously addressed in
+  a later patch but broke bisectability.
+- Dropped the RFT patches introducing HW bridging support for MV88E6131
+  and compatibles. There was a bug in stat code, and those patches should
+  be handled separately anyway since they are untested.
+- Removed duplicate defines from mv88e6xxx.h.
+
+Changes since RFT:
+- Various bug fixes
+  - Fixed packet duplication seen when HW bridging is enabled
+- Cleanup; use more defines and restructure patches
+- Added ndo_fdb functions
+- New patches adding support for HW bridging and EEE support
+  to the mv88e6171 driver.
