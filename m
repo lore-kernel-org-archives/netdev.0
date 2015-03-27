@@ -1,48 +1,50 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 0/6] mvneta: SGMII-based in-band link state signaling
-Date: Fri, 27 Mar 2015 17:20:32 +0300
-Message-ID: <55156730.5030807@list.ru>
-References: <55155AFC.4050800@list.ru> <20150327133907.GA11975@lunn.ch> <551560B9.1030505@list.ru> <20150327135904.GB11975@lunn.ch>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [RFC net-next 1/2] net: allow user to set IPv6 nexthop for IPv4
+ route
+Date: Fri, 27 Mar 2015 10:35:23 -0400
+Message-ID: <20150327143522.GH1051@gospo>
+References: <1427403928-1342-1-git-send-email-gospo@cumulusnetworks.com>
+ <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
+ <CACP96tQjVxSgh3m7ext5P+iyY2tPXy3O6R+UQ4wv44MRjFQvZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150327135904.GB11975@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Bjornar Ness <bjornar.ness@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Sowmini Varadhan <sowmini05@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f52.google.com ([209.85.213.52]:33885 "EHLO
+	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752941AbbC0Off (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 10:35:35 -0400
+Received: by yhch68 with SMTP id h68so39331225yhc.1
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 07:35:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CACP96tQjVxSgh3m7ext5P+iyY2tPXy3O6R+UQ4wv44MRjFQvZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-27.03.2015 16:59, Andrew Lunn =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> But there is no MDIO, because SGMII AFAIK doesn't need MDIO.
->> SGMII has in-band status, but for some reason it seems currently
->> linux is not ready for such setup - this is what my patch addresses.
->=20
-> Hacking the fixed-link driver feels wrong to me. You probably want to
-> implement an SGMII-link driver. With some refactoring you can probabl=
-y
-> re-use some of the fixed-link driver code, but it should be a separat=
-e
-> driver, with its own DT binding.
-Well I took the path of "the least resistance" of course...
-and the one that doesn't look unreasonable to me, but the separate
-driver is an option too. Though it will really be just the "same
-fixed-link with 3 added functions to change properties". Do we really
-need 2 mostly similar drivers? Esp when one includes the functionality
-of the other, and just adds a bit on top? Maybe having just one, with
-all the capabilities added?
-=46or example, maybe someone will later want the ability to alter the
-properties of fixed-link with ethtool or alike? Will this also require
-"just another fixed link driver"?
-Having one fully-featured driver will allow us to add the "sgmii-link"
-DT binding as an alias to "fixed-link" and some function like
-of_phy_fixed_link_is_sgmii() that will tell us whether we need an
-in-band status or not.
+On Fri, Mar 27, 2015 at 09:23:57AM -0400, Sowmini Varadhan wrote:
+> On Thu, Mar 26, 2015 at 5:05 PM, Andy Gospodarek
+> <gospo@cumulusnetworks.com> wrote:
+> > This adds kernel infrastructure to allow userspace (read: routing protocols) to
+> > support adding IPv6 next-hops to IPv4 routes.  This is essentially added to
+> > support a feature of MP-BGP outlined in RFC-5549.
+> >
+> > Thise does not encompass all that is needed to support RFC-5549, but this
+> > demonstrates the netlink infrastructure needed to correctly enable the kernel
+> > infrastructure that would support this RFC.  For more informtion the full RFC
+> > is here: http://www.ietf.org/rfc/rfc5549.txt.
+> 
+> Is there some impact to redirect behavior? RFC 5549 does not seem to
+> discuss it at all, but the firsthop would be processing (and
+> potentially sending)
+> an icmp redirect to the host. I dont think there is a good way to construct
+> this, either with icmpv4 or icmpv6, and maybe some checks are needed to
+> not even try, when the IP mix-match is encountered.
+> 
 
-> But i'm no export here. So lets see what others say.
-Right. If people will be negative to an addition to fixed-link driver,
-I'll take a look into adding a new DT binding - something I'd really
-like to avoid doing. :) More work, more code, and yet even a new config
-option - this have to be justified.
+You are correct that there is not a great way to construct this since
+the frames at strictly IPv4 frames.  I'll have to dig into this a bit
+more to see if there is something worth doing for this case.
