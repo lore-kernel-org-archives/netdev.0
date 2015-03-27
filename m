@@ -1,191 +1,78 @@
-From: Yun Wang <yun.wang@profitbricks.com>
-Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and
- cap_sa(), for sa-check
-Date: Fri, 27 Mar 2015 18:13:27 +0100
-Message-ID: <CAJuTgQWgWrNuNaCdNg0g_eHsaOPNUgM4qD=F56HZWeDeN0KWOQ@mail.gmail.com>
-References: <551579CA.4030901@profitbricks.com>
-	<55157B43.6060507@profitbricks.com>
-	<20150327164756.GA27862@phlsvsds.ph.intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 4/6] of: add API for changing parameters of fixed link
+Date: Fri, 27 Mar 2015 10:15:54 -0700
+Message-ID: <5515904A.1060600@gmail.com>
+References: <55155AFC.4050800@list.ru> <55155D35.1070703@list.ru> <CAGVrzcau0mUne8uXsTs_9=e4JtQt5w5L+hwtLmKo+UfjSEwC+w@mail.gmail.com> <5515803F.3020600@list.ru> <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw@mail.gmail.com> <551587D1.5070408@list.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Yann Droneaud <ydroneaud@opteya.com>,
-	Colin Ian King <colin.king@canonical.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Matan Barak <matanb@mellanox.com>,
-	Alex Estrin <a
-To: "ira.weiny" <ira.weiny@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Stas Sergeev <stsp@list.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150327164756.GA27862@phlsvsds.ph.intel.com>
+In-Reply-To: <551587D1.5070408@list.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 27, 2015 at 5:47 PM, ira.weiny <ira.weiny@intel.com> wrote:
-> On Fri, Mar 27, 2015 at 04:46:11PM +0100, Michael Wang wrote:
->>
->> Introduce helper has_sa() and cap_sa() to help us check if an IB device
->> or it's port support Subnet Administrator.
->
-> I think these 2 should be combined.  The question is if a port requires the use
-> of the SA depending on the network it is connected to.
->
-> Aren't some dual port Mellanox cards capable of doing IB on 1 port and Eth on
-> the other?  Do they show up as 2 devices?
+On 27/03/15 09:39, Stas Sergeev wrote:
+> 27.03.2015 19:21, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> Do you want mvneta to register a similar callback in of_mdio, inste=
+ad
+>>> of adding an explicit state-updating functions? Something like
+>>> of_phy_fixed_link_set_update_callback()?
+>> You don't need an of_phy_fixed_link_set_update callback, you just ne=
+ed
+>> to provide a fixed_link_update callback in mvneta, that you register=
+,
+> That approach I in fact considered initially, as the simplest one,
+> and even had a patch. But I disliked the fact that then mvneta will
+> exploit the knowledge of the fact that of_phy_register_fixed_link()
+> uses a fixed_phy driver. What if the implementation will later change=
+?
 
-I'm not sure about this... but sounds like your opinion is same to
-Jason on ipoib stuff, I'll do more investigation on that part, if it's
-just for optimization, then we should be able to eliminate has_xx()
-stuff :-) after all, init/exit is not a hot path.
+There is no reason why it should change later, that's the entire purpos=
+e
+of why we can tell whether it is a fixed PHY or a regular MDIO-managed
+PHY, and drivers rely on that for their operations.
 
->
-> Regardless I think we should define the SA access on a per port basis.
->
->>
->> Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
->> Cc: Doug Ledford <dledford@redhat.com>
->> Cc: Ira Weiny <ira.weiny@intel.com>
->> Cc: Sean Hefty <sean.hefty@intel.com>
->> Signed-off-by: Michael Wang <yun.wang@profitbricks.com>
->> ---
->>  drivers/infiniband/core/sa_query.c | 12 ++++++------
->>  include/rdma/ib_verbs.h            | 28 ++++++++++++++++++++++++++++
->>  2 files changed, 34 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
->> index d95d25f..89c27da 100644
->> --- a/drivers/infiniband/core/sa_query.c
->> +++ b/drivers/infiniband/core/sa_query.c
->> @@ -450,7 +450,7 @@ static void ib_sa_event(struct ib_event_handler *handler, struct ib_event *event
->>          struct ib_sa_port *port =
->>              &sa_dev->port[event->element.port_num - sa_dev->start_port];
->>
->> -        if (!rdma_port_ll_is_ib(handler->device, port->port_num))
->> +        if (!cap_sa(handler->device, port->port_num))
->>              return;
->>
->>          spin_lock_irqsave(&port->ah_lock, flags);
->> @@ -1154,7 +1154,7 @@ static void ib_sa_add_one(struct ib_device *device)
->>      struct ib_sa_device *sa_dev;
->>      int s, e, i;
->>
->> -    if (!rdma_transport_is_ib(device))
->> +    if (!has_sa(device))
->
-> The logic here should be:
->
-> if (no ports of this device need sa access)
->         return;
->
-> So why not eliminate this check and allow the cap_sa(s) to handle the support?
+> Also what makes me uncomfortable is that since of_phy_register_fixed_=
+link()
+> doesn't even return the struct phy_device pointer, mvneta will have
+> to get around that and use for example of_phy_find_device(), or regis=
+ter
+> the callback later, after of_phy_connect()
 
-I'll check if we could merge this part to the following iteration :-)
+Ok, you could either make of_phy_register_fixed_link() return a
+phy_device, or as you suggest resolve the phy_device from the
+device_node later, your call.
 
-Regards,
-Michael Wang
+=2E dsa/slave.c does of_phy_connect()
+> initially, together with fixed link registration, so it gets around t=
+he
+> problem. But mvneta registers the fixed_link in .probe callback, and
+> does of_phy_connect() in .open callback.
+> This all made me to drop that idea despite the simplicity.
 
->
-> -- Ira
->
->>          return;
->>
->>      if (device->node_type == RDMA_NODE_IB_SWITCH)
->> @@ -1175,7 +1175,7 @@ static void ib_sa_add_one(struct ib_device *device)
->>
->>      for (i = 0; i <= e - s; ++i) {
->>          spin_lock_init(&sa_dev->port[i].ah_lock);
->> -        if (!rdma_port_ll_is_ib(device, i + 1))
->> +        if (!cap_sa(device, i + 1))
->>              continue;
->>
->>          sa_dev->port[i].sm_ah    = NULL;
->> @@ -1205,14 +1205,14 @@ static void ib_sa_add_one(struct ib_device *device)
->>          goto err;
->>
->>      for (i = 0; i <= e - s; ++i)
->> -        if (rdma_port_ll_is_ib(device, i + 1))
->> +        if (cap_sa(device, i + 1))
->>              update_sm_ah(&sa_dev->port[i].update_task);
->>
->>      return;
->>
->>  err:
->>      while (--i >= 0)
->> -        if (rdma_port_ll_is_ib(device, i + 1))
->> +        if (cap_sa(device, i + 1))
->>              ib_unregister_mad_agent(sa_dev->port[i].agent);
->>
->>      kfree(sa_dev);
->> @@ -1233,7 +1233,7 @@ static void ib_sa_remove_one(struct ib_device *device)
->>      flush_workqueue(ib_wq);
->>
->>      for (i = 0; i <= sa_dev->end_port - sa_dev->start_port; ++i) {
->> -        if (rdma_port_ll_is_ib(device, i + 1)) {
->> +        if (cap_sa(device, i + 1)) {
->>              ib_unregister_mad_agent(sa_dev->port[i].agent);
->>              if (sa_dev->port[i].sm_ah)
->>                  kref_put(&sa_dev->port[i].sm_ah->ref, free_sm_ah);
->> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
->> index c0a63f8..fa8ffa3 100644
->> --- a/include/rdma/ib_verbs.h
->> +++ b/include/rdma/ib_verbs.h
->> @@ -1810,6 +1810,19 @@ static inline int has_cm(struct ib_device *device)
->>  }
->>
->>  /**
->> + * has_sa - Check if a device support Subnet Administrator.
->> + *
->> + * @device: Device to be checked
->> + *
->> + * Return 0 when a device has none port to support
->> + * Subnet Administrator.
->> + */
->> +static inline int has_sa(struct ib_device *device)
->> +{
->> +    return rdma_transport_is_ib(device);
->> +}
->> +
->> +/**
->>   * cap_smi - Check if the port of device has the capability
->>   * Subnet Management Interface.
->>   *
->> @@ -1824,6 +1837,21 @@ static inline int cap_smi(struct ib_device *device, u8 port_num)
->>      return rdma_port_ll_is_ib(device, port_num);
->>  }
->>
->> +/**
->> + * cap_sa - Check if the port of device has the capability
->> + * Subnet Administrator.
->> + *
->> + * @device: Device to be checked
->> + * @port_num: Port number of the device
->> + *
->> + * Return 0 when port of the device don't support
->> + * Subnet Administrator.
->> + */
->> +static inline int cap_sa(struct ib_device *device, u8 port_num)
->> +{
->> +    return rdma_port_ll_is_ib(device, port_num);
->> +}
->> +
->>  int ib_query_gid(struct ib_device *device,
->>           u8 port_num, int index, union ib_gid *gid);
->>
->> --
->> 2.1.0
->>
+Yet that's still the cleanest/less invasive approach imho.
+
+>=20
+>>> This will remove a few changes indeed, but perhaps not too much.
+>>> Please confirm if this is exactly what you want, and then I try.
+>> Let me know if this is clearer now, if not, I can certainly cook a
+>> patch which does what I am suggesting. Thanks!
+> I can do that too, because I already did.
+> Let me know if the above concerns are not important, and I'll
+> restore my initial patch.
+>=20
+
+I think your concerns are valid, but I don't think there is going to be
+any problem with the approach I suggested because there is a contract
+that the fixed PHYs and regular PHYs need to
+--=20
+=46lorian
