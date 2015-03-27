@@ -1,8 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 3/7] net: Move check for multiple
-	vlans to drivers
-Date: Fri, 27 Mar 2015 14:31:12 +0900
-Message-ID: <1427434277-27569-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next 4/7] net: Introduce
+	passthru_features_check
+Date: Fri, 27 Mar 2015 14:31:13 +0900
+Message-ID: <1427434277-27569-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,131 +30,49 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-To allow drivers to handle the features check for multiple tags,
-move the check to ndo_features_check().
-As no drivers currently handle multiple tagged TSO, introduce
-dflt_features_check() and call it if the driver does not have
-ndo_features_check().
+As there are a number of (especially virtual) devices that don't
+need the multiple vlan check, introduce passthru_features_check() for
+convenience.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  1 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  1 +
- include/linux/if_vlan.h                          | 22 ++++++++++++++++++++++
- net/core/dev.c                                   | 21 +++++++++------------
- 5 files changed, 34 insertions(+), 12 deletions(-)
+ include/linux/netdevice.h | 3 +++
+ net/core/dev.c            | 8 ++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 9677431..039b0c1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12557,6 +12557,7 @@ static netdev_features_t bnx2x_features_check(struct sk_buff *skb,
- 					      struct net_device *dev,
- 					      netdev_features_t features)
- {
-+	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 08c4ab3..967bb4c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3657,6 +3657,9 @@ void netdev_change_features(struct net_device *dev);
+ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
+ 					struct net_device *dev);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index a8339e9..ebc93a1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2373,6 +2373,7 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
- 						struct net_device *dev,
- 						netdev_features_t features)
- {
-+	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
- }
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index a430a34a..367f397 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -507,6 +507,7 @@ static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
- 					       struct net_device *dev,
- 					       netdev_features_t features)
- {
-+	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
- }
- #endif
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 4265d44..920e445 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -606,4 +606,26 @@ static inline bool skb_vlan_tagged_multi(const struct sk_buff *skb)
- 	return true;
- }
++netdev_features_t passthru_features_check(struct sk_buff *skb,
++					  struct net_device *dev,
++					  netdev_features_t features);
+ netdev_features_t netif_skb_features(struct sk_buff *skb);
  
-+/**
-+ * vlan_features_check - drop unsafe features for skb with multiple tags.
-+ * @skb: skbuff to query
-+ * @features: features to be checked
-+ *
-+ * Returns features without unsafe ones if the skb has multiple tags.
-+ */
-+static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
-+						    netdev_features_t features)
-+{
-+	if (skb_vlan_tagged_multi(skb))
-+		features = netdev_intersect_features(features,
-+						     NETIF_F_SG |
-+						     NETIF_F_HIGHDMA |
-+						     NETIF_F_FRAGLIST |
-+						     NETIF_F_GEN_CSUM |
-+						     NETIF_F_HW_VLAN_CTAG_TX |
-+						     NETIF_F_HW_VLAN_STAG_TX);
-+
-+	return features;
-+}
-+
- #endif /* !(_LINUX_IF_VLAN_H_) */
+ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 04bffcd..cb46bad 100644
+index cb46bad..3a06003 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -2562,6 +2562,13 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+@@ -2562,6 +2562,14 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
  	return features;
  }
  
-+static netdev_features_t dflt_features_check(const struct sk_buff *skb,
-+					     struct net_device *dev,
-+					     netdev_features_t features)
++netdev_features_t passthru_features_check(struct sk_buff *skb,
++					  struct net_device *dev,
++					  netdev_features_t features)
 +{
-+	return vlan_features_check(skb, features);
++	return features;
 +}
++EXPORT_SYMBOL(passthru_features_check);
 +
- netdev_features_t netif_skb_features(struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
-@@ -2583,22 +2590,12 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 						     dev->vlan_features |
- 						     NETIF_F_HW_VLAN_CTAG_TX |
- 						     NETIF_F_HW_VLAN_STAG_TX);
--	else
--		goto finalize;
- 
--	if (skb_vlan_tagged_multi(skb))
--		features = netdev_intersect_features(features,
--						     NETIF_F_SG |
--						     NETIF_F_HIGHDMA |
--						     NETIF_F_FRAGLIST |
--						     NETIF_F_GEN_CSUM |
--						     NETIF_F_HW_VLAN_CTAG_TX |
--						     NETIF_F_HW_VLAN_STAG_TX);
--
--finalize:
- 	if (dev->netdev_ops->ndo_features_check)
- 		features &= dev->netdev_ops->ndo_features_check(skb, dev,
- 								features);
-+	else
-+		features &= dflt_features_check(skb, dev, features);
- 
- 	return harmonize_features(skb, features);
- }
+ static netdev_features_t dflt_features_check(const struct sk_buff *skb,
+ 					     struct net_device *dev,
+ 					     netdev_features_t features)
 -- 
 1.8.1.2
 
