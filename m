@@ -1,78 +1,103 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCH net-next 7/7] igb: Enable TSO for stacked
- vlan
-Date: Thu, 26 Mar 2015 21:48:52 -0700
-Message-ID: <1427431732.2497.48.camel@jtkirshe-mobl>
-References: <1427346080-12086-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1427346080-12086-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
+Date: Thu, 26 Mar 2015 22:00:48 -0700
+Message-ID: <CAF2d9jgy+iR61WeYUZAm2nDPuq4JWKfXjrjrSZFiP6aihOEs2A@mail.gmail.com>
+References: <20150324180628.278017fb@griffin> <CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
+ <20150325095851.1d8d1622@griffin> <20150325.114622.1915164845375005128.davem@davemloft.net>
+ <CAF2d9jh5WaNYsMxp29GY3LqM08jjVPwLd1BQ1HLFKMsKFda6zQ@mail.gmail.com>
+ <20150326002154.3e179fec@griffin> <CAF2d9jj2cbDKXPnFUyVOJUVzrvb4CbK5ktbeW32N31xG0Hz63g@mail.gmail.com>
+ <20150326094554.292d3699@griffin>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-MWogQtuFgFWcXbxhdrxH"
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Linux NICS <linux.nics@intel.com>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>, dcbw@redhat.com
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53649 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968AbbC0Es4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 00:48:56 -0400
-In-Reply-To: <1427346080-12086-8-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:32896 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752293AbbC0FBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 01:01:09 -0400
+Received: by oifl3 with SMTP id l3so67539114oif.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 22:01:08 -0700 (PDT)
+In-Reply-To: <20150326094554.292d3699@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Mar 26, 2015 at 1:45 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Wed, 25 Mar 2015 19:15:55 -0700, Mahesh Bandewar wrote:
+>> I think you missed the point. Addition / deletion of addresses into
+>> the hash-table (always) happens in the control path while the cost of
+>> those decisions will be paid per packet in data-path; was the point I
+>> was trying to make.
+>
+> I think you're trying to say "don't add addresses to the hash table
+> unless necessary". If so, we're not in argument here.
+>
+>> > Basically, there are two (and only two) possible cases: 1. the
+>> > addresses should not be on the hash list when the interface is down,
+>> > and 2. there's no problem with the addresses being on the hash list
+>> > when the interface is down.
+>> >
+>> As I mentioned earlier in my previous reply; it does work and
+>> functionally same. However the decision to drop the packet will happen
+>> later in RX path when the interface is down.
+>
+> Yes.
+>
+>> The root cause of the issue is addition / deletion of duplicate
+>> entries into the hash-table and I think fixing it is better thing
+>> which is exactly what the fix I proposed do.
+>
+> Except that it fixes only part of the bug, see below.
+>
+>> Your first patch though
+>> fixes the symptoms, I believe it's not the correct fix
+>
+> Could you please elaborate why it's not the correct fix? It ensures
+> that the addresses are on the hash list *iff* the interface is up. When
+> the interface is down, the addresses are not there. If it is up, they
+> are. My impression so far is this is exactly what you want. I don't see
+> why the patch is not correct.
+>
+>> while your
+>> second patch does fix it but eliminates this optimization that is in
+>> place.
+>
+> Agreed.
+>
+>> Hence I suggested that  "though correct, I would not *prefer*
+>> it" for the said reasons. If the order in which user pushes config
+>> alters the hash-table entries, then that's unintended and need to be
+>> fixed.
+>
+> Agreed.
+>
+>> > ip l s ipvlan0 down
+>> > ip a a 1.2.3.4/24 dev ipvlan0
+>> > -> at this point, 1.2.3.4 is on the hash list
+>> >
+>> unintended behavior and need to be fixed.
+>
+> Which is exactly what my first patch does. Could you please look at it
+> again, keeping also this scenario in mind?
+>
+OK. I'm not comfortable using the patch as it is since duplicate
+entries in hash-table should be controlled by the fact that link is up
+or down. So I would like to use the hybrid approach where the
+hash-table entries are controlled by hlist_unhashed() while the
+addr_add event should add hash-table entry should the link be up (as
+it is in your first patch). addr_del event handler can stay as it is.
+This should take care of the crash issue.
 
---=-MWogQtuFgFWcXbxhdrxH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Now the ipvlan_addr_busy() can not use hash-table reliably and should
+first iterate through all the logical links on a port and then iterate
+through all addresses on logical link.
 
-On Thu, 2015-03-26 at 14:01 +0900, Toshiaki Makita wrote:
-> As datasheets for igb (I210, I350, 82576, etc.) say, maclen can be
-> from
-> 14 to 127, which is enough for reasonable number of vlan tags.
-> My netperf test showed I350's TSO works pretty fine with multiple
-> vlans.
->=20
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Do you want to send this / these patches or do you want me to send?
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 1 +
->  1 file changed, 1 insertion(+)
-
-
-
---=-MWogQtuFgFWcXbxhdrxH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVFOE0AAoJEOVv75VaS+3OwKEP/0oa3M3eOK3BV012+BqlbOsb
-OJjLWgWCkpdQhW/NdYgBwx+4CSQKnna+4IC28gzFETQk1C0RL4DTCCNLugC6Rpw6
-K7D77s9oZ80GUkACz+xN5NiE6bRCGADhYXR7kjUbv2S9uDGaW2ooXPaeU/G/yzmV
-t1zFq0sqEyV1EH242ssTTprbVRvHsjNcBpKWAIv/TXAaKCpXLz8vXGTrWyaFVL9Q
-9T6/VlwfTfGvEelCf9Gps85y/4VP+gBRQnb/cwS07sS4AfvC+si409s4t8PSofgk
-Ax2e2J3zRwKk95iRmgpxmG+qJtftD+fds+631hWARi8qTqUrG8u2Q/KbclQzoJuw
-18ddIbE0Vquqv7xQiw6UR1wle6f8ZqmUHrdBLWUtgC0pcK4wBPaNonyAQKpJVwKS
-NE3RSXDR9Ypk8pNMbdZowREZ1wGj6B5Vm7S5Bq0HZ8PAofmOlLrxmwndsxMj3it/
-mImgfkMyCh+59NnogwlYGc+p89b5vhPvrU960etBfLH78fQGmoyI4izjbY5nPjHb
-uO5wcSGGPs80Mw+iZSqxW9I8cGSuf4qJqwbcgY9+XmmPt0vDnrIbWt12HyE/kPLs
-wV2v1N6DSTDhXh+SFqfTSsQUNwChoDV614SUNWx9krZ3oPgk+ooPCfcaXvLJ3wGF
-hjoG4PB3kOu+TAKU+GhP
-=wzC5
------END PGP SIGNATURE-----
-
---=-MWogQtuFgFWcXbxhdrxH--
+> Thanks,
+>
+>  Jiri
+>
+> --
+> Jiri Benc
