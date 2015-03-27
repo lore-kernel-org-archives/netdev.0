@@ -1,96 +1,59 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 1/2] fib_trie: Fix warning on fib4_rules_exit
-Date: Fri, 27 Mar 2015 14:14:16 -0700
-Message-ID: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net-next] fib: move fib_rules_cleanup_ops() under rtnl lock
+Date: Fri, 27 Mar 2015 14:17:12 -0700
+Message-ID: <CAHA+R7Puss-BUG0gFdw+FnbaiXE6Rx=FJ8ccJ2JyJdNMz7H2bQ@mail.gmail.com>
+References: <1427403769-31208-1-git-send-email-xiyou.wangcong@gmail.com>
+	<55147E5D.2070600@redhat.com>
+	<CAHA+R7P4-y4o5WuUwzfwd+LrrkdRdo2=UfXzYdgTrJ63qkaTVg@mail.gmail.com>
+	<55148576.1010303@redhat.com>
+	<CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com>
+	<CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>
+	<55149A99.6040704@redhat.com>
+	<20150327120135.GC12265@casper.infradead.org>
+	<CAHA+R7MJTz1-F2v1c+ZEkVQ_JX0Ey5dGAmCjR_N8rvVPbuM0Tg@mail.gmail.com>
+	<5515C6C4.4080200@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53127 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752172AbbC0VOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 17:14:17 -0400
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:34053 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751046AbbC0VRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 17:17:13 -0400
+Received: by igcau2 with SMTP id au2so38843304igc.1
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 14:17:12 -0700 (PDT)
+In-Reply-To: <5515C6C4.4080200@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the following warning:
+On Fri, Mar 27, 2015 at 2:08 PM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+>
+> This locking issue, if present, is separate from the original issue you
+> reported.  I'm going to submit a patch to fix your original issue and you
+> can chase this locking issue down separately if that is what you want to do.
 
- BUG: sleeping function called from invalid context at mm/slub.c:1268
- in_atomic(): 1, irqs_disabled(): 0, pid: 6, name: kworker/u8:0
- INFO: lockdep is turned off.
- CPU: 3 PID: 6 Comm: kworker/u8:0 Tainted: G        W       4.0.0-rc5+ #895
- Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
- Workqueue: netns cleanup_net
-  0000000000000006 ffff88011953fa68 ffffffff81a203b6 000000002c3a2c39
-  ffff88011952a680 ffff88011953fa98 ffffffff8109daf0 ffff8801186c6aa8
-  ffffffff81fbc9e5 00000000000004f4 0000000000000000 ffff88011953fac8
- Call Trace:
-  [<ffffffff81a203b6>] dump_stack+0x4c/0x65
-  [<ffffffff8109daf0>] ___might_sleep+0x1c3/0x1cb
-  [<ffffffff8109db70>] __might_sleep+0x78/0x80
-  [<ffffffff8117a60e>] slab_pre_alloc_hook+0x31/0x8f
-  [<ffffffff8117d4f6>] __kmalloc+0x69/0x14e
-  [<ffffffff818ed0e1>] ? kzalloc.constprop.20+0xe/0x10
-  [<ffffffff818ed0e1>] kzalloc.constprop.20+0xe/0x10
-  [<ffffffff818ef622>] fib_trie_table+0x27/0x8b
-  [<ffffffff818ef6bd>] fib_trie_unmerge+0x37/0x2a6
-  [<ffffffff810b06e1>] ? arch_local_irq_save+0x9/0xc
-  [<ffffffff818e9793>] fib_unmerge+0x2d/0xb3
-  [<ffffffff818f5f56>] fib4_rule_delete+0x1f/0x52
-  [<ffffffff817f1c3f>] ? fib_rules_unregister+0x30/0xb2
-  [<ffffffff817f1c8b>] fib_rules_unregister+0x7c/0xb2
-  [<ffffffff818f64a1>] fib4_rules_exit+0x15/0x18
-  [<ffffffff818e8c0a>] ip_fib_net_exit+0x23/0xf2
-  [<ffffffff818e91f8>] fib_net_exit+0x32/0x36
-  [<ffffffff817c8352>] ops_exit_list+0x45/0x57
-  [<ffffffff817c8d3d>] cleanup_net+0x13c/0x1cd
-  [<ffffffff8108b05d>] process_one_work+0x255/0x4ad
-  [<ffffffff8108af69>] ? process_one_work+0x161/0x4ad
-  [<ffffffff8108b4b1>] worker_thread+0x1cd/0x2ab
-  [<ffffffff8108b2e4>] ? process_scheduled_works+0x2f/0x2f
-  [<ffffffff81090686>] kthread+0xd4/0xdc
-  [<ffffffff8109ec8f>] ? local_clock+0x19/0x22
-  [<ffffffff810905b2>] ? __kthread_parkme+0x83/0x83
-  [<ffffffff81a2c0c8>] ret_from_fork+0x58/0x90
-  [<ffffffff810905b2>] ? __kthread_parkme+0x83/0x83
+Make sure you really read my changelog, in case you don't:
 
-The issue was that as a part of exiting the default rules were being
-deleted which resulted in the local trie being unmerged.  By moving the
-freeing of the FIB tables up we can avoid the unmerge since there is no
-local table left when we call the fib4_rules_exit function.
+"
+ops->rules_list is protected by rtnl_lock + RCU,
+there is no reason to take net->rules_mod_lock here.
+Also, ops->delete() needs to be called with rtnl_lock
+too. The problem exists before, just it is exposed
+recently due to the fib local/main table change.
+"
 
-Fixes: 0ddcf43d5d4a ("ipv4: FIB Local/MAIN table collapse")
-Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/ipv4/fib_frontend.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Sometimes people more easily miss the most obvious thing,
+which is the first sentences of my changelog.
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index e5b6b0534c5f..767120111d90 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1176,10 +1176,6 @@ static void ip_fib_net_exit(struct net *net)
- 
- 	rtnl_lock();
- 
--#ifdef CONFIG_IP_MULTIPLE_TABLES
--	fib4_rules_exit(net);
--#endif
--
- 	for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
- 		struct hlist_head *head = &net->ipv4.fib_table_hash[i];
- 		struct hlist_node *tmp;
-@@ -1212,6 +1208,10 @@ static void ip_fib_net_exit(struct net *net)
- 			fib_free_table(tb);
- 		}
- 	}
-+
-+#ifdef CONFIG_IP_MULTIPLE_TABLES
-+	fib4_rules_exit(net);
-+#endif
- 	rtnl_unlock();
- 	kfree(net->ipv4.fib_table_hash);
- }
+
+> This way if someone ever decides to backport it they can actually fix the
+> original issue without pulling in speculative fixes for the rtnl locking
+> problem since we were already holding the lock for fib4.
+>
+
+Backporting is my guess of Thomas's point, you go too far beyond it.
+
+Also, you have a different definition of original issue.
