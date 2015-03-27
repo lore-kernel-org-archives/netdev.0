@@ -1,51 +1,61 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-Date: Fri, 27 Mar 2015 18:46:29 +0100
-Message-ID: <20150327184629.2f1e4f0e@griffin>
-References: <1427409698.18540.11.camel@redhat.com>
-	<1427409822.18540.13.camel@redhat.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast()
+ and, cap_mcast() for mcast-check
+Date: Fri, 27 Mar 2015 11:47:27 -0600
+Message-ID: <20150327174727.GB28901@obsidianresearch.com>
+References: <551579CA.4030901@profitbricks.com>
+ <55157B71.6040505@profitbricks.com>
+ <20150327162820.GC28412@obsidianresearch.com>
+ <20150327170508.GB27862@phlsvsds.ph.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mahesh Bandewar <maheshb@google.com>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33579 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751061AbbC0Rqd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 13:46:33 -0400
-In-Reply-To: <1427409822.18540.13.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Alex Estrin <alex.
+To: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20150327170508.GB27862-W4f6Xiosr+yv7QzWx2u06xL4W9x8LtSr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Mar 2015 17:43:42 -0500, Dan Williams wrote:
-> ipvlan currently fails DHCP addressing for two reasons:
-> 
-> 1) DHCP offers are typically unicast back to the device's MAC
-> address, and at the IP layer have a destination IP address
-> matching the new lease address.  In ipvlan unicast packets
-> are checked against existing addresses assigned to the ipvlan
-> interface, so clearly this fails hard because the ipvlan
-> interface has no IP addresses yet.  Workaround: request
-> that the server broadcast replies (-B for dhclient), which
-> don't get checked against the IP address list.
-> 
-> 2) Even when that's done, mac_filters only allows the
-> broadcast MAC address when the interface has >= 1 IPv4
-> addresses, so double-fail, and the incoming DHCP offer
-> gets dropped on the floor again.
-> 
-> Instead of doing ugly stuff like watching for outgoing DHCP
-> requests and adding the broadcast MAC to mac_filters for
-> a period of time, just always allow the broadcast MAC.  This
-> lets the ipvlan interface be configured with DHCP in
-> Layer2 mode as long as as broadcast replies are used.
-> 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
+On Fri, Mar 27, 2015 at 01:05:08PM -0400, ira.weiny wrote:
 
-I don't see any better option, either.
+> > But it seems redudent, since mcast_add_one will already not add a port that is
+> > not IB, so mcast_event_handler is not callable. Something to do with
+> > rocee/ib switching?
+> 
+> I'm not sure about this either.  This check seems to be necessary only on a
+> per-port level.  It does seem apparent that one can't go from Eth to IB.  What
+> happens if you go from IB to Eth on the port?
 
-Reviewed-by: Jiri Benc <jbenc@redhat.com>
+Hmm... I see a mlx4_change_port_types which ultimately calls
+ib_unregister_device, which suggests the port type doesn't change at
+runtime (yay)
 
--- 
-Jiri Benc
+So maybe these checks really are redundant?
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
