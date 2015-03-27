@@ -1,58 +1,176 @@
-From: Stas Sergeev <stsp-cmBhpYW9OiY@public.gmane.org>
-Subject: Re: [PATCH 4/6] of: add API for changing parameters of fixed link
-Date: Fri, 27 Mar 2015 19:39:45 +0300
-Message-ID: <551587D1.5070408@list.ru>
-References: <55155AFC.4050800@list.ru> <55155D35.1070703@list.ru> <CAGVrzcau0mUne8uXsTs_9=e4JtQt5w5L+hwtLmKo+UfjSEwC+w@mail.gmail.com> <5515803F.3020600@list.ru> <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw@mail.gmail.com>
+From: "ira.weiny" <ira.weiny@intel.com>
+Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and cap_sa(), for sa-check
+Date: Fri, 27 Mar 2015 12:47:56 -0400
+Message-ID: <20150327164756.GA27862@phlsvsds.ph.intel.com>
+References: <551579CA.4030901@profitbricks.com> <55157B43.6060507@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stas Sergeev <stsp-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Yann Droneaud <ydroneaud@opteya.com>,
+	Colin Ian King <colin.king@canonical.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Matan Barak <matanb@mellanox.com>,
+	Alex Estrin <alex.estrin@intel.com>,
+	Doug Ledford <dledford@
+To: Michael Wang <yun.wang@profitbricks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55157B43.6060507@profitbricks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-27.03.2015 19:21, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Do you want mvneta to register a similar callback in of_mdio, instea=
-d
->> of adding an explicit state-updating functions? Something like
->> of_phy_fixed_link_set_update_callback()?
-> You don't need an of_phy_fixed_link_set_update callback, you just nee=
-d
-> to provide a fixed_link_update callback in mvneta, that you register,
-That approach I in fact considered initially, as the simplest one,
-and even had a patch. But I disliked the fact that then mvneta will
-exploit the knowledge of the fact that of_phy_register_fixed_link()
-uses a fixed_phy driver. What if the implementation will later change?
-Also what makes me uncomfortable is that since of_phy_register_fixed_li=
-nk()
-doesn't even return the struct phy_device pointer, mvneta will have
-to get around that and use for example of_phy_find_device(), or registe=
-r
-the callback later, after of_phy_connect(). dsa/slave.c does of_phy_con=
-nect()
-initially, together with fixed link registration, so it gets around the
-problem. But mvneta registers the fixed_link in .probe callback, and
-does of_phy_connect() in .open callback.
-This all made me to drop that idea despite the simplicity.
+On Fri, Mar 27, 2015 at 04:46:11PM +0100, Michael Wang wrote:
+> 
+> Introduce helper has_sa() and cap_sa() to help us check if an IB device
+> or it's port support Subnet Administrator.
 
->> This will remove a few changes indeed, but perhaps not too much.
->> Please confirm if this is exactly what you want, and then I try.
-> Let me know if this is clearer now, if not, I can certainly cook a
-> patch which does what I am suggesting. Thanks!
-I can do that too, because I already did.
-Let me know if the above concerns are not important, and I'll
-restore my initial patch.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I think these 2 should be combined.  The question is if a port requires the use
+of the SA depending on the network it is connected to.
+
+Aren't some dual port Mellanox cards capable of doing IB on 1 port and Eth on
+the other?  Do they show up as 2 devices?
+
+Regardless I think we should define the SA access on a per port basis.
+
+> 
+> Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> Cc: Doug Ledford <dledford@redhat.com>
+> Cc: Ira Weiny <ira.weiny@intel.com>
+> Cc: Sean Hefty <sean.hefty@intel.com>
+> Signed-off-by: Michael Wang <yun.wang@profitbricks.com>
+> ---
+>  drivers/infiniband/core/sa_query.c | 12 ++++++------
+>  include/rdma/ib_verbs.h            | 28 ++++++++++++++++++++++++++++
+>  2 files changed, 34 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
+> index d95d25f..89c27da 100644
+> --- a/drivers/infiniband/core/sa_query.c
+> +++ b/drivers/infiniband/core/sa_query.c
+> @@ -450,7 +450,7 @@ static void ib_sa_event(struct ib_event_handler *handler, struct ib_event *event
+>          struct ib_sa_port *port =
+>              &sa_dev->port[event->element.port_num - sa_dev->start_port];
+>  
+> -        if (!rdma_port_ll_is_ib(handler->device, port->port_num))
+> +        if (!cap_sa(handler->device, port->port_num))
+>              return;
+>  
+>          spin_lock_irqsave(&port->ah_lock, flags);
+> @@ -1154,7 +1154,7 @@ static void ib_sa_add_one(struct ib_device *device)
+>      struct ib_sa_device *sa_dev;
+>      int s, e, i;
+>  
+> -    if (!rdma_transport_is_ib(device))
+> +    if (!has_sa(device))
+
+The logic here should be:
+
+if (no ports of this device need sa access)
+	return;
+
+So why not eliminate this check and allow the cap_sa(s) to handle the support?
+
+-- Ira
+
+>          return;
+>  
+>      if (device->node_type == RDMA_NODE_IB_SWITCH)
+> @@ -1175,7 +1175,7 @@ static void ib_sa_add_one(struct ib_device *device)
+>  
+>      for (i = 0; i <= e - s; ++i) {
+>          spin_lock_init(&sa_dev->port[i].ah_lock);
+> -        if (!rdma_port_ll_is_ib(device, i + 1))
+> +        if (!cap_sa(device, i + 1))
+>              continue;
+>  
+>          sa_dev->port[i].sm_ah    = NULL;
+> @@ -1205,14 +1205,14 @@ static void ib_sa_add_one(struct ib_device *device)
+>          goto err;
+>  
+>      for (i = 0; i <= e - s; ++i)
+> -        if (rdma_port_ll_is_ib(device, i + 1))
+> +        if (cap_sa(device, i + 1))
+>              update_sm_ah(&sa_dev->port[i].update_task);
+>  
+>      return;
+>  
+>  err:
+>      while (--i >= 0)
+> -        if (rdma_port_ll_is_ib(device, i + 1))
+> +        if (cap_sa(device, i + 1))
+>              ib_unregister_mad_agent(sa_dev->port[i].agent);
+>  
+>      kfree(sa_dev);
+> @@ -1233,7 +1233,7 @@ static void ib_sa_remove_one(struct ib_device *device)
+>      flush_workqueue(ib_wq);
+>  
+>      for (i = 0; i <= sa_dev->end_port - sa_dev->start_port; ++i) {
+> -        if (rdma_port_ll_is_ib(device, i + 1)) {
+> +        if (cap_sa(device, i + 1)) {
+>              ib_unregister_mad_agent(sa_dev->port[i].agent);
+>              if (sa_dev->port[i].sm_ah)
+>                  kref_put(&sa_dev->port[i].sm_ah->ref, free_sm_ah);
+> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+> index c0a63f8..fa8ffa3 100644
+> --- a/include/rdma/ib_verbs.h
+> +++ b/include/rdma/ib_verbs.h
+> @@ -1810,6 +1810,19 @@ static inline int has_cm(struct ib_device *device)
+>  }
+>  
+>  /**
+> + * has_sa - Check if a device support Subnet Administrator.
+> + *
+> + * @device: Device to be checked
+> + *
+> + * Return 0 when a device has none port to support
+> + * Subnet Administrator.
+> + */
+> +static inline int has_sa(struct ib_device *device)
+> +{
+> +    return rdma_transport_is_ib(device);
+> +}
+> +
+> +/**
+>   * cap_smi - Check if the port of device has the capability
+>   * Subnet Management Interface.
+>   *
+> @@ -1824,6 +1837,21 @@ static inline int cap_smi(struct ib_device *device, u8 port_num)
+>      return rdma_port_ll_is_ib(device, port_num);
+>  }
+>  
+> +/**
+> + * cap_sa - Check if the port of device has the capability
+> + * Subnet Administrator.
+> + *
+> + * @device: Device to be checked
+> + * @port_num: Port number of the device
+> + *
+> + * Return 0 when port of the device don't support
+> + * Subnet Administrator.
+> + */
+> +static inline int cap_sa(struct ib_device *device, u8 port_num)
+> +{
+> +    return rdma_port_ll_is_ib(device, port_num);
+> +}
+> +
+>  int ib_query_gid(struct ib_device *device,
+>           u8 port_num, int index, union ib_gid *gid);
+>  
+> -- 
+> 2.1.0
+> 
