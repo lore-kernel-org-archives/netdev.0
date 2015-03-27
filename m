@@ -1,81 +1,31 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
- on transport and link layer
-Date: Fri, 27 Mar 2015 09:55:30 -0600
-Message-ID: <20150327155530.GA21778@obsidianresearch.com>
-References: <5512CFB0.1050108@profitbricks.com>
- <1427378940.21101.100.camel@redhat.com>
- <55142DFD.2060100@profitbricks.com>
- <1427387258.21101.124.camel@redhat.com>
- <55143AAC.8040206@profitbricks.com>
- <20150326211334.GA3359@obsidianresearch.com>
- <5515284A.3030106@profitbricks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 00/16] net: dsa: HW bridging, EEE support
+Date: Fri, 27 Mar 2015 16:54:16 +0100
+Message-ID: <20150327155416.GE11975@lunn.ch>
+References: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Ira Weiny <ira.weiny@intel.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Moni Shoua <monis@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Yann Droneaud <ydroneaud@opteya.com>,
-	Colin Ian King <colin.king@canonical.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Matan Barak <matanb@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.c
-To: Michael Wang <yun.wang@profitbricks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58499 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753126AbbC0P6E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2015 11:58:04 -0400
 Content-Disposition: inline
-In-Reply-To: <5515284A.3030106@profitbricks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 27, 2015 at 10:52:10AM +0100, Michael Wang wrote:
-> Basically I found there are three kind of check in current
-> implementation:
-> 
-> 1. check transport type of device only
->     I'd like to use helper has_XX(device)
->     which means some port of the device has XX capability.
-> 
-> 2. check link layer of device's port only
->     I'd like to use helper cap_XX(device, port)
->     which means the port has XX capability
-> 
-> 3. check both the transport type and link layer
->     I'd like to use helper tech_XX(device, port)
->     which means the port of that device using technology
->     ib, iwrap, iboe(roce) ...
+On Thu, Mar 26, 2015 at 06:36:27PM -0700, Guenter Roeck wrote:
+> Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
+> for HW bridging support, without adding the code itself. For the most part
+> this factors out common port initialization code. There is no functional
+> change except for patch 3, which disables the message port bit for the
+> CPU port to prevent packet duplication if HW bridging is configured.
 
-So, in principle, testing the device should almost make sense. The
-device is the container for things like PD's MR's and QP's and those
-things can migrate between the ports freely, so all post must share
-the same attributes for those items.
+I just re-tested on my WRT1900AC and 370RD. All looks good.
 
-However.. AFAIK, we can have RoCEE and IB ports on the same device -
-which makes that whole concept seem sort of like nonsense..
-
-Anyhow, I would discourage testing the device. Each site has to be
-examined and determine if it working with a single port and really
-needs a port attribute (which may be a device attribute today) or if
-it is doing something device wide and is checking if all ports support
-X.
-
-> Let's discuss and figure out the right name in the thread of
-> v2 patch set, I guess there will be a lot to be correct :-P
-
-Well, this is actually a hard job. This isn't a mechanical clean up,
-each site has to be inspected and understood before it can be
-migrated to the correct API.
-
-Jason
+  Andrew
