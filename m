@@ -1,59 +1,107 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH 1/2] fib_trie: Fix warning on fib4_rules_exit
-Date: Fri, 27 Mar 2015 15:14:24 -0700
-Message-ID: <CAHA+R7McwZQ5PCWFvUh-wrktg3AP0tu7arkcp=+SFmiD5apRBQ@mail.gmail.com>
-References: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22>
+From: Boris Brezillon <boris.brezillon@free-electrons.com>
+Subject: Re: [PATCH 1/4] net/macb: only probe queues once and use stored
+ values
+Date: Fri, 27 Mar 2015 23:36:04 +0100
+Message-ID: <20150327233604.79dfdef3@bbrezillon>
+References: <cover.1427469791.git.nicolas.ferre@atmel.com>
+	<09960ba7389058e026b73409018fe1ee61d6dc57.1427469791.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
+	<monstr@monstr.eu>, <michal.simek@xilinx.com>, <punnaia@xilinx.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:37739 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752310AbbC0WOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 18:14:25 -0400
-Received: by igcxg11 with SMTP id xg11so32229301igc.0
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 15:14:24 -0700 (PDT)
-In-Reply-To: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22>
+Received: from down.free-electrons.com ([37.187.137.238]:53154 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752684AbbC0WgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 18:36:09 -0400
+In-Reply-To: <09960ba7389058e026b73409018fe1ee61d6dc57.1427469791.git.nicolas.ferre@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 27, 2015 at 2:14 PM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
->
-> The issue was that as a part of exiting the default rules were being
-> deleted which resulted in the local trie being unmerged.  By moving the
-> freeing of the FIB tables up we can avoid the unmerge since there is no
-> local table left when we call the fib4_rules_exit function.
->
+Hi Nicolas,
 
-This literally means we no longer need to call ops->delete()
-in netns unregister path.
+On Fri, 27 Mar 2015 16:34:09 +0100
+Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 68ea695..27b6e04 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -153,8 +153,6 @@ static void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
+> When merging at91_ether and macb driver during 421d9df0628b (net/macb: merge
+> at91_ether driver into macb driver) the probe function has been split. The code
+> dealing with initialization of queues is now moved in macb_init() which needs
+> information computed in the parent macb_probe() function.
+> So, add the queue_mask information to the private structure and use it when
+> needed in macb_init().
 
-        list_for_each_entry_safe(rule, tmp, &ops->rules_list, list) {
-                list_del_rcu(&rule->list);
--               if (ops->delete)
--                       ops->delete(rule);
-                fib_rule_put(rule);
-        }
- }
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index e5b6b05..1481b23 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1178,6 +1178,7 @@ static void ip_fib_net_exit(struct net *net)
+Just to be sure: this is not a bug fix, right ?
+It just improves the initialization process by calling
+macb_probe_queues only once (in macb_probe).
 
- #ifdef CONFIG_IP_MULTIPLE_TABLES
-        fib4_rules_exit(net);
-+       fib_flush_external(net); // <-------- Maybe not needed either.
- #endif
+Anyway, once you've addressed Cyrille's comment, you can add my
 
-        for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
+Acked-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+
+> 
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Cc: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+> Cc: Boris Brezillon <boris.brezillon@free-electrons.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 9 ++++-----
+>  drivers/net/ethernet/cadence/macb.h | 1 +
+>  2 files changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index a0a04b3638e6..b710768172d9 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2180,7 +2180,7 @@ static void macb_probe_queues(void __iomem *mem,
+>  static int macb_init(struct platform_device *pdev)
+>  {
+>  	struct net_device *dev = platform_get_drvdata(pdev);
+> -	unsigned int hw_q, queue_mask, q, num_queues;
+> +	unsigned int hw_q, q;
+>  	struct macb *bp = netdev_priv(dev);
+>  	struct macb_queue *queue;
+>  	int err;
+> @@ -2226,10 +2226,8 @@ static int macb_init(struct platform_device *pdev)
+>  	 * register mapping but we don't want to test the queue index then
+>  	 * compute the corresponding register offset at run time.
+>  	 */
+> -	macb_probe_queues(bp->regs, &queue_mask, &num_queues);
+> -
+> -	for (hw_q = 0, q = 0; hw_q < MACB_MAX_QUEUES; ++hw_q) {
+> -		if (!(queue_mask & (1 << hw_q)))
+> +	for (hw_q = 0, q = 0; hw_q < bp->num_queues; ++hw_q) {
+> +		if (!(bp->queue_mask & (1 << hw_q)))
+>  			continue;
+>  
+>  		queue = &bp->queues[q];
+> @@ -2715,6 +2713,7 @@ static int macb_probe(struct platform_device *pdev)
+>  	bp->dev = dev;
+>  	bp->regs = mem;
+>  	bp->num_queues = num_queues;
+> +	bp->queue_mask = queue_mask;
+>  	spin_lock_init(&bp->lock);
+>  
+>  	platform_set_drvdata(pdev, dev);
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index bc6e35c40822..0b6afac91bfe 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -785,6 +785,7 @@ struct macb {
+>  	size_t			rx_buffer_size;
+>  
+>  	unsigned int		num_queues;
+> +	unsigned int		queue_mask;
+>  	struct macb_queue	queues[MACB_MAX_QUEUES];
+>  
+>  	spinlock_t		lock;
+
+
+
+-- 
+Boris Brezillon, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
