@@ -1,8 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 5/7] bonding: Don't segment
-	multiple tagged packets on bonding device
-Date: Fri, 27 Mar 2015 14:31:14 +0900
-Message-ID: <1427434277-27569-6-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next 6/7] team: Don't segment multiple
+	tagged packets on team device
+Date: Fri, 27 Mar 2015 14:31:15 +0900
+Message-ID: <1427434277-27569-7-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1427434277-27569-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,26 +30,26 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Bonding devices don't need to segment multiple tagged packets since their
+Team devices don't need to segment multiple tagged packets since their
 slaves can segment them.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- drivers/net/bonding/bond_main.c | 1 +
+ drivers/net/team/team.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c026ce9..7b4684c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4038,6 +4038,7 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_fix_features	= bond_fix_features,
- 	.ndo_bridge_setlink	= ndo_dflt_netdev_switch_port_bridge_setlink,
- 	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index a23319f..6928448 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1979,6 +1979,7 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_change_carrier     = team_change_carrier,
+ 	.ndo_bridge_setlink     = ndo_dflt_netdev_switch_port_bridge_setlink,
+ 	.ndo_bridge_dellink     = ndo_dflt_netdev_switch_port_bridge_dellink,
 +	.ndo_features_check	= passthru_features_check,
  };
  
- static const struct device_type bond_type = {
+ /***********************
 -- 
 1.8.1.2
 
