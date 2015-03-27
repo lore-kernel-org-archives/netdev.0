@@ -1,44 +1,155 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [Patch net-next] fib: move fib_rules_cleanup_ops() under rtnl
- lock
-Date: Thu, 26 Mar 2015 16:47:37 -0700
-Message-ID: <55149A99.6040704@redhat.com>
-References: <1427403769-31208-1-git-send-email-xiyou.wangcong@gmail.com>	<55147E5D.2070600@redhat.com>	<CAHA+R7P4-y4o5WuUwzfwd+LrrkdRdo2=UfXzYdgTrJ63qkaTVg@mail.gmail.com>	<55148576.1010303@redhat.com>	<CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com> <CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [RFC net-next 1/2] net: allow user to set IPv6 nexthop for IPv4
+ route
+Date: Thu, 26 Mar 2015 20:27:38 -0400
+Message-ID: <20150327002737.GF1051@gospo>
+References: <1427403928-1342-1-git-send-email-gospo@cumulusnetworks.com>
+ <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
+ <alpine.LFD.2.11.1503270010400.1733@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>, tgraf@suug.ch
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Bjornar Ness <bjornar.ness@gmail.com>,
+	Sowmini Varadhan <sowmini05@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39983 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753416AbbCZXri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Mar 2015 19:47:38 -0400
-In-Reply-To: <CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>
+Received: from mail-yk0-f179.google.com ([209.85.160.179]:33130 "EHLO
+	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753101AbbC0A1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Mar 2015 20:27:46 -0400
+Received: by ykek76 with SMTP id k76so35556466yke.0
+        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 17:27:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1503270010400.1733@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/26/2015 04:05 PM, Cong Wang wrote:
-> On Thu, Mar 26, 2015 at 3:32 PM, Cong Wang <cwang@twopensource.com> wrote:
->> On the other hand, the name rules_mod_lock already tells it is
->> just a protection for ops (module) register.
-> I even doubt we really need rules_mod_lock, it is per netns,
-> which is newly allocated when registering pernet and upper
-> layer should guarantee no concurrent unregistering, so we
-> probably only need to take rtnl lock.
+On Fri, Mar 27, 2015 at 01:12:36AM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 26 Mar 2015, Andy Gospodarek wrote:
+> 
+> > diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> > index 66c1e4f..7de2924 100644
+> > --- a/net/ipv4/fib_semantics.c
+> > +++ b/net/ipv4/fib_semantics.c
+> > @@ -1033,6 +1041,9 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+> >  		if (fi->fib_nh->nh_oif &&
+> >  		    nla_put_u32(skb, RTA_OIF, fi->fib_nh->nh_oif))
+> >  			goto nla_put_failure;
+> > +		if (!ipv6_addr_any(&fi->fib_nh->nh_gw6) &&
+> > +		    nla_put(skb, RTA_GATEWAY, 16, &fi->fib_nh->nh_gw6))
+> 
+> 	RTA_GATEWAY6
+> 
+> > +			goto nla_put_failure;
+> >  #ifdef CONFIG_IP_ROUTE_CLASSID
+> >  		if (fi->fib_nh[0].nh_tclassid &&
+> >  		    nla_put_u32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid))
+> > @@ -1060,6 +1071,9 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+> >  			if (nh->nh_gw &&
+> >  			    nla_put_be32(skb, RTA_GATEWAY, nh->nh_gw))
+> >  				goto nla_put_failure;
+> > +			if (!ipv6_addr_any(&nh->nh_gw6) &&
+> > +			    nla_put(skb, RTA_GATEWAY, 16, &nh->nh_gw6))
+> 
+> 	RTA_GATEWAY6
+> 
 
-I'm adding Thomas as he was the original author for the code and might 
-have a better idea of what needs to be rtnl locked and what doesn't.  
-You should probably CC him as well on the v2 patch.
+Thanks for both of these, my original patch overloaded RTA_GATEWAY and I
+missed these in the conversion.
 
-As far as why I am so focused on moving fib4_rules_exit it is because we 
-don't want to call that delete function until after the table has been 
-cleared.  Otherwise you end up triggering the external_flush and unmerge 
-code on a full table instead of an empty one.  The result is you end up 
-allocating a bunch of memory before you then turn around and free it.  
-So even if you retain the rtnl_lock changes it would still be best to 
-move fib4_rules_exit call to the region after you have freed the FIB 
-tables, but before you free fib_table_hash.
+> > @@ -193,10 +196,27 @@ static inline int ip_finish_output2(struct sk_buff *skb)
+> >  	}
+> >  
+> >  	rcu_read_lock_bh();
+> > -	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
+> > -	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
+> > -	if (unlikely(!neigh))
+> > -		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+> > +
+> > +#if IS_ENABLED(CONFIG_IPV6)
+> > +	/* If there is an ipv6 gateway specified, use it */
+> > +	if (!rt->rt_gateway && !ipv6_addr_any(&rt->rt_gateway6)) {
+> 
+> 	DST_NOCACHE routes can fill rt_gateway even when
+> nh_gw=0 (rt_set_nexthop), so above check can be:
+> 
+> 	if (rt->rt_uses_gateway && !ipv6_addr_any(&rt->rt_gateway6)) {
+> 
+> 	Not sure, some places may prefer to see rt_uses_gateway=1
+> for v4 and rt_uses_gateway=2 for v6 nexthop. Then above check
+> can be just 'if (rt->rt_uses_gateway == 2) {'.
+> 
 
-- Alex
+OK, thanks.
+
+> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > index be8703d..c654b41 100644
+> > --- a/net/ipv4/route.c
+> > +++ b/net/ipv4/route.c
+> > @@ -1400,6 +1400,10 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+> >  			rt->rt_gateway = nh->nh_gw;
+> >  			rt->rt_uses_gateway = 1;
+> >  		}
+> > +		if (!ipv6_addr_any(&nh->nh_gw6)) {
+> > +			memcpy(&rt->rt_gateway6, &nh->nh_gw6, sizeof(struct in6_addr));
+> > +			rt->rt_uses_gateway = 1;
+> > +		}
+> >  		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+> >  #ifdef CONFIG_IP_ROUTE_CLASSID
+> >  		rt->dst.tclassid = nh->nh_tclassid;
+> > @@ -1417,6 +1421,10 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+> >  			rt->dst.flags |= DST_NOCACHE;
+> >  			if (!rt->rt_gateway)
+> >  				rt->rt_gateway = daddr;
+> > +			if (ipv6_addr_any(&rt->rt_gateway6)) {
+> > +				memcpy(&rt->rt_gateway6, &nh->nh_gw6, sizeof(struct in6_addr));
+> > +				rt->rt_uses_gateway = 1;
+> > +			}
+> 
+> 	Above hunk is not needed, rt_gateway6 is set above.
+> 
+
+Excellent, I will drop that too.
+
+> >  			rt_add_uncached_list(rt);
+> >  		}
+> >  	} else
+> > @@ -1488,6 +1496,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+> >  	rth->rt_pmtu	= 0;
+> >  	rth->rt_gateway	= 0;
+> >  	rth->rt_uses_gateway = 0;
+> > +	memset(&rth->rt_gateway6, 0, sizeof(struct in6_addr));
+> 
+> 	We can remove such initializations if
+> rt_uses_gateway=2 is used as v6 indication, for example:
+> 
+> rt_uses_gateway rt_gateway nh_gw   nh_gw6 DST_NOCACHE What
+> ===============================================================================
+> 0               0          0/LOCAL N      N           Non-gatewayed, cached
+> 0               DADDR      0/LOCAL N      Y           Non-gatewayed, not cached
+> 2               0          0       GW6    N           Gatewayed, cached
+> 2               DADDR      0       GW6    Y           Gatewayed, not cached
+> 1               GW         GW      N      Y/N         Gatewayed
+> 
+> 
+> 	May be more places need to be changed:
+> 
+> - fib_check_nh: validate v6 address type, set nh_dev,
+> 	allow only nh->nh_scope == RT_SCOPE_LINK (I assume
+> 	we do not plan to use local v6 address in nh_gw6).
+> - nh_comp: needs nh_gw6 comparison
+> - fib_create_info: more checks are needed around
+> 	'if (cfg->fc_scope == RT_SCOPE_HOST) {' check
+> 
+> 	There are other places that use rt_uses_gateway
+> and rt_gateway.
+> 
+> Regards
+> 
+
+Awesome.  Thanks for the thorough review.  I'll check these bits out and
+see what else needs to be done for v1 of this series.
