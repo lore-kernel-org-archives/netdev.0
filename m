@@ -1,103 +1,103 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net] ipvlan: fix addr hash list corruption
-Date: Thu, 26 Mar 2015 22:00:48 -0700
-Message-ID: <CAF2d9jgy+iR61WeYUZAm2nDPuq4JWKfXjrjrSZFiP6aihOEs2A@mail.gmail.com>
-References: <20150324180628.278017fb@griffin> <CAF2d9jh+VozezamrEK_6vfTvY8LZSzw9n-bJjSX3G11RXmfz3w@mail.gmail.com>
- <20150325095851.1d8d1622@griffin> <20150325.114622.1915164845375005128.davem@davemloft.net>
- <CAF2d9jh5WaNYsMxp29GY3LqM08jjVPwLd1BQ1HLFKMsKFda6zQ@mail.gmail.com>
- <20150326002154.3e179fec@griffin> <CAF2d9jj2cbDKXPnFUyVOJUVzrvb4CbK5ktbeW32N31xG0Hz63g@mail.gmail.com>
- <20150326094554.292d3699@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>, dcbw@redhat.com
-To: Jiri Benc <jbenc@redhat.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4vf: Fix sparse warnings
+Date: Fri, 27 Mar 2015 11:01:18 +0530
+Message-ID: <1427434278-3582-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	swise@opengridcomputing.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:32896 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752293AbbC0FBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 01:01:09 -0400
-Received: by oifl3 with SMTP id l3so67539114oif.0
-        for <netdev@vger.kernel.org>; Thu, 26 Mar 2015 22:01:08 -0700 (PDT)
-In-Reply-To: <20150326094554.292d3699@griffin>
+Received: from stargate.chelsio.com ([67.207.112.58]:22054 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751483AbbC0FZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 01:25:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 1:45 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Wed, 25 Mar 2015 19:15:55 -0700, Mahesh Bandewar wrote:
->> I think you missed the point. Addition / deletion of addresses into
->> the hash-table (always) happens in the control path while the cost of
->> those decisions will be paid per packet in data-path; was the point I
->> was trying to make.
->
-> I think you're trying to say "don't add addresses to the hash table
-> unless necessary". If so, we're not in argument here.
->
->> > Basically, there are two (and only two) possible cases: 1. the
->> > addresses should not be on the hash list when the interface is down,
->> > and 2. there's no problem with the addresses being on the hash list
->> > when the interface is down.
->> >
->> As I mentioned earlier in my previous reply; it does work and
->> functionally same. However the decision to drop the packet will happen
->> later in RX path when the interface is down.
->
-> Yes.
->
->> The root cause of the issue is addition / deletion of duplicate
->> entries into the hash-table and I think fixing it is better thing
->> which is exactly what the fix I proposed do.
->
-> Except that it fixes only part of the bug, see below.
->
->> Your first patch though
->> fixes the symptoms, I believe it's not the correct fix
->
-> Could you please elaborate why it's not the correct fix? It ensures
-> that the addresses are on the hash list *iff* the interface is up. When
-> the interface is down, the addresses are not there. If it is up, they
-> are. My impression so far is this is exactly what you want. I don't see
-> why the patch is not correct.
->
->> while your
->> second patch does fix it but eliminates this optimization that is in
->> place.
->
-> Agreed.
->
->> Hence I suggested that  "though correct, I would not *prefer*
->> it" for the said reasons. If the order in which user pushes config
->> alters the hash-table entries, then that's unintended and need to be
->> fixed.
->
-> Agreed.
->
->> > ip l s ipvlan0 down
->> > ip a a 1.2.3.4/24 dev ipvlan0
->> > -> at this point, 1.2.3.4 is on the hash list
->> >
->> unintended behavior and need to be fixed.
->
-> Which is exactly what my first patch does. Could you please look at it
-> again, keeping also this scenario in mind?
->
-OK. I'm not comfortable using the patch as it is since duplicate
-entries in hash-table should be controlled by the fact that link is up
-or down. So I would like to use the hybrid approach where the
-hash-table entries are controlled by hlist_unhashed() while the
-addr_add event should add hash-table entry should the link be up (as
-it is in your first patch). addr_del event handler can stay as it is.
-This should take care of the crash issue.
+Fixes sparse warnings introduced in commit e85c9a7abfa407ed ("cxgb4/cxgb4vf: Add
+code to calculate T5 BAR2 Offsets for SGE Queue Registers") and
+df64e4d38c904dd3 ("cxgb4/cxgb4vf: Use new interfaces to calculate BAR2 SGE Queue
+Register addresses") and few old ones
 
-Now the ipvlan_addr_busy() can not use hash-table reliably and should
-first iterate through all the logical links on a port and then iterate
-through all addresses on logical link.
+sparse warnings:
+>> drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1006:48: sparse: cast removes
+>> address space of expression
+>> drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1006:48: sparse: incorrect type in
+>> initializer (different address space)
+>> drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1020:40: sparse: incorrect type in
+>> argument 1 (different base types)
 
-Do you want to send this / these patches or do you want me to send?
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c     |   12 ++++++++----
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c |    6 +++---
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
-> Thanks,
->
->  Jiri
->
-> --
-> Jiri Benc
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 5ba14b3..7715982 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -1004,7 +1004,7 @@ static inline void ring_tx_db(struct adapter *adapter, struct sge_txq *tq,
+ 					      ? (tq->pidx - 1)
+ 					      : (tq->size - 1));
+ 			__be64 *src = (__be64 *)&tq->desc[index];
+-			__be64 __iomem *dst = (__be64 *)(tq->bar2_addr +
++			__be64 __iomem *dst = (__be64 __iomem *)(tq->bar2_addr +
+ 							 SGE_UDB_WCDOORBELL);
+ 			unsigned int count = EQ_UNIT / sizeof(__be64);
+ 
+@@ -1018,7 +1018,11 @@ static inline void ring_tx_db(struct adapter *adapter, struct sge_txq *tq,
+ 			 * DMA.
+ 			 */
+ 			while (count) {
+-				writeq(*src, dst);
++				/* the (__force u64) is because the compiler
++				 * doesn't understand the endian swizzling
++				 * going on
++				 */
++				writeq((__force u64)*src, dst);
+ 				src++;
+ 				dst++;
+ 				count--;
+@@ -1252,8 +1256,8 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	BUG_ON(DIV_ROUND_UP(ETHTXQ_MAX_HDR, TXD_PER_EQ_UNIT) > 1);
+ 	wr = (void *)&txq->q.desc[txq->q.pidx];
+ 	wr->equiq_to_len16 = cpu_to_be32(wr_mid);
+-	wr->r3[0] = cpu_to_be64(0);
+-	wr->r3[1] = cpu_to_be64(0);
++	wr->r3[0] = cpu_to_be32(0);
++	wr->r3[1] = cpu_to_be32(0);
+ 	skb_copy_from_linear_data(skb, (void *)wr->ethmacdst, fw_hdr_copy_len);
+ 	end = (u64 *)wr + flits;
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index c21e2e9..966ee90 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -210,10 +210,10 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 
+ 			if (rpl) {
+ 				/* request bit in high-order BE word */
+-				WARN_ON((be32_to_cpu(*(const u32 *)cmd)
++				WARN_ON((be32_to_cpu(*(const __be32 *)cmd)
+ 					 & FW_CMD_REQUEST_F) == 0);
+ 				get_mbox_rpl(adapter, rpl, size, mbox_data);
+-				WARN_ON((be32_to_cpu(*(u32 *)rpl)
++				WARN_ON((be32_to_cpu(*(__be32 *)rpl)
+ 					 & FW_CMD_REQUEST_F) != 0);
+ 			}
+ 			t4_write_reg(adapter, mbox_ctl,
+@@ -484,7 +484,7 @@ int t4_bar2_sge_qregs(struct adapter *adapter,
+ 	 *  o The BAR2 Queue ID.
+ 	 *  o The BAR2 Queue ID Offset into the BAR2 page.
+ 	 */
+-	bar2_page_offset = ((qid >> qpp_shift) << page_shift);
++	bar2_page_offset = ((u64)(qid >> qpp_shift) << page_shift);
+ 	bar2_qid = qid & qpp_mask;
+ 	bar2_qid_offset = bar2_qid * SGE_UDB_SIZE;
+ 
+-- 
+1.7.1
