@@ -1,75 +1,81 @@
-From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: Re: [PATCH 0/2 RESEND] IB/Verbs: Use helpers to refine the checking
- on transport and link layer
-Date: Fri, 27 Mar 2015 17:03:14 +0100
-Message-ID: <55157F42.1070303@profitbricks.com>
-References: <5512CFB0.1050108@profitbricks.com> <1427378940.21101.100.camel@redhat.com> <55142DFD.2060100@profitbricks.com> <1427387258.21101.124.camel@redhat.com> <55143AAC.8040206@profitbricks.com> <20150326211334.GA3359@obsidianresearch.com> <5515284A.3030106@profitbricks.com> <20150327155530.GA21778@obsidianresearch.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC PATCH 09/11] IB/Verbs: Use management helper has_ipoib()
+ and, cap_ipoib() for ipoib-check
+Date: Fri, 27 Mar 2015 10:06:16 -0600
+Message-ID: <20150327160616.GA28412@obsidianresearch.com>
+References: <551579CA.4030901@profitbricks.com>
+ <55157BC6.70400@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Majd Dibbiny <majd@mellanox.c
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150327155530.GA21778-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Ira Weiny <ira.weiny@intel.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Yann Droneaud <ydroneaud@opteya.com>,
+	Colin Ian King <colin.king@canonical.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Matan Barak <matanb@mellanox.com>,
+	Alex Estrin <alex.estrin@int
+To: Michael Wang <yun.wang@profitbricks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55157BC6.70400@profitbricks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Mar 27, 2015 at 04:48:22PM +0100, Michael Wang wrote:
 
-On 03/27/2015 04:55 PM, Jason Gunthorpe wrote:
-> On Fri, Mar 27, 2015 at 10:52:10AM +0100, Michael Wang wrote:
->> [snip]
-> So, in principle, testing the device should almost make sense. The
-> device is the container for things like PD's MR's and QP's and those
-> things can migrate between the ports freely, so all post must share
-> the same attributes for those items.
->
-> However.. AFAIK, we can have RoCEE and IB ports on the same device -
-> which makes that whole concept seem sort of like nonsense..
->
-> Anyhow, I would discourage testing the device. Each site has to be
-> examined and determine if it working with a single port and really
-> needs a port attribute (which may be a device attribute today) or if
-> it is doing something device wide and is checking if all ports support
-> X.
-I prefer Doug's proposal that these attributes should be setup
-by vendor at very beginning, unless the attributes keep changing...
+> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> index 3341754..fcd7558 100644
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> @@ -1655,7 +1655,7 @@ static void ipoib_add_one(struct ib_device *device)
+>      struct ipoib_dev_priv *priv;
+>      int s, e, p;
+>  
+> -    if (!rdma_transport_is_ib(device))
+> +    if (!has_ipoib(device))
+>          return;
 
->
->> Let's discuss and figure out the right name in the thread of
->> v2 patch set, I guess there will be a lot to be correct :-P
-> Well, this is actually a hard job. This isn't a mechanical clean up,
-> each site has to be inspected and understood before it can be
-> migrated to the correct API.
-I've send out the RFC patch set, let's see if it is possible to settle
-some thing done ;-)
+This is a good example of a test that doesn't really make sense, IPoIB
+is certainly a port specific attribute.
 
-Regards,
-Michael Wang
+>      dev_list = kmalloc(sizeof *dev_list, GFP_KERNEL);
+> @@ -1673,7 +1673,7 @@ static void ipoib_add_one(struct ib_device *device)
+>      }
+>  
+>      for (p = s; p <= e; ++p) {
+> -        if (!rdma_port_ll_is_ib(device, p))
+> +        if (!cap_ipoib(device, p))
+>              continue;
 
->
-> Jason
+And down here we test every port.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The routine should just test every port and do nothing if no ports
+need IPoIB.
+
+>          dev = ipoib_add_port("ib%d", device, p);
+>          if (!IS_ERR(dev)) {
+> @@ -1690,7 +1690,7 @@ static void ipoib_remove_one(struct ib_device *device)
+>      struct ipoib_dev_priv *priv, *tmp;
+>      struct list_head *dev_list;
+>  
+> -    if (!rdma_transport_is_ib(device))
+> +    if (!has_ipoib(device))
+>          return;
+
+This test should be made redundant by having ib_get_client_data return
+null if ipoib_add_one didn't do anything. Maybe that already happens?
+
+Jason
