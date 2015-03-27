@@ -1,31 +1,52 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/6] mvneta: SGMII-based in-band link state signaling
-Date: Fri, 27 Mar 2015 14:59:04 +0100
-Message-ID: <20150327135904.GB11975@lunn.ch>
-References: <55155AFC.4050800@list.ru>
- <20150327133907.GA11975@lunn.ch>
- <551560B9.1030505@list.ru>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [RFC net-next 1/2] net: allow user to set IPv6 nexthop for IPv4
+ route
+Date: Fri, 27 Mar 2015 10:10:57 -0400
+Message-ID: <20150327141057.GG1051@gospo>
+References: <1427403928-1342-1-git-send-email-gospo@cumulusnetworks.com>
+ <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
+ <5515449D.4080408@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>
-To: Stas Sergeev <stsp@list.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Bjornar Ness <bjornar.ness@gmail.com>,
+	Sowmini Varadhan <sowmini05@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:33660 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752214AbbC0OLJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 10:11:09 -0400
+Received: by ykek76 with SMTP id k76so40926361yke.0
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 07:11:08 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <551560B9.1030505@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5515449D.4080408@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> But there is no MDIO, because SGMII AFAIK doesn't need MDIO.
-> SGMII has in-band status, but for some reason it seems currently
-> linux is not ready for such setup - this is what my patch addresses.
+On Fri, Mar 27, 2015 at 11:53:01AM +0000, Robert Shearman wrote:
+> On 26/03/15 21:05, Andy Gospodarek wrote:
+> >diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+> >index bea910f..26cdd01 100644
+> >--- a/include/uapi/linux/rtnetlink.h
+> >+++ b/include/uapi/linux/rtnetlink.h
+> >@@ -306,6 +306,7 @@ enum rtattr_type_t {
+> >         RTA_VIA,
+> >         RTA_NEWDST,
+> >         RTA_PREF,
+> >+       RTA_GATEWAY6,
+> 
+> There shouldn't be any need to add a new attribute. The RTA_VIA attribute
+> that Eric Biederman recently introduced should have the semantics that you
+> require:
+> 
+> "RTA_VIA specifies the specifies the next machine to send a packet to
+> like RTA_GATEWAY.  RTA_VIA differs from RTA_GATEWAY in that it
+> includes the address family of the address of the next machine to send
+> a packet to."
 
-Hacking the fixed-link driver feels wrong to me. You probably want to
-implement an SGMII-link driver. With some refactoring you can probably
-re-use some of the fixed-link driver code, but it should be a separate
-driver, with its own DT binding.
-
-But i'm no export here. So lets see what others say.
-
-    Andrew
+Absolutely.  I did this first set before Eric added the RTA_VIA
+attribute, so I need to not only use it, but also add support in the
+ipv4 code to use that attribute if set.
