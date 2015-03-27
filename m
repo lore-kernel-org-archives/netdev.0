@@ -1,80 +1,96 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 2/2] fib_trie: Cleanup ip_fib_net_exit code path
-Date: Fri, 27 Mar 2015 14:14:22 -0700
-Message-ID: <20150327211422.2465.50276.stgit@ahduyck-vm-fedora22>
-References: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22>
+Subject: [net-next PATCH 1/2] fib_trie: Fix warning on fib4_rules_exit
+Date: Fri, 27 Mar 2015 14:14:16 -0700
+Message-ID: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47982 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53127 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752665AbbC0VOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 17:14:24 -0400
-In-Reply-To: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22>
+	id S1752172AbbC0VOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Mar 2015 17:14:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While fixing a recent issue I noticed that we are doing some unnecessary
-work inside the loop for ip_fib_net_exit.  As such I am pulling out the
-initialization to NULL for the locally stored fib_local, fib_main, and
-fib_default.
+This fixes the following warning:
 
-In addition I am restoring the original code for flushing the table as
-there is no need to split up the fib_table_flush and hlist_del work since
-the code for packing the tnodes with multiple key vectors was dropped.
+ BUG: sleeping function called from invalid context at mm/slub.c:1268
+ in_atomic(): 1, irqs_disabled(): 0, pid: 6, name: kworker/u8:0
+ INFO: lockdep is turned off.
+ CPU: 3 PID: 6 Comm: kworker/u8:0 Tainted: G        W       4.0.0-rc5+ #895
+ Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+ Workqueue: netns cleanup_net
+  0000000000000006 ffff88011953fa68 ffffffff81a203b6 000000002c3a2c39
+  ffff88011952a680 ffff88011953fa98 ffffffff8109daf0 ffff8801186c6aa8
+  ffffffff81fbc9e5 00000000000004f4 0000000000000000 ffff88011953fac8
+ Call Trace:
+  [<ffffffff81a203b6>] dump_stack+0x4c/0x65
+  [<ffffffff8109daf0>] ___might_sleep+0x1c3/0x1cb
+  [<ffffffff8109db70>] __might_sleep+0x78/0x80
+  [<ffffffff8117a60e>] slab_pre_alloc_hook+0x31/0x8f
+  [<ffffffff8117d4f6>] __kmalloc+0x69/0x14e
+  [<ffffffff818ed0e1>] ? kzalloc.constprop.20+0xe/0x10
+  [<ffffffff818ed0e1>] kzalloc.constprop.20+0xe/0x10
+  [<ffffffff818ef622>] fib_trie_table+0x27/0x8b
+  [<ffffffff818ef6bd>] fib_trie_unmerge+0x37/0x2a6
+  [<ffffffff810b06e1>] ? arch_local_irq_save+0x9/0xc
+  [<ffffffff818e9793>] fib_unmerge+0x2d/0xb3
+  [<ffffffff818f5f56>] fib4_rule_delete+0x1f/0x52
+  [<ffffffff817f1c3f>] ? fib_rules_unregister+0x30/0xb2
+  [<ffffffff817f1c8b>] fib_rules_unregister+0x7c/0xb2
+  [<ffffffff818f64a1>] fib4_rules_exit+0x15/0x18
+  [<ffffffff818e8c0a>] ip_fib_net_exit+0x23/0xf2
+  [<ffffffff818e91f8>] fib_net_exit+0x32/0x36
+  [<ffffffff817c8352>] ops_exit_list+0x45/0x57
+  [<ffffffff817c8d3d>] cleanup_net+0x13c/0x1cd
+  [<ffffffff8108b05d>] process_one_work+0x255/0x4ad
+  [<ffffffff8108af69>] ? process_one_work+0x161/0x4ad
+  [<ffffffff8108b4b1>] worker_thread+0x1cd/0x2ab
+  [<ffffffff8108b2e4>] ? process_scheduled_works+0x2f/0x2f
+  [<ffffffff81090686>] kthread+0xd4/0xdc
+  [<ffffffff8109ec8f>] ? local_clock+0x19/0x22
+  [<ffffffff810905b2>] ? __kthread_parkme+0x83/0x83
+  [<ffffffff81a2c0c8>] ret_from_fork+0x58/0x90
+  [<ffffffff810905b2>] ? __kthread_parkme+0x83/0x83
 
+The issue was that as a part of exiting the default rules were being
+deleted which resulted in the local trie being unmerged.  By moving the
+freeing of the FIB tables up we can avoid the unmerge since there is no
+local table left when we call the fib4_rules_exit function.
+
+Fixes: 0ddcf43d5d4a ("ipv4: FIB Local/MAIN table collapse")
+Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_frontend.c |   29 +++++++----------------------
- 1 file changed, 7 insertions(+), 22 deletions(-)
+ net/ipv4/fib_frontend.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 767120111d90..718b0a16ea40 100644
+index e5b6b0534c5f..767120111d90 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -1176,35 +1176,20 @@ static void ip_fib_net_exit(struct net *net)
+@@ -1176,10 +1176,6 @@ static void ip_fib_net_exit(struct net *net)
  
  	rtnl_lock();
  
-+#ifdef CONFIG_IP_MULTIPLE_TABLES
-+	RCU_INIT_POINTER(net->ipv4.fib_local, NULL);
-+	RCU_INIT_POINTER(net->ipv4.fib_main, NULL);
-+	RCU_INIT_POINTER(net->ipv4.fib_default, NULL);
-+#endif
-+
+-#ifdef CONFIG_IP_MULTIPLE_TABLES
+-	fib4_rules_exit(net);
+-#endif
+-
  	for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
  		struct hlist_head *head = &net->ipv4.fib_table_hash[i];
  		struct hlist_node *tmp;
- 		struct fib_table *tb;
- 
--		/* this is done in two passes as flushing the table could
--		 * cause it to be reallocated in order to accommodate new
--		 * tnodes at the root as the table shrinks.
--		 */
--		hlist_for_each_entry_safe(tb, tmp, head, tb_hlist)
--			fib_table_flush(tb);
--
- 		hlist_for_each_entry_safe(tb, tmp, head, tb_hlist) {
--#ifdef CONFIG_IP_MULTIPLE_TABLES
--			switch (tb->tb_id) {
--			case RT_TABLE_LOCAL:
--				RCU_INIT_POINTER(net->ipv4.fib_local, NULL);
--				break;
--			case RT_TABLE_MAIN:
--				RCU_INIT_POINTER(net->ipv4.fib_main, NULL);
--				break;
--			case RT_TABLE_DEFAULT:
--				RCU_INIT_POINTER(net->ipv4.fib_default, NULL);
--				break;
--			default:
--				break;
--			}
--#endif
- 			hlist_del(&tb->tb_hlist);
-+			fib_table_flush(tb);
+@@ -1212,6 +1208,10 @@ static void ip_fib_net_exit(struct net *net)
  			fib_free_table(tb);
  		}
  	}
++
++#ifdef CONFIG_IP_MULTIPLE_TABLES
++	fib4_rules_exit(net);
++#endif
+ 	rtnl_unlock();
+ 	kfree(net->ipv4.fib_table_hash);
+ }
