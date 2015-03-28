@@ -1,125 +1,73 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-Date: Fri, 27 Mar 2015 17:52:16 -0700
-Message-ID: <CAF2d9jjxoKFoX7bvJ7+cA685iBT9fPgjvjTKe8ppE_J3oWJgrQ@mail.gmail.com>
-References: <1427409698.18540.11.camel@redhat.com> <1427409822.18540.13.camel@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Handling device free after a packet is passed to the
+ network stack
+Date: Fri, 27 Mar 2015 19:49:28 -0700
+Message-ID: <1427510968.25985.159.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <f3c7672edb978d520f12d72cb41d1e4d.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:33558 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751745AbbC1Awh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 20:52:37 -0400
-Received: by oifl3 with SMTP id l3so89731872oif.0
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 17:52:37 -0700 (PDT)
-In-Reply-To: <1427409822.18540.13.camel@redhat.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:36520 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752270AbbC1Ctb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 22:49:31 -0400
+Received: by pdcp1 with SMTP id p1so22387012pdc.3
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 19:49:31 -0700 (PDT)
+In-Reply-To: <f3c7672edb978d520f12d72cb41d1e4d.squirrel@www.codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 3:43 PM, Dan Williams <dcbw@redhat.com> wrote:
-> ipvlan currently fails DHCP addressing for two reasons:
->
-> 1) DHCP offers are typically unicast back to the device's MAC
-> address, and at the IP layer have a destination IP address
-> matching the new lease address.  In ipvlan unicast packets
-> are checked against existing addresses assigned to the ipvlan
-> interface, so clearly this fails hard because the ipvlan
-> interface has no IP addresses yet.  Workaround: request
-> that the server broadcast replies (-B for dhclient), which
-> don't get checked against the IP address list.
->
-> 2) Even when that's done, mac_filters only allows the
-> broadcast MAC address when the interface has >= 1 IPv4
-> addresses, so double-fail, and the incoming DHCP offer
-> gets dropped on the floor again.
->
-> Instead of doing ugly stuff like watching for outgoing DHCP
-> requests and adding the broadcast MAC to mac_filters for
-> a period of time, just always allow the broadcast MAC.  This
-> lets the ipvlan interface be configured with DHCP in
-> Layer2 mode as long as as broadcast replies are used.
->
-Guys, stop thinking that we live in IPv4-only world! Think about a
-hybrid environment where all your IPvlan slaves are IPv6 only while
-your network has IPv4 (with crap-load of broadcast traffic) and IPv6
-traffic. In that situation IPvlan demuxer has to forward all that
-broadcast-traffic to it's slaves which they don't care at all.
+On Fri, 2015-03-27 at 19:57 +0000, subashab@codeaurora.org wrote:
+> We have been coming across a couple of scenarios where the device is freed
+> and the corresponding packets which were already queued up the stack
+> encounter crashes when they find that contents of skb->dev are no longer
+> valid.
+> 
+> Specifically, we have observed an instance where a cpu hotplug occurs
+> along with the network driver module unloading. When the packets are being
+> queued up the stack using netif_rx_ni from dev_cpu_callback, get_rps_cpus
+> crashes as it encounters invalid data at skb->dev since it would have been
+> freed.
+> 
+> We would like to know if the kernel provides some mechanisms to safeguard
+> against such scenarios.
 
-I agree that the current driver falls short of handling DHCPv4 and
-needs a fix. But for couple of initial config packets, it's not wise
-to loose the performance forever. I don't like this patch.
+This is supposed to be handled in flush_backlog() (net/core/dev.c)
 
+Maybe you hit some race condition in on_each_cpu().
 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-> ---
->  drivers/net/ipvlan/ipvlan_main.c | 21 ++++-----------------
->  1 file changed, 4 insertions(+), 17 deletions(-)
->
-> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index d34f580..787d7fb 100644
-> --- a/drivers/net/ipvlan/ipvlan_main.c
-> +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -214,17 +214,6 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
->                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
->  }
->
-> -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
-> -{
-> -       struct net_device *dev = ipvlan->dev;
-> -       unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
-> -
-> -       if (set && !test_bit(hashbit, ipvlan->mac_filters))
-> -               __set_bit(hashbit, ipvlan->mac_filters);
-> -       else if (!set && test_bit(hashbit, ipvlan->mac_filters))
-> -               __clear_bit(hashbit, ipvlan->mac_filters);
-> -}
-> -
->  static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
->  {
->         struct ipvl_dev *ipvlan = netdev_priv(dev);
-> @@ -239,11 +228,11 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
->                 netdev_for_each_mc_addr(ha, dev)
->                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
->
-> +               /* always allow broadcast frames */
-> +               __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
-> +
->                 bitmap_copy(ipvlan->mac_filters, mc_filters,
->                             IPVLAN_MAC_FILTER_SIZE);
-> -
-> -               if (ipvlan->ipv4cnt)
-> -                       ipvlan_set_broadcast_mac_filter(ipvlan, true);
->         }
->         dev_uc_sync(ipvlan->phy_dev, dev);
->         dev_mc_sync(ipvlan->phy_dev, dev);
-> @@ -470,6 +459,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
->         INIT_LIST_HEAD(&ipvlan->addrs);
->         ipvlan->ipv4cnt = 0;
->         ipvlan->ipv6cnt = 0;
-> +       __set_bit(ipvlan_mac_hash(dev->broadcast), ipvlan->mac_filters);
->
->         /* TODO Probably put random address here to be presented to the
->          * world but keep using the physical-dev address for the outgoing
-> @@ -694,7 +684,6 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->         list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
->         ipvlan->ipv4cnt++;
->         ipvlan_ht_addr_add(ipvlan, addr);
-> -       ipvlan_set_broadcast_mac_filter(ipvlan, true);
->
->         return 0;
->  }
-> @@ -711,8 +700,6 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->         list_del_rcu(&addr->anode);
->         ipvlan->ipv4cnt--;
->         WARN_ON(ipvlan->ipv4cnt < 0);
-> -       if (!ipvlan->ipv4cnt)
-> -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
->         kfree_rcu(addr, rcu);
->
->         return;
-> --
-> 2.1.0
->
->
+Really, I do not think we have tested such stress conditions ever.
+
+cpu hotplug was very unstable 2 years ago (last time I tried it, this
+was constantly failing outside of networking land)
+
+I would try following patch, although I am not sure what would prevent
+dev_cpu_callback() being called too late.
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a0408d497dae04e7caa145f05c915b058aa2d356..fa74887adfe10709bce55ccf1e34d65c6b7a8fba 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7149,11 +7149,17 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+ 
+ 	/* Process offline CPU's input_pkt_queue */
+ 	while ((skb = __skb_dequeue(&oldsd->process_queue))) {
+-		netif_rx_ni(skb);
++		if (skb->dev->reg_state != NETREG_REGISTERED)
++			kfree_skb(skb);
++		else
++			netif_rx_ni(skb);
+ 		input_queue_head_incr(oldsd);
+ 	}
+ 	while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
+-		netif_rx_ni(skb);
++		if (skb->dev->reg_state != NETREG_REGISTERED)
++			kfree_skb(skb);
++		else
++			netif_rx_ni(skb);
+ 		input_queue_head_incr(oldsd);
+ 	}
+ 
