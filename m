@@ -1,92 +1,125 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net 1/4 v2] ipvlan: fix addr hash list corruption
-Date: Fri, 27 Mar 2015 17:16:49 -0700
-Message-ID: <CAF2d9jj-kkmwwJvVe8EjZcnGiy5roEUYh2AqX1Ov3FRNbtXNEw@mail.gmail.com>
-References: <cover.1427476903.git.jbenc@redhat.com> <b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
+Subject: Re: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
+Date: Fri, 27 Mar 2015 17:52:16 -0700
+Message-ID: <CAF2d9jjxoKFoX7bvJ7+cA685iBT9fPgjvjTKe8ppE_J3oWJgrQ@mail.gmail.com>
+References: <1427409698.18540.11.camel@redhat.com> <1427409822.18540.13.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Dan Williams <dcbw@redhat.com>
-To: Jiri Benc <jbenc@redhat.com>
+Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33783 "EHLO
-	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbbC1ARK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 20:17:10 -0400
-Received: by oifl3 with SMTP id l3so89353008oif.0
-        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 17:17:09 -0700 (PDT)
-In-Reply-To: <b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:33558 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745AbbC1Awh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Mar 2015 20:52:37 -0400
+Received: by oifl3 with SMTP id l3so89731872oif.0
+        for <netdev@vger.kernel.org>; Fri, 27 Mar 2015 17:52:37 -0700 (PDT)
+In-Reply-To: <1427409822.18540.13.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 27, 2015 at 10:30 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> When ipvlan interface with IP addresses attached is brought down and then
-> deleted, the assigned addresses are deleted twice from the address hash
-> list, first on the interface down and second on the link deletion.
-> Similarly, when an address is added while the interface is down, it is added
-> second time once the interface is brought up.
+On Thu, Mar 26, 2015 at 3:43 PM, Dan Williams <dcbw@redhat.com> wrote:
+> ipvlan currently fails DHCP addressing for two reasons:
 >
-> When the interface is down, the addresses should be kept off the hash list
-> for performance reasons. Ensure this is true, which also fixes the double add
-> problem. To fix the double free, check whether the address is hashed before
-> removing it.
+> 1) DHCP offers are typically unicast back to the device's MAC
+> address, and at the IP layer have a destination IP address
+> matching the new lease address.  In ipvlan unicast packets
+> are checked against existing addresses assigned to the ipvlan
+> interface, so clearly this fails hard because the ipvlan
+> interface has no IP addresses yet.  Workaround: request
+> that the server broadcast replies (-B for dhclient), which
+> don't get checked against the IP address list.
 >
-> Reported-by: Dan Williams <dcbw@redhat.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> 2) Even when that's done, mac_filters only allows the
+> broadcast MAC address when the interface has >= 1 IPv4
+> addresses, so double-fail, and the incoming DHCP offer
+> gets dropped on the floor again.
+>
+> Instead of doing ugly stuff like watching for outgoing DHCP
+> requests and adding the broadcast MAC to mac_filters for
+> a period of time, just always allow the broadcast MAC.  This
+> lets the ipvlan interface be configured with DHCP in
+> Layer2 mode as long as as broadcast replies are used.
+>
+Guys, stop thinking that we live in IPv4-only world! Think about a
+hybrid environment where all your IPvlan slaves are IPv6 only while
+your network has IPv4 (with crap-load of broadcast traffic) and IPv6
+traffic. In that situation IPvlan demuxer has to forward all that
+broadcast-traffic to it's slaves which they don't care at all.
+
+I agree that the current driver falls short of handling DHCPv4 and
+needs a fix. But for couple of initial config packets, it's not wise
+to loose the performance forever. I don't like this patch.
+
+
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 > ---
+>  drivers/net/ipvlan/ipvlan_main.c | 21 ++++-----------------
+>  1 file changed, 4 insertions(+), 17 deletions(-)
 >
-> Changes since v1: check hlist_unhashed on deletion instead of depending on
-> netif_running
->
-> ---
->  drivers/net/ipvlan/ipvlan_core.c |  2 +-
->  drivers/net/ipvlan/ipvlan_main.c | 10 ++++++++--
->  2 files changed, 9 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index 2a175006028b..9f705fc9e0ef 100644
-> --- a/drivers/net/ipvlan/ipvlan_core.c
-> +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -86,7 +86,7 @@ void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr)
->
->  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync)
->  {
-> -       hlist_del_rcu(&addr->hlnode);
-> +       hlist_del_init_rcu(&addr->hlnode);
-Though this fixes the current crash problem; the duplicate addition in
-the hash-table is still open. I would still prefer it to be protected
-by hlist_unhashed() check.
->         if (sync)
->                 synchronize_rcu();
->  }
 > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index 4f4099d5603d..dbaf67c722a0 100644
+> index d34f580..787d7fb 100644
 > --- a/drivers/net/ipvlan/ipvlan_main.c
 > +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -622,7 +622,10 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
->         addr->atype = IPVL_IPV6;
+> @@ -214,17 +214,6 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
+>                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
+>  }
+>
+> -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
+> -{
+> -       struct net_device *dev = ipvlan->dev;
+> -       unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
+> -
+> -       if (set && !test_bit(hashbit, ipvlan->mac_filters))
+> -               __set_bit(hashbit, ipvlan->mac_filters);
+> -       else if (!set && test_bit(hashbit, ipvlan->mac_filters))
+> -               __clear_bit(hashbit, ipvlan->mac_filters);
+> -}
+> -
+>  static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
+>  {
+>         struct ipvl_dev *ipvlan = netdev_priv(dev);
+> @@ -239,11 +228,11 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
+>                 netdev_for_each_mc_addr(ha, dev)
+>                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
+>
+> +               /* always allow broadcast frames */
+> +               __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
+> +
+>                 bitmap_copy(ipvlan->mac_filters, mc_filters,
+>                             IPVLAN_MAC_FILTER_SIZE);
+> -
+> -               if (ipvlan->ipv4cnt)
+> -                       ipvlan_set_broadcast_mac_filter(ipvlan, true);
+>         }
+>         dev_uc_sync(ipvlan->phy_dev, dev);
+>         dev_mc_sync(ipvlan->phy_dev, dev);
+> @@ -470,6 +459,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+>         INIT_LIST_HEAD(&ipvlan->addrs);
+>         ipvlan->ipv4cnt = 0;
+>         ipvlan->ipv6cnt = 0;
+> +       __set_bit(ipvlan_mac_hash(dev->broadcast), ipvlan->mac_filters);
+>
+>         /* TODO Probably put random address here to be presented to the
+>          * world but keep using the physical-dev address for the outgoing
+> @@ -694,7 +684,6 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
 >         list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
->         ipvlan->ipv6cnt++;
-> -       ipvlan_ht_addr_add(ipvlan, addr);
-> +       /* If the interface is not up, the address will be added to the hash
-> +        * list by ipvlan_open. */
-> +       if (netif_running(ipvlan->dev))
-> +               ipvlan_ht_addr_add(ipvlan, addr);
+>         ipvlan->ipv4cnt++;
+>         ipvlan_ht_addr_add(ipvlan, addr);
+> -       ipvlan_set_broadcast_mac_filter(ipvlan, true);
 >
 >         return 0;
 >  }
-> @@ -690,7 +693,10 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->         addr->atype = IPVL_IPV4;
->         list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
->         ipvlan->ipv4cnt++;
-> -       ipvlan_ht_addr_add(ipvlan, addr);
-> +       /* If the interface is not up, the address will be added to the hash
-> +        * list by ipvlan_open. */
-> +       if (netif_running(ipvlan->dev))
-> +               ipvlan_ht_addr_add(ipvlan, addr);
->         ipvlan_set_broadcast_mac_filter(ipvlan, true);
+> @@ -711,8 +700,6 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>         list_del_rcu(&addr->anode);
+>         ipvlan->ipv4cnt--;
+>         WARN_ON(ipvlan->ipv4cnt < 0);
+> -       if (!ipvlan->ipv4cnt)
+> -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
+>         kfree_rcu(addr, rcu);
 >
->         return 0;
+>         return;
 > --
-> 1.8.3.1
+> 2.1.0
+>
 >
