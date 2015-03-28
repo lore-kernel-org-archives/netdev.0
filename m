@@ -1,71 +1,49 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: notifications of interfaces going down/up/being created/destroyed?
-Date: Sat, 28 Mar 2015 09:37:24 -0700
-Message-ID: <CAA93jw7u=aPjXVME5WwCa97tbD1-5XpgRPg_C9y2kH9qkrt1mw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] of_net: factor out repetitive code from of_get_mac_address()
+Date: Sat, 28 Mar 2015 20:17:57 +0300
+Message-ID: <5516E245.30605@cogentembedded.com>
+References: <1776166.J84mUn2Yu8@wasted.cogentembedded.com> <20150328133445.52B51C40AAB@trevor.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Grant Likely <grant.likely@linaro.org>, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35134 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752284AbbC1QhY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2015 12:37:24 -0400
-Received: by pacwz10 with SMTP id wz10so73884330pac.2
-        for <netdev@vger.kernel.org>; Sat, 28 Mar 2015 09:37:24 -0700 (PDT)
+Received: from mail-la0-f50.google.com ([209.85.215.50]:36039 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881AbbC1RSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2015 13:18:02 -0400
+Received: by labe2 with SMTP id e2so91049207lab.3
+        for <netdev@vger.kernel.org>; Sat, 28 Mar 2015 10:18:00 -0700 (PDT)
+In-Reply-To: <20150328133445.52B51C40AAB@trevor.secretlab.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-is there an asynchronous way to register for a notification of an
-interface going down/up?
+Hello.
 
----------- Forwarded message ----------
-=46rom: Juliusz Chroboczek <jch@pps.univ-paris-diderot.fr>
-Date: Sat, Mar 28, 2015 at 9:30 AM
-Subject: Re: [Babel-users] Looping in EAGAIN
-To: Dave Taht <dave.taht@gmail.com>
-Cc: Simon Kelley <simon@thekelleys.org.uk>,
-"babel-users@lists.alioth.debian.org"
-<babel-users@lists.alioth.debian.org>
+On 03/28/2015 04:34 PM, Grant Likely wrote:
 
+>> of_get_mac_address() basically does the same  thing thrice, every  time with  a
+>> different  property  name,  so it makes sense to factor out the repetitive code
+>> into separate function. While at it, we can start using ETH_ALEN instead of the
+>> bare number and drop unnecessary parens around the property length check.
 
-> Say wlan0 vanishes. All the routes going out that interface are no
-> longer valid, but from what I understood of this patch, it will loop =
-for
-> a while, then give up.
+>> The resulting ARM object file is 100 bytes less in size than before the patch.
 
-If wlan0 vanishes, this will be recognised the next time check_interfac=
-es
-is run, and all neighbours visible through wlan0 will be flushed.
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-The issue we're having is a race condition -- if wlan0 goes down and th=
-en
-back up before we run check_interfaces, and the IP addresses don't chan=
-ge,
-then check_interfaces will not notice the transition, and Babel will th=
-ink
-that its routes through wlan0 are still up -- end you end up with a FIB
-that is not a subset of the RIB.  Ouch.
+>> ---
+>> The patch is against Grant Likely's 'linux.git' repo's 'devicetree/next' branch.
 
-So it might be a good idea to run check_interfaces early when we get
-EAGAIN, but I'm not sure what consequences it might have -- EAGAIN can
-also happen when we're under load, and we'd rather not be repeatedly
-scanning our interfaces in that case.
+> Thanks for looking at this, I've merged it.
 
-It would be better to get async notifications from the kernel about
-interfaces going down.
+> Since you're already playing with this, could you also write a unittest
+> of of_get_mac_addr()? (drivers/of/unittest.c & drivers/of/unittest-data)
 
-> Not clear to me if this would happen for 4 hello intervals before the
-> interface is recognised as gone?
+    Unfortunately, I'm constantly low on time. Even this patch was done on 
+weekend.
 
-No, the hellos are used to notice vanishing neighbours, not vanishing
-interfaces.  That's a completely different mechanism.
+> g.
 
--- Juliusz
-
-
---=20
-Dave T=C3=A4ht
-Let's make wifi fast, less jittery and reliable again!
-
-https://plus.google.com/u/0/107942175615993706558/posts/TVX3o84jjmb
+WBR, Sergei
