@@ -1,55 +1,59 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-Date: Sat, 28 Mar 2015 19:32:54 +0100
-Message-ID: <20150328193254.6c79784d@griffin>
-References: <1427409698.18540.11.camel@redhat.com>
-	<1427409822.18540.13.camel@redhat.com>
-	<CAF2d9jjxoKFoX7bvJ7+cA685iBT9fPgjvjTKe8ppE_J3oWJgrQ@mail.gmail.com>
-	<CAF2d9jh_-DxxUMcTjFK3TUAJhC=B9ORrmH0=tVH1KBiWsYPpLg@mail.gmail.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
+ for Linux (LibOS)
+Date: Sat, 28 Mar 2015 22:17:40 +0100
+Message-ID: <55171A74.1000707@nod.at>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m <55152137.20405@nod.at> <55157495.3050208@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52974 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016AbbC1Sc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Mar 2015 14:32:58 -0400
-In-Reply-To: <CAF2d9jh_-DxxUMcTjFK3TUAJhC=B9ORrmH0=tVH1KBiWsYPpLg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
+	cl@linux.com, penberg@kernel.org, rientjes@google.com,
+	iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Antti Kantee <pooka@iki.fi>, Hajime Tazaki <tazaki@wide.ad.jp>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <55157495.3050208@iki.fi>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Mar 2015 22:56:15 -0700, Mahesh Bandewar wrote:
-> The current logic disables broadcast by default and enables only when
-> an IPv4 address is added. If this is inverted and -
-> enables broadcast by default but disables it when only IPv6
-> address(es) is / are added. These links can have multiple addresses
-> and hence have to be careful if any one of those is IPv4 then
-> broadcast bit has to be set.
+Am 27.03.2015 um 16:17 schrieb Antti Kantee:
+> Let me try to offer some insight.  I've been working on something similar in mainline NetBSD for almost 8 years now, so in addition to ideas popping into my head I've also tested
+> them out in the real world.  I do think that all operating systems should be structured to support a lib mode, and hopefully integrating Hajime's work into Linux will get on the
+> right track.
 
-You'd have to be careful and ignore IPv6 link local addresses.
-Those are added automatically whenever IPv6 is enabled and their
-presence does not mean the network is not IPv4 only.
+IMHO it depends on the maintenance burden.
+Linux source changes magnitudes faster than NetBSD's.
 
-But I don't like such magic behavior. It would lead to DHCP sometimes
-working and sometimes not in mixed v4/v6 environment depending on
-whether DHCPv4 or SLAAC was faster.
+>> What about putting libos into tools/testing/ and make it much more generic and framework alike.
+>> With more generic I mean that libos could be a stubbing framework for the kernel.
+>> i.e. you specify the subsystem you want to test/stub and the framework helps you doing so.
+>> A lot of the stubs you're placing in arch/lib could be auto-generated as the
+>> vast majority of all kernel methods you stub are no-ops which call only lib_assert(false).
+>>
+>> Using that approach only very few kernel core components have to be duplicated and
+>> actually implemented by hand.
+>> Hence, less maintenance overhead and libos is not broken all the time.
+> 
+> Stubbing things might be the way to get things initially rolling, but you don't want to aim for that or spend energy on fancy ways to do it. Autogenerating stubs only means that
+> the libos will build, not that it won't be broken.  Figuring out how to make the libos as close to zero-maintenance as possible is indeed the trick.
+> 
+> What I ended up doing is coining the term "anykernel architecture", which simply means that in addition to the monolithic architecture, the kernel can now be used as in exokernel,
+> microkernel, multikernel, etc. (which are really just different frontends for the lib mode).  I'd recommend diving head-first into the issue and thinking "how can we adjust the
+> kernel architecture to support the libos mode" instead of "how can we tip-toe around the kernel and invent clever ways to stub things".  The anykernel is not really that different
+> from a monolithic kernel once you figure out which bits are important, and support will not require a whole lot of "duplicated" code.  There are practically no stubs in the NetBSD
+> implementation; somewhere between 0 and 20 depending on what you count as a stub.  There is a few thousand lines of "duplicated" code, the majority of which is a direct result of
+> the rump kernel (which is the name of the libos mode) running on top of an external thread scheduler, so that code from the monolithic kernel doesn't apply.
 
-Could we perhaps add a flag when creating ipvlan interface stating
-whether IPv4 broadcast should be always enabled? Or, rather, the other
-way round - whether it should be disabled by default. Call it "nodhcp"
-or so.
+I agree that this would be nice but without actual patches I'm very doubtful.
 
-Btw, speaking about IPv6 link local addresses, these actually do not
-work with ipvlan correctly. I'm getting DAD failures if I have more
-than one ipvlan interface, which is no wonder. This means that ipvlan
-cannot work with IPv6 reliably by default (unless you take care of ll
-address assignment and ensure all ipvlan interfaces get a different
-one).
+> Continuous testing is paramount.  Running the kernel as a lib provides an unparalleled method for testing most of the kernel.  It will improve testing capabilities dramatically,
+> and on the flipside it will keep the libos working.  Everyone wins.
 
- Jiri
+If it can be done cheap, yes. But our in-kernel tests improved over the years a lot.
+Now have lockdep, KASan, kmemleak, etc. to find *real-world* issues and the need for stubbed testing
+decreases.
 
--- 
-Jiri Benc
+Thanks,
+//richard
