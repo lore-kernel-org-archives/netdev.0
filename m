@@ -1,45 +1,27 @@
-From: Grant Likely <grant.likely@linaro.org>
-Subject: Re: [PATCH] of_net: factor out repetitive code
- =?iso-8859-1?Q?from=0D?= of_get_mac_address()
-Date: Sat, 28 Mar 2015 13:27:48 +0000
-Message-ID: <20150328132748.2DDA7C409FF@trevor.secretlab.ca>
-References: <1776166.J84mUn2Yu8@wasted.cogentembedded.com>
-	<20150318.152933.636562640494674435.davem@davemloft.net>
-Cc: robh+dt@kernel.org, devicetree@vger.kernel.org,
-	f.fainelli@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	sergei.shtylyov@cogentembedded.com
+From: Dave Taht <dave.taht@gmail.com>
+Subject: reliably detecting IPV6_SUBTREEs support at runtime?
+Date: Sat, 28 Mar 2015 08:48:24 -0700
+Message-ID: <CAA93jw5h=xKcbghD3T4dts9W8Ouae2emaEj_8QFkXNe+v3JTLw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:35900 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412AbbC1OvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2015 10:51:06 -0400
-Received: by wgra20 with SMTP id a20so126928346wgr.3
-        for <netdev@vger.kernel.org>; Sat, 28 Mar 2015 07:51:05 -0700 (PDT)
-In-Reply-To: <20150318.152933.636562640494674435.davem@davemloft.net>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:34686 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbbC1PsY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Mar 2015 11:48:24 -0400
+Received: by oigz129 with SMTP id z129so53154289oig.1
+        for <netdev@vger.kernel.org>; Sat, 28 Mar 2015 08:48:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Mar 2015 15:29:33 -0400 (EDT)
-, David Miller <davem@davemloft.net>
- wrote:
-> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Date: Wed, 18 Mar 2015 22:25:46 +0300
-> 
-> > of_get_mac_address() basically does the same  thing thrice, every  time with  a
-> > different  property  name,  so it makes sense to factor out the repetitive code
-> > into separate function. While at it, we can start using ETH_ALEN instead of the
-> > bare number and drop unnecessary parens around the property length check.
-> > 
-> > The resulting ARM object file is 100 bytes less in size than before the patch.
-> > 
-> > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> > 
-> > ---
-> > The patch is against Grant Likely's 'linux.git' repo's 'devicetree/next' branch.
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+Has anyone ideas for a test that a routing daemon could use at runtime
+for detecting if IPV6_SUBTREES in the kernel is A) enabled and B)
+working properly (as in post 3.11)?
 
-Applied for v4.1, thanks.
+--=20
+Dave T=C3=A4ht
+Let's make wifi fast, less jittery and reliable again!
 
-g.
+https://plus.google.com/u/0/107942175615993706558/posts/TVX3o84jjmb
