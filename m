@@ -1,68 +1,25 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [net-next PATCH 1/2] fib_trie: Fix warning on fib4_rules_exit
-Date: Fri, 27 Mar 2015 16:29:18 -0700
-Message-ID: <5515E7CE.5050206@redhat.com>
-References: <20150327211416.2465.23170.stgit@ahduyck-vm-fedora22> <CAHA+R7McwZQ5PCWFvUh-wrktg3AP0tu7arkcp=+SFmiD5apRBQ@mail.gmail.com>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH net-next] tc: bpf: generalize pedit action
+Date: Sat, 28 Mar 2015 01:14:19 +0100
+Message-ID: <5515F25B.1070608@iogearbox.net>
+References: <1427424837-7757-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56868 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752180AbbC0X3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Mar 2015 19:29:19 -0400
-In-Reply-To: <CAHA+R7McwZQ5PCWFvUh-wrktg3AP0tu7arkcp=+SFmiD5apRBQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427424837-7757-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-On 03/27/2015 03:14 PM, Cong Wang wrote:
-> On Fri, Mar 27, 2015 at 2:14 PM, Alexander Duyck
-> <alexander.h.duyck@redhat.com> wrote:
->> The issue was that as a part of exiting the default rules were being
->> deleted which resulted in the local trie being unmerged.  By moving the
->> freeing of the FIB tables up we can avoid the unmerge since there is no
->> local table left when we call the fib4_rules_exit function.
->>
-> This literally means we no longer need to call ops->delete()
-> in netns unregister path.
-
-You are confusing table entries and rules.  The tables are cleared, the 
-rules still have to be deleted.  This patch breaks the reference 
-counting for fib_num_tclassid_users.
-
+On 03/27/2015 03:53 AM, Alexei Starovoitov wrote:
+> existing TC action 'pedit' can munge any bits of the packet.
+> Generalize it for use in bpf programs attached as cls_bpf and act_bpf via
+> bpf_skb_store_bytes() helper function.
 >
-> diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-> index 68ea695..27b6e04 100644
-> --- a/net/core/fib_rules.c
-> +++ b/net/core/fib_rules.c
-> @@ -153,8 +153,6 @@ static void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
->
->          list_for_each_entry_safe(rule, tmp, &ops->rules_list, list) {
->                  list_del_rcu(&rule->list);
-> -               if (ops->delete)
-> -                       ops->delete(rule);
->                  fib_rule_put(rule);
->          }
->   }
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index e5b6b05..1481b23 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-> @@ -1178,6 +1178,7 @@ static void ip_fib_net_exit(struct net *net)
->
->   #ifdef CONFIG_IP_MULTIPLE_TABLES
->          fib4_rules_exit(net);
-> +       fib_flush_external(net); // <-------- Maybe not needed either.
->   #endif
->
->          for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 
-Take a look at fib4_rule_delete.  There is more there than just unmerge 
-and flush external.
-
-- Alex
+Acked-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
