@@ -1,75 +1,39 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net 3/4 v2] ipvlan: do not use rcu operations for address list
-Date: Sat, 28 Mar 2015 19:13:24 +0100
-Message-ID: <ac744df9efb58775461c40e222bd1713b87357a7.1427566140.git.jbenc@redhat.com>
-References: <cover.1427566140.git.jbenc@redhat.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
+Subject: Re: [PATCH net 1/4 v2] ipvlan: fix addr hash list corruption
+Date: Sat, 28 Mar 2015 19:17:06 +0100
+Message-ID: <20150328191706.540f0cfc@griffin>
+References: <cover.1427476903.git.jbenc@redhat.com>
+	<b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
+	<CAF2d9jj-kkmwwJvVe8EjZcnGiy5roEUYh2AqX1Ov3FRNbtXNEw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>,
 	Dan Williams <dcbw@redhat.com>
-To: netdev@vger.kernel.org
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37163 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43009 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751066AbbC1SNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Mar 2015 14:13:41 -0400
-In-Reply-To: <cover.1427566140.git.jbenc@redhat.com>
+	id S1751817AbbC1SRL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Mar 2015 14:17:11 -0400
+In-Reply-To: <CAF2d9jj-kkmwwJvVe8EjZcnGiy5roEUYh2AqX1Ov3FRNbtXNEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All accesses to ipvlan->addrs are under rtnl.
+On Fri, 27 Mar 2015 17:16:49 -0700, Mahesh Bandewar wrote:
+> On Fri, Mar 27, 2015 at 10:30 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> >  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync)
+> >  {
+> > -       hlist_del_rcu(&addr->hlnode);
+> > +       hlist_del_init_rcu(&addr->hlnode);
+> Though this fixes the current crash problem; the duplicate addition in
+> the hash-table is still open. I would still prefer it to be protected
+> by hlist_unhashed() check.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+It cannot happen but whatever, there's no harm in such check. Just sent
+a new version.
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 1eb3f33e11cc..aaa005bd21ce 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -505,7 +505,7 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
- 	if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
- 		list_for_each_entry_safe(addr, next, &ipvlan->addrs, anode) {
- 			ipvlan_ht_addr_del(addr, !dev->dismantle);
--			list_del_rcu(&addr->anode);
-+			list_del(&addr->anode);
- 		}
- 	}
- 	list_del_rcu(&ipvlan->pnode);
-@@ -620,7 +620,7 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
- 	addr->master = ipvlan;
- 	memcpy(&addr->ip6addr, ip6_addr, sizeof(struct in6_addr));
- 	addr->atype = IPVL_IPV6;
--	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
-+	list_add_tail(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv6cnt++;
- 	/* If the interface is not up, the address will be added to the hash
- 	 * list by ipvlan_open.
-@@ -640,7 +640,7 @@ static void ipvlan_del_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
- 		return;
- 
- 	ipvlan_ht_addr_del(addr, true);
--	list_del_rcu(&addr->anode);
-+	list_del(&addr->anode);
- 	ipvlan->ipv6cnt--;
- 	WARN_ON(ipvlan->ipv6cnt < 0);
- 	kfree_rcu(addr, rcu);
-@@ -692,7 +692,7 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	addr->master = ipvlan;
- 	memcpy(&addr->ip4addr, ip4_addr, sizeof(struct in_addr));
- 	addr->atype = IPVL_IPV4;
--	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
-+	list_add_tail(&addr->anode, &ipvlan->addrs);
- 	ipvlan->ipv4cnt++;
- 	/* If the interface is not up, the address will be added to the hash
- 	 * list by ipvlan_open.
-@@ -713,7 +713,7 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 		return;
- 
- 	ipvlan_ht_addr_del(addr, true);
--	list_del_rcu(&addr->anode);
-+	list_del(&addr->anode);
- 	ipvlan->ipv4cnt--;
- 	WARN_ON(ipvlan->ipv4cnt < 0);
- 	if (!ipvlan->ipv4cnt)
+ Jiri
+
 -- 
-1.8.3.1
+Jiri Benc
