@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 03/23] ptp: use the 64 bit get/set time methods for the posix clock.
-Date: Sun, 29 Mar 2015 23:11:53 +0200
-Message-ID: <922b5ea24b10b9f031a5a4cd2c9bffae428a69cd.1427662907.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 08/23] ptp: fec: convert to the 64 bit get/set time methods.
+Date: Sun, 29 Mar 2015 23:11:58 +0200
+Message-ID: <256b6f98454f7be0f4e3d5a8e79ade9a798a416e.1427662907.git.richardcochran@gmail.com>
 References: <cover.1427662906.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,48 +31,48 @@ In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch changes the posix clock code to prefer the new methods
-whenever they are implemented by the PHC drivers.
+This driver's clock is implemented using a timecounter, and so with
+this patch the driver is ready for the year 2038.
+
+Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/ptp/ptp_clock.c |   19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_ptp.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index 296b0ec..df50d5e 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -107,13 +107,28 @@ static int ptp_clock_getres(struct posix_clock *pc, struct timespec *tp)
- static int ptp_clock_settime(struct posix_clock *pc, const struct timespec *tp)
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 4585895..b833993 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -390,7 +390,7 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+  * read the timecounter and return the correct value on ns,
+  * after converting it into a struct timespec.
+  */
+-static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	return ptp->info->settime(ptp->info, tp);
-+	struct timespec64 ts = timespec_to_timespec64(*tp);
-+
-+	return  ptp->info->settime64 ?
-+		ptp->info->settime64(ptp->info, &ts) :
-+		ptp->info->settime(ptp->info, tp);
- }
- 
- static int ptp_clock_gettime(struct posix_clock *pc, struct timespec *tp)
+ 	struct fec_enet_private *adapter =
+ 	    container_of(ptp, struct fec_enet_private, ptp_caps);
+@@ -417,7 +417,7 @@ static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+  * wall timer value.
+  */
+ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *ts)
++			   const struct timespec64 *ts)
  {
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	return ptp->info->gettime(ptp->info, tp);
-+	struct timespec64 ts;
-+	int err;
-+
-+	if (ptp->info->gettime64) {
-+		err = ptp->info->gettime64(ptp->info, &ts);
-+		if (!err)
-+			*tp = timespec64_to_timespec(ts);
-+	} else {
-+		err = ptp->info->gettime(ptp->info, tp);
-+	}
-+
-+	return err;
- }
+ 	struct fec_enet_private *fep =
+ 	    container_of(ptp, struct fec_enet_private, ptp_caps);
+@@ -584,8 +584,8 @@ void fec_ptp_init(struct platform_device *pdev)
+ 	fep->ptp_caps.pps = 1;
+ 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
+ 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
+-	fep->ptp_caps.gettime = fec_ptp_gettime;
+-	fep->ptp_caps.settime = fec_ptp_settime;
++	fep->ptp_caps.gettime64 = fec_ptp_gettime;
++	fep->ptp_caps.settime64 = fec_ptp_settime;
+ 	fep->ptp_caps.enable = fec_ptp_enable;
  
- static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
+ 	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
 -- 
 1.7.10.4
