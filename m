@@ -1,126 +1,78 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v9 7/7] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
-Date: Sun, 29 Mar 2015 19:11:37 +0300
-Message-ID: <1427645497-8339-8-git-send-email-vladz@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:38096 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572AbbC2QLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 12:11:54 -0400
-Received: by wibgn9 with SMTP id gn9so94288653wib.1
-        for <netdev@vger.kernel.org>; Sun, 29 Mar 2015 09:11:53 -0700 (PDT)
-In-Reply-To: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 57/86] brcm80211: use uapi/linux/pci_ids.h directly
+Date: Sun, 29 Mar 2015 18:45:46 +0200
+Message-ID: <55182C3A.7020302@broadcom.com>
+References: <1427635734-24786-1-git-send-email-mst@redhat.com> <1427635734-24786-58-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"Pieter-Paul Giesberts" <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"Daniel (Deognyoun) Kim" <dekim-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>,
+	Brian Norris <computersforpeace-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427635734-24786-58-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
-implementations.
+On 03/29/15 15:41, Michael S. Tsirkin wrote:
+> Header moved from linux/pci_ids.h to uapi/linux/pci_ids.h,
+> use the new header directly so we can drop
+> the wrapper in include/linux/pci_ids.h.
 
-This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF devices.
+Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Michael S. Tsirkin<mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
+>   drivers/net/wireless/brcm80211/include/brcm_hw_ids.h | 2 +-
+>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c     | 2 +-
+>   drivers/net/wireless/brcm80211/brcmfmac/sdio.c       | 2 +-
+>   drivers/net/wireless/brcm80211/brcmsmac/main.c       | 2 +-
+>   4 files changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/include/brcm_hw_ids.h b/drivers/net/wireless/brcm80211/include/brcm_hw_ids.h
+> index 2124a17..bd1370e 100644
+> --- a/drivers/net/wireless/brcm80211/include/brcm_hw_ids.h
+> +++ b/drivers/net/wireless/brcm80211/include/brcm_hw_ids.h
+> @@ -17,7 +17,7 @@
+>   #ifndef	_BRCM_HW_IDS_H_
+>   #define	_BRCM_HW_IDS_H_
+>
+> -#include<linux/pci_ids.h>
+> +#include<uapi/linux/pci_ids.h>
+>   #include<linux/mmc/sdio_ids.h>
+>
+>   #define BRCM_USB_VENDOR_ID_BROADCOM	0x0a5c
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> index 7944224..227cb33 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> @@ -18,7 +18,7 @@
+>   #include<linux/types.h>
+>   #include<linux/netdevice.h>
+>   #include<linux/pci.h>
+> -#include<linux/pci_ids.h>
+> +#include<uapi/linux/pci_ids.h>
 
-This patch adds the support for 82599 and x540 devices only. Support for other
-devices will be added later.
+I was surprised seeing this include here, but you deal with that in 
+subsequent patches. Thanks.
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v9:
-   - Use IXGBEVF_RSS_HASH_KEY_SIZE macro.
-
-New in v6:
-   - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
-
-New in v4:
-   - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
-
-New in v3:
-   - Added a proper support for x550 devices: return the correct redirection table size.
-
-New in v2:
-   - Added a detailed description to the patch.
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 58 ++++++++++++++++++++++++++++
- 1 file changed, 58 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index e83c85b..4d2f59f 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -794,6 +794,60 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
- 	return 0;
- }
- 
-+static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
-+			     u32 *rules __always_unused)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(dev);
-+
-+	switch (info->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		info->data = adapter->num_rx_queues;
-+		return 0;
-+	default:
-+		hw_dbg(&adapter->hw, "Command parameters not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+
-+	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
-+		return 64;
-+	else
-+		return 128;
-+}
-+
-+static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	return IXGBEVF_RSS_HASH_KEY_SIZE;
-+}
-+
-+static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-+			    u8 *hfunc)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+	int err;
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	if (indir) {
-+		err = ixgbevf_get_reta(adapter, indir);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (key) {
-+		err = ixgbevf_get_rss_key(adapter, key);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_settings		= ixgbevf_get_settings,
- 	.get_drvinfo		= ixgbevf_get_drvinfo,
-@@ -811,6 +865,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
- 	.get_coalesce		= ixgbevf_get_coalesce,
- 	.set_coalesce		= ixgbevf_set_coalesce,
-+	.get_rxnfc		= ixgbevf_get_rxnfc,
-+	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
-+	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
-+	.get_rxfh		= ixgbevf_get_rxfh,
- };
- 
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
--- 
-2.1.0
+Regards,
+Arend
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
