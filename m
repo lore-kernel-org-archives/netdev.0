@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 17/23] ptp: stmmac: convert to the 64 bit get/set time methods.
-Date: Sun, 29 Mar 2015 23:12:07 +0200
-Message-ID: <7841f3dc8c055a20188325b70bb2bbab69430f91.1427662907.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 22/23] ptp: pch: convert to the 64 bit get/set time methods.
+Date: Sun, 29 Mar 2015 23:12:12 +0200
+Message-ID: <d574fb31bfc7f1478c0d96e55c17cff699832106.1427662907.git.richardcochran@gmail.com>
 References: <cover.1427662906.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,47 +31,48 @@ In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This device stores the number of seconds in a 32 bit register.  So
-more work is needed on this driver before the year 2038 comes around.
+The device has a 64 bit clock register, where each clock tick is 32
+nanoseconds, and so with this patch the driver is ready for the year
+2038.
 
 Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    8 ++++----
+ drivers/ptp/ptp_pch.c |    8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-index c5ee79d8..172f318 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-@@ -105,7 +105,7 @@ static int stmmac_adjust_time(struct ptp_clock_info *ptp, s64 delta)
-  * Description: this function will read the current time from the
-  * hardware clock and store it in @ts.
-  */
--static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 2554872..3aa22ae 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -449,7 +449,7 @@ static int ptp_pch_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
+ }
+ 
+-static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	struct stmmac_priv *priv =
- 	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
-@@ -135,7 +135,7 @@ static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
-  * hardware clock.
-  */
- static int stmmac_set_time(struct ptp_clock_info *ptp,
+ 	u64 ns;
+ 	u32 remainder;
+@@ -467,7 +467,7 @@ static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ }
+ 
+ static int ptp_pch_settime(struct ptp_clock_info *ptp,
 -			   const struct timespec *ts)
 +			   const struct timespec64 *ts)
  {
- 	struct stmmac_priv *priv =
- 	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
-@@ -168,8 +168,8 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
- 	.pps = 0,
- 	.adjfreq = stmmac_adjust_freq,
- 	.adjtime = stmmac_adjust_time,
--	.gettime = stmmac_get_time,
--	.settime = stmmac_set_time,
-+	.gettime64 = stmmac_get_time,
-+	.settime64 = stmmac_set_time,
- 	.enable = stmmac_enable,
+ 	u64 ns;
+ 	unsigned long flags;
+@@ -518,8 +518,8 @@ static struct ptp_clock_info ptp_pch_caps = {
+ 	.pps		= 0,
+ 	.adjfreq	= ptp_pch_adjfreq,
+ 	.adjtime	= ptp_pch_adjtime,
+-	.gettime	= ptp_pch_gettime,
+-	.settime	= ptp_pch_settime,
++	.gettime64	= ptp_pch_gettime,
++	.settime64	= ptp_pch_settime,
+ 	.enable		= ptp_pch_enable,
  };
  
 -- 
