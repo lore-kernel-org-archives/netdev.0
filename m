@@ -1,51 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] usbnet: Fix tx_bytes statistic running backward in
- cdc_ncm
-Date: Sun, 29 Mar 2015 12:07:20 -0700 (PDT)
-Message-ID: <20150329.120720.1482940954016865143.davem@davemloft.net>
-References: <1427316093-13595-1-git-send-email-bjorn@mork.no>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next 0/4] netlink: access functions for IP address
+ attributes
+Date: Sun, 29 Mar 2015 21:02:33 +0200
+Message-ID: <1427655753.2101.0.camel@sipsolutions.net>
+References: <cover.1427639592.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1427316093-13595-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	James Chapman <jchapman@katalix.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:42481 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752360AbbC2TCj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Mar 2015 15:02:39 -0400
+In-Reply-To: <cover.1427639592.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Wed, 25 Mar 2015 21:41:33 +0100
+On Sun, 2015-03-29 at 16:59 +0200, Jiri Benc wrote:
 
-> From: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
->=20
-> cdc_ncm disagrees with usbnet about how much framing overhead should
-> be counted in the tx_bytes statistics, and tries 'fix' this by
-> decrementing tx_bytes on the transmit path.  But statistics must neve=
-r
-> be decremented except due to roll-over; this will thoroughly confuse
-> user-space.  Also, tx_bytes is only incremented by usbnet in the
-> completion path.
->=20
-> Fix this by requiring drivers that set FLAG_MULTI_FRAME to set a
-> tx_bytes delta along with the tx_packets count.
->=20
-> Fixes: beeecd42c3b4 ("net: cdc_ncm/cdc_mbim: adding NCM protocol stat=
-istics")
-> Signed-off-by: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> ---
-> This should really go to stable-3.19 and 4.0, but since it depends on
-> 6588af614e7b ("usbnet: Fix tx_packets stat for FLAG_MULTI_FRAME drive=
-rs")
-> already in net-next, then I guess it is net-next for this patch as we=
-ll.
+> The conversion is straightforward and the resulting patches are not that
+> large, thus I kept all the changes in the patches that introduce the access
+> functions. If anyone prefers to split the definition of access functions and
+> the conversion and/or break it out by network protocols, please let me know.
 
-I cherry picked 6588af614e7b ("usbnet: Fix tx_packets stat for
-=46LAG_MULTI_FRAME drivers") and put it into 'net', along with
-this fix.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks fine to me as far as the conversion is concerned, it's not code we
+touch much so feel free to take through any tree you like.
+
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
+
+johannes
