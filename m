@@ -1,72 +1,51 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 08/11] lib: other kernel glue layer code
-Date: Sun, 29 Mar 2015 20:17:02 +0200
-Message-ID: <5518419E.8010007@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp> <1427202642-1716-9-git-send-email-tazaki@sfc.wide.ad.jp>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Fix tx_bytes statistic running backward in
+ cdc_ncm
+Date: Sun, 29 Mar 2015 12:07:20 -0700 (PDT)
+Message-ID: <20150329.120720.1482940954016865143.davem@davemloft.net>
+References: <1427316093-13595-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnd Bergmann <arnd@arndb.de>, Jonathan Corbet <corbet@lwn.net>,
- Jhristoph Lameter <cl@linux.com>,
- Jekka Enberg <penberg@kernel.org>, Javid Rientjes <rientjes@google.com>,
- Joonsoo Kim <iamjoonsoo.kim@lge.com>,
- Jndrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org,
- linux-doc@vger.kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
- Jeff Dike <jdike@addtoit.com>,
- Rusty Russell <rusty@rustcorp.com.au>,
- Mathieu Lacage <mathieu.lacage@gmail.com>,
- Christoph Paasch <christoph.paasch@gmail.com>
-To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>, linux-arch@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1427202642-1716-9-git-send-email-tazaki@sfc.wide.ad.jp>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427316093-13595-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am 24.03.2015 um 14:10 schrieb Hajime Tazaki:
-> These files are used to provide the same function calls so that other
-> network stack code keeps untouched.
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Wed, 25 Mar 2015 21:41:33 +0100
+
+> From: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
 >=20
-> Signed-off-by: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-> Signed-off-by: Christoph Paasch <christoph.paasch@gmail.com>
+> cdc_ncm disagrees with usbnet about how much framing overhead should
+> be counted in the tx_bytes statistics, and tries 'fix' this by
+> decrementing tx_bytes on the transmit path.  But statistics must neve=
+r
+> be decremented except due to roll-over; this will thoroughly confuse
+> user-space.  Also, tx_bytes is only incremented by usbnet in the
+> completion path.
+>=20
+> Fix this by requiring drivers that set FLAG_MULTI_FRAME to set a
+> tx_bytes delta along with the tx_packets count.
+>=20
+> Fixes: beeecd42c3b4 ("net: cdc_ncm/cdc_mbim: adding NCM protocol stat=
+istics")
+> Signed-off-by: Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 > ---
->  arch/lib/cred.c     |  16 +++
->  arch/lib/dcache.c   |  93 +++++++++++++++
->  arch/lib/filemap.c  |  27 +++++
->  arch/lib/fs.c       | 287 ++++++++++++++++++++++++++++++++++++++++++++
->  arch/lib/glue.c     | 336 ++++++++++++++++++++++++++++++++++++++++++++=
-++++++++
->  arch/lib/inode.c    | 146 +++++++++++++++++++++++
->  arch/lib/modules.c  |  36 ++++++
->  arch/lib/pid.c      |  29 +++++
->  arch/lib/print.c    |  56 +++++++++
->  arch/lib/proc.c     | 164 +++++++++++++++++++++++++
->  arch/lib/random.c   |  53 +++++++++
->  arch/lib/security.c |  45 +++++++
->  arch/lib/seq.c      | 122 +++++++++++++++++++
->  arch/lib/splice.c   |  20 ++++
->  arch/lib/super.c    | 210 ++++++++++++++++++++++++++++++++
->  arch/lib/sysfs.c    |  83 +++++++++++++
->  arch/lib/vmscan.c   |  26 ++++
->  17 files changed, 1749 insertions(+)
+> This should really go to stable-3.19 and 4.0, but since it depends on
+> 6588af614e7b ("usbnet: Fix tx_packets stat for FLAG_MULTI_FRAME drive=
+rs")
+> already in net-next, then I guess it is net-next for this patch as we=
+ll.
 
-BTW: Why do you need these stub implementations at all?
-If I read your code correctly it is because you're linking against the wh=
-ole net/ directory.
-Let's take register_filesystem() again as example. net/socket.c reference=
-s it in sock_init().
-Maybe it would make sense to split socket.c into two files, net/socket.c =
-and net/sockfs.c.
-Such that you could link only net/socket.o.
-Of course you'd have to convince networking folks first. :D
-
-By linking selectively objects files from net/ you could get rid of a lot=
- unneeded stubs.
-
-Thanks,
-//richard
-
+I cherry picked 6588af614e7b ("usbnet: Fix tx_packets stat for
+=46LAG_MULTI_FRAME drivers") and put it into 'net', along with
+this fix.
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
