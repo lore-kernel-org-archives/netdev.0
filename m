@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 01/23] ptp: introduce get/set time methods with explicit 64 bit seconds.
-Date: Sun, 29 Mar 2015 23:11:51 +0200
-Message-ID: <bdf6c595b1a2204a5f5f00001da9506374f4e311.1427662907.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 02/23] ptp: use the 64 bit gettime method for the SYS_OFFSET ioctl.
+Date: Sun, 29 Mar 2015 23:11:52 +0200
+Message-ID: <bea2237d51943bafa6108df5fcf364bb89a092f3.1427662907.git.richardcochran@gmail.com>
 References: <cover.1427662906.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,48 +31,52 @@ In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Converting the PHC drivers over to the new methods is one step along the
-way to making them ready for 2038.  Once all the drivers are up to date,
-then the old methods will be removed.
+This patch changes the code to use the new method whenever implemented by
+the PHC driver.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- include/linux/ptp_clock_kernel.h |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/ptp/ptp_chardev.c |   14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index 0d8ff3f..7d6f8e6 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -64,12 +64,18 @@ struct ptp_clock_request {
-  * @adjtime:  Shifts the time of the hardware clock.
-  *            parameter delta: Desired change in nanoseconds.
-  *
-- * @gettime:  Reads the current time from the hardware clock.
-+ * @gettime:  Reads the current time from the hardware clock. (deprecated)
-  *            parameter ts: Holds the result.
-  *
-- * @settime:  Set the current time on the hardware clock.
-+ * @settime:  Set the current time on the hardware clock. (deprecated)
-  *            parameter ts: Time value to set.
-  *
-+ * @gettime64:  Reads the current time from the hardware clock.
-+ *              parameter ts: Holds the result.
-+ *
-+ * @settime64:  Set the current time on the hardware clock.
-+ *              parameter ts: Time value to set.
-+ *
-  * @enable:   Request driver to enable or disable an ancillary feature.
-  *            parameter request: Desired resource to enable or disable.
-  *            parameter on: Caller passes one to enable or zero to disable.
-@@ -106,6 +112,8 @@ struct ptp_clock_info {
- 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
- 	int (*gettime)(struct ptp_clock_info *ptp, struct timespec *ts);
- 	int (*settime)(struct ptp_clock_info *ptp, const struct timespec *ts);
-+	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
-+	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
- 	int (*enable)(struct ptp_clock_info *ptp,
- 		      struct ptp_clock_request *request, int on);
- 	int (*verify)(struct ptp_clock_info *ptp, unsigned int pin,
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index f8a7609..95bcf15 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -124,7 +124,8 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+ 	struct ptp_clock_info *ops = ptp->info;
+ 	struct ptp_clock_time *pct;
+-	struct timespec ts;
++	struct timespec64 ts;
++	struct timespec t2;
+ 	int enable, err = 0;
+ 	unsigned int i, pin_index;
+ 
+@@ -197,16 +198,21 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
+ 		}
+ 		pct = &sysoff->ts[0];
+ 		for (i = 0; i < sysoff->n_samples; i++) {
+-			getnstimeofday(&ts);
++			getnstimeofday64(&ts);
+ 			pct->sec = ts.tv_sec;
+ 			pct->nsec = ts.tv_nsec;
+ 			pct++;
+-			ptp->info->gettime(ptp->info, &ts);
++			if (ptp->info->gettime64) {
++				ptp->info->gettime64(ptp->info, &ts);
++			} else {
++				ptp->info->gettime(ptp->info, &t2);
++				ts = timespec_to_timespec64(t2);
++			}
+ 			pct->sec = ts.tv_sec;
+ 			pct->nsec = ts.tv_nsec;
+ 			pct++;
+ 		}
+-		getnstimeofday(&ts);
++		getnstimeofday64(&ts);
+ 		pct->sec = ts.tv_sec;
+ 		pct->nsec = ts.tv_nsec;
+ 		if (copy_to_user((void __user *)arg, sysoff, sizeof(*sysoff)))
 -- 
 1.7.10.4
