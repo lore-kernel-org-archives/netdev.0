@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] Fixes ingress queue mapping and other fixes
-Date: Sun, 29 Mar 2015 12:26:09 -0700 (PDT)
-Message-ID: <20150329.122609.1477118155699381969.davem@davemloft.net>
-References: <1427344466-17658-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next 0/3] be2net: patch set
+Date: Sun, 29 Mar 2015 12:34:26 -0700 (PDT)
+Message-ID: <20150329.123426.338748218073465203.davem@davemloft.net>
+References: <1427353510-24790-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com,
-	swise@opengridcomputing.com
-To: hariprasad@chelsio.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59111 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59167 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752408AbbC2TR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:17:26 -0400
-In-Reply-To: <1427344466-17658-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1752572AbbC2TZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:25:43 -0400
+In-Reply-To: <1427353510-24790-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Thu, 26 Mar 2015 10:04:24 +0530
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Thu, 26 Mar 2015 03:05:07 -0400
 
-> The below series fixes ingress queue mapping by allocating them dynamically to
-> prevent stack overflow. Disable napi and interrupts before unregistering netdev
-> to avoid crash while unloading driver when traffic is flowing.
+> Hi David, this patch set includes 2 feature additions to the be2net driver:
 > 
-> The patches series is created against 'net' tree. 
-> And includes patches on cxgb4 driver.
+> Patch 1 sets up cpu affinity hints for be2net irqs using the
+> cpumask_set_cpu_local_first() API that first picks the near numa cores
+> and when they are exhausted, selects the far numa cores.
 > 
-> We have included all the maintainers of respective drivers. Kindly review the
-> change and let us know in case of any review comments.
+> Patch 2 setups up xps queue mapping for be2net's TXQs to avoid,
+> by default, TX lock contention.
+> 
+> Patch 3 just bumps up the driver version.
+> 
+> Pls consider applying this patch set to the net-next queue. Thanks!
 
 Series applied, thanks.
