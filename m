@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/4 v2] ipvlan: fix addr hash list corruption
-Date: Sun, 29 Mar 2015 12:23:25 -0700 (PDT)
-Message-ID: <20150329.122325.255412967371199514.davem@davemloft.net>
-References: <cover.1427476903.git.jbenc@redhat.com>
-	<b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
+Subject: Re: [PATCH net 0/2] Fixes ingress queue mapping and other fixes
+Date: Sun, 29 Mar 2015 12:26:09 -0700 (PDT)
+Message-ID: <20150329.122609.1477118155699381969.davem@davemloft.net>
+References: <1427344466-17658-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com, dcbw@redhat.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	swise@opengridcomputing.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59097 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59111 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752376AbbC2TOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:14:41 -0400
-In-Reply-To: <b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
+	with ESMTP id S1752408AbbC2TR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:17:26 -0400
+In-Reply-To: <1427344466-17658-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Fri, 27 Mar 2015 18:30:23 +0100
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 26 Mar 2015 10:04:24 +0530
 
-> @@ -622,7 +622,10 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
->  	addr->atype = IPVL_IPV6;
->  	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
->  	ipvlan->ipv6cnt++;
-> -	ipvlan_ht_addr_add(ipvlan, addr);
-> +	/* If the interface is not up, the address will be added to the hash
-> +	 * list by ipvlan_open. */
+> The below series fixes ingress queue mapping by allocating them dynamically to
+> prevent stack overflow. Disable napi and interrupts before unregistering netdev
+> to avoid crash while unloading driver when traffic is flowing.
+> 
+> The patches series is created against 'net' tree. 
+> And includes patches on cxgb4 driver.
+> 
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Comments in the networking should be formatted:
-
-	/* Like
-	 * this.
-	 */
-
-Thanks.
+Series applied, thanks.
