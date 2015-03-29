@@ -1,7 +1,7 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next 3/4] netlink: implement nla_put_in_addr and nla_put_in6_addr
-Date: Sun, 29 Mar 2015 16:59:25 +0200
-Message-ID: <c9e66821f590a443229b9049950b633c949f2864.1427639592.git.jbenc@redhat.com>
+Subject: [PATCH net-next 4/4] netlink: implement nla_get_in_addr and nla_get_in6_addr
+Date: Sun, 29 Mar 2015 16:59:26 +0200
+Message-ID: <6164b337fa032295cd8ec5aa444beb51f18a2bb7.1427639592.git.jbenc@redhat.com>
 References: <cover.1427639592.git.jbenc@redhat.com>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
@@ -12,804 +12,522 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	Pablo Neira Ayuso <pablo@netfilter.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59873 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59877 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752617AbbC2PA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Mar 2015 11:00:28 -0400
+	id S1752617AbbC2PAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Mar 2015 11:00:31 -0400
 In-Reply-To: <cover.1427639592.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IP addresses are often stored in netlink attributes. Add generic functions
-to do that.
-
-For nla_put_in_addr, it would be nicer to pass struct in_addr but this is
-not used universally throughout the kernel, in way too many places __be32 is
-used to store IPv4 address.
+Those are counterparts to nla_put_in_addr and nla_put_in6_addr.
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/vxlan.c                            | 22 +++++++++----------
- include/linux/netfilter/ipset/ip_set.h         |  5 ++---
- include/net/netlink.h                          | 29 ++++++++++++++++++++++++++
- net/ipv4/devinet.c                             |  6 +++---
- net/ipv4/fib_rules.c                           |  4 ++--
- net/ipv4/fib_semantics.c                       |  8 +++----
+
+Note that nla_get_in6_addr returns the struct in6_addr rather than
+a pointer to it. This may be frown upon by some; if desired, I'll rework
+the function to accept target pointer as a parameter.
+---
+ drivers/net/vxlan.c                            | 16 +++++++---------
+ include/net/netlink.h                          | 21 +++++++++++++++++++++
+ net/ipv4/devinet.c                             | 10 +++++-----
+ net/ipv4/fib_rules.c                           |  8 ++++----
+ net/ipv4/fib_semantics.c                       |  4 ++--
  net/ipv4/ip_gre.c                              |  4 ++--
  net/ipv4/ip_vti.c                              |  4 ++--
  net/ipv4/ipip.c                                |  4 ++--
- net/ipv4/ipmr.c                                |  4 ++--
  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  4 ++--
- net/ipv4/route.c                               |  8 +++----
- net/ipv4/tcp_metrics.c                         | 16 +++++++-------
- net/ipv6/addrconf.c                            | 10 ++++-----
- net/ipv6/addrlabel.c                           |  2 +-
+ net/ipv4/route.c                               |  4 ++--
+ net/ipv4/tcp_metrics.c                         |  4 ++--
  net/ipv6/fib6_rules.c                          |  6 ++----
- net/ipv6/ip6_gre.c                             |  4 ++--
+ net/ipv6/ip6_gre.c                             |  6 +++---
  net/ipv6/ip6_tunnel.c                          |  6 ++----
  net/ipv6/ip6_vti.c                             |  6 ++----
- net/ipv6/ip6mr.c                               |  4 ++--
- net/ipv6/ndisc.c                               |  3 +--
  net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  6 ++----
- net/ipv6/route.c                               | 14 ++++++-------
- net/ipv6/sit.c                                 | 12 +++++------
- net/l2tp/l2tp_netlink.c                        | 14 +++++++------
- net/netlabel/netlabel_mgmt.c                   | 20 +++++++-----------
- net/netlabel/netlabel_unlabeled.c              | 28 +++++++++++--------------
- net/openvswitch/flow_netlink.c                 |  6 ++++--
+ net/ipv6/route.c                               |  6 +++---
+ net/ipv6/sit.c                                 |  3 +--
+ net/l2tp/l2tp_netlink.c                        |  4 ++--
+ net/openvswitch/flow_netlink.c                 |  4 ++--
  net/wireless/nl80211.c                         |  4 ++--
- 29 files changed, 139 insertions(+), 124 deletions(-)
+ 21 files changed, 72 insertions(+), 62 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1c80b67c688d..86f085f95408 100644
+index 86f085f95408..a8d345054d23 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -187,9 +187,9 @@ static int vxlan_nla_put_addr(struct sk_buff *skb, int attr,
- 			      const union vxlan_addr *ip)
+@@ -171,11 +171,11 @@ static inline bool vxlan_addr_multicast(const union vxlan_addr *ipa)
+ static int vxlan_nla_get_addr(union vxlan_addr *ip, struct nlattr *nla)
  {
- 	if (ip->sa.sa_family == AF_INET6)
--		return nla_put(skb, attr, sizeof(struct in6_addr), &ip->sin6.sin6_addr);
-+		return nla_put_in6_addr(skb, attr, &ip->sin6.sin6_addr);
- 	else
--		return nla_put_be32(skb, attr, ip->sin.sin_addr.s_addr);
-+		return nla_put_in_addr(skb, attr, ip->sin.sin_addr.s_addr);
- }
+ 	if (nla_len(nla) >= sizeof(struct in6_addr)) {
+-		nla_memcpy(&ip->sin6.sin6_addr, nla, sizeof(struct in6_addr));
++		ip->sin6.sin6_addr = nla_get_in6_addr(nla);
+ 		ip->sa.sa_family = AF_INET6;
+ 		return 0;
+ 	} else if (nla_len(nla) >= sizeof(__be32)) {
+-		ip->sin.sin_addr.s_addr = nla_get_be32(nla);
++		ip->sin.sin_addr.s_addr = nla_get_in_addr(nla);
+ 		ip->sa.sa_family = AF_INET;
+ 		return 0;
+ 	} else {
+@@ -215,7 +215,7 @@ static int vxlan_nla_get_addr(union vxlan_addr *ip, struct nlattr *nla)
+ 	if (nla_len(nla) >= sizeof(struct in6_addr)) {
+ 		return -EAFNOSUPPORT;
+ 	} else if (nla_len(nla) >= sizeof(__be32)) {
+-		ip->sin.sin_addr.s_addr = nla_get_be32(nla);
++		ip->sin.sin_addr.s_addr = nla_get_in_addr(nla);
+ 		ip->sa.sa_family = AF_INET;
+ 		return 0;
+ 	} else {
+@@ -2602,27 +2602,25 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+ 	/* Unless IPv6 is explicitly requested, assume IPv4 */
+ 	dst->remote_ip.sa.sa_family = AF_INET;
+ 	if (data[IFLA_VXLAN_GROUP]) {
+-		dst->remote_ip.sin.sin_addr.s_addr = nla_get_be32(data[IFLA_VXLAN_GROUP]);
++		dst->remote_ip.sin.sin_addr.s_addr = nla_get_in_addr(data[IFLA_VXLAN_GROUP]);
+ 	} else if (data[IFLA_VXLAN_GROUP6]) {
+ 		if (!IS_ENABLED(CONFIG_IPV6))
+ 			return -EPFNOSUPPORT;
  
- #else /* !CONFIG_IPV6 */
-@@ -226,7 +226,7 @@ static int vxlan_nla_get_addr(union vxlan_addr *ip, struct nlattr *nla)
- static int vxlan_nla_put_addr(struct sk_buff *skb, int attr,
- 			      const union vxlan_addr *ip)
- {
--	return nla_put_be32(skb, attr, ip->sin.sin_addr.s_addr);
-+	return nla_put_in_addr(skb, attr, ip->sin.sin_addr.s_addr);
- }
- #endif
+-		nla_memcpy(&dst->remote_ip.sin6.sin6_addr, data[IFLA_VXLAN_GROUP6],
+-			   sizeof(struct in6_addr));
++		dst->remote_ip.sin6.sin6_addr = nla_get_in6_addr(data[IFLA_VXLAN_GROUP6]);
+ 		dst->remote_ip.sa.sa_family = AF_INET6;
+ 		use_ipv6 = true;
+ 	}
  
-@@ -2807,13 +2807,13 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	if (data[IFLA_VXLAN_LOCAL]) {
+-		vxlan->saddr.sin.sin_addr.s_addr = nla_get_be32(data[IFLA_VXLAN_LOCAL]);
++		vxlan->saddr.sin.sin_addr.s_addr = nla_get_in_addr(data[IFLA_VXLAN_LOCAL]);
+ 		vxlan->saddr.sa.sa_family = AF_INET;
+ 	} else if (data[IFLA_VXLAN_LOCAL6]) {
+ 		if (!IS_ENABLED(CONFIG_IPV6))
+ 			return -EPFNOSUPPORT;
  
- 	if (!vxlan_addr_any(&dst->remote_ip)) {
- 		if (dst->remote_ip.sa.sa_family == AF_INET) {
--			if (nla_put_be32(skb, IFLA_VXLAN_GROUP,
--					 dst->remote_ip.sin.sin_addr.s_addr))
-+			if (nla_put_in_addr(skb, IFLA_VXLAN_GROUP,
-+					    dst->remote_ip.sin.sin_addr.s_addr))
- 				goto nla_put_failure;
- #if IS_ENABLED(CONFIG_IPV6)
- 		} else {
--			if (nla_put(skb, IFLA_VXLAN_GROUP6, sizeof(struct in6_addr),
--				    &dst->remote_ip.sin6.sin6_addr))
-+			if (nla_put_in6_addr(skb, IFLA_VXLAN_GROUP6,
-+					     &dst->remote_ip.sin6.sin6_addr))
- 				goto nla_put_failure;
- #endif
- 		}
-@@ -2824,13 +2824,13 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 
- 	if (!vxlan_addr_any(&vxlan->saddr)) {
- 		if (vxlan->saddr.sa.sa_family == AF_INET) {
--			if (nla_put_be32(skb, IFLA_VXLAN_LOCAL,
--					 vxlan->saddr.sin.sin_addr.s_addr))
-+			if (nla_put_in_addr(skb, IFLA_VXLAN_LOCAL,
-+					    vxlan->saddr.sin.sin_addr.s_addr))
- 				goto nla_put_failure;
- #if IS_ENABLED(CONFIG_IPV6)
- 		} else {
--			if (nla_put(skb, IFLA_VXLAN_LOCAL6, sizeof(struct in6_addr),
--				    &vxlan->saddr.sin6.sin6_addr))
-+			if (nla_put_in6_addr(skb, IFLA_VXLAN_LOCAL6,
-+					     &vxlan->saddr.sin6.sin6_addr))
- 				goto nla_put_failure;
- #endif
- 		}
-diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-index f1606fa6132d..34b172301558 100644
---- a/include/linux/netfilter/ipset/ip_set.h
-+++ b/include/linux/netfilter/ipset/ip_set.h
-@@ -483,7 +483,7 @@ static inline int nla_put_ipaddr4(struct sk_buff *skb, int type, __be32 ipaddr)
- 
- 	if (!__nested)
- 		return -EMSGSIZE;
--	ret = nla_put_net32(skb, IPSET_ATTR_IPADDR_IPV4, ipaddr);
-+	ret = nla_put_in_addr(skb, IPSET_ATTR_IPADDR_IPV4, ipaddr);
- 	if (!ret)
- 		ipset_nest_end(skb, __nested);
- 	return ret;
-@@ -497,8 +497,7 @@ static inline int nla_put_ipaddr6(struct sk_buff *skb, int type,
- 
- 	if (!__nested)
- 		return -EMSGSIZE;
--	ret = nla_put(skb, IPSET_ATTR_IPADDR_IPV6,
--		      sizeof(struct in6_addr), ipaddrptr);
-+	ret = nla_put_in6_addr(skb, IPSET_ATTR_IPADDR_IPV6, ipaddrptr);
- 	if (!ret)
- 		ipset_nest_end(skb, __nested);
- 	return ret;
+ 		/* TODO: respect scope id */
+-		nla_memcpy(&vxlan->saddr.sin6.sin6_addr, data[IFLA_VXLAN_LOCAL6],
+-			   sizeof(struct in6_addr));
++		vxlan->saddr.sin6.sin6_addr = nla_get_in6_addr(data[IFLA_VXLAN_LOCAL6]);
+ 		vxlan->saddr.sa.sa_family = AF_INET6;
+ 		use_ipv6 = true;
+ 	}
 diff --git a/include/net/netlink.h b/include/net/netlink.h
-index e010ee8da41d..17fc76e5b05e 100644
+index 17fc76e5b05e..2a5dbcc90d1c 100644
 --- a/include/net/netlink.h
 +++ b/include/net/netlink.h
-@@ -4,6 +4,7 @@
- #include <linux/types.h>
- #include <linux/netlink.h>
- #include <linux/jiffies.h>
-+#include <linux/in6.h>
- 
- /* ========================================================================
-  *         Netlink Messages and Attributes Interface (As Seen On TV)
-@@ -105,6 +106,8 @@
-  *   nla_put_string(skb, type, str)	add string attribute to skb
-  *   nla_put_flag(skb, type)		add flag attribute to skb
-  *   nla_put_msecs(skb, type, jiffies)	add msecs attribute to skb
-+ *   nla_put_in_addr(skb, type, addr)	add IPv4 address attribute to skb
-+ *   nla_put_in6_addr(skb, type, addr)	add IPv6 address attribute to skb
-  *
-  * Nested Attributes Construction:
-  *   nla_nest_start(skb, type)		start a nested attribute
-@@ -957,6 +960,32 @@ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
+@@ -1128,6 +1128,27 @@ static inline unsigned long nla_get_msecs(const struct nlattr *nla)
  }
  
  /**
-+ * nla_put_in_addr - Add an IPv4 address netlink attribute to a socket
-+ * buffer
-+ * @skb: socket buffer to add attribute to
-+ * @attrtype: attribute type
-+ * @addr: IPv4 address
++ * nla_get_in_addr - return payload of IPv4 address attribute
++ * @nla: IPv4 address netlink attribute
 + */
-+static inline int nla_put_in_addr(struct sk_buff *skb, int attrtype,
-+				  __be32 addr)
++static inline __be32 nla_get_in_addr(const struct nlattr *nla)
 +{
-+	return nla_put_be32(skb, attrtype, addr);
++	return *(__be32 *) nla_data(nla);
 +}
 +
 +/**
-+ * nla_put_in6_addr - Add an IPv6 address netlink attribute to a socket
-+ * buffer
-+ * @skb: socket buffer to add attribute to
-+ * @attrtype: attribute type
-+ * @addr: IPv6 address
++ * nla_get_in6_addr - return payload of IPv6 address attribute
++ * @nla: IPv6 address netlink attribute
 + */
-+static inline int nla_put_in6_addr(struct sk_buff *skb, int attrtype,
-+				   const struct in6_addr *addr)
++static inline struct in6_addr nla_get_in6_addr(const struct nlattr *nla)
 +{
-+	return nla_put(skb, attrtype, sizeof(*addr), addr);
++	struct in6_addr tmp;
++
++	nla_memcpy(&tmp, nla, sizeof(tmp));
++	return tmp;
 +}
 +
 +/**
-  * nla_get_u32 - return payload of u32 attribute
-  * @nla: u32 netlink attribute
-  */
+  * nla_nest_start - Start a new level of nested attributes
+  * @skb: socket buffer to add attributes to
+  * @attrtype: attribute type of container
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 975ee5e30c64..66cd85973056 100644
+index 66cd85973056..c6473f365ad1 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -1541,11 +1541,11 @@ static int inet_fill_ifaddr(struct sk_buff *skb, struct in_ifaddr *ifa,
- 		valid = INFINITY_LIFE_TIME;
- 	}
- 	if ((ifa->ifa_address &&
--	     nla_put_be32(skb, IFA_ADDRESS, ifa->ifa_address)) ||
-+	     nla_put_in_addr(skb, IFA_ADDRESS, ifa->ifa_address)) ||
- 	    (ifa->ifa_local &&
--	     nla_put_be32(skb, IFA_LOCAL, ifa->ifa_local)) ||
-+	     nla_put_in_addr(skb, IFA_LOCAL, ifa->ifa_local)) ||
- 	    (ifa->ifa_broadcast &&
--	     nla_put_be32(skb, IFA_BROADCAST, ifa->ifa_broadcast)) ||
-+	     nla_put_in_addr(skb, IFA_BROADCAST, ifa->ifa_broadcast)) ||
- 	    (ifa->ifa_label[0] &&
- 	     nla_put_string(skb, IFA_LABEL, ifa->ifa_label)) ||
- 	    nla_put_u32(skb, IFA_FLAGS, ifa->ifa_flags) ||
+@@ -593,7 +593,7 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL;
+ 	     ifap = &ifa->ifa_next) {
+ 		if (tb[IFA_LOCAL] &&
+-		    ifa->ifa_local != nla_get_be32(tb[IFA_LOCAL]))
++		    ifa->ifa_local != nla_get_in_addr(tb[IFA_LOCAL]))
+ 			continue;
+ 
+ 		if (tb[IFA_LABEL] && nla_strcmp(tb[IFA_LABEL], ifa->ifa_label))
+@@ -601,7 +601,7 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 		if (tb[IFA_ADDRESS] &&
+ 		    (ifm->ifa_prefixlen != ifa->ifa_prefixlen ||
+-		    !inet_ifa_match(nla_get_be32(tb[IFA_ADDRESS]), ifa)))
++		    !inet_ifa_match(nla_get_in_addr(tb[IFA_ADDRESS]), ifa)))
+ 			continue;
+ 
+ 		if (ipv4_is_multicast(ifa->ifa_address))
+@@ -791,11 +791,11 @@ static struct in_ifaddr *rtm_to_ifaddr(struct net *net, struct nlmsghdr *nlh,
+ 	ifa->ifa_scope = ifm->ifa_scope;
+ 	ifa->ifa_dev = in_dev;
+ 
+-	ifa->ifa_local = nla_get_be32(tb[IFA_LOCAL]);
+-	ifa->ifa_address = nla_get_be32(tb[IFA_ADDRESS]);
++	ifa->ifa_local = nla_get_in_addr(tb[IFA_LOCAL]);
++	ifa->ifa_address = nla_get_in_addr(tb[IFA_ADDRESS]);
+ 
+ 	if (tb[IFA_BROADCAST])
+-		ifa->ifa_broadcast = nla_get_be32(tb[IFA_BROADCAST]);
++		ifa->ifa_broadcast = nla_get_in_addr(tb[IFA_BROADCAST]);
+ 
+ 	if (tb[IFA_LABEL])
+ 		nla_strlcpy(ifa->ifa_label, tb[IFA_LABEL], IFNAMSIZ);
 diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index e9bc5e42cf43..edfea0deec43 100644
+index edfea0deec43..8162dd8e86d7 100644
 --- a/net/ipv4/fib_rules.c
 +++ b/net/ipv4/fib_rules.c
-@@ -279,9 +279,9 @@ static int fib4_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
- 	frh->tos = rule4->tos;
+@@ -194,10 +194,10 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+ 	}
  
- 	if ((rule4->dst_len &&
--	     nla_put_be32(skb, FRA_DST, rule4->dst)) ||
-+	     nla_put_in_addr(skb, FRA_DST, rule4->dst)) ||
- 	    (rule4->src_len &&
--	     nla_put_be32(skb, FRA_SRC, rule4->src)))
-+	     nla_put_in_addr(skb, FRA_SRC, rule4->src)))
- 		goto nla_put_failure;
+ 	if (frh->src_len)
+-		rule4->src = nla_get_be32(tb[FRA_SRC]);
++		rule4->src = nla_get_in_addr(tb[FRA_SRC]);
+ 
+ 	if (frh->dst_len)
+-		rule4->dst = nla_get_be32(tb[FRA_DST]);
++		rule4->dst = nla_get_in_addr(tb[FRA_DST]);
+ 
  #ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (rule4->tclassid &&
+ 	if (tb[FRA_FLOW]) {
+@@ -260,10 +260,10 @@ static int fib4_rule_compare(struct fib_rule *rule, struct fib_rule_hdr *frh,
+ 		return 0;
+ #endif
+ 
+-	if (frh->src_len && (rule4->src != nla_get_be32(tb[FRA_SRC])))
++	if (frh->src_len && (rule4->src != nla_get_in_addr(tb[FRA_SRC])))
+ 		return 0;
+ 
+-	if (frh->dst_len && (rule4->dst != nla_get_be32(tb[FRA_DST])))
++	if (frh->dst_len && (rule4->dst != nla_get_in_addr(tb[FRA_DST])))
+ 		return 0;
+ 
+ 	return 1;
 diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 66c1e4fbf884..453b24e5322c 100644
+index 453b24e5322c..eac5aec7772a 100644
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
-@@ -1015,7 +1015,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 	rtm->rtm_protocol = fi->fib_protocol;
+@@ -468,7 +468,7 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
+ 			struct nlattr *nla, *attrs = rtnh_attrs(rtnh);
  
- 	if (rtm->rtm_dst_len &&
--	    nla_put_be32(skb, RTA_DST, dst))
-+	    nla_put_in_addr(skb, RTA_DST, dst))
- 		goto nla_put_failure;
- 	if (fi->fib_priority &&
- 	    nla_put_u32(skb, RTA_PRIORITY, fi->fib_priority))
-@@ -1024,11 +1024,11 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 		goto nla_put_failure;
- 
- 	if (fi->fib_prefsrc &&
--	    nla_put_be32(skb, RTA_PREFSRC, fi->fib_prefsrc))
-+	    nla_put_in_addr(skb, RTA_PREFSRC, fi->fib_prefsrc))
- 		goto nla_put_failure;
- 	if (fi->fib_nhs == 1) {
- 		if (fi->fib_nh->nh_gw &&
--		    nla_put_be32(skb, RTA_GATEWAY, fi->fib_nh->nh_gw))
-+		    nla_put_in_addr(skb, RTA_GATEWAY, fi->fib_nh->nh_gw))
- 			goto nla_put_failure;
- 		if (fi->fib_nh->nh_oif &&
- 		    nla_put_u32(skb, RTA_OIF, fi->fib_nh->nh_oif))
-@@ -1058,7 +1058,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 			rtnh->rtnh_ifindex = nh->nh_oif;
- 
- 			if (nh->nh_gw &&
--			    nla_put_be32(skb, RTA_GATEWAY, nh->nh_gw))
-+			    nla_put_in_addr(skb, RTA_GATEWAY, nh->nh_gw))
- 				goto nla_put_failure;
+ 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
+-			nexthop_nh->nh_gw = nla ? nla_get_be32(nla) : 0;
++			nexthop_nh->nh_gw = nla ? nla_get_in_addr(nla) : 0;
  #ifdef CONFIG_IP_ROUTE_CLASSID
- 			if (nh->nh_tclassid &&
+ 			nla = nla_find(attrs, attrlen, RTA_FLOW);
+ 			nexthop_nh->nh_tclassid = nla ? nla_get_u32(nla) : 0;
+@@ -523,7 +523,7 @@ int fib_nh_match(struct fib_config *cfg, struct fib_info *fi)
+ 			struct nlattr *nla, *attrs = rtnh_attrs(rtnh);
+ 
+ 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
+-			if (nla && nla_get_be32(nla) != nh->nh_gw)
++			if (nla && nla_get_in_addr(nla) != nh->nh_gw)
+ 				return 1;
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 			nla = nla_find(attrs, attrlen, RTA_FLOW);
 diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 6207275fc749..2e878df46075 100644
+index 2e878df46075..0eb2a040a830 100644
 --- a/net/ipv4/ip_gre.c
 +++ b/net/ipv4/ip_gre.c
-@@ -776,8 +776,8 @@ static int ipgre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be16(skb, IFLA_GRE_OFLAGS, tnl_flags_to_gre_flags(p->o_flags)) ||
- 	    nla_put_be32(skb, IFLA_GRE_IKEY, p->i_key) ||
- 	    nla_put_be32(skb, IFLA_GRE_OKEY, p->o_key) ||
--	    nla_put_be32(skb, IFLA_GRE_LOCAL, p->iph.saddr) ||
--	    nla_put_be32(skb, IFLA_GRE_REMOTE, p->iph.daddr) ||
-+	    nla_put_in_addr(skb, IFLA_GRE_LOCAL, p->iph.saddr) ||
-+	    nla_put_in_addr(skb, IFLA_GRE_REMOTE, p->iph.daddr) ||
- 	    nla_put_u8(skb, IFLA_GRE_TTL, p->iph.ttl) ||
- 	    nla_put_u8(skb, IFLA_GRE_TOS, p->iph.tos) ||
- 	    nla_put_u8(skb, IFLA_GRE_PMTUDISC,
+@@ -621,10 +621,10 @@ static void ipgre_netlink_parms(struct nlattr *data[], struct nlattr *tb[],
+ 		parms->o_key = nla_get_be32(data[IFLA_GRE_OKEY]);
+ 
+ 	if (data[IFLA_GRE_LOCAL])
+-		parms->iph.saddr = nla_get_be32(data[IFLA_GRE_LOCAL]);
++		parms->iph.saddr = nla_get_in_addr(data[IFLA_GRE_LOCAL]);
+ 
+ 	if (data[IFLA_GRE_REMOTE])
+-		parms->iph.daddr = nla_get_be32(data[IFLA_GRE_REMOTE]);
++		parms->iph.daddr = nla_get_in_addr(data[IFLA_GRE_REMOTE]);
+ 
+ 	if (data[IFLA_GRE_TTL])
+ 		parms->iph.ttl = nla_get_u8(data[IFLA_GRE_TTL]);
 diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 94efe148181c..f189f2a8aaa5 100644
+index f189f2a8aaa5..5a6e27054f0a 100644
 --- a/net/ipv4/ip_vti.c
 +++ b/net/ipv4/ip_vti.c
-@@ -505,8 +505,8 @@ static int vti_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	nla_put_u32(skb, IFLA_VTI_LINK, p->link);
- 	nla_put_be32(skb, IFLA_VTI_IKEY, p->i_key);
- 	nla_put_be32(skb, IFLA_VTI_OKEY, p->o_key);
--	nla_put_be32(skb, IFLA_VTI_LOCAL, p->iph.saddr);
--	nla_put_be32(skb, IFLA_VTI_REMOTE, p->iph.daddr);
-+	nla_put_in_addr(skb, IFLA_VTI_LOCAL, p->iph.saddr);
-+	nla_put_in_addr(skb, IFLA_VTI_REMOTE, p->iph.daddr);
+@@ -456,10 +456,10 @@ static void vti_netlink_parms(struct nlattr *data[],
+ 		parms->o_key = nla_get_be32(data[IFLA_VTI_OKEY]);
+ 
+ 	if (data[IFLA_VTI_LOCAL])
+-		parms->iph.saddr = nla_get_be32(data[IFLA_VTI_LOCAL]);
++		parms->iph.saddr = nla_get_in_addr(data[IFLA_VTI_LOCAL]);
+ 
+ 	if (data[IFLA_VTI_REMOTE])
+-		parms->iph.daddr = nla_get_be32(data[IFLA_VTI_REMOTE]);
++		parms->iph.daddr = nla_get_in_addr(data[IFLA_VTI_REMOTE]);
+ 
+ }
+ 
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 17df8d38bbbd..bfbcc85c02ee 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -325,10 +325,10 @@ static void ipip_netlink_parms(struct nlattr *data[],
+ 		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
+ 
+ 	if (data[IFLA_IPTUN_LOCAL])
+-		parms->iph.saddr = nla_get_be32(data[IFLA_IPTUN_LOCAL]);
++		parms->iph.saddr = nla_get_in_addr(data[IFLA_IPTUN_LOCAL]);
+ 
+ 	if (data[IFLA_IPTUN_REMOTE])
+-		parms->iph.daddr = nla_get_be32(data[IFLA_IPTUN_REMOTE]);
++		parms->iph.daddr = nla_get_in_addr(data[IFLA_IPTUN_REMOTE]);
+ 
+ 	if (data[IFLA_IPTUN_TTL]) {
+ 		parms->iph.ttl = nla_get_u8(data[IFLA_IPTUN_TTL]);
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index b36ebfc6b812..8c8d6642cbb0 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -342,8 +342,8 @@ static int ipv4_nlattr_to_tuple(struct nlattr *tb[],
+ 	if (!tb[CTA_IP_V4_SRC] || !tb[CTA_IP_V4_DST])
+ 		return -EINVAL;
+ 
+-	t->src.u3.ip = nla_get_be32(tb[CTA_IP_V4_SRC]);
+-	t->dst.u3.ip = nla_get_be32(tb[CTA_IP_V4_DST]);
++	t->src.u3.ip = nla_get_in_addr(tb[CTA_IP_V4_SRC]);
++	t->dst.u3.ip = nla_get_in_addr(tb[CTA_IP_V4_DST]);
  
  	return 0;
  }
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 915d215a7d14..17df8d38bbbd 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -450,8 +450,8 @@ static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	struct ip_tunnel_parm *parm = &tunnel->parms;
- 
- 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
--	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
--	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
-+	    nla_put_in_addr(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
-+	    nla_put_in_addr(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index c688cd1b2110..b4a545d24adb 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -2281,8 +2281,8 @@ static int ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
- 		rtm->rtm_protocol = RTPROT_MROUTED;
- 	rtm->rtm_flags    = 0;
- 
--	if (nla_put_be32(skb, RTA_SRC, c->mfc_origin) ||
--	    nla_put_be32(skb, RTA_DST, c->mfc_mcastgrp))
-+	if (nla_put_in_addr(skb, RTA_SRC, c->mfc_origin) ||
-+	    nla_put_in_addr(skb, RTA_DST, c->mfc_mcastgrp))
- 		goto nla_put_failure;
- 	err = __ipmr_fill_mroute(mrt, skb, c, rtm);
- 	/* do not break the dump if cache is unresolved */
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 5c61328b7704..b36ebfc6b812 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -322,8 +322,8 @@ getorigdst(struct sock *sk, int optval, void __user *user, int *len)
- static int ipv4_tuple_to_nlattr(struct sk_buff *skb,
- 				const struct nf_conntrack_tuple *tuple)
- {
--	if (nla_put_be32(skb, CTA_IP_V4_SRC, tuple->src.u3.ip) ||
--	    nla_put_be32(skb, CTA_IP_V4_DST, tuple->dst.u3.ip))
-+	if (nla_put_in_addr(skb, CTA_IP_V4_SRC, tuple->src.u3.ip) ||
-+	    nla_put_in_addr(skb, CTA_IP_V4_DST, tuple->dst.u3.ip))
- 		goto nla_put_failure;
- 	return 0;
- 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index be8703d02ef0..1f147204f1f3 100644
+index 1f147204f1f3..652b92ebd7ba 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2319,11 +2319,11 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 	if (IPCB(skb)->flags & IPSKB_DOREDIRECT)
- 		r->rtm_flags |= RTCF_DOREDIRECT;
+@@ -2436,8 +2436,8 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	ip_hdr(skb)->protocol = IPPROTO_ICMP;
+ 	skb_reserve(skb, MAX_HEADER + sizeof(struct iphdr));
  
--	if (nla_put_be32(skb, RTA_DST, dst))
-+	if (nla_put_in_addr(skb, RTA_DST, dst))
- 		goto nla_put_failure;
- 	if (src) {
- 		r->rtm_src_len = 32;
--		if (nla_put_be32(skb, RTA_SRC, src))
-+		if (nla_put_in_addr(skb, RTA_SRC, src))
- 			goto nla_put_failure;
- 	}
- 	if (rt->dst.dev &&
-@@ -2336,11 +2336,11 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- #endif
- 	if (!rt_is_input_route(rt) &&
- 	    fl4->saddr != src) {
--		if (nla_put_be32(skb, RTA_PREFSRC, fl4->saddr))
-+		if (nla_put_in_addr(skb, RTA_PREFSRC, fl4->saddr))
- 			goto nla_put_failure;
- 	}
- 	if (rt->rt_uses_gateway &&
--	    nla_put_be32(skb, RTA_GATEWAY, rt->rt_gateway))
-+	    nla_put_in_addr(skb, RTA_GATEWAY, rt->rt_gateway))
- 		goto nla_put_failure;
+-	src = tb[RTA_SRC] ? nla_get_be32(tb[RTA_SRC]) : 0;
+-	dst = tb[RTA_DST] ? nla_get_be32(tb[RTA_DST]) : 0;
++	src = tb[RTA_SRC] ? nla_get_in_addr(tb[RTA_SRC]) : 0;
++	dst = tb[RTA_DST] ? nla_get_in_addr(tb[RTA_DST]) : 0;
+ 	iif = tb[RTA_IIF] ? nla_get_u32(tb[RTA_IIF]) : 0;
+ 	mark = tb[RTA_MARK] ? nla_get_u32(tb[RTA_MARK]) : 0;
  
- 	expires = rt->dst.expires;
 diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index f62c2c68ced0..32e36ea6bc0f 100644
+index 32e36ea6bc0f..71ec14c87579 100644
 --- a/net/ipv4/tcp_metrics.c
 +++ b/net/ipv4/tcp_metrics.c
-@@ -786,19 +786,19 @@ static int tcp_metrics_fill_info(struct sk_buff *msg,
- 
- 	switch (tm->tcpm_daddr.family) {
- 	case AF_INET:
--		if (nla_put_be32(msg, TCP_METRICS_ATTR_ADDR_IPV4,
--				tm->tcpm_daddr.addr.a4) < 0)
-+		if (nla_put_in_addr(msg, TCP_METRICS_ATTR_ADDR_IPV4,
-+				    tm->tcpm_daddr.addr.a4) < 0)
- 			goto nla_put_failure;
--		if (nla_put_be32(msg, TCP_METRICS_ATTR_SADDR_IPV4,
--				tm->tcpm_saddr.addr.a4) < 0)
-+		if (nla_put_in_addr(msg, TCP_METRICS_ATTR_SADDR_IPV4,
-+				    tm->tcpm_saddr.addr.a4) < 0)
- 			goto nla_put_failure;
- 		break;
- 	case AF_INET6:
--		if (nla_put(msg, TCP_METRICS_ATTR_ADDR_IPV6, 16,
--			    tm->tcpm_daddr.addr.a6) < 0)
-+		if (nla_put_in6_addr(msg, TCP_METRICS_ATTR_ADDR_IPV6,
-+				     &tm->tcpm_daddr.addr.in6) < 0)
- 			goto nla_put_failure;
--		if (nla_put(msg, TCP_METRICS_ATTR_SADDR_IPV6, 16,
--			    tm->tcpm_saddr.addr.a6) < 0)
-+		if (nla_put_in6_addr(msg, TCP_METRICS_ATTR_SADDR_IPV6,
-+				     &tm->tcpm_saddr.addr.in6) < 0)
- 			goto nla_put_failure;
- 		break;
- 	default:
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2660263e1131..40a9c11de07c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4237,11 +4237,11 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
- 	}
- 
- 	if (!ipv6_addr_any(&ifa->peer_addr)) {
--		if (nla_put(skb, IFA_LOCAL, 16, &ifa->addr) < 0 ||
--		    nla_put(skb, IFA_ADDRESS, 16, &ifa->peer_addr) < 0)
-+		if (nla_put_in6_addr(skb, IFA_LOCAL, &ifa->addr) < 0 ||
-+		    nla_put_in6_addr(skb, IFA_ADDRESS, &ifa->peer_addr) < 0)
- 			goto error;
- 	} else
--		if (nla_put(skb, IFA_ADDRESS, 16, &ifa->addr) < 0)
-+		if (nla_put_in6_addr(skb, IFA_ADDRESS, &ifa->addr) < 0)
- 			goto error;
- 
- 	if (put_cacheinfo(skb, ifa->cstamp, ifa->tstamp, preferred, valid) < 0)
-@@ -4273,7 +4273,7 @@ static int inet6_fill_ifmcaddr(struct sk_buff *skb, struct ifmcaddr6 *ifmca,
- 		return -EMSGSIZE;
- 
- 	put_ifaddrmsg(nlh, 128, IFA_F_PERMANENT, scope, ifindex);
--	if (nla_put(skb, IFA_MULTICAST, 16, &ifmca->mca_addr) < 0 ||
-+	if (nla_put_in6_addr(skb, IFA_MULTICAST, &ifmca->mca_addr) < 0 ||
- 	    put_cacheinfo(skb, ifmca->mca_cstamp, ifmca->mca_tstamp,
- 			  INFINITY_LIFE_TIME, INFINITY_LIFE_TIME) < 0) {
- 		nlmsg_cancel(skb, nlh);
-@@ -4299,7 +4299,7 @@ static int inet6_fill_ifacaddr(struct sk_buff *skb, struct ifacaddr6 *ifaca,
- 		return -EMSGSIZE;
- 
- 	put_ifaddrmsg(nlh, 128, IFA_F_PERMANENT, scope, ifindex);
--	if (nla_put(skb, IFA_ANYCAST, 16, &ifaca->aca_addr) < 0 ||
-+	if (nla_put_in6_addr(skb, IFA_ANYCAST, &ifaca->aca_addr) < 0 ||
- 	    put_cacheinfo(skb, ifaca->aca_cstamp, ifaca->aca_tstamp,
- 			  INFINITY_LIFE_TIME, INFINITY_LIFE_TIME) < 0) {
- 		nlmsg_cancel(skb, nlh);
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index 3cc50e2d3bf5..882124ebb438 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -477,7 +477,7 @@ static int ip6addrlbl_fill(struct sk_buff *skb,
- 
- 	ip6addrlbl_putmsg(nlh, p->prefixlen, p->ifindex, lseq);
- 
--	if (nla_put(skb, IFAL_ADDRESS, 16, &p->prefix) < 0 ||
-+	if (nla_put_in6_addr(skb, IFAL_ADDRESS, &p->prefix) < 0 ||
- 	    nla_put_u32(skb, IFAL_LABEL, p->label) < 0) {
- 		nlmsg_cancel(skb, nlh);
- 		return -EMSGSIZE;
+@@ -948,7 +948,7 @@ static int __parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
+ 	a = info->attrs[v4];
+ 	if (a) {
+ 		addr->family = AF_INET;
+-		addr->addr.a4 = nla_get_be32(a);
++		addr->addr.a4 = nla_get_in_addr(a);
+ 		if (hash)
+ 			*hash = (__force unsigned int) addr->addr.a4;
+ 		return 0;
+@@ -958,7 +958,7 @@ static int __parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
+ 		if (nla_len(a) != sizeof(struct in6_addr))
+ 			return -EINVAL;
+ 		addr->family = AF_INET6;
+-		memcpy(addr->addr.a6, nla_data(a), sizeof(addr->addr.a6));
++		addr->addr.in6 = nla_get_in6_addr(a);
+ 		if (hash)
+ 			*hash = ipv6_addr_hash(&addr->addr.in6);
+ 		return 0;
 diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 27ca79682efb..9153e6bbcef8 100644
+index 9153e6bbcef8..c85513612940 100644
 --- a/net/ipv6/fib6_rules.c
 +++ b/net/ipv6/fib6_rules.c
-@@ -250,11 +250,9 @@ static int fib6_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
- 	frh->tos = rule6->tclass;
+@@ -199,12 +199,10 @@ static int fib6_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+ 	}
  
- 	if ((rule6->dst.plen &&
--	     nla_put(skb, FRA_DST, sizeof(struct in6_addr),
--		     &rule6->dst.addr)) ||
-+	     nla_put_in6_addr(skb, FRA_DST, &rule6->dst.addr)) ||
- 	    (rule6->src.plen &&
--	     nla_put(skb, FRA_SRC, sizeof(struct in6_addr),
--		     &rule6->src.addr)))
-+	     nla_put_in6_addr(skb, FRA_SRC, &rule6->src.addr)))
- 		goto nla_put_failure;
- 	return 0;
+ 	if (frh->src_len)
+-		nla_memcpy(&rule6->src.addr, tb[FRA_SRC],
+-			   sizeof(struct in6_addr));
++		rule6->src.addr = nla_get_in6_addr(tb[FRA_SRC]);
  
+ 	if (frh->dst_len)
+-		nla_memcpy(&rule6->dst.addr, tb[FRA_DST],
+-			   sizeof(struct in6_addr));
++		rule6->dst.addr = nla_get_in6_addr(tb[FRA_DST]);
+ 
+ 	rule6->src.plen = frh->src_len;
+ 	rule6->dst.plen = frh->dst_len;
 diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index bc28b7d42a6d..3d9097ee3f41 100644
+index 3d9097ee3f41..a765bc75b717 100644
 --- a/net/ipv6/ip6_gre.c
 +++ b/net/ipv6/ip6_gre.c
-@@ -1622,8 +1622,8 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be16(skb, IFLA_GRE_OFLAGS, p->o_flags) ||
- 	    nla_put_be32(skb, IFLA_GRE_IKEY, p->i_key) ||
- 	    nla_put_be32(skb, IFLA_GRE_OKEY, p->o_key) ||
--	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->laddr) ||
--	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->raddr) ||
-+	    nla_put_in6_addr(skb, IFLA_GRE_LOCAL, &p->laddr) ||
-+	    nla_put_in6_addr(skb, IFLA_GRE_REMOTE, &p->raddr) ||
- 	    nla_put_u8(skb, IFLA_GRE_TTL, p->hop_limit) ||
- 	    /*nla_put_u8(skb, IFLA_GRE_TOS, t->priority) ||*/
- 	    nla_put_u8(skb, IFLA_GRE_ENCAP_LIMIT, p->encap_limit) ||
+@@ -1412,7 +1412,7 @@ static int ip6gre_tap_validate(struct nlattr *tb[], struct nlattr *data[])
+ 		goto out;
+ 
+ 	if (data[IFLA_GRE_REMOTE]) {
+-		nla_memcpy(&daddr, data[IFLA_GRE_REMOTE], sizeof(struct in6_addr));
++		daddr = nla_get_in6_addr(data[IFLA_GRE_REMOTE]);
+ 		if (ipv6_addr_any(&daddr))
+ 			return -EINVAL;
+ 	}
+@@ -1446,10 +1446,10 @@ static void ip6gre_netlink_parms(struct nlattr *data[],
+ 		parms->o_key = nla_get_be32(data[IFLA_GRE_OKEY]);
+ 
+ 	if (data[IFLA_GRE_LOCAL])
+-		nla_memcpy(&parms->laddr, data[IFLA_GRE_LOCAL], sizeof(struct in6_addr));
++		parms->laddr = nla_get_in6_addr(data[IFLA_GRE_LOCAL]);
+ 
+ 	if (data[IFLA_GRE_REMOTE])
+-		nla_memcpy(&parms->raddr, data[IFLA_GRE_REMOTE], sizeof(struct in6_addr));
++		parms->raddr = nla_get_in6_addr(data[IFLA_GRE_REMOTE]);
+ 
+ 	if (data[IFLA_GRE_TTL])
+ 		parms->hop_limit = nla_get_u8(data[IFLA_GRE_TTL]);
 diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 41f84f76ad9d..fc1a3121fd43 100644
+index fc1a3121fd43..788cfe51c957 100644
 --- a/net/ipv6/ip6_tunnel.c
 +++ b/net/ipv6/ip6_tunnel.c
-@@ -1739,10 +1739,8 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	struct __ip6_tnl_parm *parm = &tunnel->parms;
+@@ -1640,12 +1640,10 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
+ 		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
  
- 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
--	    nla_put(skb, IFLA_IPTUN_LOCAL, sizeof(struct in6_addr),
--		    &parm->laddr) ||
--	    nla_put(skb, IFLA_IPTUN_REMOTE, sizeof(struct in6_addr),
--		    &parm->raddr) ||
-+	    nla_put_in6_addr(skb, IFLA_IPTUN_LOCAL, &parm->laddr) ||
-+	    nla_put_in6_addr(skb, IFLA_IPTUN_REMOTE, &parm->raddr) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->hop_limit) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_ENCAP_LIMIT, parm->encap_limit) ||
- 	    nla_put_be32(skb, IFLA_IPTUN_FLOWINFO, parm->flowinfo) ||
+ 	if (data[IFLA_IPTUN_LOCAL])
+-		nla_memcpy(&parms->laddr, data[IFLA_IPTUN_LOCAL],
+-			   sizeof(struct in6_addr));
++		parms->laddr = nla_get_in6_addr(data[IFLA_IPTUN_LOCAL]);
+ 
+ 	if (data[IFLA_IPTUN_REMOTE])
+-		nla_memcpy(&parms->raddr, data[IFLA_IPTUN_REMOTE],
+-			   sizeof(struct in6_addr));
++		parms->raddr = nla_get_in6_addr(data[IFLA_IPTUN_REMOTE]);
+ 
+ 	if (data[IFLA_IPTUN_TTL])
+ 		parms->hop_limit = nla_get_u8(data[IFLA_IPTUN_TTL]);
 diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 5fb9e212eca8..f45dce8bfef2 100644
+index f45dce8bfef2..7e0ca9a5b772 100644
 --- a/net/ipv6/ip6_vti.c
 +++ b/net/ipv6/ip6_vti.c
-@@ -983,10 +983,8 @@ static int vti6_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	struct __ip6_tnl_parm *parm = &tunnel->parms;
+@@ -897,12 +897,10 @@ static void vti6_netlink_parms(struct nlattr *data[],
+ 		parms->link = nla_get_u32(data[IFLA_VTI_LINK]);
  
- 	if (nla_put_u32(skb, IFLA_VTI_LINK, parm->link) ||
--	    nla_put(skb, IFLA_VTI_LOCAL, sizeof(struct in6_addr),
--		    &parm->laddr) ||
--	    nla_put(skb, IFLA_VTI_REMOTE, sizeof(struct in6_addr),
--		    &parm->raddr) ||
-+	    nla_put_in6_addr(skb, IFLA_VTI_LOCAL, &parm->laddr) ||
-+	    nla_put_in6_addr(skb, IFLA_VTI_REMOTE, &parm->raddr) ||
- 	    nla_put_be32(skb, IFLA_VTI_IKEY, parm->i_key) ||
- 	    nla_put_be32(skb, IFLA_VTI_OKEY, parm->o_key))
- 		goto nla_put_failure;
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 4b9315aa273e..d0b7b3f31e61 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -2378,8 +2378,8 @@ static int ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
- 		rtm->rtm_protocol = RTPROT_MROUTED;
- 	rtm->rtm_flags    = 0;
+ 	if (data[IFLA_VTI_LOCAL])
+-		nla_memcpy(&parms->laddr, data[IFLA_VTI_LOCAL],
+-			   sizeof(struct in6_addr));
++		parms->laddr = nla_get_in6_addr(data[IFLA_VTI_LOCAL]);
  
--	if (nla_put(skb, RTA_SRC, 16, &c->mf6c_origin) ||
--	    nla_put(skb, RTA_DST, 16, &c->mf6c_mcastgrp))
-+	if (nla_put_in6_addr(skb, RTA_SRC, &c->mf6c_origin) ||
-+	    nla_put_in6_addr(skb, RTA_DST, &c->mf6c_mcastgrp))
- 		goto nla_put_failure;
- 	err = __ip6mr_fill_mroute(mrt, skb, c, rtm);
- 	/* do not break the dump if cache is unresolved */
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 247ad7c298f7..c9699b0e25e3 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1049,8 +1049,7 @@ static void ndisc_ra_useropt(struct sk_buff *ra, struct nd_opt_hdr *opt)
+ 	if (data[IFLA_VTI_REMOTE])
+-		nla_memcpy(&parms->raddr, data[IFLA_VTI_REMOTE],
+-			   sizeof(struct in6_addr));
++		parms->raddr = nla_get_in6_addr(data[IFLA_VTI_REMOTE]);
  
- 	memcpy(ndmsg + 1, opt, opt->nd_opt_len << 3);
- 
--	if (nla_put(skb, NDUSEROPT_SRCADDR, sizeof(struct in6_addr),
--		    &ipv6_hdr(ra)->saddr))
-+	if (nla_put_in6_addr(skb, NDUSEROPT_SRCADDR, &ipv6_hdr(ra)->saddr))
- 		goto nla_put_failure;
- 	nlmsg_end(skb, nlh);
- 
+ 	if (data[IFLA_VTI_IKEY])
+ 		parms->i_key = nla_get_be32(data[IFLA_VTI_IKEY]);
 diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index b68d0e59c1f8..78284a697439 100644
+index 78284a697439..fba91c6fc7ca 100644
 --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
 +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -290,10 +290,8 @@ ipv6_getorigdst(struct sock *sk, int optval, void __user *user, int *len)
- static int ipv6_tuple_to_nlattr(struct sk_buff *skb,
- 				const struct nf_conntrack_tuple *tuple)
- {
--	if (nla_put(skb, CTA_IP_V6_SRC, sizeof(u_int32_t) * 4,
--		    &tuple->src.u3.ip6) ||
--	    nla_put(skb, CTA_IP_V6_DST, sizeof(u_int32_t) * 4,
--		    &tuple->dst.u3.ip6))
-+	if (nla_put_in6_addr(skb, CTA_IP_V6_SRC, &tuple->src.u3.in6) ||
-+	    nla_put_in6_addr(skb, CTA_IP_V6_DST, &tuple->dst.u3.in6))
- 		goto nla_put_failure;
- 	return 0;
+@@ -310,10 +310,8 @@ static int ipv6_nlattr_to_tuple(struct nlattr *tb[],
+ 	if (!tb[CTA_IP_V6_SRC] || !tb[CTA_IP_V6_DST])
+ 		return -EINVAL;
  
+-	memcpy(&t->src.u3.ip6, nla_data(tb[CTA_IP_V6_SRC]),
+-	       sizeof(u_int32_t) * 4);
+-	memcpy(&t->dst.u3.ip6, nla_data(tb[CTA_IP_V6_DST]),
+-	       sizeof(u_int32_t) * 4);
++	t->src.u3.in6 = nla_get_in6_addr(tb[CTA_IP_V6_SRC]);
++	t->dst.u3.in6 = nla_get_in6_addr(tb[CTA_IP_V6_DST]);
+ 
+ 	return 0;
+ }
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 58c0e6a4d15d..9693caf3b4fb 100644
+index 9693caf3b4fb..77acbc24d120 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -2669,19 +2669,19 @@ static int rt6_fill_node(struct net *net,
- 		rtm->rtm_flags |= RTM_F_CLONED;
+@@ -2438,7 +2438,7 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
  
- 	if (dst) {
--		if (nla_put(skb, RTA_DST, 16, dst))
-+		if (nla_put_in6_addr(skb, RTA_DST, dst))
- 			goto nla_put_failure;
- 		rtm->rtm_dst_len = 128;
- 	} else if (rtm->rtm_dst_len)
--		if (nla_put(skb, RTA_DST, 16, &rt->rt6i_dst.addr))
-+		if (nla_put_in6_addr(skb, RTA_DST, &rt->rt6i_dst.addr))
- 			goto nla_put_failure;
- #ifdef CONFIG_IPV6_SUBTREES
- 	if (src) {
--		if (nla_put(skb, RTA_SRC, 16, src))
-+		if (nla_put_in6_addr(skb, RTA_SRC, src))
- 			goto nla_put_failure;
- 		rtm->rtm_src_len = 128;
- 	} else if (rtm->rtm_src_len &&
--		   nla_put(skb, RTA_SRC, 16, &rt->rt6i_src.addr))
-+		   nla_put_in6_addr(skb, RTA_SRC, &rt->rt6i_src.addr))
- 		goto nla_put_failure;
- #endif
- 	if (iif) {
-@@ -2705,14 +2705,14 @@ static int rt6_fill_node(struct net *net,
- 	} else if (dst) {
- 		struct in6_addr saddr_buf;
- 		if (ip6_route_get_saddr(net, rt, dst, 0, &saddr_buf) == 0 &&
--		    nla_put(skb, RTA_PREFSRC, 16, &saddr_buf))
-+		    nla_put_in6_addr(skb, RTA_PREFSRC, &saddr_buf))
- 			goto nla_put_failure;
+ 	if (tb[RTA_GATEWAY]) {
+-		nla_memcpy(&cfg->fc_gateway, tb[RTA_GATEWAY], 16);
++		cfg->fc_gateway = nla_get_in6_addr(tb[RTA_GATEWAY]);
+ 		cfg->fc_flags |= RTF_GATEWAY;
  	}
  
- 	if (rt->rt6i_prefsrc.plen) {
- 		struct in6_addr saddr_buf;
- 		saddr_buf = rt->rt6i_prefsrc.addr;
--		if (nla_put(skb, RTA_PREFSRC, 16, &saddr_buf))
-+		if (nla_put_in6_addr(skb, RTA_PREFSRC, &saddr_buf))
- 			goto nla_put_failure;
+@@ -2461,7 +2461,7 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
  	}
  
-@@ -2720,7 +2720,7 @@ static int rt6_fill_node(struct net *net,
- 		goto nla_put_failure;
+ 	if (tb[RTA_PREFSRC])
+-		nla_memcpy(&cfg->fc_prefsrc, tb[RTA_PREFSRC], 16);
++		cfg->fc_prefsrc = nla_get_in6_addr(tb[RTA_PREFSRC]);
  
- 	if (rt->rt6i_flags & RTF_GATEWAY) {
--		if (nla_put(skb, RTA_GATEWAY, 16, &rt->rt6i_gateway) < 0)
-+		if (nla_put_in6_addr(skb, RTA_GATEWAY, &rt->rt6i_gateway) < 0)
- 			goto nla_put_failure;
- 	}
+ 	if (tb[RTA_OIF])
+ 		cfg->fc_ifindex = nla_get_u32(tb[RTA_OIF]);
+@@ -2519,7 +2519,7 @@ beginning:
  
+ 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
+ 			if (nla) {
+-				nla_memcpy(&r_cfg.fc_gateway, nla, 16);
++				r_cfg.fc_gateway = nla_get_in6_addr(nla);
+ 				r_cfg.fc_flags |= RTF_GATEWAY;
+ 			}
+ 		}
 diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index e4cbd5798eba..9755c30498a6 100644
+index 9755c30498a6..ac9c908450da 100644
 --- a/net/ipv6/sit.c
 +++ b/net/ipv6/sit.c
-@@ -1683,8 +1683,8 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	struct ip_tunnel_parm *parm = &tunnel->parms;
+@@ -1530,8 +1530,7 @@ static bool ipip6_netlink_6rd_parms(struct nlattr *data[],
  
- 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
--	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
--	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
-+	    nla_put_in_addr(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
-+	    nla_put_in_addr(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
-@@ -1694,10 +1694,10 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 		goto nla_put_failure;
+ 	if (data[IFLA_IPTUN_6RD_PREFIX]) {
+ 		ret = true;
+-		nla_memcpy(&ip6rd->prefix, data[IFLA_IPTUN_6RD_PREFIX],
+-			   sizeof(struct in6_addr));
++		ip6rd->prefix = nla_get_in6_addr(data[IFLA_IPTUN_6RD_PREFIX]);
+ 	}
  
- #ifdef CONFIG_IPV6_SIT_6RD
--	if (nla_put(skb, IFLA_IPTUN_6RD_PREFIX, sizeof(struct in6_addr),
--		    &tunnel->ip6rd.prefix) ||
--	    nla_put_be32(skb, IFLA_IPTUN_6RD_RELAY_PREFIX,
--			 tunnel->ip6rd.relay_prefix) ||
-+	if (nla_put_in6_addr(skb, IFLA_IPTUN_6RD_PREFIX,
-+			     &tunnel->ip6rd.prefix) ||
-+	    nla_put_in_addr(skb, IFLA_IPTUN_6RD_RELAY_PREFIX,
-+			    tunnel->ip6rd.relay_prefix) ||
- 	    nla_put_u16(skb, IFLA_IPTUN_6RD_PREFIXLEN,
- 			tunnel->ip6rd.prefixlen) ||
- 	    nla_put_u16(skb, IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+ 	if (data[IFLA_IPTUN_6RD_RELAY_PREFIX]) {
 diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index b4e923f77954..a4f78d36bace 100644
+index a4f78d36bace..9e13c2ff8789 100644
 --- a/net/l2tp/l2tp_netlink.c
 +++ b/net/l2tp/l2tp_netlink.c
-@@ -376,15 +376,17 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 portid, u32 seq, int fla
- 	case L2TP_ENCAPTYPE_IP:
- #if IS_ENABLED(CONFIG_IPV6)
- 		if (np) {
--			if (nla_put(skb, L2TP_ATTR_IP6_SADDR, sizeof(np->saddr),
--				    &np->saddr) ||
--			    nla_put(skb, L2TP_ATTR_IP6_DADDR, sizeof(sk->sk_v6_daddr),
--				    &sk->sk_v6_daddr))
-+			if (nla_put_in6_addr(skb, L2TP_ATTR_IP6_SADDR,
-+					     &np->saddr) ||
-+			    nla_put_in6_addr(skb, L2TP_ATTR_IP6_DADDR,
-+					     &sk->sk_v6_daddr))
- 				goto nla_put_failure;
- 		} else
+@@ -205,9 +205,9 @@ static int l2tp_nl_cmd_tunnel_create(struct sk_buff *skb, struct genl_info *info
  #endif
--		if (nla_put_be32(skb, L2TP_ATTR_IP_SADDR, inet->inet_saddr) ||
--		    nla_put_be32(skb, L2TP_ATTR_IP_DADDR, inet->inet_daddr))
-+		if (nla_put_in_addr(skb, L2TP_ATTR_IP_SADDR,
-+				    inet->inet_saddr) ||
-+		    nla_put_in_addr(skb, L2TP_ATTR_IP_DADDR,
-+				    inet->inet_daddr))
- 			goto nla_put_failure;
- 		break;
- 	}
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index 70440748fe5c..13f777f20995 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -293,15 +293,13 @@ static int netlbl_mgmt_listentry(struct sk_buff *skb,
- 				return -ENOMEM;
- 
- 			addr_struct.s_addr = iter4->addr;
--			ret_val = nla_put(skb, NLBL_MGMT_A_IPV4ADDR,
--					  sizeof(struct in_addr),
--					  &addr_struct);
-+			ret_val = nla_put_in_addr(skb, NLBL_MGMT_A_IPV4ADDR,
-+						  addr_struct.s_addr);
- 			if (ret_val != 0)
- 				return ret_val;
- 			addr_struct.s_addr = iter4->mask;
--			ret_val = nla_put(skb, NLBL_MGMT_A_IPV4MASK,
--					  sizeof(struct in_addr),
--					  &addr_struct);
-+			ret_val = nla_put_in_addr(skb, NLBL_MGMT_A_IPV4MASK,
-+						  addr_struct.s_addr);
- 			if (ret_val != 0)
- 				return ret_val;
- 			map4 = netlbl_domhsh_addr4_entry(iter4);
-@@ -328,14 +326,12 @@ static int netlbl_mgmt_listentry(struct sk_buff *skb,
- 			if (nla_b == NULL)
- 				return -ENOMEM;
- 
--			ret_val = nla_put(skb, NLBL_MGMT_A_IPV6ADDR,
--					  sizeof(struct in6_addr),
--					  &iter6->addr);
-+			ret_val = nla_put_in6_addr(skb, NLBL_MGMT_A_IPV6ADDR,
-+						   &iter6->addr);
- 			if (ret_val != 0)
- 				return ret_val;
--			ret_val = nla_put(skb, NLBL_MGMT_A_IPV6MASK,
--					  sizeof(struct in6_addr),
--					  &iter6->mask);
-+			ret_val = nla_put_in6_addr(skb, NLBL_MGMT_A_IPV6MASK,
-+						   &iter6->mask);
- 			if (ret_val != 0)
- 				return ret_val;
- 			map6 = netlbl_domhsh_addr6_entry(iter6);
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index aec7994f78cf..b0380927f05f 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -1117,34 +1117,30 @@ static int netlbl_unlabel_staticlist_gen(u32 cmd,
- 		struct in_addr addr_struct;
- 
- 		addr_struct.s_addr = addr4->list.addr;
--		ret_val = nla_put(cb_arg->skb,
--				  NLBL_UNLABEL_A_IPV4ADDR,
--				  sizeof(struct in_addr),
--				  &addr_struct);
-+		ret_val = nla_put_in_addr(cb_arg->skb,
-+					  NLBL_UNLABEL_A_IPV4ADDR,
-+					  addr_struct.s_addr);
- 		if (ret_val != 0)
- 			goto list_cb_failure;
- 
- 		addr_struct.s_addr = addr4->list.mask;
--		ret_val = nla_put(cb_arg->skb,
--				  NLBL_UNLABEL_A_IPV4MASK,
--				  sizeof(struct in_addr),
--				  &addr_struct);
-+		ret_val = nla_put_in_addr(cb_arg->skb,
-+					  NLBL_UNLABEL_A_IPV4MASK,
-+					  addr_struct.s_addr);
- 		if (ret_val != 0)
- 			goto list_cb_failure;
- 
- 		secid = addr4->secid;
- 	} else {
--		ret_val = nla_put(cb_arg->skb,
--				  NLBL_UNLABEL_A_IPV6ADDR,
--				  sizeof(struct in6_addr),
--				  &addr6->list.addr);
-+		ret_val = nla_put_in6_addr(cb_arg->skb,
-+					   NLBL_UNLABEL_A_IPV6ADDR,
-+					   &addr6->list.addr);
- 		if (ret_val != 0)
- 			goto list_cb_failure;
- 
--		ret_val = nla_put(cb_arg->skb,
--				  NLBL_UNLABEL_A_IPV6MASK,
--				  sizeof(struct in6_addr),
--				  &addr6->list.mask);
-+		ret_val = nla_put_in6_addr(cb_arg->skb,
-+					   NLBL_UNLABEL_A_IPV6MASK,
-+					   &addr6->list.mask);
- 		if (ret_val != 0)
- 			goto list_cb_failure;
- 
+ 		if (info->attrs[L2TP_ATTR_IP_SADDR] &&
+ 		    info->attrs[L2TP_ATTR_IP_DADDR]) {
+-			cfg.local_ip.s_addr = nla_get_be32(
++			cfg.local_ip.s_addr = nla_get_in_addr(
+ 				info->attrs[L2TP_ATTR_IP_SADDR]);
+-			cfg.peer_ip.s_addr = nla_get_be32(
++			cfg.peer_ip.s_addr = nla_get_in_addr(
+ 				info->attrs[L2TP_ATTR_IP_DADDR]);
+ 		} else {
+ 			ret = -EINVAL;
 diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 22b18c145c92..c0c5b5519f45 100644
+index c0c5b5519f45..c691b1a1eee0 100644
 --- a/net/openvswitch/flow_netlink.c
 +++ b/net/openvswitch/flow_netlink.c
-@@ -648,10 +648,12 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
- 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
- 		return -EMSGSIZE;
- 	if (output->ipv4_src &&
--	    nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_IPV4_SRC, output->ipv4_src))
-+	    nla_put_in_addr(skb, OVS_TUNNEL_KEY_ATTR_IPV4_SRC,
-+			    output->ipv4_src))
- 		return -EMSGSIZE;
- 	if (output->ipv4_dst &&
--	    nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_IPV4_DST, output->ipv4_dst))
-+	    nla_put_in_addr(skb, OVS_TUNNEL_KEY_ATTR_IPV4_DST,
-+			    output->ipv4_dst))
- 		return -EMSGSIZE;
- 	if (output->ipv4_tos &&
- 	    nla_put_u8(skb, OVS_TUNNEL_KEY_ATTR_TOS, output->ipv4_tos))
+@@ -535,11 +535,11 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
+ 			break;
+ 		case OVS_TUNNEL_KEY_ATTR_IPV4_SRC:
+ 			SW_FLOW_KEY_PUT(match, tun_key.ipv4_src,
+-					nla_get_be32(a), is_mask);
++					nla_get_in_addr(a), is_mask);
+ 			break;
+ 		case OVS_TUNNEL_KEY_ATTR_IPV4_DST:
+ 			SW_FLOW_KEY_PUT(match, tun_key.ipv4_dst,
+-					nla_get_be32(a), is_mask);
++					nla_get_in_addr(a), is_mask);
+ 			break;
+ 		case OVS_TUNNEL_KEY_ATTR_TOS:
+ 			SW_FLOW_KEY_PUT(match, tun_key.ipv4_tos,
 diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index d6ba4a6bbff6..6a4a4d7db1fc 100644
+index 6a4a4d7db1fc..2fb804bfa361 100644
 --- a/net/wireless/nl80211.c
 +++ b/net/wireless/nl80211.c
-@@ -8761,8 +8761,8 @@ static int nl80211_send_wowlan_tcp(struct sk_buff *msg,
- 	if (!nl_tcp)
- 		return -ENOBUFS;
- 
--	if (nla_put_be32(msg, NL80211_WOWLAN_TCP_SRC_IPV4, tcp->src) ||
--	    nla_put_be32(msg, NL80211_WOWLAN_TCP_DST_IPV4, tcp->dst) ||
-+	if (nla_put_in_addr(msg, NL80211_WOWLAN_TCP_SRC_IPV4, tcp->src) ||
-+	    nla_put_in_addr(msg, NL80211_WOWLAN_TCP_DST_IPV4, tcp->dst) ||
- 	    nla_put(msg, NL80211_WOWLAN_TCP_DST_MAC, ETH_ALEN, tcp->dst_mac) ||
- 	    nla_put_u16(msg, NL80211_WOWLAN_TCP_SRC_PORT, tcp->src_port) ||
- 	    nla_put_u16(msg, NL80211_WOWLAN_TCP_DST_PORT, tcp->dst_port) ||
+@@ -8993,8 +8993,8 @@ static int nl80211_parse_wowlan_tcp(struct cfg80211_registered_device *rdev,
+ 	cfg = kzalloc(size, GFP_KERNEL);
+ 	if (!cfg)
+ 		return -ENOMEM;
+-	cfg->src = nla_get_be32(tb[NL80211_WOWLAN_TCP_SRC_IPV4]);
+-	cfg->dst = nla_get_be32(tb[NL80211_WOWLAN_TCP_DST_IPV4]);
++	cfg->src = nla_get_in_addr(tb[NL80211_WOWLAN_TCP_SRC_IPV4]);
++	cfg->dst = nla_get_in_addr(tb[NL80211_WOWLAN_TCP_DST_IPV4]);
+ 	memcpy(cfg->dst_mac, nla_data(tb[NL80211_WOWLAN_TCP_DST_MAC]),
+ 	       ETH_ALEN);
+ 	if (tb[NL80211_WOWLAN_TCP_SRC_PORT])
 -- 
 1.8.3.1
