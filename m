@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 19/23] ptp: tilegx: convert to the 64 bit get/set time methods.
-Date: Sun, 29 Mar 2015 23:12:09 +0200
-Message-ID: <1f1b045d69be2bf9f73e0883877fb2cb710b7084.1427662907.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 18/23] ptp: cpts: convert to the 64 bit get/set time methods.
+Date: Sun, 29 Mar 2015 23:12:08 +0200
+Message-ID: <3d2549a6696c92a91a66e2e0c14c464bd8524e40.1427662907.git.richardcochran@gmail.com>
 References: <cover.1427662906.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -26,103 +26,71 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
 	Sonic Zha
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:36603 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752873AbbC2VNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 17:13:07 -0400
 In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This driver is 64 bit only, and so this driver and device are ready
-for 2038.  This patch changes the driver to the new PHC and also
-carries the timespec64 parameter on out to the gxio_mpipe_get-
-set_timestamp functions, making explicit the fact that the tv_sec
-field is 64 bits wide.
+This driver's clock is implemented using a timecounter, and so with
+this patch the driver is ready for the year 2038.
 
-Not even compile tested.
+Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- arch/tile/gxio/mpipe.c             |    4 ++--
- arch/tile/include/gxio/mpipe.h     |    4 ++--
- drivers/net/ethernet/tile/tilegx.c |    9 +++++----
- 3 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/ti/cpts.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/tile/gxio/mpipe.c b/arch/tile/gxio/mpipe.c
-index 6f00e985..ee186e1 100644
---- a/arch/tile/gxio/mpipe.c
-+++ b/arch/tile/gxio/mpipe.c
-@@ -456,7 +456,7 @@ int gxio_mpipe_equeue_init(gxio_mpipe_equeue_t *equeue,
- EXPORT_SYMBOL_GPL(gxio_mpipe_equeue_init);
- 
- int gxio_mpipe_set_timestamp(gxio_mpipe_context_t *context,
--			     const struct timespec *ts)
-+			     const struct timespec64 *ts)
- {
- 	cycles_t cycles = get_cycles();
- 	return gxio_mpipe_set_timestamp_aux(context, (uint64_t)ts->tv_sec,
-@@ -466,7 +466,7 @@ int gxio_mpipe_set_timestamp(gxio_mpipe_context_t *context,
- EXPORT_SYMBOL_GPL(gxio_mpipe_set_timestamp);
- 
- int gxio_mpipe_get_timestamp(gxio_mpipe_context_t *context,
--			     struct timespec *ts)
-+			     struct timespec64 *ts)
- {
- 	int ret;
- 	cycles_t cycles_prev, cycles_now, clock_rate;
-diff --git a/arch/tile/include/gxio/mpipe.h b/arch/tile/include/gxio/mpipe.h
-index e37cf4f..73e83a1 100644
---- a/arch/tile/include/gxio/mpipe.h
-+++ b/arch/tile/include/gxio/mpipe.h
-@@ -1830,7 +1830,7 @@ extern int gxio_mpipe_link_set_attr(gxio_mpipe_link_t *link, uint32_t attr,
-  *  code.
-  */
- extern int gxio_mpipe_get_timestamp(gxio_mpipe_context_t *context,
--				    struct timespec *ts);
-+				    struct timespec64 *ts);
- 
- /* Set the timestamp of mPIPE.
-  *
-@@ -1840,7 +1840,7 @@ extern int gxio_mpipe_get_timestamp(gxio_mpipe_context_t *context,
-  *  code.
-  */
- extern int gxio_mpipe_set_timestamp(gxio_mpipe_context_t *context,
--				    const struct timespec *ts);
-+				    const struct timespec64 *ts);
- 
- /* Adjust the timestamp of mPIPE.
-  *
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index bea8cd2..a789a20 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -838,7 +838,8 @@ static int ptp_mpipe_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	return ret;
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index fbe42cb..074b636 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -167,7 +167,7 @@ static int cpts_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ 	return 0;
  }
  
--static int ptp_mpipe_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int ptp_mpipe_gettime(struct ptp_clock_info *ptp,
-+			     struct timespec64 *ts)
+-static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	int ret = 0;
- 	struct mpipe_data *md = container_of(ptp, struct mpipe_data, caps);
-@@ -850,7 +851,7 @@ static int ptp_mpipe_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+ 	u64 ns;
+ 	u32 remainder;
+@@ -185,7 +185,7 @@ static int cpts_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
  }
  
- static int ptp_mpipe_settime(struct ptp_clock_info *ptp,
--			     const struct timespec *ts)
-+			     const struct timespec64 *ts)
+ static int cpts_ptp_settime(struct ptp_clock_info *ptp,
+-			    const struct timespec *ts)
++			    const struct timespec64 *ts)
  {
- 	int ret = 0;
- 	struct mpipe_data *md = container_of(ptp, struct mpipe_data, caps);
-@@ -876,8 +877,8 @@ static struct ptp_clock_info ptp_mpipe_caps = {
+ 	u64 ns;
+ 	unsigned long flags;
+@@ -216,20 +216,20 @@ static struct ptp_clock_info cpts_info = {
  	.pps		= 0,
- 	.adjfreq	= ptp_mpipe_adjfreq,
- 	.adjtime	= ptp_mpipe_adjtime,
--	.gettime	= ptp_mpipe_gettime,
--	.settime	= ptp_mpipe_settime,
-+	.gettime64	= ptp_mpipe_gettime,
-+	.settime64	= ptp_mpipe_settime,
- 	.enable		= ptp_mpipe_enable,
+ 	.adjfreq	= cpts_ptp_adjfreq,
+ 	.adjtime	= cpts_ptp_adjtime,
+-	.gettime	= cpts_ptp_gettime,
+-	.settime	= cpts_ptp_settime,
++	.gettime64	= cpts_ptp_gettime,
++	.settime64	= cpts_ptp_settime,
+ 	.enable		= cpts_ptp_enable,
  };
+ 
+ static void cpts_overflow_check(struct work_struct *work)
+ {
+-	struct timespec ts;
++	struct timespec64 ts;
+ 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
+ 
+ 	cpts_write32(cpts, CPTS_EN, control);
+ 	cpts_write32(cpts, TS_PEND_EN, int_enable);
+ 	cpts_ptp_gettime(&cpts->info, &ts);
+-	pr_debug("cpts overflow check at %ld.%09lu\n", ts.tv_sec, ts.tv_nsec);
++	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+ 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+ }
  
 -- 
 1.7.10.4
