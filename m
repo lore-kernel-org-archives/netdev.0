@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: remove
- vmbus_are_subchannels_present() in rndis_filter_device_add()
-Date: Sun, 29 Mar 2015 13:15:23 -0700 (PDT)
-Message-ID: <20150329.131523.1815681425559014616.davem@davemloft.net>
-References: <1427412058-23712-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH v2 00/16] net: dsa: HW bridging, EEE support
+Date: Sun, 29 Mar 2015 13:24:38 -0700 (PDT)
+Message-ID: <20150329.132438.1769032231450155025.davem@davemloft.net>
+References: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1427412058-23712-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+	linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 26 Mar 2015 16:20:58 -0700
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Thu, 26 Mar 2015 18:36:27 -0700
 
-> The vmbus_are_subchannels_present() also involves opening the channels, which
-> may be too early at this point. Checking for subchannels is not necessary here.
-> So this patch removes it. Subchannels will be opened when offer messages arrive.
+> Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
+> for HW bridging support, without adding the code itself. For the most part
+> this factors out common port initialization code. There is no functional
+> change except for patch 3, which disables the message port bit for the
+> CPU port to prevent packet duplication if HW bridging is configured.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Patch 8 adds the infrastructure for hardware bridging support to the
+> mv88e6xxx code.
+> 
+> Patch 9 wires the MV88E6352 driver to support hardware bridging.
+> 
+> Patches 10 to 12 add support for ndo_fdb functions to the dsa subsystem,
+> and wire up the MV88E6352 driver to support those functions.
+> 
+> Patches 13 to 16 add EEE support and HW bridging support to the mv88e6171
+> driver. This set of patches is from Andrew, applied on top of the first
+> set of patches.
+> 
+> The series applies to net-next as of 3/24/2015.
+> 
+> Thanks a lot to Andrew Lunn for testing and valuable feedback.
 
-Applied.
+Series applied, thanks!
