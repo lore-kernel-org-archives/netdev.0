@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: tcp_syn_flood_action() can be static
-Date: Sun, 29 Mar 2015 12:17:51 -0700 (PDT)
-Message-ID: <20150329.121751.1338570789876137198.davem@davemloft.net>
-References: <1427321327.25985.124.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net 1/4 v2] ipvlan: fix addr hash list corruption
+Date: Sun, 29 Mar 2015 12:23:25 -0700 (PDT)
+Message-ID: <20150329.122325.255412967371199514.davem@davemloft.net>
+References: <cover.1427476903.git.jbenc@redhat.com>
+	<b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, octavian.purdila@intel.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, maheshb@google.com, dcbw@redhat.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59070 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59097 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487AbbC2TJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:09:06 -0400
-In-Reply-To: <1427321327.25985.124.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752376AbbC2TOl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:14:41 -0400
+In-Reply-To: <b5d7fb60399f0a09914ff6dd94787132f40f5c0f.1427476903.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 25 Mar 2015 15:08:47 -0700
+From: Jiri Benc <jbenc@redhat.com>
+Date: Fri, 27 Mar 2015 18:30:23 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> After commit 1fb6f159fd21 ("tcp: add tcp_conn_request"),
-> tcp_syn_flood_action() is no longer used from IPv6.
-> 
-> We can make it static, by moving it above tcp_conn_request()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> @@ -622,7 +622,10 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
+>  	addr->atype = IPVL_IPV6;
+>  	list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
+>  	ipvlan->ipv6cnt++;
+> -	ipvlan_ht_addr_add(ipvlan, addr);
+> +	/* If the interface is not up, the address will be added to the hash
+> +	 * list by ipvlan_open. */
 
-Applied to net-next, thanks.
+Comments in the networking should be formatted:
+
+	/* Like
+	 * this.
+	 */
+
+Thanks.
