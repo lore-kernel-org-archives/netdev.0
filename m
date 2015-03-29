@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: sysctl for RA default route MTU
-Date: Sun, 29 Mar 2015 12:42:48 -0700 (PDT)
-Message-ID: <20150329.124248.1745435092252856808.davem@davemloft.net>
-References: <1427307255.3555533.245187845.14A187CD@webmail.messagingengine.com>
-	<1427370594-18807-1-git-send-email-klamm@yandex-team.ru>
+Subject: Re: [PATCH 00/15] Netfilter updates for net-next
+Date: Sun, 29 Mar 2015 12:48:27 -0700 (PDT)
+Message-ID: <20150329.124827.1059541720930853220.davem@davemloft.net>
+References: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	linux-kernel@vger.kernel.org
-To: klamm@yandex-team.ru
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59236 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59316 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbbC2TeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:34:04 -0400
-In-Reply-To: <1427370594-18807-1-git-send-email-klamm@yandex-team.ru>
+	with ESMTP id S1752360AbbC2Tjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:39:45 -0400
+In-Reply-To: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roman Gushchin <klamm@yandex-team.ru>
-Date: Thu, 26 Mar 2015 14:49:54 +0300
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 26 Mar 2015 13:06:47 +0100
 
-> This patch introduces new ipv6 sysctl: ra_default_route_mtu.
-> If it's set (> 0), it defines per-route MTU for any new default route
-> received by RA.
+> The following patchset contains Netfilter updates for your net-next tree.
+> Basically, nf_tables updates to add the set extension infrastructure and finish
+> the transaction for sets from Patrick McHardy. More specifically, they are:
+ ...
+> You can pull these changes from:
 > 
-> This sysctl will help in the following configuration: we want to use
-> jumbo-frames for internal networks and default ethernet frames for
-> default route. Per-route MTU can only lower per-link MTU, so link MTU
-> should be set to ~9000 (statically or via RA).
-> 
-> Due to dynamic nature of RA, setting MTU for default route will require
-> userspace agent, that will monitor changes of default route
-> and (re)configure it. Not simple. The suggested sysctl solves this
-> problem.
-> 
-> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-This does not apply cleanly to net-next, please respin.
+Pulled, thanks Pablo.
