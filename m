@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/15] Netfilter updates for net-next
-Date: Sun, 29 Mar 2015 12:48:27 -0700 (PDT)
-Message-ID: <20150329.124827.1059541720930853220.davem@davemloft.net>
-References: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] Fman: Fix the header file name
+Date: Sun, 29 Mar 2015 12:48:47 -0700 (PDT)
+Message-ID: <20150329.124847.1058922978564177776.davem@davemloft.net>
+References: <1427376323-3237-1-git-send-email-amit.tomar@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org, scottwood@freescale.com,
+	Igal.Liberman@freescale.com
+To: amit.tomar@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59316 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59320 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752360AbbC2Tjp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:39:45 -0400
-In-Reply-To: <1427371622-4466-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1752411AbbC2TkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:40:05 -0400
+In-Reply-To: <1427376323-3237-1-git-send-email-amit.tomar@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 26 Mar 2015 13:06:47 +0100
+From: Amit Singh Tomar <amit.tomar@freescale.com>
+Date: Thu, 26 Mar 2015 18:55:23 +0530
 
-> The following patchset contains Netfilter updates for your net-next tree.
-> Basically, nf_tables updates to add the set extension infrastructure and finish
-> the transaction for sets from Patrick McHardy. More specifically, they are:
- ...
-> You can pull these changes from:
+> Header file name should be "dpaa_eth_common.h".There is no file with name
+> "dpaa_eth-common.h".
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> Signed-off-by: Amit Singh Tomar <amit.tomar@freescale.com>
 
-Pulled, thanks Pablo.
+This doesn't apply to any of my source trees.
