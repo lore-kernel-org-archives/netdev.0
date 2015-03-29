@@ -1,53 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: fix two bugs in secondary
- destination lookup
-Date: Sun, 29 Mar 2015 13:48:29 -0700 (PDT)
-Message-ID: <20150329.134829.751362940928175002.davem@davemloft.net>
-References: <1427465959-19598-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59714 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752601AbbC2Ujq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 16:39:46 -0400
-In-Reply-To: <1427465959-19598-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next V3 01/23] ptp: introduce get/set time methods with explicit 64 bit seconds.
+Date: Sun, 29 Mar 2015 23:11:51 +0200
+Message-ID: <bdf6c595b1a2204a5f5f00001da9506374f4e311.1427662907.git.richardcochran@gmail.com>
+References: <cover.1427662906.git.richardcochran@gmail.com>
+Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Arnd Bergmann <arnd@linaro.org>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Rayagond K <rayagond@vayavyalabs.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Sonic Zha
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 27 Mar 2015 10:19:19 -0400
+Converting the PHC drivers over to the new methods is one step along the
+way to making them ready for 2038.  Once all the drivers are up to date,
+then the old methods will be removed.
 
-> A message sent to a node after a successful name table lookup may still
-> find that the destination socket has disappeared, because distribution
-> of name table updates is non-atomic. If so, the message will be rejected
-> back to the sender with error code TIPC_ERR_NO_PORT. If the source
-> socket of the message has disappeared in the meantime, the message
-> should be dropped.
-> 
-> However, in the currrent code, the message will instead be subject to an
-> unwanted tertiary lookup, because the function tipc_msg_lookup_dest()
-> doesn't check if there is an error code present in the message before
-> performing the lookup. In the worst case, the message may now find the
-> old destination again, and be redirected once more, instead of being
-> dropped directly as it should be.
-> 
-> A second bug in this function is that the "prev_node" field in the message
-> is not updated after successful lookup, something that may have
-> unpredictable consequences.
-> 
-> The problems arising from those bugs occur very infrequently.
-> 
-> The third change in this function; the test on msg_reroute_msg_cnt() is
-> purely cosmetic, reflecting that the returned value never can be negative.
-> 
-> This commit corrects the two bugs described above.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ include/linux/ptp_clock_kernel.h |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-Applied, thanks Jon.
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index 0d8ff3f..7d6f8e6 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -64,12 +64,18 @@ struct ptp_clock_request {
+  * @adjtime:  Shifts the time of the hardware clock.
+  *            parameter delta: Desired change in nanoseconds.
+  *
+- * @gettime:  Reads the current time from the hardware clock.
++ * @gettime:  Reads the current time from the hardware clock. (deprecated)
+  *            parameter ts: Holds the result.
+  *
+- * @settime:  Set the current time on the hardware clock.
++ * @settime:  Set the current time on the hardware clock. (deprecated)
+  *            parameter ts: Time value to set.
+  *
++ * @gettime64:  Reads the current time from the hardware clock.
++ *              parameter ts: Holds the result.
++ *
++ * @settime64:  Set the current time on the hardware clock.
++ *              parameter ts: Time value to set.
++ *
+  * @enable:   Request driver to enable or disable an ancillary feature.
+  *            parameter request: Desired resource to enable or disable.
+  *            parameter on: Caller passes one to enable or zero to disable.
+@@ -106,6 +112,8 @@ struct ptp_clock_info {
+ 	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
+ 	int (*gettime)(struct ptp_clock_info *ptp, struct timespec *ts);
+ 	int (*settime)(struct ptp_clock_info *ptp, const struct timespec *ts);
++	int (*gettime64)(struct ptp_clock_info *ptp, struct timespec64 *ts);
++	int (*settime64)(struct ptp_clock_info *p, const struct timespec64 *ts);
+ 	int (*enable)(struct ptp_clock_info *ptp,
+ 		      struct ptp_clock_request *request, int on);
+ 	int (*verify)(struct ptp_clock_info *ptp, unsigned int pin,
+-- 
+1.7.10.4
