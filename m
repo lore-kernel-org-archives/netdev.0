@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 09/23] ptp: gianfar: convert to the 64 bit get/set time methods.
-Date: Sun, 29 Mar 2015 23:11:59 +0200
-Message-ID: <2781eb6f8af2853cd17b050d8f3410497a7dc5cb.1427662907.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 07/23] ptp: tg3: convert to the 64 bit get/set time methods.
+Date: Sun, 29 Mar 2015 23:11:57 +0200
+Message-ID: <c2bdb1ebb6a079e158f3c60c82b37c1b111cc61b.1427662907.git.richardcochran@gmail.com>
 References: <cover.1427662906.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,65 +31,54 @@ In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The device features a 64 bit nanoseconds register, and so with this
-patch the driver is ready for the year 2038.
+The device appears to use a 64 bit nanoseconds register, and so with
+this patch the driver should be ready for the year 2038.
+
+Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/gianfar_ptp.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index 77353366..04265a7 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -322,7 +322,8 @@ static int ptp_gianfar_adjtime(struct ptp_clock_info *ptp, s64 delta)
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 22b33da..d02d19b 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6217,7 +6217,7 @@ static int tg3_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  	return 0;
  }
  
--static int ptp_gianfar_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int ptp_gianfar_gettime(struct ptp_clock_info *ptp,
-+			       struct timespec64 *ts)
+-static int tg3_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int tg3_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
  	u64 ns;
  	u32 remainder;
-@@ -341,7 +342,7 @@ static int ptp_gianfar_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+@@ -6235,12 +6235,12 @@ static int tg3_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
  }
  
- static int ptp_gianfar_settime(struct ptp_clock_info *ptp,
--			       const struct timespec *ts)
-+			       const struct timespec64 *ts)
+ static int tg3_ptp_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *ts)
++			   const struct timespec64 *ts)
  {
  	u64 ns;
- 	unsigned long flags;
-@@ -418,8 +419,8 @@ static struct ptp_clock_info ptp_gianfar_caps = {
- 	.pps		= 1,
- 	.adjfreq	= ptp_gianfar_adjfreq,
- 	.adjtime	= ptp_gianfar_adjtime,
--	.gettime	= ptp_gianfar_gettime,
--	.settime	= ptp_gianfar_settime,
-+	.gettime64	= ptp_gianfar_gettime,
-+	.settime64	= ptp_gianfar_settime,
- 	.enable		= ptp_gianfar_enable,
+ 	struct tg3 *tp = container_of(ptp, struct tg3, ptp_info);
+ 
+-	ns = timespec_to_ns(ts);
++	ns = timespec64_to_ns(ts);
+ 
+ 	tg3_full_lock(tp, 0);
+ 	tg3_refclk_write(tp, ns);
+@@ -6320,8 +6320,8 @@ static const struct ptp_clock_info tg3_ptp_caps = {
+ 	.pps		= 0,
+ 	.adjfreq	= tg3_ptp_adjfreq,
+ 	.adjtime	= tg3_ptp_adjtime,
+-	.gettime	= tg3_ptp_gettime,
+-	.settime	= tg3_ptp_settime,
++	.gettime64	= tg3_ptp_gettime,
++	.settime64	= tg3_ptp_settime,
+ 	.enable		= tg3_ptp_enable,
  };
  
-@@ -440,7 +441,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
- {
- 	struct device_node *node = dev->dev.of_node;
- 	struct etsects *etsects;
--	struct timespec now;
-+	struct timespec64 now;
- 	int err = -ENOMEM;
- 	u32 tmr_ctrl;
- 	unsigned long flags;
-@@ -495,7 +496,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
- 		pr_err("ioremap ptp registers failed\n");
- 		goto no_ioremap;
- 	}
--	getnstimeofday(&now);
-+	getnstimeofday64(&now);
- 	ptp_gianfar_settime(&etsects->caps, &now);
- 
- 	tmr_ctrl =
 -- 
 1.7.10.4
