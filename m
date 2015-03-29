@@ -1,26 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] tc: bpf: generalize pedit action
-Date: Sun, 29 Mar 2015 13:27:07 -0700 (PDT)
-Message-ID: <20150329.132707.569593616352388141.davem@davemloft.net>
-References: <1427424837-7757-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] cxgb4vf: Fix sparse warnings
+Date: Sun, 29 Mar 2015 13:31:28 -0700 (PDT)
+Message-ID: <20150329.133128.283263048689172333.davem@davemloft.net>
+References: <1427434278-3582-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1427424837-7757-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	swise@opengridcomputing.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59581 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809AbbC2UWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 16:22:45 -0400
+In-Reply-To: <1427434278-3582-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Date: Thu, 26 Mar 2015 19:53:57 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri, 27 Mar 2015 11:01:18 +0530
 
-> existing TC action 'pedit' can munge any bits of the packet.
-> Generalize it for use in bpf programs attached as cls_bpf and act_bpf via
-> bpf_skb_store_bytes() helper function.
+> Fixes sparse warnings introduced in commit e85c9a7abfa407ed ("cxgb4/cxgb4vf: Add
+> code to calculate T5 BAR2 Offsets for SGE Queue Registers") and
+> df64e4d38c904dd3 ("cxgb4/cxgb4vf: Use new interfaces to calculate BAR2 SGE Queue
+> Register addresses") and few old ones
 > 
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+> sparse warnings:
+>>> drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1006:48: sparse: cast removes
+>>> address space of expression
+>>> drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1006:48: sparse: incorrect type in
+>>> initializer (different address space)
+>>> drivers/net/ethernet/chelsio/cxgb4vf/sge.c:1020:40: sparse: incorrect type in
+>>> argument 1 (different base types)
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Applied, thanks Alexei.
+Applied, thanks.
