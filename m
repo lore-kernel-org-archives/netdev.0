@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netns: don't clear nsid too early on removal
-Date: Sun, 29 Mar 2015 12:59:43 -0700 (PDT)
-Message-ID: <20150329.125943.122692803288245512.davem@davemloft.net>
-References: <1427388998-4393-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] net: smc91x: make use of 4th parameter to
+ devm_gpiod_get_index
+Date: Sun, 29 Mar 2015 13:06:19 -0700 (PDT)
+Message-ID: <20150329.130619.1197506503984550895.davem@davemloft.net>
+References: <1427405168-28578-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nico@fluxnic.net, linus.walleij@linaro.org, tony@atomide.com,
+	netdev@vger.kernel.org, kernel@pengutronix.de, acourbot@nvidia.com
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59380 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59409 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411AbbC2Tu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:50:59 -0400
-In-Reply-To: <1427388998-4393-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1752411AbbC2T5l convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 15:57:41 -0400
+In-Reply-To: <1427405168-28578-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 26 Mar 2015 17:56:38 +0100
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Thu, 26 Mar 2015 22:26:08 +0100
 
-> With the current code, ids are removed too early.
-> Suppose you have an ipip interface that stands in the netns foo and its link
-> part in the netns bar (so the netns bar has an nsid into the netns foo).
-> Now, you remove the netns bar:
->  - the bar nsid into the netns foo is removed
->  - the netns exit method of ipip is called, thus our ipip iface is removed:
->    => a netlink message is sent in the netns foo to advertise this deletion
->    => this netlink message requests an nsid for bar, thus a new nsid is
->       allocated for bar and never removed.
-> 
-> We must remove nsids when we are sure that nobody will refer to netns currently
-> cleaned.
-> 
-> Fixes: 0c7aecd4bde4 ("netns: add rtnl cmd to add and get peer netns ids")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Since 39b2bbe3d715 (gpio: add flags argument to gpiod_get*() function=
+s)
+> which appeared in v3.17-rc1, the gpiod_get* functions take an additio=
+nal
+> parameter that allows to specify direction and initial value for outp=
+ut.
+> Simplify accordingly.
+>=20
+> Moreover use devm_gpiod_get_index_optional for still simpler handling=
+=2E
+>=20
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
-Applied, thanks.
+Applied to net-next, thanks.
