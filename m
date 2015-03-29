@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 22/23] ptp: pch: convert to the 64 bit get/set time methods.
-Date: Sun, 29 Mar 2015 23:12:12 +0200
-Message-ID: <d574fb31bfc7f1478c0d96e55c17cff699832106.1427662907.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 21/23] ptp: ixp46x: convert to the 64 bit get/set time methods.
+Date: Sun, 29 Mar 2015 23:12:11 +0200
+Message-ID: <21312ff45557e5d460c6a24f54ca1150dda86b03.1427662907.git.richardcochran@gmail.com>
 References: <cover.1427662906.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Ariel Elior <ariel.elior@qlogic.com>,
@@ -31,48 +31,46 @@ In-Reply-To: <cover.1427662906.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The device has a 64 bit clock register, where each clock tick is 32
+The device has a 64 bit clock register, where each clock tick is 16
 nanoseconds, and so with this patch the driver is ready for the year
 2038.
 
-Compile tested only.
-
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/ptp/ptp_pch.c |    8 ++++----
+ drivers/ptp/ptp_ixp46x.c |    8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 2554872..3aa22ae 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -449,7 +449,7 @@ static int ptp_pch_adjtime(struct ptp_clock_info *ptp, s64 delta)
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+index 604d340..934c139 100644
+--- a/drivers/ptp/ptp_ixp46x.c
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -175,7 +175,7 @@ static int ptp_ixp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  	return 0;
  }
  
--static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-+static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+-static int ptp_ixp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++static int ptp_ixp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
  	u64 ns;
  	u32 remainder;
-@@ -467,7 +467,7 @@ static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+@@ -195,7 +195,7 @@ static int ptp_ixp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
  }
  
- static int ptp_pch_settime(struct ptp_clock_info *ptp,
+ static int ptp_ixp_settime(struct ptp_clock_info *ptp,
 -			   const struct timespec *ts)
 +			   const struct timespec64 *ts)
  {
  	u64 ns;
  	unsigned long flags;
-@@ -518,8 +518,8 @@ static struct ptp_clock_info ptp_pch_caps = {
+@@ -248,8 +248,8 @@ static struct ptp_clock_info ptp_ixp_caps = {
  	.pps		= 0,
- 	.adjfreq	= ptp_pch_adjfreq,
- 	.adjtime	= ptp_pch_adjtime,
--	.gettime	= ptp_pch_gettime,
--	.settime	= ptp_pch_settime,
-+	.gettime64	= ptp_pch_gettime,
-+	.settime64	= ptp_pch_settime,
- 	.enable		= ptp_pch_enable,
+ 	.adjfreq	= ptp_ixp_adjfreq,
+ 	.adjtime	= ptp_ixp_adjtime,
+-	.gettime	= ptp_ixp_gettime,
+-	.settime	= ptp_ixp_settime,
++	.gettime64	= ptp_ixp_gettime,
++	.settime64	= ptp_ixp_settime,
+ 	.enable		= ptp_ixp_enable,
  };
  
 -- 
