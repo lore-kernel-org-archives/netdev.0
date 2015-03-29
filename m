@@ -1,52 +1,99 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
- for Linux (LibOS)
-Date: Sun, 29 Mar 2015 20:05:45 +0200
-Message-ID: <55183EF9.9060709@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m <55152137.20405@nod.at> <55157495.3050208@iki.fi> <55171A74.1000707@nod.at> <55182F8E.3020606@iki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
-	cl@linux.com, penberg@kernel.org, rientjes@google.com,
-	iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Antti Kantee <pooka@iki.fi>, Hajime Tazaki <tazaki@wide.ad.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55182F8E.3020606@iki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH RFC v2 1/2] can: fix multiple delivery of a single CAN frame for overlapping CAN filters
+Date: Sun, 29 Mar 2015 20:09:23 +0200
+Message-ID: <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net>
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 29.03.2015 um 18:59 schrieb Antti Kantee:
-> On 28/03/15 21:17, Richard Weinberger wrote:
->> Am 27.03.2015 um 16:17 schrieb Antti Kantee:
->>> Let me try to offer some insight.  I've been working on something similar in mainline NetBSD for almost 8 years now, so in addition to ideas popping into my head I've also tested
->>> them out in the real world.  I do think that all operating systems should be structured to support a lib mode, and hopefully integrating Hajime's work into Linux will get on the
->>> right track.
->>
->> IMHO it depends on the maintenance burden.
->> Linux source changes magnitudes faster than NetBSD's.
-> 
-> I can understand why you're worried about maintenance burden -- believe me, I've heard all the excuses before, starting all the way back from "it's impossible".  Let's dissect your
-> concern.
-> 
-> There's a reason I wrote in my original mail: "Figuring out how to make the libos as close to zero-maintenance as possible is indeed the trick".  It took me a few weeks to make
-> things work in my version, but it took four years to figure out how to make things as maintainable as I could figure out how to make them.  The good news is that the results of
-> those four years are more or less generic and independent of OS.
-> 
-> The source may change an order of magnitude faster in Linux, but Linux also has several orders of magnitude more resources.  Even if you do not believe that available resources are
-> relevant in the equation, you can still take the data from NetBSD, multiply the maintenance burden with any Stetson-Harrison constant you see fit, and have your expected Linux
-> maintenance burden value.
-> 
-> Mind game: what if I were to assert that the maintenance burden of application compatibility is too high on Linux compared to NetBSD due to the high rate of change?  I think
-> everyone would rush to tell me that I'm wrong...
+The CAN_RAW socket can set multiple CAN identifier specific filters that lead
+to multiple filters in the af_can.c filter processing. These filters are
+indenpendent from each other which leads to logical OR'ed filters when applied.
 
-There is no need for mind games. Patches talk. :)
+This patch makes sure that every CAN frame which is filtered for a specific
+socket is only delivered once to the user space. This is independent from the
+number of matching CAN filters of this socket.
 
-> So why not just evaluate Hajime et al's work for its functional merits and immediate benefits, and see how maintenance burden plays out by collecting actual data on it.
+As the can_raw() function is executed from NET_RX softirq the introduced
+variables are implemented as per-CPU variables to avoid extensive locking at
+CAN frame reception time.
 
-Hajime's work is currently under evaluation. Guess what we're doing right now?
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+---
+ net/can/raw.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
 
-Thanks,
-//richard
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 00c13ef..866a9b3 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -86,6 +86,8 @@ struct raw_sock {
+ 	struct can_filter dfilter; /* default/single filter */
+ 	struct can_filter *filter; /* pointer to filter(s) */
+ 	can_err_mask_t err_mask;
++	struct sk_buff __percpu **uniq_skb;
++	ktime_t __percpu *uniq_tstamp;
+ };
+ 
+ /*
+@@ -123,6 +125,15 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+ 	if (!ro->fd_frames && oskb->len != CAN_MTU)
+ 		return;
+ 
++	/* eliminate multiple filter matches for the same skb */
++	if (*this_cpu_ptr(ro->uniq_skb) == oskb &&
++	    ktime_equal(*this_cpu_ptr(ro->uniq_tstamp), oskb->tstamp)) {
++			return;
++	} else {
++		*this_cpu_ptr(ro->uniq_skb) = oskb;
++		*this_cpu_ptr(ro->uniq_tstamp) = oskb->tstamp;
++	}
++
+ 	/* clone the given skb to be able to enqueue it into the rcv queue */
+ 	skb = skb_clone(oskb, GFP_ATOMIC);
+ 	if (!skb)
+@@ -282,6 +293,7 @@ static int raw_notifier(struct notifier_block *nb,
+ static int raw_init(struct sock *sk)
+ {
+ 	struct raw_sock *ro = raw_sk(sk);
++	int cpu;
+ 
+ 	ro->bound            = 0;
+ 	ro->ifindex          = 0;
+@@ -297,6 +309,20 @@ static int raw_init(struct sock *sk)
+ 	ro->recv_own_msgs    = 0;
+ 	ro->fd_frames        = 0;
+ 
++	ro->uniq_skb = alloc_percpu(struct sk_buff *);
++	if (unlikely(ro->uniq_skb == NULL))
++		return -ENOMEM;
++	for_each_possible_cpu(cpu)
++		*per_cpu_ptr(ro->uniq_skb, cpu) = NULL;
++
++	ro->uniq_tstamp = alloc_percpu(ktime_t);
++	if (unlikely(ro->uniq_tstamp == NULL)) {
++		free_percpu(ro->uniq_skb);
++		return -ENOMEM;
++	}
++	for_each_possible_cpu(cpu)
++		*per_cpu_ptr(ro->uniq_tstamp, cpu) = ktime_set(0, 0);
++
+ 	/* set notifier */
+ 	ro->notifier.notifier_call = raw_notifier;
+ 
+@@ -339,6 +365,8 @@ static int raw_release(struct socket *sock)
+ 	ro->ifindex = 0;
+ 	ro->bound   = 0;
+ 	ro->count   = 0;
++	free_percpu(ro->uniq_skb);
++	free_percpu(ro->uniq_tstamp);
+ 
+ 	sock_orphan(sk);
+ 	sock->sk = NULL;
+-- 
+2.1.4
+
