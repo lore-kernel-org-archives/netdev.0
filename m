@@ -1,42 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/16] net: dsa: HW bridging, EEE support
-Date: Sun, 29 Mar 2015 13:24:38 -0700 (PDT)
-Message-ID: <20150329.132438.1769032231450155025.davem@davemloft.net>
-References: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] tc: bpf: generalize pedit action
+Date: Sun, 29 Mar 2015 13:27:07 -0700 (PDT)
+Message-ID: <20150329.132707.569593616352388141.davem@davemloft.net>
+References: <1427424837-7757-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org
-To: linux@roeck-us.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427420203-27685-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427424837-7757-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Thu, 26 Mar 2015 18:36:27 -0700
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Thu, 26 Mar 2015 19:53:57 -0700
 
-> Patch 1 to 7 of this series prepare the drivers using the mv88e6xxx code
-> for HW bridging support, without adding the code itself. For the most part
-> this factors out common port initialization code. There is no functional
-> change except for patch 3, which disables the message port bit for the
-> CPU port to prevent packet duplication if HW bridging is configured.
+> existing TC action 'pedit' can munge any bits of the packet.
+> Generalize it for use in bpf programs attached as cls_bpf and act_bpf via
+> bpf_skb_store_bytes() helper function.
 > 
-> Patch 8 adds the infrastructure for hardware bridging support to the
-> mv88e6xxx code.
-> 
-> Patch 9 wires the MV88E6352 driver to support hardware bridging.
-> 
-> Patches 10 to 12 add support for ndo_fdb functions to the dsa subsystem,
-> and wire up the MV88E6352 driver to support those functions.
-> 
-> Patches 13 to 16 add EEE support and HW bridging support to the mv88e6171
-> driver. This set of patches is from Andrew, applied on top of the first
-> set of patches.
-> 
-> The series applies to net-next as of 3/24/2015.
-> 
-> Thanks a lot to Andrew Lunn for testing and valuable feedback.
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 
-Series applied, thanks!
+Applied, thanks Alexei.
