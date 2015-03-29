@@ -1,48 +1,51 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH 83/86] brcm80211: drop pci dependency
-Date: Sun, 29 Mar 2015 18:46:47 +0200
-Message-ID: <55182C77.1000706@broadcom.com>
-References: <1427635734-24786-1-git-send-email-mst@redhat.com> <1427635734-24786-84-git-send-email-mst@redhat.com>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 84/86] brcm80211: drop pci_ids include
+Date: Sun, 29 Mar 2015 18:47:24 +0200
+Message-ID: <55182C9C.60900@broadcom.com>
+References: <1427635734-24786-1-git-send-email-mst@redhat.com> <1427635734-24786-85-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"Pieter-Paul Giesberts" <pieterpg@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Chen-Yu Tsai <wens@csie.org>,
-	Hans de Goede <hdegoede@redhat.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427635734-24786-84-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"Pieter-Paul Giesberts" <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Daniel Kim <dekim-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427635734-24786-85-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On 03/29/15 15:43, Michael S. Tsirkin wrote:
-> This file does not use any pci APIs, drop
-> pci header includes.
+> This file does not use any pci ids, drop
+> pci_ids.h include.
 
-Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Michael S. Tsirkin<mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 > ---
->   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c | 2 --
->   1 file changed, 2 deletions(-)
+>   drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 1 -
+>   1 file changed, 1 deletion(-)
 >
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> index 227cb33..9331486 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> @@ -17,8 +17,6 @@
->
->   #include<linux/types.h>
->   #include<linux/netdevice.h>
-> -#include<linux/pci.h>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> index 5c4755d..da479d4 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
+> @@ -18,7 +18,6 @@
+>   #include<linux/kernel.h>
+>   #include<linux/kthread.h>
+>   #include<linux/printk.h>
 > -#include<uapi/linux/pci_ids.h>
+>   #include<linux/netdevice.h>
+>   #include<linux/interrupt.h>
 >   #include<linux/sched.h>
->   #include<linux/completion.h>
->   #include<linux/scatterlist.h>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
