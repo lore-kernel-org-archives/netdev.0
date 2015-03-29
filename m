@@ -1,99 +1,145 @@
-From: Bernhard Thaler <bernhard.thaler@wvnet.at>
-Subject: [PATCH] bridge: relax BR_GROUPFWD_RESTRICTED to forward LLDP frames
-Date: Mon, 30 Mar 2015 00:06:02 +0200
-Message-ID: <1427666762-23683-1-git-send-email-bernhard.thaler@wvnet.at>
-References: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Bernhard Thaler <bernhard.thaler@wvnet.at>
-To: stephen@networkplumber.org, davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next v9 7/7] ixgbevf: Add the appropriate ethtool
+ ops to query RSS indirection table and key
+Date: Sun, 29 Mar 2015 15:19:56 -0700
+Message-ID: <55187A8C.5060607@gmail.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-8-git-send-email-vladz@cloudius-systems.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Vlad Zolotarov <vladz@cloudius-systems.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost2.wvnet.at ([62.212.174.131]:1078 "EHLO
-	mx-out.wvnet.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752667AbbC2WG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 18:06:58 -0400
-Received: from smtp.wvnet.at (localhost [127.0.0.1])
-	by mx-out.wvnet.at (Postfix) with ESMTP id A53E5436A91
-	for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 00:06:57 +0200 (CEST)
-In-Reply-To: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:32967 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455AbbC2WT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Mar 2015 18:19:58 -0400
+Received: by pdnc3 with SMTP id c3so155697144pdn.0
+        for <netdev@vger.kernel.org>; Sun, 29 Mar 2015 15:19:58 -0700 (PDT)
+In-Reply-To: <1427645497-8339-8-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
-/sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
-some IEEE 802.1D Table 7-10 Reserved addresses:
+On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+> Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
+> implementations.
+> 
+> This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF devices.
+> 
+> This patch adds the support for 82599 and x540 devices only. Support for other
+> devices will be added later.
+> 
+> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+> ---
+> New in v9:
+>    - Use IXGBEVF_RSS_HASH_KEY_SIZE macro.
+> 
+> New in v6:
+>    - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
+> 
+> New in v4:
+>    - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
+> 
+> New in v3:
+>    - Added a proper support for x550 devices: return the correct redirection table size.
+> 
+> New in v2:
+>    - Added a detailed description to the patch.
+> ---
+>  drivers/net/ethernet/intel/ixgbevf/ethtool.c | 58 ++++++++++++++++++++++++++++
+>  1 file changed, 58 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+> index e83c85b..4d2f59f 100644
+> --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+> +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+> @@ -794,6 +794,60 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
+>  	return 0;
+>  }
+>  
+> +static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+> +			     u32 *rules __always_unused)
+> +{
+> +	struct ixgbevf_adapter *adapter = netdev_priv(dev);
+> +
+> +	switch (info->cmd) {
+> +	case ETHTOOL_GRXRINGS:
+> +		info->data = adapter->num_rx_queues;
+> +		return 0;
+> +	default:
+> +		hw_dbg(&adapter->hw, "Command parameters not supported\n");
+> +		return -EOPNOTSUPP;
+> +	}
+> +}
+> +
+> +static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
+> +{
+> +	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+> +
+> +	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
+> +		return 64;
+> +	else
+> +		return 128;
+> +}
+> +
 
-	(MAC Control) 802.3		01-80-C2-00-00-01
-	(Link Aggregation) 802.3	01-80-C2-00-00-02
-	802.1AB LLDP			01-80-C2-00-00-0E
+You should return 0 for x550, not 64 since it isn't supported.
 
-Relax BR_GROUPFWD_RESTRICTED to at least forward LLDP frames and document
-group_fwd_mask.
+My suggestion would be to alter the code so that you return 128 for
+everything <= x540_vf, and place a return 0 as the default return
+without a need for the if statement.
 
-e.g.
-   echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
-allows to forward LLDP frames.
+> +static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
+> +{
+> +	return IXGBEVF_RSS_HASH_KEY_SIZE;
+> +}
+> +
 
-Tested on a simple bridge setup with two interfaces. Setting group_fwd_mask
-as described above lets crafted LLDP frames traverse bridge.
+Same thing here.  If you don't support this on x550 you should probably
+return 0 instead of returning a value.
 
-Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
----
-v1
-* this version only removes LLDP restriction from BR_GROUPFWD_RESTRICTED
-* adds documentation of /sys/class/net/brX/bridge/group_fwd_mask
+> +static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
+> +			    u8 *hfunc)
+> +{
+> +	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+> +	int err;
+> +
+> +	if (hfunc)
+> +		*hfunc = ETH_RSS_HASH_TOP;
+> +
+> +	if (indir) {
+> +		err = ixgbevf_get_reta(adapter, indir);
+> +		if (err)
+> +			return err;
+> +	}
+> +
+> +	if (key) {
+> +		err = ixgbevf_get_rss_key(adapter, key);
+> +		if (err)
+> +			return err;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
 
-(v0)
-* initial version "bridge: remove BR_GROUPFWD_RESTRICTED for arbitrary
-                   forwarding of reserved addresses"
+My advice here would be to just wrap these two functions in one mailbox
+lock and update the second check so that it is if (!err && key) so that
+you can simplify the path and just return err at the end.
 
- Documentation/ABI/testing/sysfs-class-net |   19 +++++++++++++++++++
- net/bridge/br_private.h                   |    4 ++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
-index 5ecfd72..668604f 100644
---- a/Documentation/ABI/testing/sysfs-class-net
-+++ b/Documentation/ABI/testing/sysfs-class-net
-@@ -39,6 +39,25 @@ Description:
- 		Format is a string, e.g: 00:11:22:33:44:55 for an Ethernet MAC
- 		address.
- 
-+What:		/sys/class/net/<bridge iface>/bridge/group_fwd_mask
-+Date:		January 2012
-+KernelVersion:	3.2
-+Contact:	netdev@vger.kernel.org
-+Description:
-+		Bitmask to allow forwarding of link local frames with address
-+		01-80-C2-00-00-0X on a bridge device. Only values that set bits
-+		not matching BR_GROUPFWD_RESTRICTED in net/bridge/br_private.h
-+		allowed.
-+		Default value 0 does not forward any link local frames.
-+
-+		Restricted bits:
-+		0: 01-80-C2-00-00-00 Bridge Group Address used for STP
-+		1: 01-80-C2-00-00-01 (MAC Control) 802.3 used for MAC PAUSE
-+		2: 01-80-C2-00-00-02 (Link Aggregation) 802.3ad
-+
-+		Any values not setting these bits can be used. Take special
-+		care when forwarding control frames e.g. 802.1X-PAE or LLDP.
-+
- What:		/sys/class/net/<iface>/broadcast
- Date:		April 2005
- KernelVersion:	2.6.12
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b46fa0c..ef8ef3f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -33,8 +33,8 @@
- 
- /* Control of forwarding link local multicast */
- #define BR_GROUPFWD_DEFAULT	0
--/* Don't allow forwarding control protocols like STP and LLDP */
--#define BR_GROUPFWD_RESTRICTED	0x4007u
-+/* Don't allow forwarding of control protocols like STP, MAC PAUSE and LACP */
-+#define BR_GROUPFWD_RESTRICTED	0x0007u
- /* The Nearest Customer Bridge Group Address, 01-80-C2-00-00-[00,0B,0C,0D,0F] */
- #define BR_GROUPFWD_8021AD	0xB801u
- 
--- 
-1.7.10.4
+>  static const struct ethtool_ops ixgbevf_ethtool_ops = {
+>  	.get_settings		= ixgbevf_get_settings,
+>  	.get_drvinfo		= ixgbevf_get_drvinfo,
+> @@ -811,6 +865,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+>  	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
+>  	.get_coalesce		= ixgbevf_get_coalesce,
+>  	.set_coalesce		= ixgbevf_set_coalesce,
+> +	.get_rxnfc		= ixgbevf_get_rxnfc,
+> +	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
+> +	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
+> +	.get_rxfh		= ixgbevf_get_rxfh,
+>  };
+>  
+>  void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+> 
