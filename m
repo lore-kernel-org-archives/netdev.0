@@ -1,105 +1,164 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netfront: transmit fully GSO-sized packets
-Date: Mon, 30 Mar 2015 14:46:39 +0100
-Message-ID: <20150330134639.GF25911@zion.uk.xensource.com>
-References: <1427368406-28084-1-git-send-email-jonathan.davies@citrix.com>
- <1427371537.25985.136.camel@edumazet-glaptop2.roam.corp.google.com>
- <5514210A.6020808@citrix.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 04/18] switchdev: convert STP update to swdev
+ attr set
+Date: Mon, 30 Mar 2015 06:47:10 -0700
+Message-ID: <551953DE.90702@cumulusnetworks.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com> <1427704836-8776-5-git-send-email-sfeldma@gmail.com> <20150330115417.GC2045@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Jonathan Davies <jonathan.davies@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, linux@roeck-us.net,
+	f.fainelli@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:62042 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752436AbbC3Nqm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 09:46:42 -0400
-Content-Disposition: inline
-In-Reply-To: <5514210A.6020808@citrix.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:34311 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752601AbbC3NrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:47:11 -0400
+Received: by pdbni2 with SMTP id ni2so176325413pdb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:47:11 -0700 (PDT)
+In-Reply-To: <20150330115417.GC2045@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 03:08:58PM +0000, Jonathan Davies wrote:
-> 
-> On 26/03/15 12:05, Eric Dumazet wrote:
-> >On Thu, 2015-03-26 at 11:13 +0000, Jonathan Davies wrote:
-> >>xen-netfront limits transmitted skbs to be at most 44 segments in size. However,
-> >>GSO permits up to 65536 bytes, which means a maximum of 45 segments of 1448
-> >>bytes each. This slight reduction in the size of packets means a slight loss in
-> >>efficiency.
-> >>
-> >>Since c/s 9ecd1a75d, xen-netfront sets gso_max_size to
-> >>     XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER,
-> >>where XEN_NETIF_MAX_TX_SIZE is 65535 bytes.
-> >>
-> >>The calculation used by tcp_tso_autosize (and also tcp_xmit_size_goal since c/s
-> >>6c09fa09d) in determining when to split an skb into two is
-> >>     sk->sk_gso_max_size - 1 - MAX_TCP_HEADER.
-> >>
-> >>So the maximum permitted size of an skb is calculated to be
-> >>     (XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER) - 1 - MAX_TCP_HEADER.
-> >>
-> >>Intuitively, this looks like the wrong formula -- we don't need two TCP headers.
-> >>Instead, there is no need to deviate from the default gso_max_size of 65536 as
-> >>this already accommodates the size of the header.
-> >>
-> >>Currently, the largest skb transmitted by netfront is 63712 bytes (44 segments
-> >>of 1448 bytes each), as observed via tcpdump. This patch makes netfront send
-> >>skbs of up to 65160 bytes (45 segments of 1448 bytes each).
-> >>
-> >>Fixes: 9ecd1a75d977 ("xen-netfront: reduce gso_max_size to account for max TCP header")
-> >>Signed-off-by: Jonathan Davies <jonathan.davies@citrix.com>
-> >>---
-> >>  drivers/net/xen-netfront.c | 2 --
-> >>  1 file changed, 2 deletions(-)
-> >>
-> >>diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> >>index e9b960f..fb6e978 100644
-> >>--- a/drivers/net/xen-netfront.c
-> >>+++ b/drivers/net/xen-netfront.c
-> >>@@ -1279,8 +1279,6 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
-> >>  	netdev->ethtool_ops = &xennet_ethtool_ops;
-> >>  	SET_NETDEV_DEV(netdev, &dev->dev);
-> >>
-> >>-	netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
-> >>-
-> >>  	np->netdev = netdev;
-> >>
-> >>  	netif_carrier_off(netdev);
-> >
-> >Hmm, this partially reverts commit
-> >9ecd1a75d977e2e8c48139c7d3efed183f898d94
-> >
-> >
-> >
-> >Why xennet_change_mtu() is not changed by your patch ?
-> 
-> I think you are right: the mtu calculation suffers from the same problem. I
-> believe the value of mtu relates to the size of the whole packet, including
-> the header (which is why the value of dev->mtu is normally 1500 rather than
-> 1448).
-> 
-> Wei, as the author of commit 9ecd1a75d977 ("xen-netfront: reduce
-> gso_max_size to account for max TCP header"), do you agree that the max mtu
-> formula should not need to subtract MAX_TCP_HEADER?
-> 
+On 3/30/15, 4:54 AM, Jiri Pirko wrote:
+> Mon, Mar 30, 2015 at 10:40:22AM CEST, sfeldma@gmail.com wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> STP update is just a writable port attribute, so convert swdev_port_stp_update
+>> to an attr set.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> ---
+>> drivers/net/ethernet/rocker/rocker.c |   16 +++++++++++++---
+>> include/net/switchdev.h              |   13 ++-----------
+>> net/bridge/br_stp.c                  |    6 +++++-
+>> net/dsa/slave.c                      |   19 ++++++++++++++++++-
+>> net/switchdev/switchdev.c            |   28 ----------------------------
+>> 5 files changed, 38 insertions(+), 44 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>> index 4bcc555..224f91d 100644
+>> --- a/drivers/net/ethernet/rocker/rocker.c
+>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>> @@ -4237,11 +4237,21 @@ static int rocker_port_attr_get(struct net_device *dev, struct swdev_attr *attr)
+>> 	return 0;
+>> }
+>>
+>> -static int rocker_port_swdev_port_stp_update(struct net_device *dev, u8 state)
+>> +static int rocker_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
+>> {
+>> 	struct rocker_port *rocker_port = netdev_priv(dev);
+>> +	int err = 0;
+>> +
+>> +	switch (attr->attr) {
+>> +	case SWDEV_ATTR_PORT_STP_STATE:
+>> +		err = rocker_port_stp_update(rocker_port, attr->stp_state);
+>> +		break;
+>> +	default:
+>> +		err = -EOPNOTSUPP;
+>> +		break;
+>> +	}
+>>
+>> -	return rocker_port_stp_update(rocker_port, state);
+>> +	return err;
+>> }
+>>
+>> static int rocker_port_swdev_fib_ipv4_add(struct net_device *dev,
+>> @@ -4271,7 +4281,7 @@ static int rocker_port_swdev_fib_ipv4_del(struct net_device *dev,
+>>
+>> static const struct swdev_ops rocker_port_swdev_ops = {
+>> 	.swdev_port_attr_get		= rocker_port_attr_get,
+>> -	.swdev_port_stp_update		= rocker_port_swdev_port_stp_update,
+>> +	.swdev_port_attr_set		= rocker_port_attr_set,
+>> 	.swdev_fib_ipv4_add		= rocker_port_swdev_fib_ipv4_add,
+>> 	.swdev_fib_ipv4_del		= rocker_port_swdev_fib_ipv4_del,
+>> };
+>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>> index fd36b5c..99050b0 100644
+>> --- a/include/net/switchdev.h
+>> +++ b/include/net/switchdev.h
+>> @@ -17,6 +17,7 @@
+>> enum swdev_attr_id {
+>> 	SWDEV_ATTR_UNDEFINED,
+>> 	SWDEV_ATTR_PORT_PARENT_ID,
+>> +	SWDEV_ATTR_PORT_STP_STATE,
+>> };
+>>
+>> #define SWDEV_ATTR_F_NO_RECURSE		BIT(0)
+>> @@ -27,6 +28,7 @@ struct swdev_attr {
+>> 	u32 flags;
+>> 	union {
+>> 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+>> +		u8 stp_state;				/* PORT_STP_STATE */
+>> 	};
+>> };
+>>
+>> @@ -39,9 +41,6 @@ struct fib_info;
+>>   *
+>>   * @swdev_port_attr_set: Set a port attribute (see swdev_attr).
+>>   *
+>> - * @swdev_port_stp_update: Called to notify switch device port of bridge
+>> - *   port STP state change.
+>> - *
+>>   * @swdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
+>>   *
+>>   * @swdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
+>> @@ -51,7 +50,6 @@ struct swdev_ops {
+>> 				       struct swdev_attr *attr);
+>> 	int	(*swdev_port_attr_set)(struct net_device *dev,
+>> 				       struct swdev_attr *attr);
+>> -	int	(*swdev_port_stp_update)(struct net_device *dev, u8 state);
+>> 	int	(*swdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+>> 				      int dst_len, struct fib_info *fi,
+>> 				      u8 tos, u8 type, u32 nlflags,
+>> @@ -86,7 +84,6 @@ netdev_switch_notifier_info_to_dev(const struct netdev_switch_notifier_info *inf
+>>
+>> int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr);
+>> int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr);
+>> -int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+>> int register_netdev_switch_notifier(struct notifier_block *nb);
+>> int unregister_netdev_switch_notifier(struct notifier_block *nb);
+>> int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
+>> @@ -119,12 +116,6 @@ static inline int swdev_port_attr_set(struct net_device *dev,
+>> 	return -EOPNOTSUPP;
+>> }
+>>
+>> -static inline int netdev_switch_port_stp_update(struct net_device *dev,
+>> -						u8 state)
+>> -{
+>> -	return -EOPNOTSUPP;
+>> -}
+>> -
+>> static inline int register_netdev_switch_notifier(struct notifier_block *nb)
+>> {
+>> 	return 0;
+>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>> index fb3ebe6..8b2ef23 100644
+>> --- a/net/bridge/br_stp.c
+>> +++ b/net/bridge/br_stp.c
+>> @@ -39,10 +39,14 @@ void br_log_state(const struct net_bridge_port *p)
+>>
+>> void br_set_state(struct net_bridge_port *p, unsigned int state)
+>> {
+>> +	struct swdev_attr attr = {
+>> +		.attr = SWDEV_ATTR_PORT_STP_STATE,
+>> +		.stp_state = state,
+>> +	};
+>> 	int err;
+>>
+>> 	p->state = state;
+>> -	err = netdev_switch_port_stp_update(p->dev, state);
+>> +	err = swdev_port_attr_set(p->dev, &attr);
+> Seems nicer to me to provide a wrapper for callers so they don't call
+> directly swdev_port_attr_set and have no knowledge of swdev_attr.
++1. I had a similar patch long back. swdev_port_attr_set can take a 
+attrname and void argument.
+the caller only needs to know the attrname in that case.
 
-IIRC at the time I wrote that patch I needed to subtract MAX_TCP_HEADER
-otherwise netfront would generate oversized packets then get marked as
-malicious by backend.
-
-I think your reasoning is straightforward. Probably other core driver
-changes have somehow mitigated the issues I saw.
-
-Presuming you tested this change and saw no problems, I'm of course
-happy with making netfront more efficient. :-)
-
-Wei.
-
-> Regards,
-> Jonathan
+I had used netlink attribute names at that time to not have another set 
+of duplicate attribute names in the swdev layer. But then the api has to 
+be called swdev_bridge_port_attr_set to match the bridge attribute 
+policy name.
+but, i have no objections to having  the new attribute names 
+SWDEV_ATTR_PORT_*
