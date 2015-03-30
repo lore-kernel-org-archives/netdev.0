@@ -1,86 +1,139 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next 00/18] switchdev: spring cleanup
-Date: Mon, 30 Mar 2015 01:40:18 -0700
-Message-ID: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next 01/18] switchdev: introduce get/set attrs ops
+Date: Mon, 30 Mar 2015 01:40:19 -0700
+Message-ID: <1427704836-8776-2-git-send-email-sfeldma@gmail.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:32830 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901AbbC3Ijp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:39:45 -0400
-Received: by pacgg7 with SMTP id gg7so31580971pac.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:39:44 -0700 (PDT)
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:34916 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753122AbbC3Ijq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:39:46 -0400
+Received: by pddn5 with SMTP id n5so52846486pdd.2
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:39:45 -0700 (PDT)
+In-Reply-To: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-The main theme of this patch set is to cleanup swdev in preparation for
-new features or fixes to be added soon.  We have a pretty good idea now how
-to handle stacked drivers in swdev, but there where some loose ends.  For
-example, if a set failed in the middle of walking the lower devs, we would
-leave the system in an undefined state...there was no way to recover back to
-the previous state.  Speaking of sets, also recognize a pattern that most
-swdev API accesses are gets or sets of port attributes, so go ahead and make
-port attr get/set the central swdev API, and convert everything that is
-set-ish/get-ish to this new API.
+Add two new swdev ops for get/set switch port attributes.  We'll flesh these
+out in the next patch.  Most swdev interactions on a port are gets or sets on
+port attributes, so rather than adding ops for each attribute, let's define
+clean get/set ops for all attributes, and then we can have clear, consistent
+rules on how attributes propagate on stacked devs.
 
-Features/fixes that should follow from this cleanup:
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ include/net/switchdev.h   |   30 ++++++++++++++++++++++++++++++
+ net/switchdev/switchdev.c |   24 ++++++++++++++++++++++++
+ 2 files changed, 54 insertions(+)
 
- - solve the duplicate pkt forwarding issue
- - get/set bridge attrs, like ageing_time, from/to device
- - get/set more bridge port attrs from/to device
-
-There are some rename cleanups tagging along at the end, to give swdev
-consistent naming.
-
-And finally, some much needed updates to the switchdev.txt documentation to
-hopefully capture the state-of-the-art of swdev.  Hopefully, we can do a better
-job keeping this document up-to-date.
-
-Tested with rocker, of course, to make sure nothing functional broke.  There
-are a couple minor tweaks to DSA code for getting switch ID and setting STP
-updates to use new API, but not expecting amy breakage there.
-
-
-Scott Feldman (18):
-  switchdev: introduce get/set attrs ops
-  switchdev: flesh out get/set attr ops
-  switchdev: convert parent_id_get to swdev attr get
-  switchdev: convert STP update to swdev attr set
-  switchdev: add bridge port flags attr
-  rocker: use swdev get/set attr for bridge port flags
-  switchdev: add new swdev bridge setlink
-  rocker: cut over to new swdev_port_bridge_setlink
-  bonding: cut over to new swdev_port_bridge_setlink
-  team: cut over to new swdev_port_bridge_setlink
-  switchdev: remove old netdev_switch_port_bridge_setlink
-  switchdev: remove unused netdev_switch_port_bridge_dellink
-  switchdev: remove unused NETIF_F_HW_SWITCH_OFFLOAD
-  switchdev: add new swdev_port_bridge_getlink
-  rocker: cut over to new swdev_port_bridge_getlink
-  switchdev: rename netdev_switch_fib_* to swdev_fib_*
-  switchdev: rename netdev_switch_notifier_* to swdev_notifier_*
-  switchdev: bring documentation up-to-date
-
- Documentation/networking/switchdev.txt |  426 +++++++++++++++++++++++++++-----
- drivers/net/bonding/bond_main.c        |    8 +-
- drivers/net/ethernet/rocker/rocker.c   |  108 +++-----
- drivers/net/team/team.c                |    5 +-
- include/linux/netdev_features.h        |    5 +-
- include/net/switchdev.h                |  144 ++++++-----
- net/bridge/br.c                        |   22 +-
- net/bridge/br_netlink.c                |   24 +-
- net/bridge/br_stp.c                    |    6 +-
- net/core/ethtool.c                     |    1 -
- net/core/net-sysfs.c                   |   10 +-
- net/core/rtnetlink.c                   |    9 +-
- net/dsa/slave.c                        |   35 ++-
- net/ipv4/fib_trie.c                    |   38 ++-
- net/switchdev/switchdev.c              |  334 ++++++++++++++-----------
- 15 files changed, 750 insertions(+), 425 deletions(-)
-
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index d2e69ee..7b72a4f 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -14,6 +14,14 @@
+ #include <linux/netdevice.h>
+ #include <linux/notifier.h>
+ 
++enum swdev_attr_id {
++	SWDEV_ATTR_UNDEFINED,
++};
++
++struct swdev_attr {
++	enum swdev_attr_id attr;
++};
++
+ struct fib_info;
+ 
+ /**
+@@ -23,6 +31,10 @@ struct fib_info;
+  *   is part of.  If driver implements this, it indicates that it
+  *   represents a port of a switch chip.
+  *
++ * @swdev_port_attr_get: Get a port attribute (see swdev_attr).
++ *
++ * @swdev_port_attr_set: Set a port attribute (see swdev_attr).
++ *
+  * @swdev_port_stp_update: Called to notify switch device port of bridge
+  *   port STP state change.
+  *
+@@ -33,6 +45,10 @@ struct fib_info;
+ struct swdev_ops {
+ 	int	(*swdev_parent_id_get)(struct net_device *dev,
+ 				       struct netdev_phys_item_id *psid);
++	int	(*swdev_port_attr_get)(struct net_device *dev,
++				       struct swdev_attr *attr);
++	int	(*swdev_port_attr_set)(struct net_device *dev,
++				       struct swdev_attr *attr);
+ 	int	(*swdev_port_stp_update)(struct net_device *dev, u8 state);
+ 	int	(*swdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+ 				      int dst_len, struct fib_info *fi,
+@@ -68,6 +84,8 @@ netdev_switch_notifier_info_to_dev(const struct netdev_switch_notifier_info *inf
+ 
+ int netdev_switch_parent_id_get(struct net_device *dev,
+ 				struct netdev_phys_item_id *psid);
++int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr);
++int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr);
+ int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+ int register_netdev_switch_notifier(struct notifier_block *nb);
+ int unregister_netdev_switch_notifier(struct notifier_block *nb);
+@@ -95,6 +113,18 @@ static inline int netdev_switch_parent_id_get(struct net_device *dev,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static inline int swdev_port_attr_get(struct net_device *dev,
++				      enum swdev_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int swdev_port_attr_set(struct net_device *dev,
++				      enum swdev_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int netdev_switch_port_stp_update(struct net_device *dev,
+ 						u8 state)
+ {
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 46568b8..a894fa5 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -37,6 +37,30 @@ int netdev_switch_parent_id_get(struct net_device *dev,
+ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+ 
+ /**
++ *	swdev_port_attr_get - Get port attribute
++ *
++ *	@dev: port device
++ *	@attr: attribute to get
++ */
++int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++EXPORT_SYMBOL_GPL(swdev_port_attr_get);
++
++/**
++ *	swdev_port_attr_set - Set port attribute
++ *
++ *	@dev: port device
++ *	@attr: attribute to set
++ */
++int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++EXPORT_SYMBOL_GPL(swdev_port_attr_set);
++
++/**
+  *	netdev_switch_port_stp_update - Notify switch device port of STP
+  *					state change
+  *	@dev: port device
 -- 
 1.7.10.4
