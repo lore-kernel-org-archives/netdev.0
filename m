@@ -1,64 +1,93 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
-Date: Mon, 30 Mar 2015 07:10:24 -0400
-Message-ID: <55192F20.3030508@mojatatu.com>
-References: <1427374439-11587-1-git-send-email-jiri@resnulli.us> <55189B43.6000407@mojatatu.com> <20150330062632.GB2045@nanopsycho.orion>
+From: Sheng Yong <shengyong1@huawei.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Mon, 30 Mar 2015 19:13:22 +0800
+Message-ID: <55192FD2.3000005@huawei.com>
+References: <54CF3348.40207@huawei.com> <20150203092845.GT13046@secunet.com> <54D0A8DB.4010106@huawei.com> <20150203120140.GU13046@secunet.com> <54D17D1A.3020706@huawei.com> <20150205072125.GY13046@secunet.com> <54EFD87A.5080907@huawei.com> <20150330103210.GI3311@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
-	jesse@nicira.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<yangyingliang@huawei.com>, <hannes@redhat.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37083 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbbC3LK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 07:10:29 -0400
-Received: by igcxg11 with SMTP id xg11so68743304igc.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 04:10:28 -0700 (PDT)
-In-Reply-To: <20150330062632.GB2045@nanopsycho.orion>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:6929 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751953AbbC3LOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 07:14:20 -0400
+In-Reply-To: <20150330103210.GI3311@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/30/15 02:26, Jiri Pirko wrote:
-> Mon, Mar 30, 2015 at 02:39:31AM CEST, jhs@mojatatu.com wrote:
 
->> Could you have got rid of "type" above given we always have
->> a "proto" field in tc that is checked at the core?
->
-> Sure it is possible. But I try to stick with the names used in OpenFlof
-> documentation.
->
 
-Ok, thats fine. Safer to stick with the spec.
+On 3/30/2015 6:32 PM, Steffen Klassert wrote:
+> On Fri, Feb 27, 2015 at 10:37:46AM +0800, shengyong wrote:
+>>
+>>
+>> =E5=9C=A8 2015/2/5 15:21, Steffen Klassert =E5=86=99=E9=81=93:
+>>> On Wed, Feb 04, 2015 at 09:59:54AM +0800, shengyong wrote:
+>>>>
+>>>> Sorry, the later. I test it on 3.10-stable. It can fix this proble=
+m. So maybe this is a bug?
+>>>
+>>> Yes, it's a bug.
+>>>
+>>>> And the 3 approaches (different flags are used: RTF_LOCAL, IFF_LOO=
+PBACK and RTF_CACHE) in
+>>>> these mails can fix the expire of local address. I'm confused abou=
+t these flags:
+>>>> * RTF_LOCAL: the entries of local address, like address binded to =
+the native NIC
+>>>> * RTF_CACHE: all cached entries
+>>>> * IFF_LOOPBACK: this is a device-related flag, which has the same =
+meaning as RTF_LOCAL
+>>>>
+>>>> Am I right? If so, I think RTF_LOCAL is appropriate, because we ju=
+st want entries of local
+>>>> addresses to be not expired and we don't care other entries (I thi=
+nk if they get expired,
+>>>> a neigh discovery could find them back).
+>>>
+>>> It is not the address that expires, it is the learned PMTU value th=
+at
+>>> expires. If we delete an uncached route, nothing will bring it back
+>>> unless you readd it manually.
+>>>
+>>> We need to ensure that all routes that can learn something what
+>>> expires are cached. This means that we clone the inserted route
+>>> when it is used for the first time. The learned values are stored
+>>> at this cloned route. If the learned value expires, the clone is
+>>> deleted. The original route remains in the fib tree and can be
+>>> still looked up.
+>>>
+>>> The problem is, that we currently don't cache/clone host routes.
+>>> So if a host route learns something that expires, the original
+>>> route is removed from the fib tree and we loose connectivity
+>>> to that host. We don't cache host routes because some of them
+>>> (the local ones) are automatically added with metric 0.
+>>> If we try to cache such a route, the clone will be identical
+>>> to the original route and we fail to insert it to the fib tree.
+>>>
+>>> So we need to adjust the caching to all routes that actually can
+>>> learn something and leave out only those that can not.
+>>>
+>>> I'll send a patchset that should fix this at the beginning of the
+>>> next week.
+>> Hi, Steffen
+>> Is this patchset ready? It seems that I didn't find it in the mainli=
+ng
+>> list. If it is ready, I can test it to see if it solves the problem =
+I
+>> met :)
+>=20
+> I finally end up with a patchset that passed all your testcases.
+> I'll send it in reply to this mail, please test it.
+>=20
+I just test the patchset, and it can solve the problem I met.
+Thanks very much,
+Sheng
 
->> Was there something else that was intended to go into that tp union?
->
-> Following fields are missing:
->
-> OXM_OF_SCTP_SRC
-> OXM_OF_SCTP_DST
-> OXM_OF_ICMPV4_TYPE
-> OXM_OF_ICMPV4_CODE
->
-
-It just looked strange to have a union with only one member.
-
->> General comments:
->> so what happens if someone adds a new field? It sounds to me like
->> given it is tied to datapath match it will never be backward compatible
->> (i.e think old tc, new kernel vs new tc, old kernel)
->
->
-> Well if kernel does not understand the new field, it will simply ignore
-> it.
->
-
-More like user expectation may be different. I suppose they could query
-the kernel and find that their field was not set.
-BTW, another micro optimization:
-You could pre-compute the user passed key/mask result per field and
-in the fast path use that instead of doing f->match.key & f->match.mask
-
-cheers,
-jamal
+> Thanks!
+>=20
+> .
+>=20
