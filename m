@@ -1,8 +1,8 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v9 4/7] ixgbevf: Add a RETA query code
-Date: Mon, 30 Mar 2015 18:13:16 +0300
-Message-ID: <5519680C.7080707@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-5-git-send-email-vladz@cloudius-systems.com> <551881FE.7000600@gmail.com> <5519139A.9090500@cloudius-systems.com> <5519647D.5000202@redhat.com>
+Subject: Re: [PATCH net-next v9 6/7] ixgbevf: Add RSS Key query code
+Date: Mon, 30 Mar 2015 18:17:40 +0300
+Message-ID: <55196914.7020307@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com> <5519554A.1010101@cloudius-systems.com> <55196757.9010008@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,161 +12,120 @@ To: Alexander Duyck <alexander.h.duyck@redhat.com>,
 	Alexander Duyck <alexander.duyck@gmail.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:33028 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752745AbbC3PNT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 11:13:19 -0400
-Received: by wixm2 with SMTP id m2so89510912wix.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 08:13:18 -0700 (PDT)
-In-Reply-To: <5519647D.5000202@redhat.com>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:35532 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752776AbbC3PRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 11:17:44 -0400
+Received: by wgdm6 with SMTP id m6so178996600wgd.2
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 08:17:42 -0700 (PDT)
+In-Reply-To: <55196757.9010008@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 03/30/15 17:58, Alexander Duyck wrote:
+On 03/30/15 18:10, Alexander Duyck wrote:
 >
-> On 03/30/2015 02:12 AM, Vlad Zolotarov wrote:
+> On 03/30/2015 06:53 AM, Vlad Zolotarov wrote:
 >>
 >>
->> On 03/30/15 01:51, Alexander Duyck wrote:
+>> On 03/30/15 01:04, Alexander Duyck wrote:
 >>> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
->>>> We will currently support only 82599 and x540 deviced. Support for 
->>>> other devices
->>>> will be added later.
+>>>> Add the ixgbevf_get_rss_key() function that queries the PF for an 
+>>>> RSS Random Key
+>>>> using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
 >>>>
->>>>     - Added a new API version support.
->>>>     - Added the query implementation in the ixgbevf.
+>>>> This patch adds the support for 82599 and x540 devices only. 
+>>>> Support for other
+>>>> devices will be added later.
 >>>>
 >>>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 >>>> ---
 >>>> New in v9:
 >>>>     - Reduce the support to 82599 and x540 devices only.
->>>>     - Improvements in RETA query code:
->>>>        - Implement a "compression" of VF's RETA contents: pass only 
->>>> 2 bits
->>>>          per-entry.
->>>>        - RETA querying is done in a single mailbox operation thanks 
->>>> to compression.
+>>>>     - Added IXGBEVF_RSS_HASH_KEY_SIZE macro.
 >>>>
 >>>> New in v8:
->>>>     - Protect mailbox with a spinlock.
->>>>
->>>> New in v7:
->>>>     - Add ixgbe_mbox_api_12 case in ixgbevf_set_num_queues().
->>>>     - Properly expand HW RETA into the ethtool buffer.
+>>>>     - Protect a mailbox access.
 >>>>
 >>>> New in v6:
->>>>     - Add a proper return code when an operation is blocked by PF.
+>>>>     - Return a proper return code when an operation is blocked by PF.
 >>>>
->>>> New in v3:
->>>>     - Adjusted to the new interface IXGBE_VF_GET_RETA command.
->>>>     - Added a proper support for x550 devices.
+>>>> New in v2:
+>>>>     - Added a more detailed patch description.
 >>>>
 >>>> New in v1 (compared to RFC):
 >>>>     - Use "if-else" statement instead of a "switch-case" for a 
 >>>> single option case
->>>>       (in ixgbevf_get_reta()).
+>>>>       (in ixgbevf_get_rss_key()).
 >>>> ---
->>>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  5 +-
->>>>   drivers/net/ethernet/intel/ixgbevf/mbx.h          |  4 ++
->>>>   drivers/net/ethernet/intel/ixgbevf/vf.c           | 76 
->>>> +++++++++++++++++++++++
->>>>   drivers/net/ethernet/intel/ixgbevf/vf.h           |  2 +
->>>>   4 files changed, 86 insertions(+), 1 deletion(-)
+>>>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  1 +
+>>>>   drivers/net/ethernet/intel/ixgbevf/mbx.h     |  1 +
+>>>>   drivers/net/ethernet/intel/ixgbevf/vf.c      | 66 
+>>>> ++++++++++++++++++++++++++++
+>>>>   drivers/net/ethernet/intel/ixgbevf/vf.h      |  1 +
+>>>>   4 files changed, 69 insertions(+)
 >>>>
->>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c 
->>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> index 4ee15ad..a16d267 100644
->>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> @@ -2030,7 +2030,8 @@ static void 
->>>> ixgbevf_init_last_counter_stats(struct ixgbevf_adapter *adapter)
->>>>   static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
->>>>   {
->>>>       struct ixgbe_hw *hw = &adapter->hw;
->>>> -    int api[] = { ixgbe_mbox_api_11,
->>>> +    int api[] = { ixgbe_mbox_api_12,
->>>> +              ixgbe_mbox_api_11,
->>>>                 ixgbe_mbox_api_10,
->>>>                 ixgbe_mbox_api_unknown };
->>>>       int err = 0, idx = 0;
->>>> @@ -2332,6 +2333,7 @@ static void ixgbevf_set_num_queues(struct 
->>>> ixgbevf_adapter *adapter)
->>>>             switch (hw->api_version) {
->>>>           case ixgbe_mbox_api_11:
->>>> +        case ixgbe_mbox_api_12:
->>>>               adapter->num_rx_queues = rss;
->>>>               adapter->num_tx_queues = rss;
->>>>           default:
->>>> @@ -3712,6 +3714,7 @@ static int ixgbevf_change_mtu(struct 
->>>> net_device *netdev, int new_mtu)
->>>>         switch (adapter->hw.api_version) {
->>>>       case ixgbe_mbox_api_11:
->>>> +    case ixgbe_mbox_api_12:
->>>>           max_possible_frame = IXGBE_MAX_JUMBO_FRAME_SIZE;
->>>>           break;
->>>>       default:
+>>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h 
+>>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>>>> index bc939a1..6771ae3 100644
+>>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>>>> @@ -145,6 +145,7 @@ struct ixgbevf_ring {
+>>>>   #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
+>>>>   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
+>>>>   #define IXGBEVF_MAX_RSS_QUEUES    2
+>>>> +#define IXGBEVF_RSS_HASH_KEY_SIZE    40
+>>>>     #define IXGBEVF_DEFAULT_TXD    1024
+>>>>   #define IXGBEVF_DEFAULT_RXD    512
 >>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h 
 >>>> b/drivers/net/ethernet/intel/ixgbevf/mbx.h
->>>> index 6253e93..66e138b 100644
+>>>> index 66e138b..82f44e0 100644
 >>>> --- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
 >>>> +++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
->>>> @@ -83,6 +83,7 @@ enum ixgbe_pfvf_api_rev {
->>>>       ixgbe_mbox_api_10,    /* API version 1.0, linux/freebsd VF 
->>>> driver */
->>>>       ixgbe_mbox_api_20,    /* API version 2.0, solaris Phase1 VF 
->>>> driver */
->>>>       ixgbe_mbox_api_11,    /* API version 1.1, linux/freebsd VF 
->>>> driver */
->>>> +    ixgbe_mbox_api_12,    /* API version 1.2, linux/freebsd VF 
->>>> driver */
->>>>       /* This value should always be last */
->>>>       ixgbe_mbox_api_unknown,    /* indicates that API version is 
->>>> not known */
->>>>   };
->>>> @@ -107,6 +108,9 @@ enum ixgbe_pfvf_api_rev {
->>>>   #define IXGBE_VF_TRANS_VLAN    3 /* Indication of port VLAN */
->>>>   #define IXGBE_VF_DEF_QUEUE    4 /* Default queue offset */
->>>>   +/* mailbox API, version 1.2 VF requests */
->>>> +#define IXGBE_VF_GET_RETA    0x0a    /* VF request for RETA */
->>>> +
->>>>   /* length of permanent address message returned from PF */
+>>>> @@ -110,6 +110,7 @@ enum ixgbe_pfvf_api_rev {
+>>>>     /* mailbox API, version 1.2 VF requests */
+>>>>   #define IXGBE_VF_GET_RETA    0x0a    /* VF request for RETA */
+>>>> +#define IXGBE_VF_GET_RSS_KEY    0x0b    /* get RSS hash key */
+>>>>     /* length of permanent address message returned from PF */
 >>>>   #define IXGBE_VF_PERMADDR_MSG_LEN    4
->>>>   /* word in permanent address message with the current multicast 
->>>> type */
 >>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c 
 >>>> b/drivers/net/ethernet/intel/ixgbevf/vf.c
->>>> index 2614fd3..2676c0b 100644
+>>>> index 2676c0b..ec68145 100644
 >>>> --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
 >>>> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
->>>> @@ -256,6 +256,81 @@ static s32 ixgbevf_set_uc_addr_vf(struct 
->>>> ixgbe_hw *hw, u32 index, u8 *addr)
->>>>       return ret_val;
+>>>> @@ -301,6 +301,72 @@ static inline int 
+>>>> ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *msgbuf,
+>>>>       return 0;
 >>>>   }
->>>>   +static inline int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, 
->>>> u32 *msgbuf,
->>>> +                      u32 *reta)
+>>>>   +static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw 
+>>>> *hw, u8 *rss_key)
 >>>> +{
->>>> +    int err, i, j;
->>>> +    u32 *hw_reta = &msgbuf[1];
+>>>> +    int err;
+>>>> +    u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
 >>>> +
->>>> +    /* We have to use a mailbox for 82599 and x540 devices only.
->>>> +     * For these devices RETA has 128 entries.
->>>> +     * Also these VFs support up to 4 RSS queues. Therefore PF 
->>>> will compress
->>>> +     * 16 RETA entries in each DWORD giving 2 bits to each entry.
+>>>> +    /* We currently support the RSS Random Key retrieval for 82599 
+>>>> and x540
+>>>> +     * devices only.
+>>>> +     *
+>>>> +     * Thus return an error if API doesn't support RSS Random Key 
+>>>> retrieval
+>>>> +     * or if the operation is not supported for this device type.
 >>>> +     */
->>>> +    int dwords = 128 / 16;
+>>>> +    if (hw->api_version != ixgbe_mbox_api_12 ||
+>>>> +        hw->mac.type >= ixgbe_mac_X550_vf)
+>>>> +        return -EPERM;
 >>>> +
->>>> +    msgbuf[0] = IXGBE_VF_GET_RETA;
->>>> +
+>>> The return type here should be not supported, or IXGBE_NOT_IMPLEMENTED,
+>>> not no permissions.
+>>>
+>>>> +    msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
 >>>> +    err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
 >>>> +
 >>>> +    if (err)
 >>>> +        return err;
 >>>> +
->>>> +    err = hw->mbx.ops.read_posted(hw, msgbuf, dwords + 1);
+>>>> +    err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
 >>>> +
 >>>> +    if (err)
 >>>> +        return err;
@@ -181,60 +140,62 @@ On 03/30/15 17:58, Alexander Duyck wrote:
 >>>> +     * some sort of mailbox error so we should treat it
 >>>> +     * as such.
 >>>> +     */
->>>> +    if (msgbuf[0] != (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_ACK))
+>>>> +    if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
 >>>> +        return IXGBE_ERR_MBX;
 >>>> +
->>>> +    for (i = 0; i < dwords; i++)
->>>> +        for (j = 0; j < 16; j++)
->>>> +            reta[i * 16 + j] = (hw_reta[i] >> (2 * j)) & 0x3;
+>>>> +    memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
 >>>> +
 >>>> +    return 0;
 >>>> +}
 >>>> +
 >>>> +/**
->>>> + * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
->>>> + * @adapter: pointer to the port handle
+>>>> + * ixgbevf_get_rss_key - get the RSS Random Key
+>>>> + * @hw: pointer to the HW structure
 >>>> + * @reta: buffer to fill with RETA contents.
 >>>> + *
->>>> + * The "reta" buffer should be big enough to contain 32 registers.
+>>>> + * The "rss_key" buffer should be big enough to contain 10 registers.
+>>>> + * Ensures the atomicy of a mailbox access using the 
+>>>> adapter.mbx_lock spinlock.
 >>>> + *
 >>>> + * Returns: 0 on success.
 >>>> + *          if API doesn't support this operation - (-EPERM).
 >>>> + */
->>>> +int ixgbevf_get_reta(struct ixgbevf_adapter *adapter, u32 *reta)
+>>>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
 >>>> +{
->>>> +    int err;
->>>> +    u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
+>>>> +    int rc;
 >>>> +
->>>> +    /* We support the RSS querying for 82599 and x540 devices only.
->>>> +     * Thus return an error if API doesn't support RETA querying 
->>>> or querying
->>>> +     * is not supported for this device type.
->>>> +     */
->>>> +    if (adapter->hw.api_version != ixgbe_mbox_api_12 ||
->>>> +        adapter->hw.mac.type >= ixgbe_mac_X550_vf)
->>>> +        return -EPERM;
+>>>> +    spin_lock_bh(&a->mbx_lock);
+>>>> +    rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
+>>>> +    spin_unlock_bh(&a->mbx_lock);
+>>>> +
+>>>> +    return rc;
+>>>> +}
+>>>> +
+>>> Since there is currently no cases where you would be getting the 
+>>> rss_key
+>>> without the RETA you might just want to combine this function with
+>>> ixgbevf_get_reta so you only take the lock once and process both
+>>> messages in one pass instead of having to bounce the spinlock.
 >>
->> By the way, since u've commented on the return codes in PATCH02 don't 
->> u think that we should return -EOPNOTSUPP here too?
+>> I'd rather not do this.
+>> Let's start from the beginning: the locks here should be removed and
+>> added at the caller level to match what u wrote about patch04.
+>> Then about the uniting the two functions mentioned above - there isn't
+>> any added value of doing this. Taking a lock only once may be done
+>> without uniting (see PATCH07 in v10 series).
+>> On the other hand, this uniting is going to make the code awkward and
+>> unclear ("why are these together anyway?").
+>> So, I'd rather keep these functions as they are apart from fixing the 
+>> locking issue. I'll essentially export the _locked functions.
+>>
+>> thanks,
+>> vlad
 >
-> Yes.  I just missed that in the review.  Though I don't know if 
-> EOPNOTSUPP is the correct response here since this is really meant to 
-> be an OS agnostic section. 
+> Agreed, just export the _locked functions and drop the _locked extension.
 
-Well, it's gona be a super correct response (for any Posix compliant OS 
-like Linux and FreeBSD) since (in Linux) this error code is forwarded 
-directly to ethtool application and it prints the corresponding error 
-message.
-Pls., note that there are other functions in vf.c that already return 
-other POSIX codes (e.g. -ENOMEM in ixgbevf_set_uc_addr_vf()).
-
-
-> You might just return IXGBE_ERR_MBX since there isn't a mailbox 
-> messages supported for x550_vf or API before 12.
-
-I remember Dave Miller was really angry in the past when he smelled that 
-some Linux code is being shared with other not-so-open-source OSes... ;)
+Hmmm... I think keeping the _locked extension would make sense since it 
+would explicitly hint that these functions have to be called under the 
+lock. There are other similar examples in the ixgbe/ixgbevf code already.
 
 >
 > - Alex
