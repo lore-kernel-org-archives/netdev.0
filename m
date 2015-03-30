@@ -1,79 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH -next] mac80211: Use #define IEEE80211_CCMP_PN_LEN and bool
-Date: Mon, 30 Mar 2015 09:37:54 -0700
-Message-ID: <1427733474.14276.11.camel@perches.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH] ixgbe: Drop unnecessary call to rcu_barrier
+Date: Mon, 30 Mar 2015 09:41:38 -0700
+Message-ID: <20150330164138.1335.47547.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51037 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752828AbbC3Qlk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 12:41:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use a #define constant instead of a hardcoded value
-and use bool for an int used as a bool to reduce
-structure size.
+The ixgbe driver hasn't used call_rcu to free the rings for some time now.
+Since that is the case the call to rcu_barrier can be dropped since calls
+to kfree_rcu don't require it.
 
-Miscellanea:
-
-Neaten comments in structure definition.
-Add #include of ieee80211.h
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/mac80211/ieee80211_i.h | 7 ++++---
- net/mac80211/rx.c          | 4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 8d53d65..08f994d 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -26,6 +26,7 @@
- #include <linux/etherdevice.h>
- #include <linux/leds.h>
- #include <linux/idr.h>
-+#include <linux/ieee80211.h>
- #include <net/ieee80211_radiotap.h>
- #include <net/cfg80211.h>
- #include <net/mac80211.h>
-@@ -89,11 +90,11 @@ struct ieee80211_fragment_entry {
- 	unsigned int last_frag;
- 	unsigned int extra_len;
- 	struct sk_buff_head skb_list;
--	int ccmp; /* Whether fragments were encrypted with CCMP */
--	u8 last_pn[6]; /* PN of the last fragment if CCMP was used */
-+	/* for CCMP fragments */
-+	bool ccmp;				/* encrypted with CCMP */
-+	u8 last_pn[IEEE80211_CCMP_PN_LEN];	/* PN of the last fragment */
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 395dc6bb5d82..d628c0173e29 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8977,8 +8977,6 @@ static void __exit ixgbe_exit_module(void)
+ 	pci_unregister_driver(&ixgbe_driver);
  
+ 	ixgbe_dbg_exit();
 -
- struct ieee80211_bss {
- 	u32 device_ts_beacon, device_ts_presp;
+-	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ }
  
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 944bdc0..367ed9c 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -1711,7 +1711,7 @@ ieee80211_reassemble_add(struct ieee80211_sub_if_data *sdata,
- 	entry->seq = seq;
- 	entry->rx_queue = rx_queue;
- 	entry->last_frag = frag;
--	entry->ccmp = 0;
-+	entry->ccmp = false;
- 	entry->extra_len = 0;
- 
- 	return entry;
-@@ -1812,7 +1812,7 @@ ieee80211_rx_h_defragment(struct ieee80211_rx_data *rx)
- 			int queue = rx->security_idx;
- 			/* Store CCMP PN so that we can verify that the next
- 			 * fragment has a sequential PN value. */
--			entry->ccmp = 1;
-+			entry->ccmp = true;
- 			memcpy(entry->last_pn,
- 			       rx->key->u.ccmp.rx_pn[queue],
- 			       IEEE80211_CCMP_PN_LEN);
+ #ifdef CONFIG_IXGBE_DCA
