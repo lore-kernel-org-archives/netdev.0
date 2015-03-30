@@ -1,117 +1,88 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v3 2/2] ixgbe: Add the appropriate ethtool ops to query RSS indirection table and key
-Date: Mon, 30 Mar 2015 21:18:58 +0300
-Message-ID: <1427739538-1038-3-git-send-email-vladz@cloudius-systems.com>
-References: <1427739538-1038-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	avi@cloudius-systems.com, gleb@cloudius-systems.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
+From: Martin Lau <kafai@fb.com>
+Subject: Re: [PATCH RFC 1/3] ipv6: Fix after pmtu events dissapearing host
+ routes
+Date: Mon, 30 Mar 2015 11:24:33 -0700
+Message-ID: <20150330182433.GC2303816@devbig242.prn2.facebook.com>
+References: <54CF3348.40207@huawei.com>
+ <20150203092845.GT13046@secunet.com>
+ <54D0A8DB.4010106@huawei.com>
+ <20150203120140.GU13046@secunet.com>
+ <54D17D1A.3020706@huawei.com>
+ <20150205072125.GY13046@secunet.com>
+ <54EFD87A.5080907@huawei.com>
+ <20150330103210.GI3311@secunet.com>
+ <20150330103313.GJ3311@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: shengyong <shengyong1@huawei.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <yangyingliang@huawei.com>,
+	<hannes@redhat.com>, Kernel Team <Kernel-team@fb.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:38599 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbC3STI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:19:08 -0400
-Received: by wibgn9 with SMTP id gn9so141647566wib.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 11:19:06 -0700 (PDT)
-In-Reply-To: <1427739538-1038-1-git-send-email-vladz@cloudius-systems.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14123 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753471AbbC3SYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:24:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20150330103313.GJ3311@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
-implementations.
+On Mon, Mar 30, 2015 at 12:33:13PM +0200, Steffen Klassert wrote:
+> We currently don't clone host routes before we use them.
+> If a pmtu event is received on such a route, it gets
+> an expires value. As soon as the expiration time is
+> elapsed, the route is deleted. As a result, the host
+> es not reachable any more.
+s/es/is
 
-This enables the ethtool's "-x" and "--show-rxfh[-indir]" options.
+> We fix this by cloning host routes if they are not local,
+> i.e. if pmtu events can happen. Also adjust the route
+> deletion because the cached and the original host route
+> are on the same fib node.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv6/route.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 4688bd4..4318626 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -961,7 +961,7 @@ redo_rt6_select:
+>  
+>  	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
+>  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+> -	else if (!(rt->dst.flags & DST_HOST))
+> +	else if (!(rt->dst.flags & DST_HOST) || !(rt->rt6i_flags & RTF_LOCAL))
+>  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+I suspect the nrt and rt will share the same inetpeer.  Hence, after the nrt is
+removed, the MTU (obtained from PMTU update) will stay.
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 42 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  2 +-
- 3 files changed, 44 insertions(+), 1 deletion(-)
+> @@ -1796,6 +1796,8 @@ static int ip6_route_del(struct fib6_config *cfg)
+>  				continue;
+>  			if (cfg->fc_metric && cfg->fc_metric != rt->rt6i_metric)
+>  				continue;
+> +			if (!(cfg->fc_flags & RTF_CACHE) && (rt->rt6i_flags & RTF_CACHE))
+> +				continue;
+>  			dst_hold(&rt->dst);
+>  			read_unlock_bh(&table->tb6_lock);
+>  
+> @@ -2433,6 +2435,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  	if (rtm->rtm_type == RTN_LOCAL)
+>  		cfg->fc_flags |= RTF_LOCAL;
+>  
+> +	if (rtm->rtm_flags & RTM_F_CLONED)
+> +		cfg->fc_flags |= RTF_CACHE;
+> +
+>  	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
+>  	cfg->fc_nlinfo.nlh = nlh;
+>  	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
+I had pulled your last patch to my local branch that I am cooking.  I also
+added similar changes to ip6_route_del() and rtm_to_fib_config(), and confirmed
+it can keep 'ip -6 r del' and 'ip -6 r flush table cache' to keep working
+properly.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 7bf4b77..42ed4b4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -963,4 +963,5 @@ void ixgbe_sriov_reinit(struct ixgbe_adapter *adapter);
- netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 				  struct ixgbe_adapter *adapter,
- 				  struct ixgbe_ring *tx_ring);
-+u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
- #endif /* _IXGBE_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 02ffb30..0b880a4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2853,6 +2853,45 @@ static int ixgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
- 	return ret;
- }
- 
-+static u32 ixgbe_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	return sizeof(adapter->rss_key);
-+}
-+
-+static u32 ixgbe_rss_indir_size(struct net_device *netdev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	return ixgbe_rss_indir_tbl_entries(adapter);
-+}
-+
-+static void ixgbe_get_reta(struct ixgbe_adapter *adapter, u32 *indir)
-+{
-+	int i, reta_size = ixgbe_rss_indir_tbl_entries(adapter);
-+
-+	for (i = 0; i < reta_size; i++)
-+		indir[i] = adapter->rss_indir_tbl[i];
-+}
-+
-+static int ixgbe_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-+			  u8 *hfunc)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	if (indir)
-+		ixgbe_get_reta(adapter, indir);
-+
-+	if (key)
-+		memcpy(key, adapter->rss_key, ixgbe_get_rxfh_key_size(netdev));
-+
-+	return 0;
-+}
-+
- static int ixgbe_get_ts_info(struct net_device *dev,
- 			     struct ethtool_ts_info *info)
- {
-@@ -3110,6 +3149,9 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_coalesce           = ixgbe_set_coalesce,
- 	.get_rxnfc		= ixgbe_get_rxnfc,
- 	.set_rxnfc		= ixgbe_set_rxnfc,
-+	.get_rxfh_indir_size	= ixgbe_rss_indir_size,
-+	.get_rxfh_key_size	= ixgbe_get_rxfh_key_size,
-+	.get_rxfh		= ixgbe_get_rxfh,
- 	.get_channels		= ixgbe_get_channels,
- 	.set_channels		= ixgbe_set_channels,
- 	.get_ts_info		= ixgbe_get_ts_info,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3e0c1e6..24cbe015 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3237,7 +3237,7 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
-  *  - X550(non-SRIOV mode): 512
-  *  - X550(SRIOV mode):     64
-  */
--static u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
-+u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
- {
- 	if (adapter->hw.mac.type < ixgbe_mac_X550)
- 		return 128;
--- 
-2.1.0
+Thanks,
+--Martin
