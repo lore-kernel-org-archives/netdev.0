@@ -1,63 +1,192 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: The errno when failing to connect to a unix stream socket due to timeout
-Date: Mon, 30 Mar 2015 21:51:56 +0800
-Message-ID: <CABa6K_Evv5+rXFvAOa0RGZ7Mbi11idS=0Xmyq=AURCcV7r6NJw@mail.gmail.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v9 6/7] ixgbevf: Add RSS Key query code
+Date: Mon, 30 Mar 2015 16:53:14 +0300
+Message-ID: <5519554A.1010101@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:33992 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938AbbC3NwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:52:17 -0400
-Received: by iedfl3 with SMTP id fl3so132970728ied.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:52:17 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38129 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752426AbbC3NxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:53:25 -0400
+Received: by wibgn9 with SMTP id gn9so131057138wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:53:24 -0700 (PDT)
+In-Reply-To: <551876DA.1000607@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear all,
 
-When working with the unix stream socket, I find that when failing to
-connect to a unix stream socket due to timeout, the errno is EAGAIN
-instead of ETIMEDOUT. IMHO, EAGAIN should be for non blocking IO only,
-but if we change the errno, there maybe a risk: breaking some
-applications. So, I want to know your ideas. Correct me if I made any
-mistake.
 
-Here is the code snippet:
+On 03/30/15 01:04, Alexander Duyck wrote:
+> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+>> Add the ixgbevf_get_rss_key() function that queries the PF for an RSS Random Key
+>> using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
+>>
+>> This patch adds the support for 82599 and x540 devices only. Support for other
+>> devices will be added later.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v9:
+>>     - Reduce the support to 82599 and x540 devices only.
+>>     - Added IXGBEVF_RSS_HASH_KEY_SIZE macro.
+>>
+>> New in v8:
+>>     - Protect a mailbox access.
+>>
+>> New in v6:
+>>     - Return a proper return code when an operation is blocked by PF.
+>>
+>> New in v2:
+>>     - Added a more detailed patch description.
+>>
+>> New in v1 (compared to RFC):
+>>     - Use "if-else" statement instead of a "switch-case" for a single option case
+>>       (in ixgbevf_get_rss_key()).
+>> ---
+>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  1 +
+>>   drivers/net/ethernet/intel/ixgbevf/mbx.h     |  1 +
+>>   drivers/net/ethernet/intel/ixgbevf/vf.c      | 66 ++++++++++++++++++++++++++++
+>>   drivers/net/ethernet/intel/ixgbevf/vf.h      |  1 +
+>>   4 files changed, 69 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>> index bc939a1..6771ae3 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>> @@ -145,6 +145,7 @@ struct ixgbevf_ring {
+>>   #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
+>>   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
+>>   #define IXGBEVF_MAX_RSS_QUEUES	2
+>> +#define IXGBEVF_RSS_HASH_KEY_SIZE	40
+>>   
+>>   #define IXGBEVF_DEFAULT_TXD	1024
+>>   #define IXGBEVF_DEFAULT_RXD	512
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+>> index 66e138b..82f44e0 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+>> @@ -110,6 +110,7 @@ enum ixgbe_pfvf_api_rev {
+>>   
+>>   /* mailbox API, version 1.2 VF requests */
+>>   #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
+>> +#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
+>>   
+>>   /* length of permanent address message returned from PF */
+>>   #define IXGBE_VF_PERMADDR_MSG_LEN	4
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+>> index 2676c0b..ec68145 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+>> @@ -301,6 +301,72 @@ static inline int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *msgbuf,
+>>   	return 0;
+>>   }
+>>   
+>> +static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
+>> +{
+>> +	int err;
+>> +	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
+>> +
+>> +	/* We currently support the RSS Random Key retrieval for 82599 and x540
+>> +	 * devices only.
+>> +	 *
+>> +	 * Thus return an error if API doesn't support RSS Random Key retrieval
+>> +	 * or if the operation is not supported for this device type.
+>> +	 */
+>> +	if (hw->api_version != ixgbe_mbox_api_12 ||
+>> +	    hw->mac.type >= ixgbe_mac_X550_vf)
+>> +		return -EPERM;
+>> +
+> The return type here should be not supported, or IXGBE_NOT_IMPLEMENTED,
+> not no permissions.
+>
+>> +	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
+>> +	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
+>> +
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
+>> +
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
+>> +
+>> +	/* If the operation has been refused by a PF return -EPERM */
+>> +	if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
+>> +		return -EPERM;
+>> +
+>> +	/* If we didn't get an ACK there must have been
+>> +	 * some sort of mailbox error so we should treat it
+>> +	 * as such.
+>> +	 */
+>> +	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
+>> +		return IXGBE_ERR_MBX;
+>> +
+>> +	memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +/**
+>> + * ixgbevf_get_rss_key - get the RSS Random Key
+>> + * @hw: pointer to the HW structure
+>> + * @reta: buffer to fill with RETA contents.
+>> + *
+>> + * The "rss_key" buffer should be big enough to contain 10 registers.
+>> + * Ensures the atomicy of a mailbox access using the adapter.mbx_lock spinlock.
+>> + *
+>> + * Returns: 0 on success.
+>> + *          if API doesn't support this operation - (-EPERM).
+>> + */
+>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
+>> +{
+>> +	int rc;
+>> +
+>> +	spin_lock_bh(&a->mbx_lock);
+>> +	rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
+>> +	spin_unlock_bh(&a->mbx_lock);
+>> +
+>> +	return rc;
+>> +}
+>> +
+> Since there is currently no cases where you would be getting the rss_key
+> without the RETA you might just want to combine this function with
+> ixgbevf_get_reta so you only take the lock once and process both
+> messages in one pass instead of having to bounce the spinlock.
 
-#include <unistd.h>
+I'd rather not do this.
+Let's start from the beginning: the locks here should be removed and
+added at the caller level to match what u wrote about patch04.
+Then about the uniting the two functions mentioned above - there isn't
+any added value of doing this. Taking a lock only once may be done
+without uniting (see PATCH07 in v10 series).
+On the other hand, this uniting is going to make the code awkward and
+unclear ("why are these together anyway?").
+So, I'd rather keep these functions as they are apart from fixing the locking issue. I'll essentially export the _locked functions.
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/un.h>
+thanks,
+vlad
 
-int main()
-{
-        int serv = socket(PF_UNIX, SOCK_STREAM, 0);
-        struct sockaddr_un addr;
 
-        remove("/tmp/test.unix");
-        memset(&addr, 0, sizeof(addr));
-        addr.sun_family = AF_UNIX;
-        strcpy(addr.sun_path, "/tmp/test.unix");
-        bind(serv, (struct sockaddr *)&addr, sizeof(addr));
-        listen(serv, 1);
-
-        int i;
-        for (i = 0; i < 3; ++i) {
-                int clnt = socket(PF_UNIX, SOCK_STREAM, 0);
-                struct timeval tv;
-                tv.tv_sec = 3;
-                tv.tv_usec = 0;
-                setsockopt(clnt, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-                if (connect(clnt, (struct sockaddr *)&addr, sizeof(addr)))
-                        perror("connect");
-        }
-
-        return 0;
-}
-
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+>
+>>   /**
+>>    * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
+>>    * @adapter: pointer to the port handle
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+>> index 7944962..a054716 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/vf.h
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+>> @@ -212,4 +212,5 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
+>>   int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+>>   		       unsigned int *default_tc);
+>>   int ixgbevf_get_reta(struct ixgbevf_adapter *adapter, u32 *reta);
+>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *adapter, u8 *rss_key);
+>>   #endif /* __IXGBE_VF_H__ */
+>>
