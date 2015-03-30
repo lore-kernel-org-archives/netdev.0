@@ -1,116 +1,60 @@
 From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next v2 1/5] net: bcmgenet: add UMAC_IRQ_RXDMA_DONE and UMAC_IRQ_TXDMA_DONE
-Date: Mon, 30 Mar 2015 00:28:50 -0700 (PDT)
-Message-ID: <20150330072850.8D16A220215@puck.mtv.corp.google.com>
+Subject: [PATCH net-next v2 2/5] net: bcmgenet: remove __bcmgenet_fini_dma()
+Date: Mon, 30 Mar 2015 00:29:01 -0700 (PDT)
+Message-ID: <20150330072901.35457220215@puck.mtv.corp.google.com>
 Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f73.google.com ([209.85.220.73]:33725 "EHLO
-	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563AbbC3H2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 03:28:52 -0400
-Received: by pablj1 with SMTP id lj1so1827915pab.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 00:28:51 -0700 (PDT)
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:33326 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbbC3H3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 03:29:03 -0400
+Received: by obbnt9 with SMTP id nt9so9447582obb.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 00:29:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add #define for UMAC_IRQ_RXDMA_DONE and UMAC_IRQ_TXDMA_DONE in order
-to simplify the code that handles Rx and Tx default queue interrupts.
+bcmgenet_fini_dma() is the only caller of __bcmgenet_fini_dma().
+Move __bcmgenet_fini_dma() code inside bcmgenet_fini_dma().
 
 Signed-off-by: Petri Gynther <pgynther@google.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 20 ++++++++------------
- drivers/net/ethernet/broadcom/genet/bcmgenet.h |  4 ++++
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 31e1407..620021e 100644
+index 620021e..546d862 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -966,15 +966,13 @@ static void bcmgenet_free_cb(struct enet_cb *cb)
- 
- static inline void bcmgenet_rx_ring16_int_disable(struct bcmgenet_rx_ring *ring)
- {
--	bcmgenet_intrl2_0_writel(ring->priv,
--				 UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE,
-+	bcmgenet_intrl2_0_writel(ring->priv, UMAC_IRQ_RXDMA_DONE,
- 				 INTRL2_CPU_MASK_SET);
+@@ -2173,10 +2173,13 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
+ 	return ret;
  }
  
- static inline void bcmgenet_rx_ring16_int_enable(struct bcmgenet_rx_ring *ring)
+-static void __bcmgenet_fini_dma(struct bcmgenet_priv *priv)
++static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
  {
--	bcmgenet_intrl2_0_writel(ring->priv,
--				 UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE,
-+	bcmgenet_intrl2_0_writel(ring->priv, UMAC_IRQ_RXDMA_DONE,
- 				 INTRL2_CPU_MASK_CLEAR);
+ 	int i;
+ 
++	bcmgenet_fini_rx_napi(priv);
++	bcmgenet_fini_tx_napi(priv);
++
+ 	/* disable DMA */
+ 	bcmgenet_dma_teardown(priv);
+ 
+@@ -2192,14 +2195,6 @@ static void __bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ 	kfree(priv->tx_cbs);
  }
  
-@@ -994,15 +992,13 @@ static inline void bcmgenet_rx_ring_int_enable(struct bcmgenet_rx_ring *ring)
- 
- static inline void bcmgenet_tx_ring16_int_disable(struct bcmgenet_tx_ring *ring)
+-static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+-{
+-	bcmgenet_fini_rx_napi(priv);
+-	bcmgenet_fini_tx_napi(priv);
+-
+-	__bcmgenet_fini_dma(priv);
+-}
+-
+ /* init_edma: Initialize DMA control register */
+ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
  {
--	bcmgenet_intrl2_0_writel(ring->priv,
--				 UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE,
-+	bcmgenet_intrl2_0_writel(ring->priv, UMAC_IRQ_TXDMA_DONE,
- 				 INTRL2_CPU_MASK_SET);
- }
- 
- static inline void bcmgenet_tx_ring16_int_enable(struct bcmgenet_tx_ring *ring)
- {
--	bcmgenet_intrl2_0_writel(ring->priv,
--				 UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE,
-+	bcmgenet_intrl2_0_writel(ring->priv, UMAC_IRQ_TXDMA_DONE,
- 				 INTRL2_CPU_MASK_CLEAR);
- }
- 
-@@ -1727,10 +1723,10 @@ static int init_umac(struct bcmgenet_priv *priv)
- 	bcmgenet_intr_disable(priv);
- 
- 	/* Enable Rx default queue 16 interrupts */
--	int0_enable |= (UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE);
-+	int0_enable |= UMAC_IRQ_RXDMA_DONE;
- 
- 	/* Enable Tx default queue 16 interrupts */
--	int0_enable |= (UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE);
-+	int0_enable |= UMAC_IRQ_TXDMA_DONE;
- 
- 	/* Monitor cable plug/unplugged event for internal PHY */
- 	if (phy_is_internal(priv->phydev)) {
-@@ -2353,7 +2349,7 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
- 	netif_dbg(priv, intr, priv->dev,
- 		  "IRQ=0x%x\n", priv->irq0_stat);
- 
--	if (priv->irq0_stat & (UMAC_IRQ_RXDMA_BDONE | UMAC_IRQ_RXDMA_PDONE)) {
-+	if (priv->irq0_stat & UMAC_IRQ_RXDMA_DONE) {
- 		rx_ring = &priv->rx_rings[DESC_INDEX];
- 
- 		if (likely(napi_schedule_prep(&rx_ring->napi))) {
-@@ -2362,7 +2358,7 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
- 		}
- 	}
- 
--	if (priv->irq0_stat & (UMAC_IRQ_TXDMA_BDONE | UMAC_IRQ_TXDMA_PDONE)) {
-+	if (priv->irq0_stat & UMAC_IRQ_TXDMA_DONE) {
- 		tx_ring = &priv->tx_rings[DESC_INDEX];
- 
- 		if (likely(napi_schedule_prep(&tx_ring->napi))) {
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index a834da1..f86d635 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -303,9 +303,13 @@ struct bcmgenet_mib_counters {
- #define UMAC_IRQ_RXDMA_MBDONE		(1 << 13)
- #define UMAC_IRQ_RXDMA_PDONE		(1 << 14)
- #define UMAC_IRQ_RXDMA_BDONE		(1 << 15)
-+#define UMAC_IRQ_RXDMA_DONE		(UMAC_IRQ_RXDMA_PDONE | \
-+					 UMAC_IRQ_RXDMA_BDONE)
- #define UMAC_IRQ_TXDMA_MBDONE		(1 << 16)
- #define UMAC_IRQ_TXDMA_PDONE		(1 << 17)
- #define UMAC_IRQ_TXDMA_BDONE		(1 << 18)
-+#define UMAC_IRQ_TXDMA_DONE		(UMAC_IRQ_TXDMA_PDONE | \
-+					 UMAC_IRQ_TXDMA_BDONE)
- /* Only valid for GENETv3+ */
- #define UMAC_IRQ_MDIO_DONE		(1 << 23)
- #define UMAC_IRQ_MDIO_ERROR		(1 << 24)
 -- 
 2.2.0.rc0.207.ga3a616c
