@@ -1,46 +1,49 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single CAN
- frame for overlapping CAN filters
-Date: Mon, 30 Mar 2015 19:25:04 +0200
-Message-ID: <551986F0.8010609@hartkopp.net>
-References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net> <5519429A.8050000@cogentembedded.com> <5519708E.3040002@hartkopp.net> <55198485.5070107@cogentembedded.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [Fix kernel crash in cipso_v4_sock_delattr ]
+Date: Mon, 30 Mar 2015 10:25:47 -0700
+Message-ID: <5519871B.5020402@schaufler-ca.com>
+References: <1603159082.92241427713739372.JavaMail.weblogic@epmlwas01c> <129817526.SFnNKPuWia@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <55198485.5070107@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Vaneet Narang <v.narang@samsung.com>,
+	AJEET YADAV <ajeet.y@samsung.com>,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: Paul Moore <paul@paul-moore.com>, maninder1.s@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <129817526.SFnNKPuWia@sifl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30.03.2015 19:14, Sergei Shtylyov wrote:
-> On 03/30/2015 06:49 PM, Oliver Hartkopp wrote:
+On 3/30/2015 4:32 AM, Paul Moore wrote:
+> On Monday, March 30, 2015 11:09:00 AM Maninder Singh wrote:
+>> Dear All,
+>> we found One Kernel Crash issue in cipso_v4_sock_delattr :-
+>> As Cipso supports only inet sockets so cipso_v4_sock_delattr will crash when
+>> try to access any other socket type.  cipso_v4_sock_delattr access
+>> sk_inet->inet_opt which may contain not NULL but invalid address. we found
+>> this issue with netlink socket.(reproducible by trinity using sendto system
+>> call .) 
+> Hello,
 >
->>>> +    /* eliminate multiple filter matches for the same skb */
->>>> +    if (*this_cpu_ptr(ro->uniq_skb) == oskb &&
->>>> +        ktime_equal(*this_cpu_ptr(ro->uniq_tstamp), oskb->tstamp)) {
->>>> +            return;
+> First, please go read the Documentation/SubmittingPatches from the kernel 
+> sources; your patch needs to be resubmitted and the instructions in that file 
+> will show you how to do it correctly next time.
 >
->>>     Over-indented.
+> Second, this appears to only affect Smack based systems, yes?  SELinux based 
+> systems should have the proper checking in place to prevent this (the checks 
+> are handled in the LSM).
+
+This looks like a problem that was fixed some time ago.
+The current Smack code clearly checks for this. What kernel
+version are you testing against?
+
+> That said, it probably wouldn't hurt to add the 
+> extra checking to netlbl_sock_delattr().  If you properly resubmit your patch 
+> I'll ACK it.
 >
->> I was asked about that before. AFAIK the *skb is no unique identifier over a
->> longer period of time. But together with the timestamp it becomes unique.
->> Or do you have a better solution to detect identical skbs?
+> -Paul
 >
->     I just said that *return* was too far to the right, that's all. :-)
-
-Oh, ok ...
-
-I mixed indented with intended %-)
-
-My bad.
-
-Will fix that in v3 too.
-
-Good thing: So far no one complained about the __percpu stuff ...
-
-Many thanks,
-Oliver
-
