@@ -1,48 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v2 5/6] brcm80211: drop pci_ids include
-Date: Mon, 30 Mar 2015 12:59:43 +0200
-Message-ID: <1427712964-16155-6-git-send-email-mst@redhat.com>
-References: <1427712964-16155-1-git-send-email-mst@redhat.com>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: [Fix kernel crash in cipso_v4_sock_delattr ]
+Date: Mon, 30 Mar 2015 11:09:00 +0000 (GMT)
+Message-ID: <1603159082.92241427713739372.JavaMail.weblogic@epmlwas01c>
+Reply-To: maninder1.s@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Daniel Kim <dekim@broadcom.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Vaneet Narang <v.narang@samsung.com>,
+	AJEET YADAV <ajeet.y@samsung.com>
+To: Maninder Singh <maninder1.s@samsung.com>,
+	"paul@paul-moore.com" <paul@paul-moore.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1427712964-16155-1-git-send-email-mst@redhat.com>
+MIME-version: 1.0
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This file does not use any pci ids, drop
-pci_ids.h include.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Arend van Spriel <arend@broadcom.com>
----
- drivers/net/wireless/brcm80211/brcmfmac/sdio.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-index faec35c..da479d4 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-@@ -18,7 +18,6 @@
- #include <linux/kernel.h>
- #include <linux/kthread.h>
- #include <linux/printk.h>
--#include <linux/pci_ids.h>
- #include <linux/netdevice.h>
- #include <linux/interrupt.h>
- #include <linux/sched.h>
--- 
-MST
+DQpEZWFyIEFsbCwNCndlIGZvdW5kIE9uZSBLZXJuZWwgQ3Jhc2ggaXNzdWUgaW4gY2lwc29fdjRf
+c29ja19kZWxhdHRyIDotDQpBcyBDaXBzbyBzdXBwb3J0cyBvbmx5IGluZXQgc29ja2V0cyBzbyBj
+aXBzb192NF9zb2NrX2RlbGF0dHIgd2lsbCBjcmFzaCB3aGVuIHRyeSB0byBhY2Nlc3MNCmFueSBv
+dGhlciBzb2NrZXQgdHlwZS4gIGNpcHNvX3Y0X3NvY2tfZGVsYXR0ciBhY2Nlc3Mgc2tfaW5ldC0+
+aW5ldF9vcHQgd2hpY2ggbWF5DQpjb250YWluIG5vdCBOVUxMIGJ1dCBpbnZhbGlkIGFkZHJlc3Mu
+IHdlIGZvdW5kIHRoaXMgaXNzdWUgd2l0aCBuZXRsaW5rIHNvY2tldC4ocmVwcm9kdWNpYmxlIGJ5
+IHRyaW5pdHkgdXNpbmcgc2VuZHRvIHN5c3RlbSBjYWxsIC4pDQoNCkNyYXNoIExvZ3MgOg0KWzAt
+MTgyLjI0MDBdIFs8YzA0YzdmYTQ+XSAoY2lwc29fdjRfc29ja19kZWxhdHRyKzB4MC8weDc0KSBm
+cm9tIFs8YzA1MTdiNjQ+XSAobmV0bGJsX3NvY2tfZGVsYXR0cisweDE4LzB4MWMpDQpbMC0xODIu
+MjQ5N10gIHI0OjAwMDAwMDAwIHIzOmMwNzg3MmY4DQpbMC0xODIuMjUzMV0gWzxjMDUxN2I0Yz5d
+IChuZXRsYmxfc29ja19kZWxhdHRyKzB4MC8weDFjKSBmcm9tIFs8YzAyN2IyZmM+XSAoc21hY2tf
+bmV0bGFiZWwrMHg4OC8weDljKQ0KWzAtMTgyLjI2MjJdIFs8YzAyN2IyNzQ+XSAoc21hY2tfbmV0
+bGFiZWwrMHgwLzB4OWMpIGZyb20gWzxjMDI3YjQzYz5dIChzbWFja19uZXRsYWJlbF9zZW5kKzB4
+MTJjLzB4MTQ0KQ0KWzAtMTgyLjI3MTRdICByNyA5Y2U5NTAwIHI2IDdiNjdlZjQgcjU6YzA3NmY0
+MDggcjQgODkwM2RjMA0KWzAtMTgyLjI3NzBdIFs8YzAyN2IzMTA+XSAoc21hY2tfbmV0bGFiZWxf
+c2VuZCsweDAvMHgxNDQpIGZyb20gWzxjMDI3YjRhOD5dIChzbWFja19zb2NrZXRfc2VuZG1zZysw
+eDU0LzB4NjApDQpbMC0xODIuMjg2Nl0gWzxjMDI3YjQ1ND5dIChzbWFja19zb2NrZXRfc2VuZG1z
+ZysweDAvMHg2MCkgZnJvbSBbPGMwMjc4OWVjPl0gKHNlY3VyaXR5X3NvY2tldF9zZW5kbXNnKzB4
+MjgvMHgyYykNClswLTE4Mi4yOTY2XSBbPGMwMjc4OWM0Pl0gKHNlY3VyaXR5X3NvY2tldF9zZW5k
+bXNnKzB4MC8weDJjKSBmcm9tIFs8YzA0MzQzYjA+XSAoc29ja19zZW5kbXNnKzB4NjgvMHhjMCkN
+ClswLTE4Mi4zMDU4XSBbPGMwNDM0MzQ4Pl0gKHNvY2tfc2VuZG1zZysweDAvMHhjMCkgZnJvbSBb
+PGMwNDM2OWU4Pl0gKFN5U19zZW5kdG8rMHhkOC8weDExMCkNClNpZ25lZC1vZmYtYnk6IFZhbmVl
+dCBOYXJhbmcgPHYubmFyYW5nQHNhbXN1bmcuY29tPg0KU2lnbmVkLW9mZi1ieTogTWFuaW5kZXIg
+U2luZ2ggPG1hbmluZGVyMS5zQHNhbXN1bmcuY29tPg0KUmV2aWV3ZWQtYnkgOiBBamVldCBZYWRh
+diA8YWplZXQueUBzYW1zdW5nLmNvbT4NCi0tLQ0KIG5ldC9uZXRsYWJlbC9uZXRsYWJlbF9rYXBp
+LmMgfCAgICA4ICsrKysrKystDQogMSBmaWxlIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgMSBk
+ZWxldGlvbigtKQ0KZGlmZiAtLWdpdCBhL25ldC9uZXRsYWJlbC9uZXRsYWJlbF9rYXBpLmMgYi9u
+ZXQvbmV0bGFiZWwvbmV0bGFiZWxfa2FwaS5jDQppbmRleCA3Yzk0YWVkLi43YTJjNmY1IDEwMDc1
+NQ0KLS0tIGEvbmV0L25ldGxhYmVsL25ldGxhYmVsX2thcGkuYw0KKysrIGIvbmV0L25ldGxhYmVs
+L25ldGxhYmVsX2thcGkuYw0KQEAgLTcwMCw3ICs3MDAsMTMgQEAgc29ja2V0X3NldGF0dHJfcmV0
+dXJuOg0KICAqLw0KIHZvaWQgbmV0bGJsX3NvY2tfZGVsYXR0cihzdHJ1Y3Qgc29jayAqc2spDQog
+ew0KLSBjaXBzb192NF9zb2NrX2RlbGF0dHIoc2spOw0KKyBzd2l0Y2ggKHNrLT5za19mYW1pbHkp
+IHsNCisgY2FzZSBBRl9JTkVUOg0KKyAgY2lwc29fdjRfc29ja19kZWxhdHRyKHNrKTsNCisgIGJy
+ZWFrOw0KKyBkZWZhdWx0Og0KKyAgYnJlYWs7DQorIH0NCiB9DQogDQogLyoqDQotLSANCjEuNy45
+LjUNCg0KDQpUaGFua3MgYW5kIFJlZ2FyZHMsDQpNYW5pbmRlciBTaW5naA==
