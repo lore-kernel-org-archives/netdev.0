@@ -1,50 +1,89 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next v3 0/4] mpls: Behaviour-changing improvements
-Date: Mon, 30 Mar 2015 19:15:52 +0100
-Message-ID: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next v3 2/4] mpls: Differentiate implicit-null and unlabeled neighbours
+Date: Mon, 30 Mar 2015 19:15:54 +0100
+Message-ID: <1427739356-28113-3-git-send-email-rshearma@brocade.com>
 References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
+ <1427739356-28113-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:41589 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752684AbbC3SRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:17:33 -0400
-In-Reply-To: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:8131 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753315AbbC3SRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:17:45 -0400
+In-Reply-To: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series consists of several small changes to make it easier to
-understand the code, along with security and RFC-compliance
-changes. These are important to consider before userspace begins
-relying on the previous behaviour.
+The control plane can advertise labels for neighbours that don't have
+an outgoing label. RFC 3031 s3.22 states that either the remaining
+labels should be popped (if the control plane can determine that it's
+safe to do so, which in light of MPLS-VPN, RFC 4364, is never the case
+now) or that the packet should be discarded.
 
-V2:
-  - Dropped PHP comment patch to avoid holding up the rest of the
-    changes due to quibbling on nomenclature.
-  - Corrected reference to RFC 3031 in commit message of patch
-    2. Added reference to RFC 3031 s4.1.5 for PHP behaviour.
-  - s/forwarding/input/ in patch 3.
-  - Made MPT_IPV4 and MPT_IPV6 equal to 4 and 6 respectively in patch
-    4, eliminating a switch on the version number as suggested by
-    review comments. Added back references to RFCs, but moved them to
-    mpls_payload_type enum declaration.
-V1:
-  - Updated to reference the correct RFC in the first patch.
+Therefore, if the peer is unlabeled and the last label wasn't popped
+then drop the packet. The peer being unlabeled is signalled by an
+empty label stack. However, penultimate hop popping still needs to be
+supported (RFC 3031 s4.1.5) where the incoming label is popped and no
+labels are put on and the packet can still go out labeled with the
+remainder of the stack. This is achieved by the control plane
+specifying a label stack consisting of the single special
+implicit-null value.
 
-Robert Shearman (4):
-  mpls: Use definition for reserved label checks
-  mpls: Differentiate implicit-null and unlabeled neighbours
-  mpls: Per-device enabling of packet input
-  mpls: Allow payload type to be associated with label routes
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/mpls/af_mpls.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
- Documentation/networking/mpls-sysctl.txt |   9 ++
- include/linux/netdevice.h                |   4 +
- net/mpls/af_mpls.c                       | 226 +++++++++++++++++++++++++------
- net/mpls/internal.h                      |   7 +
- 4 files changed, 203 insertions(+), 43 deletions(-)
-
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 0d6763a895d6..7f5f30d29f73 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -28,7 +28,8 @@ struct mpls_route { /* next hop label forwarding entry */
+ 	struct rcu_head		rt_rcu;
+ 	u32			rt_label[MAX_NEW_LABELS];
+ 	u8			rt_protocol; /* routing protocol that set this entry */
+-	u8			rt_labels;
++	u8                      rt_unlabeled : 1;
++	u8			rt_labels : 7;
+ 	u8			rt_via_alen;
+ 	u8			rt_via_table;
+ 	u8			rt_via[0];
+@@ -202,6 +203,11 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 		/* Penultimate hop popping */
+ 		if (!mpls_egress(rt, skb, dec))
+ 			goto drop;
++	} else if (rt->rt_unlabeled) {
++		/* Labeled traffic destined to unlabeled peer should
++		 * be discarded
++		 */
++		goto drop;
+ 	} else {
+ 		bool bos;
+ 		int i;
+@@ -386,9 +392,16 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 	if (!rt)
+ 		goto errout;
+ 
+-	rt->rt_labels = cfg->rc_output_labels;
+-	for (i = 0; i < rt->rt_labels; i++)
+-		rt->rt_label[i] = cfg->rc_output_label[i];
++	if (cfg->rc_output_labels == 1 &&
++	    cfg->rc_output_label[0] == LABEL_IMPLICIT_NULL) {
++		rt->rt_labels = 0;
++	} else {
++		rt->rt_labels = cfg->rc_output_labels;
++		for (i = 0; i < rt->rt_labels; i++)
++			rt->rt_label[i] = cfg->rc_output_label[i];
++		if (!rt->rt_labels)
++			rt->rt_unlabeled = true;
++	}
+ 	rt->rt_protocol = cfg->rc_protocol;
+ 	RCU_INIT_POINTER(rt->rt_dev, dev);
+ 	rt->rt_via_table = cfg->rc_via_table;
 -- 
 2.1.4
