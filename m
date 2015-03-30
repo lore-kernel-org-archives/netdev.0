@@ -1,55 +1,64 @@
-From: Maninder Singh <maninder1.s@samsung.com>
-Subject: [Fix kernel crash in cipso_v4_sock_delattr ]
-Date: Mon, 30 Mar 2015 11:09:00 +0000 (GMT)
-Message-ID: <1603159082.92241427713739372.JavaMail.weblogic@epmlwas01c>
-Reply-To: maninder1.s@samsung.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
+Date: Mon, 30 Mar 2015 07:10:24 -0400
+Message-ID: <55192F20.3030508@mojatatu.com>
+References: <1427374439-11587-1-git-send-email-jiri@resnulli.us> <55189B43.6000407@mojatatu.com> <20150330062632.GB2045@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Vaneet Narang <v.narang@samsung.com>,
-	AJEET YADAV <ajeet.y@samsung.com>
-To: Maninder Singh <maninder1.s@samsung.com>,
-	"paul@paul-moore.com" <paul@paul-moore.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-MIME-version: 1.0
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
+	jesse@nicira.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37083 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751086AbbC3LK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 07:10:29 -0400
+Received: by igcxg11 with SMTP id xg11so68743304igc.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 04:10:28 -0700 (PDT)
+In-Reply-To: <20150330062632.GB2045@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQpEZWFyIEFsbCwNCndlIGZvdW5kIE9uZSBLZXJuZWwgQ3Jhc2ggaXNzdWUgaW4gY2lwc29fdjRf
-c29ja19kZWxhdHRyIDotDQpBcyBDaXBzbyBzdXBwb3J0cyBvbmx5IGluZXQgc29ja2V0cyBzbyBj
-aXBzb192NF9zb2NrX2RlbGF0dHIgd2lsbCBjcmFzaCB3aGVuIHRyeSB0byBhY2Nlc3MNCmFueSBv
-dGhlciBzb2NrZXQgdHlwZS4gIGNpcHNvX3Y0X3NvY2tfZGVsYXR0ciBhY2Nlc3Mgc2tfaW5ldC0+
-aW5ldF9vcHQgd2hpY2ggbWF5DQpjb250YWluIG5vdCBOVUxMIGJ1dCBpbnZhbGlkIGFkZHJlc3Mu
-IHdlIGZvdW5kIHRoaXMgaXNzdWUgd2l0aCBuZXRsaW5rIHNvY2tldC4ocmVwcm9kdWNpYmxlIGJ5
-IHRyaW5pdHkgdXNpbmcgc2VuZHRvIHN5c3RlbSBjYWxsIC4pDQoNCkNyYXNoIExvZ3MgOg0KWzAt
-MTgyLjI0MDBdIFs8YzA0YzdmYTQ+XSAoY2lwc29fdjRfc29ja19kZWxhdHRyKzB4MC8weDc0KSBm
-cm9tIFs8YzA1MTdiNjQ+XSAobmV0bGJsX3NvY2tfZGVsYXR0cisweDE4LzB4MWMpDQpbMC0xODIu
-MjQ5N10gIHI0OjAwMDAwMDAwIHIzOmMwNzg3MmY4DQpbMC0xODIuMjUzMV0gWzxjMDUxN2I0Yz5d
-IChuZXRsYmxfc29ja19kZWxhdHRyKzB4MC8weDFjKSBmcm9tIFs8YzAyN2IyZmM+XSAoc21hY2tf
-bmV0bGFiZWwrMHg4OC8weDljKQ0KWzAtMTgyLjI2MjJdIFs8YzAyN2IyNzQ+XSAoc21hY2tfbmV0
-bGFiZWwrMHgwLzB4OWMpIGZyb20gWzxjMDI3YjQzYz5dIChzbWFja19uZXRsYWJlbF9zZW5kKzB4
-MTJjLzB4MTQ0KQ0KWzAtMTgyLjI3MTRdICByNyA5Y2U5NTAwIHI2IDdiNjdlZjQgcjU6YzA3NmY0
-MDggcjQgODkwM2RjMA0KWzAtMTgyLjI3NzBdIFs8YzAyN2IzMTA+XSAoc21hY2tfbmV0bGFiZWxf
-c2VuZCsweDAvMHgxNDQpIGZyb20gWzxjMDI3YjRhOD5dIChzbWFja19zb2NrZXRfc2VuZG1zZysw
-eDU0LzB4NjApDQpbMC0xODIuMjg2Nl0gWzxjMDI3YjQ1ND5dIChzbWFja19zb2NrZXRfc2VuZG1z
-ZysweDAvMHg2MCkgZnJvbSBbPGMwMjc4OWVjPl0gKHNlY3VyaXR5X3NvY2tldF9zZW5kbXNnKzB4
-MjgvMHgyYykNClswLTE4Mi4yOTY2XSBbPGMwMjc4OWM0Pl0gKHNlY3VyaXR5X3NvY2tldF9zZW5k
-bXNnKzB4MC8weDJjKSBmcm9tIFs8YzA0MzQzYjA+XSAoc29ja19zZW5kbXNnKzB4NjgvMHhjMCkN
-ClswLTE4Mi4zMDU4XSBbPGMwNDM0MzQ4Pl0gKHNvY2tfc2VuZG1zZysweDAvMHhjMCkgZnJvbSBb
-PGMwNDM2OWU4Pl0gKFN5U19zZW5kdG8rMHhkOC8weDExMCkNClNpZ25lZC1vZmYtYnk6IFZhbmVl
-dCBOYXJhbmcgPHYubmFyYW5nQHNhbXN1bmcuY29tPg0KU2lnbmVkLW9mZi1ieTogTWFuaW5kZXIg
-U2luZ2ggPG1hbmluZGVyMS5zQHNhbXN1bmcuY29tPg0KUmV2aWV3ZWQtYnkgOiBBamVldCBZYWRh
-diA8YWplZXQueUBzYW1zdW5nLmNvbT4NCi0tLQ0KIG5ldC9uZXRsYWJlbC9uZXRsYWJlbF9rYXBp
-LmMgfCAgICA4ICsrKysrKystDQogMSBmaWxlIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgMSBk
-ZWxldGlvbigtKQ0KZGlmZiAtLWdpdCBhL25ldC9uZXRsYWJlbC9uZXRsYWJlbF9rYXBpLmMgYi9u
-ZXQvbmV0bGFiZWwvbmV0bGFiZWxfa2FwaS5jDQppbmRleCA3Yzk0YWVkLi43YTJjNmY1IDEwMDc1
-NQ0KLS0tIGEvbmV0L25ldGxhYmVsL25ldGxhYmVsX2thcGkuYw0KKysrIGIvbmV0L25ldGxhYmVs
-L25ldGxhYmVsX2thcGkuYw0KQEAgLTcwMCw3ICs3MDAsMTMgQEAgc29ja2V0X3NldGF0dHJfcmV0
-dXJuOg0KICAqLw0KIHZvaWQgbmV0bGJsX3NvY2tfZGVsYXR0cihzdHJ1Y3Qgc29jayAqc2spDQog
-ew0KLSBjaXBzb192NF9zb2NrX2RlbGF0dHIoc2spOw0KKyBzd2l0Y2ggKHNrLT5za19mYW1pbHkp
-IHsNCisgY2FzZSBBRl9JTkVUOg0KKyAgY2lwc29fdjRfc29ja19kZWxhdHRyKHNrKTsNCisgIGJy
-ZWFrOw0KKyBkZWZhdWx0Og0KKyAgYnJlYWs7DQorIH0NCiB9DQogDQogLyoqDQotLSANCjEuNy45
-LjUNCg0KDQpUaGFua3MgYW5kIFJlZ2FyZHMsDQpNYW5pbmRlciBTaW5naA==
+On 03/30/15 02:26, Jiri Pirko wrote:
+> Mon, Mar 30, 2015 at 02:39:31AM CEST, jhs@mojatatu.com wrote:
+
+>> Could you have got rid of "type" above given we always have
+>> a "proto" field in tc that is checked at the core?
+>
+> Sure it is possible. But I try to stick with the names used in OpenFlof
+> documentation.
+>
+
+Ok, thats fine. Safer to stick with the spec.
+
+>> Was there something else that was intended to go into that tp union?
+>
+> Following fields are missing:
+>
+> OXM_OF_SCTP_SRC
+> OXM_OF_SCTP_DST
+> OXM_OF_ICMPV4_TYPE
+> OXM_OF_ICMPV4_CODE
+>
+
+It just looked strange to have a union with only one member.
+
+>> General comments:
+>> so what happens if someone adds a new field? It sounds to me like
+>> given it is tied to datapath match it will never be backward compatible
+>> (i.e think old tc, new kernel vs new tc, old kernel)
+>
+>
+> Well if kernel does not understand the new field, it will simply ignore
+> it.
+>
+
+More like user expectation may be different. I suppose they could query
+the kernel and find that their field was not set.
+BTW, another micro optimization:
+You could pre-compute the user passed key/mask result per field and
+in the fast path use that instead of doing f->match.key & f->match.mask
+
+cheers,
+jamal
