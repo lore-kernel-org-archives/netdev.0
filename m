@@ -1,75 +1,127 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single
- CAN frame for overlapping CAN filters
-Date: Mon, 30 Mar 2015 12:36:47 +0200
-Message-ID: <5519273F.6080209@pengutronix.de>
-References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net> <55191C57.7060906@pengutronix.de> <5519257A.2070907@hartkopp.net>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v9 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF
+ channel commands set
+Date: Mon, 30 Mar 2015 13:41:26 +0300
+Message-ID: <55192856.1060603@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-6-git-send-email-vladz@cloudius-systems.com> <55187707.2070609@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="r3heNlpVLocB11ToMmGWbxSoWpGAqhcIK"
-Cc: netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5519257A.2070907@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:37365 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751586AbbC3Kl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 06:41:29 -0400
+Received: by wiaa2 with SMTP id a2so122952080wia.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 03:41:28 -0700 (PDT)
+In-Reply-To: <55187707.2070609@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---r3heNlpVLocB11ToMmGWbxSoWpGAqhcIK
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
 
-On 03/30/2015 12:29 PM, Oliver Hartkopp wrote:
-> On 30.03.2015 11:50, Marc Kleine-Budde wrote:
->=20
->>>   	can_err_mask_t err_mask;
->>> +	struct sk_buff __percpu **uniq_skb;
->>> +	ktime_t __percpu *uniq_tstamp;
+
+On 03/30/15 01:04, Alexander Duyck wrote:
+> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+>> For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
+>> the same RSS key for all VFs.
 >>
->> What about creating a struct to hold the ktime_t and the skb? BTW: the=
+>> Support for other devices will be added later.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v9:
+>>     - Reduce the support to 82599 and x540 devices only.
+>>     - Get rid of registers access in GET_VF_RSS_KEY flow:
+>>        - Get the RSS HASH Key value from the PF's adapter->rss_key[].
+>>
+>> New in v5:
+>>     - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
+>>       basis.
+>>
+>> New in v3:
+>>     - Added a support for x550 devices.
+>>
+>> New in v1 (compared to RFC):
+>>     - Use "if-else" statement instead of a "switch-case" for a single option case
+>>       (in ixgbe_get_vf_rss_key()).
+>> ---
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  1 +
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 25 +++++++++++++++++++++++++
+>>   2 files changed, 26 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> index 3522f53..b1e4703 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> @@ -100,6 +100,7 @@ enum ixgbe_pfvf_api_rev {
+>>   
+>>   /* mailbox API, version 1.2 VF requests */
+>>   #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
+>> +#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
+>>   
+>>   /* length of permanent address message returned from PF */
+>>   #define IXGBE_VF_PERMADDR_MSG_LEN 4
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> index 8424e7f..4d87458 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> @@ -996,6 +996,28 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+>>   	return 0;
+>>   }
+>>   
+>> +static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
+>> +				u32 *msgbuf, u32 vf)
+>> +{
+>> +	struct ixgbe_hw *hw = &adapter->hw;
+>> +	u32 *rss_key = &msgbuf[1];
+>> +
+>> +	/* verify the PF is supporting the correct API */
+>> +	if (!adapter->vfinfo[vf].rss_query_enabled ||
+>> +	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
+>> +		return -EPERM;
+>> +
+>> +	/* Read the RSS KEY.
+>> +	 * We only support 82599 and x540 devices at the moment.
+>> +	 */
+>> +	if (hw->mac.type >= ixgbe_mac_X550)
+>> +		return -1;
+>> +
+> The return should be not supported, not -1 since that is too ambiguous.
 
->> pointer to the skb can be marked as const.
->=20
-> Don't think so.
->=20
-> The pointer points to some allocated memory.
+By the way, this (-1) didn't come from nowhere - I looked at other 
+functions in this file (e.g. ixgbe_get_vf_queues() and 
+ixgbe_negotiate_vf_api()) and they are returning
+this "ambiguous" (-1) just fine in the situations where -EOPNOTSUPP and 
+-EINVAL (correspondingly) would be much more appropriate.
+So, I went and checked who was the guy who added this terrible 
+"ambiguity" and, surprise-surprise!!!, it was mister Alexander Duyck! :D 
+In both (!!!) cases! Bang-bang!!! :D Of course it was "two years ago" 
+Alex but still... ;)
 
-Yes, but the allocated memory points to a skb which is not modified, so
-it's a:
+Anyway, since we fight the ambiguity now I think u, guys, would like to 
+send a cleanup follow-up patches that would adjust your "ambiguous code" 
+with the new "super-clear styling" we are introducing in this patches... ;)
 
-struct sk_buff __percpu * const *uniq_skb;
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---r3heNlpVLocB11ToMmGWbxSoWpGAqhcIK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJVGSdGAAoJECte4hHFiupUgdEP/Al+viNN1yIbkGgwmjmz/ZYf
-y+Pcqv8MiexTCHeX/caow5U7WLgGGL4jaFfts4PE5DAWJ1IoO74pfFgFXhoQ0uls
-O3MIePjfyIhpLUolFeNYw5jx15/WK0o+YU3tt0r9YVwR7UC8b82Ls7kNGlKlApli
-s30a/ssANxMgqWhP5akuqe5C0xBtQt5SEjW3URuEWAVTfOoaHvKgcdT6w8waOQ7R
-SsyNdC7zVmint2TZAvmbb6ANt+6hG0rdGoSuRiMTk8wfmGciWFgdcKyxJramh004
-xpOB4L6++7Nl6HZGFQGemwF1c2buTECDFOy3tMesObdy1YEJ3ZzP8Q6msPfWMuYU
-TQt0KbNiVwR7XwAmmcyrh/XpshgJDFUr7yc4SwAK86ml8SqQne+5KxbQOf0aZ57Z
-HGdulc9ABEZzSrNKBeXP4ruqDfj1jWtnPzyQXr6CBcfBDuin5eJVNNsoCvSPEInL
-dYTW/LNJIAjVMdHcskzbxS0uAb7T+5Z1T2nKiKuM8ToK72UCEaBFHtH7OkMCGQda
-7+I5LNeWyNIVpEKRaJsbeHofu0AKPXF01EkknFYXtbD4lzR27ouvzVPtbwv5+FJr
-3QgcxmND55MeejLX32onAsL3ZCy1RFjXpXJEzN6TOdFbixRB3XD7vmD35KJc/Tw3
-rG0zlL6Sqocc3MtmQb+2
-=YTIg
------END PGP SIGNATURE-----
-
---r3heNlpVLocB11ToMmGWbxSoWpGAqhcIK--
+>
+>> +	memcpy(rss_key, adapter->rss_key, sizeof(adapter->rss_key));
+>> +
+>> +	return 0;
+>> +}
+>> +
+>>   static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+>>   {
+>>   	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+>> @@ -1055,6 +1077,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+>>   	case IXGBE_VF_GET_RETA:
+>>   		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
+>>   		break;
+>> +	case IXGBE_VF_GET_RSS_KEY:
+>> +		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
+>> +		break;
+>>   	default:
+>>   		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+>>   		retval = IXGBE_ERR_MBX;
+>>
