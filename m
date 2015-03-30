@@ -1,49 +1,80 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 13/18] switchdev: remove unused NETIF_F_HW_SWITCH_OFFLOAD
-Date: Mon, 30 Mar 2015 14:20:55 -0700
-Message-ID: <CAE4R7bDBdjvZ0VAzX19ZP3h4i9GpNnXyO6RqgKMNnHx0em_x9A@mail.gmail.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
-	<1427704836-8776-14-git-send-email-sfeldma@gmail.com>
-	<551951CD.1060301@cumulusnetworks.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH 7/9 net-next] sunrpc: replace if/BUG by BUG_ON
+Date: Mon, 30 Mar 2015 17:25:20 -0400
+Message-ID: <20150330212520.GF6901@fieldses.org>
+References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+ <1427749998-28464-7-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:34148 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753566AbbC3VU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 17:20:56 -0400
-Received: by qcay5 with SMTP id y5so83367752qca.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 14:20:55 -0700 (PDT)
-In-Reply-To: <551951CD.1060301@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1427749998-28464-7-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 6:38 AM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 3/30/15, 1:40 AM, sfeldma@gmail.com wrote:
->>
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Flag is no longer needed so remove it.  Using the attr get/set recurse
->> algo
->> obsoletes the flag.  Setting the flag on bond/team interface, even when
->> the
->> consitient member ports didn't have flag set was confusing.
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->
->
-> The flag was there to avoid the recursive lowerdev walk where possible.
-> bond will have the flag if any one slave can have it. You don't walk the
-> bond if it does not have the flag.
+Huh, I thought this wasn't recommended:
 
-Ok, I see.  I'll remove this patch from set.  Should I put the
-NETIF_F_HW_SWITCH_OFFLOAD check in the get/set attr wrappers?
+	http://lkml.kernel.org/r/20040828125816.206ef7fa.akpm@osdl.org
 
-> Also, this allows the user to disable the feature from userspace if required
-> and move everything to software.
->
+	"I'd prefer that we not move code which has side-effects into
+	BUG_ONs"
+
+--b.
+
+On Mon, Mar 30, 2015 at 11:13:15PM +0200, Fabian Frederick wrote:
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+>  net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
+>  net/sunrpc/svc_xprt.c             | 3 +--
+>  2 files changed, 4 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+> index 1095be9..09f8a1c6 100644
+> --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> @@ -840,11 +840,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
+>  		return stat;
+>  	if (integ_len > buf->len)
+>  		return stat;
+> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+> -		BUG();
+> +	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
+>  	/* copy out mic... */
+> -	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+> -		BUG();
+> +	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
+>  	if (mic.len > RPC_MAX_AUTH_SIZE)
+>  		return stat;
+>  	mic.data = kmalloc(mic.len, GFP_KERNEL);
+> @@ -1595,8 +1593,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+>  	BUG_ON(integ_len % 4);
+>  	*p++ = htonl(integ_len);
+>  	*p++ = htonl(gc->gc_seq);
+> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+> -		BUG();
+> +	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
+>  	if (resbuf->tail[0].iov_base == NULL) {
+>  		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+>  			goto out_err;
+> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+> index 163ac45..2f82e8b 100644
+> --- a/net/sunrpc/svc_xprt.c
+> +++ b/net/sunrpc/svc_xprt.c
+> @@ -960,8 +960,7 @@ static void svc_delete_xprt(struct svc_xprt *xprt)
+>  	struct svc_deferred_req *dr;
+>  
+>  	/* Only do this once */
+> -	if (test_and_set_bit(XPT_DEAD, &xprt->xpt_flags))
+> -		BUG();
+> +	BUG_ON(test_and_set_bit(XPT_DEAD, &xprt->xpt_flags));
+>  
+>  	dprintk("svc: svc_delete_xprt(%p)\n", xprt);
+>  	xprt->xpt_ops->xpo_detach(xprt);
+> -- 
+> 1.9.1
