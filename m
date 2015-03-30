@@ -1,43 +1,40 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next] tc: bpf: generalize pedit action
-Date: Sun, 29 Mar 2015 20:52:47 -0400
-Message-ID: <55189E5F.3050302@mojatatu.com>
-References: <1427424837-7757-1-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v11 tip 6/9] samples: bpf: simple non-portable kprobe
+ filter example
+Date: Sun, 29 Mar 2015 17:59:54 -0700
+Message-ID: <5518A00A.5090004@plumgrid.com>
+References: <1427312966-8434-1-git-send-email-ast@plumgrid.com>	<1427312966-8434-7-git-send-email-ast@plumgrid.com> <CAGdX0WESZ8kb7R3U38ciJambE_qBPnf3MiKiKa2wR-50H6_NyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jovi Zhangwei <jovi.zhangwei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1427424837-7757-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+In-Reply-To: <CAGdX0WESZ8kb7R3U38ciJambE_qBPnf3MiKiKa2wR-50H6_NyQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/26/15 22:53, Alexei Starovoitov wrote:
-> existing TC action 'pedit' can munge any bits of the packet.
-> Generalize it for use in bpf programs attached as cls_bpf and act_bpf via
-> bpf_skb_store_bytes() helper function.
+On 3/29/15 5:34 PM, Jovi Zhangwei wrote:
+>> +               snprintf(buf, sizeof(buf),
+>> +                        "echo '%c:%s %s' >> /sys/kernel/debug/tracing/kprobe_events",
+>> +                        is_kprobe ? 'p' : 'r', event, event);
+>> +               err = system(buf);
 >
-> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-> ---
->
-> pedit is limited to 32-bit masked rewrites. Here let it be flexible.
->
-> ptr = skb_header_pointer(skb, offset, len, buf);
-> memcpy(ptr, from, len);
-> if (ptr == buf)
->    skb_store_bits(skb, offset, ptr, len);
->
-> ^^ logic is the same as in pedit.
-> shifts, mask, invert style of rewrite is easily done by the program.
-> Just like arbitrary parsing of the packet and applying rewrites on demand.
->
+> Maybe we need to remember cleanup the kprobe_events in debugfs?
 
-Alexei/Daniel - I am backlogged on email; however, i didn quiet follow:
-Is there another patch to pedit that help achieve the above?
-
-cheers,
-jamal
+the real tracing tool should be cleaning it up. This is sample code.
+I didn't want to overcomplicate it with a chain of ctrl-c handlers.
+Notice patch 7 is simply doing signal(SIGINT, int_exit) and prints
+histogram when process is terminated. The kprobe cleaning logic would
+have interfere with this and overall would have made these samples
+unnecessary complex.
