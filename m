@@ -1,201 +1,243 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v9 6/7] ixgbevf: Add RSS Key query code
-Date: Mon, 30 Mar 2015 18:17:40 +0300
-Message-ID: <55196914.7020307@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com> <5519554A.1010101@cloudius-systems.com> <55196757.9010008@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211-next 2015-03-30
+Date: Mon, 30 Mar 2015 17:23:16 +0200
+Message-ID: <1427728996.26117.39.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:35532 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752776AbbC3PRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 11:17:44 -0400
-Received: by wgdm6 with SMTP id m6so178996600wgd.2
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 08:17:42 -0700 (PDT)
-In-Reply-To: <55196757.9010008@redhat.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:47458 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752263AbbC3PX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 11:23:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+Sorry for the late pull request, I had intended to send this earlier but
+due to travel and various other things always got delayed.
 
-On 03/30/15 18:10, Alexander Duyck wrote:
->
-> On 03/30/2015 06:53 AM, Vlad Zolotarov wrote:
->>
->>
->> On 03/30/15 01:04, Alexander Duyck wrote:
->>> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
->>>> Add the ixgbevf_get_rss_key() function that queries the PF for an 
->>>> RSS Random Key
->>>> using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
->>>>
->>>> This patch adds the support for 82599 and x540 devices only. 
->>>> Support for other
->>>> devices will be added later.
->>>>
->>>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->>>> ---
->>>> New in v9:
->>>>     - Reduce the support to 82599 and x540 devices only.
->>>>     - Added IXGBEVF_RSS_HASH_KEY_SIZE macro.
->>>>
->>>> New in v8:
->>>>     - Protect a mailbox access.
->>>>
->>>> New in v6:
->>>>     - Return a proper return code when an operation is blocked by PF.
->>>>
->>>> New in v2:
->>>>     - Added a more detailed patch description.
->>>>
->>>> New in v1 (compared to RFC):
->>>>     - Use "if-else" statement instead of a "switch-case" for a 
->>>> single option case
->>>>       (in ixgbevf_get_rss_key()).
->>>> ---
->>>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  1 +
->>>>   drivers/net/ethernet/intel/ixgbevf/mbx.h     |  1 +
->>>>   drivers/net/ethernet/intel/ixgbevf/vf.c      | 66 
->>>> ++++++++++++++++++++++++++++
->>>>   drivers/net/ethernet/intel/ixgbevf/vf.h      |  1 +
->>>>   4 files changed, 69 insertions(+)
->>>>
->>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h 
->>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->>>> index bc939a1..6771ae3 100644
->>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->>>> @@ -145,6 +145,7 @@ struct ixgbevf_ring {
->>>>   #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
->>>>   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
->>>>   #define IXGBEVF_MAX_RSS_QUEUES    2
->>>> +#define IXGBEVF_RSS_HASH_KEY_SIZE    40
->>>>     #define IXGBEVF_DEFAULT_TXD    1024
->>>>   #define IXGBEVF_DEFAULT_RXD    512
->>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h 
->>>> b/drivers/net/ethernet/intel/ixgbevf/mbx.h
->>>> index 66e138b..82f44e0 100644
->>>> --- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
->>>> +++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
->>>> @@ -110,6 +110,7 @@ enum ixgbe_pfvf_api_rev {
->>>>     /* mailbox API, version 1.2 VF requests */
->>>>   #define IXGBE_VF_GET_RETA    0x0a    /* VF request for RETA */
->>>> +#define IXGBE_VF_GET_RSS_KEY    0x0b    /* get RSS hash key */
->>>>     /* length of permanent address message returned from PF */
->>>>   #define IXGBE_VF_PERMADDR_MSG_LEN    4
->>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c 
->>>> b/drivers/net/ethernet/intel/ixgbevf/vf.c
->>>> index 2676c0b..ec68145 100644
->>>> --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
->>>> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
->>>> @@ -301,6 +301,72 @@ static inline int 
->>>> ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *msgbuf,
->>>>       return 0;
->>>>   }
->>>>   +static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw 
->>>> *hw, u8 *rss_key)
->>>> +{
->>>> +    int err;
->>>> +    u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
->>>> +
->>>> +    /* We currently support the RSS Random Key retrieval for 82599 
->>>> and x540
->>>> +     * devices only.
->>>> +     *
->>>> +     * Thus return an error if API doesn't support RSS Random Key 
->>>> retrieval
->>>> +     * or if the operation is not supported for this device type.
->>>> +     */
->>>> +    if (hw->api_version != ixgbe_mbox_api_12 ||
->>>> +        hw->mac.type >= ixgbe_mac_X550_vf)
->>>> +        return -EPERM;
->>>> +
->>> The return type here should be not supported, or IXGBE_NOT_IMPLEMENTED,
->>> not no permissions.
->>>
->>>> +    msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
->>>> +    err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
->>>> +
->>>> +    if (err)
->>>> +        return err;
->>>> +
->>>> +    err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
->>>> +
->>>> +    if (err)
->>>> +        return err;
->>>> +
->>>> +    msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
->>>> +
->>>> +    /* If the operation has been refused by a PF return -EPERM */
->>>> +    if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
->>>> +        return -EPERM;
->>>> +
->>>> +    /* If we didn't get an ACK there must have been
->>>> +     * some sort of mailbox error so we should treat it
->>>> +     * as such.
->>>> +     */
->>>> +    if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
->>>> +        return IXGBE_ERR_MBX;
->>>> +
->>>> +    memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
->>>> +
->>>> +    return 0;
->>>> +}
->>>> +
->>>> +/**
->>>> + * ixgbevf_get_rss_key - get the RSS Random Key
->>>> + * @hw: pointer to the HW structure
->>>> + * @reta: buffer to fill with RETA contents.
->>>> + *
->>>> + * The "rss_key" buffer should be big enough to contain 10 registers.
->>>> + * Ensures the atomicy of a mailbox access using the 
->>>> adapter.mbx_lock spinlock.
->>>> + *
->>>> + * Returns: 0 on success.
->>>> + *          if API doesn't support this operation - (-EPERM).
->>>> + */
->>>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
->>>> +{
->>>> +    int rc;
->>>> +
->>>> +    spin_lock_bh(&a->mbx_lock);
->>>> +    rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
->>>> +    spin_unlock_bh(&a->mbx_lock);
->>>> +
->>>> +    return rc;
->>>> +}
->>>> +
->>> Since there is currently no cases where you would be getting the 
->>> rss_key
->>> without the RETA you might just want to combine this function with
->>> ixgbevf_get_reta so you only take the lock once and process both
->>> messages in one pass instead of having to bounce the spinlock.
->>
->> I'd rather not do this.
->> Let's start from the beginning: the locks here should be removed and
->> added at the caller level to match what u wrote about patch04.
->> Then about the uniting the two functions mentioned above - there isn't
->> any added value of doing this. Taking a lock only once may be done
->> without uniting (see PATCH07 in v10 series).
->> On the other hand, this uniting is going to make the code awkward and
->> unclear ("why are these together anyway?").
->> So, I'd rather keep these functions as they are apart from fixing the 
->> locking issue. I'll essentially export the _locked functions.
->>
->> thanks,
->> vlad
->
-> Agreed, just export the _locked functions and drop the _locked extension.
+The diffstat has all those drivers due to the name_assign_type change
+that changes API in all of them, which of course couldn't go through
+Kalle's tree.
 
-Hmmm... I think keeping the _locked extension would make sense since it 
-would explicitly hint that these functions have to be called under the 
-lock. There are other similar examples in the ixgbe/ixgbevf code already.
+Please pull, and let me know if there are any problems.
 
->
-> - Alex
+johannes
+
+The following changes since commit b7853d73e39b099bbee149cac4c34dbf98f3fefa:
+
+  bridge: add vlan info to bridge setlink and dellink notification messages (2015-02-22 23:00:45 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-03-30
+
+for you to fetch changes up to 2c44be81f0fc147eed9dc63e2601318b2c007aeb:
+
+  mac80211: set QoS capability before changing station state (2015-03-30 15:11:01 +0200)
+
+----------------------------------------------------------------
+Lots of updates for net-next; along with the usual flurry
+of small fixes, cleanups and internal features we have:
+ * VHT support for TDLS and IBSS (conditional on drivers though)
+ * first TX performance improvements (the biggest will come later)
+ * many suspend/resume (race) fixes
+ * name_assign_type support from Tom Gundersen
+
+----------------------------------------------------------------
+Ahmad Kholaif (1):
+      cfg80211: Allow NL80211_ATTR_IFINDEX to be added to vendor events
+
+Alexander Bondar (1):
+      mac80211: Update beacon's timing and DTIM count on every beacon
+
+Arik Nemtsov (5):
+      mac80211: TDLS: support VHT between peers
+      mac80211: allow TDLS setup code to take wdev lock
+      mac80211: allow iterating inactive interfaces
+      cfg/mac80211: add regulatory classes IE during TDLS setup
+      mac80211: send HT/VHT IEs in TDLS discovery response
+
+Ben (1):
+      cfg80211: Process all pending regulatory requests/hints
+
+Bob Copeland (1):
+      mac80211_hwsim: support any address in userspace
+
+Cedric Izoard (1):
+      mac80211: Get IV len from key conf and not cipher scheme
+
+Dan Carpenter (1):
+      mac80111: aes_ccm: cleanup ieee80211_aes_key_setup_encrypt()
+
+David Spinadel (1):
+      mac80211: stop scan before connection
+
+Dedy Lansky (1):
+      cfg80211: add bss_type and privacy arguments in cfg80211_get_bss()
+
+Eliad Peller (1):
+      cfg80211: add operating classes 128-130
+
+Emmanuel Grumbach (5):
+      mac80211: allow to get wireless_dev structure from ieee80211_vif
+      mac80211: convert rssi_callback() to event_callback()
+      mac80211: notify the driver about authentication status
+      mac80211: notify the driver about association status
+      mac80211: notify the driver about deauth
+
+Felix Fietkau (1):
+      mac80211: minstrel_ht: fix rounding issue in MCS duration calculation
+
+Ilan peer (3):
+      cfg80211: Simplify the handling of regulatory indoor setting
+      cfg80211: Add API to change the indoor regulatory setting
+      cfg80211: Schedule timeout for all CRDA calls
+
+James Minor (1):
+      cfg80211-wext: return -E2BIG when buffer can't hold full BSS entry
+
+Janusz.Dziedzic@tieto.com (4):
+      cfg80211: add VHT support for IBSS
+      mac80211: IBSS: refactor ieee80211_rx_bss_info
+      mac80211: IBSS fix scan request
+      mac80211: add VHT support for IBSS
+
+Johannes Berg (28):
+      mac80211: don't look up stations for multicast addresses
+      mac80211: iterate using station list in AP SMPS
+      cfg80211-wext: export symbols only when needed
+      mac80211: remove TX latency measurement code
+      wext: add checked wrappers for adding events/points to streams
+      nl80211: add notes about userspace API/ABI modifications
+      mac80211: fix another suspend vs. association race
+      mac80211: don't do driver suspend with auth/assoc in progress
+      mac80211: start queues if driver rejected wowlan
+      mac80211: check and dequeue skb in ieee80211_tx_prepare_skb()
+      nl80211: prohibit mixing 'any' and regular wowlan triggers
+      mac80211_hwsim: fix beacon timers
+      mac80211: move netdev stats to common function
+      mac80211: add comment for rx_path_lock
+      mac80211: refactor drop connection/unlock in CSA processing
+      mac80211: remove drop_unencrypted code
+      mac80211: don't look up destination station twice
+      mac80211: drop 4-addr VLAN frames earlier if not connected
+      mac80211: mesh: avoid pointless station lookup
+      mac80211: avoid duplicate TX path station lookup
+      cfg80211: add vlan to station add/change tracing
+      mac80211: agg-tx: avoid sending DelBA with sta->lock held
+      mac80211: reject aggregation sessions with non-HT peers
+      mac80111: aes_gcm: clean up ieee80211_aes_gcm_key_setup_encrypt()
+      mac80211: send AP probe as unicast again
+      mac80211: make sta.wme indicate whether QoS is used
+      mac80211: factor out station lookup from ieee80211_build_hdr()
+      mac80211: set QoS capability before changing station state
+
+Jouni Malinen (2):
+      mac80211_hwsim: Add minimal capability for vendor command/event testing
+      mac80211: Fix misplaced return in AES-GMAC key setup
+
+Luciano Coelho (5):
+      mac80211: handle drv_add_interface failures properly during reconfig
+      mac80211: remove useless double check for open_count in __ieee80211_suspend()
+      mac80211: remove duplicate check for quiescing when queueing work
+      nl80211: add net-detect delay to wowlan info
+      nl80211: small clarification of the sched_scan delay attribute
+
+Marek Puzyniak (1):
+      mac80211: initialize rate control earlier for tdls station
+
+Masashi Honma (1):
+      nl/mac80211: allow zero plink timeout to disable STA expiration
+
+Michael Braun (1):
+      mac80211: fix typo in debug output
+
+Nicholas Mc Guire (2):
+      mesh_plink: use msecs_to_jiffies for proper time conversion
+      mesh_plink: fixup type of timeout to match usage
+
+SenthilKumar Jegadeesan (1):
+      mac80211: provide station PMF configuration to driver
+
+Tom Gundersen (1):
+      cfg80211: pass name_assign_type to rdev_add_virtual_intf()
+
+ drivers/net/wireless/ath/ath10k/mac.c              |   3 +-
+ drivers/net/wireless/ath/ath6kl/cfg80211.c         |  15 +-
+ drivers/net/wireless/ath/ath6kl/cfg80211.h         |   1 +
+ drivers/net/wireless/ath/ath6kl/core.c             |   4 +-
+ drivers/net/wireless/ath/wil6210/cfg80211.c        |   2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/cfg80211.c |   3 +-
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c      |   3 +
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.h      |   1 +
+ drivers/net/wireless/cw1200/sta.c                  |   4 +-
+ drivers/net/wireless/ipw2x00/Kconfig               |   2 +-
+ drivers/net/wireless/iwlwifi/dvm/mac80211.c        |  15 +-
+ drivers/net/wireless/iwlwifi/mvm/coex.c            |   2 +-
+ drivers/net/wireless/iwlwifi/mvm/coex_legacy.c     |   2 +-
+ drivers/net/wireless/iwlwifi/mvm/mvm.h             |   4 +-
+ drivers/net/wireless/libertas/cfg.c                |   6 +-
+ drivers/net/wireless/mac80211_hwsim.c              | 103 ++++++-
+ drivers/net/wireless/mwifiex/cfg80211.c            |  13 +-
+ drivers/net/wireless/mwifiex/main.c                |   6 +-
+ drivers/net/wireless/mwifiex/main.h                |   1 +
+ drivers/net/wireless/orinoco/Kconfig               |   2 +-
+ drivers/net/wireless/ti/wl18xx/event.c             |   4 +-
+ drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c  |   6 +-
+ include/net/cfg80211.h                             |  65 +++-
+ include/net/iw_handler.h                           |  22 ++
+ include/net/mac80211.h                             | 150 +++++++--
+ include/uapi/linux/nl80211.h                       |  34 +-
+ net/mac80211/aes_ccm.c                             |  12 +-
+ net/mac80211/aes_gcm.c                             |  12 +-
+ net/mac80211/aes_gmac.c                            |   4 +-
+ net/mac80211/agg-rx.c                              |   8 +
+ net/mac80211/agg-tx.c                              |  14 +-
+ net/mac80211/cfg.c                                 |  97 +++---
+ net/mac80211/debugfs.c                             | 170 ----------
+ net/mac80211/debugfs_netdev.c                      |   2 -
+ net/mac80211/debugfs_sta.c                         | 134 --------
+ net/mac80211/driver-ops.h                          |  12 +-
+ net/mac80211/ht.c                                  |   2 -
+ net/mac80211/ibss.c                                | 341 +++++++++++++--------
+ net/mac80211/ieee80211_i.h                         |  39 +--
+ net/mac80211/iface.c                               |   4 +-
+ net/mac80211/key.c                                 |   1 +
+ net/mac80211/key.h                                 |   2 +
+ net/mac80211/main.c                                |   4 +-
+ net/mac80211/mesh.c                                |   3 +-
+ net/mac80211/mesh_plink.c                          |  10 +-
+ net/mac80211/mlme.c                                | 212 +++++++++----
+ net/mac80211/pm.c                                  |  28 +-
+ net/mac80211/rc80211_minstrel_ht.c                 |   6 +-
+ net/mac80211/rx.c                                  |  17 +-
+ net/mac80211/scan.c                                |  25 +-
+ net/mac80211/sta_info.c                            |  56 +---
+ net/mac80211/sta_info.h                            |  22 --
+ net/mac80211/status.c                              |  74 -----
+ net/mac80211/tdls.c                                | 155 ++++++++--
+ net/mac80211/trace.h                               |  14 +-
+ net/mac80211/tx.c                                  | 266 +++++++++-------
+ net/mac80211/util.c                                | 128 +++++++-
+ net/mac80211/vht.c                                 |   4 -
+ net/mac80211/wpa.c                                 |  13 +-
+ net/wireless/Kconfig                               |   8 +
+ net/wireless/ibss.c                                |   2 +-
+ net/wireless/mlme.c                                |   6 +-
+ net/wireless/nl80211.c                             |  84 ++++-
+ net/wireless/rdev-ops.h                            |   5 +-
+ net/wireless/reg.c                                 | 111 ++++---
+ net/wireless/reg.h                                 |  15 +-
+ net/wireless/scan.c                                | 302 ++++++++++++------
+ net/wireless/sme.c                                 |  16 +-
+ net/wireless/trace.h                               |  32 +-
+ net/wireless/util.c                                | 130 ++++++++
+ net/wireless/wext-compat.c                         |  18 +-
+ net/wireless/wext-compat.h                         |   6 +
+ 72 files changed, 1909 insertions(+), 1190 deletions(-)
