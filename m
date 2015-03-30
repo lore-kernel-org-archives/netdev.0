@@ -1,52 +1,71 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
-Date: Mon, 30 Mar 2015 13:28:46 -0700
-Message-ID: <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
-References: <1427409698.18540.11.camel@redhat.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next 11/18] switchdev: remove old
+ netdev_switch_port_bridge_setlink
+Date: Mon, 30 Mar 2015 20:46:02 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>
+	<55194E63.5010100@cumulusnetworks.com>
+ <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: =?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>,
+	roopa <roopa@cumulusnetworks.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:32835 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753434AbbC3U3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 16:29:07 -0400
-Received: by obvd1 with SMTP id d1so73545926obv.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 13:29:07 -0700 (PDT)
-In-Reply-To: <1427409698.18540.11.camel@redhat.com>
+Received: from mga01.intel.com ([192.55.52.88]:49293 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754082AbbC3UqE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 16:46:04 -0400
+In-Reply-To: <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 3:41 PM, Dan Williams <dcbw@redhat.com> wrote:
-> The broadcast MAC is supposed to be allowed whenever the device
-> has an IPv4 address, otherwise ARP requests get dropped on the
-> floor.  If ndo_set_rx_mode (and thus
-> ipvlan_set_multicast_mac_filter()) gets called after the address
-> was added, it blows away the broadcast MAC address in
-> mac_filters that was added at IPv4 address addition.  Fix that.
->
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  drivers/net/ipvlan/ipvlan_main.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index 4f4099d..d34f580 100644
-> --- a/drivers/net/ipvlan/ipvlan_main.c
-> +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -241,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
->
->                 bitmap_copy(ipvlan->mac_filters, mc_filters,
->                             IPVLAN_MAC_FILTER_SIZE);
-> +
-> +               if (ipvlan->ipv4cnt)
-> +                       ipvlan_set_broadcast_mac_filter(ipvlan, true);
->         }
->         dev_uc_sync(ipvlan->phy_dev, dev);
->         dev_mc_sync(ipvlan->phy_dev, dev);
-> --
-> 2.1.0
->
->
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbg0KPkJl
+aGFsZiBPZiBTY290dCBGZWxkbWFuDQo+U2VudDogTW9uZGF5LCBNYXJjaCAzMCwgMjAxNSAxOjIw
+IFBNDQo+VG86IHJvb3BhDQo+Q2M6IE5ldGRldjsgSmnFmcOtIFDDrXJrbzsgR3VlbnRlciBSb2Vj
+azsgRmxvcmlhbiBGYWluZWxsaQ0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMTEvMThd
+IHN3aXRjaGRldjogcmVtb3ZlIG9sZA0KPm5ldGRldl9zd2l0Y2hfcG9ydF9icmlkZ2Vfc2V0bGlu
+aw0KPg0KPk9uIE1vbiwgTWFyIDMwLCAyMDE1IGF0IDY6MjMgQU0sIHJvb3BhIDxyb29wYUBjdW11
+bHVzbmV0d29ya3MuY29tPiB3cm90ZToNCj4+IE9uIDMvMzAvMTUsIDE6NDAgQU0sIHNmZWxkbWFA
+Z21haWwuY29tIHdyb3RlOg0KPj4+DQo+Pj4gRnJvbTogU2NvdHQgRmVsZG1hbiA8c2ZlbGRtYUBn
+bWFpbC5jb20+DQo+Pj4NCj4+PiBOZXcgYXR0ci1iYXNlZCBicmlkZ2Vfc2V0bGluayBjYW4gcmVj
+dXJzZSBsb3dlciBkZXZzIGFuZCByZWNvdmVyIG9uIGVyciwNCj4+PiBzbw0KPj4+IHJlbW92ZSBv
+bGQgd3JhcHBlci4gIEFsc28sIHJlc3RvcmUgYnJfc2V0bGluayBiYWNrIHRvIG9yaWdpbmFsIGFu
+ZCBkb24ndA0KPj4+IGNhbGwNCj4+PiBpbnRvIFNFTEYgcG9ydCBkcml2ZXIuICBydG5ldGxpbmsu
+YzpicmlkZ2Vfc2V0bGluayBhbHJlYWR5IGRvZXMgYSBjYWxsDQo+Pj4gaW50bw0KPj4+IHBvcnQg
+ZHJpdmVyIGZvciBTRUxGLg0KPj4+DQo+Pj4gU2lnbmVkLW9mZi1ieTogU2NvdHQgRmVsZG1hbiA8
+c2ZlbGRtYUBnbWFpbC5jb20+DQo+Pg0KPj4gcmVtb3ZpbmcgdGhpcyBub3cgcmVxdWlyZXMgZXZl
+cnkgdmxhbiBhZGQgdG8gYmUgYSB0d28gc3RlcCBwcm9jZXNzLCB3aHkgPw0KPg0KPk5vLCB0aGF0
+J3Mgbm90IHRydWUuICBZb3Ugd2FudCB0byB1c2UNCj5uZG9fdmxhbl9yeF9hZGRfdmlkL25kb192
+bGFuX3J4X2tpbGxfdmlkIGluIHlvdXIgcG9ydCBkcml2ZXIsIGFuZCB0aGVuDQo+dXNpbmcgZWl0
+aGVyIHZsYW4gZHJpdmVyIHN0YW5kYWxvbmUgb3IgdGhlIGJyaWRnZSBkcml2ZXIgdmxhbiBzdXBw
+b3J0DQo+d2lsbCB3b3JrLg0KPg0KPlRyeSBpdC4gIEltcGxlbWVudCBuZG9fdmxhbl9yeF9hZGRf
+dmlkIGluIHlvdXIgcG9ydCBkcml2ZXIgYW5kIHZlcmlmeQ0KPnlvdSBnZXQgY2FsbGVkIHRvIGFk
+ZCBWTEFOIHRvIHBvcnQgd2l0aCBlaXRoZXI6DQo+DQo+ICAgIGJyaWRnZSB2bGFuIGFkZCBkZXYg
+c3dwMSB2aWQgMTANCj4NCj4gICAgLW9yLQ0KPg0KPiAgICB2Y29uZmlnIGFkZCBzd3AxIDEwDQo+
+DQo+U2FtZSBmb3IgZGVsZXRpbmcgYSBWTEFOLCBlaXRoZXIgb2YgdGhlc2UgdHdvIGNvbW1hbmRz
+IGNhbGwgaW50byB0aGUNCj5wb3J0IGRyaXZlciBuZG9fdmxhbl9yeF9raWxsX3ZpZDoNCj4NCj4g
+ICAgYnJpZGdlIHZsYW4gZGVsIGRldiBzd3AxIHZpZCAxMA0KPg0KPiAgICAtb3ItDQo+DQo+ICAg
+IHZjb25maWcgcmVtIHN3cDEgMTANCj4NCj4NCj4+IGJyaWRnZSB2bGFuIGFkZCBkZXYgc3dwMSB2
+aWQgMTANCj4+IGJyaWRnZSB2bGFuIGFkZCBkZXYgc3dwMSB2aWQgMTAgc2VsZg0KPg0KPk5vdCBu
+ZWNlc3NhcnkuICBUaGUgZmlyc3QgY29tbWFuZCBpcyBzdWZmaWNpZW50IGlmIHVzaW5nDQo+bmRv
+X3ZsYW5fcnhfYWRkX3ZpZC4gDQoNClRoaXMgaXMgbm90IHN1ZmZpY2llbnQgZm9yIFZMQU4gZmls
+dGVyaW5nLiBOZG9fdmxhbl9yeF9hZGRfdmlkIGRvZXMgbm90DQpwcm92aWRlIHRoZSB2aW5mbyBm
+bGFncyBQVklEIGFuZCBVTlRBR0dFRC4gVGhlcmVmb3JlIGl0IGlzIG5vdA0KYW4gYWRlcXVhdGUg
+cmVwbGFjZW1lbnQgZm9yIHByb3BhZ2F0aW5nIHNldGxpbmsvZGVsbGluayBtZXNzYWdlcyB0byB0
+aGUNCnN3aXRocG9ydCBkcml2ZXIgb3IgYW4gYWx0ZXJuYXRpdmUgdmlhIHN3ZGV2X2F0dHIuDQog
+IA0KIElmIHlvdSB3YW50IHRoZSBzZWxmIHZlcnNpb24gdG8gd29yaywgYWRkDQo+bmRvX2JyaWRn
+ZV9zZXRsaW5rL2RlbGxpbmsgb3BzIHRvIHlvdXIgcG9ydCBkcml2ZXIuDQo+DQoNCj4+IGFuZCB1
+c2Vyc3BhY2Ugd2lsbCBnZXQgdHdvIG5vdGlmaWNhdGlvbnMuDQo+DQo+U2luZ2xlIGNvbW1hbmQg
+KGFzIHNob3duIGluIG15IGV4YW1wbGVzKSBnZW5lcmF0ZXMgb25lIHVzZXIgbm90aWZpY2F0aW9u
+Lg0KPi0tDQo+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVu
+c3Vic2NyaWJlIG5ldGRldiIgaW4NCj50aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21v
+QHZnZXIua2VybmVsLm9yZw0KPk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtl
+cm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
