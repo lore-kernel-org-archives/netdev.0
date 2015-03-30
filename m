@@ -1,333 +1,86 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Tue, 31 Mar 2015 01:51:44 +0300
-Message-ID: <5519D380.6070200@cogentembedded.com>
-References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com> <20150328082853.GA4255@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v3 1/2] ixgbe: Refactor the RSS configuration
+ code.
+Date: Mon, 30 Mar 2015 16:36:46 -0700
+Message-ID: <1427758606.2497.100.camel@jtkirshe-mobl>
+References: <1427739538-1038-1-git-send-email-vladz@cloudius-systems.com>
+	 <1427739538-1038-2-git-send-email-vladz@cloudius-systems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ynrM1tJHfkodsjLcMc2/"
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	avi@cloudius-systems.com, gleb@cloudius-systems.com
+To: Vlad Zolotarov <vladz@cloudius-systems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:5530 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751034AbbC3Xgr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 19:36:47 -0400
+In-Reply-To: <1427739538-1038-2-git-send-email-vladz@cloudius-systems.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-ynrM1tJHfkodsjLcMc2/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2015-03-30 at 21:18 +0300, Vlad Zolotarov wrote:
+> This patch is a preparation for enablement of ethtool RSS indirection
+> table
+> and hash key querying. We don't want to read registers every time the
+> RSS info
+> is queried. Therefore we will store its current content in the
+> arrays in the adapter struct and will read it from there (instead of
+> from
+> registers) when requested.
+>=20
+> Will change the code that writes the indirection table and hash key
+> into the HW registers
+> to take its content from these arrays. This will also simplify the
+> indirection
+> table updating ethtool callback implementation in the future.
+>=20
+> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+> ---
+> New in v3:
+>    - Fix the byte ordering in RETA storing.
+>=20
+> New in v2:
+>    - Some styling fixes.
+>    - Moved macros definitions from ixgbe_type.h to ixgbe.h.
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   9 ++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 147
+> ++++++++++++++++++--------
+>  2 files changed, 112 insertions(+), 44 deletions(-)
+
+Thanks Vlad, I have added your patch to my queue.
+--=20
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
+dev-queue
+
+--=-ynrM1tJHfkodsjLcMc2/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	masaru.nagai.vx@renesas.com
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20150328082853.GA4255@localhost.localdomain>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Hello.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-On 03/28/2015 11:28 AM, Richard Cochran wrote:
+iQIcBAABCgAGBQJVGd4OAAoJEOVv75VaS+3O+kQQAIq9K5+kxbAssekWZW62/lw3
+rPCgFjSbsMPXWA9ZbLub2zD0N4plO/ugkvrc4o/FN6BcvZNLq3CxzYpkwNzb1/8r
+yw50jo2YlD9tcM/chPRdYqkjAMaNqBkaYiFoEPfvdL5e7XtgOT+Fv25qySBJE65d
+9t246T6JaHdMqB4Ec1FdalqcfINZbapxiY/OX/vuAV0cxmUQ6X1UY/g1AAGMB5XY
+EfFNvS7+7eRDATO++RzOiayk1JDw+2NGsrtN6p38WIgpvHI+qsKbali+BLLQg8yM
+ceCvaiwOD0SqnLhIpmYKv5ioSDXTXFBac/gyrlUGsqUb251DQd8knt8vfMDMpD1F
+U0D30fKQX+AfKjIwSXRc2CIJvQX1OG27i5MG750VCaD50iWTPosssG+SluQ1MssV
+JxVSjZY0ETEpTTfkCQQgR9NPrrp2ufJuVbp7hxUt32EjcRG2+Igj+TzeQeB3nufx
+j7M6s4QTplGZkvEavKrBU2muDFhawzj0L0pJmAZst5E25dv19ov9AaPkuXp4mjuM
+6sXFMiGjKoO3qR1Aw9W6/UOyS0J5M4YfMtPG6VdBVbe2kbohBWpkFhh4VE4hcJi4
+m4waxWBbug4mjuLrxJUQ1MGZiWd4OEx0uZGqiMesRL0XO8eqZggAmF85AwTlBI0Y
+4mhkmiKfDfu+NXS3j2Rw
+=T5me
+-----END PGP SIGNATURE-----
 
->> Ethernet AVB includes an Gigabit Ethernet controller (E-MAC) that is basically
->> compatible with SuperH Gigabit Ethernet E-MAC). Ethernet AVB  has a dedicated
->> direct memory access controller (AVB-DMAC) that is a new design compared to the
->> SuperH E-DMAC. The AVB-DMAC is compliant with 3 standards formulated for IEEE
->> 802.1BA: IEEE 802.1AS timing and synchronization protocol, IEEE 802.1Qav real-
->> time transfer, and the IEEE 802.1Qat stream reservation protocol.
-
-> Since this is a PTP Hardware Clock driver, why not include the maintainer on CC?
-
-    Sorry for leaving you out of CC. I used the list given by 
-scripts/get_maintainer.pl and forgot for the moment that it's also a PTP 
-driver. Perhaps there is a way to enhance that script for this particular case 
-(I'm not into PERL myself)?
-
->> The driver only supports device tree probing, so the binding document is
->> included in this patch.
-
->> Based on the patches by Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com> and
->> Masaru Nagai <masaru.nagai.vx@renesas.com>.
-
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-> We also need SOB from Mitsuhiro and Masaru.
-
-    Hmm, it's the first time I encounter such requirement.
-    Not sure how you imagine that if Kimura-san was (mostly) the author of the 
-Ethernet driver proper and Nagai-san was the author of the PTP code proper 
-(they were 2 different drivers, not sure for what reason -- as the Ethernet 
-driver proper failed to compile without PTP enabled for me). Adding them to 
-CC: anyway...
-
-> ...
-
->> Index: net-next/drivers/net/ethernet/renesas/ravb.c
->> ===================================================================
->> --- /dev/null
->> +++ net-next/drivers/net/ethernet/renesas/ravb.c
->> @@ -0,0 +1,3071 @@
-[...]
-
->> +/* There is CPU dependent code */
->> +static int ravb_wait_clear(struct net_device *ndev, u16 reg, u32 bits)
->> +{
->> +	int i;
->> +
->> +	for (i = 0; i < 100; i++) {
->> +		if (!(ravb_read(ndev, reg) & bits))
->> +			break;
->> +		mdelay(1);
->> +	}
->> +	if (i >= 100)
->> +		return -ETIMEDOUT;
->> +
->> +	return 0;
->> +}
->> +
->> +static int ravb_wait_setting(struct net_device *ndev, u16 reg, u32 bits)
->> +{
-
-> This function is identical to the previous one.
-
-    It is not, the *break* condition is different. I'll look into merging them 
-though...
-
->> +	int i;
->> +
->> +	for (i = 0; i < 100; i++) {
->> +		if (ravb_read(ndev, reg) & bits)
->> +			break;
->> +		mdelay(1);
->> +	}
->> +	if (i >= 100)
->> +		return -ETIMEDOUT;
->> +
->> +	return 0;
->> +}
-[...]
->> +static void ravb_get_tx_tstamp(struct net_device *ndev)
->> +{
->> +	struct ravb_private *priv = netdev_priv(ndev);
->> +	struct ravb_tstamp_skb *ts_skb, *ts_skb1;
->> +	struct skb_shared_hwtstamps shhwtstamps;
->> +	struct sk_buff *skb;
->> +	struct timespec ts;
-
-> For new drivers, please use timespec64.
-
-    OK, got it.
-
-[...]
->> +/* Caller must hold the lock */
->> +static void ravb_ptp_update_compare(struct ravb_private *priv, u32 ns)
->> +{
->> +	struct net_device *ndev = priv->ndev;
->> +	/* When the comparison value (GPTC.PTCV) is in range of
->> +	 * [x-1 to x+1] (x is the configured increment value in
->> +	 * GTI.TIV), it may happen that a comparison match is
->> +	 * not detected when the timer wraps around.
->> +	 */
-
-> What does this funtion do, exactly?  This looks very fishy to me.
-
-    Perhaps a workaround for an errata I don't know about. Nagai-san, could 
-you maybe elaborate?
-
->> +	u32 gti_ns_plus_1 = (priv->ptp.current_addend >> 20) + 1;
->> +
->> +	if (ns < gti_ns_plus_1)
->> +		ns = gti_ns_plus_1;
->> +	else if (ns > 0 - gti_ns_plus_1)
->> +		ns = 0 - gti_ns_plus_1;
->> +
->> +	ravb_write(ndev, ns, GPTC);
->> +	ravb_write(ndev, ravb_read(ndev, GCCR) | GCCR_LPTC, GCCR);
->> +	if (ravb_read(ndev, CSR) & CSR_OPS_OPERATION)
->> +		while (ravb_read(ndev, GCCR) & GCCR_LPTC)
->> +			;
-
-> Infinite loop while holding a spin lock = not good.
-
-    Sure. I've spent over 3 weeks cleaning this stuff up, yet still it wasn't 
-enough... :-/
-
-[...]
->> +static irqreturn_t ravb_interrupt(int irq, void *dev_id)
->> +{
-
->> +	if (iss & ISS_CGIS) {
->> +		u32 gis = ravb_read(ndev, GIS);
->> +
->> +		gis &= ravb_read(ndev, GIC);
->> +		if (gis & GIS_PTCF) {
->> +			struct ptp_clock_event event;
->> +
->> +			event.type = PTP_CLOCK_EXTTS;
->> +			event.index = 0;
->> +			event.timestamp = ravb_read(ndev, GCPT);
->> +			ptp_clock_event(priv->ptp.clock, &event);
->> +		}
->> +		if (gis & GIS_PTMF) {
->> +			struct ravb_ptp_perout *perout = priv->ptp.perout;
->> +
->> +			if (perout->period) {
->> +				perout->target += perout->period;
->> +				ravb_ptp_update_compare(priv, perout->target);
-
-> Infinite loop in an interrupt handler. Brilliant.
-
-    The prize goes to Nagai-san. :-)
-
-[...]
->> +/* Packet transmit function for Ethernet AVB */
->> +static int ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->> +{
->> +	struct ravb_private *priv = netdev_priv(ndev);
->> +	struct ravb_tstamp_skb *ts_skb = NULL;
->> +	struct ravb_tx_desc *desc;
->> +	unsigned long flags;
->> +	void *buffer;
->> +	u32 entry;
->> +	u32 tccr;
->> +	int q;
->> +
->> +	/* If skb needs TX timestamp, it is handled in network control queue */
->> +	q = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? RAVB_NC : RAVB_BE;
->> +
->> +	spin_lock_irqsave(&priv->lock, flags);
->> +	if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q] - 4) {
->> +		if (!ravb_tx_free(ndev, q)) {
->> +			netif_warn(priv, tx_queued, ndev, "TX FD exhausted.\n");
->> +			netif_stop_queue(ndev);
->> +			spin_unlock_irqrestore(&priv->lock, flags);
->> +			return NETDEV_TX_BUSY;
->> +		}
->> +	}
->> +	entry = priv->cur_tx[q] % priv->num_tx_ring[q];
->> +	priv->cur_tx[q]++;
->> +	spin_unlock_irqrestore(&priv->lock, flags);
->> +
->> +	if (skb_put_padto(skb, ETH_ZLEN))
->> +		return NETDEV_TX_OK;
->> +
->> +	priv->tx_skb[q][entry] = skb;
->> +	buffer = PTR_ALIGN(priv->tx_buffers[q][entry], RAVB_ALIGN);
->> +	memcpy(buffer, skb->data, skb->len);
->> +	desc = &priv->tx_ring[q][entry];
->> +	desc->ds = skb->len;
->> +	desc->dptr = dma_map_single(&ndev->dev, buffer, skb->len,
->> +				    DMA_TO_DEVICE);
->> +	if (dma_mapping_error(&ndev->dev, desc->dptr)) {
->> +		dev_kfree_skb_any(skb);
->> +		priv->tx_skb[q][entry] = NULL;
->> +		return NETDEV_TX_OK;
->> +	}
->> +
->> +	/* TX timestamp required */
->> +	if (q == RAVB_NC) {
->> +		ts_skb = kmalloc(sizeof(*ts_skb), GFP_ATOMIC);
->> +		if (!ts_skb) {
->> +			netdev_err(ndev,
->> +				   "Cannot allocate skb list element for HW timestamp\n");
->> +			return -ENOMEM;
->> +		}
->> +		ts_skb->skb = skb;
->> +		ts_skb->tag = priv->ts_skb_tag++;
->> +		priv->ts_skb_tag %= 0x400;
->> +		list_add_tail(&ts_skb->list, &priv->ts_skb_list);
->> +
->> +		/* TAG and timestamp required flag */
->> +		skb_tx_timestamp(skb);
->> +		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-
-> Wrong order WRT skb_tx_timestamp() and SKBTX_IN_PROGRESS.
-
->  From skbuff.h:
-
-> 	/* device driver is going to provide hardware time stamp */
-> 	SKBTX_IN_PROGRESS = 1 << 2,
-
-    OK, thank you!
-
-[...]
-
->> +	}
->> +}
->> +
->> +static bool ravb_ptp_is_config(struct ravb_private *priv)
->> +{
-
-> This is a bit hacky.  Can't your driver make sure that the HW is ready?
-
-    Will look into this. Perhaps it's a remainder from when the PTP driver was 
-separate...
-
->> +	if (ravb_read(priv->ndev, CSR) & CSR_OPS_CONFIG)
->> +		return true;
->> +	else
->> +		return false;
->> +}
->> +
-[...]
->> +static int ravb_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
->> +{
->> +	struct ravb_private *priv = container_of(ptp, struct ravb_private,
->> +						 ptp.info);
->> +	unsigned long flags;
->> +	u64 now;
->> +
->> +	if (ravb_ptp_is_config(priv))
->> +		return -EBUSY;
->> +
->> +	spin_lock_irqsave(&priv->lock, flags);
->> +	now = ravb_ptp_cnt_read(priv);
->> +	now += delta;
->> +	ravb_ptp_cnt_write(priv, now);
->> +	spin_unlock_irqrestore(&priv->lock, flags);
->> +
->> +	return 0;
->> +}
->> +
->> +static int ravb_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-
-> The PHC driver API will be changing to timespec64 soon.
-> (See recent patch series.)
-
-     I know. Let's talk when it changes. :-)
-
-[...]
->> +static int ravb_ptp_perout(struct ptp_clock_info *ptp,
->> +			   struct ptp_perout_request *req, int on)
->> +{
->> +	struct ravb_private *priv = container_of(ptp, struct ravb_private,
->> +						 ptp.info);
->> +	struct net_device *ndev = priv->ndev;
->> +	struct ravb_ptp_perout *perout;
->> +	unsigned long flags;
->> +	u32 gic;
->> +
->> +	if (req->index)
->> +		return -EINVAL;
->> +
->> +	if (on) {
->> +		u64 start_ns;
->> +		u64 period_ns;
->> +
->> +		start_ns = req->start.sec * NSEC_PER_SEC + req->start.nsec;
->> +		period_ns = req->period.sec * NSEC_PER_SEC + req->period.nsec;
->> +
->> +		if (start_ns > U32_MAX) {
->> +			netdev_warn(ndev,
->> +				    "ptp: Start value (nsec) is over limit. Maximum size of start is only 32 bits\n");
-
-> This line is rather long.
-
-    So what? The lines containing the message strings have no limit on the 
-length AFAIK, yet it seems to me the resulting message should fit into 80 columns.
-
-[...]
-> Thanks,
-> Richard
-
-[...]
-
->> +MODULE_AUTHOR("Mitsuhiro Kimura");
-
-    OK, should have probably added Nagai-san here...
-
-WBR, Sergei
-
+--=-ynrM1tJHfkodsjLcMc2/--
