@@ -1,55 +1,150 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] Bonding Overriding Configuration logic restored.
-Date: Mon, 30 Mar 2015 09:59:30 -0400
-Message-ID: <20150330135910.GJ1051@gospo>
-References: <1427628025-9752-1-git-send-email-anton@swortex.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v9 7/7] ixgbevf: Add the appropriate ethtool
+ ops to query RSS indirection table and key
+Date: Mon, 30 Mar 2015 17:00:04 +0300
+Message-ID: <551956E4.6070005@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-8-git-send-email-vladz@cloudius-systems.com> <55187A8C.5060607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Bogoslavsky <alexey@swortex.com>
-To: Anton Nayshtut <anton@swortex.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1427628025-9752-1-git-send-email-anton@swortex.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:35630 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753598AbbC3OAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 10:00:07 -0400
+Received: by wicne17 with SMTP id ne17so32615558wic.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 07:00:06 -0700 (PDT)
+In-Reply-To: <55187A8C.5060607@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 29, 2015 at 02:20:25PM +0300, Anton Nayshtut wrote:
-> Before commit 3900f29021f0bc7fe9815aa32f1a993b7dfdd402 ("bonding: slight
-> optimizztion for bond_slave_override()") the override logic was to send packets
-> with non-zero queue_id through the slave with corresponding queue_id, under two
-> conditions only - if the slave can transmit and it's up.
-> 
-> The above mentioned commit changed this logic by introducing an additional
-> condition - whether the bond is active (indirectly, using the slave_can_tx and
-> later - bond_is_active_slave), that prevents the user from implementing more
-> complex policies according to the Documentation/networking/bonding.txt.
-Yes, this does.  Good catch.
 
-> Signed-off-by: Anton Nayshtut <anton@swortex.com>
-> Signed-off-by: Alexey Bogoslavsky <alexey@swortex.com>
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 
-> ---
->  drivers/net/bonding/bond_main.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 0dceba1..68ad39a 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3797,7 +3797,8 @@ static inline int bond_slave_override(struct bonding *bond,
->  	/* Find out if any slaves have the same mapping as this skb. */
->  	bond_for_each_slave_rcu(bond, slave, iter) {
->  		if (slave->queue_id == skb->queue_mapping) {
-> -			if (bond_slave_can_tx(slave)) {
-> +			if (bond_slave_is_up(slave) &&
-> +			    slave->link == BOND_LINK_UP) {
->  				bond_dev_queue_xmit(bond, skb, slave->dev);
->  				return 0;
->  			}
-> -- 
-> 1.9.1
-> 
+On 03/30/15 01:19, Alexander Duyck wrote:
+> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+>> Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
+>> implementations.
+>>
+>> This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF devices.
+>>
+>> This patch adds the support for 82599 and x540 devices only. Support for other
+>> devices will be added later.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v9:
+>>     - Use IXGBEVF_RSS_HASH_KEY_SIZE macro.
+>>
+>> New in v6:
+>>     - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
+>>
+>> New in v4:
+>>     - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
+>>
+>> New in v3:
+>>     - Added a proper support for x550 devices: return the correct redirection table size.
+>>
+>> New in v2:
+>>     - Added a detailed description to the patch.
+>> ---
+>>   drivers/net/ethernet/intel/ixgbevf/ethtool.c | 58 ++++++++++++++++++++++++++++
+>>   1 file changed, 58 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+>> index e83c85b..4d2f59f 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+>> @@ -794,6 +794,60 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
+>>   	return 0;
+>>   }
+>>   
+>> +static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+>> +			     u32 *rules __always_unused)
+>> +{
+>> +	struct ixgbevf_adapter *adapter = netdev_priv(dev);
+>> +
+>> +	switch (info->cmd) {
+>> +	case ETHTOOL_GRXRINGS:
+>> +		info->data = adapter->num_rx_queues;
+>> +		return 0;
+>> +	default:
+>> +		hw_dbg(&adapter->hw, "Command parameters not supported\n");
+>> +		return -EOPNOTSUPP;
+>> +	}
+>> +}
+>> +
+>> +static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
+>> +{
+>> +	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+>> +
+>> +	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
+>> +		return 64;
+>> +	else
+>> +		return 128;
+>> +}
+>> +
+> You should return 0 for x550, not 64 since it isn't supported.
+>
+> My suggestion would be to alter the code so that you return 128 for
+> everything <= x540_vf, and place a return 0 as the default return
+> without a need for the if statement.
+ok
+>
+>> +static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
+>> +{
+>> +	return IXGBEVF_RSS_HASH_KEY_SIZE;
+>> +}
+>> +
+> Same thing here.  If you don't support this on x550 you should probably
+> return 0 instead of returning a value.
+ok
+>
+>> +static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
+>> +			    u8 *hfunc)
+>> +{
+>> +	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+>> +	int err;
+>> +
+>> +	if (hfunc)
+>> +		*hfunc = ETH_RSS_HASH_TOP;
+>> +
+>> +	if (indir) {
+>> +		err = ixgbevf_get_reta(adapter, indir);
+>> +		if (err)
+>> +			return err;
+>> +	}
+>> +
+>> +	if (key) {
+>> +		err = ixgbevf_get_rss_key(adapter, key);
+>> +		if (err)
+>> +			return err;
+>> +	}
+>> +
+>> +	return 0;
+>> +}
+>> +
+> My advice here would be to just wrap these two functions in one mailbox
+> lock and update the second check so that it is if (!err && key) so that
+> you can simplify the path and just return err at the end.
+
+Yeah, something like that. U see - no need to unite them... ;)
+
+>
+>>   static const struct ethtool_ops ixgbevf_ethtool_ops = {
+>>   	.get_settings		= ixgbevf_get_settings,
+>>   	.get_drvinfo		= ixgbevf_get_drvinfo,
+>> @@ -811,6 +865,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+>>   	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
+>>   	.get_coalesce		= ixgbevf_get_coalesce,
+>>   	.set_coalesce		= ixgbevf_set_coalesce,
+>> +	.get_rxnfc		= ixgbevf_get_rxnfc,
+>> +	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
+>> +	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
+>> +	.get_rxfh		= ixgbevf_get_rxfh,
+>>   };
+>>   
+>>   void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+>>
