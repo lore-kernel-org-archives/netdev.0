@@ -1,68 +1,64 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
-Date: Mon, 30 Mar 2015 14:00:20 -0700
-Message-ID: <CAE4R7bBWornrgtOan0U0tuK06XWgLnsh8hbQLjNitrVR87JWnw@mail.gmail.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
-	<1427704836-8776-3-git-send-email-sfeldma@gmail.com>
-	<E4CD12F19ABA0C4D8729E087A761DC35067FA6FE@ORSMSX101.amr.corp.intel.com>
-	<20150330204612.GA10481@nanopsycho.orion>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC
+ filters
+Date: Mon, 30 Mar 2015 16:01:48 -0500
+Message-ID: <1427749308.1913.28.camel@redhat.com>
+References: <1427409698.18540.11.camel@redhat.com>
+	 <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Arad, Ronen" <ronen.arad@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"linux@roeck-us.net" <linux@roeck-us.net>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:33019 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753237AbbC3VAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 17:00:21 -0400
-Received: by qgfa8 with SMTP id a8so193742332qgf.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 14:00:20 -0700 (PDT)
-In-Reply-To: <20150330204612.GA10481@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:45689 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752085AbbC3VBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 17:01:30 -0400
+In-Reply-To: <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 30, 2015 at 1:46 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Mar 30, 2015 at 08:32:09PM CEST, ronen.arad@intel.com wrote:
->>
->>
->>>-----Original Message-----
->>>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->>>Behalf Of sfeldma@gmail.com
->>>Sent: Monday, March 30, 2015 1:40 AM
->>>To: netdev@vger.kernel.org
->>>Cc: jiri@resnulli.us; roopa@cumulusnetworks.com; linux@roeck-us.net;
->>>f.fainelli@gmail.com
->>>Subject: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
->>>
->>>From: Scott Feldman <sfeldma@gmail.com>
->>>
+On Mon, 2015-03-30 at 13:28 -0700, Mahesh Bandewar wrote:
+> On Thu, Mar 26, 2015 at 3:41 PM, Dan Williams <dcbw@redhat.com> wrote:
+> > The broadcast MAC is supposed to be allowed whenever the device
+> > has an IPv4 address, otherwise ARP requests get dropped on the
+> > floor.  If ndo_set_rx_mode (and thus
+> > ipvlan_set_multicast_mac_filter()) gets called after the address
+> > was added, it blows away the broadcast MAC address in
+> > mac_filters that was added at IPv4 address addition.  Fix that.
+> >
+> > Signed-off-by: Dan Williams <dcbw@redhat.com>
+> Acked-by: Mahesh Bandewar <maheshb@google.com>
 
-[cut]
+I'm actually going to send another patch that supercedes this one and
+handles the DHCP issue in a slightly different way.
 
->>>+     err = _swdev_port_attr_set(dev, attr);
->>>+     if (err && !get_err && !(attr->flags & SWDEV_ATTR_F_NO_RECOVER))
->>>+             /* Some err on set: revert to previous value */
->>>+             _swdev_port_attr_set(dev, &prev);
->>
->>Could revering to previous value fail?
->
-> I believe that it certainly could
->
->>Should such failure be logged?
->
-> That is a good point.
+Dan
 
-I'll add a log msg on revert set failure, good suggestion.
-
-
-> Also, looking at the function name, seems nicer to me to use "__"
-> instead of "_" as a function prefix. Not sure if that is some rule
-> somewhere.
-
-Sure.  I'm not sure what the rule is either.  I seems to remember
-about using "_" prefix for funcs called under lock, or something like
-that.  I'll change it to "__".
+> > ---
+> >  drivers/net/ipvlan/ipvlan_main.c | 3 +++
+> >  1 file changed, 3 insertions(+)
+> >
+> > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> > index 4f4099d..d34f580 100644
+> > --- a/drivers/net/ipvlan/ipvlan_main.c
+> > +++ b/drivers/net/ipvlan/ipvlan_main.c
+> > @@ -241,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
+> >
+> >                 bitmap_copy(ipvlan->mac_filters, mc_filters,
+> >                             IPVLAN_MAC_FILTER_SIZE);
+> > +
+> > +               if (ipvlan->ipv4cnt)
+> > +                       ipvlan_set_broadcast_mac_filter(ipvlan, true);
+> >         }
+> >         dev_uc_sync(ipvlan->phy_dev, dev);
+> >         dev_mc_sync(ipvlan->phy_dev, dev);
+> > --
+> > 2.1.0
+> >
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
