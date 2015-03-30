@@ -1,97 +1,114 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single
- CAN frame for overlapping CAN filters
-Date: Mon, 30 Mar 2015 11:50:15 +0200
-Message-ID: <55191C57.7060906@pengutronix.de>
-References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v9 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF
+ channel commands set
+Date: Mon, 30 Mar 2015 12:57:14 +0300
+Message-ID: <55191DFA.8050103@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-6-git-send-email-vladz@cloudius-systems.com> <55187707.2070609@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="C346D0uG5VBuDK9X45fVuMikDnoVL6WIl"
-Cc: netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60179 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752242AbbC3JuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 05:50:22 -0400
-In-Reply-To: <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:34480 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752128AbbC3J5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 05:57:17 -0400
+Received: by wibg7 with SMTP id g7so87158342wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 02:57:16 -0700 (PDT)
+In-Reply-To: <55187707.2070609@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---C346D0uG5VBuDK9X45fVuMikDnoVL6WIl
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 03/29/2015 08:09 PM, Oliver Hartkopp wrote:
-> The CAN_RAW socket can set multiple CAN identifier specific filters tha=
-t lead
-> to multiple filters in the af_can.c filter processing. These filters ar=
-e
-> indenpendent from each other which leads to logical OR'ed filters when =
-applied.
->=20
-> This patch makes sure that every CAN frame which is filtered for a spec=
-ific
-> socket is only delivered once to the user space. This is independent fr=
-om the
-> number of matching CAN filters of this socket.
->=20
-> As the can_raw() function is executed from NET_RX softirq the introduce=
-d
-> variables are implemented as per-CPU variables to avoid extensive locki=
-ng at
-> CAN frame reception time.
->=20
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> ---
->  net/can/raw.c | 28 ++++++++++++++++++++++++++++
->  1 file changed, 28 insertions(+)
->=20
-> diff --git a/net/can/raw.c b/net/can/raw.c
-> index 00c13ef..866a9b3 100644
-> --- a/net/can/raw.c
-> +++ b/net/can/raw.c
-> @@ -86,6 +86,8 @@ struct raw_sock {
->  	struct can_filter dfilter; /* default/single filter */
->  	struct can_filter *filter; /* pointer to filter(s) */
->  	can_err_mask_t err_mask;
-> +	struct sk_buff __percpu **uniq_skb;
-> +	ktime_t __percpu *uniq_tstamp;
-
-What about creating a struct to hold the ktime_t and the skb? BTW: the
-pointer to the skb can be marked as const.
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---C346D0uG5VBuDK9X45fVuMikDnoVL6WIl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJVGRxaAAoJECte4hHFiupUqxkP/3bKuvcRsBuCSZd/FMghf+/a
-XjNNJZ+ROpNPErS6CnvtSNeT1BQNfgnbSIR8TK5CpIUQyU6X+t1E25vtAlyFv7VO
-ch/ZIrHabkwb57rZeEAZpTk/wNaCKD5BHFQ6cUNUkLCbXStVZNZt1Vqbc1e8mcyT
-8x7E/C4GxvO6fXhxj/Fgb/298gdoEkLw03ctm8fIblEO1H0z7wE0XBnwKBoQfhnS
-qOU+Ssj9HJylTNwh5dsS14jMkHDjxFh+pcTmbXMhAplmv4zzvlGrfx/eA+NuvKDC
-DeYMOek5wdlueyUfJK9X+AdT+H18pKDdxzDArHPIeQDDtgbMT4EQA/ysSqVIeVoX
-ghRZIUOz/OBjDZtrOIaEKlEQBXb4C9Elp/uFA5GMdFYb6SXNE60ePfDpqPP+8fuU
-nRiPKCwDxgI/YXIBdx7M/CluPPjHh8YHIucD8KeKefs2+IDAyygu0H6ahbQjiTsB
-CefCinmyxcJRVgIxLC5suXUzJpP35KWfVocIIWfRINpIrxYlkFUXMAZCFoOEEeGy
-Itoq204Dcu3x5fopyNbD4T2CZSMFHhcZGrrhwpWk87OPmPduzpsVy3eoaCx1fiSy
-7s/5vyBcabCtln+umSvs80vEtT8X0ORJB9M7S4F9wKmZxb9iCowPzqcjlsZVFc0Q
-tIxQjRb01945UQBv+/pU
-=Z9tj
------END PGP SIGNATURE-----
-
---C346D0uG5VBuDK9X45fVuMikDnoVL6WIl--
+On 03/30/15 01:04, Alexander Duyck wrote:
+> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+>> For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
+>> the same RSS key for all VFs.
+>>
+>> Support for other devices will be added later.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v9:
+>>     - Reduce the support to 82599 and x540 devices only.
+>>     - Get rid of registers access in GET_VF_RSS_KEY flow:
+>>        - Get the RSS HASH Key value from the PF's adapter->rss_key[].
+>>
+>> New in v5:
+>>     - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
+>>       basis.
+>>
+>> New in v3:
+>>     - Added a support for x550 devices.
+>>
+>> New in v1 (compared to RFC):
+>>     - Use "if-else" statement instead of a "switch-case" for a single option case
+>>       (in ixgbe_get_vf_rss_key()).
+>> ---
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  1 +
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 25 +++++++++++++++++++++++++
+>>   2 files changed, 26 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> index 3522f53..b1e4703 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+>> @@ -100,6 +100,7 @@ enum ixgbe_pfvf_api_rev {
+>>   
+>>   /* mailbox API, version 1.2 VF requests */
+>>   #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
+>> +#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
+>>   
+>>   /* length of permanent address message returned from PF */
+>>   #define IXGBE_VF_PERMADDR_MSG_LEN 4
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> index 8424e7f..4d87458 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> @@ -996,6 +996,28 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+>>   	return 0;
+>>   }
+>>   
+>> +static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
+>> +				u32 *msgbuf, u32 vf)
+>> +{
+>> +	struct ixgbe_hw *hw = &adapter->hw;
+>> +	u32 *rss_key = &msgbuf[1];
+>> +
+>> +	/* verify the PF is supporting the correct API */
+>> +	if (!adapter->vfinfo[vf].rss_query_enabled ||
+>> +	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
+>> +		return -EPERM;
+>> +
+>> +	/* Read the RSS KEY.
+>> +	 * We only support 82599 and x540 devices at the moment.
+>> +	 */
+>> +	if (hw->mac.type >= ixgbe_mac_X550)
+>> +		return -1;
+>> +
+> The return should be not supported, not -1 since that is too ambiguous.
+Right and I think the (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12) 
+should also return -EOPNOTSUPP.
+>
+>> +	memcpy(rss_key, adapter->rss_key, sizeof(adapter->rss_key));
+>> +
+>> +	return 0;
+>> +}
+>> +
+>>   static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+>>   {
+>>   	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+>> @@ -1055,6 +1077,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+>>   	case IXGBE_VF_GET_RETA:
+>>   		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
+>>   		break;
+>> +	case IXGBE_VF_GET_RSS_KEY:
+>> +		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
+>> +		break;
+>>   	default:
+>>   		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+>>   		retval = IXGBE_ERR_MBX;
+>>
