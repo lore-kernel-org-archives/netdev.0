@@ -1,80 +1,107 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH 7/9 net-next] sunrpc: replace if/BUG by BUG_ON
-Date: Mon, 30 Mar 2015 17:25:20 -0400
-Message-ID: <20150330212520.GF6901@fieldses.org>
-References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
- <1427749998-28464-7-git-send-email-fabf@skynet.be>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 11/18] switchdev: remove old netdev_switch_port_bridge_setlink
+Date: Mon, 30 Mar 2015 14:27:48 -0700
+Message-ID: <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>
+	<55194E63.5010100@cumulusnetworks.com>
+	<CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1427749998-28464-7-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roopa <roopa@cumulusnetworks.com>, Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: "Arad, Ronen" <ronen.arad@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:34941 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752721AbbC3V1t convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 17:27:49 -0400
+Received: by qgh3 with SMTP id 3so185838254qgh.2
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 14:27:48 -0700 (PDT)
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Huh, I thought this wasn't recommended:
+On Mon, Mar 30, 2015 at 1:46 PM, Arad, Ronen <ronen.arad@intel.com> wro=
+te:
+>
+>
+>>-----Original Message-----
+>>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.o=
+rg] On
+>>Behalf Of Scott Feldman
+>>Sent: Monday, March 30, 2015 1:20 PM
+>>To: roopa
+>>Cc: Netdev; Ji=C5=99=C3=AD P=C3=ADrko; Guenter Roeck; Florian Fainell=
+i
+>>Subject: Re: [PATCH net-next 11/18] switchdev: remove old
+>>netdev_switch_port_bridge_setlink
+>>
+>>On Mon, Mar 30, 2015 at 6:23 AM, roopa <roopa@cumulusnetworks.com> wr=
+ote:
+>>> On 3/30/15, 1:40 AM, sfeldma@gmail.com wrote:
+>>>>
+>>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>>
+>>>> New attr-based bridge_setlink can recurse lower devs and recover o=
+n err,
+>>>> so
+>>>> remove old wrapper.  Also, restore br_setlink back to original and=
+ don't
+>>>> call
+>>>> into SELF port driver.  rtnetlink.c:bridge_setlink already does a =
+call
+>>>> into
+>>>> port driver for SELF.
+>>>>
+>>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> removing this now requires every vlan add to be a two step process,=
+ why ?
+>>
+>>No, that's not true.  You want to use
+>>ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid in your port driver, and the=
+n
+>>using either vlan driver standalone or the bridge driver vlan support
+>>will work.
+>>
+>>Try it.  Implement ndo_vlan_rx_add_vid in your port driver and verify
+>>you get called to add VLAN to port with either:
+>>
+>>    bridge vlan add dev swp1 vid 10
+>>
+>>    -or-
+>>
+>>    vconfig add swp1 10
+>>
+>>Same for deleting a VLAN, either of these two commands call into the
+>>port driver ndo_vlan_rx_kill_vid:
+>>
+>>    bridge vlan del dev swp1 vid 10
+>>
+>>    -or-
+>>
+>>    vconfig rem swp1 10
+>>
+>>
+>>> bridge vlan add dev swp1 vid 10
+>>> bridge vlan add dev swp1 vid 10 self
+>>
+>>Not necessary.  The first command is sufficient if using
+>>ndo_vlan_rx_add_vid.
+>
+> This is not sufficient for VLAN filtering. Ndo_vlan_rx_add_vid does n=
+ot
+> provide the vinfo flags PVID and UNTAGGED. Therefore it is not
+> an adequate replacement for propagating setlink/dellink messages to t=
+he
+> swithport driver or an alternative via swdev_attr.
 
-	http://lkml.kernel.org/r/20040828125816.206ef7fa.akpm@osdl.org
-
-	"I'd prefer that we not move code which has side-effects into
-	BUG_ONs"
-
---b.
-
-On Mon, Mar 30, 2015 at 11:13:15PM +0200, Fabian Frederick wrote:
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
->  net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
->  net/sunrpc/svc_xprt.c             | 3 +--
->  2 files changed, 4 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-> index 1095be9..09f8a1c6 100644
-> --- a/net/sunrpc/auth_gss/svcauth_gss.c
-> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
-> @@ -840,11 +840,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
->  		return stat;
->  	if (integ_len > buf->len)
->  		return stat;
-> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
-> -		BUG();
-> +	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
->  	/* copy out mic... */
-> -	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
-> -		BUG();
-> +	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
->  	if (mic.len > RPC_MAX_AUTH_SIZE)
->  		return stat;
->  	mic.data = kmalloc(mic.len, GFP_KERNEL);
-> @@ -1595,8 +1593,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
->  	BUG_ON(integ_len % 4);
->  	*p++ = htonl(integ_len);
->  	*p++ = htonl(gc->gc_seq);
-> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
-> -		BUG();
-> +	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
->  	if (resbuf->tail[0].iov_base == NULL) {
->  		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
->  			goto out_err;
-> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-> index 163ac45..2f82e8b 100644
-> --- a/net/sunrpc/svc_xprt.c
-> +++ b/net/sunrpc/svc_xprt.c
-> @@ -960,8 +960,7 @@ static void svc_delete_xprt(struct svc_xprt *xprt)
->  	struct svc_deferred_req *dr;
->  
->  	/* Only do this once */
-> -	if (test_and_set_bit(XPT_DEAD, &xprt->xpt_flags))
-> -		BUG();
-> +	BUG_ON(test_and_set_bit(XPT_DEAD, &xprt->xpt_flags));
->  
->  	dprintk("svc: svc_delete_xprt(%p)\n", xprt);
->  	xprt->xpt_ops->xpo_detach(xprt);
-> -- 
-> 1.9.1
+Glad you bring that point up.  I think these can get cast as port
+attrs and set using swdev_attr.  This is something swdev attr should
+open up is allowing more settings to be pushed down to port driver.
+I'll look into this one and include it with v2.
