@@ -1,328 +1,488 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 4/7] net/mlx4_en: Support general selective view of ethtool statistics
-Date: Mon, 30 Mar 2015 17:45:23 +0300
-Message-ID: <1427726726-27516-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 6/7] net/mlx4_en: Add Flow control statistics display via ethtool
+Date: Mon, 30 Mar 2015 17:45:25 +0300
+Message-ID: <1427726726-27516-7-git-send-email-ogerlitz@mellanox.com>
 References: <1427726726-27516-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
 	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:50812 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:50835 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753645AbbC3OqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 10:46:09 -0400
+	id S1753709AbbC3OqS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 10:46:18 -0400
 In-Reply-To: <1427726726-27516-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Matan Barak <matanb@mellanox.com>
 
-The driver uses a bitmask to indicate which statistics should be
-displayed to the user in ethtool. The bitmask is u64, therefore we are
-limited for a selective view of up to 64 statistics. Extend the bitmap
-in order to show more than 64 statistics.
+Flow control per priority and Global pause counters are now visible via
+ethtool.  The counters shows statistics regarding pauses in the device.
 
-In addition, add packet statistics to the ethtool display for PF.
-
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Shani Michaeli <shanim@mellanox.com>
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  123 ++++++++++++++---------
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   42 +++++---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    5 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h |    4 +
- 4 files changed, 109 insertions(+), 65 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c  |    4 +
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   74 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   57 +++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.c    |   50 +++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c         |   10 +++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |   13 ++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h |   52 ++++++++++++++++-
+ include/linux/mlx4/device.h                     |    3 +-
+ 8 files changed, 255 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 310d798..1a29329 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -38,6 +38,7 @@
- #include <linux/mlx4/device.h>
- #include <linux/in.h>
- #include <net/ip.h>
-+#include <linux/bitmap.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+index cde14fa..8e3260c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+@@ -226,6 +226,10 @@ static int mlx4_en_dcbnl_ieee_setpfc(struct net_device *dev,
+ 				    prof->rx_ppp);
+ 	if (err)
+ 		en_err(priv, "Failed setting pause params\n");
++	else
++		mlx4_en_update_pfc_stats_bitmap(mdev->dev, &priv->stats_bitmap,
++						prof->rx_ppp, prof->rx_pause,
++						prof->tx_ppp, prof->tx_pause);
  
- #include "mlx4_en.h"
- #include "en_port.h"
-@@ -104,6 +105,7 @@ static const char mlx4_en_priv_flags[][ETH_GSTRING_LEN] = {
- };
- 
- static const char main_strings[][ETH_GSTRING_LEN] = {
-+	/* main statistics */
- 	"rx_packets", "tx_packets", "rx_bytes", "tx_bytes", "rx_errors",
- 	"tx_errors", "rx_dropped", "tx_dropped", "multicast", "collisions",
- 	"rx_length_errors", "rx_over_errors", "rx_crc_errors",
-@@ -222,14 +224,50 @@ static int mlx4_en_set_wol(struct net_device *netdev,
  	return err;
  }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 3e7ed39..4fc7674 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -119,6 +119,48 @@ static const char main_strings[][ETH_GSTRING_LEN] = {
+ 	"queue_stopped", "wake_queue", "tx_timeout", "rx_alloc_failed",
+ 	"rx_csum_good", "rx_csum_none", "rx_csum_complete", "tx_chksum_offload",
  
-+struct bitmap_iterator {
-+	unsigned long *stats_bitmap;
-+	unsigned int count;
-+	unsigned int iterator;
-+	bool advance_array; /* if set, force no increments */
-+};
++	/* priority flow control statistics rx */
++	"rx_pause_prio_0", "rx_pause_duration_prio_0",
++	"rx_pause_transition_prio_0",
++	"rx_pause_prio_1", "rx_pause_duration_prio_1",
++	"rx_pause_transition_prio_1",
++	"rx_pause_prio_2", "rx_pause_duration_prio_2",
++	"rx_pause_transition_prio_2",
++	"rx_pause_prio_3", "rx_pause_duration_prio_3",
++	"rx_pause_transition_prio_3",
++	"rx_pause_prio_4", "rx_pause_duration_prio_4",
++	"rx_pause_transition_prio_4",
++	"rx_pause_prio_5", "rx_pause_duration_prio_5",
++	"rx_pause_transition_prio_5",
++	"rx_pause_prio_6", "rx_pause_duration_prio_6",
++	"rx_pause_transition_prio_6",
++	"rx_pause_prio_7", "rx_pause_duration_prio_7",
++	"rx_pause_transition_prio_7",
 +
-+static inline void bitmap_iterator_init(struct bitmap_iterator *h,
-+					unsigned long *stats_bitmap,
-+					int count)
-+{
-+	h->iterator = 0;
-+	h->advance_array = !bitmap_empty(stats_bitmap, count);
-+	h->count = h->advance_array ? bitmap_weight(stats_bitmap, count)
-+		: count;
-+	h->stats_bitmap = stats_bitmap;
-+}
++	/* flow control statistics rx */
++	"rx_pause", "rx_pause_duration", "rx_pause_transition",
 +
-+static inline int bitmap_iterator_test(struct bitmap_iterator *h)
-+{
-+	return !h->advance_array ? 1 : test_bit(h->iterator, h->stats_bitmap);
-+}
++	/* priority flow control statistics tx */
++	"tx_pause_prio_0", "tx_pause_duration_prio_0",
++	"tx_pause_transition_prio_0",
++	"tx_pause_prio_1", "tx_pause_duration_prio_1",
++	"tx_pause_transition_prio_1",
++	"tx_pause_prio_2", "tx_pause_duration_prio_2",
++	"tx_pause_transition_prio_2",
++	"tx_pause_prio_3", "tx_pause_duration_prio_3",
++	"tx_pause_transition_prio_3",
++	"tx_pause_prio_4", "tx_pause_duration_prio_4",
++	"tx_pause_transition_prio_4",
++	"tx_pause_prio_5", "tx_pause_duration_prio_5",
++	"tx_pause_transition_prio_5",
++	"tx_pause_prio_6", "tx_pause_duration_prio_6",
++	"tx_pause_transition_prio_6",
++	"tx_pause_prio_7", "tx_pause_duration_prio_7",
++	"tx_pause_transition_prio_7",
 +
-+static inline int bitmap_iterator_inc(struct bitmap_iterator *h)
-+{
-+	return h->iterator++;
-+}
++	/* flow control statistics tx */
++	"tx_pause", "tx_pause_duration", "tx_pause_transition",
 +
-+static inline unsigned int
-+bitmap_iterator_count(struct bitmap_iterator *h)
-+{
-+	return h->count;
-+}
-+
- static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
--	int bit_count = hweight64(priv->stats_bitmap);
-+	struct bitmap_iterator it;
-+
-+	bitmap_iterator_init(&it, priv->stats_bitmap, NUM_ALL_STATS);
+ 	/* packet statistics */
+ 	"broadcast", "rx_prio_0", "rx_prio_1", "rx_prio_2", "rx_prio_3",
+ 	"rx_prio_4", "rx_prio_5", "rx_prio_6", "rx_prio_7", "tx_prio_0",
+@@ -304,6 +346,26 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
+ 		if (bitmap_iterator_test(&it))
+ 			data[index++] = ((unsigned long *)&priv->port_stats)[i];
  
- 	switch (sset) {
- 	case ETH_SS_STATS:
--		return (priv->stats_bitmap ? bit_count : NUM_ALL_STATS) +
-+		return bitmap_iterator_count(&it) +
- 			(priv->tx_ring_num * 2) +
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 			(priv->rx_ring_num * 5);
-@@ -251,34 +289,25 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	int index = 0;
--	int i, j = 0;
-+	int i;
-+	struct bitmap_iterator it;
-+
-+	bitmap_iterator_init(&it, priv->stats_bitmap, NUM_ALL_STATS);
- 
- 	spin_lock_bh(&priv->stats_lock);
- 
--	if (!(priv->stats_bitmap)) {
--		for (i = 0; i < NUM_MAIN_STATS; i++)
--			data[index++] =
--				((unsigned long *) &priv->stats)[i];
--		for (i = 0; i < NUM_PORT_STATS; i++)
--			data[index++] =
--				((unsigned long *) &priv->port_stats)[i];
--		for (i = 0; i < NUM_PKT_STATS; i++)
--			data[index++] =
--				((unsigned long *) &priv->pkstats)[i];
--	} else {
--		for (i = 0; i < NUM_MAIN_STATS; i++) {
--			if ((priv->stats_bitmap >> j) & 1)
--				data[index++] =
--				((unsigned long *) &priv->stats)[i];
--			j++;
--		}
--		for (i = 0; i < NUM_PORT_STATS; i++) {
--			if ((priv->stats_bitmap >> j) & 1)
--				data[index++] =
--				((unsigned long *) &priv->port_stats)[i];
--			j++;
--		}
--	}
-+	for (i = 0; i < NUM_MAIN_STATS; i++, bitmap_iterator_inc(&it))
++	for (i = 0; i < NUM_FLOW_PRIORITY_STATS_RX;
++	     i++, bitmap_iterator_inc(&it))
 +		if (bitmap_iterator_test(&it))
-+			data[index++] = ((unsigned long *)&priv->stats)[i];
++			data[index++] =
++				((u64 *)&priv->rx_priority_flowstats)[i];
 +
-+	for (i = 0; i < NUM_PORT_STATS; i++, bitmap_iterator_inc(&it))
++	for (i = 0; i < NUM_FLOW_STATS_RX; i++, bitmap_iterator_inc(&it))
 +		if (bitmap_iterator_test(&it))
-+			data[index++] = ((unsigned long *)&priv->port_stats)[i];
++			data[index++] = ((u64 *)&priv->rx_flowstats)[i];
 +
-+	for (i = 0; i < NUM_PKT_STATS; i++, bitmap_iterator_inc(&it))
++	for (i = 0; i < NUM_FLOW_PRIORITY_STATS_TX;
++	     i++, bitmap_iterator_inc(&it))
 +		if (bitmap_iterator_test(&it))
-+			data[index++] = ((unsigned long *)&priv->pkstats)[i];
++			data[index++] =
++				((u64 *)&priv->tx_priority_flowstats)[i];
 +
- 	for (i = 0; i < priv->tx_ring_num; i++) {
- 		data[index++] = priv->tx_ring[i]->packets;
- 		data[index++] = priv->tx_ring[i]->bytes;
-@@ -307,7 +336,10 @@ static void mlx4_en_get_strings(struct net_device *dev,
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	int index = 0;
--	int i;
-+	int i, strings = 0;
-+	struct bitmap_iterator it;
++	for (i = 0; i < NUM_FLOW_STATS_TX; i++, bitmap_iterator_inc(&it))
++		if (bitmap_iterator_test(&it))
++			data[index++] = ((u64 *)&priv->tx_flowstats)[i];
 +
-+	bitmap_iterator_init(&it, priv->stats_bitmap, NUM_ALL_STATS);
+ 	for (i = 0; i < NUM_PKT_STATS; i++, bitmap_iterator_inc(&it))
+ 		if (bitmap_iterator_test(&it))
+ 			data[index++] = ((unsigned long *)&priv->pkstats)[i];
+@@ -364,6 +426,12 @@ static void mlx4_en_get_strings(struct net_device *dev,
+ 				strcpy(data + (index++) * ETH_GSTRING_LEN,
+ 				       main_strings[strings]);
  
- 	switch (stringset) {
- 	case ETH_SS_TEST:
-@@ -320,29 +352,24 @@ static void mlx4_en_get_strings(struct net_device *dev,
- 
- 	case ETH_SS_STATS:
- 		/* Add main counters */
--		if (!priv->stats_bitmap) {
--			for (i = 0; i < NUM_MAIN_STATS; i++)
-+		for (i = 0; i < NUM_MAIN_STATS; i++, strings++,
++		for (i = 0; i < NUM_FLOW_STATS; i++, strings++,
 +		     bitmap_iterator_inc(&it))
 +			if (bitmap_iterator_test(&it))
- 				strcpy(data + (index++) * ETH_GSTRING_LEN,
--					main_strings[i]);
--			for (i = 0; i < NUM_PORT_STATS; i++)
++				strcpy(data + (index++) * ETH_GSTRING_LEN,
 +				       main_strings[strings]);
 +
-+		for (i = 0; i < NUM_PORT_STATS; i++, strings++,
-+		     bitmap_iterator_inc(&it))
-+			if (bitmap_iterator_test(&it))
- 				strcpy(data + (index++) * ETH_GSTRING_LEN,
--					main_strings[i +
--					NUM_MAIN_STATS]);
--			for (i = 0; i < NUM_PKT_STATS; i++)
-+				       main_strings[strings]);
-+
-+		for (i = 0; i < NUM_PKT_STATS; i++, strings++,
-+		     bitmap_iterator_inc(&it))
-+			if (bitmap_iterator_test(&it))
- 				strcpy(data + (index++) * ETH_GSTRING_LEN,
--					main_strings[i +
--					NUM_MAIN_STATS +
--					NUM_PORT_STATS]);
--		} else
--			for (i = 0; i < NUM_MAIN_STATS + NUM_PORT_STATS; i++) {
--				if ((priv->stats_bitmap >> i) & 1) {
--					strcpy(data +
--					       (index++) * ETH_GSTRING_LEN,
--					       main_strings[i]);
--				}
--				if (!(priv->stats_bitmap >> i))
--					break;
--			}
-+				       main_strings[strings]);
-+
- 		for (i = 0; i < priv->tx_ring_num; i++) {
- 			sprintf(data + (index++) * ETH_GSTRING_LEN,
- 				"tx%d_packets", i);
+ 		for (i = 0; i < NUM_PKT_STATS; i++, strings++,
+ 		     bitmap_iterator_inc(&it))
+ 			if (bitmap_iterator_test(&it))
+@@ -910,6 +978,12 @@ static int mlx4_en_set_pauseparam(struct net_device *dev,
+ 				    priv->prof->rx_ppp);
+ 	if (err)
+ 		en_err(priv, "Failed setting pause params\n");
++	else
++		mlx4_en_update_pfc_stats_bitmap(mdev->dev, &priv->stats_bitmap,
++						priv->prof->rx_ppp,
++						priv->prof->rx_pause,
++						priv->prof->tx_ppp,
++						priv->prof->tx_pause);
+ 
+ 	return err;
+ }
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 9556230..b771032 100644
+index 4542bab..354e254 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -49,11 +49,6 @@
- #include "mlx4_en.h"
- #include "en_port.h"
+@@ -1888,6 +1888,12 @@ static void mlx4_en_clear_stats(struct net_device *dev)
+ 	memset(&priv->pstats, 0, sizeof(priv->pstats));
+ 	memset(&priv->pkstats, 0, sizeof(priv->pkstats));
+ 	memset(&priv->port_stats, 0, sizeof(priv->port_stats));
++	memset(&priv->rx_flowstats, 0, sizeof(priv->rx_flowstats));
++	memset(&priv->tx_flowstats, 0, sizeof(priv->tx_flowstats));
++	memset(&priv->rx_priority_flowstats, 0,
++	       sizeof(priv->rx_priority_flowstats));
++	memset(&priv->tx_priority_flowstats, 0,
++	       sizeof(priv->tx_priority_flowstats));
  
--#define MLX4_STATS_TRAFFIC_COUNTERS_MASK	0xfULL
--#define MLX4_STATS_TRAFFIC_DROPS_MASK		0xc0ULL
--#define MLX4_STATS_ERROR_COUNTERS_MASK		0x1ffc30ULL
--#define MLX4_STATS_PORT_COUNTERS_MASK		0x7fe00000ULL
--
- int mlx4_en_setup_tc(struct net_device *dev, u8 up)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -2653,19 +2648,36 @@ int mlx4_en_netdev_event(struct notifier_block *this,
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		priv->tx_ring[i]->bytes = 0;
+@@ -2648,8 +2654,46 @@ int mlx4_en_netdev_event(struct notifier_block *this,
  	return NOTIFY_DONE;
  }
  
--void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap)
-+void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
-+			      unsigned long *stats_bitmap)
++void mlx4_en_update_pfc_stats_bitmap(struct mlx4_dev *dev,
++				     struct mlx4_en_stats_bitmap *stats_bitmap,
++				     u8 rx_ppp, u8 rx_pause,
++				     u8 tx_ppp, u8 tx_pause)
++{
++	int last_i = NUM_MAIN_STATS + NUM_PORT_STATS;
++
++	if (!mlx4_is_slave(dev) &&
++	    (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN)) {
++		mutex_lock(&stats_bitmap->mutex);
++		bitmap_clear(stats_bitmap->bitmap, last_i, NUM_FLOW_STATS);
++
++		if (rx_ppp)
++			bitmap_set(stats_bitmap->bitmap, last_i,
++				   NUM_FLOW_PRIORITY_STATS_RX);
++		last_i += NUM_FLOW_PRIORITY_STATS_RX;
++
++		if (rx_pause && !(rx_ppp))
++			bitmap_set(stats_bitmap->bitmap, last_i,
++				   NUM_FLOW_STATS_RX);
++		last_i += NUM_FLOW_STATS_RX;
++
++		if (tx_ppp)
++			bitmap_set(stats_bitmap->bitmap, last_i,
++				   NUM_FLOW_PRIORITY_STATS_TX);
++		last_i += NUM_FLOW_PRIORITY_STATS_TX;
++
++		if (tx_pause && !(tx_ppp))
++			bitmap_set(stats_bitmap->bitmap, last_i,
++				   NUM_FLOW_STATS_TX);
++		last_i += NUM_FLOW_STATS_TX;
++
++		mutex_unlock(&stats_bitmap->mutex);
++	}
++}
++
+ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+-			      struct mlx4_en_stats_bitmap *stats_bitmap)
++			      struct mlx4_en_stats_bitmap *stats_bitmap,
++			      u8 rx_ppp, u8 rx_pause,
++			      u8 tx_ppp, u8 tx_pause)
  {
--	if (!mlx4_is_mfunc(dev)) {
--		*stats_bitmap = 0;
--		return;
-+	int last_i = 0;
-+
-+	bitmap_zero(stats_bitmap, NUM_ALL_STATS);
-+
-+	if (mlx4_is_slave(dev)) {
-+		bitmap_set(stats_bitmap, last_i +
-+					 MLX4_FIND_NETDEV_STAT(rx_packets), 1);
-+		bitmap_set(stats_bitmap, last_i +
-+					 MLX4_FIND_NETDEV_STAT(tx_packets), 1);
-+		bitmap_set(stats_bitmap, last_i +
-+					 MLX4_FIND_NETDEV_STAT(rx_bytes), 1);
-+		bitmap_set(stats_bitmap, last_i +
-+					 MLX4_FIND_NETDEV_STAT(tx_bytes), 1);
-+		bitmap_set(stats_bitmap, last_i +
-+					 MLX4_FIND_NETDEV_STAT(rx_dropped), 1);
-+		bitmap_set(stats_bitmap, last_i +
-+					 MLX4_FIND_NETDEV_STAT(tx_dropped), 1);
-+	} else {
-+		bitmap_set(stats_bitmap, last_i, NUM_MAIN_STATS);
- 	}
-+	last_i += NUM_MAIN_STATS;
+ 	int last_i = 0;
  
--	*stats_bitmap = (MLX4_STATS_TRAFFIC_COUNTERS_MASK |
--			 MLX4_STATS_TRAFFIC_DROPS_MASK |
--			 MLX4_STATS_PORT_COUNTERS_MASK);
-+	bitmap_set(stats_bitmap, last_i, NUM_PORT_STATS);
-+	last_i += NUM_PORT_STATS;
+@@ -2677,6 +2721,11 @@ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+ 	bitmap_set(stats_bitmap->bitmap, last_i, NUM_PORT_STATS);
+ 	last_i += NUM_PORT_STATS;
  
--	if (mlx4_is_master(dev))
--		*stats_bitmap |= MLX4_STATS_ERROR_COUNTERS_MASK;
-+	if (!mlx4_is_slave(dev))
-+		bitmap_set(stats_bitmap, last_i, NUM_PKT_STATS);
++	mlx4_en_update_pfc_stats_bitmap(dev, stats_bitmap,
++					rx_ppp, rx_pause,
++					tx_ppp, tx_pause);
++	last_i += NUM_FLOW_STATS;
++
+ 	if (!mlx4_is_slave(dev))
+ 		bitmap_set(stats_bitmap->bitmap, last_i, NUM_PKT_STATS);
  }
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-@@ -2901,7 +2913,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+@@ -2914,7 +2963,11 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
  		queue_delayed_work(mdev->workqueue, &priv->service_task,
  				   SERVICE_TASK_DELAY);
  
 -	mlx4_en_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
-+	mlx4_en_set_stats_bitmap(mdev->dev, priv->stats_bitmap);
++	mlx4_en_set_stats_bitmap(mdev->dev, &priv->stats_bitmap,
++				 mdev->profile.prof[priv->port].rx_ppp,
++				 mdev->profile.prof[priv->port].rx_pause,
++				 mdev->profile.prof[priv->port].tx_ppp,
++				 mdev->profile.prof[priv->port].tx_pause);
  
  	return 0;
  
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+index 6cb8007..821ae12 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+@@ -131,6 +131,7 @@ out:
+ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ {
+ 	struct mlx4_en_stat_out_mbox *mlx4_en_stats;
++	struct mlx4_en_stat_out_flow_control_mbox *flowstats;
+ 	struct mlx4_en_priv *priv = netdev_priv(mdev->pndev[port]);
+ 	struct net_device_stats *stats = &priv->stats;
+ 	struct mlx4_cmd_mailbox *mailbox;
+@@ -239,6 +240,55 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	priv->pkstats.tx_prio[7] = be64_to_cpu(mlx4_en_stats->TTOT_prio_7);
+ 	spin_unlock_bh(&priv->stats_lock);
+ 
++	/* 0xffs indicates invalid value */
++	memset(mailbox->buf, 0xff, sizeof(*flowstats) * MLX4_NUM_PRIORITIES);
++
++	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN) {
++		memset(mailbox->buf, 0,
++		       sizeof(*flowstats) * MLX4_NUM_PRIORITIES);
++		err = mlx4_cmd_box(mdev->dev, 0, mailbox->dma,
++				   in_mod | MLX4_DUMP_ETH_STATS_FLOW_CONTROL,
++				   0, MLX4_CMD_DUMP_ETH_STATS,
++				   MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
++		if (err)
++			goto out;
++	}
++
++	flowstats = mailbox->buf;
++
++	spin_lock_bh(&priv->stats_lock);
++
++	for (i = 0; i < MLX4_NUM_PRIORITIES; i++)	{
++		priv->rx_priority_flowstats[i].rx_pause =
++			be64_to_cpu(flowstats[i].rx_pause);
++		priv->rx_priority_flowstats[i].rx_pause_duration =
++			be64_to_cpu(flowstats[i].rx_pause_duration);
++		priv->rx_priority_flowstats[i].rx_pause_transition =
++			be64_to_cpu(flowstats[i].rx_pause_transition);
++		priv->tx_priority_flowstats[i].tx_pause =
++			be64_to_cpu(flowstats[i].tx_pause);
++		priv->tx_priority_flowstats[i].tx_pause_duration =
++			be64_to_cpu(flowstats[i].tx_pause_duration);
++		priv->tx_priority_flowstats[i].tx_pause_transition =
++			be64_to_cpu(flowstats[i].tx_pause_transition);
++	}
++
++	/* if pfc is not in use, all priorities counters have the same value */
++	priv->rx_flowstats.rx_pause =
++		be64_to_cpu(flowstats[0].rx_pause);
++	priv->rx_flowstats.rx_pause_duration =
++		be64_to_cpu(flowstats[0].rx_pause_duration);
++	priv->rx_flowstats.rx_pause_transition =
++		be64_to_cpu(flowstats[0].rx_pause_transition);
++	priv->tx_flowstats.tx_pause =
++		be64_to_cpu(flowstats[0].tx_pause);
++	priv->tx_flowstats.tx_pause_duration =
++		be64_to_cpu(flowstats[0].tx_pause_duration);
++	priv->tx_flowstats.tx_pause_transition =
++		be64_to_cpu(flowstats[0].tx_pause_transition);
++
++	spin_unlock_bh(&priv->stats_lock);
++
+ out:
+ 	mlx4_free_cmd_mailbox(mdev->dev, mailbox);
+ 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 4a471f5..209a617 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -145,7 +145,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[20] = "Recoverable error events support",
+ 		[21] = "Port Remap support",
+ 		[22] = "QCN support",
+-		[23] = "QP rate limiting support"
++		[23] = "QP rate limiting support",
++		[24] = "Ethernet Flow control statistics support"
+ 	};
+ 	int i;
+ 
+@@ -672,6 +673,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ #define QUERY_DEV_CAP_RSVD_XRC_OFFSET		0x66
+ #define QUERY_DEV_CAP_MAX_XRC_OFFSET		0x67
+ #define QUERY_DEV_CAP_MAX_COUNTERS_OFFSET	0x68
++#define QUERY_DEV_CAP_PORT_FLOWSTATS_COUNTERS_OFFSET	0x70
+ #define QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET	0x70
+ #define QUERY_DEV_CAP_FLOW_STEERING_IPOIB_OFFSET	0x74
+ #define QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET	0x76
+@@ -773,6 +775,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_VL_PORT_OFFSET);
+ 	dev_cap->num_ports = field & 0xf;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_MSG_SZ_OFFSET);
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_PORT_FLOWSTATS_COUNTERS_OFFSET);
++	if (field & 0x10)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN;
+ 	dev_cap->max_msg_sz = 1 << (field & 0x1f);
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET);
+ 	if (field & 0x80)
+@@ -1088,6 +1093,7 @@ out:
+ 	return err;
+ }
+ 
++#define DEV_CAP_EXT_2_FLAG_PFC_COUNTERS	(1 << 28)
+ #define DEV_CAP_EXT_2_FLAG_VLAN_CONTROL (1 << 26)
+ #define DEV_CAP_EXT_2_FLAG_80_VFS	(1 << 21)
+ #define DEV_CAP_EXT_2_FLAG_FSM		(1 << 20)
+@@ -1177,7 +1183,7 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	/* turn off host side virt features (VST, FSM, etc) for guests */
+ 	MLX4_GET(field32, outbox->buf, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
+ 	field32 &= ~(DEV_CAP_EXT_2_FLAG_VLAN_CONTROL | DEV_CAP_EXT_2_FLAG_80_VFS |
+-		     DEV_CAP_EXT_2_FLAG_FSM);
++		     DEV_CAP_EXT_2_FLAG_FSM | DEV_CAP_EXT_2_FLAG_PFC_COUNTERS);
+ 	MLX4_PUT(outbox->buf, field32, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
+ 
+ 	/* turn off QCN for guests */
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index af3d9b7..a612bfd 100644
+index d5d971a..67eeea2 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -561,7 +561,7 @@ struct mlx4_en_priv {
+@@ -565,6 +565,10 @@ struct mlx4_en_priv {
+ #endif
  	struct mlx4_en_perf_stats pstats;
  	struct mlx4_en_pkt_stats pkstats;
++	struct mlx4_en_flow_stats_rx rx_priority_flowstats[MLX4_NUM_PRIORITIES];
++	struct mlx4_en_flow_stats_tx tx_priority_flowstats[MLX4_NUM_PRIORITIES];
++	struct mlx4_en_flow_stats_rx rx_flowstats;
++	struct mlx4_en_flow_stats_tx tx_flowstats;
  	struct mlx4_en_port_stats port_stats;
--	u64 stats_bitmap;
-+	DECLARE_BITMAP(stats_bitmap, NUM_ALL_STATS);
+ 	struct mlx4_en_stats_bitmap stats_bitmap;
  	struct list_head mc_list;
- 	struct list_head curr_list;
- 	u64 broadcast_id;
-@@ -730,7 +730,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- int mlx4_en_start_port(struct net_device *dev);
+@@ -736,7 +740,9 @@ int mlx4_en_start_port(struct net_device *dev);
  void mlx4_en_stop_port(struct net_device *dev, int detach);
  
--void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap);
-+void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
-+			      unsigned long *stats_bitmap);
+ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+-			      struct mlx4_en_stats_bitmap *stats_bitmap);
++			      struct mlx4_en_stats_bitmap *stats_bitmap,
++			      u8 rx_ppp, u8 rx_pause,
++			      u8 tx_ppp, u8 tx_pause);
  
  void mlx4_en_free_resources(struct mlx4_en_priv *priv);
  int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
+@@ -823,7 +829,10 @@ void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev);
+ int mlx4_en_reset_config(struct net_device *dev,
+ 			 struct hwtstamp_config ts_config,
+ 			 netdev_features_t new_features);
+-
++void mlx4_en_update_pfc_stats_bitmap(struct mlx4_dev *dev,
++				     struct mlx4_en_stats_bitmap *stats_bitmap,
++				     u8 rx_ppp, u8 rx_pause,
++				     u8 tx_ppp, u8 tx_pause);
+ int mlx4_en_netdev_event(struct notifier_block *this,
+ 			 unsigned long event, void *ptr);
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-index abea7a5..d7183e3 100644
+index d7183e3..e193680 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-@@ -44,4 +44,8 @@ struct mlx4_en_perf_stats {
+@@ -42,8 +42,58 @@ struct mlx4_en_perf_stats {
+ };
+ 
  #define NUM_MAIN_STATS	21
++
++#define MLX4_NUM_PRIORITIES	8
++
++struct mlx4_en_flow_stats_rx {
++	u64 rx_pause;
++	u64 rx_pause_duration;
++	u64 rx_pause_transition;
++#define NUM_FLOW_STATS_RX	3
++#define NUM_FLOW_PRIORITY_STATS_RX	(NUM_FLOW_STATS_RX * \
++					 MLX4_NUM_PRIORITIES)
++};
++
++struct mlx4_en_flow_stats_tx {
++	u64 tx_pause;
++	u64 tx_pause_duration;
++	u64 tx_pause_transition;
++#define NUM_FLOW_STATS_TX	3
++#define NUM_FLOW_PRIORITY_STATS_TX	(NUM_FLOW_STATS_TX * \
++					 MLX4_NUM_PRIORITIES)
++};
++
++#define NUM_FLOW_STATS (NUM_FLOW_STATS_RX + NUM_FLOW_STATS_TX + \
++			NUM_FLOW_PRIORITY_STATS_TX + \
++			NUM_FLOW_PRIORITY_STATS_RX)
++
++struct mlx4_en_stat_out_flow_control_mbox {
++	/* Total number of PAUSE frames received from the far-end port */
++	__be64 rx_pause;
++	/* Total number of microseconds that far-end port requested to pause
++	* transmission of packets
++	*/
++	__be64 rx_pause_duration;
++	/* Number of received transmission from XOFF state to XON state */
++	__be64 rx_pause_transition;
++	/* Total number of PAUSE frames sent from the far-end port */
++	__be64 tx_pause;
++	/* Total time in microseconds that transmission of packets has been
++	* paused
++	*/
++	__be64 tx_pause_duration;
++	/* Number of transmitter transitions from XOFF state to XON state */
++	__be64 tx_pause_transition;
++	/* Reserverd */
++	__be64 reserved[2];
++};
++
++enum {
++	MLX4_DUMP_ETH_STATS_FLOW_CONTROL = 1 << 12
++};
++
  #define NUM_ALL_STATS	(NUM_MAIN_STATS + NUM_PORT_STATS + NUM_PKT_STATS + \
- 			 NUM_PERF_STATS)
-+
-+#define MLX4_FIND_NETDEV_STAT(n) (offsetof(struct net_device_stats, n) / \
-+				  sizeof(((struct net_device_stats *)0)->n))
-+
- #endif
+-			 NUM_PERF_STATS)
++			 NUM_FLOW_STATS + NUM_PERF_STATS)
+ 
+ #define MLX4_FIND_NETDEV_STAT(n) (offsetof(struct net_device_stats, n) / \
+ 				  sizeof(((struct net_device_stats *)0)->n))
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 49abbe2..ab7ebec 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -205,7 +205,8 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_RECOVERABLE_ERROR_EVENT = 1LL << 20,
+ 	MLX4_DEV_CAP_FLAG2_PORT_REMAP		= 1LL <<  21,
+ 	MLX4_DEV_CAP_FLAG2_QCN			= 1LL <<  22,
+-	MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT	= 1LL <<  23
++	MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT	= 1LL <<  23,
++	MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN         = 1LL <<  24
+ };
+ 
+ enum {
 -- 
 1.7.1
