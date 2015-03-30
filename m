@@ -1,81 +1,182 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single CAN
- frame for overlapping CAN filters
-Date: Mon, 30 Mar 2015 15:33:30 +0300
-Message-ID: <5519429A.8050000@cogentembedded.com>
-References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v9 6/7] ixgbevf: Add RSS Key query code
+Date: Mon, 30 Mar 2015 15:38:38 +0300
+Message-ID: <551943CE.4050108@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:35067 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752709AbbC3Mim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 08:38:42 -0400
+Received: by wgdm6 with SMTP id m6so173185728wgd.2
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 05:38:40 -0700 (PDT)
+In-Reply-To: <551876DA.1000607@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 3/29/2015 9:09 PM, Oliver Hartkopp wrote:
 
-> The CAN_RAW socket can set multiple CAN identifier specific filters that lead
-> to multiple filters in the af_can.c filter processing. These filters are
-> indenpendent from each other which leads to logical OR'ed filters when applied.
+On 03/30/15 01:04, Alexander Duyck wrote:
+> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+>> Add the ixgbevf_get_rss_key() function that queries the PF for an RSS Random Key
+>> using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
+>>
+>> This patch adds the support for 82599 and x540 devices only. Support for other
+>> devices will be added later.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v9:
+>>     - Reduce the support to 82599 and x540 devices only.
+>>     - Added IXGBEVF_RSS_HASH_KEY_SIZE macro.
+>>
+>> New in v8:
+>>     - Protect a mailbox access.
+>>
+>> New in v6:
+>>     - Return a proper return code when an operation is blocked by PF.
+>>
+>> New in v2:
+>>     - Added a more detailed patch description.
+>>
+>> New in v1 (compared to RFC):
+>>     - Use "if-else" statement instead of a "switch-case" for a single option case
+>>       (in ixgbevf_get_rss_key()).
+>> ---
+>>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  1 +
+>>   drivers/net/ethernet/intel/ixgbevf/mbx.h     |  1 +
+>>   drivers/net/ethernet/intel/ixgbevf/vf.c      | 66 ++++++++++++++++++++++++++++
+>>   drivers/net/ethernet/intel/ixgbevf/vf.h      |  1 +
+>>   4 files changed, 69 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>> index bc939a1..6771ae3 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+>> @@ -145,6 +145,7 @@ struct ixgbevf_ring {
+>>   #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
+>>   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
+>>   #define IXGBEVF_MAX_RSS_QUEUES	2
+>> +#define IXGBEVF_RSS_HASH_KEY_SIZE	40
+>>   
+>>   #define IXGBEVF_DEFAULT_TXD	1024
+>>   #define IXGBEVF_DEFAULT_RXD	512
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+>> index 66e138b..82f44e0 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+>> @@ -110,6 +110,7 @@ enum ixgbe_pfvf_api_rev {
+>>   
+>>   /* mailbox API, version 1.2 VF requests */
+>>   #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
+>> +#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
+>>   
+>>   /* length of permanent address message returned from PF */
+>>   #define IXGBE_VF_PERMADDR_MSG_LEN	4
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+>> index 2676c0b..ec68145 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+>> @@ -301,6 +301,72 @@ static inline int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *msgbuf,
+>>   	return 0;
+>>   }
+>>   
+>> +static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
+>> +{
+>> +	int err;
+>> +	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
+>> +
+>> +	/* We currently support the RSS Random Key retrieval for 82599 and x540
+>> +	 * devices only.
+>> +	 *
+>> +	 * Thus return an error if API doesn't support RSS Random Key retrieval
+>> +	 * or if the operation is not supported for this device type.
+>> +	 */
+>> +	if (hw->api_version != ixgbe_mbox_api_12 ||
+>> +	    hw->mac.type >= ixgbe_mac_X550_vf)
+>> +		return -EPERM;
+>> +
+> The return type here should be not supported, or IXGBE_NOT_IMPLEMENTED,
+> not no permissions.
 
-> This patch makes sure that every CAN frame which is filtered for a specific
-> socket is only delivered once to the user space. This is independent from the
-> number of matching CAN filters of this socket.
+I think a standard EOPNOTSUPP would be a much better choice.
+Why do u have this ixgbe-specific return values in addition to standard 
+POSIX ones anyway?
 
-> As the can_raw() function is executed from NET_RX softirq the introduced
-> variables are implemented as per-CPU variables to avoid extensive locking at
-> CAN frame reception time.
-
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> ---
->   net/can/raw.c | 28 ++++++++++++++++++++++++++++
->   1 file changed, 28 insertions(+)
-
-> diff --git a/net/can/raw.c b/net/can/raw.c
-> index 00c13ef..866a9b3 100644
-> --- a/net/can/raw.c
-> +++ b/net/can/raw.c
-[...]
-> @@ -123,6 +125,15 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
->   	if (!ro->fd_frames && oskb->len != CAN_MTU)
->   		return;
 >
-> +	/* eliminate multiple filter matches for the same skb */
-> +	if (*this_cpu_ptr(ro->uniq_skb) == oskb &&
-> +	    ktime_equal(*this_cpu_ptr(ro->uniq_tstamp), oskb->tstamp)) {
-> +			return;
-
-    Over-indented.
-
-> +	} else {
-> +		*this_cpu_ptr(ro->uniq_skb) = oskb;
-> +		*this_cpu_ptr(ro->uniq_tstamp) = oskb->tstamp;
-> +	}
-> +
->   	/* clone the given skb to be able to enqueue it into the rcv queue */
->   	skb = skb_clone(oskb, GFP_ATOMIC);
->   	if (!skb)
-[...]
-> @@ -297,6 +309,20 @@ static int raw_init(struct sock *sk)
->   	ro->recv_own_msgs    = 0;
->   	ro->fd_frames        = 0;
+>> +	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
+>> +	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
+>> +
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
+>> +
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
+>> +
+>> +	/* If the operation has been refused by a PF return -EPERM */
+>> +	if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
+>> +		return -EPERM;
+>> +
+>> +	/* If we didn't get an ACK there must have been
+>> +	 * some sort of mailbox error so we should treat it
+>> +	 * as such.
+>> +	 */
+>> +	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
+>> +		return IXGBE_ERR_MBX;
+>> +
+>> +	memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +/**
+>> + * ixgbevf_get_rss_key - get the RSS Random Key
+>> + * @hw: pointer to the HW structure
+>> + * @reta: buffer to fill with RETA contents.
+>> + *
+>> + * The "rss_key" buffer should be big enough to contain 10 registers.
+>> + * Ensures the atomicy of a mailbox access using the adapter.mbx_lock spinlock.
+>> + *
+>> + * Returns: 0 on success.
+>> + *          if API doesn't support this operation - (-EPERM).
+>> + */
+>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
+>> +{
+>> +	int rc;
+>> +
+>> +	spin_lock_bh(&a->mbx_lock);
+>> +	rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
+>> +	spin_unlock_bh(&a->mbx_lock);
+>> +
+>> +	return rc;
+>> +}
+>> +
+> Since there is currently no cases where you would be getting the rss_key
+> without the RETA you might just want to combine this function with
+> ixgbevf_get_reta so you only take the lock once and process both
+> messages in one pass instead of having to bounce the spinlock.
 >
-> +	ro->uniq_skb = alloc_percpu(struct sk_buff *);
-> +	if (unlikely(ro->uniq_skb == NULL))
-> +		return -ENOMEM;
-> +	for_each_possible_cpu(cpu)
-> +		*per_cpu_ptr(ro->uniq_skb, cpu) = NULL;
-> +
-> +	ro->uniq_tstamp = alloc_percpu(ktime_t);
-> +	if (unlikely(ro->uniq_tstamp == NULL)) {
-
-    !ro->uniq_tstamp is preferred in the networking code.
-
-[...]
-
-WBR, Sergei
-
+>>   /**
+>>    * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
+>>    * @adapter: pointer to the port handle
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+>> index 7944962..a054716 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/vf.h
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+>> @@ -212,4 +212,5 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
+>>   int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+>>   		       unsigned int *default_tc);
+>>   int ixgbevf_get_reta(struct ixgbevf_adapter *adapter, u32 *reta);
+>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *adapter, u8 *rss_key);
+>>   #endif /* __IXGBE_VF_H__ */
+>>
