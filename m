@@ -1,8 +1,8 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 12/18] switchdev: remove unused netdev_switch_port_bridge_dellink
-Date: Mon, 30 Mar 2015 06:23:05 -0700
-Message-ID: <55194E39.4000108@cumulusnetworks.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com> <1427704836-8776-13-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 11/18] switchdev: remove old netdev_switch_port_bridge_setlink
+Date: Mon, 30 Mar 2015 06:23:47 -0700
+Message-ID: <55194E63.5010100@cumulusnetworks.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com> <1427704836-8776-12-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,86 +10,76 @@ Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
 	f.fainelli@gmail.com
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:35319 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752322AbbC3NXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:23:06 -0400
-Received: by pddn5 with SMTP id n5so59611302pdd.2
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:23:06 -0700 (PDT)
-In-Reply-To: <1427704836-8776-13-git-send-email-sfeldma@gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35132 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752857AbbC3NXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:23:49 -0400
+Received: by patj18 with SMTP id j18so11209077pat.2
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:23:48 -0700 (PDT)
+In-Reply-To: <1427704836-8776-12-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 3/30/15, 1:40 AM, sfeldma@gmail.com wrote:
 > From: Scott Feldman <sfeldma@gmail.com>
 >
-> There are no port driver using bridge_dellink, so remove these swdev wrappers.
-> Something was fishy here anyway because dellink isn't used for deleting port
-> attributes (not sure how you delete a port attribute?).  VLAN deletes are
-> already handled via ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid.
+> New attr-based bridge_setlink can recurse lower devs and recover on err, so
+> remove old wrapper.  Also, restore br_setlink back to original and don't call
+> into SELF port driver.  rtnetlink.c:bridge_setlink already does a call into
+> port driver for SELF.
 >
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-dellink is used for vlan deletes in the new bridge vlan filtering bridge.
+removing this now requires every vlan add to be a two step process, why ?
+
+bridge vlan add dev swp1 vid 10
+bridge vlan add dev swp1 vid 10 self
+
+and userspace will get two notifications.
 
 > ---
->   drivers/net/bonding/bond_main.c |    1 -
->   drivers/net/team/team.c         |    1 -
->   include/net/switchdev.h         |   18 -------------
->   net/bridge/br_netlink.c         |   12 +--------
->   net/switchdev/switchdev.c       |   55 ---------------------------------------
->   5 files changed, 1 insertion(+), 86 deletions(-)
+>   include/net/switchdev.h   |   18 ---------------
+>   net/bridge/br_netlink.c   |   12 +---------
+>   net/switchdev/switchdev.c |   55 ---------------------------------------------
+>   3 files changed, 1 insertion(+), 84 deletions(-)
 >
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 99ab282..9d823b6 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4037,7 +4037,6 @@ static const struct net_device_ops bond_netdev_ops = {
->   	.ndo_del_slave		= bond_release,
->   	.ndo_fix_features	= bond_fix_features,
->   	.ndo_bridge_setlink	= swdev_port_bridge_setlink,
-> -	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
->   	.ndo_features_check	= passthru_features_check,
->   };
->   
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index 6a3debc..101b341 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -1978,7 +1978,6 @@ static const struct net_device_ops team_netdev_ops = {
->   	.ndo_fix_features	= team_fix_features,
->   	.ndo_change_carrier     = team_change_carrier,
->   	.ndo_bridge_setlink	= swdev_port_bridge_setlink,
-> -	.ndo_bridge_dellink     = ndo_dflt_netdev_switch_port_bridge_dellink,
->   	.ndo_features_check	= passthru_features_check,
->   };
->   
 > diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index bad2ec7..97196ab 100644
+> index bf66bcd..bad2ec7 100644
 > --- a/include/net/switchdev.h
 > +++ b/include/net/switchdev.h
-> @@ -92,10 +92,6 @@ int register_netdev_switch_notifier(struct notifier_block *nb);
+> @@ -92,14 +92,10 @@ int register_netdev_switch_notifier(struct notifier_block *nb);
 >   int unregister_netdev_switch_notifier(struct notifier_block *nb);
 >   int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
 >   				 struct netdev_switch_notifier_info *info);
-> -int netdev_switch_port_bridge_dellink(struct net_device *dev,
+> -int netdev_switch_port_bridge_setlink(struct net_device *dev,
 > -				struct nlmsghdr *nlh, u16 flags);
-> -int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+>   int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>   				struct nlmsghdr *nlh, u16 flags);
+>   int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+>   					       struct nlmsghdr *nlh, u16 flags);
+> -int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
 > -					       struct nlmsghdr *nlh, u16 flags);
 >   int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
 >   			       u8 tos, u8 type, u32 nlflags, u32 tb_id);
 >   int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-> @@ -138,20 +134,6 @@ static inline int call_netdev_switch_notifiers(unsigned long val, struct net_dev
+> @@ -142,13 +138,6 @@ static inline int call_netdev_switch_notifiers(unsigned long val, struct net_dev
 >   	return NOTIFY_DONE;
 >   }
 >   
-> -static inline int netdev_switch_port_bridge_dellink(struct net_device *dev,
+> -static inline int netdev_switch_port_bridge_setlink(struct net_device *dev,
 > -						    struct nlmsghdr *nlh,
 > -						    u16 flags)
 > -{
 > -	return -EOPNOTSUPP;
 > -}
 > -
-> -static inline int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+>   static inline int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>   						    struct nlmsghdr *nlh,
+>   						    u16 flags)
+> @@ -163,13 +152,6 @@ static inline int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *
+>   	return 0;
+>   }
+>   
+> -static inline int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
 > -							struct nlmsghdr *nlh,
 > -							u16 flags)
 > -{
@@ -100,54 +90,54 @@ dellink is used for vlan deletes in the new bridge vlan filtering bridge.
 >   					     struct fib_info *fi,
 >   					     u8 tos, u8 type,
 > diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 5deb063..cfee027 100644
+> index e1115a2..5deb063 100644
 > --- a/net/bridge/br_netlink.c
 > +++ b/net/bridge/br_netlink.c
-> @@ -639,7 +639,7 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
->   {
+> @@ -586,7 +586,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
 >   	struct nlattr *afspec;
 >   	struct net_bridge_port *p;
+>   	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
 > -	int err = 0, ret_offload = 0;
 > +	int err = 0;
 >   
+>   	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
 >   	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
->   	if (!afspec)
-> @@ -658,16 +658,6 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
->   		 */
->   		br_ifinfo_notify(RTM_NEWLINK, p);
+> @@ -628,16 +628,6 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
+>   				afspec, RTM_SETLINK);
+>   	}
 >   
 > -	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
-> -		/* del bridge attributes in hardware
+> -		/* set bridge attributes in hardware if supported
 > -		 */
-> -		ret_offload = netdev_switch_port_bridge_dellink(dev, nlh,
+> -		ret_offload = netdev_switch_port_bridge_setlink(dev, nlh,
 > -								flags);
 > -		if (ret_offload && ret_offload != -EOPNOTSUPP)
-> -			br_warn(p->br, "error deleting attrs on port %u (%s)\n",
+> -			br_warn(p->br, "error setting attrs on port %u(%s)\n",
 > -				(unsigned int)p->port_no, p->dev->name);
 > -	}
 > -
->   	return err;
->   }
->   static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+>   	if (err == 0)
+>   		br_ifinfo_notify(RTM_NEWLINK, p);
+>   out:
 > diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 0307a45..8a07096 100644
+> index f3f457e..0307a45 100644
 > --- a/net/switchdev/switchdev.c
 > +++ b/net/switchdev/switchdev.c
-> @@ -258,61 +258,6 @@ int swdev_port_bridge_setlink(struct net_device *dev,
+> @@ -173,31 +173,6 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
 >   }
->   EXPORT_SYMBOL_GPL(swdev_port_bridge_setlink);
+>   EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
 >   
 > -/**
-> - *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
-> - *	port attribute delete
+> - *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
+> - *	port attributes
 > - *
 > - *	@dev: port device
 > - *	@nlh: netlink msg with bridge port attributes
 > - *	@flags: bridge setlink flags
 > - *
-> - *	Notify switch device port of bridge port attribute delete
+> - *	Notify switch device port of bridge port attributes
 > - */
-> -int netdev_switch_port_bridge_dellink(struct net_device *dev,
+> -int netdev_switch_port_bridge_setlink(struct net_device *dev,
 > -				      struct nlmsghdr *nlh, u16 flags)
 > -{
 > -	const struct net_device_ops *ops = dev->netdev_ops;
@@ -155,24 +145,30 @@ dellink is used for vlan deletes in the new bridge vlan filtering bridge.
 > -	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
 > -		return 0;
 > -
-> -	if (!ops->ndo_bridge_dellink)
+> -	if (!ops->ndo_bridge_setlink)
 > -		return -EOPNOTSUPP;
 > -
-> -	return ops->ndo_bridge_dellink(dev, nlh, flags);
+> -	return ops->ndo_bridge_setlink(dev, nlh, flags);
 > -}
-> -EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
+> -EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
 > -
-> -/**
-> - *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
+>   static int swdev_port_bridge_setflag(struct net_device *dev,
+>   				     struct nlattr *ifla,
+>   				     unsigned long brport_flag)
+> @@ -309,36 +284,6 @@ int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>   EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
+>   
+>   /**
+> - *	ndo_dflt_netdev_switch_port_bridge_setlink - default ndo bridge setlink
 > - *						     op for master devices
 > - *
 > - *	@dev: port device
 > - *	@nlh: netlink msg with bridge port attributes
-> - *	@flags: bridge dellink flags
+> - *	@flags: bridge setlink flags
 > - *
-> - *	Notify master device slaves of bridge port attribute deletes
+> - *	Notify master device slaves of bridge port attributes
 > - */
-> -int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
+> -int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
 > -					       struct nlmsghdr *nlh, u16 flags)
 > -{
 > -	struct net_device *lower_dev;
@@ -183,15 +179,16 @@ dellink is used for vlan deletes in the new bridge vlan filtering bridge.
 > -		return ret;
 > -
 > -	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-> -		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
+> -		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
 > -		if (err && err != -EOPNOTSUPP)
 > -			ret = err;
 > -	}
 > -
 > -	return ret;
 > -}
-> -EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
+> -EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_setlink);
 > -
->   static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
->   {
->   	const struct swdev_ops *ops = dev->swdev_ops;
+> -/**
+>    *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
+>    *						     op for master devices
+>    *
