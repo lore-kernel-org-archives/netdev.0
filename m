@@ -1,184 +1,751 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH net-next v1 1/2] ixgbe: Refactor the
- RSS configuration code.
-Date: Mon, 30 Mar 2015 10:04:46 -0700
-Message-ID: <5519822E.2090507@gmail.com>
-References: <1427392599-18184-1-git-send-email-vladz@cloudius-systems.com> <1427392599-18184-2-git-send-email-vladz@cloudius-systems.com> <551977A9.7020602@redhat.com> <551980DE.9020207@cloudius-systems.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH 01/11] IB/Verbs: Use helpers to check transport and link
+ layer
+Date: Mon, 30 Mar 2015 19:04:16 +0200
+Message-ID: <55198210.2030804@profitbricks.com>
+References: <551579CA.4030901@profitbricks.com>		 <55157A0B.4000002@profitbricks.com>	 <1427730964.21101.195.camel@redhat.com> <55197678.6040108@profitbricks.com> <1427732576.21101.205.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: avi@cloudius-systems.com, intel-wired-lan@lists.osuosl.org,
-	gleb@cloudius-systems.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33089 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752804AbbC3REt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 13:04:49 -0400
-Received: by pacgg7 with SMTP id gg7so43375375pac.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 10:04:49 -0700 (PDT)
-In-Reply-To: <551980DE.9020207@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Alex Estrin <alex.estrin@int
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427732576.21101.205.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/30/2015 09:59 AM, Vlad Zolotarov wrote:
+On 03/30/2015 06:22 PM, Doug Ledford wrote:
+> On Mon, 2015-03-30 at 18:14 +0200, Michael Wang wrote:
+>> [snip]
+> There is no "gradually eliminate them" to the suggestion I made.
+> Remember, my suggestion was to remove the transport and link_layer items
+> from the port settings and replace it with just one transport item that
+> is a bitmask of the possible transport types.  This can not be done
+> gradually, it must be a complete change all at once as the two methods
+> of setting things are incompatible.  As there is only one out of tree
+> driver that I know of, lustre, we can give them the information they
+> need to make their driver work both before and after the change.
+
+Actually there is something confused me on transport and link
+layer here, basically we have defined:
+
+transport type
+        RDMA_TRANSPORT_IB,
+        RDMA_TRANSPORT_IWARP,
+        RDMA_TRANSPORT_USNIC,
+        RDMA_TRANSPORT_USNIC_UDP
+link layer
+        IB_LINK_LAYER_INFINIBAND,
+        IB_LINK_LAYER_ETHERNET,
+
+So we could have a table:
+
+                                            LL_INFINIBAND    LL_ETHERNET    UNCARE
+TRANSPORT_IB                    1                            2                        3
+TRANSPORT_IWARP,                                                                    4
+UNCARE                               5                            6                      
+
+In current implementation I've found all these combination
+in core or driver, and I could see:
+
+rdma_transport_is_ib()		1
+rdma_transport_is_iwarp()	4	
+rdma_transport_is_roce()	2
+
+Just confusing how to take care the combination 3,5,6?
+
+Regards,
+Michael Wang
+
 >
->
-> On 03/30/15 19:19, Alexander Duyck wrote:
+>> Sure if finally we do capture all the cases, we can just get rid of
+>> this one, but I guess it won't be that easy to directly jump into
+>> next stage :-P
 >>
->> On 03/26/2015 10:56 AM, Vlad Zolotarov wrote:
->>> This patch is a preparation for enablement of ethtool RSS
->>> indirection table
->>> and hash key querying. We don't want to read registers every time
->>> the RSS info
->>> is queried. Therefore we will store its current content in the
->>> arrays in the adapter struct and will read it from there (instead of
->>> from
->>> registers) when requested.
->>>
->>> Will change the code that writes the indirection table and hash key
->>> into the HW registers
->>> to take its content from these arrays. This will also simplify the
->>> indirection
->>> table updating ethtool callback implementation in the future.
->>>
->>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->>> ---
->>>   drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   2 +
->>>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 143
->>> ++++++++++++++++++--------
->>>   drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   7 ++
->>>   3 files changed, 109 insertions(+), 43 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->>> b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->>> index 5e44e48..402d182 100644
->>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->>> @@ -766,6 +766,8 @@ struct ixgbe_adapter {
->>>         u8 default_up;
->>>       unsigned long fwd_bitmask; /* Bitmask indicating in use pools */
->>> +    u8 rss_indir_tbl[IXGBE_MAX_RETA_ENTRIES];
->>> +    u32 rss_key[IXGBE_RSS_KEY_SIZE / sizeof(u32)];
->>>   };
->>>     static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter
->>> *adapter)
->>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> index 8853d52..e3de0c9 100644
->>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->>> @@ -3228,51 +3228,54 @@ static void ixgbe_configure_srrctl(struct
->>> ixgbe_adapter *adapter,
->>>       IXGBE_WRITE_REG(hw, IXGBE_SRRCTL(reg_idx), srrctl);
->>>   }
->>>   -static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const
->>> u32 *seed)
->>> +/**
->>> + * Return a number of entries in the RSS indirection table
->>> + *
->>> + * @adapter: device handle
->>> + *
->>> + *  - 82598/82599/X540:     128
->>> + *  - X550(non-SRIOV mode): 512
->>> + *  - X550(SRIOV mode):     64
->>> + */
->>> +static u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
->>> +{
->>> +    if (adapter->hw.mac.type < ixgbe_mac_X550)
->>> +        return 128;
->>> +    else if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
->>> +        return 64;
->>> +    else
->>> +        return 512;
->>> +}
->>> +
->>> +/**
->>> + * Write the RETA table to HW
->>> + *
->>> + * @adapter: device handle
->>> + *
->>> + * Write the RSS redirection table stored in
->>> adapter.rss_indir_tbl[] to HW.
->>> + */
->>> +static void ixgbe_store_reta(struct ixgbe_adapter *adapter)
->>>   {
->>> +    u32 i, reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
->>>       struct ixgbe_hw *hw = &adapter->hw;
->>>       u32 reta = 0;
->>> -    int i, j;
->>> -    int reta_entries = 128;
->>> -    u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
->>>       int indices_multi;
->>> -
->>> -    /*
->>> -     * Program table for at least 2 queues w/ SR-IOV so that VFs can
->>> -     * make full use of any rings they may have.  We will use the
->>> -     * PSRTYPE register to control how many rings we use within the
->>> PF.
->>> -     */
->>> -    if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 2))
->>> -        rss_i = 2;
->>> -
->>> -    /* Fill out hash function seeds */
->>> -    for (i = 0; i < 10; i++)
->>> -        IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
->>> +    u8 *indir_tbl = adapter->rss_indir_tbl;
->>>         /* Fill out the redirection table as follows:
->>> -     * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS
->>> indices
->>> -     * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index
->>> -     * X550: 512 (8 bit wide) entries containing 6 bit RSS index
->>> +     *  - 82598:      8 bit wide entries containing pair of 4 bit RSS
->>> +     *    indices.
->>> +     *  - 82599/X540: 8 bit wide entries containing 4 bit RSS index
->>> +     *  - X550:       8 bit wide entries containing 6 bit RSS index
->>>        */
->>>       if (adapter->hw.mac.type == ixgbe_mac_82598EB)
->>>           indices_multi = 0x11;
->>>       else
->>>           indices_multi = 0x1;
->>>   -    switch (adapter->hw.mac.type) {
->>> -    case ixgbe_mac_X550:
->>> -    case ixgbe_mac_X550EM_x:
->>> -        if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
->>> -            reta_entries = 512;
->>> -    default:
->>> -        break;
->>> -    }
->>> -
->>> -    /* Fill out redirection table */
->>> -    for (i = 0, j = 0; i < reta_entries; i++, j++) {
->>> -        if (j == rss_i)
->>> -            j = 0;
->>> -        reta = (reta << 8) | (j * indices_multi);
->>> +    /* Write redirection table to HW */
->>> +    for (i = 0; i < reta_entries; i++) {
->>> +        reta = (reta << 8) | (indices_multi * indir_tbl[i]);
->>>           if ((i & 3) == 3) {
->>>               if (i < 128)
->>>                   IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
+>> As I could imaging, after this reform, next stage could be introducing
+>> the new mechanism without changing device driver, and the last
+>> stage is to asking vendor adapt their code into the new mechanism.
 >>
->> I am pretty sure this is being written in the wrong byte order. Entry
->> 0 should be the lowest bits in the register, not the highest.
+>>> In other words, if our end goal is to have
+>>>
+>>> rdma_transport_is_ib()
+>>> rdma_transport_is_iwarp()
+>>> rdma_transport_is_roce()
+>>> rdma_transport_is_opa()
+>>>
+>>> Then we should skip doing rdma_port_ll_is_*() as the answers to these
+>>> items would be implied by rdma_transport_is_roce() and such.
+>> Great if we achieved that ;-) but currently I just wondering maybe
+>> these helpers can only cover part of the cases where we check
+>> transport and link layer, there are still some cases we'll need the
+>> very rough helper to save some code and make things clean~
+>>
+>> Regards,
+>> Michael Wang
+>>
+>>
+>>>> Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+>>>> Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>> Cc: Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+>>>> Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+>>>> Signed-off-by: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+>>>> ---
+>>>>  drivers/infiniband/core/agent.c           |  2 +-
+>>>>  drivers/infiniband/core/cm.c              |  2 +-
+>>>>  drivers/infiniband/core/cma.c             | 27 ++++++++++++---------------
+>>>>  drivers/infiniband/core/mad.c             |  6 +++---
+>>>>  drivers/infiniband/core/multicast.c       | 11 ++++-------
+>>>>  drivers/infiniband/core/sa_query.c        | 14 +++++++-------
+>>>>  drivers/infiniband/core/ucm.c             |  3 +--
+>>>>  drivers/infiniband/core/user_mad.c        |  2 +-
+>>>>  drivers/infiniband/core/verbs.c           |  5 ++---
+>>>>  drivers/infiniband/hw/mlx4/ah.c           |  2 +-
+>>>>  drivers/infiniband/hw/mlx4/cq.c           |  4 +---
+>>>>  drivers/infiniband/hw/mlx4/mad.c          | 14 ++++----------
+>>>>  drivers/infiniband/hw/mlx4/main.c         |  8 +++-----
+>>>>  drivers/infiniband/hw/mlx4/mlx4_ib.h      |  2 +-
+>>>>  drivers/infiniband/hw/mlx4/qp.c           | 21 +++++++--------------
+>>>>  drivers/infiniband/hw/mlx4/sysfs.c        |  6 ++----
+>>>>  drivers/infiniband/ulp/ipoib/ipoib_main.c |  6 +++---
+>>>>  include/rdma/ib_verbs.h                   | 24 ++++++++++++++++++++++++
+>>>>  net/sunrpc/xprtrdma/svc_rdma_recvfrom.c   |  3 +--
+>>>>  19 files changed, 79 insertions(+), 83 deletions(-)
+>>>>
+>>>> diff --git a/drivers/infiniband/core/agent.c b/drivers/infiniband/core/agent.c
+>>>> index f6d2961..27f1bec 100644
+>>>> --- a/drivers/infiniband/core/agent.c
+>>>> +++ b/drivers/infiniband/core/agent.c
+>>>> @@ -156,7 +156,7 @@ int ib_agent_port_open(struct ib_device *device, int port_num)
+>>>>          goto error1;
+>>>>      }
+>>>>  
+>>>> -    if (rdma_port_get_link_layer(device, port_num) == IB_LINK_LAYER_INFINIBAND) {
+>>>> +    if (rdma_port_ll_is_ib(device, port_num)) {
+>>>>          /* Obtain send only MAD agent for SMI QP */
+>>>>          port_priv->agent[0] = ib_register_mad_agent(device, port_num,
+>>>>                                  IB_QPT_SMI, NULL, 0,
+>>>> diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
+>>>> index e28a494..2c72e9e 100644
+>>>> --- a/drivers/infiniband/core/cm.c
+>>>> +++ b/drivers/infiniband/core/cm.c
+>>>> @@ -3762,7 +3762,7 @@ static void cm_add_one(struct ib_device *ib_device)
+>>>>      int ret;
+>>>>      u8 i;
+>>>>  
+>>>> -    if (rdma_node_get_transport(ib_device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(ib_device))
+>>>>          return;
+>>>>  
+>>>>      cm_dev = kzalloc(sizeof(*cm_dev) + sizeof(*port) *
+>>>> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+>>>> index d570030..668e955 100644
+>>>> --- a/drivers/infiniband/core/cma.c
+>>>> +++ b/drivers/infiniband/core/cma.c
+>>>> @@ -375,8 +375,8 @@ static int cma_acquire_dev(struct rdma_id_private *id_priv,
+>>>>                       listen_id_priv->id.port_num) == dev_ll) {
+>>>>          cma_dev = listen_id_priv->cma_dev;
+>>>>          port = listen_id_priv->id.port_num;
+>>>> -        if (rdma_node_get_transport(cma_dev->device->node_type) == RDMA_TRANSPORT_IB &&
+>>>> -            rdma_port_get_link_layer(cma_dev->device, port) == IB_LINK_LAYER_ETHERNET)
+>>>> +        if (rdma_transport_is_ib(cma_dev->device) &&
+>>>> +            rdma_port_ll_is_eth(cma_dev->device, port))
+>>>>              ret = ib_find_cached_gid(cma_dev->device, &iboe_gid,
+>>>>                           &found_port, NULL);
+>>>>          else
+>>>> @@ -395,8 +395,8 @@ static int cma_acquire_dev(struct rdma_id_private *id_priv,
+>>>>                  listen_id_priv->id.port_num == port)
+>>>>                  continue;
+>>>>              if (rdma_port_get_link_layer(cma_dev->device, port) == dev_ll) {
+>>>> -                if (rdma_node_get_transport(cma_dev->device->node_type) == RDMA_TRANSPORT_IB &&
+>>>> -                    rdma_port_get_link_layer(cma_dev->device, port) == IB_LINK_LAYER_ETHERNET)
+>>>> +                if (rdma_transport_is_ib(cma_dev->device) &&
+>>>> +                    rdma_port_ll_is_eth(cma_dev->device, port))
+>>>>                      ret = ib_find_cached_gid(cma_dev->device, &iboe_gid, &found_port, NULL);
+>>>>                  else
+>>>>                      ret = ib_find_cached_gid(cma_dev->device, &gid, &found_port, NULL);
+>>>> @@ -435,7 +435,7 @@ static int cma_resolve_ib_dev(struct rdma_id_private *id_priv)
+>>>>      pkey = ntohs(addr->sib_pkey);
+>>>>  
+>>>>      list_for_each_entry(cur_dev, &dev_list, list) {
+>>>> -        if (rdma_node_get_transport(cur_dev->device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +        if (!rdma_transport_is_ib(cur_dev->device))
+>>>>              continue;
+>>>>  
+>>>>          for (p = 1; p <= cur_dev->device->phys_port_cnt; ++p) {
+>>>> @@ -633,10 +633,8 @@ static int cma_modify_qp_rtr(struct rdma_id_private *id_priv,
+>>>>      if (ret)
+>>>>          goto out;
+>>>>  
+>>>> -    if (rdma_node_get_transport(id_priv->cma_dev->device->node_type)
+>>>> -        == RDMA_TRANSPORT_IB &&
+>>>> -        rdma_port_get_link_layer(id_priv->id.device, id_priv->id.port_num)
+>>>> -        == IB_LINK_LAYER_ETHERNET) {
+>>>> +    if (rdma_transport_is_ib(id_priv->cma_dev->device) &&
+>>>> +        rdma_port_ll_is_eth(id_priv->id.device, id_priv->id.port_num)) {
+>>>>          ret = rdma_addr_find_smac_by_sgid(&sgid, qp_attr.smac, NULL);
+>>>>  
+>>>>          if (ret)
+>>>> @@ -700,8 +698,7 @@ static int cma_ib_init_qp_attr(struct rdma_id_private *id_priv,
+>>>>      int ret;
+>>>>      u16 pkey;
+>>>>  
+>>>> -    if (rdma_port_get_link_layer(id_priv->id.device, id_priv->id.port_num) ==
+>>>> -        IB_LINK_LAYER_INFINIBAND)
+>>>> +    if (rdma_port_ll_is_ib(id_priv->id.device, id_priv->id.port_num))
+>>>>          pkey = ib_addr_get_pkey(dev_addr);
+>>>>      else
+>>>>          pkey = 0xffff;
+>>>> @@ -1626,7 +1623,7 @@ static void cma_listen_on_dev(struct rdma_id_private *id_priv,
+>>>>      int ret;
+>>>>  
+>>>>      if (cma_family(id_priv) == AF_IB &&
+>>>> -        rdma_node_get_transport(cma_dev->device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +        !rdma_transport_is_ib(cma_dev->device))
+>>>>          return;
+>>>>  
+>>>>      id = rdma_create_id(cma_listen_handler, id_priv, id_priv->id.ps,
+>>>> @@ -2028,7 +2025,7 @@ static int cma_bind_loopback(struct rdma_id_private *id_priv)
+>>>>      mutex_lock(&lock);
+>>>>      list_for_each_entry(cur_dev, &dev_list, list) {
+>>>>          if (cma_family(id_priv) == AF_IB &&
+>>>> -            rdma_node_get_transport(cur_dev->device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +            !rdma_transport_is_ib(cur_dev->device))
+>>>>              continue;
+>>>>  
+>>>>          if (!cma_dev)
+>>>> @@ -2060,7 +2057,7 @@ port_found:
+>>>>          goto out;
+>>>>  
+>>>>      id_priv->id.route.addr.dev_addr.dev_type =
+>>>> -        (rdma_port_get_link_layer(cma_dev->device, p) == IB_LINK_LAYER_INFINIBAND) ?
+>>>> +        (rdma_port_ll_is_ib(cma_dev->device, p)) ?
+>>>>          ARPHRD_INFINIBAND : ARPHRD_ETHER;
+>>>>  
+>>>>      rdma_addr_set_sgid(&id_priv->id.route.addr.dev_addr, &gid);
+>>>> @@ -3405,7 +3402,7 @@ void rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
+>>>>                  ib_detach_mcast(id->qp,
+>>>>                          &mc->multicast.ib->rec.mgid,
+>>>>                          be16_to_cpu(mc->multicast.ib->rec.mlid));
+>>>> -            if (rdma_node_get_transport(id_priv->cma_dev->device->node_type) == RDMA_TRANSPORT_IB) {
+>>>> +            if (rdma_transport_is_ib(id_priv->cma_dev->device)) {
+>>>>                  switch (rdma_port_get_link_layer(id->device, id->port_num)) {
+>>>>                  case IB_LINK_LAYER_INFINIBAND:
+>>>>                      ib_sa_free_multicast(mc->multicast.ib);
+>>>> diff --git a/drivers/infiniband/core/mad.c b/drivers/infiniband/core/mad.c
+>>>> index 74c30f4..23cf9e8 100644
+>>>> --- a/drivers/infiniband/core/mad.c
+>>>> +++ b/drivers/infiniband/core/mad.c
+>>>> @@ -2938,7 +2938,7 @@ static int ib_mad_port_open(struct ib_device *device,
+>>>>      init_mad_qp(port_priv, &port_priv->qp_info[1]);
+>>>>  
+>>>>      cq_size = mad_sendq_size + mad_recvq_size;
+>>>> -    has_smi = rdma_port_get_link_layer(device, port_num) == IB_LINK_LAYER_INFINIBAND;
+>>>> +    has_smi = rdma_port_ll_is_ib(device, port_num);
+>>>>      if (has_smi)
+>>>>          cq_size *= 2;
+>>>>  
+>>>> @@ -3057,7 +3057,7 @@ static void ib_mad_init_device(struct ib_device *device)
+>>>>  {
+>>>>      int start, end, i;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      if (device->node_type == RDMA_NODE_IB_SWITCH) {
+>>>> @@ -3102,7 +3102,7 @@ static void ib_mad_remove_device(struct ib_device *device)
+>>>>  {
+>>>>      int i, num_ports, cur_port;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      if (device->node_type == RDMA_NODE_IB_SWITCH) {
+>>>> diff --git a/drivers/infiniband/core/multicast.c b/drivers/infiniband/core/multicast.c
+>>>> index fa17b55..17573ff 100644
+>>>> --- a/drivers/infiniband/core/multicast.c
+>>>> +++ b/drivers/infiniband/core/multicast.c
+>>>> @@ -780,8 +780,7 @@ static void mcast_event_handler(struct ib_event_handler *handler,
+>>>>      int index;
+>>>>  
+>>>>      dev = container_of(handler, struct mcast_device, event_handler);
+>>>> -    if (rdma_port_get_link_layer(dev->device, event->element.port_num) !=
+>>>> -        IB_LINK_LAYER_INFINIBAND)
+>>>> +    if (!rdma_port_ll_is_ib(dev->device, event->element.port_num))
+>>>>          return;
+>>>>  
+>>>>      index = event->element.port_num - dev->start_port;
+>>>> @@ -808,7 +807,7 @@ static void mcast_add_one(struct ib_device *device)
+>>>>      int i;
+>>>>      int count = 0;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      dev = kmalloc(sizeof *dev + device->phys_port_cnt * sizeof *port,
+>>>> @@ -824,8 +823,7 @@ static void mcast_add_one(struct ib_device *device)
+>>>>      }
+>>>>  
+>>>>      for (i = 0; i <= dev->end_port - dev->start_port; i++) {
+>>>> -        if (rdma_port_get_link_layer(device, dev->start_port + i) !=
+>>>> -            IB_LINK_LAYER_INFINIBAND)
+>>>> +        if (!rdma_port_ll_is_ib(device, dev->start_port + i))
+>>>>              continue;
+>>>>          port = &dev->port[i];
+>>>>          port->dev = dev;
+>>>> @@ -863,8 +861,7 @@ static void mcast_remove_one(struct ib_device *device)
+>>>>      flush_workqueue(mcast_wq);
+>>>>  
+>>>>      for (i = 0; i <= dev->end_port - dev->start_port; i++) {
+>>>> -        if (rdma_port_get_link_layer(device, dev->start_port + i) ==
+>>>> -            IB_LINK_LAYER_INFINIBAND) {
+>>>> +        if (rdma_port_ll_is_ib(device, dev->start_port + i)) {
+>>>>              port = &dev->port[i];
+>>>>              deref_port(port);
+>>>>              wait_for_completion(&port->comp);
+>>>> diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
+>>>> index c38f030..d95d25f 100644
+>>>> --- a/drivers/infiniband/core/sa_query.c
+>>>> +++ b/drivers/infiniband/core/sa_query.c
+>>>> @@ -450,7 +450,7 @@ static void ib_sa_event(struct ib_event_handler *handler, struct ib_event *event
+>>>>          struct ib_sa_port *port =
+>>>>              &sa_dev->port[event->element.port_num - sa_dev->start_port];
+>>>>  
+>>>> -        if (rdma_port_get_link_layer(handler->device, port->port_num) != IB_LINK_LAYER_INFINIBAND)
+>>>> +        if (!rdma_port_ll_is_ib(handler->device, port->port_num))
+>>>>              return;
+>>>>  
+>>>>          spin_lock_irqsave(&port->ah_lock, flags);
+>>>> @@ -540,7 +540,7 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
+>>>>      ah_attr->port_num = port_num;
+>>>>      ah_attr->static_rate = rec->rate;
+>>>>  
+>>>> -    force_grh = rdma_port_get_link_layer(device, port_num) == IB_LINK_LAYER_ETHERNET;
+>>>> +    force_grh = rdma_port_ll_is_eth(device, port_num);
+>>>>  
+>>>>      if (rec->hop_limit > 1 || force_grh) {
+>>>>          ah_attr->ah_flags = IB_AH_GRH;
+>>>> @@ -1154,7 +1154,7 @@ static void ib_sa_add_one(struct ib_device *device)
+>>>>      struct ib_sa_device *sa_dev;
+>>>>      int s, e, i;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      if (device->node_type == RDMA_NODE_IB_SWITCH)
+>>>> @@ -1175,7 +1175,7 @@ static void ib_sa_add_one(struct ib_device *device)
+>>>>  
+>>>>      for (i = 0; i <= e - s; ++i) {
+>>>>          spin_lock_init(&sa_dev->port[i].ah_lock);
+>>>> -        if (rdma_port_get_link_layer(device, i + 1) != IB_LINK_LAYER_INFINIBAND)
+>>>> +        if (!rdma_port_ll_is_ib(device, i + 1))
+>>>>              continue;
+>>>>  
+>>>>          sa_dev->port[i].sm_ah    = NULL;
+>>>> @@ -1205,14 +1205,14 @@ static void ib_sa_add_one(struct ib_device *device)
+>>>>          goto err;
+>>>>  
+>>>>      for (i = 0; i <= e - s; ++i)
+>>>> -        if (rdma_port_get_link_layer(device, i + 1) == IB_LINK_LAYER_INFINIBAND)
+>>>> +        if (rdma_port_ll_is_ib(device, i + 1))
+>>>>              update_sm_ah(&sa_dev->port[i].update_task);
+>>>>  
+>>>>      return;
+>>>>  
+>>>>  err:
+>>>>      while (--i >= 0)
+>>>> -        if (rdma_port_get_link_layer(device, i + 1) == IB_LINK_LAYER_INFINIBAND)
+>>>> +        if (rdma_port_ll_is_ib(device, i + 1))
+>>>>              ib_unregister_mad_agent(sa_dev->port[i].agent);
+>>>>  
+>>>>      kfree(sa_dev);
+>>>> @@ -1233,7 +1233,7 @@ static void ib_sa_remove_one(struct ib_device *device)
+>>>>      flush_workqueue(ib_wq);
+>>>>  
+>>>>      for (i = 0; i <= sa_dev->end_port - sa_dev->start_port; ++i) {
+>>>> -        if (rdma_port_get_link_layer(device, i + 1) == IB_LINK_LAYER_INFINIBAND) {
+>>>> +        if (rdma_port_ll_is_ib(device, i + 1)) {
+>>>>              ib_unregister_mad_agent(sa_dev->port[i].agent);
+>>>>              if (sa_dev->port[i].sm_ah)
+>>>>                  kref_put(&sa_dev->port[i].sm_ah->ref, free_sm_ah);
+>>>> diff --git a/drivers/infiniband/core/ucm.c b/drivers/infiniband/core/ucm.c
+>>>> index f2f6393..ddbe0b4 100644
+>>>> --- a/drivers/infiniband/core/ucm.c
+>>>> +++ b/drivers/infiniband/core/ucm.c
+>>>> @@ -1253,8 +1253,7 @@ static void ib_ucm_add_one(struct ib_device *device)
+>>>>      dev_t base;
+>>>>      struct ib_ucm_device *ucm_dev;
+>>>>  
+>>>> -    if (!device->alloc_ucontext ||
+>>>> -        rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!device->alloc_ucontext || !rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      ucm_dev = kzalloc(sizeof *ucm_dev, GFP_KERNEL);
+>>>> diff --git a/drivers/infiniband/core/user_mad.c b/drivers/infiniband/core/user_mad.c
+>>>> index 928cdd2..28a8b30 100644
+>>>> --- a/drivers/infiniband/core/user_mad.c
+>>>> +++ b/drivers/infiniband/core/user_mad.c
+>>>> @@ -1274,7 +1274,7 @@ static void ib_umad_add_one(struct ib_device *device)
+>>>>      struct ib_umad_device *umad_dev;
+>>>>      int s, e, i;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      if (device->node_type == RDMA_NODE_IB_SWITCH)
+>>>> diff --git a/drivers/infiniband/core/verbs.c b/drivers/infiniband/core/verbs.c
+>>>> index f93eb8d..d8d015a 100644
+>>>> --- a/drivers/infiniband/core/verbs.c
+>>>> +++ b/drivers/infiniband/core/verbs.c
+>>>> @@ -198,8 +198,7 @@ int ib_init_ah_from_wc(struct ib_device *device, u8 port_num, struct ib_wc *wc,
+>>>>      u32 flow_class;
+>>>>      u16 gid_index;
+>>>>      int ret;
+>>>> -    int is_eth = (rdma_port_get_link_layer(device, port_num) ==
+>>>> -            IB_LINK_LAYER_ETHERNET);
+>>>> +    int is_eth = (rdma_port_ll_is_eth(device, port_num));
+>>>>  
+>>>>      memset(ah_attr, 0, sizeof *ah_attr);
+>>>>      if (is_eth) {
+>>>> @@ -871,7 +870,7 @@ int ib_resolve_eth_l2_attrs(struct ib_qp *qp,
+>>>>      union ib_gid  sgid;
+>>>>  
+>>>>      if ((*qp_attr_mask & IB_QP_AV)  &&
+>>>> -        (rdma_port_get_link_layer(qp->device, qp_attr->ah_attr.port_num) == IB_LINK_LAYER_ETHERNET)) {
+>>>> +        (rdma_port_ll_is_eth(qp->device, qp_attr->ah_attr.port_num))) {
+>>>>          ret = ib_query_gid(qp->device, qp_attr->ah_attr.port_num,
+>>>>                     qp_attr->ah_attr.grh.sgid_index, &sgid);
+>>>>          if (ret)
+>>>> diff --git a/drivers/infiniband/hw/mlx4/ah.c b/drivers/infiniband/hw/mlx4/ah.c
+>>>> index 2d8c339..829eb60 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/ah.c
+>>>> +++ b/drivers/infiniband/hw/mlx4/ah.c
+>>>> @@ -118,7 +118,7 @@ struct ib_ah *mlx4_ib_create_ah(struct ib_pd *pd, struct ib_ah_attr *ah_attr)
+>>>>      if (!ah)
+>>>>          return ERR_PTR(-ENOMEM);
+>>>>  
+>>>> -    if (rdma_port_get_link_layer(pd->device, ah_attr->port_num) == IB_LINK_LAYER_ETHERNET) {
+>>>> +    if (rdma_port_ll_is_eth(pd->device, ah_attr->port_num)) {
+>>>>          if (!(ah_attr->ah_flags & IB_AH_GRH)) {
+>>>>              ret = ERR_PTR(-EINVAL);
+>>>>          } else {
+>>>> diff --git a/drivers/infiniband/hw/mlx4/cq.c b/drivers/infiniband/hw/mlx4/cq.c
+>>>> index cb63ecd..0417f03 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/cq.c
+>>>> +++ b/drivers/infiniband/hw/mlx4/cq.c
+>>>> @@ -789,9 +789,7 @@ repoll:
+>>>>              break;
+>>>>          }
+>>>>  
+>>>> -        is_eth = (rdma_port_get_link_layer(wc->qp->device,
+>>>> -                          (*cur_qp)->port) ==
+>>>> -              IB_LINK_LAYER_ETHERNET);
+>>>> +        is_eth = (rdma_port_ll_is_eth(wc->qp->device, (*cur_qp)->port));
+>>>>          if (mlx4_is_mfunc(to_mdev(cq->ibcq.device)->dev)) {
+>>>>              if ((*cur_qp)->mlx4_ib_qp_type &
+>>>>                  (MLX4_IB_QPT_PROXY_SMI_OWNER |
+>>>> diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
+>>>> index 82a7dd8..4736fc7 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/mad.c
+>>>> +++ b/drivers/infiniband/hw/mlx4/mad.c
+>>>> @@ -606,12 +606,7 @@ static int mlx4_ib_demux_mad(struct ib_device *ibdev, u8 port,
+>>>>      int err;
+>>>>      int slave;
+>>>>      u8 *slave_id;
+>>>> -    int is_eth = 0;
+>>>> -
+>>>> -    if (rdma_port_get_link_layer(ibdev, port) == IB_LINK_LAYER_INFINIBAND)
+>>>> -        is_eth = 0;
+>>>> -    else
+>>>> -        is_eth = 1;
+>>>> +    int is_eth = rdma_port_ll_is_eth(ibdev, port);
+>>>>  
+>>>>      if (is_eth) {
+>>>>          if (!(wc->wc_flags & IB_WC_GRH)) {
+>>>> @@ -1252,7 +1247,7 @@ out:
+>>>>  
+>>>>  static int get_slave_base_gid_ix(struct mlx4_ib_dev *dev, int slave, int port)
+>>>>  {
+>>>> -    if (rdma_port_get_link_layer(&dev->ib_dev, port) == IB_LINK_LAYER_INFINIBAND)
+>>>> +    if (rdma_port_ll_is_ib(&dev->ib_dev, port))
+>>>>          return slave;
+>>>>      return mlx4_get_base_gid_ix(dev->dev, slave, port);
+>>>>  }
+>>>> @@ -1260,7 +1255,7 @@ static int get_slave_base_gid_ix(struct mlx4_ib_dev *dev, int slave, int port)
+>>>>  static void fill_in_real_sgid_index(struct mlx4_ib_dev *dev, int slave, int port,
+>>>>                      struct ib_ah_attr *ah_attr)
+>>>>  {
+>>>> -    if (rdma_port_get_link_layer(&dev->ib_dev, port) == IB_LINK_LAYER_INFINIBAND)
+>>>> +    if (rdma_port_ll_is_ib(&dev->ib_dev, port))
+>>>>          ah_attr->grh.sgid_index = slave;
+>>>>      else
+>>>>          ah_attr->grh.sgid_index += get_slave_base_gid_ix(dev, slave, port);
+>>>> @@ -1758,8 +1753,7 @@ static int create_pv_resources(struct ib_device *ibdev, int slave, int port,
+>>>>  
+>>>>      ctx->state = DEMUX_PV_STATE_STARTING;
+>>>>      /* have QP0 only if link layer is IB */
+>>>> -    if (rdma_port_get_link_layer(ibdev, ctx->port) ==
+>>>> -        IB_LINK_LAYER_INFINIBAND)
+>>>> +    if (rdma_port_ll_is_ib(ibdev, ctx->port))
+>>>>          ctx->has_smi = 1;
+>>>>  
+>>>>      if (ctx->has_smi) {
+>>>> diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+>>>> index 0b280b1..f445f4c 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/main.c
+>>>> +++ b/drivers/infiniband/hw/mlx4/main.c
+>>>> @@ -482,7 +482,7 @@ static int iboe_query_gid(struct ib_device *ibdev, u8 port, int index,
+>>>>  static int mlx4_ib_query_gid(struct ib_device *ibdev, u8 port, int index,
+>>>>                   union ib_gid *gid)
+>>>>  {
+>>>> -    if (rdma_port_get_link_layer(ibdev, port) == IB_LINK_LAYER_INFINIBAND)
+>>>> +    if (rdma_port_ll_is_ib(ibdev, port))
+>>>>          return __mlx4_ib_query_gid(ibdev, port, index, gid, 0);
+>>>>      else
+>>>>          return iboe_query_gid(ibdev, port, index, gid);
+>>>> @@ -1801,8 +1801,7 @@ static int mlx4_ib_init_gid_table(struct mlx4_ib_dev *ibdev)
+>>>>      int err = 0;
+>>>>  
+>>>>      for (i = 1; i <= ibdev->num_ports; ++i) {
+>>>> -        if (rdma_port_get_link_layer(&ibdev->ib_dev, i) ==
+>>>> -            IB_LINK_LAYER_ETHERNET) {
+>>>> +        if (rdma_port_ll_is_eth(&ibdev->ib_dev, i)) {
+>>>>              err = reset_gid_table(ibdev, i);
+>>>>              if (err)
+>>>>                  goto out;
+>>>> @@ -2554,8 +2553,7 @@ static void mlx4_ib_event(struct mlx4_dev *dev, void *ibdev_ptr,
+>>>>          if (p > ibdev->num_ports)
+>>>>              return;
+>>>>          if (mlx4_is_master(dev) &&
+>>>> -            rdma_port_get_link_layer(&ibdev->ib_dev, p) ==
+>>>> -            IB_LINK_LAYER_INFINIBAND) {
+>>>> +            rdma_port_ll_is_ib(&ibdev->ib_dev, p)) {
+>>>>              mlx4_ib_invalidate_all_guid_record(ibdev, p);
+>>>>          }
+>>>>          ibev.event = IB_EVENT_PORT_ACTIVE;
+>>>> diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+>>>> index 6eb743f..1befeb8 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
+>>>> +++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+>>>> @@ -712,7 +712,7 @@ static inline bool mlx4_ib_ah_grh_present(struct mlx4_ib_ah *ah)
+>>>>  {
+>>>>      u8 port = be32_to_cpu(ah->av.ib.port_pd) >> 24 & 3;
+>>>>  
+>>>> -    if (rdma_port_get_link_layer(ah->ibah.device, port) == IB_LINK_LAYER_ETHERNET)
+>>>> +    if (rdma_port_ll_is_eth(ah->ibah.device, port))
+>>>>          return true;
+>>>>  
+>>>>      return !!(ah->av.ib.g_slid & 0x80);
+>>>> diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+>>>> index c880329..bd2f557 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/qp.c
+>>>> +++ b/drivers/infiniband/hw/mlx4/qp.c
+>>>> @@ -1248,8 +1248,7 @@ static int _mlx4_set_path(struct mlx4_ib_dev *dev, const struct ib_ah_attr *ah,
+>>>>                u64 smac, u16 vlan_tag, struct mlx4_qp_path *path,
+>>>>                struct mlx4_roce_smac_vlan_info *smac_info, u8 port)
+>>>>  {
+>>>> -    int is_eth = rdma_port_get_link_layer(&dev->ib_dev, port) ==
+>>>> -        IB_LINK_LAYER_ETHERNET;
+>>>> +    int is_eth = rdma_port_ll_is_eth(&dev->ib_dev, port);
+>>>>      int vidx;
+>>>>      int smac_index;
+>>>>      int err;
+>>>> @@ -1433,8 +1432,7 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+>>>>  
+>>>>      /* APM is not supported under RoCE */
+>>>>      if (attr_mask & IB_QP_ALT_PATH &&
+>>>> -        rdma_port_get_link_layer(&dev->ib_dev, qp->port) ==
+>>>> -        IB_LINK_LAYER_ETHERNET)
+>>>> +        rdma_port_ll_is_eth(&dev->ib_dev, qp->port))
+>>>>          return -ENOTSUPP;
+>>>>  
+>>>>      context = kzalloc(sizeof *context, GFP_KERNEL);
+>>>> @@ -1664,8 +1662,7 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+>>>>                  context->pri_path.fl = 0x80;
+>>>>              context->pri_path.sched_queue |= MLX4_IB_DEFAULT_SCHED_QUEUE;
+>>>>          }
+>>>> -        if (rdma_port_get_link_layer(&dev->ib_dev, qp->port) ==
+>>>> -            IB_LINK_LAYER_ETHERNET) {
+>>>> +        if (rdma_port_ll_is_eth(&dev->ib_dev, qp->port)) {
+>>>>              if (qp->mlx4_ib_qp_type == MLX4_IB_QPT_TUN_GSI ||
+>>>>                  qp->mlx4_ib_qp_type == MLX4_IB_QPT_GSI)
+>>>>                  context->pri_path.feup = 1 << 7; /* don't fsm */
+>>>> @@ -1695,9 +1692,7 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+>>>>      }
+>>>>  
+>>>>      if (ibqp->qp_type == IB_QPT_UD && (new_state == IB_QPS_RTR)) {
+>>>> -        int is_eth = rdma_port_get_link_layer(
+>>>> -                &dev->ib_dev, qp->port) ==
+>>>> -                IB_LINK_LAYER_ETHERNET;
+>>>> +        int is_eth = rdma_port_ll_is_eth(&dev->ib_dev, qp->port);
+>>>>          if (is_eth) {
+>>>>              context->pri_path.ackto = MLX4_IB_LINK_TYPE_ETH;
+>>>>              optpar |= MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH;
+>>>> @@ -1927,8 +1922,7 @@ int mlx4_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
+>>>>      }
+>>>>  
+>>>>      if ((attr_mask & IB_QP_PORT) && (ibqp->qp_type == IB_QPT_RAW_PACKET) &&
+>>>> -        (rdma_port_get_link_layer(&dev->ib_dev, attr->port_num) !=
+>>>> -         IB_LINK_LAYER_ETHERNET))
+>>>> +        !rdma_port_ll_is_eth(&dev->ib_dev, attr->port_num))
+>>>>          goto out;
+>>>>  
+>>>>      if (attr_mask & IB_QP_PKEY_INDEX) {
+>>>> @@ -2132,7 +2126,7 @@ static int build_mlx_header(struct mlx4_ib_sqp *sqp, struct ib_send_wr *wr,
+>>>>      for (i = 0; i < wr->num_sge; ++i)
+>>>>          send_size += wr->sg_list[i].length;
+>>>>  
+>>>> -    is_eth = rdma_port_get_link_layer(sqp->qp.ibqp.device, sqp->qp.port) == IB_LINK_LAYER_ETHERNET;
+>>>> +    is_eth = rdma_port_ll_is_eth(sqp->qp.ibqp.device, sqp->qp.port);
+>>>>      is_grh = mlx4_ib_ah_grh_present(ah);
+>>>>      if (is_eth) {
+>>>>          if (mlx4_is_mfunc(to_mdev(ib_dev)->dev)) {
+>>>> @@ -3029,8 +3023,7 @@ static void to_ib_ah_attr(struct mlx4_ib_dev *ibdev, struct ib_ah_attr *ib_ah_at
+>>>>      if (ib_ah_attr->port_num == 0 || ib_ah_attr->port_num > dev->caps.num_ports)
+>>>>          return;
+>>>>  
+>>>> -    is_eth = rdma_port_get_link_layer(&ibdev->ib_dev, ib_ah_attr->port_num) ==
+>>>> -        IB_LINK_LAYER_ETHERNET;
+>>>> +    is_eth = rdma_port_ll_is_eth(&ibdev->ib_dev, ib_ah_attr->port_num);
+>>>>      if (is_eth)
+>>>>          ib_ah_attr->sl = ((path->sched_queue >> 3) & 0x7) |
+>>>>          ((path->sched_queue & 4) << 1);
+>>>> diff --git a/drivers/infiniband/hw/mlx4/sysfs.c b/drivers/infiniband/hw/mlx4/sysfs.c
+>>>> index cb4c66e..d339b55 100644
+>>>> --- a/drivers/infiniband/hw/mlx4/sysfs.c
+>>>> +++ b/drivers/infiniband/hw/mlx4/sysfs.c
+>>>> @@ -610,8 +610,7 @@ static ssize_t sysfs_store_enable_smi_admin(struct device *dev,
+>>>>  
+>>>>  static int add_vf_smi_entries(struct mlx4_port *p)
+>>>>  {
+>>>> -    int is_eth = rdma_port_get_link_layer(&p->dev->ib_dev, p->port_num) ==
+>>>> -            IB_LINK_LAYER_ETHERNET;
+>>>> +    int is_eth = rdma_port_ll_is_eth(&p->dev->ib_dev, p->port_num);
+>>>>      int ret;
+>>>>  
+>>>>      /* do not display entries if eth transport, or if master */
+>>>> @@ -645,8 +644,7 @@ static int add_vf_smi_entries(struct mlx4_port *p)
+>>>>  
+>>>>  static void remove_vf_smi_entries(struct mlx4_port *p)
+>>>>  {
+>>>> -    int is_eth = rdma_port_get_link_layer(&p->dev->ib_dev, p->port_num) ==
+>>>> -            IB_LINK_LAYER_ETHERNET;
+>>>> +    int is_eth = rdma_port_ll_is_eth(&p->dev->ib_dev, p->port_num);
+>>>>  
+>>>>      if (is_eth || p->slave == mlx4_master_func_num(p->dev->dev))
+>>>>          return;
+>>>> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+>>>> index 58b5aa3..3341754 100644
+>>>> --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
+>>>> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+>>>> @@ -1655,7 +1655,7 @@ static void ipoib_add_one(struct ib_device *device)
+>>>>      struct ipoib_dev_priv *priv;
+>>>>      int s, e, p;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      dev_list = kmalloc(sizeof *dev_list, GFP_KERNEL);
+>>>> @@ -1673,7 +1673,7 @@ static void ipoib_add_one(struct ib_device *device)
+>>>>      }
+>>>>  
+>>>>      for (p = s; p <= e; ++p) {
+>>>> -        if (rdma_port_get_link_layer(device, p) != IB_LINK_LAYER_INFINIBAND)
+>>>> +        if (!rdma_port_ll_is_ib(device, p))
+>>>>              continue;
+>>>>          dev = ipoib_add_port("ib%d", device, p);
+>>>>          if (!IS_ERR(dev)) {
+>>>> @@ -1690,7 +1690,7 @@ static void ipoib_remove_one(struct ib_device *device)
+>>>>      struct ipoib_dev_priv *priv, *tmp;
+>>>>      struct list_head *dev_list;
+>>>>  
+>>>> -    if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+>>>> +    if (!rdma_transport_is_ib(device))
+>>>>          return;
+>>>>  
+>>>>      dev_list = ib_get_client_data(device, &ipoib_client);
+>>>> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+>>>> index 65994a1..2bf9094 100644
+>>>> --- a/include/rdma/ib_verbs.h
+>>>> +++ b/include/rdma/ib_verbs.h
+>>>> @@ -1743,6 +1743,30 @@ int ib_query_port(struct ib_device *device,
+>>>>  enum rdma_link_layer rdma_port_get_link_layer(struct ib_device *device,
+>>>>                             u8 port_num);
+>>>>  
+>>>> +static inline int rdma_transport_is_ib(struct ib_device *device)
+>>>> +{
+>>>> +    return rdma_node_get_transport(device->node_type)
+>>>> +            == RDMA_TRANSPORT_IB;
+>>>> +}
+>>>> +
+>>>> +static inline int rdma_transport_is_iwarp(struct ib_device *device)
+>>>> +{
+>>>> +    return rdma_node_get_transport(device->node_type)
+>>>> +            == RDMA_TRANSPORT_IWARP;
+>>>> +}
+>>>> +
+>>>> +static inline int rdma_port_ll_is_ib(struct ib_device *device, u8 port_num)
+>>>> +{
+>>>> +    return rdma_port_get_link_layer(device, port_num)
+>>>> +            == IB_LINK_LAYER_INFINIBAND;
+>>>> +}
+>>>> +
+>>>> +static inline int rdma_port_ll_is_eth(struct ib_device *device, u8 port_num)
+>>>> +{
+>>>> +    return rdma_port_get_link_layer(device, port_num)
+>>>> +            == IB_LINK_LAYER_ETHERNET;
+>>>> +}
+>>>> +
+>>>>  int ib_query_gid(struct ib_device *device,
+>>>>           u8 port_num, int index, union ib_gid *gid);
+>>>>  
+>>>> diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+>>>> index e011027..a7b5891 100644
+>>>> --- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+>>>> +++ b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+>>>> @@ -118,8 +118,7 @@ static void rdma_build_arg_xdr(struct svc_rqst *rqstp,
+>>>>  
+>>>>  static int rdma_read_max_sge(struct svcxprt_rdma *xprt, int sge_count)
+>>>>  {
+>>>> -    if (rdma_node_get_transport(xprt->sc_cm_id->device->node_type) ==
+>>>> -         RDMA_TRANSPORT_IWARP)
+>>>> +    if (rdma_transport_is_iwarp(xprt->sc_cm_id->device))
+>>>>          return 1;
+>>>>      else
+>>>>          return min_t(int, sge_count, xprt->sc_max_sge);
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> The order of entries doesn't seem to be important here.
->
-> thanks,
-> vlad
 
-Huh?  It is populating the register as (0 << 24) | (1 << 16) | (2 << 8)
-| (3 << 0) which means the 3rd entry is populating the entry belonging
-to what should be entry 0.  This is fine as long as we aren't reporting
-it or allowing changes.  However, now that it is being reported via your
-changes it matters.  Otherwise if someone were to take the key and the
-redirection table and do the calculations themselves the results
-provided by the hardware would appear to be wrong.
-
-In order to get the ordering right we need to either byteswap the reta
-value before we write it, or generate the value in the correct order
-which should be (3 << 24) | (2 << 16) | (1 << 8) | 0.
-
-- Alex
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
