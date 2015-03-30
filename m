@@ -1,158 +1,133 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/9 net-next] ipv4: replace if/BUG by BUG_ON
-Date: Mon, 30 Mar 2015 23:13:09 +0200
-Message-ID: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 5/9 net-next] xfrm: replace if/BUG by BUG_ON
+Date: Mon, 30 Mar 2015 23:13:13 +0200
+Message-ID: <1427749998-28464-5-git-send-email-fabf@skynet.be>
+References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
 Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427749998-28464-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- net/ipv4/devinet.c       | 3 +--
- net/ipv4/esp4.c          | 3 +--
- net/ipv4/icmp.c          | 3 +--
- net/ipv4/ip_output.c     | 4 ++--
- net/ipv4/ping.c          | 3 +--
- net/ipv4/tcp_input.c     | 8 ++++----
- net/ipv4/tcp_minisocks.c | 4 ++--
- net/ipv4/tcp_output.c    | 3 +--
- 8 files changed, 13 insertions(+), 18 deletions(-)
+ net/xfrm/xfrm_policy.c |  5 ++---
+ net/xfrm/xfrm_user.c   | 27 +++++++++------------------
+ 2 files changed, 11 insertions(+), 21 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 975ee5e..e4b53f7 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1715,8 +1715,7 @@ static int inet_set_link_af(struct net_device *dev, const struct nlattr *nla)
- 	if (!in_dev)
- 		return -EAFNOSUPPORT;
- 
--	if (nla_parse_nested(tb, IFLA_INET_MAX, nla, NULL) < 0)
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 638af06..15de248 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -306,9 +306,8 @@ EXPORT_SYMBOL(xfrm_policy_alloc);
+ void xfrm_policy_destroy(struct xfrm_policy *policy)
+ {
+ 	BUG_ON(!policy->walk.dead);
+-
+-	if (del_timer(&policy->timer) || del_timer(&policy->polq.hold_timer))
 -		BUG();
-+	BUG_ON(nla_parse_nested(tb, IFLA_INET_MAX, nla, NULL) < 0);
++	BUG_ON(del_timer(&policy->timer) ||
++	       del_timer(&policy->polq.hold_timer));
  
- 	if (tb[IFLA_INET_CONF]) {
- 		nla_for_each_nested(a, tb[IFLA_INET_CONF], rem)
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 60173d4..02d41d0 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -289,8 +289,7 @@ static int esp_input_done2(struct sk_buff *skb, int err)
- 	if (unlikely(err))
- 		goto out;
+ 	security_xfrm_policy_free(policy->security);
+ 	kfree(policy);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 7de2ed9..b2ef371 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1081,8 +1081,7 @@ static int xfrm_get_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (r_skb == NULL)
+ 		return -ENOMEM;
  
--	if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
+-	if (build_spdinfo(r_skb, net, sportid, seq, *flags) < 0)
 -		BUG();
-+	BUG_ON(skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2));
++	BUG_ON(build_spdinfo(r_skb, net, sportid, seq, *flags) < 0);
  
- 	err = -EINVAL;
- 	padlen = nexthdr[0];
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 5e56401..6d59e26 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -922,8 +922,7 @@ static bool icmp_timestamp(struct sk_buff *skb)
- 	icmp_param.data.times[1] = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC +
- 					 tv.tv_nsec / NSEC_PER_MSEC);
- 	icmp_param.data.times[2] = icmp_param.data.times[1];
--	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
+ 	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
+ }
+@@ -1139,8 +1138,7 @@ static int xfrm_get_sadinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (r_skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_sadinfo(r_skb, net, sportid, seq, *flags) < 0)
 -		BUG();
-+	BUG_ON(skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4));
- 	icmp_param.data.icmph	   = *icmp_hdr(skb);
- 	icmp_param.data.icmph.type = ICMP_TIMESTAMPREPLY;
- 	icmp_param.data.icmph.code = 0;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 8259e77..f58f52b 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -695,8 +695,8 @@ slow_path:
- 		/*
- 		 *	Copy a block of the IP datagram.
- 		 */
--		if (skb_copy_bits(skb, ptr, skb_transport_header(skb2), len))
--			BUG();
-+		BUG_ON(skb_copy_bits(skb, ptr, skb_transport_header(skb2),
-+				     len));
- 		left -= len;
++	BUG_ON(build_sadinfo(r_skb, net, sportid, seq, *flags) < 0);
  
- 		/*
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 344e7cd..5536c2b 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -608,8 +608,7 @@ int ping_getfrag(void *from, char *to,
+ 	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
+ }
+@@ -1887,8 +1885,7 @@ static int xfrm_get_ae(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	c.seq = nlh->nlmsg_seq;
+ 	c.portid = nlh->nlmsg_pid;
  
- 	if (offset == 0) {
- 		fraglen -= sizeof(struct icmphdr);
--		if (fraglen < 0)
--			BUG();
-+		BUG_ON(fraglen < 0);
- 		if (csum_and_copy_from_iter(to + sizeof(struct icmphdr),
- 			    fraglen, &pfh->wcheck,
- 			    &pfh->msg->msg_iter) != fraglen)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 023196f..7ae07a4 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4642,8 +4642,9 @@ restart:
- 			BUG_ON(offset < 0);
- 			if (size > 0) {
- 				size = min(copy, size);
--				if (skb_copy_bits(skb, offset, skb_put(nskb, size), size))
--					BUG();
-+				BUG_ON(skb_copy_bits(skb, offset,
-+						     skb_put(nskb, size),
-+						     size));
- 				TCP_SKB_CB(nskb)->end_seq += size;
- 				copy -= size;
- 				start += size;
-@@ -4966,8 +4967,7 @@ static void tcp_urg(struct sock *sk, struct sk_buff *skb, const struct tcphdr *t
- 		/* Is the urgent pointer pointing into this packet? */
- 		if (ptr < skb->len) {
- 			u8 tmp;
--			if (skb_copy_bits(skb, ptr, &tmp, 1))
--				BUG();
-+			BUG_ON(skb_copy_bits(skb, ptr, &tmp, 1));
- 			tp->urg_data = TCP_URG_VALID | tmp;
- 			if (!sock_flag(sk, SOCK_DEAD))
- 				sk->sk_data_ready(sk);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 274e96f..90e5c9f 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -334,8 +334,8 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
- 			key = tp->af_specific->md5_lookup(sk, sk);
- 			if (key != NULL) {
- 				tcptw->tw_md5_key = kmemdup(key, sizeof(*key), GFP_ATOMIC);
--				if (tcptw->tw_md5_key && !tcp_alloc_md5sig_pool())
--					BUG();
-+				BUG_ON(tcptw->tw_md5_key &&
-+				       !tcp_alloc_md5sig_pool());
- 			}
- 		} while (0);
- #endif
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 2e69b8d..aa78fc2 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2564,8 +2564,7 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 		return -EBUSY;
+-	if (build_aevent(r_skb, x, &c) < 0)
+-		BUG();
++	BUG_ON(build_aevent(r_skb, x, &c) < 0);
+ 	err = nlmsg_unicast(net->xfrm.nlsk, r_skb, NETLINK_CB(skb).portid);
+ 	spin_unlock_bh(&x->lock);
+ 	xfrm_state_put(x);
+@@ -2305,8 +2302,7 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		return -ENOMEM;
  
- 	if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {
--		if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
--			BUG();
-+		BUG_ON(before(TCP_SKB_CB(skb)->end_seq, tp->snd_una));
- 		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
- 			return -ENOMEM;
- 	}
+ 	/* build migrate */
+-	if (build_migrate(skb, m, num_migrate, k, sel, dir, type) < 0)
+-		BUG();
++	BUG_ON(build_migrate(skb, m, num_migrate, k, sel, dir, type) < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
+ }
+@@ -2524,8 +2520,7 @@ static int xfrm_aevent_state_notify(struct xfrm_state *x, const struct km_event
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_aevent(skb, x, c) < 0)
+-		BUG();
++	BUG_ON(build_aevent(skb, x, c) < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_AEVENTS);
+ }
+@@ -2731,8 +2726,7 @@ static int xfrm_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *xt,
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_acquire(skb, x, xt, xp) < 0)
+-		BUG();
++	BUG_ON(build_acquire(skb, x, xt, xp) < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_ACQUIRE);
+ }
+@@ -2846,8 +2840,7 @@ static int xfrm_exp_policy_notify(struct xfrm_policy *xp, int dir, const struct
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_polexpire(skb, xp, dir, c) < 0)
+-		BUG();
++	BUG_ON(build_polexpire(skb, xp, dir, c) < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_EXPIRE);
+ }
+@@ -3006,8 +2999,7 @@ static int xfrm_send_report(struct net *net, u8 proto,
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_report(skb, proto, sel, addr) < 0)
+-		BUG();
++	BUG_ON(build_report(skb, proto, sel, addr) < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_REPORT);
+ }
+@@ -3059,8 +3051,7 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_mapping(skb, x, ipaddr, sport) < 0)
+-		BUG();
++	BUG_ON(build_mapping(skb, x, ipaddr, sport) < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MAPPING);
+ }
 -- 
 1.9.1
