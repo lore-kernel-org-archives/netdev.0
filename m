@@ -1,106 +1,100 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the vfs tree
-Date: Mon, 30 Mar 2015 14:24:36 +1100
-Message-ID: <20150330142436.56a5556e@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Mon, 30 Mar 2015 15:05:34 +1100
+Message-ID: <20150330150534.52bf72dd@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/nvPI6XMcUCWvAFvR4XoDl8t"; protocol="application/pgp-signature"
+ boundary="Sig_/Jr6nuAHfhaPgiSEoQpT2uPQ"; protocol="application/pgp-signature"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"tadeusz.struk@intel.com" <tadeusz.struk@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Ben Hutchings <ben.hutchings@codethink.co.uk>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:49704 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750743AbbC3EFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 00:05:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/nvPI6XMcUCWvAFvR4XoDl8t
+--Sig_/Jr6nuAHfhaPgiSEoQpT2uPQ
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
 Hi all,
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/socket.c between commit 774157aa4897 ("net: switch importing msghdr
-from userland to {compat_,}import_iovec()") from the vfs tree and
-commit 0345f93138b2 ("net: socket: add support for async operations")
-from the net-next tree.
+After merging the net-next tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+drivers/net/usb/cdc_ncm.c: In function 'cdc_ncm_fill_tx_frame':
+drivers/net/usb/cdc_ncm.c:1187:2: error: too few arguments to function 'usb=
+net_set_skb_tx_stats'
+  usbnet_set_skb_tx_stats(skb_out, n);
+  ^
+In file included from drivers/net/usb/cdc_ncm.c:51:0:
+include/linux/usb/usbnet.h:238:1: note: declared here
+ usbnet_set_skb_tx_stats(struct sk_buff *skb,
+ ^
+
+Caused by a bad merge between commits 1e9e39f4a298 ("usbnet: Fix
+tx_packets stat for FLAG_MULTI_FRAME drivers") and 7a1e890e2168
+("usbnet: Fix tx_bytes statistic running backward in cdc_ncm") form the
+net tree and commit 6588af614e7b ("usbnet: Fix tx_packets stat for
+FLAG_MULTI_FRAME drivers") from the net-next tree.  (Presumably,
+6588af614e7b was cherry-picked as a bug fix.  So, Dave, something to
+watch for if you merge net into net-next.)
+
+I applied the following merge fix patch:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 30 Mar 2015 14:59:49 +1100
+Subject: [PATCH] usbnet: fix bad merge in cdc_ncm.c
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/usb/cdc_ncm.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index ee6fed0af6f5..c3e4da9e79ca 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1184,8 +1184,6 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_b=
+uff *skb, __le32 sign)
+ 	usbnet_set_skb_tx_stats(skb_out, n,
+ 				ctx->tx_curr_frame_payload - skb_out->len);
+=20
+-	usbnet_set_skb_tx_stats(skb_out, n);
+-
+ 	return skb_out;
+=20
+ exit_no_skb:
+--=20
+2.1.4
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc net/socket.c
-index abc721654ab5,073809f4125f..000000000000
---- a/net/socket.c
-+++ b/net/socket.c
-@@@ -841,11 -808,10 +794,10 @@@ static ssize_t sock_read_iter(struct ki
-  	if (iocb->ki_pos !=3D 0)
-  		return -ESPIPE;
- =20
- -	if (iocb->ki_nbytes =3D=3D 0)	/* Match SYS5 behaviour */
- +	if (!iov_iter_count(to))	/* Match SYS5 behaviour */
-  		return 0;
- =20
-- 	res =3D __sock_recvmsg(iocb, sock, &msg,
-- 			     iov_iter_count(to), msg.msg_flags);
- -	res =3D sock_recvmsg(sock, &msg, iocb->ki_nbytes, msg.msg_flags);
-++	res =3D sock_recvmsg(sock, &msg, iov_iter_count(to), msg.msg_flags);
-  	*to =3D msg.msg_iter;
-  	return res;
-  }
-@@@ -866,7 -833,7 +819,7 @@@ static ssize_t sock_write_iter(struct k
-  	if (sock->type =3D=3D SOCK_SEQPACKET)
-  		msg.msg_flags |=3D MSG_EOR;
- =20
-- 	res =3D __sock_sendmsg(iocb, sock, &msg, iov_iter_count(from));
- -	res =3D sock_sendmsg(sock, &msg, iocb->ki_nbytes);
-++	res =3D sock_sendmsg(sock, &msg, iov_iter_count(from));
-  	*from =3D msg.msg_iter;
-  	return res;
-  }
-@@@ -1921,8 -1896,15 +1874,10 @@@ static int copy_msghdr_from_user(struc
-  	if (nr_segs > UIO_MAXIOV)
-  		return -EMSGSIZE;
- =20
-+ 	kmsg->msg_iocb =3D NULL;
-+=20
- -	err =3D rw_copy_check_uvector(save_addr ? READ : WRITE,
- -				    uiov, nr_segs,
- -				    UIO_FASTIOV, *iov, iov);
- -	if (err >=3D 0)
- -		iov_iter_init(&kmsg->msg_iter, save_addr ? READ : WRITE,
- -			      *iov, nr_segs, err);
- -	return err;
- +	return import_iovec(save_addr ? READ : WRITE, uiov, nr_segs,
- +			    UIO_FASTIOV, iov, &kmsg->msg_iter);
-  }
- =20
-  static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user =
-*msg,
-
---Sig_/nvPI6XMcUCWvAFvR4XoDl8t
+--Sig_/Jr6nuAHfhaPgiSEoQpT2uPQ
 Content-Type: application/pgp-signature
 Content-Description: OpenPGP digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAEBCAAGBQJVGMH4AAoJEMDTa8Ir7ZwVSm8P/j+JkDHE/8kKmpju33OG4flC
-D+L+fPEO404YfJ5zQf3b+t9G1eONbHKaiJgC3X2pZDWszCcQ1qADPnSf5Q7QR9pS
-C4t+IbKJYVJIWLQJmiep8OZ0tistbwgAvueEKUm6oLFoYaL1GOBS2svTzMtjl4Dk
-WkPfNCJC60DrECiZBr/SkziR68k2Ew5o8pKjPvQOemlJZvxa3p/XCabRh3aihjUu
-pzlakI6bophbijQDER9P6U9V2WjB7v2+/ie7s6TzbQRrX/vrSb5eJK7AAgSalvVl
-AqK1drIWZRnbEJU/O5/wEr0bO9FHaIisLGR+8HkZ5CG0pJWQKwoJeLuCJRsBWIH/
-3SiHyKvUTKMYUBiRRP2qnmajAjrcexVNcGDh7JgRZE3mwkY6Id0bY55NpSde0KKZ
-vTs7GTDyQJ6DrstZx1eZSre1iZgoj6o4bdbiE98N27NXIibvQDaR41N5BUGRLwGz
-+1wzqirGnT8rJIZivfo1ttW7rIidi50Ze1nA4UArqanvPDiNg1i0KkF5SW9yEJR8
-JCHJwFEYnusGLBK0c01c7g/dtwqTZITSWLzNKOzCRWcNTCNon/hBUEq6elwHhw09
-CvryAzpGTmZxnrc41ggoFsmXmuG8tvNNfkRuzJSAdseyEfYuwhyrX7q/9VIUEyGn
-m0sgEBrfqTvvPkiUr6Mn
-=4WBa
+iQIcBAEBCAAGBQJVGMuTAAoJEMDTa8Ir7ZwVUPMQAJBNnUnRFpZNcRGq+AJwVlA3
+2HxqW7RXMTzRuYR7UoVmMoo+mcONdYH9fDYHi5yWVcp4JregwNQDA5axXbxEn2Md
+Y4vyRQKroTjluEN4hihgz4Cht+/13RfMyUC8qXUG1PLvQ+pY8dVQ7Fly6xgJGSoh
+5bw9ohKI4owTn/LDvFb2qQWXhwE9TT2iCe2kNVwXCXm8QOUxCBxgCwOhYdLz7zGL
++rWTAOAw0oZhF+N2MpWNc7MZuRiZ/6OrgCFs1zaI0T8aB8Jpy+Pnue167i91/14o
+lgo7bT1AFxtaGpw1qQjG/k+HQ5IyNc1Q7fGHe6ogjne64V7OwAHZACTK29xqV6bL
+oHvbLisOx0hS02g0lMVz1hAy6i5Y+QvEqh9+2scvuQQR1jdUjCkSNFKL0pFsVm7O
+cPlxkURFFEmao1E3QnbUIa5ZBI9SLX4DVxETfnOb5tC5ukvhO1BuGdh4qaVAgUfj
+abZUFcJBM1pdilVGKyJASggJ+LI4vq8+ZwkVwX+jVwfpHgrqP5AQfgqjU4aZj7iF
+TA6/8AR1Ve3+YB6lKnKMrNTgR+6fwLAdcwE2B7q89BAJ+uh6gu16AQ30z5NagPJo
+GeBlPE7+5vrT/m/xbMBnIaGUJz32ttg1j5UDGAin+ebSTTFcscsYcALsgZq7qYl4
+BHGY3G2lgEsMIKmtQ1yV
+=/muZ
 -----END PGP SIGNATURE-----
 
---Sig_/nvPI6XMcUCWvAFvR4XoDl8t--
+--Sig_/Jr6nuAHfhaPgiSEoQpT2uPQ--
