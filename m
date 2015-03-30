@@ -1,196 +1,73 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v9 3/7] ixgbe: Add a RETA query command to VF-PF
- channel API
-Date: Mon, 30 Mar 2015 11:24:24 +0300
-Message-ID: <55190838.6000908@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-4-git-send-email-vladz@cloudius-systems.com> <5518808D.7030700@gmail.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast()
+ and, cap_mcast() for mcast-check
+Date: Mon, 30 Mar 2015 10:30:36 +0200
+Message-ID: <551909AC.2030304@profitbricks.com>
+References: <551579CA.4030901@profitbricks.com> <55157B71.6040505@profitbricks.com> <20150327162820.GC28412@obsidianresearch.com> <20150327170508.GB27862@phlsvsds.ph.intel.com> <20150327174727.GB28901@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36871 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752739AbbC3IY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:24:27 -0400
-Received: by wiaa2 with SMTP id a2so117371755wia.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:24:26 -0700 (PDT)
-In-Reply-To: <5518808D.7030700@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Alex Estrin <alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford@
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	"ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150327174727.GB28901-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 03/30/15 01:45, Alexander Duyck wrote:
-> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
->> Add this new command for 82599 and x540 devices only. Support for other devices
->> will be added later.
->>
->> 82599 and x540 VFs and PF share the same RSS redirection table (RETA). Therefore we
->> just return it for all VFs.
->>
->> For 82599 and x540 RETA table is an array of 32 registers (128 bytes) and the maximum number of
->> registers that may be delivered in a single VF-PF channel command is 15. Therefore
->> we will deliver the whole table in 3 steps: 12, 12 and 8 registers in each
->> step correspondingly.
->>
->> Thus this patch does the following:
->>
->>    - Adds a new API version (to specify a new commands set).
->>    - Adds the IXGBE_VF_GET_RETA command to the VF-PF commands set.
->>
->> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->> ---
->> New in v9:
->>     - Reduce the support to 82599 and x540 devices only.
->>     - Improvements in query RETA VF-PF command implementation:
->>        - Use the cached RETA contents.
->>        - Compress the mailbox message.
->>
->> New in v5:
->>     - Use the newly added netdev op to allow/prevent the RETA query on a per-VF basis.
->>
->> New in v4:
->>     - Deleted an empty line in ixgbe_get_vf_reta() switch-case.
->>
->> New in v3:
->>     - Pass the number of dwords and offset in RETA in the IXGBE_VF_GET_RETA request message.
->>       This allows to reduce the added command set to a single command.
->>     - Added a support for all devices supported by the ixgbe driver that have
->>       SR-IOV functions support: 82599, x540 and x550. The original code supported
->>       only 82599 and x540.
->>     - Added the masking of the RETA entries according to the PSRTYPE[n].RQPL
->>       value.
->>
->> New in v1 (compared to RFC):
->>     - Use "if-else" statement instead of a "switch-case" for a single option case
->>       (in ixgbe_get_vf_reta()).
->> ---
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  4 +++
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 49 ++++++++++++++++++++++++++
->>   2 files changed, 53 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
->> index a5cb755..3522f53 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
->> @@ -73,6 +73,7 @@ enum ixgbe_pfvf_api_rev {
->>   	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
->>   	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
->>   	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
->> +	ixgbe_mbox_api_12,	/* API version 1.2, linux/freebsd VF driver */
->>   	/* This value should always be last */
->>   	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
->>   };
->> @@ -97,6 +98,9 @@ enum ixgbe_pfvf_api_rev {
->>   #define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
->>   #define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
->>   
->> +/* mailbox API, version 1.2 VF requests */
->> +#define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
->> +
->>   /* length of permanent address message returned from PF */
->>   #define IXGBE_VF_PERMADDR_MSG_LEN 4
->>   /* word in permanent address message with the current multicast type */
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> index f08672a..8424e7f 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> @@ -433,6 +433,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
->>   #endif /* CONFIG_FCOE */
->>   		switch (adapter->vfinfo[vf].vf_api) {
->>   		case ixgbe_mbox_api_11:
->> +		case ixgbe_mbox_api_12:
->>   			/*
->>   			 * Version 1.1 supports jumbo frames on VFs if PF has
->>   			 * jumbo frames enabled which means legacy VFs are
->> @@ -900,6 +901,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
->>   	switch (api) {
->>   	case ixgbe_mbox_api_10:
->>   	case ixgbe_mbox_api_11:
->> +	case ixgbe_mbox_api_12:
->>   		adapter->vfinfo[vf].vf_api = api;
->>   		return 0;
->>   	default:
->> @@ -923,6 +925,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
->>   	switch (adapter->vfinfo[vf].vf_api) {
->>   	case ixgbe_mbox_api_20:
->>   	case ixgbe_mbox_api_11:
->> +	case ixgbe_mbox_api_12:
->>   		break;
->>   	default:
->>   		return -1;
->> @@ -950,6 +953,49 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
->>   	return 0;
->>   }
->>   
->> +static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
->> +{
->> +	struct ixgbe_hw *hw = &adapter->hw;
->> +	u32 i, j;
->> +	u32 *out_buf = &msgbuf[1];
->> +	const u8 *reta = adapter->rss_indir_tbl;
->> +	u8 mask = 0;
->> +	u32 psrtype;
->> +	u32 reta_size = ixgbe_rss_indir_tbl_entries(adapter);
->> +
->> +	/* verify the PF is supporting the correct API */
->> +	if (!adapter->vfinfo[vf].rss_query_enabled ||
->> +	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
->> +		return -EPERM;
->> +
->> +	psrtype = IXGBE_READ_REG(hw, IXGBE_PSRTYPE(vf));
->> +
->> +	/* The redirection table is composed as follows:
->> +	 * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS indices
->> +	 * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index
->> +	 *
->> +	 * PSRTYPE[n].RQPL defines if 0, 1 or 2 bits from the redirection table
->> +	 * value should be used.
->> +	 */
->> +
->> +	if ((psrtype & (1 << 29)) == (1 << 29))
->> +		mask = 0x01;
->> +	else if ((psrtype & (2 << 29)) == (2 << 29))
->> +		mask = 0x03;
->> +
-> The psrtype and mask should be dropped.  Any masking should happen on
-> the VF end as the VF controls the psrtype register and the value could
-> change depending on the VF settings.  You should just be using 0x3 as
-> the mask always since you are encoding 2 bits per entry in the buffer.
+On 03/27/2015 06:47 PM, Jason Gunthorpe wrote:
+> On Fri, Mar 27, 2015 at 01:05:08PM -0400, ira.weiny wrote:
+>
+>>> But it seems redudent, since mcast_add_one will already not add a port that is
+>>> not IB, so mcast_event_handler is not callable. Something to do with
+>>> rocee/ib switching?
+>> I'm not sure about this either.  This check seems to be necessary only on a
+>> per-port level.  It does seem apparent that one can't go from Eth to IB.  What
+>> happens if you go from IB to Eth on the port?
+> Hmm... I see a mlx4_change_port_types which ultimately calls
+> ib_unregister_device, which suggests the port type doesn't change at
+> runtime (yay)
+Yeah, seems like mlx4 will reinitialize the device when port link layer
+changed.
 
-Namely no masking at all here. Sounds reasonable. I tried to drop 
-PSRTYPE reading and then noticed that it's a VF that eventually changes 
-it so I reverted it back.
-U r right, I should have gone a one step further here.
+I've take a look at other HW, they directly return a static type or
+infer from transport type (I suppose this won't change dynamically).
+
+Thus I also agreed check inside mcast_event_handler() is unnecessary,
+maybe we can change that logical to WARN_ON(!cap_mcast()) ?
+
+Regards,
+Michael Wang
 
 >
->> +	/* Compress the RETA by saving only 2 bits from each entry. This way
->> +	 * we will be able to transfer the whole RETA in a single mailbox
->> +	 * operation.
->> +	 */
->> +	for (i = 0; i < reta_size / 16; i++) {
->> +		out_buf[i] = 0;
->> +		for (j = 0; j < 16; j++)
->> +			out_buf[i] |= (u32)(reta[16 * i + j] & mask) << (2 * j);
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->>   static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
->>   {
->>   	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
->> @@ -1006,6 +1052,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
->>   	case IXGBE_VF_GET_QUEUES:
->>   		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
->>   		break;
->> +	case IXGBE_VF_GET_RETA:
->> +		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
->> +		break;
->>   	default:
->>   		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
->>   		retval = IXGBE_ERR_MBX;
->>
+> So maybe these checks really are redundant?
+>
+> Jason
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
