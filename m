@@ -1,179 +1,44 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next v3 4/4] mpls: Allow payload type to be associated with label routes
-Date: Mon, 30 Mar 2015 19:15:56 +0100
-Message-ID: <1427739356-28113-5-git-send-email-rshearma@brocade.com>
-References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
- <1427739356-28113-1-git-send-email-rshearma@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: <davem@davemloft.net>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [PATCH net-next v3 0/2]: ixgbe: Add the appropriate ethtool ops to query RSS indirection table and key
+Date: Mon, 30 Mar 2015 21:18:56 +0300
+Message-ID: <1427739538-1038-1-git-send-email-vladz@cloudius-systems.com>
+Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+	avi@cloudius-systems.com, gleb@cloudius-systems.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35521 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753354AbbC3SSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:18:04 -0400
-In-Reply-To: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:36690 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbbC3STE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:19:04 -0400
+Received: by wibg7 with SMTP id g7so112598386wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 11:19:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 4182 s2 states that if an IPv4 Explicit NULL label is the only
-label on the stack, then after popping the resulting packet must be
-treated as a IPv4 packet and forwarded based on the IPv4 header. The
-same is true for IPv6 Explicit NULL with an IPv6 packet following.
+Add the ethtool ops to VF driver to allow querying the RSS indirection table
+and RSS Random Key.
 
-Therefore, when installing the IPv4/IPv6 Explicit NULL label routes,
-add an attribute that specifies the expected payload type for use at
-forwarding time for determining the type of the encapsulated packet
-instead of inspecting the first nibble of the packet.
+This series refactors the RSS configuration code to store the current contents of
+RSS indirection table and Hash Key in the "adapter" struct so that we won't need
+to access registers every time this info is queried.
 
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
- net/mpls/af_mpls.c | 72 ++++++++++++++++++++++++++++++++----------------------
- 1 file changed, 43 insertions(+), 29 deletions(-)
+New in v3:
+   - Fix the byte ordering in RETA storing.
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 0b0420bf110d..e9ce5799449d 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -23,13 +23,25 @@
- /* This maximum ha length copied from the definition of struct neighbour */
- #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
- 
-+enum mpls_payload_type {
-+	MPT_UNSPEC, /* IPv4 or IPv6 */
-+	MPT_IPV4 = 4,
-+	MPT_IPV6 = 6,
-+
-+	/* Other types not implemented:
-+	 *  - Pseudo-wire with or without control word (RFC4385)
-+	 *  - GAL (RFC5586)
-+	 */
-+};
-+
- struct mpls_route { /* next hop label forwarding entry */
- 	struct net_device __rcu *rt_dev;
- 	struct rcu_head		rt_rcu;
- 	u32			rt_label[MAX_NEW_LABELS];
- 	u8			rt_protocol; /* routing protocol that set this entry */
- 	u8                      rt_unlabeled : 1;
--	u8			rt_labels : 7;
-+	u8                      rt_payload_type : 3;
-+	u8			rt_labels : 4;
- 	u8			rt_via_alen;
- 	u8			rt_via_table;
- 	u8			rt_via[0];
-@@ -90,16 +102,7 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
- static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
- 			struct mpls_entry_decoded dec)
- {
--	/* RFC4385 and RFC5586 encode other packets in mpls such that
--	 * they don't conflict with the ip version number, making
--	 * decoding by examining the ip version correct in everything
--	 * except for the strangest cases.
--	 *
--	 * The strange cases if we choose to support them will require
--	 * manual configuration.
--	 */
--	struct iphdr *hdr4;
--	bool success = true;
-+	enum mpls_payload_type payload_type;
- 
- 	/* The IPv4 code below accesses through the IPv4 header
- 	 * checksum, which is 12 bytes into the packet.
-@@ -114,24 +117,31 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
- 	if (!pskb_may_pull(skb, 12))
- 		return false;
- 
--	/* Use ip_hdr to find the ip protocol version */
--	hdr4 = ip_hdr(skb);
--	if (hdr4->version == 4) {
-+	payload_type = rt->rt_payload_type;
-+	if (payload_type == MPT_UNSPEC)
-+		payload_type = ip_hdr(skb)->version;
-+
-+	switch (payload_type) {
-+	case MPT_IPV4: {
-+		struct iphdr *hdr4 = ip_hdr(skb);
- 		skb->protocol = htons(ETH_P_IP);
- 		csum_replace2(&hdr4->check,
- 			      htons(hdr4->ttl << 8),
- 			      htons(dec.ttl << 8));
- 		hdr4->ttl = dec.ttl;
-+		return true;
- 	}
--	else if (hdr4->version == 6) {
-+	case MPT_IPV6: {
- 		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
- 		skb->protocol = htons(ETH_P_IPV6);
- 		hdr6->hop_limit = dec.ttl;
-+		return true;
-+	}
-+	case MPT_UNSPEC:
-+		break;
- 	}
--	else
--		/* version 0 and version 1 are used by pseudo wires */
--		success = false;
--	return success;
-+
-+	return false;
- }
- 
- static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
-@@ -254,16 +264,17 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
- };
- 
- struct mpls_route_config {
--	u32		rc_protocol;
--	u32		rc_ifindex;
--	u16		rc_via_table;
--	u16		rc_via_alen;
--	u8		rc_via[MAX_VIA_ALEN];
--	u32		rc_label;
--	u32		rc_output_labels;
--	u32		rc_output_label[MAX_NEW_LABELS];
--	u32		rc_nlflags;
--	struct nl_info	rc_nlinfo;
-+	u32			rc_protocol;
-+	u32			rc_ifindex;
-+	u16			rc_via_table;
-+	u16			rc_via_alen;
-+	u8			rc_via[MAX_VIA_ALEN];
-+	u32			rc_label;
-+	u32			rc_output_labels;
-+	u32			rc_output_label[MAX_NEW_LABELS];
-+	u32			rc_nlflags;
-+	enum mpls_payload_type	rc_payload_type;
-+	struct nl_info		rc_nlinfo;
- };
- 
- static struct mpls_route *mpls_rt_alloc(size_t alen)
-@@ -414,6 +425,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
- 	}
- 	rt->rt_protocol = cfg->rc_protocol;
- 	RCU_INIT_POINTER(rt->rt_dev, dev);
-+	rt->rt_payload_type = cfg->rc_payload_type;
- 	rt->rt_via_table = cfg->rc_via_table;
- 	memcpy(rt->rt_via, cfg->rc_via, cfg->rc_via_alen);
- 
-@@ -949,6 +961,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 			goto nort0;
- 		RCU_INIT_POINTER(rt0->rt_dev, lo);
- 		rt0->rt_protocol = RTPROT_KERNEL;
-+		rt0->rt_payload_type = MPT_IPV4;
- 		rt0->rt_via_table = NEIGH_LINK_TABLE;
- 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
- 	}
-@@ -959,6 +972,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 			goto nort2;
- 		RCU_INIT_POINTER(rt2->rt_dev, lo);
- 		rt2->rt_protocol = RTPROT_KERNEL;
-+		rt2->rt_payload_type = MPT_IPV6;
- 		rt2->rt_via_table = NEIGH_LINK_TABLE;
- 		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
- 	}
+New in v2:
+   - Some styling fixes.
+   - Moved macros definitions from ixgbe_type.h to ixgbe.h.
+
+Vlad Zolotarov (2):
+  ixgbe: Refactor the RSS configuration code.
+  ixgbe: Add the appropriate ethtool ops to query RSS indirection table
+    and key
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  10 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  42 +++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 147 ++++++++++++++++-------
+ 3 files changed, 155 insertions(+), 44 deletions(-)
+
 -- 
-2.1.4
+2.1.0
