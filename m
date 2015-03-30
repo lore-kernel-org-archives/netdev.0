@@ -1,72 +1,82 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
-Date: Mon, 30 Mar 2015 14:11:37 -0700
-Message-ID: <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
-References: <1427409698.18540.11.camel@redhat.com> <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
- <1427749308.1913.28.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:33066 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752661AbbC3VL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 17:11:58 -0400
-Received: by obvd1 with SMTP id d1so75291124obv.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 14:11:57 -0700 (PDT)
-In-Reply-To: <1427749308.1913.28.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 2/9 net-next] net: core: replace if/BUG by BUG_ON
+Date: Mon, 30 Mar 2015 23:13:10 +0200
+Message-ID: <1427749998-28464-2-git-send-email-fabf@skynet.be>
+References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 2:01 PM, Dan Williams <dcbw@redhat.com> wrote:
-> On Mon, 2015-03-30 at 13:28 -0700, Mahesh Bandewar wrote:
->> On Thu, Mar 26, 2015 at 3:41 PM, Dan Williams <dcbw@redhat.com> wrote:
->> > The broadcast MAC is supposed to be allowed whenever the device
->> > has an IPv4 address, otherwise ARP requests get dropped on the
->> > floor.  If ndo_set_rx_mode (and thus
->> > ipvlan_set_multicast_mac_filter()) gets called after the address
->> > was added, it blows away the broadcast MAC address in
->> > mac_filters that was added at IPv4 address addition.  Fix that.
->> >
->> > Signed-off-by: Dan Williams <dcbw@redhat.com>
->> Acked-by: Mahesh Bandewar <maheshb@google.com>
->
-> I'm actually going to send another patch that supercedes this one and
-> handles the DHCP issue in a slightly different way.
->
-Sure, I'll take a look at that but irrespective of how DHCP is
-handled, this patch fixes the problem that you have described since
-ndo_set_rxmode will wipe the broadcast bit if set and will end up
-breaking the IPv4. So I feel that this is still required in some-form.
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/core/rtnetlink.c |  3 +--
+ net/core/skbuff.c    | 15 ++++++---------
+ 2 files changed, 7 insertions(+), 11 deletions(-)
 
-> Dan
->
->> > ---
->> >  drivers/net/ipvlan/ipvlan_main.c | 3 +++
->> >  1 file changed, 3 insertions(+)
->> >
->> > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
->> > index 4f4099d..d34f580 100644
->> > --- a/drivers/net/ipvlan/ipvlan_main.c
->> > +++ b/drivers/net/ipvlan/ipvlan_main.c
->> > @@ -241,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
->> >
->> >                 bitmap_copy(ipvlan->mac_filters, mc_filters,
->> >                             IPVLAN_MAC_FILTER_SIZE);
->> > +
->> > +               if (ipvlan->ipv4cnt)
->> > +                       ipvlan_set_broadcast_mac_filter(ipvlan, true);
->> >         }
->> >         dev_uc_sync(ipvlan->phy_dev, dev);
->> >         dev_mc_sync(ipvlan->phy_dev, dev);
->> > --
->> > 2.1.0
->> >
->> >
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index b96ac21..ed496d3 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1770,8 +1770,7 @@ static int do_setlink(const struct sk_buff *skb,
+ 		nla_for_each_nested(af, tb[IFLA_AF_SPEC], rem) {
+ 			const struct rtnl_af_ops *af_ops;
+ 
+-			if (!(af_ops = rtnl_af_lookup(nla_type(af))))
+-				BUG();
++			BUG_ON(!(af_ops = rtnl_af_lookup(nla_type(af))));
+ 
+ 			err = af_ops->set_link_af(dev, af);
+ 			if (err < 0)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index cdb939b..704ba4d 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1056,8 +1056,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+ 	/* Set the tail pointer and length */
+ 	skb_put(n, skb->len);
+ 
+-	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
+ 
+ 	copy_skb_header(n, skb);
+ 	return n;
+@@ -1154,8 +1153,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	BUG_ON(nhead < 0);
+ 
+-	if (skb_shared(skb))
+-		BUG();
++	BUG_ON(skb_shared(skb));
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
+@@ -1289,9 +1287,8 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
+ 		head_copy_off = newheadroom - head_copy_len;
+ 
+ 	/* Copy the linear header and data. */
+-	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+-			  skb->len + head_copy_len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
++			     skb->len + head_copy_len));
+ 
+ 	copy_skb_header(n, skb);
+ 
+@@ -1567,8 +1564,8 @@ unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 			return NULL;
+ 	}
+ 
+-	if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb),
++			     delta));
+ 
+ 	/* Optimization: no fragments, no reasons to preestimate
+ 	 * size of pulled pages. Superb.
+-- 
+1.9.1
