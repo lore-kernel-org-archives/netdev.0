@@ -1,14 +1,14 @@
 From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast()
- and, cap_mcast() for mcast-check
-Date: Mon, 30 Mar 2015 16:33:54 -0600
-Message-ID: <20150330223354.GA27728@obsidianresearch.com>
+Subject: Re: [RFC PATCH 08/11] IB/Verbs: Use management helper has_iwarp()
+ for, iwarp-check
+Date: Mon, 30 Mar 2015 16:35:28 -0600
+Message-ID: <20150330223528.GB27728@obsidianresearch.com>
 References: <551579CA.4030901@profitbricks.com>
- <55157B71.6040505@profitbricks.com>
- <20150327162820.GC28412@obsidianresearch.com>
- <20150327170508.GB27862@phlsvsds.ph.intel.com>
- <20150327174727.GB28901@obsidianresearch.com>
- <551909AC.2030304@profitbricks.com>
+ <55157B98.1060103@profitbricks.com>
+ <20150327161319.GB28412@obsidianresearch.com>
+ <20150327171631.GC27862@phlsvsds.ph.intel.com>
+ <20150327172912.GA28901@obsidianresearch.com>
+ <55196754.5010600@profitbricks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
@@ -34,21 +34,25 @@ Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Alex Estrin <alex.estrin@
 To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <551909AC.2030304-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <55196754.5010600-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 10:30:36AM +0200, Michael Wang wrote:
+On Mon, Mar 30, 2015 at 05:10:12PM +0200, Michael Wang wrote:
+> I found that actually we don't have to touch this one which
+> only used by HW driver currently.
 
-> Thus I also agreed check inside mcast_event_handler() is unnecessary,
-> maybe we can change that logical to WARN_ON(!cap_mcast()) ?
+I'm having a hard time understanding this, the code in question was in
 
-Seems reasonable to me.
+net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
 
+Which is the NFS ULP, not a device driver.
+
+Regards,
 Jason
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
