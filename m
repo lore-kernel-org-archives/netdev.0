@@ -1,147 +1,86 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net 4/4 v2] ipvlan: fix check for IP addresses in control path
-Date: Mon, 30 Mar 2015 13:27:17 -0700
-Message-ID: <CAF2d9jh5w7Oci+XGdoc0VN-UaosfdkFkNEQ30mQ8TgqJogp8OA@mail.gmail.com>
-References: <cover.1427566140.git.jbenc@redhat.com> <eb0a8f2bcf562329ba7eb3bf1539416ee135af4d.1427566140.git.jbenc@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ethernet: Use bool function returns of
+ true/false instead of 1/0
+Date: Mon, 30 Mar 2015 13:28:58 -0700
+Message-ID: <1427747338.2497.99.camel@jtkirshe-mobl>
+References: <201503260524.AdqSbov9%fengguang.wu@intel.com>
+	 <20150325215525.GA26868@athens>
+	 <20150329.121655.2092434262655191613.davem@davemloft.net>
+	 <1427678712.2715.52.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Dan Williams <dcbw@redhat.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:33812 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753225AbbC3U1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 16:27:38 -0400
-Received: by obbgh1 with SMTP id gh1so74508464obb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 13:27:37 -0700 (PDT)
-In-Reply-To: <eb0a8f2bcf562329ba7eb3bf1539416ee135af4d.1427566140.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-OlBWyRfrLdJoFjssSRgM"
+Cc: David Miller <davem@davemloft.net>, fengguang.wu@intel.com,
+	varun@chelsio.com, kbuild-all@01.org, hariprasad@chelsio.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	Michal Simek <michal.simek@xilinx.com>,
+	=?ISO-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
+	e1000-devel@lists.sourceforge.net,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427678712.2715.52.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 28, 2015 at 11:13 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> When an ipvlan interface is down, its addresses are not on the hash list.
-> Fix checks for existence of addresses not to depend on the hash list, walk
-> through all interface addresses instead.
->
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
+
+--=-OlBWyRfrLdJoFjssSRgM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2015-03-29 at 18:25 -0700, Joe Perches wrote:
+> Use bool constants as the return values instead of 1 and 0.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+For the ixgbe changes...
+
 > ---
->
-> Note that while this patch is needed and fixes problems like ipv4cnt
-> underflow and trigerring WARN_ON in ipvlan_del_addr4, it does not fix the
-> more substantial problem: although the current code suggests that it
-> prevents assignment of the same IP address to multiple ipvlan interfaces, it
-> does not really do that. The address will be assigned to both interfaces,
-> ipvlan just silently considers such address to belong to the first interface
-> only.
->
-> Seems the original intention was to prevent address assignment by returning
-> NOTIFY_BAD but inet_insert_ifa does not really care about notifier results.
-> Till such feature is implemented, this patch at least makes sure we don't
-> have corrupted counters and don't leave kernel traces in the log.
-> ---
->  drivers/net/ipvlan/ipvlan.h      |  4 +++-
->  drivers/net/ipvlan/ipvlan_core.c | 19 ++++++++++++++-----
->  drivers/net/ipvlan/ipvlan_main.c |  8 ++++----
->  3 files changed, 21 insertions(+), 10 deletions(-)
->
-> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-> index 924ea98bd531..54549a6223dd 100644
-> --- a/drivers/net/ipvlan/ipvlan.h
-> +++ b/drivers/net/ipvlan/ipvlan.h
-> @@ -114,7 +114,9 @@ unsigned int ipvlan_mac_hash(const unsigned char *addr);
->  rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
->  int ipvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev);
->  void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr);
-> -bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
-> +struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
-> +                                  const void *iaddr, bool is_v6);
-> +bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6);
->  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
->                                         const void *iaddr, bool is_v6);
->  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
-> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index 568628f95aa2..b7877a194cfe 100644
-> --- a/drivers/net/ipvlan/ipvlan_core.c
-> +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -92,9 +92,9 @@ void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync)
->                 synchronize_rcu();
->  }
->
-> -bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6)
-> +struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
-> +                                  const void *iaddr, bool is_v6)
->  {
-> -       struct ipvl_port *port = ipvlan->port;
->         struct ipvl_addr *addr;
->
->         list_for_each_entry(addr, &ipvlan->addrs, anode) {
-> @@ -102,12 +102,21 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6)
->                     ipv6_addr_equal(&addr->ip6addr, iaddr)) ||
->                     (!is_v6 && addr->atype == IPVL_IPV4 &&
->                     addr->ip4addr.s_addr == ((struct in_addr *)iaddr)->s_addr))
-> -                       return true;
-> +                       return addr;
->         }
-> +       return NULL;
-> +}
->
-> -       if (ipvlan_ht_addr_lookup(port, iaddr, is_v6))
-> -               return true;
-> +bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6)
-> +{
-> +       struct ipvl_dev *ipvlan;
-> +
-> +       ASSERT_RTNL();
->
-> +       list_for_each_entry(ipvlan, &port->ipvlans, pnode) {
-> +               if (ipvlan_find_addr(ipvlan, iaddr, is_v6))
-> +                       return true;
-> +       }
->         return false;
->  }
->
-> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index aaa005bd21ce..4fa14208d799 100644
-> --- a/drivers/net/ipvlan/ipvlan_main.c
-> +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -607,7 +607,7 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
->  {
->         struct ipvl_addr *addr;
->
-> -       if (ipvlan_addr_busy(ipvlan, ip6_addr, true)) {
-> +       if (ipvlan_addr_busy(ipvlan->port, ip6_addr, true)) {
->                 netif_err(ipvlan, ifup, ipvlan->dev,
->                           "Failed to add IPv6=%pI6c addr for %s intf\n",
->                           ip6_addr, ipvlan->dev->name);
-> @@ -635,7 +635,7 @@ static void ipvlan_del_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
->  {
->         struct ipvl_addr *addr;
->
-> -       addr = ipvlan_ht_addr_lookup(ipvlan->port, ip6_addr, true);
-> +       addr = ipvlan_find_addr(ipvlan, ip6_addr, true);
->         if (!addr)
->                 return;
->
-> @@ -679,7 +679,7 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->  {
->         struct ipvl_addr *addr;
->
-> -       if (ipvlan_addr_busy(ipvlan, ip4_addr, false)) {
-> +       if (ipvlan_addr_busy(ipvlan->port, ip4_addr, false)) {
->                 netif_err(ipvlan, ifup, ipvlan->dev,
->                           "Failed to add IPv4=%pI4 on %s intf.\n",
->                           ip4_addr, ipvlan->dev->name);
-> @@ -708,7 +708,7 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->  {
->         struct ipvl_addr *addr;
->
-> -       addr = ipvlan_ht_addr_lookup(ipvlan->port, ip4_addr, false);
-> +       addr = ipvlan_find_addr(ipvlan, ip4_addr, false);
->         if (!addr)
->                 return;
->
-> --
-> 1.8.3.1
->
+> > To be honest I'd might rather get bunches of these, there has to be
+> a ton
+> > of them, than a slow trickle of one every few weeks/days.
+>=20
+> There aren't too many...
+>=20
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 4 ++--
+>  drivers/net/ethernet/xilinx/xilinx_emaclite.c    | 2 +-
+>  3 files changed, 4 insertions(+), 4 deletions(-)
+
+
+
+--=-OlBWyRfrLdJoFjssSRgM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVGbIKAAoJEOVv75VaS+3OvasP/A8iqhqYf85z8SPiwNOEaSy2
+qHeXlB+sa4Cz0+FkKOV5qCnMrtJDNrryyi60YNAAq7UB/LV9S8f48pn+JDW0KPQA
+cuCSCeV6B2ZwaQ4awzC2XaZfwUNNleoYz/lpNGbOFcOUrLmGwgqc/uqDR1AJYVfr
+OgYH5cGDh6Vh/KyHnI7rFHweJFrH/3QOYmWroprmh9qs+aFKA+R+ve+oq6P6JwhK
+lFnwEaLeUfnw08CgzuRW61pBcXndrQy0hKRG0DvZMJRxqAa4IWAcgWFPZ4Y7hSLc
+lMNwFAudgYYZ1C5VwU6eyoT+98ZdEpIC0fZ8uDGpsL/GTFaUgQHgWGuj6LTvCcmV
+I/kj3YdCS966pqF92EMN7+I++wmEMYW5u6BPlas82OsGU53uW63bXC+qtpbG5Qtq
+0aMtt75slKjIUNi1VIPJDdUROsojQs6Nqcn9rJlmlOfAOkIN7iae4ImL8RHRwKG5
+ELaDAENs+rbU09VO7Sl9Qfx655nmjcuW1QHTqtXP1TdXHRcF8xLFr3aTe3hsoVAY
+ZHPbzuVVLNfqYoHRQvMovQ1JVuHGziKDMKc3V+o55sjwOqPqnuqjPaeE86Ws7xRA
+cDFUBQEEziAbWwkhlCIPknFkEAgL14RkphSFsufM6npyLhzawbzHRHZTQIo55KlL
+uACVdEjDiBdORbHLs9LD
+=B5ry
+-----END PGP SIGNATURE-----
+
+--=-OlBWyRfrLdJoFjssSRgM--
