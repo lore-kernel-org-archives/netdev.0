@@ -1,150 +1,89 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v9 7/7] ixgbevf: Add the appropriate ethtool
- ops to query RSS indirection table and key
-Date: Mon, 30 Mar 2015 17:00:04 +0300
-Message-ID: <551956E4.6070005@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-8-git-send-email-vladz@cloudius-systems.com> <55187A8C.5060607@gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next RFC v2] switchdev: bridge: drop hardware forwarded
+ packets
+Date: Mon, 30 Mar 2015 07:06:06 -0700
+Message-ID: <5519584E.3050704@cumulusnetworks.com>
+References: <20150323002215.GA6074@roeck-us.net> <550F6D7D.7030403@gmail.com> <550F8102.7040701@roeck-us.net> <550F8600.2020300@gmail.com> <550F8987.5070600@roeck-us.net> <5510498D.5010001@cumulusnetworks.com> <CAE4R7bCcMtrKmiGaLqVMfERQxYZW3WD1vF2rts9+CE7ZZ0_BVQ@mail.gmail.com> <20150324142921.GA2026@nanopsycho.orion> <20150324160126.GA17104@roeck-us.net> <5511A29F.5010006@cumulusnetworks.com> <20150324175825.GA1465@roeck-us.net> <CAE4R7bAoGeFdNAUqMR-RmQWTtfSy0t+e4f187an_BVVVR2tDnw@mail.gmail.com> <CAGVrzcZ+QywZxe4P2bcnBLG9mXUDARNzNyXF1yTOV9tnAcx=PQ@mail.gmail.com> <CAE4R7bBeFg9v-CnUJU-0pe8ZS4AYXQNAGNTcvCrHdZ1ggYmOPA@mail.gmail.com> <5512E9EC.5020504@cumulusnetworks.com> <CAE4R7bCtpaonLeRiX9s3yFisONDQUv9z_EOBcGTdgTGLEjC7vA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	David Miller <davem@davemloft.net>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:35630 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753598AbbC3OAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 10:00:07 -0400
-Received: by wicne17 with SMTP id ne17so32615558wic.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 07:00:06 -0700 (PDT)
-In-Reply-To: <55187A8C.5060607@gmail.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:33981 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752720AbbC3OGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 10:06:08 -0400
+Received: by pdbni2 with SMTP id ni2so176818535pdb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 07:06:08 -0700 (PDT)
+In-Reply-To: <CAE4R7bCtpaonLeRiX9s3yFisONDQUv9z_EOBcGTdgTGLEjC7vA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 03/30/15 01:19, Alexander Duyck wrote:
-> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
->> Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
->> implementations.
->>
->> This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF devices.
->>
->> This patch adds the support for 82599 and x540 devices only. Support for other
->> devices will be added later.
->>
->> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->> ---
->> New in v9:
->>     - Use IXGBEVF_RSS_HASH_KEY_SIZE macro.
->>
->> New in v6:
->>     - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
->>
->> New in v4:
->>     - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
->>
->> New in v3:
->>     - Added a proper support for x550 devices: return the correct redirection table size.
->>
->> New in v2:
->>     - Added a detailed description to the patch.
->> ---
->>   drivers/net/ethernet/intel/ixgbevf/ethtool.c | 58 ++++++++++++++++++++++++++++
->>   1 file changed, 58 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
->> index e83c85b..4d2f59f 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
->> +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
->> @@ -794,6 +794,60 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
->>   	return 0;
->>   }
->>   
->> +static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
->> +			     u32 *rules __always_unused)
->> +{
->> +	struct ixgbevf_adapter *adapter = netdev_priv(dev);
->> +
->> +	switch (info->cmd) {
->> +	case ETHTOOL_GRXRINGS:
->> +		info->data = adapter->num_rx_queues;
->> +		return 0;
->> +	default:
->> +		hw_dbg(&adapter->hw, "Command parameters not supported\n");
->> +		return -EOPNOTSUPP;
->> +	}
->> +}
->> +
->> +static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
->> +{
->> +	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
->> +
->> +	if (adapter->hw.mac.type >= ixgbe_mac_X550_vf)
->> +		return 64;
->> +	else
->> +		return 128;
->> +}
->> +
-> You should return 0 for x550, not 64 since it isn't supported.
+On 3/26/15, 12:44 AM, Scott Feldman wrote:
+> On Wed, Mar 25, 2015 at 10:01 AM, roopa <roopa@cumulusnetworks.com> wrote:
 >
-> My suggestion would be to alter the code so that you return 128 for
-> everything <= x540_vf, and place a return 0 as the default return
-> without a need for the if statement.
-ok
+> [cut]
 >
->> +static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
->> +{
->> +	return IXGBEVF_RSS_HASH_KEY_SIZE;
->> +}
->> +
-> Same thing here.  If you don't support this on x550 you should probably
-> return 0 instead of returning a value.
-ok
+> So just to keep the discussion alive (because we really need to solve
+> this problem), my current thinking is back to Roopa's RFC patch to
+> mark the skb to avoid fwding in bridge driver.  One idea (sorry if
+> this was already suggested, thread is long) is to use
+> swdev_parent_id_get op in the following way:
 >
->> +static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
->> +			    u8 *hfunc)
->> +{
->> +	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
->> +	int err;
->> +
->> +	if (hfunc)
->> +		*hfunc = ETH_RSS_HASH_TOP;
->> +
->> +	if (indir) {
->> +		err = ixgbevf_get_reta(adapter, indir);
->> +		if (err)
->> +			return err;
->> +	}
->> +
->> +	if (key) {
->> +		err = ixgbevf_get_rss_key(adapter, key);
->> +		if (err)
->> +			return err;
->> +	}
->> +
->> +	return 0;
->> +}
->> +
-> My advice here would be to just wrap these two functions in one mailbox
-> lock and update the second check so that it is if (!err && key) so that
-> you can simplify the path and just return err at the end.
+> 1) when port interface is added to bridge, bridge calls
+> swdev_parent_id_get() on port to get switch id.
+> swdev_parent_id_get() needs to be modified to work on stacked drivers.
+> For example, if a bond is the new bridge port, swdev_parent_id_get()
+> on the bond interface should get switch_id for bond member.  We stash
+> the switch_id in the bridge port private structure for later
+> comparison.
+>
+> 2) port driver knows the switch_id for the port, so any pkts it sends
+> up to the CPU which has already been flooded/fwded by the device are
+> marked with the switch_id.  So the skb is marked, somehow.  Some
+> options:
+>
+>    a) add a new skb switch_id field that's wrapped with
+> CONFIG_NET_SWITCHDEV; seems bad, to add a new field.
+>    b) put switch_id into skb->cb, but not sure how this doesn't get
+> stomped on by upper drivers, or how
+>        bridge knows if something valid is in there or not.  Too bad we
+> don't have a TLV format for skb->cb, so
+>        layers could pile things on.  But 48 bytes isn't much to play with.
+>    c) squash switch_id into u32 skb->mark.  We loose information here
+> and could collide between switch_ids.
+>
+> 3) bridge driver, in br_flood(), does check if skb switch_id mark
+> matches dst port switch_id.  If so, skips fwding pkt to that port.
+> The switch_id compare check compares switch_id len and contents.  If
+> skb has no switch_id mark, then compare can be skipped.
+>
+>
+> The only tough part is figuring out 2).
 
-Yeah, something like that. U see - no need to unite them... ;)
+c) might be out of the question if userspace is using any markings and 
+it may get overwritten.
 
+> Just need someway to stuff
+> switch_id into skb.  With bridge driver doing match on switch_id on a
+> per-packet basis, we can support Florian's case where sometimes we
+> want the bridge driver to fwd pkts (in those cases, the driver just
+> leaves skb switch_id mark empty).
+I have this case too and that's why i had the flag in the skb.
+Agree, having switchid there will help with the overhead associated with 
+looking up the switchid again.
+
+>    Mixed offloaded and non-offloaded
+> ports works because switch_id comparison fails for non-offload ports.
+> Same for mixed switches bridged together.  The per-pkt overhead
+> concerns are minimized.
 >
->>   static const struct ethtool_ops ixgbevf_ethtool_ops = {
->>   	.get_settings		= ixgbevf_get_settings,
->>   	.get_drvinfo		= ixgbevf_get_drvinfo,
->> @@ -811,6 +865,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
->>   	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
->>   	.get_coalesce		= ixgbevf_get_coalesce,
->>   	.set_coalesce		= ixgbevf_set_coalesce,
->> +	.get_rxnfc		= ixgbevf_get_rxnfc,
->> +	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
->> +	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
->> +	.get_rxfh		= ixgbevf_get_rxfh,
->>   };
->>   
->>   void ixgbevf_set_ethtool_ops(struct net_device *netdev)
->>
+Thanks for keeping this discussion going.
