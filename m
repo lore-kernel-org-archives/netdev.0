@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 3/7] net/mlx4_en: Move statistics bitmap setting to the Ethernet driver
-Date: Mon, 30 Mar 2015 17:45:22 +0300
-Message-ID: <1427726726-27516-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 5/7] net/mlx4_en: Protect access to the statistics bitmap
+Date: Mon, 30 Mar 2015 17:45:24 +0300
+Message-ID: <1427726726-27516-6-git-send-email-ogerlitz@mellanox.com>
 References: <1427726726-27516-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
 	Tal Alon <talal@mellanox.com>, Amir Vadai <amirv@mellanox.com>,
@@ -9,138 +9,154 @@ Cc: netdev@vger.kernel.org, Hadar Har-Zion <hadarh@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:50777 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:50822 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753454AbbC3Opo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 10:45:44 -0400
+	id S1753665AbbC3OqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 10:46:12 -0400
 In-Reply-To: <1427726726-27516-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eran Ben Elisha <eranbe@mellanox.com>
 
-The statistics bitmap belongs to the Ethernet driver, move it there.
+This will allow parallel access to the statistics bitmap.
+A pre-step for adding PFC counters, where the statistics bitmap
+can be dynamically changed when modifying the PFC setting.
 
 Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   22 +++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 ++
- drivers/net/ethernet/mellanox/mlx4/port.c      |   21 ---------------------
- include/linux/mlx4/device.h                    |    1 -
- 4 files changed, 23 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    6 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   25 ++++++++++++-----------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    9 ++++++-
+ 3 files changed, 23 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 1a29329..3e7ed39 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -263,7 +263,7 @@ static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct bitmap_iterator it;
+ 
+-	bitmap_iterator_init(&it, priv->stats_bitmap, NUM_ALL_STATS);
++	bitmap_iterator_init(&it, priv->stats_bitmap.bitmap, NUM_ALL_STATS);
+ 
+ 	switch (sset) {
+ 	case ETH_SS_STATS:
+@@ -292,7 +292,7 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
+ 	int i;
+ 	struct bitmap_iterator it;
+ 
+-	bitmap_iterator_init(&it, priv->stats_bitmap, NUM_ALL_STATS);
++	bitmap_iterator_init(&it, priv->stats_bitmap.bitmap, NUM_ALL_STATS);
+ 
+ 	spin_lock_bh(&priv->stats_lock);
+ 
+@@ -339,7 +339,7 @@ static void mlx4_en_get_strings(struct net_device *dev,
+ 	int i, strings = 0;
+ 	struct bitmap_iterator it;
+ 
+-	bitmap_iterator_init(&it, priv->stats_bitmap, NUM_ALL_STATS);
++	bitmap_iterator_init(&it, priv->stats_bitmap.bitmap, NUM_ALL_STATS);
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_TEST:
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index ebc93a1..9556230 100644
+index b771032..4542bab 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -49,6 +49,11 @@
- #include "mlx4_en.h"
- #include "en_port.h"
- 
-+#define MLX4_STATS_TRAFFIC_COUNTERS_MASK	0xfULL
-+#define MLX4_STATS_TRAFFIC_DROPS_MASK		0xc0ULL
-+#define MLX4_STATS_ERROR_COUNTERS_MASK		0x1ffc30ULL
-+#define MLX4_STATS_PORT_COUNTERS_MASK		0x7fe00000ULL
-+
- int mlx4_en_setup_tc(struct net_device *dev, u8 up)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -2648,6 +2653,21 @@ int mlx4_en_netdev_event(struct notifier_block *this,
- 	return NOTIFY_DONE;
+@@ -2649,35 +2649,36 @@ int mlx4_en_netdev_event(struct notifier_block *this,
  }
  
-+void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap)
-+{
-+	if (!mlx4_is_mfunc(dev)) {
-+		*stats_bitmap = 0;
-+		return;
-+	}
-+
-+	*stats_bitmap = (MLX4_STATS_TRAFFIC_COUNTERS_MASK |
-+			 MLX4_STATS_TRAFFIC_DROPS_MASK |
-+			 MLX4_STATS_PORT_COUNTERS_MASK);
-+
-+	if (mlx4_is_master(dev))
-+		*stats_bitmap |= MLX4_STATS_ERROR_COUNTERS_MASK;
-+}
-+
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 			struct mlx4_en_port_profile *prof)
+ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+-			      unsigned long *stats_bitmap)
++			      struct mlx4_en_stats_bitmap *stats_bitmap)
  {
-@@ -2881,7 +2901,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	int last_i = 0;
+ 
+-	bitmap_zero(stats_bitmap, NUM_ALL_STATS);
++	mutex_init(&stats_bitmap->mutex);
++	bitmap_zero(stats_bitmap->bitmap, NUM_ALL_STATS);
+ 
+ 	if (mlx4_is_slave(dev)) {
+-		bitmap_set(stats_bitmap, last_i +
++		bitmap_set(stats_bitmap->bitmap, last_i +
+ 					 MLX4_FIND_NETDEV_STAT(rx_packets), 1);
+-		bitmap_set(stats_bitmap, last_i +
++		bitmap_set(stats_bitmap->bitmap, last_i +
+ 					 MLX4_FIND_NETDEV_STAT(tx_packets), 1);
+-		bitmap_set(stats_bitmap, last_i +
++		bitmap_set(stats_bitmap->bitmap, last_i +
+ 					 MLX4_FIND_NETDEV_STAT(rx_bytes), 1);
+-		bitmap_set(stats_bitmap, last_i +
++		bitmap_set(stats_bitmap->bitmap, last_i +
+ 					 MLX4_FIND_NETDEV_STAT(tx_bytes), 1);
+-		bitmap_set(stats_bitmap, last_i +
++		bitmap_set(stats_bitmap->bitmap, last_i +
+ 					 MLX4_FIND_NETDEV_STAT(rx_dropped), 1);
+-		bitmap_set(stats_bitmap, last_i +
++		bitmap_set(stats_bitmap->bitmap, last_i +
+ 					 MLX4_FIND_NETDEV_STAT(tx_dropped), 1);
+ 	} else {
+-		bitmap_set(stats_bitmap, last_i, NUM_MAIN_STATS);
++		bitmap_set(stats_bitmap->bitmap, last_i, NUM_MAIN_STATS);
+ 	}
+ 	last_i += NUM_MAIN_STATS;
+ 
+-	bitmap_set(stats_bitmap, last_i, NUM_PORT_STATS);
++	bitmap_set(stats_bitmap->bitmap, last_i, NUM_PORT_STATS);
+ 	last_i += NUM_PORT_STATS;
+ 
+ 	if (!mlx4_is_slave(dev))
+-		bitmap_set(stats_bitmap, last_i, NUM_PKT_STATS);
++		bitmap_set(stats_bitmap->bitmap, last_i, NUM_PKT_STATS);
+ }
+ 
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+@@ -2913,7 +2914,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
  		queue_delayed_work(mdev->workqueue, &priv->service_task,
  				   SERVICE_TASK_DELAY);
  
--	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
+-	mlx4_en_set_stats_bitmap(mdev->dev, priv->stats_bitmap);
 +	mlx4_en_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
  
  	return 0;
  
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 6b379a2..af3d9b7 100644
+index a612bfd..d5d971a 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -730,6 +730,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- int mlx4_en_start_port(struct net_device *dev);
+@@ -485,6 +485,11 @@ enum {
+ #define MLX4_EN_MAC_HASH_SIZE (1 << BITS_PER_BYTE)
+ #define MLX4_EN_MAC_HASH_IDX 5
+ 
++struct mlx4_en_stats_bitmap {
++	DECLARE_BITMAP(bitmap, NUM_ALL_STATS);
++	struct mutex mutex; /* for mutual access to stats bitmap */
++};
++
+ struct mlx4_en_priv {
+ 	struct mlx4_en_dev *mdev;
+ 	struct mlx4_en_port_profile *prof;
+@@ -561,7 +566,7 @@ struct mlx4_en_priv {
+ 	struct mlx4_en_perf_stats pstats;
+ 	struct mlx4_en_pkt_stats pkstats;
+ 	struct mlx4_en_port_stats port_stats;
+-	DECLARE_BITMAP(stats_bitmap, NUM_ALL_STATS);
++	struct mlx4_en_stats_bitmap stats_bitmap;
+ 	struct list_head mc_list;
+ 	struct list_head curr_list;
+ 	u64 broadcast_id;
+@@ -731,7 +736,7 @@ int mlx4_en_start_port(struct net_device *dev);
  void mlx4_en_stop_port(struct net_device *dev, int detach);
  
-+void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap);
-+
+ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+-			      unsigned long *stats_bitmap);
++			      struct mlx4_en_stats_bitmap *stats_bitmap);
+ 
  void mlx4_en_free_resources(struct mlx4_en_priv *priv);
  int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 3f6f771..b97f173 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -45,11 +45,6 @@
- #define MLX4_VLAN_VALID		(1u << 31)
- #define MLX4_VLAN_MASK		0xfff
- 
--#define MLX4_STATS_TRAFFIC_COUNTERS_MASK	0xfULL
--#define MLX4_STATS_TRAFFIC_DROPS_MASK		0xc0ULL
--#define MLX4_STATS_ERROR_COUNTERS_MASK		0x1ffc30ULL
--#define MLX4_STATS_PORT_COUNTERS_MASK		0x7fe00000ULL
--
- void mlx4_init_mac_table(struct mlx4_dev *dev, struct mlx4_mac_table *table)
- {
- 	int i;
-@@ -1185,22 +1180,6 @@ int mlx4_DUMP_ETH_STATS_wrapper(struct mlx4_dev *dev, int slave,
- 					  vhcr->in_modifier, outbox);
- }
- 
--void mlx4_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap)
--{
--	if (!mlx4_is_mfunc(dev)) {
--		*stats_bitmap = 0;
--		return;
--	}
--
--	*stats_bitmap = (MLX4_STATS_TRAFFIC_COUNTERS_MASK |
--			 MLX4_STATS_TRAFFIC_DROPS_MASK |
--			 MLX4_STATS_PORT_COUNTERS_MASK);
--
--	if (mlx4_is_master(dev))
--		*stats_bitmap |= MLX4_STATS_ERROR_COUNTERS_MASK;
--}
--EXPORT_SYMBOL(mlx4_set_stats_bitmap);
--
- int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
- 				 int *slave_id)
- {
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 4550c67..49abbe2 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -1300,7 +1300,6 @@ int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac);
- void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac);
- int mlx4_get_base_qpn(struct mlx4_dev *dev, u8 port);
- int __mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac);
--void mlx4_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap);
- int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
- 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
- int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
 -- 
 1.7.1
