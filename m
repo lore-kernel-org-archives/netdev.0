@@ -1,71 +1,194 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH net-next 11/18] switchdev: remove old
- netdev_switch_port_bridge_setlink
-Date: Mon, 30 Mar 2015 20:46:02 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
+Date: Mon, 30 Mar 2015 22:46:12 +0200
+Message-ID: <20150330204612.GA10481@nanopsycho.orion>
 References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
-	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>
-	<55194E63.5010100@cumulusnetworks.com>
- <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
+ <1427704836-8776-3-git-send-email-sfeldma@gmail.com>
+ <E4CD12F19ABA0C4D8729E087A761DC35067FA6FE@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+To: "Arad, Ronen" <ronen.arad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:49293 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754082AbbC3UqE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 16:46:04 -0400
-In-Reply-To: <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:38461 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751879AbbC3UqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 16:46:15 -0400
+Received: by wibgn9 with SMTP id gn9so375337wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 13:46:14 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC35067FA6FE@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IG5ldGRldi1vd25lckB2Z2Vy
-Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbg0KPkJl
-aGFsZiBPZiBTY290dCBGZWxkbWFuDQo+U2VudDogTW9uZGF5LCBNYXJjaCAzMCwgMjAxNSAxOjIw
-IFBNDQo+VG86IHJvb3BhDQo+Q2M6IE5ldGRldjsgSmnFmcOtIFDDrXJrbzsgR3VlbnRlciBSb2Vj
-azsgRmxvcmlhbiBGYWluZWxsaQ0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMTEvMThd
-IHN3aXRjaGRldjogcmVtb3ZlIG9sZA0KPm5ldGRldl9zd2l0Y2hfcG9ydF9icmlkZ2Vfc2V0bGlu
-aw0KPg0KPk9uIE1vbiwgTWFyIDMwLCAyMDE1IGF0IDY6MjMgQU0sIHJvb3BhIDxyb29wYUBjdW11
-bHVzbmV0d29ya3MuY29tPiB3cm90ZToNCj4+IE9uIDMvMzAvMTUsIDE6NDAgQU0sIHNmZWxkbWFA
-Z21haWwuY29tIHdyb3RlOg0KPj4+DQo+Pj4gRnJvbTogU2NvdHQgRmVsZG1hbiA8c2ZlbGRtYUBn
-bWFpbC5jb20+DQo+Pj4NCj4+PiBOZXcgYXR0ci1iYXNlZCBicmlkZ2Vfc2V0bGluayBjYW4gcmVj
-dXJzZSBsb3dlciBkZXZzIGFuZCByZWNvdmVyIG9uIGVyciwNCj4+PiBzbw0KPj4+IHJlbW92ZSBv
-bGQgd3JhcHBlci4gIEFsc28sIHJlc3RvcmUgYnJfc2V0bGluayBiYWNrIHRvIG9yaWdpbmFsIGFu
-ZCBkb24ndA0KPj4+IGNhbGwNCj4+PiBpbnRvIFNFTEYgcG9ydCBkcml2ZXIuICBydG5ldGxpbmsu
-YzpicmlkZ2Vfc2V0bGluayBhbHJlYWR5IGRvZXMgYSBjYWxsDQo+Pj4gaW50bw0KPj4+IHBvcnQg
-ZHJpdmVyIGZvciBTRUxGLg0KPj4+DQo+Pj4gU2lnbmVkLW9mZi1ieTogU2NvdHQgRmVsZG1hbiA8
-c2ZlbGRtYUBnbWFpbC5jb20+DQo+Pg0KPj4gcmVtb3ZpbmcgdGhpcyBub3cgcmVxdWlyZXMgZXZl
-cnkgdmxhbiBhZGQgdG8gYmUgYSB0d28gc3RlcCBwcm9jZXNzLCB3aHkgPw0KPg0KPk5vLCB0aGF0
-J3Mgbm90IHRydWUuICBZb3Ugd2FudCB0byB1c2UNCj5uZG9fdmxhbl9yeF9hZGRfdmlkL25kb192
-bGFuX3J4X2tpbGxfdmlkIGluIHlvdXIgcG9ydCBkcml2ZXIsIGFuZCB0aGVuDQo+dXNpbmcgZWl0
-aGVyIHZsYW4gZHJpdmVyIHN0YW5kYWxvbmUgb3IgdGhlIGJyaWRnZSBkcml2ZXIgdmxhbiBzdXBw
-b3J0DQo+d2lsbCB3b3JrLg0KPg0KPlRyeSBpdC4gIEltcGxlbWVudCBuZG9fdmxhbl9yeF9hZGRf
-dmlkIGluIHlvdXIgcG9ydCBkcml2ZXIgYW5kIHZlcmlmeQ0KPnlvdSBnZXQgY2FsbGVkIHRvIGFk
-ZCBWTEFOIHRvIHBvcnQgd2l0aCBlaXRoZXI6DQo+DQo+ICAgIGJyaWRnZSB2bGFuIGFkZCBkZXYg
-c3dwMSB2aWQgMTANCj4NCj4gICAgLW9yLQ0KPg0KPiAgICB2Y29uZmlnIGFkZCBzd3AxIDEwDQo+
-DQo+U2FtZSBmb3IgZGVsZXRpbmcgYSBWTEFOLCBlaXRoZXIgb2YgdGhlc2UgdHdvIGNvbW1hbmRz
-IGNhbGwgaW50byB0aGUNCj5wb3J0IGRyaXZlciBuZG9fdmxhbl9yeF9raWxsX3ZpZDoNCj4NCj4g
-ICAgYnJpZGdlIHZsYW4gZGVsIGRldiBzd3AxIHZpZCAxMA0KPg0KPiAgICAtb3ItDQo+DQo+ICAg
-IHZjb25maWcgcmVtIHN3cDEgMTANCj4NCj4NCj4+IGJyaWRnZSB2bGFuIGFkZCBkZXYgc3dwMSB2
-aWQgMTANCj4+IGJyaWRnZSB2bGFuIGFkZCBkZXYgc3dwMSB2aWQgMTAgc2VsZg0KPg0KPk5vdCBu
-ZWNlc3NhcnkuICBUaGUgZmlyc3QgY29tbWFuZCBpcyBzdWZmaWNpZW50IGlmIHVzaW5nDQo+bmRv
-X3ZsYW5fcnhfYWRkX3ZpZC4gDQoNClRoaXMgaXMgbm90IHN1ZmZpY2llbnQgZm9yIFZMQU4gZmls
-dGVyaW5nLiBOZG9fdmxhbl9yeF9hZGRfdmlkIGRvZXMgbm90DQpwcm92aWRlIHRoZSB2aW5mbyBm
-bGFncyBQVklEIGFuZCBVTlRBR0dFRC4gVGhlcmVmb3JlIGl0IGlzIG5vdA0KYW4gYWRlcXVhdGUg
-cmVwbGFjZW1lbnQgZm9yIHByb3BhZ2F0aW5nIHNldGxpbmsvZGVsbGluayBtZXNzYWdlcyB0byB0
-aGUNCnN3aXRocG9ydCBkcml2ZXIgb3IgYW4gYWx0ZXJuYXRpdmUgdmlhIHN3ZGV2X2F0dHIuDQog
-IA0KIElmIHlvdSB3YW50IHRoZSBzZWxmIHZlcnNpb24gdG8gd29yaywgYWRkDQo+bmRvX2JyaWRn
-ZV9zZXRsaW5rL2RlbGxpbmsgb3BzIHRvIHlvdXIgcG9ydCBkcml2ZXIuDQo+DQoNCj4+IGFuZCB1
-c2Vyc3BhY2Ugd2lsbCBnZXQgdHdvIG5vdGlmaWNhdGlvbnMuDQo+DQo+U2luZ2xlIGNvbW1hbmQg
-KGFzIHNob3duIGluIG15IGV4YW1wbGVzKSBnZW5lcmF0ZXMgb25lIHVzZXIgbm90aWZpY2F0aW9u
-Lg0KPi0tDQo+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVu
-c3Vic2NyaWJlIG5ldGRldiIgaW4NCj50aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21v
-QHZnZXIua2VybmVsLm9yZw0KPk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtl
-cm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+Mon, Mar 30, 2015 at 08:32:09PM CEST, ronen.arad@intel.com wrote:
+>
+>
+>>-----Original Message-----
+>>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>>Behalf Of sfeldma@gmail.com
+>>Sent: Monday, March 30, 2015 1:40 AM
+>>To: netdev@vger.kernel.org
+>>Cc: jiri@resnulli.us; roopa@cumulusnetworks.com; linux@roeck-us.net;
+>>f.fainelli@gmail.com
+>>Subject: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
+>>
+>>From: Scott Feldman <sfeldma@gmail.com>
+>>
+>>Add the basic algorithms for get/set attr ops.  Use the same recusive algo to
+>>walk lower devs we've used for STP updates, for example.  For get, compare
+>>attr
+>>value for each lower dev and only return success if attr values match across
+>>all lower devs.  For sets, set the same attr value for all lower devs.  If
+>>something goes wrong on one of the lower devs, revert all back to previous
+>>attr
+>>value.
+>>
+>>If lower dev recusion isn't desired, allow a flag SWDEV_ATTR_F_NO_RECURSE to
+>>indicate get/set only work on port (lowest) device.
+>>
+>>On set, allow a flag SWDEV_ATTR_F_NO_RECOVER to turn off automatic err
+>>recovery.
+>>
+>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>---
+>> include/net/switchdev.h   |    4 +++
+>> net/switchdev/switchdev.c |   71 +++++++++++++++++++++++++++++++++++++++++++-
+>>-
+>> 2 files changed, 73 insertions(+), 2 deletions(-)
+>>
+>>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>index 7b72a4f..dcf0cb7 100644
+>>--- a/include/net/switchdev.h
+>>+++ b/include/net/switchdev.h
+>>@@ -18,8 +18,12 @@ enum swdev_attr_id {
+>> 	SWDEV_ATTR_UNDEFINED,
+>> };
+>>
+>>+#define SWDEV_ATTR_F_NO_RECURSE		BIT(0)
+>>+#define SWDEV_ATTR_F_NO_RECOVER		BIT(1)
+>>+
+>> struct swdev_attr {
+>> 	enum swdev_attr_id attr;
+>>+	u32 flags;
+>> };
+>>
+>> struct fib_info;
+>>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>>index a894fa5..f3cac92 100644
+>>--- a/net/switchdev/switchdev.c
+>>+++ b/net/switchdev/switchdev.c
+>>@@ -44,10 +44,67 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+>>  */
+>> int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr)
+>> {
+>>-	return -EOPNOTSUPP;
+>>+	const struct swdev_ops *ops = dev->swdev_ops;
+>>+	struct net_device *lower_dev;
+>>+	struct list_head *iter;
+>>+	struct swdev_attr first = {
+>>+		.attr = SWDEV_ATTR_UNDEFINED
+>>+	};
+>>+	int err = -EOPNOTSUPP;
+>>+
+>>+	if (ops && ops->swdev_port_attr_get)
+>>+		return ops->swdev_port_attr_get(dev, attr);
+>>+
+>>+	if (attr->flags & SWDEV_ATTR_F_NO_RECURSE)
+>>+		return err;
+>>+
+>>+	/* Switch device port(s) may be stacked under
+>>+	 * bond/team/vlan dev, so recurse down to get attr on
+>>+	 * each port.  Return -ENODATA if attr values don't
+>>+	 * compare across ports.
+>>+	 */
+>>+
+>>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>>+		err = swdev_port_attr_get(lower_dev, attr);
+>>+		if (err)
+>>+			break;
+>>+		if (first.attr == SWDEV_ATTR_UNDEFINED)
+>>+			first = *attr;
+>>+		else if (memcmp(&first, attr, sizeof(*attr)))
+>>+			return -ENODATA;
+>>+	}
+>>+
+>>+	return err;
+>> }
+>> EXPORT_SYMBOL_GPL(swdev_port_attr_get);
+>>
+>>+static int _swdev_port_attr_set(struct net_device *dev, struct swdev_attr
+>>*attr)
+>>+{
+>>+	const struct swdev_ops *ops = dev->swdev_ops;
+>>+	struct net_device *lower_dev;
+>>+	struct list_head *iter;
+>>+	int err = -EOPNOTSUPP;
+>>+
+>>+	if (ops && ops->swdev_port_attr_set)
+>>+		return ops->swdev_port_attr_set(dev, attr);
+>>+
+>>+	if (attr->flags & SWDEV_ATTR_F_NO_RECURSE)
+>>+		return err;
+>>+
+>>+	/* Switch device port(s) may be stacked under
+>>+	 * bond/team/vlan dev, so recurse down to set attr on
+>>+	 * each port.
+>>+	 */
+>>+
+>>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>>+		err = _swdev_port_attr_set(lower_dev, attr);
+>>+		if (err)
+>>+			break;
+>>+	}
+>>+
+>>+	return err;
+>>+}
+>>+
+>> /**
+>>  *	swdev_port_attr_set - Set port attribute
+>>  *
+>>@@ -56,7 +113,17 @@ EXPORT_SYMBOL_GPL(swdev_port_attr_get);
+>>  */
+>> int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
+>> {
+>>-	return -EOPNOTSUPP;
+>>+	struct swdev_attr prev = *attr;
+>>+	int err, get_err;
+>>+
+>>+	get_err = swdev_port_attr_get(dev, &prev);
+>>+
+>>+	err = _swdev_port_attr_set(dev, attr);
+>>+	if (err && !get_err && !(attr->flags & SWDEV_ATTR_F_NO_RECOVER))
+>>+		/* Some err on set: revert to previous value */
+>>+		_swdev_port_attr_set(dev, &prev);
+>
+>Could revering to previous value fail?
+
+I believe that it certainly could
+
+>Should such failure be logged?
+
+That is a good point.
+
+Also, looking at the function name, seems nicer to me to use "__"
+instead of "_" as a function prefix. Not sure if that is some rule
+somewhere.
+
+>
+>>+
+>>+	return err;
+>> }
+>> EXPORT_SYMBOL_GPL(swdev_port_attr_set);
+>>
+>>--
+>>1.7.10.4
+>>
+>>--
+>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>the body of a message to majordomo@vger.kernel.org
+>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
