@@ -1,153 +1,48 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: [PATCH v3] net: sysctl for RA default route MTU
-Date: Mon, 30 Mar 2015 15:30:57 +0300
-Message-ID: <1427718657-21674-1-git-send-email-klamm@yandex-team.ru>
-References: <20150329.124248.1745435092252856808.davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Roman Gushchin <klamm@yandex-team.ru>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150329.124248.1745435092252856808.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 07/18] switchdev: add new swdev bridge setlink
+Date: Mon, 30 Mar 2015 14:31:28 +0200
+Message-ID: <20150330123128.GH2045@nanopsycho.orion>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+ <1427704836-8776-8-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	linux@roeck-us.net, f.fainelli@gmail.com
+To: sfeldma@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:36011 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751806AbbC3Mb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 08:31:57 -0400
+Received: by wibg7 with SMTP id g7so101237129wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 05:31:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1427704836-8776-8-git-send-email-sfeldma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch introduces new ipv6 sysctl: ra_default_route_mtu.
-If it's set (> 0), it defines per-route MTU for any new default route
-received by RA.
+Mon, Mar 30, 2015 at 10:40:25AM CEST, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
+>
+>Add new swdev_port_bridge_setlink that can be used by drivers implementing
+>.ndo_bridge_setlink to set swdev bridge attributes.  Basically turn the raw
+>rtnl_bridge_setlink netlink into swdev attr sets.  Proper netlink attr policy
+>checking is done.  Currently, only bridge port attrs BR_LEARNING and
+>BR_LEARNING_SYNC are parsed and passed to port driver.
+>
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>---
+> include/net/switchdev.h   |    8 +++++
+> net/switchdev/switchdev.c |   86 +++++++++++++++++++++++++++++++++++++++++++++
+> 2 files changed, 94 insertions(+)
+>
 
-This sysctl will help in the following configuration: we want to use
-jumbo-frames for internal networks and default ethernet frames for
-default route. Per-route MTU can only lower per-link MTU, so link MTU
-should be set to ~9000 (statically or via RA).
+...
 
-Due to dynamic nature of RA, setting MTU for default route will require
-userspace agent, that will monitor changes of default route
-and (re)configure it. Not simple. The suggested sysctl solves this
-problem.
+>+int swdev_port_bridge_setlink(struct net_device *dev,
+>+			      struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	struct nlattr *protinfo;
+>+	struct nlattr *ifla;
 
-Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
----
-
-Changes from v1: add forgotten brace.
-Changes from v2: move RA-specific code from route.c to ndisc.c
----
- Documentation/networking/ip-sysctl.txt |  5 +++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 10 ++++++++++
- net/ipv6/ndisc.c                       |  8 +++++++-
- 5 files changed, 24 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 071fb18..cf86729 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1349,6 +1349,11 @@ accept_ra_mtu - BOOLEAN
- 	Functional default: enabled if accept_ra is enabled.
- 			    disabled if accept_ra is disabled.
- 
-+ra_default_route_mtu - INTEGER
-+	Define MTU for any new default route received by RA.
-+
-+	Functional default: disabled (0).
-+
- accept_redirects - BOOLEAN
- 	Accept Redirects.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 82806c6..c7727b5 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -53,6 +53,7 @@ struct ipv6_devconf {
- 	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
- 	__s32		accept_ra_mtu;
-+	__s32		ra_default_route_mtu;
- 	struct ipv6_stable_secret {
- 		bool initialized;
- 		struct in6_addr secret;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 5efa54a..1d31d70 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -170,6 +170,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
-+	DEVCONF_RA_DEFAULT_ROUTE_MTU,
- 	DEVCONF_STABLE_SECRET,
- 	DEVCONF_MAX
- };
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 2660263..15528f7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -209,6 +209,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.ra_default_route_mtu	= 0,
- 	.stable_secret		= {
- 		.initialized = false,
- 	}
-@@ -250,6 +251,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.ra_default_route_mtu	= 0,
- 	.stable_secret		= {
- 		.initialized = false,
- 	},
-@@ -4583,6 +4585,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
-+	array[DEVCONF_RA_DEFAULT_ROUTE_MTU] = cnf->ra_default_route_mtu;
- 	/* we omit DEVCONF_STABLE_SECRET for now */
- }
- 
-@@ -5576,6 +5579,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname	= "ra_default_route_mtu",
-+			.data		= &ipv6_devconf.ra_default_route_mtu,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			.procname	= "stable_secret",
- 			.data		= &ipv6_devconf.stable_secret,
- 			.maxlen		= IPV6_MAX_STRLEN,
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 247ad7c..2a3a564 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1208,6 +1208,11 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 				  "RA: %s failed to add default route\n",
- 				  __func__);
- 			return;
-+		} else {
-+			u32 mtu = in6_dev->cnf.ra_default_route_mtu;
-+
-+			if (mtu && mtu >= IPV6_MIN_MTU && mtu <= in6_dev->cnf.mtu6)
-+				dst_metric_set(&rt->dst, RTAX_MTU, mtu);
- 		}
- 
- 		neigh = dst_neigh_lookup(&rt->dst, &ipv6_hdr(skb)->saddr);
-@@ -1370,7 +1375,8 @@ skip_routeinfo:
- 		} else if (in6_dev->cnf.mtu6 != mtu) {
- 			in6_dev->cnf.mtu6 = mtu;
- 
--			if (rt)
-+			if (rt && (!in6_dev->cnf.ra_default_route_mtu ||
-+				   mtu < in6_dev->cnf.ra_default_route_mtu))
- 				dst_metric_set(&rt->dst, RTAX_MTU, mtu);
- 
- 			rt6_mtu_change(skb->dev, mtu);
--- 
-2.1.0
+	I would prefer just "attr" for example instead of "ifla"
