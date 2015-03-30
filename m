@@ -1,84 +1,333 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Handling device free after a packet is passed to the
- network stack
-Date: Mon, 30 Mar 2015 15:41:32 -0700
-Message-ID: <1427755292.25985.165.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <f3c7672edb978d520f12d72cb41d1e4d.squirrel@www.codeaurora.org>
-	 <1427510968.25985.159.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <004401d06af4$94620280$bd260780$@codeaurora.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 31 Mar 2015 01:51:44 +0300
+Message-ID: <5519D380.6070200@cogentembedded.com>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com> <20150328082853.GA4255@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: subashab@codeaurora.org, netdev@vger.kernel.org
-To: Harout Hedeshian <harouth@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33596 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752890AbbC3Wlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 18:41:36 -0400
-Received: by pacgg7 with SMTP id gg7so50952674pac.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 15:41:36 -0700 (PDT)
-In-Reply-To: <004401d06af4$94620280$bd260780$@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	masaru.nagai.vx@renesas.com
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150328082853.GA4255@localhost.localdomain>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-03-30 at 08:19 -0600, Harout Hedeshian wrote:
-> 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> > On Behalf Of Eric Dumazet
-> > Sent: Friday, March 27, 2015 8:49 PM
-> > To: subashab@codeaurora.org
-> > Cc: netdev@vger.kernel.org
-> > Subject: Re: [RFC] Handling device free after a packet is passed to the
-> > network stack
-> > 
-> > On Fri, 2015-03-27 at 19:57 +0000, subashab@codeaurora.org wrote:
-> > > We have been coming across a couple of scenarios where the device is
-> > > freed and the corresponding packets which were already queued up the
-> > > stack encounter crashes when they find that contents of skb->dev are
-> > > no longer valid.
-> > >
-> > > Specifically, we have observed an instance where a cpu hotplug occurs
-> > > along with the network driver module unloading. When the packets are
-> > > being queued up the stack using netif_rx_ni from dev_cpu_callback,
-> > > get_rps_cpus crashes as it encounters invalid data at skb->dev since
-> > > it would have been freed.
-> > >
-> > > We would like to know if the kernel provides some mechanisms to
-> > > safeguard against such scenarios.
-> > 
-> > This is supposed to be handled in flush_backlog() (net/core/dev.c)
-> 
-> It looks like this only takes care of packets in the softnet_data
-> queues (or am I missing something). Wouldn't we run into similar
-> issues if the packet were stuck in, for example, TCP OFO socket queue
-> (not sure if anything tries to access skb->dev after that)? Or perhaps
-> some other queue which may later try to dereference skb->dev. 
->  
+Hello.
 
-Then these packets wont reach dev. Stack already takes care of these
-packets. They are in TCP queues, not yet associated with a device.
+On 03/28/2015 11:28 AM, Richard Cochran wrote:
 
-IP/neighbour stack wont associate a dead device to a TX packet.
-> 
-> It seems to me that the only way to be absolutely sure that there is
-> no reference on this net_device would be to have the drivers
-> dev_hold() before earch netif_rx/netif_rx_ni/netif_receive_skb; and
-> then later have __kfree_skb() do a dev_put().
-> 
-> Of course, this approach has a number of issues:
-> - 2 extra operations per packet
-> - Anything holding onto an SKB can prevent a net_device from
-> deregistering/freeing
-> - requires skbs to have a valid dev before they can be freed (or we
-> simply null check this field in __kfree_skb())
+>> Ethernet AVB includes an Gigabit Ethernet controller (E-MAC) that is basically
+>> compatible with SuperH Gigabit Ethernet E-MAC). Ethernet AVB  has a dedicated
+>> direct memory access controller (AVB-DMAC) that is a new design compared to the
+>> SuperH E-DMAC. The AVB-DMAC is compliant with 3 standards formulated for IEEE
+>> 802.1BA: IEEE 802.1AS timing and synchronization protocol, IEEE 802.1Qav real-
+>> time transfer, and the IEEE 802.1Qat stream reservation protocol.
 
+> Since this is a PTP Hardware Clock driver, why not include the maintainer on CC?
 
-This is absolutely not needed. Existing infrastructure already is
-supposed to take care of not holding a RX packet when a device is
-dismantled. cpu backlog queues are supposed to be flushed and packet
-dropped.
+    Sorry for leaving you out of CC. I used the list given by 
+scripts/get_maintainer.pl and forgot for the moment that it's also a PTP 
+driver. Perhaps there is a way to enhance that script for this particular case 
+(I'm not into PERL myself)?
 
-The only problem that my patch is solving is the joint event of cpu
-hotplug and device dismantle.
+>> The driver only supports device tree probing, so the binding document is
+>> included in this patch.
+
+>> Based on the patches by Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com> and
+>> Masaru Nagai <masaru.nagai.vx@renesas.com>.
+
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> We also need SOB from Mitsuhiro and Masaru.
+
+    Hmm, it's the first time I encounter such requirement.
+    Not sure how you imagine that if Kimura-san was (mostly) the author of the 
+Ethernet driver proper and Nagai-san was the author of the PTP code proper 
+(they were 2 different drivers, not sure for what reason -- as the Ethernet 
+driver proper failed to compile without PTP enabled for me). Adding them to 
+CC: anyway...
+
+> ...
+
+>> Index: net-next/drivers/net/ethernet/renesas/ravb.c
+>> ===================================================================
+>> --- /dev/null
+>> +++ net-next/drivers/net/ethernet/renesas/ravb.c
+>> @@ -0,0 +1,3071 @@
+[...]
+
+>> +/* There is CPU dependent code */
+>> +static int ravb_wait_clear(struct net_device *ndev, u16 reg, u32 bits)
+>> +{
+>> +	int i;
+>> +
+>> +	for (i = 0; i < 100; i++) {
+>> +		if (!(ravb_read(ndev, reg) & bits))
+>> +			break;
+>> +		mdelay(1);
+>> +	}
+>> +	if (i >= 100)
+>> +		return -ETIMEDOUT;
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static int ravb_wait_setting(struct net_device *ndev, u16 reg, u32 bits)
+>> +{
+
+> This function is identical to the previous one.
+
+    It is not, the *break* condition is different. I'll look into merging them 
+though...
+
+>> +	int i;
+>> +
+>> +	for (i = 0; i < 100; i++) {
+>> +		if (ravb_read(ndev, reg) & bits)
+>> +			break;
+>> +		mdelay(1);
+>> +	}
+>> +	if (i >= 100)
+>> +		return -ETIMEDOUT;
+>> +
+>> +	return 0;
+>> +}
+[...]
+>> +static void ravb_get_tx_tstamp(struct net_device *ndev)
+>> +{
+>> +	struct ravb_private *priv = netdev_priv(ndev);
+>> +	struct ravb_tstamp_skb *ts_skb, *ts_skb1;
+>> +	struct skb_shared_hwtstamps shhwtstamps;
+>> +	struct sk_buff *skb;
+>> +	struct timespec ts;
+
+> For new drivers, please use timespec64.
+
+    OK, got it.
+
+[...]
+>> +/* Caller must hold the lock */
+>> +static void ravb_ptp_update_compare(struct ravb_private *priv, u32 ns)
+>> +{
+>> +	struct net_device *ndev = priv->ndev;
+>> +	/* When the comparison value (GPTC.PTCV) is in range of
+>> +	 * [x-1 to x+1] (x is the configured increment value in
+>> +	 * GTI.TIV), it may happen that a comparison match is
+>> +	 * not detected when the timer wraps around.
+>> +	 */
+
+> What does this funtion do, exactly?  This looks very fishy to me.
+
+    Perhaps a workaround for an errata I don't know about. Nagai-san, could 
+you maybe elaborate?
+
+>> +	u32 gti_ns_plus_1 = (priv->ptp.current_addend >> 20) + 1;
+>> +
+>> +	if (ns < gti_ns_plus_1)
+>> +		ns = gti_ns_plus_1;
+>> +	else if (ns > 0 - gti_ns_plus_1)
+>> +		ns = 0 - gti_ns_plus_1;
+>> +
+>> +	ravb_write(ndev, ns, GPTC);
+>> +	ravb_write(ndev, ravb_read(ndev, GCCR) | GCCR_LPTC, GCCR);
+>> +	if (ravb_read(ndev, CSR) & CSR_OPS_OPERATION)
+>> +		while (ravb_read(ndev, GCCR) & GCCR_LPTC)
+>> +			;
+
+> Infinite loop while holding a spin lock = not good.
+
+    Sure. I've spent over 3 weeks cleaning this stuff up, yet still it wasn't 
+enough... :-/
+
+[...]
+>> +static irqreturn_t ravb_interrupt(int irq, void *dev_id)
+>> +{
+
+>> +	if (iss & ISS_CGIS) {
+>> +		u32 gis = ravb_read(ndev, GIS);
+>> +
+>> +		gis &= ravb_read(ndev, GIC);
+>> +		if (gis & GIS_PTCF) {
+>> +			struct ptp_clock_event event;
+>> +
+>> +			event.type = PTP_CLOCK_EXTTS;
+>> +			event.index = 0;
+>> +			event.timestamp = ravb_read(ndev, GCPT);
+>> +			ptp_clock_event(priv->ptp.clock, &event);
+>> +		}
+>> +		if (gis & GIS_PTMF) {
+>> +			struct ravb_ptp_perout *perout = priv->ptp.perout;
+>> +
+>> +			if (perout->period) {
+>> +				perout->target += perout->period;
+>> +				ravb_ptp_update_compare(priv, perout->target);
+
+> Infinite loop in an interrupt handler. Brilliant.
+
+    The prize goes to Nagai-san. :-)
+
+[...]
+>> +/* Packet transmit function for Ethernet AVB */
+>> +static int ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>> +{
+>> +	struct ravb_private *priv = netdev_priv(ndev);
+>> +	struct ravb_tstamp_skb *ts_skb = NULL;
+>> +	struct ravb_tx_desc *desc;
+>> +	unsigned long flags;
+>> +	void *buffer;
+>> +	u32 entry;
+>> +	u32 tccr;
+>> +	int q;
+>> +
+>> +	/* If skb needs TX timestamp, it is handled in network control queue */
+>> +	q = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? RAVB_NC : RAVB_BE;
+>> +
+>> +	spin_lock_irqsave(&priv->lock, flags);
+>> +	if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q] - 4) {
+>> +		if (!ravb_tx_free(ndev, q)) {
+>> +			netif_warn(priv, tx_queued, ndev, "TX FD exhausted.\n");
+>> +			netif_stop_queue(ndev);
+>> +			spin_unlock_irqrestore(&priv->lock, flags);
+>> +			return NETDEV_TX_BUSY;
+>> +		}
+>> +	}
+>> +	entry = priv->cur_tx[q] % priv->num_tx_ring[q];
+>> +	priv->cur_tx[q]++;
+>> +	spin_unlock_irqrestore(&priv->lock, flags);
+>> +
+>> +	if (skb_put_padto(skb, ETH_ZLEN))
+>> +		return NETDEV_TX_OK;
+>> +
+>> +	priv->tx_skb[q][entry] = skb;
+>> +	buffer = PTR_ALIGN(priv->tx_buffers[q][entry], RAVB_ALIGN);
+>> +	memcpy(buffer, skb->data, skb->len);
+>> +	desc = &priv->tx_ring[q][entry];
+>> +	desc->ds = skb->len;
+>> +	desc->dptr = dma_map_single(&ndev->dev, buffer, skb->len,
+>> +				    DMA_TO_DEVICE);
+>> +	if (dma_mapping_error(&ndev->dev, desc->dptr)) {
+>> +		dev_kfree_skb_any(skb);
+>> +		priv->tx_skb[q][entry] = NULL;
+>> +		return NETDEV_TX_OK;
+>> +	}
+>> +
+>> +	/* TX timestamp required */
+>> +	if (q == RAVB_NC) {
+>> +		ts_skb = kmalloc(sizeof(*ts_skb), GFP_ATOMIC);
+>> +		if (!ts_skb) {
+>> +			netdev_err(ndev,
+>> +				   "Cannot allocate skb list element for HW timestamp\n");
+>> +			return -ENOMEM;
+>> +		}
+>> +		ts_skb->skb = skb;
+>> +		ts_skb->tag = priv->ts_skb_tag++;
+>> +		priv->ts_skb_tag %= 0x400;
+>> +		list_add_tail(&ts_skb->list, &priv->ts_skb_list);
+>> +
+>> +		/* TAG and timestamp required flag */
+>> +		skb_tx_timestamp(skb);
+>> +		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+
+> Wrong order WRT skb_tx_timestamp() and SKBTX_IN_PROGRESS.
+
+>  From skbuff.h:
+
+> 	/* device driver is going to provide hardware time stamp */
+> 	SKBTX_IN_PROGRESS = 1 << 2,
+
+    OK, thank you!
+
+[...]
+
+>> +	}
+>> +}
+>> +
+>> +static bool ravb_ptp_is_config(struct ravb_private *priv)
+>> +{
+
+> This is a bit hacky.  Can't your driver make sure that the HW is ready?
+
+    Will look into this. Perhaps it's a remainder from when the PTP driver was 
+separate...
+
+>> +	if (ravb_read(priv->ndev, CSR) & CSR_OPS_CONFIG)
+>> +		return true;
+>> +	else
+>> +		return false;
+>> +}
+>> +
+[...]
+>> +static int ravb_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+>> +{
+>> +	struct ravb_private *priv = container_of(ptp, struct ravb_private,
+>> +						 ptp.info);
+>> +	unsigned long flags;
+>> +	u64 now;
+>> +
+>> +	if (ravb_ptp_is_config(priv))
+>> +		return -EBUSY;
+>> +
+>> +	spin_lock_irqsave(&priv->lock, flags);
+>> +	now = ravb_ptp_cnt_read(priv);
+>> +	now += delta;
+>> +	ravb_ptp_cnt_write(priv, now);
+>> +	spin_unlock_irqrestore(&priv->lock, flags);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static int ravb_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+
+> The PHC driver API will be changing to timespec64 soon.
+> (See recent patch series.)
+
+     I know. Let's talk when it changes. :-)
+
+[...]
+>> +static int ravb_ptp_perout(struct ptp_clock_info *ptp,
+>> +			   struct ptp_perout_request *req, int on)
+>> +{
+>> +	struct ravb_private *priv = container_of(ptp, struct ravb_private,
+>> +						 ptp.info);
+>> +	struct net_device *ndev = priv->ndev;
+>> +	struct ravb_ptp_perout *perout;
+>> +	unsigned long flags;
+>> +	u32 gic;
+>> +
+>> +	if (req->index)
+>> +		return -EINVAL;
+>> +
+>> +	if (on) {
+>> +		u64 start_ns;
+>> +		u64 period_ns;
+>> +
+>> +		start_ns = req->start.sec * NSEC_PER_SEC + req->start.nsec;
+>> +		period_ns = req->period.sec * NSEC_PER_SEC + req->period.nsec;
+>> +
+>> +		if (start_ns > U32_MAX) {
+>> +			netdev_warn(ndev,
+>> +				    "ptp: Start value (nsec) is over limit. Maximum size of start is only 32 bits\n");
+
+> This line is rather long.
+
+    So what? The lines containing the message strings have no limit on the 
+length AFAIK, yet it seems to me the resulting message should fit into 80 columns.
+
+[...]
+> Thanks,
+> Richard
+
+[...]
+
+>> +MODULE_AUTHOR("Mitsuhiro Kimura");
+
+    OK, should have probably added Nagai-san here...
+
+WBR, Sergei
+
