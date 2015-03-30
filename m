@@ -1,72 +1,38 @@
 From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: [PATCH net-next] crypto: algif - explicitly mark end of data
+Subject: [PATCH net-next] crypto: af_alg - make exports consistant
 Date: Mon, 30 Mar 2015 14:25:43 -0700
-Message-ID: <20150330212543.7133.97653.stgit@tstruk-mobl1>
+Message-ID: <20150330212543.7156.92708.stgit@tstruk-mobl1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
 	herbert@gondor.apana.org.au
 To: davem@davemloft.net
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:16482 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753062AbbC3V2b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 17:28:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After the TX sgl is expanded we need to explicitly mark end of data
-at the last buffer that contains data.
+Use EXPORT_SYMBOL_GPL instead of EXPORT_SYMBOL.
 
 Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
 ---
- crypto/algif_skcipher.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ crypto/af_alg.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index 8276f21..9492dd5 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -509,11 +509,10 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 	struct skcipher_async_req *sreq;
- 	struct ablkcipher_request *req;
- 	struct skcipher_async_rsgl *last_rsgl = NULL;
--	unsigned int len = 0, tx_nents = skcipher_all_sg_nents(ctx);
-+	unsigned int txbufs = 0, len = 0, tx_nents = skcipher_all_sg_nents(ctx);
- 	unsigned int reqlen = sizeof(struct skcipher_async_req) +
- 				GET_REQ_SIZE(ctx) + GET_IV_SIZE(ctx);
--	int i = 0;
--	int err = -ENOMEM;
-+	int mark = 0, err = -ENOMEM;
+diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+index 26089d1..f22cc56 100644
+--- a/crypto/af_alg.c
++++ b/crypto/af_alg.c
+@@ -381,7 +381,7 @@ void af_alg_link_sg(struct af_alg_sgl *sgl_prev, struct af_alg_sgl *sgl_new)
+ 	sg_unmark_end(sgl_prev->sg + sgl_prev->npages - 1);
+ 	sg_chain(sgl_prev->sg, sgl_prev->npages + 1, sgl_new->sg);
+ }
+-EXPORT_SYMBOL(af_alg_link_sg);
++EXPORT_SYMBOL_GPL(af_alg_link_sg);
  
- 	lock_sock(sk);
- 	req = kmalloc(reqlen, GFP_KERNEL);
-@@ -555,7 +554,7 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 			     iov_iter_count(&msg->msg_iter));
- 		used = min_t(unsigned long, used, sg->length);
- 
--		if (i == tx_nents) {
-+		if (txbufs == tx_nents) {
- 			struct scatterlist *tmp;
- 			int x;
- 			/* Ran out of tx slots in async request
-@@ -573,10 +572,11 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 			kfree(sreq->tsg);
- 			sreq->tsg = tmp;
- 			tx_nents *= 2;
-+			mark = 1;
- 		}
- 		/* Need to take over the tx sgl from ctx
- 		 * to the asynch req - these sgls will be freed later */
--		sg_set_page(sreq->tsg + i++, sg_page(sg), sg->length,
-+		sg_set_page(sreq->tsg + txbufs++, sg_page(sg), sg->length,
- 			    sg->offset);
- 
- 		if (list_empty(&sreq->list)) {
-@@ -604,6 +604,9 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 		iov_iter_advance(&msg->msg_iter, used);
- 	}
- 
-+	if (mark)
-+		sg_mark_end(sreq->tsg + txbufs - 1);
-+
- 	ablkcipher_request_set_crypt(req, sreq->tsg, sreq->first_sgl.sgl.sg,
- 				     len, sreq->iv);
- 	err = ctx->enc ? crypto_ablkcipher_encrypt(req) :
+ void af_alg_free_sg(struct af_alg_sgl *sgl)
+ {
