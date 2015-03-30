@@ -1,8 +1,8 @@
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
 Subject: Re: [PATCH net-next v9 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF
  channel commands set
-Date: Mon, 30 Mar 2015 12:57:14 +0300
-Message-ID: <55191DFA.8050103@cloudius-systems.com>
+Date: Mon, 30 Mar 2015 13:08:15 +0300
+Message-ID: <5519208F.90407@cloudius-systems.com>
 References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-6-git-send-email-vladz@cloudius-systems.com> <55187707.2070609@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
@@ -11,12 +11,12 @@ Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
 	gleb@cloudius-systems.com
 To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:34480 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128AbbC3J5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 05:57:17 -0400
-Received: by wibg7 with SMTP id g7so87158342wib.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 02:57:16 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:33412 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752685AbbC3KIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 06:08:18 -0400
+Received: by wixm2 with SMTP id m2so82576287wix.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 03:08:17 -0700 (PDT)
 In-Reply-To: <55187707.2070609@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -90,8 +90,16 @@ On 03/30/15 01:04, Alexander Duyck wrote:
 >> +		return -1;
 >> +
 > The return should be not supported, not -1 since that is too ambiguous.
-Right and I think the (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12) 
-should also return -EOPNOTSUPP.
+
+On the other hand - why this condition here at all? It will never return 
+TRUE anyway since the operation will be blocked by 
+adapter->vfinfo[vf].rss_query_enabled
+check before since ixgbe_ndo_set_vf_rss_query_en() will prevent the 
+rss_query_enabling for the devices newer than x540. So IMHO the right 
+thing to do here should be to remove the last "if" at all and split the 
+previous one in two so that we will return -EOPNOTSUPP for 
+(adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12) condition.
+
 >
 >> +	memcpy(rss_key, adapter->rss_key, sizeof(adapter->rss_key));
 >> +
