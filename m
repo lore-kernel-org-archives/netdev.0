@@ -1,66 +1,77 @@
-From: Ilya Dmitrichenko <errordeveloper@gmail.com>
-Subject: Multicast packets visible on different subnets in different namespaces
-Date: Mon, 30 Mar 2015 13:05:05 +0100
-Message-ID: <CAPhDKbGDCCs3xqLKVj2UE8Y-YFnyQ0dN_meLB0ULEeVy7tCECA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
+Date: Mon, 30 Mar 2015 14:18:54 +0200
+Message-ID: <20150330121854.GG2045@nanopsycho.orion>
+References: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
+ <55189B43.6000407@mojatatu.com>
+ <20150330062632.GB2045@nanopsycho.orion>
+ <55192F20.3030508@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
+	jesse@nicira.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:34661 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbbC3MFG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 08:05:06 -0400
-Received: by iedfl3 with SMTP id fl3so129983535ied.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 05:05:06 -0700 (PDT)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:34079 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752665AbbC3MTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 08:19:31 -0400
+Received: by wgbdm7 with SMTP id dm7so66185212wgb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 05:19:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <55192F20.3030508@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello List,
+Mon, Mar 30, 2015 at 01:10:24PM CEST, jhs@mojatatu.com wrote:
+>On 03/30/15 02:26, Jiri Pirko wrote:
+>>Mon, Mar 30, 2015 at 02:39:31AM CEST, jhs@mojatatu.com wrote:
+>
+>>>Could you have got rid of "type" above given we always have
+>>>a "proto" field in tc that is checked at the core?
+>>
+>>Sure it is possible. But I try to stick with the names used in OpenFlof
+>>documentation.
+>>
+>
+>Ok, thats fine. Safer to stick with the spec.
+>
+>>>Was there something else that was intended to go into that tp union?
+>>
+>>Following fields are missing:
+>>
+>>OXM_OF_SCTP_SRC
+>>OXM_OF_SCTP_DST
+>>OXM_OF_ICMPV4_TYPE
+>>OXM_OF_ICMPV4_CODE
+>>
+>
+>It just looked strange to have a union with only one member.
 
-We have recently discovered that namespaced processes in different
-subnets can unexpectedly see each other=E2=80=99s multicast packets und=
-er
-certain condition described below.
+Oh, will remove the union for now as it can be easily extended later.
 
-We setup 3 network namespace, let's call those A, B and C; where
-subnets are assigned like so:
+>
+>>>General comments:
+>>>so what happens if someone adds a new field? It sounds to me like
+>>>given it is tied to datapath match it will never be backward compatible
+>>>(i.e think old tc, new kernel vs new tc, old kernel)
+>>
+>>
+>>Well if kernel does not understand the new field, it will simply ignore
+>>it.
+>>
+>
+>More like user expectation may be different. I suppose they could query
+>the kernel and find that their field was not set.
 
-A: 10.20.1.2/24
-B: 10.20.1.4/24
-C: 10.20.2.2/24
+I believe that is the usual way thing are done using Netlink API.
 
-These namespaces are setup with a simple script using ip command [1].
-The value of rp_filter is 1 (in all of
-`/proc/sys/net/ipv4/conf/*/rp_filter`, except from `lo`).
+>BTW, another micro optimization:
+>You could pre-compute the user passed key/mask result per field and
+>in the fast path use that instead of doing f->match.key & f->match.mask
 
-=46irst, as a sanity check, A is unreachable from namespace C through
-either ping, TCP or UDP, which is what=E2=80=99s expected.
+Yes, I plan to address this as well for v2. Thanks!
 
-However, when doing a multicast test with a commonly known program
-[2], it turns out that -
-
-1. sender from C cannot reach receiver in A at first
-2. sender from B reaches receiver in A
-3. unexpectedly, sender from C can reach receiver in A, after B has
-reached it once
-
-This is the exact sequence of commands we used to reproduce the issue:
-
-shell1: sudo ip netns exec nsA mcreceive 224.2.2.4 5050
-shell2: echo hi1 | sudo ip netns exec nsC mcsend 224.2.2.4 5050
-shell2: echo h2 | sudo ip netns exec nsB mcsend 224.2.2.4 5050
-shell2: echo hi3 | sudo ip netns exec nsC mcsend 224.2.2.4 5050
-
-The kernel versions we have tested are:
-
-3.18.7-100 from Fedora 20.
-3.19.0 from CoreOS
-
-[0]: https://github.com/errordeveloper/subleak/blob/master/test.sh
-[1]: http://www.nmsl.cs.ucsb.edu/MulticastSocketsBook/c_send_receive.ta=
-r.gz
-
-Regards,
-=E2=80=94
-Ilya Dmitrichenko
+>
+>cheers,
+>jamal
