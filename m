@@ -1,152 +1,58 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v10 2/7] ixgbe: Add a new netdev op to allow/prevent a VF from querying an RSS info
-Date: Mon, 30 Mar 2015 21:35:24 +0300
-Message-ID: <1427740529-9605-3-git-send-email-vladz@cloudius-systems.com>
-References: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	avi@cloudius-systems.com, gleb@cloudius-systems.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:32995 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753325AbbC3Sfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:35:39 -0400
-Received: by wgbgs4 with SMTP id gs4so93973392wgb.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 11:35:38 -0700 (PDT)
-In-Reply-To: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 5/7] ssb: Use bool function return values of true/false not 1/0
+Date: Mon, 30 Mar 2015 21:39:13 +0300
+Message-ID: <87twx21ga6.fsf@kamboji.qca.qualcomm.com>
+References: <cover.1427736972.git.joe@perches.com>
+	<57da8293b865fb2d119e29073aec54323fc10000.1427736972.git.joe@perches.com>
+	<20150330194901.5293fbe2@wiggum>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael =?utf-8?Q?B=C3=BCsch?= <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150330194901.5293fbe2@wiggum> ("Michael =?utf-8?Q?B=C3=BCs?=
+ =?utf-8?Q?ch=22's?= message of
+	"Mon, 30 Mar 2015 19:49:01 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Implements the new netdev op to allow user to enable/disable the ability
-of a specific VF to query its RSS Indirection Table and an RSS Hash Key.
+Michael B=C3=BCsch <m@bues.ch> writes:
 
-This patch limits the new feature support to 82599 and x540 devices only.
-Support for other devices will be added later.
+> On Mon, 30 Mar 2015 10:43:21 -0700
+> Joe Perches <joe@perches.com> wrote:
+>
+>> Use the normal return values for bool functions
+>>=20
+>> Signed-off-by: Joe Perches <joe@perches.com>
+>> ---
+>>  drivers/ssb/driver_gige.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>=20
+>> diff --git a/drivers/ssb/driver_gige.c b/drivers/ssb/driver_gige.c
+>> index e973405..ebee6b0 100644
+>> --- a/drivers/ssb/driver_gige.c
+>> +++ b/drivers/ssb/driver_gige.c
+>> @@ -242,7 +242,7 @@ static int ssb_gige_probe(struct ssb_device *sde=
+v,
+>>  bool pdev_is_ssb_gige_core(struct pci_dev *pdev)
+>>  {
+>>  	if (!pdev->resource[0].name)
+>> -		return 0;
+>> +		return false;
+>>  	return (strcmp(pdev->resource[0].name, SSB_GIGE_MEM_RES_NAME) =3D=3D=
+ 0);
+>>  }
+>>  EXPORT_SYMBOL(pdev_is_ssb_gige_core);
+>
+> Looks good.
+>
+> Signed-off-by: Michael Buesch <m@bues.ch>
+>
+> Kalle, can you take this one, please?
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v10:
-   - United the for-each-VF loops in __ixgbe_enable_sriov() and
-     ixgbe_configure_virtualization().
-   - Use the EOPNOTSUPP error code instead of EPERM when operation is
-     not supported.
+Sure, I'll apply it in the next few days.
 
-New in v9:
-   - Reduce the support to 82599 and x540 devices only.
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  5 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 34 ++++++++++++++++++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
- 4 files changed, 40 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 42ed4b4..639aa1b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -151,6 +151,7 @@ struct vf_data_storage {
- 	u16 tx_rate;
- 	u16 vlan_count;
- 	u8 spoofchk_enabled;
-+	bool rss_query_enabled;
- 	unsigned int vf_api;
- };
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a99bc5d..929f12f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3655,6 +3655,10 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 		/* enable ethertype anti spoofing if hw supports it */
- 		if (hw->mac.ops.set_ethertype_anti_spoofing)
- 			hw->mac.ops.set_ethertype_anti_spoofing(hw, true, i);
-+
-+		/* Enable/Disable RSS query feature  */
-+		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
-+					      adapter->vfinfo[i].rss_query_enabled);
- 	}
- }
- 
-@@ -8096,6 +8100,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
- 	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
- 	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
-+	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
- 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
- 	.ndo_get_stats64	= ixgbe_get_stats64,
- #ifdef CONFIG_IXGBE_DCB
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 09a291b..2de5335 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -105,9 +105,18 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
- 		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
- 				     IXGBE_FLAG2_RSC_ENABLED);
- 
--		/* enable spoof checking for all VFs */
--		for (i = 0; i < adapter->num_vfs; i++)
-+		for (i = 0; i < adapter->num_vfs; i++) {
-+			/* enable spoof checking for all VFs */
- 			adapter->vfinfo[i].spoofchk_enabled = true;
-+
-+			/* We support VF RSS querying only for 82599 and x540
-+			 * devices at the moment. These devices share RSS
-+			 * indirection table and RSS hash key with PF therefore
-+			 * we want to disable the querying by default.
-+			 */
-+			adapter->vfinfo[i].rss_query_enabled = 0;
-+		}
-+
- 		return 0;
- 	}
- 
-@@ -1330,6 +1339,26 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
- 	return 0;
- }
- 
-+int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
-+				  bool setting)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	/* This operation is currently supported only for 82599 and x540
-+	 * devices.
-+	 */
-+	if (adapter->hw.mac.type < ixgbe_mac_82599EB ||
-+	    adapter->hw.mac.type >= ixgbe_mac_X550)
-+		return -EOPNOTSUPP;
-+
-+	if (vf >= adapter->num_vfs)
-+		return -EINVAL;
-+
-+	adapter->vfinfo[vf].rss_query_enabled = setting;
-+
-+	return 0;
-+}
-+
- int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf, struct ifla_vf_info *ivi)
- {
-@@ -1343,5 +1372,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
- 	ivi->qos = adapter->vfinfo[vf].pf_qos;
- 	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
-+	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-index 32c26d5..2c197e6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-@@ -47,6 +47,8 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
- int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
- 			int max_tx_rate);
- int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
-+int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
-+				  bool setting);
- int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf, struct ifla_vf_info *ivi);
- void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
--- 
-2.1.0
+--=20
+Kalle Valo
