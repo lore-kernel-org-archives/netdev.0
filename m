@@ -1,142 +1,124 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] tc: introduce OpenFlow classifier
-Date: Mon, 30 Mar 2015 08:26:32 +0200
-Message-ID: <20150330062632.GB2045@nanopsycho.orion>
-References: <1427374439-11587-1-git-send-email-jiri@resnulli.us>
- <55189B43.6000407@mojatatu.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
+ for Linux (LibOS)
+Date: Mon, 30 Mar 2015 08:41:52 +0200
+Message-ID: <5518F030.4040003@nod.at>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m2h9t7bubh.wl@wide.ad.jp>	<5514560A.7040707@nod.at>	<m28uejaqyn.wl@wide.ad.jp>	<55152137.20405@nod.at> <m2sicnalnh.wl@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
-	jesse@nicira.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:33060 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752838AbbC3G0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 02:26:36 -0400
-Received: by wgbgs4 with SMTP id gs4so69730521wgb.0
-        for <netdev@vger.kernel.org>; Sun, 29 Mar 2015 23:26:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55189B43.6000407@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
+ cl@linux.com, penberg@kernel.org, rientjes@google.com,
+ iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
+ linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+ netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
+ rusty@rustcorp.com.au, mathieu.lacage@gmail.com
+To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <m2sicnalnh.wl@sfc.wide.ad.jp>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Mar 30, 2015 at 02:39:31AM CEST, jhs@mojatatu.com wrote:
->Jiri,
->
->Comments below
->
->On 03/26/15 08:53, Jiri Pirko wrote:
->>This patch introduces OpenFlow-based filter. So far, the very essential
->>packet fields are supported (according to OpenFlow v1.4 spec).
->>
->>This patch is only the first step. There is a lot of potential performance
->>improvements possible to implement. Also a lot of features are missing
->>now. They will be addressed in follow-up patches.
->>
->>To the name of this classifier, I believe that "cls_openflow" is pretty
->>accurate. It is actually a OpenFlow classifier.
->>
->
->
->I agree with your statement above.
->Small comments below:
->
->
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>---
->
->>+struct of_flow_key {
->>+	int	indev_ifindex;
->>+	struct {
->>+		u8	src[ETH_ALEN];
->>+		u8	dst[ETH_ALEN];
->>+		__be16	type;
->>+	} eth;
->
->
->Could you have got rid of "type" above given we always have
->a "proto" field in tc that is checked at the core?
+Am 29.03.2015 um 17:06 schrieb Hajime Tazaki:
+>> What about putting libos into tools/testing/ and make it much more gen=
+eric and framework alike.
+>=20
+> it's trivial though, libos is not only for the testing (i.e., NUSE).
+> # of course tools/libos or something can be the place.
 
-Sure it is possible. But I try to stick with the names used in OpenFlof
-documentation.
+Yep, tool/libos is also perfectly fine.
 
->
->
->>+	struct {
->>+		u8	proto;
->>+	} ip;
->>+	union {
->>+		struct {
->>+			__be32 src;
->>+			__be32 dst;
->>+		} ipv4;
->>+		struct {
->>+			struct in6_addr src;
->>+			struct in6_addr dst;
->>+		} ipv6;
->>+	};
->>+	union {
->>+		struct {
->>+			__be16 src;
->>+			__be16 dst;
->>+		} tp;
->>+	};
->
->Was there something else that was intended to go into that tp union?
+>> With more generic I mean that libos could be a stubbing framework for =
+the kernel.
+>> i.e. you specify the subsystem you want to test/stub and the framework=
+ helps you doing so.
+>> A lot of the stubs you're placing in arch/lib could be auto-generated =
+as the
+>> vast majority of all kernel methods you stub are no-ops which call onl=
+y lib_assert(false).
+>=20
+> the issue here is the decision between 'no-ops' and
+> 'assert(false)' depends on the context. an auto-generated
+> mechanism needs some hand-written parameters I think.
 
-Following fields are missing:
+The questions is, why do you need stubs which are a no-op but not a
+lib_assert(false).
+Sounds more like these dependencies shouldn't be linked at all.
+Same applies to lib_assert(false) stubs. If they must not get
+called from libos better try hard to avoid these dependencies at all.
 
-OXM_OF_SCTP_SRC
-OXM_OF_SCTP_DST
-OXM_OF_ICMPV4_TYPE
-OXM_OF_ICMPV4_CODE
+> one more concern on the out-of-arch-tree design is that how
+> to handle our asm-generic-based header files
+> (arch/lib/include/asm). we have been heavily used
+> 'generic-y' in the Kbuild file to reuse header files.
 
+As noted before, libos is something in between. Maybe the asm-generic
+stuff needs some modifications to make it work for libos.
 
->
->>+static int of_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
->>+		   struct sk_buff *skb, struct tcmsg *t)
->>+{
->>+	struct cls_of_filter *f = (struct cls_of_filter *) fh;
->>+	struct nlattr *nest;
->>+	struct of_flow_key *key, *mask;
->>+
->>+	if (!f)
->>+		return skb->len;
->>+
->>+	t->tcm_handle = f->handle;
->>+
->>+	nest = nla_nest_start(skb, TCA_OPTIONS);
->>+	if (!nest)
->>+		goto nla_put_failure;
->>+
->>+	if (f->res.classid &&
->>+	    nla_put_u32(skb, TCA_BASIC_CLASSID, f->res.classid))
->>+		goto nla_put_failure;
->
->
->I am sure you didnt meant the above;->
+> OTOH, I agree with you on the point of auto-generated glues
+> (stubs), or trying to avoid glues (reuse the originals as
+> much as possible) as Antti mentioned. that will definitely
+> be reduce the amount of maintenance effort.
 
-Ha. Will fix.
+BTW: There is something really fishy wrt to your build process.
+I did a ARCH=3Di386 build due to my regular kernel work and later a ARCH=3D=
+lib build.
+It seems to pickup old/unrelated object files.
+After a make clean ARCH=3Di386 it build fine.
 
->
->Other than that looks good. I dont mind saying
->Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---cut---
+  LIB           liblinux-4.0.0-rc5.so
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: Warning: size of symbol `skb_copy_bits' changed from 10 in ./kernel/bpf=
+/core.o to 441 in ./net/core/skbuff.o
+./net/ipv6/fib6_rules.o: In function `fib6_rule_lookup':
+/home/rw/linux/net/ipv6/fib6_rules.c:34: multiple definition of `fib6_rul=
+e_lookup'
+./net/ipv6/ip6_fib.o:ip6_fib.c:(.text+0xd50): first defined here
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/sysctl.o' is incompatible wit=
+h i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/params.o' is incompatible wit=
+h i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/notifier.o' is incompatible w=
+ith i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/time/time.o' is incompatible =
+with i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/rcu/update.o' is incompatible=
+ with i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/locking/mutex.o' is incompati=
+ble with i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/locking/semaphore.o' is incom=
+patible with i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/locking/rwsem.o' is incompati=
+ble with i386:x86-64 output
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld=
+: i386 architecture of input file `./kernel/bpf/core.o' is incompatible w=
+ith i386:x86-64 output
+[...]
+./kernel/rcu/update.o:(.ref.data+0x20): undefined reference to `trace_eve=
+nt_raw_init'
+collect2: error: ld returned 1 exit status
+arch/lib/Makefile:223: recipe for target 'liblinux-4.0.0-rc5.so' failed
+make: *** [liblinux-4.0.0-rc5.so] Error 1
+---cut---
 
-Thanks.
+While we're talking about the build process, how can I cross build libos?
+Say a i386 libos on x86_64. For UML we have use SUBARCH.
+i.e. make linux ARCH=3Dum SUBARCH=3Di386
 
->
->General comments:
->so what happens if someone adds a new field? It sounds to me like
->given it is tied to datapath match it will never be backward compatible
->(i.e think old tc, new kernel vs new tc, old kernel)
+Thanks,
+//richard
 
-
-
-Well if kernel does not understand the new field, it will simply ignore
-it.
-
-
->
->cheers,
->jamal
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
