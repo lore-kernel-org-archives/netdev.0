@@ -1,49 +1,35 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [Fix kernel crash in cipso_v4_sock_delattr ]
-Date: Mon, 30 Mar 2015 10:25:47 -0700
-Message-ID: <5519871B.5020402@schaufler-ca.com>
-References: <1603159082.92241427713739372.JavaMail.weblogic@epmlwas01c> <129817526.SFnNKPuWia@sifl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Vaneet Narang <v.narang@samsung.com>,
-	AJEET YADAV <ajeet.y@samsung.com>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: Paul Moore <paul@paul-moore.com>, maninder1.s@samsung.com
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/7] drivers: Use bool function return values true/false not 1/0
+Date: Mon, 30 Mar 2015 10:43:16 -0700
+Message-ID: <cover.1427736972.git.joe@perches.com>
+Cc: dri-devel@lists.freedesktop.org
+To: linux-kernel@vger.kernel.org, dm-devel@redhat.com,
+	linux-raid@vger.kernel.org, platform-driver-x86@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pm@vger.kernel.org,
+	linux-serial@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <129817526.SFnNKPuWia@sifl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/30/2015 4:32 AM, Paul Moore wrote:
-> On Monday, March 30, 2015 11:09:00 AM Maninder Singh wrote:
->> Dear All,
->> we found One Kernel Crash issue in cipso_v4_sock_delattr :-
->> As Cipso supports only inet sockets so cipso_v4_sock_delattr will crash when
->> try to access any other socket type.  cipso_v4_sock_delattr access
->> sk_inet->inet_opt which may contain not NULL but invalid address. we found
->> this issue with netlink socket.(reproducible by trinity using sendto system
->> call .) 
-> Hello,
->
-> First, please go read the Documentation/SubmittingPatches from the kernel 
-> sources; your patch needs to be resubmitted and the instructions in that file 
-> will show you how to do it correctly next time.
->
-> Second, this appears to only affect Smack based systems, yes?  SELinux based 
-> systems should have the proper checking in place to prevent this (the checks 
-> are handled in the LSM).
+Joe Perches (7):
+  drm: Use bool function return values of true/false not 1/0
+  dm_table: Use bool function return values of true/false not 1/0
+  genwqe: Use bool function return values of true/false not 1/0
+  wmi: Use bool function return values of true/false not 1/0
+  ssb: Use bool function return values of true/false not 1/0
+  thermal: Use bool function return values of true/false not 1/0
+  serial: kgdb_nmi: Use bool function return values of true/false not
+    1/0
 
-This looks like a problem that was fixed some time ago.
-The current Smack code clearly checks for this. What kernel
-version are you testing against?
+ drivers/gpu/drm/ast/ast_post.c        |  2 +-
+ drivers/gpu/drm/vmwgfx/vmwgfx_fence.c |  2 +-
+ drivers/md/dm-table.c                 | 20 ++++++++++----------
+ drivers/misc/genwqe/card_base.h       |  2 +-
+ drivers/platform/x86/wmi.c            |  4 ++--
+ drivers/ssb/driver_gige.c             |  2 +-
+ drivers/thermal/thermal_core.h        |  2 +-
+ drivers/tty/serial/kgdb_nmi.c         |  6 +++---
+ 8 files changed, 20 insertions(+), 20 deletions(-)
 
-> That said, it probably wouldn't hurt to add the 
-> extra checking to netlbl_sock_delattr().  If you properly resubmit your patch 
-> I'll ACK it.
->
-> -Paul
->
+-- 
+2.1.2
