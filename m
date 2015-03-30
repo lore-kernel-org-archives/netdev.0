@@ -1,82 +1,97 @@
-From: Tim Niemeyer <tim.niemeyer@corscience.de>
-Subject: [3.4 PATCH] Bluetooth: Fix invalid length check in l2cap_information_rsp()
-Date: Mon, 30 Mar 2015 11:27:37 +0200
-Message-ID: <1427707657-28545-1-git-send-email-tim.niemeyer@corscience.de>
-Cc: Jaganath Kanakkassery <jaganath.k@samsung.com>,
-	Chan-Yeol Park <chanyeol.park@samsung.com>,
-	Gustavo Padovan <gustavo.padovan@collabora.co.uk>,
-	Jianguo Wu <wujianguo@huawei.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single
+ CAN frame for overlapping CAN filters
+Date: Mon, 30 Mar 2015 11:50:15 +0200
+Message-ID: <55191C57.7060906@pengutronix.de>
+References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="C346D0uG5VBuDK9X45fVuMikDnoVL6WIl"
+Cc: netdev@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60179 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752242AbbC3JuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 05:50:22 -0400
+In-Reply-To: <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-first backport commit 6ec88fcb4aa2c33fe2fe2a23c576a7e2581c5c3d changes
-l2cap_move_channel_confirm_rsp and not the l2cap_information_rsp. So
-revert this and fix at the correct position.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--C346D0uG5VBuDK9X45fVuMikDnoVL6WIl
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-commit 3f6fa3d489e127ca5a5b298eabac3ff5dbe0e112 upstream.
+On 03/29/2015 08:09 PM, Oliver Hartkopp wrote:
+> The CAN_RAW socket can set multiple CAN identifier specific filters tha=
+t lead
+> to multiple filters in the af_can.c filter processing. These filters ar=
+e
+> indenpendent from each other which leads to logical OR'ed filters when =
+applied.
+>=20
+> This patch makes sure that every CAN frame which is filtered for a spec=
+ific
+> socket is only delivered once to the user space. This is independent fr=
+om the
+> number of matching CAN filters of this socket.
+>=20
+> As the can_raw() function is executed from NET_RX softirq the introduce=
+d
+> variables are implemented as per-CPU variables to avoid extensive locki=
+ng at
+> CAN frame reception time.
+>=20
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> ---
+>  net/can/raw.c | 28 ++++++++++++++++++++++++++++
+>  1 file changed, 28 insertions(+)
+>=20
+> diff --git a/net/can/raw.c b/net/can/raw.c
+> index 00c13ef..866a9b3 100644
+> --- a/net/can/raw.c
+> +++ b/net/can/raw.c
+> @@ -86,6 +86,8 @@ struct raw_sock {
+>  	struct can_filter dfilter; /* default/single filter */
+>  	struct can_filter *filter; /* pointer to filter(s) */
+>  	can_err_mask_t err_mask;
+> +	struct sk_buff __percpu **uniq_skb;
+> +	ktime_t __percpu *uniq_tstamp;
 
-The length check is invalid since the length varies with type of
-info response.
+What about creating a struct to hold the ktime_t and the skb? BTW: the
+pointer to the skb can be marked as const.
 
-This was introduced by the commit cb3b3152b2f5939d67005cff841a1ca748b19888
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Because of this, l2cap info rsp is not handled and command reject is sent.
 
-> ACL data: handle 11 flags 0x02 dlen 16
-        L2CAP(s): Info rsp: type 2 result 0
-          Extended feature mask 0x00b8
-            Enhanced Retransmission mode
-            Streaming mode
-            FCS Option
-            Fixed Channels
-< ACL data: handle 11 flags 0x00 dlen 10
-        L2CAP(s): Command rej: reason 0
-          Command not understood
+--C346D0uG5VBuDK9X45fVuMikDnoVL6WIl
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Jaganath Kanakkassery <jaganath.k@samsung.com>
-Signed-off-by: Chan-Yeol Park <chanyeol.park@samsung.com>
-Signed-off-by: Gustavo Padovan <gustavo.padovan@collabora.co.uk>
-Cc: Jianguo Wu <wujianguo@huawei.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Signed-off-by: Tim Niemeyer <tim.niemeyer@corscience.de>
-Acked-by: Johan Hedberg <johan.hedberg@intel.com>
----
-Patch for 3.4-stable.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
- net/bluetooth/l2cap_core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+iQIcBAEBCgAGBQJVGRxaAAoJECte4hHFiupUqxkP/3bKuvcRsBuCSZd/FMghf+/a
+XjNNJZ+ROpNPErS6CnvtSNeT1BQNfgnbSIR8TK5CpIUQyU6X+t1E25vtAlyFv7VO
+ch/ZIrHabkwb57rZeEAZpTk/wNaCKD5BHFQ6cUNUkLCbXStVZNZt1Vqbc1e8mcyT
+8x7E/C4GxvO6fXhxj/Fgb/298gdoEkLw03ctm8fIblEO1H0z7wE0XBnwKBoQfhnS
+qOU+Ssj9HJylTNwh5dsS14jMkHDjxFh+pcTmbXMhAplmv4zzvlGrfx/eA+NuvKDC
+DeYMOek5wdlueyUfJK9X+AdT+H18pKDdxzDArHPIeQDDtgbMT4EQA/ysSqVIeVoX
+ghRZIUOz/OBjDZtrOIaEKlEQBXb4C9Elp/uFA5GMdFYb6SXNE60ePfDpqPP+8fuU
+nRiPKCwDxgI/YXIBdx7M/CluPPjHh8YHIucD8KeKefs2+IDAyygu0H6ahbQjiTsB
+CefCinmyxcJRVgIxLC5suXUzJpP35KWfVocIIWfRINpIrxYlkFUXMAZCFoOEEeGy
+Itoq204Dcu3x5fopyNbD4T2CZSMFHhcZGrrhwpWk87OPmPduzpsVy3eoaCx1fiSy
+7s/5vyBcabCtln+umSvs80vEtT8X0ORJB9M7S4F9wKmZxb9iCowPzqcjlsZVFc0Q
+tIxQjRb01945UQBv+/pU
+=Z9tj
+-----END PGP SIGNATURE-----
 
-diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
-index 3bb535b..c11fd9e 100644
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@ -3239,7 +3239,7 @@ static inline int l2cap_information_rsp(struct l2cap_conn *conn,
- 	struct l2cap_info_rsp *rsp = (struct l2cap_info_rsp *) data;
- 	u16 type, result;
- 
--	if (cmd_len != sizeof(*rsp))
-+	if (cmd_len < sizeof(*rsp))
- 		return -EPROTO;
- 
- 	type   = __le16_to_cpu(rsp->type);
-@@ -3445,7 +3445,7 @@ static inline int l2cap_move_channel_confirm_rsp(struct l2cap_conn *conn,
- 	struct l2cap_move_chan_cfm_rsp *rsp = data;
- 	u16 icid;
- 
--	if (cmd_len < sizeof(*rsp))
-+	if (cmd_len != sizeof(*rsp))
- 		return -EPROTO;
- 
- 	icid = le16_to_cpu(rsp->icid);
--- 
-1.7.10.4
+--C346D0uG5VBuDK9X45fVuMikDnoVL6WIl--
