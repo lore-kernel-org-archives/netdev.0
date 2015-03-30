@@ -1,53 +1,63 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net 1/1] af_iucv: fix AF_IUCV sendmsg() errno
-Date: Mon, 30 Mar 2015 15:40:42 +0200
-Message-ID: <1427722842-49894-2-git-send-email-ubraun@linux.vnet.ibm.com>
-References: <1427722842-49894-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com,
-	Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-To: davem@davemloft.net
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: The errno when failing to connect to a unix stream socket due to timeout
+Date: Mon, 30 Mar 2015 21:51:56 +0800
+Message-ID: <CABa6K_Evv5+rXFvAOa0RGZ7Mbi11idS=0Xmyq=AURCcV7r6NJw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp16.uk.ibm.com ([195.75.94.112]:41462 "EHLO
-	e06smtp16.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752904AbbC3NsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:48:21 -0400
-Received: from /spool/local
-	by e06smtp16.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Mon, 30 Mar 2015 14:48:19 +0100
-In-Reply-To: <1427722842-49894-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:33992 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbbC3NwR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:52:17 -0400
+Received: by iedfl3 with SMTP id fl3so132970728ied.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:52:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Dear all,
 
-When sending over AF_IUCV socket, errno was incorrectly set to
-ENOMEM even when other values where appropriate, notably EAGAIN.
-With this patch, error indicator returned by sock_alloc_send_skb()
-is passed to the caller, rather than being overwritten with ENOMEM.
+When working with the unix stream socket, I find that when failing to
+connect to a unix stream socket due to timeout, the errno is EAGAIN
+instead of ETIMEDOUT. IMHO, EAGAIN should be for non blocking IO only,
+but if we change the errno, there maybe a risk: breaking some
+applications. So, I want to know your ideas. Correct me if I made any
+mistake.
 
-Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
----
- net/iucv/af_iucv.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Here is the code snippet:
 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index 2e9953b..53d9311 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -1114,10 +1114,8 @@ static int iucv_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			noblock, &err);
- 	else
- 		skb = sock_alloc_send_skb(sk, len, noblock, &err);
--	if (!skb) {
--		err = -ENOMEM;
-+	if (!skb)
- 		goto out;
--	}
- 	if (iucv->transport == AF_IUCV_TRANS_HIPER)
- 		skb_reserve(skb, sizeof(struct af_iucv_trans_hdr) + ETH_HLEN);
- 	if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
+#include <unistd.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/un.h>
+
+int main()
+{
+        int serv = socket(PF_UNIX, SOCK_STREAM, 0);
+        struct sockaddr_un addr;
+
+        remove("/tmp/test.unix");
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        strcpy(addr.sun_path, "/tmp/test.unix");
+        bind(serv, (struct sockaddr *)&addr, sizeof(addr));
+        listen(serv, 1);
+
+        int i;
+        for (i = 0; i < 3; ++i) {
+                int clnt = socket(PF_UNIX, SOCK_STREAM, 0);
+                struct timeval tv;
+                tv.tv_sec = 3;
+                tv.tv_usec = 0;
+                setsockopt(clnt, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+                if (connect(clnt, (struct sockaddr *)&addr, sizeof(addr)))
+                        perror("connect");
+        }
+
+        return 0;
+}
+
 -- 
-2.1.4
+Regards,
+Changli Gao(xiaosuo@gmail.com)
