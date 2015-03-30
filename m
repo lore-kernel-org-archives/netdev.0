@@ -1,89 +1,71 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 4/6] of: add API for changing parameters of fixed link
-Date: Mon, 30 Mar 2015 09:06:18 -0700
-Message-ID: <CAGVrzcYam=zd+9DpKjhX8o+P_iksz+xOJWh0M45-GASMZbsBXA@mail.gmail.com>
-References: <55155AFC.4050800@list.ru> <55155D35.1070703@list.ru>
- <CAGVrzcau0mUne8uXsTs_9=e4JtQt5w5L+hwtLmKo+UfjSEwC+w@mail.gmail.com>
- <5515803F.3020600@list.ru> <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw@mail.gmail.com>
- <551587D1.5070408@list.ru> <5515904A.1060600@gmail.com> <55196011.7080502@list.ru>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 00/18] switchdev: spring cleanup
+Date: Mon, 30 Mar 2015 19:11:21 +0300
+Message-ID: <CAJ3xEMiaxrd33JLKrOQuR4Y9VSj-wYvaxykecYvpTje1-vmwQg@mail.gmail.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+	<20150330120025.GE2045@nanopsycho.orion>
+	<20150330131049.GI1051@gospo>
+	<55196513.8080101@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Stas Sergeev <stsp@list.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55196011.7080502@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>, linux@roeck-us.net,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: roopa <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:34152 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752736AbbC3QLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 12:11:21 -0400
+Received: by obbgh1 with SMTP id gh1so63548446obb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 09:11:21 -0700 (PDT)
+In-Reply-To: <55196513.8080101@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2015-03-30 7:39 GMT-07:00 Stas Sergeev <stsp@list.ru>:
-> 27.03.2015 20:15, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> I think your concerns are valid, but I don't think there is going to=
- be
->> any problem with the approach I suggested because there is a contrac=
-t
->> that the fixed PHYs and regular PHYs need to
-> Hello Florian.
->
-> As promised, today I tried to resurrect my first implementation
-> and do things as you suggested: install the link_update callback
-> for mvneta privately.
-> I feel SGMII setup is very common and deserves the separate API,
-> not the per-driver handling, but in any case, I'd like to show
-> the implementation first, then discuss.
->
-> Unfortunately, it didn't work quite right.
-> The problem is that mvneta calls phy_disconnect() on .ndo_stop
-> callback. After that, phy->attached_dev becomes NULL, and so the
-> link_update callback gets called with net_dev=3D=3DNULL! And crashs.
-> Of course I can easily work around that, but IMHO its a bug -
-> the one that actually gets fixed by the patches I posted previously.
+On Mon, Mar 30, 2015 at 6:00 PM, roopa <roopa@cumulusnetworks.com> wrote:
+> On 3/30/15, 6:11 AM, Andy Gospodarek wrote:
+>>
+>> On Mon, Mar 30, 2015 at 02:00:25PM +0200, Jiri Pirko wrote:
+>>>
+>>> Mon, Mar 30, 2015 at 10:40:18AM CEST, sfeldma@gmail.com wrote:
+>>>>
+>>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>>
+>>>> The main theme of this patch set is to cleanup swdev in preparation for
+>>>> new features or fixes to be added soon.  We have a pretty good idea now
+>>>> how
+>>>> to handle stacked drivers in swdev, but there where some loose ends.
+>>>> For
+>>>> example, if a set failed in the middle of walking the lower devs, we
+>>>> would
+>>>> leave the system in an undefined state...there was no way to recover
+>>>> back to
+>>>> the previous state.  Speaking of sets, also recognize a pattern that
+>>>> most
+>>>> swdev API accesses are gets or sets of port attributes, so go ahead and
+>>>> make
+>>>> port attr get/set the central swdev API, and convert everything that is
+>>>> set-ish/get-ish to this new API.
+>>>>
+>>>> Features/fixes that should follow from this cleanup:
+>>>>
+>>>> - solve the duplicate pkt forwarding issue
+>>>> - get/set bridge attrs, like ageing_time, from/to device
+>>>> - get/set more bridge port attrs from/to device
+>>>>
+>>>> There are some rename cleanups tagging along at the end, to give swdev
+>>>> consistent naming.
+>>>
+>>> As you can see in the switchdev patch submission history, I originally
+>>> pushed this with "swdev_" previx. Turned out people did not like that
+>>> because "sw" can be easily misunderstood as "software".
+>>
+>> I agree with this.
+>>
+> agree. maybe just "switchdev_" will be better.
 
-I actually submitted some patches a while ago that allow you to
-unregister the fixed_link_update callback before in case you need to,
-precisely for that. Since this is specific to dealing with a fixed
-PHY, it is the driver responsibility to know that is has registered a
-fixed_link_update callback and then unregister it by passing a NULL
-callback as the new callback.
-
-So yes, it is a bug in the sense that it is not transparently handled,
-but at the same time, the PHY library has no way to know whether a
-fixed_link_update callback is being invoked since it is not poking
-into the fixed PHY driver.
-
-
-> They were changing the callback to receive phy_device instead of
-> net_device, and so NULL will never be passed.
-
-Ok, but then you may still poll a PHY which has no network device
-attached to it, so that leads to worse drivers which might not be
-doing the right thing wrt. power management or other things.
-
-> I am attaching the new patch so that you can take a look and decide.
-> If you still think its fine, even despite the NULL passing w/a, then
-> I'll mail it with the proper boilerplate. But if you agree that
-> passing NULL to link_update is a bug, then maybe you'll decide to
-> get the whole surgery thing. :)
-
-[snip]
-
-> @@ -304,6 +310,7 @@ struct mvneta_port {
->         unsigned int link;
->         unsigned int duplex;
->         unsigned int speed;
-> +       int inband_status;
-
-Since you are essentially using this variable as a boolean to indicate
-whether in-band status should be queried or not, maybe you should name
-that "needs_inband_status" or "wants_inband_status", inband_status
-would suggest that this is the data-structure holding all the in-band
-status information, but that's pure nitpicking.
---
-=46lorian
+Also, how about prefixing the ops names supported by switchdev with
+"sdo_" e.g as we have ndo_ prefix for "plain" netdevs?
