@@ -1,107 +1,50 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-Date: Mon, 30 Mar 2015 13:13:18 -0500
-Message-ID: <1427739198.1913.25.camel@redhat.com>
-References: <1427409698.18540.11.camel@redhat.com>
-	 <1427409822.18540.13.camel@redhat.com>
-	 <CAF2d9jjxoKFoX7bvJ7+cA685iBT9fPgjvjTKe8ppE_J3oWJgrQ@mail.gmail.com>
-	 <CAF2d9jh_-DxxUMcTjFK3TUAJhC=B9ORrmH0=tVH1KBiWsYPpLg@mail.gmail.com>
-	 <20150328193254.6c79784d@griffin> <1427726230.1913.9.camel@redhat.com>
-	 <CAF2d9jj08R=60na9yeCdsensccYrd-an-7SUk0FuHiD7sN5K+A@mail.gmail.com>
-	 <1427737479.1913.20.camel@redhat.com>
-	 <CAF2d9jizXuauzahKsumi9R80JRe10TSGhbmsBG0CpONBbVCbbA@mail.gmail.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next v3 0/4] mpls: Behaviour-changing improvements
+Date: Mon, 30 Mar 2015 19:15:52 +0100
+Message-ID: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
+References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@redhat.com>, linux-netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54781 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752743AbbC3SNA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 14:13:00 -0400
-In-Reply-To: <CAF2d9jizXuauzahKsumi9R80JRe10TSGhbmsBG0CpONBbVCbbA@mail.gmail.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:41589 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752684AbbC3SRd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:17:33 -0400
+In-Reply-To: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-30 at 10:56 -0700, Mahesh Bandewar wrote:
-> On Mon, Mar 30, 2015 at 10:44 AM, Dan Williams <dcbw@redhat.com> wrote:
-> > On Mon, 2015-03-30 at 09:54 -0700, Mahesh Bandewar wrote:
-> >> On Mon, Mar 30, 2015 at 7:37 AM, Dan Williams <dcbw@redhat.com> wrote:
-> >> > On Sat, 2015-03-28 at 19:32 +0100, Jiri Benc wrote:
-> >> >> On Fri, 27 Mar 2015 22:56:15 -0700, Mahesh Bandewar wrote:
-> >> >> > The current logic disables broadcast by default and enables only when
-> >> >> > an IPv4 address is added. If this is inverted and -
-> >> >> > enables broadcast by default but disables it when only IPv6
-> >> >> > address(es) is / are added. These links can have multiple addresses
-> >> >> > and hence have to be careful if any one of those is IPv4 then
-> >> >> > broadcast bit has to be set.
-> >> >>
-> >> >> You'd have to be careful and ignore IPv6 link local addresses.
-> >> >> Those are added automatically whenever IPv6 is enabled and their
-> >> >> presence does not mean the network is not IPv4 only.
-> >> >>
-> >> >> But I don't like such magic behavior. It would lead to DHCP sometimes
-> >> >> working and sometimes not in mixed v4/v6 environment depending on
-> >> >> whether DHCPv4 or SLAAC was faster.
-> >> >>
-> >> >> Could we perhaps add a flag when creating ipvlan interface stating
-> >> >> whether IPv4 broadcast should be always enabled? Or, rather, the other
-> >> >> way round - whether it should be disabled by default. Call it "nodhcp"
-> >> >> or so.
-> >> >>
-> >> >> Btw, speaking about IPv6 link local addresses, these actually do not
-> >> >> work with ipvlan correctly. I'm getting DAD failures if I have more
-> >> >> than one ipvlan interface, which is no wonder. This means that ipvlan
-> >> >> cannot work with IPv6 reliably by default (unless you take care of ll
-> >> >> address assignment and ensure all ipvlan interfaces get a different
-> >> >> one).
-> >> >
-> >> > ipvlan doesn't set dev_id.  Once dev_id is set the kernel's IPv6LL
-> >> > address generation code will assign a different LL address to each
-> >> > ipvlan interface created from the same physical interface, despite that
-> >> > they have the same MAC address.
-> >> >
-> >> Yes, that was what my plan was but never got around fixing that
-> >>
-> >> > But of course you'd have to be careful to assign a *different* dev_id
-> >> > than any of that physical interface's non-ipvlan children too, and I
-> >> > have no idea how that would work since dev_id is currently done
-> >> > per-driver.  eg, if you have a physical interface with dev_id=1 which
-> >> > you then create an ipvlan from, that ipvlan must not use dev_id=1 or it
-> >> > will be assigned the same IPv6LL address as the parent.
-> >> >
-> >> The description is very clear for dev_id (in netdevice.h). So the idea
-> >> of using the subsequent numbers after master's id should be possible.
-> >> After all these logical devices are going to share the same link. Most
-> >> physical drivers don't assign dev-id so the beginning is 0x0 (for the
-> >> physical driver) and from 0x1 can be assigned to the logical links.
-> >> The definition is not clear in terms of what is the beginning (0x0 or
-> >> 0x1) but from the code that generates the IPv6LL it's common that it's
-> >> 0x0 hence logical links on top of these links can use 0x1 onward.
-> >> However a check to see if the master-link has dev-id and staying clear
-> >> of that should be sufficient.
-> >
-> > My point was that if you have a parent with a non-zero dev_id, there can
-> > be other siblings of the parent that have a different dev_id and share
-> > the same MAC address.  So creating an ipvlan with parent->dev_id + 1
-> > doesn't work, because the parent may have a sibling with parent->dev_id
-> > + 1 and the same MAC address already.
-> >
-> May be I'm missing something but is there a scenario where sibling
-> (physical / port) will be sharing the same LL-address? The definition
-> / description in netdevice.h is  -
-> 
->                *  @dev_id:        Used to differentiate devices that share
->                *                          the same link layer address
-> 
-> So I's assuming the layered / stacked devices (children) rather than
-> ports etc (siblings). What am I missing?
+This series consists of several small changes to make it easier to
+understand the code, along with security and RFC-compliance
+changes. These are important to consider before userspace begins
+relying on the previous behaviour.
 
-I don't think that distinction matters since you can create an ipvlan
-interface on top of any other interface except a macvlan.  So any driver
-that sets dev_id could be the parent of an ipvlan interface.  That
-appears to include some CAN devices and s390's qeth driver at the
-moment.
+V2:
+  - Dropped PHP comment patch to avoid holding up the rest of the
+    changes due to quibbling on nomenclature.
+  - Corrected reference to RFC 3031 in commit message of patch
+    2. Added reference to RFC 3031 s4.1.5 for PHP behaviour.
+  - s/forwarding/input/ in patch 3.
+  - Made MPT_IPV4 and MPT_IPV6 equal to 4 and 6 respectively in patch
+    4, eliminating a switch on the version number as suggested by
+    review comments. Added back references to RFCs, but moved them to
+    mpls_payload_type enum declaration.
+V1:
+  - Updated to reference the correct RFC in the first patch.
 
-Dan
+Robert Shearman (4):
+  mpls: Use definition for reserved label checks
+  mpls: Differentiate implicit-null and unlabeled neighbours
+  mpls: Per-device enabling of packet input
+  mpls: Allow payload type to be associated with label routes
+
+ Documentation/networking/mpls-sysctl.txt |   9 ++
+ include/linux/netdevice.h                |   4 +
+ net/mpls/af_mpls.c                       | 226 +++++++++++++++++++++++++------
+ net/mpls/internal.h                      |   7 +
+ 4 files changed, 203 insertions(+), 43 deletions(-)
+
+-- 
+2.1.4
