@@ -1,182 +1,107 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v9 6/7] ixgbevf: Add RSS Key query code
-Date: Mon, 30 Mar 2015 15:38:38 +0300
-Message-ID: <551943CE.4050108@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 00/18] switchdev: spring cleanup
+Date: Mon, 30 Mar 2015 09:11:23 -0400
+Message-ID: <20150330131049.GI1051@gospo>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+ <20150330120025.GE2045@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, linux@roeck-us.net, f.fainelli@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:35067 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709AbbC3Mim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 08:38:42 -0400
-Received: by wgdm6 with SMTP id m6so173185728wgd.2
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 05:38:40 -0700 (PDT)
-In-Reply-To: <551876DA.1000607@gmail.com>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:33177 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbbC3NLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 09:11:49 -0400
+Received: by ykek76 with SMTP id k76so59527653yke.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 06:11:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150330120025.GE2045@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Mar 30, 2015 at 02:00:25PM +0200, Jiri Pirko wrote:
+> Mon, Mar 30, 2015 at 10:40:18AM CEST, sfeldma@gmail.com wrote:
+> >From: Scott Feldman <sfeldma@gmail.com>
+> >
+> >The main theme of this patch set is to cleanup swdev in preparation for
+> >new features or fixes to be added soon.  We have a pretty good idea now how
+> >to handle stacked drivers in swdev, but there where some loose ends.  For
+> >example, if a set failed in the middle of walking the lower devs, we would
+> >leave the system in an undefined state...there was no way to recover back to
+> >the previous state.  Speaking of sets, also recognize a pattern that most
+> >swdev API accesses are gets or sets of port attributes, so go ahead and make
+> >port attr get/set the central swdev API, and convert everything that is
+> >set-ish/get-ish to this new API.
+> >
+> >Features/fixes that should follow from this cleanup:
+> >
+> > - solve the duplicate pkt forwarding issue
+> > - get/set bridge attrs, like ageing_time, from/to device
+> > - get/set more bridge port attrs from/to device
+> >
+> >There are some rename cleanups tagging along at the end, to give swdev
+> >consistent naming.
+> 
+> As you can see in the switchdev patch submission history, I originally
+> pushed this with "swdev_" previx. Turned out people did not like that
+> because "sw" can be easily misunderstood as "software". 
 
+I agree with this.
 
-On 03/30/15 01:04, Alexander Duyck wrote:
-> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
->> Add the ixgbevf_get_rss_key() function that queries the PF for an RSS Random Key
->> using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
->>
->> This patch adds the support for 82599 and x540 devices only. Support for other
->> devices will be added later.
->>
->> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->> ---
->> New in v9:
->>     - Reduce the support to 82599 and x540 devices only.
->>     - Added IXGBEVF_RSS_HASH_KEY_SIZE macro.
->>
->> New in v8:
->>     - Protect a mailbox access.
->>
->> New in v6:
->>     - Return a proper return code when an operation is blocked by PF.
->>
->> New in v2:
->>     - Added a more detailed patch description.
->>
->> New in v1 (compared to RFC):
->>     - Use "if-else" statement instead of a "switch-case" for a single option case
->>       (in ixgbevf_get_rss_key()).
->> ---
->>   drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  1 +
->>   drivers/net/ethernet/intel/ixgbevf/mbx.h     |  1 +
->>   drivers/net/ethernet/intel/ixgbevf/vf.c      | 66 ++++++++++++++++++++++++++++
->>   drivers/net/ethernet/intel/ixgbevf/vf.h      |  1 +
->>   4 files changed, 69 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->> index bc939a1..6771ae3 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
->> @@ -145,6 +145,7 @@ struct ixgbevf_ring {
->>   #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
->>   #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
->>   #define IXGBEVF_MAX_RSS_QUEUES	2
->> +#define IXGBEVF_RSS_HASH_KEY_SIZE	40
->>   
->>   #define IXGBEVF_DEFAULT_TXD	1024
->>   #define IXGBEVF_DEFAULT_RXD	512
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
->> index 66e138b..82f44e0 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
->> +++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
->> @@ -110,6 +110,7 @@ enum ixgbe_pfvf_api_rev {
->>   
->>   /* mailbox API, version 1.2 VF requests */
->>   #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
->> +#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
->>   
->>   /* length of permanent address message returned from PF */
->>   #define IXGBE_VF_PERMADDR_MSG_LEN	4
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
->> index 2676c0b..ec68145 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
->> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
->> @@ -301,6 +301,72 @@ static inline int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *msgbuf,
->>   	return 0;
->>   }
->>   
->> +static inline int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
->> +{
->> +	int err;
->> +	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
->> +
->> +	/* We currently support the RSS Random Key retrieval for 82599 and x540
->> +	 * devices only.
->> +	 *
->> +	 * Thus return an error if API doesn't support RSS Random Key retrieval
->> +	 * or if the operation is not supported for this device type.
->> +	 */
->> +	if (hw->api_version != ixgbe_mbox_api_12 ||
->> +	    hw->mac.type >= ixgbe_mac_X550_vf)
->> +		return -EPERM;
->> +
-> The return type here should be not supported, or IXGBE_NOT_IMPLEMENTED,
-> not no permissions.
-
-I think a standard EOPNOTSUPP would be a much better choice.
-Why do u have this ixgbe-specific return values in addition to standard 
-POSIX ones anyway?
-
->
->> +	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
->> +	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
->> +
->> +	if (err)
->> +		return err;
->> +
->> +	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
->> +
->> +	if (err)
->> +		return err;
->> +
->> +	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
->> +
->> +	/* If the operation has been refused by a PF return -EPERM */
->> +	if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
->> +		return -EPERM;
->> +
->> +	/* If we didn't get an ACK there must have been
->> +	 * some sort of mailbox error so we should treat it
->> +	 * as such.
->> +	 */
->> +	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
->> +		return IXGBE_ERR_MBX;
->> +
->> +	memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
->> +
->> +	return 0;
->> +}
->> +
->> +/**
->> + * ixgbevf_get_rss_key - get the RSS Random Key
->> + * @hw: pointer to the HW structure
->> + * @reta: buffer to fill with RETA contents.
->> + *
->> + * The "rss_key" buffer should be big enough to contain 10 registers.
->> + * Ensures the atomicy of a mailbox access using the adapter.mbx_lock spinlock.
->> + *
->> + * Returns: 0 on success.
->> + *          if API doesn't support this operation - (-EPERM).
->> + */
->> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
->> +{
->> +	int rc;
->> +
->> +	spin_lock_bh(&a->mbx_lock);
->> +	rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
->> +	spin_unlock_bh(&a->mbx_lock);
->> +
->> +	return rc;
->> +}
->> +
-> Since there is currently no cases where you would be getting the rss_key
-> without the RETA you might just want to combine this function with
-> ixgbevf_get_reta so you only take the lock once and process both
-> messages in one pass instead of having to bounce the spinlock.
->
->>   /**
->>    * ixgbevf_get_reta - get the RSS redirection table (RETA) contents.
->>    * @adapter: pointer to the port handle
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
->> index 7944962..a054716 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/vf.h
->> +++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
->> @@ -212,4 +212,5 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
->>   int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
->>   		       unsigned int *default_tc);
->>   int ixgbevf_get_reta(struct ixgbevf_adapter *adapter, u32 *reta);
->> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *adapter, u8 *rss_key);
->>   #endif /* __IXGBE_VF_H__ */
->>
+> 
+> >
+> >And finally, some much needed updates to the switchdev.txt documentation to
+> >hopefully capture the state-of-the-art of swdev.  Hopefully, we can do a better
+> >job keeping this document up-to-date.
+> >
+> >Tested with rocker, of course, to make sure nothing functional broke.  There
+> >are a couple minor tweaks to DSA code for getting switch ID and setting STP
+> >updates to use new API, but not expecting amy breakage there.
+> >
+> >
+> >Scott Feldman (18):
+> >  switchdev: introduce get/set attrs ops
+> >  switchdev: flesh out get/set attr ops
+> >  switchdev: convert parent_id_get to swdev attr get
+> >  switchdev: convert STP update to swdev attr set
+> >  switchdev: add bridge port flags attr
+> >  rocker: use swdev get/set attr for bridge port flags
+> >  switchdev: add new swdev bridge setlink
+> >  rocker: cut over to new swdev_port_bridge_setlink
+> >  bonding: cut over to new swdev_port_bridge_setlink
+> >  team: cut over to new swdev_port_bridge_setlink
+> >  switchdev: remove old netdev_switch_port_bridge_setlink
+> >  switchdev: remove unused netdev_switch_port_bridge_dellink
+> >  switchdev: remove unused NETIF_F_HW_SWITCH_OFFLOAD
+> >  switchdev: add new swdev_port_bridge_getlink
+> >  rocker: cut over to new swdev_port_bridge_getlink
+> >  switchdev: rename netdev_switch_fib_* to swdev_fib_*
+> >  switchdev: rename netdev_switch_notifier_* to swdev_notifier_*
+> >  switchdev: bring documentation up-to-date
+> >
+> > Documentation/networking/switchdev.txt |  426 +++++++++++++++++++++++++++-----
+> > drivers/net/bonding/bond_main.c        |    8 +-
+> > drivers/net/ethernet/rocker/rocker.c   |  108 +++-----
+> > drivers/net/team/team.c                |    5 +-
+> > include/linux/netdev_features.h        |    5 +-
+> > include/net/switchdev.h                |  144 ++++++-----
+> > net/bridge/br.c                        |   22 +-
+> > net/bridge/br_netlink.c                |   24 +-
+> > net/bridge/br_stp.c                    |    6 +-
+> > net/core/ethtool.c                     |    1 -
+> > net/core/net-sysfs.c                   |   10 +-
+> > net/core/rtnetlink.c                   |    9 +-
+> > net/dsa/slave.c                        |   35 ++-
+> > net/ipv4/fib_trie.c                    |   38 ++-
+> > net/switchdev/switchdev.c              |  334 ++++++++++++++-----------
+> > 15 files changed, 750 insertions(+), 425 deletions(-)
+> >
+> >-- 
+> >1.7.10.4
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
