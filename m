@@ -1,122 +1,118 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: Re: [PATCH net-next v9 5/7] ixgbe: Add GET_RSS_KEY command to VF-PF
- channel commands set
-Date: Mon, 30 Mar 2015 13:08:15 +0300
-Message-ID: <5519208F.90407@cloudius-systems.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-6-git-send-email-vladz@cloudius-systems.com> <55187707.2070609@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single
+ CAN frame for overlapping CAN filters
+Date: Mon, 30 Mar 2015 12:10:22 +0200
+Message-ID: <5519210E.40005@pengutronix.de>
+References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
-	gleb@cloudius-systems.com
-To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="8VlT4Jt1lmIOoutuv9348XjNbaCfEjqQn"
+Cc: netdev@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:33412 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752685AbbC3KIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 06:08:18 -0400
-Received: by wixm2 with SMTP id m2so82576287wix.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 03:08:17 -0700 (PDT)
-In-Reply-To: <55187707.2070609@gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47032 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875AbbC3KK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 06:10:29 -0400
+In-Reply-To: <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--8VlT4Jt1lmIOoutuv9348XjNbaCfEjqQn
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+On 03/29/2015 08:09 PM, Oliver Hartkopp wrote:
+> The CAN_RAW socket can set multiple CAN identifier specific filters tha=
+t lead
+> to multiple filters in the af_can.c filter processing. These filters ar=
+e
+> indenpendent from each other which leads to logical OR'ed filters when =
+applied.
+>=20
+> This patch makes sure that every CAN frame which is filtered for a spec=
+ific
+> socket is only delivered once to the user space. This is independent fr=
+om the
+> number of matching CAN filters of this socket.
+>=20
+> As the can_raw() function is executed from NET_RX softirq the introduce=
+d
+> variables are implemented as per-CPU variables to avoid extensive locki=
+ng at
+> CAN frame reception time.
+>=20
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> ---
+>  net/can/raw.c | 28 ++++++++++++++++++++++++++++
+>  1 file changed, 28 insertions(+)
+>=20
+> diff --git a/net/can/raw.c b/net/can/raw.c
+> index 00c13ef..866a9b3 100644
+> --- a/net/can/raw.c
+> +++ b/net/can/raw.c
+> @@ -86,6 +86,8 @@ struct raw_sock {
+>  	struct can_filter dfilter; /* default/single filter */
+>  	struct can_filter *filter; /* pointer to filter(s) */
+>  	can_err_mask_t err_mask;
+> +	struct sk_buff __percpu **uniq_skb;
+> +	ktime_t __percpu *uniq_tstamp;
+>  };
+> =20
+>  /*
+> @@ -123,6 +125,15 @@ static void raw_rcv(struct sk_buff *oskb, void *da=
+ta)
+>  	if (!ro->fd_frames && oskb->len !=3D CAN_MTU)
+>  		return;
+> =20
+> +	/* eliminate multiple filter matches for the same skb */
+> +	if (*this_cpu_ptr(ro->uniq_skb) =3D=3D oskb &&
+> +	    ktime_equal(*this_cpu_ptr(ro->uniq_tstamp), oskb->tstamp)) {
+> +			return;
+> +	} else {
+> +		*this_cpu_ptr(ro->uniq_skb) =3D oskb;
+> +		*this_cpu_ptr(ro->uniq_tstamp) =3D oskb->tstamp;
+> +	}
+> +
+
+What happens if you're preempted somewhere in this code, it's not
+atomic? I think, if we only have to take care about the skb, an atomic
+compare exchange would work. But we have two variables....If you use a
+struct (see previous mail), I think the usage of get_cpu_ptr(),
+git_cpu_ptr() ensures that we're not preempted.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-On 03/30/15 01:04, Alexander Duyck wrote:
-> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
->> For 82599 and x540 VFs and PF share the same RSS Key. Therefore we will return
->> the same RSS key for all VFs.
->>
->> Support for other devices will be added later.
->>
->> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
->> ---
->> New in v9:
->>     - Reduce the support to 82599 and x540 devices only.
->>     - Get rid of registers access in GET_VF_RSS_KEY flow:
->>        - Get the RSS HASH Key value from the PF's adapter->rss_key[].
->>
->> New in v5:
->>     - Use a newly added netdev op to allow/prevent the RSS Hash Key querying on a per-VF
->>       basis.
->>
->> New in v3:
->>     - Added a support for x550 devices.
->>
->> New in v1 (compared to RFC):
->>     - Use "if-else" statement instead of a "switch-case" for a single option case
->>       (in ixgbe_get_vf_rss_key()).
->> ---
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  1 +
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 25 +++++++++++++++++++++++++
->>   2 files changed, 26 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
->> index 3522f53..b1e4703 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
->> @@ -100,6 +100,7 @@ enum ixgbe_pfvf_api_rev {
->>   
->>   /* mailbox API, version 1.2 VF requests */
->>   #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
->> +#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS key */
->>   
->>   /* length of permanent address message returned from PF */
->>   #define IXGBE_VF_PERMADDR_MSG_LEN 4
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> index 8424e7f..4d87458 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> @@ -996,6 +996,28 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
->>   	return 0;
->>   }
->>   
->> +static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
->> +				u32 *msgbuf, u32 vf)
->> +{
->> +	struct ixgbe_hw *hw = &adapter->hw;
->> +	u32 *rss_key = &msgbuf[1];
->> +
->> +	/* verify the PF is supporting the correct API */
->> +	if (!adapter->vfinfo[vf].rss_query_enabled ||
->> +	    (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12))
->> +		return -EPERM;
->> +
->> +	/* Read the RSS KEY.
->> +	 * We only support 82599 and x540 devices at the moment.
->> +	 */
->> +	if (hw->mac.type >= ixgbe_mac_X550)
->> +		return -1;
->> +
-> The return should be not supported, not -1 since that is too ambiguous.
+--8VlT4Jt1lmIOoutuv9348XjNbaCfEjqQn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-On the other hand - why this condition here at all? It will never return 
-TRUE anyway since the operation will be blocked by 
-adapter->vfinfo[vf].rss_query_enabled
-check before since ixgbe_ndo_set_vf_rss_query_en() will prevent the 
-rss_query_enabling for the devices newer than x540. So IMHO the right 
-thing to do here should be to remove the last "if" at all and split the 
-previous one in two so that we will return -EOPNOTSUPP for 
-(adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12) condition.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
->
->> +	memcpy(rss_key, adapter->rss_key, sizeof(adapter->rss_key));
->> +
->> +	return 0;
->> +}
->> +
->>   static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
->>   {
->>   	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
->> @@ -1055,6 +1077,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
->>   	case IXGBE_VF_GET_RETA:
->>   		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
->>   		break;
->> +	case IXGBE_VF_GET_RSS_KEY:
->> +		retval = ixgbe_get_vf_rss_key(adapter, msgbuf, vf);
->> +		break;
->>   	default:
->>   		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
->>   		retval = IXGBE_ERR_MBX;
->>
+iQIcBAEBCgAGBQJVGSESAAoJECte4hHFiupU1xEP/10s5TbZMvcx7ZUpKS8BvOzX
+0VVgYeLSoqyOgHxq+BRISUFuNmdEkWZ+HLmbjS7daMo38P7MKxQjhS/Q5I6Lb6b2
+N5HWpJocTiw9R3kJupSG8EO/JXlLVUmkXxMH9uiuogrWB0MzUwUP1iJCPXdmFvx0
+ZZkFGXE0sl7hgrSy5J9QMm6JstItcjZlp/LuE3xoKmwrJZ3gRhDfHp7lgRmfSvh6
+uA73ktiDGskWJweYOcKH797EOS2QCVyG1ixj4uLz2wp72ypGB855Qsqz2pIPDDwu
+9IROHUeR6k6f0ayobWE0TbL3qorr/yexMmLI6Xw+W0bUGIUPmZCKsevId/imwiKZ
+5MWzLlI2P7KQinHxJfTqGKUhIdWjGpc7ovluV3Fhz4pUTLMIHejwZ3z+8GH2RLoF
+al8tJxHY40ltiUQWd7a0gQorhsOXYpcYiuZV9gdwnqB5aYdsjoMPnKgKz9HWXiMq
+owyWYmKe2qsY6zVWUXkXZzISGoWPHTCo59NFHr8cBaqOzqZ3LulCD5StSeL4iZcG
+EkukuHr/SYICgh8l8f/t3g4XGJbUyQzSOFD1P4W2Uh5DHWjq1wli19Au/kpu8dQu
+qfyrOUPrkYKcGDACcOdob2NG32WDBlYeo39Ogw6dIyeo/TW8flFfwdrOmzZpDh1+
+SfKiqxNH+DF/NxAoWdCI
+=4MXn
+-----END PGP SIGNATURE-----
+
+--8VlT4Jt1lmIOoutuv9348XjNbaCfEjqQn--
