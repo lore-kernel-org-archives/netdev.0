@@ -1,77 +1,158 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next v2 4/5] net: bcmgenet: add UMAC_IRQ_LINK_EVENT
-Date: Mon, 30 Mar 2015 00:29:24 -0700 (PDT)
-Message-ID: <20150330072924.5AF68220215@puck.mtv.corp.google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
-To: netdev@vger.kernel.org
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH net-next v9 2/7] ixgbe: Add a new netdev op to allow/prevent
+ a VF from querying an RSS info
+Date: Mon, 30 Mar 2015 11:10:22 +0300
+Message-ID: <551904EE.2020403@cloudius-systems.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-3-git-send-email-vladz@cloudius-systems.com> <55187D92.7070704@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, avi@cloudius-systems.com,
+	gleb@cloudius-systems.com
+To: Alexander Duyck <alexander.duyck@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f201.google.com ([209.85.216.201]:34344 "EHLO
-	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752980AbbC3Hf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 03:35:57 -0400
-Received: by qcrw7 with SMTP id w7so2085032qcr.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 00:35:57 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37953 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752634AbbC3IK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:10:26 -0400
+Received: by wibgn9 with SMTP id gn9so116902727wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:10:24 -0700 (PDT)
+In-Reply-To: <55187D92.7070704@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add #define UMAC_IRQ_LINK_EVENT to simplify link event handling code.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 11 +++++------
- drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
- 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 5238b33..bf1a871 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1730,9 +1730,9 @@ static int init_umac(struct bcmgenet_priv *priv)
- 
- 	/* Monitor cable plug/unplugged event for internal PHY */
- 	if (phy_is_internal(priv->phydev)) {
--		int0_enable |= (UMAC_IRQ_LINK_DOWN | UMAC_IRQ_LINK_UP);
-+		int0_enable |= UMAC_IRQ_LINK_EVENT;
- 	} else if (priv->ext_phy) {
--		int0_enable |= (UMAC_IRQ_LINK_DOWN | UMAC_IRQ_LINK_UP);
-+		int0_enable |= UMAC_IRQ_LINK_EVENT;
- 	} else if (priv->phy_interface == PHY_INTERFACE_MODE_MOCA) {
- 		reg = bcmgenet_bp_mc_get(priv);
- 		reg |= BIT(priv->hw_params->bp_in_en_shift);
-@@ -2271,10 +2271,10 @@ static void bcmgenet_irq_task(struct work_struct *work)
- 
- 	/* Link UP/DOWN event */
- 	if ((priv->hw_params->flags & GENET_HAS_MDIO_INTR) &&
--	    (priv->irq0_stat & (UMAC_IRQ_LINK_UP|UMAC_IRQ_LINK_DOWN))) {
-+	    (priv->irq0_stat & UMAC_IRQ_LINK_EVENT)) {
- 		phy_mac_interrupt(priv->phydev,
- 				  priv->irq0_stat & UMAC_IRQ_LINK_UP);
--		priv->irq0_stat &= ~(UMAC_IRQ_LINK_UP|UMAC_IRQ_LINK_DOWN);
-+		priv->irq0_stat &= ~UMAC_IRQ_LINK_EVENT;
- 	}
- }
- 
-@@ -2364,8 +2364,7 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
- 
- 	if (priv->irq0_stat & (UMAC_IRQ_PHY_DET_R |
- 				UMAC_IRQ_PHY_DET_F |
--				UMAC_IRQ_LINK_UP |
--				UMAC_IRQ_LINK_DOWN |
-+				UMAC_IRQ_LINK_EVENT |
- 				UMAC_IRQ_HFB_SM |
- 				UMAC_IRQ_HFB_MM |
- 				UMAC_IRQ_MPD_R)) {
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index f86d635..ddaa40c 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -293,6 +293,7 @@ struct bcmgenet_mib_counters {
- #define UMAC_IRQ_PHY_DET_F		(1 << 3)
- #define UMAC_IRQ_LINK_UP		(1 << 4)
- #define UMAC_IRQ_LINK_DOWN		(1 << 5)
-+#define UMAC_IRQ_LINK_EVENT		(UMAC_IRQ_LINK_UP | UMAC_IRQ_LINK_DOWN)
- #define UMAC_IRQ_UMAC			(1 << 6)
- #define UMAC_IRQ_UMAC_TSV		(1 << 7)
- #define UMAC_IRQ_TBUF_UNDERRUN		(1 << 8)
--- 
-2.2.0.rc0.207.ga3a616c
+On 03/30/15 01:32, Alexander Duyck wrote:
+> On 03/29/2015 09:11 AM, Vlad Zolotarov wrote:
+>> Implements the new netdev op to allow user to enable/disable the ability
+>> of a specific VF to query its RSS Indirection Table and an RSS Hash Key.
+>>
+>> This patch limits the new feature support to 82599 and x540 devices only.
+>> Support for other devices will be added later.
+>>
+>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> ---
+>> New in v9:
+>>     - Reduce the support to 82599 and x540 devices only.
+>> ---
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 ++++++
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 30 ++++++++++++++++++++++++++
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+>>   4 files changed, 40 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+>> index 42ed4b4..639aa1b 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+>> @@ -151,6 +151,7 @@ struct vf_data_storage {
+>>   	u16 tx_rate;
+>>   	u16 vlan_count;
+>>   	u8 spoofchk_enabled;
+>> +	bool rss_query_enabled;
+>>   	unsigned int vf_api;
+>>   };
+>>   
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index a99bc5d..1b04cb1 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -3656,6 +3656,12 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+>>   		if (hw->mac.ops.set_ethertype_anti_spoofing)
+>>   			hw->mac.ops.set_ethertype_anti_spoofing(hw, true, i);
+>>   	}
+>> +
+>> +	/* Enable/Disable RSS query feature  */
+>> +	for (i = 0; i < adapter->num_vfs; i++)
+>> +		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
+>> +					      adapter->vfinfo[i].rss_query_enabled);
+>> +
+>>   }
+>>   
+>>   static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+> Instead of looking through the VFs twice you could probably look at
+> combining  this with the loop directly above it.
+>> @@ -8096,6 +8102,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+>>   	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
+>>   	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
+>>   	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
+>> +	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
+>>   	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+>>   	.ndo_get_stats64	= ixgbe_get_stats64,
+>>   #ifdef CONFIG_IXGBE_DCB
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> index 09a291b..f08672a 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+>> @@ -108,6 +108,15 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+>>   		/* enable spoof checking for all VFs */
+>>   		for (i = 0; i < adapter->num_vfs; i++)
+>>   			adapter->vfinfo[i].spoofchk_enabled = true;
+>> +
+>> +		/* We support VF RSS querying only for 82599 and x540 devices at
+>> +		 * the moment. These devices share RSS indirection table and
+>> +		 * RSS hash key with PF therefore we want to disable the
+>> +		 * querying by default.
+>> +		 */
+>> +		for (i = 0; i < adapter->num_vfs; i++)
+>> +			adapter->vfinfo[i].rss_query_enabled = 0;
+>> +
+>>   		return 0;
+>>   	}
+>>   
+> Same here, no point in looping through all the VFs twice, just take care
+> of sppofchk_enabled, and rss_query_enabled in one loop.
+>
+>> @@ -1330,6 +1339,26 @@ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting)
+>>   	return 0;
+>>   }
+>>   
+>> +int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
+>> +				  bool setting)
+>> +{
+>> +	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+>> +
+>> +	/* This operation is currently supported only for 82599 and x540
+>> +	 * devices.
+>> +	 */
+>> +	if (adapter->hw.mac.type < ixgbe_mac_82599EB ||
+>> +	    adapter->hw.mac.type >= ixgbe_mac_X550)
+>> +		return -EPERM;
+>> +
+> This should be not supported, not EPERM.
+
+Agree with all the above. Fixing in v10.
+
+>
+>> +	if (vf >= adapter->num_vfs)
+>> +		return -EINVAL;
+>> +
+>> +	adapter->vfinfo[vf].rss_query_enabled = setting;
+>> +
+>> +	return 0;
+>> +}
+>> +
+>>   int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+>>   			    int vf, struct ifla_vf_info *ivi)
+>>   {
+>> @@ -1343,5 +1372,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+>>   	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
+>>   	ivi->qos = adapter->vfinfo[vf].pf_qos;
+>>   	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
+>> +	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
+>>   	return 0;
+>>   }
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+>> index 32c26d5..2c197e6 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+>> @@ -47,6 +47,8 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
+>>   int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+>>   			int max_tx_rate);
+>>   int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
+>> +int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
+>> +				  bool setting);
+>>   int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+>>   			    int vf, struct ifla_vf_info *ivi);
+>>   void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
