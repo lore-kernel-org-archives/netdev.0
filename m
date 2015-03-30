@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
 Subject: Re: [PATCH net-next v9 6/7] ixgbevf: Add RSS Key query code
-Date: Mon, 30 Mar 2015 08:07:48 -0700
-Message-ID: <551966C4.2090301@redhat.com>
-References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com> <551943CE.4050108@cloudius-systems.com>
+Date: Mon, 30 Mar 2015 08:10:15 -0700
+Message-ID: <55196757.9010008@redhat.com>
+References: <1427645497-8339-1-git-send-email-vladz@cloudius-systems.com> <1427645497-8339-7-git-send-email-vladz@cloudius-systems.com> <551876DA.1000607@gmail.com> <5519554A.1010101@cloudius-systems.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,16 +12,16 @@ To: Vlad Zolotarov <vladz@cloudius-systems.com>,
 	Alexander Duyck <alexander.duyck@gmail.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33432 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43874 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752478AbbC3PHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 11:07:50 -0400
-In-Reply-To: <551943CE.4050108@cloudius-systems.com>
+	id S1753179AbbC3PKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 11:10:20 -0400
+In-Reply-To: <5519554A.1010101@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On 03/30/2015 05:38 AM, Vlad Zolotarov wrote:
+On 03/30/2015 06:53 AM, Vlad Zolotarov wrote:
 >
 >
 > On 03/30/15 01:04, Alexander Duyck wrote:
@@ -113,15 +113,78 @@ On 03/30/2015 05:38 AM, Vlad Zolotarov wrote:
 >>> +
 >> The return type here should be not supported, or IXGBE_NOT_IMPLEMENTED,
 >> not no permissions.
+>>
+>>> +    msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
+>>> +    err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
+>>> +
+>>> +    if (err)
+>>> +        return err;
+>>> +
+>>> +    err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
+>>> +
+>>> +    if (err)
+>>> +        return err;
+>>> +
+>>> +    msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
+>>> +
+>>> +    /* If the operation has been refused by a PF return -EPERM */
+>>> +    if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
+>>> +        return -EPERM;
+>>> +
+>>> +    /* If we didn't get an ACK there must have been
+>>> +     * some sort of mailbox error so we should treat it
+>>> +     * as such.
+>>> +     */
+>>> +    if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
+>>> +        return IXGBE_ERR_MBX;
+>>> +
+>>> +    memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +
+>>> +/**
+>>> + * ixgbevf_get_rss_key - get the RSS Random Key
+>>> + * @hw: pointer to the HW structure
+>>> + * @reta: buffer to fill with RETA contents.
+>>> + *
+>>> + * The "rss_key" buffer should be big enough to contain 10 registers.
+>>> + * Ensures the atomicy of a mailbox access using the 
+>>> adapter.mbx_lock spinlock.
+>>> + *
+>>> + * Returns: 0 on success.
+>>> + *          if API doesn't support this operation - (-EPERM).
+>>> + */
+>>> +int ixgbevf_get_rss_key(struct ixgbevf_adapter *a, u8 *rss_key)
+>>> +{
+>>> +    int rc;
+>>> +
+>>> +    spin_lock_bh(&a->mbx_lock);
+>>> +    rc = ixgbevf_get_rss_key_locked(&a->hw, rss_key);
+>>> +    spin_unlock_bh(&a->mbx_lock);
+>>> +
+>>> +    return rc;
+>>> +}
+>>> +
+>> Since there is currently no cases where you would be getting the rss_key
+>> without the RETA you might just want to combine this function with
+>> ixgbevf_get_reta so you only take the lock once and process both
+>> messages in one pass instead of having to bounce the spinlock.
 >
-> I think a standard EOPNOTSUPP would be a much better choice.
-> Why do u have this ixgbe-specific return values in addition to 
-> standard POSIX ones anyway?
+> I'd rather not do this.
+> Let's start from the beginning: the locks here should be removed and
+> added at the caller level to match what u wrote about patch04.
+> Then about the uniting the two functions mentioned above - there isn't
+> any added value of doing this. Taking a lock only once may be done
+> without uniting (see PATCH07 in v10 series).
+> On the other hand, this uniting is going to make the code awkward and
+> unclear ("why are these together anyway?").
+> So, I'd rather keep these functions as they are apart from fixing the 
+> locking issue. I'll essentially export the _locked functions.
+>
+> thanks,
+> vlad
 
-It has to do with being OS agnostic.  If you want to port this to BSD, 
-Linux, DPDK, etc, then you can't always rely on all the error return 
-values being there so there is a tendency to implement your own.  As 
-with the other function you might be best off just returning 
-IXGBE_ERR_MBX since the x550 and API_12 don't support the RSS messages.
+Agreed, just export the _locked functions and drop the _locked extension.
 
 - Alex
