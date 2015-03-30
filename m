@@ -1,88 +1,181 @@
-From: Martin Lau <kafai@fb.com>
-Subject: Re: [PATCH RFC 1/3] ipv6: Fix after pmtu events dissapearing host
- routes
-Date: Mon, 30 Mar 2015 11:24:33 -0700
-Message-ID: <20150330182433.GC2303816@devbig242.prn2.facebook.com>
-References: <54CF3348.40207@huawei.com>
- <20150203092845.GT13046@secunet.com>
- <54D0A8DB.4010106@huawei.com>
- <20150203120140.GU13046@secunet.com>
- <54D17D1A.3020706@huawei.com>
- <20150205072125.GY13046@secunet.com>
- <54EFD87A.5080907@huawei.com>
- <20150330103210.GI3311@secunet.com>
- <20150330103313.GJ3311@secunet.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
+Date: Mon, 30 Mar 2015 18:32:09 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FA6FE@ORSMSX101.amr.corp.intel.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+ <1427704836-8776-3-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: shengyong <shengyong1@huawei.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <yangyingliang@huawei.com>,
-	<hannes@redhat.com>, Kernel Team <Kernel-team@fb.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Transfer-Encoding: 8BIT
+Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+To: "sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:14123 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753471AbbC3SYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:24:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20150330103313.GJ3311@secunet.com>
+Received: from mga01.intel.com ([192.55.52.88]:4550 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753109AbbC3ScL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:32:11 -0400
+In-Reply-To: <1427704836-8776-3-git-send-email-sfeldma@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 30, 2015 at 12:33:13PM +0200, Steffen Klassert wrote:
-> We currently don't clone host routes before we use them.
-> If a pmtu event is received on such a route, it gets
-> an expires value. As soon as the expiration time is
-> elapsed, the route is deleted. As a result, the host
-> es not reachable any more.
-s/es/is
 
-> We fix this by cloning host routes if they are not local,
-> i.e. if pmtu events can happen. Also adjust the route
-> deletion because the cached and the original host route
-> are on the same fib node.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv6/route.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 4688bd4..4318626 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -961,7 +961,7 @@ redo_rt6_select:
->  
->  	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
->  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
-> -	else if (!(rt->dst.flags & DST_HOST))
-> +	else if (!(rt->dst.flags & DST_HOST) || !(rt->rt6i_flags & RTF_LOCAL))
->  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-I suspect the nrt and rt will share the same inetpeer.  Hence, after the nrt is
-removed, the MTU (obtained from PMTU update) will stay.
 
-> @@ -1796,6 +1796,8 @@ static int ip6_route_del(struct fib6_config *cfg)
->  				continue;
->  			if (cfg->fc_metric && cfg->fc_metric != rt->rt6i_metric)
->  				continue;
-> +			if (!(cfg->fc_flags & RTF_CACHE) && (rt->rt6i_flags & RTF_CACHE))
-> +				continue;
->  			dst_hold(&rt->dst);
->  			read_unlock_bh(&table->tb6_lock);
->  
-> @@ -2433,6 +2435,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
->  	if (rtm->rtm_type == RTN_LOCAL)
->  		cfg->fc_flags |= RTF_LOCAL;
->  
-> +	if (rtm->rtm_flags & RTM_F_CLONED)
-> +		cfg->fc_flags |= RTF_CACHE;
-> +
->  	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
->  	cfg->fc_nlinfo.nlh = nlh;
->  	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
-I had pulled your last patch to my local branch that I am cooking.  I also
-added similar changes to ip6_route_del() and rtm_to_fib_config(), and confirmed
-it can keep 'ip -6 r del' and 'ip -6 r flush table cache' to keep working
-properly.
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of sfeldma@gmail.com
+>Sent: Monday, March 30, 2015 1:40 AM
+>To: netdev@vger.kernel.org
+>Cc: jiri@resnulli.us; roopa@cumulusnetworks.com; linux@roeck-us.net;
+>f.fainelli@gmail.com
+>Subject: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
+>
+>From: Scott Feldman <sfeldma@gmail.com>
+>
+>Add the basic algorithms for get/set attr ops.  Use the same recusive algo to
+>walk lower devs we've used for STP updates, for example.  For get, compare
+>attr
+>value for each lower dev and only return success if attr values match across
+>all lower devs.  For sets, set the same attr value for all lower devs.  If
+>something goes wrong on one of the lower devs, revert all back to previous
+>attr
+>value.
+>
+>If lower dev recusion isn't desired, allow a flag SWDEV_ATTR_F_NO_RECURSE to
+>indicate get/set only work on port (lowest) device.
+>
+>On set, allow a flag SWDEV_ATTR_F_NO_RECOVER to turn off automatic err
+>recovery.
+>
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>---
+> include/net/switchdev.h   |    4 +++
+> net/switchdev/switchdev.c |   71 +++++++++++++++++++++++++++++++++++++++++++-
+>-
+> 2 files changed, 73 insertions(+), 2 deletions(-)
+>
+>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>index 7b72a4f..dcf0cb7 100644
+>--- a/include/net/switchdev.h
+>+++ b/include/net/switchdev.h
+>@@ -18,8 +18,12 @@ enum swdev_attr_id {
+> 	SWDEV_ATTR_UNDEFINED,
+> };
+>
+>+#define SWDEV_ATTR_F_NO_RECURSE		BIT(0)
+>+#define SWDEV_ATTR_F_NO_RECOVER		BIT(1)
+>+
+> struct swdev_attr {
+> 	enum swdev_attr_id attr;
+>+	u32 flags;
+> };
+>
+> struct fib_info;
+>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>index a894fa5..f3cac92 100644
+>--- a/net/switchdev/switchdev.c
+>+++ b/net/switchdev/switchdev.c
+>@@ -44,10 +44,67 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
+>  */
+> int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr)
+> {
+>-	return -EOPNOTSUPP;
+>+	const struct swdev_ops *ops = dev->swdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>+	struct swdev_attr first = {
+>+		.attr = SWDEV_ATTR_UNDEFINED
+>+	};
+>+	int err = -EOPNOTSUPP;
+>+
+>+	if (ops && ops->swdev_port_attr_get)
+>+		return ops->swdev_port_attr_get(dev, attr);
+>+
+>+	if (attr->flags & SWDEV_ATTR_F_NO_RECURSE)
+>+		return err;
+>+
+>+	/* Switch device port(s) may be stacked under
+>+	 * bond/team/vlan dev, so recurse down to get attr on
+>+	 * each port.  Return -ENODATA if attr values don't
+>+	 * compare across ports.
+>+	 */
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>+		err = swdev_port_attr_get(lower_dev, attr);
+>+		if (err)
+>+			break;
+>+		if (first.attr == SWDEV_ATTR_UNDEFINED)
+>+			first = *attr;
+>+		else if (memcmp(&first, attr, sizeof(*attr)))
+>+			return -ENODATA;
+>+	}
+>+
+>+	return err;
+> }
+> EXPORT_SYMBOL_GPL(swdev_port_attr_get);
+>
+>+static int _swdev_port_attr_set(struct net_device *dev, struct swdev_attr
+>*attr)
+>+{
+>+	const struct swdev_ops *ops = dev->swdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>+	int err = -EOPNOTSUPP;
+>+
+>+	if (ops && ops->swdev_port_attr_set)
+>+		return ops->swdev_port_attr_set(dev, attr);
+>+
+>+	if (attr->flags & SWDEV_ATTR_F_NO_RECURSE)
+>+		return err;
+>+
+>+	/* Switch device port(s) may be stacked under
+>+	 * bond/team/vlan dev, so recurse down to set attr on
+>+	 * each port.
+>+	 */
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>+		err = _swdev_port_attr_set(lower_dev, attr);
+>+		if (err)
+>+			break;
+>+	}
+>+
+>+	return err;
+>+}
+>+
+> /**
+>  *	swdev_port_attr_set - Set port attribute
+>  *
+>@@ -56,7 +113,17 @@ EXPORT_SYMBOL_GPL(swdev_port_attr_get);
+>  */
+> int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
+> {
+>-	return -EOPNOTSUPP;
+>+	struct swdev_attr prev = *attr;
+>+	int err, get_err;
+>+
+>+	get_err = swdev_port_attr_get(dev, &prev);
+>+
+>+	err = _swdev_port_attr_set(dev, attr);
+>+	if (err && !get_err && !(attr->flags & SWDEV_ATTR_F_NO_RECOVER))
+>+		/* Some err on set: revert to previous value */
+>+		_swdev_port_attr_set(dev, &prev);
 
-Thanks,
---Martin
+Could revering to previous value fail?
+Should such failure be logged?
+
+>+
+>+	return err;
+> }
+> EXPORT_SYMBOL_GPL(swdev_port_attr_set);
+>
+>--
+>1.7.10.4
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
