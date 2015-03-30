@@ -1,9 +1,9 @@
 From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: Re: [RFC PATCH 08/11] IB/Verbs: Use management helper has_iwarp()
- for, iwarp-check
-Date: Mon, 30 Mar 2015 18:21:55 +0200
-Message-ID: <55197823.9070006@profitbricks.com>
-References: <551579CA.4030901@profitbricks.com>	 <55157B98.1060103@profitbricks.com> <1427731980.21101.199.camel@redhat.com>
+Subject: Re: [RFC PATCH 02/11] IB/Verbs: Use management helper tech_iboe()
+ for iboe-check
+Date: Mon, 30 Mar 2015 18:23:16 +0200
+Message-ID: <55197874.3080807@profitbricks.com>
+References: <551579CA.4030901@profitbricks.com>	 <55157A4F.1090301@profitbricks.com> <1427732250.21101.202.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -29,19 +29,17 @@ Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Alex Estrin <alex.estrin@int
 To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1427731980.21101.199.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427732250.21101.202.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/30/2015 06:13 PM, Doug Ledford wrote:
-> On Fri, 2015-03-27 at 16:47 +0100, Michael Wang wrote:
->> Introduce helper has_iwarp() to help us check if an IB device
->> support IWARP protocol.
-> This is a needless redirection.  Just stick with the original
-> rdma_transport_is_iwarp().
-
-Agree, will leave it there :-)
+On 03/30/2015 06:17 PM, Doug Ledford wrote:
+> On Fri, 2015-03-27 at 16:42 +0100, Michael Wang wrote:
+>> Introduce helper tech_iboe() to help us check if the port of an IB
+>> device is using RoCE/IBoE technology.
+> Just use rdma_transport_is_roce() instead.
+Sounds good :-) will be in next version.
 
 Regards,
 Michael Wang
@@ -53,50 +51,64 @@ Michael Wang
 >> Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 >> Signed-off-by: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
 >> ---
->>  include/rdma/ib_verbs.h                 | 13 +++++++++++++
->>  net/sunrpc/xprtrdma/svc_rdma_recvfrom.c |  2 +-
->>  2 files changed, 14 insertions(+), 1 deletion(-)
+>>  drivers/infiniband/core/cma.c |  6 ++----
+>>  include/rdma/ib_verbs.h       | 16 ++++++++++++++++
+>>  2 files changed, 18 insertions(+), 4 deletions(-)
 >>
+>> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+>> index 668e955..280cfe3 100644
+>> --- a/drivers/infiniband/core/cma.c
+>> +++ b/drivers/infiniband/core/cma.c
+>> @@ -375,8 +375,7 @@ static int cma_acquire_dev(struct rdma_id_private *id_priv,
+>>                       listen_id_priv->id.port_num) == dev_ll) {
+>>          cma_dev = listen_id_priv->cma_dev;
+>>          port = listen_id_priv->id.port_num;
+>> -        if (rdma_transport_is_ib(cma_dev->device) &&
+>> -            rdma_port_ll_is_eth(cma_dev->device, port))
+>> +        if (tech_iboe(cma_dev->device, port))
+>>              ret = ib_find_cached_gid(cma_dev->device, &iboe_gid,
+>>                           &found_port, NULL);
+>>          else
+>> @@ -395,8 +394,7 @@ static int cma_acquire_dev(struct rdma_id_private *id_priv,
+>>                  listen_id_priv->id.port_num == port)
+>>                  continue;
+>>              if (rdma_port_get_link_layer(cma_dev->device, port) == dev_ll) {
+>> -                if (rdma_transport_is_ib(cma_dev->device) &&
+>> -                    rdma_port_ll_is_eth(cma_dev->device, port))
+>> +                if (tech_iboe(cma_dev->device, port))
+>>                      ret = ib_find_cached_gid(cma_dev->device, &iboe_gid, &found_port, NULL);
+>>                  else
+>>                      ret = ib_find_cached_gid(cma_dev->device, &gid, &found_port, NULL);
 >> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
->> index e796104..0ef9cd7 100644
+>> index 2bf9094..ca6d6bc 100644
 >> --- a/include/rdma/ib_verbs.h
 >> +++ b/include/rdma/ib_verbs.h
->> @@ -1836,6 +1836,19 @@ static inline int has_mcast(struct ib_device *device)
+>> @@ -1767,6 +1767,22 @@ static inline int rdma_port_ll_is_eth(struct ib_device *device, u8 port_num)
+>>              == IB_LINK_LAYER_ETHERNET;
 >>  }
 >>  
->>  /**
->> + * has_iwarp - Check if a device support IWARP protocol.
+>> +/**
+>> + * tech_iboe - Check if the port of device using technology
+>> + * RoCE/IBoE.
 >> + *
 >> + * @device: Device to be checked
+>> + * @port_num: Port number of the device
 >> + *
->> + * Return 0 when a device has none port to support
->> + * IWARP protocol.
+>> + * Return 0 when port of the device is not using technology
+>> + * RoCE/IBoE.
 >> + */
->> +static inline int has_iwarp(struct ib_device *device)
+>> +static inline int tech_iboe(struct ib_device *device, u8 port_num)
 >> +{
->> +    return rdma_transport_is_iwarp(device);
+>> +    return rdma_transport_is_ib(device) &&
+>> +            rdma_port_ll_is_eth(device, port_num);
 >> +}
 >> +
->> +/**
->>   * cap_smi - Check if the port of device has the capability
->>   * Subnet Management Interface.
->>   *
->> diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
->> index a7b5891..48aeb5e 100644
->> --- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
->> +++ b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
->> @@ -118,7 +118,7 @@ static void rdma_build_arg_xdr(struct svc_rqst *rqstp,
+>>  int ib_query_gid(struct ib_device *device,
+>>           u8 port_num, int index, union ib_gid *gid);
 >>  
->>  static int rdma_read_max_sge(struct svcxprt_rdma *xprt, int sge_count)
->>  {
->> -    if (rdma_transport_is_iwarp(xprt->sc_cm_id->device))
->> +    if (has_iwarp(xprt->sc_cm_id->device))
->>          return 1;
->>      else
->>          return min_t(int, sge_count, xprt->sc_max_sge);
 >
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
