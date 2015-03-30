@@ -1,193 +1,294 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next 12/18] switchdev: remove unused netdev_switch_port_bridge_dellink
-Date: Mon, 30 Mar 2015 01:40:30 -0700
-Message-ID: <1427704836-8776-13-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next 16/18] switchdev: rename netdev_switch_fib_* to swdev_fib_*
+Date: Mon, 30 Mar 2015 01:40:34 -0700
+Message-ID: <1427704836-8776-17-git-send-email-sfeldma@gmail.com>
 References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35973 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752800AbbC3Ij6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:39:58 -0400
-Received: by padcy3 with SMTP id cy3so160670453pad.3
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:39:57 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35260 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753396AbbC3IkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:40:02 -0400
+Received: by patj18 with SMTP id j18so4806101pat.2
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:40:01 -0700 (PDT)
 In-Reply-To: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-There are no port driver using bridge_dellink, so remove these swdev wrappers.
-Something was fishy here anyway because dellink isn't used for deleting port
-attributes (not sure how you delete a port attribute?).  VLAN deletes are
-already handled via ndo_vlan_rx_add_vid/ndo_vlan_rx_kill_vid.
+To be consistent with other swdev code, rename the L3 FIB ops with swdev_
+prefix.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/bonding/bond_main.c |    1 -
- drivers/net/team/team.c         |    1 -
- include/net/switchdev.h         |   18 -------------
- net/bridge/br_netlink.c         |   12 +--------
- net/switchdev/switchdev.c       |   55 ---------------------------------------
- 5 files changed, 1 insertion(+), 86 deletions(-)
+ include/net/switchdev.h   |   23 ++++++++++-------------
+ net/ipv4/fib_trie.c       |   38 ++++++++++++++++----------------------
+ net/switchdev/switchdev.c |   34 +++++++++++++++++-----------------
+ 3 files changed, 43 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 99ab282..9d823b6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4037,7 +4037,6 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_del_slave		= bond_release,
- 	.ndo_fix_features	= bond_fix_features,
- 	.ndo_bridge_setlink	= swdev_port_bridge_setlink,
--	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
- 	.ndo_features_check	= passthru_features_check,
- };
- 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 6a3debc..101b341 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1978,7 +1978,6 @@ static const struct net_device_ops team_netdev_ops = {
- 	.ndo_fix_features	= team_fix_features,
- 	.ndo_change_carrier     = team_change_carrier,
- 	.ndo_bridge_setlink	= swdev_port_bridge_setlink,
--	.ndo_bridge_dellink     = ndo_dflt_netdev_switch_port_bridge_dellink,
- 	.ndo_features_check	= passthru_features_check,
- };
- 
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index bad2ec7..97196ab 100644
+index bf77f66..9cda17e 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -92,10 +92,6 @@ int register_netdev_switch_notifier(struct notifier_block *nb);
+@@ -94,11 +94,11 @@ int register_netdev_switch_notifier(struct notifier_block *nb);
  int unregister_netdev_switch_notifier(struct notifier_block *nb);
  int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
  				 struct netdev_switch_notifier_info *info);
--int netdev_switch_port_bridge_dellink(struct net_device *dev,
--				struct nlmsghdr *nlh, u16 flags);
--int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
--					       struct nlmsghdr *nlh, u16 flags);
- int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 			       u8 tos, u8 type, u32 nlflags, u32 tb_id);
- int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-@@ -138,20 +134,6 @@ static inline int call_netdev_switch_notifiers(unsigned long val, struct net_dev
+-int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 nlflags, u32 tb_id);
+-int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 tb_id);
+-void netdev_switch_fib_ipv4_abort(struct fib_info *fi);
++int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 nlflags, u32 tb_id);
++int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 tb_id);
++void swdev_fib_ipv4_abort(struct fib_info *fi);
+ 
+ #else
+ 
+@@ -143,22 +143,19 @@ static inline int call_netdev_switch_notifiers(unsigned long val, struct net_dev
  	return NOTIFY_DONE;
  }
  
--static inline int netdev_switch_port_bridge_dellink(struct net_device *dev,
--						    struct nlmsghdr *nlh,
--						    u16 flags)
--{
--	return -EOPNOTSUPP;
--}
--
--static inline int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
--							struct nlmsghdr *nlh,
--							u16 flags)
--{
--	return 0;
--}
--
- static inline int netdev_switch_fib_ipv4_add(u32 dst, int dst_len,
- 					     struct fib_info *fi,
- 					     u8 tos, u8 type,
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 5deb063..cfee027 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -639,7 +639,7 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
+-static inline int netdev_switch_fib_ipv4_add(u32 dst, int dst_len,
+-					     struct fib_info *fi,
+-					     u8 tos, u8 type,
+-					     u32 nlflags, u32 tb_id)
++static inline int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++				     u8 tos, u8 type, u32 nlflags, u32 tb_id)
  {
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
--	int err = 0, ret_offload = 0;
-+	int err = 0;
- 
- 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
- 	if (!afspec)
-@@ -658,16 +658,6 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 		 */
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- 
--	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
--		/* del bridge attributes in hardware
--		 */
--		ret_offload = netdev_switch_port_bridge_dellink(dev, nlh,
--								flags);
--		if (ret_offload && ret_offload != -EOPNOTSUPP)
--			br_warn(p->br, "error deleting attrs on port %u (%s)\n",
--				(unsigned int)p->port_no, p->dev->name);
--	}
--
- 	return err;
+ 	return 0;
  }
- static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+-static inline int netdev_switch_fib_ipv4_del(u32 dst, int dst_len,
+-					     struct fib_info *fi,
+-					     u8 tos, u8 type, u32 tb_id)
++static inline int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++				     u8 tos, u8 type, u32 tb_id)
+ {
+ 	return 0;
+ }
+ 
+-static inline void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
++static inline void swdev_fib_ipv4_abort(struct fib_info *fi)
+ {
+ }
+ 
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 2c7c299..a452f38 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1165,13 +1165,11 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 			new_fa->fa_state = state & ~FA_S_ACCESSED;
+ 			new_fa->fa_slen = fa->fa_slen;
+ 
+-			err = netdev_switch_fib_ipv4_add(key, plen, fi,
+-							 new_fa->fa_tos,
+-							 cfg->fc_type,
+-							 cfg->fc_nlflags,
+-							 tb->tb_id);
++			err = swdev_fib_ipv4_add(key, plen, fi, new_fa->fa_tos,
++						 cfg->fc_type, cfg->fc_nlflags,
++						 tb->tb_id);
+ 			if (err) {
+-				netdev_switch_fib_ipv4_abort(fi);
++				swdev_fib_ipv4_abort(fi);
+ 				kmem_cache_free(fn_alias_kmem, new_fa);
+ 				goto out;
+ 			}
+@@ -1215,12 +1213,10 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 	new_fa->tb_id = tb->tb_id;
+ 
+ 	/* (Optionally) offload fib entry to switch hardware. */
+-	err = netdev_switch_fib_ipv4_add(key, plen, fi, tos,
+-					 cfg->fc_type,
+-					 cfg->fc_nlflags,
+-					 tb->tb_id);
++	err = swdev_fib_ipv4_add(key, plen, fi, tos, cfg->fc_type,
++				 cfg->fc_nlflags, tb->tb_id);
+ 	if (err) {
+-		netdev_switch_fib_ipv4_abort(fi);
++		swdev_fib_ipv4_abort(fi);
+ 		goto out_free_new_fa;
+ 	}
+ 
+@@ -1239,7 +1235,7 @@ succeeded:
+ 	return 0;
+ 
+ out_sw_fib_del:
+-	netdev_switch_fib_ipv4_del(key, plen, fi, tos, cfg->fc_type, tb->tb_id);
++	swdev_fib_ipv4_del(key, plen, fi, tos, cfg->fc_type, tb->tb_id);
+ out_free_new_fa:
+ 	kmem_cache_free(fn_alias_kmem, new_fa);
+ out:
+@@ -1517,8 +1513,8 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	if (!fa_to_delete)
+ 		return -ESRCH;
+ 
+-	netdev_switch_fib_ipv4_del(key, plen, fa_to_delete->fa_info, tos,
+-				   cfg->fc_type, tb->tb_id);
++	swdev_fib_ipv4_del(key, plen, fa_to_delete->fa_info, tos,
++			   cfg->fc_type, tb->tb_id);
+ 
+ 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
+ 		  &cfg->fc_nlinfo, 0);
+@@ -1767,10 +1763,9 @@ void fib_table_flush_external(struct fib_table *tb)
+ 			if (!fi || !(fi->fib_flags & RTNH_F_EXTERNAL))
+ 				continue;
+ 
+-			netdev_switch_fib_ipv4_del(n->key,
+-						   KEYLENGTH - fa->fa_slen,
+-						   fi, fa->fa_tos,
+-						   fa->fa_type, tb->tb_id);
++			swdev_fib_ipv4_del(n->key, KEYLENGTH - fa->fa_slen,
++					   fi, fa->fa_tos, fa->fa_type,
++					   tb->tb_id);
+ 		}
+ 
+ 		/* update leaf slen */
+@@ -1835,10 +1830,9 @@ int fib_table_flush(struct fib_table *tb)
+ 				continue;
+ 			}
+ 
+-			netdev_switch_fib_ipv4_del(n->key,
+-						   KEYLENGTH - fa->fa_slen,
+-						   fi, fa->fa_tos,
+-						   fa->fa_type, tb->tb_id);
++			swdev_fib_ipv4_del(n->key, KEYLENGTH - fa->fa_slen,
++					   fi, fa->fa_tos, fa->fa_type,
++					   tb->tb_id);
+ 			hlist_del_rcu(&fa->fa_list);
+ 			fib_release_info(fa->fa_info);
+ 			alias_free_mem_rcu(fa);
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 0307a45..8a07096 100644
+index d681931..e59fe10 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -258,61 +258,6 @@ int swdev_port_bridge_setlink(struct net_device *dev,
+@@ -285,7 +285,7 @@ int swdev_port_bridge_setlink(struct net_device *dev,
  }
  EXPORT_SYMBOL_GPL(swdev_port_bridge_setlink);
  
--/**
-- *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
-- *	port attribute delete
-- *
-- *	@dev: port device
-- *	@nlh: netlink msg with bridge port attributes
-- *	@flags: bridge setlink flags
-- *
-- *	Notify switch device port of bridge port attribute delete
-- */
--int netdev_switch_port_bridge_dellink(struct net_device *dev,
--				      struct nlmsghdr *nlh, u16 flags)
--{
--	const struct net_device_ops *ops = dev->netdev_ops;
--
--	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return 0;
--
--	if (!ops->ndo_bridge_dellink)
--		return -EOPNOTSUPP;
--
--	return ops->ndo_bridge_dellink(dev, nlh, flags);
--}
--EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_dellink);
--
--/**
-- *	ndo_dflt_netdev_switch_port_bridge_dellink - default ndo bridge dellink
-- *						     op for master devices
-- *
-- *	@dev: port device
-- *	@nlh: netlink msg with bridge port attributes
-- *	@flags: bridge dellink flags
-- *
-- *	Notify master device slaves of bridge port attribute deletes
-- */
--int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
--					       struct nlmsghdr *nlh, u16 flags)
--{
--	struct net_device *lower_dev;
--	struct list_head *iter;
--	int ret = 0, err = 0;
--
--	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return ret;
--
--	netdev_for_each_lower_dev(dev, lower_dev, iter) {
--		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
--		if (err && err != -EOPNOTSUPP)
--			ret = err;
--	}
--
--	return ret;
--}
--EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
--
- static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+-static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
++static struct net_device *swdev_get_lowest_dev(struct net_device *dev)
  {
  	const struct swdev_ops *ops = dev->swdev_ops;
+ 	struct net_device *lower_dev;
+@@ -300,7 +300,7 @@ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ 		return dev;
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		port_dev = netdev_switch_get_lowest_dev(lower_dev);
++		port_dev = swdev_get_lowest_dev(lower_dev);
+ 		if (port_dev)
+ 			return port_dev;
+ 	}
+@@ -308,7 +308,7 @@ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ 	return NULL;
+ }
+ 
+-static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
++static struct net_device *swdev_get_dev_by_nhs(struct fib_info *fi)
+ {
+ 	struct swdev_attr attr = {
+ 		.attr = SWDEV_ATTR_PORT_PARENT_ID,
+@@ -325,7 +325,7 @@ static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
+ 		if (!nh->nh_dev)
+ 			return NULL;
+ 
+-		dev = netdev_switch_get_lowest_dev(nh->nh_dev);
++		dev = swdev_get_lowest_dev(nh->nh_dev);
+ 		if (!dev)
+ 			return NULL;
+ 
+@@ -347,7 +347,7 @@ static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
+ }
+ 
+ /**
+- *	netdev_switch_fib_ipv4_add - Add IPv4 route entry to switch
++ *	swdev_fib_ipv4_add - Add IPv4 route entry to switch
+  *
+  *	@dst: route's IPv4 destination address
+  *	@dst_len: destination address length (prefix length)
+@@ -359,8 +359,8 @@ static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
+  *
+  *	Add IPv4 route entry to switch device.
+  */
+-int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 nlflags, u32 tb_id)
++int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 nlflags, u32 tb_id)
+ {
+ 	struct net_device *dev;
+ 	const struct swdev_ops *ops;
+@@ -378,7 +378,7 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 	if (fi->fib_net->ipv4.fib_offload_disabled)
+ 		return 0;
+ 
+-	dev = netdev_switch_get_dev_by_nhs(fi);
++	dev = swdev_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+ 	ops = dev->swdev_ops;
+@@ -393,10 +393,10 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
++EXPORT_SYMBOL_GPL(swdev_fib_ipv4_add);
+ 
+ /**
+- *	netdev_switch_fib_ipv4_del - Delete IPv4 route entry from switch
++ *	swdev_fib_ipv4_del - Delete IPv4 route entry from switch
+  *
+  *	@dst: route's IPv4 destination address
+  *	@dst_len: destination address length (prefix length)
+@@ -407,8 +407,8 @@ EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
+  *
+  *	Delete IPv4 route entry from switch device.
+  */
+-int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 tb_id)
++int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 tb_id)
+ {
+ 	struct net_device *dev;
+ 	const struct swdev_ops *ops;
+@@ -417,7 +417,7 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
+ 		return 0;
+ 
+-	dev = netdev_switch_get_dev_by_nhs(fi);
++	dev = swdev_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+ 	ops = dev->swdev_ops;
+@@ -431,14 +431,14 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_del);
++EXPORT_SYMBOL_GPL(swdev_fib_ipv4_del);
+ 
+ /**
+- *	netdev_switch_fib_ipv4_abort - Abort an IPv4 FIB operation
++ *	swdev_fib_ipv4_abort - Abort an IPv4 FIB operation
+  *
+  *	@fi: route FIB info structure
+  */
+-void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
++void swdev_fib_ipv4_abort(struct fib_info *fi)
+ {
+ 	/* There was a problem installing this route to the offload
+ 	 * device.  For now, until we come up with more refined
+@@ -451,4 +451,4 @@ void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
+ 	fib_flush_external(fi->fib_net);
+ 	fi->fib_net->ipv4.fib_offload_disabled = true;
+ }
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_abort);
++EXPORT_SYMBOL_GPL(swdev_fib_ipv4_abort);
 -- 
 1.7.10.4
