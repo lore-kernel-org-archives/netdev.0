@@ -1,161 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
-Date: Mon, 30 Mar 2015 13:55:31 +0200
-Message-ID: <20150330115531.GD2045@nanopsycho.orion>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
- <1427704836-8776-3-git-send-email-sfeldma@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	linux@roeck-us.net, f.fainelli@gmail.com
-To: sfeldma@gmail.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net] openvswitch: Return vport module ref before destruction
+Date: Mon, 30 Mar 2015 13:57:41 +0200
+Message-ID: <9cf67a5f127d80bb7db0bd1af1e33505f93e1a01.1427715582.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:38489 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752919AbbC3Lzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 07:55:35 -0400
-Received: by wibgn9 with SMTP id gn9so126025252wib.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 04:55:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1427704836-8776-3-git-send-email-sfeldma@gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:60601 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752597AbbC3L5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 07:57:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 30, 2015 at 10:40:20AM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->Add the basic algorithms for get/set attr ops.  Use the same recusive algo to
->walk lower devs we've used for STP updates, for example.  For get, compare attr
->value for each lower dev and only return success if attr values match across
->all lower devs.  For sets, set the same attr value for all lower devs.  If
->something goes wrong on one of the lower devs, revert all back to previous attr
->value.
->
->If lower dev recusion isn't desired, allow a flag SWDEV_ATTR_F_NO_RECURSE to
->indicate get/set only work on port (lowest) device.
->
->On set, allow a flag SWDEV_ATTR_F_NO_RECOVER to turn off automatic err
->recovery.
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
-> include/net/switchdev.h   |    4 +++
-> net/switchdev/switchdev.c |   71 +++++++++++++++++++++++++++++++++++++++++++--
-> 2 files changed, 73 insertions(+), 2 deletions(-)
+Return module reference before invoking the respective vport
+->destroy() function. This is needed as ovs_vport_del() is not
+invoked inside an RCU read side critical section so the kfree
+can occur immediately before returning to ovs_vport_del().
 
-I would squash this patch with the previous one.
+Returning the module reference before ->destroy() is safe because
+the module unregistration is blocked on ovs_lock which we hold
+while destroying the datapath.
 
+Fixes: 62b9c8d0372d ("ovs: Turn vports with dependencies into separate modules")
+Reported-by: Pravin Shelar <pshelar@nicira.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+@Dave: Please also queue for 3.19.x stable series
 
->
->diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->index 7b72a4f..dcf0cb7 100644
->--- a/include/net/switchdev.h
->+++ b/include/net/switchdev.h
->@@ -18,8 +18,12 @@ enum swdev_attr_id {
-> 	SWDEV_ATTR_UNDEFINED,
-> };
-> 
->+#define SWDEV_ATTR_F_NO_RECURSE		BIT(0)
->+#define SWDEV_ATTR_F_NO_RECOVER		BIT(1)
->+
-> struct swdev_attr {
-> 	enum swdev_attr_id attr;
->+	u32 flags;
-> };
-> 
-> struct fib_info;
->diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->index a894fa5..f3cac92 100644
->--- a/net/switchdev/switchdev.c
->+++ b/net/switchdev/switchdev.c
->@@ -44,10 +44,67 @@ EXPORT_SYMBOL_GPL(netdev_switch_parent_id_get);
->  */
-> int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr)
-> {
->-	return -EOPNOTSUPP;
->+	const struct swdev_ops *ops = dev->swdev_ops;
->+	struct net_device *lower_dev;
->+	struct list_head *iter;
->+	struct swdev_attr first = {
->+		.attr = SWDEV_ATTR_UNDEFINED
->+	};
->+	int err = -EOPNOTSUPP;
->+
->+	if (ops && ops->swdev_port_attr_get)
->+		return ops->swdev_port_attr_get(dev, attr);
->+
->+	if (attr->flags & SWDEV_ATTR_F_NO_RECURSE)
->+		return err;
->+
->+	/* Switch device port(s) may be stacked under
->+	 * bond/team/vlan dev, so recurse down to get attr on
->+	 * each port.  Return -ENODATA if attr values don't
->+	 * compare across ports.
->+	 */
->+
->+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->+		err = swdev_port_attr_get(lower_dev, attr);
->+		if (err)
->+			break;
->+		if (first.attr == SWDEV_ATTR_UNDEFINED)
->+			first = *attr;
->+		else if (memcmp(&first, attr, sizeof(*attr)))
->+			return -ENODATA;
->+	}
->+
->+	return err;
-> }
-> EXPORT_SYMBOL_GPL(swdev_port_attr_get);
-> 
->+static int _swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
->+{
->+	const struct swdev_ops *ops = dev->swdev_ops;
->+	struct net_device *lower_dev;
->+	struct list_head *iter;
->+	int err = -EOPNOTSUPP;
->+
->+	if (ops && ops->swdev_port_attr_set)
->+		return ops->swdev_port_attr_set(dev, attr);
->+
->+	if (attr->flags & SWDEV_ATTR_F_NO_RECURSE)
->+		return err;
->+
->+	/* Switch device port(s) may be stacked under
->+	 * bond/team/vlan dev, so recurse down to set attr on
->+	 * each port.
->+	 */
->+
->+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->+		err = _swdev_port_attr_set(lower_dev, attr);
->+		if (err)
->+			break;
->+	}
->+
->+	return err;
->+}
->+
-> /**
->  *	swdev_port_attr_set - Set port attribute
->  *
->@@ -56,7 +113,17 @@ EXPORT_SYMBOL_GPL(swdev_port_attr_get);
->  */
-> int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
-> {
->-	return -EOPNOTSUPP;
->+	struct swdev_attr prev = *attr;
->+	int err, get_err;
->+
->+	get_err = swdev_port_attr_get(dev, &prev);
->+
->+	err = _swdev_port_attr_set(dev, attr);
->+	if (err && !get_err && !(attr->flags & SWDEV_ATTR_F_NO_RECOVER))
->+		/* Some err on set: revert to previous value */
->+		_swdev_port_attr_set(dev, &prev);
->+
->+	return err;
-> }
-> EXPORT_SYMBOL_GPL(swdev_port_attr_set);
-> 
->-- 
->1.7.10.4
->
+ net/openvswitch/vport.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index ec2954f..067a3ff 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -274,10 +274,8 @@ void ovs_vport_del(struct vport *vport)
+ 	ASSERT_OVSL();
+ 
+ 	hlist_del_rcu(&vport->hash_node);
+-
+-	vport->ops->destroy(vport);
+-
+ 	module_put(vport->ops->owner);
++	vport->ops->destroy(vport);
+ }
+ 
+ /**
+-- 
+1.9.3
