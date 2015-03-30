@@ -1,116 +1,79 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net-next] bonding: BOND_MONITOR_CHURNED is a port variable
-Date: Mon, 30 Mar 2015 09:37:45 -0700
-Message-ID: <CAF2d9jiVf-9yqpk5+2XxQqwSXmesg1N-NWyEqb-5WFV6vmAAgA@mail.gmail.com>
-References: <1427519893-19304-1-git-send-email-maheshb@google.com> <20150330152638.GL1051@gospo>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH -next] mac80211: Use #define IEEE80211_CCMP_PN_LEN and bool
+Date: Mon, 30 Mar 2015 09:37:54 -0700
+Message-ID: <1427733474.14276.11.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:36290 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118AbbC3QiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 12:38:08 -0400
-Received: by obbps3 with SMTP id ps3so14664608obb.3
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 09:38:07 -0700 (PDT)
-In-Reply-To: <20150330152638.GL1051@gospo>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 8:26 AM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> On Fri, Mar 27, 2015 at 10:18:13PM -0700, Mahesh Bandewar wrote:
->> It's a trivial change to assign the correct value for this Churn-machine
->> state. This is actually a port variable and hence assigning some arbitrary
->> value might be error prone.
->
-> I am looking at 802.1AX-2008 and I do not see this value defined in
-> 5.4.8 ("Variables used for managing the operation of the state
-> machines").  What specification were you looking at that had a 'port
-> churned' (or similar) state mentioned?
->
-It's a combination of "actor_churn" + "partner_churn". Since the
-verbose form AD_PORT_ACTOR_PARTNER_CHURNED would be long, decided to
-shorten it.
+Use a #define constant instead of a hardcoded value
+and use bool for an int used as a bool to reduce
+structure size.
 
+Miscellanea:
 
-If we consider churn-machine-state as part of the LACP state machine,
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> ---
->>  drivers/net/bonding/bond_3ad.c | 12 ++++++------
->>  1 file changed, 6 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->> index b8444746521f..3cce25818b57 100644
->> --- a/drivers/net/bonding/bond_3ad.c
->> +++ b/drivers/net/bonding/bond_3ad.c
->> @@ -38,7 +38,6 @@
->>  #define AD_STANDBY                 0x2
->>  #define AD_MAX_TX_IN_SECOND        3
->>  #define AD_COLLECTOR_MAX_DELAY     0
->> -#define AD_MONITOR_CHURNED         0x1000
->>
->>  /* Timer definitions (43.4.4 in the 802.3ad standard) */
->>  #define AD_FAST_PERIODIC_TIME      1
->> @@ -71,6 +70,7 @@
->>  #define AD_PORT_STANDBY         0x80
->>  #define AD_PORT_SELECTED        0x100
->>  #define AD_PORT_MOVED           0x200
->> +#define AD_PORT_CHURNED         0x400
->>
->>  /* Port Key definitions
->>   * key is determined according to the link speed, duplex and
->> @@ -1016,7 +1016,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->>       /* first, check if port was reinitialized */
->>       if (port->sm_vars & AD_PORT_BEGIN) {
->>               port->sm_rx_state = AD_RX_INITIALIZE;
->> -             port->sm_vars |= AD_MONITOR_CHURNED;
->> +             port->sm_vars |= AD_PORT_CHURNED;
->>       /* check if port is not enabled */
->>       } else if (!(port->sm_vars & AD_PORT_BEGIN)
->>                && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
->> @@ -1026,7 +1026,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->>                (port->sm_rx_state == AD_RX_DEFAULTED) ||
->>                (port->sm_rx_state == AD_RX_CURRENT))) {
->>               if (port->sm_rx_state != AD_RX_CURRENT)
->> -                     port->sm_vars |= AD_MONITOR_CHURNED;
->> +                     port->sm_vars |= AD_PORT_CHURNED;
->>               port->sm_rx_timer_counter = 0;
->>               port->sm_rx_state = AD_RX_CURRENT;
->>       } else {
->> @@ -1108,7 +1108,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->>                       port->partner_oper.port_state |= AD_STATE_LACP_ACTIVITY;
->>                       port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
->>                       port->actor_oper_port_state |= AD_STATE_EXPIRED;
->> -                     port->sm_vars |= AD_MONITOR_CHURNED;
->> +                     port->sm_vars |= AD_PORT_CHURNED;
->>                       break;
->>               case AD_RX_DEFAULTED:
->>                       __update_default_selected(port);
->> @@ -1144,8 +1144,8 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->>   */
->>  static void ad_churn_machine(struct port *port)
->>  {
->> -     if (port->sm_vars & AD_MONITOR_CHURNED) {
->> -             port->sm_vars &= ~AD_MONITOR_CHURNED;
->> +     if (port->sm_vars & AD_PORT_CHURNED) {
->> +             port->sm_vars &= ~AD_PORT_CHURNED;
->>               port->sm_churn_actor_state = AD_CHURN_MONITOR;
->>               port->sm_churn_partner_state = AD_CHURN_MONITOR;
->>               port->sm_churn_actor_timer_counter =
->> --
->> 2.2.0.rc0.207.ga3a616c
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Neaten comments in structure definition.
+Add #include of ieee80211.h
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/mac80211/ieee80211_i.h | 7 ++++---
+ net/mac80211/rx.c          | 4 ++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 8d53d65..08f994d 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -26,6 +26,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/leds.h>
+ #include <linux/idr.h>
++#include <linux/ieee80211.h>
+ #include <net/ieee80211_radiotap.h>
+ #include <net/cfg80211.h>
+ #include <net/mac80211.h>
+@@ -89,11 +90,11 @@ struct ieee80211_fragment_entry {
+ 	unsigned int last_frag;
+ 	unsigned int extra_len;
+ 	struct sk_buff_head skb_list;
+-	int ccmp; /* Whether fragments were encrypted with CCMP */
+-	u8 last_pn[6]; /* PN of the last fragment if CCMP was used */
++	/* for CCMP fragments */
++	bool ccmp;				/* encrypted with CCMP */
++	u8 last_pn[IEEE80211_CCMP_PN_LEN];	/* PN of the last fragment */
+ };
+ 
+-
+ struct ieee80211_bss {
+ 	u32 device_ts_beacon, device_ts_presp;
+ 
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 944bdc0..367ed9c 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -1711,7 +1711,7 @@ ieee80211_reassemble_add(struct ieee80211_sub_if_data *sdata,
+ 	entry->seq = seq;
+ 	entry->rx_queue = rx_queue;
+ 	entry->last_frag = frag;
+-	entry->ccmp = 0;
++	entry->ccmp = false;
+ 	entry->extra_len = 0;
+ 
+ 	return entry;
+@@ -1812,7 +1812,7 @@ ieee80211_rx_h_defragment(struct ieee80211_rx_data *rx)
+ 			int queue = rx->security_idx;
+ 			/* Store CCMP PN so that we can verify that the next
+ 			 * fragment has a sequential PN value. */
+-			entry->ccmp = 1;
++			entry->ccmp = true;
+ 			memcpy(entry->last_pn,
+ 			       rx->key->u.ccmp.rx_pn[queue],
+ 			       IEEE80211_CCMP_PN_LEN);
