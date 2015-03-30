@@ -1,108 +1,71 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: RE: [PATCH net-next V3 06/23] ptp: bnx2x: convert to the 64 bit
- get/set time methods.
-Date: Mon, 30 Mar 2015 21:13:19 +0000
-Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E01946EFE0B@AVMB1.qlogic.org>
-References: <cover.1427662906.git.richardcochran@gmail.com>
- <df76e4e50c144a6861c698378c34e52b35e1fbaf.1427662907.git.richardcochran@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Arnd Bergmann <arnd@linaro.org>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	"David Miller" <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	"Prashant Sreedharan" <prashant@broadcom.com>,
-	Rayagond K <rayagond@vayavyalabs.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarfl
-To: Richard Cochran <richardcochran@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <df76e4e50c144a6861c698378c34e52b35e1fbaf.1427662907.git.richardcochran@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 7/9 net-next] sunrpc: replace if/BUG by BUG_ON
+Date: Mon, 30 Mar 2015 23:13:15 +0200
+Message-ID: <1427749998-28464-7-git-send-email-fabf@skynet.be>
+References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay107.isp.belgacom.be ([195.238.20.134]:48291 "EHLO
+	mailrelay107.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753645AbbC3VNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 17:13:48 -0400
+In-Reply-To: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-
-> owner@vger.kernel.org] On Behalf Of Richard Cochran
-> Sent: Sunday, March 29, 2015 2:12 PM
-> To: netdev
-> Cc: linux-kernel; Amir Vadai; Ariel Elior; Arnd Bergmann; Baolin
-> Wang; Ben Hutchings; Bruce Allan; Carolyn Wyborny; Chris
-> Metcalf; David Miller; Frank Li; Giuseppe Cavallaro; Jacob Keller;
-> Jeff Kirsher; John Stultz; Luwei Zhou; Matthew Vick; Michael
-> Chan; Prashant Sreedharan; Rayagond K; Shradha Shah;
-> Solarflare linux maintainers; Sonic Zhang; Stefan S=F8rensen;
-> Thomas Gleixner; Tom Lendacky
-> Subject: [PATCH net-next V3 06/23] ptp: bnx2x: convert to the 64
-> bit get/set time methods.
->=20
-> This driver's clock is implemented using a timecounter, and so
-> with this patch the driver is ready for the year 2038.
->=20
-> Compile tested only.
->=20
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8
-> ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> index 9677431..765667c 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> @@ -13278,7 +13278,7 @@ static int bnx2x_ptp_adjtime(struct
-> ptp_clock_info *ptp, s64 delta)
->  	return 0;
->  }
->=20
-> -static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct
-> timespec *ts)
-> +static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct
-> +timespec64 *ts)
->  {
->  	struct bnx2x *bp =3D container_of(ptp, struct bnx2x,
-> ptp_clock_info);
->  	u64 ns;
-> @@ -13295,7 +13295,7 @@ static int bnx2x_ptp_gettime(struct
-> ptp_clock_info *ptp, struct timespec *ts)  }
->=20
->  static int bnx2x_ptp_settime(struct ptp_clock_info *ptp,
-> -			     const struct timespec *ts)
-> +			     const struct timespec64 *ts)
->  {
->  	struct bnx2x *bp =3D container_of(ptp, struct bnx2x,
-> ptp_clock_info);
->  	u64 ns;
-> @@ -13333,8 +13333,8 @@ static void
-> bnx2x_register_phc(struct bnx2x *bp)
->  	bp->ptp_clock_info.pps =3D 0;
->  	bp->ptp_clock_info.adjfreq =3D bnx2x_ptp_adjfreq;
->  	bp->ptp_clock_info.adjtime =3D bnx2x_ptp_adjtime;
-> -	bp->ptp_clock_info.gettime =3D bnx2x_ptp_gettime;
-> -	bp->ptp_clock_info.settime =3D bnx2x_ptp_settime;
-> +	bp->ptp_clock_info.gettime64 =3D bnx2x_ptp_gettime;
-> +	bp->ptp_clock_info.settime64 =3D bnx2x_ptp_settime;
->  	bp->ptp_clock_info.enable =3D bnx2x_ptp_enable;
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
+ net/sunrpc/svc_xprt.c             | 3 +--
+ 2 files changed, 4 insertions(+), 8 deletions(-)
 
-Acked-by: Sony Chacko <sony.chacko@qlogic.com>
-
-Thanks,
-Sony
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index 1095be9..09f8a1c6 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -840,11 +840,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
+ 		return stat;
+ 	if (integ_len > buf->len)
+ 		return stat;
+-	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+-		BUG();
++	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
+ 	/* copy out mic... */
+-	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+-		BUG();
++	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
+ 	if (mic.len > RPC_MAX_AUTH_SIZE)
+ 		return stat;
+ 	mic.data = kmalloc(mic.len, GFP_KERNEL);
+@@ -1595,8 +1593,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+ 	BUG_ON(integ_len % 4);
+ 	*p++ = htonl(integ_len);
+ 	*p++ = htonl(gc->gc_seq);
+-	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+-		BUG();
++	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
+ 	if (resbuf->tail[0].iov_base == NULL) {
+ 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+ 			goto out_err;
+diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+index 163ac45..2f82e8b 100644
+--- a/net/sunrpc/svc_xprt.c
++++ b/net/sunrpc/svc_xprt.c
+@@ -960,8 +960,7 @@ static void svc_delete_xprt(struct svc_xprt *xprt)
+ 	struct svc_deferred_req *dr;
+ 
+ 	/* Only do this once */
+-	if (test_and_set_bit(XPT_DEAD, &xprt->xpt_flags))
+-		BUG();
++	BUG_ON(test_and_set_bit(XPT_DEAD, &xprt->xpt_flags));
+ 
+ 	dprintk("svc: svc_delete_xprt(%p)\n", xprt);
+ 	xprt->xpt_ops->xpo_detach(xprt);
+-- 
+1.9.1
