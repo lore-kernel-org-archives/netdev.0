@@ -1,35 +1,38 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 0/7] drivers: Use bool function return values true/false not 1/0
-Date: Mon, 30 Mar 2015 10:43:16 -0700
-Message-ID: <cover.1427736972.git.joe@perches.com>
-Cc: dri-devel@lists.freedesktop.org
-To: linux-kernel@vger.kernel.org, dm-devel@redhat.com,
-	linux-raid@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pm@vger.kernel.org,
-	linux-serial@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 5/7] ssb: Use bool function return values of true/false not 1/0
+Date: Mon, 30 Mar 2015 10:43:21 -0700
+Message-ID: <57da8293b865fb2d119e29073aec54323fc10000.1427736972.git.joe@perches.com>
+References: <cover.1427736972.git.joe@perches.com>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, Michael Buesch <m@bues.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0236.hostedemail.com ([216.40.44.236]:59691 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753868AbbC3Rnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 13:43:45 -0400
+In-Reply-To: <cover.1427736972.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches (7):
-  drm: Use bool function return values of true/false not 1/0
-  dm_table: Use bool function return values of true/false not 1/0
-  genwqe: Use bool function return values of true/false not 1/0
-  wmi: Use bool function return values of true/false not 1/0
-  ssb: Use bool function return values of true/false not 1/0
-  thermal: Use bool function return values of true/false not 1/0
-  serial: kgdb_nmi: Use bool function return values of true/false not
-    1/0
+Use the normal return values for bool functions
 
- drivers/gpu/drm/ast/ast_post.c        |  2 +-
- drivers/gpu/drm/vmwgfx/vmwgfx_fence.c |  2 +-
- drivers/md/dm-table.c                 | 20 ++++++++++----------
- drivers/misc/genwqe/card_base.h       |  2 +-
- drivers/platform/x86/wmi.c            |  4 ++--
- drivers/ssb/driver_gige.c             |  2 +-
- drivers/thermal/thermal_core.h        |  2 +-
- drivers/tty/serial/kgdb_nmi.c         |  6 +++---
- 8 files changed, 20 insertions(+), 20 deletions(-)
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/ssb/driver_gige.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/ssb/driver_gige.c b/drivers/ssb/driver_gige.c
+index e973405..ebee6b0 100644
+--- a/drivers/ssb/driver_gige.c
++++ b/drivers/ssb/driver_gige.c
+@@ -242,7 +242,7 @@ static int ssb_gige_probe(struct ssb_device *sdev,
+ bool pdev_is_ssb_gige_core(struct pci_dev *pdev)
+ {
+ 	if (!pdev->resource[0].name)
+-		return 0;
++		return false;
+ 	return (strcmp(pdev->resource[0].name, SSB_GIGE_MEM_RES_NAME) == 0);
+ }
+ EXPORT_SYMBOL(pdev_is_ssb_gige_core);
 -- 
 2.1.2
