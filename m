@@ -1,48 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 07/18] switchdev: add new swdev bridge setlink
-Date: Mon, 30 Mar 2015 14:31:28 +0200
-Message-ID: <20150330123128.GH2045@nanopsycho.orion>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
- <1427704836-8776-8-git-send-email-sfeldma@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single CAN
+ frame for overlapping CAN filters
+Date: Mon, 30 Mar 2015 15:33:30 +0300
+Message-ID: <5519429A.8050000@cogentembedded.com>
+References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	linux@roeck-us.net, f.fainelli@gmail.com
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:36011 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806AbbC3Mb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 08:31:57 -0400
-Received: by wibg7 with SMTP id g7so101237129wib.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 05:31:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1427704836-8776-8-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1427652564-32181-2-git-send-email-socketcan@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Mar 30, 2015 at 10:40:25AM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
+Hello.
+
+On 3/29/2015 9:09 PM, Oliver Hartkopp wrote:
+
+> The CAN_RAW socket can set multiple CAN identifier specific filters that lead
+> to multiple filters in the af_can.c filter processing. These filters are
+> indenpendent from each other which leads to logical OR'ed filters when applied.
+
+> This patch makes sure that every CAN frame which is filtered for a specific
+> socket is only delivered once to the user space. This is independent from the
+> number of matching CAN filters of this socket.
+
+> As the can_raw() function is executed from NET_RX softirq the introduced
+> variables are implemented as per-CPU variables to avoid extensive locking at
+> CAN frame reception time.
+
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> ---
+>   net/can/raw.c | 28 ++++++++++++++++++++++++++++
+>   1 file changed, 28 insertions(+)
+
+> diff --git a/net/can/raw.c b/net/can/raw.c
+> index 00c13ef..866a9b3 100644
+> --- a/net/can/raw.c
+> +++ b/net/can/raw.c
+[...]
+> @@ -123,6 +125,15 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+>   	if (!ro->fd_frames && oskb->len != CAN_MTU)
+>   		return;
 >
->Add new swdev_port_bridge_setlink that can be used by drivers implementing
->.ndo_bridge_setlink to set swdev bridge attributes.  Basically turn the raw
->rtnl_bridge_setlink netlink into swdev attr sets.  Proper netlink attr policy
->checking is done.  Currently, only bridge port attrs BR_LEARNING and
->BR_LEARNING_SYNC are parsed and passed to port driver.
+> +	/* eliminate multiple filter matches for the same skb */
+> +	if (*this_cpu_ptr(ro->uniq_skb) == oskb &&
+> +	    ktime_equal(*this_cpu_ptr(ro->uniq_tstamp), oskb->tstamp)) {
+> +			return;
+
+    Over-indented.
+
+> +	} else {
+> +		*this_cpu_ptr(ro->uniq_skb) = oskb;
+> +		*this_cpu_ptr(ro->uniq_tstamp) = oskb->tstamp;
+> +	}
+> +
+>   	/* clone the given skb to be able to enqueue it into the rcv queue */
+>   	skb = skb_clone(oskb, GFP_ATOMIC);
+>   	if (!skb)
+[...]
+> @@ -297,6 +309,20 @@ static int raw_init(struct sock *sk)
+>   	ro->recv_own_msgs    = 0;
+>   	ro->fd_frames        = 0;
 >
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
-> include/net/switchdev.h   |    8 +++++
-> net/switchdev/switchdev.c |   86 +++++++++++++++++++++++++++++++++++++++++++++
-> 2 files changed, 94 insertions(+)
->
+> +	ro->uniq_skb = alloc_percpu(struct sk_buff *);
+> +	if (unlikely(ro->uniq_skb == NULL))
+> +		return -ENOMEM;
+> +	for_each_possible_cpu(cpu)
+> +		*per_cpu_ptr(ro->uniq_skb, cpu) = NULL;
+> +
+> +	ro->uniq_tstamp = alloc_percpu(ktime_t);
+> +	if (unlikely(ro->uniq_tstamp == NULL)) {
 
-...
+    !ro->uniq_tstamp is preferred in the networking code.
 
->+int swdev_port_bridge_setlink(struct net_device *dev,
->+			      struct nlmsghdr *nlh, u16 flags)
->+{
->+	struct nlattr *protinfo;
->+	struct nlattr *ifla;
+[...]
 
-	I would prefer just "attr" for example instead of "ifla"
+WBR, Sergei
+
