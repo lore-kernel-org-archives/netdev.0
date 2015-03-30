@@ -1,118 +1,170 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-Date: Mon, 30 Mar 2015 11:32:59 -0700
-Message-ID: <CAF2d9jgisQpzfCqVfmwqBmHwvceHBfRoV3X+PycyHzCkOSerXQ@mail.gmail.com>
-References: <1427409698.18540.11.camel@redhat.com> <1427409822.18540.13.camel@redhat.com>
- <CAF2d9jjxoKFoX7bvJ7+cA685iBT9fPgjvjTKe8ppE_J3oWJgrQ@mail.gmail.com>
- <CAF2d9jh_-DxxUMcTjFK3TUAJhC=B9ORrmH0=tVH1KBiWsYPpLg@mail.gmail.com>
- <20150328193254.6c79784d@griffin> <1427726230.1913.9.camel@redhat.com>
- <CAF2d9jj08R=60na9yeCdsensccYrd-an-7SUk0FuHiD7sN5K+A@mail.gmail.com>
- <1427737479.1913.20.camel@redhat.com> <CAF2d9jizXuauzahKsumi9R80JRe10TSGhbmsBG0CpONBbVCbbA@mail.gmail.com>
- <1427739198.1913.25.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Benc <jbenc@redhat.com>, linux-netdev <netdev@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: [PATCH net-next v10 3/7] ixgbe: Add a RETA query command to VF-PF channel API
+Date: Mon, 30 Mar 2015 21:35:25 +0300
+Message-ID: <1427740529-9605-4-git-send-email-vladz@cloudius-systems.com>
+References: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
+Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+	avi@cloudius-systems.com, gleb@cloudius-systems.com,
+	Vlad Zolotarov <vladz@cloudius-systems.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:36598 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753188AbbC3SdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:33:21 -0400
-Received: by obbps3 with SMTP id ps3so20168909obb.3
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 11:33:20 -0700 (PDT)
-In-Reply-To: <1427739198.1913.25.camel@redhat.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:37967 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753400AbbC3Sfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:35:41 -0400
+Received: by wibgn9 with SMTP id gn9so142220842wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 11:35:40 -0700 (PDT)
+In-Reply-To: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 30, 2015 at 11:13 AM, Dan Williams <dcbw@redhat.com> wrote:
-> On Mon, 2015-03-30 at 10:56 -0700, Mahesh Bandewar wrote:
->> On Mon, Mar 30, 2015 at 10:44 AM, Dan Williams <dcbw@redhat.com> wrote:
->> > On Mon, 2015-03-30 at 09:54 -0700, Mahesh Bandewar wrote:
->> >> On Mon, Mar 30, 2015 at 7:37 AM, Dan Williams <dcbw@redhat.com> wrote:
->> >> > On Sat, 2015-03-28 at 19:32 +0100, Jiri Benc wrote:
->> >> >> On Fri, 27 Mar 2015 22:56:15 -0700, Mahesh Bandewar wrote:
->> >> >> > The current logic disables broadcast by default and enables only when
->> >> >> > an IPv4 address is added. If this is inverted and -
->> >> >> > enables broadcast by default but disables it when only IPv6
->> >> >> > address(es) is / are added. These links can have multiple addresses
->> >> >> > and hence have to be careful if any one of those is IPv4 then
->> >> >> > broadcast bit has to be set.
->> >> >>
->> >> >> You'd have to be careful and ignore IPv6 link local addresses.
->> >> >> Those are added automatically whenever IPv6 is enabled and their
->> >> >> presence does not mean the network is not IPv4 only.
->> >> >>
->> >> >> But I don't like such magic behavior. It would lead to DHCP sometimes
->> >> >> working and sometimes not in mixed v4/v6 environment depending on
->> >> >> whether DHCPv4 or SLAAC was faster.
->> >> >>
->> >> >> Could we perhaps add a flag when creating ipvlan interface stating
->> >> >> whether IPv4 broadcast should be always enabled? Or, rather, the other
->> >> >> way round - whether it should be disabled by default. Call it "nodhcp"
->> >> >> or so.
->> >> >>
->> >> >> Btw, speaking about IPv6 link local addresses, these actually do not
->> >> >> work with ipvlan correctly. I'm getting DAD failures if I have more
->> >> >> than one ipvlan interface, which is no wonder. This means that ipvlan
->> >> >> cannot work with IPv6 reliably by default (unless you take care of ll
->> >> >> address assignment and ensure all ipvlan interfaces get a different
->> >> >> one).
->> >> >
->> >> > ipvlan doesn't set dev_id.  Once dev_id is set the kernel's IPv6LL
->> >> > address generation code will assign a different LL address to each
->> >> > ipvlan interface created from the same physical interface, despite that
->> >> > they have the same MAC address.
->> >> >
->> >> Yes, that was what my plan was but never got around fixing that
->> >>
->> >> > But of course you'd have to be careful to assign a *different* dev_id
->> >> > than any of that physical interface's non-ipvlan children too, and I
->> >> > have no idea how that would work since dev_id is currently done
->> >> > per-driver.  eg, if you have a physical interface with dev_id=1 which
->> >> > you then create an ipvlan from, that ipvlan must not use dev_id=1 or it
->> >> > will be assigned the same IPv6LL address as the parent.
->> >> >
->> >> The description is very clear for dev_id (in netdevice.h). So the idea
->> >> of using the subsequent numbers after master's id should be possible.
->> >> After all these logical devices are going to share the same link. Most
->> >> physical drivers don't assign dev-id so the beginning is 0x0 (for the
->> >> physical driver) and from 0x1 can be assigned to the logical links.
->> >> The definition is not clear in terms of what is the beginning (0x0 or
->> >> 0x1) but from the code that generates the IPv6LL it's common that it's
->> >> 0x0 hence logical links on top of these links can use 0x1 onward.
->> >> However a check to see if the master-link has dev-id and staying clear
->> >> of that should be sufficient.
->> >
->> > My point was that if you have a parent with a non-zero dev_id, there can
->> > be other siblings of the parent that have a different dev_id and share
->> > the same MAC address.  So creating an ipvlan with parent->dev_id + 1
->> > doesn't work, because the parent may have a sibling with parent->dev_id
->> > + 1 and the same MAC address already.
->> >
->> May be I'm missing something but is there a scenario where sibling
->> (physical / port) will be sharing the same LL-address? The definition
->> / description in netdevice.h is  -
->>
->>                *  @dev_id:        Used to differentiate devices that share
->>                *                          the same link layer address
->>
->> So I's assuming the layered / stacked devices (children) rather than
->> ports etc (siblings). What am I missing?
->
-> I don't think that distinction matters since you can create an ipvlan
-> interface on top of any other interface except a macvlan.  So any driver
-> that sets dev_id could be the parent of an ipvlan interface.  That
-> appears to include some CAN devices and s390's qeth driver at the
-> moment.
->
-Yes, that is true (forgot about it!), which means the dev-id has to be
-unique in the physical drivers (not just masters') hierarchy.
+Add this new command for 82599 and x540 devices only. Support for other devices
+will be added later.
 
-I think it becomes little complicated. When IPvlan get instantiated,
-traverse the dev-layers
-using the adj_list linkage and find the lowest device and then
-traverse the hierarchy to find a base-dev-id. Then use that base for
-all logical link creation. Would this work?
+82599 and x540 VFs and PF share the same RSS redirection table (RETA). Therefore we
+just return it for all VFs.
 
-> Dan
->
+For 82599 and x540 RETA table is an array of 32 registers (128 bytes) and the maximum number of
+registers that may be delivered in a single VF-PF channel command is 15. Therefore
+we will deliver the whole table in 3 steps: 12, 12 and 8 registers in each
+step correspondingly.
+
+Thus this patch does the following:
+
+  - Adds a new API version (to specify a new commands set).
+  - Adds the IXGBE_VF_GET_RETA command to the VF-PF commands set.
+
+Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+---
+New in v10:
+   - Drop the PRSTYPE reading since it's VF that finally modifies it (via VFPSRTYPE)
+     and we will add the proper masking at the VF driver level.
+   - Return more self-explaining values.
+
+New in v9:
+   - Reduce the support to 82599 and x540 devices only.
+   - Improvements in query RETA VF-PF command implementation:
+      - Use the cached RETA contents.
+      - Compress the mailbox message.
+
+New in v5:
+   - Use the newly added netdev op to allow/prevent the RETA query on a per-VF basis.
+
+New in v4:
+   - Deleted an empty line in ixgbe_get_vf_reta() switch-case.
+
+New in v3:
+   - Pass the number of dwords and offset in RETA in the IXGBE_VF_GET_RETA request message.
+     This allows to reduce the added command set to a single command.
+   - Added a support for all devices supported by the ixgbe driver that have
+     SR-IOV functions support: 82599, x540 and x550. The original code supported
+     only 82599 and x540.
+   - Added the masking of the RETA entries according to the PSRTYPE[n].RQPL
+     value.
+
+New in v1 (compared to RFC):
+   - Use "if-else" statement instead of a "switch-case" for a single option case
+     (in ixgbe_get_vf_reta()).
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  4 +++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 ++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+index a5cb755..3522f53 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+@@ -73,6 +73,7 @@ enum ixgbe_pfvf_api_rev {
+ 	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
+ 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
+ 	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
++	ixgbe_mbox_api_12,	/* API version 1.2, linux/freebsd VF driver */
+ 	/* This value should always be last */
+ 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
+ };
+@@ -97,6 +98,9 @@ enum ixgbe_pfvf_api_rev {
+ #define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
+ #define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
+ 
++/* mailbox API, version 1.2 VF requests */
++#define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
++
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN 4
+ /* word in permanent address message with the current multicast type */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 2de5335..81f54c3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -433,6 +433,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ #endif /* CONFIG_FCOE */
+ 		switch (adapter->vfinfo[vf].vf_api) {
+ 		case ixgbe_mbox_api_11:
++		case ixgbe_mbox_api_12:
+ 			/*
+ 			 * Version 1.1 supports jumbo frames on VFs if PF has
+ 			 * jumbo frames enabled which means legacy VFs are
+@@ -900,6 +901,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
+ 	switch (api) {
+ 	case ixgbe_mbox_api_10:
+ 	case ixgbe_mbox_api_11:
++	case ixgbe_mbox_api_12:
+ 		adapter->vfinfo[vf].vf_api = api;
+ 		return 0;
+ 	default:
+@@ -923,6 +925,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
+ 	switch (adapter->vfinfo[vf].vf_api) {
+ 	case ixgbe_mbox_api_20:
+ 	case ixgbe_mbox_api_11:
++	case ixgbe_mbox_api_12:
+ 		break;
+ 	default:
+ 		return -1;
+@@ -950,6 +953,35 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
+ 	return 0;
+ }
+ 
++static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
++{
++	u32 i, j;
++	u32 *out_buf = &msgbuf[1];
++	const u8 *reta = adapter->rss_indir_tbl;
++	u32 reta_size = ixgbe_rss_indir_tbl_entries(adapter);
++
++	/* Check if operation is permitted */
++	if (!adapter->vfinfo[vf].rss_query_enabled)
++		return -EPERM;
++
++	/* verify the PF is supporting the correct API */
++	if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
++		return -EOPNOTSUPP;
++
++	/* This mailbox command is supported (required) only for 82599 and x540
++	 * VFs which support up to 4 RSS queues. Therefore we will compress the
++	 * RETA by saving only 2 bits from each entry. This way we will be able
++	 * to transfer the whole RETA in a single mailbox operation.
++	 */
++	for (i = 0; i < reta_size / 16; i++) {
++		out_buf[i] = 0;
++		for (j = 0; j < 16; j++)
++			out_buf[i] |= (u32)(reta[16 * i + j] & 0x3) << (2 * j);
++	}
++
++	return 0;
++}
++
+ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+@@ -1006,6 +1038,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	case IXGBE_VF_GET_QUEUES:
+ 		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
+ 		break;
++	case IXGBE_VF_GET_RETA:
++		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
++		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+ 		retval = IXGBE_ERR_MBX;
+-- 
+2.1.0
