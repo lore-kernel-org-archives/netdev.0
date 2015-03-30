@@ -1,60 +1,41 @@
 From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next v2 2/5] net: bcmgenet: remove __bcmgenet_fini_dma()
-Date: Mon, 30 Mar 2015 00:29:01 -0700 (PDT)
-Message-ID: <20150330072901.35457220215@puck.mtv.corp.google.com>
+Subject: [PATCH net-next v2 3/5] net: bcmgenet: fix bcmgenet_open()
+Date: Mon, 30 Mar 2015 00:29:13 -0700 (PDT)
+Message-ID: <20150330072913.63758220215@puck.mtv.corp.google.com>
 Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:33326 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752896AbbC3H3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 03:29:03 -0400
-Received: by obbnt9 with SMTP id nt9so9447582obb.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 00:29:02 -0700 (PDT)
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:32812 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752939AbbC3H3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 03:29:14 -0400
+Received: by pdjg10 with SMTP id g10so3441884pdj.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 00:29:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcmgenet_fini_dma() is the only caller of __bcmgenet_fini_dma().
-Move __bcmgenet_fini_dma() code inside bcmgenet_fini_dma().
+If bcmgenet_init_dma() fails, it cleans up after itself. Rx and Tx
+DMAs are off, and NAPI instances haven't been netif_napi_add()'ed.
+Therefore, we need to skip calling bcmgenet_fini_dma() on the error
+handling path. bcmgenet_resume() already does this correctly.
 
 Signed-off-by: Petri Gynther <pgynther@google.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 620021e..546d862 100644
+index 546d862..5238b33 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2173,10 +2173,13 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
- 	return ret;
- }
+@@ -2666,7 +2666,7 @@ static int bcmgenet_open(struct net_device *dev)
+ 	ret = bcmgenet_init_dma(priv);
+ 	if (ret) {
+ 		netdev_err(dev, "failed to initialize DMA\n");
+-		goto err_fini_dma;
++		goto err_clk_disable;
+ 	}
  
--static void __bcmgenet_fini_dma(struct bcmgenet_priv *priv)
-+static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- {
- 	int i;
- 
-+	bcmgenet_fini_rx_napi(priv);
-+	bcmgenet_fini_tx_napi(priv);
-+
- 	/* disable DMA */
- 	bcmgenet_dma_teardown(priv);
- 
-@@ -2192,14 +2195,6 @@ static void __bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- 	kfree(priv->tx_cbs);
- }
- 
--static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
--{
--	bcmgenet_fini_rx_napi(priv);
--	bcmgenet_fini_tx_napi(priv);
--
--	__bcmgenet_fini_dma(priv);
--}
--
- /* init_edma: Initialize DMA control register */
- static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
- {
+ 	/* Always enable ring 16 - descriptor ring */
 -- 
 2.2.0.rc0.207.ga3a616c
