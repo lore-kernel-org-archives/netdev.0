@@ -1,284 +1,99 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next 17/18] switchdev: rename netdev_switch_notifier_* to swdev_notifier_*
-Date: Mon, 30 Mar 2015 01:40:35 -0700
-Message-ID: <1427704836-8776-18-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next 14/18] switchdev: add new swdev_port_bridge_getlink
+Date: Mon, 30 Mar 2015 01:40:32 -0700
+Message-ID: <1427704836-8776-15-git-send-email-sfeldma@gmail.com>
 References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:33111 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753398AbbC3IkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:40:03 -0400
-Received: by pdnc3 with SMTP id c3so169107724pdn.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:40:02 -0700 (PDT)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:33033 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753284AbbC3IkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 04:40:00 -0400
+Received: by pdnc3 with SMTP id c3so169106299pdn.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 01:39:59 -0700 (PDT)
 In-Reply-To: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-To be consistent with other swdev code, rename swdev notifier with swdev_
-prefix.
+Like bridge_setlink, add swdev wrapper to handle bridge_getlink and call into
+port driver to get port attrs.  For now, only BR_LEARNING and BR_LEARNING_SYNC
+are returned.  To add more, we'll probably want to break away from
+ndo_dflt_bridge_getlink() and build the netlink skb directly in the swdev code.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |    8 +++-----
- include/net/switchdev.h              |   31 ++++++++++++++++---------------
- net/bridge/br.c                      |   22 +++++++++++-----------
- net/switchdev/switchdev.c            |   20 ++++++++++----------
- 4 files changed, 40 insertions(+), 41 deletions(-)
+ include/net/switchdev.h   |    9 +++++++++
+ net/switchdev/switchdev.c |   27 +++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index b65c634..81038cf 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3377,17 +3377,15 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
- 		container_of(work, struct rocker_fdb_learn_work, work);
- 	bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
- 	bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
--	struct netdev_switch_notifier_fdb_info info;
-+	struct swdev_notifier_fdb_info info;
- 
- 	info.addr = lw->addr;
- 	info.vid = lw->vid;
- 
- 	if (learned && removing)
--		call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL,
--					     lw->dev, &info.info);
-+		call_swdev_notifiers(SWDEV_FDB_DEL, lw->dev, &info.info);
- 	else if (learned && !removing)
--		call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_ADD,
--					     lw->dev, &info.info);
-+		call_swdev_notifiers(SWDEV_FDB_ADD, lw->dev, &info.info);
- 
- 	kfree(work);
- }
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 9cda17e..fbe33f3 100644
+index 97196ab..bf77f66 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -61,23 +61,23 @@ struct swdev_ops {
- 				      u8 tos, u8 type, u32 tb_id);
- };
+@@ -86,6 +86,8 @@ netdev_switch_notifier_info_to_dev(const struct netdev_switch_notifier_info *inf
  
--enum netdev_switch_notifier_type {
--	NETDEV_SWITCH_FDB_ADD = 1,
--	NETDEV_SWITCH_FDB_DEL,
-+enum swdev_notifier_type {
-+	SWDEV_FDB_ADD = 1,
-+	SWDEV_FDB_DEL,
- };
- 
--struct netdev_switch_notifier_info {
-+struct swdev_notifier_info {
- 	struct net_device *dev;
- };
- 
--struct netdev_switch_notifier_fdb_info {
--	struct netdev_switch_notifier_info info; /* must be first */
-+struct swdev_notifier_fdb_info {
-+	struct swdev_notifier_info info; /* must be first */
- 	const unsigned char *addr;
- 	u16 vid;
- };
- 
- static inline struct net_device *
--netdev_switch_notifier_info_to_dev(const struct netdev_switch_notifier_info *info)
-+swdev_notifier_info_to_dev(const struct swdev_notifier_info *info)
- {
- 	return info->dev;
- }
-@@ -90,10 +90,10 @@ int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 			      struct net_device *dev, u32 filter_mask);
+ int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr);
+ int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr);
++int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
++			      struct net_device *dev, u32 filter_mask);
  int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
  			      u16 flags);
--int register_netdev_switch_notifier(struct notifier_block *nb);
--int unregister_netdev_switch_notifier(struct notifier_block *nb);
--int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--				 struct netdev_switch_notifier_info *info);
-+int register_swdev_notifier(struct notifier_block *nb);
-+int unregister_swdev_notifier(struct notifier_block *nb);
-+int call_swdev_notifiers(unsigned long val, struct net_device *dev,
-+			 struct swdev_notifier_info *info);
- int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 		       u8 tos, u8 type, u32 nlflags, u32 tb_id);
- int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-@@ -127,18 +127,19 @@ static inline int swdev_port_bridge_setlink(struct net_device *dev,
+ int register_netdev_switch_notifier(struct notifier_block *nb);
+@@ -112,6 +114,13 @@ static inline int swdev_port_attr_set(struct net_device *dev,
  	return -EOPNOTSUPP;
  }
  
--static inline int register_netdev_switch_notifier(struct notifier_block *nb)
-+static inline int register_swdev_notifier(struct notifier_block *nb)
++static inline int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
++					    u32 seq, struct net_device *dev,
++					    u32 filter_mask)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int swdev_port_bridge_setlink(struct net_device *dev,
+ 					    struct nlmsghdr *nlh, u16 flags)
  {
- 	return 0;
- }
- 
--static inline int unregister_netdev_switch_notifier(struct notifier_block *nb)
-+static inline int unregister_swdev_notifier(struct notifier_block *nb)
- {
- 	return 0;
- }
- 
--static inline int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--					       struct netdev_switch_notifier_info *info)
-+static inline int call_swdev_notifiers(unsigned long val,
-+				       struct net_device *dev,
-+				       struct swdev_notifier_info *info)
- {
- 	return NOTIFY_DONE;
- }
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index 02c24cf..9d54965 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -121,13 +121,13 @@ static struct notifier_block br_device_notifier = {
- 	.notifier_call = br_device_event
- };
- 
--static int br_netdev_switch_event(struct notifier_block *unused,
--				  unsigned long event, void *ptr)
-+static int br_swdev_event(struct notifier_block *unused,
-+			  unsigned long event, void *ptr)
- {
--	struct net_device *dev = netdev_switch_notifier_info_to_dev(ptr);
-+	struct net_device *dev = swdev_notifier_info_to_dev(ptr);
- 	struct net_bridge_port *p;
- 	struct net_bridge *br;
--	struct netdev_switch_notifier_fdb_info *fdb_info;
-+	struct swdev_notifier_fdb_info *fdb_info;
- 	int err = NOTIFY_DONE;
- 
- 	rtnl_lock();
-@@ -138,14 +138,14 @@ static int br_netdev_switch_event(struct notifier_block *unused,
- 	br = p->br;
- 
- 	switch (event) {
--	case NETDEV_SWITCH_FDB_ADD:
-+	case SWDEV_FDB_ADD:
- 		fdb_info = ptr;
- 		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
- 						fdb_info->vid);
- 		if (err)
- 			err = notifier_from_errno(err);
- 		break;
--	case NETDEV_SWITCH_FDB_DEL:
-+	case SWDEV_FDB_DEL:
- 		fdb_info = ptr;
- 		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
- 						fdb_info->vid);
-@@ -159,8 +159,8 @@ out:
- 	return err;
- }
- 
--static struct notifier_block br_netdev_switch_notifier = {
--	.notifier_call = br_netdev_switch_event,
-+static struct notifier_block br_swdev_notifier = {
-+	.notifier_call = br_swdev_event,
- };
- 
- static void __net_exit br_net_exit(struct net *net)
-@@ -214,7 +214,7 @@ static int __init br_init(void)
- 	if (err)
- 		goto err_out3;
- 
--	err = register_netdev_switch_notifier(&br_netdev_switch_notifier);
-+	err = register_swdev_notifier(&br_swdev_notifier);
- 	if (err)
- 		goto err_out4;
- 
-@@ -235,7 +235,7 @@ static int __init br_init(void)
- 	return 0;
- 
- err_out5:
--	unregister_netdev_switch_notifier(&br_netdev_switch_notifier);
-+	unregister_swdev_notifier(&br_swdev_notifier);
- err_out4:
- 	unregister_netdevice_notifier(&br_device_notifier);
- err_out3:
-@@ -253,7 +253,7 @@ static void __exit br_deinit(void)
- {
- 	stp_proto_unregister(&br_stp_proto);
- 	br_netlink_fini();
--	unregister_netdev_switch_notifier(&br_netdev_switch_notifier);
-+	unregister_swdev_notifier(&br_swdev_notifier);
- 	unregister_netdevice_notifier(&br_device_notifier);
- 	brioctl_set(NULL);
- 	unregister_pernet_subsys(&br_net_ops);
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index e59fe10..42a5338 100644
+index 8a07096..d681931 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -114,14 +114,14 @@ static DEFINE_MUTEX(netdev_switch_mutex);
- static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
- 
- /**
-- *	register_netdev_switch_notifier - Register notifier
-+ *	register_swdev_notifier - Register notifier
-  *	@nb: notifier_block
-  *
-  *	Register switch device notifier. This should be used by code
-  *	which needs to monitor events happening in particular device.
-  *	Return values are same as for atomic_notifier_chain_register().
-  */
--int register_netdev_switch_notifier(struct notifier_block *nb)
-+int register_swdev_notifier(struct notifier_block *nb)
- {
- 	int err;
- 
-@@ -130,16 +130,16 @@ int register_netdev_switch_notifier(struct notifier_block *nb)
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
+@@ -173,6 +173,33 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
  }
--EXPORT_SYMBOL_GPL(register_netdev_switch_notifier);
-+EXPORT_SYMBOL_GPL(register_swdev_notifier);
+ EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
  
- /**
-- *	unregister_netdev_switch_notifier - Unregister notifier
-+ *	unregister_swdev_notifier - Unregister notifier
-  *	@nb: notifier_block
-  *
-  *	Unregister switch device notifier.
-  *	Return values are same as for atomic_notifier_chain_unregister().
-  */
--int unregister_netdev_switch_notifier(struct notifier_block *nb)
-+int unregister_swdev_notifier(struct notifier_block *nb)
- {
- 	int err;
- 
-@@ -148,10 +148,10 @@ int unregister_netdev_switch_notifier(struct notifier_block *nb)
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
- }
--EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
-+EXPORT_SYMBOL_GPL(unregister_swdev_notifier);
- 
- /**
-- *	call_netdev_switch_notifiers - Call notifiers
-+ *	call_swdev_notifiers - Call notifiers
-  *	@val: value passed unmodified to notifier function
-  *	@dev: port device
-  *	@info: notifier information data
-@@ -160,8 +160,8 @@ EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
-  *	when it needs to propagate hardware event.
-  *	Return values are same as for atomic_notifier_call_chain().
-  */
--int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--				 struct netdev_switch_notifier_info *info)
-+int call_swdev_notifiers(unsigned long val, struct net_device *dev,
-+			 struct swdev_notifier_info *info)
- {
- 	int err;
- 
-@@ -171,7 +171,7 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
- }
--EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
-+EXPORT_SYMBOL_GPL(call_swdev_notifiers);
- 
- /**
-  *	swdev_port_bridge_getlink - Get bridge port attributes
++/**
++ *	swdev_port_bridge_getlink - Get bridge port attributes
++ *
++ *	@dev: port device
++ *
++ *	Called for SELF on rtnl_bridge_getlink to get bridge port
++ *	attributes.
++ */
++int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
++			      struct net_device *dev, u32 filter_mask)
++{
++	struct swdev_attr attr = {
++		.attr = SWDEV_ATTR_PORT_BRIDGE_FLAGS,
++	};
++	u16 mode = BRIDGE_MODE_UNDEF;
++	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
++	int err;
++
++	err = swdev_port_attr_get(dev, &attr);
++	if (err)
++		return err;
++
++	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
++				       attr.brport_flags, mask);
++}
++EXPORT_SYMBOL_GPL(swdev_port_bridge_getlink);
++
+ static int swdev_port_bridge_setflag(struct net_device *dev,
+ 				     struct nlattr *ifla,
+ 				     unsigned long brport_flag)
 -- 
 1.7.10.4
