@@ -1,38 +1,91 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: [PATCH net-next] crypto: algif - use kmalloc instead of kzalloc
-Date: Mon, 30 Mar 2015 14:25:44 -0700
-Message-ID: <20150330212543.7179.25983.stgit@tstruk-mobl1>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: davem@davemloft.net
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next v2] bonding: deprecate BOND_MONITOR_CHURNED in favor of existing definitions
+Date: Mon, 30 Mar 2015 14:30:40 -0700
+Message-ID: <1427751040-4445-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16482 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449AbbC3V2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 17:28:32 -0400
+Received: from mail-ig0-f202.google.com ([209.85.213.202]:34559 "EHLO
+	mail-ig0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752556AbbC3Vao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 17:30:44 -0400
+Received: by igam20 with SMTP id m20so422825iga.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 14:30:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to use kzalloc to allocate sgls as the structure is initialized anyway.
+AD_PORT_ACTOR_CHURN and AD_PORT_PARTNER_CHURN are already present and
+essentially BOND_MONITOR_CHURNED is a combination of these two definitions.
 
-Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- crypto/algif_skcipher.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_3ad.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index 9492dd5..5fd631f 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -583,7 +583,7 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 			rsgl = &sreq->first_sgl;
- 			list_add_tail(&rsgl->list, &sreq->list);
- 		} else {
--			rsgl = kzalloc(sizeof(*rsgl), GFP_KERNEL);
-+			rsgl = kmalloc(sizeof(*rsgl), GFP_KERNEL);
- 			if (!rsgl) {
- 				err = -ENOMEM;
- 				goto free;
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 5712cf6d0342..4309b5a76708 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -38,7 +38,6 @@
+ #define AD_STANDBY                 0x2
+ #define AD_MAX_TX_IN_SECOND        3
+ #define AD_COLLECTOR_MAX_DELAY     0
+-#define AD_MONITOR_CHURNED         0x1000
+ 
+ /* Timer definitions (43.4.4 in the 802.3ad standard) */
+ #define AD_FAST_PERIODIC_TIME      1
+@@ -71,6 +70,7 @@
+ #define AD_PORT_STANDBY         0x80
+ #define AD_PORT_SELECTED        0x100
+ #define AD_PORT_MOVED           0x200
++#define AD_PORT_CHURNED         (AD_PORT_ACTOR_CHURN | AD_PORT_PARTNER_CHURN)
+ 
+ /* Port Key definitions
+  * key is determined according to the link speed, duplex and
+@@ -1016,7 +1016,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+ 	/* first, check if port was reinitialized */
+ 	if (port->sm_vars & AD_PORT_BEGIN) {
+ 		port->sm_rx_state = AD_RX_INITIALIZE;
+-		port->sm_vars |= AD_MONITOR_CHURNED;
++		port->sm_vars |= AD_PORT_CHURNED;
+ 	/* check if port is not enabled */
+ 	} else if (!(port->sm_vars & AD_PORT_BEGIN)
+ 		 && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
+@@ -1026,7 +1026,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+ 		 (port->sm_rx_state == AD_RX_DEFAULTED) ||
+ 		 (port->sm_rx_state == AD_RX_CURRENT))) {
+ 		if (port->sm_rx_state != AD_RX_CURRENT)
+-			port->sm_vars |= AD_MONITOR_CHURNED;
++			port->sm_vars |= AD_PORT_CHURNED;
+ 		port->sm_rx_timer_counter = 0;
+ 		port->sm_rx_state = AD_RX_CURRENT;
+ 	} else {
+@@ -1108,7 +1108,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+ 			port->partner_oper.port_state |= AD_STATE_LACP_ACTIVITY;
+ 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
+ 			port->actor_oper_port_state |= AD_STATE_EXPIRED;
+-			port->sm_vars |= AD_MONITOR_CHURNED;
++			port->sm_vars |= AD_PORT_CHURNED;
+ 			break;
+ 		case AD_RX_DEFAULTED:
+ 			__update_default_selected(port);
+@@ -1144,8 +1144,8 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+  */
+ static void ad_churn_machine(struct port *port)
+ {
+-	if (port->sm_vars & AD_MONITOR_CHURNED) {
+-		port->sm_vars &= ~AD_MONITOR_CHURNED;
++	if (port->sm_vars & AD_PORT_CHURNED) {
++		port->sm_vars &= ~AD_PORT_CHURNED;
+ 		port->sm_churn_actor_state = AD_CHURN_MONITOR;
+ 		port->sm_churn_partner_state = AD_CHURN_MONITOR;
+ 		port->sm_churn_actor_timer_counter =
+-- 
+2.2.0.rc0.207.ga3a616c
