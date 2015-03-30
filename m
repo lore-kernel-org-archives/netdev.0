@@ -1,100 +1,147 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH net 1/4 v3] ipvlan: fix addr hash list corruption
-Date: Mon, 30 Mar 2015 13:24:25 -0700
-Message-ID: <CAF2d9jikJZSX+8HGE7tn8FL8s9WSN9WCkQ-ZpPjw5pNkXjZ1eg@mail.gmail.com>
-References: <cover.1427566140.git.jbenc@redhat.com> <7b41479bf40b6ea0714afc07e64ad39c531c273f.1427566140.git.jbenc@redhat.com>
+Subject: Re: [PATCH net 4/4 v2] ipvlan: fix check for IP addresses in control path
+Date: Mon, 30 Mar 2015 13:27:17 -0700
+Message-ID: <CAF2d9jh5w7Oci+XGdoc0VN-UaosfdkFkNEQ30mQ8TgqJogp8OA@mail.gmail.com>
+References: <cover.1427566140.git.jbenc@redhat.com> <eb0a8f2bcf562329ba7eb3bf1539416ee135af4d.1427566140.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: linux-netdev <netdev@vger.kernel.org>,
 	Dan Williams <dcbw@redhat.com>
 To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:32976 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbC3UYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 16:24:46 -0400
-Received: by obvd1 with SMTP id d1so73363910obv.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 13:24:46 -0700 (PDT)
-In-Reply-To: <7b41479bf40b6ea0714afc07e64ad39c531c273f.1427566140.git.jbenc@redhat.com>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:33812 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225AbbC3U1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 16:27:38 -0400
+Received: by obbgh1 with SMTP id gh1so74508464obb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 13:27:37 -0700 (PDT)
+In-Reply-To: <eb0a8f2bcf562329ba7eb3bf1539416ee135af4d.1427566140.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Sat, Mar 28, 2015 at 11:13 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> When ipvlan interface with IP addresses attached is brought down and then
-> deleted, the assigned addresses are deleted twice from the address hash
-> list, first on the interface down and second on the link deletion.
-> Similarly, when an address is added while the interface is down, it is added
-> second time once the interface is brought up.
+> When an ipvlan interface is down, its addresses are not on the hash list.
+> Fix checks for existence of addresses not to depend on the hash list, walk
+> through all interface addresses instead.
 >
-> When the interface is down, the addresses should be kept off the hash list
-> for performance reasons. Ensure this is true, which also fixes the double add
-> problem. To fix the double free, check whether the address is hashed before
-> removing it.
->
-> Reported-by: Dan Williams <dcbw@redhat.com>
 > Signed-off-by: Jiri Benc <jbenc@redhat.com>
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Acked-by: Mahesh Bandewar <maheshb@google.com>
 > ---
 >
-> v2 -> v3: check hlist_unhashed also on addition; fixed comment coding style
+> Note that while this patch is needed and fixes problems like ipv4cnt
+> underflow and trigerring WARN_ON in ipvlan_del_addr4, it does not fix the
+> more substantial problem: although the current code suggests that it
+> prevents assignment of the same IP address to multiple ipvlan interfaces, it
+> does not really do that. The address will be assigned to both interfaces,
+> ipvlan just silently considers such address to belong to the first interface
+> only.
 >
-> v1 -> v2: check hlist_unhashed on deletion instead of depending on
-> netif_running
+> Seems the original intention was to prevent address assignment by returning
+> NOTIFY_BAD but inet_insert_ifa does not really care about notifier results.
+> Till such feature is implemented, this patch at least makes sure we don't
+> have corrupted counters and don't leave kernel traces in the log.
 > ---
->  drivers/net/ipvlan/ipvlan_core.c |  5 +++--
->  drivers/net/ipvlan/ipvlan_main.c | 12 ++++++++++--
->  2 files changed, 13 insertions(+), 4 deletions(-)
+>  drivers/net/ipvlan/ipvlan.h      |  4 +++-
+>  drivers/net/ipvlan/ipvlan_core.c | 19 ++++++++++++++-----
+>  drivers/net/ipvlan/ipvlan_main.c |  8 ++++----
+>  3 files changed, 21 insertions(+), 10 deletions(-)
 >
+> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+> index 924ea98bd531..54549a6223dd 100644
+> --- a/drivers/net/ipvlan/ipvlan.h
+> +++ b/drivers/net/ipvlan/ipvlan.h
+> @@ -114,7 +114,9 @@ unsigned int ipvlan_mac_hash(const unsigned char *addr);
+>  rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb);
+>  int ipvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev);
+>  void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr);
+> -bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
+> +struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
+> +                                  const void *iaddr, bool is_v6);
+> +bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6);
+>  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
+>                                         const void *iaddr, bool is_v6);
+>  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
 > diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index 2a175006028b..8a542b9340c4 100644
+> index 568628f95aa2..b7877a194cfe 100644
 > --- a/drivers/net/ipvlan/ipvlan_core.c
 > +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -81,12 +81,13 @@ void ipvlan_ht_addr_add(struct ipvl_dev *ipvlan, struct ipvl_addr *addr)
->         hash = (addr->atype == IPVL_IPV6) ?
->                ipvlan_get_v6_hash(&addr->ip6addr) :
->                ipvlan_get_v4_hash(&addr->ip4addr);
-> -       hlist_add_head_rcu(&addr->hlnode, &port->hlhead[hash]);
-> +       if (hlist_unhashed(&addr->hlnode))
-> +               hlist_add_head_rcu(&addr->hlnode, &port->hlhead[hash]);
->  }
->
->  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync)
->  {
-> -       hlist_del_rcu(&addr->hlnode);
-> +       hlist_del_init_rcu(&addr->hlnode);
->         if (sync)
+> @@ -92,9 +92,9 @@ void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync)
 >                 synchronize_rcu();
 >  }
+>
+> -bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6)
+> +struct ipvl_addr *ipvlan_find_addr(const struct ipvl_dev *ipvlan,
+> +                                  const void *iaddr, bool is_v6)
+>  {
+> -       struct ipvl_port *port = ipvlan->port;
+>         struct ipvl_addr *addr;
+>
+>         list_for_each_entry(addr, &ipvlan->addrs, anode) {
+> @@ -102,12 +102,21 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6)
+>                     ipv6_addr_equal(&addr->ip6addr, iaddr)) ||
+>                     (!is_v6 && addr->atype == IPVL_IPV4 &&
+>                     addr->ip4addr.s_addr == ((struct in_addr *)iaddr)->s_addr))
+> -                       return true;
+> +                       return addr;
+>         }
+> +       return NULL;
+> +}
+>
+> -       if (ipvlan_ht_addr_lookup(port, iaddr, is_v6))
+> -               return true;
+> +bool ipvlan_addr_busy(struct ipvl_port *port, void *iaddr, bool is_v6)
+> +{
+> +       struct ipvl_dev *ipvlan;
+> +
+> +       ASSERT_RTNL();
+>
+> +       list_for_each_entry(ipvlan, &port->ipvlans, pnode) {
+> +               if (ipvlan_find_addr(ipvlan, iaddr, is_v6))
+> +                       return true;
+> +       }
+>         return false;
+>  }
+>
 > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index 4f4099d5603d..1eb3f33e11cc 100644
+> index aaa005bd21ce..4fa14208d799 100644
 > --- a/drivers/net/ipvlan/ipvlan_main.c
 > +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -622,7 +622,11 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
->         addr->atype = IPVL_IPV6;
->         list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
->         ipvlan->ipv6cnt++;
-> -       ipvlan_ht_addr_add(ipvlan, addr);
-> +       /* If the interface is not up, the address will be added to the hash
-> +        * list by ipvlan_open.
-> +        */
-> +       if (netif_running(ipvlan->dev))
-> +               ipvlan_ht_addr_add(ipvlan, addr);
+> @@ -607,7 +607,7 @@ static int ipvlan_add_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
+>  {
+>         struct ipvl_addr *addr;
 >
->         return 0;
->  }
-> @@ -690,7 +694,11 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->         addr->atype = IPVL_IPV4;
->         list_add_tail_rcu(&addr->anode, &ipvlan->addrs);
->         ipvlan->ipv4cnt++;
-> -       ipvlan_ht_addr_add(ipvlan, addr);
-> +       /* If the interface is not up, the address will be added to the hash
-> +        * list by ipvlan_open.
-> +        */
-> +       if (netif_running(ipvlan->dev))
-> +               ipvlan_ht_addr_add(ipvlan, addr);
->         ipvlan_set_broadcast_mac_filter(ipvlan, true);
+> -       if (ipvlan_addr_busy(ipvlan, ip6_addr, true)) {
+> +       if (ipvlan_addr_busy(ipvlan->port, ip6_addr, true)) {
+>                 netif_err(ipvlan, ifup, ipvlan->dev,
+>                           "Failed to add IPv6=%pI6c addr for %s intf\n",
+>                           ip6_addr, ipvlan->dev->name);
+> @@ -635,7 +635,7 @@ static void ipvlan_del_addr6(struct ipvl_dev *ipvlan, struct in6_addr *ip6_addr)
+>  {
+>         struct ipvl_addr *addr;
 >
->         return 0;
+> -       addr = ipvlan_ht_addr_lookup(ipvlan->port, ip6_addr, true);
+> +       addr = ipvlan_find_addr(ipvlan, ip6_addr, true);
+>         if (!addr)
+>                 return;
+>
+> @@ -679,7 +679,7 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>  {
+>         struct ipvl_addr *addr;
+>
+> -       if (ipvlan_addr_busy(ipvlan, ip4_addr, false)) {
+> +       if (ipvlan_addr_busy(ipvlan->port, ip4_addr, false)) {
+>                 netif_err(ipvlan, ifup, ipvlan->dev,
+>                           "Failed to add IPv4=%pI4 on %s intf.\n",
+>                           ip4_addr, ipvlan->dev->name);
+> @@ -708,7 +708,7 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>  {
+>         struct ipvl_addr *addr;
+>
+> -       addr = ipvlan_ht_addr_lookup(ipvlan->port, ip4_addr, false);
+> +       addr = ipvlan_find_addr(ipvlan, ip4_addr, false);
+>         if (!addr)
+>                 return;
+>
 > --
 > 1.8.3.1
 >
