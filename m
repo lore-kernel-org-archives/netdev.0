@@ -1,66 +1,108 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 9/9 net-next] netfilter: replace if/BUG by BUG_ON
-Date: Mon, 30 Mar 2015 23:13:17 +0200
-Message-ID: <1427749998-28464-9-git-send-email-fabf@skynet.be>
-References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: RE: [PATCH net-next V3 06/23] ptp: bnx2x: convert to the 64 bit
+ get/set time methods.
+Date: Mon, 30 Mar 2015 21:13:19 +0000
+Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E01946EFE0B@AVMB1.qlogic.org>
+References: <cover.1427662906.git.richardcochran@gmail.com>
+ <df76e4e50c144a6861c698378c34e52b35e1fbaf.1427662907.git.richardcochran@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Arnd Bergmann <arnd@linaro.org>,
+	Baolin Wang <baolin.wang@linaro.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	"David Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	"Giuseppe Cavallaro" <peppe.cavallaro@st.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Luwei Zhou <b45643@freescale.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	"Prashant Sreedharan" <prashant@broadcom.com>,
+	Rayagond K <rayagond@vayavyalabs.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarfl
+To: Richard Cochran <richardcochran@gmail.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427749998-28464-1-git-send-email-fabf@skynet.be>
+In-Reply-To: <df76e4e50c144a6861c698378c34e52b35e1fbaf.1427662907.git.richardcochran@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/netfilter/nfnetlink_log.c | 3 +--
- net/netfilter/xt_u32.c        | 8 +++-----
- 2 files changed, 4 insertions(+), 7 deletions(-)
+> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-
+> owner@vger.kernel.org] On Behalf Of Richard Cochran
+> Sent: Sunday, March 29, 2015 2:12 PM
+> To: netdev
+> Cc: linux-kernel; Amir Vadai; Ariel Elior; Arnd Bergmann; Baolin
+> Wang; Ben Hutchings; Bruce Allan; Carolyn Wyborny; Chris
+> Metcalf; David Miller; Frank Li; Giuseppe Cavallaro; Jacob Keller;
+> Jeff Kirsher; John Stultz; Luwei Zhou; Matthew Vick; Michael
+> Chan; Prashant Sreedharan; Rayagond K; Shradha Shah;
+> Solarflare linux maintainers; Sonic Zhang; Stefan S=F8rensen;
+> Thomas Gleixner; Tom Lendacky
+> Subject: [PATCH net-next V3 06/23] ptp: bnx2x: convert to the 64
+> bit get/set time methods.
+>=20
+> This driver's clock is implemented using a timecounter, and so
+> with this patch the driver is ready for the year 2038.
+>=20
+> Compile tested only.
+>=20
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8
+> ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> index 9677431..765667c 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> @@ -13278,7 +13278,7 @@ static int bnx2x_ptp_adjtime(struct
+> ptp_clock_info *ptp, s64 delta)
+>  	return 0;
+>  }
+>=20
+> -static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct
+> timespec *ts)
+> +static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct
+> +timespec64 *ts)
+>  {
+>  	struct bnx2x *bp =3D container_of(ptp, struct bnx2x,
+> ptp_clock_info);
+>  	u64 ns;
+> @@ -13295,7 +13295,7 @@ static int bnx2x_ptp_gettime(struct
+> ptp_clock_info *ptp, struct timespec *ts)  }
+>=20
+>  static int bnx2x_ptp_settime(struct ptp_clock_info *ptp,
+> -			     const struct timespec *ts)
+> +			     const struct timespec64 *ts)
+>  {
+>  	struct bnx2x *bp =3D container_of(ptp, struct bnx2x,
+> ptp_clock_info);
+>  	u64 ns;
+> @@ -13333,8 +13333,8 @@ static void
+> bnx2x_register_phc(struct bnx2x *bp)
+>  	bp->ptp_clock_info.pps =3D 0;
+>  	bp->ptp_clock_info.adjfreq =3D bnx2x_ptp_adjfreq;
+>  	bp->ptp_clock_info.adjtime =3D bnx2x_ptp_adjtime;
+> -	bp->ptp_clock_info.gettime =3D bnx2x_ptp_gettime;
+> -	bp->ptp_clock_info.settime =3D bnx2x_ptp_settime;
+> +	bp->ptp_clock_info.gettime64 =3D bnx2x_ptp_gettime;
+> +	bp->ptp_clock_info.settime64 =3D bnx2x_ptp_settime;
+>  	bp->ptp_clock_info.enable =3D bnx2x_ptp_enable;
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 957b83a..409f5fb 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -577,8 +577,7 @@ __build_packet_message(struct nfnl_log_net *log,
- 		nla->nla_type = NFULA_PAYLOAD;
- 		nla->nla_len = size;
- 
--		if (skb_copy_bits(skb, 0, nla_data(nla), data_len))
--			BUG();
-+		BUG_ON(skb_copy_bits(skb, 0, nla_data(nla), data_len));
- 	}
- 
- 	nlh->nlmsg_len = inst->skb->tail - old_tail;
-diff --git a/net/netfilter/xt_u32.c b/net/netfilter/xt_u32.c
-index a95b5034..5ff937d 100644
---- a/net/netfilter/xt_u32.c
-+++ b/net/netfilter/xt_u32.c
-@@ -38,8 +38,7 @@ static bool u32_match_it(const struct xt_u32 *data,
- 		if (skb->len < 4 || pos > skb->len - 4)
- 			return false;
- 
--		if (skb_copy_bits(skb, pos, &n, sizeof(n)) < 0)
--			BUG();
-+		BUG_ON(skb_copy_bits(skb, pos, &n, sizeof(n)) < 0);
- 		val   = ntohl(n);
- 		nnums = ct->nnums;
- 
-@@ -65,9 +64,8 @@ static bool u32_match_it(const struct xt_u32 *data,
- 				    pos > skb->len - at - 4)
- 					return false;
- 
--				if (skb_copy_bits(skb, at + pos, &n,
--						    sizeof(n)) < 0)
--					BUG();
-+				BUG_ON(skb_copy_bits(skb, at + pos, &n,
-+						     sizeof(n)) < 0);
- 				val = ntohl(n);
- 				break;
- 			}
--- 
-1.9.1
+Acked-by: Sony Chacko <sony.chacko@qlogic.com>
+
+Thanks,
+Sony
