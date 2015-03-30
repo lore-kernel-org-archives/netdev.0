@@ -1,141 +1,65 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH net-next v10 7/7] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
-Date: Mon, 30 Mar 2015 21:35:29 +0300
-Message-ID: <1427740529-9605-8-git-send-email-vladz@cloudius-systems.com>
-References: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	avi@cloudius-systems.com, gleb@cloudius-systems.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH] ixgbe: Drop unnecessary call to rcu_barrier
+Date: Mon, 30 Mar 2015 11:35:58 -0700
+Message-ID: <1427740558.2497.91.camel@jtkirshe-mobl>
+References: <20150330164138.1335.47547.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-u6zfkfL2+gZZYhSwcA4Z"
+Cc: netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:34855 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbbC3Sfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 14:35:48 -0400
-Received: by wicne17 with SMTP id ne17so41683757wic.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 11:35:47 -0700 (PDT)
-In-Reply-To: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
+Received: from mga09.intel.com ([134.134.136.24]:46881 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753325AbbC3SgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 14:36:20 -0400
+In-Reply-To: <20150330164138.1335.47547.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops callbacks
-implementations.
 
-This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF devices.
+--=-u6zfkfL2+gZZYhSwcA4Z
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This patch adds the support for 82599 and x540 devices only. Support for other
-devices will be added later.
+On Mon, 2015-03-30 at 09:41 -0700, Alexander Duyck wrote:
+> The ixgbe driver hasn't used call_rcu to free the rings for some time
+> now.
+> Since that is the case the call to rcu_barrier can be dropped since
+> calls
+> to kfree_rcu don't require it.
+>=20
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 --
+>  1 file changed, 2 deletions(-)
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
-New in v10:
-   - Move the mailbox locks outside the vf.c functions.
-   - Use IXGBEVF_82599_RETA_SIZE macro.
+Thanks Alex, I will add you patch to my queue.
+--=20
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
+dev-queue
 
-New in v9:
-   - Use IXGBEVF_RSS_HASH_KEY_SIZE macro.
+--=-u6zfkfL2+gZZYhSwcA4Z
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-New in v6:
-   - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-New in v4:
-   - Removed not needed braces in if-statement in ixgbevf_get_rxfh_indir_size().
+iQIcBAABCgAGBQJVGZeOAAoJEOVv75VaS+3OrbsQAKL4N0FDoyaANzOohB2DuNeW
+MezkjVo1w8iVAr9OekfbJj8b8dYRM4okKLbIXcKjyAM4SLvF00Yv1Kisay7K4Yg7
+q2xXXwmn7/XMZWD+pNFt0cLgeaBOGCioOyJ5eMEUGi9iHAF34SwEZ6A/+rUwJWbm
+YSrxAAQdQGXRP4NO2wj5a+6w9I1CKy/k+oAu10Js4FFsPOzNmkVyN7/4NGsQUbt4
+CRYciYGXhevPojuyOZeNsvMVwjzBwka8i61GmUu7mMQZdDfK5pZVQITP0HCIi8ns
+J0fyaP8kR+BG3iJE4g5ZbFZfgjuUTsGPj0L648jS+ZdxpSGmLfwo803fcSkxf7kg
+u0YL5jq4nm5NOzN0TC9k6r4mB4+P65azU1HgoU1HvxHtlbP7HVe1JCjgib8Gu37M
+qTdhA2F66hfX2LBHLh4YV43MRm7t7YINpnADuQqwviLZ1QQXlPvHG9k2YEfit96K
+9Ml5P5xT/ZIfJzuar+eUC/JVdgHoITP2v1JATOD3WXkVNmXHDixK3AXFrRaV6MqN
++NTrwH/D53a1DprbfBUTGhlooqoILhaNjRL1hvtO8yXG5xYkvvf4DhOEGqjTy5Cg
+FdJeu/OJJZ6IF6g2h+0EoYJnOc/mcUaLoy/3b6GZZ6H+fKOia+w/YgsbyxgxIvyC
+77In3wqq/n7tk9lOdand
+=Y3A/
+-----END PGP SIGNATURE-----
 
-New in v3:
-   - Added a proper support for x550 devices: return the correct redirection table size.
-
-New in v2:
-   - Added a detailed description to the patch.
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 69 ++++++++++++++++++++++++++++
- 1 file changed, 69 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index e83c85b..b2f5b16 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -794,6 +794,71 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
- 	return 0;
- }
- 
-+static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
-+			     u32 *rules __always_unused)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(dev);
-+
-+	switch (info->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		info->data = adapter->num_rx_queues;
-+		return 0;
-+	default:
-+		hw_dbg(&adapter->hw, "Command parameters not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+
-+	/* We support this operation only for 82599 and x540 at the moment */
-+	if (adapter->hw.mac.type < ixgbe_mac_X550_vf)
-+		return IXGBEVF_82599_RETA_SIZE;
-+
-+	return 0;
-+}
-+
-+static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+
-+	/* We support this operation only for 82599 and x540 at the moment */
-+	if (adapter->hw.mac.type < ixgbe_mac_X550_vf)
-+		return IXGBEVF_RSS_HASH_KEY_SIZE;
-+
-+	return 0;
-+}
-+
-+static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-+			    u8 *hfunc)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+	int err = 0;
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	/* If neither indirection table nor hash key was requested - just
-+	 * return a success avoiding taking any locks.
-+	 */
-+	if (!indir && !key)
-+		return 0;
-+
-+	spin_lock_bh(&adapter->mbx_lock);
-+	if (indir)
-+		err = ixgbevf_get_reta_locked(&adapter->hw, indir,
-+					      adapter->num_rx_queues);
-+
-+	if (!err && key)
-+		err = ixgbevf_get_rss_key_locked(&adapter->hw, key);
-+
-+	spin_unlock_bh(&adapter->mbx_lock);
-+
-+	return err;
-+}
-+
- static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_settings		= ixgbevf_get_settings,
- 	.get_drvinfo		= ixgbevf_get_drvinfo,
-@@ -811,6 +876,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
- 	.get_coalesce		= ixgbevf_get_coalesce,
- 	.set_coalesce		= ixgbevf_set_coalesce,
-+	.get_rxnfc		= ixgbevf_get_rxnfc,
-+	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
-+	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
-+	.get_rxfh		= ixgbevf_get_rxfh,
- };
- 
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
--- 
-2.1.0
+--=-u6zfkfL2+gZZYhSwcA4Z--
