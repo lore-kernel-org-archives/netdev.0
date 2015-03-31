@@ -1,118 +1,91 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH net-next 11/18] switchdev: remove old
- netdev_switch_port_bridge_setlink
-Date: Tue, 31 Mar 2015 23:32:32 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
- <1427704836-8776-12-git-send-email-sfeldma@gmail.com>
- <55194E63.5010100@cumulusnetworks.com>
- <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
- <E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
- <E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>
- <20150331055235.GB1994@nanopsycho.orion>
- <E4CD12F19ABA0C4D8729E087A761DC35067FB3E2@ORSMSX101.amr.corp.intel.com>
- <20150331215245.GA6515@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: rps: fix data stall after hotplug
+Date: Tue, 31 Mar 2015 16:44:20 -0700
+Message-ID: <1427845460.25985.174.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
+	 <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <b25a45de2cb43bbcfcaa84634d74533e.squirrel@www.codeaurora.org>
+	 <744bbefe8859bf667eafc0de02729078.squirrel@www.codeaurora.org>
+	 <1427149742.25985.84.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <49d5ac3130df29059f167a0401754c67.squirrel@www.codeaurora.org>
+	 <6ef597cb521f6c9adf48562c72677415.squirrel@www.codeaurora.org>
+	 <1427777316.25985.168.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <667cd94f1b58cc008ddcb91751f90fd7.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:30801 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751668AbbCaXce (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2015 19:32:34 -0400
-In-Reply-To: <20150331215245.GA6515@nanopsycho.orion>
-Content-Language: en-US
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34555 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752228AbbCaXoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 19:44:25 -0400
+Received: by pactp5 with SMTP id tp5so34033616pac.1
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 16:44:25 -0700 (PDT)
+In-Reply-To: <667cd94f1b58cc008ddcb91751f90fd7.squirrel@www.codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEppcmkgUGlya28gW21haWx0
-bzpqaXJpQHJlc251bGxpLnVzXQ0KPlNlbnQ6IFR1ZXNkYXksIE1hcmNoIDMxLCAyMDE1IDI6NTMg
-UE0NCj5UbzogQXJhZCwgUm9uZW4NCj5DYzogU2NvdHQgRmVsZG1hbjsgTmV0ZGV2OyByb29wYTsg
-R3VlbnRlciBSb2VjazsgRmxvcmlhbiBGYWluZWxsaQ0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0
-LW5leHQgMTEvMThdIHN3aXRjaGRldjogcmVtb3ZlIG9sZA0KPm5ldGRldl9zd2l0Y2hfcG9ydF9i
-cmlkZ2Vfc2V0bGluaw0KPg0KPlR1ZSwgTWFyIDMxLCAyMDE1IGF0IDA5OjE1OjM1UE0gQ0VTVCwg
-cm9uZW4uYXJhZEBpbnRlbC5jb20gd3JvdGU6DQo+Pg0KPj4NCj4+Pi0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tDQo+Pj5Gcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86
-bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4+PkJlaGFsZiBPZiBKaXJpIFBpcmtv
-DQo+Pj5TZW50OiBNb25kYXksIE1hcmNoIDMwLCAyMDE1IDEwOjUzIFBNDQo+Pj5UbzogQXJhZCwg
-Um9uZW4NCj4+PkNjOiBTY290dCBGZWxkbWFuOyBOZXRkZXY7IHJvb3BhOyBHdWVudGVyIFJvZWNr
-OyBGbG9yaWFuIEZhaW5lbGxpDQo+Pj5TdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDExLzE4
-XSBzd2l0Y2hkZXY6IHJlbW92ZSBvbGQNCj4+Pm5ldGRldl9zd2l0Y2hfcG9ydF9icmlkZ2Vfc2V0
-bGluaw0KPj4+DQo+Pj5UdWUsIE1hciAzMSwgMjAxNSBhdCAwMjowODozNEFNIENFU1QsIHJvbmVu
-LmFyYWRAaW50ZWwuY29tIHdyb3RlOg0KPj4+Pg0KW2N1dF0NCj4+Pj4NCj4+Pj5JdCBjb3VsZCBi
-ZSBiZW5lZmljaWFsIHRvIGJ1aWxkIGV4dGVuc2liaWxpdHkgaW50byBzd2Rldl9hdHRyLg0KPj4+
-PkFuIGV4cGVyaW1lbnRlciBhdHRyaWJ1dGUgZGVzaWduZWQgdG8gY2FycnkgYXJiaXRyYXJ5IGRh
-dGEgY291bGQgYWxsb3cNCj4+Pj5mb3IgcGFzc2luZyBuZXcgYXR0cmlidXRlcyBhbmQgaW1wbGVt
-ZW50YXRpb24gc3BlY2lmaWMgYXR0cmlidXRlcw0KPj4+PndpdGhvdXQgYWZmZWN0aW5nIGFueSBl
-eGlzdGluZyBzd2l0Y2hkZXYgZHJpdmVyOg0KPj4+DQo+Pj5XYXJuaW5nIHNpZ24uLi4NCj4+Pg0K
-Pj4+SSBiZWxpZXZlIHRoYXQgd2UgZG9uJ3Qgd2FudCB0aGlzLiBJdCBpcyB2ZXJ5IGVhc3kgdG8g
-YWRkIGF0dHJpYnV0ZSBmb3INCj4+PmFueXRoaW5nLiBIYXZpbmcgdGhpcyAidW5pdmVyc2FsIGF0
-dHJpYnV1dGUiIG9ubHkgYWxsb3dzIHdpbGQgdGhpbmdzLi4uDQo+Pj4NCj4+PlRoYW5rcy4NCj4+
-Pg0KPj4+SmlyaQ0KPj4+DQo+PkxldCdzIHNheSBhIHN3aXRjaCBkZXZpY2UgaGFzIHNvbWUgYmVo
-YXZpb3IgdGhhdCBpcyBub3QgY29tbW9uIHRvIGFsbA0KPj5zd2l0Y2ggZGV2aWNlcy4gRGVmaW5p
-bmcgYW4gZXhwbGljaXQgYXR0cmlidXRlIG1pZ2h0IG5vdCBiZSBkZXNpcmFibGUNCj4+aW4gdGhh
-dCBjYXNlLiBGb3IgZXhhbXBsZSBsZXQncyBzYXkgU09NRXN3aXRjaCBkZXZpY2UgaW1wbGVtZW50
-cyBWTEFODQo+PnByaW9yaXR5IG1hcmtkb3duIHVzaW5nIGEgdGFibGUuIEl0IGNvdWxkIGJlIHJl
-cHJlc2VudGVkIGFzIGEgdGFibGUgb2YNCj4+OCBieXRlcy4gVG8gc3VwcG9ydCB0aGlzIGZlYXR1
-cmUsIHRoZXJlIGlzIGEgbmVlZCB0byBhbGxvdyBhIHVzZXItc3BhY2UNCj4+dG9vbCB0byBwcm9n
-cmFtIHN1Y2ggdGFibGUgaW4gU09NRXN3aXRjaCBkZXZpY2UuIFdoYXQgbWVjaGFuaXNtcyBhcmUN
-Cj4+YXZhaWxhYmxlIGZvciB0aGF0Pw0KPg0KPklmIHlvdSB3YW50IHRvIGV4cG9zZSBmZWF0dXJl
-IFggdGhhdCdzIG9rLCBqdXN0IGRvIGl0LiBJIHNlZSBubyBwcm9ibGVtDQo+aW4gdGhhdC4gUGxl
-YXNlLCBqdXN0IGRvIG5vdCBpbnRyb2R1Y2Uga2VybmVsIGJ5cGFzcy4NCg0KVGhpcyBpcyBub3Qg
-YSBrZXJuZWwgYnlwYXNzIGFzIGxvbmcgYXMgdGhlIHRhcmdldCBkZXZpY2UgaXMgYW4gaW4tdHJl
-ZQ0KZGV2aWNlIGRyaXZlciBvcGVuIGZvciB0aGUgY29tbXVuaXR5IHNjcnV0aW55LiANCiANCiBU
-aGF0IHNpbXBseSB3b24ndA0KPmZseS4uLg0KDQpMZXQncyBzYXkgdmVuZG9yIFggd2FudHMgdG8g
-ZXhwb3NlIGZlYXR1cmVzIFgxLCBYMiwgLi4uWG0sDQp2ZW5kb3IgWSB3YW50cyB0byBleHBvc2Ug
-ZmVhdHVyZXMgWTEsIFkyLCAuLi5ZbiwgZXRjLg0KSG93IHRoaXMgd291bGQgYmUgdmlzaWJsZSB0
-byB0aGUgdXNlcnMgdmlhIGlwcm91dGUyPw0KV2UnbGwgbmVlZCBrZXl3b3JkcyBLeDEuLkt4bSwg
-S3kxLi5LbiwgZXRjLiBUaGVyZSBpcyBzY2FsYWJpbGl0eSBpc3N1ZSBoZXJlLg0KVGhlIHVzZXIg
-aGFzIHRvIGZpZ3VyZSBvdXQgdGhlIGtleXdvcmQgS3hqIGdvZXMgd2l0aCBmZWF0dXJlIFhqIGV0
-Yy4NClRoZXJlIG11c3QgYmUgYSBiZXR0ZXIgd2F5Lg0KDQpXaGF0IEkgaGF2ZSBpbiBtaW5kIGlz
-IGEgd2F5IGZvciBzd2l0Y2hkZXZYIGRyaXZlciB0byBkZWZpbmUgdGhlIGl0cyBvcHRpb25zDQph
-bmQgdGhlIGtleXdvcmRzIHRoYXQgdGhlIHVzZXIgY291bGQgdXNlIHRvIGNvbnRyb2wgdGhlbSBp
-biBhIGdlbmVyaWMgd2F5Lg0KVGhlIGtlcm5lbCB3aWxsIHByb3ZpZGUgdGhlIG1lY2hhbmlzbSB0
-byBleHBvcnQgdGhhdCB0byB1c2VyIHNwYWNlIHN1Y2ggdGhhdA0KQSB0b29sIGxpa2UgaXByb3V0
-ZTIgY291bGQgcHJlc2VudCB1c2VyLWZyaWVuZGx5IGludGVyZmFjZSB3aGljaCBpcyBjb250ZXh0
-DQphd2FyZS4gDQoNCkl0IGlzIGltcG9ydGFudCB0byBhbGxvdyBmb3IgYSBnZW5lcmljIGludGVy
-ZmFjZSB0aGF0IHdpbGwgbm90IHJlcXVpcmUgYSBuZXcNCnBhdGNoIHRvIHRoZSB1c2VyLXNwYWNl
-IHRvb2wgb3IgdG8gdGhlIGtlcm5lbCBuZXQgY29yZSAob3Igc3dpdGNoZGV2KSBpbmZyYXN0cnVj
-dHVyZSwgd2hlbmV2ZXIgYW55IHN1Y2ggbmV3IGZlYXR1cmUgaXMgYmVpbmcgZXhwb3NlZC4NCk9u
-bHkgdGhlIHN3aXRjaGRldiBkcml2ZXIgd2hpY2ggZXhwb3NlcyBhIG5ldyBmZWF0dXJlIG5lZWQg
-YSBwYXRjaC4NCg0KVGhlIGtlcm5lbCBjb3VsZCBoYXZlIHN1ZmZpY2llbnQgaW5mb3JtYXRpb24g
-YWJvdXQgdGhlIGluZm9ybWF0aW9uIHRoYXQNCnN3aXRjaGRldlggaXMgZXhwZWN0aW5nIHN1Y2gg
-dGhhdCBpdCBjb3VsZCB2YWxpZGF0ZSBzaXplIGFuZCB0eXBlIGFuZCBjb3VsZA0KcmVqZWN0IGlu
-Zm9ybWF0aW9uIHRoYXQgaXMgbm90IHN1cHBvcnRlZCBieSB0aGUgZGV2aWNlLg0KDQpUaGlzIGlz
-IHZlcnkgc2ltaWxhciB0byB0aGUgb3B0aW9ucyBpbnRlcmZhY2UgdGhlIHRlYW0gZHJpdmVyIGV4
-cG9zZXMuDQpUZWFtIGRyaXZlciBwcm92aWRlcyB0aGUgbWVjaGFuaXNtIGZvciB1c2VyLXNwYWNl
-IHRvIGNvbmZpZ3VyZSBvcHRpb25zIGluIHRoZQ0Ka2VybmVsLiBUZWFtIGRyaXZlciBkb2VzIG5v
-dCB1bmRlcnN0YW5kIG9yIGludGVycHJldCB0aGUgb3B0aW9ucyB0aGF0IGFyZQ0KaW50ZW5kZWQg
-Zm9yIHRlYW0gbW9kZXMuIEl0IG9ubHkgcHJvdmlkZXMgdGhlIG1lY2hhbmlzbSB0byBjb21tdW5p
-Y2F0ZSB0aGVtDQpvdmVyIGdlbmVyaWMgbmV0bGluayBhbmQgcHJvY2VzcyB0aGVtIGluIHRoZSBr
-ZXJuZWwgYW5kIHVzZXItc3BhY2UuDQpUaG9zZSBvcHRpb25zIGRvIG5vdCBzaG93IHVwIGluIGFu
-eSBoZWFkZXIgZmlsZS4gWW91IGRvbid0IG5lZWQgYSBuZXcga2VybmVsDQp2ZXJzaW9uIHRvIGlu
-dHJvZHVjZSBhIG5ldyB0ZWFtIG9wdGlvbiBmb3IgYSBuZXcgb3IgZXhpc3RpbmcgdGVhbSBtb2Rl
-Lg0KQWxsIHlvdSBuZWVkIGlzIHRvIHJlZ2lzdGVyIHRoZSBvcHRpb24gKGlkZW50aWZpZWQgYnkg
-YSBzdHJpbmcpIHdpdGggdGVhbQ0KZHJpdmVyIGFuZCBzZXQvZ2V0IGl0IGZyb20gdGhlIHRlYW1k
-IG9yIGFueSBvdGhlciB1c2VyLXNwYWNlIHRvb2wgb3Zlcg0KZ2VuZXJpYyBuZXRsaW5rLg0KVGhl
-IHRlYW0gcHJvdG9jb2wgaXMgc3RhYmxlIGFuZCBkb2VzIG5vdCByZXF1aXJlIGNoYW5nZXMgZm9y
-IHRoaXMgbGV2ZWwgb2YNCmV4dGVuc2liaWxpdHkuDQoNClRoZSBzYW1lIGxldmVsIG9mIGV4dGVu
-c2liaWxpdHkgaXMgbmVlZGVkIGZvciBzd2l0Y2hkZXYgcG9ydCBvciBkZXZpY2UNCmF0dHJpYnV0
-ZXMuDQogICANCj4NCj4NCj4+VGhpcyBjb3VsZCBiZSBkb25lIHZpYSBzeXNmcyBlbnRyaWVzLiBI
-b3dldmVyLCBJIGJlbGlldmUgd2UncmUgdHJ5aW5nDQo+PnRvIG1ha2UgTmV0bGluayBhbmQgaXBy
-b3V0ZTIgdGhlIHByb3RvY29sL3Rvb2wgZm9yIGFsbCBzd2l0Y2ggZGV2aWNlDQo+DQo+SXQgZG9l
-cyBub3QgbWF0dGVyIGlmIHVuaXZlcnNhbCBhdHRyIGlzIGV4cG9zZWQgdmlhIG5ldGxpbmsgb3Ig
-c3lzZnMuDQo+RWl0aGVyIHdheSwgSSBiZWxpZXZlIGl0IGlzIHVuYWNjZXB0YWJsZS4NCj4NCj4+
-Y29uZmlndXJhdGlvbi4gVGhlcmVmb3JlLCBJIHRoaW5rIHRoYXQgYSBnZW5lcmljIG1lY2hhbmlz
-bSwgaW50ZWdyYXRlZA0KPj53aXRoIGV4aXN0aW5nIHN3aXRjaGRldiBzdXBwb3J0ZWQgdG9vbHMg
-d291bGQgYmUgYmVzdC4NCj4+QWx0ZXJuYXRpdmUgYXBwcm9hY2ggd291bGQgYmUgZm9yIFNPTUVz
-d2l0Y2ggZHJpdmVyIHRvIGludHJvZHVjZSBpdHMNCj4+b3duIGdlbmVyaWMgbmV0bGluayBmYW1p
-bHkgYW5kIGludHJvZHVjZSBTT01Fc3dpdGNoIHZlcnNpb24gb2YgaXByb3V0ZTINCj4+b3Igc2lt
-aWxhciB0b29sIHRvIGF1Z21lbnQgU09NRXN3aXRjaCBIVyBjb25maWd1cmF0aW9uIHdoZXJlIChv
-ciBhcyBsb25nDQo+PmFzKSBubyBjb21tb24gd2F5IHRvIGNvbnRyb2wgc3VjaCBmZWF0dXJlIGlz
-IGF2YWlsYWJsZQ0KPg0KPlRoaXMgaXMgZGVmaW5pdGVsbHkgdW5hY2NlcHRhYmxlIDovDQoNCg==
+On Tue, 2015-03-31 at 22:02 +0000, subashab@codeaurora.org wrote:
+> > Listen, I would rather disable RPS on your arch, instead of messing with
+> > it.
+> >
+> > Reset NAPI state as you did is in direct violation of the rules.
+> >
+> > Only cpu owning the bit is allowed to reset it.
+> >
+> 
+> Perhaps my understanding of the code in dev_cpu_callback() is incorrect?
+> Please correct me if I am wrong.
+> 
+> The poll list is copied from an offline cpu to an online cpu.
+> Specifically for process_backlog, I was under the impression that
+> the online cpu tries to reset the state of NAPI of the offline cpu.
+> The process and input queues are then always copied to the
+> online cpu.
+> 
+> while (!list_empty(&oldsd->poll_list)) {
+> 	struct napi_struct *napi = list_first_entry(&oldsd->poll_list,
+> 						    struct napi_struct,
+> 							     poll_list);
+> 
+> 	list_del_init(&napi->poll_list);
+> 	if (napi->poll == process_backlog)
+> 		napi->state = 0;
+> 	else
+> 		____napi_schedule(sd, napi);
+> }
+> 
+> My request was to know why it would be incorrect to clear the offline cpu
+> backlog NAPI state unconditionally.
+> 
+
+It is incorrect because the moment we chose to send an IPI to a cpu, we
+effectively transfered NAPI bit ownership to this target cpu. Another
+cpu cannot take over without risking tricky corruptions.
+
+If your arch fails to send the IPI, we have no way to clear the bit in a
+safe way.
+
+Only target cpu is allowed to clear the bit by virtue of following being
+called :
+
+/* Called from hardirq (IPI) context */
+static void rps_trigger_softirq(void *data)
+{
+        struct softnet_data *sd = data;
+
+        ____napi_schedule(sd, &sd->backlog);
+        sd->received_rps++;
+}
+
+If it is not called even in 0.000001% of the cases, all bets are off.
+
+We are not going to add yet another atomic ops for every packet just to
+solve this corner case. Just do not enable RPS on your arch, as it is by
+default not enabled.
+
+I am currently in vacations, I will not reply to another inquiry on this
+topic.
