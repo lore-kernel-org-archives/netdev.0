@@ -1,105 +1,74 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] bonding: deprecate BOND_MONITOR_CHURNED in
- favor of existing definitions
-Date: Tue, 31 Mar 2015 09:45:20 -0400
-Message-ID: <20150331134519.GO1051@gospo>
-References: <1427751040-4445-1-git-send-email-maheshb@google.com>
+From: Michael Wang <yun.wang@profitbricks.com>
+Subject: Re: [RFC PATCH 08/11] IB/Verbs: Use management helper has_iwarp()
+ for, iwarp-check
+Date: Tue, 31 Mar 2015 15:58:52 +0200
+Message-ID: <551AA81C.30701@profitbricks.com>
+References: <551579CA.4030901@profitbricks.com> <55157B98.1060103@profitbricks.com> <20150327161319.GB28412@obsidianresearch.com> <20150327171631.GC27862@phlsvsds.ph.intel.com> <20150327172912.GA28901@obsidianresearch.com> <55196754.5010600@profitbricks.com> <20150330223528.GB27728@obsidianresearch.com> <551A4F24.6090405@profitbricks.com> <551A82D3.70806@talpey.com> <551A87D3.2070306@profitbricks.com> <551AA78D.4040502@talpey.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:36503 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754871AbbCaNpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 09:45:24 -0400
-Received: by qgf60 with SMTP id 60so14373051qgf.3
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 06:45:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1427751040-4445-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "ira.weiny" <ira.weiny@intel.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Yann Droneaud <ydroneaud@opteya.com>,
+	Colin Ian King <colin.king@canonical.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Matan Barak <matanb@mellanox.com>,
+	Alex Estrin <alex.estrin@
+To: Tom Talpey <tom@talpey.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <551AA78D.4040502@talpey.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 02:30:40PM -0700, Mahesh Bandewar wrote:
-> AD_PORT_ACTOR_CHURN and AD_PORT_PARTNER_CHURN are already present and
-> essentially BOND_MONITOR_CHURNED is a combination of these two definitions.
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+On 03/31/2015 03:42 PM, Tom Talpey wrote:
 
-> ---
->  drivers/net/bonding/bond_3ad.c | 12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index 5712cf6d0342..4309b5a76708 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -38,7 +38,6 @@
->  #define AD_STANDBY                 0x2
->  #define AD_MAX_TX_IN_SECOND        3
->  #define AD_COLLECTOR_MAX_DELAY     0
-> -#define AD_MONITOR_CHURNED         0x1000
->  
->  /* Timer definitions (43.4.4 in the 802.3ad standard) */
->  #define AD_FAST_PERIODIC_TIME      1
-> @@ -71,6 +70,7 @@
->  #define AD_PORT_STANDBY         0x80
->  #define AD_PORT_SELECTED        0x100
->  #define AD_PORT_MOVED           0x200
-> +#define AD_PORT_CHURNED         (AD_PORT_ACTOR_CHURN | AD_PORT_PARTNER_CHURN)
->  
->  /* Port Key definitions
->   * key is determined according to the link speed, duplex and
-> @@ -1016,7 +1016,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->  	/* first, check if port was reinitialized */
->  	if (port->sm_vars & AD_PORT_BEGIN) {
->  		port->sm_rx_state = AD_RX_INITIALIZE;
-> -		port->sm_vars |= AD_MONITOR_CHURNED;
-> +		port->sm_vars |= AD_PORT_CHURNED;
->  	/* check if port is not enabled */
->  	} else if (!(port->sm_vars & AD_PORT_BEGIN)
->  		 && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
-> @@ -1026,7 +1026,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->  		 (port->sm_rx_state == AD_RX_DEFAULTED) ||
->  		 (port->sm_rx_state == AD_RX_CURRENT))) {
->  		if (port->sm_rx_state != AD_RX_CURRENT)
-> -			port->sm_vars |= AD_MONITOR_CHURNED;
-> +			port->sm_vars |= AD_PORT_CHURNED;
->  		port->sm_rx_timer_counter = 0;
->  		port->sm_rx_state = AD_RX_CURRENT;
->  	} else {
-> @@ -1108,7 +1108,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->  			port->partner_oper.port_state |= AD_STATE_LACP_ACTIVITY;
->  			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
->  			port->actor_oper_port_state |= AD_STATE_EXPIRED;
-> -			port->sm_vars |= AD_MONITOR_CHURNED;
-> +			port->sm_vars |= AD_PORT_CHURNED;
->  			break;
->  		case AD_RX_DEFAULTED:
->  			__update_default_selected(port);
-> @@ -1144,8 +1144,8 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->   */
->  static void ad_churn_machine(struct port *port)
->  {
-> -	if (port->sm_vars & AD_MONITOR_CHURNED) {
-> -		port->sm_vars &= ~AD_MONITOR_CHURNED;
-> +	if (port->sm_vars & AD_PORT_CHURNED) {
-> +		port->sm_vars &= ~AD_PORT_CHURNED;
->  		port->sm_churn_actor_state = AD_CHURN_MONITOR;
->  		port->sm_churn_partner_state = AD_CHURN_MONITOR;
->  		port->sm_churn_actor_timer_counter =
-> -- 
-> 2.2.0.rc0.207.ga3a616c
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On 3/31/2015 7:41 AM, Michael Wang wrote:
+>> [snip]
+> Yes, in fact the iWARP protocol does not preclude multiple read SGEs,
+> even though most iWARP implementations have chosen to support just one.
+>
+> Even for multi-SGE-capable adapters, there is a limit of SGL size, based
+> on the adapter's work request format and other factors. So my argument
+> is that upper layers can and should query that, not make a blanket
+> decision based on protocol type.
+
+Thanks for the explanation  Sounds like some new callback on device level
+like query_device() to acquire the right info.
+
+>> I currently only find this one place where infer max-read-sges from
+>> transport type, it looks more like a special case to me rather than a generic
+>> method we could exposed... and also  not very related with IB management
+>> helper concept IMHO.
+> It is most certainly not a special case, but you could decide to
+> introduce it in many ways. I'm not commenting on that.
+>
+> My main concern is that you do not introduce a new and clumsy "is iWARP"
+> rule as an adapter-specific API requirement to expose the RDMA Read SGE
+> behavior. That's what your initial message seemed to imply?
+
+Yeah I planed to just use rdma_transport_iwarp() to replace the check, it's
+actually meaningless but just refine, frankly speaking I would prefer some
+driver developer to work on that part, at this point I prefer to focus on
+introducing the management helpers firstly 
+
+Maybe we could mark it as a TODO temporarily, if later we found more
+scenes using similar logical, we can collect them and do some reform 
+
+Regards,
+Michael Wang
