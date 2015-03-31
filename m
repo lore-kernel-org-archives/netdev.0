@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] Intel Wired LAN Driver Updates
-Date: Tue, 31 Mar 2015 13:22:14 -0400 (EDT)
-Message-ID: <20150331.132214.1693397186943204005.davem@davemloft.net>
-References: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] bonding: Remove hardcoded initialization
+Date: Tue, 31 Mar 2015 13:26:04 -0400 (EDT)
+Message-ID: <20150331.132604.1056209510414795803.davem@davemloft.net>
+References: <1427520871-29869-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	nikolay@redhat.com, maze@google.com, netdev@vger.kernel.org,
+	edumazet@google.com
+To: maheshb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48730 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752554AbbCaR0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 13:26:06 -0400
+In-Reply-To: <1427520871-29869-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 27 Mar 2015 16:04:10 -0700
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Fri, 27 Mar 2015 22:34:31 -0700
 
-> The following are changes since commit dde93dfea53c72b07907d9e44a6e4b1545f6bdc4:
->   cxgb4: Fix frame size warning for 32 bit arch
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue master
-> 
-> Jeff Kirsher (1):
->   MAINTAINERS: Update Intel Wired Ethernet Driver info
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Looks great but it looks like nothing is pushed there?
-
-[davem@localhost net]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue master
->From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
- * branch            master     -> FETCH_HEAD
-Already up-to-date.
-[davem@localhost net]$
+Applied, thanks.
