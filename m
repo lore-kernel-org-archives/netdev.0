@@ -1,32 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] vxlan: fix indentation
-Date: Mon, 30 Mar 2015 20:09:54 -0700
-Message-ID: <CAM_iQpXEh=9jMtL5=_SxmDi_Z5jRX2FyGSmNXJTLKD=X=XPW7Q@mail.gmail.com>
-References: <d8d0c5dade7401c4acc2200479025f9f589404b2.1427638583.git.jbenc@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [Patch net-next] fib: move fib_rules_cleanup_ops() under rtnl
+ lock
+Date: Mon, 30 Mar 2015 20:10:20 -0700
+Message-ID: <551A101C.8080005@redhat.com>
+References: <1427403769-31208-1-git-send-email-xiyou.wangcong@gmail.com>	<55147E5D.2070600@redhat.com>	<CAHA+R7P4-y4o5WuUwzfwd+LrrkdRdo2=UfXzYdgTrJ63qkaTVg@mail.gmail.com>	<55148576.1010303@redhat.com>	<CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com>	<CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>	<55149A99.6040704@redhat.com>	<20150327120135.GC12265@casper.infradead.org>	<CAHA+R7MJTz1-F2v1c+ZEkVQ_JX0Ey5dGAmCjR_N8rvVPbuM0Tg@mail.gmail.com>	<5515C6C4.4080200@redhat.com>	<CAHA+R7Puss-BUG0gFdw+FnbaiXE6Rx=FJ8ccJ2JyJdNMz7H2bQ@mail.gmail.com>	<5515D5E0.2060800@redhat.com>	<CAHA+R7OC4dcOZaM1HJ_Z8xbkj0ic+P5APC91=dJnw9EXq3eu2Q@mail.gmail.com>	<5519E40F.6090708@redhat.com> <CAHA+R7MRhvwUcDqAPFRpO8JiEizp_EhUwKyK31MbfMOV=YpW7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33008 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753991AbbCaDJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 23:09:54 -0400
-Received: by pacgg7 with SMTP id gg7so5702892pac.0
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 20:09:54 -0700 (PDT)
-In-Reply-To: <d8d0c5dade7401c4acc2200479025f9f589404b2.1427638583.git.jbenc@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54093 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753991AbbCaDKV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 23:10:21 -0400
+In-Reply-To: <CAHA+R7MRhvwUcDqAPFRpO8JiEizp_EhUwKyK31MbfMOV=YpW7w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 29, 2015 at 7:17 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> Some lines in vxlan code are indented by 7 spaces instead of a tab.
+
+On 03/30/2015 05:12 PM, Cong Wang wrote:
+> On Mon, Mar 30, 2015 at 5:02 PM, Alexander Duyck
+> <alexander.h.duyck@redhat.com> wrote:
+>> On 03/30/2015 04:47 PM, Cong Wang wrote:
+>>> As long as we agree rtnl lock should be taken, you already take my point
+>>> here ($subject says so).
+>>
+>> Yes, I agree lock can be held.  For fib4 it was already holding the RTNL
+>> lock when it made that call.  You can update the other users of
+>> fib_rules_unregister so that they call it with the RTNL lock held as well.
+>>
+>>> It is just API change to move rtnl_lock up to caller or whatever
+>>> appropriate.
+>>
+>> Right, so like I said for fib4 this is resolved.  That just leaves ipmr,
+>> ip6mr, fib6, and dn_rules that need to be updated so that they correctly
+>> handle the RTNL locking in their exit/cleanup paths. Since you already have
+>> some related patches out for these I will let you take them otherwise I
+>> might try to go through and clean them up next week.
+>>
+> Ok, then we are finally on the same page. We need two patches:
 >
-> Fixes: e4c7ed415387 ("vxlan: add ipv6 support")
+> 1) move unregister under rtnl lock (as what this patch intended to do)
 
-Non-bug-fixes don't need this, but it is harmless to have it.
+Yes I think the only disagreement was on how to do it.  Your original 
+patch placed it in fib_rules_cleanup_ops, and the preference of myself 
+and Thomas was to hold the lock before you even call 
+fib_rules_unregister.  So the IPv4 code is fine with the patch I 
+submitted, it is the other callers of fib_rules_unregister which must be 
+updated.
 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> 2) remove the unnecessary rules_mod_lock
+>
+> Thanks.
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Please define "unnecessary" as we have had a bit of back and forth on 
+how our views can differ there.  As far as I know it still has to be 
+held for the fib_rule_ops list manipulation, specifically the call to 
+list_del_rcu.  However, it doesn't need to be held when we call 
+fib_rules_cleanup_ops.
 
-Thanks.
+- Alex
