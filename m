@@ -1,111 +1,84 @@
-From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Subject: Re: [PATCH net-next V2 17/23] ptp: stmmac: convert to the 64 bit
- get/set time methods.
-Date: Tue, 31 Mar 2015 18:52:08 +0530
-Message-ID: <CAJ3bTp6Wd6stScedW=jhqyjx3bty=qFPM1g5Je4+1XVvFBR7iA@mail.gmail.com>
-References: <cover.1426973658.git.richardcochran@gmail.com>
-	<009374d77dee7633ab0ef1a5d95182b45aaa3f18.1426973658.git.richardcochran@gmail.com>
-	<551032AA.3060906@st.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and
+ cap_sa(), for sa-check
+Date: Tue, 31 Mar 2015 15:22:59 +0200
+Message-ID: <551A9FB3.2030903@profitbricks.com>
+References: <551579CA.4030901@profitbricks.com>		 <55157B43.6060507@profitbricks.com>	 <1427732191.21101.201.camel@redhat.com> <55197CDB.3040105@profitbricks.com> <1427734923.21101.227.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	Amir Vadai <amirv@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Arnd Bergmann <arnd@linaro.org>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	=?UTF-8?Q?Stefan_S=C3
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:32884 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbbCaNWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 09:22:09 -0400
-Received: by wgoe14 with SMTP id e14so18763472wgo.0
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 06:22:08 -0700 (PDT)
-In-Reply-To: <551032AA.3060906@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Alex Estrin <alex.estrin@int
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1427734923.21101.227.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sorry, I too don't have setup now.
+On 03/30/2015 07:02 PM, Doug Ledford wrote:
+> On Mon, 2015-03-30 at 18:42 +0200, Michael Wang wrote:
+>> [snip]
+>>
+>> rdma_transport_is_ib and rdma_port_ll_is_ib is actually just rough helper
+>> to save some code, we can get rid of them when we no longer need them, but
+>> currently device driver still using them a lot, I'm not sure if the new
+>> mechanism could take cover all these cases...
+> [snip]
+>
+> If we use something like this, then the above is all you need.  Then
+> every place in the code that checks for something like has_sa or cap_sa
+> can be replaced with rdma_ib_mgmt.  When Ira updates his patches for
+> this, he can check for rdma_opa_mgmt to enable jumbo MAD packets and
+> whatever else he needs. Every place that does transport == IB and ll ==
+> Ethernet can become rdma_transport_is_roce.  Every place that does
+> transport == IB and ll == INFINIBAND becomes rdma_transport_is_ib.
+
+Get your point :-) I need to investigate all those cases see if it
+works, in case if things unclear, I'll reform it according to my
+understanding to adapt to this new mechanism, if there are any
+misunderstanding, we can address them case by case during
+the review.
+
+>  The
+> code in multicast.c just needs to check rdma_ib_mgmt() (which happens to
+> make perfect sense anyway as the code in multicast.c that is checking
+> that we are on an IB interface is doing so because IB requires extra
+> management of the multicast group joins/leaves).
+
+I'll adopt those helpers already been discussed, and they will be
+implemented with the helpers from new mechanism
+(eg, rdma_ib_mgmt) in next version.
+
+> But, like I said, this
+> is an all or nothing change, it isn't something we can ease into.
+
+It's will be great if we can make it, let's see ;-)
+
+Regards,
+Michael Wang
+
+>
 
 --
-Rayagond
-
-On Mon, Mar 23, 2015 at 9:05 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> On 3/21/2015 10:39 PM, Richard Cochran wrote:
->>
->> This device stores the number of seconds in a 32 bit register.  So
->> more work is needed on this driver before the year 2038 comes around.
->>
->> Compile tested only.
->
->
-> I cannot perform tests on my side, unfortunately. I have no setup at
-> this moment. Added Rayagond on copy too
->
-> Peppe
->
->
->>
->> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
->> ---
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    8 ++++----
->>   1 file changed, 4 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
->> index c5ee79d8..172f318 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
->> @@ -105,7 +105,7 @@ static int stmmac_adjust_time(struct ptp_clock_info
->> *ptp, s64 delta)
->>    * Description: this function will read the current time from the
->>    * hardware clock and store it in @ts.
->>    */
->> -static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec
->> *ts)
->> +static int stmmac_get_time(struct ptp_clock_info *ptp, struct timespec64
->> *ts)
->>   {
->>         struct stmmac_priv *priv =
->>             container_of(ptp, struct stmmac_priv, ptp_clock_ops);
->> @@ -135,7 +135,7 @@ static int stmmac_get_time(struct ptp_clock_info *ptp,
->> struct timespec *ts)
->>    * hardware clock.
->>    */
->>   static int stmmac_set_time(struct ptp_clock_info *ptp,
->> -                          const struct timespec *ts)
->> +                          const struct timespec64 *ts)
->>   {
->>         struct stmmac_priv *priv =
->>             container_of(ptp, struct stmmac_priv, ptp_clock_ops);
->> @@ -168,8 +168,8 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
->>         .pps = 0,
->>         .adjfreq = stmmac_adjust_freq,
->>         .adjtime = stmmac_adjust_time,
->> -       .gettime = stmmac_get_time,
->> -       .settime = stmmac_set_time,
->> +       .gettime64 = stmmac_get_time,
->> +       .settime64 = stmmac_set_time,
->>         .enable = stmmac_enable,
->>   };
->>
->>
->
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
