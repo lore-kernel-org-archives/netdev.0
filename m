@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 08/11] ptp: ixgbe: use helpers for converting ns to timespec.
-Date: Tue, 31 Mar 2015 23:08:13 +0200
-Message-ID: <f7b4f8ac0c134cf49f635ecf10b96d8d46789288.1427835485.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 04/11] ptp: fec: use helpers for converting ns to timespec.
+Date: Tue, 31 Mar 2015 23:08:09 +0200
+Message-ID: <61ce28ae31fffa338831a8730e7c60f27a2ad62d.1427835485.git.richardcochran@gmail.com>
 References: <cover.1427835485.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Arnd Bergmann <arnd@linaro.org>,
@@ -33,16 +33,16 @@ Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c |    7 ++-----
+ drivers/net/ethernet/freescale/fec_ptp.c |    7 ++-----
  1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 75b9e93..e5ba040 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -284,15 +284,13 @@ static int ixgbe_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
- 	struct ixgbe_adapter *adapter =
- 		container_of(ptp, struct ixgbe_adapter, ptp_caps);
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index b833993..a583d89 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -395,15 +395,13 @@ static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+ 	struct fec_enet_private *adapter =
+ 	    container_of(ptp, struct fec_enet_private, ptp_caps);
  	u64 ns;
 -	u32 remainder;
  	unsigned long flags;
@@ -57,15 +57,15 @@ index 75b9e93..e5ba040 100644
  
  	return 0;
  }
-@@ -313,8 +311,7 @@ static int ixgbe_ptp_settime(struct ptp_clock_info *ptp,
- 	u64 ns;
- 	unsigned long flags;
+@@ -433,8 +431,7 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
+ 		return -EINVAL;
+ 	}
  
 -	ns = ts->tv_sec * 1000000000ULL;
 -	ns += ts->tv_nsec;
 +	ns = timespec64_to_ns(ts);
- 
- 	/* reset the timecounter */
- 	spin_lock_irqsave(&adapter->tmreg_lock, flags);
+ 	/* Get the timer value based on timestamp.
+ 	 * Update the counter with the masked value.
+ 	 */
 -- 
 1.7.10.4
