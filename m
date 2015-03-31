@@ -1,70 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: at803x: simplify using
- devm_gpiod_get_optional and its 4th argument
-Date: Tue, 31 Mar 2015 12:57:54 -0400 (EDT)
-Message-ID: <20150331.125754.1434513759096073981.davem@davemloft.net>
-References: <1427484302-17075-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [PATCH 4/6] of: add API for changing parameters of fixed link
+Date: Tue, 31 Mar 2015 20:11:31 +0300
+Message-ID: <551AD543.1010906@list.ru>
+References: <55155AFC.4050800@list.ru> <55155D35.1070703@list.ru> <CAGVrzcau0mUne8uXsTs_9=e4JtQt5w5L+hwtLmKo+UfjSEwC+w@mail.gmail.com> <5515803F.3020600@list.ru> <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw@mail.gmail.com> <551587D1.5070408@list.ru> <5515904A.1060600@gmail.com> <55196011.7080502@list.ru> <CAGVrzcYam=zd+9DpKjhX8o+P_iksz+xOJWh0M45-GASMZbsBXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linus.walleij@linaro.org, acourbot@nvidia.com
-To: u.kleine-koenig@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751295AbbCaQ54 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 12:57:56 -0400
-In-Reply-To: <1427484302-17075-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcYam=zd+9DpKjhX8o+P_iksz+xOJWh0M45-GASMZbsBXA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Fri, 27 Mar 2015 20:25:02 +0100
+30.03.2015 19:06, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> 2015-03-30 7:39 GMT-07:00 Stas Sergeev <stsp@list.ru>:
+>> 27.03.2015 20:15, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> I think your concerns are valid, but I don't think there is going t=
+o be
+>>> any problem with the approach I suggested because there is a contra=
+ct
+>>> that the fixed PHYs and regular PHYs need to
+>> Hello Florian.
+>>
+>> As promised, today I tried to resurrect my first implementation
+>> and do things as you suggested: install the link_update callback
+>> for mvneta privately.
+>> I feel SGMII setup is very common and deserves the separate API,
+>> not the per-driver handling, but in any case, I'd like to show
+>> the implementation first, then discuss.
+>>
+>> Unfortunately, it didn't work quite right.
+>> The problem is that mvneta calls phy_disconnect() on .ndo_stop
+>> callback. After that, phy->attached_dev becomes NULL, and so the
+>> link_update callback gets called with net_dev=3D=3DNULL! And crashs.
+>> Of course I can easily work around that, but IMHO its a bug -
+>> the one that actually gets fixed by the patches I posted previously.
+>=20
+> I actually submitted some patches a while ago that allow you to
+> unregister the fixed_link_update callback before in case you need to,
+> precisely for that. Since this is specific to dealing with a fixed
+> PHY, it is the driver responsibility to know that is has registered a
+> fixed_link_update callback and then unregister it by passing a NULL
+> callback as the new callback.
+Today I posted the patch that does exactly that.
+But I already see the problem:
+---
+[   10.535424] mvneta f1030000.ethernet eth1: Link is Up - Unsupported =
+(update phy.c)/Half - flow control off
+---
 
-> @@ -197,15 +197,12 @@ static int at803x_probe(struct phy_device *phyd=
-ev)
->  	if (!priv)
->  		return -ENOMEM;
-> =20
-> -	priv->gpiod_reset =3D devm_gpiod_get(dev, "reset");
-> -	if (IS_ERR(priv->gpiod_reset))
-> -		priv->gpiod_reset =3D NULL;
-> -	else
-> -		gpiod_direction_output(priv->gpiod_reset, 1);
-> +	priv->gpiod_reset =3D devm_gpiod_get_optional(dev, "reset",
-> +						    GPIOD_OUT_HIGH);
-> =20
->  	phydev->priv =3D priv;
-> =20
-> -	return 0;
-> +	return IS_ERR(priv->gpiod_reset);
->  }
-> =20
->  static int at803x_config_init(struct phy_device *phydev)
-
-This isn't right.
-
-The current code is necessary, don't change it.
-
-Your "simplification" adds three new bugs:
-
-1) It potentially leaves an error pointer in priv->gpiod_reset
-   and I explicitly tell people to NEVER do this as it tests as
-   non-NULL by cleanup code and therefore might be mistakenly
-   used.
-
-2) It returns the wrong error.  IS_ERR() is either true or
-   false, but if you wanted to do this right you would
-   return PTR_ERR() if IS_ERR() were true or zero.
-
-3) Clearly this code intended to continue trying and succeed
-   the probe even if getting "reset" failed, your changes
-   no longer do this.
-
-I really hate changes like this, don't try to be too cute unless
-you fully understand the full repurcussions and the reasons why
-someone did things one way or another.
-
-Leaving error pointers live in datastructures is never to be done, and
-if I see patches adding code doing it I will reject it on the spot.
+Seems like if I register a callback after of_phy_connect()
+(and unregister before disconnect), there is a small window
+between connect and setting the callback. If someone at that
+time will query phy, he'll get an undefined status (speed).
+And before of_phy_connect() the phy_device pointer is not known
+to register callback earlier. Of course I can see the possible
+work-arounds, but I wonder if something better can be done
+than using of_phy_find_device() and related magic right before
+of_phy_connect() just for that.
