@@ -1,59 +1,45 @@
-From: Robert Dolca <robert.dolca@gmail.com>
-Subject: Re: [linux-nfc] [PATCH 1/8] NFC: NCI: Allow connection close with dev down
-Date: Tue, 31 Mar 2015 17:03:42 +0300
-Message-ID: <CAFPB+Yc-+1s4Y1iWnnCHWjnk=U5Rq-6Wq-idtakCxju8pvYi4Q@mail.gmail.com>
-References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
- <1424772112-27399-2-git-send-email-robert.dolca@intel.com> <20150326002925.GA10954@ribalta.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: smc91x: Remove an unused variable
+Date: Tue, 31 Mar 2015 10:53:28 -0400 (EDT)
+Message-ID: <20150331.105328.2195438658331769456.davem@davemloft.net>
+References: <1427733818-11823-1-git-send-email-festevam@gmail.com>
+	<20150330172057.GG17728@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Robert Dolca <robert.dolca@intel.com>, linux-nfc@lists.01.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150326002925.GA10954@ribalta.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: festevam@gmail.com, netdev@vger.kernel.org,
+	fabio.estevam@freescale.com
+To: u.kleine-koenig@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47098 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754198AbbCaOxa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 10:53:30 -0400
+In-Reply-To: <20150330172057.GG17728@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 26, 2015 at 2:29 AM, Samuel Ortiz <sameo@linux.intel.com> wrote:
-> Hi Robert,
->
-> On Tue, Feb 24, 2015 at 12:01:45PM +0200, Robert Dolca wrote:
->> By calling __nci_request instead of nci_request allows the driver to use
->> the function while initializing the device (setup stage)
->>
->> Signed-off-by: Robert Dolca <robert.dolca@intel.com>
->> ---
->>  net/nfc/nci/core.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
->> index 9575a18..c4dd5d8 100644
->> --- a/net/nfc/nci/core.c
->> +++ b/net/nfc/nci/core.c
->> @@ -558,7 +558,7 @@ static void nci_core_conn_close_req(struct nci_dev *ndev, unsigned long opt)
->>
->>  int nci_core_conn_close(struct nci_dev *ndev, u8 conn_id)
->>  {
->> -     return nci_request(ndev, nci_core_conn_close_req, conn_id,
->> +     return __nci_request(ndev, nci_core_conn_close_req, conn_id,
->>                               msecs_to_jiffies(NCI_CMD_TIMEOUT));
-> You're fixing your problem by removing the NCI request serialization and
-> removing the check for your device being UP.
-> I assume you need to open and close a proprietary connection from your
-> setup hook ? Then please extend nci_request() to check for both NCI_UP
-> and NCI_INIT.
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Mon, 30 Mar 2015 19:20:57 +0200
 
-You are right, I am opening and closing a connection from the setup
-function. The setup is called by nci_open_device. At the beginning of
-nci_open_device, req_lock is being acquired and it is release at the
-end of the function. That means that when setup is being called
-req_lock is acuired. As you said I can modify nci_request to check for
-NCI_INIT but it tries to acquire req_lock and it can not succeed.
+> On Mon, Mar 30, 2015 at 01:43:38PM -0300, Fabio Estevam wrote:
+>> From: Fabio Estevam <fabio.estevam@freescale.com>
+>>=20
+>> Commit cb6e0b3690f48dff ("net: smc91x: make use of 4th parameter to =
+devm_gpiod_get_index")
+>> caused the following build warning:
+>>=20
+>> drivers/net/ethernet/smsc/smc91x.c:2208:6: warning: unused variable =
+'res' [-Wunused-variable]
+>>=20
+>> Remove the unused 'res' variable.
+>>=20
+>> Reported-by: Olof's autobuilder <build@lixom.net>
+>> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> I wonder why I didn't notice this because the 0day build robot tested=
+ my
+> tree and didn't report this warning. Probably that means this driver
+> wasn't tested.
 
-We could use another mutex for nci_request but I am not sure if that
-is a good idea.
-
-Regards,
-Robert
+This driver can't be enabled on x86/x86-64 so the build testing it will
+get is going to be extremely limited.
