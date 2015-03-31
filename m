@@ -1,274 +1,69 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next] switchdev: Enable HW offloading of fdb
- add/delete on team devices.
-Date: Tue, 31 Mar 2015 09:16:05 -0700
-Message-ID: <CAE4R7bCG24SrzLFezCuB7OVbds9qaSegT-w-Dud3+V4Yz=SoRg@mail.gmail.com>
-References: <1427748998-14346-1-git-send-email-sridhar.samudrala@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] cxgb4: add FCoE DDP and RSS
+Date: Tue, 31 Mar 2015 12:27:00 -0400 (EDT)
+Message-ID: <20150331.122700.20730443685574837.davem@davemloft.net>
+References: <cover.1427467737.git.varun@chelsio.com>
+	<20150331.120413.459187920066488949.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	sfeldman@gmail.com, Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	leedom@chelsio.com, anish@chelsio.com, hariprasad@chelsio.com,
+	praveenm@chelsio.com
+To: varun@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:33600 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753084AbbCaQQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 12:16:06 -0400
-Received: by qgfa8 with SMTP id a8so18960413qgf.0
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 09:16:05 -0700 (PDT)
-In-Reply-To: <1427748998-14346-1-git-send-email-sridhar.samudrala@intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48277 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753883AbbCaQ1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 12:27:03 -0400
+In-Reply-To: <20150331.120413.459187920066488949.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sridhar,
-
-Thanks for working on this.  It looks good to me.  But, this is an
-example of the ops code exposition I was trying to address in my swdev
-attrs patch.  I'll planning on sending a v2 for that patch set
-tonight, and I think you'll see adding your work for FDB add/del over
-stacked drivers will just fall out with just a little bit of new code.
-I hope you would resend this patch based on my v2?
-
-BTW, swdev attrs is what I had in v1. What's coming in v2 in addition
-to swdev attrs and swdev objs, to support things that are objects and
-not attributes, like VLANs, FDB entries, FIB entries.  Hopefully it
-makes sense when you see it.
-
--scott
-
-On Mon, Mar 30, 2015 at 1:56 PM, Sridhar Samudrala
-<sridhar.samudrala@intel.com> wrote:
-> switchdev: Enable HW offloading of fdb add/delete on team devices.
->
-> This patch enables HW offloading of fdb add/delete on a team device with
-> switchdev member ports and not attached to a bridge.
->
-> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-> ---
->  drivers/net/team/team.c   |   2 +
->  include/net/switchdev.h   |  47 +++++++++++++++++
->  net/switchdev/switchdev.c | 125 ++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 174 insertions(+)
->
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index 6928448..3de7ab3 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -1979,6 +1979,8 @@ static const struct net_device_ops team_netdev_ops = {
->         .ndo_change_carrier     = team_change_carrier,
->         .ndo_bridge_setlink     = ndo_dflt_netdev_switch_port_bridge_setlink,
->         .ndo_bridge_dellink     = ndo_dflt_netdev_switch_port_bridge_dellink,
-> +       .ndo_fdb_add            = ndo_dflt_netdev_switch_port_fdb_add,
-> +       .ndo_fdb_del            = ndo_dflt_netdev_switch_port_fdb_del,
->         .ndo_features_check     = passthru_features_check,
->  };
->
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index d2e69ee..7902909 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -81,6 +81,19 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
->                                                struct nlmsghdr *nlh, u16 flags);
->  int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *dev,
->                                                struct nlmsghdr *nlh, u16 flags);
-> +int netdev_switch_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-> +                              struct net_device *dev,
-> +                              const unsigned char *addr, u16 vid, u16 flags);
-> +int netdev_switch_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
-> +                              struct net_device *dev,
-> +                              const unsigned char *addr, u16 vid);
-> +int ndo_dflt_netdev_switch_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid,
-> +                                       u16 flags);
-> +int ndo_dflt_netdev_switch_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid);
->  int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
->                                u8 tos, u8 type, u32 nlflags, u32 tb_id);
->  int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-> @@ -145,6 +158,40 @@ static inline int ndo_dflt_netdev_switch_port_bridge_setlink(struct net_device *
->         return 0;
->  }
->
-> +static inline int netdev_switch_port_fdb_add(struct ndmsg *ndm,
-> +                                       struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid,
-> +                                       u16 flags)
-> +{
-> +       return -EOPNOTSUPP;
-> +}
-> +
-> +static inline int netdev_switch_port_fdb_del(struct ndmsg *ndm,
-> +                                       struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid)
-> +{
-> +       return -EOPNOTSUPP;
-> +}
-> +
-> +static inline int ndo_dflt_netdev_switch_port_fdb_add(struct ndmsg *ndm,
-> +                                       struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid,
-> +                                       u16 flags)
-> +{
-> +       return 0;
-> +}
-> +
-> +static inline int ndo_dflt_netdev_switch_port_fdb_del(struct ndmsg *ndm,
-> +                                       struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid)
-> +{
-> +       return 0;
-> +}
-> +
->  static inline int netdev_switch_fib_ipv4_add(u32 dst, int dst_len,
->                                              struct fib_info *fi,
->                                              u8 tos, u8 type,
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 46568b8..f3e4e16 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -237,6 +237,131 @@ int ndo_dflt_netdev_switch_port_bridge_dellink(struct net_device *dev,
->  }
->  EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_bridge_dellink);
->
-> +/**
-> + *     netdev_switch_port_fdb_add -  Add fdb entry to switch device port
-> + *
-> + *     @ndm: struct ndmsg
-> + *     @tb: pointer to array of nlattr
-> + *     @dev: switch device port netdev
-> + *     @addr: MAC address entry to be added
-> + *     @vid: VLAN id
-> + *     @flags: flags for fdb addition
-> + *
-> + *     Add fdb entry to switch device port.
-> + */
-> +int netdev_switch_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-> +                              struct net_device *dev,
-> +                              const unsigned char *addr, u16 vid, u16 flags)
-> +{
-> +       const struct net_device_ops *ops = dev->netdev_ops;
-> +
-> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
-> +               return 0;
-> +
-> +       if (!ops->ndo_fdb_add)
-> +               return -EOPNOTSUPP;
-> +
-> +       return ops->ndo_fdb_add(ndm, tb, dev, addr, vid, flags);
-> +
-> +}
-> +EXPORT_SYMBOL_GPL(netdev_switch_port_fdb_add);
-> +
-> +/**
-> + *     netdev_switch_port_fdb_del -  Delete fdb entry from switch device port
-> + *
-> + *     @ndm: struct ndmsg
-> + *     @tb: pointer to array of nlattr
-> + *     @dev: switch device port netdev
-> + *     @addr: MAC address entry to be added
-> + *     @vid: VLAN id
-> + *
-> + *     Delete fdb entry from switch device port.
-> + */
-> +int netdev_switch_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
-> +                              struct net_device *dev,
-> +                              const unsigned char *addr, u16 vid)
-> +{
-> +       const struct net_device_ops *ops = dev->netdev_ops;
-> +
-> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
-> +               return 0;
-> +
-> +       if (!ops->ndo_fdb_del)
-> +               return -EOPNOTSUPP;
-> +
-> +       return ops->ndo_fdb_del(ndm, tb, dev, addr, vid);
-> +}
-> +EXPORT_SYMBOL_GPL(netdev_switch_port_fdb_del);
-> +
-> +/**
-> + *     ndo_dflt_netdev_switch_port_fdb_add - Propagate add fdb entry to all
-> + *     the slave devices.
-> + *
-> + *     @ndm: struct ndmsg
-> + *     @tb: pointer to array of nlattr
-> + *     @dev: switch device port netdev
-> + *     @addr: MAC address entry to be added
-> + *     @vid: VLAN id
-> + *     @flags: flags for fdb addition
-> + *
-> + *     Propagate add fdb entry to all the slave devices.
-> + */
-> +int ndo_dflt_netdev_switch_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid,
-> +                                       u16 flags)
-> +{
-> +       struct net_device *lower_dev;
-> +       struct list_head *iter;
-> +       int ret = 0, err = 0;
-> +
-> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
-> +               return ret;
-> +
-> +       netdev_for_each_lower_dev(dev, lower_dev, iter) {
-> +               err = netdev_switch_port_fdb_add(ndm, tb, lower_dev, addr,vid,
-> +                                                flags);
-> +               if (err && err != -EOPNOTSUPP)
-> +                       ret = err;
-> +       }
-> +
-> +       return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_fdb_add);
-> +
-> +/**
-> + *     ndo_dflt_netdev_switch_port_fdb_del - Propagate delete fdb entry to all
-> + *     the slave devices.
-> + *
-> + *     @ndm: struct ndmsg
-> + *     @tb: pointer to array of nlattr
-> + *     @dev: switch device port netdev
-> + *     @addr: MAC address entry to be added
-> + *     @vid: VLAN id
-> + *
-> + *     Propagate delete fdb entry to all the slave devices.
-> + */
-> +int ndo_dflt_netdev_switch_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
-> +                                       struct net_device *dev,
-> +                                       const unsigned char *addr, u16 vid)
-> +{
-> +       struct net_device *lower_dev;
-> +       struct list_head *iter;
-> +       int ret = 0, err = 0;
-> +
-> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
-> +               return ret;
-> +
-> +       netdev_for_each_lower_dev(dev, lower_dev, iter) {
-> +               err = netdev_switch_port_fdb_del(ndm, tb, lower_dev, addr,vid);
-> +               if (err && err != -EOPNOTSUPP)
-> +                       ret = err;
-> +       }
-> +
-> +       return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(ndo_dflt_netdev_switch_port_fdb_del);
-> +
->  static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
->  {
->         const struct swdev_ops *ops = dev->swdev_ops;
-> --
-> 1.8.4.2
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAzMSBN
+YXIgMjAxNSAxMjowNDoxMyAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFZhcnVuIFByYWthc2ggPHZh
+cnVuQGNoZWxzaW8uY29tPg0KPiBEYXRlOiBGcmksIDI3IE1hciAyMDE1IDIwOjI5OjM2ICswNTMw
+DQo+IA0KPj4gVGhpcyBwYXRjaCBzZXJpZXMgZW5hYmxlcyBSU1MgZm9yIEZDb0UgZnJhbWVzIGFu
+ZCBhZGRzDQo+PiBERFAgc3VwcG9ydCBmb3IgRkNvRSB0YXJnZXQuDQo+IA0KPiBTZXJpZXMgYXBw
+bGllZCwgdGhhbmtzIFZhcnVuLg0KDQpJIGhhdmUgdG8gcmV2ZXJ0LCB0aGlzIHNlcmllcyBicmVh
+a3MgdGhlIGJ1aWxkOg0KDQpbZGF2ZW1AbG9jYWxob3N0IG5ldC1uZXh0XSQgbWFrZSAtcyAtajgN
+CkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvdDQuaDoz
+NzowLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC9p
+d19jeGdiNC5oOjczLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaW5maW5pYmFuZC9o
+dy9jeGdiNC9kZXZpY2UuYzo0MDoNCmRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC90NGZ3X3Jp
+X2FwaS5oOjgyMTo4OiBlcnJvcjogcmVkZWZpbml0aW9uIG9mIKFzdHJ1Y3QgdWxwdHhfaWRhdGGi
+DQogc3RydWN0IHVscHR4X2lkYXRhIHsNCiAgICAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9t
+IGRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC90NC5oOjM2OjAsDQogICAgICAgICAgICAgICAg
+IGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L2l3X2N4Z2I0Lmg6NzMsDQogICAgICAg
+ICAgICAgICAgIGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L2RldmljZS5jOjQwOg0K
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC90NF9tc2cuaDoxMTEwOjg6IG5vdGU6
+IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQogc3RydWN0IHVscHR4X2lkYXRhIHsNCiAgICAgICAg
+Xg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyNTg6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJz
+L2luZmluaWJhbmQvaHcvY3hnYjQvZGV2aWNlLm8nIGZhaWxlZA0KbWFrZVs0XTogKioqIFtkcml2
+ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvZGV2aWNlLm9dIEVycm9yIDENCm1ha2VbNF06ICoqKiBX
+YWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJp
+dmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L3Q0Lmg6Mzc6MCwNCiAgICAgICAgICAgICAgICAgZnJv
+bSBkcml2ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvaXdfY3hnYjQuaDo3MywNCiAgICAgICAgICAg
+ICAgICAgZnJvbSBkcml2ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvY20uYzo1MjoNCmRyaXZlcnMv
+aW5maW5pYmFuZC9ody9jeGdiNC90NGZ3X3JpX2FwaS5oOjgyMTo4OiBlcnJvcjogcmVkZWZpbml0
+aW9uIG9mIKFzdHJ1Y3QgdWxwdHhfaWRhdGGiDQogc3RydWN0IHVscHR4X2lkYXRhIHsNCiAgICAg
+ICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC90
+NC5oOjM2OjAsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4
+Z2I0L2l3X2N4Z2I0Lmg6NzMsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9pbmZpbmli
+YW5kL2h3L2N4Z2I0L2NtLmM6NTI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9jaGVsc2lvL2N4Z2I0
+L3Q0X21zZy5oOjExMTA6ODogbm90ZTogb3JpZ2luYWxseSBkZWZpbmVkIGhlcmUNCiBzdHJ1Y3Qg
+dWxwdHhfaWRhdGEgew0KICAgICAgICBeDQpzY3JpcHRzL01ha2VmaWxlLmJ1aWxkOjI1ODogcmVj
+aXBlIGZvciB0YXJnZXQgJ2RyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC9jbS5vJyBmYWlsZWQN
+Cm1ha2VbNF06ICoqKiBbZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L2NtLm9dIEVycm9yIDEN
+CnNjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6NDAzOiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9p
+bmZpbmliYW5kL2h3L2N4Z2I0JyBmYWlsZWQNCm1ha2VbM106ICoqKiBbZHJpdmVycy9pbmZpbmli
+YW5kL2h3L2N4Z2I0XSBFcnJvciAyDQptYWtlWzNdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hl
+ZCBqb2JzLi4uLg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDo0MDM6IHJlY2lwZSBmb3IgdGFyZ2V0
+ICdkcml2ZXJzL2luZmluaWJhbmQvaHcnIGZhaWxlZA0KbWFrZVsyXTogKioqIFtkcml2ZXJzL2lu
+ZmluaWJhbmQvaHddIEVycm9yIDINCm1ha2VbMl06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVk
+IGpvYnMuLi4uDQpzY3JpcHRzL01ha2VmaWxlLmJ1aWxkOjQwMzogcmVjaXBlIGZvciB0YXJnZXQg
+J2RyaXZlcnMvaW5maW5pYmFuZCcgZmFpbGVkDQptYWtlWzFdOiAqKiogW2RyaXZlcnMvaW5maW5p
+YmFuZF0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4u
+Li4NCk1ha2VmaWxlOjk0NzogcmVjaXBlIGZvciB0YXJnZXQgJ2RyaXZlcnMnIGZhaWxlZA0KbWFr
+ZTogKioqIFtkcml2ZXJzXSBFcnJvciAyDQptYWtlOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hl
+ZCBqb2JzLi4uLg0KW2RhdmVtQGxvY2FsaG9zdCBuZXQtbmV4dF0kIA0K
