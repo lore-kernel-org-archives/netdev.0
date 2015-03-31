@@ -1,84 +1,266 @@
-From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and
- cap_sa(), for sa-check
-Date: Tue, 31 Mar 2015 15:22:59 +0200
-Message-ID: <551A9FB3.2030903@profitbricks.com>
-References: <551579CA.4030901@profitbricks.com>		 <55157B43.6060507@profitbricks.com>	 <1427732191.21101.201.camel@redhat.com> <55197CDB.3040105@profitbricks.com> <1427734923.21101.227.camel@redhat.com>
+From: Stas Sergeev <stsp@list.ru>
+Subject: [PATCH] mvneta: implement SGMII-based in-band link state signaling
+Date: Tue, 31 Mar 2015 16:24:59 +0300
+Message-ID: <551AA02B.2050104@list.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Alex Estrin <alex.estrin@int
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1427734923.21101.227.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/30/2015 07:02 PM, Doug Ledford wrote:
-> On Mon, 2015-03-30 at 18:42 +0200, Michael Wang wrote:
->> [snip]
->>
->> rdma_transport_is_ib and rdma_port_ll_is_ib is actually just rough helper
->> to save some code, we can get rid of them when we no longer need them, but
->> currently device driver still using them a lot, I'm not sure if the new
->> mechanism could take cover all these cases...
-> [snip]
->
-> If we use something like this, then the above is all you need.  Then
-> every place in the code that checks for something like has_sa or cap_sa
-> can be replaced with rdma_ib_mgmt.  When Ira updates his patches for
-> this, he can check for rdma_opa_mgmt to enable jumbo MAD packets and
-> whatever else he needs. Every place that does transport == IB and ll ==
-> Ethernet can become rdma_transport_is_roce.  Every place that does
-> transport == IB and ll == INFINIBAND becomes rdma_transport_is_ib.
 
-Get your point :-) I need to investigate all those cases see if it
-works, in case if things unclear, I'll reform it according to my
-understanding to adapt to this new mechanism, if there are any
-misunderstanding, we can address them case by case during
-the review.
+When MDIO bus is unavailable (common setup for SGMII), the in-band
+signaling must be used to correctly track link state.
+This patch enables the in-band status delivery for links state changes, namely:
+- link up/down
+- link speed
+- duplex full/half
+fixed_phy link_update() callback is used to update status.
 
->  The
-> code in multicast.c just needs to check rdma_ib_mgmt() (which happens to
-> make perfect sense anyway as the code in multicast.c that is checking
-> that we are on an IB interface is doing so because IB requires extra
-> management of the multicast group joins/leaves).
+Note: SGMII setup is so common that I think it deserves a separate API
+rather than the per-driver handling. There is an alternative implementation
+that adds such API:
+https://lkml.org/lkml/2015/3/27/346
 
-I'll adopt those helpers already been discussed, and they will be
-implemented with the helpers from new mechanism
-(eg, rdma_ib_mgmt) in next version.
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 
-> But, like I said, this
-> is an all or nothing change, it isn't something we can ease into.
+Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+---
+ drivers/net/ethernet/marvell/mvneta.c |   90 +++++++++++++++++++++++++++++----
+ 1 file changed, 79 insertions(+), 11 deletions(-)
 
-It's will be great if we can make it, let's see ;-)
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 96208f1..13a2aa2 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -100,6 +100,8 @@
+ #define MVNETA_TXQ_CMD                           0x2448
+ #define      MVNETA_TXQ_DISABLE_SHIFT            8
+ #define      MVNETA_TXQ_ENABLE_MASK              0x000000ff
++#define MVNETA_GMAC_CLOCK_DIVIDER                0x24f4
++#define      MVNETA_GMAC_1MS_CLOCK_ENABLE        BIT(31)
+ #define MVNETA_ACC_MODE                          0x2500
+ #define MVNETA_CPU_MAP(cpu)                      (0x2540 + ((cpu) << 2))
+ #define      MVNETA_CPU_RXQ_ACCESS_ALL_MASK      0x000000ff
+@@ -122,6 +124,7 @@
+ #define      MVNETA_TX_INTR_MASK_ALL             (0xff << 0)
+ #define      MVNETA_RX_INTR_MASK(nr_rxqs)        (((1 << nr_rxqs) - 1) << 8)
+ #define      MVNETA_RX_INTR_MASK_ALL             (0xff << 8)
++#define      MVNETA_MISCINTR_INTR_MASK           BIT(31)
 
-Regards,
-Michael Wang
+ #define MVNETA_INTR_OLD_CAUSE                    0x25a8
+ #define MVNETA_INTR_OLD_MASK                     0x25ac
+@@ -165,6 +168,7 @@
+ #define      MVNETA_GMAC_MAX_RX_SIZE_MASK        0x7ffc
+ #define      MVNETA_GMAC0_PORT_ENABLE            BIT(0)
+ #define MVNETA_GMAC_CTRL_2                       0x2c08
++#define      MVNETA_GMAC2_INBAND_AN_ENABLE       BIT(0)
+ #define      MVNETA_GMAC2_PCS_ENABLE             BIT(3)
+ #define      MVNETA_GMAC2_PORT_RGMII             BIT(4)
+ #define      MVNETA_GMAC2_PORT_RESET             BIT(6)
+@@ -180,9 +184,11 @@
+ #define MVNETA_GMAC_AUTONEG_CONFIG               0x2c0c
+ #define      MVNETA_GMAC_FORCE_LINK_DOWN         BIT(0)
+ #define      MVNETA_GMAC_FORCE_LINK_PASS         BIT(1)
++#define      MVNETA_GMAC_INBAND_AN_ENABLE        BIT(2)
+ #define      MVNETA_GMAC_CONFIG_MII_SPEED        BIT(5)
+ #define      MVNETA_GMAC_CONFIG_GMII_SPEED       BIT(6)
+ #define      MVNETA_GMAC_AN_SPEED_EN             BIT(7)
++#define      MVNETA_GMAC_AN_FLOW_CTRL_EN         BIT(11)
+ #define      MVNETA_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
+ #define      MVNETA_GMAC_AN_DUPLEX_EN            BIT(13)
+ #define MVNETA_MIB_COUNTERS_BASE                 0x3080
+@@ -304,6 +310,7 @@ struct mvneta_port {
+ 	unsigned int link;
+ 	unsigned int duplex;
+ 	unsigned int speed;
++	int use_inband_status:1;
+ };
 
->
+ /* The mvneta_tx_desc and mvneta_rx_desc structures describe the
+@@ -994,6 +1001,20 @@ static void mvneta_defaults_set(struct mvneta_port *pp)
+ 	val &= ~MVNETA_PHY_POLLING_ENABLE;
+ 	mvreg_write(pp, MVNETA_UNIT_CONTROL, val);
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++	if (pp->use_inband_status) {
++		val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
++		val &= ~(MVNETA_GMAC_FORCE_LINK_PASS |
++			 MVNETA_GMAC_FORCE_LINK_DOWN |
++			 MVNETA_GMAC_AN_FLOW_CTRL_EN);
++		val |= MVNETA_GMAC_INBAND_AN_ENABLE |
++		       MVNETA_GMAC_AN_SPEED_EN |
++		       MVNETA_GMAC_AN_DUPLEX_EN;
++		mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
++		val = mvreg_read(pp, MVNETA_GMAC_CLOCK_DIVIDER);
++		val |= MVNETA_GMAC_1MS_CLOCK_ENABLE;
++		mvreg_write(pp, MVNETA_GMAC_CLOCK_DIVIDER, val);
++	}
++
+ 	mvneta_set_ucast_table(pp, -1);
+ 	mvneta_set_special_mcast_table(pp, -1);
+ 	mvneta_set_other_mcast_table(pp, -1);
+@@ -2043,6 +2064,23 @@ static irqreturn_t mvneta_isr(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+
++static int mvneta_fixed_link_update(struct net_device *dev,
++				  struct fixed_phy_status *status)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++	u32 gmac_stat = mvreg_read(pp, MVNETA_GMAC_STATUS);
++
++	status->link = !!(gmac_stat & MVNETA_GMAC_LINK_UP);
++	if (gmac_stat & MVNETA_GMAC_SPEED_1000)
++		status->speed = SPEED_1000;
++	else if (gmac_stat & MVNETA_GMAC_SPEED_100)
++		status->speed = SPEED_100;
++	else
++		status->speed = SPEED_10;
++	status->duplex = !!(gmac_stat & MVNETA_GMAC_FULL_DUPLEX);
++	return 0;
++}
++
+ /* NAPI handler
+  * Bits 0 - 7 of the causeRxTx register indicate that are transmitted
+  * packets on the corresponding TXQ (Bit 0 is for TX queue 1).
+@@ -2063,8 +2101,12 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 	}
+
+ 	/* Read cause register */
+-	cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE) &
+-		(MVNETA_RX_INTR_MASK(rxq_number) | MVNETA_TX_INTR_MASK(txq_number));
++	cause_rx_tx = mvreg_read(pp, MVNETA_INTR_NEW_CAUSE);
++	if (cause_rx_tx & MVNETA_MISCINTR_INTR_MASK) {
++		/* since phylib uses polling, not much to do here...
++		 * Any way to tell phylib to do the poll NOW? */
++		mvreg_write(pp, MVNETA_INTR_MISC_CAUSE, 0);
++	}
+
+ 	/* Release Tx descriptors */
+ 	if (cause_rx_tx & MVNETA_TX_INTR_MASK_ALL) {
+@@ -2109,7 +2151,9 @@ static int mvneta_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
+ 		local_irq_save(flags);
+ 		mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-			    MVNETA_RX_INTR_MASK(rxq_number) | MVNETA_TX_INTR_MASK(txq_number));
++			    MVNETA_RX_INTR_MASK(rxq_number) |
++			    MVNETA_TX_INTR_MASK(txq_number) |
++			    MVNETA_MISCINTR_INTR_MASK);
+ 		local_irq_restore(flags);
+ 	}
+
+@@ -2373,7 +2417,13 @@ static void mvneta_start_dev(struct mvneta_port *pp)
+
+ 	/* Unmask interrupts */
+ 	mvreg_write(pp, MVNETA_INTR_NEW_MASK,
+-		    MVNETA_RX_INTR_MASK(rxq_number) | MVNETA_TX_INTR_MASK(txq_number));
++		    MVNETA_RX_INTR_MASK(rxq_number) |
++		    MVNETA_TX_INTR_MASK(txq_number) |
++		    MVNETA_MISCINTR_INTR_MASK);
++	mvreg_write(pp, MVNETA_INTR_MISC_MASK,
++		    MVNETA_CAUSE_PHY_STATUS_CHANGE |
++		    MVNETA_CAUSE_LINK_CHANGE |
++		    MVNETA_CAUSE_PSC_SYNC_CHANGE);
+
+ 	phy_start(pp->phy_dev);
+ 	netif_tx_start_all_queues(pp->dev);
+@@ -2523,9 +2573,7 @@ static void mvneta_adjust_link(struct net_device *ndev)
+ 			val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+ 			val &= ~(MVNETA_GMAC_CONFIG_MII_SPEED |
+ 				 MVNETA_GMAC_CONFIG_GMII_SPEED |
+-				 MVNETA_GMAC_CONFIG_FULL_DUPLEX |
+-				 MVNETA_GMAC_AN_SPEED_EN |
+-				 MVNETA_GMAC_AN_DUPLEX_EN);
++				 MVNETA_GMAC_CONFIG_FULL_DUPLEX);
+
+ 			if (phydev->duplex)
+ 				val |= MVNETA_GMAC_CONFIG_FULL_DUPLEX;
+@@ -2554,12 +2602,24 @@ static void mvneta_adjust_link(struct net_device *ndev)
+
+ 	if (status_change) {
+ 		if (phydev->link) {
+-			u32 val = mvreg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+-			val |= (MVNETA_GMAC_FORCE_LINK_PASS |
+-				MVNETA_GMAC_FORCE_LINK_DOWN);
+-			mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
++			if (!pp->use_inband_status) {
++				u32 val = mvreg_read(pp,
++						  MVNETA_GMAC_AUTONEG_CONFIG);
++				val &= ~MVNETA_GMAC_FORCE_LINK_DOWN;
++				val |= MVNETA_GMAC_FORCE_LINK_PASS;
++				mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
++					    val);
++			}
+ 			mvneta_port_up(pp);
+ 		} else {
++			if (!pp->use_inband_status) {
++				u32 val = mvreg_read(pp,
++						  MVNETA_GMAC_AUTONEG_CONFIG);
++				val &= ~MVNETA_GMAC_FORCE_LINK_PASS;
++				val |= MVNETA_GMAC_FORCE_LINK_DOWN;
++				mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG,
++					    val);
++			}
+ 			mvneta_port_down(pp);
+ 		}
+ 		phy_print_status(phydev);
+@@ -2576,6 +2636,7 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
+ 		netdev_err(pp->dev, "could not find the PHY\n");
+ 		return -ENODEV;
+ 	}
++	fixed_phy_set_link_update(phy_dev, mvneta_fixed_link_update);
+
+ 	phy_dev->supported &= PHY_GBIT_FEATURES;
+ 	phy_dev->advertising = phy_dev->supported;
+@@ -2590,6 +2651,7 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
+
+ static void mvneta_mdio_remove(struct mvneta_port *pp)
+ {
++	fixed_phy_set_link_update(pp->phy_dev, NULL);
+ 	phy_disconnect(pp->phy_dev);
+ 	pp->phy_dev = NULL;
+ }
+@@ -2910,6 +2972,9 @@ static int mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ 		return -EINVAL;
+ 	}
+
++	if (pp->use_inband_status)
++		ctrl |= MVNETA_GMAC2_INBAND_AN_ENABLE;
++
+ 	/* Cancel Port Reset */
+ 	ctrl &= ~MVNETA_GMAC2_PORT_RESET;
+ 	mvreg_write(pp, MVNETA_GMAC_CTRL_2, ctrl);
+@@ -2934,6 +2999,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	char hw_mac_addr[ETH_ALEN];
+ 	const char *mac_from;
+ 	int phy_mode;
++	int fixed_phy = 0;
+ 	int err;
+
+ 	/* Our multiqueue support is not complete, so for now, only
+@@ -2967,6 +3033,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 			dev_err(&pdev->dev, "cannot register fixed PHY\n");
+ 			goto err_free_irq;
+ 		}
++		fixed_phy = 1;
+
+ 		/* In the case of a fixed PHY, the DT node associated
+ 		 * to the PHY is the Ethernet MAC DT node.
+@@ -2990,6 +3057,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	pp = netdev_priv(dev);
+ 	pp->phy_node = phy_node;
+ 	pp->phy_interface = phy_mode;
++	pp->use_inband_status = (phy_mode == PHY_INTERFACE_MODE_SGMII) && fixed_phy;
+
+ 	pp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pp->clk)) {
+-- 
+1.7.9.5
