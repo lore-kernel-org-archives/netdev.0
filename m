@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] mlx4: Extend statistics gathering and
- display
-Date: Tue, 31 Mar 2015 16:37:09 -0400 (EDT)
-Message-ID: <20150331.163709.1243682645524151775.davem@davemloft.net>
-References: <1427726726-27516-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [patch net-next] net: rename dev to orig_dev in
+ deliver_ptype_list_skb
+Date: Tue, 31 Mar 2015 16:37:58 -0400 (EDT)
+Message-ID: <20150331.163758.2027750392690625070.davem@davemloft.net>
+References: <1427727361-3138-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadarh@mellanox.com, talal@mellanox.com,
-	amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50617 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50627 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbbCaUhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:37:13 -0400
-In-Reply-To: <1427726726-27516-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1752953AbbCaUh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:37:59 -0400
+In-Reply-To: <1427727361-3138-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 30 Mar 2015 17:45:19 +0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 30 Mar 2015 16:56:01 +0200
 
-> This series from Eran and Matan extends the statistics collected and
-> later reported to the user via ethtool for native mode and SRIOV PF.
+> Unlike other places, this function uses name "dev" for what should be
+> "orig_dev", which might be a bit confusing. So fix this.
 > 
-> More Packet statistics, PFC statistics and global pause statistics
-> are now displayed via ethtool.
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Series applied, thanks.
+Applied, thanks Jiri.
