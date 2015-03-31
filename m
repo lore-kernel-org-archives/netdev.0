@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 09/11] ptp: mlx4: use helpers for converting ns to timespec.
-Date: Tue, 31 Mar 2015 23:08:14 +0200
-Message-ID: <3bf4379da9f79427e3fa4f3395b7d1b10bad8393.1427835485.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 05/11] ptp: gianfar: use helpers for converting ns to timespec.
+Date: Tue, 31 Mar 2015 23:08:10 +0200
+Message-ID: <6b1438a86975f35c2f072a6908f2a66c20117fc3.1427835485.git.richardcochran@gmail.com>
 References: <cover.1427835485.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Arnd Bergmann <arnd@linaro.org>,
@@ -21,45 +21,51 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Sony Chacko <sony.chacko@qlogic.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:35991 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754056AbbCaVIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 17:08:43 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1427835485.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes the driver to use ns_to_timespec64() instead of
-open coding the same logic.
-
-Compile tested only.
+This patch changes the driver to use ns_to_timespec64() and
+timespec64_to_ns() instead of open coding the same logic.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_clock.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/freescale/gianfar_ptp.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-index 666e7bd..8a083d7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -170,15 +170,13 @@ static int mlx4_en_phc_gettime(struct ptp_clock_info *ptp,
- 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
- 						ptp_clock_info);
- 	unsigned long flags;
--	u32 remainder;
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index 04265a7..8e3cd77 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -326,7 +326,6 @@ static int ptp_gianfar_gettime(struct ptp_clock_info *ptp,
+ 			       struct timespec64 *ts)
+ {
  	u64 ns;
+-	u32 remainder;
+ 	unsigned long flags;
+ 	struct etsects *etsects = container_of(ptp, struct etsects, caps);
  
- 	write_lock_irqsave(&mdev->clock_lock, flags);
- 	ns = timecounter_read(&mdev->clock);
- 	write_unlock_irqrestore(&mdev->clock_lock, flags);
+@@ -336,8 +335,8 @@ static int ptp_gianfar_gettime(struct ptp_clock_info *ptp,
  
--	ts->tv_sec = div_u64_rem(ns, NSEC_PER_SEC, &remainder);
+ 	spin_unlock_irqrestore(&etsects->lock, flags);
+ 
+-	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
 -	ts->tv_nsec = remainder;
 +	*ts = ns_to_timespec64(ns);
- 
++
  	return 0;
  }
+ 
+@@ -348,8 +347,7 @@ static int ptp_gianfar_settime(struct ptp_clock_info *ptp,
+ 	unsigned long flags;
+ 	struct etsects *etsects = container_of(ptp, struct etsects, caps);
+ 
+-	ns = ts->tv_sec * 1000000000ULL;
+-	ns += ts->tv_nsec;
++	ns = timespec64_to_ns(ts);
+ 
+ 	spin_lock_irqsave(&etsects->lock, flags);
+ 
 -- 
 1.7.10.4
