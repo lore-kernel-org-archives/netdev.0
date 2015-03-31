@@ -1,55 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 00/25] treewide: Use bool function return values of
- true/false not 1/0
-Date: Mon, 30 Mar 2015 17:14:48 -0700
-Message-ID: <1427760888.14276.37.camel@perches.com>
-References: <cover.1427759009.git.joe@perches.com>
-	 <5519E53B.5040504@schaufler-ca.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net 2/2] ipmr,ip6mr: call list_del_rcu() when deleting mr
+ table from list
+Date: Mon, 30 Mar 2015 17:17:06 -0700
+Message-ID: <CAHA+R7N=Hoip-SpwsH=9AHt9=Oyp_-NFJaAwkx4speS2QMM6Cg@mail.gmail.com>
+References: <1427310345-29829-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1427310345-29829-2-git-send-email-xiyou.wangcong@gmail.com>
+	<1427314022.3581245.245236665.477D7858@webmail.messagingengine.com>
+	<1427314914.3584424.245242065.67DE2EEE@webmail.messagingengine.com>
+	<1427317004.3592779.245256885.395A5939@webmail.messagingengine.com>
+	<CAHA+R7Mj7BaVKmmt+0TvUb4a3-mTcP=8_-ZJfxRamOHkjCw-sA@mail.gmail.com>
+	<1427331669.3644952.245320733.5C7B84E1@webmail.messagingengine.com>
+	<1427372619.2762618.245521141.61D660A6@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- kvmarm@lists.cs.columbia.edu, kvm@vger.kernel.org,
- linux-omap@vger.kernel.org,  kvm-ppc@vger.kernel.org,
- virtualization@lists.linux-foundation.org,  linux-fsdevel@vger.kernel.org,
- linux-nfs@vger.kernel.org,  linux-ide@vger.kernel.org,
- kgdb-bugreport@lists.sourceforge.net,  linux-mm@kvack.org,
- linux-pm@vger.kernel.org, netdev@vger.kernel.org,
- alsa-devel@alsa-project.org, bridge@lists.linux-foundation.org,
- netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
- patches@opensource.wolfsonmicro.com, linux-hexagon@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-mips@linux-mips.org,
- linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
- sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org,
- linux-security-module@vger.kernel.org
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <5519E53B.5040504@schaufler-ca.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:37378 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753477AbbCaARG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 20:17:06 -0400
+Received: by igcxg11 with SMTP id xg11so4038403igc.0
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 17:17:06 -0700 (PDT)
+In-Reply-To: <1427372619.2762618.245521141.61D660A6@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-30 at 17:07 -0700, Casey Schaufler wrote:
-> On 3/30/2015 4:45 PM, Joe Perches wrote:
-> > Joe Perches (25):
-> >   arm: Use bool function return values of true/false not 1/0
+On Thu, Mar 26, 2015 at 5:23 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>
+> The rest of the locking seems to be fine. So only rcu_read_lock() is
+> missing for lockdep correctness.
+>
 
-[etc...]
+Since DaveM already marks this as "Changes requested", I will:
 
-> Why, and why these in particular?
+1) separate patch 1/2 out for net and possibly stable;
 
-bool functions are probably better returning
-bool values instead of 1 and 0.
+2) fold patch 2/2 into a more complete patch including the
+rcu_read_lock() you mentioned,
+    only for net-next.
 
-Especially when the functions intermix returning
-returning 1/0 and true/false.
-
-(there are only a couple of those though)
-
-These are all the remaining instances in the
-kernel tree.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks!
