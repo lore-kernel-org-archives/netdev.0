@@ -1,94 +1,64 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH net-next 11/18] switchdev: remove old
- netdev_switch_port_bridge_setlink
-Date: Tue, 31 Mar 2015 00:08:34 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
-	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>
-	<55194E63.5010100@cumulusnetworks.com>
-	<CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
-	<E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net-next] fib: move fib_rules_cleanup_ops() under rtnl lock
+Date: Mon, 30 Mar 2015 17:12:06 -0700
+Message-ID: <CAHA+R7MRhvwUcDqAPFRpO8JiEizp_EhUwKyK31MbfMOV=YpW7w@mail.gmail.com>
+References: <1427403769-31208-1-git-send-email-xiyou.wangcong@gmail.com>
+	<55147E5D.2070600@redhat.com>
+	<CAHA+R7P4-y4o5WuUwzfwd+LrrkdRdo2=UfXzYdgTrJ63qkaTVg@mail.gmail.com>
+	<55148576.1010303@redhat.com>
+	<CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com>
+	<CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>
+	<55149A99.6040704@redhat.com>
+	<20150327120135.GC12265@casper.infradead.org>
+	<CAHA+R7MJTz1-F2v1c+ZEkVQ_JX0Ey5dGAmCjR_N8rvVPbuM0Tg@mail.gmail.com>
+	<5515C6C4.4080200@redhat.com>
+	<CAHA+R7Puss-BUG0gFdw+FnbaiXE6Rx=FJ8ccJ2JyJdNMz7H2bQ@mail.gmail.com>
+	<5515D5E0.2060800@redhat.com>
+	<CAHA+R7OC4dcOZaM1HJ_Z8xbkj0ic+P5APC91=dJnw9EXq3eu2Q@mail.gmail.com>
+	<5519E40F.6090708@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: roopa <roopa@cumulusnetworks.com>,
-	=?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39152 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753416AbbCaAIh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Mar 2015 20:08:37 -0400
-In-Reply-To: <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:38812 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753419AbbCaAMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 20:12:07 -0400
+Received: by igbqf9 with SMTP id qf9so3892876igb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 17:12:06 -0700 (PDT)
+In-Reply-To: <5519E40F.6090708@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IFNjb3R0IEZlbGRtYW4gW21h
-aWx0bzpzZmVsZG1hQGdtYWlsLmNvbV0NCj5TZW50OiBNb25kYXksIE1hcmNoIDMwLCAyMDE1IDI6
-MjggUE0NCj5UbzogQXJhZCwgUm9uZW4NCj5DYzogcm9vcGE7IE5ldGRldjsgSmlyw60gUMOtcmtv
-OyBHdWVudGVyIFJvZWNrOyBGbG9yaWFuIEZhaW5lbGxpDQo+U3ViamVjdDogUmU6IFtQQVRDSCBu
-ZXQtbmV4dCAxMS8xOF0gc3dpdGNoZGV2OiByZW1vdmUgb2xkDQo+bmV0ZGV2X3N3aXRjaF9wb3J0
-X2JyaWRnZV9zZXRsaW5rDQo+DQo+T24gTW9uLCBNYXIgMzAsIDIwMTUgYXQgMTo0NiBQTSwgQXJh
-ZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwuY29tPiB3cm90ZToNCj4+DQo+Pg0KPj4+LS0tLS1P
-cmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+PkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5v
-cmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbg0KPj4+QmVoYWxmIE9m
-IFNjb3R0IEZlbGRtYW4NCj4+PlNlbnQ6IE1vbmRheSwgTWFyY2ggMzAsIDIwMTUgMToyMCBQTQ0K
-Pj4+VG86IHJvb3BhDQo+Pj5DYzogTmV0ZGV2OyBKacWZw60gUMOtcmtvOyBHdWVudGVyIFJvZWNr
-OyBGbG9yaWFuIEZhaW5lbGxpDQo+Pj5TdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDExLzE4
-XSBzd2l0Y2hkZXY6IHJlbW92ZSBvbGQNCj4+Pm5ldGRldl9zd2l0Y2hfcG9ydF9icmlkZ2Vfc2V0
-bGluaw0KPj4+DQo+Pj5PbiBNb24sIE1hciAzMCwgMjAxNSBhdCA2OjIzIEFNLCByb29wYSA8cm9v
-cGFAY3VtdWx1c25ldHdvcmtzLmNvbT4gd3JvdGU6DQo+Pj4+IE9uIDMvMzAvMTUsIDE6NDAgQU0s
-IHNmZWxkbWFAZ21haWwuY29tIHdyb3RlOg0KPj4+Pj4NCj4+Pj4+IEZyb206IFNjb3R0IEZlbGRt
-YW4gPHNmZWxkbWFAZ21haWwuY29tPg0KPj4+Pj4NCj4+Pj4+IE5ldyBhdHRyLWJhc2VkIGJyaWRn
-ZV9zZXRsaW5rIGNhbiByZWN1cnNlIGxvd2VyIGRldnMgYW5kIHJlY292ZXIgb24gZXJyLA0KPj4+
-Pj4gc28NCj4+Pj4+IHJlbW92ZSBvbGQgd3JhcHBlci4gIEFsc28sIHJlc3RvcmUgYnJfc2V0bGlu
-ayBiYWNrIHRvIG9yaWdpbmFsIGFuZCBkb24ndA0KPj4+Pj4gY2FsbA0KPj4+Pj4gaW50byBTRUxG
-IHBvcnQgZHJpdmVyLiAgcnRuZXRsaW5rLmM6YnJpZGdlX3NldGxpbmsgYWxyZWFkeSBkb2VzIGEg
-Y2FsbA0KPj4+Pj4gaW50bw0KPj4+Pj4gcG9ydCBkcml2ZXIgZm9yIFNFTEYuDQo+Pj4+Pg0KPj4+
-Pj4gU2lnbmVkLW9mZi1ieTogU2NvdHQgRmVsZG1hbiA8c2ZlbGRtYUBnbWFpbC5jb20+DQo+Pj4+
-DQo+Pj4+IHJlbW92aW5nIHRoaXMgbm93IHJlcXVpcmVzIGV2ZXJ5IHZsYW4gYWRkIHRvIGJlIGEg
-dHdvIHN0ZXAgcHJvY2Vzcywgd2h5ID8NCj4+Pg0KPj4+Tm8sIHRoYXQncyBub3QgdHJ1ZS4gIFlv
-dSB3YW50IHRvIHVzZQ0KPj4+bmRvX3ZsYW5fcnhfYWRkX3ZpZC9uZG9fdmxhbl9yeF9raWxsX3Zp
-ZCBpbiB5b3VyIHBvcnQgZHJpdmVyLCBhbmQgdGhlbg0KPj4+dXNpbmcgZWl0aGVyIHZsYW4gZHJp
-dmVyIHN0YW5kYWxvbmUgb3IgdGhlIGJyaWRnZSBkcml2ZXIgdmxhbiBzdXBwb3J0DQo+Pj53aWxs
-IHdvcmsuDQo+Pj4NCj4+PlRyeSBpdC4gIEltcGxlbWVudCBuZG9fdmxhbl9yeF9hZGRfdmlkIGlu
-IHlvdXIgcG9ydCBkcml2ZXIgYW5kIHZlcmlmeQ0KPj4+eW91IGdldCBjYWxsZWQgdG8gYWRkIFZM
-QU4gdG8gcG9ydCB3aXRoIGVpdGhlcjoNCj4+Pg0KPj4+ICAgIGJyaWRnZSB2bGFuIGFkZCBkZXYg
-c3dwMSB2aWQgMTANCj4+Pg0KPj4+ICAgIC1vci0NCj4+Pg0KPj4+ICAgIHZjb25maWcgYWRkIHN3
-cDEgMTANCj4+Pg0KPj4+U2FtZSBmb3IgZGVsZXRpbmcgYSBWTEFOLCBlaXRoZXIgb2YgdGhlc2Ug
-dHdvIGNvbW1hbmRzIGNhbGwgaW50byB0aGUNCj4+PnBvcnQgZHJpdmVyIG5kb192bGFuX3J4X2tp
-bGxfdmlkOg0KPj4+DQo+Pj4gICAgYnJpZGdlIHZsYW4gZGVsIGRldiBzd3AxIHZpZCAxMA0KPj4+
-DQo+Pj4gICAgLW9yLQ0KPj4+DQo+Pj4gICAgdmNvbmZpZyByZW0gc3dwMSAxMA0KPj4+DQo+Pj4N
-Cj4+Pj4gYnJpZGdlIHZsYW4gYWRkIGRldiBzd3AxIHZpZCAxMA0KPj4+PiBicmlkZ2UgdmxhbiBh
-ZGQgZGV2IHN3cDEgdmlkIDEwIHNlbGYNCj4+Pg0KPj4+Tm90IG5lY2Vzc2FyeS4gIFRoZSBmaXJz
-dCBjb21tYW5kIGlzIHN1ZmZpY2llbnQgaWYgdXNpbmcNCj4+Pm5kb192bGFuX3J4X2FkZF92aWQu
-DQo+Pg0KPj4gVGhpcyBpcyBub3Qgc3VmZmljaWVudCBmb3IgVkxBTiBmaWx0ZXJpbmcuIE5kb192
-bGFuX3J4X2FkZF92aWQgZG9lcyBub3QNCj4+IHByb3ZpZGUgdGhlIHZpbmZvIGZsYWdzIFBWSUQg
-YW5kIFVOVEFHR0VELiBUaGVyZWZvcmUgaXQgaXMgbm90DQo+PiBhbiBhZGVxdWF0ZSByZXBsYWNl
-bWVudCBmb3IgcHJvcGFnYXRpbmcgc2V0bGluay9kZWxsaW5rIG1lc3NhZ2VzIHRvIHRoZQ0KPj4g
-c3dpdGhwb3J0IGRyaXZlciBvciBhbiBhbHRlcm5hdGl2ZSB2aWEgc3dkZXZfYXR0ci4NCj4NCj5H
-bGFkIHlvdSBicmluZyB0aGF0IHBvaW50IHVwLiAgSSB0aGluayB0aGVzZSBjYW4gZ2V0IGNhc3Qg
-YXMgcG9ydA0KPmF0dHJzIGFuZCBzZXQgdXNpbmcgc3dkZXZfYXR0ci4gIFRoaXMgaXMgc29tZXRo
-aW5nIHN3ZGV2IGF0dHIgc2hvdWxkDQo+b3BlbiB1cCBpcyBhbGxvd2luZyBtb3JlIHNldHRpbmdz
-IHRvIGJlIHB1c2hlZCBkb3duIHRvIHBvcnQgZHJpdmVyLg0KPkknbGwgbG9vayBpbnRvIHRoaXMg
-b25lIGFuZCBpbmNsdWRlIGl0IHdpdGggdjIuDQoNCkl0IGNvdWxkIGJlIGJlbmVmaWNpYWwgdG8g
-YnVpbGQgZXh0ZW5zaWJpbGl0eSBpbnRvIHN3ZGV2X2F0dHIuDQpBbiBleHBlcmltZW50ZXIgYXR0
-cmlidXRlIGRlc2lnbmVkIHRvIGNhcnJ5IGFyYml0cmFyeSBkYXRhIGNvdWxkIGFsbG93DQpmb3Ig
-cGFzc2luZyBuZXcgYXR0cmlidXRlcyBhbmQgaW1wbGVtZW50YXRpb24gc3BlY2lmaWMgYXR0cmli
-dXRlcw0Kd2l0aG91dCBhZmZlY3RpbmcgYW55IGV4aXN0aW5nIHN3aXRjaGRldiBkcml2ZXI6DQoN
-CmVudW0gc3dkZXZfYXR0cl9pZCB7DQogCVNXREVWX0FUVFJfVU5ERUZJTkVELA0KCVNXREVWX0FU
-VFJfRVhQRVJJTUVOVEVSLA0KIAlTV0RFVl9BVFRSX1BPUlRfUEFSRU5UX0lELA0KCVNXREVWX0FU
-VFJfUE9SVF9TVFBfU1RBVEUsDQogfTsNCg0KDQpzdHJ1Y3Qgc3dkZXZfZXhwZXJpbWVudGVyX2F0
-dHIgew0KCXUzMiBleHBfaWQ7IAkvKiAtIE1TQiAwOiBsb3ctb3JkZXIgYnl0ZXMgYXJlIElFRUUg
-T1VJICovDQoJCQkvKiAtIE1TQiAhPSAwOiByZXNlcnZlZCBmb3IgbmV0ZGV2ICovDQoJdTMyIGV4
-cF9hdHRyOw0KCXUxNiBleHBfYXR0cl9zaXplOw0KCWNvbnN0IHZvaWQgKmV4cF9hdHRyX2RhdGE7
-DQp9DQoNCnN0cnVjdCBzd2Rldl9hdHRyIHsNCgllbnVtIHN3ZGV2X2F0dHJfaWQgYXR0cjsNCgl1
-MzIgZmxhZ3M7DQoNCiAJdW5pb24gew0KIAkJc3RydWN0IG5ldGRldl9waHlzX2l0ZW1faWQgcHBp
-ZDsJLyogUE9SVF9QQVJFTlRfSUQgKi8NCiAJCXU4IHN0cF9zdGF0ZTsJCQkJLyogUE9SVF9TVFBf
-U1RBVEUgKi8NCgkJdW5zaWduZWQgbG9uZyBicnBvcnRfZmxhZ3M7CS8qIFBPUlRfQlJJREdFX0ZM
-QUdTICovDQoJCS8qIG5ldGRldiBkZWZpbmVkIGF0dHJpYnV0ZXMgYWJvYmUgdGhpcyBsaW5lICov
-DQoJCXN0cnVjdCBzd2Rldl9leHBlcmltZW50ZXJfYXR0ciBleHBfYXR0cjsNCiAJfTsNCg==
+On Mon, Mar 30, 2015 at 5:02 PM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+>
+> On 03/30/2015 04:47 PM, Cong Wang wrote:
+>>
+>> As long as we agree rtnl lock should be taken, you already take my point
+>> here ($subject says so).
+>
+>
+> Yes, I agree lock can be held.  For fib4 it was already holding the RTNL
+> lock when it made that call.  You can update the other users of
+> fib_rules_unregister so that they call it with the RTNL lock held as well.
+>
+>> It is just API change to move rtnl_lock up to caller or whatever
+>> appropriate.
+>
+>
+> Right, so like I said for fib4 this is resolved.  That just leaves ipmr,
+> ip6mr, fib6, and dn_rules that need to be updated so that they correctly
+> handle the RTNL locking in their exit/cleanup paths. Since you already have
+> some related patches out for these I will let you take them otherwise I
+> might try to go through and clean them up next week.
+>
+
+Ok, then we are finally on the same page. We need two patches:
+
+1) move unregister under rtnl lock (as what this patch intended to do)
+2) remove the unnecessary rules_mod_lock
+
+Thanks.
