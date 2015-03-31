@@ -1,52 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/9 net-next] ipv6: replace if/BUG by BUG_ON
-Date: Tue, 31 Mar 2015 11:17:52 -0400 (EDT)
-Message-ID: <20150331.111752.1605776715849912657.davem@davemloft.net>
-References: <1427749998-28464-1-git-send-email-fabf@skynet.be>
-	<1427749998-28464-4-git-send-email-fabf@skynet.be>
-	<551A1983.40408@miraclelinux.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 13/18] switchdev: remove unused NETIF_F_HW_SWITCH_OFFLOAD
+Date: Tue, 31 Mar 2015 08:34:34 -0700
+Message-ID: <551ABE8A.3080702@cumulusnetworks.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com> <1427704836-8776-14-git-send-email-sfeldma@gmail.com> <551951CD.1060301@cumulusnetworks.com> <CAE4R7bDBdjvZ0VAzX19ZP3h4i9GpNnXyO6RqgKMNnHx0em_x9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: fabf@skynet.be, linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	pablo@netfilter.org, kadlec@blackhole.kfki.hu,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org
-To: hideaki.yoshifuji@miraclelinux.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <551A1983.40408@miraclelinux.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35000 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754359AbbCaPeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 11:34:36 -0400
+Received: by patj18 with SMTP id j18so23000981pat.2
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 08:34:36 -0700 (PDT)
+In-Reply-To: <CAE4R7bDBdjvZ0VAzX19ZP3h4i9GpNnXyO6RqgKMNnHx0em_x9A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Date: Tue, 31 Mar 2015 12:50:27 +0900
-
-> Hi,
-> 
-> Fabian Frederick wrote:
->> Signed-off-by: Fabian Frederick <fabf@skynet.be>
->> ---
->>  net/ipv6/addrconf.c                     | 3 +--
->>  net/ipv6/esp6.c                         | 3 +--
->>  net/ipv6/netfilter/nf_conntrack_reasm.c | 3 +--
->>  3 files changed, 3 insertions(+), 6 deletions(-)
->> 
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 2660263..e205918 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -4805,8 +4805,7 @@ static int inet6_set_link_af(struct net_device *dev, const struct nlattr *nla)
->>  	if (!idev)
->>  		return -EAFNOSUPPORT;
->>  
->> -	if (nla_parse_nested(tb, IFLA_INET6_MAX, nla, NULL) < 0)
->> -		BUG();
->> +	BUG_ON(nla_parse_nested(tb, IFLA_INET6_MAX, nla, NULL) < 0);
->>  
-> 
-> NACK, I do not prefer using BUG_ON() with side effects.
-
-Agreed, I do not like these changes at all and will not be
-applying them.
+On 3/30/15, 2:20 PM, Scott Feldman wrote:
+> On Mon, Mar 30, 2015 at 6:38 AM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 3/30/15, 1:40 AM, sfeldma@gmail.com wrote:
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> Flag is no longer needed so remove it.  Using the attr get/set recurse
+>>> algo
+>>> obsoletes the flag.  Setting the flag on bond/team interface, even when
+>>> the
+>>> consitient member ports didn't have flag set was confusing.
+>>>
+>>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>>
+>> The flag was there to avoid the recursive lowerdev walk where possible.
+>> bond will have the flag if any one slave can have it. You don't walk the
+>> bond if it does not have the flag.
+> Ok, I see.  I'll remove this patch from set.  Should I put the
+> NETIF_F_HW_SWITCH_OFFLOAD check in the get/set attr wrappers?
+>
+that would be nice. Thanks scott
