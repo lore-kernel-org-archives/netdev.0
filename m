@@ -1,35 +1,42 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH] caif: remove unused struct member
-Date: Tue, 31 Mar 2015 16:05:23 +0200
-Message-ID: <1427810723-21234-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Robert Dolca <robert.dolca-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [linux-nfc] [PATCH 3/8] NFC: NCI: Adds NCI init and reset API for drivers
+Date: Tue, 31 Mar 2015 17:05:53 +0300
+Message-ID: <CAFPB+YcvZReLRsv5dYh=jTwASa1vo-0pK5T1AS-eGmzO=arDLQ@mail.gmail.com>
+References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+ <1424772112-27399-4-git-send-email-robert.dolca@intel.com> <20150326002937.GB10954@ribalta.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150326002937.GB10954-41CF7WKNp/H9zxVx7UNMDg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The tty_name member of struct ser_device is never set or used, so it
-can be removed. (The definition of struct ser_device is private to
-this .c file, and the identifier tty_name only occurs in this one
-place.)
+On Thu, Mar 26, 2015 at 2:29 AM, Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
+> Hi Robert,
+>
+> On Tue, Feb 24, 2015 at 12:01:47PM +0200, Robert Dolca wrote:
+>> In order to communicate with the device during the setup
+>> phase, the driver may need to initialize the device. After
+>> the setup is done the driver should reset the device to leave
+>> it in the same state that it was before the setup function
+>> call.
+> I would prefer not to export those symbols, but instead introduce a
+> quirk bitmap to let the NCI core know that your device expects the core
+> to be initialized before calling the setup ops.
+> That would be done from nci_open_device().
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
----
- drivers/net/caif/caif_serial.c | 1 -
- 1 file changed, 1 deletion(-)
+As part of the initialization / firmware upgrade procedure the driver
+needs to reset and initialize the NCI connection multiple times.
+Having the connection initialized before calling setup is not enough.
 
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-index 27bbc56de15f..9da06537237f 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -70,7 +70,6 @@ struct ser_device {
- 	struct tty_struct *tty;
- 	bool tx_started;
- 	unsigned long state;
--	char *tty_name;
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *debugfs_tty_dir;
- 	struct debugfs_blob_wrapper tx_blob;
--- 
-2.1.3
+Regards,
+Robert
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
