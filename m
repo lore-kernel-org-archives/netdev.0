@@ -1,43 +1,53 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ip6mr: call del_timer_sync() in ip6mr_free_table()
-Date: Tue, 31 Mar 2015 11:01:47 -0700
-Message-ID: <1427824907-13331-3-git-send-email-xiyou.wangcong@gmail.com>
-References: <1427824907-13331-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: at803x: simplify using
+ devm_gpiod_get_optional and its 4th argument
+Date: Tue, 31 Mar 2015 14:07:00 -0400 (EDT)
+Message-ID: <20150331.140700.1574593248925827837.davem@davemloft.net>
+References: <1427484302-17075-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<20150331.125754.1434513759096073981.davem@davemloft.net>
+	<20150331175347.GL17728@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linus.walleij@linaro.org, acourbot@nvidia.com
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34592 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753402AbbCaSCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 14:02:54 -0400
-Received: by pactp5 with SMTP id tp5so26590698pac.1
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 11:02:53 -0700 (PDT)
-In-Reply-To: <1427824907-13331-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49143 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753458AbbCaSHD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 14:07:03 -0400
+In-Reply-To: <20150331175347.GL17728@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to wait for the flying timers, since we
-are going to free the mrtable right after it.
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Tue, 31 Mar 2015 19:53:47 +0200
 
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/ip6mr.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> On Tue, Mar 31, 2015 at 12:57:54PM -0400, David Miller wrote:
+>> 1) It potentially leaves an error pointer in priv->gpiod_reset
+>>    and I explicitly tell people to NEVER do this as it tests as
+>>    non-NULL by cleanup code and therefore might be mistakenly
+>>    used.
+> If priv->gpiod_reset is an error value it makes the probe routine ret=
+urn
+> this error (after point 2 is addressed), which should end the lifetim=
+e
+> of the structure containing the value.
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 2f1fd9f..312e0ff 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -336,7 +336,7 @@ static struct mr6_table *ip6mr_new_table(struct net *net, u32 id)
- 
- static void ip6mr_free_table(struct mr6_table *mrt)
- {
--	del_timer(&mrt->ipmr_expire_timer);
-+	del_timer_sync(&mrt->ipmr_expire_timer);
- 	mroute_clean_tables(mrt);
- 	kfree(mrt);
- }
--- 
-1.8.3.1
+It doesn't matter, it's a dangerous practice and not doing so makes
+sure that no matter how this code is ever changed nobody can run into
+potential problems due to this.
+
+>> I really hate changes like this, don't try to be too cute unless
+>> you fully understand the full repurcussions and the reasons why
+>> someone did things one way or another.
+> I think I did understand the code, so I will resend with
+> PTR_ERR_OR_ZERO assuming it was you who didn't understood my change
+> regarding the other two issues you pointed out.
+
+I'm not applying this patch if you keep putting error pointers into
+the structure member.
+
+Please do not fight me on this, I do not consider your changes an
+improvement at all.
