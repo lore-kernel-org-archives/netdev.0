@@ -1,69 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] cxgb4: add FCoE DDP and RSS
-Date: Tue, 31 Mar 2015 12:27:00 -0400 (EDT)
-Message-ID: <20150331.122700.20730443685574837.davem@davemloft.net>
-References: <cover.1427467737.git.varun@chelsio.com>
-	<20150331.120413.459187920066488949.davem@davemloft.net>
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: Re: [PATCH net-next 0/2] ipv6: coding style - comparisons with NULL
+Date: Tue, 31 Mar 2015 17:39:00 +0100
+Message-ID: <551ACDA4.8000302@chirality.org.uk>
+References: <1427634005-4313-1-git-send-email-ipm@chirality.org.uk> <1427650577.2715.32.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	leedom@chelsio.com, anish@chelsio.com, hariprasad@chelsio.com,
-	praveenm@chelsio.com
-To: varun@chelsio.com
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48277 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753883AbbCaQ1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 12:27:03 -0400
-In-Reply-To: <20150331.120413.459187920066488949.davem@davemloft.net>
+Received: from inet-gw.chirality.org.uk ([88.97.209.22]:45461 "EHLO
+	yew.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754141AbbCaQjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 12:39:04 -0400
+In-Reply-To: <1427650577.2715.32.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAzMSBN
-YXIgMjAxNSAxMjowNDoxMyAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFZhcnVuIFByYWthc2ggPHZh
-cnVuQGNoZWxzaW8uY29tPg0KPiBEYXRlOiBGcmksIDI3IE1hciAyMDE1IDIwOjI5OjM2ICswNTMw
-DQo+IA0KPj4gVGhpcyBwYXRjaCBzZXJpZXMgZW5hYmxlcyBSU1MgZm9yIEZDb0UgZnJhbWVzIGFu
-ZCBhZGRzDQo+PiBERFAgc3VwcG9ydCBmb3IgRkNvRSB0YXJnZXQuDQo+IA0KPiBTZXJpZXMgYXBw
-bGllZCwgdGhhbmtzIFZhcnVuLg0KDQpJIGhhdmUgdG8gcmV2ZXJ0LCB0aGlzIHNlcmllcyBicmVh
-a3MgdGhlIGJ1aWxkOg0KDQpbZGF2ZW1AbG9jYWxob3N0IG5ldC1uZXh0XSQgbWFrZSAtcyAtajgN
-CkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvdDQuaDoz
-NzowLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC9p
-d19jeGdiNC5oOjczLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaW5maW5pYmFuZC9o
-dy9jeGdiNC9kZXZpY2UuYzo0MDoNCmRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC90NGZ3X3Jp
-X2FwaS5oOjgyMTo4OiBlcnJvcjogcmVkZWZpbml0aW9uIG9mIKFzdHJ1Y3QgdWxwdHhfaWRhdGGi
-DQogc3RydWN0IHVscHR4X2lkYXRhIHsNCiAgICAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9t
-IGRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC90NC5oOjM2OjAsDQogICAgICAgICAgICAgICAg
-IGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L2l3X2N4Z2I0Lmg6NzMsDQogICAgICAg
-ICAgICAgICAgIGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L2RldmljZS5jOjQwOg0K
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC90NF9tc2cuaDoxMTEwOjg6IG5vdGU6
-IG9yaWdpbmFsbHkgZGVmaW5lZCBoZXJlDQogc3RydWN0IHVscHR4X2lkYXRhIHsNCiAgICAgICAg
-Xg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyNTg6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJz
-L2luZmluaWJhbmQvaHcvY3hnYjQvZGV2aWNlLm8nIGZhaWxlZA0KbWFrZVs0XTogKioqIFtkcml2
-ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvZGV2aWNlLm9dIEVycm9yIDENCm1ha2VbNF06ICoqKiBX
-YWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJp
-dmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L3Q0Lmg6Mzc6MCwNCiAgICAgICAgICAgICAgICAgZnJv
-bSBkcml2ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvaXdfY3hnYjQuaDo3MywNCiAgICAgICAgICAg
-ICAgICAgZnJvbSBkcml2ZXJzL2luZmluaWJhbmQvaHcvY3hnYjQvY20uYzo1MjoNCmRyaXZlcnMv
-aW5maW5pYmFuZC9ody9jeGdiNC90NGZ3X3JpX2FwaS5oOjgyMTo4OiBlcnJvcjogcmVkZWZpbml0
-aW9uIG9mIKFzdHJ1Y3QgdWxwdHhfaWRhdGGiDQogc3RydWN0IHVscHR4X2lkYXRhIHsNCiAgICAg
-ICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC90
-NC5oOjM2OjAsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4
-Z2I0L2l3X2N4Z2I0Lmg6NzMsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9pbmZpbmli
-YW5kL2h3L2N4Z2I0L2NtLmM6NTI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9jaGVsc2lvL2N4Z2I0
-L3Q0X21zZy5oOjExMTA6ODogbm90ZTogb3JpZ2luYWxseSBkZWZpbmVkIGhlcmUNCiBzdHJ1Y3Qg
-dWxwdHhfaWRhdGEgew0KICAgICAgICBeDQpzY3JpcHRzL01ha2VmaWxlLmJ1aWxkOjI1ODogcmVj
-aXBlIGZvciB0YXJnZXQgJ2RyaXZlcnMvaW5maW5pYmFuZC9ody9jeGdiNC9jbS5vJyBmYWlsZWQN
-Cm1ha2VbNF06ICoqKiBbZHJpdmVycy9pbmZpbmliYW5kL2h3L2N4Z2I0L2NtLm9dIEVycm9yIDEN
-CnNjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6NDAzOiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9p
-bmZpbmliYW5kL2h3L2N4Z2I0JyBmYWlsZWQNCm1ha2VbM106ICoqKiBbZHJpdmVycy9pbmZpbmli
-YW5kL2h3L2N4Z2I0XSBFcnJvciAyDQptYWtlWzNdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hl
-ZCBqb2JzLi4uLg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDo0MDM6IHJlY2lwZSBmb3IgdGFyZ2V0
-ICdkcml2ZXJzL2luZmluaWJhbmQvaHcnIGZhaWxlZA0KbWFrZVsyXTogKioqIFtkcml2ZXJzL2lu
-ZmluaWJhbmQvaHddIEVycm9yIDINCm1ha2VbMl06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVk
-IGpvYnMuLi4uDQpzY3JpcHRzL01ha2VmaWxlLmJ1aWxkOjQwMzogcmVjaXBlIGZvciB0YXJnZXQg
-J2RyaXZlcnMvaW5maW5pYmFuZCcgZmFpbGVkDQptYWtlWzFdOiAqKiogW2RyaXZlcnMvaW5maW5p
-YmFuZF0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4u
-Li4NCk1ha2VmaWxlOjk0NzogcmVjaXBlIGZvciB0YXJnZXQgJ2RyaXZlcnMnIGZhaWxlZA0KbWFr
-ZTogKioqIFtkcml2ZXJzXSBFcnJvciAyDQptYWtlOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hl
-ZCBqb2JzLi4uLg0KW2RhdmVtQGxvY2FsaG9zdCBuZXQtbmV4dF0kIA0K
+Hello Joe,
+
+Many thanks for your invaluable feedback, as ever!
+
+I was aware this one has the potential to be a somewhat controversial 
+topic and whilst my analysis was not quite as scientific as yours I too 
+had detected the preference for the shorter form hence the reason for 
+adopting that style : however your stats are a great illustration so 
+thanks for putting them forward.
+
+I guess the thing with coding style is precisely that : it's a style 
+rather than something that is correct or not but my perspective (FWIW, 
+probably not that much!) is that we should at least try to be consistent 
+within an area of code. As such I can totally understand one area using 
+NULL and another not given the size of the kernel as a whole but I 
+thought it worth trying to align stuff within IPV6.
+
+IPV6 is a particular interest for me but I'd be happy to cook up a 
+similar patch for IPV4 if there's interest.
+
+Thanks again,
+
+Ian.
+
+On 29/03/15 18:36, Joe Perches wrote:
+> On Sun, 2015-03-29 at 14:00 +0100, Ian Morris wrote:
+>> The IPV6 code uses multiple different styles when comparing with NULL
+>> (I.e. x == NULL and !x as well as x != NULL and x). Generally the
+>> latter form is preferred according to checkpatch and so this changes
+>> aligns the code to this style.
+> Hello Ian.
+>
+> While I prefer this style, it can be a "maintainer's choice"
+> preference and this might be a bit contentious to some.
+>
+> It might be nice to show the relative counts of each form
+> before this change to show the relative counts use of each
+> form to help establish consensus for the value for this patch.
+>
+> (Or David could just apply it instead:)
+>
+> Using coccinelle to check for pointer comparisons with and
+> without NULL for net/ipv6/*.[ch]:
+>
+> with NULL:	260
+> without NULL:	779
+>
+> So there was a 3:1 preference for the bare form.
+>
+> (and for net/ipv4/*.[ch] it's closer to 4:1)
+>
+> with NULL:	276
+> without NULL:	914
+>
+> (trivial cocci script below)
+> @@
+> type A;
+> A *b;
+> @@
+>
+> * b == NULL
+>
+> @@
+> type A;
+> A *b;
+> @@
+>
+> * b != NULL
+>
+>
+>
