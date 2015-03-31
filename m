@@ -1,64 +1,55 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next] fib: move fib_rules_cleanup_ops() under rtnl lock
-Date: Mon, 30 Mar 2015 17:12:06 -0700
-Message-ID: <CAHA+R7MRhvwUcDqAPFRpO8JiEizp_EhUwKyK31MbfMOV=YpW7w@mail.gmail.com>
-References: <1427403769-31208-1-git-send-email-xiyou.wangcong@gmail.com>
-	<55147E5D.2070600@redhat.com>
-	<CAHA+R7P4-y4o5WuUwzfwd+LrrkdRdo2=UfXzYdgTrJ63qkaTVg@mail.gmail.com>
-	<55148576.1010303@redhat.com>
-	<CAHA+R7Na0BO=rQwFNy-M6pa=TfUXuMDiiwNzsevPpt5CUF=mqQ@mail.gmail.com>
-	<CAHA+R7MKNcOOiAsV7iQ2WT=sXCmaM0FuJ0OuY_S8reP2K8hN=w@mail.gmail.com>
-	<55149A99.6040704@redhat.com>
-	<20150327120135.GC12265@casper.infradead.org>
-	<CAHA+R7MJTz1-F2v1c+ZEkVQ_JX0Ey5dGAmCjR_N8rvVPbuM0Tg@mail.gmail.com>
-	<5515C6C4.4080200@redhat.com>
-	<CAHA+R7Puss-BUG0gFdw+FnbaiXE6Rx=FJ8ccJ2JyJdNMz7H2bQ@mail.gmail.com>
-	<5515D5E0.2060800@redhat.com>
-	<CAHA+R7OC4dcOZaM1HJ_Z8xbkj0ic+P5APC91=dJnw9EXq3eu2Q@mail.gmail.com>
-	<5519E40F.6090708@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 00/25] treewide: Use bool function return values of
+ true/false not 1/0
+Date: Mon, 30 Mar 2015 17:14:48 -0700
+Message-ID: <1427760888.14276.37.camel@perches.com>
+References: <cover.1427759009.git.joe@perches.com>
+	 <5519E53B.5040504@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:38812 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753419AbbCaAMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Mar 2015 20:12:07 -0400
-Received: by igbqf9 with SMTP id qf9so3892876igb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 17:12:06 -0700 (PDT)
-In-Reply-To: <5519E40F.6090708@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ kvmarm@lists.cs.columbia.edu, kvm@vger.kernel.org,
+ linux-omap@vger.kernel.org,  kvm-ppc@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,  linux-fsdevel@vger.kernel.org,
+ linux-nfs@vger.kernel.org,  linux-ide@vger.kernel.org,
+ kgdb-bugreport@lists.sourceforge.net,  linux-mm@kvack.org,
+ linux-pm@vger.kernel.org, netdev@vger.kernel.org,
+ alsa-devel@alsa-project.org, bridge@lists.linux-foundation.org,
+ netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+ patches@opensource.wolfsonmicro.com, linux-hexagon@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-mips@linux-mips.org,
+ linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
+ sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org,
+ linux-security-module@vger.kernel.org
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <5519E53B.5040504@schaufler-ca.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 5:02 PM, Alexander Duyck
-<alexander.h.duyck@redhat.com> wrote:
->
-> On 03/30/2015 04:47 PM, Cong Wang wrote:
->>
->> As long as we agree rtnl lock should be taken, you already take my point
->> here ($subject says so).
->
->
-> Yes, I agree lock can be held.  For fib4 it was already holding the RTNL
-> lock when it made that call.  You can update the other users of
-> fib_rules_unregister so that they call it with the RTNL lock held as well.
->
->> It is just API change to move rtnl_lock up to caller or whatever
->> appropriate.
->
->
-> Right, so like I said for fib4 this is resolved.  That just leaves ipmr,
-> ip6mr, fib6, and dn_rules that need to be updated so that they correctly
-> handle the RTNL locking in their exit/cleanup paths. Since you already have
-> some related patches out for these I will let you take them otherwise I
-> might try to go through and clean them up next week.
->
+On Mon, 2015-03-30 at 17:07 -0700, Casey Schaufler wrote:
+> On 3/30/2015 4:45 PM, Joe Perches wrote:
+> > Joe Perches (25):
+> >   arm: Use bool function return values of true/false not 1/0
 
-Ok, then we are finally on the same page. We need two patches:
+[etc...]
 
-1) move unregister under rtnl lock (as what this patch intended to do)
-2) remove the unnecessary rules_mod_lock
+> Why, and why these in particular?
 
-Thanks.
+bool functions are probably better returning
+bool values instead of 1 and 0.
+
+Especially when the functions intermix returning
+returning 1/0 and true/false.
+
+(there are only a couple of those though)
+
+These are all the remaining instances in the
+kernel tree.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
