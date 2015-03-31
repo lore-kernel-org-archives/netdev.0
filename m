@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Tue, 31 Mar 2015 13:48:42 -0400 (EDT)
-Message-ID: <20150331.134842.499356389024178984.davem@davemloft.net>
-References: <20150331064349.GB4605@localhost.localdomain>
-	<20150331.113832.2042398685489897677.davem@davemloft.net>
-	<551ADC12.5050603@cogentembedded.com>
+Subject: Re: [PATCH] Bonding Overriding Configuration logic restored.
+Date: Tue, 31 Mar 2015 13:50:05 -0400 (EDT)
+Message-ID: <20150331.135005.914314420842054696.davem@davemloft.net>
+References: <1427628025-9752-1-git-send-email-anton@swortex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	devicetree@vger.kernel.org, galak@codeaurora.org,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	mitsuhiro.kimura.kc@renesas.com, masaru.nagai.vx@renesas.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <551ADC12.5050603@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	alexey@swortex.com
+To: anton@swortex.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427628025-9752-1-git-send-email-anton@swortex.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 31 Mar 2015 20:40:34 +0300
+From: Anton Nayshtut <anton@swortex.com>
+Date: Sun, 29 Mar 2015 14:20:25 +0300
 
->    We (Cogent Embedded) are authorized to do this, isn't this enough?
-
-Maybe, maybe not, but I think my request is absolutely legitimate.
-
->>> [adding davem on CC]
+> Before commit 3900f29021f0bc7fe9815aa32f1a993b7dfdd402 ("bonding: slight
+> optimizztion for bond_slave_override()") the override logic was to send packets
+> with non-zero queue_id through the slave with corresponding queue_id, under two
+> conditions only - if the slave can transmit and it's up.
 > 
->>> Dave, is that correct?
+> The above mentioned commit changed this logic by introducing an additional
+> condition - whether the bond is active (indirectly, using the slave_can_tx and
+> later - bond_is_active_slave), that prevents the user from implementing more
+> complex policies according to the Documentation/networking/bonding.txt.
 > 
->> I refuse to apply any patch without an appropriate signoff.
-> 
->    But what do you mean by "appropriate signoff"? I have provided mine
->    but Richard insists there should be sign-offs from the primary driver
->    authors -- it's the first time I'm encountering such a requirement.
+> Signed-off-by: Anton Nayshtut <anton@swortex.com>
+> Signed-off-by: Alexey Bogoslavsky <alexey@swortex.com>
 
-Is there a serious problem getting the original authors to signoff on
-this driver submission?  If so, why?  This should be very
-straightforward, and if for some reason these authors are unwilling to
-then I have every reason to be concerned about this.
+Applied and queued up for -stable, thanks.
