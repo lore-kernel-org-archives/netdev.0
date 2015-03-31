@@ -1,62 +1,50 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH net-next] net: smc91x: Remove an unused variable
-Date: Tue, 31 Mar 2015 19:38:01 +0200
-Message-ID: <20150331173800.GJ17728@pengutronix.de>
-References: <1427733818-11823-1-git-send-email-festevam@gmail.com>
- <20150330172057.GG17728@pengutronix.de>
- <20150331.105328.2195438658331769456.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 31 Mar 2015 20:40:34 +0300
+Message-ID: <551ADC12.5050603@cogentembedded.com>
+References: <20150328082853.GA4255@localhost.localdomain>	<5519D380.6070200@cogentembedded.com>	<20150331064349.GB4605@localhost.localdomain> <20150331.113832.2042398685489897677.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: festevam@gmail.com, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, mitsuhiro.kimura.kc@renesas.com,
+	masaru.nagai.vx@renesas.com
+To: David Miller <davem@davemloft.net>, richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:53623 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029AbbCaRiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 13:38:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20150331.105328.2195438658331769456.davem@davemloft.net>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:36420 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752975AbbCaRki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 13:40:38 -0400
+Received: by lbbug6 with SMTP id ug6so18082049lbb.3
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 10:40:37 -0700 (PDT)
+In-Reply-To: <20150331.113832.2042398685489897677.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 31, 2015 at 10:53:28AM -0400, David Miller wrote:
-> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> Date: Mon, 30 Mar 2015 19:20:57 +0200
->=20
-> > On Mon, Mar 30, 2015 at 01:43:38PM -0300, Fabio Estevam wrote:
-> >> From: Fabio Estevam <fabio.estevam@freescale.com>
-> >>=20
-> >> Commit cb6e0b3690f48dff ("net: smc91x: make use of 4th parameter t=
-o devm_gpiod_get_index")
-> >> caused the following build warning:
-> >>=20
-> >> drivers/net/ethernet/smsc/smc91x.c:2208:6: warning: unused variabl=
-e 'res' [-Wunused-variable]
-> >>=20
-> >> Remove the unused 'res' variable.
-> >>=20
-> >> Reported-by: Olof's autobuilder <build@lixom.net>
-> >> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-> > I wonder why I didn't notice this because the 0day build robot test=
-ed my
-> > tree and didn't report this warning. Probably that means this drive=
-r
-> > wasn't tested.
->=20
-> This driver can't be enabled on x86/x86-64 so the build testing it wi=
-ll
-> get is going to be extremely limited.
-The build bot also builds other archs, at least arm and powerpc, but I
-think there are more.
+Hello.
 
-Best regards
-Uwe
+On 03/31/2015 06:38 PM, David Miller wrote:
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+>>>> We also need SOB from Mitsuhiro and Masaru.
+
+>>>     Hmm, it's the first time I encounter such requirement.
+
+>> I think this is normal policy.  I have seen it more than once on lkml.
+>> The reason for the author's SOB is to make sure that he or she is
+>> really authorized (like from the employer) to contribute the driver.
+
+    We (Cogent Embedded) are authorized to do this, isn't this enough?
+
+>> [adding davem on CC]
+
+>> Dave, is that correct?
+
+> I refuse to apply any patch without an appropriate signoff.
+
+    But what do you mean by "appropriate signoff"? I have provided mine but 
+Richard insists there should be sign-offs from the primary driver authors -- 
+it's the first time I'm encountering such a requirement.
+
+WBR, Sergei
