@@ -1,35 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] af_iucv: fix AF_IUCV sendmsg() errno
-Date: Tue, 31 Mar 2015 16:07:32 -0400 (EDT)
-Message-ID: <20150331.160732.1671403715519775179.davem@davemloft.net>
-References: <1427722842-49894-1-git-send-email-ubraun@linux.vnet.ibm.com>
-	<1427722842-49894-2-git-send-email-ubraun@linux.vnet.ibm.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH v2] net: phy: at803x: simplify using devm_gpiod_get_optional and its 4th argument
+Date: Tue, 31 Mar 2015 22:08:45 +0200
+Message-ID: <1427832525-6949-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com, Eugene.Crosser@ru.ibm.com
-To: ubraun@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <acourbot@nvidia.com>, kernel@pengutronix.de
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50334 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754198AbbCaUHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:07:34 -0400
-In-Reply-To: <1427722842-49894-2-git-send-email-ubraun@linux.vnet.ibm.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:55349 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752979AbbCaUIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:08:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Mon, 30 Mar 2015 15:40:42 +0200
+Since 39b2bbe3d715 (gpio: add flags argument to gpiod_get*() functions)
+which appeared in v3.17-rc1, the gpiod_get* functions take an additiona=
+l
+parameter that allows to specify direction and initial value for output=
+=2E
+Moreover use devm_gpiod_get_optional instead of ignoring all errors
+returned by devm_gpiod_get and simplify accordingly.
 
-> From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-> 
-> When sending over AF_IUCV socket, errno was incorrectly set to
-> ENOMEM even when other values where appropriate, notably EAGAIN.
-> With this patch, error indicator returned by sock_alloc_send_skb()
-> is passed to the caller, rather than being overwritten with ENOMEM.
-> 
-> Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-> Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+The result is more strict error handling which is good.
 
-Applied, thanks.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+Hello,
+
+with the local variable introduced to not keep an error value in the
+driver struct this doesn't have a positive diffstat anymore. I still
+think assigning directly to priv->gpiod_reset would fine because having
+the priv->gpiod_reset NULL is neither more nor less right that
+ERR_PTR(-ESOMETHING).
+
+Note that my motivation for this change is to get all drivers use the
+currently optional fourth parameter to stop it being optional which
+needs hard to understand cpp trickery.
+
+Best regards
+Uwe
+
+ drivers/net/phy/at803x.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index f80e19ac6704..fabf11d32d27 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -192,16 +192,17 @@ static int at803x_probe(struct phy_device *phydev=
+)
+ {
+ 	struct device *dev =3D &phydev->dev;
+ 	struct at803x_priv *priv;
++	struct gpio_desc *gpiod_reset;
+=20
+ 	priv =3D devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+=20
+-	priv->gpiod_reset =3D devm_gpiod_get(dev, "reset");
+-	if (IS_ERR(priv->gpiod_reset))
+-		priv->gpiod_reset =3D NULL;
+-	else
+-		gpiod_direction_output(priv->gpiod_reset, 1);
++	gpiod_reset =3D devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH)=
+;
++	if (IS_ERR(gpiod_reset))
++		return PTR_ERR(gpiod_reset);
++
++	priv->gpiod_reset =3D gpiod_reset;
+=20
+ 	phydev->priv =3D priv;
+=20
+--=20
+2.1.4
