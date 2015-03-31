@@ -1,34 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Bonding Overriding Configuration logic restored.
-Date: Tue, 31 Mar 2015 13:50:05 -0400 (EDT)
-Message-ID: <20150331.135005.914314420842054696.davem@davemloft.net>
-References: <1427628025-9752-1-git-send-email-anton@swortex.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 0/2] ipv6: coding style - comparisons with NULL
+Date: Tue, 31 Mar 2015 10:50:29 -0700
+Message-ID: <1427824229.10376.38.camel@perches.com>
+References: <1427634005-4313-1-git-send-email-ipm@chirality.org.uk>
+	 <1427650577.2715.32.camel@perches.com> <551ACDA4.8000302@chirality.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alexey@swortex.com
-To: anton@swortex.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427628025-9752-1-git-send-email-anton@swortex.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Ian Morris <ipm@chirality.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0141.hostedemail.com ([216.40.44.141]:38134 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753128AbbCaRud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 13:50:33 -0400
+In-Reply-To: <551ACDA4.8000302@chirality.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Anton Nayshtut <anton@swortex.com>
-Date: Sun, 29 Mar 2015 14:20:25 +0300
+On Tue, 2015-03-31 at 17:39 +0100, Ian Morris wrote:
+> IPV6 is a particular interest for me but I'd be happy to cook up a 
+> similar patch for IPV4 if there's interest.
 
-> Before commit 3900f29021f0bc7fe9815aa32f1a993b7dfdd402 ("bonding: slight
-> optimizztion for bond_slave_override()") the override logic was to send packets
-> with non-zero queue_id through the slave with corresponding queue_id, under two
-> conditions only - if the slave can transmit and it's up.
-> 
-> The above mentioned commit changed this logic by introducing an additional
-> condition - whether the bond is active (indirectly, using the slave_can_tx and
-> later - bond_is_active_slave), that prevents the user from implementing more
-> complex policies according to the Documentation/networking/bonding.txt.
-> 
-> Signed-off-by: Anton Nayshtut <anton@swortex.com>
-> Signed-off-by: Alexey Bogoslavsky <alexey@swortex.com>
+I think that'd be nice.
 
-Applied and queued up for -stable, thanks.
+Here's a little script for most of them:
+
+$ ./scripts/checkpatch.pl -f --types=COMPARISON_TO_NULL --strict --fix-inplace net/ipv4/*.[ch]
+
+cheers, Joe
