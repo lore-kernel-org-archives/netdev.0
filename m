@@ -1,58 +1,85 @@
-From: subashab@codeaurora.org
-Subject: Re: [PATCH] net: rps: fix data stall after hotplug
-Date: Tue, 31 Mar 2015 22:02:03 -0000
-Message-ID: <667cd94f1b58cc008ddcb91751f90fd7.squirrel@www.codeaurora.org>
-References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
-    <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
-    <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
-    <b25a45de2cb43bbcfcaa84634d74533e.squirrel@www.codeaurora.org>
-    <744bbefe8859bf667eafc0de02729078.squirrel@www.codeaurora.org>
-    <1427149742.25985.84.camel@edumazet-glaptop2.roam.corp.google.com>
-    <49d5ac3130df29059f167a0401754c67.squirrel@www.codeaurora.org>
-    <6ef597cb521f6c9adf48562c72677415.squirrel@www.codeaurora.org>
-    <1427777316.25985.168.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and
+ cap_sa(), for sa-check
+Date: Tue, 31 Mar 2015 17:12:02 -0600
+Message-ID: <20150331231202.GA20094@obsidianresearch.com>
+References: <551579CA.4030901@profitbricks.com>
+ <55157B43.6060507@profitbricks.com>
+ <1427732191.21101.201.camel@redhat.com>
+ <55197CDB.3040105@profitbricks.com>
+ <1427734923.21101.227.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wang <yun.wang@profitbricks.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Ira Weiny <ira.weiny@intel.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Yann Droneaud <ydroneaud@opteya.com>,
+	Colin Ian King <colin.king@canonical.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Matan Barak <matanb@m
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:36127 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752804AbbCaWCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 18:02:04 -0400
-In-Reply-To: <1427777316.25985.168.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from quartz.orcorp.ca ([184.70.90.242]:39663 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344AbbCaXMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2015 19:12:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1427734923.21101.227.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Listen, I would rather disable RPS on your arch, instead of messing with
-> it.
->
-> Reset NAPI state as you did is in direct violation of the rules.
->
-> Only cpu owning the bit is allowed to reset it.
->
+On Mon, Mar 30, 2015 at 01:02:03PM -0400, Doug Ledford wrote:
 
-Perhaps my understanding of the code in dev_cpu_callback() is incorrect?
-Please correct me if I am wrong.
+> If we use something like this, then the above is all you need.  Then
+> every place in the code that checks for something like has_sa or cap_sa
+> can be replaced with rdma_ib_mgmt. 
 
-The poll list is copied from an offline cpu to an online cpu.
-Specifically for process_backlog, I was under the impression that
-the online cpu tries to reset the state of NAPI of the offline cpu.
-The process and input queues are then always copied to the
-online cpu.
+I don't want to see this slide back into some ill defined feature
+test.
 
-while (!list_empty(&oldsd->poll_list)) {
-	struct napi_struct *napi = list_first_entry(&oldsd->poll_list,
-						    struct napi_struct,
-							     poll_list);
+We need to clearly define exactly what these tests are checking, and I
+think, since we have so much code sharing, the checks should be narrow
+in scope, not just an entire standard.
 
-	list_del_init(&napi->poll_list);
-	if (napi->poll == process_backlog)
-		napi->state = 0;
-	else
-		____napi_schedule(sd, napi);
-}
+I think the basic family of checks Michael identified seemed like
+a reasonable start.
 
-My request was to know why it would be incorrect to clear the offline cpu
-backlog NAPI state unconditionally.
+Going forward we want to NAK stuff like this:
+
+  if (rdma_ib_mgmt() || rdma_opa_mgmt())
+  if (has_sa() || has_opa_foobar())
+
+That indicates we need a new micro feature test.
+
+A big problem here is people working on the core may not know the
+intricate details of all the families. This will only get worse when
+proprietary tech like OPA gets added. Documenting requirements via a
+narrow feature test gives a much higher chance that core stuff will be
+right via review.
+
+> But, like I said, this is an all or nothing change, it isn't
+> something we can ease into.
+
+Well, we ease into it by introducing the micro tests and then wiping
+the legacy ones, followed by changing how the driver/core communicates
+the port and device feature set, ideally to a bitset like you've
+described.
+
+Michael has tackled the core code, another series could work on the
+drivers..
+
+Jason
