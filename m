@@ -1,69 +1,42 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH RFC] wimax/i2400m: fixup completion handling for
-	resetting a device
-Date: Tue, 31 Mar 2015 02:44:43 +0200
-Message-ID: <20150331004443.GA30624@opentech.at>
-References: <1426585774-24204-1-git-send-email-hofrat@osadl.org> <55096FA1.9030908@cogentembedded.com> <20150320074705.GB21852@opentech.at> <5515910C.8000107@cogentembedded.com>
+From: Brian Norris <computersforpeace@gmail.com>
+Subject: Re: [PATCH 6/8] mtd: replace CONFIG_8xx by CONFIG_PPC_8xx
+Date: Mon, 30 Mar 2015 17:55:38 -0700
+Message-ID: <20150331005538.GJ32500@ld-irv-0074>
+References: <20150312152404.D6C391A2421@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
+	linux-serial@vger.kernel.org, linux-mtd@lists.infradead.org
+To: Christophe Leroy <christophe.leroy@c-s.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5515910C.8000107@cogentembedded.com>
+In-Reply-To: <20150312152404.D6C391A2421@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Mar 2015, Sergei Shtylyov wrote:
+On Thu, Mar 12, 2015 at 04:24:04PM +0100, Christophe Leroy wrote:
+> Two config options exist to define powerpc MPC8xx:
+> * CONFIG_PPC_8xx
+> * CONFIG_8xx
+> In addition, CONFIG_PPC_8xx also defines CONFIG_CPM1 as
+> communication co-processor
+> 
+> arch/powerpc/platforms/Kconfig.cputype has contained the following
+> comment about CONFIG_8xx item for some years:
+> "# this is temp to handle compat with arch=ppc"
+> 
+> It looks like not many places still have that old CONFIG_8xx used,
+> so it is likely to be a good time to get rid of it completely ?
+> 
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 
-> Hello.
->
-> On 03/20/2015 10:47 AM, Nicholas Mc Guire wrote:
->
->    Sorry for late reply, I'm pretty busy these days.
+I'm not sure if the consistency aspect is worked out for all symbols
+(Geert's comment on the cover letter), but this one looks fine.
 
-no hurry on this - this is cleanup work only 
+Applied this patch to l2-mtd.git.
 
->
->>>> wait_for_completion_timeout return 0 (timeout) or >=1 (completion) so the check
->>>> for > 0 in the else branch is always true and can be dropped. The comment seems
->>>> misleading as it is always going to pass the result up.
->
->>>> The sync of the completion access with __i2400m_dev_reset_handle (which checks
->>>> for   if (i2400m->reset_ctx)   could race if i2400m_reset() returns negative so
->>>> the resetting of i2400m->reset_ctx == NULL is moved to the out: path.
->
->>>> As wait_for_completion_timeout returns unsigned long not int, an appropriately
->>>> named variable of type unsigned long is added and assignments fixed up.
->
->>>     Don't try to do several things in one patch.
->
->> normaly yes - this was marked as RFC and if I had split it up into
->> 3 patches it would be hard to see how it fits together without
->> actually applying them.
->
->    You could summarize your intent in the cover letter (PATCH #0).
->
-
-ok - in that case I will repost as you suggested - just thought it
-is more readable to keep it in one patch for resolving the open
-questions.
-
->> The intent was to get feedback notably on moving i2400m->reset_ctx == NULL
->> and if dropping the (I think missleading) comment about negative return is ok
->
->> Should this be in seperate patches even as RFC ?
->
->    I think the RFC patches should still conform to all the usual patch 
-> rules. How would we understand whether you intent to split the patch up 
-> later, if you didn't even write about it anywhere?
->
-
-I had assumed that a RFC is not intended to be applied anywhere buyt only for review - will clean it up and put the relevant patched code snippet
-in #0 then for review.
-
-thx!
-hofrat
+Brian
