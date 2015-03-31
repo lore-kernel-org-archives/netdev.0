@@ -1,117 +1,94 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH 00/25] treewide: Use bool function return values of true/false
- not 1/0
-Date: Mon, 30 Mar 2015 17:07:23 -0700
-Message-ID: <5519E53B.5040504@schaufler-ca.com>
-References: <cover.1427759009.git.joe@perches.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next 11/18] switchdev: remove old
+ netdev_switch_port_bridge_setlink
+Date: Tue, 31 Mar 2015 00:08:34 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>
+	<55194E63.5010100@cumulusnetworks.com>
+	<CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, sparclinux@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org
-To: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, kvmarm@lists.cs.columbia.edu,
-	kvm@vger.kernel.org, linux-omap@vger.kernel.org,
-	kvm-ppc@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-fsdevel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	linux-ide@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net,
-	linux-mm@kvack.org, linux-pm@vger.kernel.org,
-	netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-	bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, patches@opensource.wolfsonmicro.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <cover.1427759009.git.joe@perches.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: roopa <roopa@cumulusnetworks.com>,
+	=?utf-8?B?Smlyw60gUMOtcmtv?= <jiri@resnulli.us>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:39152 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753416AbbCaAIh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Mar 2015 20:08:37 -0400
+In-Reply-To: <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/30/2015 4:45 PM, Joe Perches wrote:
-> Joe Perches (25):
->   arm: Use bool function return values of true/false not 1/0
->   arm64: Use bool function return values of true/false not 1/0
->   hexagon: Use bool function return values of true/false not 1/0
->   ia64: Use bool function return values of true/false not 1/0
->   mips: Use bool function return values of true/false not 1/0
->   powerpc: Use bool function return values of true/false not 1/0
->   s390: Use bool function return values of true/false not 1/0
->   sparc: Use bool function return values of true/false not 1/0
->   tile: Use bool function return values of true/false not 1/0
->   unicore32: Use bool function return values of true/false not 1/0
->   x86: Use bool function return values of true/false not 1/0
->   virtio_console: Use bool function return values of true/false not 1/0
->   csiostor: Use bool function return values of true/false not 1/0
->   dcache: Use bool function return values of true/false not 1/0
->   nfsd: nfs4state: Use bool function return values of true/false not 1/0
->   include/linux: Use bool function return values of true/false not 1/0
->   sound: Use bool function return values of true/false not 1/0
->   rcu: tree_plugin: Use bool function return values of true/false not 1/0
->   sched: Use bool function return values of true/false not 1/0
->   ftrace: Use bool function return values of true/false not 1/0
->   slub: Use bool function return values of true/false not 1/0
->   bridge: Use bool function return values of true/false not 1/0
->   netfilter: Use bool function return values of true/false not 1/0
->   security: Use bool function return values of true/false not 1/0
->   sound: wm5100-tables: Use bool function return values of true/false not 1/0
->
->  arch/arm/include/asm/dma-mapping.h           |  8 ++--
->  arch/arm/include/asm/kvm_emulate.h           |  2 +-
->  arch/arm/mach-omap2/powerdomain.c            | 14 +++---
->  arch/arm64/include/asm/dma-mapping.h         |  2 +-
->  arch/hexagon/include/asm/dma-mapping.h       |  2 +-
->  arch/ia64/include/asm/dma-mapping.h          |  2 +-
->  arch/mips/include/asm/dma-mapping.h          |  2 +-
->  arch/powerpc/include/asm/dcr-native.h        |  2 +-
->  arch/powerpc/include/asm/dma-mapping.h       |  4 +-
->  arch/powerpc/include/asm/kvm_book3s_64.h     |  4 +-
->  arch/powerpc/sysdev/dcr.c                    |  2 +-
->  arch/s390/include/asm/dma-mapping.h          |  2 +-
->  arch/sparc/mm/init_64.c                      |  8 ++--
->  arch/tile/include/asm/dma-mapping.h          |  2 +-
->  arch/unicore32/include/asm/dma-mapping.h     |  2 +-
->  arch/x86/include/asm/archrandom.h            |  2 +-
->  arch/x86/include/asm/dma-mapping.h           |  2 +-
->  arch/x86/include/asm/kvm_para.h              |  2 +-
->  arch/x86/kvm/cpuid.h                         |  2 +-
->  arch/x86/kvm/vmx.c                           | 72 ++++++++++++++--------------
->  drivers/char/virtio_console.c                |  2 +-
->  drivers/scsi/csiostor/csio_scsi.c            |  4 +-
->  fs/dcache.c                                  | 12 ++---
->  fs/nfsd/nfs4state.c                          |  2 +-
->  include/linux/blkdev.h                       |  2 +-
->  include/linux/ide.h                          |  2 +-
->  include/linux/kgdb.h                         |  2 +-
->  include/linux/mfd/db8500-prcmu.h             |  2 +-
->  include/linux/mm.h                           |  2 +-
->  include/linux/power_supply.h                 |  8 ++--
->  include/linux/ssb/ssb_driver_extif.h         |  2 +-
->  include/linux/ssb/ssb_driver_gige.h          | 16 +++----
->  include/sound/soc.h                          |  4 +-
->  kernel/rcu/tree_plugin.h                     |  4 +-
->  kernel/sched/auto_group.h                    |  2 +-
->  kernel/sched/completion.c                    | 16 ++++---
->  kernel/trace/ftrace.c                        | 10 ++--
->  mm/slub.c                                    | 12 ++---
->  net/bridge/br_private.h                      |  2 +-
->  net/ipv4/netfilter/ipt_ah.c                  |  2 +-
->  net/netfilter/ipset/ip_set_hash_ip.c         |  8 ++--
->  net/netfilter/ipset/ip_set_hash_ipmark.c     |  8 ++--
->  net/netfilter/ipset/ip_set_hash_ipport.c     |  8 ++--
->  net/netfilter/ipset/ip_set_hash_ipportip.c   |  8 ++--
->  net/netfilter/ipset/ip_set_hash_ipportnet.c  |  8 ++--
->  net/netfilter/ipset/ip_set_hash_net.c        |  8 ++--
->  net/netfilter/ipset/ip_set_hash_netiface.c   |  8 ++--
->  net/netfilter/ipset/ip_set_hash_netport.c    |  8 ++--
->  net/netfilter/ipset/ip_set_hash_netportnet.c |  8 ++--
->  net/netfilter/xt_connlimit.c                 |  2 +-
->  net/netfilter/xt_hashlimit.c                 |  2 +-
->  net/netfilter/xt_ipcomp.c                    |  2 +-
->  security/apparmor/file.c                     |  8 ++--
->  security/apparmor/policy.c                   | 10 ++--
->  sound/soc/codecs/wm5100-tables.c             | 12 ++---
-
-Why, and why these in particular?
-
->  55 files changed, 178 insertions(+), 176 deletions(-)
->
-
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IFNjb3R0IEZlbGRtYW4gW21h
+aWx0bzpzZmVsZG1hQGdtYWlsLmNvbV0NCj5TZW50OiBNb25kYXksIE1hcmNoIDMwLCAyMDE1IDI6
+MjggUE0NCj5UbzogQXJhZCwgUm9uZW4NCj5DYzogcm9vcGE7IE5ldGRldjsgSmlyw60gUMOtcmtv
+OyBHdWVudGVyIFJvZWNrOyBGbG9yaWFuIEZhaW5lbGxpDQo+U3ViamVjdDogUmU6IFtQQVRDSCBu
+ZXQtbmV4dCAxMS8xOF0gc3dpdGNoZGV2OiByZW1vdmUgb2xkDQo+bmV0ZGV2X3N3aXRjaF9wb3J0
+X2JyaWRnZV9zZXRsaW5rDQo+DQo+T24gTW9uLCBNYXIgMzAsIDIwMTUgYXQgMTo0NiBQTSwgQXJh
+ZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwuY29tPiB3cm90ZToNCj4+DQo+Pg0KPj4+LS0tLS1P
+cmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+PkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5v
+cmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbg0KPj4+QmVoYWxmIE9m
+IFNjb3R0IEZlbGRtYW4NCj4+PlNlbnQ6IE1vbmRheSwgTWFyY2ggMzAsIDIwMTUgMToyMCBQTQ0K
+Pj4+VG86IHJvb3BhDQo+Pj5DYzogTmV0ZGV2OyBKacWZw60gUMOtcmtvOyBHdWVudGVyIFJvZWNr
+OyBGbG9yaWFuIEZhaW5lbGxpDQo+Pj5TdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDExLzE4
+XSBzd2l0Y2hkZXY6IHJlbW92ZSBvbGQNCj4+Pm5ldGRldl9zd2l0Y2hfcG9ydF9icmlkZ2Vfc2V0
+bGluaw0KPj4+DQo+Pj5PbiBNb24sIE1hciAzMCwgMjAxNSBhdCA2OjIzIEFNLCByb29wYSA8cm9v
+cGFAY3VtdWx1c25ldHdvcmtzLmNvbT4gd3JvdGU6DQo+Pj4+IE9uIDMvMzAvMTUsIDE6NDAgQU0s
+IHNmZWxkbWFAZ21haWwuY29tIHdyb3RlOg0KPj4+Pj4NCj4+Pj4+IEZyb206IFNjb3R0IEZlbGRt
+YW4gPHNmZWxkbWFAZ21haWwuY29tPg0KPj4+Pj4NCj4+Pj4+IE5ldyBhdHRyLWJhc2VkIGJyaWRn
+ZV9zZXRsaW5rIGNhbiByZWN1cnNlIGxvd2VyIGRldnMgYW5kIHJlY292ZXIgb24gZXJyLA0KPj4+
+Pj4gc28NCj4+Pj4+IHJlbW92ZSBvbGQgd3JhcHBlci4gIEFsc28sIHJlc3RvcmUgYnJfc2V0bGlu
+ayBiYWNrIHRvIG9yaWdpbmFsIGFuZCBkb24ndA0KPj4+Pj4gY2FsbA0KPj4+Pj4gaW50byBTRUxG
+IHBvcnQgZHJpdmVyLiAgcnRuZXRsaW5rLmM6YnJpZGdlX3NldGxpbmsgYWxyZWFkeSBkb2VzIGEg
+Y2FsbA0KPj4+Pj4gaW50bw0KPj4+Pj4gcG9ydCBkcml2ZXIgZm9yIFNFTEYuDQo+Pj4+Pg0KPj4+
+Pj4gU2lnbmVkLW9mZi1ieTogU2NvdHQgRmVsZG1hbiA8c2ZlbGRtYUBnbWFpbC5jb20+DQo+Pj4+
+DQo+Pj4+IHJlbW92aW5nIHRoaXMgbm93IHJlcXVpcmVzIGV2ZXJ5IHZsYW4gYWRkIHRvIGJlIGEg
+dHdvIHN0ZXAgcHJvY2Vzcywgd2h5ID8NCj4+Pg0KPj4+Tm8sIHRoYXQncyBub3QgdHJ1ZS4gIFlv
+dSB3YW50IHRvIHVzZQ0KPj4+bmRvX3ZsYW5fcnhfYWRkX3ZpZC9uZG9fdmxhbl9yeF9raWxsX3Zp
+ZCBpbiB5b3VyIHBvcnQgZHJpdmVyLCBhbmQgdGhlbg0KPj4+dXNpbmcgZWl0aGVyIHZsYW4gZHJp
+dmVyIHN0YW5kYWxvbmUgb3IgdGhlIGJyaWRnZSBkcml2ZXIgdmxhbiBzdXBwb3J0DQo+Pj53aWxs
+IHdvcmsuDQo+Pj4NCj4+PlRyeSBpdC4gIEltcGxlbWVudCBuZG9fdmxhbl9yeF9hZGRfdmlkIGlu
+IHlvdXIgcG9ydCBkcml2ZXIgYW5kIHZlcmlmeQ0KPj4+eW91IGdldCBjYWxsZWQgdG8gYWRkIFZM
+QU4gdG8gcG9ydCB3aXRoIGVpdGhlcjoNCj4+Pg0KPj4+ICAgIGJyaWRnZSB2bGFuIGFkZCBkZXYg
+c3dwMSB2aWQgMTANCj4+Pg0KPj4+ICAgIC1vci0NCj4+Pg0KPj4+ICAgIHZjb25maWcgYWRkIHN3
+cDEgMTANCj4+Pg0KPj4+U2FtZSBmb3IgZGVsZXRpbmcgYSBWTEFOLCBlaXRoZXIgb2YgdGhlc2Ug
+dHdvIGNvbW1hbmRzIGNhbGwgaW50byB0aGUNCj4+PnBvcnQgZHJpdmVyIG5kb192bGFuX3J4X2tp
+bGxfdmlkOg0KPj4+DQo+Pj4gICAgYnJpZGdlIHZsYW4gZGVsIGRldiBzd3AxIHZpZCAxMA0KPj4+
+DQo+Pj4gICAgLW9yLQ0KPj4+DQo+Pj4gICAgdmNvbmZpZyByZW0gc3dwMSAxMA0KPj4+DQo+Pj4N
+Cj4+Pj4gYnJpZGdlIHZsYW4gYWRkIGRldiBzd3AxIHZpZCAxMA0KPj4+PiBicmlkZ2UgdmxhbiBh
+ZGQgZGV2IHN3cDEgdmlkIDEwIHNlbGYNCj4+Pg0KPj4+Tm90IG5lY2Vzc2FyeS4gIFRoZSBmaXJz
+dCBjb21tYW5kIGlzIHN1ZmZpY2llbnQgaWYgdXNpbmcNCj4+Pm5kb192bGFuX3J4X2FkZF92aWQu
+DQo+Pg0KPj4gVGhpcyBpcyBub3Qgc3VmZmljaWVudCBmb3IgVkxBTiBmaWx0ZXJpbmcuIE5kb192
+bGFuX3J4X2FkZF92aWQgZG9lcyBub3QNCj4+IHByb3ZpZGUgdGhlIHZpbmZvIGZsYWdzIFBWSUQg
+YW5kIFVOVEFHR0VELiBUaGVyZWZvcmUgaXQgaXMgbm90DQo+PiBhbiBhZGVxdWF0ZSByZXBsYWNl
+bWVudCBmb3IgcHJvcGFnYXRpbmcgc2V0bGluay9kZWxsaW5rIG1lc3NhZ2VzIHRvIHRoZQ0KPj4g
+c3dpdGhwb3J0IGRyaXZlciBvciBhbiBhbHRlcm5hdGl2ZSB2aWEgc3dkZXZfYXR0ci4NCj4NCj5H
+bGFkIHlvdSBicmluZyB0aGF0IHBvaW50IHVwLiAgSSB0aGluayB0aGVzZSBjYW4gZ2V0IGNhc3Qg
+YXMgcG9ydA0KPmF0dHJzIGFuZCBzZXQgdXNpbmcgc3dkZXZfYXR0ci4gIFRoaXMgaXMgc29tZXRo
+aW5nIHN3ZGV2IGF0dHIgc2hvdWxkDQo+b3BlbiB1cCBpcyBhbGxvd2luZyBtb3JlIHNldHRpbmdz
+IHRvIGJlIHB1c2hlZCBkb3duIHRvIHBvcnQgZHJpdmVyLg0KPkknbGwgbG9vayBpbnRvIHRoaXMg
+b25lIGFuZCBpbmNsdWRlIGl0IHdpdGggdjIuDQoNCkl0IGNvdWxkIGJlIGJlbmVmaWNpYWwgdG8g
+YnVpbGQgZXh0ZW5zaWJpbGl0eSBpbnRvIHN3ZGV2X2F0dHIuDQpBbiBleHBlcmltZW50ZXIgYXR0
+cmlidXRlIGRlc2lnbmVkIHRvIGNhcnJ5IGFyYml0cmFyeSBkYXRhIGNvdWxkIGFsbG93DQpmb3Ig
+cGFzc2luZyBuZXcgYXR0cmlidXRlcyBhbmQgaW1wbGVtZW50YXRpb24gc3BlY2lmaWMgYXR0cmli
+dXRlcw0Kd2l0aG91dCBhZmZlY3RpbmcgYW55IGV4aXN0aW5nIHN3aXRjaGRldiBkcml2ZXI6DQoN
+CmVudW0gc3dkZXZfYXR0cl9pZCB7DQogCVNXREVWX0FUVFJfVU5ERUZJTkVELA0KCVNXREVWX0FU
+VFJfRVhQRVJJTUVOVEVSLA0KIAlTV0RFVl9BVFRSX1BPUlRfUEFSRU5UX0lELA0KCVNXREVWX0FU
+VFJfUE9SVF9TVFBfU1RBVEUsDQogfTsNCg0KDQpzdHJ1Y3Qgc3dkZXZfZXhwZXJpbWVudGVyX2F0
+dHIgew0KCXUzMiBleHBfaWQ7IAkvKiAtIE1TQiAwOiBsb3ctb3JkZXIgYnl0ZXMgYXJlIElFRUUg
+T1VJICovDQoJCQkvKiAtIE1TQiAhPSAwOiByZXNlcnZlZCBmb3IgbmV0ZGV2ICovDQoJdTMyIGV4
+cF9hdHRyOw0KCXUxNiBleHBfYXR0cl9zaXplOw0KCWNvbnN0IHZvaWQgKmV4cF9hdHRyX2RhdGE7
+DQp9DQoNCnN0cnVjdCBzd2Rldl9hdHRyIHsNCgllbnVtIHN3ZGV2X2F0dHJfaWQgYXR0cjsNCgl1
+MzIgZmxhZ3M7DQoNCiAJdW5pb24gew0KIAkJc3RydWN0IG5ldGRldl9waHlzX2l0ZW1faWQgcHBp
+ZDsJLyogUE9SVF9QQVJFTlRfSUQgKi8NCiAJCXU4IHN0cF9zdGF0ZTsJCQkJLyogUE9SVF9TVFBf
+U1RBVEUgKi8NCgkJdW5zaWduZWQgbG9uZyBicnBvcnRfZmxhZ3M7CS8qIFBPUlRfQlJJREdFX0ZM
+QUdTICovDQoJCS8qIG5ldGRldiBkZWZpbmVkIGF0dHJpYnV0ZXMgYWJvYmUgdGhpcyBsaW5lICov
+DQoJCXN0cnVjdCBzd2Rldl9leHBlcmltZW50ZXJfYXR0ciBleHBfYXR0cjsNCiAJfTsNCg==
