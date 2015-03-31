@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 02/11] ptp: bnx2x: use helpers for converting ns to timespec.
-Date: Tue, 31 Mar 2015 23:08:07 +0200
-Message-ID: <20b52ea4e69f1ad00e95673f75be2bcbc4630c62.1427835485.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 01/11] ptp: blackfin: use helpers for converting ns to timespec.
+Date: Tue, 31 Mar 2015 23:08:06 +0200
+Message-ID: <adc87b0b1d93cf3286fa5f71d0f129b2a792f202.1427835485.git.richardcochran@gmail.com>
 References: <cover.1427835485.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Arnd Bergmann <arnd@linaro.org>,
@@ -21,54 +21,51 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Sony Chacko <sony.chacko@qlogic.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:33976 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753888AbbCaVI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 17:08:26 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1427835485.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This patch changes the driver to use ns_to_timespec64() and
 timespec64_to_ns() instead of open coding the same logic.
 
-Compile tested only.
-
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 765667c..1925296 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13282,14 +13282,12 @@ static int bnx2x_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 0c37aef..096531a 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -986,7 +986,6 @@ static int bfin_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  {
- 	struct bnx2x *bp = container_of(ptp, struct bnx2x, ptp_clock_info);
  	u64 ns;
 -	u32 remainder;
+ 	unsigned long flags;
+ 	struct bfin_mac_local *lp =
+ 		container_of(ptp, struct bfin_mac_local, caps);
+@@ -997,8 +996,8 @@ static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
  
- 	ns = timecounter_read(&bp->timecounter);
+ 	spin_unlock_irqrestore(&lp->phc_lock, flags);
  
- 	DP(BNX2X_MSG_PTP, "PTP gettime called, ns = %llu\n", ns);
- 
--	ts->tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
+-	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
 -	ts->tv_nsec = remainder;
 +	*ts = ns_to_timespec64(ns);
- 
++
  	return 0;
  }
-@@ -13300,8 +13298,7 @@ static int bnx2x_ptp_settime(struct ptp_clock_info *ptp,
- 	struct bnx2x *bp = container_of(ptp, struct bnx2x, ptp_clock_info);
- 	u64 ns;
+ 
+@@ -1010,8 +1009,7 @@ static int bfin_ptp_settime(struct ptp_clock_info *ptp,
+ 	struct bfin_mac_local *lp =
+ 		container_of(ptp, struct bfin_mac_local, caps);
  
 -	ns = ts->tv_sec * 1000000000ULL;
 -	ns += ts->tv_nsec;
 +	ns = timespec64_to_ns(ts);
  
- 	DP(BNX2X_MSG_PTP, "PTP settime called, ns = %llu\n", ns);
+ 	spin_lock_irqsave(&lp->phc_lock, flags);
  
 -- 
 1.7.10.4
