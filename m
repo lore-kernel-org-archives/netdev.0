@@ -1,76 +1,58 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 07/11] ptp: igb: use helpers for converting ns to timespec.
-Date: Tue, 31 Mar 2015 23:08:12 +0200
-Message-ID: <eb1685a4a21390473413056ea6f65921005f91e0.1427835485.git.richardcochran@gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next 06/11] ptp: e1000e: use helpers for converting
+ ns to timespec.
+Date: Tue, 31 Mar 2015 21:10:36 +0000
+Message-ID: <1427836236.16312.28.camel@intel.com>
 References: <cover.1427835485.git.richardcochran@gmail.com>
-Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Arnd Bergmann <arnd@linaro.org>,
-	Baolin Wang <baolin.wang@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Luwei Zhou <b45643@freescale.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Rayagond K <rayagond@vayavyalabs.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35921 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752934AbbCaVIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 17:08:38 -0400
-In-Reply-To: <cover.1427835485.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	 <051364a3a57d36200f652f4d8e1c9bfc4edf3254.1427835485.git.richardcochran@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"baolin.wang@linaro.org" <baolin.wang@linaro.org>,
+	"b45643@freescale.com" <b45643@freescale.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"sonic.zhang@analog.com" <sonic.zhang@analog.com>,
+	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"sony.chacko@qlogic.com" <sony.chacko@qlogic.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"arnd@linaro.org" <arnd@linaro.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"prashant@broadcom.com" <prashant@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>
+To: "richardcochran@gmail.com" <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <051364a3a57d36200f652f4d8e1c9bfc4edf3254.1427835485.git.richardcochran@gmail.com>
+Content-Language: en-US
+Content-ID: <A60CB9EE00D6454295101E771C917BB0@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes the driver to use ns_to_timespec64() and
-timespec64_to_ns() instead of open coding the same logic.
-
-Compile tested only.
-
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/intel/igb/igb_ptp.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 0348b7e..b3b60a8 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -290,7 +290,6 @@ static int igb_ptp_gettime_82576(struct ptp_clock_info *ptp,
- 					       ptp_caps);
- 	unsigned long flags;
- 	u64 ns;
--	u32 remainder;
- 
- 	spin_lock_irqsave(&igb->tmreg_lock, flags);
- 
-@@ -298,8 +297,7 @@ static int igb_ptp_gettime_82576(struct ptp_clock_info *ptp,
- 
- 	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
- 
--	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
--	ts->tv_nsec = remainder;
-+	*ts = ns_to_timespec64(ns);
- 
- 	return 0;
- }
-@@ -328,8 +326,7 @@ static int igb_ptp_settime_82576(struct ptp_clock_info *ptp,
- 	unsigned long flags;
- 	u64 ns;
- 
--	ns = ts->tv_sec * 1000000000ULL;
--	ns += ts->tv_nsec;
-+	ns = timespec64_to_ns(ts);
- 
- 	spin_lock_irqsave(&igb->tmreg_lock, flags);
- 
--- 
-1.7.10.4
+T24gVHVlLCAyMDE1LTAzLTMxIGF0IDIzOjA4ICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IFRoaXMgcGF0Y2ggY2hhbmdlcyB0aGUgZHJpdmVyIHRvIHVzZSBuc190b190aW1lc3BlYzY0
+KCkgaW5zdGVhZCBvZg0KPiBvcGVuIGNvZGluZyB0aGUgc2FtZSBsb2dpYy4NCj4gDQo+IENvbXBp
+bGUgdGVzdGVkIG9ubHkuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBSaWNoYXJkIENvY2hyYW4gPHJp
+Y2hhcmRjb2NocmFuQGdtYWlsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9lMTAwMGUvcHRwLmMgfCAgICA0ICstLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2Vy
+dGlvbigrKSwgMyBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9pbnRlbC9lMTAwMGUvcHRwLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9l
+MTAwMGUvcHRwLmMNCj4gaW5kZXggYjc0N2EzZS4uZDIyNzJhZCAxMDA2NDQNCj4gLS0tIGEvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL3B0cC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2UxMDAwZS9wdHAuYw0KPiBAQCAtMTExLDE1ICsxMTEsMTMgQEAgc3Rh
+dGljIGludCBlMTAwMGVfcGhjX2dldHRpbWUoc3RydWN0IHB0cF9jbG9ja19pbmZvICpwdHAsIHN0
+cnVjdCB0aW1lc3BlYzY0ICp0cykNCj4gIAlzdHJ1Y3QgZTEwMDBfYWRhcHRlciAqYWRhcHRlciA9
+IGNvbnRhaW5lcl9vZihwdHAsIHN0cnVjdCBlMTAwMF9hZGFwdGVyLA0KPiAgCQkJCQkJICAgICBw
+dHBfY2xvY2tfaW5mbyk7DQo+ICAJdW5zaWduZWQgbG9uZyBmbGFnczsNCj4gLQl1MzIgcmVtYWlu
+ZGVyOw0KPiAgCXU2NCBuczsNCj4gIA0KPiAgCXNwaW5fbG9ja19pcnFzYXZlKCZhZGFwdGVyLT5z
+eXN0aW1fbG9jaywgZmxhZ3MpOw0KPiAgCW5zID0gdGltZWNvdW50ZXJfcmVhZCgmYWRhcHRlci0+
+dGMpOw0KPiAgCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmFkYXB0ZXItPnN5c3RpbV9sb2NrLCBm
+bGFncyk7DQo+ICANCj4gLQl0cy0+dHZfc2VjID0gZGl2X3U2NF9yZW0obnMsIE5TRUNfUEVSX1NF
+QywgJnJlbWFpbmRlcik7DQo+IC0JdHMtPnR2X25zZWMgPSByZW1haW5kZXI7DQo+ICsJKnRzID0g
+bnNfdG9fdGltZXNwZWM2NChucyk7DQo+ICANCj4gIAlyZXR1cm4gMDsNCj4gIH0NCg0KDQpBY2tl
+ZC1ieTogSmFjb2IgS2VsbGVyIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo=
