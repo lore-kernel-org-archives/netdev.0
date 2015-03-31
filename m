@@ -1,71 +1,75 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v10 5/7] ixgbe: Add GET_RSS_KEY command to
- VF-PF channel commands set
-Date: Tue, 31 Mar 2015 00:35:59 -0700
-Message-ID: <1427787359.2497.113.camel@jtkirshe-mobl>
+Subject: Re: [PATCH net-next v10 7/7] ixgbevf: Add the appropriate ethtool
+ ops to query RSS indirection table and key
+Date: Tue, 31 Mar 2015 00:36:28 -0700
+Message-ID: <1427787388.2497.115.camel@jtkirshe-mobl>
 References: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
-	 <1427740529-9605-6-git-send-email-vladz@cloudius-systems.com>
+	 <1427740529-9605-8-git-send-email-vladz@cloudius-systems.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-rw04sEnCy42QMkbrJ2cE"
+	protocol="application/pgp-signature"; boundary="=-lUxjlC+vTv9qYtQrKEJc"
 Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
 	avi@cloudius-systems.com, gleb@cloudius-systems.com
 To: Vlad Zolotarov <vladz@cloudius-systems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:11723 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20840 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998AbbCaHgA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2015 03:36:00 -0400
-In-Reply-To: <1427740529-9605-6-git-send-email-vladz@cloudius-systems.com>
+	id S1753184AbbCaHg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2015 03:36:29 -0400
+In-Reply-To: <1427740529-9605-8-git-send-email-vladz@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-rw04sEnCy42QMkbrJ2cE
+--=-lUxjlC+vTv9qYtQrKEJc
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Mon, 2015-03-30 at 21:35 +0300, Vlad Zolotarov wrote:
-> For 82599 and x540 VFs and PF share the same RSS Key. Therefore we
-> will return
-> the same RSS key for all VFs.
+> Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops
+> callbacks
+> implementations.
 >=20
-> Support for other devices will be added later.
+> This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for
+> VF devices.
+>=20
+> This patch adds the support for 82599 and x540 devices only. Support
+> for other
+> devices will be added later.
 >=20
 > Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 > ---
 > New in v10:
->    - Return more self-explaining values.
+>    - Move the mailbox locks outside the vf.c functions.
+>    - Use IXGBEVF_82599_RETA_SIZE macro.
 >=20
 > New in v9:
->    - Reduce the support to 82599 and x540 devices only.
->    - Get rid of registers access in GET_VF_RSS_KEY flow:
->       - Get the RSS HASH Key value from the PF's adapter->rss_key[].
+>    - Use IXGBEVF_RSS_HASH_KEY_SIZE macro.
 >=20
-> New in v5:
->    - Use a newly added netdev op to allow/prevent the RSS Hash Key
-> querying on a per-VF
->      basis.
+> New in v6:
+>    - Added a required get_rxnfc callback to ixgbevf_ethtool_ops.
+>=20
+> New in v4:
+>    - Removed not needed braces in if-statement in
+> ixgbevf_get_rxfh_indir_size().
 >=20
 > New in v3:
->    - Added a support for x550 devices.
+>    - Added a proper support for x550 devices: return the correct
+> redirection table size.
 >=20
-> New in v1 (compared to RFC):
->    - Use "if-else" statement instead of a "switch-case" for a single
-> option case
->      (in ixgbe_get_vf_rss_key()).
+> New in v2:
+>    - Added a detailed description to the patch.
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  1 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 21
-> +++++++++++++++++++++
->  2 files changed, 22 insertions(+)
+>  drivers/net/ethernet/intel/ixgbevf/ethtool.c | 69
+> ++++++++++++++++++++++++++++
+>  1 file changed, 69 insertions(+)
 
 Thanks Vlad, applied to my queue.
 --=20
 git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
 dev-queue
 
---=-rw04sEnCy42QMkbrJ2cE
+--=-lUxjlC+vTv9qYtQrKEJc
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -73,19 +77,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJVGk5fAAoJEOVv75VaS+3Ow1UQAJGERa0nimupHt3ylyRO0Gwr
-EagHo4OWiMjFp3zJbalZekP1XBRKbPx0hUW/PoTGYXBKOnNjdAlGO9fQj33V0NE1
-UNnnCxKONwPjeBGqp/eUzM7mraZg3AhN0ZlZxkpFBKtKpIoIFK7TPShaNCnO/agP
-JVn9YqohvI9AvpqaAN5efla2W6wbf4hZTkhOw7XA3eim8LCGSriWTF/oRVttw43B
-+amuWhaQ03qIpf9Cu32UytUQSSpPm+fXxUtEoaXj7IBfyPohx2ifndLJOg7FZhq6
-sGrnmwSrNWFm/PJkIFGkW7BHipiSBMFCXrYqb/6qFqU6qZ2maYQuivTeVWcshttH
-fdhqa07O5u0Vekjlxk9R1zhl8dCPVUYlIO3lxUL3O5fjq6GSBnHi7N14n34kwr9i
-gkX+niHw5Fcu4De2QxAN9j4EzW4urxEAf/xSeN942QJJj58vg4VNhpUF2OyntEwP
-7IaGnSApPGKQbvSW0B+rL7X6jxqyUqXDqbG1zouZhIcWHdwD33/A79iYbyJky+dP
-4CU4+pc+1Je5OwZf0vIf7/cX1Qh9ZhR0Mxcg1IuRpHlIppjy4zsCZsHhl1v/aWYv
-gakxhn0r6SOVnC10NOcxawdxTqXakPBn7z6NGcyOr8Cpwy7xuu7CZxFCkfD7Qfaj
-baqBSGhcJn0yopqJ1UZZ
-=mis6
+iQIcBAABCgAGBQJVGk58AAoJEOVv75VaS+3Oj7YP/0MLafKITVnk87mX+Lj4ITc3
+McJafqM4cUHIoueI+PJOK69wyaI726ejokFW2h9zoYf/PXSsl+KHh24Bpu363t/L
+kfLEImoUkOfyI9DCJEuFN9N0CstDcLqPHo8o0QlHCSkp388ygKQR6s3r5k/VosIm
+qqnxHs6dxz33QwwqmZB8mQM/5skEe5z1UcKe7WqKhC6lITPFhq22YcVsC/nRn+Zv
+YqBMOmDFhom1Em/uS/O0mpUyS+wLO6WEF+N65ieal2qTU7vC5+/Kg0TR3oBdHKtZ
+85sSYjaQyHuD5iFS8FdKoKkSP5T3b3S8bFfBse71XYxgaRQHFvR55p3NRLMxLtoz
+CTbGcZjQHb0If+5wIFiQ041eMv9UKAXYZMfpVLGoAZV4HHXP2F+aOvfKZ1PfrXC/
+Nas/qIioXfUefiOOuUpA6mhMlxkg2e7QGNGFAUQhihG1c4xD4x0Z20Y5oaKKFQaH
+vmLPIF6e2XGpi6dBH2FSP1qyrlT0+iKoP6hqDnUHOPvT/Jy0+o+wS8WJGbfTMZI2
+2APQSGY6oSyyrq7dVN95FxOLYE+fsoJz8yfh/yQI23saDA+b6nKkYHqzIqWYVt63
+NRoiMDKQULjvlwJKIEZcf62TELT1DUsEI/4hSSdCMFbWyteKvVGZUmXkV9TqF2Tm
+Fi6qfelK/BQ9QM8nLJfN
+=HCaf
 -----END PGP SIGNATURE-----
 
---=-rw04sEnCy42QMkbrJ2cE--
+--=-lUxjlC+vTv9qYtQrKEJc--
