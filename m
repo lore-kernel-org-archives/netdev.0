@@ -1,24 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] cxgb4: add FCoE DDP and RSS
-Date: Tue, 31 Mar 2015 12:04:13 -0400 (EDT)
-Message-ID: <20150331.120413.459187920066488949.davem@davemloft.net>
-References: <cover.1427467737.git.varun@chelsio.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
+Date: Tue, 31 Mar 2015 09:05:44 -0700
+Message-ID: <CAE4R7bDbh=90ojzLviuQdL=dr62=1wFg7ky82Jja9492XHGX9g@mail.gmail.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+	<1427704836-8776-3-git-send-email-sfeldma@gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FAA25@ORSMSX101.amr.corp.intel.com>
+	<CAE4R7bA4qBk2mXa=A3fg=j+c-w6cHPYhPHVkdhJo=LUW4FX7YA@mail.gmail.com>
+	<CAJieiUh0Svt3LZsgoi7RaV8Be0eFyRvoJU3BmW7v3fEvwfXiHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	leedom@chelsio.com, anish@chelsio.com, hariprasad@chelsio.com,
-	praveenm@chelsio.com
-To: varun@chelsio.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <cover.1427467737.git.varun@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Arad, Ronen" <ronen.arad@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:36825 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752967AbbCaQFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 12:05:45 -0400
+Received: by qcgx3 with SMTP id x3so17584370qcg.3
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 09:05:44 -0700 (PDT)
+In-Reply-To: <CAJieiUh0Svt3LZsgoi7RaV8Be0eFyRvoJU3BmW7v3fEvwfXiHg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Varun Prakash <varun@chelsio.com>
-Date: Fri, 27 Mar 2015 20:29:36 +0530
+On Tue, Mar 31, 2015 at 8:30 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>
+>
+> On Monday, March 30, 2015, Scott Feldman <sfeldma@gmail.com> wrote:
+>>
+>> On Mon, Mar 30, 2015 at 5:22 PM, Arad, Ronen <ronen.arad@intel.com> wrote:
+>> >
+>> >
+>> >>-----Original Message-----
+>> >>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>> >> On
+>> >>Behalf Of sfeldma@gmail.com
+>> >>Sent: Monday, March 30, 2015 1:40 AM
+>> >>To: netdev@vger.kernel.org
+>> >>Cc: jiri@resnulli.us; roopa@cumulusnetworks.com; linux@roeck-us.net;
+>> >>f.fainelli@gmail.com
+>> >>Subject: [PATCH net-next 02/18] switchdev: flesh out get/set attr ops
+>> >>
+>> >>From: Scott Feldman <sfeldma@gmail.com>
+>> >>
+>> > [cut]
+>> >>
+>> >> int swdev_port_attr_set(struct net_device *dev, struct swdev_attr
+>> >> *attr)
+>> >> {
+>> >>-      return -EOPNOTSUPP;
+>> >>+      struct swdev_attr prev = *attr;
+>> >>+      int err, get_err;
+>> >>+
+>> >>+      get_err = swdev_port_attr_get(dev, &prev);
+>> >>+
+>> >>+      err = _swdev_port_attr_set(dev, attr);
+>> >>+      if (err && !get_err && !(attr->flags & SWDEV_ATTR_F_NO_RECOVER))
+>> >>+              /* Some err on set: revert to previous value */
+>> >>+              _swdev_port_attr_set(dev, &prev);
+>> >
+>> > Netlink requests could contain multiple attributes within a single
+>> > request.
+>> > Reverting to the previous value applies only to the first
+>> > swdev_port_attr_set error. It does not rollback all prior changes that
+>> > were triggered by the same Netlink request.
+>>
+>> Since attr_set scope is a single attr across ports, it can only revert
+>> that attr for those ports.  So rewinding multiple attributes needs to
+>> happen above attr_set.  I guess we could have a multi_attr_set that
+>> takes an array of *attrs, but something like this can be built on top
+>> of attr_set.  Maybe baby steps is best first so we can see how things
+>> shape up.
+>
+>
+>  Having a multi attr set/del is necessary in some cases where the hw api may
+> be able to handle more than one attr set/del. I can see this especially for
+> vlans. So, it would be nice if the driver can get all attributes and do the
+> necessary optimizations to program hardware.
 
-> This patch series enables RSS for FCoE frames and adds
-> DDP support for FCoE target.
-
-Series applied, thanks Varun.
+Yup, agreed, I'm adding that for vlans for v2 so it honors the vlan
+range work you recently added and the driver gets one call to install
+a range-worths of vlans.
