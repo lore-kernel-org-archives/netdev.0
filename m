@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: smc91x: Remove an unused variable
-Date: Tue, 31 Mar 2015 16:41:29 -0400 (EDT)
-Message-ID: <20150331.164129.1888673211023785825.davem@davemloft.net>
-References: <1427733818-11823-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH v3] net: sysctl for RA default route MTU
+Date: Tue, 31 Mar 2015 16:49:23 -0400 (EDT)
+Message-ID: <20150331.164923.229749666073516444.davem@davemloft.net>
+References: <1427718657-21674-1-git-send-email-klamm@yandex-team.ru>
+	<20150331.160538.1808487957641759931.davem@davemloft.net>
+	<1427834148.979686.247747037.29964C1B@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: u.kleine-koenig@pengutronix.de, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50642 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbbCaUla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:41:30 -0400
-In-Reply-To: <1427733818-11823-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: klamm@yandex-team.ru, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427834148.979686.247747037.29964C1B@webmail.messagingengine.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Mon, 30 Mar 2015 13:43:38 -0300
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 31 Mar 2015 22:35:48 +0200
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> 
-> Commit cb6e0b3690f48dff ("net: smc91x: make use of 4th parameter to devm_gpiod_get_index")
-> caused the following build warning:
-> 
-> drivers/net/ethernet/smsc/smc91x.c:2208:6: warning: unused variable 'res' [-Wunused-variable]
-> 
-> Remove the unused 'res' variable.
-> 
-> Reported-by: Olof's autobuilder <build@lixom.net>
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Could you quickly comment on what you had in mind? I guess it is about
+> handling RA in user space on the end hosts and overwriting MTU during
+> insertion of the routes?
 
-Applied, thanks.
+Even after reading your email I have no idea why you can't just have
+RA provide a 1500 byte MTU, everything else uses the device's 9000
+MTU, problem solved?
