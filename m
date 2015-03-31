@@ -1,51 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: rps: fix data stall after hotplug
-Date: Mon, 30 Mar 2015 21:48:36 -0700
-Message-ID: <1427777316.25985.168.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <b3ecb218932daa656a796cfa6e9e62b9.squirrel@www.codeaurora.org>
-	 <1426801839.25985.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1426852239.25985.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <b25a45de2cb43bbcfcaa84634d74533e.squirrel@www.codeaurora.org>
-	 <744bbefe8859bf667eafc0de02729078.squirrel@www.codeaurora.org>
-	 <1427149742.25985.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <49d5ac3130df29059f167a0401754c67.squirrel@www.codeaurora.org>
-	 <6ef597cb521f6c9adf48562c72677415.squirrel@www.codeaurora.org>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: Re: Re: [Fix kernel crash in cipso_v4_sock_delattr ]
+Date: Tue, 31 Mar 2015 05:09:43 +0000 (GMT)
+Message-ID: <1834203638.139231427778581653.JavaMail.weblogic@epmlwas08d>
+Reply-To: maninder1.s@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Vaneet Narang <v.narang@samsung.com>,
+	AJEET YADAV <ajeet.y@samsung.com>
+To: Casey Schaufler <casey@schaufler-ca.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Maninder Singh <maninder1.s@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:34890 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781AbbCaEsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 00:48:40 -0400
-Received: by pddn5 with SMTP id n5so8168658pdd.2
-        for <netdev@vger.kernel.org>; Mon, 30 Mar 2015 21:48:40 -0700 (PDT)
-In-Reply-To: <6ef597cb521f6c9adf48562c72677415.squirrel@www.codeaurora.org>
+Received: from mailout3.samsung.com ([203.254.224.33]:59732 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155AbbCaFKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 01:10:10 -0400
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NM200G3P90RUH40@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Tue, 31 Mar 2015 14:10:03 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-03-30 at 23:49 +0000, subashab@codeaurora.org wrote:
-
-> Hi Eric
-> 
-> While the original issue of data stall due to missing IPI is no longer
-> seen with netif_rx_ni(), the scenario of rps cpu online in [1 -
-> get_rps_cpus] but offline in [2 - net_rps_action_and_irq_enable] could
-> still occur. Using your patch, triggering an IPI on an offline cpu in [2]
-> leads to a crash on my arch.
-> 
-> I would like to know your thoughts on how to fix this race. Could the
-> patch which I had initially proposed help here. Alternatively, is it
-> correct to reset NAPI state and increment dropped sd count if an offline
-> CPU is detected in [2].
-> 
-
-
-Listen, I would rather disable RPS on your arch, instead of messing with
-it.
-
-Reset NAPI state as you did is in direct violation of the rules.
-
-Only cpu owning the bit is allowed to reset it.
+V2UgYXJlIGN1cnJlbnRseSB1c2luZyAzLjEwLjU4IGtlcm5lbCBhbmQgIHdlIGFyZSBmYWNpbmcg
+dGhpcyBpc3N1ZSBmb3Igc2FtY2sgZW5hYmxlZCBzeXN0ZW0uDQphbmQgYXMgd2UgY2FuIGNoZWNr
+IGluIG90aGVyIEFQSXMgbGlrZSBuZXRsYmxfc29ja19nZXRhdHRyIGFuZCBuZXRsYmxfY29ubl9z
+ZXRhdHRyIGhhdmUgdGhpcyBwcmV2ZW50aXZlIGNoZWNrIHNvIHdlIGFkZGVkIHRoaXMgY2hlY2sg
+Zm9yIG5ldGxibF9zb2NrX2RlbGF0dHIgYWxzby4NCg0KQW5kIHJlZ2FyZGluZyBwYXRjaCByZS1z
+dWJtaXNzaW9uLCBhY3R1YWxseSB3ZSBoYXZlIHJ1biBjaGVja3BhdGNoLnBsIGJlZm9yZSBzdWJt
+aXNzaW9uKHN1Y2Nlc3NmdWxsKSAgQnV0IHdoZW4gd2Ugc3VibWl0IHRoZSBwYXRjaCBvdXIgZWRp
+dG9yIGNoYW5nZXMgdGFicyBpbnRvIHNwYWNlLCB3ZSB3aWxsIHJlc3VibWl0dCB0aGUgcGF0Y2gg
+QVNBUC4NCg0KTWFuaW5kZXIgU2luZ2gNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0t
+DQpTZW5kZXIgOiBDYXNleSBTY2hhdWZsZXI8Y2FzZXlAc2NoYXVmbGVyLWNhLmNvbT4NCkRhdGUg
+OiBNYXIgMzEsIDIwMTUgMDI6MjUgKEdNVCswOTowMCkNClRpdGxlIDogUmU6IFtGaXgga2VybmVs
+IGNyYXNoIGluIGNpcHNvX3Y0X3NvY2tfZGVsYXR0ciBdDQoNCk9uIDMvMzAvMjAxNSA0OjMyIEFN
+LCBQYXVsIE1vb3JlIHdyb3RlOg0KPiBPbiBNb25kYXksIE1hcmNoIDMwLCAyMDE1IDExOjA5OjAw
+IEFNIE1hbmluZGVyIFNpbmdoIHdyb3RlOg0KPj4gRGVhciBBbGwsDQo+PiB3ZSBmb3VuZCBPbmUg
+S2VybmVsIENyYXNoIGlzc3VlIGluIGNpcHNvX3Y0X3NvY2tfZGVsYXR0ciA6LQ0KPj4gQXMgQ2lw
+c28gc3VwcG9ydHMgb25seSBpbmV0IHNvY2tldHMgc28gY2lwc29fdjRfc29ja19kZWxhdHRyIHdp
+bGwgY3Jhc2ggd2hlbg0KPj4gdHJ5IHRvIGFjY2VzcyBhbnkgb3RoZXIgc29ja2V0IHR5cGUuICBj
+aXBzb192NF9zb2NrX2RlbGF0dHIgYWNjZXNzDQo+PiBza19pbmV0LT5pbmV0X29wdCB3aGljaCBt
+YXkgY29udGFpbiBub3QgTlVMTCBidXQgaW52YWxpZCBhZGRyZXNzLiB3ZSBmb3VuZA0KPj4gdGhp
+cyBpc3N1ZSB3aXRoIG5ldGxpbmsgc29ja2V0LihyZXByb2R1Y2libGUgYnkgdHJpbml0eSB1c2lu
+ZyBzZW5kdG8gc3lzdGVtDQo+PiBjYWxsIC4pIA0KPiBIZWxsbywNCj4NCj4gRmlyc3QsIHBsZWFz
+ZSBnbyByZWFkIHRoZSBEb2N1bWVudGF0aW9uL1N1Ym1pdHRpbmdQYXRjaGVzIGZyb20gdGhlIGtl
+cm5lbCANCj4gc291cmNlczsgeW91ciBwYXRjaCBuZWVkcyB0byBiZSByZXN1Ym1pdHRlZCBhbmQg
+dGhlIGluc3RydWN0aW9ucyBpbiB0aGF0IGZpbGUgDQo+IHdpbGwgc2hvdyB5b3UgaG93IHRvIGRv
+IGl0IGNvcnJlY3RseSBuZXh0IHRpbWUuDQo+DQo+IFNlY29uZCwgdGhpcyBhcHBlYXJzIHRvIG9u
+bHkgYWZmZWN0IFNtYWNrIGJhc2VkIHN5c3RlbXMsIHllcz8gIFNFTGludXggYmFzZWQgDQo+IHN5
+c3RlbXMgc2hvdWxkIGhhdmUgdGhlIHByb3BlciBjaGVja2luZyBpbiBwbGFjZSB0byBwcmV2ZW50
+IHRoaXMgKHRoZSBjaGVja3MgDQo+IGFyZSBoYW5kbGVkIGluIHRoZSBMU00pLg0KDQpUaGlzIGxv
+b2tzIGxpa2UgYSBwcm9ibGVtIHRoYXQgd2FzIGZpeGVkIHNvbWUgdGltZSBhZ28uDQpUaGUgY3Vy
+cmVudCBTbWFjayBjb2RlIGNsZWFybHkgY2hlY2tzIGZvciB0aGlzLiBXaGF0IGtlcm5lbA0KdmVy
+c2lvbiBhcmUgeW91IHRlc3RpbmcgYWdhaW5zdD8NCg0KPiBUaGF0IHNhaWQsIGl0IHByb2JhYmx5
+IHdvdWxkbid0IGh1cnQgdG8gYWRkIHRoZSANCj4gZXh0cmEgY2hlY2tpbmcgdG8gbmV0bGJsX3Nv
+Y2tfZGVsYXR0cigpLiAgSWYgeW91IHByb3Blcmx5IHJlc3VibWl0IHlvdXIgcGF0Y2ggDQo+IEkn
+bGwgQUNLIGl0Lg0KPg0KPiAtUGF1bA0KPg==
