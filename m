@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethernet: Use bool function
- returns of true/false instead of 1/0
-Date: Tue, 31 Mar 2015 14:10:04 -0400 (EDT)
-Message-ID: <20150331.141004.825741028516673439.davem@davemloft.net>
-References: <20150325215525.GA26868@athens>
-	<20150329.121655.2092434262655191613.davem@davemloft.net>
-	<1427678712.2715.52.camel@perches.com>
+Subject: Re: [PATCH net-next 0/2] hv_netvsc: Eliminate memory allocation in
+ the send path
+Date: Tue, 31 Mar 2015 14:12:52 -0400 (EDT)
+Message-ID: <20150331.141252.1285173813259299502.davem@davemloft.net>
+References: <1427688478-27950-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, linux.nics@intel.com,
-	hariprasad@chelsio.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	linux-kernel@vger.kernel.org, varun@chelsio.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	kbuild-all@01.org, ariel.elior@qlogic.com,
-	fengguang.wu@intel.com, michal.simek@xilinx.com, soren.brinkmann@xilinx.com
-To: joe@perches.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1427678712.2715.52.camel@perches.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1427688478-27950-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 29 Mar 2015 18:25:12 -0700
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Sun, 29 Mar 2015 21:07:58 -0700
 
-> Use bool constants as the return values instead of 1 and 0.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> The network protocol used to communicate with the host is the remote ndis (rndis)
+> protocol. We need to decorate each outgoing packet with a rndis header and
+> additional rndis state (rndis per-packet state). To manage this state, we
+> currently allocate memory in the transmit path. Eliminate this allocation by
+> requesting additional head room in the skb.
 
-Applied, thanks Joe.
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming The Go Parallel Website, sponsored
-by Intel and developed in partnership with Slashdot Media, is your hub for all
-things parallel software development, from weekly thought leadership blogs to
-news, videos, case studies, tutorials and more. Take a look and join the 
-conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Series applied, thanks.
