@@ -1,83 +1,94 @@
-From: Jonathan Davies <jonathan.davies@citrix.com>
-Subject: [PATCH v2] xen-netfront: transmit fully GSO-sized packets
-Date: Tue, 31 Mar 2015 11:05:15 +0100
-Message-ID: <1427796315-17655-1-git-send-email-jonathan.davies@citrix.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Tue, 31 Mar 2015 13:08:31 +0200
+Message-ID: <1427800111.2057.18.camel@sipsolutions.net>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
+	 <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
+	 <1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
+	 <CA+BoTQn3KRym0qCJ+fLav5LQgjfiN_-Eqz0xPSc2eXJ-ijNjQw@mail.gmail.com>
+	 <1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com>
+	 (sfid-20150209_161141_280698_3CDB7CE7)
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jonathan Davies <jonathan.davies@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Eric Dumazet <edumazet@google.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Eyal Perry <eyalpe@dev.mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:62648 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751542AbbCaKFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 06:05:54 -0400
+Received: from s3.sipsolutions.net ([5.9.151.49]:52040 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753751AbbCaLIh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Mar 2015 07:08:37 -0400
+In-Reply-To: <1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com> (sfid-20150209_161141_280698_3CDB7CE7)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xen-netfront limits transmitted skbs to be at most 44 segments in size. However,
-GSO permits up to 65536 bytes, which means a maximum of 45 segments of 1448
-bytes each. This slight reduction in the size of packets means a slight loss in
-efficiency.
+To revive an old thread ...
 
-Since c/s 9ecd1a75d, xen-netfront sets gso_max_size to
-    XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER,
-where XEN_NETIF_MAX_TX_SIZE is 65535 bytes.
+On Mon, 2015-02-09 at 07:11 -0800, Eric Dumazet wrote:
 
-The calculation used by tcp_tso_autosize (and also tcp_xmit_size_goal since c/s
-6c09fa09d) in determining when to split an skb into two is
-    sk->sk_gso_max_size - 1 - MAX_TCP_HEADER.
 
-So the maximum permitted size of an skb is calculated to be
-    (XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER) - 1 - MAX_TCP_HEADER.
+> Ideally the formula would be in TCP something very fast to compute :
+> 
+> amount = (sk->sk_pacing_rate >> 10) + sk->tx_completion_delay_cushion;
+> limit = max(2 * skb->truesize, amount);
+> limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
+> 
+> So a 'problematic' driver would have to do the math (64 bit maths) like
+> this :
+> 
+> 
+> sk->tx_completion_delay_cushion = ewma_tx_delay * sk->sk_pacing_rate;
 
-Intuitively, this looks like the wrong formula -- we don't need two TCP headers.
-Instead, there is no need to deviate from the default gso_max_size of 65536 as
-this already accommodates the size of the header.
+The whole notion with "ewma_tx_delay" seems very wrong to me. Measuring
+something while also trying to control it (or something closely related)
+seems a bit strange, but perhaps you meant to measure something
+different than what Michal implemented.
 
-Currently, the largest skb transmitted by netfront is 63712 bytes (44 segments
-of 1448 bytes each), as observed via tcpdump. This patch makes netfront send
-skbs of up to 65160 bytes (45 segments of 1448 bytes each).
+What he implemented was measuring the time it takes from submission to
+the hardware queues, but that seems to create a bad feedback cycle:
+Allowing it as extra transmit "cushion" will, IIUC, cause TCP to submit
+more data to the queues, which will in turn cause the next packets to be
+potentially delayed more (since there are still waiting ones) thus
+causing a longer delay to be measured, which in turn allows even more
+data to be submitted etc.
 
-Similarly, the maximum allowable mtu does not need to subtract MAX_TCP_HEADER as
-it relates to the size of the whole packet, including the header.
+IOW, while traffic is flowing this will likely cause feedback that
+completely removes the point of this, no? Leaving only
+sysctl_tcp_limit_output_bytes as the limit (*).
 
-Fixes: 9ecd1a75d977 ("xen-netfront: reduce gso_max_size to account for max TCP header")
-Signed-off-by: Jonathan Davies <jonathan.davies@citrix.com>
+It seems it'd be better to provide a calculated estimate, perhaps based
+on current transmit rate and (if available) CCA/TXOP acquisition time.
 
----
-Changes in v2:
- - Also correct max mtu in xennet_change_mtu.
----
- drivers/net/xen-netfront.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+johannes
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index e9b960f..720aaf6 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1008,8 +1008,7 @@ err:
- 
- static int xennet_change_mtu(struct net_device *dev, int mtu)
- {
--	int max = xennet_can_sg(dev) ?
--		XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER : ETH_DATA_LEN;
-+	int max = xennet_can_sg(dev) ? XEN_NETIF_MAX_TX_SIZE : ETH_DATA_LEN;
- 
- 	if (mtu > max)
- 		return -EINVAL;
-@@ -1279,8 +1278,6 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
- 	netdev->ethtool_ops = &xennet_ethtool_ops;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
- 
--	netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
--
- 	np->netdev = netdev;
- 
- 	netif_carrier_off(netdev);
--- 
-1.9.1
+(*) Which, btw, isn't all that big given that a maximally sized A-MPDU
+is like 1MB containing close to that much actual data! Don't think that
+can actually be done at current transmit rates though.
