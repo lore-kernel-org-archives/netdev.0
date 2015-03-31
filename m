@@ -1,52 +1,53 @@
 From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH RFC v2 1/2] can: fix multiple delivery of a single CAN
- frame for overlapping CAN filters
-Date: Tue, 31 Mar 2015 22:24:20 +0200
-Message-ID: <551B0274.1010900@hartkopp.net>
-References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-2-git-send-email-socketcan@hartkopp.net> <5519210E.40005@pengutronix.de> <55192872.7000108@hartkopp.net> <551A93D0.6000302@pengutronix.de>
+Subject: Re: [PATCH RFC v2 2/2] can: introduce new raw socket option to join
+ the given CAN filters
+Date: Tue, 31 Mar 2015 22:30:09 +0200
+Message-ID: <551B03D1.2020801@hartkopp.net>
+References: <1427652564-32181-1-git-send-email-socketcan@hartkopp.net> <1427652564-32181-3-git-send-email-socketcan@hartkopp.net> <551A94D0.1010608@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.217]:35207 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753064AbbCaUYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:24:31 -0400
-In-Reply-To: <551A93D0.6000302@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <551A94D0.1010608@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 31.03.2015 14:32, Marc Kleine-Budde wrote:
-> On 03/30/2015 12:41 PM, Oliver Hartkopp wrote:
->> Please check out
->>
->> https://www.kernel.org/pub/linux/kernel/people/rusty/kernel-locking/
->>
->> And especially
->> https://www.kernel.org/pub/linux/kernel/people/rusty/kernel-locking/x173.html#LOCK-SOFTIRQS-SAME
->>
->> When a softirq processes an incoming skb this remains on that selected CPU.
+On 31.03.2015 14:36, Marc Kleine-Budde wrote:
+> On 03/29/2015 08:09 PM, Oliver Hartkopp wrote:
+
+
+>> @@ -128,10 +130,20 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+>>   	/* eliminate multiple filter matches for the same skb */
+>>   	if (*this_cpu_ptr(ro->uniq_skb) == oskb &&
+>>   	    ktime_equal(*this_cpu_ptr(ro->uniq_tstamp), oskb->tstamp)) {
+>> +		if (ro->join_filters) {
+>> +			this_cpu_inc(*ro->join_rx_count);
+>> +			/* drop frame until all enabled filters matched */
+>> +			if (*this_cpu_ptr(ro->join_rx_count) < ro->count)
 >
-> Okay, I was not sure about this. What about preempt_rt?
+> Can we be sure, that all skbs are processed on the same CPU? So that
+> it's sufficient to just compare the "ro->join_rx_count" of this CPU with
+> "ro->count" (or do we have to use join_rx_count of all CPUs?)
 >
 
-I don't care :-)
+No, that's exactly the point that the single CAN frame skb is processed inside 
+the softirq by one CPU. And we count only for this specific skb here.
 
-There are so many implementations that rely on this per-CPU stuff that we can 
-assume preempt_rt takes care of it (e.g. with locking or reducing CPU cores, etc)
+The next frame which is processed in raw_rcv() might use another CPU while 
+executing the NET_RX softirq.
 
->> Putting a struct into these percpu handling can be done - but does it increase
->> the readability in this case?
+>> +				return;
+>> +		} else
+>>   			return;
 >
-> It saves ressources, 1 pointer instead of 3 (considering both of your
-> patches) and only 1 allocation.
+> nitpick: please use { } on both sides of the else.
+>
 
-Yes. I did some more code reading, created a struct for it and omitted the 
-initialization as alloc_percpu returns an already zero'ed memory region.
-
-Will send tomorrow morning.
+fixed in v3
 
 Regards,
 Oliver
+
+
