@@ -1,9 +1,9 @@
 From: Robert Dolca <robert.dolca@gmail.com>
-Subject: Re: [linux-nfc] [PATCH 4/8] NFC: NCI: Add a special nci_request for driver
-Date: Tue, 31 Mar 2015 17:07:22 +0300
-Message-ID: <CAFPB+Yd3gNEdyeE3+RseTQUy0cEbBiMCajwEN6cRd1Npqmj7Ww@mail.gmail.com>
+Subject: Re: [linux-nfc] [PATCH 1/8] NFC: NCI: Allow connection close with dev down
+Date: Tue, 31 Mar 2015 17:03:42 +0300
+Message-ID: <CAFPB+Yc-+1s4Y1iWnnCHWjnk=U5Rq-6Wq-idtakCxju8pvYi4Q@mail.gmail.com>
 References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
- <1424772112-27399-5-git-send-email-robert.dolca@intel.com> <20150326002946.GC10954@ribalta.home>
+ <1424772112-27399-2-git-send-email-robert.dolca@intel.com> <20150326002925.GA10954@ribalta.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Robert Dolca <robert.dolca@intel.com>, linux-nfc@lists.01.org,
@@ -12,37 +12,48 @@ Cc: Robert Dolca <robert.dolca@intel.com>, linux-nfc@lists.01.org,
 	"David S. Miller" <davem@davemloft.net>
 To: Samuel Ortiz <sameo@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150326002946.GC10954@ribalta.home>
+In-Reply-To: <20150326002925.GA10954@ribalta.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Thu, Mar 26, 2015 at 2:29 AM, Samuel Ortiz <sameo@linux.intel.com> wrote:
 > Hi Robert,
 >
-> On Tue, Feb 24, 2015 at 12:01:48PM +0200, Robert Dolca wrote:
->> This patch adds nci_request_driver and nci_req_complete_driver
->> as a wrapper for __nci_request. When nci_req_complete_driver is
->> called it also sets cmd_cnt to 1. This is done because the response is not
->> sent to the NFC subsystem so cmd_cnt is not decremented there.
+> On Tue, Feb 24, 2015 at 12:01:45PM +0200, Robert Dolca wrote:
+>> By calling __nci_request instead of nci_request allows the driver to use
+>> the function while initializing the device (setup stage)
 >>
->> nci_send_cmd was previously exported in order to send commands to
->> the device from the driver. It shouldn't be used without
->> nci_req_complete_driver because cmd_cnt will have the wrong value.
-> Any NCI packet should make it to the NCI core first, because the logic
-> and synchornization between Tx and Rx, commands and response is implemented
-> there. When exporting this kind of symbols, you're opening a can of worms by
-> potentially allowing each driver to implement the same kind of logic
-> that's already implemented in the NCI core.
->
-> The solution I'd like to see implemented is the following one: Add 1
-> additional nci_ops entry for handling proprietary packets on the Rx
-> path. From your driver perspective, you call nci_recv_frame for each and
-> every packet that you receive: No intercept, no trap. The core will call
-> your proprietary packets handler for each packet (NTF or RSP) with a
-> proprietary GID.
-> You should then be able to remove all the rx work, rx queue and
-> intercept logic from your driver.
+>> Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+>> ---
+>>  net/nfc/nci/core.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+>> index 9575a18..c4dd5d8 100644
+>> --- a/net/nfc/nci/core.c
+>> +++ b/net/nfc/nci/core.c
+>> @@ -558,7 +558,7 @@ static void nci_core_conn_close_req(struct nci_dev *ndev, unsigned long opt)
+>>
+>>  int nci_core_conn_close(struct nci_dev *ndev, u8 conn_id)
+>>  {
+>> -     return nci_request(ndev, nci_core_conn_close_req, conn_id,
+>> +     return __nci_request(ndev, nci_core_conn_close_req, conn_id,
+>>                               msecs_to_jiffies(NCI_CMD_TIMEOUT));
+> You're fixing your problem by removing the NCI request serialization and
+> removing the check for your device being UP.
+> I assume you need to open and close a proprietary connection from your
+> setup hook ? Then please extend nci_request() to check for both NCI_UP
+> and NCI_INIT.
 
-Thanks for the suggestion. Will do.
+You are right, I am opening and closing a connection from the setup
+function. The setup is called by nci_open_device. At the beginning of
+nci_open_device, req_lock is being acquired and it is release at the
+end of the function. That means that when setup is being called
+req_lock is acuired. As you said I can modify nci_request to check for
+NCI_INIT but it tries to acquire req_lock and it can not succeed.
 
+We could use another mutex for nci_request but I am not sure if that
+is a good idea.
+
+Regards,
 Robert
