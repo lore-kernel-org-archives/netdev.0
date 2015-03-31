@@ -1,32 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] remove open coded ns_to_timespec64 and
- reverse
-Date: Tue, 31 Mar 2015 17:19:36 -0400 (EDT)
-Message-ID: <20150331.171936.517523024908985101.davem@davemloft.net>
-References: <cover.1427835485.git.richardcochran@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next V3 13/23] ptp: igb: convert to the 64 bit
+ get/set time methods.
+Date: Tue, 31 Mar 2015 23:37:07 +0200
+Message-ID: <20150331213707.GA9139@localhost.localdomain>
+References: <cover.1427662906.git.richardcochran@gmail.com>
+ <67fa71b28f96b222c8027b49efee4144b3754bf7.1427662907.git.richardcochran@gmail.com>
+ <1427836090.16312.27.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	amirv@mellanox.com, arnd@linaro.org, baolin.wang@linaro.org,
-	Frank.Li@freescale.com, peppe.cavallaro@st.com,
-	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
-	john.stultz@linaro.org, b45643@freescale.com,
-	matthew.vick@intel.com, mchan@broadcom.com, prashant@broadcom.com,
-	rayagond@vayavyalabs.com, sonic.zhang@analog.com,
-	sony.chacko@qlogic.com, tglx@linutronix.de
-To: richardcochran@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "thomas.lendacky@amd.com" <thomas.lendacky@amd.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"baolin.wang@linaro.org" <baolin.wang@linaro.org>,
+	"b45643@freescale.com" <b45643@freescale.com>,
+	"sshah@solarflare.com" <sshah@solarflare.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"sonic.zhang@analog.com" <sonic.zhang@analog.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"ariel.elior@qlogic.com" <ariel.elior@qlogic.com>,
+	"cmetcalf@ezchip.com" <cmetcalf@ezchip.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"arnd@linaro.org" <arnd@linaro.org>,
+	"Frank.Li@freescale.com" <Frank.Li@frees
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1427835485.git.richardcochran@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1427836090.16312.27.camel@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Tue, 31 Mar 2015 23:08:05 +0200
+On Tue, Mar 31, 2015 at 09:08:10PM +0000, Keller, Jacob E wrote:
+> On Sun, 2015-03-29 at 23:12 +0200, Richard Cochran wrote:
+> > For the 82576, the driver's clock is implemented using a timecounter,
+> > and so with this patch that device is ready for the year 2038.
+> > 
+> > However, in the case of the i210, the device stores the number of
+> > seconds in a 32 bit register.  Therefore, more work is needed on this
+> > driver before the year 2038 comes around.
+> > 
+> > Compile tested only.
+> 
+> I assume we would want to use a time counter wrapper here to resolve
+> this issue?
 
-> This patch series is a follow up to the recent timespec64 work for the
-> PTP Hardware Clock drivers.  Arnd noticed that drivers are using open
-> coded implementations of ns_to_timespec64 and timespec64_to_ns.  This
-> series replaces the open coded logic with the helper functions.
+I would just keep the seconds in software for settime() and adjtime(),
+but let the nanoseconds field go to the hardware.  Then, the gettime()
+result, the periodic outputs, the external time stamps, and the skb
+time stamps will need to be corrected by that many seconds.
 
-Looks good, series applied, thanks.
+Thanks,
+Richard
