@@ -1,68 +1,92 @@
-From: Stas Sergeev <stsp@list.ru>
-Subject: Re: [PATCH 4/6] of: add API for changing parameters of fixed link
-Date: Tue, 31 Mar 2015 20:11:31 +0300
-Message-ID: <551AD543.1010906@list.ru>
-References: <55155AFC.4050800@list.ru> <55155D35.1070703@list.ru> <CAGVrzcau0mUne8uXsTs_9=e4JtQt5w5L+hwtLmKo+UfjSEwC+w@mail.gmail.com> <5515803F.3020600@list.ru> <CAGVrzcaLfQcTAx8OR=sE=7FLrp0gGvfX8_YfxK_CU+x26JHymw@mail.gmail.com> <551587D1.5070408@list.ru> <5515904A.1060600@gmail.com> <55196011.7080502@list.ru> <CAGVrzcYam=zd+9DpKjhX8o+P_iksz+xOJWh0M45-GASMZbsBXA@mail.gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next v1] bonding: Fix another case of LACPDU not sent
+ on slave
+Date: Tue, 31 Mar 2015 10:13:09 -0700
+Message-ID: <CAF2d9jhgdkV7QuDdKC3v1OG5Kvrr80XCpy-F8ZDbaYHMbrnosw@mail.gmail.com>
+References: <1427751076-4512-1-git-send-email-maheshb@google.com> <20150331155956.GP1051@gospo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux kernel <linux-kernel@vger.kernel.org>,
-	Stas Sergeev <stsp@users.sourceforge.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcYam=zd+9DpKjhX8o+P_iksz+xOJWh0M45-GASMZbsBXA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:35992 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753554AbbCaRNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 13:13:42 -0400
+Received: by obbec2 with SMTP id ec2so36483321obb.3
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 10:13:42 -0700 (PDT)
+In-Reply-To: <20150331155956.GP1051@gospo>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-30.03.2015 19:06, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> 2015-03-30 7:39 GMT-07:00 Stas Sergeev <stsp@list.ru>:
->> 27.03.2015 20:15, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> I think your concerns are valid, but I don't think there is going t=
-o be
->>> any problem with the approach I suggested because there is a contra=
-ct
->>> that the fixed PHYs and regular PHYs need to
->> Hello Florian.
+On Tue, Mar 31, 2015 at 8:59 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Mon, Mar 30, 2015 at 02:31:16PM -0700, Mahesh Bandewar wrote:
+>> When mii-mon discovers that the link is up, it will call
+>> bond_3ad_handle_link_change() but we forget to add the LACP_ENABLED
+>> flag when we discover the speed and duplex for the slave link are
+>> normal.
 >>
->> As promised, today I tried to resurrect my first implementation
->> and do things as you suggested: install the link_update callback
->> for mvneta privately.
->> I feel SGMII setup is very common and deserves the separate API,
->> not the per-driver handling, but in any case, I'd like to show
->> the implementation first, then discuss.
->>
->> Unfortunately, it didn't work quite right.
->> The problem is that mvneta calls phy_disconnect() on .ndo_stop
->> callback. After that, phy->attached_dev becomes NULL, and so the
->> link_update callback gets called with net_dev=3D=3DNULL! And crashs.
->> Of course I can easily work around that, but IMHO its a bug -
->> the one that actually gets fixed by the patches I posted previously.
->=20
-> I actually submitted some patches a while ago that allow you to
-> unregister the fixed_link_update callback before in case you need to,
-> precisely for that. Since this is specific to dealing with a fixed
-> PHY, it is the driver responsibility to know that is has registered a
-> fixed_link_update callback and then unregister it by passing a NULL
-> callback as the new callback.
-Today I posted the patch that does exactly that.
-But I already see the problem:
----
-[   10.535424] mvneta f1030000.ethernet eth1: Link is Up - Unsupported =
-(update phy.c)/Half - flow control off
----
+>> Change-Id: Ie8b268ecfeea0f99bf9fdcd72706c0653f9d9e49
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>
+> This won't make the state machine start-up more quickly will it?  Either
+> way...
+>
+I'm seeing some occasions where LACP state for a port is in weird
+state. The port has correct speed and duplex but there are no LACPDUs
+are exchanged with partner. Seems like there is some sort of race
+condition in the code and trying to hunt that down.
 
-Seems like if I register a callback after of_phy_connect()
-(and unregister before disconnect), there is a small window
-between connect and setting the callback. If someone at that
-time will query phy, he'll get an undefined status (speed).
-And before of_phy_connect() the phy_device pointer is not known
-to register callback earlier. Of course I can see the possible
-work-arounds, but I wonder if something better can be done
-than using of_phy_find_device() and related magic right before
-of_phy_connect() just for that.
+This definitely looks like a place where it would happen since miimon
+will detect and update the speed and duplex for the port but lack of
+ENABLE_LACP flag will prevent state-machine from sending LACPDU. This
+is especially a big problem when the partner is in passive mode! This
+takes port out of the active aggregation group so unless there is
+another link-event on this port, it will not join the aggregator
+again.
+
+So the idea behind this patch is not to expedite the state-machine run
+but to make it correctly.
+
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>
+>
+>> ---
+>>  drivers/net/bonding/bond_3ad.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>> index 4309b5a76708..30e8d118664b 100644
+>> --- a/drivers/net/bonding/bond_3ad.c
+>> +++ b/drivers/net/bonding/bond_3ad.c
+>> @@ -2436,12 +2436,15 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
+>>               port->actor_admin_port_key &= ~AD_SPEED_KEY_MASKS;
+>>               port->actor_oper_port_key = port->actor_admin_port_key |=
+>>                       (__get_link_speed(port) << 1);
+>> +             if (port->actor_oper_port_key & AD_DUPLEX_KEY_MASKS)
+>> +                     port->sm_vars |= AD_PORT_LACP_ENABLED;
+>>       } else {
+>>               /* link has failed */
+>>               port->is_enabled = false;
+>>               port->actor_admin_port_key &= ~AD_DUPLEX_KEY_MASKS;
+>>               port->actor_oper_port_key = (port->actor_admin_port_key &=
+>>                                            ~AD_SPEED_KEY_MASKS);
+>> +             port->sm_vars &= ~AD_PORT_LACP_ENABLED;
+>>       }
+>>       netdev_dbg(slave->bond->dev, "Port %d changed link status to %s\n",
+>>                  port->actor_port_number,
+>> --
+>> 2.2.0.rc0.207.ga3a616c
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
