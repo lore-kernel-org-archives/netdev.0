@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] hv_netvsc: Eliminate memory allocation in
- the send path
-Date: Tue, 31 Mar 2015 14:12:52 -0400 (EDT)
-Message-ID: <20150331.141252.1285173813259299502.davem@davemloft.net>
-References: <1427688478-27950-1-git-send-email-kys@microsoft.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 31 Mar 2015 14:13:15 -0400 (EDT)
+Message-ID: <20150331.141315.2296740365869114033.davem@davemloft.net>
+References: <20150330150534.52bf72dd@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1427688478-27950-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ben.hutchings@codethink.co.uk
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150330150534.52bf72dd@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Sun, 29 Mar 2015 21:07:58 -0700
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 30 Mar 2015 15:05:34 +1100
 
-> The network protocol used to communicate with the host is the remote ndis (rndis)
-> protocol. We need to decorate each outgoing packet with a rndis header and
-> additional rndis state (rndis per-packet state). To manage this state, we
-> currently allocate memory in the transmit path. Eliminate this allocation by
-> requesting additional head room in the skb.
+> Caused by a bad merge between commits 1e9e39f4a298 ("usbnet: Fix
+> tx_packets stat for FLAG_MULTI_FRAME drivers") and 7a1e890e2168
+> ("usbnet: Fix tx_bytes statistic running backward in cdc_ncm") form the
+> net tree and commit 6588af614e7b ("usbnet: Fix tx_packets stat for
+> FLAG_MULTI_FRAME drivers") from the net-next tree.  (Presumably,
+> 6588af614e7b was cherry-picked as a bug fix.  So, Dave, something to
+> watch for if you merge net into net-next.)
 
-Series applied, thanks.
+Thanks a lot for bringing this to my attention Stephen.
