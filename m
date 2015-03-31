@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 06/11] ptp: e1000e: use helpers for converting ns to timespec.
-Date: Tue, 31 Mar 2015 23:08:11 +0200
-Message-ID: <051364a3a57d36200f652f4d8e1c9bfc4edf3254.1427835485.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 09/11] ptp: mlx4: use helpers for converting ns to timespec.
+Date: Tue, 31 Mar 2015 23:08:14 +0200
+Message-ID: <3bf4379da9f79427e3fa4f3395b7d1b10bad8393.1427835485.git.richardcochran@gmail.com>
 References: <cover.1427835485.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Arnd Bergmann <arnd@linaro.org>,
@@ -21,10 +21,14 @@ Cc: <linux-kernel@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
 	Sony Chacko <sony.chacko@qlogic.com>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:35991 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754056AbbCaVIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 17:08:43 -0400
 In-Reply-To: <cover.1427835485.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This patch changes the driver to use ns_to_timespec64() instead of
 open coding the same logic.
@@ -33,23 +37,23 @@ Compile tested only.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/e1000e/ptp.c |    4 +---
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c |    4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index b747a3e..d2272ad 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -111,15 +111,13 @@ static int e1000e_phc_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
- 	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
- 						     ptp_clock_info);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index 666e7bd..8a083d7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -170,15 +170,13 @@ static int mlx4_en_phc_gettime(struct ptp_clock_info *ptp,
+ 	struct mlx4_en_dev *mdev = container_of(ptp, struct mlx4_en_dev,
+ 						ptp_clock_info);
  	unsigned long flags;
 -	u32 remainder;
  	u64 ns;
  
- 	spin_lock_irqsave(&adapter->systim_lock, flags);
- 	ns = timecounter_read(&adapter->tc);
- 	spin_unlock_irqrestore(&adapter->systim_lock, flags);
+ 	write_lock_irqsave(&mdev->clock_lock, flags);
+ 	ns = timecounter_read(&mdev->clock);
+ 	write_unlock_irqrestore(&mdev->clock_lock, flags);
  
 -	ts->tv_sec = div_u64_rem(ns, NSEC_PER_SEC, &remainder);
 -	ts->tv_nsec = remainder;
