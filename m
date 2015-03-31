@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2015-03-30
-Date: Tue, 31 Mar 2015 16:39:50 -0400 (EDT)
-Message-ID: <20150331.163950.1089472355884006468.davem@davemloft.net>
-References: <1427728996.26117.39.camel@sipsolutions.net>
+Subject: Re: [PATCH net-next] net: smc91x: Remove an unused variable
+Date: Tue, 31 Mar 2015 16:41:29 -0400 (EDT)
+Message-ID: <20150331.164129.1888673211023785825.davem@davemloft.net>
+References: <1427733818-11823-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: u.kleine-koenig@pengutronix.de, netdev@vger.kernel.org,
+	fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50636 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50642 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753672AbbCaUjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:39:52 -0400
-In-Reply-To: <1427728996.26117.39.camel@sipsolutions.net>
+	with ESMTP id S1752413AbbCaUla (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 16:41:30 -0400
+In-Reply-To: <1427733818-11823-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 30 Mar 2015 17:23:16 +0200
+From: Fabio Estevam <festevam@gmail.com>
+Date: Mon, 30 Mar 2015 13:43:38 -0300
 
-> Sorry for the late pull request, I had intended to send this earlier but
-> due to travel and various other things always got delayed.
-
-No need to apologize, I've been travelling too :-)
-
-> The diffstat has all those drivers due to the name_assign_type change
-> that changes API in all of them, which of course couldn't go through
-> Kalle's tree.
+> From: Fabio Estevam <fabio.estevam@freescale.com>
 > 
-> Please pull, and let me know if there are any problems.
+> Commit cb6e0b3690f48dff ("net: smc91x: make use of 4th parameter to devm_gpiod_get_index")
+> caused the following build warning:
+> 
+> drivers/net/ethernet/smsc/smc91x.c:2208:6: warning: unused variable 'res' [-Wunused-variable]
+> 
+> Remove the unused 'res' variable.
+> 
+> Reported-by: Olof's autobuilder <build@lixom.net>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Pulled into net-next, thanks.
+Applied, thanks.
