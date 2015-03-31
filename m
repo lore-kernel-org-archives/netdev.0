@@ -1,42 +1,36 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] ARM: at91/dt: sama5d3 xplained: add phy address for macb0
-Date: Tue, 31 Mar 2015 11:01:12 +0200
-Message-ID: <1427792472-13555-1-git-send-email-nicolas.ferre@atmel.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 31 Mar 2015 11:01:18 +0200
+Message-ID: <20150331090118.GA25765@localhost.localdomain>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
+ <20150328082853.GA4255@localhost.localdomain>
+ <5519D380.6070200@cogentembedded.com>
+ <20150331064349.GB4605@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	<f.fainelli@gmail.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	masaru.nagai.vx@renesas.com, David Miller <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150331064349.GB4605@localhost.localdomain>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Specify the phy address on macb0 node aka GEM.
+On Tue, Mar 31, 2015 at 08:43:49AM +0200, Richard Cochran wrote:
+> I think this is normal policy.  I have seen it more than once on lkml.
+> The reason for the author's SOB is to make sure that he or she is
+> really authorized (like from the employer) to contribute the driver.
 
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- arch/arm/boot/dts/at91-sama5d3_xplained.dts | 6 ++++++
- 1 file changed, 6 insertions(+)
+Another issue is maintainership.  If one person submits work written
+by someone else, who is responsible for bug fixing?
 
-diff --git a/arch/arm/boot/dts/at91-sama5d3_xplained.dts b/arch/arm/boot/dts/at91-sama5d3_xplained.dts
-index 6c4bc53cbf4e..08cb500ce171 100644
---- a/arch/arm/boot/dts/at91-sama5d3_xplained.dts
-+++ b/arch/arm/boot/dts/at91-sama5d3_xplained.dts
-@@ -105,7 +105,13 @@
- 
- 			macb0: ethernet@f0028000 {
- 				phy-mode = "rgmii";
-+				#address-cells = <1>;
-+				#size-cells = <0>;
- 				status = "okay";
-+
-+				ethernet-phy@7 {
-+					reg = <0x7>;
-+				};
- 			};
- 
- 			pwm0: pwm@f002c000 {
--- 
-2.1.3
+We already have had one driver (ptp_pch) dumped on us, and nobody
+looks after it.
+
+Thanks,
+Richard
