@@ -1,55 +1,63 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
- and act front-end
-Date: Wed, 01 Apr 2015 08:36:06 -0400
-Message-ID: <551BE636.7040505@mojatatu.com>
-References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: enable MoCA link state change detection
+Date: Wed, 1 Apr 2015 05:48:27 -0700
+Message-ID: <CAGVrzca4oEs4gNmRB0frg91hheS2OT4cWrt3ni146UtCtN7LsA@mail.gmail.com>
+References: <20150331220008.B9C2022023D@puck.mtv.corp.google.com>
+ <20150331.210028.1632809919741182405.davem@davemloft.net> <CAGXr9JHzZU0A_+WZR616PgKGQeJBeV8AFpkEH5xgMaO8aGsi4Q@mail.gmail.com>
+ <CAGXr9JH9EAN-Xr8nfJ4GCr7TEY=A8YR6jSWv9jJScFZpEw6nzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, jiri@resnulli.us, tgraf@suug.ch,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:36331 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751595AbbDAMgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 08:36:08 -0400
-Received: by iedm5 with SMTP id m5so41434201ied.3
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 05:36:08 -0700 (PDT)
-In-Reply-To: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:35785 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbbDAMtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 08:49:08 -0400
+Received: by obcjt1 with SMTP id jt1so77603822obc.2
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 05:49:07 -0700 (PDT)
+In-Reply-To: <CAGXr9JH9EAN-Xr8nfJ4GCr7TEY=A8YR6jSWv9jJScFZpEw6nzQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/30/15 18:35, Daniel Borkmann wrote:
-> This work finalizes both eBPF front-ends for the classifier and action
-> part in tc, it allows for custom ELF section selection, a simplified tc
-> command frontend (while keeping compat), reusing of common maps between
-> classifier and actions residing in the same object file, and exporting
-> of all map fds to an eBPF agent for handing off further control in user
-> space.
+2015-03-31 19:44 GMT-07:00 Petri Gynther <pgynther@google.com>:
+> On Tue, Mar 31, 2015 at 7:34 PM, Petri Gynther <pgynther@google.com> wrote:
+>> On Tue, Mar 31, 2015 at 6:00 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Petri Gynther <pgynther@google.com>
+>>> Date: Tue, 31 Mar 2015 15:00:08 -0700 (PDT)
+>>>
+>>>> @@ -513,6 +522,13 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
+>>>>                       dev_err(kdev, "failed to register fixed PHY device\n");
+>>>>                       return -ENODEV;
+>>>>               }
+>>>> +
+>>>> +             if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET) {
+>>>> +                     ret = fixed_phy_set_link_update(phydev,
+>>>> +                                             bcmgenet_fixed_phy_link_update);
+>>>
+>>> This is not indented correctly.
+>>>
+>>> When a function call or declaration or definition spans multiple lines,
+>>> arguments on the second and subsequent lines must be indented exactly
+>>> to the first column after the openning parenthesis on the first line.
+>>>
+>>> If you are strictly using TAB characters, it is exceedingly likely
+>>> that you are indenting these lines incorrectly.  You must use the
+>>> appropriate number of TAB, then SPACE characters necessary to reach
+>>> the correct column.
+>>
+>> I'm aware of the Linux indentation rules. However, if I do that in
+>> this case, the second line becomes longer than 80 chars.
 >
-> It also adds an extensive example of how eBPF can be used, and a minimal
-> self-contained example agent that dumps map data. The example is well
-> documented and hopefully provides a good starting point into programming
-> cls_bpf and act_bpf.
->
+> Also, this patch still needs verification on ARM (device tree based)
+> platform. Waiting to hear from Florian on that.
 
-This is excellent work Daniel.
-The patch is large that it would be hard to provide good code
-feedback. I will wait for your next iteration and whatever Alexei ends
-up putting out.
+I am currently traveling, but I will try to give this patch a try in
+the next few hours on an ARM-based platform. AFAIR, the link up/down
+interrupts should work irrespective of the GENET version (1 through
+4), but I will double check that too.
 
-I have an observation:
-I realize you are doing this to illustrate the power of ebpf. And it
-is impressive. Do you see this as a way to replace pieces of the
-kernel stack or to aid and abate what the kernel already does?
-I am looking at this and i see ability to inject arbitrary code into
-the kernel. It is probably no different than someone writing DPDK code
-but this is in the kernel.
-How do we not help vendors achieve that goal or put another
-way: how do we not help vendors direct their resources at improving the
-linux infrastructure with this?
-
-cheers,
-jamal
+-- 
+Florian
