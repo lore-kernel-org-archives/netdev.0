@@ -1,28 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] bnx2x: kdump related fixes
-Date: Wed, 01 Apr 2015 12:30:59 -0400 (EDT)
-Message-ID: <20150401.123059.1027419708160538492.davem@davemloft.net>
-References: <1427871740-26271-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH RFC 01/10] devres: add devm_alloc_percpu()
+Date: Wed, 01 Apr 2015 09:32:01 -0700
+Message-ID: <1427905921.31790.23.camel@perches.com>
+References: <1427905179-27755-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58711 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752908AbbDAQbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 12:31:02 -0400
-In-Reply-To: <1427871740-26271-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org
+To: madalin.bucur@freescale.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427905179-27755-1-git-send-email-madalin.bucur@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Wed, 1 Apr 2015 10:02:18 +0300
+On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
+> Introduce managed counterparts for alloc_percpu() and free_percpu().
+> Add devm_alloc_percpu() and devm_free_percpu() into the managed
+> interfaces list.
 
-> This patch series aims to fix bnx2x driver issues when loading in kdump kernel.
-> Both issues fixed here would be fatal to the device, requiring full reset of
-> the system in order to recover, preventing the device from serving its purpose
-> in the kdump environment.
+It'd be nice to add include <linux/percpu.h> to these
+files rather than get included indirectly via module.h
 
-Series applied, thank you.
+>  drivers/base/devres.c                 | 63 +++++++++++++++++++++++++++++++++++
+>  include/linux/device.h                | 19 +++++++++++
