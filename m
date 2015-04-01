@@ -1,79 +1,75 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: [PATCH v2 net-next] crypto: algif - explicitly mark end of data
-Date: Wed, 01 Apr 2015 13:53:06 -0700
-Message-ID: <20150401205305.22123.71178.stgit@tstruk-mobl1>
+From: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Subject: Re: [PATCH] bridge: relax BR_GROUPFWD_RESTRICTED to
+ forward LLDP frames
+Date: Wed, 01 Apr 2015 23:03:02 +0200
+Message-ID: <551C5D06.2050407@wvnet.at>
+References: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>	<1427666762-23683-1-git-send-email-bernhard.thaler@wvnet.at>
+	<20150401.152845.1522826021699870645.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:34226 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752220AbbDAUzy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 16:55:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Received: from 91.141.3.66.wireless.dyn.drei.com (HELO [172.16.0.2])
+	(bernhard.thaler@wvnet.at@[91.141.3.66])
+	(SMTPAUTH User bernhard.thaler@wvnet.at)
+	(envelope-sender <bernhard.thaler@wvnet.at>)
+	by smtp.wvnet.at (qmail-ldap-1.03) with SMTP
+	for <netdev@vger.kernel.org>; 1 Apr 2015 21:03:11 -0000
+In-Reply-To: <20150401.152845.1522826021699870645.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-After the TX sgl is expanded we need to explicitly mark end of data
-at the last buffer that contains data.
 
-Changes in v2
- - use type 'bool' and true/false for 'mark'.
 
-Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
----
- crypto/algif_skcipher.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+On 01.04.2015 21:28, David Miller wrote:
+> From: Bernhard Thaler <bernhard.thaler@wvnet.at>
+> Date: Mon, 30 Mar 2015 00:06:02 +0200
+> 
+>> BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
+>> /sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
+>> some IEEE 802.1D Table 7-10 Reserved addresses:
+>>
+>> 	(MAC Control) 802.3		01-80-C2-00-00-01
+>> 	(Link Aggregation) 802.3	01-80-C2-00-00-02
+>> 	802.1AB LLDP			01-80-C2-00-00-0E
+>>
+>> Relax BR_GROUPFWD_RESTRICTED to at least forward LLDP frames and document
+>> group_fwd_mask.
+>>
+>> e.g.
+>>    echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
+>> allows to forward LLDP frames.
+>>
+>> Tested on a simple bridge setup with two interfaces. Setting group_fwd_mask
+>> as described above lets crafted LLDP frames traverse bridge.
+>>
+>> Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+> 
+> I don't understand why we want to allow forwarding LLDP by default, it
+> specifically is the case that an 802.1D bridge is only compliant if it
+> does not forward LLDP packets.
+> 
+> We've blocked forwarding of LLDP by default for such a long time, so I
+> argue against this change from the perspective of users expecting LLDP
+> to be not forwarded by the Linux bridge by default.
+> 
+BR_GROUPFWD_DEFAULT is unchanged. By default none of the IEEE 802.1D
+Table 7-10 Reserved addresses are forwarded by the bridge (except for
+STP BPDUs if STP is turned off on the bridge device).
+For users not changing /sys/class/net/brX/bridge/group_fwd_mask there
+should be no difference to current default bridge behavior.
 
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index 8276f21..5eff93f 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -509,11 +509,11 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 	struct skcipher_async_req *sreq;
- 	struct ablkcipher_request *req;
- 	struct skcipher_async_rsgl *last_rsgl = NULL;
--	unsigned int len = 0, tx_nents = skcipher_all_sg_nents(ctx);
-+	unsigned int txbufs = 0, len = 0, tx_nents = skcipher_all_sg_nents(ctx);
- 	unsigned int reqlen = sizeof(struct skcipher_async_req) +
- 				GET_REQ_SIZE(ctx) + GET_IV_SIZE(ctx);
--	int i = 0;
- 	int err = -ENOMEM;
-+	bool mark = false;
- 
- 	lock_sock(sk);
- 	req = kmalloc(reqlen, GFP_KERNEL);
-@@ -555,7 +555,7 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 			     iov_iter_count(&msg->msg_iter));
- 		used = min_t(unsigned long, used, sg->length);
- 
--		if (i == tx_nents) {
-+		if (txbufs == tx_nents) {
- 			struct scatterlist *tmp;
- 			int x;
- 			/* Ran out of tx slots in async request
-@@ -573,10 +573,11 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 			kfree(sreq->tsg);
- 			sreq->tsg = tmp;
- 			tx_nents *= 2;
-+			mark = true;
- 		}
- 		/* Need to take over the tx sgl from ctx
- 		 * to the asynch req - these sgls will be freed later */
--		sg_set_page(sreq->tsg + i++, sg_page(sg), sg->length,
-+		sg_set_page(sreq->tsg + txbufs++, sg_page(sg), sg->length,
- 			    sg->offset);
- 
- 		if (list_empty(&sreq->list)) {
-@@ -604,6 +605,9 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
- 		iov_iter_advance(&msg->msg_iter, used);
- 	}
- 
-+	if (mark)
-+		sg_mark_end(sreq->tsg + txbufs - 1);
-+
- 	ablkcipher_request_set_crypt(req, sreq->tsg, sreq->first_sgl.sgl.sg,
- 				     len, sreq->iv);
- 	err = ctx->enc ? crypto_ablkcipher_encrypt(req) :
+Only if users deliberately set group_fwd_mask to a value such as 16384
+the bridge will start to forward LLDP frames. Current
+BR_GROUPFWD_RESTRICTED value though restricts users from setting such
+values to group_fwd_mask.
