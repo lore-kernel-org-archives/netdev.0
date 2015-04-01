@@ -1,55 +1,49 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC] iov_iter_get_pages() semantics
-Date: Wed, 1 Apr 2015 03:33:11 +0100
-Message-ID: <20150401023311.GL29656@ZenIV.linux.org.uk>
-References: <20141204202011.GO29748@ZenIV.linux.org.uk>
- <20141208164650.GB29028@node.dhcp.inet.fi>
- <20141208175805.GB22149@ZenIV.linux.org.uk>
- <20141208180824.GC22149@ZenIV.linux.org.uk>
- <CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
- <20141208182012.GE22149@ZenIV.linux.org.uk>
- <CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
- <20141208184632.GG22149@ZenIV.linux.org.uk>
- <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: enable MoCA link state change detection
+Date: Tue, 31 Mar 2015 19:34:57 -0700
+Message-ID: <CAGXr9JHzZU0A_+WZR616PgKGQeJBeV8AFpkEH5xgMaO8aGsi4Q@mail.gmail.com>
+References: <20150331220008.B9C2022023D@puck.mtv.corp.google.com>
+	<20150331.210028.1632809919741182405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jaedon Shin <jaedon.shin@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:33259 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751746AbbDACe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 22:34:58 -0400
+Received: by qgfa8 with SMTP id a8so32046548qgf.0
+        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 19:34:57 -0700 (PDT)
+In-Reply-To: <20150331.210028.1632809919741182405.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 08, 2014 at 10:57:31AM -0800, Linus Torvalds wrote:
-> actually, no we cannot. Thinking some more about it, that
-> "get_page(page)" is wrong in _all_ cases. It actually works better for
-> vmalloc pages than for normal 1:1 pages, since it's actually seriously
-> and *horrendously* wrong for the case of random kernel addresses which
-> may not even be refcounted to begin with.
-> 
-> So the whole "get_page()" thing is broken. Iterating over pages in a
-> KVEC is simply wrong, wrong, wrong. It needs to fail.
-> 
-> Iterating over a KVEC to *copy* data is ok. But no page lookup stuff
-> or page reference things.
+On Tue, Mar 31, 2015 at 6:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: Petri Gynther <pgynther@google.com>
+> Date: Tue, 31 Mar 2015 15:00:08 -0700 (PDT)
+>
+>> @@ -513,6 +522,13 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
+>>                       dev_err(kdev, "failed to register fixed PHY device\n");
+>>                       return -ENODEV;
+>>               }
+>> +
+>> +             if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET) {
+>> +                     ret = fixed_phy_set_link_update(phydev,
+>> +                                             bcmgenet_fixed_phy_link_update);
+>
+> This is not indented correctly.
+>
+> When a function call or declaration or definition spans multiple lines,
+> arguments on the second and subsequent lines must be indented exactly
+> to the first column after the openning parenthesis on the first line.
+>
+> If you are strictly using TAB characters, it is exceedingly likely
+> that you are indenting these lines incorrectly.  You must use the
+> appropriate number of TAB, then SPACE characters necessary to reach
+> the correct column.
 
-Hmm...  FWIW, for ITER_KVEC the underlying data would bloody better not
-go away anyway - vmalloc space or not.  Protecting the object from being
-freed under us is caller's responsibility and caller can guarantee that.
-Would a variant that does kmap_to_page()/vmalloc_to_page() _without_
-get_page() for ITER_KVEC work sanely?
-
-Of course, that would have to be used with matching primitive for releasing
-those suckers - page_cache_release() for ITER_IOVEC (and ITER_BVEC, while
-we are at it - those are backed with normal pages) and nothing for ITER_KVEC
-ones.
-
-It would make life much more pleasant for fuse and zerocopy side of 9p - the
-latter does pretty much that kind of thing anyway...
-
-Comments?
-			Al, digging himself from under a huge pile of mail...
+I'm aware of the Linux indentation rules. However, if I do that in
+this case, the second line becomes longer than 80 chars.
