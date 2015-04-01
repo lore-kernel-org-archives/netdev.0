@@ -1,61 +1,62 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 13/14] netfilter: bridge: neigh_head and physoutdev can't be used at same time
-Date: Wed,  1 Apr 2015 22:36:39 +0200
-Message-ID: <1427920600-20366-14-git-send-email-fw@strlen.de>
+Subject: [PATCH nf-next 01/14] netfilter: bridge: really save frag_max_size between PRE and POST_ROUTING
+Date: Wed,  1 Apr 2015 22:36:27 +0200
+Message-ID: <1427920600-20366-2-git-send-email-fw@strlen.de>
 References: <1427920600-20366-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42855 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42837 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753535AbbDAUhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:37:04 -0400
+	by vger.kernel.org with ESMTP id S1752756AbbDAUgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:55 -0400
 In-Reply-To: <1427920600-20366-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The neigh_header is only needed when we detect DNAT after prerouting
-and neigh cache didn't have a mac address for us.
+We also need to save/store in forward, else br_parse_ip_options call
+will zero frag_max_size as well.
 
-The output port has not been chosen yet so we can re-use its memory,
-bringing size of meta data down to 40 bytes on x86_64.
-
+Fixes: 93fdd47e5 ('bridge: Save frag_max_size between PRE_ROUTING and POST_ROUTING')
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- include/linux/netfilter_bridge.h | 7 +++++--
- net/bridge/br_netfilter.c        | 2 ++
- 2 files changed, 7 insertions(+), 2 deletions(-)
+ net/bridge/br_netfilter.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index 621a2e4..c31024a 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -41,8 +41,11 @@ struct nf_bridge_info {
- 	bool			pkt_otherhost;
- 	unsigned long		owner;
- 	struct net_device	*physindev;
--	struct net_device	*physoutdev;
--	char			neigh_header[8];
-+
-+	union {
-+		struct net_device *physoutdev;
-+		char neigh_header[8];
-+	};
- };
- 
- struct nf_bridge_info *nf_bridge_find(const struct sk_buff *skb);
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 715157c..0730be6 100644
+index f3884a1..282ed76 100644
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
-@@ -1111,6 +1111,8 @@ static void br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
- 				       nf_bridge->neigh_header,
- 				       ETH_HLEN - ETH_ALEN);
- 	skb->dev = nf_bridge->physindev;
-+	nf_bridge->physoutdev = NULL;
-+
- 	br_handle_frame_finish(skb);
- }
+@@ -686,6 +686,13 @@ static int br_nf_forward_finish(struct sk_buff *skb)
+ 	struct net_device *in;
  
+ 	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
++		int frag_max_size;
++
++		if (skb->protocol == htons(ETH_P_IP)) {
++			frag_max_size = IPCB(skb)->frag_max_size;
++			BR_INPUT_SKB_CB(skb)->frag_max_size = frag_max_size;
++		}
++
+ 		in = nf_bridge->physindev;
+ 		if (nf_bridge->mask & BRNF_PKT_TYPE) {
+ 			skb->pkt_type = PACKET_OTHERHOST;
+@@ -745,8 +752,14 @@ static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
+ 		nf_bridge->mask |= BRNF_PKT_TYPE;
+ 	}
+ 
+-	if (pf == NFPROTO_IPV4 && br_parse_ip_options(skb))
+-		return NF_DROP;
++	if (pf == NFPROTO_IPV4) {
++		int frag_max = BR_INPUT_SKB_CB(skb)->frag_max_size;
++
++		if (br_parse_ip_options(skb))
++			return NF_DROP;
++
++		IPCB(skb)->frag_max_size = frag_max;
++	}
+ 
+ 	nf_bridge->physoutdev = skb->dev;
+ 	if (pf == NFPROTO_IPV4)
 -- 
 2.0.5
