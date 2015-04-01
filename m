@@ -1,77 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net] Intel Wired LAN Driver Updates
-Date: Tue, 31 Mar 2015 19:19:53 -0700
-Message-ID: <1427854793.20936.4.camel@jtkirshe-mobl>
-References: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20150331.132214.1693397186943204005.davem@davemloft.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [RFC] iov_iter_get_pages() semantics
+Date: Wed, 1 Apr 2015 03:33:11 +0100
+Message-ID: <20150401023311.GL29656@ZenIV.linux.org.uk>
+References: <20141204202011.GO29748@ZenIV.linux.org.uk>
+ <20141208164650.GB29028@node.dhcp.inet.fi>
+ <20141208175805.GB22149@ZenIV.linux.org.uk>
+ <20141208180824.GC22149@ZenIV.linux.org.uk>
+ <CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
+ <20141208182012.GE22149@ZenIV.linux.org.uk>
+ <CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
+ <20141208184632.GG22149@ZenIV.linux.org.uk>
+ <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-VSvirCtG5uTT41IVzaiO"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150331.132214.1693397186943204005.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 08, 2014 at 10:57:31AM -0800, Linus Torvalds wrote:
+> actually, no we cannot. Thinking some more about it, that
+> "get_page(page)" is wrong in _all_ cases. It actually works better for
+> vmalloc pages than for normal 1:1 pages, since it's actually seriously
+> and *horrendously* wrong for the case of random kernel addresses which
+> may not even be refcounted to begin with.
+> 
+> So the whole "get_page()" thing is broken. Iterating over pages in a
+> KVEC is simply wrong, wrong, wrong. It needs to fail.
+> 
+> Iterating over a KVEC to *copy* data is ok. But no page lookup stuff
+> or page reference things.
 
---=-VSvirCtG5uTT41IVzaiO
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Hmm...  FWIW, for ITER_KVEC the underlying data would bloody better not
+go away anyway - vmalloc space or not.  Protecting the object from being
+freed under us is caller's responsibility and caller can guarantee that.
+Would a variant that does kmap_to_page()/vmalloc_to_page() _without_
+get_page() for ITER_KVEC work sanely?
 
-On Tue, 2015-03-31 at 13:22 -0400, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Fri, 27 Mar 2015 16:04:10 -0700
->=20
-> > The following are changes since commit
-> dde93dfea53c72b07907d9e44a6e4b1545f6bdc4:
-> >   cxgb4: Fix frame size warning for 32 bit arch
-> > and are available in the git repository at:
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
-> master
-> >=20
-> > Jeff Kirsher (1):
-> >   MAINTAINERS: Update Intel Wired Ethernet Driver info
->=20
-> Looks great but it looks like nothing is pushed there?
->=20
-> [davem@localhost net]$ git pull
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
-> master
-> From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
->  * branch            master     -> FETCH_HEAD
-> Already up-to-date.
-> [davem@localhost net]$
+Of course, that would have to be used with matching primitive for releasing
+those suckers - page_cache_release() for ITER_IOVEC (and ITER_BVEC, while
+we are at it - those are backed with normal pages) and nothing for ITER_KVEC
+ones.
 
-Sorry, I forgot to scrub the cover letter to remove the "pull" info,
-since it was a single patch, I did not think it would require a
-"pull". :-)
+It would make life much more pleasant for fuse and zerocopy side of 9p - the
+latter does pretty much that kind of thing anyway...
 
-I can apply it to my net-queue tree, master branch if you need or want.
-
---=-VSvirCtG5uTT41IVzaiO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVG1XJAAoJEOVv75VaS+3OVggP/2MKtCNxLs4zmSk4pqFqVI+e
-KcWenhFimR/fWaAk6CLfJ1F4kKsI6xvkti6gxxv3A63/AQgjNxhgdFq72xcLFS7G
-oJPZKJi24ZvPhVfJ8aUbpSlyraNnh3UT0XGyOM00J/JHSHsnhtd46Ey+5+4ak6F0
-q5uae674zEcjTYNZJrJkryPUu2WlQRBE7JFC3tJBESLstQBL4CEqcCFerzuGGuNN
-hlsGULU3w5kj+oA+wLVfkP2xrPJXyFfZbtZLzGCJrPEoFRC41da/KE9hLAX1w5hS
-P41hTNysDlQOFQsxJAfSA9WHGgkIGI5nx1r0y1euhqNh+X7/F3qNVbr3eZh1kEhr
-F0WLAQnCUlH2M6aWTdiwFW06d1J2kaNRPpDw942ITL6WjpJN3j1NNCBHua2ljmo0
-GLapf+5H0zaPQkvERArXvr5ubNM8FTVqMCcmhmhVhWlQLvvPzOq+EPdm/yjNJYNK
-WZev6EjQ7BvYZ2VzpS2hari9ZqF7qtC6TMFw5qNYkvR3SgZ+OhVBG+ZVy2LpKUfH
-0hWIjuUeUIn7Y3BxfyzvHf5am7lXFe9tpVC0UxX24bAmwhdHrm6+64OJ1dPwpwOn
-iWfW/CRDVZNsCmJ92HSvvFYa2K0yGa7maBY4WfNAMMDBqklp6ZPjkRu4EINetSiC
-VvkcceOJcB09+LW/9ymX
-=5nzU
------END PGP SIGNATURE-----
-
---=-VSvirCtG5uTT41IVzaiO--
+Comments?
+			Al, digging himself from under a huge pile of mail...
