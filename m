@@ -1,99 +1,92 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 08/14] netfilter: physdev: use helpers
-Date: Wed,  1 Apr 2015 22:36:34 +0200
-Message-ID: <1427920600-20366-9-git-send-email-fw@strlen.de>
+Subject: [PATCH nf-next 14/14] netfilter: bridge: hold physinport ref during neigh resolution
+Date: Wed,  1 Apr 2015 22:36:40 +0200
+Message-ID: <1427920600-20366-15-git-send-email-fw@strlen.de>
 References: <1427920600-20366-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42845 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753427AbbDAUg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:59 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1427920600-20366-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid skb->nf_bridge accesses where possible.
+This problem existed forever: when performing DNAT resolution we keep
+physinport around for later use as skb->dev .
+
+We should ensure it cannot go away.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/netfilter/xt_physdev.c | 34 ++++++++++++++++++++++------------
- 1 file changed, 22 insertions(+), 12 deletions(-)
+ include/linux/netfilter_bridge.h |  1 +
+ net/bridge/br_netfilter.c        | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+)
 
-diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-index 50a5204..1caaccb 100644
---- a/net/netfilter/xt_physdev.c
-+++ b/net/netfilter/xt_physdev.c
-@@ -25,16 +25,15 @@ MODULE_ALIAS("ip6t_physdev");
- static bool
- physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index c31024a..8a6a4af 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -39,6 +39,7 @@ struct nf_bridge_info {
+ 		BRNF_PROTO_PPPOE
+ 	} orig_proto;
+ 	bool			pkt_otherhost;
++	bool			physin_ref;
+ 	unsigned long		owner;
+ 	struct net_device	*physindev;
+ 
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 0730be6..ae03117 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -154,6 +154,8 @@ static struct nf_bridge_info *nf_bridge_info_get(const struct sk_buff *skb)
+ 
+ static void nf_bridge_info_free(struct nf_bridge_info *info)
  {
--	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
- 	const struct xt_physdev_info *info = par->matchinfo;
-+	const struct net_device *physdev;
- 	unsigned long ret;
- 	const char *indev, *outdev;
--	const struct nf_bridge_info *nf_bridge;
++	if (info->physin_ref)
++		dev_put(info->physindev);
+ 	kmem_cache_free(nf_bridge_cachep, info);
+ }
  
- 	/* Not a bridged IP packet or no info available yet:
- 	 * LOCAL_OUT/mangle and LOCAL_OUT/nat don't know if
- 	 * the destination device will be a bridge. */
--	if (!(nf_bridge = skb->nf_bridge)) {
-+	if (!skb->nf_bridge) {
- 		/* Return MATCH if the invert flags of the used options are on */
- 		if ((info->bitmask & XT_PHYSDEV_OP_BRIDGED) &&
- 		    !(info->invert & XT_PHYSDEV_OP_BRIDGED))
-@@ -54,30 +53,41 @@ physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
+@@ -174,6 +176,9 @@ static bool nf_bridge_info_copy(struct sk_buff *dst, const struct sk_buff *src)
+ 
+ 	newinfo->owner = (unsigned long)dst;
+ 
++	if (newinfo->physin_ref)
++		dev_hold(newinfo->physindev);
++
+ 	if (rhashtable_insert_fast(&nf_bridge_info_table, &newinfo->node,
+ 				   nf_bridge_info_params) == 0)
  		return true;
- 	}
+@@ -235,6 +240,7 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
  
-+	physdev = nf_bridge_get_physoutdev(skb);
-+	outdev = physdev ? physdev->name : NULL;
+ 	nf_bridge->orig_proto = BRNF_PROTO_UNCHANGED;
+ 	nf_bridge->pkt_otherhost = false;
++	nf_bridge->physin_ref = false;
+ 	nf_bridge->owner = (unsigned long)skb;
+ 	nf_bridge->physoutdev = NULL;
+ 
+@@ -422,6 +428,10 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
+ 							 ETH_HLEN-ETH_ALEN);
+ 			/* tell br_dev_xmit to continue with forwarding */
+ 			skb->nf_bridge_state = BRNF_STATE_BRIDGED_DNAT;
 +
- 	/* This only makes sense in the FORWARD and POSTROUTING chains */
- 	if ((info->bitmask & XT_PHYSDEV_OP_BRIDGED) &&
--	    (!!nf_bridge->physoutdev ^ !(info->invert & XT_PHYSDEV_OP_BRIDGED)))
-+	    (!!outdev ^ !(info->invert & XT_PHYSDEV_OP_BRIDGED)))
- 		return false;
- 
-+	physdev = nf_bridge_get_physindev(skb);
-+	indev = physdev ? physdev->name : NULL;
++			nf_bridge->physin_ref = true;
++			dev_hold(nf_bridge->physindev);
 +
- 	if ((info->bitmask & XT_PHYSDEV_OP_ISIN &&
--	    (!nf_bridge->physindev ^ !!(info->invert & XT_PHYSDEV_OP_ISIN))) ||
-+	    (!indev ^ !!(info->invert & XT_PHYSDEV_OP_ISIN))) ||
- 	    (info->bitmask & XT_PHYSDEV_OP_ISOUT &&
--	    (!nf_bridge->physoutdev ^ !!(info->invert & XT_PHYSDEV_OP_ISOUT))))
-+	    (!outdev ^ !!(info->invert & XT_PHYSDEV_OP_ISOUT))))
- 		return false;
+ 			ret = neigh->output(neigh, skb);
+ 		}
+ 		neigh_release(neigh);
+@@ -1113,6 +1123,11 @@ static void br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
+ 	skb->dev = nf_bridge->physindev;
+ 	nf_bridge->physoutdev = NULL;
  
- 	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
- 		goto match_outdev;
--	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
--	ret = ifname_compare_aligned(indev, info->physindev, info->in_mask);
- 
--	if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
--		return false;
-+	if (indev) {
-+		ret = ifname_compare_aligned(indev, info->physindev,
-+					     info->in_mask);
++	WARN_ON_ONCE(!nf_bridge->physin_ref);
 +
-+		if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
-+			return false;
-+	}
- 
- match_outdev:
- 	if (!(info->bitmask & XT_PHYSDEV_OP_OUT))
- 		return true;
--	outdev = nf_bridge->physoutdev ?
--		 nf_bridge->physoutdev->name : nulldevname;
++	dev_put(nf_bridge->physindev);
++	nf_bridge->physin_ref = false;
 +
-+	if (!outdev)
-+		return false;
-+
- 	ret = ifname_compare_aligned(outdev, info->physoutdev, info->out_mask);
+ 	br_handle_frame_finish(skb);
+ }
  
- 	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
 -- 
 2.0.5
+
