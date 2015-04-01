@@ -1,44 +1,189 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net 0/2] cxgb4 FW macro changes for new FW
-Date: Wed,  1 Apr 2015 21:41:14 +0530
-Message-ID: <1427904676-31000-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net 2/2] cxgb4: Fix to dump devlog, even if FW is crashed
+Date: Wed,  1 Apr 2015 21:41:16 +0530
+Message-ID: <1427904676-31000-3-git-send-email-hariprasad@chelsio.com>
+References: <1427904676-31000-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
 	nirranjan@chelsio.com, kumaras@chelsio.com,
 	swise@opengridcomputing.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11554 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:15231 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752167AbbDAK7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 06:59:37 -0400
+	by vger.kernel.org with ESMTP id S1752645AbbDAK7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 06:59:43 -0400
+In-Reply-To: <1427904676-31000-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Add new Common Code routines to retrieve Firmware Device Log
+parameters from PCIE_FW_PF[7]. The firmware initializes its Device Log very
+early on and stores the parameters for its location/size in that register.
+Using the parameters from the register allows us to access the Firmware
+Device Log even when the firmware crashes very early on or we're not
+attached to the firmware
 
-Fix to dump device log even in the case of firmware crash. Also
-incorporates changes for new FW.
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-This patch series has been created against net tree and includes patches on
-cxgb4 driver.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  2 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 33 ++++-----------
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 53 +++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  3 ++
+ 4 files changed, 65 insertions(+), 26 deletions(-)
 
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks
-
-Hariprasad Shenai (2):
-  cxgb4: Firmware macro changes for fw verison 1.13.32.0
-  cxgb4: Fix to dump devlog, even if FW is crashed
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        |  2 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   | 33 +++-----------
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c        | 53 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h      |  3 ++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h     | 39 ++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h |  8 ++--
- 6 files changed, 106 insertions(+), 32 deletions(-)
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 8816c64..c6ff489 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1136,6 +1136,8 @@ int cxgb4_t4_bar2_sge_qregs(struct adapter *adapter,
+ 
+ unsigned int qtimer_val(const struct adapter *adap,
+ 			const struct sge_rspq *q);
++
++int t4_init_devlog_params(struct adapter *adapter);
+ int t4_init_sge_params(struct adapter *adapter);
+ int t4_init_tp_params(struct adapter *adap);
+ int t4_filter_field_shift(const struct adapter *adap, int filter_sel);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 826de7a..d929951 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -5110,10 +5110,15 @@ static int adap_init0(struct adapter *adap)
+ 	enum dev_state state;
+ 	u32 params[7], val[7];
+ 	struct fw_caps_config_cmd caps_cmd;
+-	struct fw_devlog_cmd devlog_cmd;
+-	u32 devlog_meminfo;
+ 	int reset = 1;
+ 
++	/* Grab Firmware Device Log parameters as early as possible so we have
++	 * access to it for debugging, etc.
++	 */
++	ret = t4_init_devlog_params(adap);
++	if (ret < 0)
++		return ret;
++
+ 	/* Contact FW, advertising Master capability */
+ 	ret = t4_fw_hello(adap, adap->mbox, adap->mbox, MASTER_MAY, &state);
+ 	if (ret < 0) {
+@@ -5191,30 +5196,6 @@ static int adap_init0(struct adapter *adap)
+ 	if (ret < 0)
+ 		goto bye;
+ 
+-	/* Read firmware device log parameters.  We really need to find a way
+-	 * to get these parameters initialized with some default values (which
+-	 * are likely to be correct) for the case where we either don't
+-	 * attache to the firmware or it's crashed when we probe the adapter.
+-	 * That way we'll still be able to perform early firmware startup
+-	 * debugging ...  If the request to get the Firmware's Device Log
+-	 * parameters fails, we'll live so we don't make that a fatal error.
+-	 */
+-	memset(&devlog_cmd, 0, sizeof(devlog_cmd));
+-	devlog_cmd.op_to_write = htonl(FW_CMD_OP_V(FW_DEVLOG_CMD) |
+-				       FW_CMD_REQUEST_F | FW_CMD_READ_F);
+-	devlog_cmd.retval_len16 = htonl(FW_LEN16(devlog_cmd));
+-	ret = t4_wr_mbox(adap, adap->mbox, &devlog_cmd, sizeof(devlog_cmd),
+-			 &devlog_cmd);
+-	if (ret == 0) {
+-		devlog_meminfo =
+-			ntohl(devlog_cmd.memtype_devlog_memaddr16_devlog);
+-		adap->params.devlog.memtype =
+-			FW_DEVLOG_CMD_MEMTYPE_DEVLOG_G(devlog_meminfo);
+-		adap->params.devlog.start =
+-			FW_DEVLOG_CMD_MEMADDR16_DEVLOG_G(devlog_meminfo) << 4;
+-		adap->params.devlog.size = ntohl(devlog_cmd.memsize_devlog);
+-	}
+-
+ 	/*
+ 	 * Find out what ports are available to us.  Note that we need to do
+ 	 * this before calling adap_init0_no_config() since it needs nports
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 1abdfa1..ee394dc 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -4459,6 +4459,59 @@ int cxgb4_t4_bar2_sge_qregs(struct adapter *adapter,
+ }
+ 
+ /**
++ *	t4_init_devlog_params - initialize adapter->params.devlog
++ *	@adap: the adapter
++ *
++ *	Initialize various fields of the adapter's Firmware Device Log
++ *	Parameters structure.
++ */
++int t4_init_devlog_params(struct adapter *adap)
++{
++	struct devlog_params *dparams = &adap->params.devlog;
++	u32 pf_dparams;
++	unsigned int devlog_meminfo;
++	struct fw_devlog_cmd devlog_cmd;
++	int ret;
++
++	/* If we're dealing with newer firmware, the Device Log Paramerters
++	 * are stored in a designated register which allows us to access the
++	 * Device Log even if we can't talk to the firmware.
++	 */
++	pf_dparams =
++		t4_read_reg(adap, PCIE_FW_REG(PCIE_FW_PF_A, PCIE_FW_PF_DEVLOG));
++	if (pf_dparams) {
++		unsigned int nentries, nentries128;
++
++		dparams->memtype = PCIE_FW_PF_DEVLOG_MEMTYPE_G(pf_dparams);
++		dparams->start = PCIE_FW_PF_DEVLOG_ADDR16_G(pf_dparams) << 4;
++
++		nentries128 = PCIE_FW_PF_DEVLOG_NENTRIES128_G(pf_dparams);
++		nentries = (nentries128 + 1) * 128;
++		dparams->size = nentries * sizeof(struct fw_devlog_e);
++
++		return 0;
++	}
++
++	/* Otherwise, ask the firmware for it's Device Log Parameters.
++	 */
++	memset(&devlog_cmd, 0, sizeof(devlog_cmd));
++	devlog_cmd.op_to_write = htonl(FW_CMD_OP_V(FW_DEVLOG_CMD) |
++				       FW_CMD_REQUEST_F | FW_CMD_READ_F);
++	devlog_cmd.retval_len16 = htonl(FW_LEN16(devlog_cmd));
++	ret = t4_wr_mbox(adap, adap->mbox, &devlog_cmd, sizeof(devlog_cmd),
++			 &devlog_cmd);
++	if (ret)
++		return ret;
++
++	devlog_meminfo = ntohl(devlog_cmd.memtype_devlog_memaddr16_devlog);
++	dparams->memtype = FW_DEVLOG_CMD_MEMTYPE_DEVLOG_G(devlog_meminfo);
++	dparams->start = FW_DEVLOG_CMD_MEMADDR16_DEVLOG_G(devlog_meminfo) << 4;
++	dparams->size = ntohl(devlog_cmd.memsize_devlog);
++
++	return 0;
++}
++
++/**
+  *	t4_init_sge_params - initialize adap->params.sge
+  *	@adapter: the adapter
+  *
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 231a725..326674b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -63,6 +63,8 @@
+ #define MC_BIST_STATUS_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
+ #define EDC_BIST_STATUS_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
+ 
++#define PCIE_FW_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
++
+ #define SGE_PF_KDOORBELL_A 0x0
+ 
+ #define QID_S    15
+@@ -707,6 +709,7 @@
+ #define PFNUM_V(x) ((x) << PFNUM_S)
+ 
+ #define PCIE_FW_A 0x30b8
++#define PCIE_FW_PF_A 0x30bc
+ 
+ #define PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS_A 0x5908
+ 
 -- 
 2.3.4
