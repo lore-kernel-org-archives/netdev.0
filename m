@@ -1,49 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: bcmgenet: enable MoCA link state
- change detection
-Date: Wed, 01 Apr 2015 13:40:37 -0400 (EDT)
-Message-ID: <20150401.134037.1631948165977093044.davem@davemloft.net>
-References: <20150401074000.CD2CD2203CD@puck.mtv.corp.google.com>
+Subject: Re: [PATCH RFCv2 3/4] batman-adv: Forward IGMP/MLD reports
+ to selected querier (only)
+Date: Wed, 01 Apr 2015 13:44:31 -0400 (EDT)
+Message-ID: <20150401.134431.1653220163353310062.davem@davemloft.net>
+References: <1427875479-9240-1-git-send-email-linus.luessing@c0d3.blue>
+	<1427875479-9240-4-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, jaedon.shin@gmail.com
-To: pgynther@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59252 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbbDARkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 13:40:42 -0400
-In-Reply-To: <20150401074000.CD2CD2203CD@puck.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	bridge@lists.linux-foundation.org
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1427875479-9240-4-git-send-email-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Petri Gynther <pgynther@google.com>
-Date: Wed,  1 Apr 2015 00:40:00 -0700 (PDT)
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Wed,  1 Apr 2015 10:04:38 +0200
 
-> Currently, MoCA fixed PHYs are always in link-up state, regardless of
-> whether the link is actually up or not.
-> 
-> Add code to properly detect MoCA link state changes and to reflect the
-> new state in MoCA fixed PHY. Only GENET V3 and V4 MACs are capable of
-> detecting MoCA link state changes.
-> 
-> The code works as follows:
-> 1. GENET MAC detects MoCA link state change and issues UMAC_IRQ_LINK_UP
->    or UMAC_IRQ_LINK_DOWN interrupt.
-> 2. Link up/down interrupt is processed in bcmgenet_irq_task(), which
->    calls phy_mac_interrupt().
-> 3. phy_mac_interrupt() updates the fixed PHY phydev->link and kicks
->    the PHY state machine.
-> 4. PHY state machine proceeds to read the fixed PHY link status
->    register.
-> 5. When the fixed PHY link status register is being read, the new
->    function bcmgenet_fixed_phy_link_update() gets called. It copies
->    the fixed PHY phydev->link value to the fixed PHY status->link.
-> 6. PHY state machine receives the new link state of the fixed PHY.
-> 7. MoCA fixed PHY link state now correctly reflects the real MoCA
->    hardware link state.
-> 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> With this patch IGMP or MLD reports are only forwarded to the selecte=
+d
+> IGMP/MLD querier as RFC4541 suggests. This is necessary to avoid
+> multicast packet loss in bridged scenarios later:
+> =
 
-Applied, thanks.
+> An IGMPv2/MLDv1 querier does not actively join the multicast group th=
+e
+> reports are sent to. Because of this, this leads to snooping
+> bridges/switches not being able to learn of multicast listeners in th=
+e
+> mesh and wrongly shutting down ports for multicast traffic to the mes=
+h.
+
+There is no way this is going to work.
+
+First of all, you have no proper Kconfig dependencies upon IPV6, yet
+you are calling these newly exported ipv6 multicast interfaces
+unconditionally.
+
+Even once you resolve that, you are going to run into problems in
+situations where BATMAN_ADV=3Dy and IPV6=3Dm, for example.
