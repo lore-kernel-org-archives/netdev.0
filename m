@@ -1,208 +1,101 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
-Date: Wed, 1 Apr 2015 13:24:43 -0700
-Message-ID: <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
-References: <1427409698.18540.11.camel@redhat.com> <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
- <1427749308.1913.28.camel@redhat.com> <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
- <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V2] checkpatch/SubmittingPatches: Suggest line wrapping
+ commit messages at 75 columns
+Date: Wed, 01 Apr 2015 13:33:21 -0700
+Message-ID: <1427920401.31790.91.camel@perches.com>
+References: <1427634005-4313-1-git-send-email-ipm@chirality.org.uk>
+	 <20150331.135338.519327316482059081.davem@davemloft.net>
+	 <1427825806.10376.42.camel@perches.com>
+	 <1427827225.18175.3.camel@perches.com>
+	 <20150401122001.f0203b0ddac348db14e5822a@linux-foundation.org>
+	 <20150401213618.029f8c1f@lwn.net> <1427918969.31790.78.camel@perches.com>
+	 <20150401131824.efafdf9c97188f97cb4a212c@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:34204 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055AbbDAUZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:25:05 -0400
-Received: by obbgh1 with SMTP id gh1so92141504obb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 13:25:04 -0700 (PDT)
-In-Reply-To: <1427775770.30696.3.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jonathan Corbet <corbet@lwn.net>,
+	David Miller <davem@davemloft.net>,
+	Ian Morris <ipm@chirality.org.uk>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-doc <linux-doc@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150401131824.efafdf9c97188f97cb4a212c@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 30, 2015 at 9:22 PM, Dan Williams <dcbw@redhat.com> wrote:
-> The broadcast MAC is supposed to be allowed whenever the device
-> has an IPv4 address, otherwise ARP requests get dropped on the
-> floor.  If ndo_set_rx_mode (and thus
-> ipvlan_set_multicast_mac_filter()) got called after the address
-> was added, it would blow away the broadcast MAC address in
-> mac_filters that was added at IPv4 address addition.
->
-> Next, ipvlan currently fails DHCP addressing for two reasons:
->
-I would prefer DHCPv4 instead of DHCP since it could also mean DHCPv6
-which does not use broadcast.
+Commit messages lines are sometimes overly long.
 
-> 1) DHCP offers are typically unicast back to the device's MAC
-> address, and at the IP layer have a destination IP address
-> matching the new lease address.  In ipvlan unicast packets
-> are checked against existing addresses assigned to the ipvlan
-> interface, so clearly this fails hard because the ipvlan
-> interface has no IP addresses yet.  Workaround: request
-> that the server broadcast replies (-B for dhclient) which
-> don't get checked against the address list.
->
-> 2) Even when that's done, mac_filters only allows the
-> broadcast MAC address when the interface has >= 1 IPv4
-> addresses, so double-fail, and the incoming DHCP offer
-> gets dropped on the floor again.
->
-> To fix these issues, Watch for outgoing DHCP requests and
-> enable the broadcast MAC address indefinitely when one is seen.
->
-This approach will work but adds a performance drag for all UDP
-traffic whether the link needs DHCPv4 or not (especially when it does
-not need). Logic works well only when the link (always) needs DHCPv4.
-When the link does not care about DHCPv4 the packet-inspection always
-happens.
+Suggest line wrapping at 75 columns so the default git
+commit log indentation of 4 plus the commit message text
+still fits on an 80 column screen.
 
-Do we really need to special case DHCPv4? Do you see problems in
-inverting the current logic of adding broadcast bit (i.e. from
-enable-if-IPv4 to disable-if-IPv6-only)?
+Add a checkpatch test for long commit messages lines too.
 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-> ---
-> NOTE: this patch supercedes my previous two ipvlan patches:
-> [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
-> [PATCH 2/2] ipvlan: always allow the broadcast MAC address
->
->  drivers/net/ipvlan/ipvlan.h      |  2 ++
->  drivers/net/ipvlan/ipvlan_core.c | 36 ++++++++++++++++++++++++++++++++++--
->  drivers/net/ipvlan/ipvlan_main.c | 12 +++++++++---
->  3 files changed, 45 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-> index 924ea98..7e0b8ff 100644
-> --- a/drivers/net/ipvlan/ipvlan.h
-> +++ b/drivers/net/ipvlan/ipvlan.h
-> @@ -67,6 +67,7 @@ struct ipvl_dev {
->         struct list_head        addrs;
->         int                     ipv4cnt;
->         int                     ipv6cnt;
-> +       bool                    dhcp4_seen;
->         struct ipvl_pcpu_stats  __percpu *pcpu_stats;
->         DECLARE_BITMAP(mac_filters, IPVLAN_MAC_FILTER_SIZE);
->         netdev_features_t       sfeatures;
-> @@ -118,4 +119,5 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
->  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
->                                         const void *iaddr, bool is_v6);
->  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
-> +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set);
->  #endif /* __IPVLAN_H */
-> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index 2a17500..6dd992b 100644
-> --- a/drivers/net/ipvlan/ipvlan_core.c
-> +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -126,6 +126,12 @@ static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
->                 lyr3h = arph;
->                 break;
->         }
-> +       case htons(ETH_P_ALL): {
-> +               /* Raw sockets */
-> +               if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
-> +                       break;
-> +               /* Fall through */
-> +       }
->         case htons(ETH_P_IP): {
->                 u32 pktlen;
->                 struct iphdr *ip4h;
-> @@ -454,16 +460,42 @@ out:
->         return ipvlan_process_outbound(skb, ipvlan);
->  }
->
-> +#define DHCP_PACKET_MIN_LEN 282
-> +
-> +static bool is_dhcp(struct sk_buff *skb)
-> +{
-> +       struct iphdr *ip4h = ip_hdr(skb);
-> +       struct udphdr *udph;
-> +
-> +       if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
-> +               || ip_is_fragment(ip4h))
-> +               return false;
-> +
-> +       /* In the case of RAW sockets the transport header is not set by
-> +        * the IP stack so we must set it ourselves.
-> +        */
-> +       if (skb->transport_header == skb->network_header)
-> +               skb_set_transport_header(skb, ETH_HLEN + sizeof(struct iphdr));
-> +       udph = udp_hdr(skb);
-> +       return udph && udph->dest == htons(67) && udph->source == htons(68);
-> +}
-> +
->  static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
->  {
-> -       const struct ipvl_dev *ipvlan = netdev_priv(dev);
-> +       struct ipvl_dev *ipvlan = netdev_priv(dev);
->         struct ethhdr *eth = eth_hdr(skb);
->         struct ipvl_addr *addr;
->         void *lyr3h;
->         int addr_type;
->
-> +       lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
-> +       if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
-> +           && is_dhcp(skb)) {
-> +               ipvlan->dhcp4_seen = true;
-> +               ipvlan_set_broadcast_mac_filter(ipvlan, true);
-> +       }
-> +
->         if (ether_addr_equal(eth->h_dest, eth->h_source)) {
-> -               lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
->                 if (lyr3h) {
->                         addr = ipvlan_addr_lookup(ipvlan->port, lyr3h, addr_type, true);
->                         if (addr)
-> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> index 4f4099d..a497fb9 100644
-> --- a/drivers/net/ipvlan/ipvlan_main.c
-> +++ b/drivers/net/ipvlan/ipvlan_main.c
-> @@ -167,6 +167,8 @@ static int ipvlan_stop(struct net_device *dev)
->
->         dev_uc_del(phy_dev, phy_dev->dev_addr);
->
-> +       ipvlan->dhcp4_seen = false;
-> +
->         if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
->                 list_for_each_entry(addr, &ipvlan->addrs, anode)
->                         ipvlan_ht_addr_del(addr, !dev->dismantle);
-> @@ -214,7 +216,7 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
->                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
->  }
->
-> -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
-> +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
->  {
->         struct net_device *dev = ipvlan->dev;
->         unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
-> @@ -239,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
->                 netdev_for_each_mc_addr(ha, dev)
->                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
->
-> +               if (ipvlan->ipv4cnt || ipvlan->dhcp4_seen)
-> +                       __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
-> +
->                 bitmap_copy(ipvlan->mac_filters, mc_filters,
->                             IPVLAN_MAC_FILTER_SIZE);
->         }
-> @@ -467,6 +472,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
->         INIT_LIST_HEAD(&ipvlan->addrs);
->         ipvlan->ipv4cnt = 0;
->         ipvlan->ipv6cnt = 0;
-> +       ipvlan->dhcp4_seen = false;
->
->         /* TODO Probably put random address here to be presented to the
->          * world but keep using the physical-dev address for the outgoing
-> @@ -708,8 +714,8 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->         list_del_rcu(&addr->anode);
->         ipvlan->ipv4cnt--;
->         WARN_ON(ipvlan->ipv4cnt < 0);
-> -       if (!ipvlan->ipv4cnt)
-> -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
-> +       if (!ipvlan->ipv4cnt && !ipvlan->dhcp4_seen)
-> +               ipvlan_set_broadcast_mac_filter(ipvlan, false);
->         kfree_rcu(addr, rcu);
->
->         return;
-> --
-> 2.1.0
->
->
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: David Miller <davem@davmloft.net>
+---
+
+V2: avoid Andrew Morton's colicky crying binges...
+
+On Wed, 2015-04-01 at 13:18 -0700, Andrew Morton wrote:
+> On Wed, 01 Apr 2015 13:09:29 -0700 Joe Perches <joe@perches.com> wrote:
+> I'm very sensitive.
+
+A poet too no doubt.
+
+> > git log has a default 4 space indent of the commit message so
+> > 75 or 76 would still fit an 80 column screen.
+> 
+> That's a good point.  Good enough to be in a changelog ;)
+
+If you're going to change it, make sure to DTRT.
+
+Or just take this one...
+
+ Documentation/SubmittingPatches | 4 ++--
+ scripts/checkpatch.pl           | 9 +++++++++
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/SubmittingPatches b/Documentation/SubmittingPatches
+index 447671b..c9de1c3 100644
+--- a/Documentation/SubmittingPatches
++++ b/Documentation/SubmittingPatches
+@@ -614,8 +614,8 @@ The canonical patch message body contains the following:
+ 
+   - An empty line.
+ 
+-  - The body of the explanation, which will be copied to the
+-    permanent changelog to describe this patch.
++  - The body of the explanation, line wrapped at 75 columns, which will
++    be copied to the permanent changelog to describe this patch.
+ 
+   - The "Signed-off-by:" lines, described above, which will
+     also go in the changelog.
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index d54a814..62a7be5 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -1898,6 +1898,7 @@ sub process {
+ 
+ 	my $in_header_lines = $file ? 0 : 1;
+ 	my $in_commit_log = 0;		#Scanning lines before patch
++	my $commit_log_long_line = 0;
+ 	my $reported_maintainer_file = 0;
+ 	my $non_utf8_charset = 0;
+ 
+@@ -2233,6 +2234,14 @@ sub process {
+ 			      "Remove Gerrit Change-Id's before submitting upstream.\n" . $herecurr);
+ 		}
+ 
++# Check for line lengths > 75 in commit log, warn once
++		if ($in_commit_log && !$commit_log_long_line &&
++		    length($line) > 75) {
++			WARN("COMMIT_LOG_LONG_LINE",
++			     "Possible unwrapped commit description (prefer a maximum 75 chars per line)\n" . $herecurr);
++			$commit_log_long_line = 1;
++		}
++
+ # Check for git id commit length and improperly formed commit descriptions
+ 		if ($in_commit_log && $line =~ /\b(c)ommit\s+([0-9a-f]{5,})/i) {
+ 			my $init_char = $1;
