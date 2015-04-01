@@ -1,93 +1,93 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
- and act front-end
-Date: Tue, 31 Mar 2015 22:16:49 -0700
-Message-ID: <551B7F41.3080203@plumgrid.com>
-References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, tgraf@suug.ch, netdev@vger.kernel.org,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:35773 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbbDAFQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 01:16:53 -0400
-Received: by ierf6 with SMTP id f6so34249283ier.2
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 22:16:52 -0700 (PDT)
-In-Reply-To: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [RFC PATCH v3 1/2] can: fix multiple delivery of a single CAN frame for overlapping CAN filters
+Date: Wed,  1 Apr 2015 07:50:28 +0200
+Message-ID: <1427867429-3909-2-git-send-email-socketcan@hartkopp.net>
+References: <1427867429-3909-1-git-send-email-socketcan@hartkopp.net>
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	Oliver Hartkopp <socketcan@hartkopp.net>
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1427867429-3909-1-git-send-email-socketcan@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/30/15 3:35 PM, Daniel Borkmann wrote:
-> +static inline void act_update_drop_map(void)
-> +{
-> +	uint32_t *count, cpu = get_smp_processor_id();
-> +
-> +	count = bpf_map_lookup_elem(&map_drops, &cpu);
-> +	if (count)
-> +		__sync_fetch_and_add(count, 1);
+The CAN_RAW socket can set multiple CAN identifier specific filters that lead
+to multiple filters in the af_can.c filter processing. These filters are
+indenpendent from each other which leads to logical OR'ed filters when applied.
 
-since this function demonstrates poor man's per-cpu counters we can use
-regular *count++ instead of atomic.
-Just picking nits :)
+This patch makes sure that every CAN frame which is filtered for a specific
+socket is only delivered once to the user space. This is independent from the
+number of matching CAN filters of this socket.
 
-> +__section("action-rand") int act_rand_main(struct __sk_buff *skb)
-> +{
-> +	/* Sorry, we're near event horizon ... */
-> +	if ((get_prandom_u32() & 3) == 0) {
-> +		act_update_drop_map();
-> +		return TC_ACT_SHOT;
-> +	}
+As the raw_rcv() function is executed from NET_RX softirq the introduced
+variables are implemented as per-CPU variables to avoid extensive locking at
+CAN frame reception time.
 
-didn't get the joke. Is it April 1st yet? :)
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+---
+ net/can/raw.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-> +/* tc ELF map ABI */
-> +struct bpf_elf_map {
-> +	uint32_t type;
-> +	uint32_t id;
-> +	uint32_t size_key;
-> +	uint32_t size_value;
-> +	uint32_t max_elem;
-> +};
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 00c13ef..8c75446 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -74,6 +74,11 @@ MODULE_ALIAS("can-proto-1");
+  * storing the single filter in dfilter, to avoid using dynamic memory.
+  */
+ 
++struct uniqframe {
++	const struct sk_buff *skb;
++	ktime_t tstamp;
++};
++
+ struct raw_sock {
+ 	struct sock sk;
+ 	int bound;
+@@ -86,6 +91,7 @@ struct raw_sock {
+ 	struct can_filter dfilter; /* default/single filter */
+ 	struct can_filter *filter; /* pointer to filter(s) */
+ 	can_err_mask_t err_mask;
++	struct uniqframe __percpu *uniq;
+ };
+ 
+ /*
+@@ -123,6 +129,15 @@ static void raw_rcv(struct sk_buff *oskb, void *data)
+ 	if (!ro->fd_frames && oskb->len != CAN_MTU)
+ 		return;
+ 
++	/* eliminate multiple filter matches for the same skb */
++	if (this_cpu_ptr(ro->uniq)->skb == oskb &&
++	    ktime_equal(this_cpu_ptr(ro->uniq)->tstamp, oskb->tstamp)) {
++		return;
++	} else {
++		this_cpu_ptr(ro->uniq)->skb = oskb;
++		this_cpu_ptr(ro->uniq)->tstamp = oskb->tstamp;
++	}
++
+ 	/* clone the given skb to be able to enqueue it into the rcv queue */
+ 	skb = skb_clone(oskb, GFP_ATOMIC);
+ 	if (!skb)
+@@ -297,6 +312,11 @@ static int raw_init(struct sock *sk)
+ 	ro->recv_own_msgs    = 0;
+ 	ro->fd_frames        = 0;
+ 
++	/* alloc_percpu provides zero'ed memory */
++	ro->uniq = alloc_percpu(struct uniqframe);
++	if (unlikely(!ro->uniq))
++		return -ENOMEM;
++
+ 	/* set notifier */
+ 	ro->notifier.notifier_call = raw_notifier;
+ 
+@@ -339,6 +359,7 @@ static int raw_release(struct socket *sock)
+ 	ro->ifindex = 0;
+ 	ro->bound   = 0;
+ 	ro->count   = 0;
++	free_percpu(ro->uniq);
+ 
+ 	sock_orphan(sk);
+ 	sock->sk = NULL;
+-- 
+2.1.4
 
-can you change 'id' being last, so that TC+bpf programs from
-samples/bpf/ that don't have 'id' concept can also be loaded?
-
-> +#ifndef min
-> +# define min(x, y) ({			\
-> +	typeof(x) _min1 = (x);		\
-> +	typeof(y) _min2 = (y);		\
-> +	(void) (&_min1 == &_min2);	\
-> +	_min1 < _min2 ? _min1 : _min2; })
-> +#endif
-...
-> +#ifndef min
-> +# define min(x, y) ({			\
-> +	typeof(x) _min1 = (x);		\
-> +	typeof(y) _min2 = (y);		\
-> +	(void) (&_min1 == &_min2);	\
-> +	_min1 < _min2 ? _min1 : _min2; })
-> +#endif
-
-two 'min' macros in different files?
-
-> -static inline int bpf_open_object(const char *path, enum bpf_prog_type type)
-> +static inline int bpf_open_object(const char *path, enum bpf_prog_type type,
-> +				  const char *sec)
->   {
->   	errno = ENOSYS;
->   	return -1;
->   }
-
-while playing with it, I hit the ENOSYS first, since my user space
-is quite old. Can you add a human readable printf message here and other
-places, so we don't have to recompile tc with -g and run gdb on it?
-I think it will help distributions to configure dependencies of iproute2
-as well.
-
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
-Great work! Thanks a lot!
