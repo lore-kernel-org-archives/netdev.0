@@ -1,48 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: sysctl for RA default route MTU
-Date: Wed, 01 Apr 2015 13:55:32 -0400 (EDT)
-Message-ID: <20150401.135532.1368728758929086692.davem@davemloft.net>
-References: <1427834148.979686.247747037.29964C1B@webmail.messagingengine.com>
-	<20150331.164923.229749666073516444.davem@davemloft.net>
-	<68621427882330@webcorp01g.yandex-team.ru>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 11/18] switchdev: remove old netdev_switch_port_bridge_setlink
+Date: Wed, 1 Apr 2015 10:56:38 -0700
+Message-ID: <CAE4R7bAK83dxypmCq294gE-msCsi2ViV2qET2oQNoUP3wP4nwA@mail.gmail.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>
+	<55194E63.5010100@cumulusnetworks.com>
+	<CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
+	<CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>
+	<20150331055235.GB1994@nanopsycho.orion>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FB3E2@ORSMSX101.amr.corp.intel.com>
+	<20150331215245.GA6515@nanopsycho.orion>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com>
+	<CAE4R7bCeRxP2Kg_4jg4v6m6S+3NFpMcxO4vC-WeDG48GPkCtuw@mail.gmail.com>
+	<551BDE8F.9040907@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: klamm@yandex-team.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <68621427882330@webcorp01g.yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Arad, Ronen" <ronen.arad@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	roopa <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:34244 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751433AbbDAR4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 13:56:39 -0400
+Received: by qgep97 with SMTP id p97so49473771qge.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 10:56:38 -0700 (PDT)
+In-Reply-To: <551BDE8F.9040907@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Roman Gushchin <klamm@yandex-team.ru>
-Date: Wed, 01 Apr 2015 12:58:50 +0300
-
-> 31.03.2015, 23:49, "David Miller" <davem@davemloft.net>:
->> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Date: Tue, 31 Mar 2015 22:35:48 +0200
->>> =A0Could you quickly comment on what you had in mind? I guess it is=
- about
->>> =A0handling RA in user space on the end hosts and overwriting MTU d=
-uring
->>> =A0insertion of the routes?
+On Wed, Apr 1, 2015 at 5:03 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 03/31/15 22:38, Scott Feldman wrote:
+>
 >>
->> Even after reading your email I have no idea why you can't just have
->> RA provide a 1500 byte MTU, everything else uses the device's 9000
->> MTU, problem solved?
->=20
-> Because the MTU (provided by RA) is assigned to the device.
+>> It sounds like vendor extensions need to be supported someway,
+>> someday.
+>
+>
+>
+> I agree. This is one of those impendance mismatch things. There are
+> scenarios where the feature may not be generic enough. But whatever
+> feature it is - eventually we should get it back into mainstream.
+> The danger of backdoors that Jiri alludes to is there.
+>
+>
+>> Maybe let's table vendor extensions for the time being and
+>> continue our focus on shared infrastructure: the things we know are
+>> common for all vendors.  We still have a lot of work just getting the
+>> common bits working.  Then we can take additional features one at a
+>> time and see if they're shared or vendor-specific.  In the meantime,
+>> there are always back doors such as genl for vendor to use; there is
+>> nothing preventing that.
+>>
+>
+> And now i disagree. Did you read the back of your netdev tshirt? Quote:
+> ---
+> I also don't buy the argument that "people can put arbitrary changes
+> into their kernel to do stuff like that".
+> ---
+>
+> Vendors can do whatever they want. We just should not be aiding them to
+> put proprietary shit. I want to stop coding around SDKs. Help me.
 
-Ok, that severely limits the usefulness of this option I guess.
+I'm not sure what we're disagreeing on...I thought I said the same
+thing.  I just want to defer the vendor extension discussion for now
+and refocus on common stuff.  Trust me, there is no one on the planet
+that wants to stop coding around the SDKs more than myself.
 
-The next question I have is about the behavior of the new setting
-in the presence of an RA MTU option.  It seems like the sysctl
-doesn't override that RA MTU option, but rather just clamps it.
-
-And then if it's in range, this controls only whether the default
-route has it's MTU adjusted.
-
-That doesn't make any sense to me if we then go and do the
-rt6_mtu_change() call unconditionally.  The route metric update
-and the rt6_mtu_change() go hand in hand.
+-scott
