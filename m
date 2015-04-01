@@ -1,46 +1,132 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH net-next v10 3/7] ixgbe: Add a RETA
- query command to VF-PF channel API
-Date: Tue, 31 Mar 2015 23:55:42 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992502896D2@FMSMSX105.amr.corp.intel.com>
-References: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
- <1427740529-9605-4-git-send-email-vladz@cloudius-systems.com>
- <1427787327.2497.111.camel@jtkirshe-mobl>
+From: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and cap_sa(), for sa-check
+Date: Tue, 31 Mar 2015 20:51:13 -0400
+Message-ID: <20150401005113.GA15327@phlsvsds.ph.intel.com>
+References: <551579CA.4030901@profitbricks.com> <55157B43.6060507@profitbricks.com> <1427732191.21101.201.camel@redhat.com> <55197CDB.3040105@profitbricks.com> <1427734923.21101.227.camel@redhat.com> <20150331231202.GA20094@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27947 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752058AbbCaXzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Mar 2015 19:55:51 -0400
-In-Reply-To: <1427787327.2497.111.camel@jtkirshe-mobl>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yan Burman <yanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Matan Barak <mata
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20150331231202.GA20094-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWls
-dG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9m
-IEplZmYgS2lyc2hlcg0KPlNlbnQ6IFR1ZXNkYXksIE1hcmNoIDMxLCAyMDE1IDEyOjM1IEFNDQo+
-U3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIFtQQVRDSCBuZXQtbmV4dCB2MTAgMy83XSBp
-eGdiZTogQWRkIGEgUkVUQSBxdWVyeSBjb21tYW5kIHRvIFZGLVBGIGNoYW5uZWwgQVBJDQo+DQo+
-T24gTW9uLCAyMDE1LTAzLTMwIGF0IDIxOjM1ICswMzAwLCBWbGFkIFpvbG90YXJvdiB3cm90ZToN
-Cj4+IEFkZCB0aGlzIG5ldyBjb21tYW5kIGZvciA4MjU5OSBhbmQgeDU0MCBkZXZpY2VzIG9ubHku
-IFN1cHBvcnQgZm9yDQo+PiBvdGhlciBkZXZpY2VzDQo+PiB3aWxsIGJlIGFkZGVkIGxhdGVyLg0K
-Pj4gDQo+PiA4MjU5OSBhbmQgeDU0MCBWRnMgYW5kIFBGIHNoYXJlIHRoZSBzYW1lIFJTUyByZWRp
-cmVjdGlvbiB0YWJsZSAoUkVUQSkuDQo+PiBUaGVyZWZvcmUgd2UganVzdCByZXR1cm4gaXQgZm9y
-IGFsbCBWRnMuDQo+PiANCj4+IEZvciA4MjU5OSBhbmQgeDU0MCBSRVRBIHRhYmxlIGlzIGFuIGFy
-cmF5IG9mIDMyIHJlZ2lzdGVycyAoMTI4IGJ5dGVzKQ0KPj4gYW5kIHRoZSBtYXhpbXVtIG51bWJl
-ciBvZiByZWdpc3RlcnMgdGhhdCBtYXkgYmUgZGVsaXZlcmVkIGluIGEgc2luZ2xlIFZGLVBGIGNo
-YW5uZWwgY29tbWFuZCBpcw0KPj4gMTUuIFRoZXJlZm9yZSB3ZSB3aWxsIGRlbGl2ZXIgdGhlIHdo
-b2xlIHRhYmxlIGluIDMgc3RlcHM6IDEyLCAxMiBhbmQgOCByZWdpc3RlcnMgaW4NCj4+IGVhY2gg
-c3RlcCBjb3JyZXNwb25kaW5nbHkuDQoNClRoZSBhYm92ZSBwYXJhZ3JhcGggbm8gbG9uZ2VyIGFw
-cGxpZXMgdG8gdGhpcyBwYXRjaC4gUGVyaGFwcyBKZWZmIGNhbiBzdHJpcCBpdCB0byBhdm9pZCBo
-YXZpbmcgdG8gcmVzZW5kIHRoZSANCnBhdGNoIGp1c3QgZm9yIHRoZSBkZXNjcmlwdGlvbi4NCg0K
-VGhhbmtzLA0KRW1pbA0KDQo=
+On Tue, Mar 31, 2015 at 05:12:02PM -0600, Jason Gunthorpe wrote:
+> On Mon, Mar 30, 2015 at 01:02:03PM -0400, Doug Ledford wrote:
+> 
+> > If we use something like this, then the above is all you need.  Then
+> > every place in the code that checks for something like has_sa or cap_sa
+> > can be replaced with rdma_ib_mgmt. 
+> 
+> I don't want to see this slide back into some ill defined feature
+> test.
+> 
+> We need to clearly define exactly what these tests are checking, and I
+> think, since we have so much code sharing, the checks should be narrow
+> in scope, not just an entire standard.
+
+Somewhat agree.
+
+> 
+> I think the basic family of checks Michael identified seemed like
+> a reasonable start.
+> 
+> Going forward we want to NAK stuff like this:
+> 
+>   if (rdma_ib_mgmt() || rdma_opa_mgmt())
+>   if (has_sa() || has_opa_foobar())
+
+I'm confused.
+
+Is the idea that you would NAK has_sa but be in favor of has_ib_sa?
+
+I think cap_opa_mad is reasonable.  And this confuses me why has_opa_foobar
+would be NAKed.
+
+I believe it is reasonable to flag OPA MAD support as a feature set through a
+single bit.  From this the MAD stack can know if OPA MAD base/class versions
+are allowed (or treated differently from future IB versions) and if it should
+processing OPA SM Class DR MADs differently.  I don't want devices to be
+required to supply a list of MAD Base/Class Versions they support.
+
+> 
+> That indicates we need a new micro feature test.
+
+The million dollar question is how micro we should go.
+
+More specifically which feature sets can be appropriately communicated with a
+single bit vs not.
+
+For example, the MAD size is more generally (and perhaps better) communicated
+via an actual mad_size attribute rather than as part of the OPA MAD feature
+set.
+
+Another example is the question of is it appropriate to wrap up the single READ
+SGL entry support within the "is iwarp" flag?
+
+https://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg23611.html
+
+Right now there is implicit information being gleaned from the "is iwarp" flag.
+That is that an iWarp device is limited to only 1 READ SGL entry.  As this is
+the only device type which has this limitation _and_ that number is "well
+known" it works.  Even if not the best solution.
+
+The task at hand is to clean up implicit information passing like this while
+not getting mired down in our own refactoring.
+
+> 
+> A big problem here is people working on the core may not know the
+> intricate details of all the families. This will only get worse when
+> proprietary tech like OPA gets added. Documenting requirements via a
+> narrow feature test gives a much higher chance that core stuff will be
+> right via review.
+
+Agreed as long as we get the width right.
+
+> 
+> > But, like I said, this is an all or nothing change, it isn't
+> > something we can ease into.
+> 
+> Well, we ease into it by introducing the micro tests and then wiping
+> the legacy ones, followed by changing how the driver/core communicates
+> the port and device feature set, ideally to a bitset like you've
+> described.
+
+I think this does need to be eased into.  We seem to agree that the feature
+flags we have now are not granular and/or explicit enough.  So lets start
+cleaning up some of these tests and see how it goes.
+
+Ira
+
+> 
+> Michael has tackled the core code, another series could work on the
+> drivers..
+> 
+> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
