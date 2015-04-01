@@ -1,32 +1,53 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 0/4] netns: enhance netlink interface for nsid
-Date: Wed, 1 Apr 2015 09:54:05 -0700
-Message-ID: <CAHA+R7N_Ah7KEDQ47nvvQDVYQDP12krc2ph0h+krex8dh7Mk2Q@mail.gmail.com>
-References: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2015-04-01
+Date: Wed, 01 Apr 2015 19:59:39 +0300
+Message-ID: <87mw2rzsw3.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:38565 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751863AbbDAQyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 12:54:06 -0400
-Received: by igbqf9 with SMTP id qf9so51452369igb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 09:54:05 -0700 (PDT)
-In-Reply-To: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 1, 2015 at 5:49 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
->
-> The first patch has been cherry-picked from the net tree to avoid any conflict
-> later.
->
+Hi Dave,
 
-You don't need to cherry-pick, you just need to wait for net merged
-into net-next,
-or simply tell DaveM your patches apply after the merge.
+one last pull request for 4.0, I hope I'm not too late on this one. Only
+one iwlwifi memory leak fix this time. Please let me know if there are
+any problems.
+
+Kalle
+
+The following changes since commit 6ae4ccfee09efe5baa3951d1c1d27050a46a1469:
+
+  Merge tag 'iwlwifi-for-kalle-2014-03-22' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2015-03-23 06:43:43 +0200)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-04-01
+
+for you to fetch changes up to 69628cd0652a091591ef44ac07c150063b789c4a:
+
+  Merge tag 'iwlwifi-for-kalle-2015-03-30' of https://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2015-03-30 09:39:12 +0300)
+
+----------------------------------------------------------------
+
+iwlwifi:
+
+* fix a memory leak, we leaked memory each time the module
+  was loaded.
+
+----------------------------------------------------------------
+Kalle Valo (1):
+      Merge tag 'iwlwifi-for-kalle-2015-03-30' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Larry Finger (1):
+      iwlwifi: Fix memory leak in iwl_req_fw_callback()
+
+ drivers/net/wireless/iwlwifi/iwl-drv.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+-- 
+Kalle Valo
