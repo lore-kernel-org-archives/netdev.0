@@ -1,54 +1,50 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Re: [PATCH net-next] net: bcmgenet: enable MoCA link state change detection
-Date: Tue, 31 Mar 2015 19:44:29 -0700
-Message-ID: <CAGXr9JH9EAN-Xr8nfJ4GCr7TEY=A8YR6jSWv9jJScFZpEw6nzQ@mail.gmail.com>
-References: <20150331220008.B9C2022023D@puck.mtv.corp.google.com>
-	<20150331.210028.1632809919741182405.davem@davemloft.net>
-	<CAGXr9JHzZU0A_+WZR616PgKGQeJBeV8AFpkEH5xgMaO8aGsi4Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tipc: fix a slab object leak
+Date: Tue, 31 Mar 2015 23:13:09 -0400 (EDT)
+Message-ID: <20150331.231309.610369858855748160.davem@davemloft.net>
+References: <1427852570-25210-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jaedon Shin <jaedon.shin@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33076 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbbDACoa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 22:44:30 -0400
-Received: by qgfa8 with SMTP id a8so32175185qgf.0
-        for <netdev@vger.kernel.org>; Tue, 31 Mar 2015 19:44:29 -0700 (PDT)
-In-Reply-To: <CAGXr9JHzZU0A_+WZR616PgKGQeJBeV8AFpkEH5xgMaO8aGsi4Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53068 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751271AbbDADNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 23:13:11 -0400
+In-Reply-To: <1427852570-25210-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 31, 2015 at 7:34 PM, Petri Gynther <pgynther@google.com> wrote:
-> On Tue, Mar 31, 2015 at 6:00 PM, David Miller <davem@davemloft.net> wrote:
->> From: Petri Gynther <pgynther@google.com>
->> Date: Tue, 31 Mar 2015 15:00:08 -0700 (PDT)
->>
->>> @@ -513,6 +522,13 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
->>>                       dev_err(kdev, "failed to register fixed PHY device\n");
->>>                       return -ENODEV;
->>>               }
->>> +
->>> +             if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET) {
->>> +                     ret = fixed_phy_set_link_update(phydev,
->>> +                                             bcmgenet_fixed_phy_link_update);
->>
->> This is not indented correctly.
->>
->> When a function call or declaration or definition spans multiple lines,
->> arguments on the second and subsequent lines must be indented exactly
->> to the first column after the openning parenthesis on the first line.
->>
->> If you are strictly using TAB characters, it is exceedingly likely
->> that you are indenting these lines incorrectly.  You must use the
->> appropriate number of TAB, then SPACE characters necessary to reach
->> the correct column.
->
-> I'm aware of the Linux indentation rules. However, if I do that in
-> this case, the second line becomes longer than 80 chars.
+From: Ying Xue <ying.xue@windriver.com>
+Date: Wed, 1 Apr 2015 09:42:50 +0800
 
-Also, this patch still needs verification on ARM (device tree based)
-platform. Waiting to hear from Florian on that.
+> When remove TIPC module, there is a warning to remind us that a slab
+> object is leaked like:
+> 
+> root@localhost:~# rmmod tipc
+> [   19.056226] =============================================================================
+> [   19.057549] BUG TIPC (Not tainted): Objects remaining in TIPC on kmem_cache_close()
+> [   19.058736] -----------------------------------------------------------------------------
+> [   19.058736]
+> [   19.060287] INFO: Slab 0xffffea0000519a00 objects=23 used=1 fp=0xffff880014668b00 flags=0x100000000004080
+> [   19.061915] INFO: Object 0xffff880014668000 @offset=0
+> [   19.062717] kmem_cache_destroy TIPC: Slab cache still has objects
+> 
+> This is because the listening socket of TIPC topology server is not
+> closed before TIPC proto handler is unregistered with proto_unregister().
+> However, as the socket is closed in tipc_exit_net() which is called by
+> unregister_pernet_subsys() during unregistering TIPC namespace operation,
+> the warning can be eliminated if calling unregister_pernet_subsys() is
+> moved before calling proto_unregister().
+> 
+> Fixes: e05b31f4bf89 ("tipc: make tipc socket support net namespace")
+> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+
+This bug exists in 'net', so that's where I'm applying it.
+
+Can you please target your patches properly, I shouldn't be
+doing this kind of work for you.
