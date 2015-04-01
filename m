@@ -1,47 +1,32 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [net-next PATCH] pktgen: add flag NO_TIMESTAMP to disable timestamping
-Date: Wed, 01 Apr 2015 09:48:56 -0700
-Message-ID: <551C2178.9070000@candelatech.com>
-References: <20140828161447.6652.59388.stgit@dragon>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 0/4] netns: enhance netlink interface for nsid
+Date: Wed, 1 Apr 2015 09:54:05 -0700
+Message-ID: <CAHA+R7N_Ah7KEDQ47nvvQDVYQDP12krc2ph0h+krex8dh7Mk2Q@mail.gmail.com>
+References: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Robert Olsson <robert@herjulf.se>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:50252 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbbDAQs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 12:48:57 -0400
-In-Reply-To: <20140828161447.6652.59388.stgit@dragon>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:38565 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751863AbbDAQyG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 12:54:06 -0400
+Received: by igbqf9 with SMTP id qf9so51452369igb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 09:54:05 -0700 (PDT)
+In-Reply-To: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/28/2014 09:14 AM, Jesper Dangaard Brouer wrote:
-> Then testing the TX limits of the stack, then it is useful to
-> be-able to disable the do_gettimeofday() timetamping on every packet.
-> 
-> This implements a pktgen flag NO_TIMESTAMP which will disable this
-> call to do_gettimeofday().
-> 
-> The performance change on (my system E5-2695) with skb_clone=0, goes
-> from TX 2,423,751 pps to 2,567,165 pps with flag NO_TIMESTAMP. Thus,
-> the cost of do_gettimeofday() or saving is approx 23 nanosec.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+On Wed, Apr 1, 2015 at 5:49 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+>
+> The first patch has been cherry-picked from the net tree to avoid any conflict
+> later.
+>
 
-> +		else if (strcmp(f, "NO_TIMESTAMP") == 0)
-> +			pkt_dev->flags |= F_NO_TIMESTAMP;
-> +
-
-While porting pktgen changes into my own modified pktgen logic, I noticed
-that there is no handling for !NO_TIMESTAMP, so it seems you cannot
-disable this once it is enabled?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+You don't need to cherry-pick, you just need to wait for net merged
+into net-next,
+or simply tell DaveM your patches apply after the merge.
