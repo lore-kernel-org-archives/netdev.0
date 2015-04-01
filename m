@@ -1,75 +1,75 @@
-From: Bernhard Thaler <bernhard.thaler@wvnet.at>
-Subject: Re: [PATCH] bridge: relax BR_GROUPFWD_RESTRICTED to
- forward LLDP frames
-Date: Wed, 01 Apr 2015 23:03:02 +0200
-Message-ID: <551C5D06.2050407@wvnet.at>
-References: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>	<1427666762-23683-1-git-send-email-bernhard.thaler@wvnet.at>
-	<20150401.152845.1522826021699870645.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v3 0/4] mpls: Behaviour-changing improvements
+Date: Wed, 01 Apr 2015 16:14:27 -0500
+Message-ID: <877ftvv9e4.fsf@x220.int.ebiederm.org>
+References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1427739356-28113-1-git-send-email-rshearma@brocade.com>
+	<20150401.153041.376950284605107486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: rshearma@brocade.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Received: from 91.141.3.66.wireless.dyn.drei.com (HELO [172.16.0.2])
-	(bernhard.thaler@wvnet.at@[91.141.3.66])
-	(SMTPAUTH User bernhard.thaler@wvnet.at)
-	(envelope-sender <bernhard.thaler@wvnet.at>)
-	by smtp.wvnet.at (qmail-ldap-1.03) with SMTP
-	for <netdev@vger.kernel.org>; 1 Apr 2015 21:03:11 -0000
-In-Reply-To: <20150401.152845.1522826021699870645.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:33457 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751746AbbDAVS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 17:18:26 -0400
+In-Reply-To: <20150401.153041.376950284605107486.davem@davemloft.net> (David
+	Miller's message of "Wed, 01 Apr 2015 15:30:41 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+David Miller <davem@davemloft.net> writes:
+
+> From: Robert Shearman <rshearma@brocade.com>
+> Date: Mon, 30 Mar 2015 19:15:52 +0100
+>
+>> This series consists of several small changes to make it easier to
+>> understand the code, along with security and RFC-compliance
+>> changes. These are important to consider before userspace begins
+>> relying on the previous behaviour.
+>
+> Robert, you _absolutely_ must give common courtesy to Eric Biederman
+> and always CC: him explicitly on any proposed changes you want to make
+> to the new MPLS support.
+>
+> I'm adding him here.
+
+Thank you.  I have been pretty overloaded with catching up on
+a couple of other things.  So I have not had as much time as I would
+have liked to look at these changes.
+
+Anyone looking at this today should really look at RFC7511 as it seems
+releavant.
+
+Eric
 
 
-
-On 01.04.2015 21:28, David Miller wrote:
-> From: Bernhard Thaler <bernhard.thaler@wvnet.at>
-> Date: Mon, 30 Mar 2015 00:06:02 +0200
-> 
->> BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
->> /sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
->> some IEEE 802.1D Table 7-10 Reserved addresses:
->>
->> 	(MAC Control) 802.3		01-80-C2-00-00-01
->> 	(Link Aggregation) 802.3	01-80-C2-00-00-02
->> 	802.1AB LLDP			01-80-C2-00-00-0E
->>
->> Relax BR_GROUPFWD_RESTRICTED to at least forward LLDP frames and document
->> group_fwd_mask.
->>
->> e.g.
->>    echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
->> allows to forward LLDP frames.
->>
->> Tested on a simple bridge setup with two interfaces. Setting group_fwd_mask
->> as described above lets crafted LLDP frames traverse bridge.
->>
->> Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
-> 
-> I don't understand why we want to allow forwarding LLDP by default, it
-> specifically is the case that an 802.1D bridge is only compliant if it
-> does not forward LLDP packets.
-> 
-> We've blocked forwarding of LLDP by default for such a long time, so I
-> argue against this change from the perspective of users expecting LLDP
-> to be not forwarded by the Linux bridge by default.
-> 
-BR_GROUPFWD_DEFAULT is unchanged. By default none of the IEEE 802.1D
-Table 7-10 Reserved addresses are forwarded by the bridge (except for
-STP BPDUs if STP is turned off on the bridge device).
-For users not changing /sys/class/net/brX/bridge/group_fwd_mask there
-should be no difference to current default bridge behavior.
-
-Only if users deliberately set group_fwd_mask to a value such as 16384
-the bridge will start to forward LLDP frames. Current
-BR_GROUPFWD_RESTRICTED value though restricts users from setting such
-values to group_fwd_mask.
+>> V2:
+>>   - Dropped PHP comment patch to avoid holding up the rest of the
+>>     changes due to quibbling on nomenclature.
+>>   - Corrected reference to RFC 3031 in commit message of patch
+>>     2. Added reference to RFC 3031 s4.1.5 for PHP behaviour.
+>>   - s/forwarding/input/ in patch 3.
+>>   - Made MPT_IPV4 and MPT_IPV6 equal to 4 and 6 respectively in patch
+>>     4, eliminating a switch on the version number as suggested by
+>>     review comments. Added back references to RFCs, but moved them to
+>>     mpls_payload_type enum declaration.
+>> V1:
+>>   - Updated to reference the correct RFC in the first patch.
+>> 
+>> Robert Shearman (4):
+>>   mpls: Use definition for reserved label checks
+>>   mpls: Differentiate implicit-null and unlabeled neighbours
+>>   mpls: Per-device enabling of packet input
+>>   mpls: Allow payload type to be associated with label routes
+>> 
+>>  Documentation/networking/mpls-sysctl.txt |   9 ++
+>>  include/linux/netdevice.h                |   4 +
+>>  net/mpls/af_mpls.c                       | 226 +++++++++++++++++++++++++------
+>>  net/mpls/internal.h                      |   7 +
+>>  4 files changed, 203 insertions(+), 43 deletions(-)
+>> 
+>> -- 
+>> 2.1.4
+>> 
