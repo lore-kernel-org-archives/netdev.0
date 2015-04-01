@@ -1,62 +1,77 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: fix a slab object leak
-Date: Wed, 1 Apr 2015 09:42:50 +0800
-Message-ID: <1427852570-25210-1-git-send-email-ying.xue@windriver.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net] Intel Wired LAN Driver Updates
+Date: Tue, 31 Mar 2015 19:19:53 -0700
+Message-ID: <1427854793.20936.4.camel@jtkirshe-mobl>
+References: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20150331.132214.1693397186943204005.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:58178 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752927AbbDABnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Mar 2015 21:43:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-VSvirCtG5uTT41IVzaiO"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150331.132214.1693397186943204005.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When remove TIPC module, there is a warning to remind us that a slab
-object is leaked like:
 
-root@localhost:~# rmmod tipc
-[   19.056226] =============================================================================
-[   19.057549] BUG TIPC (Not tainted): Objects remaining in TIPC on kmem_cache_close()
-[   19.058736] -----------------------------------------------------------------------------
-[   19.058736]
-[   19.060287] INFO: Slab 0xffffea0000519a00 objects=23 used=1 fp=0xffff880014668b00 flags=0x100000000004080
-[   19.061915] INFO: Object 0xffff880014668000 @offset=0
-[   19.062717] kmem_cache_destroy TIPC: Slab cache still has objects
+--=-VSvirCtG5uTT41IVzaiO
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This is because the listening socket of TIPC topology server is not
-closed before TIPC proto handler is unregistered with proto_unregister().
-However, as the socket is closed in tipc_exit_net() which is called by
-unregister_pernet_subsys() during unregistering TIPC namespace operation,
-the warning can be eliminated if calling unregister_pernet_subsys() is
-moved before calling proto_unregister().
+On Tue, 2015-03-31 at 13:22 -0400, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Fri, 27 Mar 2015 16:04:10 -0700
+>=20
+> > The following are changes since commit
+> dde93dfea53c72b07907d9e44a6e4b1545f6bdc4:
+> >   cxgb4: Fix frame size warning for 32 bit arch
+> > and are available in the git repository at:
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
+> master
+> >=20
+> > Jeff Kirsher (1):
+> >   MAINTAINERS: Update Intel Wired Ethernet Driver info
+>=20
+> Looks great but it looks like nothing is pushed there?
+>=20
+> [davem@localhost net]$ git pull
+> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
+> master
+> From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
+>  * branch            master     -> FETCH_HEAD
+> Already up-to-date.
+> [davem@localhost net]$
 
-Fixes: e05b31f4bf89 ("tipc: make tipc socket support net namespace")
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sorry, I forgot to scrub the cover letter to remove the "pull" info,
+since it was a single patch, I did not think it would require a
+"pull". :-)
 
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 935205e..be1c9fa 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -152,11 +152,11 @@ out_netlink:
- static void __exit tipc_exit(void)
- {
- 	tipc_bearer_cleanup();
-+	unregister_pernet_subsys(&tipc_net_ops);
- 	tipc_netlink_stop();
- 	tipc_netlink_compat_stop();
- 	tipc_socket_stop();
- 	tipc_unregister_sysctl();
--	unregister_pernet_subsys(&tipc_net_ops);
- 
- 	pr_info("Deactivated\n");
- }
--- 
-1.7.9.5
+I can apply it to my net-queue tree, master branch if you need or want.
+
+--=-VSvirCtG5uTT41IVzaiO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVG1XJAAoJEOVv75VaS+3OVggP/2MKtCNxLs4zmSk4pqFqVI+e
+KcWenhFimR/fWaAk6CLfJ1F4kKsI6xvkti6gxxv3A63/AQgjNxhgdFq72xcLFS7G
+oJPZKJi24ZvPhVfJ8aUbpSlyraNnh3UT0XGyOM00J/JHSHsnhtd46Ey+5+4ak6F0
+q5uae674zEcjTYNZJrJkryPUu2WlQRBE7JFC3tJBESLstQBL4CEqcCFerzuGGuNN
+hlsGULU3w5kj+oA+wLVfkP2xrPJXyFfZbtZLzGCJrPEoFRC41da/KE9hLAX1w5hS
+P41hTNysDlQOFQsxJAfSA9WHGgkIGI5nx1r0y1euhqNh+X7/F3qNVbr3eZh1kEhr
+F0WLAQnCUlH2M6aWTdiwFW06d1J2kaNRPpDw942ITL6WjpJN3j1NNCBHua2ljmo0
+GLapf+5H0zaPQkvERArXvr5ubNM8FTVqMCcmhmhVhWlQLvvPzOq+EPdm/yjNJYNK
+WZev6EjQ7BvYZ2VzpS2hari9ZqF7qtC6TMFw5qNYkvR3SgZ+OhVBG+ZVy2LpKUfH
+0hWIjuUeUIn7Y3BxfyzvHf5am7lXFe9tpVC0UxX24bAmwhdHrm6+64OJ1dPwpwOn
+iWfW/CRDVZNsCmJ92HSvvFYa2K0yGa7maBY4WfNAMMDBqklp6ZPjkRu4EINetSiC
+VvkcceOJcB09+LW/9ymX
+=5nzU
+-----END PGP SIGNATURE-----
+
+--=-VSvirCtG5uTT41IVzaiO--
