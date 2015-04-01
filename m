@@ -1,48 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] cxgb4: Move ethtool related code to a separate
- file
-Date: Wed, 01 Apr 2015 00:42:02 -0700
-Message-ID: <1427874122.31790.8.camel@perches.com>
-References: <1427892333-26330-1-git-send-email-hariprasad@chelsio.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCH RFCv2 0/4] batman-adv: Unicasting multicast reports
+ to querier-node only
+Date: Wed,  1 Apr 2015 10:04:35 +0200
+Message-ID: <1427875479-9240-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, leedom@chelsio.com,
-	anish@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com,
-	swise@opengridcomputing.com, varun@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0245.hostedemail.com ([216.40.44.245]:42642 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751474AbbDAHmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 03:42:06 -0400
-In-Reply-To: <1427892333-26330-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-04-01 at 18:15 +0530, Hariprasad Shenai wrote:
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+The last round of multicast patches send to the batman-adv mailinglist
+to add support for the multicast optimizations in bridged scenarios, too,
+unfortunately had one major conceptual flaw: It could lead to packet loss=
+.
+It's not sufficient to have the unicasting of reports implemented on
+bridge-nodes only. Nodes without bridges need to treat reports the same
+way.
 
-A couple trivial bits:
+The issue is described in detail here:
 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-[]
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-> @@ -0,0 +1,915 @@
-> +/*
-> + *  Copyright (C) 2013-2014 Chelsio Communications.  All rights reserved.
+https://www.open-mesh.org/projects/batman-adv/wiki/Multicast-optimization=
+s-listener-reports
 
-2015 ?
 
-[]
+I'd also be interested in what the netdev/bridge people think about
+patches #1 and #2 in particular, therefore including the according mailin=
+glists
+now.
 
-> +static char stats_strings[][ETH_GSTRING_LEN] = {
+Cheers, Linus
 
-be nice to make this const one day.
 
-> +	"TxOctetsOK         ",
-> +	"TxFramesOK         ",
-> +	"TxBroadcastFrames  ",
-> +	"TxMulticastFrames  ",
-> +	"TxUnicastFrames    ",
-> +	"TxErrorFrames      ",
+Changelog:
+v2:
+ * various bugfixes (now runtime tested, too - should(tm) work)
+ * added netdev+bridge mailinglists
