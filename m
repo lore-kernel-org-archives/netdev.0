@@ -1,82 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [net] Intel Wired LAN Driver Updates
-Date: Tue, 31 Mar 2015 21:27:53 -0700
-Message-ID: <1427862473.20936.5.camel@jtkirshe-mobl>
-References: <1427497451-23642-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20150331.132214.1693397186943204005.davem@davemloft.net>
-	 <1427854793.20936.4.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-KSLVG8xING78aY25KLKP"
-Cc: nhorman@redhat.com, jogreene@redhat.com, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+Subject: [net][resubmit] MAINTAINERS: Update Intel Wired Ethernet Driver info
+Date: Tue, 31 Mar 2015 21:42:30 -0700
+Message-ID: <1427863350-22108-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux.nics@intel.com, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427854793.20936.4.camel@jtkirshe-mobl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Update the git tree info with a recent change in tree names.  Also
+add our new mailing list created solely for Linux kernel patches
+and kernel development, as well as the new patchwork project for
+tracking patches.  Lastly update the list of "reviewers" since a
+couple of developers have moved on to different projects.
 
---=-KSLVG8xING78aY25KLKP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Made an update to the section header so that it is more manageable
+going forward as we add new drivers.
 
-On Tue, 2015-03-31 at 19:19 -0700, Jeff Kirsher wrote:
-> On Tue, 2015-03-31 at 13:22 -0400, David Miller wrote:
-> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date: Fri, 27 Mar 2015 16:04:10 -0700
-> >=20
-> > > The following are changes since commit
-> > dde93dfea53c72b07907d9e44a6e4b1545f6bdc4:
-> > >   cxgb4: Fix frame size warning for 32 bit arch
-> > > and are available in the git repository at:
-> > >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
-> > master
-> > >=20
-> > > Jeff Kirsher (1):
-> > >   MAINTAINERS: Update Intel Wired Ethernet Driver info
-> >=20
-> > Looks great but it looks like nothing is pushed there?
-> >=20
-> > [davem@localhost net]$ git pull
-> > git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
-> > master
-> > From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue
-> >  * branch            master     -> FETCH_HEAD
-> > Already up-to-date.
-> > [davem@localhost net]$
->=20
-> Sorry, I forgot to scrub the cover letter to remove the "pull" info,
-> since it was a single patch, I did not think it would require a
-> "pull". :-)
->=20
-> I can apply it to my net-queue tree, master branch if you need or want.
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ MAINTAINERS | 25 ++++++++++++-------------
+ 1 file changed, 12 insertions(+), 13 deletions(-)
 
-I have gone ahead and pushed the patch to my net-queue tree for you to
-pull.
-
---=-KSLVG8xING78aY25KLKP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVG3PJAAoJEOVv75VaS+3OTLUP/iUBFDlwyboTqWHjmt/Lyj9u
-YFnmkUMVix12DcgqaL2ezefbD/3jEVVIyMhyfaaa3tErk8Plvv37vUOCUcA2GYo+
-VKqWOaJkJEAgiUjvRa17gGMfkncuX75l4XxqpcQpb3upr4fTZcgUOWH/2Q6qp+nO
-on3GgA6XrOnaGSPm0UEOEnrjCfHvNmjKV1Z2ZU8Uh5adpCYFQdfFbMxO6XrHVFGY
-QGJmKe+efoEHmaBLP6Hf/hV+Xn6stzV7wjD87GAhPE92gT2RRVLIzwStY+M/tHCe
-FCVVNb8bQgw5kdcZ5Wlz3xC+eZLaHlbCr5UTrkR4ZJkNO2M7cf2joqW7PXHAkMru
-d70meM/NDL0o+CMor5wI2JiBsUZ206AHnMW9Te3LF7+0sbVAJ+PhPW+ccWZOn8ln
-UhBqPXWsslH3wJLyy/k4zRfr359p4NpkHQQQJfwzMKEiGbSmAHjncrhn+uWnFGCr
-Gp9fJ0Kdsm4b/LDagHQkMft4UvQqYfQI5Y13Do9dkFIEkPhTpkjWwYjo88YJ9F0B
-wWaA83GPnju2NVI5zWfwf/gXKFT6DMuaAzA2rC8Z0kJ83usaopoN/8nbFXjCErJD
-roWkOQiOtklQRhElRps65XpM/UFlrNgRZ3u4/7DpQ9mIJKpzCVhDU0mVGZBkis/l
-BRxEk2vb3ExviSXkk3ab
-=CZC6
------END PGP SIGNATURE-----
-
---=-KSLVG8xING78aY25KLKP--
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 358eb01..9508870 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5128,22 +5128,21 @@ M:	Deepak Saxena <dsaxena@plexity.net>
+ S:	Maintained
+ F:	drivers/char/hw_random/ixp4xx-rng.c
+ 
+-INTEL ETHERNET DRIVERS (e100/e1000/e1000e/fm10k/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e/i40evf)
++INTEL ETHERNET DRIVERS
+ M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+-M:	Jesse Brandeburg <jesse.brandeburg@intel.com>
+-M:	Bruce Allan <bruce.w.allan@intel.com>
+-M:	Carolyn Wyborny <carolyn.wyborny@intel.com>
+-M:	Don Skidmore <donald.c.skidmore@intel.com>
+-M:	Greg Rose <gregory.v.rose@intel.com>
+-M:	Matthew Vick <matthew.vick@intel.com>
+-M:	John Ronciak <john.ronciak@intel.com>
+-M:	Mitch Williams <mitch.a.williams@intel.com>
+-M:	Linux NICS <linux.nics@intel.com>
+-L:	e1000-devel@lists.sourceforge.net
++R:	Jesse Brandeburg <jesse.brandeburg@intel.com>
++R:	Shannon Nelson <shannon.nelson@intel.com>
++R:	Carolyn Wyborny <carolyn.wyborny@intel.com>
++R:	Don Skidmore <donald.c.skidmore@intel.com>
++R:	Matthew Vick <matthew.vick@intel.com>
++R:	John Ronciak <john.ronciak@intel.com>
++R:	Mitch Williams <mitch.a.williams@intel.com>
++L:	intel-wired-lan@lists.osuosl.org
+ W:	http://www.intel.com/support/feedback.htm
+ W:	http://e1000.sourceforge.net/
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
++Q:	http://patchwork.ozlabs.org/project/intel-wired-lan/list/
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
+ S:	Supported
+ F:	Documentation/networking/e100.txt
+ F:	Documentation/networking/e1000.txt
+-- 
+1.9.3
