@@ -1,48 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] checkpatch/SubmittingPatches: Suggest line wrapping
- commit messages at 72 columns
-Date: Wed, 01 Apr 2015 13:09:29 -0700
-Message-ID: <1427918969.31790.78.camel@perches.com>
-References: <1427634005-4313-1-git-send-email-ipm@chirality.org.uk>
-	 <20150331.135338.519327316482059081.davem@davemloft.net>
-	 <1427825806.10376.42.camel@perches.com>
-	 <1427827225.18175.3.camel@perches.com>
-	 <20150401122001.f0203b0ddac348db14e5822a@linux-foundation.org>
-	 <20150401213618.029f8c1f@lwn.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] iov_iter_get_pages() semantics
+Date: Wed, 1 Apr 2015 21:15:38 +0100
+Message-ID: <20150401201538.GD889@ZenIV.linux.org.uk>
+References: <CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
+ <20141208182012.GE22149@ZenIV.linux.org.uk>
+ <CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
+ <20141208184632.GG22149@ZenIV.linux.org.uk>
+ <CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
+ <20150401023311.GL29656@ZenIV.linux.org.uk>
+ <CA+55aFx0XbzyPJ8zYkSauhTAPVgkqTW5EubaZhg=QgOGHRGkpw@mail.gmail.com>
+ <20150401180801.GA889@ZenIV.linux.org.uk>
+ <CA+55aFyOZ5LD-mAOb_OafJe-VMy0hxrgOCB5hJ=GXJAFP7e8dQ@mail.gmail.com>
+ <CA+55aFxVVoZTGwibiNE9AtjPZ41ODQcNBKkQEepV5fiG=QsKfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Ian Morris <ipm@chirality.org.uk>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-doc <linux-doc@vger.kernel.org>
-To: Jonathan Corbet <corbet@lwn.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150401213618.029f8c1f@lwn.net>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFxVVoZTGwibiNE9AtjPZ41ODQcNBKkQEepV5fiG=QsKfg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-04-01 at 21:36 +0200, Jonathan Corbet wrote:
-> On Wed, 1 Apr 2015 12:20:01 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> > waah, I use 75 and this patch has ruined my life.
-
-crybaby... :)
-
-> I use 75 too, FWIW.
+On Wed, Apr 01, 2015 at 11:34:12AM -0700, Linus Torvalds wrote:
+> with kernel mappings. But vmalloc space is at least better than random
+> "just kernel addresses" which is even worse, since they could be stack
+> pages or SLAB pages or whatever.
 > 
-> It seems to me that nobody out there complains about 75-character lines
-> in commit logs; it's the 120-character lines that irritate people.  I
-> would suggest that this limit could be set to 75 (or even, say, 77)
+> And slab allocations, for example, do *not* honor the page count, even
+> though such pages do have page counts. The slab allocations can be
+> reused for other things freely, completely regardless of whether
+> somebody incremented the page count or not.
+> 
+> And yes, people do things like "kernel_read()" on just normal
+> kmalloc() allocations. So no, I do *not* think that it's ok to "just
+> make zero-copy kernel_read() work on kernel addresses by turning them
+> into 'struct page' and then do whop-the-hell-knows-what random things
+> with such a 'struct page').
 
-77 might be one too many.
-
-git log has a default 4 space indent of the commit message so
-75 or 76 would still fit an 80 column screen.
-
-> and
-> still achieve its real purpose while leaving far fewer ruined lives in its
-> wake. 
-
-I don't wanna be held liable for that ruination, thanks.
+Umm...  Tangentially related question - do we have any IO codepaths where
+a pointer to page might stick around indefinitely?  AFAICS, for AIO it's
+enough to wait for request to complete, but that's available to caller.
+Do we have anything where one would really have to do e.g. freeing (or
+dropping refcount, etc.) in a callback one can't conveniently wait for?
+sg_table with pointers to pages of kmalloc'ed objects are really common in
+e.g. crypto/*...
