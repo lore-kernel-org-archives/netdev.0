@@ -1,43 +1,82 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] vmxnet3: spelling fixes
-Date: Wed, 1 Apr 2015 15:33:08 -0700
-Message-ID: <20150401153308.3116ac86@urahara>
+Subject: Re: [PATCH] bridge: relax BR_GROUPFWD_RESTRICTED to
+ forward LLDP frames
+Date: Wed, 1 Apr 2015 15:50:01 -0700
+Message-ID: <20150401155001.40d58a37@urahara>
+References: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>
+	<1427666762-23683-1-git-send-email-bernhard.thaler@wvnet.at>
+	<20150401.152845.1522826021699870645.davem@davemloft.net>
+	<551C5D06.2050407@wvnet.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org
-To: Shreyas Bhatewara <sbhatewara@vmware.com>,
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36293 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566AbbDAWdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 18:33:04 -0400
-Received: by padcy3 with SMTP id cy3so64838979pad.3
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 15:33:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <551C5D06.2050407@wvnet.at>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 01 Apr 2015 23:03:02 +0200
+Bernhard Thaler <bernhard.thaler@wvnet.at> wrote:
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> 
+> On 01.04.2015 21:28, David Miller wrote:
+> > From: Bernhard Thaler <bernhard.thaler@wvnet.at>
+> > Date: Mon, 30 Mar 2015 00:06:02 +0200
+> > 
+> >> BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
+> >> /sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
+> >> some IEEE 802.1D Table 7-10 Reserved addresses:
+> >>
+> >> 	(MAC Control) 802.3		01-80-C2-00-00-01
+> >> 	(Link Aggregation) 802.3	01-80-C2-00-00-02
+> >> 	802.1AB LLDP			01-80-C2-00-00-0E
+> >>
+> >> Relax BR_GROUPFWD_RESTRICTED to at least forward LLDP frames and document
+> >> group_fwd_mask.
+> >>
+> >> e.g.
+> >>    echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
+> >> allows to forward LLDP frames.
+> >>
+> >> Tested on a simple bridge setup with two interfaces. Setting group_fwd_mask
+> >> as described above lets crafted LLDP frames traverse bridge.
+> >>
+> >> Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+> > 
+> > I don't understand why we want to allow forwarding LLDP by default, it
+> > specifically is the case that an 802.1D bridge is only compliant if it
+> > does not forward LLDP packets.
+> > 
+> > We've blocked forwarding of LLDP by default for such a long time, so I
+> > argue against this change from the perspective of users expecting LLDP
+> > to be not forwarded by the Linux bridge by default.
+> > 
+> BR_GROUPFWD_DEFAULT is unchanged. By default none of the IEEE 802.1D
+> Table 7-10 Reserved addresses are forwarded by the bridge (except for
+> STP BPDUs if STP is turned off on the bridge device).
+> For users not changing /sys/class/net/brX/bridge/group_fwd_mask there
+> should be no difference to current default bridge behavior.
+> 
+> Only if users deliberately set group_fwd_mask to a value such as 16384
+> the bridge will start to forward LLDP frames. Current
+> BR_GROUPFWD_RESTRICTED value though restricts users from setting such
+> values to group_fwd_mask.
 
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c	2015-02-03 10:58:26.459635546 -0800
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c	2015-03-11 08:34:06.475326179 -0700
-@@ -104,7 +104,7 @@ vmxnet3_rq_driver_stats[] = {
- 					  rx_buf_alloc_failure) },
- };
- 
--/* gloabl stats maintained by the driver */
-+/* global stats maintained by the driver */
- static const struct vmxnet3_stat_desc
- vmxnet3_global_stats[] = {
- 	/* description,         offset */
-@@ -272,7 +272,7 @@ int vmxnet3_set_features(struct net_devi
- 			adapter->shared->devRead.misc.uptFeatures &=
- 			~UPT1_F_RXCSUM;
- 
--		/* update harware LRO capability accordingly */
-+		/* update hardware LRO capability accordingly */
- 		if (features & NETIF_F_LRO)
- 			adapter->shared->devRead.misc.uptFeatures |=
- 							UPT1_F_LRO;
+If user wants to violate standards, it is probably best to let them.
+Unfortunately, there is no way to put a nastygram message up in response.
+There is no network version of TAINT on the kernel.
+
+I have heard that there are people that do weird things with bridges and Openstack
+that want this.
