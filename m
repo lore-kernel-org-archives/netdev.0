@@ -1,51 +1,65 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: ethtool: git tree not updated to v3.18
-Date: Wed, 1 Apr 2015 14:30:06 -0700
-Message-ID: <20150401143006.000001f7@unknown>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC] iov_iter_get_pages() semantics
+Date: Wed, 1 Apr 2015 14:57:12 -0700
+Message-ID: <CA+55aFwZ44R1wv32TxnLwA5ZoZLCD6AOooOJHDUTmSPu0nBpXA@mail.gmail.com>
+References: <CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
+	<20141208182012.GE22149@ZenIV.linux.org.uk>
+	<CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
+	<20141208184632.GG22149@ZenIV.linux.org.uk>
+	<CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
+	<20150401023311.GL29656@ZenIV.linux.org.uk>
+	<CA+55aFx0XbzyPJ8zYkSauhTAPVgkqTW5EubaZhg=QgOGHRGkpw@mail.gmail.com>
+	<20150401180801.GA889@ZenIV.linux.org.uk>
+	<CA+55aFyOZ5LD-mAOb_OafJe-VMy0hxrgOCB5hJ=GXJAFP7e8dQ@mail.gmail.com>
+	<CA+55aFxVVoZTGwibiNE9AtjPZ41ODQcNBKkQEepV5fiG=QsKfg@mail.gmail.com>
+	<20150401201538.GD889@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com
-To: netdev@vger.kernel.org, bwh@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:41747 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751566AbbDAVaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 17:30:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150401201538.GD889@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ben, 
+On Wed, Apr 1, 2015 at 1:15 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+>
+> Umm...  Tangentially related question - do we have any IO codepaths where
+> a pointer to page might stick around indefinitely?
 
-When trying to check a bug just now I noticed that the master
-branch of
-git://git.kernel.org/pub/scm/network/ethtool/ethtool
+Well, the one obvious case is "splice()", where things might sit
+around forever in the pipe buffer. But that is fairly explicit, and
+splice does have the "release" callback to notify you when it finally
+does drop.
 
-still points to the v3.16 tag.
+For something like regular read/write (or, aio_read with waiting for
+completion), I don't see how anybody could really ever keep a
+reference around to after the completion unless it has some odd
+RCU-like freeing.
 
-But kernel.org shows version 3.18 released.  I did some quick
-investigation and it looks like the v3.18 tag points to a dangling
-commit that is not on a branch.
+And for regular vmalloc'ed pages, I actually think that the page
+refcounting *should* work fine. I'd still prefer to never see code
+that doesn't directly own the area do it, because I could certainly
+_imagine_ people playing games with  vmap_page_range() (eg doing
+things like mapping in partial hugepages or something odd like that).
 
-$ git log --graph --oneline v3.18 |head -n5
-* ba9a11a Release version 3.18.
-* 1e8811a Fix build with musl by using more common typedefs
-* 99bc878 bug fix: SFP Tx BIAS uses memory wrong offset
-* 4614098 Release version 3.16.
-* 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
+Put another way: I think that it's fine if somebody does "vmalloc()"
+and then does "vmalloc_to_page()" to look up the pages it just
+allocated.
 
-$ git log --graph --oneline origin/master |head -n5
-* 4614098 Release version 3.16.
-* 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
-* 86c0326 ethtool: Support for configurable RSS hash key
-* e633626 ethtool-copy.h: sync with net
-* 05b8ad5 Release version 3.14.
+I'm *not* nearly as happy with code that does
 
-Maybe you can merge the commits from your working branch back onto
-master and make another 3.18.1 tag or something.
+   if (is_vmalloc(addr)) vmalloc_to_page()
 
-I just did:
-git checkout master
-git merge v3.18
+because that basically says "I don't know what this allocation is, but
+if somebody plays around in vmalloc space, I'll just look up the
+pages".
 
-which worked okay, I think.
+And yeah, it probably works fine. It just makes me really really
+nervous. We use that vmalloc space for some mmio mappings too, don't
+we? Worry9ing about things like that just make me go "auugh".
+
+                        Linus
