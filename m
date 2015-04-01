@@ -1,13 +1,14 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH RFC 08/10] dpaa_eth: add debugfs counters
-Date: Wed, 1 Apr 2015 19:19:54 +0300
-Message-ID: <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
+Subject: [PATCH RFC 09/10] dpaa_eth: add debugfs entries
+Date: Wed, 1 Apr 2015 19:19:55 +0300
+Message-ID: <1427905196-27778-8-git-send-email-madalin.bucur@freescale.com>
 References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,217 +16,472 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
+In-Reply-To: <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a series of counters to be exported through debugfs:
-- add detailed counters for reception errors;
-- add detailed counters for QMan enqueue reject events;
-- count the number of fragmented skbs received from the stack;
-- count all frames received on the Tx confirmation path;
-- add congestion group statistics;
-- count the number of interrupts for each CPU.
+Export per CPU counters through debugfs.
 
 Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 12 +++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     | 35 ++++++++++++++++++
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  | 41 ++++++++++++++++++++--
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |  2 ++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |  1 +
- 5 files changed, 89 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/Kconfig        |   7 +
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   3 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c | 273 +++++++++++++++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h |  43 ++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  11 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  |  17 ++
+ 7 files changed, 358 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h
 
+diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
+index a124639..fc65d71 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Kconfig
++++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
+@@ -77,4 +77,11 @@ config FSL_DPAA_INGRESS_CS_THRESHOLD
+ 	  The size in bytes of the ingress tail-drop threshold on FMan ports.
+ 	  Traffic piling up above this value will be rejected by QMan and discarded by FMan.
+ 
++config FSL_DPAA_ETH_DEBUGFS
++	bool "DPAA Ethernet debugfs interface"
++	depends on DEBUG_FS && FSL_DPAA_ETH
++	default y
++	---help---
++	  This option compiles debugfs code for the DPAA Ethernet driver.
++
+ endif # FSL_DPAA_ETH
+diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
+index 8a72163..867ec81 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Makefile
++++ b/drivers/net/ethernet/freescale/dpaa/Makefile
+@@ -11,3 +11,6 @@ ccflags-y += -I$(FMAN)/flib
+ obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
+ 
+ fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
++ifeq ($(CONFIG_FSL_DPAA_ETH_DEBUGFS),y)
++fsl_dpa-objs += dpaa_debugfs.o
++endif
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c
+new file mode 100644
+index 0000000..ed51ecf
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c
+@@ -0,0 +1,273 @@
++/* Copyright 2008 - 2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/module.h>
++#include <soc/fsl/qman.h>	/* struct qm_mcr_querycgr */
++#include <linux/debugfs.h>
++#include <asm/debug.h>
++#include "dpaa_debugfs.h"
++#include "dpaa_eth.h" /* struct dpa_priv_s, dpa_percpu_priv_s, dpa_bp */
++
++#define DPA_DEBUGFS_DESCRIPTION "FSL DPAA Ethernet debugfs entries"
++#define DPA_ETH_DEBUGFS_ROOT "fsl_dpa"
++
++static int __cold dpa_debugfs_open(struct inode *inode, struct file *file);
++
++static struct dentry *dpa_debugfs_root;
++static const struct file_operations dpa_debugfs_fops = {
++	.open		= dpa_debugfs_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
++
++static int dpa_debugfs_show(struct seq_file *file, void *offset)
++{
++	int				 i;
++	struct dpa_priv_s		*priv;
++	struct dpa_percpu_priv_s	*percpu_priv, total;
++	struct dpa_bp *dpa_bp;
++	unsigned int dpa_bp_count = 0;
++	unsigned int count_total = 0;
++	struct qm_mcr_querycgr query_cgr;
++
++	BUG_ON(!offset);
++
++	priv = netdev_priv((struct net_device *)file->private);
++
++	dpa_bp = priv->dpa_bp;
++
++	memset(&total, 0, sizeof(total));
++
++	/* "Standard" counters */
++	seq_printf(file, "\nDPA counters for %s:\n", priv->net_dev->name);
++	seq_puts(file, "CPU           irqs        rx        tx   recycle   ");
++	seq_puts(file, "confirm     tx sg    tx err    rx err   bp count\n");
++
++	for_each_online_cpu(i) {
++		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
++
++		if (dpa_bp->percpu_count)
++			dpa_bp_count = *(per_cpu_ptr(dpa_bp->percpu_count, i));
++
++		total.in_interrupt += percpu_priv->in_interrupt;
++		total.stats.rx_packets += percpu_priv->stats.rx_packets;
++		total.stats.tx_packets += percpu_priv->stats.tx_packets;
++		total.tx_confirm += percpu_priv->tx_confirm;
++		total.tx_frag_skbuffs += percpu_priv->tx_frag_skbuffs;
++		total.stats.tx_errors += percpu_priv->stats.tx_errors;
++		total.stats.rx_errors += percpu_priv->stats.rx_errors;
++		count_total += dpa_bp_count;
++
++		seq_printf(file, "     %hu  %8llu  %8llu  %8llu  ",
++			   i,
++			   percpu_priv->in_interrupt,
++			   percpu_priv->stats.rx_packets,
++			   percpu_priv->stats.tx_packets);
++		seq_printf(file, "%8llu  %8llu  %8llu  %8llu     %8d\n",
++			   percpu_priv->tx_confirm,
++			   percpu_priv->tx_frag_skbuffs,
++			   percpu_priv->stats.tx_errors,
++			   percpu_priv->stats.rx_errors,
++			   dpa_bp_count);
++	}
++	seq_printf(file, "Total     %8llu  %8llu  %8llu  ",
++		   total.in_interrupt,
++		   total.stats.rx_packets,
++		   total.stats.tx_packets);
++	seq_printf(file, "%8llu  %8llu  %8llu  %8llu     %8d\n",
++		   total.tx_confirm,
++		   total.tx_frag_skbuffs,
++		   total.stats.tx_errors,
++		   total.stats.rx_errors,
++		   count_total);
++
++	/* Congestion stats */
++	seq_puts(file, "\nDevice congestion stats:\n");
++	seq_printf(file, "Device has been congested for %d ms.\n",
++		   jiffies_to_msecs(priv->cgr_data.congested_jiffies));
++
++	if (qman_query_cgr(&priv->cgr_data.cgr, &query_cgr) != 0) {
++		seq_printf(file, "CGR id %d - failed to query values\n",
++			   priv->cgr_data.cgr.cgrid);
++	} else {
++		seq_printf(file, "CGR id %d avg count: %llu\n",
++			   priv->cgr_data.cgr.cgrid,
++			   qm_mcr_querycgr_a_get64(&query_cgr));
++		seq_printf(file, "Device entered congestion %u times. ",
++			   priv->cgr_data.cgr_congested_count);
++		seq_printf(file, "Current congestion state is: %s.\n",
++			   query_cgr.cgr.cs ? "congested" : "not congested");
++		/* Reset congestion stats (like QMan CGR API does) */
++		priv->cgr_data.congested_jiffies = 0;
++		priv->cgr_data.cgr_congested_count = 0;
++	}
++
++	/* Rx Errors demultiplexing */
++	seq_puts(file, "\nDPA RX Errors:\nCPU        dma err  phys err");
++	seq_puts(file, "  size err   hdr err  csum err\n");
++	for_each_online_cpu(i) {
++		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
++
++		total.rx_errors.dme += percpu_priv->rx_errors.dme;
++		total.rx_errors.fpe += percpu_priv->rx_errors.fpe;
++		total.rx_errors.fse += percpu_priv->rx_errors.fse;
++		total.rx_errors.phe += percpu_priv->rx_errors.phe;
++
++		seq_printf(file, "     %hu  %8llu  %8llu  ",
++			   i,
++			   percpu_priv->rx_errors.dme,
++			   percpu_priv->rx_errors.fpe);
++		seq_printf(file, "%8llu  %8llu\n",
++			   percpu_priv->rx_errors.fse,
++			   percpu_priv->rx_errors.phe);
++	}
++	seq_printf(file, "Total     %8llu  %8llu  %8llu  %8llu\n",
++		   total.rx_errors.dme,
++		   total.rx_errors.fpe,
++		   total.rx_errors.fse,
++		   total.rx_errors.phe);
++
++	/* ERN demultiplexing */
++	seq_puts(file, "\nDPA ERN counters:\n  CPU     cg_td      wred  ");
++	seq_puts(file, "err_cond   early_w    late_w     fq_td    fq_ret");
++	seq_puts(file, "     orp_z\n");
++	for_each_online_cpu(i) {
++		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
++
++		total.ern_cnt.cg_tdrop += percpu_priv->ern_cnt.cg_tdrop;
++		total.ern_cnt.wred += percpu_priv->ern_cnt.wred;
++		total.ern_cnt.err_cond += percpu_priv->ern_cnt.err_cond;
++		total.ern_cnt.early_window += percpu_priv->ern_cnt.early_window;
++		total.ern_cnt.late_window += percpu_priv->ern_cnt.late_window;
++		total.ern_cnt.fq_tdrop += percpu_priv->ern_cnt.fq_tdrop;
++		total.ern_cnt.fq_retired += percpu_priv->ern_cnt.fq_retired;
++		total.ern_cnt.orp_zero += percpu_priv->ern_cnt.orp_zero;
++
++		seq_printf(file, "  %hu  %8llu  %8llu  %8llu  %8llu  ",
++			   i,
++			   percpu_priv->ern_cnt.cg_tdrop,
++			   percpu_priv->ern_cnt.wred,
++			   percpu_priv->ern_cnt.err_cond,
++			   percpu_priv->ern_cnt.early_window);
++		seq_printf(file, "%8llu  %8llu  %8llu  %8llu\n",
++			   percpu_priv->ern_cnt.late_window,
++			   percpu_priv->ern_cnt.fq_tdrop,
++			   percpu_priv->ern_cnt.fq_retired,
++			   percpu_priv->ern_cnt.orp_zero);
++	}
++	seq_printf(file, "Total  %8llu  %8llu  %8llu  %8llu  ",
++		   total.ern_cnt.cg_tdrop,
++		   total.ern_cnt.wred,
++		   total.ern_cnt.err_cond,
++		   total.ern_cnt.early_window);
++	seq_printf(file, "%8llu  %8llu  %8llu  %8llu\n",
++		   total.ern_cnt.late_window,
++		   total.ern_cnt.fq_tdrop,
++		   total.ern_cnt.fq_retired,
++		   total.ern_cnt.orp_zero);
++
++	return 0;
++}
++
++static int __cold dpa_debugfs_open(struct inode *inode, struct file *file)
++{
++	int			 _errno;
++	const struct net_device	*net_dev;
++
++	_errno = single_open(file, dpa_debugfs_show, inode->i_private);
++	if (unlikely(_errno < 0)) {
++		net_dev = (struct net_device *)inode->i_private;
++
++		if (netif_msg_drv((struct dpa_priv_s *)netdev_priv(net_dev)))
++			netdev_err(net_dev, "single_open() = %d\n",
++				   _errno);
++	}
++	return _errno;
++}
++
++int dpa_netdev_debugfs_create(struct net_device *net_dev)
++{
++	struct dpa_priv_s *priv = netdev_priv(net_dev);
++
++	if (unlikely(!dpa_debugfs_root)) {
++		pr_err(KBUILD_MODNAME ": %s:%hu:%s(): \t%s\n",
++		       KBUILD_BASENAME ".c", __LINE__, __func__,
++		       "root debugfs missing, possible module ordering issue");
++		return -ENOMEM;
++	}
++
++	priv->debugfs_file = debugfs_create_file(net_dev->name,
++							 S_IRUGO,
++							 dpa_debugfs_root,
++							 net_dev,
++							 &dpa_debugfs_fops);
++	if (unlikely(!priv->debugfs_file)) {
++		netdev_err(net_dev, "debugfs_create_file(%s/%s/%s)",
++			   powerpc_debugfs_root->d_iname,
++			   dpa_debugfs_root->d_iname,
++			   net_dev->name);
++
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++void dpa_netdev_debugfs_remove(struct net_device *net_dev)
++{
++	struct dpa_priv_s *priv = netdev_priv(net_dev);
++
++	debugfs_remove(priv->debugfs_file);
++}
++
++int __init dpa_debugfs_module_init(void)
++{
++	int	 _errno = 0;
++
++	pr_info(KBUILD_MODNAME ": " DPA_DEBUGFS_DESCRIPTION "\n");
++
++	dpa_debugfs_root = debugfs_create_dir(DPA_ETH_DEBUGFS_ROOT,
++					      powerpc_debugfs_root);
++	if (unlikely(!dpa_debugfs_root)) {
++		_errno = -ENOMEM;
++		pr_err(KBUILD_MODNAME ": %s:%hu:%s():\n",
++		       KBUILD_BASENAME ".c", __LINE__, __func__);
++		pr_err("\tdebugfs_create_dir(%s/" KBUILD_MODNAME ") = %d\n",
++		       powerpc_debugfs_root->d_iname, _errno);
++	}
++
++	return _errno;
++}
++
++void __exit dpa_debugfs_module_exit(void)
++{
++	debugfs_remove(dpa_debugfs_root);
++}
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h b/drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h
+new file mode 100644
+index 0000000..188ddf6
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h
+@@ -0,0 +1,43 @@
++/* Copyright 2008-2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef DPAA_DEBUGFS_H_
++#define DPAA_DEBUGFS_H_
++
++#include <linux/netdevice.h>
++#include <linux/dcache.h>	/* struct dentry needed in dpaa_eth.h */
++
++int dpa_netdev_debugfs_create(struct net_device *net_dev);
++void dpa_netdev_debugfs_remove(struct net_device *net_dev);
++int __init dpa_debugfs_module_init(void);
++void __exit dpa_debugfs_module_exit(void);
++
++#endif /* DPAA_DEBUGFS_H_ */
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index f50638e7..eba0809 100644
+index eba0809..a7875fb 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -99,6 +99,15 @@ static void _dpa_rx_error(struct net_device *net_dev,
+@@ -58,6 +58,9 @@
+ #include "mac.h"
+ #include "dpaa_eth.h"
+ #include "dpaa_eth_common.h"
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++#include "dpaa_debugfs.h"
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
  
- 	percpu_priv->stats.rx_errors++;
+ #define DPA_NAPI_WEIGHT		64
  
-+	if (fd->status & FM_PORT_FRM_ERR_DMA)
-+		percpu_priv->rx_errors.dme++;
-+	if (fd->status & FM_PORT_FRM_ERR_PHYSICAL)
-+		percpu_priv->rx_errors.fpe++;
-+	if (fd->status & FM_PORT_FRM_ERR_SIZE)
-+		percpu_priv->rx_errors.fse++;
-+	if (fd->status & FM_PORT_FRM_ERR_PRS_HDR_ERR)
-+		percpu_priv->rx_errors.phe++;
+@@ -818,6 +821,10 @@ static int __init __cold dpa_load(void)
+ 
+ 	pr_info(DPA_DESCRIPTION "\n");
+ 
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++	dpa_debugfs_module_init();
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
 +
- 	dpa_fd_release(net_dev, fd);
- }
+ 	/* initialise dpaa_eth mirror values */
+ 	dpa_rx_extra_headroom = fm_get_rx_extra_headroom();
+ 	dpa_max_frm = fm_get_max_frm();
+@@ -843,6 +850,10 @@ static void __exit __cold dpa_unload(void)
  
-@@ -162,6 +171,8 @@ static void __hot _dpa_tx_conf(struct net_device	*net_dev,
- 		percpu_priv->stats.tx_errors++;
- 	}
+ 	platform_driver_unregister(&dpa_driver);
  
-+	percpu_priv->tx_confirm++;
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++	dpa_debugfs_module_exit();
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
 +
- 	skb = _dpa_cleanup_tx_fd(priv, fd);
- 
- 	dev_kfree_skb(skb);
-@@ -297,6 +308,7 @@ static void priv_ern(struct qman_portal		*portal,
- 
- 	percpu_priv->stats.tx_dropped++;
- 	percpu_priv->stats.tx_fifo_errors++;
-+	count_ern(percpu_priv, msg);
- 
- 	/* If we intended this buffer to go into the pool
- 	 * when the FM was done, we need to put it in
+ 	/* Only one channel is used and needs to be relased after all
+ 	 * interfaces are removed
+ 	 */
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 117627b..761063d 100644
+index 761063d..83f89f4 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -199,6 +199,25 @@ struct dpa_bp {
- 	void (*free_buf_cb)(void *addr);
- };
+@@ -252,6 +252,10 @@ struct dpa_priv_s {
+ 	u16 channel;	/* "fsl,qman-channel-id" */
+ 	struct list_head	 dpa_fq_list;
  
-+struct dpa_rx_errors {
-+	u64 dme;		/* DMA Error */
-+	u64 fpe;		/* Frame Physical Error */
-+	u64 fse;		/* Frame Size Error */
-+	u64 phe;		/* Header Error */
-+};
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++	struct dentry		*debugfs_file;
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
 +
-+/* Counters for QMan ERN frames - one counter per rejection code */
-+struct dpa_ern_cnt {
-+	u64 cg_tdrop;		/* Congestion group taildrop */
-+	u64 wred;		/* WRED congestion */
-+	u64 err_cond;		/* Error condition */
-+	u64 early_window;	/* Order restoration, frame too early */
-+	u64 late_window;	/* Order restoration, frame too late */
-+	u64 fq_tdrop;		/* FQ taildrop */
-+	u64 fq_retired;		/* FQ is retired */
-+	u64 orp_zero;		/* ORP disabled */
-+};
-+
- struct dpa_napi_portal {
- 	struct napi_struct napi;
- 	struct qman_portal *p;
-@@ -207,7 +226,13 @@ struct dpa_napi_portal {
- struct dpa_percpu_priv_s {
- 	struct net_device *net_dev;
- 	struct dpa_napi_portal *np;
-+	u64 in_interrupt;
-+	u64 tx_confirm;
-+	/* fragmented (non-linear) skbuffs received from the stack */
-+	u64 tx_frag_skbuffs;
- 	struct rtnl_link_stats64 stats;
-+	struct dpa_rx_errors rx_errors;
-+	struct dpa_ern_cnt ern_cnt;
- };
+ 	u32 msg_enable;	/* net_device message level */
  
- struct dpa_priv_s {
-@@ -235,6 +260,15 @@ struct dpa_priv_s {
- 		 * (and the same) congestion group.
- 		 */
- 		struct qman_cgr cgr;
-+		/* If congested, when it began. Used for performance stats. */
-+		u32 congestion_start_jiffies;
-+		/* Number of jiffies the Tx port was congested. */
-+		u32 congested_jiffies;
-+		/**
-+		 * Counter for the number of times the CGR
-+		 * entered congestion state
-+		 */
-+		u32 cgr_congested_count;
- 	} cgr_data;
- 	/* Use a per-port CGR for ingress traffic. */
- 	bool use_ingress_cgr;
-@@ -296,6 +330,7 @@ static inline int dpaa_eth_napi_schedule(struct dpa_percpu_priv_s *percpu_priv,
- 
- 			np->p = portal;
- 			napi_schedule(&np->napi);
-+			percpu_priv->in_interrupt++;
- 			return 1;
- 		}
- 	}
+ 	struct {
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index 7921b64..e92183a 100644
+index e92183a..71c108f 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -782,10 +782,15 @@ static void dpaa_eth_cgscn(struct qman_portal *qm, struct qman_cgr *cgr,
- 	struct dpa_priv_s *priv = (struct dpa_priv_s *)container_of(cgr,
- 		struct dpa_priv_s, cgr_data.cgr);
+@@ -43,6 +43,9 @@
+ #include <linux/if_vlan.h>	/* vlan_eth_hdr */
+ #include "dpaa_eth.h"
+ #include "dpaa_eth_common.h"
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++#include "dpaa_debugfs.h"
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
+ #include "mac.h"
  
--	if (congested)
-+	if (congested) {
-+		priv->cgr_data.congestion_start_jiffies = jiffies;
- 		netif_tx_stop_all_queues(priv->net_dev);
--	else
-+		priv->cgr_data.cgr_congested_count++;
-+	} else {
-+		priv->cgr_data.congested_jiffies +=
-+			(jiffies - priv->cgr_data.congestion_start_jiffies);
- 		netif_tx_wake_all_queues(priv->net_dev);
+ /* Size in bytes of the FQ taildrop threshold */
+@@ -92,6 +95,15 @@ int dpa_netdev_init(struct net_device *net_dev,
+ 		return err;
+ 	}
+ 
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++	/* create debugfs entry for this net_device */
++	err = dpa_netdev_debugfs_create(net_dev);
++	if (err) {
++		unregister_netdev(net_dev);
++		return err;
 +	}
- }
- 
- int dpaa_eth_cgr_init(struct dpa_priv_s *priv)
-@@ -1226,6 +1231,38 @@ dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd)
- }
- EXPORT_SYMBOL(dpa_fd_release);
- 
-+void count_ern(struct dpa_percpu_priv_s *percpu_priv,
-+	       const struct qm_mr_entry *msg)
-+{
-+	switch (msg->ern.rc & QM_MR_RC_MASK) {
-+	case QM_MR_RC_CGR_TAILDROP:
-+		percpu_priv->ern_cnt.cg_tdrop++;
-+		break;
-+	case QM_MR_RC_WRED:
-+		percpu_priv->ern_cnt.wred++;
-+		break;
-+	case QM_MR_RC_ERROR:
-+		percpu_priv->ern_cnt.err_cond++;
-+		break;
-+	case QM_MR_RC_ORPWINDOW_EARLY:
-+		percpu_priv->ern_cnt.early_window++;
-+		break;
-+	case QM_MR_RC_ORPWINDOW_LATE:
-+		percpu_priv->ern_cnt.late_window++;
-+		break;
-+	case QM_MR_RC_FQ_TAILDROP:
-+		percpu_priv->ern_cnt.fq_tdrop++;
-+		break;
-+	case QM_MR_RC_ORPWINDOW_RETIRED:
-+		percpu_priv->ern_cnt.fq_retired++;
-+		break;
-+	case QM_MR_RC_ORP_ZERO:
-+		percpu_priv->ern_cnt.orp_zero++;
-+		break;
-+	}
-+}
-+EXPORT_SYMBOL(count_ern);
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
 +
- /**
-  * Turn on HW checksum computation for this outgoing frame.
-  * If the current protocol is not something we support in this regard
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-index 53da367..33acacc 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-@@ -121,6 +121,8 @@ void dpaa_eth_init_ports(struct mac_device *mac_dev,
- void dpa_release_sgt(struct qm_sg_entry *sgt);
- void __attribute__((nonnull))
- dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd);
-+void count_ern(struct dpa_percpu_priv_s *percpu_priv,
-+	       const struct qm_mr_entry *msg);
- int dpa_enable_tx_csum(struct dpa_priv_s *priv,
- 		       struct sk_buff *skb,
- 		       struct qm_fd *fd,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-index 410effd..74f22eb 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-@@ -656,6 +656,7 @@ int __hot dpa_tx(struct sk_buff *skb, struct net_device *net_dev)
- 	    likely(skb_shinfo(skb)->nr_frags < DPA_SGT_MAX_ENTRIES)) {
- 		/* Just create a S/G fd based on the skb */
- 		err = skb_to_sg_fd(priv, skb, &fd);
-+		percpu_priv->tx_frag_skbuffs++;
- 	} else {
- 		/* Make sure we have enough headroom to accommodate private
- 		 * data, parse results, etc. Normally this shouldn't happen if
+ 	return 0;
+ }
+ EXPORT_SYMBOL(dpa_netdev_init);
+@@ -313,6 +325,11 @@ int __cold dpa_remove(struct platform_device *pdev)
+ 	if (priv->buf_layout)
+ 		devm_kfree(dev, priv->buf_layout);
+ 
++#ifdef CONFIG_FSL_DPAA_ETH_DEBUGFS
++	/* remove debugfs entry for this net_device */
++	dpa_netdev_debugfs_remove(net_dev);
++#endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
++
+ 	free_netdev(net_dev);
+ 
+ 	return err;
 -- 
 1.7.11.7
