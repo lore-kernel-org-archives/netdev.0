@@ -1,152 +1,232 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 03/14] netfilter: bridge: don't use nf_bridge_info data to store mac header
-Date: Wed,  1 Apr 2015 22:36:29 +0200
-Message-ID: <1427920600-20366-4-git-send-email-fw@strlen.de>
-References: <1427920600-20366-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
+Date: Wed, 01 Apr 2015 15:55:00 -0500
+Message-ID: <1427921700.6874.8.camel@redhat.com>
+References: <1427409698.18540.11.camel@redhat.com>
+	 <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
+	 <1427749308.1913.28.camel@redhat.com>
+	 <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
+	 <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
+	 <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42840 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752935AbbDAUgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:55 -0400
-In-Reply-To: <1427920600-20366-1-git-send-email-fw@strlen.de>
+Received: from mx1.redhat.com ([209.132.183.28]:57871 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751496AbbDAUyi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 16:54:38 -0400
+In-Reply-To: <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently br_netfilter maintains an extra state, nf_bridge_info,
-which is attached to skb via skb->nf_bridge pointer.  Amongst
-other things we use skb->nf_bridge->data to store the original
-mac header for every processed skb.
+On Wed, 2015-04-01 at 13:24 -0700, Mahesh Bandewar wrote:
+> On Mon, Mar 30, 2015 at 9:22 PM, Dan Williams <dcbw@redhat.com> wrote:
+> > The broadcast MAC is supposed to be allowed whenever the device
+> > has an IPv4 address, otherwise ARP requests get dropped on the
+> > floor.  If ndo_set_rx_mode (and thus
+> > ipvlan_set_multicast_mac_filter()) got called after the address
+> > was added, it would blow away the broadcast MAC address in
+> > mac_filters that was added at IPv4 address addition.
+> >
+> > Next, ipvlan currently fails DHCP addressing for two reasons:
+> >
+> I would prefer DHCPv4 instead of DHCP since it could also mean DHCPv6
+> which does not use broadcast.
+> 
+> > 1) DHCP offers are typically unicast back to the device's MAC
+> > address, and at the IP layer have a destination IP address
+> > matching the new lease address.  In ipvlan unicast packets
+> > are checked against existing addresses assigned to the ipvlan
+> > interface, so clearly this fails hard because the ipvlan
+> > interface has no IP addresses yet.  Workaround: request
+> > that the server broadcast replies (-B for dhclient) which
+> > don't get checked against the address list.
+> >
+> > 2) Even when that's done, mac_filters only allows the
+> > broadcast MAC address when the interface has >= 1 IPv4
+> > addresses, so double-fail, and the incoming DHCP offer
+> > gets dropped on the floor again.
+> >
+> > To fix these issues, Watch for outgoing DHCP requests and
+> > enable the broadcast MAC address indefinitely when one is seen.
+> >
+> This approach will work but adds a performance drag for all UDP
+> traffic whether the link needs DHCPv4 or not (especially when it does
+> not need). Logic works well only when the link (always) needs DHCPv4.
+> When the link does not care about DHCPv4 the packet-inspection always
+> happens.
 
-This is required for ip refragmentation when using conntrack
-on top of bridge, because ip_fragment doesn't copy it from original skb.
+If DHCPv4 is detected on a link, doesn't that mean the link needs the
+broadcast filter enabled?  If you start DHCPv4 on the link you obviously
+expect it to work, unless there's no DHCPv4 server available.  The patch
+should also reset the broadcast filter on close, so network management
+could simply start DHCPv4, watch it fail, close/open and set static IP.
 
-However there is no need anymore to do this unconditionally.
+Alternatively we could have the broadcast filter on a 2 minute timer
+that starts when DHCPv4 is seen.
 
-Move this to the one place where its needed -- when br_netfilter calls
-ip_fragment().
+> Do we really need to special case DHCPv4? Do you see problems in
+> inverting the current logic of adding broadcast bit (i.e. from
+> enable-if-IPv4 to disable-if-IPv6-only)?
 
-Also switch to percpu storage for this so we can handle fragmenting
-without accessing nf_bridge meta data.
+The problem with this is dual-stack configuration.  Typically both
+DHCPv4 and SLAAC are started in this case, and often SLAAC will complete
+earlier.  So now the interface only has an IPv6 address but DHCPv4 is
+still ongoing; as I understand your proposal the filter would now block
+broadcast packets that DHCPv4 is listening for.
 
-After this change, only one user of skb->nf_bridge->data is left.
+Dan
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/bridge/br_netfilter.c | 57 ++++++++++++++++++++++++++---------------------
- 1 file changed, 32 insertions(+), 25 deletions(-)
-
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index c0c8700..6ccb1af 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -111,6 +111,19 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
- 	 pppoe_proto(skb) == htons(PPP_IPV6) && \
- 	 brnf_filter_pppoe_tagged)
- 
-+/* largest possible L2 header, see br_nf_dev_queue_xmit() */
-+#define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
-+
-+#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
-+struct brnf_frag_data {
-+	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
-+	u8 encap_size;
-+	u8 size;
-+};
-+
-+static DEFINE_PER_CPU(struct brnf_frag_data, brnf_frag_data_storage);
-+#endif
-+
- static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
- {
- 	struct net_bridge_port *port;
-@@ -189,14 +202,6 @@ static inline void nf_bridge_pull_encap_header_rcsum(struct sk_buff *skb)
- 	skb->network_header += len;
- }
- 
--static inline void nf_bridge_save_header(struct sk_buff *skb)
--{
--	int header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
--
--	skb_copy_from_linear_data_offset(skb, -header_size,
--					 skb->nf_bridge->data, header_size);
--}
--
- /* When handing a packet over to the IP layer
-  * check whether we have a skb that is in the
-  * expected format
-@@ -810,30 +815,22 @@ static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
- }
- 
- #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
--static bool nf_bridge_copy_header(struct sk_buff *skb)
-+static int br_nf_push_frag_xmit(struct sk_buff *skb)
- {
-+	struct brnf_frag_data *data;
- 	int err;
--	unsigned int header_size;
- 
--	nf_bridge_update_protocol(skb);
--	header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
--	err = skb_cow_head(skb, header_size);
--	if (err)
--		return false;
--
--	skb_copy_to_linear_data_offset(skb, -header_size,
--				       skb->nf_bridge->data, header_size);
--	__skb_push(skb, nf_bridge_encap_header_len(skb));
--	return true;
--}
-+	data = this_cpu_ptr(&brnf_frag_data_storage);
-+	err = skb_cow_head(skb, data->size);
- 
--static int br_nf_push_frag_xmit(struct sk_buff *skb)
--{
--	if (!nf_bridge_copy_header(skb)) {
-+	if (err) {
- 		kfree_skb(skb);
- 		return 0;
- 	}
- 
-+	skb_copy_to_linear_data_offset(skb, -data->size, data->mac, data->size);
-+	__skb_push(skb, data->encap_size);
-+
- 	return br_dev_queue_push_xmit(skb);
- }
- 
-@@ -864,6 +861,8 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- 	 * size as mtu if it is set.
- 	 */
- 	if (skb->len > mtu) {
-+		struct brnf_frag_data *data;
-+
- 		if (!skb->ignore_df) /* was not a defragmented */
- 			goto err_out;
- 
-@@ -877,6 +876,15 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- 		if (br_parse_ip_options(skb))
- 			goto err_out;
- 
-+		nf_bridge_update_protocol(skb);
-+
-+		data = this_cpu_ptr(&brnf_frag_data_storage);
-+		data->encap_size = nf_bridge_encap_header_len(skb);
-+		data->size = ETH_HLEN + data->encap_size;
-+
-+		skb_copy_from_linear_data_offset(skb, -data->size, data->mac,
-+						 data->size);
-+
- 		ret = ip_fragment(skb, mtu, br_nf_push_frag_xmit);
- 	} else {
- 		ret = br_dev_queue_push_xmit(skb);
-@@ -932,7 +940,6 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
- 	}
- 
- 	nf_bridge_pull_encap_header(skb);
--	nf_bridge_save_header(skb);
- 	if (pf == NFPROTO_IPV4)
- 		skb->protocol = htons(ETH_P_IP);
- 	else
--- 
-2.0.5
+> > Signed-off-by: Dan Williams <dcbw@redhat.com>
+> > ---
+> > NOTE: this patch supercedes my previous two ipvlan patches:
+> > [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
+> > [PATCH 2/2] ipvlan: always allow the broadcast MAC address
+> >
+> >  drivers/net/ipvlan/ipvlan.h      |  2 ++
+> >  drivers/net/ipvlan/ipvlan_core.c | 36 ++++++++++++++++++++++++++++++++++--
+> >  drivers/net/ipvlan/ipvlan_main.c | 12 +++++++++---
+> >  3 files changed, 45 insertions(+), 5 deletions(-)
+> >
+> > diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+> > index 924ea98..7e0b8ff 100644
+> > --- a/drivers/net/ipvlan/ipvlan.h
+> > +++ b/drivers/net/ipvlan/ipvlan.h
+> > @@ -67,6 +67,7 @@ struct ipvl_dev {
+> >         struct list_head        addrs;
+> >         int                     ipv4cnt;
+> >         int                     ipv6cnt;
+> > +       bool                    dhcp4_seen;
+> >         struct ipvl_pcpu_stats  __percpu *pcpu_stats;
+> >         DECLARE_BITMAP(mac_filters, IPVLAN_MAC_FILTER_SIZE);
+> >         netdev_features_t       sfeatures;
+> > @@ -118,4 +119,5 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
+> >  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
+> >                                         const void *iaddr, bool is_v6);
+> >  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
+> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set);
+> >  #endif /* __IPVLAN_H */
+> > diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+> > index 2a17500..6dd992b 100644
+> > --- a/drivers/net/ipvlan/ipvlan_core.c
+> > +++ b/drivers/net/ipvlan/ipvlan_core.c
+> > @@ -126,6 +126,12 @@ static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
+> >                 lyr3h = arph;
+> >                 break;
+> >         }
+> > +       case htons(ETH_P_ALL): {
+> > +               /* Raw sockets */
+> > +               if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
+> > +                       break;
+> > +               /* Fall through */
+> > +       }
+> >         case htons(ETH_P_IP): {
+> >                 u32 pktlen;
+> >                 struct iphdr *ip4h;
+> > @@ -454,16 +460,42 @@ out:
+> >         return ipvlan_process_outbound(skb, ipvlan);
+> >  }
+> >
+> > +#define DHCP_PACKET_MIN_LEN 282
+> > +
+> > +static bool is_dhcp(struct sk_buff *skb)
+> > +{
+> > +       struct iphdr *ip4h = ip_hdr(skb);
+> > +       struct udphdr *udph;
+> > +
+> > +       if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
+> > +               || ip_is_fragment(ip4h))
+> > +               return false;
+> > +
+> > +       /* In the case of RAW sockets the transport header is not set by
+> > +        * the IP stack so we must set it ourselves.
+> > +        */
+> > +       if (skb->transport_header == skb->network_header)
+> > +               skb_set_transport_header(skb, ETH_HLEN + sizeof(struct iphdr));
+> > +       udph = udp_hdr(skb);
+> > +       return udph && udph->dest == htons(67) && udph->source == htons(68);
+> > +}
+> > +
+> >  static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
+> >  {
+> > -       const struct ipvl_dev *ipvlan = netdev_priv(dev);
+> > +       struct ipvl_dev *ipvlan = netdev_priv(dev);
+> >         struct ethhdr *eth = eth_hdr(skb);
+> >         struct ipvl_addr *addr;
+> >         void *lyr3h;
+> >         int addr_type;
+> >
+> > +       lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
+> > +       if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
+> > +           && is_dhcp(skb)) {
+> > +               ipvlan->dhcp4_seen = true;
+> > +               ipvlan_set_broadcast_mac_filter(ipvlan, true);
+> > +       }
+> > +
+> >         if (ether_addr_equal(eth->h_dest, eth->h_source)) {
+> > -               lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
+> >                 if (lyr3h) {
+> >                         addr = ipvlan_addr_lookup(ipvlan->port, lyr3h, addr_type, true);
+> >                         if (addr)
+> > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> > index 4f4099d..a497fb9 100644
+> > --- a/drivers/net/ipvlan/ipvlan_main.c
+> > +++ b/drivers/net/ipvlan/ipvlan_main.c
+> > @@ -167,6 +167,8 @@ static int ipvlan_stop(struct net_device *dev)
+> >
+> >         dev_uc_del(phy_dev, phy_dev->dev_addr);
+> >
+> > +       ipvlan->dhcp4_seen = false;
+> > +
+> >         if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
+> >                 list_for_each_entry(addr, &ipvlan->addrs, anode)
+> >                         ipvlan_ht_addr_del(addr, !dev->dismantle);
+> > @@ -214,7 +216,7 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
+> >                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
+> >  }
+> >
+> > -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
+> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
+> >  {
+> >         struct net_device *dev = ipvlan->dev;
+> >         unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
+> > @@ -239,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
+> >                 netdev_for_each_mc_addr(ha, dev)
+> >                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
+> >
+> > +               if (ipvlan->ipv4cnt || ipvlan->dhcp4_seen)
+> > +                       __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
+> > +
+> >                 bitmap_copy(ipvlan->mac_filters, mc_filters,
+> >                             IPVLAN_MAC_FILTER_SIZE);
+> >         }
+> > @@ -467,6 +472,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+> >         INIT_LIST_HEAD(&ipvlan->addrs);
+> >         ipvlan->ipv4cnt = 0;
+> >         ipvlan->ipv6cnt = 0;
+> > +       ipvlan->dhcp4_seen = false;
+> >
+> >         /* TODO Probably put random address here to be presented to the
+> >          * world but keep using the physical-dev address for the outgoing
+> > @@ -708,8 +714,8 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+> >         list_del_rcu(&addr->anode);
+> >         ipvlan->ipv4cnt--;
+> >         WARN_ON(ipvlan->ipv4cnt < 0);
+> > -       if (!ipvlan->ipv4cnt)
+> > -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
+> > +       if (!ipvlan->ipv4cnt && !ipvlan->dhcp4_seen)
+> > +               ipvlan_set_broadcast_mac_filter(ipvlan, false);
+> >         kfree_rcu(addr, rcu);
+> >
+> >         return;
+> > --
+> > 2.1.0
+> >
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
