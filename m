@@ -1,51 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFCv2 3/4] batman-adv: Forward IGMP/MLD reports
- to selected querier (only)
-Date: Wed, 01 Apr 2015 13:44:31 -0400 (EDT)
-Message-ID: <20150401.134431.1653220163353310062.davem@davemloft.net>
-References: <1427875479-9240-1-git-send-email-linus.luessing@c0d3.blue>
-	<1427875479-9240-4-git-send-email-linus.luessing@c0d3.blue>
+Subject: Re: [PATCH v3] net: sysctl for RA default route MTU
+Date: Wed, 01 Apr 2015 13:55:32 -0400 (EDT)
+Message-ID: <20150401.135532.1368728758929086692.davem@davemloft.net>
+References: <1427834148.979686.247747037.29964C1B@webmail.messagingengine.com>
+	<20150331.164923.229749666073516444.davem@davemloft.net>
+	<68621427882330@webcorp01g.yandex-team.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	bridge@lists.linux-foundation.org
-To: linus.luessing@c0d3.blue
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1427875479-9240-4-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: klamm@yandex-team.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <68621427882330@webcorp01g.yandex-team.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@c0d3.blue>
-Date: Wed,  1 Apr 2015 10:04:38 +0200
+=46rom: Roman Gushchin <klamm@yandex-team.ru>
+Date: Wed, 01 Apr 2015 12:58:50 +0300
 
-> With this patch IGMP or MLD reports are only forwarded to the selecte=
-d
-> IGMP/MLD querier as RFC4541 suggests. This is necessary to avoid
-> multicast packet loss in bridged scenarios later:
-> =
+> 31.03.2015, 23:49, "David Miller" <davem@davemloft.net>:
+>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> Date: Tue, 31 Mar 2015 22:35:48 +0200
+>>> =A0Could you quickly comment on what you had in mind? I guess it is=
+ about
+>>> =A0handling RA in user space on the end hosts and overwriting MTU d=
+uring
+>>> =A0insertion of the routes?
+>>
+>> Even after reading your email I have no idea why you can't just have
+>> RA provide a 1500 byte MTU, everything else uses the device's 9000
+>> MTU, problem solved?
+>=20
+> Because the MTU (provided by RA) is assigned to the device.
 
-> An IGMPv2/MLDv1 querier does not actively join the multicast group th=
-e
-> reports are sent to. Because of this, this leads to snooping
-> bridges/switches not being able to learn of multicast listeners in th=
-e
-> mesh and wrongly shutting down ports for multicast traffic to the mes=
-h.
+Ok, that severely limits the usefulness of this option I guess.
 
-There is no way this is going to work.
+The next question I have is about the behavior of the new setting
+in the presence of an RA MTU option.  It seems like the sysctl
+doesn't override that RA MTU option, but rather just clamps it.
 
-First of all, you have no proper Kconfig dependencies upon IPV6, yet
-you are calling these newly exported ipv6 multicast interfaces
-unconditionally.
+And then if it's in range, this controls only whether the default
+route has it's MTU adjusted.
 
-Even once you resolve that, you are going to run into problems in
-situations where BATMAN_ADV=3Dy and IPV6=3Dm, for example.
+That doesn't make any sense to me if we then go and do the
+rt6_mtu_change() call unconditionally.  The route metric update
+and the rt6_mtu_change() go hand in hand.
