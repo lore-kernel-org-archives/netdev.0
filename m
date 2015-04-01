@@ -1,83 +1,134 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 00/14] get rid of skb->nf_bridge pointer
-Date: Wed,  1 Apr 2015 22:36:26 +0200
-Message-ID: <1427920600-20366-1-git-send-email-fw@strlen.de>
+Subject: [PATCH nf-next 05/14] netfilter: bridge: make BRNF_PKT_TYPE flag a bool
+Date: Wed,  1 Apr 2015 22:36:31 +0200
+Message-ID: <1427920600-20366-6-git-send-email-fw@strlen.de>
+References: <1427920600-20366-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42839 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42842 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752835AbbDAUgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:55 -0400
+	by vger.kernel.org with ESMTP id S1752940AbbDAUg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:57 -0400
+In-Reply-To: <1427920600-20366-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ netdev hackers are encouraged to look at patches #2 and #11 specifically,
-  those are the ones with largest impact outside netfilter land ]
+nf_bridge_info->mask is used for several things, for example to
+remember if skb->pkt_type was set to OTHER_HOST.
 
-Remove skb->nf_bridge pointer.
+For a bridge, OTHER_HOST is expected case. For ip forward its a non-starter
+though -- routing expects PACKET_HOST.
 
-Unfortunately we still need some way to decide if skb is bridged
-or not, else kfree_skb, skb_clone etc. would have to do costly lookups
-in bridge netfilter.
+Bridge netfilter thus changes OTHER_HOST to PACKET_HOST before hook
+invocation and then un-does it after hook traversal.
 
-We use a 2 bit state field in the skb for this purpose.
-If its zero, skb is not bridged (same as skb->nf_bridge == NULL
-in current kernel).
+This information is irrelevant outside of br_netfilter.
 
-nf_bridge_info is stored in an rhashtable; bridge netfilter
-and the few other places (nfqueue, nflog, physdev match) that need
-to access bridge netfilter data do on-demand lookups in an rhashtable
-to access the data associated with a bridged skb.
+After this change, ->mask now only contains flags that need to be
+known outside of br_netfilter in fast-path.
 
-skb_clone and skb_copy will call into netfilter core
-helpers for bridged skbs to duplicate the information if needed.
-Likewise, kfree_skb removes and frees the bridge netfilter meta data
-as well if needed.
+Next patch will change mask into a 2bit state field in sk_buff, so that
+we can remove skb->nf_bridge pointer for good and consider all remaining
+places that access nf_bridge info content a slowpath.
 
-In order to avoid those lookups where we're dealing with non-bridged
-skbs, we store 2 bit state field in the skb.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/linux/netfilter_bridge.h |  1 -
+ include/linux/skbuff.h           |  1 +
+ net/bridge/br_netfilter.c        | 18 +++++++++---------
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-Tested, on host connected to kvm-bridge:
-
-ping -s $bignum $ip_behind_bridge
-
-on bridge:
--j REDIRECT
--j DNAT --to-destination $ip_behind_bridge
--m physdev match with in/outdev match in FORWARD and INPUT (indev only)
-- same w. active -j NFQUEUE.
-
- Patch 11 substitutes the pointer for on-demand lookups, most of the
- other patches prepare for this change by adding helpers and splitting
- state information into 'public' and 'bridge netfilter private'.
-
- The alternative to the rhashtable is to store the bridge netfilter
- metadata in skb->cb[], but there are some caveats since we need
- such metadata to survive local delivery too (else we'd break use of
- physdev match in INPUT).
-
- This is why external store was chosen.
-
- Feedback and suggestions welcome.
-
- include/linux/netfilter.h                  |    8 
- include/linux/netfilter_bridge.h           |  104 +++++-
- include/linux/skbuff.h                     |   87 ++---
- include/net/ip.h                           |    4 
- net/bridge/br_device.c                     |   19 -
- net/bridge/br_netfilter.c                  |  482 ++++++++++++++++++++---------
- net/bridge/br_private.h                    |    2 
- net/core/skbuff.c                          |    5 
- net/ipv4/ip_output.c                       |   30 +
- net/ipv4/netfilter/nf_defrag_ipv4.c        |    3 
- net/ipv4/netfilter/nf_reject_ipv4.c        |    6 
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c  |    3 
- net/ipv6/netfilter/nf_reject_ipv6.c        |    6 
- net/netfilter/core.c                       |   49 ++
- net/netfilter/ipset/ip_set_hash_netiface.c |   32 +
- net/netfilter/nf_log_common.c              |    7 
- net/netfilter/nf_queue.c                   |   22 -
- net/netfilter/nfnetlink_log.c              |   17 -
- net/netfilter/nfnetlink_queue_core.c       |   34 +-
- net/netfilter/xt_physdev.c                 |   36 +-
- 20 files changed, 670 insertions(+), 286 deletions(-)
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index 848226e..66245b5 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -17,7 +17,6 @@ enum nf_br_hook_priorities {
+ 
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 
+-#define BRNF_PKT_TYPE			0x01
+ #define BRNF_BRIDGED_DNAT		0x02
+ #define BRNF_NF_BRIDGE_PREROUTING	0x08
+ 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index fe1b557..afa53e4 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -171,6 +171,7 @@ struct nf_bridge_info {
+ 		BRNF_PROTO_8021Q,
+ 		BRNF_PROTO_PPPOE
+ 	} orig_proto;
++	bool			pkt_otherhost;
+ 	unsigned int		mask;
+ 	struct net_device	*physindev;
+ 	struct net_device	*physoutdev;
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 8c86f37..02ccf38 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -277,9 +277,9 @@ static int br_nf_pre_routing_finish_ipv6(struct sk_buff *skb)
+ 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+ 	struct rtable *rt;
+ 
+-	if (nf_bridge->mask & BRNF_PKT_TYPE) {
++	if (nf_bridge->pkt_otherhost) {
+ 		skb->pkt_type = PACKET_OTHERHOST;
+-		nf_bridge->mask ^= BRNF_PKT_TYPE;
++		nf_bridge->pkt_otherhost = false;
+ 	}
+ 	nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
+ 
+@@ -410,9 +410,9 @@ static int br_nf_pre_routing_finish(struct sk_buff *skb)
+ 	frag_max_size = IPCB(skb)->frag_max_size;
+ 	BR_INPUT_SKB_CB(skb)->frag_max_size = frag_max_size;
+ 
+-	if (nf_bridge->mask & BRNF_PKT_TYPE) {
++	if (nf_bridge->pkt_otherhost) {
+ 		skb->pkt_type = PACKET_OTHERHOST;
+-		nf_bridge->mask ^= BRNF_PKT_TYPE;
++		nf_bridge->pkt_otherhost = false;
+ 	}
+ 	nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
+ 	if (dnat_took_place(skb)) {
+@@ -498,7 +498,7 @@ static struct net_device *setup_pre_routing(struct sk_buff *skb)
+ 
+ 	if (skb->pkt_type == PACKET_OTHERHOST) {
+ 		skb->pkt_type = PACKET_HOST;
+-		nf_bridge->mask |= BRNF_PKT_TYPE;
++		nf_bridge->pkt_otherhost = true;
+ 	}
+ 
+ 	nf_bridge->mask |= BRNF_NF_BRIDGE_PREROUTING;
+@@ -706,9 +706,9 @@ static int br_nf_forward_finish(struct sk_buff *skb)
+ 		}
+ 
+ 		in = nf_bridge->physindev;
+-		if (nf_bridge->mask & BRNF_PKT_TYPE) {
++		if (nf_bridge->pkt_otherhost) {
+ 			skb->pkt_type = PACKET_OTHERHOST;
+-			nf_bridge->mask ^= BRNF_PKT_TYPE;
++			nf_bridge->pkt_otherhost = false;
+ 		}
+ 		nf_bridge_update_protocol(skb);
+ 	} else {
+@@ -761,7 +761,7 @@ static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
+ 	nf_bridge = skb->nf_bridge;
+ 	if (skb->pkt_type == PACKET_OTHERHOST) {
+ 		skb->pkt_type = PACKET_HOST;
+-		nf_bridge->mask |= BRNF_PKT_TYPE;
++		nf_bridge->pkt_otherhost = true;
+ 	}
+ 
+ 	if (pf == NFPROTO_IPV4) {
+@@ -943,7 +943,7 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
+ 	 * about the value of skb->pkt_type. */
+ 	if (skb->pkt_type == PACKET_OTHERHOST) {
+ 		skb->pkt_type = PACKET_HOST;
+-		nf_bridge->mask |= BRNF_PKT_TYPE;
++		nf_bridge->pkt_otherhost = true;
+ 	}
+ 
+ 	nf_bridge_pull_encap_header(skb);
+-- 
+2.0.5
