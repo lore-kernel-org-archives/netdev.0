@@ -1,8 +1,13 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH RFC 03/10] dpaa_eth: add configurable bpool thresholds
-Date: Wed, 1 Apr 2015 19:19:49 +0300
-Message-ID: <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
+Subject: [PATCH RFC 08/10] dpaa_eth: add debugfs counters
+Date: Wed, 1 Apr 2015 19:19:54 +0300
+Message-ID: <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
 References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,104 +15,217 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
+In-Reply-To: <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow the user to tweak the refill threshold and the total number
-of buffers in the buffer pool. The provided values are for one CPU.
+Add a series of counters to be exported through debugfs:
+- add detailed counters for reception errors;
+- add detailed counters for QMan enqueue reject events;
+- count the number of fragmented skbs received from the stack;
+- count all frames received on the Tx confirmation path;
+- add congestion group statistics;
+- count the number of interrupts for each CPU.
 
 Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
 ---
- drivers/net/ethernet/freescale/dpaa/Kconfig       | 20 ++++++++++++++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c    |  2 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h    |  3 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c |  6 +++---
- 4 files changed, 24 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 12 +++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     | 35 ++++++++++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  | 41 ++++++++++++++++++++--
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |  2 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |  1 +
+ 5 files changed, 89 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
-index 7ef703c..9db7d25 100644
---- a/drivers/net/ethernet/freescale/dpaa/Kconfig
-+++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
-@@ -11,6 +11,26 @@ menuconfig FSL_DPAA_ETH
- 
- if FSL_DPAA_ETH
- 
-+config FSL_DPAA_ETH_MAX_BUF_COUNT
-+	int "Maximum nuber of buffers in private bpool"
-+	depends on FSL_DPAA_ETH
-+	range 64 2048
-+	default "128"
-+	---help---
-+	  The maximum number of buffers to be by default allocated in the DPAA-Ethernet private port's
-+	  buffer pool. One needn't normally modify this, as it has probably been tuned for performance
-+	  already. This cannot be lower than DPAA_ETH_REFILL_THRESHOLD.
-+
-+config FSL_DPAA_ETH_REFILL_THRESHOLD
-+	int "Private bpool refill threshold"
-+	depends on FSL_DPAA_ETH
-+	range 32 FSL_DPAA_ETH_MAX_BUF_COUNT
-+	default "80"
-+	---help---
-+	  The DPAA-Ethernet driver will start replenishing buffer pools whose count
-+	  falls below this threshold. This must be related to DPAA_ETH_MAX_BUF_COUNT. One needn't normally
-+	  modify this value unless one has very specific performance reasons.
-+
- config FSL_DPAA_CS_THRESHOLD_1G
- 	hex "Egress congestion threshold on 1G ports"
- 	depends on FSL_DPAA_ETH
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index ee65ca2..9e78371 100644
+index f50638e7..eba0809 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -481,7 +481,7 @@ dpa_priv_bp_probe(struct device *dev)
+@@ -99,6 +99,15 @@ static void _dpa_rx_error(struct net_device *net_dev,
+ 
+ 	percpu_priv->stats.rx_errors++;
+ 
++	if (fd->status & FM_PORT_FRM_ERR_DMA)
++		percpu_priv->rx_errors.dme++;
++	if (fd->status & FM_PORT_FRM_ERR_PHYSICAL)
++		percpu_priv->rx_errors.fpe++;
++	if (fd->status & FM_PORT_FRM_ERR_SIZE)
++		percpu_priv->rx_errors.fse++;
++	if (fd->status & FM_PORT_FRM_ERR_PRS_HDR_ERR)
++		percpu_priv->rx_errors.phe++;
++
+ 	dpa_fd_release(net_dev, fd);
+ }
+ 
+@@ -162,6 +171,8 @@ static void __hot _dpa_tx_conf(struct net_device	*net_dev,
+ 		percpu_priv->stats.tx_errors++;
  	}
  
- 	dpa_bp->percpu_count = devm_alloc_percpu(dev, *dpa_bp->percpu_count);
--	dpa_bp->target_count = FSL_DPAA_ETH_MAX_BUF_COUNT;
-+	dpa_bp->target_count = CONFIG_FSL_DPAA_ETH_MAX_BUF_COUNT;
++	percpu_priv->tx_confirm++;
++
+ 	skb = _dpa_cleanup_tx_fd(priv, fd);
  
- 	dpa_bp->seed_cb = dpa_bp_priv_seed;
- 	dpa_bp->free_buf_cb = _dpa_bp_free_pf;
+ 	dev_kfree_skb(skb);
+@@ -297,6 +308,7 @@ static void priv_ern(struct qman_portal		*portal,
+ 
+ 	percpu_priv->stats.tx_dropped++;
+ 	percpu_priv->stats.tx_fifo_errors++;
++	count_ern(percpu_priv, msg);
+ 
+ 	/* If we intended this buffer to go into the pool
+ 	 * when the FM was done, we need to put it in
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index b643c52..5f3157d 100644
+index 117627b..761063d 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -126,9 +126,6 @@ struct dpa_buffer_layout_s {
+@@ -199,6 +199,25 @@ struct dpa_bp {
+ 	void (*free_buf_cb)(void *addr);
+ };
  
- #define DPAA_ETH_RX_QUEUES	128
++struct dpa_rx_errors {
++	u64 dme;		/* DMA Error */
++	u64 fpe;		/* Frame Physical Error */
++	u64 fse;		/* Frame Size Error */
++	u64 phe;		/* Header Error */
++};
++
++/* Counters for QMan ERN frames - one counter per rejection code */
++struct dpa_ern_cnt {
++	u64 cg_tdrop;		/* Congestion group taildrop */
++	u64 wred;		/* WRED congestion */
++	u64 err_cond;		/* Error condition */
++	u64 early_window;	/* Order restoration, frame too early */
++	u64 late_window;	/* Order restoration, frame too late */
++	u64 fq_tdrop;		/* FQ taildrop */
++	u64 fq_retired;		/* FQ is retired */
++	u64 orp_zero;		/* ORP disabled */
++};
++
+ struct dpa_napi_portal {
+ 	struct napi_struct napi;
+ 	struct qman_portal *p;
+@@ -207,7 +226,13 @@ struct dpa_napi_portal {
+ struct dpa_percpu_priv_s {
+ 	struct net_device *net_dev;
+ 	struct dpa_napi_portal *np;
++	u64 in_interrupt;
++	u64 tx_confirm;
++	/* fragmented (non-linear) skbuffs received from the stack */
++	u64 tx_frag_skbuffs;
+ 	struct rtnl_link_stats64 stats;
++	struct dpa_rx_errors rx_errors;
++	struct dpa_ern_cnt ern_cnt;
+ };
  
--#define FSL_DPAA_ETH_MAX_BUF_COUNT	128
--#define FSL_DPAA_ETH_REFILL_THRESHOLD	80
--
- /* More detailed FQ types - used for fine-grained WQ assignments */
- enum dpa_fq_type {
- 	FQ_TYPE_RX_DEFAULT = 1, /* Rx Default FQs */
+ struct dpa_priv_s {
+@@ -235,6 +260,15 @@ struct dpa_priv_s {
+ 		 * (and the same) congestion group.
+ 		 */
+ 		struct qman_cgr cgr;
++		/* If congested, when it began. Used for performance stats. */
++		u32 congestion_start_jiffies;
++		/* Number of jiffies the Tx port was congested. */
++		u32 congested_jiffies;
++		/**
++		 * Counter for the number of times the CGR
++		 * entered congestion state
++		 */
++		u32 cgr_congested_count;
+ 	} cgr_data;
+ 	/* Use a per-port CGR for ingress traffic. */
+ 	bool use_ingress_cgr;
+@@ -296,6 +330,7 @@ static inline int dpaa_eth_napi_schedule(struct dpa_percpu_priv_s *percpu_priv,
+ 
+ 			np->p = portal;
+ 			napi_schedule(&np->napi);
++			percpu_priv->in_interrupt++;
+ 			return 1;
+ 		}
+ 	}
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
+index 7921b64..e92183a 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
+@@ -782,10 +782,15 @@ static void dpaa_eth_cgscn(struct qman_portal *qm, struct qman_cgr *cgr,
+ 	struct dpa_priv_s *priv = (struct dpa_priv_s *)container_of(cgr,
+ 		struct dpa_priv_s, cgr_data.cgr);
+ 
+-	if (congested)
++	if (congested) {
++		priv->cgr_data.congestion_start_jiffies = jiffies;
+ 		netif_tx_stop_all_queues(priv->net_dev);
+-	else
++		priv->cgr_data.cgr_congested_count++;
++	} else {
++		priv->cgr_data.congested_jiffies +=
++			(jiffies - priv->cgr_data.congestion_start_jiffies);
+ 		netif_tx_wake_all_queues(priv->net_dev);
++	}
+ }
+ 
+ int dpaa_eth_cgr_init(struct dpa_priv_s *priv)
+@@ -1226,6 +1231,38 @@ dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd)
+ }
+ EXPORT_SYMBOL(dpa_fd_release);
+ 
++void count_ern(struct dpa_percpu_priv_s *percpu_priv,
++	       const struct qm_mr_entry *msg)
++{
++	switch (msg->ern.rc & QM_MR_RC_MASK) {
++	case QM_MR_RC_CGR_TAILDROP:
++		percpu_priv->ern_cnt.cg_tdrop++;
++		break;
++	case QM_MR_RC_WRED:
++		percpu_priv->ern_cnt.wred++;
++		break;
++	case QM_MR_RC_ERROR:
++		percpu_priv->ern_cnt.err_cond++;
++		break;
++	case QM_MR_RC_ORPWINDOW_EARLY:
++		percpu_priv->ern_cnt.early_window++;
++		break;
++	case QM_MR_RC_ORPWINDOW_LATE:
++		percpu_priv->ern_cnt.late_window++;
++		break;
++	case QM_MR_RC_FQ_TAILDROP:
++		percpu_priv->ern_cnt.fq_tdrop++;
++		break;
++	case QM_MR_RC_ORPWINDOW_RETIRED:
++		percpu_priv->ern_cnt.fq_retired++;
++		break;
++	case QM_MR_RC_ORP_ZERO:
++		percpu_priv->ern_cnt.orp_zero++;
++		break;
++	}
++}
++EXPORT_SYMBOL(count_ern);
++
+ /**
+  * Turn on HW checksum computation for this outgoing frame.
+  * If the current protocol is not something we support in this regard
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+index 53da367..33acacc 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+@@ -121,6 +121,8 @@ void dpaa_eth_init_ports(struct mac_device *mac_dev,
+ void dpa_release_sgt(struct qm_sg_entry *sgt);
+ void __attribute__((nonnull))
+ dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd);
++void count_ern(struct dpa_percpu_priv_s *percpu_priv,
++	       const struct qm_mr_entry *msg);
+ int dpa_enable_tx_csum(struct dpa_priv_s *priv,
+ 		       struct sk_buff *skb,
+ 		       struct qm_fd *fd,
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-index ef3117e..1b3dc28 100644
+index 410effd..74f22eb 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
-@@ -153,7 +153,7 @@ int dpaa_eth_refill_bpools(struct dpa_bp *dpa_bp, int *countptr)
- 	int count = *countptr;
- 	int new_bufs;
- 
--	if (unlikely(count < FSL_DPAA_ETH_REFILL_THRESHOLD)) {
-+	if (unlikely(count < CONFIG_FSL_DPAA_ETH_REFILL_THRESHOLD)) {
- 		do {
- 			new_bufs = _dpa_bp_add_8_bufs(dpa_bp);
- 			if (unlikely(!new_bufs)) {
-@@ -164,10 +164,10 @@ int dpaa_eth_refill_bpools(struct dpa_bp *dpa_bp, int *countptr)
- 				break;
- 			}
- 			count += new_bufs;
--		} while (count < FSL_DPAA_ETH_MAX_BUF_COUNT);
-+		} while (count < CONFIG_FSL_DPAA_ETH_MAX_BUF_COUNT);
- 
- 		*countptr = count;
--		if (unlikely(count < FSL_DPAA_ETH_MAX_BUF_COUNT))
-+		if (unlikely(count < CONFIG_FSL_DPAA_ETH_MAX_BUF_COUNT))
- 			return -ENOMEM;
- 	}
- 
+@@ -656,6 +656,7 @@ int __hot dpa_tx(struct sk_buff *skb, struct net_device *net_dev)
+ 	    likely(skb_shinfo(skb)->nr_frags < DPA_SGT_MAX_ENTRIES)) {
+ 		/* Just create a S/G fd based on the skb */
+ 		err = skb_to_sg_fd(priv, skb, &fd);
++		percpu_priv->tx_frag_skbuffs++;
+ 	} else {
+ 		/* Make sure we have enough headroom to accommodate private
+ 		 * data, parse results, etc. Normally this shouldn't happen if
 -- 
 1.7.11.7
