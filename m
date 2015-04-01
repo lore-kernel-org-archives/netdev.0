@@ -1,73 +1,47 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [RFC] iov_iter_get_pages() semantics
-Date: Wed, 1 Apr 2015 09:45:27 -0700
-Message-ID: <CA+55aFx0XbzyPJ8zYkSauhTAPVgkqTW5EubaZhg=QgOGHRGkpw@mail.gmail.com>
-References: <20141204202011.GO29748@ZenIV.linux.org.uk>
-	<20141208164650.GB29028@node.dhcp.inet.fi>
-	<20141208175805.GB22149@ZenIV.linux.org.uk>
-	<20141208180824.GC22149@ZenIV.linux.org.uk>
-	<CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
-	<20141208182012.GE22149@ZenIV.linux.org.uk>
-	<CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
-	<20141208184632.GG22149@ZenIV.linux.org.uk>
-	<CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
-	<20150401023311.GL29656@ZenIV.linux.org.uk>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [net-next PATCH] pktgen: add flag NO_TIMESTAMP to disable timestamping
+Date: Wed, 01 Apr 2015 09:48:56 -0700
+Message-ID: <551C2178.9070000@candelatech.com>
+References: <20140828161447.6652.59388.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150401023311.GL29656@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Robert Olsson <robert@herjulf.se>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:50252 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752042AbbDAQs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 12:48:57 -0400
+In-Reply-To: <20140828161447.6652.59388.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 31, 2015 at 7:33 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
->>
->> So the whole "get_page()" thing is broken. Iterating over pages in a
->> KVEC is simply wrong, wrong, wrong. It needs to fail.
->>
->> Iterating over a KVEC to *copy* data is ok. But no page lookup stuff
->> or page reference things.
->
-> Hmm...  FWIW, for ITER_KVEC the underlying data would bloody better not
-> go away anyway - vmalloc space or not.  Protecting the object from being
-> freed under us is caller's responsibility and caller can guarantee that.
-> Would a variant that does kmap_to_page()/vmalloc_to_page() _without_
-> get_page() for ITER_KVEC work sanely?
+On 08/28/2014 09:14 AM, Jesper Dangaard Brouer wrote:
+> Then testing the TX limits of the stack, then it is useful to
+> be-able to disable the do_gettimeofday() timetamping on every packet.
+> 
+> This implements a pktgen flag NO_TIMESTAMP which will disable this
+> call to do_gettimeofday().
+> 
+> The performance change on (my system E5-2695) with skb_clone=0, goes
+> from TX 2,423,751 pps to 2,567,165 pps with flag NO_TIMESTAMP. Thus,
+> the cost of do_gettimeofday() or saving is approx 23 nanosec.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-No.
+> +		else if (strcmp(f, "NO_TIMESTAMP") == 0)
+> +			pkt_dev->flags |= F_NO_TIMESTAMP;
+> +
 
-It's insane to iterate over 'struct page' pointers, whether you do
-get_page or not.
+While porting pktgen changes into my own modified pktgen logic, I noticed
+that there is no handling for !NO_TIMESTAMP, so it seems you cannot
+disable this once it is enabled?
 
-Why?
+Thanks,
+Ben
 
-The *only* thing you can do with those pages is to copy the content.
-You must never *ever* do anything else. And if the caller only copies
-the content, then the caller is *wrong* to use the page-iterators.
-
-It really is that simple. Either the caller cares about just the
-content - in which case it should use the normal "iterate over
-addresses" - or the caller somehow cares about 'struct page' itself,
-in which case it is *wrong* to do it over vmalloc space or random
-kernel mappings.
-
-You cannot have it both ways.
-
-In fact, even _if_ the caller just does a "kmap()" and then looks at
-the contents, it is very questionable to allow it for kernel or
-vmalloc data. Why? Because we actually do things like mark vmalloc
-areas read-only for module code etc, and using kmap() on the pages is
-just a way for bad users to more easily overcome things like that by
-mistake.
-
-So it's simply wrong in so many ways. There is absolutely *zero*
-excuse to look at "struct page" for random kernel data. You had better
-get the struct page some valid way - either by explicitly allocating
-the page as such, or by looking it up from a *valid* source (ie
-looking up a page range from a user mapping).
-
-                       Linus
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
