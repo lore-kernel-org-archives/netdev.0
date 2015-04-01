@@ -1,232 +1,79 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
-Date: Wed, 01 Apr 2015 15:55:00 -0500
-Message-ID: <1427921700.6874.8.camel@redhat.com>
-References: <1427409698.18540.11.camel@redhat.com>
-	 <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
-	 <1427749308.1913.28.camel@redhat.com>
-	 <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
-	 <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
-	 <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
+From: Tadeusz Struk <tadeusz.struk@intel.com>
+Subject: [PATCH v2 net-next] crypto: algif - explicitly mark end of data
+Date: Wed, 01 Apr 2015 13:53:06 -0700
+Message-ID: <20150401205305.22123.71178.stgit@tstruk-mobl1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57871 "EHLO mx1.redhat.com"
+Received: from mga14.intel.com ([192.55.52.115]:34226 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751496AbbDAUyi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 16:54:38 -0400
-In-Reply-To: <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
+	id S1752220AbbDAUzy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 16:55:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-01 at 13:24 -0700, Mahesh Bandewar wrote:
-> On Mon, Mar 30, 2015 at 9:22 PM, Dan Williams <dcbw@redhat.com> wrote:
-> > The broadcast MAC is supposed to be allowed whenever the device
-> > has an IPv4 address, otherwise ARP requests get dropped on the
-> > floor.  If ndo_set_rx_mode (and thus
-> > ipvlan_set_multicast_mac_filter()) got called after the address
-> > was added, it would blow away the broadcast MAC address in
-> > mac_filters that was added at IPv4 address addition.
-> >
-> > Next, ipvlan currently fails DHCP addressing for two reasons:
-> >
-> I would prefer DHCPv4 instead of DHCP since it could also mean DHCPv6
-> which does not use broadcast.
-> 
-> > 1) DHCP offers are typically unicast back to the device's MAC
-> > address, and at the IP layer have a destination IP address
-> > matching the new lease address.  In ipvlan unicast packets
-> > are checked against existing addresses assigned to the ipvlan
-> > interface, so clearly this fails hard because the ipvlan
-> > interface has no IP addresses yet.  Workaround: request
-> > that the server broadcast replies (-B for dhclient) which
-> > don't get checked against the address list.
-> >
-> > 2) Even when that's done, mac_filters only allows the
-> > broadcast MAC address when the interface has >= 1 IPv4
-> > addresses, so double-fail, and the incoming DHCP offer
-> > gets dropped on the floor again.
-> >
-> > To fix these issues, Watch for outgoing DHCP requests and
-> > enable the broadcast MAC address indefinitely when one is seen.
-> >
-> This approach will work but adds a performance drag for all UDP
-> traffic whether the link needs DHCPv4 or not (especially when it does
-> not need). Logic works well only when the link (always) needs DHCPv4.
-> When the link does not care about DHCPv4 the packet-inspection always
-> happens.
+After the TX sgl is expanded we need to explicitly mark end of data
+at the last buffer that contains data.
 
-If DHCPv4 is detected on a link, doesn't that mean the link needs the
-broadcast filter enabled?  If you start DHCPv4 on the link you obviously
-expect it to work, unless there's no DHCPv4 server available.  The patch
-should also reset the broadcast filter on close, so network management
-could simply start DHCPv4, watch it fail, close/open and set static IP.
+Changes in v2
+ - use type 'bool' and true/false for 'mark'.
 
-Alternatively we could have the broadcast filter on a 2 minute timer
-that starts when DHCPv4 is seen.
+Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
+---
+ crypto/algif_skcipher.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-> Do we really need to special case DHCPv4? Do you see problems in
-> inverting the current logic of adding broadcast bit (i.e. from
-> enable-if-IPv4 to disable-if-IPv6-only)?
-
-The problem with this is dual-stack configuration.  Typically both
-DHCPv4 and SLAAC are started in this case, and often SLAAC will complete
-earlier.  So now the interface only has an IPv6 address but DHCPv4 is
-still ongoing; as I understand your proposal the filter would now block
-broadcast packets that DHCPv4 is listening for.
-
-Dan
-
-> > Signed-off-by: Dan Williams <dcbw@redhat.com>
-> > ---
-> > NOTE: this patch supercedes my previous two ipvlan patches:
-> > [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
-> > [PATCH 2/2] ipvlan: always allow the broadcast MAC address
-> >
-> >  drivers/net/ipvlan/ipvlan.h      |  2 ++
-> >  drivers/net/ipvlan/ipvlan_core.c | 36 ++++++++++++++++++++++++++++++++++--
-> >  drivers/net/ipvlan/ipvlan_main.c | 12 +++++++++---
-> >  3 files changed, 45 insertions(+), 5 deletions(-)
-> >
-> > diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-> > index 924ea98..7e0b8ff 100644
-> > --- a/drivers/net/ipvlan/ipvlan.h
-> > +++ b/drivers/net/ipvlan/ipvlan.h
-> > @@ -67,6 +67,7 @@ struct ipvl_dev {
-> >         struct list_head        addrs;
-> >         int                     ipv4cnt;
-> >         int                     ipv6cnt;
-> > +       bool                    dhcp4_seen;
-> >         struct ipvl_pcpu_stats  __percpu *pcpu_stats;
-> >         DECLARE_BITMAP(mac_filters, IPVLAN_MAC_FILTER_SIZE);
-> >         netdev_features_t       sfeatures;
-> > @@ -118,4 +119,5 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
-> >  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
-> >                                         const void *iaddr, bool is_v6);
-> >  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
-> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set);
-> >  #endif /* __IPVLAN_H */
-> > diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> > index 2a17500..6dd992b 100644
-> > --- a/drivers/net/ipvlan/ipvlan_core.c
-> > +++ b/drivers/net/ipvlan/ipvlan_core.c
-> > @@ -126,6 +126,12 @@ static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
-> >                 lyr3h = arph;
-> >                 break;
-> >         }
-> > +       case htons(ETH_P_ALL): {
-> > +               /* Raw sockets */
-> > +               if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
-> > +                       break;
-> > +               /* Fall through */
-> > +       }
-> >         case htons(ETH_P_IP): {
-> >                 u32 pktlen;
-> >                 struct iphdr *ip4h;
-> > @@ -454,16 +460,42 @@ out:
-> >         return ipvlan_process_outbound(skb, ipvlan);
-> >  }
-> >
-> > +#define DHCP_PACKET_MIN_LEN 282
-> > +
-> > +static bool is_dhcp(struct sk_buff *skb)
-> > +{
-> > +       struct iphdr *ip4h = ip_hdr(skb);
-> > +       struct udphdr *udph;
-> > +
-> > +       if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
-> > +               || ip_is_fragment(ip4h))
-> > +               return false;
-> > +
-> > +       /* In the case of RAW sockets the transport header is not set by
-> > +        * the IP stack so we must set it ourselves.
-> > +        */
-> > +       if (skb->transport_header == skb->network_header)
-> > +               skb_set_transport_header(skb, ETH_HLEN + sizeof(struct iphdr));
-> > +       udph = udp_hdr(skb);
-> > +       return udph && udph->dest == htons(67) && udph->source == htons(68);
-> > +}
-> > +
-> >  static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
-> >  {
-> > -       const struct ipvl_dev *ipvlan = netdev_priv(dev);
-> > +       struct ipvl_dev *ipvlan = netdev_priv(dev);
-> >         struct ethhdr *eth = eth_hdr(skb);
-> >         struct ipvl_addr *addr;
-> >         void *lyr3h;
-> >         int addr_type;
-> >
-> > +       lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
-> > +       if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
-> > +           && is_dhcp(skb)) {
-> > +               ipvlan->dhcp4_seen = true;
-> > +               ipvlan_set_broadcast_mac_filter(ipvlan, true);
-> > +       }
-> > +
-> >         if (ether_addr_equal(eth->h_dest, eth->h_source)) {
-> > -               lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
-> >                 if (lyr3h) {
-> >                         addr = ipvlan_addr_lookup(ipvlan->port, lyr3h, addr_type, true);
-> >                         if (addr)
-> > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-> > index 4f4099d..a497fb9 100644
-> > --- a/drivers/net/ipvlan/ipvlan_main.c
-> > +++ b/drivers/net/ipvlan/ipvlan_main.c
-> > @@ -167,6 +167,8 @@ static int ipvlan_stop(struct net_device *dev)
-> >
-> >         dev_uc_del(phy_dev, phy_dev->dev_addr);
-> >
-> > +       ipvlan->dhcp4_seen = false;
-> > +
-> >         if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
-> >                 list_for_each_entry(addr, &ipvlan->addrs, anode)
-> >                         ipvlan_ht_addr_del(addr, !dev->dismantle);
-> > @@ -214,7 +216,7 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
-> >                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
-> >  }
-> >
-> > -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
-> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
-> >  {
-> >         struct net_device *dev = ipvlan->dev;
-> >         unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
-> > @@ -239,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
-> >                 netdev_for_each_mc_addr(ha, dev)
-> >                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
-> >
-> > +               if (ipvlan->ipv4cnt || ipvlan->dhcp4_seen)
-> > +                       __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
-> > +
-> >                 bitmap_copy(ipvlan->mac_filters, mc_filters,
-> >                             IPVLAN_MAC_FILTER_SIZE);
-> >         }
-> > @@ -467,6 +472,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
-> >         INIT_LIST_HEAD(&ipvlan->addrs);
-> >         ipvlan->ipv4cnt = 0;
-> >         ipvlan->ipv6cnt = 0;
-> > +       ipvlan->dhcp4_seen = false;
-> >
-> >         /* TODO Probably put random address here to be presented to the
-> >          * world but keep using the physical-dev address for the outgoing
-> > @@ -708,8 +714,8 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
-> >         list_del_rcu(&addr->anode);
-> >         ipvlan->ipv4cnt--;
-> >         WARN_ON(ipvlan->ipv4cnt < 0);
-> > -       if (!ipvlan->ipv4cnt)
-> > -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
-> > +       if (!ipvlan->ipv4cnt && !ipvlan->dhcp4_seen)
-> > +               ipvlan_set_broadcast_mac_filter(ipvlan, false);
-> >         kfree_rcu(addr, rcu);
-> >
-> >         return;
-> > --
-> > 2.1.0
-> >
-> >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+index 8276f21..5eff93f 100644
+--- a/crypto/algif_skcipher.c
++++ b/crypto/algif_skcipher.c
+@@ -509,11 +509,11 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
+ 	struct skcipher_async_req *sreq;
+ 	struct ablkcipher_request *req;
+ 	struct skcipher_async_rsgl *last_rsgl = NULL;
+-	unsigned int len = 0, tx_nents = skcipher_all_sg_nents(ctx);
++	unsigned int txbufs = 0, len = 0, tx_nents = skcipher_all_sg_nents(ctx);
+ 	unsigned int reqlen = sizeof(struct skcipher_async_req) +
+ 				GET_REQ_SIZE(ctx) + GET_IV_SIZE(ctx);
+-	int i = 0;
+ 	int err = -ENOMEM;
++	bool mark = false;
+ 
+ 	lock_sock(sk);
+ 	req = kmalloc(reqlen, GFP_KERNEL);
+@@ -555,7 +555,7 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
+ 			     iov_iter_count(&msg->msg_iter));
+ 		used = min_t(unsigned long, used, sg->length);
+ 
+-		if (i == tx_nents) {
++		if (txbufs == tx_nents) {
+ 			struct scatterlist *tmp;
+ 			int x;
+ 			/* Ran out of tx slots in async request
+@@ -573,10 +573,11 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
+ 			kfree(sreq->tsg);
+ 			sreq->tsg = tmp;
+ 			tx_nents *= 2;
++			mark = true;
+ 		}
+ 		/* Need to take over the tx sgl from ctx
+ 		 * to the asynch req - these sgls will be freed later */
+-		sg_set_page(sreq->tsg + i++, sg_page(sg), sg->length,
++		sg_set_page(sreq->tsg + txbufs++, sg_page(sg), sg->length,
+ 			    sg->offset);
+ 
+ 		if (list_empty(&sreq->list)) {
+@@ -604,6 +605,9 @@ static int skcipher_recvmsg_async(struct socket *sock, struct msghdr *msg,
+ 		iov_iter_advance(&msg->msg_iter, used);
+ 	}
+ 
++	if (mark)
++		sg_mark_end(sreq->tsg + txbufs - 1);
++
+ 	ablkcipher_request_set_crypt(req, sreq->tsg, sreq->first_sgl.sgl.sg,
+ 				     len, sreq->iv);
+ 	err = ctx->enc ? crypto_ablkcipher_encrypt(req) :
