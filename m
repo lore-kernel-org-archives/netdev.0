@@ -1,34 +1,88 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 0/4] netns: enhance netlink interface for nsid
-Date: Wed,  1 Apr 2015 14:49:45 +0200
-Message-ID: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:55534 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753442AbbDAMuI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 08:50:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: Re: Re: [Fix kernel crash in cipso_v4_sock_delattr ]
+Date: Wed, 01 Apr 2015 13:07:20 +0000 (GMT)
+Message-ID: <1233624800.241631427893638492.JavaMail.weblogic@epmlwas09b>
+Reply-To: maninder1.s@samsung.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Vaneet Narang <v.narang@samsung.com>,
+	AJEET YADAV <ajeet.y@samsung.com>
+To: Casey Schaufler <casey@schaufler-ca.com>,
+	Maninder Singh <maninder1.s@samsung.com>,
+	Paul Moore <paul@paul-moore.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-The first patch has been cherry-picked from the net tree to avoid any conflict
-later.
-
-The second patch is a small cleanup. The third patch implements notifications
-for netns id events. And the last one allows to dump existing netns id from
-userland.
-
-iproute2 patches are available, I can send them on demand.
-
-The diffstat does not include the first patch.
-
- include/uapi/linux/rtnetlink.h |   4 ++
- net/core/net_namespace.c       | 103 +++++++++++++++++++++++++++++++++++++----
- 2 files changed, 97 insertions(+), 10 deletions(-)
-
-Comments are welcome.
-
-Regards,
-Nicolas
+V2UgaGF2ZSBydW4gdHJpbml0eSB0b29sIG9uIHNtYWNrIGVuYWJsZSBzeXN0ZW0uIGxpa2UgYmVs
+b3c6LQ0KDQojLi90cmluaXR5IC1jIHNlbmR0byAtLWRhbmdlcm91cw0KQWZ0ZXIgc29tZSB0aW1l
+IHdlIGFyZSBhYmxlIHRvIGNyYXNoIHRoZSBrZXJuZWw6LQ0KDQpbPGMwNGM4MDg0Pl0gKGNpcHNv
+X3Y0X3NvY2tfZGVsYXR0cisweDAvMHg3NCkgZnJvbSBbPGMwNTE3YzQ0Pl0gKG5ldGxibF9zb2Nr
+X2RlbGF0dHIrMHgxOC8weDFjKQ0KIHI0OjAwMDAwMDAwIHIzOmMwNzg3MmY4DQpbPGMwNTE3YzJj
+Pl0gKG5ldGxibF9zb2NrX2RlbGF0dHIrMHgwLzB4MWMpIGZyb20gWzxjMDI3YjNlMD5dIChzbWFj
+a19uZXRsYWJlbCsweDg4LzB4OWMpDQpbPGMwMjdiMzU4Pl0gKHNtYWNrX25ldGxhYmVsKzB4MC8w
+eDljKSBmcm9tIFs8YzAyN2I1MjA+XSAoc21hY2tfbmV0bGFiZWxfc2VuZCsweDEyYy8weDE0NCkN
+CiByNzpkOWNlZTNjMCByNjpkN2IwMWVmNCByNTpjMDc2ZjQwOCByNDpkODhjODRjMA0KWzxjMDI3
+YjNmND5dIChzbWFja19uZXRsYWJlbF9zZW5kKzB4MC8weDE0NCkgZnJvbSBbPGMwMjdiNThjPl0g
+KHNtYWNrX3NvY2tldF9zZW5kbXNnKzB4NTQvMHg2MCkNCls8YzAyN2I1Mzg+XSAoc21hY2tfc29j
+a2V0X3NlbmRtc2crMHgwLzB4NjApIGZyb20gWzxjMDI3OGFkMD5dIChzZWN1cml0eV9zb2NrZXRf
+c2VuZG1zZysweDI4LzB4MmMpDQpbPGMwMjc4YWE4Pl0gKHNlY3VyaXR5X3NvY2tldF9zZW5kbXNn
+KzB4MC8weDJjKSBmcm9tIFs8YzA0MzQ0OTA+XSAoc29ja19zZW5kbXNnKzB4NjgvMHhjMCkNCls8
+YzA0MzQ0Mjg+XSAoc29ja19zZW5kbXNnKzB4MC8weGMwKSBmcm9tIFs8YzA0MzZhYzg+XSAoU3lT
+X3NlbmR0bysweGQ4LzB4MTEwKQ0KIHI3OjAxNDAwMTE4IHI2OjAwMDAwMDdmIHI1OmRhMzA4YTAw
+IHI0OmMwNzZmNDA4DQpbPGMwNDM2OWYwPl0gKFN5U19zZW5kdG8rMHgwLzB4MTEwKSBmcm9tIFs8
+YzAwMTIyODA+XSAocmV0X2Zhc3Rfc3lzY2FsbCsweDAvMHg0OCkNCkNvZGU6IGU1OTAzMjAwIGUx
+YTA0MDAwIGUzNTMwMDAwIDA4OWRhODE4IChlNWQzMzAxNikNCltTRUxQXSB3aGlsZSBsb29wIC4u
+LiBwbGVhc2UgYXR0YWNoIFQzMi4uLg0KDQpBbmQgYWZ0ZXIgZnVydGhlciBkZWJ1Z2dpbmcgd2Ug
+ZmluZCB0aGlzIGNyYXNoIGFsd2F5cyBjb21lIHdpdGggTmV0bGluayBzb2NrZXQuDQpBbmQgZXhj
+ZXB0IHRoaSBBUEkgIm5ldGxibF9zb2NrX2RlbGF0dHIiICBhbGwgb3RoZXIgcmVsYXRlZCBOZXRs
+YWJlbCBBUElzIGhhdmUgY2hlY2sgdG8gdmFsaWRhdGUgc29ja2V0IGZhbWlseS4NClRoYXRzIHdo
+eSB3ZSBhZGRlZCBzb2NrZXQgZmFtaWx5IGNoZWNrIGZvciB0aGlzIEFQSSAibmV0bGJsX3NvY2tf
+ZGVsYXR0ciIgYW5kIHJlc29sdmVzIG91ciBpc3N1ZS4NCg0KVGhhbmtzIA0KTWFuaW5kZXIgU2lu
+Z2gNCg0KT24gMy8zMC8yMDE1IDEwOjA5IFBNLCBNYW5pbmRlciBTaW5naCB3cm90ZToNCj4gV2Ug
+YXJlIGN1cnJlbnRseSB1c2luZyAzLjEwLjU4IGtlcm5lbCBhbmQgIHdlIGFyZSBmYWNpbmcgdGhp
+cyBpc3N1ZSBmb3Igc2FtY2sgZW5hYmxlZCBzeXN0ZW0uDQo+IGFuZCBhcyB3ZSBjYW4gY2hlY2sg
+aW4gb3RoZXIgQVBJcyBsaWtlIG5ldGxibF9zb2NrX2dldGF0dHIgYW5kIG5ldGxibF9jb25uX3Nl
+dGF0dHIgaGF2ZSB0aGlzIHByZXZlbnRpdmUgY2hlY2sgc28gd2UgYWRkZWQgdGhpcyBjaGVjayBm
+b3IgbmV0bGJsX3NvY2tfZGVsYXR0ciBhbHNvLg0KPg0KPiBBbmQgcmVnYXJkaW5nIHBhdGNoIHJl
+LXN1Ym1pc3Npb24sIGFjdHVhbGx5IHdlIGhhdmUgcnVuIGNoZWNrcGF0Y2gucGwgYmVmb3JlIHN1
+Ym1pc3Npb24oc3VjY2Vzc2Z1bGwpICBCdXQgd2hlbiB3ZSBzdWJtaXQgdGhlIHBhdGNoIG91ciBl
+ZGl0b3IgY2hhbmdlcyB0YWJzIGludG8gc3BhY2UsIHdlIHdpbGwgcmVzdWJtaXR0IHRoZSBwYXRj
+aCBBU0FQLg0KDQpGdXJ0aGVyIHJldmlldyBzaG93cyB0aGF0IHRoZSBTbWFjayBjb2RlIGluIDMu
+MTAuNzIgKEkgZG9uJ3QgYmVsaWV2ZSBpdCBjaGFuZ2VkDQphZnRlciAzLjEwLjU4KSBhbHJlYWR5
+IGNoZWNrcyBmb3IgdGhlIGFkZHJlc3MgZmFtaWx5IGJlaW5nIEFGX0lORVQuIFRoaXMgd291bGQg
+aW5kaWNhdGUNCnRoYXQgdGhlIG5ldGxpbmsgY29kZSBpcyBzZW5kaW5nIGdhcmJhZ2UgdG8gc2Vj
+dXJpdHlfc29ja2V0X3NlbmRtc2coKS4NCg0KQ2FuIHlvdSBwcm92aWRlIGEgbW9yZSBzcGVjaWZp
+YyB0ZXN0IGNhc2U/IEkgd291bGQgbGlrZSB0byBzZWUgaWYgdGhpcyBwcm9ibGVtIGlzDQpwcmVz
+ZW50IGluIG5ld2VyIGtlcm5lbHMuDQoNCj4NCj4gTWFuaW5kZXIgU2luZ2gNCj4gLS0tLS0tLSBP
+cmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0NCj4gU2VuZGVyIDogQ2FzZXkgU2NoYXVmbGVyDQo+IERh
+dGUgOiBNYXIgMzEsIDIwMTUgMDI6MjUgKEdNVCswOTowMCkNCj4gVGl0bGUgOiBSZTogW0ZpeCBr
+ZXJuZWwgY3Jhc2ggaW4gY2lwc29fdjRfc29ja19kZWxhdHRyIF0NCj4NCj4gT24gMy8zMC8yMDE1
+IDQ6MzIgQU0sIFBhdWwgTW9vcmUgd3JvdGU6DQo+PiBPbiBNb25kYXksIE1hcmNoIDMwLCAyMDE1
+IDExOjA5OjAwIEFNIE1hbmluZGVyIFNpbmdoIHdyb3RlOg0KPj4+IERlYXIgQWxsLA0KPj4+IHdl
+IGZvdW5kIE9uZSBLZXJuZWwgQ3Jhc2ggaXNzdWUgaW4gY2lwc29fdjRfc29ja19kZWxhdHRyIDot
+DQo+Pj4gQXMgQ2lwc28gc3VwcG9ydHMgb25seSBpbmV0IHNvY2tldHMgc28gY2lwc29fdjRfc29j
+a19kZWxhdHRyIHdpbGwgY3Jhc2ggd2hlbg0KPj4+IHRyeSB0byBhY2Nlc3MgYW55IG90aGVyIHNv
+Y2tldCB0eXBlLiAgY2lwc29fdjRfc29ja19kZWxhdHRyIGFjY2Vzcw0KPj4+IHNrX2luZXQtPmlu
+ZXRfb3B0IHdoaWNoIG1heSBjb250YWluIG5vdCBOVUxMIGJ1dCBpbnZhbGlkIGFkZHJlc3MuIHdl
+IGZvdW5kDQo+Pj4gdGhpcyBpc3N1ZSB3aXRoIG5ldGxpbmsgc29ja2V0LihyZXByb2R1Y2libGUg
+YnkgdHJpbml0eSB1c2luZyBzZW5kdG8gc3lzdGVtDQo+Pj4gY2FsbCAuKSANCj4+IEhlbGxvLA0K
+Pj4NCj4+IEZpcnN0LCBwbGVhc2UgZ28gcmVhZCB0aGUgRG9jdW1lbnRhdGlvbi9TdWJtaXR0aW5n
+UGF0Y2hlcyBmcm9tIHRoZSBrZXJuZWwgDQo+PiBzb3VyY2VzOyB5b3VyIHBhdGNoIG5lZWRzIHRv
+IGJlIHJlc3VibWl0dGVkIGFuZCB0aGUgaW5zdHJ1Y3Rpb25zIGluIHRoYXQgZmlsZSANCj4+IHdp
+bGwgc2hvdyB5b3UgaG93IHRvIGRvIGl0IGNvcnJlY3RseSBuZXh0IHRpbWUuDQo+Pg0KPj4gU2Vj
+b25kLCB0aGlzIGFwcGVhcnMgdG8gb25seSBhZmZlY3QgU21hY2sgYmFzZWQgc3lzdGVtcywgeWVz
+PyAgU0VMaW51eCBiYXNlZCANCj4+IHN5c3RlbXMgc2hvdWxkIGhhdmUgdGhlIHByb3BlciBjaGVj
+a2luZyBpbiBwbGFjZSB0byBwcmV2ZW50IHRoaXMgKHRoZSBjaGVja3MgDQo+PiBhcmUgaGFuZGxl
+ZCBpbiB0aGUgTFNNKS4NCj4gVGhpcyBsb29rcyBsaWtlIGEgcHJvYmxlbSB0aGF0IHdhcyBmaXhl
+ZCBzb21lIHRpbWUgYWdvLg0KPiBUaGUgY3VycmVudCBTbWFjayBjb2RlIGNsZWFybHkgY2hlY2tz
+IGZvciB0aGlzLiBXaGF0IGtlcm5lbA0KPiB2ZXJzaW9uIGFyZSB5b3UgdGVzdGluZyBhZ2FpbnN0
+Pw0KPg0KPj4gVGhhdCBzYWlkLCBpdCBwcm9iYWJseSB3b3VsZG4ndCBodXJ0IHRvIGFkZCB0aGUg
+DQo+PiBleHRyYSBjaGVja2luZyB0byBuZXRsYmxfc29ja19kZWxhdHRyKCkuICBJZiB5b3UgcHJv
+cGVybHkgcmVzdWJtaXQgeW91ciBwYXRjaCANCj4+IEknbGwgQUNLIGl0Lg0KPj4NCj4+IC1QYXVs
+DQo=
