@@ -1,45 +1,92 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] checkpatch/SubmittingPatches: Suggest line wrapping
- commit messages at 72 columns
-Date: Wed, 01 Apr 2015 12:28:46 -0700
-Message-ID: <1427916526.31790.69.camel@perches.com>
-References: <1427634005-4313-1-git-send-email-ipm@chirality.org.uk>
-	 <20150331.135338.519327316482059081.davem@davemloft.net>
-	 <1427825806.10376.42.camel@perches.com>
-	 <1427827225.18175.3.camel@perches.com>
-	 <20150401122001.f0203b0ddac348db14e5822a@linux-foundation.org>
+Subject: [PATCH net-next] vxge: Add const to ethtool_driver_stats_keys
+Date: Wed, 01 Apr 2015 12:29:13 -0700
+Message-ID: <1427916553.31790.70.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jonathan Corbet <corbet@lwn.net>,
-	David Miller <davem@davemloft.net>,
-	Ian Morris <ipm@chirality.org.uk>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-doc <linux-doc@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20150401122001.f0203b0ddac348db14e5822a@linux-foundation.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jon Mason <jdmason@kudzu.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0096.hostedemail.com ([216.40.44.96]:55160 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753368AbbDAT3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 15:29:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-01 at 12:20 -0700, Andrew Morton wrote:
-> On Tue, 31 Mar 2015 11:40:25 -0700 Joe Perches <joe@perches.com> wrote:
-> 
-> > Commit messages are sometimes overly long.
-> > Suggest line wrapping at 72 columns.
-> 
-> waah, I use 75 and this patch has ruined my life.
+Move about half a KB of data to text.
 
-hmm... 1/4/15 or is it 4/1/15?
+Miscellanea:
 
-> Is there some way I can disable just this check without patching
-> checkpatch?  I suspect a lot of people will be interested in doing
-> this ;)
+o Move strings out of the .h file into the .c file
+  in case the .h file is ever #included twice
 
-You could s/72/75/.  I won't care.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ethernet/neterion/vxge/vxge-ethtool.c | 19 +++++++++++++++++++
+ drivers/net/ethernet/neterion/vxge/vxge-ethtool.h | 19 -------------------
+ 2 files changed, 19 insertions(+), 19 deletions(-)
 
-Using "./scripts/checkpatch.pl --ignore=commit_log_long_line"
-would work too.
-
-
-
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+index b07d552..be916eb 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+@@ -18,6 +18,25 @@
+ 
+ #include "vxge-ethtool.h"
+ 
++static const char ethtool_driver_stats_keys[][ETH_GSTRING_LEN] = {
++	{"\n DRIVER STATISTICS"},
++	{"vpaths_opened"},
++	{"vpath_open_fail_cnt"},
++	{"link_up_cnt"},
++	{"link_down_cnt"},
++	{"tx_frms"},
++	{"tx_errors"},
++	{"tx_bytes"},
++	{"txd_not_free"},
++	{"txd_out_of_desc"},
++	{"rx_frms"},
++	{"rx_errors"},
++	{"rx_bytes"},
++	{"rx_mcast"},
++	{"pci_map_fail_cnt"},
++	{"skb_alloc_fail_cnt"}
++};
++
+ /**
+  * vxge_ethtool_sset - Sets different link parameters.
+  * @dev: device pointer.
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+index 6cf3044..065a2c0 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
++++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+@@ -19,25 +19,6 @@
+ /* Ethtool related variables and Macros. */
+ static int vxge_ethtool_get_sset_count(struct net_device *dev, int sset);
+ 
+-static char ethtool_driver_stats_keys[][ETH_GSTRING_LEN] = {
+-	{"\n DRIVER STATISTICS"},
+-	{"vpaths_opened"},
+-	{"vpath_open_fail_cnt"},
+-	{"link_up_cnt"},
+-	{"link_down_cnt"},
+-	{"tx_frms"},
+-	{"tx_errors"},
+-	{"tx_bytes"},
+-	{"txd_not_free"},
+-	{"txd_out_of_desc"},
+-	{"rx_frms"},
+-	{"rx_errors"},
+-	{"rx_bytes"},
+-	{"rx_mcast"},
+-	{"pci_map_fail_cnt"},
+-	{"skb_alloc_fail_cnt"}
+-};
+-
+ #define VXGE_TITLE_LEN			5
+ #define VXGE_HW_VPATH_STATS_LEN 	27
+ #define VXGE_HW_AGGR_STATS_LEN  	13
