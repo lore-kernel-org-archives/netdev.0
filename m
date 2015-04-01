@@ -1,122 +1,257 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH RFC 05/10] dpaa_eth: add driver's Tx queue selection mechanism
-Date: Wed, 1 Apr 2015 19:19:51 +0300
-Message-ID: <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
+Subject: [PATCH RFC 10/10] dpaa_eth: add trace points
+Date: Wed, 1 Apr 2015 19:19:56 +0300
+Message-ID: <1427905196-27778-9-git-send-email-madalin.bucur@freescale.com>
 References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
+ <1427905196-27778-8-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>,
-	Madalin Bucur <madalin.bucur@freescale.com>
+	Madalin Bucur <madalin.bucur@freescale.com>,
+	Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
 To: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
+In-Reply-To: <1427905196-27778-8-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow the selection of the transmission queue based on the CPU id.
+Add trace points on the hot processing path.
 
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+Signed-off-by: Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
 ---
- drivers/net/ethernet/freescale/dpaa/Kconfig           | 11 +++++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c        |  3 +++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h        |  6 ++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c |  9 +++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h |  4 ++++
- 5 files changed, 33 insertions(+)
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   1 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  12 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   | 143 +++++++++++++++++++++
+ 4 files changed, 160 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
-index 9db7d25..a124639 100644
---- a/drivers/net/ethernet/freescale/dpaa/Kconfig
-+++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
-@@ -11,6 +11,17 @@ menuconfig FSL_DPAA_ETH
+diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
+index 867ec81..4f9a619 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Makefile
++++ b/drivers/net/ethernet/freescale/dpaa/Makefile
+@@ -11,6 +11,7 @@ ccflags-y += -I$(FMAN)/flib
+ obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
  
- if FSL_DPAA_ETH
- 
-+config FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+	bool "Use driver's Tx queue selection mechanism"
-+	default y
-+	depends on FSL_DPAA_ETH
-+	---help---
-+	  The DPAA-Ethernet driver defines a ndo_select_queue() callback for optimal selection
-+	  of the egress FQ. That will override the XPS support for this netdevice.
-+	  If for whatever reason you want to be in control of the egress FQ-to-CPU selection and mapping,
-+	  or simply don't want to use the driver's ndo_select_queue() callback, then unselect this
-+	  and use the standard XPS support instead.
-+
- config FSL_DPAA_ETH_MAX_BUF_COUNT
- 	int "Maximum nuber of buffers in private bpool"
- 	depends on FSL_DPAA_ETH
+ fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
++CFLAGS_dpaa_eth.o := -I$(src)
+ ifeq ($(CONFIG_FSL_DPAA_ETH_DEBUGFS),y)
+ fsl_dpa-objs += dpaa_debugfs.o
+ endif
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 036e272..6ca637d 100644
+index a7875fb..8190c3d 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -388,6 +388,9 @@ static const struct net_device_ops dpa_private_ops = {
- 	.ndo_get_stats64 = dpa_get_stats64,
- 	.ndo_set_mac_address = dpa_set_mac_address,
- 	.ndo_validate_addr = eth_validate_addr,
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+	.ndo_select_queue = dpa_select_queue,
-+#endif
- 	.ndo_change_mtu = dpa_change_mtu,
- 	.ndo_set_rx_mode = dpa_set_rx_mode,
- 	.ndo_init = dpa_ndo_init,
+@@ -62,6 +62,12 @@
+ #include "dpaa_debugfs.h"
+ #endif /* CONFIG_FSL_DPAA_ETH_DEBUGFS */
+ 
++/* CREATE_TRACE_POINTS only needs to be defined once. Other dpa files
++ * using trace events only need to #include <trace/events/sched.h>
++ */
++#define CREATE_TRACE_POINTS
++#include "dpaa_eth_trace.h"
++
+ #define DPA_NAPI_WEIGHT		64
+ 
+ /* Valid checksum indication */
+@@ -227,6 +233,9 @@ priv_rx_default_dqrr(struct qman_portal		*portal,
+ 	priv = netdev_priv(net_dev);
+ 	dpa_bp = priv->dpa_bp;
+ 
++	/* Trace the Rx fd */
++	trace_dpa_rx_fd(net_dev, fq, &dq->fd);
++
+ 	/* IRQ handler, non-migratable; safe to use raw_cpu_ptr here */
+ 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
+ 	count_ptr = raw_cpu_ptr(dpa_bp->percpu_count);
+@@ -283,6 +292,9 @@ priv_tx_conf_default_dqrr(struct qman_portal		*portal,
+ 	net_dev = ((struct dpa_fq *)fq)->net_dev;
+ 	priv = netdev_priv(net_dev);
+ 
++	/* Trace the fd */
++	trace_dpa_tx_conf_fd(net_dev, fq, &dq->fd);
++
+ 	/* Non-migratable context, safe to use raw_cpu_ptr */
+ 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
+ 
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 5f3157d..da2fd6b 100644
+index 83f89f4..133a3f2 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -431,9 +431,15 @@ static inline void _dpa_assign_wq(struct dpa_fq *fq)
- 	}
- }
+@@ -36,6 +36,7 @@
  
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+/* Use in lieu of skb_get_queue_mapping() */
-+#define dpa_get_queue_mapping(skb) \
-+	smp_processor_id()
-+#else
- /* Use the queue selected by XPS */
- #define dpa_get_queue_mapping(skb) \
- 	skb_get_queue_mapping(skb)
-+#endif
+ #include "fm_ext.h"
+ #include "mac.h"
++#include "dpaa_eth_trace.h"
  
- static inline void _dpa_bp_free_pf(void *addr)
- {
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index 1fdb35d..eb7a4a0 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -615,6 +615,15 @@ bool dpa_bpid2pool_use(int bpid)
- 	return false;
- }
+ extern int dpa_rx_extra_headroom;
+ extern int dpa_max_frm;
+@@ -423,6 +424,9 @@ static inline int __hot dpa_xmit(struct dpa_priv_s *priv,
+ 				_dpa_get_tx_conf_queue(priv, egress_fq)
+ 				);
  
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback)
-+{
-+	return dpa_get_queue_mapping(skb);
-+}
-+EXPORT_SYMBOL(dpa_select_queue);
-+#endif
++	/* Trace this Tx fd */
++	trace_dpa_tx_fd(priv->net_dev, egress_fq, fd);
 +
- struct dpa_fq *dpa_fq_alloc(struct device *dev,
- 			    const struct fqid_cell *fqids,
- 			    struct list_head *list,
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-index 9b1774e..de5b68e 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
-@@ -89,6 +89,10 @@ struct dpa_bp *dpa_bpid2pool(int bpid);
- void dpa_bpid2pool_map(int bpid, struct dpa_bp *dpa_bp);
- bool dpa_bpid2pool_use(int bpid);
- void dpa_bp_drain(struct dpa_bp *bp);
-+#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
-+u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-+		     void *accel_priv, select_queue_fallback_t fallback);
-+#endif
- struct dpa_fq *dpa_fq_alloc(struct device *dev,
- 			    const struct fqid_cell *fqids,
- 			    struct list_head *list,
+ 	for (i = 0; i < 100000; i++) {
+ 		err = qman_enqueue(egress_fq, fd, 0);
+ 		if (err != -EBUSY)
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+new file mode 100644
+index 0000000..e00d116
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+@@ -0,0 +1,143 @@
++/* Copyright 2013-2015 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM	dpaa_eth
++
++#if !defined(_DPAA_ETH_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _DPAA_ETH_TRACE_H
++
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include "dpaa_eth.h"
++#include <linux/tracepoint.h>
++
++#define fd_format_name(format)	{ qm_fd_##format, #format }
++#define fd_format_list	\
++	fd_format_name(contig),	\
++	fd_format_name(sg)
++#define TR_FMT "[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u," \
++	" status=0x%08x"
++
++/* This is used to declare a class of events.
++ * individual events of this type will be defined below.
++ */
++
++/* Store details about a frame descriptor and the FQ on which it was
++ * transmitted/received.
++ */
++DECLARE_EVENT_CLASS(dpaa_eth_fd,
++	/* Trace function prototype */
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
++
++	/* Repeat argument list here */
++	TP_ARGS(netdev, fq, fd),
++
++	/* A structure containing the relevant information we want to record.
++	 * Declare name and type for each normal element, name, type and size
++	 * for arrays. Use __string for variable length strings.
++	 */
++	TP_STRUCT__entry(
++		__field(u32,	fqid)
++		__field(u64,	fd_addr)
++		__field(u8,	fd_format)
++		__field(u16,	fd_offset)
++		__field(u32,	fd_length)
++		__field(u32,	fd_status)
++		__string(name,	netdev->name)
++	),
++
++	/* The function that assigns values to the above declared fields */
++	TP_fast_assign(
++		__entry->fqid = fq->fqid;
++		__entry->fd_addr = qm_fd_addr_get64(fd);
++		__entry->fd_format = fd->format;
++		__entry->fd_offset = dpa_fd_offset(fd);
++		__entry->fd_length = dpa_fd_length(fd);
++		__entry->fd_status = fd->status;
++		__assign_str(name, netdev->name);
++	),
++
++	/* This is what gets printed when the trace event is triggered */
++	TP_printk(TR_FMT,
++		  __get_str(name), __entry->fqid, __entry->fd_addr,
++		  __print_symbolic(__entry->fd_format, fd_format_list),
++		  __entry->fd_offset, __entry->fd_length, __entry->fd_status)
++);
++
++/* Now declare events of the above type. Format is:
++ * DEFINE_EVENT(class, name, proto, args), with proto and args same as for class
++ */
++
++/* Tx (egress) fd */
++DEFINE_EVENT(dpaa_eth_fd, dpa_tx_fd,
++
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
++
++	TP_ARGS(netdev, fq, fd)
++);
++
++/* Rx fd */
++DEFINE_EVENT(dpaa_eth_fd, dpa_rx_fd,
++
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
++
++	TP_ARGS(netdev, fq, fd)
++);
++
++/* Tx confirmation fd */
++DEFINE_EVENT(dpaa_eth_fd, dpa_tx_conf_fd,
++
++	TP_PROTO(struct net_device *netdev,
++		 struct qman_fq *fq,
++		 const struct qm_fd *fd),
++
++	TP_ARGS(netdev, fq, fd)
++);
++
++/* If only one event of a certain type needs to be declared, use TRACE_EVENT().
++ * The syntax is the same as for DECLARE_EVENT_CLASS().
++ */
++
++#endif /* _DPAA_ETH_TRACE_H */
++
++/* This must be outside ifdef _DPAA_ETH_TRACE_H */
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH .
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE	dpaa_eth_trace
++#include <trace/define_trace.h>
 -- 
 1.7.11.7
