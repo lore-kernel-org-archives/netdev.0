@@ -1,7 +1,7 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
 Subject: Re: [PATCH] ath10k: core: match wait_for_completion_timeout return type
-Date: Wed, 1 Apr 2015 20:18:42 +0300
-Message-ID: <87wq1vydfw.fsf@kamboji.qca.qualcomm.com>
+Date: Wed, 1 Apr 2015 20:19:26 +0300
+Message-ID: <87sicjydep.fsf@kamboji.qca.qualcomm.com>
 References: <1426325858-19808-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
