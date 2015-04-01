@@ -1,94 +1,99 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
- and act front-end
-Date: Wed, 01 Apr 2015 10:48:31 +0200
-Message-ID: <551BB0DF.2050600@iogearbox.net>
-References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net> <551B7F41.3080203@plumgrid.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [RFC PATCH v3 1/2] can: fix multiple delivery of a single
+ CAN frame for overlapping CAN filters
+Date: Wed, 01 Apr 2015 11:07:33 +0200
+Message-ID: <551BB555.7030808@pengutronix.de>
+References: <1427867429-3909-1-git-send-email-socketcan@hartkopp.net> <1427867429-3909-2-git-send-email-socketcan@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, tgraf@suug.ch, netdev@vger.kernel.org,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Alexei Starovoitov <ast@plumgrid.com>, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51513 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718AbbDAIsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 04:48:42 -0400
-In-Reply-To: <551B7F41.3080203@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="nQK8KglDtWRQ0OOgCdTXCQEKl0GgiSvLJ"
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com
+To: Oliver Hartkopp <socketcan@hartkopp.net>, linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1427867429-3909-2-git-send-email-socketcan@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/01/2015 07:16 AM, Alexei Starovoitov wrote:
-> On 3/30/15 3:35 PM, Daniel Borkmann wrote:
->> +static inline void act_update_drop_map(void)
->> +{
->> +    uint32_t *count, cpu = get_smp_processor_id();
->> +
->> +    count = bpf_map_lookup_elem(&map_drops, &cpu);
->> +    if (count)
->> +        __sync_fetch_and_add(count, 1);
->
-> since this function demonstrates poor man's per-cpu counters we can use
-> regular *count++ instead of atomic.
-> Just picking nits :)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--nQK8KglDtWRQ0OOgCdTXCQEKl0GgiSvLJ
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Okay, that's fine.
+On 04/01/2015 07:50 AM, Oliver Hartkopp wrote:
+> The CAN_RAW socket can set multiple CAN identifier specific filters tha=
+t lead
+> to multiple filters in the af_can.c filter processing. These filters ar=
+e
+> indenpendent from each other which leads to logical OR'ed filters when =
+applied.
+>=20
+> This patch makes sure that every CAN frame which is filtered for a spec=
+ific
+> socket is only delivered once to the user space. This is independent fr=
+om the
+> number of matching CAN filters of this socket.
+>=20
+> As the raw_rcv() function is executed from NET_RX softirq the introduce=
+d
+> variables are implemented as per-CPU variables to avoid extensive locki=
+ng at
+> CAN frame reception time.
+>=20
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> ---
+>  net/can/raw.c | 21 +++++++++++++++++++++
+>  1 file changed, 21 insertions(+)
+>=20
+> diff --git a/net/can/raw.c b/net/can/raw.c
+> index 00c13ef..8c75446 100644
+> --- a/net/can/raw.c
+> +++ b/net/can/raw.c
+> @@ -74,6 +74,11 @@ MODULE_ALIAS("can-proto-1");
+>   * storing the single filter in dfilter, to avoid using dynamic memory=
+=2E
+>   */
+> =20
+> +struct uniqframe {
+> +	const struct sk_buff *skb;
+> +	ktime_t tstamp;
+> +};
 
-[...]
->> +/* tc ELF map ABI */
->> +struct bpf_elf_map {
->> +    uint32_t type;
->> +    uint32_t id;
->> +    uint32_t size_key;
->> +    uint32_t size_value;
->> +    uint32_t max_elem;
->> +};
->
-> can you change 'id' being last, so that TC+bpf programs from
-> samples/bpf/ that don't have 'id' concept can also be loaded?
+Nitpick: as ktime_t is always a 64 bit value, I think putting it first
+might provide better alignment.
 
-Will do.
+No need to repost, I'll change this while applying, if you're okay with
+this.
 
->> +#ifndef min
->> +# define min(x, y) ({            \
->> +    typeof(x) _min1 = (x);        \
->> +    typeof(y) _min2 = (y);        \
->> +    (void) (&_min1 == &_min2);    \
->> +    _min1 < _min2 ? _min1 : _min2; })
->> +#endif
-> ...
->> +#ifndef min
->> +# define min(x, y) ({            \
->> +    typeof(x) _min1 = (x);        \
->> +    typeof(y) _min2 = (y);        \
->> +    (void) (&_min1 == &_min2);    \
->> +    _min1 < _min2 ? _min1 : _min2; })
->> +#endif
->
-> two 'min' macros in different files?
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Yes, I actually wanted to have a stand alone C file, but okay,
-I can see to include from utils.h.
 
->> -static inline int bpf_open_object(const char *path, enum bpf_prog_type type)
->> +static inline int bpf_open_object(const char *path, enum bpf_prog_type type,
->> +                  const char *sec)
->>   {
->>       errno = ENOSYS;
->>       return -1;
->>   }
->
-> while playing with it, I hit the ENOSYS first, since my user space
-> is quite old. Can you add a human readable printf message here and other
-> places, so we don't have to recompile tc with -g and run gdb on it?
-> I think it will help distributions to configure dependencies of iproute2
-> as well.
+--nQK8KglDtWRQ0OOgCdTXCQEKl0GgiSvLJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Will do and respin.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
->
-> Great work! Thanks a lot!
+iQIcBAEBCgAGBQJVG7VYAAoJECte4hHFiupUj1sQAIPG2+4EieP0RYpgl++BnHNb
+26rV07VldX0mxngwg67gob+9OOVNEHjrKfdDiBb4fdv/sIs5UujSSQt8qwm9dfdC
+3wX/aI2DIehjOpE3eZd8a4tN3cgXBLo0avKpZF/zOXlaqdDbqxuFKPI8PSkq1ANw
+IqwdB/qyfLR7FT8Qu78cEbHt/KGrNrsEoZyZ8wYhQ2vZhY0vibEP/z0SPpJ4lH1J
+ugAcgF3Thi6I/f0s/TNMmaHLceSzJkXPnLWHpRQDrVNOQl8WxTZ366z/2XXJg8yj
+/1V5Xdg+2EIsoyO7z+GsFJFIaErMmqo0mD44vwxnVr3fjbn0jDjznvRM/ApN8b6I
+yTELuOsiI4Jyr78d1V+S0hMN3dbgUsBxitF3TsVn9qF0FQXI1gzgk7C2OZlHvf1m
+QyX6xbiXvi9qp9glVLS6U+ZJg12ber/rYaF3i729x1EcI3FKQv60LpjGAEUp11xy
+WO3ssN1WsJalxM4QxaE4QQGv/9wAPNx6bDHfKGODjVJ+0hrk9ezbY7Zyy7LI189v
+6aOOZkGlDh5qY/3ug83PWVV2nBKDv4Mniasp879J7IteWW7+VarvBYgclkm4fO2E
+Qu+xLyuDkj039FcAwbXYvUWpHssra/OPehNLl/icm93+suKvHrpXdyh8AU92JPti
+yQBK3DdnDFFDJJAZ1K+n
+=UebI
+-----END PGP SIGNATURE-----
 
-Thanks, Alexei!
+--nQK8KglDtWRQ0OOgCdTXCQEKl0GgiSvLJ--
