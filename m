@@ -1,58 +1,70 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 11/18] switchdev: remove old netdev_switch_port_bridge_setlink
-Date: Wed, 01 Apr 2015 08:03:27 -0400
-Message-ID: <551BDE8F.9040907@mojatatu.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>	<1427704836-8776-12-git-send-email-sfeldma@gmail.com>	<55194E63.5010100@cumulusnetworks.com>	<CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>	<E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>	<CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>	<E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>	<20150331055235.GB1994@nanopsycho.orion>	<E4CD12F19ABA0C4D8729E087A761DC35067FB3E2@ORSMSX101.amr.corp.intel.com>	<20150331215245.GA6515@nanopsycho.orion>	<E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com> <CAE4R7bCeRxP2Kg_4jg4v6m6S+3NFpMcxO4vC-WeDG48GPkCtuw@mail.gmail.com>
+Subject: Re: [PATCH net-next v2 01/26] switchdev: introduce get/set attrs
+ ops
+Date: Wed, 01 Apr 2015 08:19:00 -0400
+Message-ID: <551BE234.2060308@mojatatu.com>
+References: <1427882882-2533-1-git-send-email-sfeldma@gmail.com> <1427882882-2533-2-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	roopa <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
+	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
+	ronen.arad@intel.com
+To: sfeldma@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:38397 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbbDAMDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 08:03:30 -0400
-Received: by igbqf9 with SMTP id qf9so43395748igb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 05:03:29 -0700 (PDT)
-In-Reply-To: <CAE4R7bCeRxP2Kg_4jg4v6m6S+3NFpMcxO4vC-WeDG48GPkCtuw@mail.gmail.com>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:34223 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324AbbDAMTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 08:19:02 -0400
+Received: by iedfl3 with SMTP id fl3so45978629ied.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 05:19:02 -0700 (PDT)
+In-Reply-To: <1427882882-2533-2-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/31/15 22:38, Scott Feldman wrote:
+On 04/01/15 06:07, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
+>
+> Add two new swdev ops for get/set switch port attributes.  Most swdev
+> interactions on a port are gets or sets on port attributes, so rather than
+> adding ops for each attribute, let's define clean get/set ops for all
+> attributes, and then we can have clear, consistent rules on how attributes
+> propagate on stacked devs.
+>
+> Add the basic algorithms for get/set attr ops.  Use the same recusive algo to
+> walk lower devs we've used for STP updates, for example.  For get, compare attr
+> value for each lower dev and only return success if attr values match across
+> all lower devs.
+
+So this GET is very specific? All underlying children have to have the
+exact same value?
+My impression of GET is, depending on the target object, i retrieve
+one thing or a lot of things that probably user space is asking for.
+I wasnt getting that impression looking at this code.
+
+  For sets, set the same attr value for all lower devs.  If
+> something goes wrong on one of the lower devs, revert all back to previous attr
+> value.
+
+And from staring at the code - the reverting could fail as well..
 
 >
-> It sounds like vendor extensions need to be supported someway,
-> someday.
-
-
-I agree. This is one of those impendance mismatch things. There are
-scenarios where the feature may not be generic enough. But whatever
-feature it is - eventually we should get it back into mainstream.
-The danger of backdoors that Jiri alludes to is there.
-
-
-> Maybe let's table vendor extensions for the time being and
-> continue our focus on shared infrastructure: the things we know are
-> common for all vendors.  We still have a lot of work just getting the
-> common bits working.  Then we can take additional features one at a
-> time and see if they're shared or vendor-specific.  In the meantime,
-> there are always back doors such as genl for vendor to use; there is
-> nothing preventing that.
+> If lower dev recusion isn't desired, allow a flag SWDEV_F_NO_RECURSE to
+> indicate get/set only work on port (lowest) device.
+>
+> On set, allow a flag SWDEV_F_NO_RECOVER to turn off automatic err recovery.
 >
 
-And now i disagree. Did you read the back of your netdev tshirt? Quote:
----
-I also don't buy the argument that "people can put arbitrary changes
-into their kernel to do stuff like that".
----
 
-Vendors can do whatever they want. We just should not be aiding them to
-put proprietary shit. I want to stop coding around SDKs. Help me.
+uh-oh did i read that last one correctly?;-> I dont see it in the code
+but are you now allowing for policy to dictate whether we want something
+atomic or not? That should be a generic much higher level flag imo.
+Note, I am for supporting the different scenarios but i thought
+the initial approach was all transactions are atomic (all-or-nothing).
+
+Also why invent new namespace for these switch attributes? They all seem
+to have netlink IDs already. I note in patches afterwards are using the
+netlink IDs.
 
 cheers,
 jamal
