@@ -1,109 +1,152 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH nf-next 04/14] netfilter: bridge: start splitting mask into public/private chunks
-Date: Wed,  1 Apr 2015 22:36:30 +0200
-Message-ID: <1427920600-20366-5-git-send-email-fw@strlen.de>
+Subject: [PATCH nf-next 03/14] netfilter: bridge: don't use nf_bridge_info data to store mac header
+Date: Wed,  1 Apr 2015 22:36:29 +0200
+Message-ID: <1427920600-20366-4-git-send-email-fw@strlen.de>
 References: <1427920600-20366-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42841 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42840 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753104AbbDAUg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:56 -0400
+	by vger.kernel.org with ESMTP id S1752935AbbDAUgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 16:36:55 -0400
 In-Reply-To: <1427920600-20366-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-->mask is a bit info field that mixes various use cases.
+Currently br_netfilter maintains an extra state, nf_bridge_info,
+which is attached to skb via skb->nf_bridge pointer.  Amongst
+other things we use skb->nf_bridge->data to store the original
+mac header for every processed skb.
 
-In particular, we have flags that are mutually exlusive, and flags that
-are only used within br_netfilter while others need to be exposed to
-other parts of the kernel.
+This is required for ip refragmentation when using conntrack
+on top of bridge, because ip_fragment doesn't copy it from original skb.
 
-Remove BRNF_8021Q/PPPoE flags.  They're mutually exclusive and only
-needed within br_netfilter context.
+However there is no need anymore to do this unconditionally.
+
+Move this to the one place where its needed -- when br_netfilter calls
+ip_fragment().
+
+Also switch to percpu storage for this so we can handle fragmenting
+without accessing nf_bridge meta data.
+
+After this change, only one user of skb->nf_bridge->data is left.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- include/linux/netfilter_bridge.h |  2 --
- include/linux/skbuff.h           |  5 +++++
- net/bridge/br_netfilter.c        | 17 ++++++++++++-----
- 3 files changed, 17 insertions(+), 7 deletions(-)
+ net/bridge/br_netfilter.c | 57 ++++++++++++++++++++++++++---------------------
+ 1 file changed, 32 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index b131613..848226e 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -20,8 +20,6 @@ enum nf_br_hook_priorities {
- #define BRNF_PKT_TYPE			0x01
- #define BRNF_BRIDGED_DNAT		0x02
- #define BRNF_NF_BRIDGE_PREROUTING	0x08
--#define BRNF_8021Q			0x10
--#define BRNF_PPPoE			0x20
- 
- int br_handle_frame_finish(struct sk_buff *skb);
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 36f3f43..fe1b557 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -166,6 +166,11 @@ struct nf_conntrack {
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- struct nf_bridge_info {
- 	atomic_t		use;
-+	enum {
-+		BRNF_PROTO_UNCHANGED,
-+		BRNF_PROTO_8021Q,
-+		BRNF_PROTO_PPPOE
-+	} orig_proto;
- 	unsigned int		mask;
- 	struct net_device	*physindev;
- 	struct net_device	*physoutdev;
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 6ccb1af..8c86f37 100644
+index c0c8700..6ccb1af 100644
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
-@@ -257,10 +257,16 @@ drop:
+@@ -111,6 +111,19 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ 	 pppoe_proto(skb) == htons(PPP_IPV6) && \
+ 	 brnf_filter_pppoe_tagged)
  
- static void nf_bridge_update_protocol(struct sk_buff *skb)
- {
--	if (skb->nf_bridge->mask & BRNF_8021Q)
-+	switch (skb->nf_bridge->orig_proto) {
-+	case BRNF_PROTO_8021Q:
- 		skb->protocol = htons(ETH_P_8021Q);
--	else if (skb->nf_bridge->mask & BRNF_PPPoE)
-+		break;
-+	case BRNF_PROTO_PPPOE:
- 		skb->protocol = htons(ETH_P_PPP_SES);
-+		break;
-+	case BRNF_PROTO_UNCHANGED:
-+		break;
-+	}
- }
- 
- /* PF_BRIDGE/PRE_ROUTING *********************************************/
-@@ -498,10 +504,11 @@ static struct net_device *setup_pre_routing(struct sk_buff *skb)
- 	nf_bridge->mask |= BRNF_NF_BRIDGE_PREROUTING;
- 	nf_bridge->physindev = skb->dev;
- 	skb->dev = brnf_get_logical_dev(skb, skb->dev);
++/* largest possible L2 header, see br_nf_dev_queue_xmit() */
++#define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
 +
- 	if (skb->protocol == htons(ETH_P_8021Q))
--		nf_bridge->mask |= BRNF_8021Q;
-+		nf_bridge->orig_proto = BRNF_PROTO_8021Q;
- 	else if (skb->protocol == htons(ETH_P_PPP_SES))
--		nf_bridge->mask |= BRNF_PPPoE;
-+		nf_bridge->orig_proto = BRNF_PROTO_PPPOE;
- 
- 	/* Must drop socket now because of tproxy. */
- 	skb_orphan(skb);
-@@ -836,7 +843,7 @@ static int br_nf_push_frag_xmit(struct sk_buff *skb)
- 
- static unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
++#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
++struct brnf_frag_data {
++	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
++	u8 encap_size;
++	u8 size;
++};
++
++static DEFINE_PER_CPU(struct brnf_frag_data, brnf_frag_data_storage);
++#endif
++
+ static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
  {
--	if (skb->nf_bridge->mask & BRNF_PPPoE)
-+	if (skb->nf_bridge->orig_proto == BRNF_PROTO_PPPOE)
- 		return PPPOE_SES_HLEN;
- 	return 0;
+ 	struct net_bridge_port *port;
+@@ -189,14 +202,6 @@ static inline void nf_bridge_pull_encap_header_rcsum(struct sk_buff *skb)
+ 	skb->network_header += len;
  }
+ 
+-static inline void nf_bridge_save_header(struct sk_buff *skb)
+-{
+-	int header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
+-
+-	skb_copy_from_linear_data_offset(skb, -header_size,
+-					 skb->nf_bridge->data, header_size);
+-}
+-
+ /* When handing a packet over to the IP layer
+  * check whether we have a skb that is in the
+  * expected format
+@@ -810,30 +815,22 @@ static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
+ }
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+-static bool nf_bridge_copy_header(struct sk_buff *skb)
++static int br_nf_push_frag_xmit(struct sk_buff *skb)
+ {
++	struct brnf_frag_data *data;
+ 	int err;
+-	unsigned int header_size;
+ 
+-	nf_bridge_update_protocol(skb);
+-	header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
+-	err = skb_cow_head(skb, header_size);
+-	if (err)
+-		return false;
+-
+-	skb_copy_to_linear_data_offset(skb, -header_size,
+-				       skb->nf_bridge->data, header_size);
+-	__skb_push(skb, nf_bridge_encap_header_len(skb));
+-	return true;
+-}
++	data = this_cpu_ptr(&brnf_frag_data_storage);
++	err = skb_cow_head(skb, data->size);
+ 
+-static int br_nf_push_frag_xmit(struct sk_buff *skb)
+-{
+-	if (!nf_bridge_copy_header(skb)) {
++	if (err) {
+ 		kfree_skb(skb);
+ 		return 0;
+ 	}
+ 
++	skb_copy_to_linear_data_offset(skb, -data->size, data->mac, data->size);
++	__skb_push(skb, data->encap_size);
++
+ 	return br_dev_queue_push_xmit(skb);
+ }
+ 
+@@ -864,6 +861,8 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ 	 * size as mtu if it is set.
+ 	 */
+ 	if (skb->len > mtu) {
++		struct brnf_frag_data *data;
++
+ 		if (!skb->ignore_df) /* was not a defragmented */
+ 			goto err_out;
+ 
+@@ -877,6 +876,15 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ 		if (br_parse_ip_options(skb))
+ 			goto err_out;
+ 
++		nf_bridge_update_protocol(skb);
++
++		data = this_cpu_ptr(&brnf_frag_data_storage);
++		data->encap_size = nf_bridge_encap_header_len(skb);
++		data->size = ETH_HLEN + data->encap_size;
++
++		skb_copy_from_linear_data_offset(skb, -data->size, data->mac,
++						 data->size);
++
+ 		ret = ip_fragment(skb, mtu, br_nf_push_frag_xmit);
+ 	} else {
+ 		ret = br_dev_queue_push_xmit(skb);
+@@ -932,7 +940,6 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
+ 	}
+ 
+ 	nf_bridge_pull_encap_header(skb);
+-	nf_bridge_save_header(skb);
+ 	if (pf == NFPROTO_IPV4)
+ 		skb->protocol = htons(ETH_P_IP);
+ 	else
 -- 
 2.0.5
