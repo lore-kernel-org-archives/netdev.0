@@ -1,61 +1,67 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [RFC] iov_iter_get_pages() semantics
-Date: Wed, 1 Apr 2015 11:34:12 -0700
-Message-ID: <CA+55aFxVVoZTGwibiNE9AtjPZ41ODQcNBKkQEepV5fiG=QsKfg@mail.gmail.com>
-References: <20141208164650.GB29028@node.dhcp.inet.fi>
-	<20141208175805.GB22149@ZenIV.linux.org.uk>
-	<20141208180824.GC22149@ZenIV.linux.org.uk>
-	<CA+55aFxwrH4vsyw2ix=HqDK9Z=fw98xtOL8=57prm8qgVmAFfA@mail.gmail.com>
-	<20141208182012.GE22149@ZenIV.linux.org.uk>
-	<CA+55aFxrrTV-xBbvEzVKsXRVKyvZhQZj-6BNDpTsG4J5k6CJEg@mail.gmail.com>
-	<20141208184632.GG22149@ZenIV.linux.org.uk>
-	<CA+55aFyh0cV+ztK47mu1QN6aF4VvPE1V5zF7_X2TdYxZ38zZRA@mail.gmail.com>
-	<20150401023311.GL29656@ZenIV.linux.org.uk>
-	<CA+55aFx0XbzyPJ8zYkSauhTAPVgkqTW5EubaZhg=QgOGHRGkpw@mail.gmail.com>
-	<20150401180801.GA889@ZenIV.linux.org.uk>
-	<CA+55aFyOZ5LD-mAOb_OafJe-VMy0hxrgOCB5hJ=GXJAFP7e8dQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
+ dereference inside the stack
+Date: Wed, 01 Apr 2015 14:40:36 -0400 (EDT)
+Message-ID: <20150401.144036.1354401396349418295.davem@davemloft.net>
+References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFyOZ5LD-mAOb_OafJe-VMy0hxrgOCB5hJ=GXJAFP7e8dQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59705 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540AbbDASki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 14:40:38 -0400
+In-Reply-To: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 1, 2015 at 11:26 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> IOW, it's fine to do IO on 'struct page', but it should be
-> *controlled* and you damn well need to _own_ that struct page and its
-> lifetime, no just "look up random struct page from some kernel
-> address".
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed,  1 Apr 2015 17:07:44 +0200
 
-.. and finally, the reason I feel so strongly about this is that we
-*already* had a bug exactly here where you tried to make kvec's "more
-generic" and it was just wrong, wrong, wrong.  It's just dangerous to
-randomly allow these things.
+> From: "hannes@stressinduktion.org" <hannes@stressinduktion.org>
+> 
+> We should not consult skb->sk for output decisions in xmit recursion
+> levels > 0 in the stack. Otherwise local socket settings could influence
+> the result of e.g. tunnel encapsulation process.
+> 
+> ipv6 does not conform with this in three places:
+> 
+> 1) ip6_fragment: we do consult ipv6_npinfo for frag_size
+> 
+> 2) sk_mc_loop in ipv6 uses skb->sk and checks if we should
+>    loop the packet back to the local socket
+> 
+> 3) ip6_skb_dst_mtu could query the settings from the user socket and
+>    force a wrong MTU
+> 
+> Furthermore:
+> In sk_mc_loop we could potentially land in WARN_ON(1) if we use a
+> PF_PACKET socket ontop of an IPv6-backed vxlan device.
+> 
+> Reuse xmit_recursion as we are currently only interested in protecting
+> tunnel devices.
+> 
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> 
+> Jiri tried to fix this bug by passing down the tunnel sock pointer.
+> Currently there should be no difference in behaviour with this patch.
+> 
+> http://patchwork.ozlabs.org/patch/380404/
+> http://patchwork.ozlabs.org/patch/380406/
+> http://patchwork.ozlabs.org/patch/380405/
+> 
+> In case we do need more specific fragmentation setup semantics we would
+> need to go with Jiri's approach. Currently we don't care about sk_mc_loop
+> for kernel sockets, so it is easy to just shut them up. Other options
+> are safe as well.
+> 
+> Please review carefully!
 
-When we map things into user space, such mappings have some rules
-about them (ie they have to be full pages, they haev to actually be
-special or refcounted etc etc). Kernel mappings simply don't have
-those rules. Not even vmalloc, exactly because we sometimes play games
-with kernel mappings. But vmalloc space is at least better than random
-"just kernel addresses" which is even worse, since they could be stack
-pages or SLAB pages or whatever.
+As a short term solution I guess this is fine.
 
-And slab allocations, for example, do *not* honor the page count, even
-though such pages do have page counts. The slab allocations can be
-reused for other things freely, completely regardless of whether
-somebody incremented the page count or not.
-
-And yes, people do things like "kernel_read()" on just normal
-kmalloc() allocations. So no, I do *not* think that it's ok to "just
-make zero-copy kernel_read() work on kernel addresses by turning them
-into 'struct page' and then do whop-the-hell-knows-what random things
-with such a 'struct page').
-
-                       Linus
+I'll let this sit for a day or two so others can review the change.
