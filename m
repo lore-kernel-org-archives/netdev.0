@@ -1,55 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: relax BR_GROUPFWD_RESTRICTED to
- forward LLDP frames
-Date: Wed, 01 Apr 2015 15:28:45 -0400 (EDT)
-Message-ID: <20150401.152845.1522826021699870645.davem@davemloft.net>
-References: <1427063051-1236-1-git-send-email-bernhard.thaler@wvnet.at>
-	<1427666762-23683-1-git-send-email-bernhard.thaler@wvnet.at>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] checkpatch/SubmittingPatches: Suggest line wrapping
+ commit messages at 72 columns
+Date: Wed, 01 Apr 2015 12:28:46 -0700
+Message-ID: <1427916526.31790.69.camel@perches.com>
+References: <1427634005-4313-1-git-send-email-ipm@chirality.org.uk>
+	 <20150331.135338.519327316482059081.davem@davemloft.net>
+	 <1427825806.10376.42.camel@perches.com>
+	 <1427827225.18175.3.camel@perches.com>
+	 <20150401122001.f0203b0ddac348db14e5822a@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: bernhard.thaler@wvnet.at
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1427666762-23683-1-git-send-email-bernhard.thaler@wvnet.at>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: Jonathan Corbet <corbet@lwn.net>,
+	David Miller <davem@davemloft.net>,
+	Ian Morris <ipm@chirality.org.uk>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-doc <linux-doc@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20150401122001.f0203b0ddac348db14e5822a@linux-foundation.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernhard Thaler <bernhard.thaler@wvnet.at>
-Date: Mon, 30 Mar 2015 00:06:02 +0200
+On Wed, 2015-04-01 at 12:20 -0700, Andrew Morton wrote:
+> On Tue, 31 Mar 2015 11:40:25 -0700 Joe Perches <joe@perches.com> wrote:
+> 
+> > Commit messages are sometimes overly long.
+> > Suggest line wrapping at 72 columns.
+> 
+> waah, I use 75 and this patch has ruined my life.
 
-> BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
-> /sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
-> some IEEE 802.1D Table 7-10 Reserved addresses:
-> 
-> 	(MAC Control) 802.3		01-80-C2-00-00-01
-> 	(Link Aggregation) 802.3	01-80-C2-00-00-02
-> 	802.1AB LLDP			01-80-C2-00-00-0E
-> 
-> Relax BR_GROUPFWD_RESTRICTED to at least forward LLDP frames and document
-> group_fwd_mask.
-> 
-> e.g.
->    echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
-> allows to forward LLDP frames.
-> 
-> Tested on a simple bridge setup with two interfaces. Setting group_fwd_mask
-> as described above lets crafted LLDP frames traverse bridge.
-> 
-> Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+hmm... 1/4/15 or is it 4/1/15?
 
-I don't understand why we want to allow forwarding LLDP by default, it
-specifically is the case that an 802.1D bridge is only compliant if it
-does not forward LLDP packets.
+> Is there some way I can disable just this check without patching
+> checkpatch?  I suspect a lot of people will be interested in doing
+> this ;)
 
-We've blocked forwarding of LLDP by default for such a long time, so I
-argue against this change from the perspective of users expecting LLDP
-to be not forwarded by the Linux bridge by default.
+You could s/72/75/.  I won't care.
+
+Using "./scripts/checkpatch.pl --ignore=commit_log_long_line"
+would work too.
+
+
+
