@@ -1,26 +1,27 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH RFC 01/10] devres: add devm_alloc_percpu()
-Date: Wed, 01 Apr 2015 09:32:01 -0700
-Message-ID: <1427905921.31790.23.camel@perches.com>
-References: <1427905179-27755-1-git-send-email-madalin.bucur@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] caif: remove unused struct member
+Date: Wed, 01 Apr 2015 12:43:22 -0400 (EDT)
+Message-ID: <20150401.124322.2224846262582355297.davem@davemloft.net>
+References: <1427810723-21234-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org
-To: madalin.bucur@freescale.com
+Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@rasmusvillemoes.dk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427905179-27755-1-git-send-email-madalin.bucur@freescale.com>
+In-Reply-To: <1427810723-21234-1-git-send-email-linux@rasmusvillemoes.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
-> Introduce managed counterparts for alloc_percpu() and free_percpu().
-> Add devm_alloc_percpu() and devm_free_percpu() into the managed
-> interfaces list.
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Tue, 31 Mar 2015 16:05:23 +0200
 
-It'd be nice to add include <linux/percpu.h> to these
-files rather than get included indirectly via module.h
+> The tty_name member of struct ser_device is never set or used, so it
+> can be removed. (The definition of struct ser_device is private to
+> this .c file, and the identifier tty_name only occurs in this one
+> place.)
+> 
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 
->  drivers/base/devres.c                 | 63 +++++++++++++++++++++++++++++++++++
->  include/linux/device.h                | 19 +++++++++++
+Applied, thanks.
