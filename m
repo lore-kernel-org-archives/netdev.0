@@ -1,60 +1,57 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2015-04-01
-Date: Wed, 01 Apr 2015 15:46:09 +0200
-Message-ID: <1427895969.3428.9.camel@sipsolutions.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
+ and act front-end
+Date: Wed, 01 Apr 2015 16:13:20 +0200
+Message-ID: <551BFD00.1090303@iogearbox.net>
+References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net> <551BE636.7040505@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: ast@plumgrid.com, jiri@resnulli.us, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:58637 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752117AbbDANqP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 09:46:15 -0400
+Received: from www62.your-server.de ([213.133.104.62]:51108 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753241AbbDAONd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 10:13:33 -0400
+In-Reply-To: <551BE636.7040505@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 04/01/2015 02:36 PM, Jamal Hadi Salim wrote:
+> On 03/30/15 18:35, Daniel Borkmann wrote:
+>> This work finalizes both eBPF front-ends for the classifier and action
+>> part in tc, it allows for custom ELF section selection, a simplified tc
+>> command frontend (while keeping compat), reusing of common maps between
+>> classifier and actions residing in the same object file, and exporting
+>> of all map fds to an eBPF agent for handing off further control in user
+>> space.
+>>
+>> It also adds an extensive example of how eBPF can be used, and a minimal
+>> self-contained example agent that dumps map data. The example is well
+>> documented and hopefully provides a good starting point into programming
+>> cls_bpf and act_bpf.
+>
+> This is excellent work Daniel.
 
-This morning I randomly ran into a kernel crash and then I looked into
-it and came up with this fix. It's clearly been around for quite a while
-without anyone having seen it before (to my knowledge), so if you think
-you don't want to pull it into net.git at this point that should be
-fine.
+Thanks, Jamal! ;)
 
-Let me know what you want to do with it, I can also put it into
-mac80211-next instead (although then Greg complains that he gets a lot
-of Cc stable patches in rc1, but all the processes need time ...).
+[...]
+> I realize you are doing this to illustrate the power of ebpf. And it
+> is impressive. Do you see this as a way to replace pieces of the
+> kernel stack or to aid and abate what the kernel already does?
+
+I see it as a way to offer a generic, fast and 'safe' option for
+classifier and action developers to have a programmable data path
+in the traffic control subsystem in the kernel, which I think is
+very powerful and important in various use-cases. I regard it as
+a similar way and elegant solution as tcpdump or nftables resolve
+their problems internally, in other words, to provide a _generic_
+solution to address _specific, customized_ issues. Perhaps an anti
+feature-bloat, if you will. ;) My viewpoint is that this ties well
+together into the kernel landscape, and also makes us improve
+various other subsystems that it makes use of, successively.
 
 Thanks,
-johannes
-
-
-The following changes since commit f84eaa1068315409ffbef57e6fea312180787db3:
-
-  mac80211: ignore CSA to same channel (2015-03-16 09:36:12 +0100)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2015-04-01
-
-for you to fetch changes up to 788211d81bfdf9b6a547d0530f206ba6ee76b107:
-
-  mac80211: fix RX A-MPDU session reorder timer deletion (2015-04-01 14:35:01 +0200)
-
-----------------------------------------------------------------
-This contains just a single fix for a crash I happened to randomly
-run into today during testing. It's clearly been around for a while,
-but is pretty hard to trigger, even when I tried explicitly (and
-modified the code to make it more likely) it rarely did.
-
-----------------------------------------------------------------
-Johannes Berg (1):
-      mac80211: fix RX A-MPDU session reorder timer deletion
-
- net/mac80211/agg-rx.c   | 8 ++++++--
- net/mac80211/rx.c       | 7 ++++---
- net/mac80211/sta_info.h | 2 ++
- 3 files changed, 12 insertions(+), 5 deletions(-)
+Daniel
