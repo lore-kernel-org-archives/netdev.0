@@ -1,12 +1,10 @@
 From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH RFC 07/10] dpaa_eth: add sysfs exports
-Date: Wed, 1 Apr 2015 19:19:53 +0300
-Message-ID: <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
+Subject: [PATCH RFC 05/10] dpaa_eth: add driver's Tx queue selection mechanism
+Date: Wed, 1 Apr 2015 19:19:51 +0300
+Message-ID: <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
 References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
  <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
- <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
- <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
 Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,245 +12,111 @@ Cc: <linux-kernel@vger.kernel.org>,
 	Madalin Bucur <madalin.bucur@freescale.com>
 To: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
+In-Reply-To: <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export Frame Queue and Buffer Pool IDs through sysfs.
+Allow the selection of the transmission queue based on the CPU id.
 
 Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
 ---
- drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   2 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   3 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  |   2 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   | 168 +++++++++++++++++++++
- 5 files changed, 176 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+ drivers/net/ethernet/freescale/dpaa/Kconfig           | 11 +++++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c        |  3 +++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h        |  6 ++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c |  9 +++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h |  4 ++++
+ 5 files changed, 33 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
-index d17f67e..8a72163 100644
---- a/drivers/net/ethernet/freescale/dpaa/Makefile
-+++ b/drivers/net/ethernet/freescale/dpaa/Makefile
-@@ -10,4 +10,4 @@ ccflags-y += -I$(FMAN)/flib
+diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
+index 9db7d25..a124639 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Kconfig
++++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
+@@ -11,6 +11,17 @@ menuconfig FSL_DPAA_ETH
  
- obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
+ if FSL_DPAA_ETH
  
--fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o
-+fsl_dpa-objs += dpaa_eth.o dpaa_eth_sg.o dpaa_eth_common.o dpaa_ethtool.o dpaa_eth_sysfs.o
++config FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
++	bool "Use driver's Tx queue selection mechanism"
++	default y
++	depends on FSL_DPAA_ETH
++	---help---
++	  The DPAA-Ethernet driver defines a ndo_select_queue() callback for optimal selection
++	  of the egress FQ. That will override the XPS support for this netdevice.
++	  If for whatever reason you want to be in control of the egress FQ-to-CPU selection and mapping,
++	  or simply don't want to use the driver's ndo_select_queue() callback, then unselect this
++	  and use the standard XPS support instead.
++
+ config FSL_DPAA_ETH_MAX_BUF_COUNT
+ 	int "Maximum nuber of buffers in private bpool"
+ 	depends on FSL_DPAA_ETH
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 6ca637d..f50638e7 100644
+index 036e272..6ca637d 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -747,6 +747,8 @@ dpaa_eth_priv_probe(struct platform_device *pdev)
- 	if (err < 0)
- 		goto netdev_init_failed;
- 
-+	dpaa_eth_sysfs_init(&net_dev->dev);
-+
- 	pr_info("Probed interface %s\n", net_dev->name);
- 
- 	return 0;
+@@ -388,6 +388,9 @@ static const struct net_device_ops dpa_private_ops = {
+ 	.ndo_get_stats64 = dpa_get_stats64,
+ 	.ndo_set_mac_address = dpa_set_mac_address,
+ 	.ndo_validate_addr = eth_validate_addr,
++#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
++	.ndo_select_queue = dpa_select_queue,
++#endif
+ 	.ndo_change_mtu = dpa_change_mtu,
+ 	.ndo_set_rx_mode = dpa_set_rx_mode,
+ 	.ndo_init = dpa_ndo_init,
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index da2fd6b..117627b 100644
+index 5f3157d..da2fd6b 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -345,6 +345,9 @@ static inline u16 dpa_get_headroom(struct dpa_buffer_layout_s *bl)
- 	return bl->data_align ? ALIGN(headroom, bl->data_align) : headroom;
+@@ -431,9 +431,15 @@ static inline void _dpa_assign_wq(struct dpa_fq *fq)
+ 	}
  }
  
-+void dpaa_eth_sysfs_remove(struct device *dev);
-+void dpaa_eth_sysfs_init(struct device *dev);
-+
- void dpa_private_napi_del(struct net_device *net_dev);
++#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
++/* Use in lieu of skb_get_queue_mapping() */
++#define dpa_get_queue_mapping(skb) \
++	smp_processor_id()
++#else
+ /* Use the queue selected by XPS */
+ #define dpa_get_queue_mapping(skb) \
+ 	skb_get_queue_mapping(skb)
++#endif
  
- static inline void clear_fd(struct qm_fd *fd)
+ static inline void _dpa_bp_free_pf(void *addr)
+ {
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-index acefc2b..7921b64 100644
+index 1fdb35d..eb7a4a0 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
-@@ -294,6 +294,8 @@ int __cold dpa_remove(struct platform_device *pdev)
+@@ -615,6 +615,15 @@ bool dpa_bpid2pool_use(int bpid)
+ 	return false;
+ }
  
- 	priv = netdev_priv(net_dev);
- 
-+	dpaa_eth_sysfs_remove(dev);
-+
- 	dev_set_drvdata(dev, NULL);
- 	unregister_netdev(net_dev);
- 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-new file mode 100644
-index 0000000..c2b59b9
---- /dev/null
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-@@ -0,0 +1,168 @@
-+/* Copyright 2008-2015 Freescale Semiconductor Inc.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Freescale Semiconductor nor the
-+ *	 names of its contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
-+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-+ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/kthread.h>
-+#include <linux/io.h>
-+#include <linux/of_net.h>
-+#include "dpaa_eth.h"
-+#include "mac.h"		/* struct mac_device */
-+
-+static ssize_t dpaa_eth_show_addr(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
++#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
++u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
++		     void *accel_priv, select_queue_fallback_t fallback)
 +{
-+	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
-+	struct mac_device *mac_dev = priv->mac_dev;
-+
-+	if (mac_dev)
-+		return sprintf(buf, "%llx",
-+				(unsigned long long)mac_dev->res->start);
-+	else
-+		return sprintf(buf, "none");
++	return dpa_get_queue_mapping(skb);
 +}
++EXPORT_SYMBOL(dpa_select_queue);
++#endif
 +
-+static ssize_t dpaa_eth_show_fqids(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
-+{
-+	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
-+	ssize_t bytes = 0;
-+	int i = 0;
-+	char *str;
-+	struct dpa_fq *fq;
-+	struct dpa_fq *tmp;
-+	struct dpa_fq *prev = NULL;
-+	u32 first_fqid = 0;
-+	u32 last_fqid = 0;
-+	char *prevstr = NULL;
-+
-+	list_for_each_entry_safe(fq, tmp, &priv->dpa_fq_list, list) {
-+		switch (fq->fq_type) {
-+		case FQ_TYPE_RX_DEFAULT:
-+			str = "Rx default";
-+			break;
-+		case FQ_TYPE_RX_ERROR:
-+			str = "Rx error";
-+			break;
-+		case FQ_TYPE_TX_CONFIRM:
-+			str = "Tx default confirmation";
-+			break;
-+		case FQ_TYPE_TX_CONF_MQ:
-+			str = "Tx confirmation (mq)";
-+			break;
-+		case FQ_TYPE_TX_ERROR:
-+			str = "Tx error";
-+			break;
-+		case FQ_TYPE_TX:
-+			str = "Tx";
-+			break;
-+		default:
-+			str = "Unknown";
-+		}
-+
-+		if (prev && (abs(fq->fqid - prev->fqid) != 1 ||
-+			     str != prevstr)) {
-+			if (last_fqid == first_fqid)
-+				bytes += sprintf(buf + bytes,
-+					"%s: %d\n", prevstr, prev->fqid);
-+			else
-+				bytes += sprintf(buf + bytes,
-+					"%s: %d - %d\n", prevstr,
-+					first_fqid, last_fqid);
-+		}
-+
-+		if (prev && abs(fq->fqid - prev->fqid) == 1 &&
-+		    str == prevstr) {
-+			last_fqid = fq->fqid;
-+		} else {
-+			first_fqid = fq->fqid;
-+			last_fqid = fq->fqid;
-+		}
-+
-+		prev = fq;
-+		prevstr = str;
-+		i++;
-+	}
-+
-+	if (prev) {
-+		if (last_fqid == first_fqid)
-+			bytes += sprintf(buf + bytes, "%s: %d\n", prevstr,
-+					prev->fqid);
-+		else
-+			bytes += sprintf(buf + bytes, "%s: %d - %d\n", prevstr,
-+					first_fqid, last_fqid);
-+	}
-+
-+	return bytes;
-+}
-+
-+static ssize_t dpaa_eth_show_bpids(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
-+{
-+	ssize_t bytes = 0;
-+	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
-+	struct dpa_bp *dpa_bp = priv->dpa_bp;
-+	int i = 0;
-+
-+	for (i = 0; i < priv->bp_count; i++)
-+		bytes += snprintf(buf + bytes, PAGE_SIZE, "%u\n",
-+				dpa_bp[i].bpid);
-+
-+	return bytes;
-+}
-+
-+static struct device_attribute dpaa_eth_attrs[] = {
-+	__ATTR(device_addr, S_IRUGO, dpaa_eth_show_addr, NULL),
-+	__ATTR(fqids, S_IRUGO, dpaa_eth_show_fqids, NULL),
-+	__ATTR(bpids, S_IRUGO, dpaa_eth_show_bpids, NULL),
-+};
-+
-+void dpaa_eth_sysfs_init(struct device *dev)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
-+		if (device_create_file(dev, &dpaa_eth_attrs[i])) {
-+			dev_err(dev, "Error creating sysfs file\n");
-+			while (i > 0)
-+				device_remove_file(dev, &dpaa_eth_attrs[--i]);
-+			return;
-+		}
-+}
-+EXPORT_SYMBOL(dpaa_eth_sysfs_init);
-+
-+void dpaa_eth_sysfs_remove(struct device *dev)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
-+		device_remove_file(dev, &dpaa_eth_attrs[i]);
-+}
+ struct dpa_fq *dpa_fq_alloc(struct device *dev,
+ 			    const struct fqid_cell *fqids,
+ 			    struct list_head *list,
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+index 9b1774e..de5b68e 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+@@ -89,6 +89,10 @@ struct dpa_bp *dpa_bpid2pool(int bpid);
+ void dpa_bpid2pool_map(int bpid, struct dpa_bp *dpa_bp);
+ bool dpa_bpid2pool_use(int bpid);
+ void dpa_bp_drain(struct dpa_bp *bp);
++#ifdef CONFIG_FSL_DPAA_ETH_USE_NDO_SELECT_QUEUE
++u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
++		     void *accel_priv, select_queue_fallback_t fallback);
++#endif
+ struct dpa_fq *dpa_fq_alloc(struct device *dev,
+ 			    const struct fqid_cell *fqids,
+ 			    struct list_head *list,
 -- 
 1.7.11.7
