@@ -1,92 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] vxge: Add const to ethtool_driver_stats_keys
-Date: Wed, 01 Apr 2015 12:29:13 -0700
-Message-ID: <1427916553.31790.70.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/4] mpls: Behaviour-changing improvements
+Date: Wed, 01 Apr 2015 15:30:41 -0400 (EDT)
+Message-ID: <20150401.153041.376950284605107486.davem@davemloft.net>
+References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1427739356-28113-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jon Mason <jdmason@kudzu.us>
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0096.hostedemail.com ([216.40.44.96]:55160 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753368AbbDAT3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 15:29:19 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60161 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225AbbDATao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 15:30:44 -0400
+In-Reply-To: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move about half a KB of data to text.
+From: Robert Shearman <rshearma@brocade.com>
+Date: Mon, 30 Mar 2015 19:15:52 +0100
 
-Miscellanea:
+> This series consists of several small changes to make it easier to
+> understand the code, along with security and RFC-compliance
+> changes. These are important to consider before userspace begins
+> relying on the previous behaviour.
 
-o Move strings out of the .h file into the .c file
-  in case the .h file is ever #included twice
+Robert, you _absolutely_ must give common courtesy to Eric Biederman
+and always CC: him explicitly on any proposed changes you want to make
+to the new MPLS support.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/neterion/vxge/vxge-ethtool.c | 19 +++++++++++++++++++
- drivers/net/ethernet/neterion/vxge/vxge-ethtool.h | 19 -------------------
- 2 files changed, 19 insertions(+), 19 deletions(-)
+I'm adding him here.
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-index b07d552..be916eb 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-@@ -18,6 +18,25 @@
- 
- #include "vxge-ethtool.h"
- 
-+static const char ethtool_driver_stats_keys[][ETH_GSTRING_LEN] = {
-+	{"\n DRIVER STATISTICS"},
-+	{"vpaths_opened"},
-+	{"vpath_open_fail_cnt"},
-+	{"link_up_cnt"},
-+	{"link_down_cnt"},
-+	{"tx_frms"},
-+	{"tx_errors"},
-+	{"tx_bytes"},
-+	{"txd_not_free"},
-+	{"txd_out_of_desc"},
-+	{"rx_frms"},
-+	{"rx_errors"},
-+	{"rx_bytes"},
-+	{"rx_mcast"},
-+	{"pci_map_fail_cnt"},
-+	{"skb_alloc_fail_cnt"}
-+};
-+
- /**
-  * vxge_ethtool_sset - Sets different link parameters.
-  * @dev: device pointer.
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
-index 6cf3044..065a2c0 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
-@@ -19,25 +19,6 @@
- /* Ethtool related variables and Macros. */
- static int vxge_ethtool_get_sset_count(struct net_device *dev, int sset);
- 
--static char ethtool_driver_stats_keys[][ETH_GSTRING_LEN] = {
--	{"\n DRIVER STATISTICS"},
--	{"vpaths_opened"},
--	{"vpath_open_fail_cnt"},
--	{"link_up_cnt"},
--	{"link_down_cnt"},
--	{"tx_frms"},
--	{"tx_errors"},
--	{"tx_bytes"},
--	{"txd_not_free"},
--	{"txd_out_of_desc"},
--	{"rx_frms"},
--	{"rx_errors"},
--	{"rx_bytes"},
--	{"rx_mcast"},
--	{"pci_map_fail_cnt"},
--	{"skb_alloc_fail_cnt"}
--};
--
- #define VXGE_TITLE_LEN			5
- #define VXGE_HW_VPATH_STATS_LEN 	27
- #define VXGE_HW_AGGR_STATS_LEN  	13
+> V2:
+>   - Dropped PHP comment patch to avoid holding up the rest of the
+>     changes due to quibbling on nomenclature.
+>   - Corrected reference to RFC 3031 in commit message of patch
+>     2. Added reference to RFC 3031 s4.1.5 for PHP behaviour.
+>   - s/forwarding/input/ in patch 3.
+>   - Made MPT_IPV4 and MPT_IPV6 equal to 4 and 6 respectively in patch
+>     4, eliminating a switch on the version number as suggested by
+>     review comments. Added back references to RFCs, but moved them to
+>     mpls_payload_type enum declaration.
+> V1:
+>   - Updated to reference the correct RFC in the first patch.
+> 
+> Robert Shearman (4):
+>   mpls: Use definition for reserved label checks
+>   mpls: Differentiate implicit-null and unlabeled neighbours
+>   mpls: Per-device enabling of packet input
+>   mpls: Allow payload type to be associated with label routes
+> 
+>  Documentation/networking/mpls-sysctl.txt |   9 ++
+>  include/linux/netdevice.h                |   4 +
+>  net/mpls/af_mpls.c                       | 226 +++++++++++++++++++++++++------
+>  net/mpls/internal.h                      |   7 +
+>  4 files changed, 203 insertions(+), 43 deletions(-)
+> 
+> -- 
+> 2.1.4
+> 
