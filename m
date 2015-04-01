@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] chelsio cxgb/cxgb3: Make stats_strings arrays
- const
-Date: Wed, 01 Apr 2015 14:41:32 -0400 (EDT)
-Message-ID: <20150401.144132.2127701773797242867.davem@davemloft.net>
-References: <1427892333-26330-1-git-send-email-hariprasad@chelsio.com>
-	<1427874122.31790.8.camel@perches.com>
-	<1427903364.31790.14.camel@perches.com>
+Subject: Re: [PATCH net 0/2] cxgb4 FW macro changes for new FW
+Date: Wed, 01 Apr 2015 14:47:40 -0400 (EDT)
+Message-ID: <20150401.144740.1634891310164609927.davem@davemloft.net>
+References: <1427904676-31000-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, santosh@chelsio.com,
-	netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
 	nirranjan@chelsio.com, kumaras@chelsio.com,
-	swise@opengridcomputing.com, varun@chelsio.com
-To: joe@perches.com
+	swise@opengridcomputing.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59712 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59768 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752894AbbDASlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 14:41:35 -0400
-In-Reply-To: <1427903364.31790.14.camel@perches.com>
+	with ESMTP id S1751952AbbDASro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 14:47:44 -0400
+In-Reply-To: <1427904676-31000-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 01 Apr 2015 08:49:24 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed,  1 Apr 2015 21:41:14 +0530
 
-> Move ~2KB of strings in each driver from data to text.
+> Fix to dump device log even in the case of firmware crash. Also
+> incorporates changes for new FW.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
+> This patch series has been created against net tree and includes patches on
+> cxgb4 driver.
 > 
-> Here a patch for the other 2 drivers
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Applied, thanks Joe.
+Series applied, thanks.
