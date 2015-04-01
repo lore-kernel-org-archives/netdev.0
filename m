@@ -1,68 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net][resubmit] MAINTAINERS: Update Intel Wired Ethernet Driver info
-Date: Tue, 31 Mar 2015 21:42:30 -0700
-Message-ID: <1427863350-22108-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux.nics@intel.com, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
+Subject: Re: [net][resubmit] MAINTAINERS: Update Intel Wired Ethernet Driver
+ info
+Date: Tue, 31 Mar 2015 21:48:26 -0700
+Message-ID: <1427863706.20936.10.camel@jtkirshe-mobl>
+References: <1427863350-22108-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-61bXgGweuZE6Ps5Yn/+D"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, linux.nics@intel.com,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427863350-22108-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the git tree info with a recent change in tree names.  Also
-add our new mailing list created solely for Linux kernel patches
-and kernel development, as well as the new patchwork project for
-tracking patches.  Lastly update the list of "reviewers" since a
-couple of developers have moved on to different projects.
 
-Made an update to the section header so that it is more manageable
-going forward as we add new drivers.
+--=-61bXgGweuZE6Ps5Yn/+D
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- MAINTAINERS | 25 ++++++++++++-------------
- 1 file changed, 12 insertions(+), 13 deletions(-)
+On Tue, 2015-03-31 at 21:42 -0700, Jeff Kirsher wrote:
+> Update the git tree info with a recent change in tree names.  Also
+> add our new mailing list created solely for Linux kernel patches
+> and kernel development, as well as the new patchwork project for
+> tracking patches.  Lastly update the list of "reviewers" since a
+> couple of developers have moved on to different projects.
+>=20
+> Made an update to the section header so that it is more manageable
+> going forward as we add new drivers.
+>=20
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  MAINTAINERS | 25 ++++++++++++-------------
+>  1 file changed, 12 insertions(+), 13 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 358eb01..9508870 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5128,22 +5128,21 @@ M:	Deepak Saxena <dsaxena@plexity.net>
- S:	Maintained
- F:	drivers/char/hw_random/ixp4xx-rng.c
- 
--INTEL ETHERNET DRIVERS (e100/e1000/e1000e/fm10k/igb/igbvf/ixgb/ixgbe/ixgbevf/i40e/i40evf)
-+INTEL ETHERNET DRIVERS
- M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
--M:	Jesse Brandeburg <jesse.brandeburg@intel.com>
--M:	Bruce Allan <bruce.w.allan@intel.com>
--M:	Carolyn Wyborny <carolyn.wyborny@intel.com>
--M:	Don Skidmore <donald.c.skidmore@intel.com>
--M:	Greg Rose <gregory.v.rose@intel.com>
--M:	Matthew Vick <matthew.vick@intel.com>
--M:	John Ronciak <john.ronciak@intel.com>
--M:	Mitch Williams <mitch.a.williams@intel.com>
--M:	Linux NICS <linux.nics@intel.com>
--L:	e1000-devel@lists.sourceforge.net
-+R:	Jesse Brandeburg <jesse.brandeburg@intel.com>
-+R:	Shannon Nelson <shannon.nelson@intel.com>
-+R:	Carolyn Wyborny <carolyn.wyborny@intel.com>
-+R:	Don Skidmore <donald.c.skidmore@intel.com>
-+R:	Matthew Vick <matthew.vick@intel.com>
-+R:	John Ronciak <john.ronciak@intel.com>
-+R:	Mitch Williams <mitch.a.williams@intel.com>
-+L:	intel-wired-lan@lists.osuosl.org
- W:	http://www.intel.com/support/feedback.htm
- W:	http://e1000.sourceforge.net/
--T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
--T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
-+Q:	http://patchwork.ozlabs.org/project/intel-wired-lan/list/
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue.git
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
- S:	Supported
- F:	Documentation/networking/e100.txt
- F:	Documentation/networking/e1000.txt
--- 
-1.9.3
+This time I have also pushed this to my net-queue kernel.org tree, if
+you want to do a pull of this patch. :-)
+
+--=-61bXgGweuZE6Ps5Yn/+D
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJVG3iaAAoJEOVv75VaS+3OcIUP/0KqO78qdIPqS7m3EFA7St6u
+IbBgJXHGUk1Vb7Qhwo5dVp1pw6Z1NQBxCOK2VJFidrxTmuVbJ9zcWS0BtcOc42YQ
+sUs2WvDbgtp8G32iE7E0sIoiGYz3LwhOCPcFxONtfNWiR4HenKUnRtCsyNjRV3eF
+o2ueIHmSRj5meCgmaDWOhI7ZyuTTjL0IoG4oLnkuncCTdjYMslYfq1FFqBAqoEGR
+CIVE3Pi8jIqKvqgYhTdYfKlezFUWH42VGOxvY8EAt8M538sOAoh4Tw37RRz3OxeY
+ZfwFzC0EVj2TrB2fQVYHxgy4b++iisbdFFHHxu/6wynKCI3jLx+w64INFYG3H9/G
+cCrbfrWqKCNVuDctRVxZndrTzei6JYRb1oV07ArFzd9jcj6x0DRkgz1ZQaOCxZMA
+nZuMxvyOXUE9IOgoKFff6KC722GhvmdOx0tymGS5SHN+WHI4y/hOZI79hzp0oUkG
+sbiJK4bx5B0Wc9/kqADkqTYZsfMQ88KX9XAWaQiEdOcBv7hfwUm7BqfcGuk5+VMm
+eDyam4VuO4PIvLBHyFzn0m5k0pDE/WB3lMR9uB3nYQ8JhVYqkyz+NQwrPROIgVhD
+pwoFXsWlAPVtbjOJv7ss2F48ziPQo3dY9hWtePPYSyRnUHFc+BHT+GT3oO6xVbg4
+cmZR+iQA9sTaTuYA4Hxb
+=GyE/
+-----END PGP SIGNATURE-----
+
+--=-61bXgGweuZE6Ps5Yn/+D--
