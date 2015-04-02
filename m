@@ -1,33 +1,58 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 0/6]  RDS: RDS core bug fixes
-Date: Thu,  2 Apr 2015 09:50:43 -0400
-Message-ID: <cover.1427936719.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH 5/6] RDS: rds_send_xmit is called under a spinlock, lets not do a cond_resched()
+Date: Thu,  2 Apr 2015 09:50:48 -0400
+Message-ID: <4b4fb362d20a5c97165f929d049065518f7fa108.1427936719.git.sowmini.varadhan@oracle.com>
+References: <cover.1427936719.git.sowmini.varadhan@oracle.com>
 Cc: chien.yen@oracle.com, davem@davemloft.net,
 	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
 	zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
 	Sowmini Varadhan <sowmini.varadhan@oracle.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1427936719.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1427936719.git.sowmini.varadhan@oracle.com>
+References: <cover.1427936719.git.sowmini.varadhan@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch-series updates the RDS core and rds-tcp modules with
-some bug fixes that were originally authored by  Andy Grover,
-Zach Brown, and Chris Mason. 
+Original patch by Chris Mason
 
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ net/rds/send.c |   14 ++------------
+ 1 files changed, 2 insertions(+), 12 deletions(-)
 
-Sowmini Varadhan (6):
-  RDS: Re-add pf/sol access via sysctl
-  RDS: only use passive connections when addresses match
-  rds: check for excessive looping in rds_send_xmit
-  RDS: make sure not to loop forever inside rds_send_xmit
-  RDS: rds_send_xmit is called under a spinlock, lets not do a
-    cond_resched()
-  RDS: don't trust the LL_SEND_FULL bit
-
- net/rds/connection.c |    3 +-
- net/rds/rds.h        |    1 +
- net/rds/send.c       |   57 ++++++++++++++++++++++++++++++++++++++++++++-----
- net/rds/sysctl.c     |   20 +++++++++++++++++
- net/rds/threads.c    |    2 +
- 5 files changed, 76 insertions(+), 7 deletions(-)
+diff --git a/net/rds/send.c b/net/rds/send.c
+index aec3f9d..23135a8 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -199,7 +199,6 @@ int rds_send_xmit(struct rds_connection *conn)
+ 			same_rm++;
+ 			if (same_rm >= 4096) {
+ 				printk_ratelimited(KERN_ERR "RDS: Stuck rm\n");
+-				cond_resched();
+ 				ret = -EAGAIN;
+ 				break;
+ 			}
+@@ -427,17 +426,8 @@ int rds_send_xmit(struct rds_connection *conn)
+ 		smp_mb();
+ 		if (!list_empty(&conn->c_send_queue) &&
+ 		    send_gen == conn->c_send_gen) {
+-			cond_resched();
+-			/* repeat our check after the resched in case
+-			 * someone else was kind enough to empty or process
+-			 * the queue
+-			 */
+-			smp_mb();
+-			if (!list_empty(&conn->c_send_queue) &&
+-			    send_gen == conn->c_send_gen) {
+-				rds_stats_inc(s_send_lock_queue_raced);
+-				goto restart;
+-			}
++			rds_stats_inc(s_send_lock_queue_raced);
++			goto restart;
+ 		}
+ 	}
+ out:
+-- 
+1.7.1
