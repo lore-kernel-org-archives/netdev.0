@@ -1,51 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 3/6] rds: check for excessive looping in rds_send_xmit
-Date: Thu, 02 Apr 2015 14:08:50 -0400 (EDT)
-Message-ID: <20150402.140850.1775436517754499795.davem@davemloft.net>
-References: <cover.1427983908.git.sowmini.varadhan@oracle.com>
-	<cover.1427983908.git.sowmini.varadhan@oracle.com>
-	<5f877b89716358c7a08272275979b5e039ca1c29.1427983908.git.sowmini.varadhan@oracle.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 01/26] switchdev: introduce get/set attrs ops
+Date: Thu, 2 Apr 2015 20:16:06 +0200
+Message-ID: <20150402181606.GF2613@nanopsycho.orion>
+References: <1427962212-18411-1-git-send-email-sfeldma@gmail.com>
+ <1427962212-18411-2-git-send-email-sfeldma@gmail.com>
+ <CAGVrzcZvzWDeV7XvZx13fK_u0oYD=mAJKQ5JUNm9UhirBqAHow@mail.gmail.com>
+ <CAE4R7bD9-H_U3ys9hsOx=o51b4rTjjyq3BYBXMmSeXRrvRupSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chien.yen@oracle.com, rds-devel@oss.oracle.com, agrover@redhat.com,
-	clm@fb.com, zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
-	sergei.shtylyov@cogentembedded.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5f877b89716358c7a08272275979b5e039ca1c29.1427983908.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:33946 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751473AbbDBSQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:16:09 -0400
+Received: by wgbdm7 with SMTP id dm7so93321724wgb.1
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 11:16:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bD9-H_U3ys9hsOx=o51b4rTjjyq3BYBXMmSeXRrvRupSQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu,  2 Apr 2015 10:19:37 -0400
+Thu, Apr 02, 2015 at 07:52:28PM CEST, sfeldma@gmail.com wrote:
+>On Thu, Apr 2, 2015 at 2:09 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> [snip]
+>>
+>>> +       int err = -EOPNOTSUPP;
+>>> +
+>>> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+>>> +               return err;
+>>
+>> That check is currently going to prevent DSA from working, since we do
+>> not yet advertise NETIF_HW_SWITCH_OFFLOAD (which should be fixed). In
+>> general, though I am not sure this is entirely desirable to check that
+>> here for multiple reasons:
+>>
+>> - stacked devices typically propagate lower devices dev->features, but
+>> if they are purposely not doing it, this might start breaking
+>> - is not that check, used as it is now, that unconditionally, end-up
+>> being redundant with e.g: getting the switch device id to identify
+>> this net_device as a switch port net_device?
+>>
+>> I kind of preferred when we had this moved into the
+>> __swdev_attr_{get,set} caller, such we had finer control over whether
+>> or not checking for these kinds of features makes sense for a
+>> particular operation.
+>
+>I dropped it in my v1 patch set all together, but then it came back in
+>v2.  I understand how it works, giving the user the ability to turn
+>on/off offload support on a port at run-time, but I don't understand
+>the application.  I agree with you that we already have finer-grained
+>ability to know if a sub-feature is supported or not based on what the
+>driver implements (like switch ID or STP state).  I don't know what
+>this master switch is used for.  Why would the user turn off
+>offloading on a port at run-time after the device has already been
+>programmed with some offloading tasks?  What tells the device to stop
+>those offloads now.  And then later, the user flips the switch to turn
+>back on offloads on the port.   How do we restore the device?
+>
+>Roopa, can you help us understand how NETIF_F_HW_SWITCH_OFFLOAD is used?
 
-> @@ -177,6 +178,18 @@ int rds_send_xmit(struct rds_connection *conn)
->  
->  		rm = conn->c_xmit_rm;
->  
-> +		if (!rm) {
-> +			same_rm = 0;
-> +		} else {
-> +			same_rm++;
-> +			if (same_rm >= 4096) {
-> +				printk_ratelimited(KERN_ERR "RDS: Stuck rm\n");
-> +				cond_resched();
-> +				ret = -EAGAIN;
-> +				break;
-> +			}
-> +		}
-> +
-
-I'm not accepting junk like this.
-
-I want to know exactly how this situation can occur, in detail, and
-then and only then can we start to talk about more reasonable
-solutions to this bug.
-
-This looks like a minimal effort hack to make a hang go away, and
-even more concerning is that a change like this is submitted with
-a commit message that is essentially empty.
-
-Sorry, this is not acceptable.
+Documentation patch required? 
