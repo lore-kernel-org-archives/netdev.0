@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] crypto: algif - explicitly mark end of data
-Date: Wed, 01 Apr 2015 23:00:00 -0400 (EDT)
-Message-ID: <20150401.230000.1791985984239259518.davem@davemloft.net>
-References: <20150401205305.22123.71178.stgit@tstruk-mobl1>
+Subject: Re: [PATCH nf-next 02/14] net: untangle ip_fragment and bridge
+ netfilter
+Date: Wed, 01 Apr 2015 23:09:21 -0400 (EDT)
+Message-ID: <20150401.230921.232085782289557923.davem@davemloft.net>
+References: <1427920600-20366-1-git-send-email-fw@strlen.de>
+	<1427920600-20366-3-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: tadeusz.struk@intel.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34646 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34690 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729AbbDBDAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 23:00:02 -0400
-In-Reply-To: <20150401205305.22123.71178.stgit@tstruk-mobl1>
+	with ESMTP id S1752091AbbDBDJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 23:09:23 -0400
+In-Reply-To: <1427920600-20366-3-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Date: Wed, 01 Apr 2015 13:53:06 -0700
+From: Florian Westphal <fw@strlen.de>
+Date: Wed,  1 Apr 2015 22:36:28 +0200
 
-> After the TX sgl is expanded we need to explicitly mark end of data
-> at the last buffer that contains data.
-> 
-> Changes in v2
->  - use type 'bool' and true/false for 'mark'.
-> 
-> Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
+> Add mtu arguments to ip_fragment and remove the bridge netfilter mtu
+> helper.
 
-Applied.
+I told you I disagree with this approach.  Anything that adds
+an 'mtu' argument to ip_fragment() I am not even going to look
+at seriously, there must be device context when you call that
+function.
+
+Furthermore, and even more importantly, right now what bridge
+netfilter does with fragmentation is _terminally_ broken.  It
+absolutely does not guarantee to preserve the geometry of the incoming
+fragment stream.
+
+This is why you must use something like GRO/GSO, which is built
+to positively and provably preserve the geometry of SKBs as they
+are packed and unpacked.
