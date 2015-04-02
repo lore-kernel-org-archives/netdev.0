@@ -1,128 +1,81 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 16/18] net/mlx4_en: Add RX-FCS support
-Date: Thu,  2 Apr 2015 16:31:21 +0300
-Message-ID: <1427981483-19317-17-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 08/18] net/mlx4: Query device for QoS per VF support
+Date: Thu,  2 Apr 2015 16:31:13 +0300
+Message-ID: <1427981483-19317-9-git-send-email-ogerlitz@mellanox.com>
 References: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Muhammad Mahajna <muhammadm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:45736 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:45755 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752934AbbDBNcH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2015 09:32:07 -0400
+	id S1753035AbbDBNcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2015 09:32:20 -0400
 In-Reply-To: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Muhammad Mahajna <muhammadm@mellanox.com>
+From: Ido Shamay <idos@mellanox.com>
 
-Enabled when device supports KEEP FCS. When the flag is set, Ethernet FCS
-is appended to the end of the frame, controlled by ethtool.
+Checks in QUERY_DEV_CAP if the granular QoS per VF feature is
+supported by the device. Disabled for guests.
 
-Signed-off-by: Muhammad Mahajna <muhammadm@mellanox.com>
 Signed-off-by: Ido Shamay <idos@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   33 +++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     |    5 +++-
- 2 files changed, 31 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c |   10 +++++++++-
+ include/linux/mlx4/device.h             |    3 ++-
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index b02a2e8..2cf8af7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2195,15 +2195,19 @@ static int mlx4_en_set_features(struct net_device *netdev,
- 		netdev_features_t features)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(netdev);
-+	bool reset = false;
- 	int ret = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 412e019..94e857e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -147,7 +147,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[21] = "Port Remap support",
+ 		[22] = "QCN support",
+ 		[23] = "QP rate limiting support",
+-		[24] = "Ethernet Flow control statistics support"
++		[24] = "Ethernet Flow control statistics support",
++		[25] = "Granular QoS per VF support",
+ 	};
+ 	int i;
  
-+	if (DEV_FEATURE_CHANGED(netdev, features, NETIF_F_RXFCS)) {
-+		en_info(priv, "Turn %s RX-FCS\n",
-+			(features & NETIF_F_RXFCS) ? "ON" : "OFF");
-+		reset = true;
-+	}
+@@ -871,6 +872,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	MLX4_GET(size, outbox, QUERY_DEV_CAP_MAX_DESC_SZ_RQ_OFFSET);
+ 	dev_cap->max_rq_desc_sz = size;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_CQ_EQ_CACHE_LINE_STRIDE);
++	if (field & (1 << 4))
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_QOS_VPP;
+ 	if (field & (1 << 5))
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_ETH_PROT_CTRL;
+ 	if (field & (1 << 6))
+@@ -1199,6 +1202,11 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 	field16 = 0;
+ 	MLX4_PUT(outbox->buf, field16, QUERY_DEV_CAP_QP_RATE_LIMIT_NUM_OFFSET);
+ 
++	/* turn off QoS per VF support for guests */
++	MLX4_GET(field, outbox->buf, QUERY_DEV_CAP_CQ_EQ_CACHE_LINE_STRIDE);
++	field &= 0xef;
++	MLX4_PUT(outbox->buf, field, QUERY_DEV_CAP_CQ_EQ_CACHE_LINE_STRIDE);
 +
- 	if (DEV_FEATURE_CHANGED(netdev, features, NETIF_F_HW_VLAN_CTAG_RX)) {
- 		en_info(priv, "Turn %s RX vlan strip offload\n",
- 			(features & NETIF_F_HW_VLAN_CTAG_RX) ? "ON" : "OFF");
--		ret = mlx4_en_reset_config(netdev, priv->hwtstamp_config,
--					   features);
--		if (ret)
--			return ret;
-+		reset = true;
- 	}
- 
- 	if (DEV_FEATURE_CHANGED(netdev, features, NETIF_F_HW_VLAN_CTAG_TX))
-@@ -2216,8 +2220,14 @@ static int mlx4_en_set_features(struct net_device *netdev,
- 		mlx4_en_update_loopback_state(netdev, features);
- 	}
- 
--	return 0;
-+	if (reset) {
-+		ret = mlx4_en_reset_config(netdev, priv->hwtstamp_config,
-+					   features);
-+		if (ret)
-+			return ret;
-+	}
- 
-+	return 0;
+ 	return 0;
  }
  
- static int mlx4_en_set_vf_mac(struct net_device *dev, int queue, u8 *mac)
-@@ -2901,6 +2911,9 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	dev->hw_features |= NETIF_F_LOOPBACK |
- 			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index b676d0c..c37208f 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -205,7 +205,8 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_PORT_REMAP		= 1LL <<  21,
+ 	MLX4_DEV_CAP_FLAG2_QCN			= 1LL <<  22,
+ 	MLX4_DEV_CAP_FLAG2_QP_RATE_LIMIT	= 1LL <<  23,
+-	MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN         = 1LL <<  24
++	MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN         = 1LL <<  24,
++	MLX4_DEV_CAP_FLAG2_QOS_VPP		= 1LL <<  25,
+ };
  
-+	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP)
-+		dev->hw_features |= NETIF_F_RXFCS;
-+
- 	if (mdev->dev->caps.steering_mode ==
- 	    MLX4_STEERING_MODE_DEVICE_MANAGED &&
- 	    mdev->dev->caps.dmfs_high_steer_mode != MLX4_STEERING_DMFS_A0_STATIC)
-@@ -2996,7 +3009,8 @@ int mlx4_en_reset_config(struct net_device *dev,
- 
- 	if (priv->hwtstamp_config.tx_type == ts_config.tx_type &&
- 	    priv->hwtstamp_config.rx_filter == ts_config.rx_filter &&
--	    !DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX))
-+	    !DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX) &&
-+	    !DEV_FEATURE_CHANGED(dev, features, NETIF_F_RXFCS))
- 		return 0; /* Nothing to change */
- 
- 	if (DEV_FEATURE_CHANGED(dev, features, NETIF_F_HW_VLAN_CTAG_RX) &&
-@@ -3035,6 +3049,13 @@ int mlx4_en_reset_config(struct net_device *dev,
- 			dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
- 	}
- 
-+	if (DEV_FEATURE_CHANGED(dev, features, NETIF_F_RXFCS)) {
-+		if (features & NETIF_F_RXFCS)
-+			dev->features |= NETIF_F_RXFCS;
-+		else
-+			dev->features &= ~NETIF_F_RXFCS;
-+	}
-+
- 	/* RX vlan offload and RX time-stamping can't co-exist !
- 	 * Regardless of the caller's choice,
- 	 * Turn Off RX vlan offload in case of time-stamping is ON
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 698d60d..79b1501 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -1116,7 +1116,10 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
- 	/* Cancel FCS removal if FW allows */
- 	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP) {
- 		context->param3 |= cpu_to_be32(1 << 29);
--		ring->fcs_del = ETH_FCS_LEN;
-+		if (priv->dev->features & NETIF_F_RXFCS)
-+			ring->fcs_del = 0;
-+		else
-+			ring->fcs_del = ETH_FCS_LEN;
- 	} else
- 		ring->fcs_del = 0;
- 
+ enum {
 -- 
 1.7.1
