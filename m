@@ -1,77 +1,77 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v2 01/26] switchdev: introduce get/set attrs ops
-Date: Thu, 2 Apr 2015 00:43:57 -0700
-Message-ID: <CAE4R7bC+fSjEP+uz19L9mbjf1Y+sPUM=Z7iuDtQdhPAZA1x3sA@mail.gmail.com>
-References: <1427882882-2533-1-git-send-email-sfeldma@gmail.com>
-	<1427882882-2533-2-git-send-email-sfeldma@gmail.com>
-	<20150401.140822.2230858157895026713.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] xfrm: fix xfrm_input/xfrm_tunnel_check oops
+Date: Thu, 2 Apr 2015 10:58:24 +0300
+Message-ID: <20150402075824.GA2079@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: mike@normi.net, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com, herbert@gondor.apana.org.au
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:34057 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477AbbDBHn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 03:43:58 -0400
-Received: by qcay5 with SMTP id y5so61003570qca.1
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 00:43:57 -0700 (PDT)
-In-Reply-To: <20150401.140822.2230858157895026713.davem@davemloft.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:36886 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbbDBH6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 03:58:25 -0400
+Received: by wiaa2 with SMTP id a2so95241192wia.0
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 00:58:24 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 1, 2015 at 11:08 AM, David Miller <davem@davemloft.net> wrote:
-> From: sfeldma@gmail.com
-> Date: Wed,  1 Apr 2015 03:07:37 -0700
->
->> +int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
->> +{
->> +     struct swdev_attr prev = *attr;
->> +     int err, get_err, revert_err;
->> +
->> +     get_err = swdev_port_attr_get(dev, &prev);
->> +
->> +     err = __swdev_port_attr_set(dev, attr);
->> +     if (err && !get_err && !(attr->flags & SWDEV_F_NO_RECOVER)) {
->> +             /* Some err on set: revert to previous value */
->> +             revert_err = __swdev_port_attr_set(dev, &prev);
->> +             if (revert_err)
->> +                     netdev_err(dev, "Reverting swdev port attr %d failed\n",
->> +                                attr->id);
->> +     }
->> +
->> +     return err;
->
-> This style of error recovery doesn't work.
->
-> You have to have a prepare/commit model to do this sanely, because
-> otherwise:
->
-> 1) Partial state updates can be seen by the data plane (and other
->    code paths) that do not use RTNL mutex protection.
->
-> 2) It is absoultely expected that if some resource allocation failed
->    when switching to the new attribute value, the same exactly thing
->    is extremely likely during the rollback.
->
-> So you have to code this in a way that no partial state updates are
-> ever visible, and also that rollbacks don't fail.
+https://bugzilla.kernel.org/show_bug.cgi?id=95211
 
-I'm sending v3 with a prepare/commit model, for attr sets and obj
-adds.  The prepare phase asks driver(s) if set/add will work (is
-supported and device resource is available).  If yes, then do commit
-phase.   Commit could still fail due to failures outside the control
-of the driver, like ENOMEM.  In that case, WARN and return err.
+Commit 70be6c91c86596ad2b60c73587880b47df170a41
+("xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer") added check
+which dereferences ->outer_mode too early but larval SAs don't have
+this pointer set (yet). So check for tunnel stuff later.
 
-> I also agree with Jamal that you should use the netlink attribute
-> values for these attributes rather than inventing yet another
-> namespace of ID numbers.
+Mike Noordermeer reported this bug and patiently applied all the debugging.
 
-That doesn't work.  The netlink ids are distributed across multiple
-enum lists, so you'll inevitably have collisions in ID number.
+Technically this is remote-oops-in-interrupt-context type of thing.
+
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000034
+IP: [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+	...
+[<ffffffff81500fc6>] ? xfrm4_esp_rcv+0x36/0x70
+[<ffffffff814acc9a>] ? ip_local_deliver_finish+0x9a/0x200
+[<ffffffff81471b83>] ? __netif_receive_skb_core+0x6f3/0x8f0
+	...
+
+RIP  [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+Kernel panic - not syncing: Fatal exception in interrupt
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+	Patch is in final testing, I'm sending it opportunistically.
+	Mike, please chim in if this patch didn't help in the end!
+
+ net/xfrm/xfrm_input.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+--- a/net/xfrm/xfrm_input.c
++++ a/net/xfrm/xfrm_input.c
+@@ -238,11 +238,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ 		skb->sp->xvec[skb->sp->len++] = x;
+ 
+-		if (xfrm_tunnel_check(skb, x, family)) {
+-			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMODEERROR);
+-			goto drop;
+-		}
+-
+ 		spin_lock(&x->lock);
+ 		if (unlikely(x->km.state == XFRM_STATE_ACQ)) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMACQUIREERROR);
+@@ -271,6 +266,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ 		spin_unlock(&x->lock);
+ 
++		if (xfrm_tunnel_check(skb, x, family)) {
++			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMODEERROR);
++			goto drop;
++		}
++
+ 		seq_hi = htonl(xfrm_replay_seqhi(x, seq));
+ 
+ 		XFRM_SKB_CB(skb)->seq.input.low = seq;
