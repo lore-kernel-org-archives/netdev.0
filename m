@@ -1,114 +1,79 @@
-From: Bob Cochran <ppc@mindchasers.com>
-Subject: Re: [RFC,v2,02/12] soc/fman: Add the FMan FLIB
-Date: Thu, 02 Apr 2015 11:48:21 -0400
-Message-ID: <551D64C5.7040607@mindchasers.com>
-References: <1427888168-24145-1-git-send-email-igal.liberman@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 01/26] switchdev: introduce get/set attrs
+ ops
+Date: Thu, 02 Apr 2015 12:05:33 -0400 (EDT)
+Message-ID: <20150402.120533.225417156120458098.davem@davemloft.net>
+References: <1427882882-2533-2-git-send-email-sfeldma@gmail.com>
+	<20150401.140822.2230858157895026713.davem@davemloft.net>
+	<CAE4R7bC+fSjEP+uz19L9mbjf1Y+sPUM=Z7iuDtQdhPAZA1x3sA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: scottwood@freescale.com, madalin.bucur@freescale.com
-To: "Igal.Liberman" <igal.liberman@freescale.com>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, linux@roeck-us.net,
+	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
+	ronen.arad@intel.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-ch2-09v.sys.comcast.net ([69.252.207.41]:42176 "EHLO
-	resqmta-ch2-09v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752922AbbDBP4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 11:56:36 -0400
-In-Reply-To: <1427888168-24145-1-git-send-email-igal.liberman@freescale.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39172 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521AbbDBQFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 12:05:41 -0400
+In-Reply-To: <CAE4R7bC+fSjEP+uz19L9mbjf1Y+sPUM=Z7iuDtQdhPAZA1x3sA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/01/2015 07:36 AM, Igal.Liberman wrote:
-> From: Igal Liberman <Igal.Liberman@freescale.com>
->
-> The FMan FLib provides the basic API used by the FMan drivers to
-> configure and control the FMan hardware.
->
-> Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
-> ---
->   drivers/soc/fsl/Kconfig       |    2 +
->   drivers/soc/fsl/Makefile      |    2 +
->   drivers/soc/fsl/fman/Kconfig  |    7 +
->   drivers/soc/fsl/fman/Makefile |    5 +
->   drivers/soc/fsl/fman/fman.c   |  978 +++++++++++++++++++++++++++++++++++++++++
->   5 files changed, 994 insertions(+)
->   create mode 100644 drivers/soc/fsl/fman/Kconfig
->   create mode 100644 drivers/soc/fsl/fman/Makefile
->   create mode 100644 drivers/soc/fsl/fman/fman.c
->
-> diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
-> index 291123a..2981306 100644
-> --- a/drivers/soc/fsl/Kconfig
-> +++ b/drivers/soc/fsl/Kconfig
+From: Scott Feldman <sfeldma@gmail.com>
+Date: Thu, 2 Apr 2015 00:43:57 -0700
 
+> On Wed, Apr 1, 2015 at 11:08 AM, David Miller <davem@davemloft.net> wrote:
+>> From: sfeldma@gmail.com
+>> Date: Wed,  1 Apr 2015 03:07:37 -0700
+>>
+>>> +int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
+>>> +{
+>>> +     struct swdev_attr prev = *attr;
+>>> +     int err, get_err, revert_err;
+>>> +
+>>> +     get_err = swdev_port_attr_get(dev, &prev);
+>>> +
+>>> +     err = __swdev_port_attr_set(dev, attr);
+>>> +     if (err && !get_err && !(attr->flags & SWDEV_F_NO_RECOVER)) {
+>>> +             /* Some err on set: revert to previous value */
+>>> +             revert_err = __swdev_port_attr_set(dev, &prev);
+>>> +             if (revert_err)
+>>> +                     netdev_err(dev, "Reverting swdev port attr %d failed\n",
+>>> +                                attr->id);
+>>> +     }
+>>> +
+>>> +     return err;
+>>
+>> This style of error recovery doesn't work.
+>>
+>> You have to have a prepare/commit model to do this sanely, because
+>> otherwise:
+>>
+>> 1) Partial state updates can be seen by the data plane (and other
+>>    code paths) that do not use RTNL mutex protection.
+>>
+>> 2) It is absoultely expected that if some resource allocation failed
+>>    when switching to the new attribute value, the same exactly thing
+>>    is extremely likely during the rollback.
+>>
+>> So you have to code this in a way that no partial state updates are
+>> ever visible, and also that rollbacks don't fail.
+> 
+> I'm sending v3 with a prepare/commit model, for attr sets and obj
+> adds.  The prepare phase asks driver(s) if set/add will work (is
+> supported and device resource is available).  If yes, then do commit
+> phase.   Commit could still fail due to failures outside the control
+> of the driver, like ENOMEM.  In that case, WARN and return err.
 
-I need some help putting together the DPAA patches.  On 3/11, there was 
-a patch with the subject "[v2,02/11] soc/fman: Add the FMan FLIB", which 
-is basically the same subject as this one.  In the 3/11 patch, you 
-create /drivers/soc/fsl/Kconfig and Makefile.
+Scott, the whole purpose of the prepare phase is the allocate any
+necessary resources so that they are available for the commit phase.
+It needs to do this in addition to validating the incoming arguments.
 
-In this patch, Kconfig and Makefile already exist.  So, please tell me 
-the patch that should be applied before this one to pick up both Kconfig 
-and Makefile.
+If some part of the prepare phase fails, you go back and release any
+pre-allocated resources.
 
-Should this patch have been called v3?  There was a v1 on 3/5 and a v2 
-on 3/11 that had the subject "soc/fman Add the FMan FLIB".
-
-Excluding device tree patches, I think there are currently three 
-non-superseded patch sets submitted for the DPAA:
-
-1) 4/1/15: [PATCH RFC 00/10] introduce DPAA Ethernet driver, 
-madalin.bucur@freescale.com  [SHOULD HAVE BEEN TITLED V2?]
-
-2) 4/1/15: [RFC,v2,00/12] Freescale DPAA FMan, 
-igal.liberman@freescale.com [SHOULD HAVE BEEN TITLED V3?]
-
-3) 3/9/15: [RFC v3 00/10] Freescale DPAA B/QMan drivers, 
-Emilian.Medve@Freescale.com
-
-
-I'm looking forward to putting together all the patches and trying to 
-build it and eventually test it.
-
-
-Thank you,
-
-Bob
-
-
-
-
-> @@ -189,4 +189,6 @@ config FSL_QMAN_INIT_TIMEOUT
->
->   endif # FSL_QMAN
->
-> +source "drivers/soc/fsl/fman/Kconfig"
-> +
->   endif # FSL_DPA
-> diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
-> index cce1f70..b2f76e9 100644
-> --- a/drivers/soc/fsl/Makefile
-> +++ b/drivers/soc/fsl/Makefile
-> @@ -18,3 +18,5 @@ qman-test-y					 = qman_test.o
->   qman-test-$(CONFIG_FSL_QMAN_TEST_API)		+= qman_test_api.o
->   qman-test-$(CONFIG_FSL_QMAN_TEST_STASH)		+= qman_test_stash.o
->   obj-$(CONFIG_FSL_QMAN_DEBUGFS)			+= qman-debugfs.o
-> +
-> +obj-$(CONFIG_FSL_FMAN)				+= fman/
-> diff --git a/drivers/soc/fsl/fman/Kconfig b/drivers/soc/fsl/fman/Kconfig
-> new file mode 100644
-> index 0000000..8aeae29
-> --- /dev/null
-> +++ b/drivers/soc/fsl/fman/Kconfig
-> @@ -0,0 +1,7 @@
-> +config FSL_FMAN
-> +	bool "FMan support"
-> +	depends on FSL_SOC || COMPILE_TEST
-> +	default n
-> +	help
-> +		Freescale Data-Path Acceleration Architecture Frame Manager
-> +		(FMan) support
->
-
-[snip]
+The commit phase must not fail.
