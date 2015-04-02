@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/18] Mellanox mlx4 driver updates
-Date: Thu, 02 Apr 2015 16:25:45 -0400 (EDT)
-Message-ID: <20150402.162545.2194540262764717640.davem@davemloft.net>
-References: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 0/3] tipc: remove some unnecessary complexity
+Date: Thu, 02 Apr 2015 16:27:29 -0400 (EDT)
+Message-ID: <20150402.162729.449983442281951801.davem@davemloft.net>
+References: <1427981582-30819-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idos@mellanox.com, amirv@mellanox.com,
-	talal@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41121 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41136 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942AbbDBUZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 16:25:48 -0400
-In-Reply-To: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1752148AbbDBU1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 16:27:32 -0400
+In-Reply-To: <1427981582-30819-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu,  2 Apr 2015 16:31:05 +0300
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu,  2 Apr 2015 09:32:59 -0400
 
-> The main feature added by this series are Ido's changes to support 
-> Granular QoS for VFs, where for the time being only max rate is supported.
+> The TIPC code is unnecessarily complex in some places, often because
+> the conditions or assumptions that were the cause for the complexity
+> are not valid anymore.
 > 
-> Muhammad added support for setting rx-fcs and rx-all through ethtool, 
-> and Ido did the interface identify work.
-> 
-> Last, add Ido as a maintainer for the mlx4 Ethernet driver!
-> 
-> Some of next week is the Passover holiday here and I will be 
-> mostly OOO. If needed (...) Ido or Amir will send V1 and such.
-> 
-> Rebased against net-next commit 033f46b "crypto: algif - 
-> explicitly mark end of data".
+> In these three commits, we eliminate some cases of such redundant
+> complexity.
 
-Series applied, thanks.
+Series applied, thanks Jon.
