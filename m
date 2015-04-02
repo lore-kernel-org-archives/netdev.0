@@ -1,59 +1,31 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
- dereference inside the stack
-Date: Wed, 1 Apr 2015 19:55:12 -0700
-Message-ID: <CAHA+R7NXpuSOAwWpetFA+TyLh1d_v9kwiKxhPq4f=vowJJKb1Q@mail.gmail.com>
-References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
-	<CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
-	<1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 00/12] DSA Mavell drivers refactoring and cleanup
+Date: Wed, 01 Apr 2015 22:55:57 -0400 (EDT)
+Message-ID: <20150401.225557.1787409281146699142.davem@davemloft.net>
+References: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@roeck-us.net, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:35858 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752696AbbDBCzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 22:55:13 -0400
-Received: by iedm5 with SMTP id m5so59346855ied.3
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 19:55:13 -0700 (PDT)
-In-Reply-To: <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752364AbbDBCz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 22:55:59 -0400
+In-Reply-To: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 1, 2015 at 5:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-04-01 at 17:06 -0700, Cong Wang wrote:
->
->> Shouldn't these skb's be orphaned for tunnel cases? Or we still have
->> to keep skb->sk for other valid use?
->
-> skb should not be orphaned, until the very last stage.
->
-> Many layers depend on this, really.
->
-> Simply ask the question to yourself :
->
-> What if I do not associate skb to a socket at first. What possibly
-> breaks ?
->
-> orphaning skb just because they traverse a tunnel would be quite
-> horrible.
->
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu,  2 Apr 2015 04:06:28 +0200
 
-I didn't make it clear, I meant to say "resetting the skb->sk to tunnel
-socket". I know sch_fq uses skb->sk for flow classification, but
-if skb->sk still points to the user-space socket, its meaning is already
-changed after encapsulation, with regarding to this, all traffic goes
-out of this tunnel should be one flow.
+> v1->v2:
+>  * Add missing signed-of-by: For patches authored by Guenter Roeck.
+>  * Add Reviewed by from Guenter Roack to patch #5.
+> 
+> This is a collection of patches again net-next from today containing
+> refactoring and consolidate of code, cleanups and using #define's to
+> replace register numbers.
 
-This also means ipv6 should not use any socket setting for routing
-lookup, since after resetting skb->sk in encapsulation skb's belong
-to one kernel socket which doesn't have any socket options set.
-
-As I said, there might be still some useful information from their
-original skb->sk, I of course never audit all the skb->sk usage
-in kernel.
-
-Essentially, carrying L4 information to L2 does make things complicated
-when udp tunnels are involved.
+Looks great, series applied, thanks.
