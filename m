@@ -1,60 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [rhashtable] [ INFO: suspicious RCU usage. ]
-Date: Thu, 2 Apr 2015 12:29:50 +0800
-Message-ID: <20150402042950.GA5643@gondor.apana.org.au>
-References: <20150402005211.GC12979@wfg-t540p.sh.intel.com>
- <20150402035810.GA5408@gondor.apana.org.au>
- <20150402041135.GA22514@wfg-t540p.sh.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKP <lkp@01.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150402041135.GA22514@wfg-t540p.sh.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ed Swierk <eswierk@skyportsystems.com>
+Subject: [PATCH] Include SFP serial number and other SFF-8079 fields in EEPROM dump
+Date: Wed,  1 Apr 2015 21:33:19 -0700
+Message-ID: <1427949199-39650-1-git-send-email-eswierk@skyportsystems.com>
+Cc: Ed Swierk <eswierk@skyportsystems.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:34538 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbbDBEda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 00:33:30 -0400
+Received: by pdbni2 with SMTP id ni2so76970581pdb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 21:33:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 02, 2015 at 12:11:35PM +0800, Fengguang Wu wrote:
-> 
-> Yes it is contained in next-20150401 which is bad:
-> 
-> # extra tests on tree/branch next/master
-> git bisect  bad e954104e2b634b42811dad8d502cbf240f206df2  # 21:22      0-     60  Add linux-next specific files for 20150401
-> 
-> The dmesg there is
-> 
-> [    1.149409] test_firmware: interface ready
-> [    1.150293] Running resizable hashtable tests...
-> [    1.151209]   Adding 2048 keys
-> [    1.152069] ------------[ cut here ]------------
-> [    1.152978] WARNING: CPU: 0 PID: 1 at lib/rhashtable.c:409 rhashtable_insert_rehash+0x9d/0x1d0()
+Signed-off-by: Ed Swierk <eswierk@skyportsystems.com>
+---
+ sfpid.c | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
-I see.  This is actually a completely different problem.
-
----8<---
-test_rhashtable: Remove bogus max_size setting
-
-Now that resizing is completely automatic, we need to remove
-the max_size setting or the test will fail.
-
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
-index a42a0d4..b295754 100644
---- a/lib/test_rhashtable.c
-+++ b/lib/test_rhashtable.c
-@@ -44,7 +44,6 @@ static const struct rhashtable_params test_rht_params = {
- 	.key_offset = offsetof(struct test_obj, value),
- 	.key_len = sizeof(int),
- 	.hashfn = jhash,
--	.max_size = 2, /* we expand/shrink manually here */
- 	.nulls_base = (3U << RHT_BASE_SHIFT),
- };
+diff --git a/sfpid.c b/sfpid.c
+index 4f88aa2..299d593 100644
+--- a/sfpid.c
++++ b/sfpid.c
+@@ -362,6 +362,40 @@ static void sff8079_show_ascii(const __u8 *id, unsigned int first_reg,
+ 	printf("\n");
+ }
  
++static void sff8079_show_options(const __u8 *id)
++{
++	static const char *pfx =
++		"\tOption                                    :";
++
++	printf("\t%-41s : 0x%02x 0x%02x\n", "Option values", id[64], id[65]);
++	if (id[65] & (1 << 1))
++		printf("%s RX_LOS implemented\n", pfx);
++	if (id[65] & (1 << 2))
++		printf("%s RX_LOS implemented, inverted\n", pfx);
++	if (id[65] & (1 << 3))
++		printf("%s TX_FAULT implemented\n", pfx);
++	if (id[65] & (1 << 4))
++		printf("%s TX_DISABLE implemented\n", pfx);
++	if (id[65] & (1 << 5))
++		printf("%s RATE_SELECT implemented\n", pfx);
++	if (id[65] & (1 << 6))
++		printf("%s Tunable transmitter technology\n", pfx);
++	if (id[65] & (1 << 7))
++		printf("%s Receiver decision threshold implemented\n", pfx);
++	if (id[64] & (1 << 0))
++		printf("%s Linear receiver output implemented\n", pfx);
++	if (id[64] & (1 << 1))
++		printf("%s Power level 2 requirement\n", pfx);
++	if (id[64] & (1 << 2))
++		printf("%s Cooled transceiver implemented\n", pfx);
++	if (id[64] & (1 << 3))
++		printf("%s Retimer or CDR implemented\n", pfx);
++	if (id[64] & (1 << 4))
++		printf("%s Paging implemented\n", pfx);
++	if (id[64] & (1 << 5))
++		printf("%s Power level 3 requirement\n", pfx);
++}
++
+ void sff8079_show_all(const __u8 *id)
+ {
+ 	sff8079_show_identifier(id);
+@@ -385,5 +419,10 @@ void sff8079_show_all(const __u8 *id)
+ 		sff8079_show_oui(id);
+ 		sff8079_show_ascii(id, 40, 55, "Vendor PN");
+ 		sff8079_show_ascii(id, 56, 59, "Vendor rev");
++		sff8079_show_options(id);
++		sff8079_show_value_with_unit(id, 66, "BR margin, max", 1, "%");
++		sff8079_show_value_with_unit(id, 67, "BR margin, min", 1, "%");
++		sff8079_show_ascii(id, 68, 83, "Vendor SN");
++		sff8079_show_ascii(id, 84, 91, "Date code");
+ 	}
+ }
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.1
