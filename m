@@ -1,48 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 01/26] switchdev: introduce get/set attrs ops
-Date: Thu, 2 Apr 2015 02:09:05 -0700
-Message-ID: <CAGVrzcZvzWDeV7XvZx13fK_u0oYD=mAJKQ5JUNm9UhirBqAHow@mail.gmail.com>
-References: <1427962212-18411-1-git-send-email-sfeldma@gmail.com> <1427962212-18411-2-git-send-email-sfeldma@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: ethtool: git tree not updated to v3.18
+Date: Thu, 02 Apr 2015 11:50:25 +0200
+Message-ID: <551D10E1.2080304@iogearbox.net>
+References: <20150401143006.000001f7@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	sridhar.samudrala@intel.com, "Arad, Ronen" <ronen.arad@intel.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, bwh@kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:33418 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772AbbDBJJq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 05:09:46 -0400
-Received: by obvd1 with SMTP id d1so120216856obv.0
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 02:09:46 -0700 (PDT)
-In-Reply-To: <1427962212-18411-2-git-send-email-sfeldma@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:48385 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703AbbDBJua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 05:50:30 -0400
+In-Reply-To: <20150401143006.000001f7@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[snip]
+On 04/01/2015 11:30 PM, Jesse Brandeburg wrote:
+> Hi Ben,
+>
+> When trying to check a bug just now I noticed that the master
+> branch of
+> git://git.kernel.org/pub/scm/network/ethtool/ethtool
+>
+> still points to the v3.16 tag.
+>
+> But kernel.org shows version 3.18 released.  I did some quick
+> investigation and it looks like the v3.18 tag points to a dangling
+> commit that is not on a branch.
+>
+> $ git log --graph --oneline v3.18 |head -n5
+> * ba9a11a Release version 3.18.
+> * 1e8811a Fix build with musl by using more common typedefs
+> * 99bc878 bug fix: SFP Tx BIAS uses memory wrong offset
+> * 4614098 Release version 3.16.
+> * 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
+>
+> $ git log --graph --oneline origin/master |head -n5
+> * 4614098 Release version 3.16.
+> * 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
+> * 86c0326 ethtool: Support for configurable RSS hash key
+> * e633626 ethtool-copy.h: sync with net
+> * 05b8ad5 Release version 3.14.
+>
+> Maybe you can merge the commits from your working branch back onto
+> master and make another 3.18.1 tag or something.
+>
+> I just did:
+> git checkout master
+> git merge v3.18
+>
+> which worked okay, I think.
 
-> +       int err = -EOPNOTSUPP;
-> +
-> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
-> +               return err;
+Btw, are there any plans to keep track of ethtool patches in
+netdev patchwork as well, like we do with iproute2?
 
-That check is currently going to prevent DSA from working, since we do
-not yet advertise NETIF_HW_SWITCH_OFFLOAD (which should be fixed). In
-general, though I am not sure this is entirely desirable to check that
-here for multiple reasons:
+I recall in early January this year there was a patch to add
+qsfp diag information support to ethtool, but that probably
+got lost on the list, not sure.
 
-- stacked devices typically propagate lower devices dev->features, but
-if they are purposely not doing it, this might start breaking
-- is not that check, used as it is now, that unconditionally, end-up
-being redundant with e.g: getting the switch device id to identify
-this net_device as a switch port net_device?
-
-I kind of preferred when we had this moved into the
-__swdev_attr_{get,set} caller, such we had finer control over whether
-or not checking for these kinds of features makes sense for a
-particular operation.
---
-Florian
+Cheers,
+Daniel
