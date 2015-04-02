@@ -1,93 +1,97 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH RFC 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Thu, 02 Apr 2015 12:44:04 +0200
-Message-ID: <1427971444.10518.40.camel@x220>
-References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
+From: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+Subject: af_packet / TX_RING not fully non-blocking (w/ MSG_DONTWAIT)
+Date: Thu, 2 Apr 2015 12:52:54 +0200
+Message-ID: <551D1F86.8050200@fokus.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed;
+	boundary="------------080509080507060409060507"
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx-relay37-dus.antispameurope.com ([94.100.134.237]:46240 "EHLO
+	mx-relay37-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750872AbbDBLAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 07:00:05 -0400
+Received: from DIRAC.fokus.fraunhofer.de ([IPv6:2001:638:806:9::201])
+	by smtpsrv2.fokus.fraunhofer.de (8.14.4/8.14.4) with ESMTP id t32ArKSx018048
+	(version=TLSv1/SSLv3 cipher=AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 2 Apr 2015 12:53:20 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--------------080509080507060409060507
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org
-To: madalin.bucur@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Just a few nits.
+Dear all,
 
-This series is posted as an RFC, so this might not be what you're
-expecting right now. But as these messages got tangled up in my mail
-filter anyhow, I thought I might as well bother you with these nits now.
+we have encountered a problem where the send(MSG_DONTWAIT) call on a TX_RING is not 
+fully non-blocking in cases where the device's sndBuf is full (i.e. we are trying to 
+write faster than the device can handle).
 
-On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
-> --- /dev/null
-> +++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
-> @@ -0,0 +1,49 @@
-> +menuconfig FSL_DPAA_ETH
-> +	tristate "DPAA Ethernet"
-> +	depends on FSL_SOC && FSL_BMAN && FSL_QMAN && FSL_FMAN
-> +	select PHYLIB
-> +	select FSL_FMAN_MAC
-> +	---help---
-> +	  Data Path Acceleration Architecture Ethernet driver,
-> +	  supporting the Freescale QorIQ chips.
-> +	  Depends on Freescale Buffer Manager and Queue Manager
-> +	  driver and Frame Manager Driver.
-> +
-> +if FSL_DPAA_ETH
-> +
-> +config FSL_DPAA_CS_THRESHOLD_1G
-> +	hex "Egress congestion threshold on 1G ports"
-> +	depends on FSL_DPAA_ETH
+This is on a WLAN radio (so it's not that hard to achieve :).
 
-This entry is inside the "if FSL_DPAA_ETH" block. So this line should be
-superfluous.
+Comparing the TX_RING send() handler to the regular send() handler, the difference 
+seems to be in the sock_alloc_send_skb() call where, the regular handler passes a 
+(flags & MSG_DONTWAIT), while the TX_RING handler always passes a 0 (block).
 
-> +	range 0x1000 0x10000000
-> +	default "0x06000000"
-> +	---help---
-> +	  The size in bytes of the egress Congestion State notification threshold on 1G ports.
-> +	  The 1G dTSECs can quite easily be flooded by cores doing Tx in a tight loop
-> +	  (e.g. by sending UDP datagrams at "while(1) speed"),
-> +	  and the larger the frame size, the more acute the problem.
-> +	  So we have to find a balance between these factors:
-> +	       - avoiding the device staying congested for a prolonged time (risking
-> +                 the netdev watchdog to fire - see also the tx_timeout module param);
-> +               - affecting performance of protocols such as TCP, which otherwise
-> +	         behave well under the congestion notification mechanism;
-> +	       - preventing the Tx cores from tightly-looping (as if the congestion
-> +	         threshold was too low to be effective);
-> +	       - running out of memory if the CS threshold is set too high.
-> +
-> +config FSL_DPAA_CS_THRESHOLD_10G
-> +	hex "Egress congestion threshold on 10G ports"
-> +	depends on FSL_DPAA_ETH
+The attached patch changes this behavior by
 
-Ditto.
+a) also passing (flags & MSG_DONTWAIT)
+b) adjusting the return code so that -ENOBUFS is returned if no frame could be sent 
+or to return the number of bytes sent, if frame(s) could be sent within this call.
 
-> +	range 0x1000 0x20000000
-> +	default "0x10000000"
-> +	---help ---
-> +	  The size in bytes of the egress Congestion State notification threshold on 10G ports.
-> +
-> +config FSL_DPAA_INGRESS_CS_THRESHOLD
-> +	hex "Ingress congestion threshold on FMan ports"
-> +	depends on FSL_DPAA_ETH
+The proposed modification works fine for us and has been tested extensively with 
+WLAN and Ethernet device.
 
-Ditto.
+Feel free to apply this patch if you agree with this solution.
+Of course, we're also open to other solutions / proposals / ideas.
 
-> +	default "0x10000000"
-> +	---help---
-> +	  The size in bytes of the ingress tail-drop threshold on FMan ports.
-> +	  Traffic piling up above this value will be rejected by QMan and discarded by FMan.
-> +
-> +endif # FSL_DPAA_ETH
+Cheers,
 
-A similar comment can be made for the entries added in 03/10, 05/10, and
-09/10.
+Mathias
 
-Thanks,
+-- 
+Dr. Mathias Kretschmer, Head of Competence Center
+Fraunhofer FOKUS Network Research
+A Schloss Birlinghoven, 53754 Sankt Augustin, Germany
+T +49-2241-14-3466, F +49-2241-14-1050
+E mathias.kretschmer@fokus.fraunhofer.de
+W http://www.fokus.fraunhofer.de/en/net
 
+--------------080509080507060409060507
+Content-Type: text/x-patch; name="005-af_packet_no_block_tx.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="005-af_packet_no_block_tx.patch"
 
-Paul Bolle
+diff -uNpr linux-3.16.7.orig/net/packet/af_packet.c linux-3.16.7/net/packet/af_packet.c
+--- linux-3.16.7.orig/net/packet/af_packet.c	2014-10-30 16:41:01.000000000 +0000
++++ linux-3.16.7/net/packet/af_packet.c	2015-04-02 08:43:37.386617712 +0000
+@@ -2285,17 +2285,22 @@ static int tpacket_snd(struct packet_soc
+ 				schedule();
+ 			continue;
+ 		}
+-
++	
+ 		status = TP_STATUS_SEND_REQUEST;
+ 		hlen = LL_RESERVED_SPACE(dev);
+ 		tlen = dev->needed_tailroom;
+ 		skb = sock_alloc_send_skb(&po->sk,
+ 				hlen + tlen + sizeof(struct sockaddr_ll),
+-				0, &err);
++				!need_wait, &err);
+ 
+-		if (unlikely(skb == NULL))
++		if (skb == NULL) {
++	                /* we assume the socket was initially writeable ... */
++                        if (likely(len_sum > 0))
++                        	err = len_sum;
++                	else
++                        	err = -ENOBUFS;
+ 			goto out_status;
+-
++                }
+ 		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
+ 					  addr, hlen);
+ 		if (tp_len > dev->mtu + dev->hard_header_len) {
+
+--------------080509080507060409060507--
