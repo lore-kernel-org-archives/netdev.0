@@ -1,102 +1,67 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v2 01/26] switchdev: introduce get/set attrs ops
-Date: Thu, 2 Apr 2015 10:38:56 -0700
-Message-ID: <CAE4R7bD17Tv+4rFJDFeMQadPB=gj4dNktaT0wU7BksL-PB=NJg@mail.gmail.com>
-References: <1427882882-2533-2-git-send-email-sfeldma@gmail.com>
-	<20150401.140822.2230858157895026713.davem@davemloft.net>
-	<CAE4R7bC+fSjEP+uz19L9mbjf1Y+sPUM=Z7iuDtQdhPAZA1x3sA@mail.gmail.com>
-	<20150402.120533.225417156120458098.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] tc: bpf: add checksum helpers
+Date: Thu, 2 Apr 2015 19:46:03 +0200
+Message-ID: <20150402174603.GE2613@nanopsycho.orion>
+References: <1427933533-14394-1-git-send-email-ast@plumgrid.com>
+ <551D599F.30408@iogearbox.net>
+ <20150402151530.GD2613@nanopsycho.orion>
+ <551D5E69.4050704@iogearbox.net>
+ <551D6FB3.7090304@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:34765 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752679AbbDBRi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 13:38:56 -0400
-Received: by qgep97 with SMTP id p97so75497115qge.1
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 10:38:56 -0700 (PDT)
-In-Reply-To: <20150402.120533.225417156120458098.davem@davemloft.net>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35843 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751AbbDBRqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 13:46:06 -0400
+Received: by wizk4 with SMTP id k4so23046159wiz.1
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 10:46:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <551D6FB3.7090304@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 2, 2015 at 9:05 AM, David Miller <davem@davemloft.net> wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
-> Date: Thu, 2 Apr 2015 00:43:57 -0700
->
->> On Wed, Apr 1, 2015 at 11:08 AM, David Miller <davem@davemloft.net> wrote:
->>> From: sfeldma@gmail.com
->>> Date: Wed,  1 Apr 2015 03:07:37 -0700
+Thu, Apr 02, 2015 at 06:34:59PM CEST, ast@plumgrid.com wrote:
+>On 4/2/2015 8:21 AM, Daniel Borkmann wrote:
+>>On 04/02/2015 05:15 PM, Jiri Pirko wrote:
+>>>Thu, Apr 02, 2015 at 05:00:47PM CEST, daniel@iogearbox.net wrote:
+>>>>On 04/02/2015 02:12 AM, Alexei Starovoitov wrote:
+>>>>>Commit 608cd71a9c7c ("tc: bpf: generalize pedit action") has added the
+>>>>>possibility to mangle packet data to BPF programs in the tc pipeline.
+>>>>>This patch adds two helpers bpf_l3_csum_replace() and
+>>>>>bpf_l4_csum_replace()
+>>>>>for fixing up the protocol checksums after the packet mangling.
+>>>>>
+>>>>>It also adds 'flags' argument to bpf_skb_store_bytes() helper to avoid
+>>>>>unnecessary checksum recomputations when BPF programs adjusting l3/l4
+>>>>>checksums and documents all three helpers in uapi header.
+>>>>>
+>>>>>Moreover, a sample program is added to show how BPF programs can
+>>>>>make use
+>>>>>of the mangle and csum helpers.
+>>>>>
+>>>>>Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>>>
+>>>>I think in future we need to find a better place for these helpers,
+>>>>as they are for cls_bpf and act_bpf.
 >>>
->>>> +int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
->>>> +{
->>>> +     struct swdev_attr prev = *attr;
->>>> +     int err, get_err, revert_err;
->>>> +
->>>> +     get_err = swdev_port_attr_get(dev, &prev);
->>>> +
->>>> +     err = __swdev_port_attr_set(dev, attr);
->>>> +     if (err && !get_err && !(attr->flags & SWDEV_F_NO_RECOVER)) {
->>>> +             /* Some err on set: revert to previous value */
->>>> +             revert_err = __swdev_port_attr_set(dev, &prev);
->>>> +             if (revert_err)
->>>> +                     netdev_err(dev, "Reverting swdev port attr %d failed\n",
->>>> +                                attr->id);
->>>> +     }
->>>> +
->>>> +     return err;
->>>
->>> This style of error recovery doesn't work.
->>>
->>> You have to have a prepare/commit model to do this sanely, because
->>> otherwise:
->>>
->>> 1) Partial state updates can be seen by the data plane (and other
->>>    code paths) that do not use RTNL mutex protection.
->>>
->>> 2) It is absoultely expected that if some resource allocation failed
->>>    when switching to the new attribute value, the same exactly thing
->>>    is extremely likely during the rollback.
->>>
->>> So you have to code this in a way that no partial state updates are
->>> ever visible, and also that rollbacks don't fail.
+>>>Yeah, makes sense to now have it in net/core/filter.c. How about to
+>>>create net/bpf dir for these?
 >>
->> I'm sending v3 with a prepare/commit model, for attr sets and obj
->> adds.  The prepare phase asks driver(s) if set/add will work (is
->> supported and device resource is available).  If yes, then do commit
->> phase.   Commit could still fail due to failures outside the control
->> of the driver, like ENOMEM.  In that case, WARN and return err.
+>>I was thinking somewhere under net/sched/, f.e. net/sched/bpf.c
+>>as probably kernel/bpf/ would end up in too much ifdef pasta. :/
 >
-> Scott, the whole purpose of the prepare phase is the allocate any
-> necessary resources so that they are available for the commit phase.
-> It needs to do this in addition to validating the incoming arguments.
+>I would prefer to keep mangle and csum helpers in net/core/filter.c for
+>now, since it's not clear what networking subsystems beyond TC would
+>want to use them in the future. Otherwise we'll keep moving them back
+>and forth.
+
+Well, therefore I suggested net/bpf/ dir as a place to store
+net-subsystem specific bpf stuff.
+
 >
-> If some part of the prepare phase fails, you go back and release any
-> pre-allocated resources.
->
-> The commit phase must not fail.
-
-I was afraid you were going to say that :(
-
-I looked at doing that with rocker for setting STP state.  The driver
-does allocate some system memory blocks, conditionally, about 4 call
-levels down, and then it may or may not free them it.  To do that all
-up-front in prepare, we'd need to traverse all the same code paths
-allocating memory as we go and stashing it in some transaction object
-passed from above, but skip any device accesses.  And then in commit,
-go thru the same paths, but use stash memory from transaction object
-and this time do call into device.  All of this to avoid failing
-commit due to OOM.  So I reasoned OOM isn't a case worth the work
-because the system is pretty much hosed at that point anyway, and went
-with a prepare phase that only validates and checks for device
-resources, but skip system resources.
-
-It's not impossible, but my little Spring Cleanup patch is going to
-turn into Spring Renovation patch.
