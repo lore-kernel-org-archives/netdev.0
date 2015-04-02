@@ -1,89 +1,65 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 01/12] net: dsa: mv88e6131: Use common initialization functions
-Date: Thu,  2 Apr 2015 04:06:29 +0200
-Message-ID: <1427940400-12434-2-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 12/12] net: dsa: mv88e6xxx: Fix stats counters for 6352 family
+Date: Thu,  2 Apr 2015 04:06:40 +0200
+Message-ID: <1427940400-12434-13-git-send-email-andrew@lunn.ch>
 References: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
 To: davem@davemloft.net, linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35841 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:35850 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753103AbbDBCLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 22:11:49 -0400
+	id S1753113AbbDBCMF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 22:12:05 -0400
 In-Reply-To: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
+The statistic counters for the mv88e6172 never worked. This device is
+a member of the 6352 family of chips, which has a slightly different
+layout of the register used for capturing statistics. Add support for
+detecting this family and poking the port in the right place in the
+register.
 
-Common initialization functions will be needed to enable
-HW bridging support.
-
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Tested-by: Guenter Roeck <linux@roeck-us.net>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/dsa/mv88e6131.c | 33 +++++----------------------------
- 1 file changed, 5 insertions(+), 28 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 2540ef0142af..0252d51c0a74 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -208,28 +208,6 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
- 		val |= 0x0100;
- 	REG_WRITE(addr, 0x04, val);
- 
--	/* Port Control 1: disable trunking.  Also, if this is the
--	 * CPU port, enable learn messages to be sent to this port.
--	 */
--	REG_WRITE(addr, 0x05, dsa_is_cpu_port(ds, p) ? 0x8000 : 0x0000);
--
--	/* Port based VLAN map: give each port its own address
--	 * database, allow the CPU port to talk to each of the 'real'
--	 * ports, and allow each of the 'real' ports to only talk to
--	 * the upstream port.
--	 */
--	val = (p & 0xf) << 12;
--	if (dsa_is_cpu_port(ds, p))
--		val |= ds->phys_port_mask;
--	else
--		val |= 1 << dsa_upstream_port(ds);
--	REG_WRITE(addr, 0x06, val);
--
--	/* Default VLAN ID and priority: don't set a default VLAN
--	 * ID, and set the default packet priority to zero.
--	 */
--	REG_WRITE(addr, 0x07, 0x0000);
--
- 	/* Port Control 2: don't force a good FCS, don't use
- 	 * VLAN-based, source address-based or destination
- 	 * address-based priority overrides, don't let the switch
-@@ -278,20 +256,19 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
- 	 */
- 	REG_WRITE(addr, 0x19, 0x7654);
- 
--	return 0;
-+	return mv88e6xxx_setup_port_common(ds, p);
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 488b6545dfb5..fc8d3b6ffe8e 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -434,6 +434,19 @@ void mv88e6xxx_poll_link(struct dsa_switch *ds)
+ 	}
  }
  
- static int mv88e6131_setup(struct dsa_switch *ds)
++static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	switch (ps->id) {
++	case PORT_SWITCH_ID_6352:
++	case PORT_SWITCH_ID_6172:
++	case PORT_SWITCH_ID_6176:
++		return true;
++	}
++	return false;
++}
++
+ static int mv88e6xxx_stats_wait(struct dsa_switch *ds)
  {
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i;
+ 	int ret;
+@@ -452,6 +465,9 @@ static int mv88e6xxx_stats_snapshot(struct dsa_switch *ds, int port)
+ {
  	int ret;
  
--	mutex_init(&ps->smi_mutex);
--	mv88e6xxx_ppu_state_init(ds);
--	mutex_init(&ps->stats_mutex);
-+	ret = mv88e6xxx_setup_common(ds);
-+	if (ret < 0)
-+		return ret;
- 
--	ps->id = REG_READ(REG_PORT(0), 0x03) & 0xfff0;
-+	mv88e6xxx_ppu_state_init(ds);
- 
- 	ret = mv88e6131_switch_reset(ds);
- 	if (ret < 0)
++	if (mv88e6xxx_6352_family(ds))
++		port = (port + 1) << 5;
++
+ 	/* Snapshot the hardware statistics counters for this port. */
+ 	REG_WRITE(REG_GLOBAL, GLOBAL_STATS_OP,
+ 		  GLOBAL_STATS_OP_CAPTURE_PORT |
 -- 
 2.1.4
