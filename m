@@ -1,47 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] tc: bpf: add checksum helpers
-Date: Thu, 02 Apr 2015 17:21:13 +0200
-Message-ID: <551D5E69.4050704@iogearbox.net>
-References: <1427933533-14394-1-git-send-email-ast@plumgrid.com> <551D599F.30408@iogearbox.net> <20150402151530.GD2613@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH ipsec] vti6: fix uninit when using x-netns
+Date: Thu,  2 Apr 2015 17:31:17 +0200
+Message-ID: <1427988677-11478-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Yao Xiwei <xiwei.yao@6wind.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47412 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbbDBPVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 11:21:21 -0400
-In-Reply-To: <20150402151530.GD2613@nanopsycho.orion>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56684 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752704AbbDBPbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 11:31:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/02/2015 05:15 PM, Jiri Pirko wrote:
-> Thu, Apr 02, 2015 at 05:00:47PM CEST, daniel@iogearbox.net wrote:
->> On 04/02/2015 02:12 AM, Alexei Starovoitov wrote:
->>> Commit 608cd71a9c7c ("tc: bpf: generalize pedit action") has added the
->>> possibility to mangle packet data to BPF programs in the tc pipeline.
->>> This patch adds two helpers bpf_l3_csum_replace() and bpf_l4_csum_replace()
->>> for fixing up the protocol checksums after the packet mangling.
->>>
->>> It also adds 'flags' argument to bpf_skb_store_bytes() helper to avoid
->>> unnecessary checksum recomputations when BPF programs adjusting l3/l4
->>> checksums and documents all three helpers in uapi header.
->>>
->>> Moreover, a sample program is added to show how BPF programs can make use
->>> of the mangle and csum helpers.
->>>
->>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->>
->> I think in future we need to find a better place for these helpers,
->> as they are for cls_bpf and act_bpf.
->
-> Yeah, makes sense to now have it in net/core/filter.c. How about to
-> create net/bpf dir for these?
+From: Yao Xiwei <xiwei.yao@6wind.com>
 
-I was thinking somewhere under net/sched/, f.e. net/sched/bpf.c
-as probably kernel/bpf/ would end up in too much ifdef pasta. :/
+When the kernel deleted a vti6 interface, this interface was not removed from
+the tunnels list. Thus, when the ip6_vti module was removed, this old interface
+was found and the kernel tried to delete it again. This was leading to a kernel
+panic.
+
+Fixes: 61220ab34948 ("vti6: Enable namespace changing")
+Signed-off-by: Yao Xiwei <xiwei.yao@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/ip6_vti.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ace10d0b3aac..96ba579917c1 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -288,8 +288,7 @@ static struct ip6_tnl *vti6_locate(struct net *net, struct __ip6_tnl_parm *p,
+ static void vti6_dev_uninit(struct net_device *dev)
+ {
+ 	struct ip6_tnl *t = netdev_priv(dev);
+-	struct net *net = dev_net(dev);
+-	struct vti6_net *ip6n = net_generic(net, vti6_net_id);
++	struct vti6_net *ip6n = net_generic(t->net, vti6_net_id);
+ 
+ 	if (dev == ip6n->fb_tnl_dev)
+ 		RCU_INIT_POINTER(ip6n->tnls_wc[0], NULL);
+-- 
+2.2.2
