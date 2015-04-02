@@ -1,327 +1,247 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 06/12] net: dsa: Centralize Marvell switch reset
-Date: Thu,  2 Apr 2015 03:21:53 +0200
-Message-ID: <1427937719-11630-7-git-send-email-andrew@lunn.ch>
-References: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
-To: davem@davemloft.net, linux@roeck-us.net
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
+Date: Wed, 1 Apr 2015 18:30:35 -0700
+Message-ID: <CAF2d9jgqJBfWVnX1mye5xMfYznA_NFte3dEEKG5CyogXTM73Rw@mail.gmail.com>
+References: <1427409698.18540.11.camel@redhat.com> <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
+ <1427749308.1913.28.camel@redhat.com> <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
+ <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
+ <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com> <1427921700.6874.8.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35774 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752429AbbDBB1C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 21:27:02 -0400
-In-Reply-To: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:34690 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbbDBBa4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 21:30:56 -0400
+Received: by obbgh1 with SMTP id gh1so101562430obb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 18:30:56 -0700 (PDT)
+In-Reply-To: <1427921700.6874.8.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marvell switches are all reset in nearly the same way. The only
-difference is if the PPU should be enabled or not. Move this
-code into the shared mv88x6xxx.c.
+On Wed, Apr 1, 2015 at 1:55 PM, Dan Williams <dcbw@redhat.com> wrote:
+> On Wed, 2015-04-01 at 13:24 -0700, Mahesh Bandewar wrote:
+>> On Mon, Mar 30, 2015 at 9:22 PM, Dan Williams <dcbw@redhat.com> wrote:
+>> > The broadcast MAC is supposed to be allowed whenever the device
+>> > has an IPv4 address, otherwise ARP requests get dropped on the
+>> > floor.  If ndo_set_rx_mode (and thus
+>> > ipvlan_set_multicast_mac_filter()) got called after the address
+>> > was added, it would blow away the broadcast MAC address in
+>> > mac_filters that was added at IPv4 address addition.
+>> >
+>> > Next, ipvlan currently fails DHCP addressing for two reasons:
+>> >
+>> I would prefer DHCPv4 instead of DHCP since it could also mean DHCPv6
+>> which does not use broadcast.
+>>
+>> > 1) DHCP offers are typically unicast back to the device's MAC
+>> > address, and at the IP layer have a destination IP address
+>> > matching the new lease address.  In ipvlan unicast packets
+>> > are checked against existing addresses assigned to the ipvlan
+>> > interface, so clearly this fails hard because the ipvlan
+>> > interface has no IP addresses yet.  Workaround: request
+>> > that the server broadcast replies (-B for dhclient) which
+>> > don't get checked against the address list.
+>> >
+>> > 2) Even when that's done, mac_filters only allows the
+>> > broadcast MAC address when the interface has >= 1 IPv4
+>> > addresses, so double-fail, and the incoming DHCP offer
+>> > gets dropped on the floor again.
+>> >
+>> > To fix these issues, Watch for outgoing DHCP requests and
+>> > enable the broadcast MAC address indefinitely when one is seen.
+>> >
+>> This approach will work but adds a performance drag for all UDP
+>> traffic whether the link needs DHCPv4 or not (especially when it does
+>> not need). Logic works well only when the link (always) needs DHCPv4.
+>> When the link does not care about DHCPv4 the packet-inspection always
+>> happens.
+>
+> If DHCPv4 is detected on a link, doesn't that mean the link needs the
+> broadcast filter enabled?
+Yes and it should stay enabled as it's going to have IPv4. Also once
+broadcast bit is set there should not be any additional jugglery /
+packet inspection which hurts performance.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Guenter Roeck <linux@roeck-us.net>
-Tested-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/dsa/mv88e6123_61_65.c | 36 +----------------------------
- drivers/net/dsa/mv88e6131.c       | 36 +----------------------------
- drivers/net/dsa/mv88e6171.c       | 48 +--------------------------------------
- drivers/net/dsa/mv88e6352.c       | 38 +------------------------------
- drivers/net/dsa/mv88e6xxx.c       | 40 ++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h       |  1 +
- 6 files changed, 45 insertions(+), 154 deletions(-)
+> If you start DHCPv4 on the link you obviously
+> expect it to work, unless there's no DHCPv4 server available.  The patch
+> should also reset the broadcast filter on close, so network management
+> could simply start DHCPv4, watch it fail, close/open and set static IP.
+>
+> Alternatively we could have the broadcast filter on a 2 minute timer
+> that starts when DHCPv4 is seen.
+>
+Well, but this would be error-prone. I don't remember but DHCP timeout
+is not just 2 minutes.
 
-diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
-index 6480f77829ef..10228ad48151 100644
---- a/drivers/net/dsa/mv88e6123_61_65.c
-+++ b/drivers/net/dsa/mv88e6123_61_65.c
-@@ -52,40 +52,6 @@ static char *mv88e6123_61_65_probe(struct device *host_dev, int sw_addr)
- 	return NULL;
- }
- 
--static int mv88e6123_61_65_switch_reset(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int i;
--	int ret;
--	unsigned long timeout;
--
--	/* Set all ports to the disabled state. */
--	for (i = 0; i < ps->num_ports; i++) {
--		ret = REG_READ(REG_PORT(i), 0x04);
--		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
--	}
--
--	/* Wait for transmit queues to drain. */
--	usleep_range(2000, 4000);
--
--	/* Reset the switch. */
--	REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
--
--	/* Wait up to one second for reset to complete. */
--	timeout = jiffies + 1 * HZ;
--	while (time_before(jiffies, timeout)) {
--		ret = REG_READ(REG_GLOBAL, 0x00);
--		if ((ret & 0xc800) == 0xc800)
--			break;
--
--		usleep_range(1000, 2000);
--	}
--	if (time_after(jiffies, timeout))
--		return -ETIMEDOUT;
--
--	return 0;
--}
--
- static int mv88e6123_61_65_setup_global(struct dsa_switch *ds)
- {
- 	int ret;
-@@ -292,7 +258,7 @@ static int mv88e6123_61_65_setup(struct dsa_switch *ds)
- 		return -ENODEV;
- 	}
- 
--	ret = mv88e6123_61_65_switch_reset(ds);
-+	ret = mv88e6xxx_switch_reset(ds, false);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 6b818fde2216..534a8f0b1c28 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -42,40 +42,6 @@ static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
- 	return NULL;
- }
- 
--static int mv88e6131_switch_reset(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int i;
--	int ret;
--	unsigned long timeout;
--
--	/* Set all ports to the disabled state. */
--	for (i = 0; i < ps->num_ports; i++) {
--		ret = REG_READ(REG_PORT(i), 0x04);
--		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
--	}
--
--	/* Wait for transmit queues to drain. */
--	usleep_range(2000, 4000);
--
--	/* Reset the switch. */
--	REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
--
--	/* Wait up to one second for reset to complete. */
--	timeout = jiffies + 1 * HZ;
--	while (time_before(jiffies, timeout)) {
--		ret = REG_READ(REG_GLOBAL, 0x00);
--		if ((ret & 0xc800) == 0xc800)
--			break;
--
--		usleep_range(1000, 2000);
--	}
--	if (time_after(jiffies, timeout))
--		return -ETIMEDOUT;
--
--	return 0;
--}
--
- static int mv88e6131_setup_global(struct dsa_switch *ds)
- {
- 	int ret;
-@@ -281,7 +247,7 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 		return -ENODEV;
- 	}
- 
--	ret = mv88e6131_switch_reset(ds);
-+	ret = mv88e6xxx_switch_reset(ds, false);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 5a295533ff20..69b35d124de5 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -36,52 +36,6 @@ static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
- 	return NULL;
- }
- 
--static int mv88e6171_switch_reset(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int i;
--	int ret;
--	unsigned long timeout;
--
--	/* Set all ports to the disabled state. */
--	for (i = 0; i < ps->num_ports; i++) {
--		ret = REG_READ(REG_PORT(i), 0x04);
--		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
--	}
--
--	/* Wait for transmit queues to drain. */
--	usleep_range(2000, 4000);
--
--	/* Reset the switch. Keep PPU active.  The PPU needs to be
--	 * active to support indirect phy register accesses through
--	 * global registers 0x18 and 0x19.
--	 */
--	REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
--
--	/* Wait up to one second for reset to complete. */
--	timeout = jiffies + 1 * HZ;
--	while (time_before(jiffies, timeout)) {
--		ret = REG_READ(REG_GLOBAL, 0x00);
--		if ((ret & 0xc800) == 0xc800)
--			break;
--
--		usleep_range(1000, 2000);
--	}
--	if (time_after(jiffies, timeout))
--		return -ETIMEDOUT;
--
--	/* Enable ports not under DSA, e.g. WAN port */
--	for (i = 0; i < ps->num_ports; i++) {
--		if (dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i))
--			continue;
--
--		ret = REG_READ(REG_PORT(i), 0x04);
--		REG_WRITE(REG_PORT(i), 0x04, ret | 0x03);
--	}
--
--	return 0;
--}
--
- static int mv88e6171_setup_global(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -282,7 +236,7 @@ static int mv88e6171_setup(struct dsa_switch *ds)
- 
- 	ps->num_ports = 7;
- 
--	ret = mv88e6171_switch_reset(ds);
-+	ret = mv88e6xxx_switch_reset(ds, true);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 040027fcd013..214bdbc8a5b1 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -45,42 +45,6 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
- 	return NULL;
- }
- 
--static int mv88e6352_switch_reset(struct dsa_switch *ds)
--{
--	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	unsigned long timeout;
--	int ret;
--	int i;
--
--	/* Set all ports to the disabled state. */
--	for (i = 0; i < ps->num_ports; i++) {
--		ret = REG_READ(REG_PORT(i), 0x04);
--		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
--	}
--
--	/* Wait for transmit queues to drain. */
--	usleep_range(2000, 4000);
--
--	/* Reset the switch. Keep PPU active (bit 14, undocumented).
--	 * The PPU needs to be active to support indirect phy register
--	 * accesses through global registers 0x18 and 0x19.
--	 */
--	REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
--
--	/* Wait up to one second for reset to complete. */
--	timeout = jiffies + 1 * HZ;
--	while (time_before(jiffies, timeout)) {
--		ret = REG_READ(REG_GLOBAL, 0x00);
--		if ((ret & 0x8800) == 0x8800)
--			break;
--		usleep_range(1000, 2000);
--	}
--	if (time_after(jiffies, timeout))
--		return -ETIMEDOUT;
--
--	return 0;
--}
--
- static int mv88e6352_setup_global(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -373,7 +337,7 @@ static int mv88e6352_setup(struct dsa_switch *ds)
- 
- 	mutex_init(&ps->eeprom_mutex);
- 
--	ret = mv88e6352_switch_reset(ds);
-+	ret = mv88e6xxx_switch_reset(ds, true);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 13572cc24c6d..9db5b40d78ea 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1161,6 +1161,46 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 	return 0;
- }
- 
-+int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
-+	unsigned long timeout;
-+	int ret;
-+	int i;
-+
-+	/* Set all ports to the disabled state. */
-+	for (i = 0; i < ps->num_ports; i++) {
-+		ret = REG_READ(REG_PORT(i), 0x04);
-+		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
-+	}
-+
-+	/* Wait for transmit queues to drain. */
-+	usleep_range(2000, 4000);
-+
-+	/* Reset the switch. Keep the PPU active if requested. The PPU
-+	 * needs to be active to support indirect phy register access
-+	 * through global registers 0x18 and 0x19.
-+	 */
-+	if (ppu_active)
-+		REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
-+	else
-+		REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
-+
-+	/* Wait up to one second for reset to complete. */
-+	timeout = jiffies + 1 * HZ;
-+	while (time_before(jiffies, timeout)) {
-+		ret = REG_READ(REG_GLOBAL, 0x00);
-+		if ((ret & is_reset) == is_reset)
-+			break;
-+		usleep_range(1000, 2000);
-+	}
-+	if (time_after(jiffies, timeout))
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
- static int __init mv88e6xxx_init(void)
- {
- #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index ef058444bdb7..f84d3d5178b9 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -129,6 +129,7 @@ struct mv88e6xxx_hw_stat {
- 	int reg;
- };
- 
-+int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
- int mv88e6xxx_setup_port_common(struct dsa_switch *ds, int port);
- int mv88e6xxx_setup_common(struct dsa_switch *ds);
- int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg);
--- 
-2.1.4
+>> Do we really need to special case DHCPv4? Do you see problems in
+>> inverting the current logic of adding broadcast bit (i.e. from
+>> enable-if-IPv4 to disable-if-IPv6-only)?
+>
+> The problem with this is dual-stack configuration.  Typically both
+> DHCPv4 and SLAAC are started in this case, and often SLAAC will complete
+> earlier.  So now the interface only has an IPv6 address but DHCPv4 is
+> still ongoing; as I understand your proposal the filter would now block
+> broadcast packets that DHCPv4 is listening for.
+>
+That was a proposal and we can tweak it if necessary. My primary
+concern is that the solution should not make us pay per packet penalty
+once (and even if not) the DHCPv4 handshake is complete, which is not
+the case as it stands now.
+
+> Dan
+>
+>> > Signed-off-by: Dan Williams <dcbw@redhat.com>
+>> > ---
+>> > NOTE: this patch supercedes my previous two ipvlan patches:
+>> > [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
+>> > [PATCH 2/2] ipvlan: always allow the broadcast MAC address
+>> >
+>> >  drivers/net/ipvlan/ipvlan.h      |  2 ++
+>> >  drivers/net/ipvlan/ipvlan_core.c | 36 ++++++++++++++++++++++++++++++++++--
+>> >  drivers/net/ipvlan/ipvlan_main.c | 12 +++++++++---
+>> >  3 files changed, 45 insertions(+), 5 deletions(-)
+>> >
+>> > diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+>> > index 924ea98..7e0b8ff 100644
+>> > --- a/drivers/net/ipvlan/ipvlan.h
+>> > +++ b/drivers/net/ipvlan/ipvlan.h
+>> > @@ -67,6 +67,7 @@ struct ipvl_dev {
+>> >         struct list_head        addrs;
+>> >         int                     ipv4cnt;
+>> >         int                     ipv6cnt;
+>> > +       bool                    dhcp4_seen;
+>> >         struct ipvl_pcpu_stats  __percpu *pcpu_stats;
+>> >         DECLARE_BITMAP(mac_filters, IPVLAN_MAC_FILTER_SIZE);
+>> >         netdev_features_t       sfeatures;
+>> > @@ -118,4 +119,5 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
+>> >  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
+>> >                                         const void *iaddr, bool is_v6);
+>> >  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
+>> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set);
+>> >  #endif /* __IPVLAN_H */
+>> > diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+>> > index 2a17500..6dd992b 100644
+>> > --- a/drivers/net/ipvlan/ipvlan_core.c
+>> > +++ b/drivers/net/ipvlan/ipvlan_core.c
+>> > @@ -126,6 +126,12 @@ static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
+>> >                 lyr3h = arph;
+>> >                 break;
+>> >         }
+>> > +       case htons(ETH_P_ALL): {
+>> > +               /* Raw sockets */
+>> > +               if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
+>> > +                       break;
+>> > +               /* Fall through */
+>> > +       }
+>> >         case htons(ETH_P_IP): {
+>> >                 u32 pktlen;
+>> >                 struct iphdr *ip4h;
+>> > @@ -454,16 +460,42 @@ out:
+>> >         return ipvlan_process_outbound(skb, ipvlan);
+>> >  }
+>> >
+>> > +#define DHCP_PACKET_MIN_LEN 282
+>> > +
+>> > +static bool is_dhcp(struct sk_buff *skb)
+>> > +{
+>> > +       struct iphdr *ip4h = ip_hdr(skb);
+>> > +       struct udphdr *udph;
+>> > +
+>> > +       if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
+>> > +               || ip_is_fragment(ip4h))
+>> > +               return false;
+>> > +
+>> > +       /* In the case of RAW sockets the transport header is not set by
+>> > +        * the IP stack so we must set it ourselves.
+>> > +        */
+>> > +       if (skb->transport_header == skb->network_header)
+>> > +               skb_set_transport_header(skb, ETH_HLEN + sizeof(struct iphdr));
+>> > +       udph = udp_hdr(skb);
+>> > +       return udph && udph->dest == htons(67) && udph->source == htons(68);
+>> > +}
+>> > +
+>> >  static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
+>> >  {
+>> > -       const struct ipvl_dev *ipvlan = netdev_priv(dev);
+>> > +       struct ipvl_dev *ipvlan = netdev_priv(dev);
+>> >         struct ethhdr *eth = eth_hdr(skb);
+>> >         struct ipvl_addr *addr;
+>> >         void *lyr3h;
+>> >         int addr_type;
+>> >
+>> > +       lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
+>> > +       if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
+>> > +           && is_dhcp(skb)) {
+>> > +               ipvlan->dhcp4_seen = true;
+>> > +               ipvlan_set_broadcast_mac_filter(ipvlan, true);
+>> > +       }
+>> > +
+>> >         if (ether_addr_equal(eth->h_dest, eth->h_source)) {
+>> > -               lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
+>> >                 if (lyr3h) {
+>> >                         addr = ipvlan_addr_lookup(ipvlan->port, lyr3h, addr_type, true);
+>> >                         if (addr)
+>> > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+>> > index 4f4099d..a497fb9 100644
+>> > --- a/drivers/net/ipvlan/ipvlan_main.c
+>> > +++ b/drivers/net/ipvlan/ipvlan_main.c
+>> > @@ -167,6 +167,8 @@ static int ipvlan_stop(struct net_device *dev)
+>> >
+>> >         dev_uc_del(phy_dev, phy_dev->dev_addr);
+>> >
+>> > +       ipvlan->dhcp4_seen = false;
+>> > +
+>> >         if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
+>> >                 list_for_each_entry(addr, &ipvlan->addrs, anode)
+>> >                         ipvlan_ht_addr_del(addr, !dev->dismantle);
+>> > @@ -214,7 +216,7 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
+>> >                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
+>> >  }
+>> >
+>> > -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
+>> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
+>> >  {
+>> >         struct net_device *dev = ipvlan->dev;
+>> >         unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
+>> > @@ -239,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
+>> >                 netdev_for_each_mc_addr(ha, dev)
+>> >                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
+>> >
+>> > +               if (ipvlan->ipv4cnt || ipvlan->dhcp4_seen)
+>> > +                       __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
+>> > +
+>> >                 bitmap_copy(ipvlan->mac_filters, mc_filters,
+>> >                             IPVLAN_MAC_FILTER_SIZE);
+>> >         }
+>> > @@ -467,6 +472,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+>> >         INIT_LIST_HEAD(&ipvlan->addrs);
+>> >         ipvlan->ipv4cnt = 0;
+>> >         ipvlan->ipv6cnt = 0;
+>> > +       ipvlan->dhcp4_seen = false;
+>> >
+>> >         /* TODO Probably put random address here to be presented to the
+>> >          * world but keep using the physical-dev address for the outgoing
+>> > @@ -708,8 +714,8 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
+>> >         list_del_rcu(&addr->anode);
+>> >         ipvlan->ipv4cnt--;
+>> >         WARN_ON(ipvlan->ipv4cnt < 0);
+>> > -       if (!ipvlan->ipv4cnt)
+>> > -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
+>> > +       if (!ipvlan->ipv4cnt && !ipvlan->dhcp4_seen)
+>> > +               ipvlan_set_broadcast_mac_filter(ipvlan, false);
+>> >         kfree_rcu(addr, rcu);
+>> >
+>> >         return;
+>> > --
+>> > 2.1.0
+>> >
+>> >
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
