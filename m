@@ -1,247 +1,196 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
-Date: Wed, 1 Apr 2015 18:30:35 -0700
-Message-ID: <CAF2d9jgqJBfWVnX1mye5xMfYznA_NFte3dEEKG5CyogXTM73Rw@mail.gmail.com>
-References: <1427409698.18540.11.camel@redhat.com> <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
- <1427749308.1913.28.camel@redhat.com> <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
- <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
- <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com> <1427921700.6874.8.camel@redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 05/12] net: dsa: Consistently set and use ps->num_ports
+Date: Wed, 01 Apr 2015 18:35:33 -0700
+Message-ID: <551C9CE5.1040806@roeck-us.net>
+References: <1427937719-11630-1-git-send-email-andrew@lunn.ch> <1427937719-11630-6-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:34690 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbbDBBa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 21:30:56 -0400
-Received: by obbgh1 with SMTP id gh1so101562430obb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 18:30:56 -0700 (PDT)
-In-Reply-To: <1427921700.6874.8.camel@redhat.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:35718 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbbDBBfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 21:35:38 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YdU2h-000ibo-Vz
+	for netdev@vger.kernel.org; Thu, 02 Apr 2015 01:35:37 +0000
+In-Reply-To: <1427937719-11630-6-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 1, 2015 at 1:55 PM, Dan Williams <dcbw@redhat.com> wrote:
-> On Wed, 2015-04-01 at 13:24 -0700, Mahesh Bandewar wrote:
->> On Mon, Mar 30, 2015 at 9:22 PM, Dan Williams <dcbw@redhat.com> wrote:
->> > The broadcast MAC is supposed to be allowed whenever the device
->> > has an IPv4 address, otherwise ARP requests get dropped on the
->> > floor.  If ndo_set_rx_mode (and thus
->> > ipvlan_set_multicast_mac_filter()) got called after the address
->> > was added, it would blow away the broadcast MAC address in
->> > mac_filters that was added at IPv4 address addition.
->> >
->> > Next, ipvlan currently fails DHCP addressing for two reasons:
->> >
->> I would prefer DHCPv4 instead of DHCP since it could also mean DHCPv6
->> which does not use broadcast.
->>
->> > 1) DHCP offers are typically unicast back to the device's MAC
->> > address, and at the IP layer have a destination IP address
->> > matching the new lease address.  In ipvlan unicast packets
->> > are checked against existing addresses assigned to the ipvlan
->> > interface, so clearly this fails hard because the ipvlan
->> > interface has no IP addresses yet.  Workaround: request
->> > that the server broadcast replies (-B for dhclient) which
->> > don't get checked against the address list.
->> >
->> > 2) Even when that's done, mac_filters only allows the
->> > broadcast MAC address when the interface has >= 1 IPv4
->> > addresses, so double-fail, and the incoming DHCP offer
->> > gets dropped on the floor again.
->> >
->> > To fix these issues, Watch for outgoing DHCP requests and
->> > enable the broadcast MAC address indefinitely when one is seen.
->> >
->> This approach will work but adds a performance drag for all UDP
->> traffic whether the link needs DHCPv4 or not (especially when it does
->> not need). Logic works well only when the link (always) needs DHCPv4.
->> When the link does not care about DHCPv4 the packet-inspection always
->> happens.
+On 04/01/2015 06:21 PM, Andrew Lunn wrote:
+> As a step towards consolidating code, consistently set the
+> number of ports in the private state structure, and make use of it in
+> loops.
 >
-> If DHCPv4 is detected on a link, doesn't that mean the link needs the
-> broadcast filter enabled?
-Yes and it should stay enabled as it's going to have IPv4. Also once
-broadcast bit is set there should not be any additional jugglery /
-packet inspection which hurts performance.
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Tested-by: Guenter Roeck <linux@roeck-us.net>
 
-> If you start DHCPv4 on the link you obviously
-> expect it to work, unless there's no DHCPv4 server available.  The patch
-> should also reset the broadcast filter on close, so network management
-> could simply start DHCPv4, watch it fail, close/open and set static IP.
->
-> Alternatively we could have the broadcast filter on a 2 minute timer
-> that starts when DHCPv4 is seen.
->
-Well, but this would be error-prone. I don't remember but DHCP timeout
-is not just 2 minutes.
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
 
->> Do we really need to special case DHCPv4? Do you see problems in
->> inverting the current logic of adding broadcast bit (i.e. from
->> enable-if-IPv4 to disable-if-IPv6-only)?
+> ---
+>   drivers/net/dsa/mv88e6171.c | 23 +++++++++++++++--------
+>   drivers/net/dsa/mv88e6352.c | 10 +++++++---
+>   2 files changed, 22 insertions(+), 11 deletions(-)
 >
-> The problem with this is dual-stack configuration.  Typically both
-> DHCPv4 and SLAAC are started in this case, and often SLAAC will complete
-> earlier.  So now the interface only has an IPv6 address but DHCPv4 is
-> still ongoing; as I understand your proposal the filter would now block
-> broadcast packets that DHCPv4 is listening for.
+> diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+> index 639bd83b76c7..5a295533ff20 100644
+> --- a/drivers/net/dsa/mv88e6171.c
+> +++ b/drivers/net/dsa/mv88e6171.c
+> @@ -38,12 +38,13 @@ static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
 >
-That was a proposal and we can tweak it if necessary. My primary
-concern is that the solution should not make us pay per packet penalty
-once (and even if not) the DHCPv4 handshake is complete, which is not
-the case as it stands now.
-
-> Dan
+>   static int mv88e6171_switch_reset(struct dsa_switch *ds)
+>   {
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>   	int i;
+>   	int ret;
+>   	unsigned long timeout;
 >
->> > Signed-off-by: Dan Williams <dcbw@redhat.com>
->> > ---
->> > NOTE: this patch supercedes my previous two ipvlan patches:
->> > [PATCH 1/2] ipvlan: don't loose broadcast MAC when setting MAC filters
->> > [PATCH 2/2] ipvlan: always allow the broadcast MAC address
->> >
->> >  drivers/net/ipvlan/ipvlan.h      |  2 ++
->> >  drivers/net/ipvlan/ipvlan_core.c | 36 ++++++++++++++++++++++++++++++++++--
->> >  drivers/net/ipvlan/ipvlan_main.c | 12 +++++++++---
->> >  3 files changed, 45 insertions(+), 5 deletions(-)
->> >
->> > diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
->> > index 924ea98..7e0b8ff 100644
->> > --- a/drivers/net/ipvlan/ipvlan.h
->> > +++ b/drivers/net/ipvlan/ipvlan.h
->> > @@ -67,6 +67,7 @@ struct ipvl_dev {
->> >         struct list_head        addrs;
->> >         int                     ipv4cnt;
->> >         int                     ipv6cnt;
->> > +       bool                    dhcp4_seen;
->> >         struct ipvl_pcpu_stats  __percpu *pcpu_stats;
->> >         DECLARE_BITMAP(mac_filters, IPVLAN_MAC_FILTER_SIZE);
->> >         netdev_features_t       sfeatures;
->> > @@ -118,4 +119,5 @@ bool ipvlan_addr_busy(struct ipvl_dev *ipvlan, void *iaddr, bool is_v6);
->> >  struct ipvl_addr *ipvlan_ht_addr_lookup(const struct ipvl_port *port,
->> >                                         const void *iaddr, bool is_v6);
->> >  void ipvlan_ht_addr_del(struct ipvl_addr *addr, bool sync);
->> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set);
->> >  #endif /* __IPVLAN_H */
->> > diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
->> > index 2a17500..6dd992b 100644
->> > --- a/drivers/net/ipvlan/ipvlan_core.c
->> > +++ b/drivers/net/ipvlan/ipvlan_core.c
->> > @@ -126,6 +126,12 @@ static void *ipvlan_get_L3_hdr(struct sk_buff *skb, int *type)
->> >                 lyr3h = arph;
->> >                 break;
->> >         }
->> > +       case htons(ETH_P_ALL): {
->> > +               /* Raw sockets */
->> > +               if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
->> > +                       break;
->> > +               /* Fall through */
->> > +       }
->> >         case htons(ETH_P_IP): {
->> >                 u32 pktlen;
->> >                 struct iphdr *ip4h;
->> > @@ -454,16 +460,42 @@ out:
->> >         return ipvlan_process_outbound(skb, ipvlan);
->> >  }
->> >
->> > +#define DHCP_PACKET_MIN_LEN 282
->> > +
->> > +static bool is_dhcp(struct sk_buff *skb)
->> > +{
->> > +       struct iphdr *ip4h = ip_hdr(skb);
->> > +       struct udphdr *udph;
->> > +
->> > +       if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
->> > +               || ip_is_fragment(ip4h))
->> > +               return false;
->> > +
->> > +       /* In the case of RAW sockets the transport header is not set by
->> > +        * the IP stack so we must set it ourselves.
->> > +        */
->> > +       if (skb->transport_header == skb->network_header)
->> > +               skb_set_transport_header(skb, ETH_HLEN + sizeof(struct iphdr));
->> > +       udph = udp_hdr(skb);
->> > +       return udph && udph->dest == htons(67) && udph->source == htons(68);
->> > +}
->> > +
->> >  static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
->> >  {
->> > -       const struct ipvl_dev *ipvlan = netdev_priv(dev);
->> > +       struct ipvl_dev *ipvlan = netdev_priv(dev);
->> >         struct ethhdr *eth = eth_hdr(skb);
->> >         struct ipvl_addr *addr;
->> >         void *lyr3h;
->> >         int addr_type;
->> >
->> > +       lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
->> > +       if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
->> > +           && is_dhcp(skb)) {
->> > +               ipvlan->dhcp4_seen = true;
->> > +               ipvlan_set_broadcast_mac_filter(ipvlan, true);
->> > +       }
->> > +
->> >         if (ether_addr_equal(eth->h_dest, eth->h_source)) {
->> > -               lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
->> >                 if (lyr3h) {
->> >                         addr = ipvlan_addr_lookup(ipvlan->port, lyr3h, addr_type, true);
->> >                         if (addr)
->> > diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
->> > index 4f4099d..a497fb9 100644
->> > --- a/drivers/net/ipvlan/ipvlan_main.c
->> > +++ b/drivers/net/ipvlan/ipvlan_main.c
->> > @@ -167,6 +167,8 @@ static int ipvlan_stop(struct net_device *dev)
->> >
->> >         dev_uc_del(phy_dev, phy_dev->dev_addr);
->> >
->> > +       ipvlan->dhcp4_seen = false;
->> > +
->> >         if (ipvlan->ipv6cnt > 0 || ipvlan->ipv4cnt > 0) {
->> >                 list_for_each_entry(addr, &ipvlan->addrs, anode)
->> >                         ipvlan_ht_addr_del(addr, !dev->dismantle);
->> > @@ -214,7 +216,7 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
->> >                 dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
->> >  }
->> >
->> > -static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
->> > +void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
->> >  {
->> >         struct net_device *dev = ipvlan->dev;
->> >         unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
->> > @@ -239,6 +241,9 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
->> >                 netdev_for_each_mc_addr(ha, dev)
->> >                         __set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
->> >
->> > +               if (ipvlan->ipv4cnt || ipvlan->dhcp4_seen)
->> > +                       __set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
->> > +
->> >                 bitmap_copy(ipvlan->mac_filters, mc_filters,
->> >                             IPVLAN_MAC_FILTER_SIZE);
->> >         }
->> > @@ -467,6 +472,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
->> >         INIT_LIST_HEAD(&ipvlan->addrs);
->> >         ipvlan->ipv4cnt = 0;
->> >         ipvlan->ipv6cnt = 0;
->> > +       ipvlan->dhcp4_seen = false;
->> >
->> >         /* TODO Probably put random address here to be presented to the
->> >          * world but keep using the physical-dev address for the outgoing
->> > @@ -708,8 +714,8 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
->> >         list_del_rcu(&addr->anode);
->> >         ipvlan->ipv4cnt--;
->> >         WARN_ON(ipvlan->ipv4cnt < 0);
->> > -       if (!ipvlan->ipv4cnt)
->> > -           ipvlan_set_broadcast_mac_filter(ipvlan, false);
->> > +       if (!ipvlan->ipv4cnt && !ipvlan->dhcp4_seen)
->> > +               ipvlan_set_broadcast_mac_filter(ipvlan, false);
->> >         kfree_rcu(addr, rcu);
->> >
->> >         return;
->> > --
->> > 2.1.0
->> >
->> >
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   	/* Set all ports to the disabled state. */
+> -	for (i = 0; i < 8; i++) {
+> +	for (i = 0; i < ps->num_ports; i++) {
+>   		ret = REG_READ(REG_PORT(i), 0x04);
+>   		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+>   	}
+> @@ -70,7 +71,7 @@ static int mv88e6171_switch_reset(struct dsa_switch *ds)
+>   		return -ETIMEDOUT;
 >
+>   	/* Enable ports not under DSA, e.g. WAN port */
+> -	for (i = 0; i < 8; i++) {
+> +	for (i = 0; i < ps->num_ports; i++) {
+>   		if (dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i))
+>   			continue;
+>
+> @@ -83,6 +84,7 @@ static int mv88e6171_switch_reset(struct dsa_switch *ds)
+>
+>   static int mv88e6171_setup_global(struct dsa_switch *ds)
+>   {
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>   	int ret;
+>   	int i;
+>
+> @@ -147,7 +149,7 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
+>   	}
+>
+>   	/* Clear all trunk masks. */
+> -	for (i = 0; i < 8; i++)
+> +	for (i = 0; i < ps->num_ports; i++)
+>   		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0xff);
+>
+>   	/* Clear all trunk mappings. */
+> @@ -270,6 +272,7 @@ static int mv88e6171_setup_port(struct dsa_switch *ds, int p)
+>
+>   static int mv88e6171_setup(struct dsa_switch *ds)
+>   {
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>   	int i;
+>   	int ret;
+>
+> @@ -277,6 +280,8 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+>   	if (ret < 0)
+>   		return ret;
+>
+> +	ps->num_ports = 7;
+> +
+>   	ret = mv88e6171_switch_reset(ds);
+>   	if (ret < 0)
+>   		return ret;
+> @@ -287,7 +292,7 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+>   	if (ret < 0)
+>   		return ret;
+>
+> -	for (i = 0; i < 8; i++) {
+> +	for (i = 0; i < ps->num_ports; i++) {
+>   		if (!(dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i)))
+>   			continue;
+>
+> @@ -299,9 +304,11 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+>   	return 0;
+>   }
+>
+> -static int mv88e6171_port_to_phy_addr(int port)
+> +static int mv88e6171_port_to_phy_addr(struct dsa_switch *ds, int port)
+>   {
+> -	if (port >= 0 && port <= 4)
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> +
+> +	if (port >= 0 && port < ps->num_ports)
+>   		return port;
+>   	return -1;
+>   }
+> @@ -310,7 +317,7 @@ static int
+>   mv88e6171_phy_read(struct dsa_switch *ds, int port, int regnum)
+>   {
+>   	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> -	int addr = mv88e6171_port_to_phy_addr(port);
+> +	int addr = mv88e6171_port_to_phy_addr(ds, port);
+>   	int ret;
+>
+>   	mutex_lock(&ps->phy_mutex);
+> @@ -324,7 +331,7 @@ mv88e6171_phy_write(struct dsa_switch *ds,
+>   		    int port, int regnum, u16 val)
+>   {
+>   	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> -	int addr = mv88e6171_port_to_phy_addr(port);
+> +	int addr = mv88e6171_port_to_phy_addr(ds, port);
+>   	int ret;
+>
+>   	mutex_lock(&ps->phy_mutex);
+> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+> index 41fe3a6a72d1..040027fcd013 100644
+> --- a/drivers/net/dsa/mv88e6352.c
+> +++ b/drivers/net/dsa/mv88e6352.c
+> @@ -47,12 +47,13 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
+>
+>   static int mv88e6352_switch_reset(struct dsa_switch *ds)
+>   {
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>   	unsigned long timeout;
+>   	int ret;
+>   	int i;
+>
+>   	/* Set all ports to the disabled state. */
+> -	for (i = 0; i < 7; i++) {
+> +	for (i = 0; i < ps->num_ports; i++) {
+>   		ret = REG_READ(REG_PORT(i), 0x04);
+>   		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+>   	}
+> @@ -82,6 +83,7 @@ static int mv88e6352_switch_reset(struct dsa_switch *ds)
+>
+>   static int mv88e6352_setup_global(struct dsa_switch *ds)
+>   {
+> +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>   	int ret;
+>   	int i;
+>
+> @@ -152,7 +154,7 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
+>   	/* Disable ingress rate limiting by resetting all ingress
+>   	 * rate limit registers to their initial state.
+>   	 */
+> -	for (i = 0; i < 7; i++)
+> +	for (i = 0; i < ps->num_ports; i++)
+>   		REG_WRITE(REG_GLOBAL2, 0x09, 0x9000 | (i << 8));
+>
+>   	/* Initialise cross-chip port VLAN table to reset defaults. */
+> @@ -367,6 +369,8 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+>   	if (ret < 0)
+>   		return ret;
+>
+> +	ps->num_ports = 7;
+> +
+>   	mutex_init(&ps->eeprom_mutex);
+>
+>   	ret = mv88e6352_switch_reset(ds);
+> @@ -379,7 +383,7 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+>   	if (ret < 0)
+>   		return ret;
+>
+> -	for (i = 0; i < 7; i++) {
+> +	for (i = 0; i < ps->num_ports; i++) {
+>   		ret = mv88e6352_setup_port(ds, i);
+>   		if (ret < 0)
+>   			return ret;
 >
