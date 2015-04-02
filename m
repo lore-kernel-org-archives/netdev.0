@@ -1,168 +1,207 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 09/18] net/mlx4: Allocate VPPs for each port on PF init
-Date: Thu,  2 Apr 2015 16:31:14 +0300
-Message-ID: <1427981483-19317-10-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 06/18] net/mlx4: Add mlx4_ALLOCATE_VPP implementation
+Date: Thu,  2 Apr 2015 16:31:11 +0300
+Message-ID: <1427981483-19317-7-git-send-email-ogerlitz@mellanox.com>
 References: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:45763 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:45729 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753042AbbDBNcV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2015 09:32:21 -0400
+	id S1752804AbbDBNcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2015 09:32:04 -0400
 In-Reply-To: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Shamay <idos@mellanox.com>
 
-Initialization of granular Qos per VF mechanism.
+Implements device ALLOCATE_VPP command, to be used for granular QoS
+configuration of VFs by the PF device. Defines and queries the amount
+of VPPs assigned to each port, and the amount of VPPs assigned to each
+priority of each port. Once the total VPPs are split between the priorities
+of a port, they may be assigned with a share of the BW or a rate limit.
 
-Query the port availible VPPs and allocates those on all supported
-priorities in an equal share. Allocation is done only in SRIOV mode,
-when the feature is supported by the device and port type is Ethernet.
-
-Allocation currently is done only on the default priority 0.
+Split into two functions (get/set) whoch are supplied with
+mlx4_alloc_vpp_context and physical port number.
 
 Signed-off-by: Ido Shamay <idos@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c    |   66 +++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw_qos.h |    3 +
- drivers/net/ethernet/mellanox/mlx4/mlx4.h   |    7 +++
- 3 files changed, 76 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c    |    9 +++
+ drivers/net/ethernet/mellanox/mlx4/fw_qos.c |   75 +++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw_qos.h |   28 ++++++++++
+ include/linux/mlx4/cmd.h                    |    1 +
+ 4 files changed, 113 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 23dc98e..1e4a929 100644
+index 52bf0b5..e1a191d 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1883,6 +1883,63 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
- 	return 0;
- }
+@@ -1455,6 +1455,15 @@ static struct mlx4_cmd_info cmd_info[] = {
+ 		.wrapper = mlx4_CMD_EPERM_wrapper,
+ 	},
+ 	{
++		.opcode = MLX4_CMD_ALLOCATE_VPP,
++		.has_inbox = false,
++		.has_outbox = true,
++		.out_is_imm = false,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = mlx4_CMD_EPERM_wrapper,
++	},
++	{
+ 		.opcode = MLX4_CMD_CONF_SPECIAL_QP,
+ 		.has_inbox = false,
+ 		.has_outbox = false,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+index 0f5af7c..5ce3440 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+@@ -34,6 +34,13 @@
  
-+static void mlx4_set_default_port_qos(struct mlx4_dev *dev, int port)
-+{
-+	struct mlx4_qos_manager *port_qos_ctl;
-+	struct mlx4_priv *priv = mlx4_priv(dev);
+ #include <linux/export.h>
+ #include "fw_qos.h"
++#include "fw.h"
 +
-+	port_qos_ctl = &priv->mfunc.master.qos_ctl[port];
-+	bitmap_zero(port_qos_ctl->priority_bm, MLX4_NUM_UP);
++enum {
++	/* allocate vpp opcode modifiers */
++	MLX4_ALLOCATE_VPP_ALLOCATE	= 0x0,
++	MLX4_ALLOCATE_VPP_QUERY		= 0x1
++};
+ 
+ struct mlx4_set_port_prio2tc_context {
+ 	u8 prio2tc[4];
+@@ -50,6 +57,12 @@ struct mlx4_set_port_scheduler_context {
+ 	struct mlx4_port_scheduler_tc_cfg_be tc[MLX4_NUM_TC];
+ };
+ 
++/* Granular Qos (per VF) section */
++struct mlx4_alloc_vpp_param {
++	__be32 availible_vpp;
++	__be32 vpp_p_up[MLX4_NUM_UP];
++};
 +
-+	/* Enable only default prio at PF init routine */
-+	set_bit(MLX4_DEFAULT_QOS_PRIO, port_qos_ctl->priority_bm);
-+}
+ int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc)
+ {
+ 	struct mlx4_cmd_mailbox *mailbox;
+@@ -123,3 +136,65 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+ 	return err;
+ }
+ EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
 +
-+static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
++int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
++			  u16 *availible_vpp, u8 *vpp_p_up)
 +{
 +	int i;
 +	int err;
-+	int num_vfs;
-+	u16 availible_vpp;
-+	u8 vpp_param[MLX4_NUM_UP];
-+	struct mlx4_qos_manager *port_qos;
-+	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_alloc_vpp_param *out_param;
 +
-+	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
-+	if (err) {
-+		mlx4_info(dev, "Failed query availible VPPs\n");
-+		return;
-+	}
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
 +
-+	port_qos = &priv->mfunc.master.qos_ctl[port];
-+	num_vfs = (availible_vpp /
-+		   bitmap_weight(port_qos->priority_bm, MLX4_NUM_UP));
++	out_param = mailbox->buf;
 +
-+	for (i = 0; i < MLX4_NUM_UP; i++) {
-+		if (test_bit(i, port_qos->priority_bm))
-+			vpp_param[i] = num_vfs;
-+	}
++	err = mlx4_cmd_box(dev, 0, mailbox->dma, port,
++			   MLX4_ALLOCATE_VPP_QUERY,
++			   MLX4_CMD_ALLOCATE_VPP,
++			   MLX4_CMD_TIME_CLASS_A,
++			   MLX4_CMD_NATIVE);
++	if (err)
++		goto out;
 +
-+	err = mlx4_ALLOCATE_VPP_set(dev, port, vpp_param);
-+	if (err) {
-+		mlx4_info(dev, "Failed allocating VPPs\n");
-+		return;
-+	}
-+
-+	/* Query actual allocated VPP, just to make sure */
-+	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
-+	if (err) {
-+		mlx4_info(dev, "Failed query availible VPPs\n");
-+		return;
-+	}
-+
-+	port_qos->num_of_qos_vfs = num_vfs;
-+	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
++	/* Total number of supported VPPs */
++	*availible_vpp = (u16)be32_to_cpu(out_param->availible_vpp);
 +
 +	for (i = 0; i < MLX4_NUM_UP; i++)
-+		mlx4_dbg(dev, "Port %d UP %d Allocated %d VPPs\n", port, i,
-+			 vpp_param[i]);
-+}
- 
- static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- {
-@@ -2288,6 +2345,15 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 			spin_lock_init(&s_state->lock);
- 		}
- 
-+		if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_QOS_VPP) {
-+			for (port = 1; port <= dev->caps.num_ports; port++) {
-+				if (mlx4_is_eth(dev, port)) {
-+					mlx4_set_default_port_qos(dev, port);
-+					mlx4_allocate_port_vpps(dev, port);
-+				}
-+			}
-+		}
++		vpp_p_up[i] = (u8)be32_to_cpu(out_param->vpp_p_up[i]);
 +
- 		memset(&priv->mfunc.master.cmd_eqe, 0, dev->caps.eqe_size);
- 		priv->mfunc.master.cmd_eqe.type = MLX4_EVENT_TYPE_CMD;
- 		INIT_WORK(&priv->mfunc.master.comm_work,
++out:
++	mlx4_free_cmd_mailbox(dev, mailbox);
++
++	return err;
++}
++EXPORT_SYMBOL(mlx4_ALLOCATE_VPP_get);
++
++int mlx4_ALLOCATE_VPP_set(struct mlx4_dev *dev, u8 port, u8 *vpp_p_up)
++{
++	int i;
++	int err;
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_alloc_vpp_param *in_param;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++
++	in_param = mailbox->buf;
++
++	for (i = 0; i < MLX4_NUM_UP; i++)
++		in_param->vpp_p_up[i] = cpu_to_be32(vpp_p_up[i]);
++
++	err = mlx4_cmd(dev, mailbox->dma, port,
++		       MLX4_ALLOCATE_VPP_ALLOCATE,
++		       MLX4_CMD_ALLOCATE_VPP,
++		       MLX4_CMD_TIME_CLASS_A,
++		       MLX4_CMD_NATIVE);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++EXPORT_SYMBOL(mlx4_ALLOCATE_VPP_set);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
-index b3fffaf..4a5320f 100644
+index ab9be0f..be79951 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
-@@ -41,6 +41,9 @@
- #define MLX4_NUM_UP 8
- #define MLX4_NUM_TC 8
+@@ -71,5 +71,33 @@ int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
+  **/
+ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+ 			    u8 *pg, u16 *ratelimit);
++/**
++ * mlx4_ALLOCATE_VPP_get - Query port VPP availible resources and allocation.
++ * Before distribution of VPPs to priorities, only availible_vpp is returned.
++ * After initialization it returns the distribution of VPPs among priorities.
++ *
++ * @dev: mlx4_dev.
++ * @port: Physical port number.
++ * @availible_vpp: Pointer to variable where number of availible VPPs is stored
++ * @vpp_p_up: Distribution of VPPs to priorities is stored in this array
++ *
++ * Returns 0 on success or a negative mlx4_core errno code.
++ **/
++int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
++			  u16 *availible_vpp, u8 *vpp_p_up);
++/**
++ * mlx4_ALLOCATE_VPP_set - Distribution of VPPs among differnt priorities.
++ * The total number of VPPs assigned to all for a port must not exceed
++ * the value reported by availible_vpp in mlx4_ALLOCATE_VPP_get.
++ * VPP allocation is allowed only after the port type has been set,
++ * and while no QPs are open for this port.
++ *
++ * @dev: mlx4_dev.
++ * @port: Physical port number.
++ * @vpp_p_up: Allocation of VPPs to different priorities.
++ *
++ * Returns 0 on success or a negative mlx4_core errno code.
++ **/
++int mlx4_ALLOCATE_VPP_set(struct mlx4_dev *dev, u8 port, u8 *vpp_p_up);
  
-+/* Default supported priorities for VPP allocation */
-+#define MLX4_DEFAULT_QOS_PRIO (0)
-+
- struct mlx4_vport_qos_param {
- 	u32 bw_share;
- 	u32 max_avg_bw;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 9e5236b..1add698 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -50,6 +50,7 @@
- #include <linux/mlx4/driver.h>
- #include <linux/mlx4/doorbell.h>
- #include <linux/mlx4/cmd.h>
-+#include "fw_qos.h"
+ #endif /* MLX4_FW_QOS_H */
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 7299e95..e0f88a0 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -68,6 +68,7 @@ enum {
+ 	MLX4_CMD_UNMAP_ICM_AUX	 = 0xffb,
+ 	MLX4_CMD_SET_ICM_SIZE	 = 0xffd,
+ 	MLX4_CMD_ACCESS_REG	 = 0x3b,
++	MLX4_CMD_ALLOCATE_VPP	 = 0x80,
  
- #define DRV_NAME	"mlx4_core"
- #define PFX		DRV_NAME ": "
-@@ -553,6 +554,11 @@ struct mlx4_slave_event_eq {
- 	struct mlx4_eqe event_eqe[SLAVE_EVENT_EQ_SIZE];
- };
- 
-+struct mlx4_qos_manager {
-+	int num_of_qos_vfs;
-+	DECLARE_BITMAP(priority_bm, MLX4_NUM_UP);
-+};
-+
- struct mlx4_master_qp0_state {
- 	int proxy_qp0_active;
- 	int qp0_active;
-@@ -577,6 +583,7 @@ struct mlx4_mfunc_master_ctx {
- 	struct mlx4_eqe		cmd_eqe;
- 	struct mlx4_slave_event_eq slave_eq;
- 	struct mutex		gen_eqe_mutex[MLX4_MFUNC_MAX];
-+	struct mlx4_qos_manager qos_ctl[MLX4_MAX_PORTS + 1];
- };
- 
- struct mlx4_mfunc {
+ 	/*master notify fw on finish for slave's flr*/
+ 	MLX4_CMD_INFORM_FLR_DONE = 0x5b,
 -- 
 1.7.1
