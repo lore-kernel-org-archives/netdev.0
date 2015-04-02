@@ -1,285 +1,295 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v3 24/26] switchdev: rename netdev_switch_notifier_* to swdev_notifier_*
-Date: Thu,  2 Apr 2015 01:10:10 -0700
-Message-ID: <1427962212-18411-25-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v3 23/26] switchdev: rename netdev_switch_fib_* to swdev_fib_*
+Date: Thu,  2 Apr 2015 01:10:09 -0700
+Message-ID: <1427962212-18411-24-git-send-email-sfeldma@gmail.com>
 References: <1427962212-18411-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
 	ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33123 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753168AbbDBIJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 04:09:49 -0400
-Received: by pacgg7 with SMTP id gg7so77373544pac.0
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 01:09:49 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34731 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753155AbbDBIJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 04:09:48 -0400
+Received: by pactp5 with SMTP id tp5so77219528pac.1
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 01:09:48 -0700 (PDT)
 In-Reply-To: <1427962212-18411-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-To be consistent with other swdev code, rename swdev notifier with swdev_
+To be consistent with other swdev code, rename the L3 FIB ops with swdev_
 prefix.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |    8 +++-----
- include/net/switchdev.h              |   31 ++++++++++++++++---------------
- net/bridge/br.c                      |   22 +++++++++++-----------
- net/switchdev/switchdev.c            |   20 ++++++++++----------
- 4 files changed, 40 insertions(+), 41 deletions(-)
+ include/net/switchdev.h   |   23 ++++++++++-------------
+ net/ipv4/fib_trie.c       |   38 ++++++++++++++++----------------------
+ net/switchdev/switchdev.c |   34 +++++++++++++++++-----------------
+ 3 files changed, 43 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 7ba902a..1ab4916 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3377,17 +3377,15 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
- 		container_of(work, struct rocker_fdb_learn_work, work);
- 	bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
- 	bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
--	struct netdev_switch_notifier_fdb_info info;
-+	struct swdev_notifier_fdb_info info;
- 
- 	info.addr = lw->addr;
- 	info.vid = lw->vid;
- 
- 	if (learned && removing)
--		call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL,
--					     lw->dev, &info.info);
-+		call_swdev_notifiers(SWDEV_FDB_DEL, lw->dev, &info.info);
- 	else if (learned && !removing)
--		call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_ADD,
--					     lw->dev, &info.info);
-+		call_swdev_notifiers(SWDEV_FDB_ADD, lw->dev, &info.info);
- 
- 	kfree(work);
- }
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index ac93a08..1677606 100644
+index efd7753..ac93a08 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -88,23 +88,23 @@ struct swdev_ops {
- 				      u8 tos, u8 type, u32 tb_id);
- };
+@@ -125,11 +125,11 @@ int register_netdev_switch_notifier(struct notifier_block *nb);
+ int unregister_netdev_switch_notifier(struct notifier_block *nb);
+ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
+ 				 struct netdev_switch_notifier_info *info);
+-int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 nlflags, u32 tb_id);
+-int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 tb_id);
+-void netdev_switch_fib_ipv4_abort(struct fib_info *fi);
++int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 nlflags, u32 tb_id);
++int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 tb_id);
++void swdev_fib_ipv4_abort(struct fib_info *fi);
  
--enum netdev_switch_notifier_type {
--	NETDEV_SWITCH_FDB_ADD = 1,
--	NETDEV_SWITCH_FDB_DEL,
-+enum swdev_notifier_type {
-+	SWDEV_FDB_ADD = 1,
-+	SWDEV_FDB_DEL,
- };
+ #else
  
--struct netdev_switch_notifier_info {
-+struct swdev_notifier_info {
- 	struct net_device *dev;
- };
- 
--struct netdev_switch_notifier_fdb_info {
--	struct netdev_switch_notifier_info info; /* must be first */
-+struct swdev_notifier_fdb_info {
-+	struct swdev_notifier_info info; /* must be first */
- 	const unsigned char *addr;
- 	u16 vid;
- };
- 
- static inline struct net_device *
--netdev_switch_notifier_info_to_dev(const struct netdev_switch_notifier_info *info)
-+swdev_notifier_info_to_dev(const struct swdev_notifier_info *info)
- {
- 	return info->dev;
- }
-@@ -121,10 +121,10 @@ int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
- 			      u16 flags);
- int swdev_port_bridge_dellink(struct net_device *dev, struct nlmsghdr *nlh,
- 			      u16 flags);
--int register_netdev_switch_notifier(struct notifier_block *nb);
--int unregister_netdev_switch_notifier(struct notifier_block *nb);
--int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--				 struct netdev_switch_notifier_info *info);
-+int register_swdev_notifier(struct notifier_block *nb);
-+int unregister_swdev_notifier(struct notifier_block *nb);
-+int call_swdev_notifiers(unsigned long val, struct net_device *dev,
-+			 struct swdev_notifier_info *info);
- int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 		       u8 tos, u8 type, u32 nlflags, u32 tb_id);
- int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-@@ -176,18 +176,19 @@ static inline int swdev_port_bridge_dellink(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
- 
--static inline int register_netdev_switch_notifier(struct notifier_block *nb)
-+static inline int register_swdev_notifier(struct notifier_block *nb)
- {
- 	return 0;
- }
- 
--static inline int unregister_netdev_switch_notifier(struct notifier_block *nb)
-+static inline int unregister_swdev_notifier(struct notifier_block *nb)
- {
- 	return 0;
- }
- 
--static inline int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--					       struct netdev_switch_notifier_info *info)
-+static inline int call_swdev_notifiers(unsigned long val,
-+				       struct net_device *dev,
-+				       struct swdev_notifier_info *info)
- {
+@@ -192,22 +192,19 @@ static inline int call_netdev_switch_notifiers(unsigned long val, struct net_dev
  	return NOTIFY_DONE;
  }
-diff --git a/net/bridge/br.c b/net/bridge/br.c
-index 02c24cf..9d54965 100644
---- a/net/bridge/br.c
-+++ b/net/bridge/br.c
-@@ -121,13 +121,13 @@ static struct notifier_block br_device_notifier = {
- 	.notifier_call = br_device_event
- };
  
--static int br_netdev_switch_event(struct notifier_block *unused,
--				  unsigned long event, void *ptr)
-+static int br_swdev_event(struct notifier_block *unused,
-+			  unsigned long event, void *ptr)
+-static inline int netdev_switch_fib_ipv4_add(u32 dst, int dst_len,
+-					     struct fib_info *fi,
+-					     u8 tos, u8 type,
+-					     u32 nlflags, u32 tb_id)
++static inline int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++				     u8 tos, u8 type, u32 nlflags, u32 tb_id)
  {
--	struct net_device *dev = netdev_switch_notifier_info_to_dev(ptr);
-+	struct net_device *dev = swdev_notifier_info_to_dev(ptr);
- 	struct net_bridge_port *p;
- 	struct net_bridge *br;
--	struct netdev_switch_notifier_fdb_info *fdb_info;
-+	struct swdev_notifier_fdb_info *fdb_info;
- 	int err = NOTIFY_DONE;
- 
- 	rtnl_lock();
-@@ -138,14 +138,14 @@ static int br_netdev_switch_event(struct notifier_block *unused,
- 	br = p->br;
- 
- 	switch (event) {
--	case NETDEV_SWITCH_FDB_ADD:
-+	case SWDEV_FDB_ADD:
- 		fdb_info = ptr;
- 		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
- 						fdb_info->vid);
- 		if (err)
- 			err = notifier_from_errno(err);
- 		break;
--	case NETDEV_SWITCH_FDB_DEL:
-+	case SWDEV_FDB_DEL:
- 		fdb_info = ptr;
- 		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
- 						fdb_info->vid);
-@@ -159,8 +159,8 @@ out:
- 	return err;
+ 	return 0;
  }
  
--static struct notifier_block br_netdev_switch_notifier = {
--	.notifier_call = br_netdev_switch_event,
-+static struct notifier_block br_swdev_notifier = {
-+	.notifier_call = br_swdev_event,
- };
+-static inline int netdev_switch_fib_ipv4_del(u32 dst, int dst_len,
+-					     struct fib_info *fi,
+-					     u8 tos, u8 type, u32 tb_id)
++static inline int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++				     u8 tos, u8 type, u32 tb_id)
+ {
+ 	return 0;
+ }
  
- static void __net_exit br_net_exit(struct net *net)
-@@ -214,7 +214,7 @@ static int __init br_init(void)
- 	if (err)
- 		goto err_out3;
+-static inline void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
++static inline void swdev_fib_ipv4_abort(struct fib_info *fi)
+ {
+ }
  
--	err = register_netdev_switch_notifier(&br_netdev_switch_notifier);
-+	err = register_swdev_notifier(&br_swdev_notifier);
- 	if (err)
- 		goto err_out4;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 2c7c299..a452f38 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1165,13 +1165,11 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 			new_fa->fa_state = state & ~FA_S_ACCESSED;
+ 			new_fa->fa_slen = fa->fa_slen;
  
-@@ -235,7 +235,7 @@ static int __init br_init(void)
+-			err = netdev_switch_fib_ipv4_add(key, plen, fi,
+-							 new_fa->fa_tos,
+-							 cfg->fc_type,
+-							 cfg->fc_nlflags,
+-							 tb->tb_id);
++			err = swdev_fib_ipv4_add(key, plen, fi, new_fa->fa_tos,
++						 cfg->fc_type, cfg->fc_nlflags,
++						 tb->tb_id);
+ 			if (err) {
+-				netdev_switch_fib_ipv4_abort(fi);
++				swdev_fib_ipv4_abort(fi);
+ 				kmem_cache_free(fn_alias_kmem, new_fa);
+ 				goto out;
+ 			}
+@@ -1215,12 +1213,10 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 	new_fa->tb_id = tb->tb_id;
+ 
+ 	/* (Optionally) offload fib entry to switch hardware. */
+-	err = netdev_switch_fib_ipv4_add(key, plen, fi, tos,
+-					 cfg->fc_type,
+-					 cfg->fc_nlflags,
+-					 tb->tb_id);
++	err = swdev_fib_ipv4_add(key, plen, fi, tos, cfg->fc_type,
++				 cfg->fc_nlflags, tb->tb_id);
+ 	if (err) {
+-		netdev_switch_fib_ipv4_abort(fi);
++		swdev_fib_ipv4_abort(fi);
+ 		goto out_free_new_fa;
+ 	}
+ 
+@@ -1239,7 +1235,7 @@ succeeded:
  	return 0;
  
- err_out5:
--	unregister_netdev_switch_notifier(&br_netdev_switch_notifier);
-+	unregister_swdev_notifier(&br_swdev_notifier);
- err_out4:
- 	unregister_netdevice_notifier(&br_device_notifier);
- err_out3:
-@@ -253,7 +253,7 @@ static void __exit br_deinit(void)
- {
- 	stp_proto_unregister(&br_stp_proto);
- 	br_netlink_fini();
--	unregister_netdev_switch_notifier(&br_netdev_switch_notifier);
-+	unregister_swdev_notifier(&br_swdev_notifier);
- 	unregister_netdevice_notifier(&br_device_notifier);
- 	brioctl_set(NULL);
- 	unregister_pernet_subsys(&br_net_ops);
+ out_sw_fib_del:
+-	netdev_switch_fib_ipv4_del(key, plen, fi, tos, cfg->fc_type, tb->tb_id);
++	swdev_fib_ipv4_del(key, plen, fi, tos, cfg->fc_type, tb->tb_id);
+ out_free_new_fa:
+ 	kmem_cache_free(fn_alias_kmem, new_fa);
+ out:
+@@ -1517,8 +1513,8 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	if (!fa_to_delete)
+ 		return -ESRCH;
+ 
+-	netdev_switch_fib_ipv4_del(key, plen, fa_to_delete->fa_info, tos,
+-				   cfg->fc_type, tb->tb_id);
++	swdev_fib_ipv4_del(key, plen, fa_to_delete->fa_info, tos,
++			   cfg->fc_type, tb->tb_id);
+ 
+ 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
+ 		  &cfg->fc_nlinfo, 0);
+@@ -1767,10 +1763,9 @@ void fib_table_flush_external(struct fib_table *tb)
+ 			if (!fi || !(fi->fib_flags & RTNH_F_EXTERNAL))
+ 				continue;
+ 
+-			netdev_switch_fib_ipv4_del(n->key,
+-						   KEYLENGTH - fa->fa_slen,
+-						   fi, fa->fa_tos,
+-						   fa->fa_type, tb->tb_id);
++			swdev_fib_ipv4_del(n->key, KEYLENGTH - fa->fa_slen,
++					   fi, fa->fa_tos, fa->fa_type,
++					   tb->tb_id);
+ 		}
+ 
+ 		/* update leaf slen */
+@@ -1835,10 +1830,9 @@ int fib_table_flush(struct fib_table *tb)
+ 				continue;
+ 			}
+ 
+-			netdev_switch_fib_ipv4_del(n->key,
+-						   KEYLENGTH - fa->fa_slen,
+-						   fi, fa->fa_tos,
+-						   fa->fa_type, tb->tb_id);
++			swdev_fib_ipv4_del(n->key, KEYLENGTH - fa->fa_slen,
++					   fi, fa->fa_tos, fa->fa_type,
++					   tb->tb_id);
+ 			hlist_del_rcu(&fa->fa_list);
+ 			fib_release_info(fa->fa_info);
+ 			alias_free_mem_rcu(fa);
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 35d203c..2e5b893 100644
+index 5324248..35d203c 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -258,14 +258,14 @@ static DEFINE_MUTEX(netdev_switch_mutex);
- static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
+@@ -517,7 +517,7 @@ int swdev_port_bridge_dellink(struct net_device *dev,
+ }
+ EXPORT_SYMBOL_GPL(swdev_port_bridge_dellink);
+ 
+-static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
++static struct net_device *swdev_get_lowest_dev(struct net_device *dev)
+ {
+ 	const struct swdev_ops *ops = dev->swdev_ops;
+ 	struct net_device *lower_dev;
+@@ -532,7 +532,7 @@ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ 		return dev;
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		port_dev = netdev_switch_get_lowest_dev(lower_dev);
++		port_dev = swdev_get_lowest_dev(lower_dev);
+ 		if (port_dev)
+ 			return port_dev;
+ 	}
+@@ -540,7 +540,7 @@ static struct net_device *netdev_switch_get_lowest_dev(struct net_device *dev)
+ 	return NULL;
+ }
+ 
+-static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
++static struct net_device *swdev_get_dev_by_nhs(struct fib_info *fi)
+ {
+ 	struct swdev_attr attr = {
+ 		.id = SWDEV_ATTR_PORT_PARENT_ID,
+@@ -557,7 +557,7 @@ static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
+ 		if (!nh->nh_dev)
+ 			return NULL;
+ 
+-		dev = netdev_switch_get_lowest_dev(nh->nh_dev);
++		dev = swdev_get_lowest_dev(nh->nh_dev);
+ 		if (!dev)
+ 			return NULL;
+ 
+@@ -579,7 +579,7 @@ static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
+ }
  
  /**
-- *	register_netdev_switch_notifier - Register notifier
-+ *	register_swdev_notifier - Register notifier
-  *	@nb: notifier_block
+- *	netdev_switch_fib_ipv4_add - Add IPv4 route entry to switch
++ *	swdev_fib_ipv4_add - Add IPv4 route entry to switch
   *
-  *	Register switch device notifier. This should be used by code
-  *	which needs to monitor events happening in particular device.
-  *	Return values are same as for atomic_notifier_chain_register().
-  */
--int register_netdev_switch_notifier(struct notifier_block *nb)
-+int register_swdev_notifier(struct notifier_block *nb)
- {
- 	int err;
- 
-@@ -274,16 +274,16 @@ int register_netdev_switch_notifier(struct notifier_block *nb)
- 	mutex_unlock(&netdev_switch_mutex);
- 	return err;
- }
--EXPORT_SYMBOL_GPL(register_netdev_switch_notifier);
-+EXPORT_SYMBOL_GPL(register_swdev_notifier);
- 
- /**
-- *	unregister_netdev_switch_notifier - Unregister notifier
-+ *	unregister_swdev_notifier - Unregister notifier
-  *	@nb: notifier_block
+  *	@dst: route's IPv4 destination address
+  *	@dst_len: destination address length (prefix length)
+@@ -591,8 +591,8 @@ static struct net_device *netdev_switch_get_dev_by_nhs(struct fib_info *fi)
   *
-  *	Unregister switch device notifier.
-  *	Return values are same as for atomic_notifier_chain_unregister().
+  *	Add IPv4 route entry to switch device.
   */
--int unregister_netdev_switch_notifier(struct notifier_block *nb)
-+int unregister_swdev_notifier(struct notifier_block *nb)
+-int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 nlflags, u32 tb_id)
++int swdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 nlflags, u32 tb_id)
  {
- 	int err;
+ 	struct net_device *dev;
+ 	const struct swdev_ops *ops;
+@@ -610,7 +610,7 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 	if (fi->fib_net->ipv4.fib_offload_disabled)
+ 		return 0;
  
-@@ -292,10 +292,10 @@ int unregister_netdev_switch_notifier(struct notifier_block *nb)
- 	mutex_unlock(&netdev_switch_mutex);
+-	dev = netdev_switch_get_dev_by_nhs(fi);
++	dev = swdev_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+ 	ops = dev->swdev_ops;
+@@ -625,10 +625,10 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 
  	return err;
  }
--EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
-+EXPORT_SYMBOL_GPL(unregister_swdev_notifier);
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
++EXPORT_SYMBOL_GPL(swdev_fib_ipv4_add);
  
  /**
-- *	call_netdev_switch_notifiers - Call notifiers
-+ *	call_swdev_notifiers - Call notifiers
-  *	@val: value passed unmodified to notifier function
-  *	@dev: port device
-  *	@info: notifier information data
-@@ -304,8 +304,8 @@ EXPORT_SYMBOL_GPL(unregister_netdev_switch_notifier);
-  *	when it needs to propagate hardware event.
-  *	Return values are same as for atomic_notifier_call_chain().
+- *	netdev_switch_fib_ipv4_del - Delete IPv4 route entry from switch
++ *	swdev_fib_ipv4_del - Delete IPv4 route entry from switch
+  *
+  *	@dst: route's IPv4 destination address
+  *	@dst_len: destination address length (prefix length)
+@@ -639,8 +639,8 @@ EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_add);
+  *
+  *	Delete IPv4 route entry from switch device.
   */
--int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--				 struct netdev_switch_notifier_info *info)
-+int call_swdev_notifiers(unsigned long val, struct net_device *dev,
-+			 struct swdev_notifier_info *info)
+-int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+-			       u8 tos, u8 type, u32 tb_id)
++int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
++		       u8 tos, u8 type, u32 tb_id)
  {
- 	int err;
+ 	struct net_device *dev;
+ 	const struct swdev_ops *ops;
+@@ -649,7 +649,7 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
+ 		return 0;
  
-@@ -315,7 +315,7 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
- 	mutex_unlock(&netdev_switch_mutex);
+-	dev = netdev_switch_get_dev_by_nhs(fi);
++	dev = swdev_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+ 	ops = dev->swdev_ops;
+@@ -663,14 +663,14 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 
  	return err;
  }
--EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
-+EXPORT_SYMBOL_GPL(call_swdev_notifiers);
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_del);
++EXPORT_SYMBOL_GPL(swdev_fib_ipv4_del);
  
  /**
-  *	swdev_port_bridge_getlink - Get bridge port attributes
+- *	netdev_switch_fib_ipv4_abort - Abort an IPv4 FIB operation
++ *	swdev_fib_ipv4_abort - Abort an IPv4 FIB operation
+  *
+  *	@fi: route FIB info structure
+  */
+-void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
++void swdev_fib_ipv4_abort(struct fib_info *fi)
+ {
+ 	/* There was a problem installing this route to the offload
+ 	 * device.  For now, until we come up with more refined
+@@ -683,4 +683,4 @@ void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
+ 	fib_flush_external(fi->fib_net);
+ 	fi->fib_net->ipv4.fib_offload_disabled = true;
+ }
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_abort);
++EXPORT_SYMBOL_GPL(swdev_fib_ipv4_abort);
 -- 
 1.7.10.4
