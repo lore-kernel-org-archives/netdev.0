@@ -1,69 +1,48 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 1/6] RDS: Re-add pf/sol access via sysctl
-Date: Thu,  2 Apr 2015 09:50:44 -0400
-Message-ID: <6df5ee9a571eb865e5a26f367e18c34182de9e17.1427936719.git.sowmini.varadhan@oracle.com>
-References: <cover.1427936719.git.sowmini.varadhan@oracle.com>
-Cc: chien.yen@oracle.com, davem@davemloft.net,
-	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
-	zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1427936719.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1427936719.git.sowmini.varadhan@oracle.com>
-References: <cover.1427936719.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Thu, 02 Apr 2015 14:56:39 +0100
+Message-ID: <1427982999.18722.35.camel@xylophone.i.decadent.org.uk>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Although RDS has an official PF_RDS value now, existing software
-expects to look for rds sysctls to determine it. We need to maintain
-these for now, for backwards compatibility.
+This driver looks somewhat similar to sh-eth, but lacks some of the
+recent bug fixes made to that.  At least commit 283e38db65e7 ("sh_eth:
+Fix serialisation of interrupt disable with interrupt & NAPI handler")
+appears to be applicable, but there are probably others.
 
-Original patch by Andy Grover
+One feature request:
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
----
- net/rds/sysctl.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+On Sat, 2015-03-28 at 02:13 +0300, Sergei Shtylyov wrote:
+[...]
+> +/* ioctl to device function */
+> +static int ravb_do_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
+> +{
+> +	struct ravb_private *priv = netdev_priv(ndev);
+> +	struct phy_device *phydev = priv->phydev;
+> +
+> +	if (!netif_running(ndev))
+> +		return -EINVAL;
+> +
+> +	if (!phydev)
+> +		return -ENODEV;
+> +
+> +	if (cmd == SIOCSHWTSTAMP)
+> +		return ravb_hwtstamp_ioctl(ndev, req, cmd);
+[...]
 
-diff --git a/net/rds/sysctl.c b/net/rds/sysctl.c
-index c173f69..5fbe9e6 100644
---- a/net/rds/sysctl.c
-+++ b/net/rds/sysctl.c
-@@ -49,6 +49,12 @@ unsigned int  rds_sysctl_max_unacked_bytes = (16 << 20);
- 
- unsigned int rds_sysctl_ping_enable = 1;
- 
-+/* We have official values, but must maintain the sysctl interface for existing
-+ * software that expects to find these values here.
-+ */
-+static int rds_sysctl_pf_rds = PF_RDS;
-+static int rds_sysctl_sol_rds = SOL_RDS;
-+
- static struct ctl_table rds_sysctl_rds_table[] = {
- 	{
- 		.procname       = "reconnect_min_delay_ms",
-@@ -69,6 +75,20 @@ static struct ctl_table rds_sysctl_rds_table[] = {
- 		.extra2		= &rds_sysctl_reconnect_max,
- 	},
- 	{
-+		.procname       = "pf_rds",
-+		.data		= &rds_sysctl_pf_rds,
-+		.maxlen         = sizeof(int),
-+		.mode           = 0444,
-+		.proc_handler   = proc_dointvec,
-+	},
-+	{
-+		.procname       = "sol_rds",
-+		.data		= &rds_sysctl_sol_rds,
-+		.maxlen         = sizeof(int),
-+		.mode           = 0444,
-+		.proc_handler   = proc_dointvec,
-+	},
-+	{
- 		.procname	= "max_unacked_packets",
- 		.data		= &rds_sysctl_max_unacked_packets,
- 		.maxlen         = sizeof(int),
--- 
-1.7.1
+The driver should also handle SIOCGHWTSTAMP.
+
+Ben.
+
+
