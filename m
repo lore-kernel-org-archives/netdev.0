@@ -1,48 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 01/26] switchdev: introduce get/set attrs
- ops
-Date: Thu, 02 Apr 2015 13:54:42 -0400 (EDT)
-Message-ID: <20150402.135442.406267578423876673.davem@davemloft.net>
-References: <CAE4R7bC+fSjEP+uz19L9mbjf1Y+sPUM=Z7iuDtQdhPAZA1x3sA@mail.gmail.com>
-	<20150402.120533.225417156120458098.davem@davemloft.net>
-	<CAE4R7bD17Tv+4rFJDFeMQadPB=gj4dNktaT0wU7BksL-PB=NJg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] tc: bpf: add checksum helpers
+Date: Thu, 02 Apr 2015 10:56:10 -0700
+Message-ID: <551D82BA.1010809@plumgrid.com>
+References: <1427933533-14394-1-git-send-email-ast@plumgrid.com> <551D599F.30408@iogearbox.net> <20150402151530.GD2613@nanopsycho.orion> <551D5E69.4050704@iogearbox.net> <551D6FB3.7090304@plumgrid.com> <20150402174603.GE2613@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	roopa@cumulusnetworks.com, linux@roeck-us.net,
-	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
-	ronen.arad@intel.com
-To: sfeldma@gmail.com
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40066 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781AbbDBRyt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 13:54:49 -0400
-In-Reply-To: <CAE4R7bD17Tv+4rFJDFeMQadPB=gj4dNktaT0wU7BksL-PB=NJg@mail.gmail.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:34399 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752458AbbDBR4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 13:56:07 -0400
+Received: by iedfl3 with SMTP id fl3so84113625ied.1
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 10:56:07 -0700 (PDT)
+In-Reply-To: <20150402174603.GE2613@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Thu, 2 Apr 2015 10:38:56 -0700
+On 4/2/2015 10:46 AM, Jiri Pirko wrote:
+> Thu, Apr 02, 2015 at 06:34:59PM CEST, ast@plumgrid.com wrote:
+>> On 4/2/2015 8:21 AM, Daniel Borkmann wrote:
+>>> On 04/02/2015 05:15 PM, Jiri Pirko wrote:
+>>>> Thu, Apr 02, 2015 at 05:00:47PM CEST, daniel@iogearbox.net wrote:
+>>>>> On 04/02/2015 02:12 AM, Alexei Starovoitov wrote:
+>>>>>> Commit 608cd71a9c7c ("tc: bpf: generalize pedit action") has added the
+>>>>>> possibility to mangle packet data to BPF programs in the tc pipeline.
+>>>>>> This patch adds two helpers bpf_l3_csum_replace() and
+>>>>>> bpf_l4_csum_replace()
+>>>>>> for fixing up the protocol checksums after the packet mangling.
+>>>>>>
+>>>>>> It also adds 'flags' argument to bpf_skb_store_bytes() helper to avoid
+>>>>>> unnecessary checksum recomputations when BPF programs adjusting l3/l4
+>>>>>> checksums and documents all three helpers in uapi header.
+>>>>>>
+>>>>>> Moreover, a sample program is added to show how BPF programs can
+>>>>>> make use
+>>>>>> of the mangle and csum helpers.
+>>>>>>
+>>>>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>>>>
+>>>>> I think in future we need to find a better place for these helpers,
+>>>>> as they are for cls_bpf and act_bpf.
+>>>>
+>>>> Yeah, makes sense to now have it in net/core/filter.c. How about to
+>>>> create net/bpf dir for these?
+>>>
+>>> I was thinking somewhere under net/sched/, f.e. net/sched/bpf.c
+>>> as probably kernel/bpf/ would end up in too much ifdef pasta. :/
+>>
+>> I would prefer to keep mangle and csum helpers in net/core/filter.c for
+>> now, since it's not clear what networking subsystems beyond TC would
+>> want to use them in the future. Otherwise we'll keep moving them back
+>> and forth.
+>
+> Well, therefore I suggested net/bpf/ dir as a place to store
+> net-subsystem specific bpf stuff.
 
-> I looked at doing that with rocker for setting STP state.  The driver
-> does allocate some system memory blocks, conditionally, about 4 call
-> levels down, and then it may or may not free them it.  To do that all
-> up-front in prepare, we'd need to traverse all the same code paths
-> allocating memory as we go and stashing it in some transaction object
-> passed from above, but skip any device accesses.  And then in commit,
-> go thru the same paths, but use stash memory from transaction object
-> and this time do call into device.  All of this to avoid failing
-> commit due to OOM.  So I reasoned OOM isn't a case worth the work
-> because the system is pretty much hosed at that point anyway, and went
-> with a prepare phase that only validates and checks for device
-> resources, but skip system resources.
-> 
-> It's not impossible, but my little Spring Cleanup patch is going to
-> turn into Spring Renovation patch.
-
-I'm sorry if implementing this properly is not easy.
-
-You'll thank me later for forcing you to do this properly, I promise.
-:-)
+ahh. misread your earlier statement. yes. makes sense in long term.
+Right now feels too early to create a dir for just 3 functions.
+Eventually half of filter.c probably belongs in there.
