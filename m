@@ -1,67 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] tc: bpf: add checksum helpers
-Date: Thu, 2 Apr 2015 19:46:03 +0200
-Message-ID: <20150402174603.GE2613@nanopsycho.orion>
-References: <1427933533-14394-1-git-send-email-ast@plumgrid.com>
- <551D599F.30408@iogearbox.net>
- <20150402151530.GD2613@nanopsycho.orion>
- <551D5E69.4050704@iogearbox.net>
- <551D6FB3.7090304@plumgrid.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v3 01/26] switchdev: introduce get/set attrs ops
+Date: Thu, 2 Apr 2015 10:52:28 -0700
+Message-ID: <CAE4R7bD9-H_U3ys9hsOx=o51b4rTjjyq3BYBXMmSeXRrvRupSQ@mail.gmail.com>
+References: <1427962212-18411-1-git-send-email-sfeldma@gmail.com>
+	<1427962212-18411-2-git-send-email-sfeldma@gmail.com>
+	<CAGVrzcZvzWDeV7XvZx13fK_u0oYD=mAJKQ5JUNm9UhirBqAHow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35843 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751751AbbDBRqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 13:46:06 -0400
-Received: by wizk4 with SMTP id k4so23046159wiz.1
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 10:46:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <551D6FB3.7090304@plumgrid.com>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:34872 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751593AbbDBRw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 13:52:28 -0400
+Received: by qgh3 with SMTP id 3so75753825qgh.2
+        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 10:52:28 -0700 (PDT)
+In-Reply-To: <CAGVrzcZvzWDeV7XvZx13fK_u0oYD=mAJKQ5JUNm9UhirBqAHow@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 02, 2015 at 06:34:59PM CEST, ast@plumgrid.com wrote:
->On 4/2/2015 8:21 AM, Daniel Borkmann wrote:
->>On 04/02/2015 05:15 PM, Jiri Pirko wrote:
->>>Thu, Apr 02, 2015 at 05:00:47PM CEST, daniel@iogearbox.net wrote:
->>>>On 04/02/2015 02:12 AM, Alexei Starovoitov wrote:
->>>>>Commit 608cd71a9c7c ("tc: bpf: generalize pedit action") has added the
->>>>>possibility to mangle packet data to BPF programs in the tc pipeline.
->>>>>This patch adds two helpers bpf_l3_csum_replace() and
->>>>>bpf_l4_csum_replace()
->>>>>for fixing up the protocol checksums after the packet mangling.
->>>>>
->>>>>It also adds 'flags' argument to bpf_skb_store_bytes() helper to avoid
->>>>>unnecessary checksum recomputations when BPF programs adjusting l3/l4
->>>>>checksums and documents all three helpers in uapi header.
->>>>>
->>>>>Moreover, a sample program is added to show how BPF programs can
->>>>>make use
->>>>>of the mangle and csum helpers.
->>>>>
->>>>>Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->>>>
->>>>I think in future we need to find a better place for these helpers,
->>>>as they are for cls_bpf and act_bpf.
->>>
->>>Yeah, makes sense to now have it in net/core/filter.c. How about to
->>>create net/bpf dir for these?
->>
->>I was thinking somewhere under net/sched/, f.e. net/sched/bpf.c
->>as probably kernel/bpf/ would end up in too much ifdef pasta. :/
+On Thu, Apr 2, 2015 at 2:09 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> [snip]
 >
->I would prefer to keep mangle and csum helpers in net/core/filter.c for
->now, since it's not clear what networking subsystems beyond TC would
->want to use them in the future. Otherwise we'll keep moving them back
->and forth.
-
-Well, therefore I suggested net/bpf/ dir as a place to store
-net-subsystem specific bpf stuff.
-
+>> +       int err = -EOPNOTSUPP;
+>> +
+>> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+>> +               return err;
 >
+> That check is currently going to prevent DSA from working, since we do
+> not yet advertise NETIF_HW_SWITCH_OFFLOAD (which should be fixed). In
+> general, though I am not sure this is entirely desirable to check that
+> here for multiple reasons:
+>
+> - stacked devices typically propagate lower devices dev->features, but
+> if they are purposely not doing it, this might start breaking
+> - is not that check, used as it is now, that unconditionally, end-up
+> being redundant with e.g: getting the switch device id to identify
+> this net_device as a switch port net_device?
+>
+> I kind of preferred when we had this moved into the
+> __swdev_attr_{get,set} caller, such we had finer control over whether
+> or not checking for these kinds of features makes sense for a
+> particular operation.
+
+I dropped it in my v1 patch set all together, but then it came back in
+v2.  I understand how it works, giving the user the ability to turn
+on/off offload support on a port at run-time, but I don't understand
+the application.  I agree with you that we already have finer-grained
+ability to know if a sub-feature is supported or not based on what the
+driver implements (like switch ID or STP state).  I don't know what
+this master switch is used for.  Why would the user turn off
+offloading on a port at run-time after the device has already been
+programmed with some offloading tasks?  What tells the device to stop
+those offloads now.  And then later, the user flips the switch to turn
+back on offloads on the port.   How do we restore the device?
+
+Roopa, can you help us understand how NETIF_F_HW_SWITCH_OFFLOAD is used?
