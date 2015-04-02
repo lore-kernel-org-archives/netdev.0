@@ -1,48 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
- dereference inside the stack
-Date: Thu, 02 Apr 2015 02:56:16 +0200
-Message-ID: <1427936176.1899545.248339037.14F4C167@webmail.messagingengine.com>
-References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
- <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
- <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
- <1427934951.1893436.248333749.7DEEB94B@webmail.messagingengine.com>
- <1427935725.25985.179.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 11/18] switchdev: remove old netdev_switch_port_bridge_setlink
+Date: Wed, 1 Apr 2015 18:01:45 -0700
+Message-ID: <CAGVrzcZoLxjNWq1_4q0w6D7n4DLmjnr09vEj75GOyabmAHRkag@mail.gmail.com>
+References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
+ <1427704836-8776-12-git-send-email-sfeldma@gmail.com> <55194E63.5010100@cumulusnetworks.com>
+ <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
+ <E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
+ <E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>
+ <20150331055235.GB1994@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067FB3E2@ORSMSX101.amr.corp.intel.com>
+ <20150331215245.GA6515@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	Scott Feldman <sfeldma@gmail.com>,
+	roopa <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>
+To: "Arad, Ronen" <ronen.arad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:45474 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751056AbbDBA4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:56:17 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0DDB120B10
-	for <netdev@vger.kernel.org>; Wed,  1 Apr 2015 20:56:13 -0400 (EDT)
-In-Reply-To: <1427935725.25985.179.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:32811 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751533AbbDBBCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 21:02:25 -0400
+Received: by obvd1 with SMTP id d1so107170907obv.0
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 18:02:25 -0700 (PDT)
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2015-03-31 16:32 GMT-07:00 Arad, Ronen <ronen.arad@intel.com>:
+> Let's say vendor X wants to expose features X1, X2, ...Xm,
+> vendor Y wants to expose features Y1, Y2, ...Yn, etc.
+> How this would be visible to the users via iproute2?
+> We'll need keywords Kx1..Kxm, Ky1..Kn, etc. There is scalability issue here.
+> The user has to figure out the keyword Kxj goes with feature Xj etc.
+> There must be a better way.
+>
+> What I have in mind is a way for switchdevX driver to define the its options
+> and the keywords that the user could use to control them in a generic way.
+> The kernel will provide the mechanism to export that to user space such that
+> A tool like iproute2 could present user-friendly interface which is context
+> aware.
+>
+> It is important to allow for a generic interface that will not require a new
+> patch to the user-space tool or to the kernel net core (or switchdev) infrastructure, whenever any such new feature is being exposed.
+> Only the switchdev driver which exposes a new feature need a patch.
 
+You are essentially proposing to do the same thing as OpenWrt's
+swconfig is doing [1]: each driver exposes both "generic" (to some
+degree) and custom attributes, which are discovered by user-space in a
+generic way. I think this is part of what do not want here, because
+that leaves room for vendors to implement feature XYZ, using the
+kernel as a programming interface, but without making the in-kernel
+API and code any consistent, hence failing part of its abstraction
+role.
 
-On Thu, Apr 2, 2015, at 02:48, Eric Dumazet wrote:
-> On Thu, 2015-04-02 at 02:35 +0200, Hannes Frederic Sowa wrote:
-> > On Thu, Apr 2, 2015, at 02:27, Eric Dumazet wrote: 
-> > > orphaning skb just because they traverse a tunnel would be quite
-> > > horrible.
-> > 
-> > Agreed, but we have some bits in the skb->sk pointer left for signaling
-> > we are only keeping it around for destructor and upper layer
-> > notifications. Destructors should be the only ones having to deal with
-> > skb->sk and they can mask the bit. That would touch a lot of NULL
-> > checks, though.
-> 
-> Have you checked net/sched/sch_fq.c per chance ?
-> 
-> skb->sk is not an opaque value.
+Things like this have existed for a long time, like NL80211 testmode,
+or wext private ioctl()s, etc.. etc.. I don't think that leads to
+better APIs being defined unfortunately.
 
-Do you think that skb->sk access through skb->__sk & ~0x1ULL would slow
-down the code too much?
+[1]: https://lwn.net/Articles/571390/
+-- 
+Florian
