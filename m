@@ -1,64 +1,109 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 11/18] switchdev: remove old netdev_switch_port_bridge_setlink
-Date: Wed, 1 Apr 2015 18:01:45 -0700
-Message-ID: <CAGVrzcZoLxjNWq1_4q0w6D7n4DLmjnr09vEj75GOyabmAHRkag@mail.gmail.com>
-References: <1427704836-8776-1-git-send-email-sfeldma@gmail.com>
- <1427704836-8776-12-git-send-email-sfeldma@gmail.com> <55194E63.5010100@cumulusnetworks.com>
- <CAE4R7bBWby3tDdzV+Hwvc_bzB3E-zNoHUQUX8OfF205Vyw-77g@mail.gmail.com>
- <E4CD12F19ABA0C4D8729E087A761DC35067FA7D3@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bA4t-5P58jeK1NVAzM1fdk72o9UJRD8w+ByxKAtbp7b8A@mail.gmail.com>
- <E4CD12F19ABA0C4D8729E087A761DC35067FA9F0@ORSMSX101.amr.corp.intel.com>
- <20150331055235.GB1994@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067FB3E2@ORSMSX101.amr.corp.intel.com>
- <20150331215245.GA6515@nanopsycho.orion> <E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	Scott Feldman <sfeldma@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>
-To: "Arad, Ronen" <ronen.arad@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH 02/12] net: dsa: mv88e6xxx: Move switch product IDs into common include file
+Date: Thu,  2 Apr 2015 03:21:49 +0200
+Message-ID: <1427937719-11630-3-git-send-email-andrew@lunn.ch>
+References: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:32811 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbbDBBCZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 21:02:25 -0400
-Received: by obvd1 with SMTP id d1so107170907obv.0
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 18:02:25 -0700 (PDT)
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC35067FB536@ORSMSX101.amr.corp.intel.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:35728 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751863AbbDBB0F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 21:26:05 -0400
+In-Reply-To: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-03-31 16:32 GMT-07:00 Arad, Ronen <ronen.arad@intel.com>:
-> Let's say vendor X wants to expose features X1, X2, ...Xm,
-> vendor Y wants to expose features Y1, Y2, ...Yn, etc.
-> How this would be visible to the users via iproute2?
-> We'll need keywords Kx1..Kxm, Ky1..Kn, etc. There is scalability issue here.
-> The user has to figure out the keyword Kxj goes with feature Xj etc.
-> There must be a better way.
->
-> What I have in mind is a way for switchdevX driver to define the its options
-> and the keywords that the user could use to control them in a generic way.
-> The kernel will provide the mechanism to export that to user space such that
-> A tool like iproute2 could present user-friendly interface which is context
-> aware.
->
-> It is important to allow for a generic interface that will not require a new
-> patch to the user-space tool or to the kernel net core (or switchdev) infrastructure, whenever any such new feature is being exposed.
-> Only the switchdev driver which exposes a new feature need a patch.
+From: Guenter Roeck <linux@roeck-us.net>
 
-You are essentially proposing to do the same thing as OpenWrt's
-swconfig is doing [1]: each driver exposes both "generic" (to some
-degree) and custom attributes, which are discovered by user-space in a
-generic way. I think this is part of what do not want here, because
-that leaves room for vendors to implement feature XYZ, using the
-kernel as a programming interface, but without making the in-kernel
-API and code any consistent, hence failing part of its abstraction
-role.
+This will let us use the switch product IDs in the common source code.
 
-Things like this have existed for a long time, like NL80211 testmode,
-or wext private ioctl()s, etc.. etc.. I don't think that leads to
-better APIs being defined unfortunately.
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6131.c |  6 ------
+ drivers/net/dsa/mv88e6171.c |  4 ----
+ drivers/net/dsa/mv88e6xxx.h | 36 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 36 insertions(+), 10 deletions(-)
 
-[1]: https://lwn.net/Articles/571390/
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 0252d51c0a74..f0dea2d1581e 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -17,12 +17,6 @@
+ #include <net/dsa.h>
+ #include "mv88e6xxx.h"
+ 
+-/* Switch product IDs */
+-#define ID_6085		0x04a0
+-#define ID_6095		0x0950
+-#define ID_6131		0x1060
+-#define ID_6131_B2	0x1066
+-
+ static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
+ {
+ 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 18cfead83dc9..639bd83b76c7 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -17,10 +17,6 @@
+ #include <net/dsa.h>
+ #include "mv88e6xxx.h"
+ 
+-/* Switch product IDs */
+-#define ID_6171	0x1710
+-#define ID_6172	0x1720
+-
+ static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
+ {
+ 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index aaf239aba726..aca48792db4b 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -11,6 +11,42 @@
+ #ifndef __MV88E6XXX_H
+ #define __MV88E6XXX_H
+ 
++/* switch product IDs */
++
++#define ID_6085		0x04a0
++#define ID_6095		0x0950
++
++#define ID_6123		0x1210
++#define ID_6123_A1	0x1212
++#define ID_6123_A2	0x1213
++
++#define ID_6131		0x1060
++#define ID_6131_B2	0x1066
++
++#define ID_6152		0x1a40
++#define ID_6155		0x1a50
++
++#define ID_6161		0x1610
++#define ID_6161_A1	0x1612
++#define ID_6161_A2	0x1613
++
++#define ID_6165		0x1650
++#define ID_6165_A1	0x1652
++#define ID_6165_A2	0x1653
++
++#define ID_6171		0x1710
++#define ID_6172		0x1720
++#define ID_6176		0x1760
++
++#define ID_6182		0x1a60
++#define ID_6185		0x1a70
++
++#define ID_6352		0x3520
++#define ID_6352_A0	0x3521
++#define ID_6352_A1	0x3522
++
++/* Registers */
++
+ #define REG_PORT(p)		(0x10 + (p))
+ #define REG_GLOBAL		0x1b
+ #define REG_GLOBAL2		0x1c
 -- 
-Florian
+2.1.4
