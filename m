@@ -1,7 +1,7 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH 2/6] RDS: only use passive connections when addresses match
-Date: Thu,  2 Apr 2015 09:50:45 -0400
-Message-ID: <25b5d99baee278ade82d725bb80d0a382b2bf654.1427936719.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH 6/6] RDS: don't trust the LL_SEND_FULL bit
+Date: Thu,  2 Apr 2015 09:50:49 -0400
+Message-ID: <dbc7c4e9d12f373c971c5b0d0e5936abb345ea7c.1427936719.git.sowmini.varadhan@oracle.com>
 References: <cover.1427936719.git.sowmini.varadhan@oracle.com>
 Cc: chien.yen@oracle.com, davem@davemloft.net,
 	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
@@ -9,64 +9,72 @@ Cc: chien.yen@oracle.com, davem@davemloft.net,
 	Sowmini Varadhan <sowmini.varadhan@oracle.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44937 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:48541 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753144AbbDBNvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 09:51:04 -0400
+	with ESMTP id S1753164AbbDBN4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 09:56:07 -0400
 In-Reply-To: <cover.1427936719.git.sowmini.varadhan@oracle.com>
 In-Reply-To: <cover.1427936719.git.sowmini.varadhan@oracle.com>
 References: <cover.1427936719.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Passive connections were added for the case where one loopback IB
-connection between identical addresses needs another connection to store
-the second QP.  Unfortunately, they were also created in the case where
-the addesses differ and we already have both QPs.
+We are seeing connections stuck with the LL_SEND_FULL bit getting
+set and never cleared.  This changes RDS to stop trusting the
+LL_SEND_FULL bit and kick krdsd after any time we
+see -ENOMEM from the ring allocation code.
 
-This lead to a message reordering bug.
-
-- two different IB interfaces and addresses on a machine: A B
-- traffic is sent from A to B
-- connection from A-B is created, connect request sent
-- listening accepts connect request, B-A is created
-- traffic flows, next_rx is incremented
-- unacked messages exist on the retrans list
-- connection A-B is shut down, new connect request sent
-- listen sees existing loopback B-A, creates new passive B-A
-- retrans messages are sent and delivered because of 0 next_rx
-
-The problem is that the second connection request saw the previously
-existing parent connection.  Instead of using it, and using the existing
-next_rx_seq state for the traffic between those IPs, it mistakenly
-thought that it had to create a passive connection.
-
-We fix this by only using passive connections in the special case where
-laddr and faddr match.  In this case we'll only ever have one parent
-sending connection requests and one passive connection created as the
-listening path sees the existing parent connection which initiated the
-request.
-
-Original patch by Zach Brown
+Original patch by Chris Mason
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
 ---
- net/rds/connection.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/rds/send.c    |   11 +++++++----
+ net/rds/threads.c |    2 ++
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 378c3a6..7952a5b 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -130,7 +130,7 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
- 	rcu_read_lock();
- 	conn = rds_conn_lookup(head, laddr, faddr, trans);
- 	if (conn && conn->c_loopback && conn->c_trans != &rds_loop_transport &&
--	    !is_outgoing) {
-+	    laddr == faddr && !is_outgoing) {
- 		/* This is a looped back IB connection, and we're
- 		 * called by the code handling the incoming connect.
- 		 * We need a second connection object into which we
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 23135a8..9d9c90c 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -1108,8 +1108,10 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 	 */
+ 	rds_stats_inc(s_send_queued);
+ 
+-	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		rds_send_xmit(conn);
++	ret = rds_send_xmit(conn);
++	if (ret == -ENOMEM || ret == -EAGAIN)
++		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
++
+ 
+ 	rds_message_put(rm);
+ 	return payload_len;
+@@ -1165,8 +1167,9 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
+ 	rds_stats_inc(s_send_queued);
+ 	rds_stats_inc(s_send_pong);
+ 
+-	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
+-		queue_delayed_work(rds_wq, &conn->c_send_w, 0);
++	ret = rds_send_xmit(conn);
++	if (ret == -ENOMEM || ret == -EAGAIN)
++		queue_delayed_work(rds_wq, &conn->c_send_w, 1);
+ 
+ 	rds_message_put(rm);
+ 	return 0;
+diff --git a/net/rds/threads.c b/net/rds/threads.c
+index dc2402e..454aa6d 100644
+--- a/net/rds/threads.c
++++ b/net/rds/threads.c
+@@ -162,7 +162,9 @@ void rds_send_worker(struct work_struct *work)
+ 	int ret;
+ 
+ 	if (rds_conn_state(conn) == RDS_CONN_UP) {
++		clear_bit(RDS_LL_SEND_FULL, &conn->c_flags);
+ 		ret = rds_send_xmit(conn);
++		cond_resched();
+ 		rdsdebug("conn %p ret %d\n", conn, ret);
+ 		switch (ret) {
+ 		case -EAGAIN:
 -- 
 1.7.1
