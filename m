@@ -1,47 +1,57 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
- and act front-end
-Date: Thu, 02 Apr 2015 02:24:13 +0200
-Message-ID: <551C8C2D.5060504@iogearbox.net>
-References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net> <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, jiri@resnulli.us, tgraf@suug.ch,
-	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	stephen@networkplumber.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] tcp: fix FRTO undo on cumulative ACK of SACKed range
+Date: Wed,  1 Apr 2015 20:26:46 -0400
+Message-ID: <1427934406-18743-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47067 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576AbbDBAYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:24:24 -0400
-In-Reply-To: <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:34549 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536AbbDBA1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:27:20 -0400
+Received: by ykef74 with SMTP id f74so18240975yke.1
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 17:27:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
+On processing cumulative ACKs, the FRTO code was not checking the
+SACKed bit, meaning that there could be a spurious FRTO undo on a
+cumulative ACK of a previously SACKed skb.
 
-On 04/02/2015 02:13 AM, Hannes Frederic Sowa wrote:
-...
-> Maybe a small utility programs like:
->
-> bpf (--lookup|--update|--delete|--get-next-key) -fd
-> filedescriptor-number (type conversion parameters here) key [value]
->
-> So it can be easily used by shell scripts.
->
-> For that the filedescriptor numbers would need to be exported (already
-> opened) into a spawned shell and the numbers could be specified either
-> in environment or just by printing text which can be sourced by shells
-> (we already talked about the maybe exec 5</proc/pid/fd/1234 idea). Seems
-> this can be just build ontop this current patch by extending the
-> bpf-agent you already build, no?
+The FRTO code should only consider a cumulative ACK to indicate that
+an original/unretransmitted skb is newly ACKed if the skb was not yet
+SACKed.
 
-I was thinking about that and trying it out, but as far as I can tell,
-due to the anon inodes that are currently underlying as the fd provider,
-it doesn't work w/o larger kernel changes. So, the file descriptor passing
-is currently the only way to transfer control.
+The effect of the spurious FRTO undo would typically be to make the
+connection think that all previously-sent packets were in flight when
+they really weren't, leading to a stall and an RTO.
 
-Cheers,
-Daniel
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Fixes: e33099f96d99c ("tcp: implement RFC5682 F-RTO")
+---
+ net/ipv4/tcp_input.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index fb4cf8b..f501ac04 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3105,10 +3105,11 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			if (!first_ackt.v64)
+ 				first_ackt = last_ackt;
+ 
+-			if (!(sacked & TCPCB_SACKED_ACKED))
++			if (!(sacked & TCPCB_SACKED_ACKED)) {
+ 				reord = min(pkts_acked, reord);
+-			if (!after(scb->end_seq, tp->high_seq))
+-				flag |= FLAG_ORIG_SACK_ACKED;
++				if (!after(scb->end_seq, tp->high_seq))
++					flag |= FLAG_ORIG_SACK_ACKED;
++			}
+ 		}
+ 
+ 		if (sacked & TCPCB_SACKED_ACKED)
+-- 
+2.2.0.rc0.207.ga3a616c
