@@ -1,46 +1,45 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
- and act front-end
-Date: Thu, 02 Apr 2015 09:14:07 -0700
-Message-ID: <551D6ACF.3090101@plumgrid.com>
-References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net> <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com> <551C8C2D.5060504@iogearbox.net> <1427934556.1892386.248333013.431CD73B@webmail.messagingengine.com> <551D17B4.2090903@iogearbox.net> <1427974255.2093319.248499373.05D36231@webmail.messagingengine.com> <551D3156.9030407@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
+ dereference inside the stack
+Date: Thu, 02 Apr 2015 12:24:40 -0400 (EDT)
+Message-ID: <20150402.122440.1290555618096731307.davem@davemloft.net>
+References: <1427936176.1899545.248339037.14F4C167@webmail.messagingengine.com>
+	<1427939630.25985.186.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1427974448.2093675.248500389.6D8AFBB6@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, tgraf@suug.ch, netdev@vger.kernel.org,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	stephen@networkplumber.org
+Cc: eric.dumazet@gmail.com, cwang@twopensource.com,
+	netdev@vger.kernel.org, jiri@resnulli.us
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:34760 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209AbbDBQOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 12:14:04 -0400
-Received: by iedfl3 with SMTP id fl3so81597847ied.1
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 09:14:03 -0700 (PDT)
-In-Reply-To: <551D3156.9030407@iogearbox.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751360AbbDBQYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 12:24:43 -0400
+In-Reply-To: <1427974448.2093675.248500389.6D8AFBB6@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/2/2015 5:08 AM, Daniel Borkmann wrote:
-> On 04/02/2015 01:30 PM, Hannes Frederic Sowa wrote:
->>> ... perhaps such a built-in fake device for retrieving bpf map fds
->>> might be interesting, e.g. exec 4<>/dev/bpf/<obj-file>/<map-name> if
->>> that has been given to bash?
->>>
->>> Anyway, I think to have some utility for shell scripts, as you
->>> suggest, certainly sounds interesting!
->>
->> All file descriptors will be inherited by exec as long as the O_CLOEXEC
->> flag wasn't specified on them. So you can retrieve the fds via af_unix
->> and just exec a new shell. The file descriptors will stay open and you
->> can pass the numbers of the fds via environment. This wouldn't need
->> changes to bash or kernel.
->
-> Okay, I will give it a try. Thanks!
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 02 Apr 2015 13:34:08 +0200
 
-I think even if it's little awkward to do it in user space, it's better
-than adding stuff to kernel. This /dev/bpf/obj-file/map-name or sysfs
-might start hitting scalability issues when we try to load thousands
-of bpf programs.
+> My plan is that I actually would propose this patch for -net and stable
+> as it fixes the problem that currently we oops when running dhclient on
+> a vxlan interface. As soon as net gets merged into net-next I I would
+> propose this change if it works out smoothly and looks maintainable.
+
+Yes, I think this patch is good for -net and -stable, but longer term we
+have to do something better.
+
+The most infuriating thing about this mess is that passing the tunnel
+socket down is only difficult because of that damn okfn argument to
+nf_hook().
+
+And that is _only_ needed for nf_queue reinjection, absolutely nothing
+else in the world uses it.
+
+I can't believe how much of a price we pay for that feature :-/
+
+So I've been trying to brainstorm a way to get rid of the okfn argument,
+or somehow make adjustments to it's signature more painless.
