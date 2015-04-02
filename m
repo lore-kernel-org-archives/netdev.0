@@ -1,143 +1,115 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 03/12] net: dsa: mv88e6131: Determine and use number of switch ports
-Date: Thu,  2 Apr 2015 03:21:50 +0200
-Message-ID: <1427937719-11630-4-git-send-email-andrew@lunn.ch>
+Subject: [PATCH 09/12] net: dsa: mv88e6xxx: Add missing mutex's in EEE operations.
+Date: Thu,  2 Apr 2015 03:21:56 +0200
+Message-ID: <1427937719-11630-10-git-send-email-andrew@lunn.ch>
 References: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
 To: davem@davemloft.net, linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35729 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:35744 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752092AbbDBB0F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 21:26:05 -0400
+	id S1751533AbbDBB0V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 21:26:21 -0400
 In-Reply-To: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
+The phy_mutex should be held while reading and writing to the phy.
 
-Determine and use number of switch ports from chip ID instead of always
-using the maximum, and return error when an attempt is made to access a
-non-existing port.
-
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Tested-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/dsa/mv88e6131.c | 42 +++++++++++++++++++++++++++++++++++-------
- drivers/net/dsa/mv88e6xxx.h |  1 +
- 2 files changed, 36 insertions(+), 7 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 59 +++++++++++++++++++++++----------------------
+ 1 file changed, 30 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index f0dea2d1581e..6b818fde2216 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -44,12 +44,13 @@ static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 7c4c04bb0cb0..d9a78c71a4bb 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -701,53 +701,54 @@ static int _mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr,
  
- static int mv88e6131_switch_reset(struct dsa_switch *ds)
+ int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e)
  {
 +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i;
+ 	int reg;
+ 
+-	reg = mv88e6xxx_phy_read_indirect(ds, port, 16);
++	mutex_lock(&ps->phy_mutex);
++
++	reg = _mv88e6xxx_phy_read_indirect(ds, port, 16);
+ 	if (reg < 0)
+-		return -EOPNOTSUPP;
++		goto out;
+ 
+ 	e->eee_enabled = !!(reg & 0x0200);
+ 	e->tx_lpi_enabled = !!(reg & 0x0100);
+ 
+-	reg = REG_READ(REG_PORT(port), 0);
+-	e->eee_active = !!(reg & 0x0040);
+-
+-	return 0;
+-}
+-
+-static int mv88e6xxx_eee_enable_set(struct dsa_switch *ds, int port,
+-				    bool eee_enabled, bool tx_lpi_enabled)
+-{
+-	int reg, nreg;
+-
+-	reg = _mv88e6xxx_phy_read_indirect(ds, port, 16);
++	reg = mv88e6xxx_reg_read(ds, REG_PORT(port), 0);
+ 	if (reg < 0)
+-		return reg;
+-
+-	nreg = reg & ~0x0300;
+-	if (eee_enabled)
+-		nreg |= 0x0200;
+-	if (tx_lpi_enabled)
+-		nreg |= 0x0100;
++		goto out;
+ 
+-	if (nreg != reg)
+-		return _mv88e6xxx_phy_write_indirect(ds, port, 16, nreg);
++	e->eee_active = !!(reg & 0x0040);
++	reg = 0;
+ 
+-	return 0;
++out:
++	mutex_unlock(&ps->phy_mutex);
++	return reg;
+ }
+ 
+ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 		      struct phy_device *phydev, struct ethtool_eee *e)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int reg;
  	int ret;
- 	unsigned long timeout;
  
- 	/* Set all ports to the disabled state. */
--	for (i = 0; i < 11; i++) {
-+	for (i = 0; i < ps->num_ports; i++) {
- 		ret = REG_READ(REG_PORT(i), 0x04);
- 		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
- 	}
-@@ -255,6 +256,7 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
+-	ret = mv88e6xxx_eee_enable_set(ds, port, e->eee_enabled,
+-				       e->tx_lpi_enabled);
+-	if (ret)
+-		return -EOPNOTSUPP;
++	mutex_lock(&ps->phy_mutex);
  
- static int mv88e6131_setup(struct dsa_switch *ds)
- {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i;
- 	int ret;
- 
-@@ -264,6 +266,21 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 
- 	mv88e6xxx_ppu_state_init(ds);
- 
-+	switch (ps->id) {
-+	case ID_6085:
-+		ps->num_ports = 10;
-+		break;
-+	case ID_6095:
-+		ps->num_ports = 11;
-+		break;
-+	case ID_6131:
-+	case ID_6131_B2:
-+		ps->num_ports = 8;
-+		break;
-+	default:
-+		return -ENODEV;
-+	}
+-	return 0;
++	ret = _mv88e6xxx_phy_read_indirect(ds, port, 16);
++	if (ret < 0)
++		goto out;
 +
- 	ret = mv88e6131_switch_reset(ds);
- 	if (ret < 0)
- 		return ret;
-@@ -274,7 +291,7 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	for (i = 0; i < 11; i++) {
-+	for (i = 0; i < ps->num_ports; i++) {
- 		ret = mv88e6131_setup_port(ds, i);
- 		if (ret < 0)
- 			return ret;
-@@ -283,17 +300,24 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 	return 0;
++	reg = ret & ~0x0300;
++	if (e->eee_enabled)
++		reg |= 0x0200;
++	if (e->tx_lpi_enabled)
++		reg |= 0x0100;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, 16, reg);
++out:
++	mutex_unlock(&ps->phy_mutex);
++
++	return ret;
  }
  
--static int mv88e6131_port_to_phy_addr(int port)
-+static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
- {
--	if (port >= 0 && port <= 11)
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+
-+	if (port >= 0 && port < ps->num_ports)
- 		return port;
--	return -1;
-+
-+	return -EINVAL;
- }
- 
- static int
- mv88e6131_phy_read(struct dsa_switch *ds, int port, int regnum)
- {
--	int addr = mv88e6131_port_to_phy_addr(port);
-+	int addr = mv88e6131_port_to_phy_addr(ds, port);
-+
-+	if (addr < 0)
-+		return addr;
-+
- 	return mv88e6xxx_phy_read_ppu(ds, addr, regnum);
- }
- 
-@@ -301,7 +325,11 @@ static int
- mv88e6131_phy_write(struct dsa_switch *ds,
- 			      int port, int regnum, u16 val)
- {
--	int addr = mv88e6131_port_to_phy_addr(port);
-+	int addr = mv88e6131_port_to_phy_addr(ds, port);
-+
-+	if (addr < 0)
-+		return addr;
-+
- 	return mv88e6xxx_phy_write_ppu(ds, addr, regnum, val);
- }
- 
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index aca48792db4b..ef058444bdb7 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -109,6 +109,7 @@ struct mv88e6xxx_priv_state {
- 	struct mutex eeprom_mutex;
- 
- 	int		id; /* switch product id */
-+	int		num_ports;	/* number of switch ports */
- 
- 	/* hw bridging */
- 
+ static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, int fid, u16 cmd)
 -- 
 2.1.4
