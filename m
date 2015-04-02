@@ -1,83 +1,74 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 00/18] Mellanox mlx4 driver updates
-Date: Thu,  2 Apr 2015 16:31:05 +0300
-Message-ID: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 02/18] net/mlx4_en: Change loopback only upon feature change
+Date: Thu,  2 Apr 2015 16:31:07 +0300
+Message-ID: <1427981483-19317-3-git-send-email-ogerlitz@mellanox.com>
+References: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:45636 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:45667 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752057AbbDBNbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2015 09:31:49 -0400
+	id S1752057AbbDBNby (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2015 09:31:54 -0400
+In-Reply-To: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Ido Shamay <idos@mellanox.com>
 
-The main feature added by this series are Ido's changes to support 
-Granular QoS for VFs, where for the time being only max rate is supported.
+Currently any change of netdev features results in a call to
+mlx4_en_update_loopback_state(). Those calls are unnecessary,
+and should be called only upon loopback feature change.
 
-Muhammad added support for setting rx-fcs and rx-all through ethtool, 
-and Ido did the interface identify work.
+Also moved some of the logic into mlx4_en_update_loopback_state().
 
-Last, add Ido as a maintainer for the mlx4 Ethernet driver!
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_main.c   |    5 +++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   12 +++++-------
+ 2 files changed, 10 insertions(+), 7 deletions(-)
 
-Some of next week is the Passover holiday here and I will be 
-mostly OOO. If needed (...) Ido or Amir will send V1 and such.
-
-Rebased against net-next commit 033f46b "crypto: algif - 
-explicitly mark end of data".
-
-Or.
-
-Ido Shamay (15):
-  net/mlx4: Add RSS support for fragmented IP datagrams
-  net/mlx4_en: Change loopback only upon feature change
-  net/mlx4: Make mlx4_is_eth visible inline funcion
-  net/mlx4: Aesthetic code changes in multi_func_init
-  net/mlx4: New file for QoS related firmware commands
-  net/mlx4: Add mlx4_ALLOCATE_VPP implementation
-  net/mlx4: Add mlx4_SET_VPORT_QOS implementation
-  net/mlx4: Query device for QoS per VF support
-  net/mlx4: Allocate VPPs for each port on PF init
-  net/mlx4: Added qos_vport QP configuration in VST mode
-  net/mlx4_en: Enable TX rate limit per VF
-  net/mlx4: Warn users of depracated QoS Firmware
-  net/mlx4: Set enhanced QoS support by default when ETS supported
-  net/mlx4: Add SET_PORT opcode modifiers enumeration
-  net/mlx4_en: Add interface identify support
-
-Muhammad Mahajna (2):
-  net/mlx4_en: Add RX-FCS support
-  net/mlx4_en: Add RX-ALL support
-
-Or Gerlitz (1):
-  MAINTAINERS: Update mlx4_en entry
-
- MAINTAINERS                                        |    1 +
- drivers/infiniband/hw/mlx4/main.c                  |   11 +-
- drivers/net/ethernet/mellanox/mlx4/Makefile        |    5 +-
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |  292 +++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c     |    1 +
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   27 ++
- drivers/net/ethernet/mellanox/mlx4/en_main.c       |    5 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   70 ++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    5 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   53 ++++-
- drivers/net/ethernet/mellanox/mlx4/fw.h            |    1 +
- drivers/net/ethernet/mellanox/mlx4/fw_qos.c        |  289 +++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw_qos.h        |  145 ++++++++++
- drivers/net/ethernet/mellanox/mlx4/main.c          |   31 ++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   30 +--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    1 +
- drivers/net/ethernet/mellanox/mlx4/port.c          |  133 +++++-----
- drivers/net/ethernet/mellanox/mlx4/qp.c            |    5 +
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   11 +-
- include/linux/mlx4/cmd.h                           |   13 +-
- include/linux/mlx4/device.h                        |   20 +-
- include/linux/mlx4/qp.h                            |    8 +-
- 22 files changed, 1023 insertions(+), 134 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/fw_qos.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index 58d5a07..913b716 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -103,6 +103,11 @@ void mlx4_en_update_loopback_state(struct net_device *dev,
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
++	if (features & NETIF_F_LOOPBACK)
++		priv->ctrl_flags |= cpu_to_be32(MLX4_WQE_CTRL_FORCE_LOOPBACK);
++	else
++		priv->ctrl_flags &= cpu_to_be32(~MLX4_WQE_CTRL_FORCE_LOOPBACK);
++
+ 	priv->flags &= ~(MLX4_EN_FLAG_RX_FILTER_NEEDED|
+ 			MLX4_EN_FLAG_ENABLE_HW_LOOPBACK);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 354e254..4ee564c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2210,13 +2210,11 @@ static int mlx4_en_set_features(struct net_device *netdev,
+ 		en_info(priv, "Turn %s TX vlan strip offload\n",
+ 			(features & NETIF_F_HW_VLAN_CTAG_TX) ? "ON" : "OFF");
+ 
+-	if (features & NETIF_F_LOOPBACK)
+-		priv->ctrl_flags |= cpu_to_be32(MLX4_WQE_CTRL_FORCE_LOOPBACK);
+-	else
+-		priv->ctrl_flags &=
+-			cpu_to_be32(~MLX4_WQE_CTRL_FORCE_LOOPBACK);
+-
+-	mlx4_en_update_loopback_state(netdev, features);
++	if (DEV_FEATURE_CHANGED(netdev, features, NETIF_F_LOOPBACK)) {
++		en_info(priv, "Turn %s loopback\n",
++			(features & NETIF_F_LOOPBACK) ? "ON" : "OFF");
++		mlx4_en_update_loopback_state(netdev, features);
++	}
+ 
+ 	return 0;
+ 
+-- 
+1.7.1
