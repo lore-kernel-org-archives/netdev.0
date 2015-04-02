@@ -1,82 +1,83 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 02/14] net: untangle ip_fragment and bridge
- netfilter
-Date: Thu, 2 Apr 2015 14:16:09 +0200
-Message-ID: <20150402121609.GC21789@breakpoint.cc>
-References: <1427920600-20366-1-git-send-email-fw@strlen.de>
- <1427920600-20366-3-git-send-email-fw@strlen.de>
- <20150401.230921.232085782289557923.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150401.230921.232085782289557923.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 00/18] Mellanox mlx4 driver updates
+Date: Thu,  2 Apr 2015 16:31:05 +0300
+Message-ID: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:45636 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752057AbbDBNbt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2015 09:31:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Wed,  1 Apr 2015 22:36:28 +0200
-> 
-> > Add mtu arguments to ip_fragment and remove the bridge netfilter mtu
-> > helper.
-> 
-> I told you I disagree with this approach.  Anything that adds
-> an 'mtu' argument to ip_fragment() I am not even going to look
-> at seriously, there must be device context when you call that
-> function.
+Hi Dave,
 
-Not sure.  There is one case where we must not use device mtu:
-if DF was set on one of the fragments, we must not increase fragment
-size, thats why I added the MTU argument to make sure that largest
-fragment size will be the upper boundary.
+The main feature added by this series are Ido's changes to support 
+Granular QoS for VFs, where for the time being only max rate is supported.
 
-I don't see where we break PMTUD or induce any other kind of
-breakage after this change.
+Muhammad added support for setting rx-fcs and rx-all through ethtool, 
+and Ido did the interface identify work.
 
-For the non-df case the original sizes of the fragments
-don't matter since any device in the path will (re)fragment.
+Last, add Ido as a maintainer for the mlx4 Ethernet driver!
 
-> Furthermore, and even more importantly, right now what bridge
-> netfilter does with fragmentation is _terminally_ broken.
+Some of next week is the Passover holiday here and I will be 
+mostly OOO. If needed (...) Ido or Amir will send V1 and such.
 
-I didn't claim it wasn't :-]
+Rebased against net-next commit 033f46b "crypto: algif - 
+explicitly mark end of data".
 
-> This is why you must use something like GRO/GSO, which is built
-> to positively and provably preserve the geometry of SKBs as they
-> are packed and unpacked.
+Or.
 
-Thats not as trivial as it sounds.
-GRO only aggregates same-size packets.
+Ido Shamay (15):
+  net/mlx4: Add RSS support for fragmented IP datagrams
+  net/mlx4_en: Change loopback only upon feature change
+  net/mlx4: Make mlx4_is_eth visible inline funcion
+  net/mlx4: Aesthetic code changes in multi_func_init
+  net/mlx4: New file for QoS related firmware commands
+  net/mlx4: Add mlx4_ALLOCATE_VPP implementation
+  net/mlx4: Add mlx4_SET_VPORT_QOS implementation
+  net/mlx4: Query device for QoS per VF support
+  net/mlx4: Allocate VPPs for each port on PF init
+  net/mlx4: Added qos_vport QP configuration in VST mode
+  net/mlx4_en: Enable TX rate limit per VF
+  net/mlx4: Warn users of depracated QoS Firmware
+  net/mlx4: Set enhanced QoS support by default when ETS supported
+  net/mlx4: Add SET_PORT opcode modifiers enumeration
+  net/mlx4_en: Add interface identify support
 
-All the fragments might have different sizes.
+Muhammad Mahajna (2):
+  net/mlx4_en: Add RX-FCS support
+  net/mlx4_en: Add RX-ALL support
 
-Futhermore we need to handle overlapping fragments, duplicates and
-arrival of fragments in any order.
+Or Gerlitz (1):
+  MAINTAINERS: Update mlx4_en entry
 
-Preserving the original skbs and sending those instead of
-refragmentation doesn't work either since the reassembled skb might have
-been subject to NAT.
-
-So the only possible compromise I see is to record/store all fragment sizes
-in the correct logical order (according to offset) and use that as
-'replay split points', i.e. we'd still end up not using the device mtu
-when undoing the defrag operation.
-
-We'd also not have full transparency unless we would also re-create
-the overlapping and duplicate packets that we might have seen, and
-send the refragmented skbs in the same order as we received them.
-
-I don't think thats something we want in ip stack, so we'd have
-to (re)implement ip (de|re)-fragmentation for the bridge in bridge
-netfilter.
-
-Is that what you had in mind?
-
-Or do you see some way to re-use existing implementation without
-fuglifying normal defrag operations?
-
-Thanks.
+ MAINTAINERS                                        |    1 +
+ drivers/infiniband/hw/mlx4/main.c                  |   11 +-
+ drivers/net/ethernet/mellanox/mlx4/Makefile        |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |  292 +++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c     |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   27 ++
+ drivers/net/ethernet/mellanox/mlx4/en_main.c       |    5 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   70 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |   53 ++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.h            |    1 +
+ drivers/net/ethernet/mellanox/mlx4/fw_qos.c        |  289 +++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw_qos.h        |  145 ++++++++++
+ drivers/net/ethernet/mellanox/mlx4/main.c          |   31 ++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   30 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    1 +
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  133 +++++-----
+ drivers/net/ethernet/mellanox/mlx4/qp.c            |    5 +
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   11 +-
+ include/linux/mlx4/cmd.h                           |   13 +-
+ include/linux/mlx4/device.h                        |   20 +-
+ include/linux/mlx4/qp.h                            |    8 +-
+ 22 files changed, 1023 insertions(+), 134 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/fw_qos.h
