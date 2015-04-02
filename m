@@ -1,17 +1,17 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 09/12] dsa: implement ndo_get_iflink
-Date: Thu,  2 Apr 2015 17:07:08 +0200
-Message-ID: <1427987231-3669-10-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 08/12] infiniband/ipoib: implement ndo_get_iflink
+Date: Thu,  2 Apr 2015 17:07:07 +0200
+Message-ID: <1427987231-3669-9-git-send-email-nicolas.dichtel@6wind.com>
 References: <1422979929.907.19.camel@edumazet-glaptop2.roam.corp.google.com>
  <1427987231-3669-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+	Roland Dreier <roland@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56630 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56627 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753234AbbDBPH0 (ORCPT
+	with ESMTP id S1753223AbbDBPH0 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 11:07:26 -0400
 In-Reply-To: <1427987231-3669-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,47 +19,50 @@ List-ID: <netdev.vger.kernel.org>
 
 Don't use dev->iflink anymore.
 
-CC: Florian Fainelli <f.fainelli@gmail.com>
+CC: Roland Dreier <roland@kernel.org>
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/dsa/slave.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 8 ++++++++
+ drivers/infiniband/ulp/ipoib/ipoib_vlan.c | 1 -
+ 2 files changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 3597724ec3d8..827cda560a55 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -55,13 +55,11 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
- 
- 
- /* slave device handling ****************************************************/
--static int dsa_slave_init(struct net_device *dev)
-+static int dsa_slave_get_iflink(const struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 
--	dev->iflink = p->parent->dst->master_netdev->ifindex;
--
--	return 0;
-+	return p->parent->dst->master_netdev->ifindex;
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 58b5aa3b6f2d..657b89b1d291 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -842,6 +842,13 @@ static void ipoib_set_mcast_list(struct net_device *dev)
+ 	queue_work(ipoib_workqueue, &priv->restart_task);
  }
  
- static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
-@@ -664,7 +662,6 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
++static int ipoib_get_iflink(const struct net_device *dev)
++{
++	struct ipoib_dev_priv *priv = netdev_priv(dev);
++
++	return priv->parent->ifindex;
++}
++
+ static u32 ipoib_addr_hash(struct ipoib_neigh_hash *htbl, u8 *daddr)
+ {
+ 	/*
+@@ -1341,6 +1348,7 @@ static const struct net_device_ops ipoib_netdev_ops = {
+ 	.ndo_start_xmit	 	 = ipoib_start_xmit,
+ 	.ndo_tx_timeout		 = ipoib_timeout,
+ 	.ndo_set_rx_mode	 = ipoib_set_mcast_list,
++	.ndo_get_iflink		 = ipoib_get_iflink,
  };
  
- static const struct net_device_ops dsa_slave_netdev_ops = {
--	.ndo_init		= dsa_slave_init,
- 	.ndo_open	 	= dsa_slave_open,
- 	.ndo_stop		= dsa_slave_close,
- 	.ndo_start_xmit		= dsa_slave_xmit,
-@@ -675,6 +672,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_fdb_del		= dsa_slave_fdb_del,
- 	.ndo_fdb_dump		= dsa_slave_fdb_dump,
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
-+	.ndo_get_iflink		= dsa_slave_get_iflink,
- };
+ void ipoib_setup(struct net_device *dev)
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+index 9fad7b5ac8b9..4dd1313056a4 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+@@ -102,7 +102,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
+ 	}
  
- static const struct swdev_ops dsa_slave_swdev_ops = {
+ 	priv->child_type  = type;
+-	priv->dev->iflink = ppriv->dev->ifindex;
+ 	list_add_tail(&priv->list, &ppriv->child_intfs);
+ 
+ 	return 0;
 -- 
 2.2.2
