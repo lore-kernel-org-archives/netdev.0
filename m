@@ -1,68 +1,49 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v3 0/4] mpls: Behaviour-changing improvements
-Date: Thu, 2 Apr 2015 00:49:38 +0100
-Message-ID: <551C8412.6060104@brocade.com>
-References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>	<1427739356-28113-1-git-send-email-rshearma@brocade.com> <20150401.153041.376950284605107486.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
+ dereference inside the stack
+Date: Wed, 1 Apr 2015 17:06:54 -0700
+Message-ID: <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
+References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:27768 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751533AbbDAXtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 19:49:55 -0400
-In-Reply-To: <20150401.153041.376950284605107486.davem@davemloft.net>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35757 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbbDBAGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:06:55 -0400
+Received: by ierf6 with SMTP id f6so56840426ier.2
+        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 17:06:54 -0700 (PDT)
+In-Reply-To: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/15 20:30, David Miller wrote:
-> From: Robert Shearman <rshearma@brocade.com>
-> Date: Mon, 30 Mar 2015 19:15:52 +0100
+On Wed, Apr 1, 2015 at 8:07 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> From: "hannes@stressinduktion.org" <hannes@stressinduktion.org>
 >
->> This series consists of several small changes to make it easier to
->> understand the code, along with security and RFC-compliance
->> changes. These are important to consider before userspace begins
->> relying on the previous behaviour.
+> We should not consult skb->sk for output decisions in xmit recursion
+> levels > 0 in the stack. Otherwise local socket settings could influence
+> the result of e.g. tunnel encapsulation process.
 >
-> Robert, you _absolutely_ must give common courtesy to Eric Biederman
-> and always CC: him explicitly on any proposed changes you want to make
-> to the new MPLS support.
+> ipv6 does not conform with this in three places:
+>
+> 1) ip6_fragment: we do consult ipv6_npinfo for frag_size
+>
+> 2) sk_mc_loop in ipv6 uses skb->sk and checks if we should
+>    loop the packet back to the local socket
+>
+> 3) ip6_skb_dst_mtu could query the settings from the user socket and
+>    force a wrong MTU
+>
+> Furthermore:
+> In sk_mc_loop we could potentially land in WARN_ON(1) if we use a
+> PF_PACKET socket ontop of an IPv6-backed vxlan device.
+>
+> Reuse xmit_recursion as we are currently only interested in protecting
+> tunnel devices.
+>
 
-Sorry for the oversight of not copying him on the cover letter. FWIW, he 
-was copied on the individual patches so the intention was to give Eric 
-that courtesy.
-
->
-> I'm adding him here.
->
->> V2:
->>    - Dropped PHP comment patch to avoid holding up the rest of the
->>      changes due to quibbling on nomenclature.
->>    - Corrected reference to RFC 3031 in commit message of patch
->>      2. Added reference to RFC 3031 s4.1.5 for PHP behaviour.
->>    - s/forwarding/input/ in patch 3.
->>    - Made MPT_IPV4 and MPT_IPV6 equal to 4 and 6 respectively in patch
->>      4, eliminating a switch on the version number as suggested by
->>      review comments. Added back references to RFCs, but moved them to
->>      mpls_payload_type enum declaration.
->> V1:
->>    - Updated to reference the correct RFC in the first patch.
->>
->> Robert Shearman (4):
->>    mpls: Use definition for reserved label checks
->>    mpls: Differentiate implicit-null and unlabeled neighbours
->>    mpls: Per-device enabling of packet input
->>    mpls: Allow payload type to be associated with label routes
->>
->>   Documentation/networking/mpls-sysctl.txt |   9 ++
->>   include/linux/netdevice.h                |   4 +
->>   net/mpls/af_mpls.c                       | 226 +++++++++++++++++++++++++------
->>   net/mpls/internal.h                      |   7 +
->>   4 files changed, 203 insertions(+), 43 deletions(-)
->>
->> --
->> 2.1.4
->>
+Shouldn't these skb's be orphaned for tunnel cases? Or we still have
+to keep skb->sk for other valid use?
