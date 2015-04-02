@@ -1,46 +1,114 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH ipsec] vti6: fix uninit when using x-netns
-Date: Thu,  2 Apr 2015 17:31:17 +0200
-Message-ID: <1427988677-11478-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Yao Xiwei <xiwei.yao@6wind.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net
+From: Bob Cochran <ppc@mindchasers.com>
+Subject: Re: [RFC,v2,02/12] soc/fman: Add the FMan FLIB
+Date: Thu, 02 Apr 2015 11:48:21 -0400
+Message-ID: <551D64C5.7040607@mindchasers.com>
+References: <1427888168-24145-1-git-send-email-igal.liberman@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: scottwood@freescale.com, madalin.bucur@freescale.com
+To: "Igal.Liberman" <igal.liberman@freescale.com>,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56684 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752704AbbDBPbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 11:31:21 -0400
+Received: from resqmta-ch2-09v.sys.comcast.net ([69.252.207.41]:42176 "EHLO
+	resqmta-ch2-09v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752922AbbDBP4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 11:56:36 -0400
+In-Reply-To: <1427888168-24145-1-git-send-email-igal.liberman@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yao Xiwei <xiwei.yao@6wind.com>
+On 04/01/2015 07:36 AM, Igal.Liberman wrote:
+> From: Igal Liberman <Igal.Liberman@freescale.com>
+>
+> The FMan FLib provides the basic API used by the FMan drivers to
+> configure and control the FMan hardware.
+>
+> Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
+> ---
+>   drivers/soc/fsl/Kconfig       |    2 +
+>   drivers/soc/fsl/Makefile      |    2 +
+>   drivers/soc/fsl/fman/Kconfig  |    7 +
+>   drivers/soc/fsl/fman/Makefile |    5 +
+>   drivers/soc/fsl/fman/fman.c   |  978 +++++++++++++++++++++++++++++++++++++++++
+>   5 files changed, 994 insertions(+)
+>   create mode 100644 drivers/soc/fsl/fman/Kconfig
+>   create mode 100644 drivers/soc/fsl/fman/Makefile
+>   create mode 100644 drivers/soc/fsl/fman/fman.c
+>
+> diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
+> index 291123a..2981306 100644
+> --- a/drivers/soc/fsl/Kconfig
+> +++ b/drivers/soc/fsl/Kconfig
 
-When the kernel deleted a vti6 interface, this interface was not removed from
-the tunnels list. Thus, when the ip6_vti module was removed, this old interface
-was found and the kernel tried to delete it again. This was leading to a kernel
-panic.
 
-Fixes: 61220ab34948 ("vti6: Enable namespace changing")
-Signed-off-by: Yao Xiwei <xiwei.yao@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_vti.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+I need some help putting together the DPAA patches.  On 3/11, there was 
+a patch with the subject "[v2,02/11] soc/fman: Add the FMan FLIB", which 
+is basically the same subject as this one.  In the 3/11 patch, you 
+create /drivers/soc/fsl/Kconfig and Makefile.
 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index ace10d0b3aac..96ba579917c1 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -288,8 +288,7 @@ static struct ip6_tnl *vti6_locate(struct net *net, struct __ip6_tnl_parm *p,
- static void vti6_dev_uninit(struct net_device *dev)
- {
- 	struct ip6_tnl *t = netdev_priv(dev);
--	struct net *net = dev_net(dev);
--	struct vti6_net *ip6n = net_generic(net, vti6_net_id);
-+	struct vti6_net *ip6n = net_generic(t->net, vti6_net_id);
- 
- 	if (dev == ip6n->fb_tnl_dev)
- 		RCU_INIT_POINTER(ip6n->tnls_wc[0], NULL);
--- 
-2.2.2
+In this patch, Kconfig and Makefile already exist.  So, please tell me 
+the patch that should be applied before this one to pick up both Kconfig 
+and Makefile.
+
+Should this patch have been called v3?  There was a v1 on 3/5 and a v2 
+on 3/11 that had the subject "soc/fman Add the FMan FLIB".
+
+Excluding device tree patches, I think there are currently three 
+non-superseded patch sets submitted for the DPAA:
+
+1) 4/1/15: [PATCH RFC 00/10] introduce DPAA Ethernet driver, 
+madalin.bucur@freescale.com  [SHOULD HAVE BEEN TITLED V2?]
+
+2) 4/1/15: [RFC,v2,00/12] Freescale DPAA FMan, 
+igal.liberman@freescale.com [SHOULD HAVE BEEN TITLED V3?]
+
+3) 3/9/15: [RFC v3 00/10] Freescale DPAA B/QMan drivers, 
+Emilian.Medve@Freescale.com
+
+
+I'm looking forward to putting together all the patches and trying to 
+build it and eventually test it.
+
+
+Thank you,
+
+Bob
+
+
+
+
+> @@ -189,4 +189,6 @@ config FSL_QMAN_INIT_TIMEOUT
+>
+>   endif # FSL_QMAN
+>
+> +source "drivers/soc/fsl/fman/Kconfig"
+> +
+>   endif # FSL_DPA
+> diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
+> index cce1f70..b2f76e9 100644
+> --- a/drivers/soc/fsl/Makefile
+> +++ b/drivers/soc/fsl/Makefile
+> @@ -18,3 +18,5 @@ qman-test-y					 = qman_test.o
+>   qman-test-$(CONFIG_FSL_QMAN_TEST_API)		+= qman_test_api.o
+>   qman-test-$(CONFIG_FSL_QMAN_TEST_STASH)		+= qman_test_stash.o
+>   obj-$(CONFIG_FSL_QMAN_DEBUGFS)			+= qman-debugfs.o
+> +
+> +obj-$(CONFIG_FSL_FMAN)				+= fman/
+> diff --git a/drivers/soc/fsl/fman/Kconfig b/drivers/soc/fsl/fman/Kconfig
+> new file mode 100644
+> index 0000000..8aeae29
+> --- /dev/null
+> +++ b/drivers/soc/fsl/fman/Kconfig
+> @@ -0,0 +1,7 @@
+> +config FSL_FMAN
+> +	bool "FMan support"
+> +	depends on FSL_SOC || COMPILE_TEST
+> +	default n
+> +	help
+> +		Freescale Data-Path Acceleration Architecture Frame Manager
+> +		(FMan) support
+>
+
+[snip]
