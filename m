@@ -1,187 +1,327 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 05/12] net: dsa: Consistently set and use ps->num_ports
-Date: Thu,  2 Apr 2015 04:06:33 +0200
-Message-ID: <1427940400-12434-6-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 06/12] net: dsa: Centralize Marvell switch reset
+Date: Thu,  2 Apr 2015 04:06:34 +0200
+Message-ID: <1427940400-12434-7-git-send-email-andrew@lunn.ch>
 References: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
 To: davem@davemloft.net, linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35817 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:35821 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753035AbbDBCLK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 22:11:10 -0400
+	id S1753050AbbDBCLS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 22:11:18 -0400
 In-Reply-To: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As a step towards consolidating code, consistently set the
-number of ports in the private state structure, and make use of it in
-loops.
+Marvell switches are all reset in nearly the same way. The only
+difference is if the PPU should be enabled or not. Move this
+code into the shared mv88x6xxx.c.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Tested-by: Guenter Roeck <linux@roeck-us.net>
 Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Tested-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/dsa/mv88e6171.c | 23 +++++++++++++++--------
- drivers/net/dsa/mv88e6352.c | 10 +++++++---
- 2 files changed, 22 insertions(+), 11 deletions(-)
+ drivers/net/dsa/mv88e6123_61_65.c | 36 +----------------------------
+ drivers/net/dsa/mv88e6131.c       | 36 +----------------------------
+ drivers/net/dsa/mv88e6171.c       | 48 +--------------------------------------
+ drivers/net/dsa/mv88e6352.c       | 38 +------------------------------
+ drivers/net/dsa/mv88e6xxx.c       | 40 ++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h       |  1 +
+ 6 files changed, 45 insertions(+), 154 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index 6480f77829ef..10228ad48151 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -52,40 +52,6 @@ static char *mv88e6123_61_65_probe(struct device *host_dev, int sw_addr)
+ 	return NULL;
+ }
+ 
+-static int mv88e6123_61_65_switch_reset(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int i;
+-	int ret;
+-	unsigned long timeout;
+-
+-	/* Set all ports to the disabled state. */
+-	for (i = 0; i < ps->num_ports; i++) {
+-		ret = REG_READ(REG_PORT(i), 0x04);
+-		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+-	}
+-
+-	/* Wait for transmit queues to drain. */
+-	usleep_range(2000, 4000);
+-
+-	/* Reset the switch. */
+-	REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
+-
+-	/* Wait up to one second for reset to complete. */
+-	timeout = jiffies + 1 * HZ;
+-	while (time_before(jiffies, timeout)) {
+-		ret = REG_READ(REG_GLOBAL, 0x00);
+-		if ((ret & 0xc800) == 0xc800)
+-			break;
+-
+-		usleep_range(1000, 2000);
+-	}
+-	if (time_after(jiffies, timeout))
+-		return -ETIMEDOUT;
+-
+-	return 0;
+-}
+-
+ static int mv88e6123_61_65_setup_global(struct dsa_switch *ds)
+ {
+ 	int ret;
+@@ -292,7 +258,7 @@ static int mv88e6123_61_65_setup(struct dsa_switch *ds)
+ 		return -ENODEV;
+ 	}
+ 
+-	ret = mv88e6123_61_65_switch_reset(ds);
++	ret = mv88e6xxx_switch_reset(ds, false);
+ 	if (ret < 0)
+ 		return ret;
+ 
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 6b818fde2216..534a8f0b1c28 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -42,40 +42,6 @@ static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
+ 	return NULL;
+ }
+ 
+-static int mv88e6131_switch_reset(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int i;
+-	int ret;
+-	unsigned long timeout;
+-
+-	/* Set all ports to the disabled state. */
+-	for (i = 0; i < ps->num_ports; i++) {
+-		ret = REG_READ(REG_PORT(i), 0x04);
+-		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+-	}
+-
+-	/* Wait for transmit queues to drain. */
+-	usleep_range(2000, 4000);
+-
+-	/* Reset the switch. */
+-	REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
+-
+-	/* Wait up to one second for reset to complete. */
+-	timeout = jiffies + 1 * HZ;
+-	while (time_before(jiffies, timeout)) {
+-		ret = REG_READ(REG_GLOBAL, 0x00);
+-		if ((ret & 0xc800) == 0xc800)
+-			break;
+-
+-		usleep_range(1000, 2000);
+-	}
+-	if (time_after(jiffies, timeout))
+-		return -ETIMEDOUT;
+-
+-	return 0;
+-}
+-
+ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ {
+ 	int ret;
+@@ -281,7 +247,7 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 		return -ENODEV;
+ 	}
+ 
+-	ret = mv88e6131_switch_reset(ds);
++	ret = mv88e6xxx_switch_reset(ds, false);
+ 	if (ret < 0)
+ 		return ret;
+ 
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 639bd83b76c7..5a295533ff20 100644
+index 5a295533ff20..69b35d124de5 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -38,12 +38,13 @@ static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
+@@ -36,52 +36,6 @@ static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
+ 	return NULL;
+ }
  
- static int mv88e6171_switch_reset(struct dsa_switch *ds)
- {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i;
- 	int ret;
- 	unsigned long timeout;
- 
- 	/* Set all ports to the disabled state. */
--	for (i = 0; i < 8; i++) {
-+	for (i = 0; i < ps->num_ports; i++) {
- 		ret = REG_READ(REG_PORT(i), 0x04);
- 		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
- 	}
-@@ -70,7 +71,7 @@ static int mv88e6171_switch_reset(struct dsa_switch *ds)
- 		return -ETIMEDOUT;
- 
- 	/* Enable ports not under DSA, e.g. WAN port */
--	for (i = 0; i < 8; i++) {
-+	for (i = 0; i < ps->num_ports; i++) {
- 		if (dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i))
- 			continue;
- 
-@@ -83,6 +84,7 @@ static int mv88e6171_switch_reset(struct dsa_switch *ds)
- 
+-static int mv88e6171_switch_reset(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int i;
+-	int ret;
+-	unsigned long timeout;
+-
+-	/* Set all ports to the disabled state. */
+-	for (i = 0; i < ps->num_ports; i++) {
+-		ret = REG_READ(REG_PORT(i), 0x04);
+-		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+-	}
+-
+-	/* Wait for transmit queues to drain. */
+-	usleep_range(2000, 4000);
+-
+-	/* Reset the switch. Keep PPU active.  The PPU needs to be
+-	 * active to support indirect phy register accesses through
+-	 * global registers 0x18 and 0x19.
+-	 */
+-	REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
+-
+-	/* Wait up to one second for reset to complete. */
+-	timeout = jiffies + 1 * HZ;
+-	while (time_before(jiffies, timeout)) {
+-		ret = REG_READ(REG_GLOBAL, 0x00);
+-		if ((ret & 0xc800) == 0xc800)
+-			break;
+-
+-		usleep_range(1000, 2000);
+-	}
+-	if (time_after(jiffies, timeout))
+-		return -ETIMEDOUT;
+-
+-	/* Enable ports not under DSA, e.g. WAN port */
+-	for (i = 0; i < ps->num_ports; i++) {
+-		if (dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i))
+-			continue;
+-
+-		ret = REG_READ(REG_PORT(i), 0x04);
+-		REG_WRITE(REG_PORT(i), 0x04, ret | 0x03);
+-	}
+-
+-	return 0;
+-}
+-
  static int mv88e6171_setup_global(struct dsa_switch *ds)
  {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 	int i;
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -282,7 +236,7 @@ static int mv88e6171_setup(struct dsa_switch *ds)
  
-@@ -147,7 +149,7 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
- 	}
+ 	ps->num_ports = 7;
  
- 	/* Clear all trunk masks. */
--	for (i = 0; i < 8; i++)
-+	for (i = 0; i < ps->num_ports; i++)
- 		REG_WRITE(REG_GLOBAL2, 0x07, 0x8000 | (i << 12) | 0xff);
+-	ret = mv88e6171_switch_reset(ds);
++	ret = mv88e6xxx_switch_reset(ds, true);
+ 	if (ret < 0)
+ 		return ret;
  
- 	/* Clear all trunk mappings. */
-@@ -270,6 +272,7 @@ static int mv88e6171_setup_port(struct dsa_switch *ds, int p)
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 040027fcd013..214bdbc8a5b1 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -45,42 +45,6 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
+ 	return NULL;
+ }
  
- static int mv88e6171_setup(struct dsa_switch *ds)
+-static int mv88e6352_switch_reset(struct dsa_switch *ds)
+-{
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	unsigned long timeout;
+-	int ret;
+-	int i;
+-
+-	/* Set all ports to the disabled state. */
+-	for (i = 0; i < ps->num_ports; i++) {
+-		ret = REG_READ(REG_PORT(i), 0x04);
+-		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+-	}
+-
+-	/* Wait for transmit queues to drain. */
+-	usleep_range(2000, 4000);
+-
+-	/* Reset the switch. Keep PPU active (bit 14, undocumented).
+-	 * The PPU needs to be active to support indirect phy register
+-	 * accesses through global registers 0x18 and 0x19.
+-	 */
+-	REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
+-
+-	/* Wait up to one second for reset to complete. */
+-	timeout = jiffies + 1 * HZ;
+-	while (time_before(jiffies, timeout)) {
+-		ret = REG_READ(REG_GLOBAL, 0x00);
+-		if ((ret & 0x8800) == 0x8800)
+-			break;
+-		usleep_range(1000, 2000);
+-	}
+-	if (time_after(jiffies, timeout))
+-		return -ETIMEDOUT;
+-
+-	return 0;
+-}
+-
+ static int mv88e6352_setup_global(struct dsa_switch *ds)
  {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int i;
- 	int ret;
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -373,7 +337,7 @@ static int mv88e6352_setup(struct dsa_switch *ds)
  
-@@ -277,6 +280,8 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	mutex_init(&ps->eeprom_mutex);
+ 
+-	ret = mv88e6352_switch_reset(ds);
++	ret = mv88e6xxx_switch_reset(ds, true);
  	if (ret < 0)
  		return ret;
  
-+	ps->num_ports = 7;
-+
- 	ret = mv88e6171_switch_reset(ds);
- 	if (ret < 0)
- 		return ret;
-@@ -287,7 +292,7 @@ static int mv88e6171_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	for (i = 0; i < 8; i++) {
-+	for (i = 0; i < ps->num_ports; i++) {
- 		if (!(dsa_is_cpu_port(ds, i) || ds->phys_port_mask & (1 << i)))
- 			continue;
- 
-@@ -299,9 +304,11 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 13572cc24c6d..9db5b40d78ea 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1161,6 +1161,46 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
  	return 0;
  }
  
--static int mv88e6171_port_to_phy_addr(int port)
-+static int mv88e6171_port_to_phy_addr(struct dsa_switch *ds, int port)
- {
--	if (port >= 0 && port <= 4)
++int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
++{
 +	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	u16 is_reset = (ppu_active ? 0x8800 : 0xc800);
++	unsigned long timeout;
++	int ret;
++	int i;
 +
-+	if (port >= 0 && port < ps->num_ports)
- 		return port;
- 	return -1;
- }
-@@ -310,7 +317,7 @@ static int
- mv88e6171_phy_read(struct dsa_switch *ds, int port, int regnum)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int addr = mv88e6171_port_to_phy_addr(port);
-+	int addr = mv88e6171_port_to_phy_addr(ds, port);
- 	int ret;
- 
- 	mutex_lock(&ps->phy_mutex);
-@@ -324,7 +331,7 @@ mv88e6171_phy_write(struct dsa_switch *ds,
- 		    int port, int regnum, u16 val)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int addr = mv88e6171_port_to_phy_addr(port);
-+	int addr = mv88e6171_port_to_phy_addr(ds, port);
- 	int ret;
- 
- 	mutex_lock(&ps->phy_mutex);
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 41fe3a6a72d1..040027fcd013 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -47,12 +47,13 @@ static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
- 
- static int mv88e6352_switch_reset(struct dsa_switch *ds)
- {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	unsigned long timeout;
- 	int ret;
- 	int i;
- 
- 	/* Set all ports to the disabled state. */
--	for (i = 0; i < 7; i++) {
++	/* Set all ports to the disabled state. */
 +	for (i = 0; i < ps->num_ports; i++) {
- 		ret = REG_READ(REG_PORT(i), 0x04);
- 		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
- 	}
-@@ -82,6 +83,7 @@ static int mv88e6352_switch_reset(struct dsa_switch *ds)
- 
- static int mv88e6352_setup_global(struct dsa_switch *ds)
- {
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 	int i;
- 
-@@ -152,7 +154,7 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
- 	/* Disable ingress rate limiting by resetting all ingress
- 	 * rate limit registers to their initial state.
- 	 */
--	for (i = 0; i < 7; i++)
-+	for (i = 0; i < ps->num_ports; i++)
- 		REG_WRITE(REG_GLOBAL2, 0x09, 0x9000 | (i << 8));
- 
- 	/* Initialise cross-chip port VLAN table to reset defaults. */
-@@ -367,6 +369,8 @@ static int mv88e6352_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
-+	ps->num_ports = 7;
++		ret = REG_READ(REG_PORT(i), 0x04);
++		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
++	}
 +
- 	mutex_init(&ps->eeprom_mutex);
++	/* Wait for transmit queues to drain. */
++	usleep_range(2000, 4000);
++
++	/* Reset the switch. Keep the PPU active if requested. The PPU
++	 * needs to be active to support indirect phy register access
++	 * through global registers 0x18 and 0x19.
++	 */
++	if (ppu_active)
++		REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
++	else
++		REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
++
++	/* Wait up to one second for reset to complete. */
++	timeout = jiffies + 1 * HZ;
++	while (time_before(jiffies, timeout)) {
++		ret = REG_READ(REG_GLOBAL, 0x00);
++		if ((ret & is_reset) == is_reset)
++			break;
++		usleep_range(1000, 2000);
++	}
++	if (time_after(jiffies, timeout))
++		return -ETIMEDOUT;
++
++	return 0;
++}
++
+ static int __init mv88e6xxx_init(void)
+ {
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index ef058444bdb7..f84d3d5178b9 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -129,6 +129,7 @@ struct mv88e6xxx_hw_stat {
+ 	int reg;
+ };
  
- 	ret = mv88e6352_switch_reset(ds);
-@@ -379,7 +383,7 @@ static int mv88e6352_setup(struct dsa_switch *ds)
- 	if (ret < 0)
- 		return ret;
- 
--	for (i = 0; i < 7; i++) {
-+	for (i = 0; i < ps->num_ports; i++) {
- 		ret = mv88e6352_setup_port(ds, i);
- 		if (ret < 0)
- 			return ret;
++int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
+ int mv88e6xxx_setup_port_common(struct dsa_switch *ds, int port);
+ int mv88e6xxx_setup_common(struct dsa_switch *ds);
+ int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg);
 -- 
 2.1.4
