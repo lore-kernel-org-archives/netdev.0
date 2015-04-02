@@ -1,97 +1,52 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: ethtool: git tree not updated to v3.18
-Date: Thu, 02 Apr 2015 19:23:13 +0100
-Message-ID: <1427998993.28415.5.camel@decadent.org.uk>
-References: <20150401143006.000001f7@unknown>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
+ and act front-end
+Date: Thu, 02 Apr 2015 20:38:54 +0200
+Message-ID: <551D8CBE.1030609@iogearbox.net>
+References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net> <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com> <551C8C2D.5060504@iogearbox.net> <1427934556.1892386.248333013.431CD73B@webmail.messagingengine.com> <551D17B4.2090903@iogearbox.net> <1427974255.2093319.248499373.05D36231@webmail.messagingengine.com> <551D3156.9030407@iogearbox.net> <551D6ACF.3090101@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-qLH4zezyZNcEDxS6SMTV"
-Cc: netdev@vger.kernel.org
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, tgraf@suug.ch, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53984 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750829AbbDBSX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:23:27 -0400
-In-Reply-To: <20150401143006.000001f7@unknown>
+Received: from www62.your-server.de ([213.133.104.62]:38885 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbbDBSjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:39:16 -0400
+In-Reply-To: <551D6ACF.3090101@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/02/2015 06:14 PM, Alexei Starovoitov wrote:
+> On 4/2/2015 5:08 AM, Daniel Borkmann wrote:
+>> On 04/02/2015 01:30 PM, Hannes Frederic Sowa wrote:
+>>>> ... perhaps such a built-in fake device for retrieving bpf map fds
+>>>> might be interesting, e.g. exec 4<>/dev/bpf/<obj-file>/<map-name> if
+>>>> that has been given to bash?
+>>>>
+>>>> Anyway, I think to have some utility for shell scripts, as you
+>>>> suggest, certainly sounds interesting!
+>>>
+>>> All file descriptors will be inherited by exec as long as the O_CLOEXEC
+>>> flag wasn't specified on them. So you can retrieve the fds via af_unix
+>>> and just exec a new shell. The file descriptors will stay open and you
+>>> can pass the numbers of the fds via environment. This wouldn't need
+>>> changes to bash or kernel.
+>>
+>> Okay, I will give it a try. Thanks!
+>
+> I think even if it's little awkward to do it in user space, it's better
+> than adding stuff to kernel. This /dev/bpf/obj-file/map-name or sysfs
+> might start hitting scalability issues when we try to load thousands
+> of bpf programs.
 
---=-qLH4zezyZNcEDxS6SMTV
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-04-01 at 14:30 -0700, Jesse Brandeburg wrote:
-> Hi Ben,=20
->=20
-> When trying to check a bug just now I noticed that the master
-> branch of
-> git://git.kernel.org/pub/scm/network/ethtool/ethtool
->=20
-> still points to the v3.16 tag.
->=20
-> But kernel.org shows version 3.18 released.  I did some quick
-> investigation and it looks like the v3.18 tag points to a dangling
-> commit that is not on a branch.
->=20
-> $ git log --graph --oneline v3.18 |head -n5
-> * ba9a11a Release version 3.18.
-> * 1e8811a Fix build with musl by using more common typedefs
-> * 99bc878 bug fix: SFP Tx BIAS uses memory wrong offset
-> * 4614098 Release version 3.16.
-> * 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
->=20
-> $ git log --graph --oneline origin/master |head -n5
-> * 4614098 Release version 3.16.
-> * 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
-> * 86c0326 ethtool: Support for configurable RSS hash key
-> * e633626 ethtool-copy.h: sync with net
-> * 05b8ad5 Release version 3.14.
->=20
-> Maybe you can merge the commits from your working branch back onto
-> master and make another 3.18.1 tag or something.
->=20
-> I just did:
-> git checkout master
-> git merge v3.18
->=20
-> which worked okay, I think
-
-Sorry about that, I pushed the tag but not the master branch when
-releasing 3.18.  This should be fixed now.
-
-There's a long weekend coming up, and I hope to get to the submitted
-patches and make a 4.0 release then.
-
-Ben.
-
---=20
-Ben Hutchings
-Lowery's Law:
-             If it jams, force it. If it breaks, it needed replacing anyway=
-.
-
---=-qLH4zezyZNcEDxS6SMTV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVR2JFue/yOyVhhEJAQpH2BAAgC2MGv9gK7KRab7LpJ2OddLL4sYoke9S
-YPa0piv3iCeuVqxU/b0St/W0LHFtp0nyjfSUDv9gOJ2E9JK+u5fN53pM5cU7dxKp
-dZPBzp5kwT/CWBLQOuE+Bbp43jVVPTI5iOEvgv5er+6sDLDjdUhugRS0kvT17xte
-d41vOgYjPbdmEtvS0oArVNJ2U9GkrKWpLu0XCVH5tdYwXnh6+9E/T6lYeZ3qmk22
-mqK6dNkwJZYgongn5WwgaRuQon3u5F5+53o/j1Cr4CNsXH7gPdh+pwnG431g2zkg
-qsPBtUibjeypw1Lj0RNYmcFMhN/vNkpSbKoJKtkv6pR6V4bf7fqDwc8wEZ2UIc24
-rshemY3UH787/udEEzQrmsNZq92RZ3Jlsl6EE17fm1f0TIIllQIChQ7vwvx+8c4s
-nRf5BX6dD6HncViojEx7TyQOscko4KTy0Ej/acrN3yIGl/ogE7z0XMYncXVPwCSJ
-yQd2GV98tmqgtPHLe8gd29IbJCBMuYRvPI6UQ4XBJv+Eyu8n1sw8fCuq6P0J88yY
-ipCXvwL2KdCt4F4qSBBeEuc/wRzL5O1Qa92BGDuYTCt/jr1vZ54kIV3JVBKqAfn6
-2mQREll8ze425aWeqCPS4h4k465wvlEXBzxFg6oBaaKmqSyWz6It49Qi2rctFORO
-xMIsnbxxdSs=
-=1+ni
------END PGP SIGNATURE-----
-
---=-qLH4zezyZNcEDxS6SMTV--
+So I was just hacking a prototype together to execve(2) and pass those
+map fds over env to the bash instance, so you have them there next to
+stdin, stdout, etc. Bit funny, but works as well for bpf(2). It might
+not work on a larger-scale, but perhaps for experimenting with eBPF
+maps, it would be good as a start. I'll try to carve something out for
+a follow-up to make it useful in shell scripts, thanks!
