@@ -1,69 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 01/26] switchdev: introduce get/set attrs ops
-Date: Thu, 2 Apr 2015 20:16:06 +0200
-Message-ID: <20150402181606.GF2613@nanopsycho.orion>
-References: <1427962212-18411-1-git-send-email-sfeldma@gmail.com>
- <1427962212-18411-2-git-send-email-sfeldma@gmail.com>
- <CAGVrzcZvzWDeV7XvZx13fK_u0oYD=mAJKQ5JUNm9UhirBqAHow@mail.gmail.com>
- <CAE4R7bD9-H_U3ys9hsOx=o51b4rTjjyq3BYBXMmSeXRrvRupSQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
+Date: Thu, 02 Apr 2015 14:16:23 -0400 (EDT)
+Message-ID: <20150402.141623.717255772856055027.davem@davemloft.net>
+References: <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
+	<1427771158.1913.35.camel@redhat.com>
+	<1427775770.30696.3.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: maheshb@google.com, netdev@vger.kernel.org, jbenc@redhat.com
+To: dcbw@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:33946 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751473AbbDBSQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:16:09 -0400
-Received: by wgbdm7 with SMTP id dm7so93321724wgb.1
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 11:16:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bD9-H_U3ys9hsOx=o51b4rTjjyq3BYBXMmSeXRrvRupSQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752093AbbDBSQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:16:25 -0400
+In-Reply-To: <1427775770.30696.3.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 02, 2015 at 07:52:28PM CEST, sfeldma@gmail.com wrote:
->On Thu, Apr 2, 2015 at 2:09 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> [snip]
->>
->>> +       int err = -EOPNOTSUPP;
->>> +
->>> +       if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
->>> +               return err;
->>
->> That check is currently going to prevent DSA from working, since we do
->> not yet advertise NETIF_HW_SWITCH_OFFLOAD (which should be fixed). In
->> general, though I am not sure this is entirely desirable to check that
->> here for multiple reasons:
->>
->> - stacked devices typically propagate lower devices dev->features, but
->> if they are purposely not doing it, this might start breaking
->> - is not that check, used as it is now, that unconditionally, end-up
->> being redundant with e.g: getting the switch device id to identify
->> this net_device as a switch port net_device?
->>
->> I kind of preferred when we had this moved into the
->> __swdev_attr_{get,set} caller, such we had finer control over whether
->> or not checking for these kinds of features makes sense for a
->> particular operation.
->
->I dropped it in my v1 patch set all together, but then it came back in
->v2.  I understand how it works, giving the user the ability to turn
->on/off offload support on a port at run-time, but I don't understand
->the application.  I agree with you that we already have finer-grained
->ability to know if a sub-feature is supported or not based on what the
->driver implements (like switch ID or STP state).  I don't know what
->this master switch is used for.  Why would the user turn off
->offloading on a port at run-time after the device has already been
->programmed with some offloading tasks?  What tells the device to stop
->those offloads now.  And then later, the user flips the switch to turn
->back on offloads on the port.   How do we restore the device?
->
->Roopa, can you help us understand how NETIF_F_HW_SWITCH_OFFLOAD is used?
+From: Dan Williams <dcbw@redhat.com>
+Date: Mon, 30 Mar 2015 23:22:50 -0500
 
-Documentation patch required? 
+> +	case htons(ETH_P_ALL): {
+> +		/* Raw sockets */
+> +		if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
+> +			break;
+> +		/* Fall through */
+> +	}
+
+You are not declaring any local variables in this switch block, therefore
+there is no reason to surround it with curly braces, remove them.
+
+> +	if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
+> +		|| ip_is_fragment(ip4h))
+> +		return false;
+
+This is not formatted properly.
+
+Lines of conditional statements _END_ with operators, they should never
+begin with one.
+
+Also, the second and subsequent lines of a multi-line if() statement should
+begin precisely at the first column after the openning parenthesis of the
+first line.  You must use the appropriate number of TAB then SPACE characters
+to achieve this.
+
+If you are purely using TAB characters to indent these things, it is almost
+certain that you are doing it wrong.
+
+And yes, I am super sick of typing this in several times a day, especially
+when this is not only documented, but checked for by checkpatch and other
+automated tools.
+
+> +	lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
+> +	if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
+> +	    && is_dhcp(skb)) {
+
+Likewise.
