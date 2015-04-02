@@ -1,30 +1,54 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Subject: commit d0af71a3573 for 3.19.y stable
-Date: Wed, 1 Apr 2015 20:34:22 -0400
-Message-ID: <CA+5PVA5oNEWJbU+VdG1rP+tbT1q55W2MSe3afOHP3bcP2h660A@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
+ dereference inside the stack
+Date: Thu, 02 Apr 2015 02:35:51 +0200
+Message-ID: <1427934951.1893436.248333749.7DEEB94B@webmail.messagingengine.com>
+References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
+ <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
+ <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:50799 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752526AbbDBAfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:35:52 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 8A0C720A64
+	for <netdev@vger.kernel.org>; Wed,  1 Apr 2015 20:35:48 -0400 (EDT)
+In-Reply-To: <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
 
-Another possible stable candidate.  We had a report[1] of deadlocks
-with tigon devices on 3.19.y and the commit below fixes it.  It
-cherry-picks cleanly on top of 3.19.3.  I don't see it queued up so I
-thought I would point it out.
 
-commit d0af71a3573f1217b140c60b66f1a9b335fb058b
-Author: Jun'ichi Nomura \(NEC\) <j-nomura@ce.jp.nec.com>
-Date:   Thu Feb 12 01:26:24 2015 +0000
+On Thu, Apr 2, 2015, at 02:27, Eric Dumazet wrote:
+> On Wed, 2015-04-01 at 17:06 -0700, Cong Wang wrote:
+> 
+> > Shouldn't these skb's be orphaned for tunnel cases? Or we still have
+> > to keep skb->sk for other valid use?
+> 
+> skb should not be orphaned, until the very last stage.
+> 
+> Many layers depend on this, really.
+> 
+> Simply ask the question to yourself :
+> 
+> What if I do not associate skb to a socket at first. What possibly
+> breaks ?
+> 
+> orphaning skb just because they traverse a tunnel would be quite
+> horrible.
 
-    tg3: Hold tp->lock before calling tg3_halt() from tg3_init_one()
+Agreed, but we have some bits in the skb->sk pointer left for signaling
+we are only keeping it around for destructor and upper layer
+notifications. Destructors should be the only ones having to deal with
+skb->sk and they can mask the bit. That would touch a lot of NULL
+checks, though.
 
-josh
-
-[1] https://bugzilla.redhat.com/show_bug.cgi?id=1207789
+Bye,
+Hannes
