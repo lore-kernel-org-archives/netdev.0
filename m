@@ -1,119 +1,192 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 01/18] net/mlx4: Add RSS support for fragmented IP datagrams
-Date: Thu,  2 Apr 2015 16:31:06 +0300
-Message-ID: <1427981483-19317-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 14/18] net/mlx4: Add SET_PORT opcode modifiers enumeration
+Date: Thu,  2 Apr 2015 16:31:19 +0300
+Message-ID: <1427981483-19317-15-git-send-email-ogerlitz@mellanox.com>
 References: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:45633 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:45715 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751521AbbDBNbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Apr 2015 09:31:49 -0400
+	id S1752796AbbDBNcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Apr 2015 09:32:04 -0400
 In-Reply-To: <1427981483-19317-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Shamay <idos@mellanox.com>
 
-Enable RSS support for fragmented IP packets, when device supports it.
-Until now, fragmented IP packets were directed only to the default_qpn.
-Since IP fragments (datagram) have no upper protocols (L3 IP packets),
-hash is performed on 3-tuple - dst MAC, source IP and dest IP. The HW
-makes sure that this holds for the 1st fragment too, so all fragments
-go to the same QP.
+The calls to SET_PORT used hard-code numbers, when supplying command's
+opcode modifiers, fix that to use well defined constants.
 
 Signed-off-by: Ido Shamay <idos@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c   |   12 ++++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.h   |    1 +
- drivers/net/ethernet/mellanox/mlx4/main.c |    2 ++
- include/linux/mlx4/device.h               |    1 +
- 4 files changed, 16 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/mlx4/main.c         |   11 +++++----
+ drivers/net/ethernet/mellanox/mlx4/cmd.c  |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c |   36 +++++++++++++++++------------
+ include/linux/mlx4/cmd.h                  |    8 +++++-
+ 4 files changed, 36 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 209a617..412e019 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -105,6 +105,7 @@ static void dump_dev_cap_flags(struct mlx4_dev *dev, u64 flags)
- 		[41] = "Unicast VEP steering support",
- 		[42] = "Multicast VEP steering support",
- 		[48] = "Counters support",
-+		[52] = "RSS IP fragments support",
- 		[53] = "Port ETS Scheduler support",
- 		[55] = "Port link type sensing support",
- 		[59] = "Port management change event support",
-@@ -1138,6 +1139,9 @@ int mlx4_QUERY_DEV_CAP_wrapper(struct mlx4_dev *dev, int slave,
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index b972c0b..976bea7 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -587,8 +587,9 @@ static int mlx4_ib_SET_PORT(struct mlx4_ib_dev *dev, u8 port, int reset_qkey_vio
+ 		((__be32 *) mailbox->buf)[1] = cpu_to_be32(cap_mask);
  	}
- 	for (; slave_port < dev->caps.num_ports; ++slave_port)
- 		flags &= ~(MLX4_DEV_CAP_FLAG_WOL_PORT1 << slave_port);
-+
-+	/* Not exposing RSS IP fragments to guests */
-+	flags &= ~MLX4_DEV_CAP_FLAG_RSS_IP_FRAG;
- 	MLX4_PUT(outbox->buf, flags, QUERY_DEV_CAP_EXT_FLAGS_OFFSET);
  
- 	MLX4_GET(field, outbox->buf, QUERY_DEV_CAP_VL_PORT_OFFSET);
-@@ -1701,6 +1705,10 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
- 	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_COUNTERS)
- 		*(inbox + INIT_HCA_FLAGS_OFFSET / 4) |= cpu_to_be32(1 << 4);
+-	err = mlx4_cmd(dev->dev, mailbox->dma, port, 0, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
++	err = mlx4_cmd(dev->dev, mailbox->dma, port, MLX4_SET_PORT_IB_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_WRAPPED);
  
-+	/* Enable RSS spread to fragmented IP packets when supported */
-+	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_RSS_IP_FRAG)
-+		*(inbox + INIT_HCA_FLAGS_OFFSET / 4) |= cpu_to_be32(1 << 13);
-+
- 	/* CX3 is capable of extending CQEs/EQEs from 32 to 64 bytes */
- 	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_64B_EQE) {
- 		*(inbox + INIT_HCA_EQE_CQE_OFFSETS / 4) |= cpu_to_be32(1 << 29);
-@@ -1889,6 +1897,10 @@ int mlx4_QUERY_HCA(struct mlx4_dev *dev,
+ 	mlx4_free_cmd_mailbox(dev->dev, mailbox);
+ 	return err;
+@@ -1525,8 +1526,8 @@ static void update_gids_task(struct work_struct *work)
+ 	memcpy(gids, gw->gids, sizeof gw->gids);
+ 
+ 	err = mlx4_cmd(dev, mailbox->dma, MLX4_SET_PORT_GID_TABLE << 8 | gw->port,
+-		       1, MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
+-		       MLX4_CMD_WRAPPED);
++		       MLX4_SET_PORT_ETH_OPCODE, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
+ 	if (err)
+ 		pr_warn("set port command failed\n");
+ 	else
+@@ -1564,7 +1565,7 @@ static void reset_gids_task(struct work_struct *work)
+ 				    IB_LINK_LAYER_ETHERNET) {
+ 		err = mlx4_cmd(dev, mailbox->dma,
+ 			       MLX4_SET_PORT_GID_TABLE << 8 | gw->port,
+-			       1, MLX4_CMD_SET_PORT,
++			       MLX4_SET_PORT_ETH_OPCODE, MLX4_CMD_SET_PORT,
+ 			       MLX4_CMD_TIME_CLASS_B,
+ 			       MLX4_CMD_WRAPPED);
+ 		if (err)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index bfc3584..0403fc0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -726,7 +726,8 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 		 * specific command/input_mod/opcode_mod/fw-status to be debug.
+ 		 */
+ 		if (op == MLX4_CMD_SET_PORT && in_modifier == 1 &&
+-		    op_modifier == 0 && context->fw_status == CMD_STAT_BAD_SIZE)
++		    op_modifier == MLX4_SET_PORT_IB_OPCODE &&
++		    context->fw_status == CMD_STAT_BAD_SIZE)
+ 			mlx4_dbg(dev, "command 0x%x failed: fw status = 0x%x\n",
+ 				 op, context->fw_status);
  		else
- 			param->steering_mode = MLX4_STEERING_MODE_A0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 6a53d42..ca4488e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -123,8 +123,9 @@ static int mlx4_set_port_mac_table(struct mlx4_dev *dev, u8 port,
+ 
+ 	in_mod = MLX4_SET_PORT_MAC_TABLE << 8 | port;
+ 
+-	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_NATIVE);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 	return err;
+@@ -337,8 +338,9 @@ static int mlx4_set_port_vlan_table(struct mlx4_dev *dev, u8 port,
+ 
+ 	memcpy(mailbox->buf, entries, MLX4_VLAN_TABLE_SIZE);
+ 	in_mod = MLX4_SET_PORT_VLAN_TABLE << 8 | port;
+-	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_NATIVE);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 
+@@ -625,9 +627,9 @@ static int mlx4_reset_roce_port_gids(struct mlx4_dev *dev, int slave,
+ 		       MLX4_ROCE_GID_ENTRY_SIZE);
+ 
+ 	err = mlx4_cmd(dev, mailbox->dma,
+-		       ((u32)port) | (MLX4_SET_PORT_GID_TABLE << 8), 1,
+-		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
+-		       MLX4_CMD_NATIVE);
++		       ((u32)port) | (MLX4_SET_PORT_GID_TABLE << 8),
++		       MLX4_SET_PORT_ETH_OPCODE, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
+ 	mutex_unlock(&(priv->port[port].gid_table.mutex));
+ 	return err;
+ }
+@@ -941,8 +943,9 @@ int mlx4_SET_PORT(struct mlx4_dev *dev, u8 port, int pkey_tbl_sz)
+ 			(pkey_tbl_flag << MLX4_CHANGE_PORT_PKEY_TBL_SZ) |
+ 			(dev->caps.port_ib_mtu[port] << MLX4_SET_PORT_MTU_CAP) |
+ 			(vl_cap << MLX4_SET_PORT_VL_CAP));
+-		err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_PORT,
+-				MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
++		err = mlx4_cmd(dev, mailbox->dma, port,
++			       MLX4_SET_PORT_IB_OPCODE, MLX4_CMD_SET_PORT,
++			       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
+ 		if (err != -ENOMEM)
+ 			break;
  	}
-+
-+	if (dword_field & (1 << 13))
-+		param->rss_ip_frags = 1;
-+
- 	/* steering attributes */
- 	if (param->steering_mode == MLX4_STEERING_MODE_DEVICE_MANAGED) {
- 		MLX4_GET(param->mc_base, outbox, INIT_HCA_FS_BASE_OFFSET);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-index 863655b..07cb7c2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-@@ -203,6 +203,7 @@ struct mlx4_init_hca_param {
- 	u64 dev_cap_enabled;
- 	u16 cqe_size; /* For use only when CQE stride feature enabled */
- 	u16 eqe_size; /* For use only when EQE stride feature enabled */
-+	u8 rss_ip_frags;
+@@ -971,8 +974,9 @@ int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
+ 	context->pfcrx = pfcrx;
+ 
+ 	in_mod = MLX4_SET_PORT_GENERAL << 8 | port;
+-	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B,  MLX4_CMD_WRAPPED);
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_WRAPPED);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 	return err;
+@@ -1008,8 +1012,9 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ 	context->vlan_miss = MLX4_VLAN_MISS_IDX;
+ 
+ 	in_mod = MLX4_SET_PORT_RQP_CALC << 8 | port;
+-	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B,  MLX4_CMD_WRAPPED);
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_WRAPPED);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 	return err;
+@@ -1050,8 +1055,9 @@ int mlx4_SET_PORT_VXLAN(struct mlx4_dev *dev, u8 port, u8 steering, int enable)
+ 	context->steering  = steering;
+ 
+ 	in_mod = MLX4_SET_PORT_VXLAN << 8 | port;
+-	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
++		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
++		       MLX4_CMD_NATIVE);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 	return err;
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index a788839..62c4d4d 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -188,7 +188,13 @@ enum {
  };
  
- struct mlx4_init_ib_param {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 43aa767..ee0a670 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -885,6 +885,8 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	mlx4_warn(dev, "Timestamping is not supported in slave mode\n");
- 
- 	slave_adjust_steering_mode(dev, &dev_cap, &hca_param);
-+	mlx4_dbg(dev, "RSS support for IP fragments is %s\n",
-+		 hca_param.rss_ip_frags ? "on" : "off");
- 
- 	if (func_cap.extra_flags & MLX4_QUERY_FUNC_FLAGS_BF_RES_QP &&
- 	    dev->caps.bf_reg_size)
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index ab7ebec..41eaafd 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -174,6 +174,7 @@ enum {
- 	MLX4_DEV_CAP_FLAG_VEP_UC_STEER	= 1LL << 41,
- 	MLX4_DEV_CAP_FLAG_VEP_MC_STEER	= 1LL << 42,
- 	MLX4_DEV_CAP_FLAG_COUNTERS	= 1LL << 48,
-+	MLX4_DEV_CAP_FLAG_RSS_IP_FRAG   = 1LL << 52,
- 	MLX4_DEV_CAP_FLAG_SET_ETH_SCHED = 1LL << 53,
- 	MLX4_DEV_CAP_FLAG_SENSE_SUPPORT	= 1LL << 55,
- 	MLX4_DEV_CAP_FLAG_PORT_MNG_CHG_EV = 1LL << 59,
+ enum {
+-	/* set port opcode modifiers */
++	/* Set port opcode modifiers */
++	MLX4_SET_PORT_IB_OPCODE		= 0x0,
++	MLX4_SET_PORT_ETH_OPCODE	= 0x1,
++};
++
++enum {
++	/* Set port Ethernet input modifiers */
+ 	MLX4_SET_PORT_GENERAL   = 0x0,
+ 	MLX4_SET_PORT_RQP_CALC  = 0x1,
+ 	MLX4_SET_PORT_MAC_TABLE = 0x2,
 -- 
 1.7.1
