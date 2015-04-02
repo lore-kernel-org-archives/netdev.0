@@ -1,99 +1,500 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 00/12] DSA Mavell drivers refactoring and cleanup
-Date: Thu,  2 Apr 2015 04:06:28 +0200
-Message-ID: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 10/12] net: dsa: Consolidate getting the statistics
+Date: Thu,  2 Apr 2015 04:06:38 +0200
+Message-ID: <1427940400-12434-11-git-send-email-andrew@lunn.ch>
+References: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
 To: davem@davemloft.net, linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35855 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:35846 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753179AbbDBCMN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Apr 2015 22:12:13 -0400
+	id S1753113AbbDBCL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Apr 2015 22:11:59 -0400
+In-Reply-To: <1427940400-12434-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1->v2:
- * Add missing signed-of-by: For patches authored by Guenter Roeck.
- * Add Reviewed by from Guenter Roack to patch #5.
+Reading the statistics from the hardware is the same for all
+chips. What differs is the number of available statistics. Have just
+one copy of the code in the shared mv88e6xxx.
 
-This is a collection of patches again net-next from today containing
-refactoring and consolidate of code, cleanups and using #define's to
-replace register numbers.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Tested-by: Guenter Roeck <linux@roeck-us.net>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/net/dsa/mv88e6123_61_65.c | 62 ++----------------------
+ drivers/net/dsa/mv88e6131.c       | 59 ++---------------------
+ drivers/net/dsa/mv88e6171.c       | 59 ++---------------------
+ drivers/net/dsa/mv88e6352.c       | 61 ++----------------------
+ drivers/net/dsa/mv88e6xxx.c       | 99 ++++++++++++++++++++++++++++++++++++---
+ drivers/net/dsa/mv88e6xxx.h       | 11 ++---
+ 6 files changed, 110 insertions(+), 241 deletions(-)
 
-Patch #1 Swaps the 6131 driver to use the consolidated setup code.
-
-Patch #2 Moves the Switch IDs used during probe into a central
-         location.  We need these later so that we can differentiate
-         the different features the devices have.
-
-Patch #3 Makes the 6131 driver set the number of ports in the private
-         state structure. It then uses this, rather than hard coded
-         maximum number of ports.
-
-Patch #4 Similar to Patch #3, but for the 6123_61_65 driver.
-
-Patch #5 Similar to Patch #3, and #4, but for all the remaining
-         drivers.  This greatly increases the similarity of the code
-         between drivers, allow further patches to consolidate the
-         duplicated code.
-
-Patch #6 Consolidate the switch reset code, which has two minor
-         variants. Removes around 35 lines per driver.
-
-Patch #7 Moves phy page access functions out of the 6352 driver into
-         the shared code. Currently only the 6352 driver uses this,
-         but it is likely other devices will come along wanting this
-         functionality.
-
-Patch #8 Consolidates the code used to access phy registers. Removes
-         around 40 lines of code per driver.
-
-Patch #9 Fixes missing mutex locking in the EEE code, and refactors
-         the code a bit to make it more understandable with respect to
-         locks.
-
-Patch #10 Consolidates reading statistics. This is very similar code
-          for all devices, but the number of available statistics
-          differ, which can be determined from the product ID. Removes
-	  around 65 lines per driver.
-
-Patch #11 Add #defines for registers, and bits within the
-          registers. For the moment, this is limited to the shared
-          code. The individual drivers will be converted once the
-          remaining duplicated code is consolidated
-
-Patch #12 Fix broken statistic counters on the 6172. The 6352 family
-          requires the port number is poked into a different set of
-          bits in the register compared to other devices.
-
-Many thanks to Guenter Roeck for repeatedly reviewing the patches and
-testing them on his hardware.
-
-	Andrew
-
-Andrew Lunn (8):
-  net: dsa: Consistently set and use ps->num_ports
-  net: dsa: Centralize Marvell switch reset
-  net: dsa: Move phy page access functions into shared code
-  net: dsa: Consolidate phy read and write functions
-  net: dsa: mv88e6xxx: Add missing mutex's in EEE operations.
-  net: dsa: Consolidate getting the statistics
-  net: dsa: Use mnemonics rather than register numbers
-  net: dsa: mv88e6xxx: Fix stats counters for 6352 family
-
-Guenter Roeck (4):
-  net: dsa: mv88e6131: Use common initialization functions
-  net: dsa: mv88e6xxx: Move switch product IDs into common include file
-  net: dsa: mv88e6131: Determine and use number of switch ports
-  net: dsa: mv88e6123_61_65: Determine and use number of switch ports
-
- drivers/net/dsa/mv88e6123_61_65.c | 170 +++---------
- drivers/net/dsa/mv88e6131.c       | 182 ++++---------
- drivers/net/dsa/mv88e6171.c       | 166 ++----------
- drivers/net/dsa/mv88e6352.c       | 205 ++-------------
- drivers/net/dsa/mv88e6xxx.c       | 531 +++++++++++++++++++++++++++++---------
- drivers/net/dsa/mv88e6xxx.h       | 238 ++++++++++++++---
- 6 files changed, 728 insertions(+), 764 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index 5f536722f7c7..81cc24448164 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -277,62 +277,6 @@ static int mv88e6123_61_65_setup(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static struct mv88e6xxx_hw_stat mv88e6123_61_65_hw_stats[] = {
+-	{ "in_good_octets", 8, 0x00, },
+-	{ "in_bad_octets", 4, 0x02, },
+-	{ "in_unicast", 4, 0x04, },
+-	{ "in_broadcasts", 4, 0x06, },
+-	{ "in_multicasts", 4, 0x07, },
+-	{ "in_pause", 4, 0x16, },
+-	{ "in_undersize", 4, 0x18, },
+-	{ "in_fragments", 4, 0x19, },
+-	{ "in_oversize", 4, 0x1a, },
+-	{ "in_jabber", 4, 0x1b, },
+-	{ "in_rx_error", 4, 0x1c, },
+-	{ "in_fcs_error", 4, 0x1d, },
+-	{ "out_octets", 8, 0x0e, },
+-	{ "out_unicast", 4, 0x10, },
+-	{ "out_broadcasts", 4, 0x13, },
+-	{ "out_multicasts", 4, 0x12, },
+-	{ "out_pause", 4, 0x15, },
+-	{ "excessive", 4, 0x11, },
+-	{ "collisions", 4, 0x1e, },
+-	{ "deferred", 4, 0x05, },
+-	{ "single", 4, 0x14, },
+-	{ "multiple", 4, 0x17, },
+-	{ "out_fcs_error", 4, 0x03, },
+-	{ "late", 4, 0x1f, },
+-	{ "hist_64bytes", 4, 0x08, },
+-	{ "hist_65_127bytes", 4, 0x09, },
+-	{ "hist_128_255bytes", 4, 0x0a, },
+-	{ "hist_256_511bytes", 4, 0x0b, },
+-	{ "hist_512_1023bytes", 4, 0x0c, },
+-	{ "hist_1024_max_bytes", 4, 0x0d, },
+-	{ "sw_in_discards", 4, 0x110, },
+-	{ "sw_in_filtered", 2, 0x112, },
+-	{ "sw_out_filtered", 2, 0x113, },
+-};
+-
+-static void
+-mv88e6123_61_65_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+-{
+-	mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6123_61_65_hw_stats),
+-			      mv88e6123_61_65_hw_stats, port, data);
+-}
+-
+-static void
+-mv88e6123_61_65_get_ethtool_stats(struct dsa_switch *ds,
+-				  int port, uint64_t *data)
+-{
+-	mv88e6xxx_get_ethtool_stats(ds, ARRAY_SIZE(mv88e6123_61_65_hw_stats),
+-				    mv88e6123_61_65_hw_stats, port, data);
+-}
+-
+-static int mv88e6123_61_65_get_sset_count(struct dsa_switch *ds)
+-{
+-	return ARRAY_SIZE(mv88e6123_61_65_hw_stats);
+-}
+-
+ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+@@ -342,9 +286,9 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.phy_read		= mv88e6xxx_phy_read,
+ 	.phy_write		= mv88e6xxx_phy_write,
+ 	.poll_link		= mv88e6xxx_poll_link,
+-	.get_strings		= mv88e6123_61_65_get_strings,
+-	.get_ethtool_stats	= mv88e6123_61_65_get_ethtool_stats,
+-	.get_sset_count		= mv88e6123_61_65_get_sset_count,
++	.get_strings		= mv88e6xxx_get_strings,
++	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
++	.get_sset_count		= mv88e6xxx_get_sset_count,
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp		= mv88e6xxx_get_temp,
+ #endif
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 534a8f0b1c28..5bec7a60b476 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -299,59 +299,6 @@ mv88e6131_phy_write(struct dsa_switch *ds,
+ 	return mv88e6xxx_phy_write_ppu(ds, addr, regnum, val);
+ }
+ 
+-static struct mv88e6xxx_hw_stat mv88e6131_hw_stats[] = {
+-	{ "in_good_octets", 8, 0x00, },
+-	{ "in_bad_octets", 4, 0x02, },
+-	{ "in_unicast", 4, 0x04, },
+-	{ "in_broadcasts", 4, 0x06, },
+-	{ "in_multicasts", 4, 0x07, },
+-	{ "in_pause", 4, 0x16, },
+-	{ "in_undersize", 4, 0x18, },
+-	{ "in_fragments", 4, 0x19, },
+-	{ "in_oversize", 4, 0x1a, },
+-	{ "in_jabber", 4, 0x1b, },
+-	{ "in_rx_error", 4, 0x1c, },
+-	{ "in_fcs_error", 4, 0x1d, },
+-	{ "out_octets", 8, 0x0e, },
+-	{ "out_unicast", 4, 0x10, },
+-	{ "out_broadcasts", 4, 0x13, },
+-	{ "out_multicasts", 4, 0x12, },
+-	{ "out_pause", 4, 0x15, },
+-	{ "excessive", 4, 0x11, },
+-	{ "collisions", 4, 0x1e, },
+-	{ "deferred", 4, 0x05, },
+-	{ "single", 4, 0x14, },
+-	{ "multiple", 4, 0x17, },
+-	{ "out_fcs_error", 4, 0x03, },
+-	{ "late", 4, 0x1f, },
+-	{ "hist_64bytes", 4, 0x08, },
+-	{ "hist_65_127bytes", 4, 0x09, },
+-	{ "hist_128_255bytes", 4, 0x0a, },
+-	{ "hist_256_511bytes", 4, 0x0b, },
+-	{ "hist_512_1023bytes", 4, 0x0c, },
+-	{ "hist_1024_max_bytes", 4, 0x0d, },
+-};
+-
+-static void
+-mv88e6131_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+-{
+-	mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6131_hw_stats),
+-			      mv88e6131_hw_stats, port, data);
+-}
+-
+-static void
+-mv88e6131_get_ethtool_stats(struct dsa_switch *ds,
+-				  int port, uint64_t *data)
+-{
+-	mv88e6xxx_get_ethtool_stats(ds, ARRAY_SIZE(mv88e6131_hw_stats),
+-				    mv88e6131_hw_stats, port, data);
+-}
+-
+-static int mv88e6131_get_sset_count(struct dsa_switch *ds)
+-{
+-	return ARRAY_SIZE(mv88e6131_hw_stats);
+-}
+-
+ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_DSA,
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+@@ -361,9 +308,9 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.phy_read		= mv88e6131_phy_read,
+ 	.phy_write		= mv88e6131_phy_write,
+ 	.poll_link		= mv88e6xxx_poll_link,
+-	.get_strings		= mv88e6131_get_strings,
+-	.get_ethtool_stats	= mv88e6131_get_ethtool_stats,
+-	.get_sset_count		= mv88e6131_get_sset_count,
++	.get_strings		= mv88e6xxx_get_strings,
++	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
++	.get_sset_count		= mv88e6xxx_get_sset_count,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6085");
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 4d6038991a59..7314e7d71a67 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -258,59 +258,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static struct mv88e6xxx_hw_stat mv88e6171_hw_stats[] = {
+-	{ "in_good_octets", 8, 0x00, },
+-	{ "in_bad_octets", 4, 0x02, },
+-	{ "in_unicast", 4, 0x04, },
+-	{ "in_broadcasts", 4, 0x06, },
+-	{ "in_multicasts", 4, 0x07, },
+-	{ "in_pause", 4, 0x16, },
+-	{ "in_undersize", 4, 0x18, },
+-	{ "in_fragments", 4, 0x19, },
+-	{ "in_oversize", 4, 0x1a, },
+-	{ "in_jabber", 4, 0x1b, },
+-	{ "in_rx_error", 4, 0x1c, },
+-	{ "in_fcs_error", 4, 0x1d, },
+-	{ "out_octets", 8, 0x0e, },
+-	{ "out_unicast", 4, 0x10, },
+-	{ "out_broadcasts", 4, 0x13, },
+-	{ "out_multicasts", 4, 0x12, },
+-	{ "out_pause", 4, 0x15, },
+-	{ "excessive", 4, 0x11, },
+-	{ "collisions", 4, 0x1e, },
+-	{ "deferred", 4, 0x05, },
+-	{ "single", 4, 0x14, },
+-	{ "multiple", 4, 0x17, },
+-	{ "out_fcs_error", 4, 0x03, },
+-	{ "late", 4, 0x1f, },
+-	{ "hist_64bytes", 4, 0x08, },
+-	{ "hist_65_127bytes", 4, 0x09, },
+-	{ "hist_128_255bytes", 4, 0x0a, },
+-	{ "hist_256_511bytes", 4, 0x0b, },
+-	{ "hist_512_1023bytes", 4, 0x0c, },
+-	{ "hist_1024_max_bytes", 4, 0x0d, },
+-};
+-
+-static void
+-mv88e6171_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+-{
+-	mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6171_hw_stats),
+-			      mv88e6171_hw_stats, port, data);
+-}
+-
+-static void
+-mv88e6171_get_ethtool_stats(struct dsa_switch *ds,
+-			    int port, uint64_t *data)
+-{
+-	mv88e6xxx_get_ethtool_stats(ds, ARRAY_SIZE(mv88e6171_hw_stats),
+-				    mv88e6171_hw_stats, port, data);
+-}
+-
+-static int mv88e6171_get_sset_count(struct dsa_switch *ds)
+-{
+-	return ARRAY_SIZE(mv88e6171_hw_stats);
+-}
+-
+ static int mv88e6171_get_eee(struct dsa_switch *ds, int port,
+ 			     struct ethtool_eee *e)
+ {
+@@ -342,9 +289,9 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.phy_read		= mv88e6xxx_phy_read_indirect,
+ 	.phy_write		= mv88e6xxx_phy_write_indirect,
+ 	.poll_link		= mv88e6xxx_poll_link,
+-	.get_strings		= mv88e6171_get_strings,
+-	.get_ethtool_stats	= mv88e6171_get_ethtool_stats,
+-	.get_sset_count		= mv88e6171_get_sset_count,
++	.get_strings		= mv88e6xxx_get_strings,
++	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
++	.get_sset_count		= mv88e6xxx_get_sset_count,
+ 	.set_eee		= mv88e6171_set_eee,
+ 	.get_eee		= mv88e6171_get_eee,
+ #ifdef CONFIG_NET_DSA_HWMON
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 3806ff1aaa9c..a1be6e3c0351 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -321,42 +321,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static struct mv88e6xxx_hw_stat mv88e6352_hw_stats[] = {
+-	{ "in_good_octets", 8, 0x00, },
+-	{ "in_bad_octets", 4, 0x02, },
+-	{ "in_unicast", 4, 0x04, },
+-	{ "in_broadcasts", 4, 0x06, },
+-	{ "in_multicasts", 4, 0x07, },
+-	{ "in_pause", 4, 0x16, },
+-	{ "in_undersize", 4, 0x18, },
+-	{ "in_fragments", 4, 0x19, },
+-	{ "in_oversize", 4, 0x1a, },
+-	{ "in_jabber", 4, 0x1b, },
+-	{ "in_rx_error", 4, 0x1c, },
+-	{ "in_fcs_error", 4, 0x1d, },
+-	{ "out_octets", 8, 0x0e, },
+-	{ "out_unicast", 4, 0x10, },
+-	{ "out_broadcasts", 4, 0x13, },
+-	{ "out_multicasts", 4, 0x12, },
+-	{ "out_pause", 4, 0x15, },
+-	{ "excessive", 4, 0x11, },
+-	{ "collisions", 4, 0x1e, },
+-	{ "deferred", 4, 0x05, },
+-	{ "single", 4, 0x14, },
+-	{ "multiple", 4, 0x17, },
+-	{ "out_fcs_error", 4, 0x03, },
+-	{ "late", 4, 0x1f, },
+-	{ "hist_64bytes", 4, 0x08, },
+-	{ "hist_65_127bytes", 4, 0x09, },
+-	{ "hist_128_255bytes", 4, 0x0a, },
+-	{ "hist_256_511bytes", 4, 0x0b, },
+-	{ "hist_512_1023bytes", 4, 0x0c, },
+-	{ "hist_1024_max_bytes", 4, 0x0d, },
+-	{ "sw_in_discards", 4, 0x110, },
+-	{ "sw_in_filtered", 2, 0x112, },
+-	{ "sw_out_filtered", 2, 0x113, },
+-};
+-
+ static int mv88e6352_read_eeprom_word(struct dsa_switch *ds, int addr)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -555,25 +519,6 @@ static int mv88e6352_set_eeprom(struct dsa_switch *ds,
+ 	return 0;
+ }
+ 
+-static void
+-mv88e6352_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
+-{
+-	mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6352_hw_stats),
+-			      mv88e6352_hw_stats, port, data);
+-}
+-
+-static void
+-mv88e6352_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
+-{
+-	mv88e6xxx_get_ethtool_stats(ds, ARRAY_SIZE(mv88e6352_hw_stats),
+-				    mv88e6352_hw_stats, port, data);
+-}
+-
+-static int mv88e6352_get_sset_count(struct dsa_switch *ds)
+-{
+-	return ARRAY_SIZE(mv88e6352_hw_stats);
+-}
+-
+ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+ 	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+@@ -583,9 +528,9 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.phy_read		= mv88e6xxx_phy_read_indirect,
+ 	.phy_write		= mv88e6xxx_phy_write_indirect,
+ 	.poll_link		= mv88e6xxx_poll_link,
+-	.get_strings		= mv88e6352_get_strings,
+-	.get_ethtool_stats	= mv88e6352_get_ethtool_stats,
+-	.get_sset_count		= mv88e6352_get_sset_count,
++	.get_strings		= mv88e6xxx_get_strings,
++	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
++	.get_sset_count		= mv88e6xxx_get_sset_count,
+ 	.set_eee		= mv88e6xxx_set_eee,
+ 	.get_eee		= mv88e6xxx_get_eee,
+ #ifdef CONFIG_NET_DSA_HWMON
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index d9a78c71a4bb..b360fe5346d3 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -484,9 +484,62 @@ static void mv88e6xxx_stats_read(struct dsa_switch *ds, int stat, u32 *val)
+ 	*val = _val | ret;
+ }
+ 
+-void mv88e6xxx_get_strings(struct dsa_switch *ds,
+-			   int nr_stats, struct mv88e6xxx_hw_stat *stats,
+-			   int port, uint8_t *data)
++static struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
++	{ "in_good_octets", 8, 0x00, },
++	{ "in_bad_octets", 4, 0x02, },
++	{ "in_unicast", 4, 0x04, },
++	{ "in_broadcasts", 4, 0x06, },
++	{ "in_multicasts", 4, 0x07, },
++	{ "in_pause", 4, 0x16, },
++	{ "in_undersize", 4, 0x18, },
++	{ "in_fragments", 4, 0x19, },
++	{ "in_oversize", 4, 0x1a, },
++	{ "in_jabber", 4, 0x1b, },
++	{ "in_rx_error", 4, 0x1c, },
++	{ "in_fcs_error", 4, 0x1d, },
++	{ "out_octets", 8, 0x0e, },
++	{ "out_unicast", 4, 0x10, },
++	{ "out_broadcasts", 4, 0x13, },
++	{ "out_multicasts", 4, 0x12, },
++	{ "out_pause", 4, 0x15, },
++	{ "excessive", 4, 0x11, },
++	{ "collisions", 4, 0x1e, },
++	{ "deferred", 4, 0x05, },
++	{ "single", 4, 0x14, },
++	{ "multiple", 4, 0x17, },
++	{ "out_fcs_error", 4, 0x03, },
++	{ "late", 4, 0x1f, },
++	{ "hist_64bytes", 4, 0x08, },
++	{ "hist_65_127bytes", 4, 0x09, },
++	{ "hist_128_255bytes", 4, 0x0a, },
++	{ "hist_256_511bytes", 4, 0x0b, },
++	{ "hist_512_1023bytes", 4, 0x0c, },
++	{ "hist_1024_max_bytes", 4, 0x0d, },
++	/* Not all devices have the following counters */
++	{ "sw_in_discards", 4, 0x110, },
++	{ "sw_in_filtered", 2, 0x112, },
++	{ "sw_out_filtered", 2, 0x113, },
++
++};
++
++static bool have_sw_in_discards(struct dsa_switch *ds)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	switch (ps->id) {
++	case ID_6095: case ID_6161: case ID_6165:
++	case ID_6171: case ID_6172: case ID_6176:
++	case ID_6182: case ID_6185: case ID_6352:
++		return true;
++	default:
++		return false;
++	}
++}
++
++static void _mv88e6xxx_get_strings(struct dsa_switch *ds,
++				   int nr_stats,
++				   struct mv88e6xxx_hw_stat *stats,
++				   int port, uint8_t *data)
+ {
+ 	int i;
+ 
+@@ -496,9 +549,10 @@ void mv88e6xxx_get_strings(struct dsa_switch *ds,
+ 	}
+ }
+ 
+-void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
+-				 int nr_stats, struct mv88e6xxx_hw_stat *stats,
+-				 int port, uint64_t *data)
++static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
++					 int nr_stats,
++					 struct mv88e6xxx_hw_stat *stats,
++					 int port, uint64_t *data)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+@@ -546,6 +600,39 @@ error:
+ 	mutex_unlock(&ps->stats_mutex);
+ }
+ 
++/* All the statistics in the table */
++void
++mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
++{
++	if (have_sw_in_discards(ds))
++		_mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6xxx_hw_stats),
++				       mv88e6xxx_hw_stats, port, data);
++	else
++		_mv88e6xxx_get_strings(ds, ARRAY_SIZE(mv88e6xxx_hw_stats) - 3,
++				       mv88e6xxx_hw_stats, port, data);
++}
++
++int mv88e6xxx_get_sset_count(struct dsa_switch *ds)
++{
++	if (have_sw_in_discards(ds))
++		return ARRAY_SIZE(mv88e6xxx_hw_stats);
++	return ARRAY_SIZE(mv88e6xxx_hw_stats) - 3;
++}
++
++void
++mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
++			    int port, uint64_t *data)
++{
++	if (have_sw_in_discards(ds))
++		_mv88e6xxx_get_ethtool_stats(
++			ds, ARRAY_SIZE(mv88e6xxx_hw_stats),
++			mv88e6xxx_hw_stats, port, data);
++	else
++		_mv88e6xxx_get_ethtool_stats(
++			ds, ARRAY_SIZE(mv88e6xxx_hw_stats) - 3,
++			mv88e6xxx_hw_stats, port, data);
++}
++
+ int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port)
+ {
+ 	return 32 * sizeof(u16);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 44b0ec79cc6b..fbbedc07754f 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -150,12 +150,11 @@ int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum);
+ int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
+ 			    int regnum, u16 val);
+ void mv88e6xxx_poll_link(struct dsa_switch *ds);
+-void mv88e6xxx_get_strings(struct dsa_switch *ds,
+-			   int nr_stats, struct mv88e6xxx_hw_stat *stats,
+-			   int port, uint8_t *data);
+-void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
+-				 int nr_stats, struct mv88e6xxx_hw_stat *stats,
+-				 int port, uint64_t *data);
++void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
++void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
++				 uint64_t *data);
++int mv88e6xxx_get_sset_count(struct dsa_switch *ds);
++int mv88e6xxx_get_sset_count_basic(struct dsa_switch *ds);
+ int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port);
+ void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
+ 			struct ethtool_regs *regs, void *_p);
 -- 
 2.1.4
