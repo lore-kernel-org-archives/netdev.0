@@ -1,60 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
-Date: Thu, 02 Apr 2015 14:16:23 -0400 (EDT)
-Message-ID: <20150402.141623.717255772856055027.davem@davemloft.net>
-References: <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
-	<1427771158.1913.35.camel@redhat.com>
-	<1427775770.30696.3.camel@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: ethtool: git tree not updated to v3.18
+Date: Thu, 02 Apr 2015 19:23:13 +0100
+Message-ID: <1427998993.28415.5.camel@decadent.org.uk>
+References: <20150401143006.000001f7@unknown>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, netdev@vger.kernel.org, jbenc@redhat.com
-To: dcbw@redhat.com
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-qLH4zezyZNcEDxS6SMTV"
+Cc: netdev@vger.kernel.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40234 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093AbbDBSQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:16:25 -0400
-In-Reply-To: <1427775770.30696.3.camel@redhat.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53984 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750829AbbDBSX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 14:23:27 -0400
+In-Reply-To: <20150401143006.000001f7@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Mon, 30 Mar 2015 23:22:50 -0500
 
-> +	case htons(ETH_P_ALL): {
-> +		/* Raw sockets */
-> +		if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
-> +			break;
-> +		/* Fall through */
-> +	}
+--=-qLH4zezyZNcEDxS6SMTV
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-You are not declaring any local variables in this switch block, therefore
-there is no reason to surround it with curly braces, remove them.
+On Wed, 2015-04-01 at 14:30 -0700, Jesse Brandeburg wrote:
+> Hi Ben,=20
+>=20
+> When trying to check a bug just now I noticed that the master
+> branch of
+> git://git.kernel.org/pub/scm/network/ethtool/ethtool
+>=20
+> still points to the v3.16 tag.
+>=20
+> But kernel.org shows version 3.18 released.  I did some quick
+> investigation and it looks like the v3.18 tag points to a dangling
+> commit that is not on a branch.
+>=20
+> $ git log --graph --oneline v3.18 |head -n5
+> * ba9a11a Release version 3.18.
+> * 1e8811a Fix build with musl by using more common typedefs
+> * 99bc878 bug fix: SFP Tx BIAS uses memory wrong offset
+> * 4614098 Release version 3.16.
+> * 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
+>=20
+> $ git log --graph --oneline origin/master |head -n5
+> * 4614098 Release version 3.16.
+> * 14ef76c test-cmdline: Disable test cases for --rxfh hash key parsing
+> * 86c0326 ethtool: Support for configurable RSS hash key
+> * e633626 ethtool-copy.h: sync with net
+> * 05b8ad5 Release version 3.14.
+>=20
+> Maybe you can merge the commits from your working branch back onto
+> master and make another 3.18.1 tag or something.
+>=20
+> I just did:
+> git checkout master
+> git merge v3.18
+>=20
+> which worked okay, I think
 
-> +	if (skb->len < DHCP_PACKET_MIN_LEN || ip4h->protocol != IPPROTO_UDP
-> +		|| ip_is_fragment(ip4h))
-> +		return false;
+Sorry about that, I pushed the tag but not the master branch when
+releasing 3.18.  This should be fixed now.
 
-This is not formatted properly.
+There's a long weekend coming up, and I hope to get to the submitted
+patches and make a 4.0 release then.
 
-Lines of conditional statements _END_ with operators, they should never
-begin with one.
+Ben.
 
-Also, the second and subsequent lines of a multi-line if() statement should
-begin precisely at the first column after the openning parenthesis of the
-first line.  You must use the appropriate number of TAB then SPACE characters
-to achieve this.
+--=20
+Ben Hutchings
+Lowery's Law:
+             If it jams, force it. If it breaks, it needed replacing anyway=
+.
 
-If you are purely using TAB characters to indent these things, it is almost
-certain that you are doing it wrong.
+--=-qLH4zezyZNcEDxS6SMTV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-And yes, I am super sick of typing this in several times a day, especially
-when this is not only documented, but checked for by checkpatch and other
-automated tools.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> +	lyr3h = ipvlan_get_L3_hdr(skb, &addr_type);
-> +	if (!ipvlan->dhcp4_seen && lyr3h && addr_type == IPVL_IPV4
-> +	    && is_dhcp(skb)) {
+iQIVAwUAVR2JFue/yOyVhhEJAQpH2BAAgC2MGv9gK7KRab7LpJ2OddLL4sYoke9S
+YPa0piv3iCeuVqxU/b0St/W0LHFtp0nyjfSUDv9gOJ2E9JK+u5fN53pM5cU7dxKp
+dZPBzp5kwT/CWBLQOuE+Bbp43jVVPTI5iOEvgv5er+6sDLDjdUhugRS0kvT17xte
+d41vOgYjPbdmEtvS0oArVNJ2U9GkrKWpLu0XCVH5tdYwXnh6+9E/T6lYeZ3qmk22
+mqK6dNkwJZYgongn5WwgaRuQon3u5F5+53o/j1Cr4CNsXH7gPdh+pwnG431g2zkg
+qsPBtUibjeypw1Lj0RNYmcFMhN/vNkpSbKoJKtkv6pR6V4bf7fqDwc8wEZ2UIc24
+rshemY3UH787/udEEzQrmsNZq92RZ3Jlsl6EE17fm1f0TIIllQIChQ7vwvx+8c4s
+nRf5BX6dD6HncViojEx7TyQOscko4KTy0Ej/acrN3yIGl/ogE7z0XMYncXVPwCSJ
+yQd2GV98tmqgtPHLe8gd29IbJCBMuYRvPI6UQ4XBJv+Eyu8n1sw8fCuq6P0J88yY
+ipCXvwL2KdCt4F4qSBBeEuc/wRzL5O1Qa92BGDuYTCt/jr1vZ54kIV3JVBKqAfn6
+2mQREll8ze425aWeqCPS4h4k465wvlEXBzxFg6oBaaKmqSyWz6It49Qi2rctFORO
+xMIsnbxxdSs=
+=1+ni
+-----END PGP SIGNATURE-----
 
-Likewise.
+--=-qLH4zezyZNcEDxS6SMTV--
