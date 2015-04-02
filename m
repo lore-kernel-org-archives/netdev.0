@@ -1,7 +1,7 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCHv2 3/6] rds: check for excessive looping in rds_send_xmit
-Date: Thu,  2 Apr 2015 10:19:37 -0400
-Message-ID: <5f877b89716358c7a08272275979b5e039ca1c29.1427983908.git.sowmini.varadhan@oracle.com>
+Subject: [PATCHv2 1/6] RDS: Re-add pf/sol access via sysctl
+Date: Thu,  2 Apr 2015 10:19:35 -0400
+Message-ID: <6df5ee9a571eb865e5a26f367e18c34182de9e17.1427983908.git.sowmini.varadhan@oracle.com>
 References: <cover.1427983908.git.sowmini.varadhan@oracle.com>
 Cc: chien.yen@oracle.com, davem@davemloft.net,
 	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
@@ -16,43 +16,55 @@ References: <cover.1427983908.git.sowmini.varadhan@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Although RDS has an official PF_RDS value now, existing software
+expects to look for rds sysctls to determine it. We need to maintain
+these for now, for backwards compatibility.
+
 Original patch by Andy Grover
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
 ---
- net/rds/send.c |   13 +++++++++++++
- 1 files changed, 13 insertions(+), 0 deletions(-)
+ net/rds/sysctl.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 44672be..b1741a2 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -140,6 +140,7 @@ int rds_send_xmit(struct rds_connection *conn)
- 	struct scatterlist *sg;
- 	int ret = 0;
- 	LIST_HEAD(to_be_dropped);
-+	int same_rm = 0;
+diff --git a/net/rds/sysctl.c b/net/rds/sysctl.c
+index c173f69..5fbe9e6 100644
+--- a/net/rds/sysctl.c
++++ b/net/rds/sysctl.c
+@@ -49,6 +49,12 @@ unsigned int  rds_sysctl_max_unacked_bytes = (16 << 20);
  
- restart:
+ unsigned int rds_sysctl_ping_enable = 1;
  
-@@ -177,6 +178,18 @@ int rds_send_xmit(struct rds_connection *conn)
- 
- 		rm = conn->c_xmit_rm;
- 
-+		if (!rm) {
-+			same_rm = 0;
-+		} else {
-+			same_rm++;
-+			if (same_rm >= 4096) {
-+				printk_ratelimited(KERN_ERR "RDS: Stuck rm\n");
-+				cond_resched();
-+				ret = -EAGAIN;
-+				break;
-+			}
-+		}
++/* We have official values, but must maintain the sysctl interface for existing
++ * software that expects to find these values here.
++ */
++static int rds_sysctl_pf_rds = PF_RDS;
++static int rds_sysctl_sol_rds = SOL_RDS;
 +
- 		/*
- 		 * If between sending messages, we can send a pending congestion
- 		 * map update.
+ static struct ctl_table rds_sysctl_rds_table[] = {
+ 	{
+ 		.procname       = "reconnect_min_delay_ms",
+@@ -69,6 +75,20 @@ static struct ctl_table rds_sysctl_rds_table[] = {
+ 		.extra2		= &rds_sysctl_reconnect_max,
+ 	},
+ 	{
++		.procname       = "pf_rds",
++		.data		= &rds_sysctl_pf_rds,
++		.maxlen         = sizeof(int),
++		.mode           = 0444,
++		.proc_handler   = proc_dointvec,
++	},
++	{
++		.procname       = "sol_rds",
++		.data		= &rds_sysctl_sol_rds,
++		.maxlen         = sizeof(int),
++		.mode           = 0444,
++		.proc_handler   = proc_dointvec,
++	},
++	{
+ 		.procname	= "max_unacked_packets",
+ 		.data		= &rds_sysctl_max_unacked_packets,
+ 		.maxlen         = sizeof(int),
 -- 
 1.7.1
