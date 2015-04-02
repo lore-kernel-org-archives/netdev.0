@@ -1,95 +1,143 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 00/12] DSA Mavell drivers refactoring and cleanup
-Date: Thu,  2 Apr 2015 03:21:47 +0200
-Message-ID: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH 03/12] net: dsa: mv88e6131: Determine and use number of switch ports
+Date: Thu,  2 Apr 2015 03:21:50 +0200
+Message-ID: <1427937719-11630-4-git-send-email-andrew@lunn.ch>
+References: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, linux@roeck-us.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35730 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:35729 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752107AbbDBB0F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752092AbbDBB0F (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 1 Apr 2015 21:26:05 -0400
+In-Reply-To: <1427937719-11630-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a collection of patches again net-next from today containing
-refactoring and consolidate of code, cleanups and using #define's to
-replace register numbers.
+From: Guenter Roeck <linux@roeck-us.net>
 
-Patch #1 Swaps the 6131 driver to use the consolidated setup code.
+Determine and use number of switch ports from chip ID instead of always
+using the maximum, and return error when an attempt is made to access a
+non-existing port.
 
-Patch #2 Moves the Switch IDs used during probe into a central
-         location.  We need these later so that we can differentiate
-         the different features the devices have.
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6131.c | 42 +++++++++++++++++++++++++++++++++++-------
+ drivers/net/dsa/mv88e6xxx.h |  1 +
+ 2 files changed, 36 insertions(+), 7 deletions(-)
 
-Patch #3 Makes the 6131 driver set the number of ports in the private
-         state structure. It then uses this, rather than hard coded
-         maximum number of ports.
-
-Patch #4 Similar to Patch #3, but for the 6123_61_65 driver.
-
-Patch #5 Similar to Patch #3, and #4, but for all the remaining
-         drivers.  This greatly increases the similarity of the code
-         between drivers, allow further patches to consolidate the
-         duplicated code.
-
-Patch #6 Consolidate the switch reset code, which has two minor
-         variants. Removes around 35 lines per driver.
-
-Patch #7 Moves phy page access functions out of the 6352 driver into
-         the shared code. Currently only the 6352 driver uses this,
-         but it is likely other devices will come along wanting this
-         functionality.
-
-Patch #8 Consolidates the code used to access phy registers. Removes
-         around 40 lines of code per driver.
-
-Patch #9 Fixes missing mutex locking in the EEE code, and refactors
-         the code a bit to make it more understandable with respect to
-         locks.
-
-Patch #10 Consolidates reading statistics. This is very similar code
-          for all devices, but the number of available statistics
-          differ, which can be determined from the product ID. Removes
-	  around 65 lines per driver.
-
-Patch #11 Add #defines for registers, and bits within the
-          registers. For the moment, this is limited to the shared
-          code. The individual drivers will be converted once the
-          remaining duplicated code is consolidated
-
-Patch #12 Fix broken statistic counters on the 6172. The 6352 family
-          requires the port number is poked into a different set of
-          bits in the register compared to other devices.
-
-Many thanks to Guenter Roeck for repeatedly reviewing the patches and
-testing them on his hardware.
-
-	Andrew
-
-Andrew Lunn (8):
-  net: dsa: Consistently set and use ps->num_ports
-  net: dsa: Centralize Marvell switch reset
-  net: dsa: Move phy page access functions into shared code
-  net: dsa: Consolidate phy read and write functions
-  net: dsa: mv88e6xxx: Add missing mutex's in EEE operations.
-  net: dsa: Consolidate getting the statistics
-  net: dsa: Use mnemonics rather than register numbers
-  net: dsa: mv88e6xxx: Fix stats counters for 6352 family
-
-Guenter Roeck (4):
-  net: dsa: mv88e6131: Use common initialization functions
-  net: dsa: mv88e6xxx: Move switch product IDs into common include file
-  net: dsa: mv88e6131: Determine and use number of switch ports
-  net: dsa: mv88e6123_61_65: Determine and use number of switch ports
-
- drivers/net/dsa/mv88e6123_61_65.c | 170 +++---------
- drivers/net/dsa/mv88e6131.c       | 182 ++++---------
- drivers/net/dsa/mv88e6171.c       | 166 ++----------
- drivers/net/dsa/mv88e6352.c       | 205 ++-------------
- drivers/net/dsa/mv88e6xxx.c       | 531 +++++++++++++++++++++++++++++---------
- drivers/net/dsa/mv88e6xxx.h       | 238 ++++++++++++++---
- 6 files changed, 728 insertions(+), 764 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index f0dea2d1581e..6b818fde2216 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -44,12 +44,13 @@ static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
+ 
+ static int mv88e6131_switch_reset(struct dsa_switch *ds)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int i;
+ 	int ret;
+ 	unsigned long timeout;
+ 
+ 	/* Set all ports to the disabled state. */
+-	for (i = 0; i < 11; i++) {
++	for (i = 0; i < ps->num_ports; i++) {
+ 		ret = REG_READ(REG_PORT(i), 0x04);
+ 		REG_WRITE(REG_PORT(i), 0x04, ret & 0xfffc);
+ 	}
+@@ -255,6 +256,7 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
+ 
+ static int mv88e6131_setup(struct dsa_switch *ds)
+ {
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int i;
+ 	int ret;
+ 
+@@ -264,6 +266,21 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 
+ 	mv88e6xxx_ppu_state_init(ds);
+ 
++	switch (ps->id) {
++	case ID_6085:
++		ps->num_ports = 10;
++		break;
++	case ID_6095:
++		ps->num_ports = 11;
++		break;
++	case ID_6131:
++	case ID_6131_B2:
++		ps->num_ports = 8;
++		break;
++	default:
++		return -ENODEV;
++	}
++
+ 	ret = mv88e6131_switch_reset(ds);
+ 	if (ret < 0)
+ 		return ret;
+@@ -274,7 +291,7 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	for (i = 0; i < 11; i++) {
++	for (i = 0; i < ps->num_ports; i++) {
+ 		ret = mv88e6131_setup_port(ds, i);
+ 		if (ret < 0)
+ 			return ret;
+@@ -283,17 +300,24 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int mv88e6131_port_to_phy_addr(int port)
++static int mv88e6131_port_to_phy_addr(struct dsa_switch *ds, int port)
+ {
+-	if (port >= 0 && port <= 11)
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	if (port >= 0 && port < ps->num_ports)
+ 		return port;
+-	return -1;
++
++	return -EINVAL;
+ }
+ 
+ static int
+ mv88e6131_phy_read(struct dsa_switch *ds, int port, int regnum)
+ {
+-	int addr = mv88e6131_port_to_phy_addr(port);
++	int addr = mv88e6131_port_to_phy_addr(ds, port);
++
++	if (addr < 0)
++		return addr;
++
+ 	return mv88e6xxx_phy_read_ppu(ds, addr, regnum);
+ }
+ 
+@@ -301,7 +325,11 @@ static int
+ mv88e6131_phy_write(struct dsa_switch *ds,
+ 			      int port, int regnum, u16 val)
+ {
+-	int addr = mv88e6131_port_to_phy_addr(port);
++	int addr = mv88e6131_port_to_phy_addr(ds, port);
++
++	if (addr < 0)
++		return addr;
++
+ 	return mv88e6xxx_phy_write_ppu(ds, addr, regnum, val);
+ }
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index aca48792db4b..ef058444bdb7 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -109,6 +109,7 @@ struct mv88e6xxx_priv_state {
+ 	struct mutex eeprom_mutex;
+ 
+ 	int		id; /* switch product id */
++	int		num_ports;	/* number of switch ports */
+ 
+ 	/* hw bridging */
+ 
 -- 
 2.1.4
