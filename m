@@ -1,40 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
- dereference inside the stack
-Date: Wed, 01 Apr 2015 17:27:38 -0700
-Message-ID: <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
-	 <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH iproute2 -next] tc,
+ bpf: finalize eBPF support for cls and act front-end
+Date: Thu, 02 Apr 2015 02:29:16 +0200
+Message-ID: <1427934556.1892386.248333013.431CD73B@webmail.messagingengine.com>
+References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net>
+ <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com>
+ <551C8C2D.5060504@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Cong Wang <cwang@twopensource.com>
+Cc: ast@plumgrid.com, jiri@resnulli.us, tgraf@suug.ch,
+	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34212 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536AbbDBA1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:27:42 -0400
-Received: by pactp5 with SMTP id tp5so67150536pac.1
-        for <netdev@vger.kernel.org>; Wed, 01 Apr 2015 17:27:42 -0700 (PDT)
-In-Reply-To: <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:51715 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752685AbbDBA3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Apr 2015 20:29:17 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id AE2B92080C
+	for <netdev@vger.kernel.org>; Wed,  1 Apr 2015 20:29:13 -0400 (EDT)
+In-Reply-To: <551C8C2D.5060504@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-01 at 17:06 -0700, Cong Wang wrote:
+Hey Daniel,
 
-> Shouldn't these skb's be orphaned for tunnel cases? Or we still have
-> to keep skb->sk for other valid use?
+On Thu, Apr 2, 2015, at 02:24, Daniel Borkmann wrote:
+> On 04/02/2015 02:13 AM, Hannes Frederic Sowa wrote:
+> ...
+> > Maybe a small utility programs like:
+> >
+> > bpf (--lookup|--update|--delete|--get-next-key) -fd
+> > filedescriptor-number (type conversion parameters here) key [value]
+> >
+> > So it can be easily used by shell scripts.
+> >
+> > For that the filedescriptor numbers would need to be exported (already
+> > opened) into a spawned shell and the numbers could be specified either
+> > in environment or just by printing text which can be sourced by shells
+> > (we already talked about the maybe exec 5</proc/pid/fd/1234 idea). Seems
+> > this can be just build ontop this current patch by extending the
+> > bpf-agent you already build, no?
+> 
+> I was thinking about that and trying it out, but as far as I can tell,
+> due to the anon inodes that are currently underlying as the fd provider,
+> it doesn't work w/o larger kernel changes. So, the file descriptor
+> passing
+> is currently the only way to transfer control.
 
-skb should not be orphaned, until the very last stage.
+Does receiving them via af_unix and spawning a new shell with the fds
+already open work?
 
-Many layers depend on this, really.
-
-Simply ask the question to yourself :
-
-What if I do not associate skb to a socket at first. What possibly
-breaks ?
-
-orphaning skb just because they traverse a tunnel would be quite
-horrible.
+Bye,
+Hannes
