@@ -1,83 +1,69 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH iproute2 -next] tc,
- bpf: finalize eBPF support for cls and act front-end
-Date: Thu, 02 Apr 2015 13:30:55 +0200
-Message-ID: <1427974255.2093319.248499373.05D36231@webmail.messagingengine.com>
-References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net>
- <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com>
- <551C8C2D.5060504@iogearbox.net>
- <1427934556.1892386.248333013.431CD73B@webmail.messagingengine.com>
- <551D17B4.2090903@iogearbox.net>
+Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
+ dereference inside the stack
+Date: Thu, 02 Apr 2015 13:34:08 +0200
+Message-ID: <1427974448.2093675.248500389.6D8AFBB6@webmail.messagingengine.com>
+References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
+ <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
+ <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1427934951.1893436.248333749.7DEEB94B@webmail.messagingengine.com>
+ <1427935725.25985.179.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1427936176.1899545.248339037.14F4C167@webmail.messagingengine.com>
+ <1427939630.25985.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, jiri@resnulli.us, tgraf@suug.ch,
-	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
+Cc: Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:53401 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:58998 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751436AbbDBLaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 07:30:55 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id EA0B220918
-	for <netdev@vger.kernel.org>; Thu,  2 Apr 2015 07:30:51 -0400 (EDT)
-In-Reply-To: <551D17B4.2090903@iogearbox.net>
+	by vger.kernel.org with ESMTP id S1751166AbbDBLeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 07:34:10 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id C851F20A28
+	for <netdev@vger.kernel.org>; Thu,  2 Apr 2015 07:34:05 -0400 (EDT)
+In-Reply-To: <1427939630.25985.186.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 2, 2015, at 12:19, Daniel Borkmann wrote:
-> On 04/02/2015 02:29 AM, Hannes Frederic Sowa wrote:
-> > On Thu, Apr 2, 2015, at 02:24, Daniel Borkmann wrote:
-> >> On 04/02/2015 02:13 AM, Hannes Frederic Sowa wrote:
-> >> ...
-> >>> Maybe a small utility programs like:
-> >>>
-> >>> bpf (--lookup|--update|--delete|--get-next-key) -fd
-> >>> filedescriptor-number (type conversion parameters here) key [value]
-> >>>
-> >>> So it can be easily used by shell scripts.
-> >>>
-> >>> For that the filedescriptor numbers would need to be exported (already
-> >>> opened) into a spawned shell and the numbers could be specified either
-> >>> in environment or just by printing text which can be sourced by shells
-> >>> (we already talked about the maybe exec 5</proc/pid/fd/1234 idea). Seems
-> >>> this can be just build ontop this current patch by extending the
-> >>> bpf-agent you already build, no?
-> >>
-> >> I was thinking about that and trying it out, but as far as I can tell,
-> >> due to the anon inodes that are currently underlying as the fd provider,
-> >> it doesn't work w/o larger kernel changes. So, the file descriptor
-> >> passing
-> >> is currently the only way to transfer control.
-> >
-> > Does receiving them via af_unix and spawning a new shell with the fds
-> > already open work?
+On Thu, Apr 2, 2015, at 03:53, Eric Dumazet wrote:
+> On Thu, 2015-04-02 at 02:56 +0200, Hannes Frederic Sowa wrote:
+> > 
+> > On Thu, Apr 2, 2015, at 02:48, Eric Dumazet wrote:
+> > > On Thu, 2015-04-02 at 02:35 +0200, Hannes Frederic Sowa wrote:
+> > > > On Thu, Apr 2, 2015, at 02:27, Eric Dumazet wrote: 
+> > > > > orphaning skb just because they traverse a tunnel would be quite
+> > > > > horrible.
+> > > > 
+> > > > Agreed, but we have some bits in the skb->sk pointer left for signaling
+> > > > we are only keeping it around for destructor and upper layer
+> > > > notifications. Destructors should be the only ones having to deal with
+> > > > skb->sk and they can mask the bit. That would touch a lot of NULL
+> > > > checks, though.
+> > > 
+> > > Have you checked net/sched/sch_fq.c per chance ?
+> > > 
+> > > skb->sk is not an opaque value.
+> > 
+> > Do you think that skb->sk access through skb->__sk & ~0x1ULL would slow
+> > down the code too much?
 > 
-> I'm probably missing something, would that need changes to bash?
-> 
-> I mean exec could bind an fd in the shell to sockets and use that,
-> for example ...
-> 
->    exec 3<>/dev/tcp/www.slashdot.org/80
->    echo -e "GET / HTTP/1.1\r\nhost:
->    http://www.slashdot.org\r\nConnection: close\r\n\r\n" >&3
->    cat <&3
-> 
-> ... perhaps such a built-in fake device for retrieving bpf map fds
-> might be interesting, e.g. exec 4<>/dev/bpf/<obj-file>/<map-name> if
-> that has been given to bash?
-> 
-> Anyway, I think to have some utility for shell scripts, as you
-> suggest, certainly sounds interesting!
+> I was only replying to your claim "Destructors should be the only ones
+> having to deal with skb->sk", which looked wrong to me.
 
-All file descriptors will be inherited by exec as long as the O_CLOEXEC
-flag wasn't specified on them. So you can retrieve the fds via af_unix
-and just exec a new shell. The file descriptors will stay open and you
-can pass the numbers of the fds via environment. This wouldn't need
-changes to bash or kernel.
+You are correct, there might be even more places I need to use this. 
 
-Does that make sense?
+> Adding bit masking would slow down the code, but we did this already for
+> skb->dst
+
+Exactly.
+
+My plan is that I actually would propose this patch for -net and stable
+as it fixes the problem that currently we oops when running dhclient on
+a vxlan interface. As soon as net gets merged into net-next I I would
+propose this change if it works out smoothly and looks maintainable.
 
 Thanks,
 Hannes
