@@ -1,70 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: protect skb->sk accesses from recursive
- dereference inside the stack
-Date: Thu, 02 Apr 2015 14:05:22 +0200
-Message-ID: <1427976322.2102693.248509005.00F7A326@webmail.messagingengine.com>
-References: <1427900864-13891-1-git-send-email-hannes@stressinduktion.org>
- <CAHA+R7NvbJyjjBac=4VneQ_Nuxtb-_HEOJp0dujh5SOXj3NSKQ@mail.gmail.com>
- <1427934458.25985.177.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAHA+R7NXpuSOAwWpetFA+TyLh1d_v9kwiKxhPq4f=vowJJKb1Q@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 -next] tc, bpf: finalize eBPF support for cls
+ and act front-end
+Date: Thu, 02 Apr 2015 14:08:54 +0200
+Message-ID: <551D3156.9030407@iogearbox.net>
+References: <d9a577418790f99130c1cb20dc01cf50c2d6a7da.1427754287.git.daniel@iogearbox.net> <1427933636.1888890.248325033.0A76BE0D@webmail.messagingengine.com> <551C8C2D.5060504@iogearbox.net> <1427934556.1892386.248333013.431CD73B@webmail.messagingengine.com> <551D17B4.2090903@iogearbox.net> <1427974255.2093319.248499373.05D36231@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Cong Wang <cwang@twopensource.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: ast@plumgrid.com, jiri@resnulli.us, tgraf@suug.ch,
+	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:33544 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753112AbbDBMFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 08:05:23 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 1697E209A9
-	for <netdev@vger.kernel.org>; Thu,  2 Apr 2015 08:05:19 -0400 (EDT)
-In-Reply-To: <CAHA+R7NXpuSOAwWpetFA+TyLh1d_v9kwiKxhPq4f=vowJJKb1Q@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:59834 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752555AbbDBMJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 08:09:06 -0400
+In-Reply-To: <1427974255.2093319.248499373.05D36231@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 2, 2015, at 04:55, Cong Wang wrote:
-> On Wed, Apr 1, 2015 at 5:27 PM, Eric Dumazet <eric.dumazet@gmail.com>
-> wrote:
-> > On Wed, 2015-04-01 at 17:06 -0700, Cong Wang wrote:
-> >
-> >> Shouldn't these skb's be orphaned for tunnel cases? Or we still have
-> >> to keep skb->sk for other valid use?
-> >
-> > skb should not be orphaned, until the very last stage.
-> >
-> > Many layers depend on this, really.
-> >
-> > Simply ask the question to yourself :
-> >
-> > What if I do not associate skb to a socket at first. What possibly
-> > breaks ?
-> >
-> > orphaning skb just because they traverse a tunnel would be quite
-> > horrible.
-> >
-> 
-> I didn't make it clear, I meant to say "resetting the skb->sk to tunnel
-> socket". I know sch_fq uses skb->sk for flow classification, but
-> if skb->sk still points to the user-space socket, its meaning is already
-> changed after encapsulation, with regarding to this, all traffic goes
-> out of this tunnel should be one flow.
+On 04/02/2015 01:30 PM, Hannes Frederic Sowa wrote:
+> On Thu, Apr 2, 2015, at 12:19, Daniel Borkmann wrote:
+>> On 04/02/2015 02:29 AM, Hannes Frederic Sowa wrote:
+>>> On Thu, Apr 2, 2015, at 02:24, Daniel Borkmann wrote:
+>>>> On 04/02/2015 02:13 AM, Hannes Frederic Sowa wrote:
+>>>> ...
+>>>>> Maybe a small utility programs like:
+>>>>>
+>>>>> bpf (--lookup|--update|--delete|--get-next-key) -fd
+>>>>> filedescriptor-number (type conversion parameters here) key [value]
+>>>>>
+>>>>> So it can be easily used by shell scripts.
+>>>>>
+>>>>> For that the filedescriptor numbers would need to be exported (already
+>>>>> opened) into a spawned shell and the numbers could be specified either
+>>>>> in environment or just by printing text which can be sourced by shells
+>>>>> (we already talked about the maybe exec 5</proc/pid/fd/1234 idea). Seems
+>>>>> this can be just build ontop this current patch by extending the
+>>>>> bpf-agent you already build, no?
+>>>>
+>>>> I was thinking about that and trying it out, but as far as I can tell,
+>>>> due to the anon inodes that are currently underlying as the fd provider,
+>>>> it doesn't work w/o larger kernel changes. So, the file descriptor
+>>>> passing
+>>>> is currently the only way to transfer control.
+>>>
+>>> Does receiving them via af_unix and spawning a new shell with the fds
+>>> already open work?
+>>
+>> I'm probably missing something, would that need changes to bash?
+>>
+>> I mean exec could bind an fd in the shell to sockets and use that,
+>> for example ...
+>>
+>>     exec 3<>/dev/tcp/www.slashdot.org/80
+>>     echo -e "GET / HTTP/1.1\r\nhost:
+>>     http://www.slashdot.org\r\nConnection: close\r\n\r\n" >&3
+>>     cat <&3
+>>
+>> ... perhaps such a built-in fake device for retrieving bpf map fds
+>> might be interesting, e.g. exec 4<>/dev/bpf/<obj-file>/<map-name> if
+>> that has been given to bash?
+>>
+>> Anyway, I think to have some utility for shell scripts, as you
+>> suggest, certainly sounds interesting!
+>
+> All file descriptors will be inherited by exec as long as the O_CLOEXEC
+> flag wasn't specified on them. So you can retrieve the fds via af_unix
+> and just exec a new shell. The file descriptors will stay open and you
+> can pass the numbers of the fds via environment. This wouldn't need
+> changes to bash or kernel.
 
-We cannot block/stop a tunnel submitting more packets into the stack via
-its socket. We have to close the feedback loop directly to user space.
-If we need this tunnel socket available it has to be passed either as an
-additional field in sk_buff or via arguments down the stack.
-In case of forwarding this works without skb->sk because we mostly
-always run to completion and submit the packet in one softirq call.
-
-> This also means ipv6 should not use any socket setting for routing
-> lookup, since after resetting skb->sk in encapsulation skb's belong
-> to one kernel socket which doesn't have any socket options set.
-
-Yes, this is right. But besides xfrm6 layer I am currently looking after
-I haven't seen problematic code here.
-
-Bye,
-Hannes
+Okay, I will give it a try. Thanks!
