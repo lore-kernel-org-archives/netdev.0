@@ -1,92 +1,48 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ethernet: e1000e: define lat_ns as u64 instead of s64
-Date: Fri, 03 Apr 2015 02:42:39 -0700
-Message-ID: <1428054159.2662.82.camel@jtkirshe-mobl>
-References: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 1/4] netns: don't clear nsid too early on removal
+Date: Fri, 03 Apr 2015 11:56:09 +0200
+Message-ID: <551E63B9.9050208@6wind.com>
+References: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>	<1427892589-4266-2-git-send-email-nicolas.dichtel@6wind.com> <877ftus6rj.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-a2z5vTcQUfYDgiF5fvUX"
-Cc: bruce.w.allan@intel.com, john.ronciak@intel.com,
-	netdev@vger.kernel.org, jinyanjiang@gmail.com
-To: yanjiang.jin@windriver.com
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:10499 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752148AbbDCJmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Apr 2015 05:42:40 -0400
-In-Reply-To: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:36705 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541AbbDCJ4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 05:56:12 -0400
+Received: by wgra20 with SMTP id a20so107194830wgr.3
+        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 02:56:11 -0700 (PDT)
+In-Reply-To: <877ftus6rj.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 02/04/2015 20:51, Eric W. Biederman a =C3=A9crit :
+[snip]
+>
+> There should be no network sockets and thus no in flight rtnl traffic=
+ at
+> the time cleanup_net is metioned so I don't see how this patch fixes
+> the mentioned commit.
+Yes and no.
+Yes, there is no network sockets into this netns, *but* modules build
+netlink messages because they don't know if there are listeners or not.
 
---=-a2z5vTcQUfYDgiF5fvUX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2015-04-03 at 17:17 +0800, yanjiang.jin@windriver.com wrote:
-> From: Yanjiang Jin <yanjiang.jin@windriver.com>
->=20
-> do_div() expects the type of "n" to be uint64_t, define "lat_ns" as
-> u64 to
-> avoid the below warning, also update its correlative operations and
-> data.
->=20
-> In file included from ./arch/powerpc/include/asm/div64.h:1:0,
->                  from include/linux/kernel.h:124,
->                  from include/linux/list.h:8,
->                  from include/linux/timer.h:4,
->                  from drivers/net/ethernet/intel/e1000e/e1000.h:29,
->                  from drivers/net/ethernet/intel/e1000e/ich8lan.c:59:
-> drivers/net/ethernet/intel/e1000e/ich8lan.c: In function
-> 'e1000_platform_pm_pch_lpt':
-> include/asm-generic/div64.h:43:28: warning: comparison of distinct
-> pointer types lacks a cast [enabled by default]
->   (void)(((typeof((n)) *)0) =3D=3D ((uint64_t *)0)); \
->                             ^
-> drivers/net/ethernet/intel/e1000e/ich8lan.c:1016:4: note: in expansion
-> of macro 'do_div'
->     do_div(lat_ns, speed);
->=20
-> Signed-off-by: Yanjiang Jin <yanjiang.jin@windriver.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-
-Added intel-wired-lan mailing list (used for patches like this)
-Removed LKML ... (wrong mailing list to be mailing for patches like
-this)
-Removed e1000-devel ... (no longer used for kernel patches)
-Removed linux.nics ... (no longer used for kernel patches)
-
-Also removed Intel developers with no interest in e1000e patches ...
-
-Thanks Yanjiang, I will add your patch to my queue.
-
---=20
-git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue.git
-dev-queue
-
---=-a2z5vTcQUfYDgiF5fvUX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVHmCPAAoJEOVv75VaS+3OCD0QAKLnsXN2c6KlyvNxefbuW6GH
-/G+ufuh150JZYzjOTNVGa8AXXBbQh+PBrQzFi+h/ECTR7ibjBu5Me3ag9xDun5yF
-qEBc9xCJTAzCBq7wdI5O5OzsIqHcjinsRHX1Q3mrs1KGrBdz+6U4DsAIkvEbHc5i
-SHGePYIdcFkkeJvqLC6UFTR+ttqyf8VMCOFpkNeWS499qso4uBlyFBkjIN/XQ2Gw
-+GYXzId11y0hiP5iJhXCjvHmiwqymdGYY53SLqLU7eERUP0VCSesvWczZG2TCjLC
-/u0+tybe1k9z6e9d3g8vg1QHWKID8xHNZVhkAdnh5CAZHyZJsQlA8FqECAlk5e4D
-xXLLCQx4hmKbtW6vt9yKXUHcuzZJn5mNxfvri7xalAAjULaQEssHXqdKnxk/E4aU
-p+tmFmnVrxLHpsxYGG5AWef4GxrneE14UTf0Hz+u5KK4wqzet0akne6OyvzPGy2p
-uNt45BzmBclCVe3mFmDmly9VU4U5GJN+dkeLFPwgS7pP8iD6+l+g+cQkTl66AvfP
-2YqtJZcFBrh9zPewvHGuzirslKkr5J4qC5H5y1DiMTmNHVjuSvDJcrcNpYicLNdU
-1WOVqBPK9Ivpoc4AJS57I+gr0WBt/9YliV2yaCEJzc51rYGIWHlTaJxCdbeTaVyu
-vc1R/FMxRUL7fNXOb6C2
-=yxin
------END PGP SIGNATURE-----
-
---=-a2z5vTcQUfYDgiF5fvUX--
+>
+> I have a second issue with the fact that the code is unnecessarily
+> quadratic.  We should keep a list of the issues netns ids and just
+> revoke them instead of walking the whole network namespaces.
+>
+> I strongly suspect that this change makes it possible to create a
+> network device whose bottom is in a network namespace we are destroyi=
+ng
+> after we have destroyed all of the network devices in that namespace =
+and
+> otherwise cleaned up.   Beyond that I can not reason about this patch
+> because it opens up a huge number of races.
+Ok, you're probably right.
+I will send an update.
