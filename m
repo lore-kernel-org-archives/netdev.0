@@ -1,87 +1,42 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
- tunnels
-Date: Fri, 3 Apr 2015 14:55:02 +0900
-Message-ID: <20150403055500.GA3336@vergenet.net>
-References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
- <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
+From: <masaru.nagai.vx@renesas.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Fri, 3 Apr 2015 15:27:46 +0900
+Message-ID: <551E32E2.3020102@renesas.com>
+References: <20150331064349.GB4605@localhost.localdomain>	<20150331.113832.2042398685489897677.davem@davemloft.net>	<551ADC12.5050603@cogentembedded.com> <20150331.134842.499356389024178984.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34968 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbbDCFzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 01:55:14 -0400
-Received: by patj18 with SMTP id j18so106501181pat.2
-        for <netdev@vger.kernel.org>; Thu, 02 Apr 2015 22:55:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <richardcochran@gmail.com>, <robh+dt@kernel.org>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <devicetree@vger.kernel.org>,
+	<galak@codeaurora.org>, <netdev@vger.kernel.org>,
+	<linux-sh@vger.kernel.org>, <mitsuhiro.kimura.kc@renesas.com>
+To: <davem@davemloft.net>, <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150331.134842.499356389024178984.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi John,
+Hello Richard, David, Sergei
 
-On Thu, Apr 02, 2015 at 03:17:06PM -0400, John W. Linville wrote:
-> This is an initial implementation of a netdev driver for GENEVE
-> tunnels.  This implementation uses a fixed UDP port, and only supports
-> a single tunnel (and therefore only a single VNI) per net namespace.
-> Only IPv4 links are supported at this time.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+On 2015=E5=B9=B404=E6=9C=8801=E6=97=A5 02:48, David Miller wrote:
+> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Date: Tue, 31 Mar 2015 20:40:34 +0300
+=2E..
+> Is there a serious problem getting the original authors to signoff on
+> this driver submission?  If so, why?  This should be very
+> straightforward, and if for some reason these authors are unwilling t=
+o
+> then I have every reason to be concerned about this.
 
-Thanks for working on this. I'm very happy to see a Geneve driver hit netdev.
+We are already agree on the work by sergei.
+So, this patch does not have problem.
 
-I have a question below.
+Sergei, please append SOB of us to this patch.
 
-[snip]
+Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
 
-> +/* Scheduled at device creation to bind to a socket */
-> +static void geneve_sock_work(struct work_struct *work)
-> +{
-> +	struct geneve_dev *geneve = container_of(work, struct geneve_dev, sock_work);
-> +	struct net *net = geneve->net;
-> +	struct geneve_sock *gs;
-> +
-> +	gs = geneve_sock_add(net, htons(GENEVE_UDP_PORT), geneve_rx, geneve,
-> +	                     true, false);
-> +	if (!IS_ERR(gs))
-> +		geneve->sock = gs;
-> +
-> +	dev_put(geneve->dev);
-> +}
-> +
-> +/* Setup stats when device is created */
-> +static int geneve_init(struct net_device *dev)
-> +{
-> +	struct geneve_dev *geneve = netdev_priv(dev);
-> +
-> +	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-> +	if (!dev->tstats)
-> +		return -ENOMEM;
-> +
-> +	/* make new socket outside of RTNL */
-> +	dev_hold(dev);
-> +	queue_work(geneve_wq, &geneve->sock_work);
-> +
-> +	return 0;
-> +}
-> +
-> +static void geneve_uninit(struct net_device *dev)
-> +{
-> +	struct geneve_dev *geneve = netdev_priv(dev);
-> +	struct geneve_sock *gs = geneve->sock;
-> +
-> +	if (gs)
-> +		geneve_sock_release(gs);
-> +	free_percpu(dev->tstats);
-> +}
-
-I am wondering if there a possibility that geneve_sock_work() could run
-after the check for gs in geneve_uninit() thus leaking gs?
-
-[snip]
+Best Regards,
+Masaru Nagai
