@@ -1,58 +1,90 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH] ARM: at91/dt: sama5d3 xplained: add phy address for macb1
-Date: Fri, 3 Apr 2015 14:56:07 -0700
-Message-ID: <20150403215607.GS23023@localhost>
-References: <1427792170-13162-1-git-send-email-nicolas.ferre@atmel.com>
- <551E52BC.3040702@atmel.com>
- <20150403205507.GH23023@localhost>
+From: "Beshay, Joseph" <jdb109120@utdallas.edu>
+Subject: [PATCH] netem:  Fixes byte backlog accounting for the first of two
+ chained netem instances
+Date: Fri, 3 Apr 2015 21:52:01 +0000
+Message-ID: <DM2PR01MB511AE74EFA517D7A30CD41DD1F10@DM2PR01MB511.prod.exchangelabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org,
-	Arnd Bergmann <arnd@arndb.de>,
-	Kevin Hilman <khilman@kernel.org>,
-	ARM Maintainers <arm@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Johan Hovold <johan@kernel.org>, stable@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150403205507.GH23023@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"netem@lists.linux-foundation.org" <netem@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outgoing.utdallas.edu ([129.110.182.14]:19263 "EHLO
+	ip-relay-051.utdallas.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbbDCWC4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 18:02:56 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 03, 2015 at 01:55:07PM -0700, Olof Johansson wrote:
-> On Fri, Apr 03, 2015 at 10:43:40AM +0200, Nicolas Ferre wrote:
-> > Le 31/03/2015 10:56, Nicolas Ferre a =E9crit :
-> > > After 57a38effa598 (net: phy: micrel: disable broadcast for KSZ80=
-81/KSZ8091)
-> > > the macb1 interface refuses to work properly because it tries
-> > > to cling to address 0 which isn't able to communicate in broadcas=
-t with
-> > > the mac anymore. The micrel phy on the board is actually configur=
-ed
-> > > to show up at address 1.
-> > > Adding the phy node and its real address fixes the issue.
-> > >=20
-> > > Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> > > Cc: Johan Hovold <johan@kernel.org>
-> > > Cc: <stable@vger.kernel.org> #3.19
-> > > ---
-> >=20
-> > Arnd, Olof, Kevin,
-> >=20
-> > It seems late but, is it possible to queue this patch as a 4.0 fixe=
-s?
-> >=20
-> > Without it, the 10/100 Ethernet on sama5d3 doesn't work if it's not=
- used
-> > by u-boot previously.
->=20
-> Sure, resend it to arm@kernel.org.
+Fixes byte backlog accounting for the first of two chained netem instances.
+Bytes backlog reported now corresponds to the number of queued packets.
 
-Nevermind, I ended up picking it up from the list. Applied.
+When two netem instances are chained, for instance to apply rate and queue
+limitation followed by packet delay, the number of backlogged bytes reported
+by the first netem instance is wrong. It reports the sum of bytes in the queues
+of the first and second netem. The first netem reports the correct number of
+backlogged packets but not bytes. This is shown in the example below.
 
+Consider a chain of two netem schedulers created using the following commands:
 
--Olof
+$ tc -s qdisc replace dev veth2 root handle 1:0 netem rate 10000kbit limit 100
+$ tc -s qdisc add dev veth2 parent 1:0 handle 2: netem delay 50ms
+
+Start an iperf session to send packets out on the specified interface and
+monitor the backlog using tc:
+
+$ tc -s qdisc show dev veth2
+
+Output using unpatched netem:
+	qdisc netem 1: root refcnt 2 limit 100 rate 10000Kbit
+	 Sent 98422639 bytes 65434 pkt (dropped 123, overlimits 0 requeues 0)
+	 backlog 172694b 73p requeues 0
+	qdisc netem 2: parent 1: limit 1000 delay 50.0ms
+	 Sent 98422639 bytes 65434 pkt (dropped 0, overlimits 0 requeues 0)
+	 backlog 63588b 42p requeues 0
+	 
+The interface used to produce this output has an MTU of 1500. The output for
+backlogged bytes behind netem 1 is 172694b. This value is not correct. Consider
+the total number of sent bytes and packets. By dividing the number of sent
+bytes by the number of sent packets, we get an average packet size of ~=1504.
+If we divide the number of backlogged bytes by packets, we get ~=2365. This is
+due to the first netem incorrectly counting the 63588b which are in netem 2's
+queue as being in its own queue. To verify this is the case, we subtract them
+from the reported value and divide by the number of packets as follows: 
+	172694 - 63588 = 109106 bytes actualled backlogged in netem 1
+	109106 / 73 packets ~= 1494 bytes (which matches our MTU)
+	
+The root cause is that the byte accounting is not done at the
+same time with packet accounting. The solution is to update the backlog value
+every time the packet queue is updated.
+
+Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
+---
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 179f1c8..3a5e883 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -560,8 +560,9 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+ tfifo_dequeue:
+ 	skb = __skb_dequeue(&sch->q);
+ 	if (skb) {
++		/* jbeshay: update byte backlog */
++		qdisc_qstats_backlog_dec(sch, skb);
+ deliver:
+-		qdisc_qstats_backlog_dec(sch, skb);
+ 		qdisc_unthrottled(sch);
+ 		qdisc_bstats_update(sch, skb);
+ 		return skb;
+@@ -578,6 +579,8 @@ deliver:
+ 			rb_erase(p, &q->t_root);
+ 
+ 			sch->q.qlen--;
++			/* jbeshay: update byte backlog */
++			qdisc_qstats_backlog_dec(sch, skb);
+ 			skb->next = NULL;
+ 			skb->prev = NULL;
+ 			skb->tstamp = netem_skb_cb(skb)->tstamp_save;
+
+Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
