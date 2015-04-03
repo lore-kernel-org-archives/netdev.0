@@ -1,69 +1,58 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next v1] bonding: LACP state machine variable "port-moved" is never set
-Date: Fri,  3 Apr 2015 13:54:10 -0700
-Message-ID: <1428094450-9308-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH] ARM: at91/dt: sama5d3 xplained: add phy address for macb1
+Date: Fri, 3 Apr 2015 13:55:07 -0700
+Message-ID: <20150403205507.GH23023@localhost>
+References: <1427792170-13162-1-git-send-email-nicolas.ferre@atmel.com>
+ <551E52BC.3040702@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Kevin Hilman <khilman@kernel.org>,
+	ARM Maintainers <arm@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Johan Hovold <johan@kernel.org>, stable@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:32843 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752766AbbDCUyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 16:54:13 -0400
-Received: by iebtr6 with SMTP id tr6so12671332ieb.0
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 13:54:13 -0700 (PDT)
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:33510 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752863AbbDCUzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 16:55:09 -0400
+Received: by pdbnk13 with SMTP id nk13so52105618pdb.0
+        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 13:55:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <551E52BC.3040702@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The state-machine checks for the presence of this flag and attempts
-to clear it but the value is never set. So why have it?
+On Fri, Apr 03, 2015 at 10:43:40AM +0200, Nicolas Ferre wrote:
+> Le 31/03/2015 10:56, Nicolas Ferre a =E9crit :
+> > After 57a38effa598 (net: phy: micrel: disable broadcast for KSZ8081=
+/KSZ8091)
+> > the macb1 interface refuses to work properly because it tries
+> > to cling to address 0 which isn't able to communicate in broadcast =
+with
+> > the mac anymore. The micrel phy on the board is actually configured
+> > to show up at address 1.
+> > Adding the phy node and its real address fixes the issue.
+> >=20
+> > Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> > Cc: Johan Hovold <johan@kernel.org>
+> > Cc: <stable@vger.kernel.org> #3.19
+> > ---
+>=20
+> Arnd, Olof, Kevin,
+>=20
+> It seems late but, is it possible to queue this patch as a 4.0 fixes?
+>=20
+> Without it, the 10/100 Ethernet on sama5d3 doesn't work if it's not u=
+sed
+> by u-boot previously.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/bonding/bond_3ad.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
+Sure, resend it to arm@kernel.org.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 451d9dbd392f..cc37183f2a8a 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1018,8 +1018,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 		port->sm_rx_state = AD_RX_INITIALIZE;
- 		port->sm_vars |= AD_PORT_CHURNED;
- 	/* check if port is not enabled */
--	} else if (!(port->sm_vars & AD_PORT_BEGIN)
--		 && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
-+	} else if (!(port->sm_vars & AD_PORT_BEGIN) && !port->is_enabled)
- 		port->sm_rx_state = AD_RX_PORT_DISABLED;
- 	/* check if new lacpdu arrived */
- 	else if (lacpdu && ((port->sm_rx_state == AD_RX_EXPIRED) ||
-@@ -1047,11 +1046,8 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			/* if no lacpdu arrived and no timer is on */
- 			switch (port->sm_rx_state) {
- 			case AD_RX_PORT_DISABLED:
--				if (port->sm_vars & AD_PORT_MOVED)
--					port->sm_rx_state = AD_RX_INITIALIZE;
--				else if (port->is_enabled
--					 && (port->sm_vars
--					     & AD_PORT_LACP_ENABLED))
-+				if (port->is_enabled &&
-+				    (port->sm_vars & AD_PORT_LACP_ENABLED))
- 					port->sm_rx_state = AD_RX_EXPIRED;
- 				else if (port->is_enabled
- 					 && ((port->sm_vars
-@@ -1081,7 +1077,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			port->sm_vars &= ~AD_PORT_SELECTED;
- 			__record_default(port);
- 			port->actor_oper_port_state &= ~AD_STATE_EXPIRED;
--			port->sm_vars &= ~AD_PORT_MOVED;
- 			port->sm_rx_state = AD_RX_PORT_DISABLED;
- 
- 			/* Fall Through */
--- 
-2.2.0.rc0.207.ga3a616c
+
+-Olof
